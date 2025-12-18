@@ -85,6 +85,7 @@ model System {
   systemType  String   // SINGLE_STAR, BINARY_STAR, NEUTRON_STAR, BLACK_HOLE
   fieldX      Int      // X-coordinate in sector (1-20)
   fieldY      Int      // Y-coordinate in sector (1-20)
+  gridSize    Int      @default(30) // Grid size for system view (20-40)
   
   sector      Sector   @relation(fields: [sectorId], references: [id])
   planets     Planet[]

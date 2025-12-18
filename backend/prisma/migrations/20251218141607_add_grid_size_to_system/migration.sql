@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "System" ADD COLUMN     "gridSize" INTEGER NOT NULL DEFAULT 30;

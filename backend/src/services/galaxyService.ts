@@ -133,6 +133,7 @@ export class GalaxyService {
             fieldX,
             fieldY,
             systemType,
+            gridSize: Math.floor(Math.random() * 21) + 20, // 20-40
           },
         });
 

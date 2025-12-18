@@ -14,6 +14,7 @@ import Shipyard from './pages/Shipyard';
 import Settings from './pages/Settings';
 import InviteCodes from './pages/InviteCodes';
 import Admin from './pages/Admin';
+import Planets from './pages/Planets';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
         </ProtectedRoute>
       }>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/planets" element={<Planets />} />
         <Route path="/planet/:id" element={<Planet />} />
         <Route path="/shipyard/:planetId" element={<Shipyard />} />
         <Route path="/galaxy" element={<Galaxy />} />

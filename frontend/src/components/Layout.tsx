@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Rocket, Globe, FlaskConical, Users, LogOut, Settings, Shield } from 'lucide-react';
+import { Rocket, Globe, FlaskConical, Users, LogOut, Settings, Shield, Map } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 
 export default function Layout() {
@@ -28,8 +28,12 @@ export default function Layout() {
                   <Rocket size={18} />
                   Übersicht
                 </Link>
-                <Link to="/galaxy" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
+                <Link to="/planets" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
                   <Globe size={18} />
+                  Planeten
+                </Link>
+                <Link to="/galaxy" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
+                  <Map size={18} />
                   Galaxie
                 </Link>
                 <Link to="/research" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">

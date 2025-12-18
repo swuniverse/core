@@ -169,10 +169,14 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
         id: planet.id,
         name: planet.name,
         planetType: planet.planetType,
+        orbitRadius: planet.orbitRadius,
+        orbitAngle: planet.orbitAngle,
         system: {
           id: planet.system.id,
           name: planet.system.name,
           systemType: planet.system.systemType,
+          fieldX: planet.system.fieldX,
+          fieldY: planet.system.fieldY,
         },
         sector: {
           x: planet.system.sector.x,

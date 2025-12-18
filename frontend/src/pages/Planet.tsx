@@ -48,6 +48,8 @@ interface Planet {
   energyStorage: number;
   energyStorageCapacity: number;
   storageCapacity: number;
+  orbitRadius: number;
+  orbitAngle: number;
   production?: {
     credits: number;
     durastahl: number;
@@ -62,6 +64,8 @@ interface Planet {
     id: number;
     name: string;
     systemType: string;
+    fieldX: number;
+    fieldY: number;
     sector: {
       x: number;
       y: number;
@@ -598,7 +602,7 @@ export default function Planet() {
               <p className="text-gray-400 text-xs">Koordinaten</p>
               <p className="text-white font-mono flex items-center gap-1">
                 <MapPin size={14} />
-                {planet.system.sector.x}:{planet.system.sector.y}
+                {planet.orbitRadius}|{planet.orbitAngle} ({planet.system.name} {planet.system.fieldX}|{planet.system.fieldY})
               </p>
             </div>
             <div>

@@ -3,7 +3,6 @@ import { useGameStore } from '../stores/gameStore';
 import { Link } from 'react-router-dom';
 import { Globe, Rocket, Wrench, TrendingUp, Zap, Box, Coins, Clock, Gem, Wind, Battery, Sparkles, Heart, Shield, FlaskConical, X } from 'lucide-react';
 import api from '../lib/api';
-import api from '../lib/api';
 
 interface DashboardData {
   planets: Array<{

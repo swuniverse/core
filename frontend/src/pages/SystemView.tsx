@@ -27,6 +27,7 @@ interface System {
   systemType: 'SINGLE_STAR' | 'BINARY_STAR' | 'NEUTRON_STAR' | 'BLACK_HOLE';
   fieldX: number;
   fieldY: number;
+  gridSize: number;
   sector: {
     x: number;
     y: number;
@@ -40,7 +41,7 @@ export default function SystemView() {
   const [system, setSystem] = useState<System | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hoveredPlanet, setHoveredPlanet] = useState<Planet | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     loadSystemData();
@@ -86,6 +87,63 @@ export default function SystemView() {
     return labels[type] || type;
   };
 
+  const getPlanetColor = (type: string) => {
+    const colors: Record<string, string> = {
+      DESERT: '#d4a574',
+      OCEAN: '#4a9eff',
+      JUNGLE: '#4a9e4a',
+      ICE: '#a3d4ff',
+      VOLCANIC: '#ff6b4a',
+      TERRAN: '#6ba3ff',
+      BARREN: '#8b7355',
+      GAS_GIANT: '#ffa366'
+    };
+    return colors[type] || '#888888';
+  };
+
+  const convertPlanetToGridPosition = (planet: Planet) => {
+    if (!system) return { x: 0, y: 0 };
+    // Convert orbital position (radius/angle) to grid coordinates
+    const center = Math.floor(system.gridSize / 2);
+    const angleRad = (planet.orbitAngle * Math.PI) / 180;
+    const x = Math.round(center + planet.orbitRadius * Math.cos(angleRad));
+    const y = Math.round(center + planet.orbitRadius * Math.sin(angleRad));
+    return { x: Math.max(1, Math.min(system.gridSize, x)), y: Math.max(1, Math.min(system.gridSize, y)) };
+  };
+
+  const getCellContent = (x: number, y: number) => {
+    if (!system) return { type: 'empty' };
+    const center = Math.floor(system.gridSize / 2);
+    
+    // Check if this is the star position (center of grid)
+    if (x === center && y === center) {
+      return { type: 'star', data: system };
+    }
+
+    // For binary stars, also show second star offset
+    if (system?.systemType === 'BINARY_STAR' && x === center + 1 && y === center) {
+      return { type: 'star2', data: system };
+    }
+
+    // Check for planets
+    const planet = system?.planets.find(p => {
+      const pos = convertPlanetToGridPosition(p);
+      return pos.x === x && pos.y === y;
+    });
+
+    if (planet) {
+      return { type: 'planet', data: planet };
+    }
+
+    // Random asteroid fields for visual interest
+    const asteroidSeed = (x * 1000 + y) % 100;
+    if (asteroidSeed < 3 && Math.abs(x - center) > 3 && Math.abs(y - center) > 3) {
+      return { type: 'asteroid', data: null };
+    }
+
+    return { type: 'empty', data: null };
+  };
+
   const getPlanetPosition = (planet: Planet) => {
     // Calculate position on orbit based on angle and radius
     // Center is at 50%, radius is relative to container size
@@ -128,7 +186,7 @@ export default function SystemView() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-gray-800 rounded-lg p-4">
+      <div className="bg-space-light rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -143,133 +201,151 @@ export default function SystemView() {
                 {system.name}
               </h1>
               <p className="text-sm text-gray-400">
-                {getSystemTypeLabel(system.systemType)} • Sektor {system.sector.x}|{system.sector.y} • Position {system.fieldX}|{system.fieldY}
+                {getSystemTypeLabel(system.systemType)} • Koordinaten: {system.fieldX}|{system.fieldY}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* System Visualization */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <div className="relative w-full" style={{ paddingBottom: '100%' }}>
-          <div className="absolute inset-0 bg-black rounded-lg overflow-hidden">
-            {/* Orbits */}
-            {Array.from(new Set(system.planets.map(p => p.orbitRadius))).map(radius => (
-              <div
-                key={radius}
-                className="absolute border border-gray-700/30 rounded-full"
-                style={{
-                  top: '50%',
-                  left: '50%',
-                  width: `${radius * 12}%`,
-                  height: `${radius * 12}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              />
-            ))}
+      <div className="flex gap-4">
+        {/* Grid View */}
+        <div className="flex-1 bg-space-light rounded-lg p-4">
+          <div className="overflow-auto">
+            <table className="border-collapse" style={{ minWidth: '800px' }}>
+              {/* Column headers */}
+              <thead>
+                <tr>
+                  <th className="w-6 h-6"></th>
+                  {Array.from({ length: system.gridSize }, (_, i) => i + 1).map(x => (
+                    <th key={x} className="w-6 h-6 text-xs text-gray-400 font-normal">{x}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: system.gridSize }, (_, y) => {
+                  const row = y + 1;
+                  return (
+                    <tr key={row}>
+                      {/* Row header */}
+                      <td className="w-6 h-6 text-xs text-gray-400 text-right pr-1">{row}</td>
+                      {/* Grid cells */}
+                      {Array.from({ length: system.gridSize }, (_, x) => {
+                        const col = x + 1;
+                        const cell = getCellContent(col, row);
+                        const isHovered = hoveredCell?.x === col && hoveredCell?.y === row;
 
-            {/* Central Star(s) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              {system.systemType === 'SINGLE_STAR' && (
-                <div className="w-12 h-12 bg-yellow-400 rounded-full shadow-lg shadow-yellow-400/50 animate-pulse" />
-              )}
-              {system.systemType === 'BINARY_STAR' && (
-                <div className="flex gap-3">
-                  <div className="w-10 h-10 bg-yellow-400 rounded-full shadow-lg shadow-yellow-400/50 animate-pulse" />
-                  <div className="w-10 h-10 bg-orange-400 rounded-full shadow-lg shadow-orange-400/50 animate-pulse" />
-                </div>
-              )}
-              {system.systemType === 'NEUTRON_STAR' && (
-                <div className="w-8 h-8 bg-cyan-400 rounded-full shadow-lg shadow-cyan-400/50 animate-pulse" />
-              )}
-              {system.systemType === 'BLACK_HOLE' && (
-                <div className="w-12 h-12 bg-purple-900 rounded-full border-2 border-purple-400 shadow-lg shadow-purple-400/50" />
-              )}
+                        return (
+                          <td
+                            key={col}
+                            className="w-6 h-6 border border-gray-800 relative group cursor-pointer"
+                            onMouseEnter={() => setHoveredCell({ x: col, y: row })}
+                            onMouseLeave={() => setHoveredCell(null)}
+                            onClick={() => cell.type === 'planet' && navigate(`/planet/${cell.data.id}`)}
+                          >
+                            {/* Star */}
+                            {cell.type === 'star' && (
+                              <div className="w-full h-full bg-yellow-400 shadow-lg shadow-yellow-400/50" />
+                            )}
+                            {cell.type === 'star2' && (
+                              <div className="w-full h-full bg-orange-400 shadow-lg shadow-orange-400/50" />
+                            )}
+
+                            {/* Planet */}
+                            {cell.type === 'planet' && (
+                              <div 
+                                className="w-full h-full rounded-full transition-transform hover:scale-150"
+                                style={{ backgroundColor: getPlanetColor(cell.data.planetType) }}
+                              />
+                            )}
+
+                            {/* Asteroid */}
+                            {cell.type === 'asteroid' && (
+                              <div className="w-full h-full bg-gray-600" style={{ 
+                                clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)'
+                              }} />
+                            )}
+
+                            {/* Hover highlight */}
+                            {isHovered && cell.type !== 'empty' && (
+                              <div className="absolute inset-0 border-2 border-white pointer-events-none" />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Info Panel */}
+        <div className="w-80 space-y-4">
+          {/* System Info */}
+          <div className="bg-space-light rounded-lg p-4">
+            <h3 className="text-white font-semibold mb-2">{system.name}</h3>
+            <div className="space-y-1 text-sm">
+              <p className="text-gray-400">Typ: <span className="text-white">{getSystemTypeLabel(system.systemType)}</span></p>
+              <p className="text-gray-400">Koordinaten: <span className="text-white">{system.fieldX}|{system.fieldY}</span></p>
             </div>
+          </div>
 
-            {/* Planets */}
-            {system.planets.map(planet => {
-              const pos = getPlanetPosition(planet);
-              const isHovered = hoveredPlanet?.id === planet.id;
-              
+          {/* Hovered Cell Info */}
+          {hoveredCell && (() => {
+            const cell = getCellContent(hoveredCell.x, hoveredCell.y);
+            if (cell.type === 'planet') {
+              const planet = cell.data as Planet;
               return (
-                <div
-                  key={planet.id}
-                  className="absolute cursor-pointer transition-transform hover:scale-125"
-                  style={{
-                    left: `${pos.x}%`,
-                    top: `${pos.y}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                  onMouseEnter={() => setHoveredPlanet(planet)}
-                  onMouseLeave={() => setHoveredPlanet(null)}
-                  onClick={() => navigate(`/planet/${planet.id}`)}
-                >
-                  <div className={`w-6 h-6 rounded-full ${
-                    planet.player ? 'bg-green-500' : 'bg-blue-500'
-                  } shadow-lg ${isHovered ? 'ring-2 ring-white' : ''}`} />
-                  {planet.player && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border border-black" />
+                <div className="bg-space-light rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-white">{planet.name}</h3>
+                  <p className="text-sm text-gray-400 mb-2">{getPlanetTypeLabel(planet.planetType)}</p>
+                  <p className="text-xs text-gray-500 mb-2">Position: {hoveredCell.x}|{hoveredCell.y}</p>
+                  {planet.player ? (
+                    <div className="mt-2 flex items-center gap-2 text-sm">
+                      <Users size={14} className="text-blue-400" />
+                      <span className="text-gray-300">{planet.player.username}</span>
+                      <span className="text-gray-500">•</span>
+                      <span className="text-gray-400">{planet.player.faction.name}</span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-green-400">Unbesiedelt</p>
                   )}
                 </div>
               );
-            })}
-          </div>
-        </div>
-      </div>
+            }
+            return null;
+          })()}
 
-      {/* Planet Info Panel */}
-      <div className="bg-gray-800 rounded-lg p-4 min-h-[80px]">
-        {hoveredPlanet ? (
-          <div>
-            <h3 className="text-lg font-semibold text-white">{hoveredPlanet.name}</h3>
-            <p className="text-sm text-gray-400">{getPlanetTypeLabel(hoveredPlanet.planetType)}</p>
-            {hoveredPlanet.player ? (
-              <div className="mt-2 flex items-center gap-2 text-sm">
-                <Users size={14} className="text-blue-400" />
-                <span className="text-gray-300">{hoveredPlanet.player.username}</span>
-                <span className="text-gray-500">•</span>
-                <span className="text-gray-400">{hoveredPlanet.player.faction.name}</span>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-green-400">Besiedlung möglich</p>
-            )}
-          </div>
-        ) : (
-          <p className="text-gray-400">Bewege die Maus über einen Planeten für Details</p>
-        )}
-      </div>
-
-      {/* Planet List */}
-      <div className="bg-gray-800 rounded-lg p-4">
-        <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-          <MapPin className="text-blue-400" />
-          Planeten ({system.planets.length})
-        </h2>
-        <div className="space-y-2">
-          {system.planets.map(planet => (
-            <div
-              key={planet.id}
-              className="bg-gray-700 rounded p-3 hover:bg-gray-600 cursor-pointer transition"
-              onClick={() => navigate(`/planet/${planet.id}`)}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="font-semibold text-white">{planet.name}</h3>
-                <span className="text-xs text-gray-400">{getPlanetTypeLabel(planet.planetType)}</span>
-              </div>
-              {planet.player ? (
-                <div className="flex items-center gap-2 text-sm">
-                  <Users size={14} className="text-blue-400" />
-                  <span className="text-gray-300">{planet.player.username}</span>
-                  <span className="text-gray-500">•</span>
-                  <span className="text-gray-400">{planet.player.faction.name}</span>
-                </div>
-              ) : (
-                <p className="text-sm text-green-400">Unbesiedelt</p>
-              )}
+          {/* Planet List */}
+          <div className="bg-space-light rounded-lg p-4">
+            <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              <MapPin className="text-blue-400" />
+              Planeten ({system.planets.length})
+            </h2>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {system.planets.map(planet => {
+                const pos = convertPlanetToGridPosition(planet);
+                return (
+                  <div
+                    key={planet.id}
+                    className="bg-gray-700 rounded p-2 hover:bg-gray-600 cursor-pointer transition text-sm"
+                    onClick={() => navigate(`/planet/${planet.id}`)}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-semibold text-white text-sm">{planet.name}</h3>
+                      <span className="text-xs text-gray-400">{pos.x}|{pos.y}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">{getPlanetTypeLabel(planet.planetType)}</p>
+                    {planet.player && (
+                      <p className="text-xs text-blue-400 mt-1">{planet.player.username}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
