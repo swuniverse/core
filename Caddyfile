@@ -1,0 +1,61 @@
+# Star Wars Universe - Caddy Reverse Proxy
+# Automatisches HTTPS mit Let's Encrypt
+
+# WICHTIG: Domain anpassen!
+deine-domain.com {
+    # Automatisches HTTPS (Let's Encrypt)
+    # Caddy macht das vollautomatisch, keine manuelle Konfiguration nötig!
+
+    # Logging
+    log {
+        output file /var/log/caddy/swu-access.log
+        format json
+    }
+
+    # Security Headers
+    header {
+        # HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Clickjacking Protection
+        X-Frame-Options "SAMEORIGIN"
+        # MIME-Type Sniffing Prevention
+        X-Content-Type-Options "nosniff"
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Compression (Caddy macht Gzip/Brotli automatisch)
+    encode gzip zstd
+
+    # Health Check Endpoint
+    handle /health {
+        reverse_proxy localhost:3000
+    }
+
+    # Socket.io WebSocket Support
+    handle /socket.io/* {
+        reverse_proxy localhost:3000 {
+            # WebSocket Headers
+            header_up Upgrade {http.request.header.Upgrade}
+            header_up Connection {http.request.header.Connection}
+        }
+    }
+
+    # Backend API
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
+
+    # Frontend (React SPA)
+    handle {
+        reverse_proxy localhost:8080
+    }
+}
+
+# Optional: HTTP zu HTTPS Redirect (Caddy macht das automatisch)
+# Falls du explizit konfigurieren willst:
+# http://deine-domain.com {
+#     redir https://{host}{uri} permanent
+# }

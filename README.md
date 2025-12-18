@@ -1,6 +1,11 @@
 # Star Wars Universe - Strategy Browser Game
 
+[![GitHub](https://img.shields.io/badge/GitHub-Star--Wars--Universe%2Fcore-181717?logo=github)](https://github.com/Star-Wars-Universe/core)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Ein Tick-basiertes Strategie-Browsergame im Star Wars Universum, inspiriert von Star Trek Universe (STU) https://stuniverse.de.
+
+🔗 **Repository:** [github.com/Star-Wars-Universe/core](https://github.com/Star-Wars-Universe/core)
 
 ## 🌟 Features
 
@@ -66,6 +71,46 @@ Ein Tick-basiertes Strategie-Browsergame im Star Wars Universum, inspiriert von 
 - Handelssystem
 - Allianzen mit Rollen & Permissions
 
+## 🚀 Quick Start (Development)
+
+### Prerequisites
+- [devenv](https://devenv.sh/) - Nix-based development environment
+- Or: Node.js 20+, PostgreSQL 15+, Redis 7+
+
+### With devenv (recommended)
+```bash
+# Install devenv (if not already installed)
+curl -fsSL https://get.jetpack.io/devenv | sh
+
+# Enter development environment
+devenv shell
+
+# Start all services (PostgreSQL, Redis, Backend, Frontend)
+devenv up
+```
+
+### Manual Setup
+```bash
+# Backend
+cd backend
+npm install
+cp .env.example .env
+npm run db:reset  # Creates DB, runs migrations, seeds data
+npm run dev
+
+# Frontend (in new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+**Access:** `http://localhost:5173`
+
+### First Login
+1. Create admin invite: `npm run seed:admin-invite` (in backend/)
+2. Use invite code to register at `/register`
+3. Select faction and start planet
+
 ## 🛠 Tech Stack
 
 ### Backend
@@ -83,6 +128,30 @@ Ein Tick-basiertes Strategie-Browsergame im Star Wars Universum, inspiriert von 
 - Tailwind CSS
 - Zustand (State Management)
 - React Router
+
+## 🚀 Production Deployment
+
+### Quick Deploy to VPS
+```bash
+git clone https://github.com/Star-Wars-Universe/core.git
+cd core
+cp .env.production.example .env.production
+nano .env.production  # Set secure passwords and JWT_SECRET
+./deploy.sh           # Builds and starts Docker containers
+```
+
+### Setup Reverse Proxy
+We use **Caddy** for automatic HTTPS (easier than Nginx):
+```bash
+sudo apt install caddy
+nano Caddyfile       # Change "deine-domain.com" to your domain
+sudo cp Caddyfile /etc/caddy/Caddyfile
+sudo systemctl restart caddy
+```
+
+**That's it!** Caddy automatically gets SSL certificates from Let's Encrypt.
+
+📖 **Full Guide:** [DEPLOYMENT.md](DEPLOYMENT.md)
 - Socket.io Client
 - Axios
 

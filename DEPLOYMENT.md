@@ -64,52 +64,77 @@ Das Script wird:
 - ✅ Datenbank-Migrationen ausführen
 - ✅ Optional: Seed-Daten einfügen
 
-## 🌐 Nginx Reverse Proxy (ERFORDERLICH für externe Zugriffe)
+## 🌐 Caddy Reverse Proxy (ERFORDERLICH für externe Zugriffe)
 
-Die Docker Container lauschen nur auf localhost (127.0.0.1) - für externe Zugriffe ist ein Nginx Reverse Proxy **erforderlich**.
+Die Docker Container lauschen nur auf localhost (127.0.0.1) - für externe Zugriffe ist ein Reverse Proxy **erforderlich**.
+
+### Warum Caddy?
+- ✅ **Automatisches HTTPS** mit Let's Encrypt (null Konfiguration!)
+- ✅ **Einfachere Syntax** als Nginx
+- ✅ **Automatische Zertifikat-Erneuerung**
+- ✅ **HTTP/2 und HTTP/3** standardmäßig
+- ✅ **Bessere Defaults** (Security Headers, Compression)
 
 ### Installation
 
 ```bash
-sudo apt install nginx certbot python3-certbot-nginx
+# Caddy installieren (Ubuntu/Debian)
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
 ```
 
-### Nginx Konfiguration
+### Caddy Konfiguration
 
-Die fertige Konfiguration ist in `nginx-vps.conf` enthalten. Einfach kopieren und anpassen:
+Die fertige Konfiguration ist in `Caddyfile` enthalten. Einfach kopieren und anpassen:
 
 ```bash
-# Konfiguration kopieren
-sudo cp nginx-vps.conf /etc/nginx/sites-available/swu
+# Domain anpassen (in Caddyfile)
+nano Caddyfile
+# → Ändere "deine-domain.com" zu deiner echten Domain
 
-# Domain anpassen (in der Datei)
-sudo nano /etc/nginx/sites-available/swu
-# → Ändere "server_name deine-domain.com;" zu deiner echten Domain
+# Caddyfile kopieren
+sudo cp Caddyfile /etc/caddy/Caddyfile
 
-# Aktivieren
-sudo ln -s /etc/nginx/sites-available/swu /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+# Konfiguration testen
+sudo caddy validate --config /etc/caddy/Caddyfile
 
-# SSL mit Let's Encrypt (nach DNS-Setup)
-sudo certbot --nginx -d deine-domain.com
+# Caddy starten/neu laden
+sudo systemctl restart caddy
+
+# Status prüfen
+sudo systemctl status caddy
 ```
 
+**Das war's!** Caddy holt sich **automatisch** ein Let's Encrypt SSL-Zertifikat und erneuert es automatisch. Keine manuelle `certbot`-Konfiguration nötig!
+
 ### Was die Konfiguration macht:
-- **Port 443 (HTTPS)**: Einziger extern erreichbarer Port
+- **Port 443 (HTTPS)**: Automatisch mit Let's Encrypt SSL
 - **Port 80 → 443**: Automatische HTTPS-Umleitung
 - **Frontend**: Proxied zu `localhost:8080` (Docker Container)
 - **Backend API**: Proxied zu `localhost:3000/api`
-- **Socket.io**: Echtzeit-Updates über WebSocket
+- **Socket.io**: WebSocket-Support für Echtzeit-Updates
 - **Security Headers**: HSTS, X-Frame-Options, XSS-Protection
-- **Gzip Compression**: Reduzierte Bandbreite
+- **Compression**: Automatisch Gzip/Zstd
+- **HTTP/2 & HTTP/3**: Automatisch aktiviert
 
 ### Wichtig:
 Die Docker Container sind **nur über localhost erreichbar**:
 - Frontend: `127.0.0.1:8080:80`
 - Backend: `127.0.0.1:3000:3000`
 
-Von extern ist nur HTTPS (Port 443) über Nginx erreichbar → maximale Sicherheit.
+Von extern ist nur HTTPS (Port 443) über Caddy erreichbar → maximale Sicherheit.
+
+### Caddy Logs
+```bash
+# Access Logs
+sudo tail -f /var/log/caddy/swu-access.log
+
+# Error Logs
+sudo journalctl -u caddy -f
+```
 
 ## 🔧 Wichtige Befehle
 
