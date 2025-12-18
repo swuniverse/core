@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  player          Player?
+  inviteCodes     InviteCode[]  @relation("UserInviteCodes")
+  usedInviteCode  InviteCode?   @relation("UsedInviteCode", fields: [usedInviteCodeId], references: [id])
+  usedInviteCodeId Int?
+}
+
+model Player {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  factionId     Int
+  allianceId    Int?
+  createdAt     DateTime @default(now())
+  
+  user          User       @relation(fields: [userId], references: [id])
+  faction       Faction    @relation(fields: [factionId], references: [id])
+  alliance      Alliance?  @relation(fields: [allianceId], references: [id])
+  planets       Planet[]
+  research      PlayerResearch[]
+  fleets        Fleet[]
+}
+
+model Faction {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String
+  
+  players     Player[]
+  startPlanets StartPlanet[]
+}
+
+model Alliance {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  tag         String   @unique
+  founderId   Int
+  createdAt   DateTime @default(now())
+  
+  members     Player[]
+}
+
+model Galaxy {
+  id          Int      @id @default(autoincrement())
+  name        String
+  sizeX       Int
+  sizeY       Int
+  
+  sectors     Sector[]
+}
+
+model Sector {
+  id          Int      @id @default(autoincrement())
+  galaxyId    Int
+  x           Int
+  y           Int
+  sectorType  String   // NORMAL, NEBULA, ASTEROID_FIELD
+  
+  galaxy      Galaxy   @relation(fields: [galaxyId], references: [id])
+  systems     System[]
+  
+  @@unique([galaxyId, x, y])
+}
+
+model System {
+  id          Int      @id @default(autoincrement())
+  name        String
+  sectorId    Int
+  systemType  String   // SINGLE_STAR, BINARY_STAR, NEUTRON_STAR, BLACK_HOLE
+  fieldX      Int      // X-coordinate in sector (1-20)
+  fieldY      Int      // Y-coordinate in sector (1-20)
+  
+  sector      Sector   @relation(fields: [sectorId], references: [id])
+  planets     Planet[]
+  
+  @@unique([sectorId, fieldX, fieldY])
+}
+
+model Planet {
+  id              Int      @id @default(autoincrement())
+  name            String
+  systemId        Int      // Planet belongs to a System now
+  playerId        Int?
+  planetType      String   // DESERT, ICE, JUNGLE, VOLCANIC, TERRAN
+  orbitRadius     Int      @default(3) // Distance from sun (1-10)
+  orbitAngle      Int      @default(0) // Position on orbit (0-359 degrees)
+  sizeX           Int      @default(10)
+  sizeY           Int      @default(10)
+  credits         Int      @default(10000)
+  durastahl       Int      @default(500)
+  kristallinesSilizium Int @default(500)
+  tibannaGas      Int      @default(0)
+  energiemodule   Int      @default(0)
+  kyberKristalle  Int      @default(0)
+  bacta           Int      @default(0)
+  beskar          Int      @default(0)
+  energyStorage   Int      @default(1000) // Start mit vollem Speicher
+  energyStorageCapacity Int @default(1000) // Max energy storage capacity
+  storageCapacity Int      @default(500)  // Base storage from Command Center
+  
+  system      System       @relation(fields: [systemId], references: [id])
+  player      Player?      @relation(fields: [playerId], references: [id])
+  buildings   Building[]
+  fields      PlanetField[]
+  ships       Ship[]
+  shipBuildQueue ShipBuildQueue[]
+}
+
+model PlanetField {
+  id          Int      @id @default(autoincrement())
+  planetId    Int
+  x           Int
+  y           Int
+  fieldLayer  String   // ORBIT, SURFACE, UNDERGROUND
+  fieldType   String   // SPACE (orbit), LAND/WATER/MOUNTAIN (surface), ROCK/CRYSTAL/METAL (underground)
+  buildingId  Int?
+  
+  planet      Planet    @relation(fields: [planetId], references: [id])
+  building    Building? @relation(fields: [buildingId], references: [id])
+  
+  @@unique([planetId, x, y])
+}
+
+model BuildingType {
+  id                Int      @id @default(autoincrement())
+  name              String   @unique
+  description       String
+  category          String   // RESOURCE, PRODUCTION, DEFENSE, RESEARCH, STORAGE
+  buildCostCredits  Int
+  buildCostDurastahl Int     @default(0)
+  buildCostKristallinesSilizium Int @default(0)
+  buildCostTibannaGas Int    @default(0)
+  buildCostEnergiemodule Int @default(0)
+  buildCostKyberKristalle Int @default(0)
+  buildCostBacta    Int      @default(0)
+  buildCostBeskar   Int      @default(0)
+  buildTime         Int      // in minutes (real-time)
+  energyCostPerTick Int      @default(0)  // Energy consumed per tick when active
+  energyCostToBuild Int      @default(0)  // Energy required to start construction
+  energyProduction  Int      @default(0)
+  durastahlProduction Int    @default(0)
+  kristallinesSiliziumProduction Int @default(0)
+  tibannaGasProduction Int   @default(0)
+  energiemoduleProduction Int @default(0)
+  kyberKristalleProduction Int @default(0)
+  bactaProduction   Int      @default(0)
+  beskarProduction  Int      @default(0)
+  creditProduction  Int      @default(0)
+  storageBonus      Int      @default(0)
+  requiredResearch  Int?
+  
+  buildings         Building[]
+}
+
+model Building {
+  id                     Int      @id @default(autoincrement())
+  planetId               Int
+  buildingTypeId         Int
+  level                  Int      @default(1)
+  isActive               Boolean  @default(false)
+  constructionStartedAt  DateTime @default(now())
+  completedAt            DateTime?
+  
+  planet                 Planet       @relation(fields: [planetId], references: [id])
+  buildingType           BuildingType @relation(fields: [buildingTypeId], references: [id])
+  fields                 PlanetField[]
+}
+
+model ResearchType {
+  id                    Int      @id @default(autoincrement())
+  name                  String   @unique
+  description           String
+  category              String   // MILITARY, ECONOMICS, SCIENCE, ENERGY
+  researchLevel         Int      @default(0)  // 0, 1, 2, 3
+  researchPointCost     Int      @default(0)  // FP cost (0 for Level 0)
+  researchTime          Int      @default(0)  // Deprecated, using FP now
+  
+  // Level 0 requirements (production-based)
+  requiredCreditsPerTick  Int?
+  requiredDurastahlPerTick Int?
+  requiredKristallinesSiliziumPerTick Int?
+  requiredEnergyPerTick   Int?
+  
+  // Level 0 total accumulation requirements (for tick-based research)
+  requiredCreditsTotal    Int?  // Total credits needed to complete
+  requiredDurastahlTotal  Int?  // Total durastahl needed to complete
+  requiredKristallinesSiliziumTotal Int?  // Total kristallines silizium needed to complete
+  requiredEnergyTotal     Int?  // Total energy needed to complete
+  
+  // Level 1+ requirements
+  requiredLabCount      Int      @default(0)  // Minimum research labs needed
+  prerequisiteId        Int?
+  
+  // What it unlocks
+  unlocksBuilding       String?  // BuildingType name
+  unlocksBuildingId     Int?     // Direct reference
+  unlocksShip           String?  // ShipType name
+  bonusType             String?  // PRODUCTION_BONUS, COMBAT_BONUS, etc.
+  bonusValue            Int      @default(0)
+  
+  prerequisite          ResearchType?  @relation("ResearchPrerequisite", fields: [prerequisiteId], references: [id])
+  dependents            ResearchType[] @relation("ResearchPrerequisite")
+  playerResearch        PlayerResearch[]
+}
+
+model PlayerResearch {
+  id              Int      @id @default(autoincrement())
+  playerId        Int
+  researchTypeId  Int
+  currentProgress Int      @default(0)  // Accumulated FP
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  player          Player       @relation(fields: [playerId], references: [id])
+  researchType    ResearchType @relation(fields: [researchTypeId], references: [id])
+  
+  @@unique([playerId, researchTypeId])
+}
+
+model ShipType {
+  id                      Int      @id @default(autoincrement())
+  name                    String   @unique
+  description             String
+  shipClass               String   // FIGHTER, BOMBER, CORVETTE, FRIGATE, CRUISER, CAPITAL, TRANSPORT
+  buildCost               Int
+  buildCostDurastahl      Int      @default(0)
+  buildCostKristallinesSilizium Int @default(0)
+  buildCostTibannaGas     Int      @default(0)
+  buildCostEnergiemodule  Int      @default(0)
+  buildCostKyberKristalle Int      @default(0)
+  buildCostBacta          Int      @default(0)
+  buildCostBeskar         Int      @default(0)
+  buildTime               Int      // in minutes
+  crewRequired            Int
+  cargoCapacity           Int
+  fuelCapacity            Int
+  speed                   Int
+  attack                  Int
+  defense                 Int
+  requiredResearch        Int?
+  
+  ships                   Ship[]
+  shipBuildQueue          ShipBuildQueue[]
+}
+
+model Ship {
+  id              Int      @id @default(autoincrement())
+  fleetId         Int?
+  shipTypeId      Int
+  planetId        Int?     // Where it was built / is stationed
+  name            String?
+  health          Int      @default(100)
+  crew            Int      @default(0)
+  
+  fleet           Fleet?   @relation(fields: [fleetId], references: [id])
+  shipType        ShipType @relation(fields: [shipTypeId], references: [id])
+  planet          Planet?  @relation(fields: [planetId], references: [id])
+}
+
+model ShipBuildQueue {
+  id                     Int      @id @default(autoincrement())
+  planetId               Int
+  shipTypeId             Int
+  quantity               Int      @default(1)
+  constructionStartedAt  DateTime @default(now())
+  completedAt            DateTime?
+  
+  planet                 Planet   @relation(fields: [planetId], references: [id])
+  shipType               ShipType @relation(fields: [shipTypeId], references: [id])
+}
+
+model Fleet {
+  id              Int      @id @default(autoincrement())
+  playerId        Int
+  name            String
+  sectorId        Int?
+  status          String   @default("IDLE") // IDLE, MOVING, IN_COMBAT
+  
+  player          Player   @relation(fields: [playerId], references: [id])
+  ships           Ship[]
+}
+
+model StartPlanet {
+  id          Int      @id @default(autoincrement())
+  factionId   Int
+  planetName  String   @unique
+  sectorX     Int
+  sectorY     Int
+  
+  faction     Faction  @relation(fields: [factionId], references: [id])
+}
+
+model GameTick {
+  id          Int      @id @default(autoincrement())
+  tickNumber  Int      @unique
+  processedAt DateTime @default(now())
+}
+
+model InviteCode {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  createdById Int?
+  usedById    Int?
+  isUsed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  usedAt      DateTime?
+  
+  createdBy   User?     @relation("UserInviteCodes", fields: [createdById], references: [id])
+  usedBy      User[]    @relation("UsedInviteCode")
+}
