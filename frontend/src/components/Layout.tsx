@@ -1,10 +1,10 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Rocket, Globe, FlaskConical, Users, LogOut, Settings } from 'lucide-react';
+import { Rocket, Globe, FlaskConical, Users, LogOut, Settings, Shield } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 
 export default function Layout() {
   const navigate = useNavigate();
-  const { user, logout, isConnected } = useGameStore();
+  const { user, player, logout, isConnected } = useGameStore();
 
   const handleLogout = () => {
     logout();
@@ -44,6 +44,15 @@ export default function Layout() {
             </div>
             
             <div className="flex items-center gap-4">
+              {player?.isAdmin && (
+                <Link
+                  to="/admin"
+                  className="flex items-center gap-2 text-red-400 hover:text-red-300 px-3 py-2 rounded-md hover:bg-gray-700 transition"
+                  title="Admin-Menü"
+                >
+                  <Shield size={18} />
+                </Link>
+              )}
               <Link
                 to="/settings"
                 className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md hover:bg-gray-700 transition"

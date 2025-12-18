@@ -69,6 +69,7 @@ export class AuthService {
         player: {
           create: {
             factionId: validated.factionId,
+            isAdmin: validated.inviteCode === 'ADMIN001', // Set admin flag for ADMIN001 code
             // Resources are now per-planet, not per-player
           },
         },

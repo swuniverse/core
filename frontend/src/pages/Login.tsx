@@ -27,17 +27,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center px-4">
-      {/* Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url(/images/backgrounds/login-bg.png)' }}
-      >
-        <div className="absolute inset-0 bg-black/60" /> {/* Dark overlay for better readability */}
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center px-4 bg-space">
       {/* Login Form */}
-      <div className="relative z-10 bg-space-light/95 backdrop-blur-sm p-8 rounded-lg shadow-2xl w-full max-w-md border border-gray-700">
+      <div className="bg-space-light p-8 rounded-lg shadow-2xl w-full max-w-md border border-gray-700">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Star Wars Universe</h1>
           <h2 className="text-xl text-gray-300">Anmelden</h2>

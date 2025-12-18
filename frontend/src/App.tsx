@@ -13,6 +13,7 @@ import Fleet from './pages/Fleet';
 import Shipyard from './pages/Shipyard';
 import Settings from './pages/Settings';
 import InviteCodes from './pages/InviteCodes';
+import Admin from './pages/Admin';
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
         <Route path="/fleet" element={<Fleet />} />
         <Route path="/invite-codes" element={<InviteCodes />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/admin" element={<Admin />} />
       </Route>
     </Routes>
   );

@@ -5,6 +5,7 @@ interface Player {
   id: number;
   userId: number;
   factionId: number;
+  isAdmin?: boolean;
   faction?: {
     id: number;
     name: string;
@@ -23,6 +24,7 @@ interface User {
 interface GameState {
   // Auth State
   user: User | null;
+  player: Player | null;
   token: string | null;
   isAuthenticated: boolean;
   
@@ -44,6 +46,7 @@ interface GameState {
 export const useGameStore = create<GameState>((set, get) => ({
   // Initial State
   user: null,
+  player: null,
   token: localStorage.getItem('token'),
   isAuthenticated: false,
   socket: null,
@@ -66,7 +69,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const { token, user } = await response.json();
       
       localStorage.setItem('token', token);
-      set({ token, user, isAuthenticated: true });
+      set({ token, user, player: user.player, isAuthenticated: true });
       
       // Initialize socket after successful login
       get().initSocket();
@@ -92,7 +95,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const { token, user, inviteCodes } = result;
       
       localStorage.setItem('token', token);
-      set({ token, user, isAuthenticated: true });
+      set({ token, user, player: user.player, isAuthenticated: true });
       
       // Initialize socket after successful registration
       get().initSocket();
@@ -107,7 +110,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     localStorage.removeItem('token');
     get().disconnectSocket();
     set({ 
-      user: null, 
+      user: null,
+      player: null,
       token: null, 
       isAuthenticated: false,
       socket: null,
@@ -119,7 +123,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const token = localStorage.getItem('token');
     
     if (!token) {
-      set({ isAuthenticated: false, user: null });
+      set({ isAuthenticated: false, user: null, player: null });
       return;
     }
 
@@ -135,13 +139,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       const user = await response.json();
-      set({ user, isAuthenticated: true, token });
+      set({ user, player: user.player, isAuthenticated: true, token });
       
       // Initialize socket if authenticated
       get().initSocket();
     } catch (error) {
       localStorage.removeItem('token');
-      set({ isAuthenticated: false, user: null, token: null });
+      set({ isAuthenticated: false, user: null, player: null, token: null });
     }
   },
   

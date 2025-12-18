@@ -26,6 +26,7 @@ model Player {
   userId        Int      @unique
   factionId     Int
   allianceId    Int?
+  isAdmin       Boolean  @default(false)
   createdAt     DateTime @default(now())
   
   user          User       @relation(fields: [userId], references: [id])
