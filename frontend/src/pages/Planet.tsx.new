@@ -1,0 +1,250 @@
+import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, MapPin, Users, Zap, Trash2, Rocket } from 'lucide-react';
+import api from '../lib/api';
+import BuildMenu from '../components/BuildMenu';
+import { useGameStore } from '../stores/gameStore';
+
+interface Building {
+  id: number;
+  level: number;
+  isActive: boolean;
+  completedAt: string | null;
+  constructionStartedAt: string;
+  buildingType: {
+    id: number;
+    name: string;
+    description: string;
+    category: string;
+    energyCostPerTick: number;
+    energyCostToBuild: number;
+    buildTime: number;
+  };
+}
+
+interface PlanetField {
+  id: number;
+  x: number;
+  y: number;
+  fieldType: string;
+  buildingId: number | null;
+  building: Building | null;
+}
+
+interface Planet {
+  id: number;
+  name: string;
+  planetType: string;
+  sizeX: number;
+  sizeY: number;
+  credits: number;
+  durastahl: number;
+  kristallinesSilizium: number;
+  tibannaGas: number;
+  energiemodule: number;
+  kyberKristalle: number;
+  bacta: number;
+  beskar: number;
+  energyStorage: number;
+  energyStorageCapacity: number;
+  storageCapacity: number;
+  orbitRadius: number;
+  orbitAngle: number;
+  production?: {
+    credits: number;
+    durastahl: number;
+    kristallinesSilizium: number;
+    tibannaGas: number;
+    energiemodule: number;
+    kyberKristalle: number;
+    bacta: number;
+    beskar: number;
+  };
+  system: {
+    id: number;
+    name: string;
+    systemType: string;
+    fieldX: number;
+    fieldY: number;
+    sector: {
+      x: number;
+      y: number;
+    };
+  };
+  player: {
+    user: {
+      username: string;
+    };
+    faction: {
+      name: string;
+    };
+  } | null;
+  fields: PlanetField[];
+  buildings: Building[];
+}
+
+const fieldTypeColors: Record<string, string> = {
+  // Orbit layer
+  SPACE: 'bg-black hover:bg-gray-900',
+  // Surface layer
+  LAND: 'bg-green-800 hover:bg-green-700',
+  WATER: 'bg-blue-600 hover:bg-blue-500',
+  MOUNTAIN: 'bg-gray-600 hover:bg-gray-500',
+  // Underground layer
+  ROCK: 'bg-stone-800 hover:bg-stone-700',
+  CRYSTAL: 'bg-purple-800 hover:bg-purple-700',
+  METAL: 'bg-slate-700 hover:bg-slate-600',
+};
+
+const buildingColors: Record<string, string> = {
+  'Command Center': 'bg-yellow-500',
+  'Solar Plant': 'bg-orange-500',
+  'Metal Mine': 'bg-gray-400',
+  'Crystal Harvester': 'bg-purple-500',
+  'Warehouse': 'bg-blue-500',
+  'Trade Hub': 'bg-green-500',
+  'Shipyard': 'bg-indigo-600',
+  'Research Lab': 'bg-cyan-500',
+  'Defense Grid': 'bg-red-600',
+  'Refinery': 'bg-amber-600',
+  'Hangar': 'bg-slate-600',
+};
+
+export default function Planet() {
+  const { id } = useParams();
+  const { socket } = useGameStore();
+  const [planet, setPlanet] = useState<Planet | null>(null);
+  const [selectedField, setSelectedField] = useState<PlanetField | null>(null);
+  const [showBuildMenu, setShowBuildMenu] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [demolishing, setDemolishing] = useState(false);
+  const [, setTick] = useState(0); // Force re-render for timer updates
+  const [editingName, setEditingName] = useState(false);
+  const [newPlanetName, setNewPlanetName] = useState('');
+
+  const loadPlanet = useCallback(async () => {
+    try {
+      const response = await api.get(`/planet/${id}`);
+      setPlanet(response.data);
+      setIsLoading(false);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load planet');
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    loadPlanet();
+  }, [loadPlanet]);
+
+  // Update timer every second for construction progress
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for building completion events
+  useEffect(() => {
+    if (!socket || !id) return;
+
+    const handleBuildingCompleted = (data: any) => {
+      // Reload planet if this building belongs to our planet
+      if (data.planetId === parseInt(id)) {
+        loadPlanet();
+      }
+    };
+
+    const handleResourcesUpdated = (data: any) => {
+      // Update planet resources in real-time if this is our planet
+      if (data.planetId === parseInt(id)) {
+        setPlanet(prev => prev ? {
+          ...prev,
+          credits: data.credits,
+          durastahl: data.durastahl,
+          kristallinesSilizium: data.kristallinesSilizium,
+          tibannaGas: data.tibannaGas,
+          energiemodule: data.energiemodule,
+          kyberKristalle: data.kyberKristalle,
+          bacta: data.bacta,
+          beskar: data.beskar,
+        } : null);
+      }
+    };
+
+    socket.on('building:completed', handleBuildingCompleted);
+    socket.on('resources:updated', handleResourcesUpdated);
+
+    return () => {
+      socket.off('building:completed', handleBuildingCompleted);
+      socket.off('resources:updated', handleResourcesUpdated);
+    };
+  }, [socket, id, loadPlanet]);
+
+  const demolishBuilding = async (buildingId: number) => {
+    if (!confirm('Demolish this building? You will receive 50% of the build costs back.')) {
+      return;
+    }
+
+    setDemolishing(true);
+    try {
+      const response = await api.delete(`/planet/${id}/building/${buildingId}`);
+      alert(`Gebäude abgerissen! Rückerstattung: ${response.data.refund.credits} Credits, ${response.data.refund.durastahl} Durastahl, ${response.data.refund.kristallinesSilizium} Kristallines Silizium`);
+      setSelectedField(null);
+      await loadPlanet();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to demolish building');
+    } finally {
+      setDemolishing(false);
+    }
+  };
+
+  const renamePlanet = async () => {
+    if (!newPlanetName.trim() || newPlanetName === planet?.name) {
+      setEditingName(false);
+      return;
+    }
+
+    try {
+      await api.patch(`/planet/${id}/rename`, { name: newPlanetName });
+      await loadPlanet();
+      setEditingName(false);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Fehler beim Umbenennen des Planeten');
+      setEditingName(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-white text-xl">Lade Planet...</div>
+      </div>
+    );
+  }
+
+  if (error || !planet) {
+    return (
+      <div className="bg-red-900/50 border border-red-700 rounded-lg p-6">
+        <p className="text-red-200">{error || 'Planet nicht gefunden'}</p>
+        <Link to="/" className="text-rebel hover:underline mt-2 inline-block">
+          ← Zurück zum Dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  // Create 2D grid from flat fields array
+  const grid: PlanetField[][] = [];
+  for (let y = 0; y < planet.sizeY; y++) {
+    grid[y] = [];
+    for (let x = 0; x < planet.sizeX; x++) {
+      const field = planet.fields.find(f => f.x === x && f.y === y);
+      if (field) {
+        grid[y][x] = field;
+      }
+    }
+  }
+
