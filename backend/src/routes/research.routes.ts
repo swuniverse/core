@@ -81,7 +81,7 @@ router.get('/available', authMiddleware, async (req: AuthRequest, res: Response)
           ...research,
           status: 'in_progress',
           progress: playerProgress.currentProgress,
-          maxProgress: research.researchPointCost,
+          maxProgress: playerProgress.maxProgress, // Use stored maxProgress from DB
         };
       }
 
@@ -128,6 +128,7 @@ router.get('/available', authMiddleware, async (req: AuthRequest, res: Response)
             required: requiredProduction,
             current: productionPerTick,
             estimatedTicks: estimatedTicks,
+            totalRequired: required,
           },
         };
       }

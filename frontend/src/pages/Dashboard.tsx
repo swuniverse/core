@@ -43,6 +43,7 @@ interface DashboardData {
     category: string;
     progress: number;
     maxProgress: number;
+    resourceType: string;
   }>;
   totals: {
     credits: number;
@@ -477,7 +478,7 @@ export default function Dashboard() {
       </div>
 
       {/* Active Research */}
-      <div className="bg-space-light p-6 rounded-lg border border-gray-700">
+      <div className="bg-space-light p-6 rounded-lg border border-gray-700 mt-6">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <FlaskConical className="text-cyan-400" size={20} />
           Laufende Forschungen
@@ -495,7 +496,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <span className="text-cyan-400 text-xs font-mono">
-                      {research.progress} / {research.maxProgress} FP
+                      {research.progress} / {research.maxProgress} {research.resourceType}
                     </span>
                   </div>
                   <div className="bg-gray-900 rounded-full h-1.5 overflow-hidden">

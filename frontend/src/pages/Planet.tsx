@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, MapPin, Users, Zap, Trash2, Rocket, FlaskConical } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Zap, Trash2, Rocket } from 'lucide-react';
 import api from '../lib/api';
 import BuildMenu from '../components/BuildMenu';
 import { useGameStore } from '../stores/gameStore';
@@ -77,15 +77,6 @@ interface Planet {
   } | null;
   fields: PlanetField[];
   buildings: Building[];
-  activeResearch?: Array<{
-    id: number;
-    researchType: {
-      name: string;
-      category: string;
-    };
-    progress: number;
-    maxProgress: number;
-  }>;
 }
 
 const fieldTypeColors: Record<string, string> = {
@@ -970,43 +961,6 @@ export default function Planet() {
         <p className="mt-2 text-xs text-yellow-400 text-right">
           ⚠️ Baue Lagerhäuser um die Lagerkapazität zu erhöhen!
         </p>
-      )}
-
-      {/* Active Research Section */}
-      {planet.activeResearch && planet.activeResearch.length > 0 && (
-        <div className="mt-6 bg-space-light p-6 rounded-lg border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <FlaskConical className="text-cyan-400" size={20} />
-            Laufende Forschungen
-          </h3>
-          <div className="space-y-3">
-            {planet.activeResearch.map((research) => (
-              <div key={research.id} className="bg-gray-700/50 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-white font-semibold">{research.researchType.name}</h4>
-                    <span className="text-xs px-2 py-0.5 rounded bg-cyan-900/50 text-cyan-300">
-                      {research.researchType.category}
-                    </span>
-                  </div>
-                  <span className="text-cyan-400 text-sm font-mono">
-                    {research.progress} / {research.maxProgress} FP
-                  </span>
-                </div>
-                <div className="bg-gray-900 rounded-full h-2 overflow-hidden">
-                  <div 
-                    className="h-2 bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-500"
-                    style={{ width: `${(research.progress / research.maxProgress) * 100}%` }}
-                  />
-                </div>
-                <div className="mt-2 text-xs text-gray-400 flex items-center justify-between">
-                  <span>{Math.round((research.progress / research.maxProgress) * 100)}% abgeschlossen</span>
-                  <FlaskConical size={14} className="text-cyan-400 animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
         {/* Build Menu Modal */}

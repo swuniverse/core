@@ -155,12 +155,34 @@ router.get('/:planetId', authMiddleware, async (req: AuthRequest, res: Response)
           select: {
             name: true,
             category: true,
+            researchLevel: true,
+            requiredEnergyTotal: true,
+            requiredDurastahlTotal: true,
+            requiredKristallinesSiliziumTotal: true,
+            requiredCreditsTotal: true,
           },
         },
       },
     });
 
-    res.json({ ...planet, production, activeResearch });
+    const mappedResearch = activeResearch.map((research) => {
+      let resourceType = 'FP';
+      if (research.researchType.researchLevel === 0) {
+        if (research.researchType.requiredEnergyTotal) resourceType = 'Energie';
+        else if (research.researchType.requiredDurastahlTotal) resourceType = 'Durastahl';
+        else if (research.researchType.requiredKristallinesSiliziumTotal) resourceType = 'Kristall';
+        else if (research.researchType.requiredCreditsTotal) resourceType = 'Credits';
+      }
+      return {
+        id: research.id,
+        researchType: research.researchType,
+        progress: research.currentProgress,
+        maxProgress: research.maxProgress,
+        resourceType: resourceType,
+      };
+    });
+
+    res.json({ ...planet, production, activeResearch: mappedResearch });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

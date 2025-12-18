@@ -100,8 +100,11 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
         researchType: {
           select: {
             name: true,
-            category: true,
-          },
+            category: true,            researchLevel: true,
+            requiredEnergyTotal: true,
+            requiredDurastahlTotal: true,
+            requiredKristallinesSiliziumTotal: true,
+            requiredCreditsTotal: true,          },
         },
       },
       orderBy: { startedAt: 'asc' },
@@ -200,13 +203,25 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
           building.constructionStartedAt.getTime() + building.buildingType.buildTime * 60 * 1000
         ),
       })),
-      activeResearch: activeResearch.map((research) => ({
-        id: research.id,
-        researchTypeName: research.researchType.name,
-        category: research.researchType.category,
-        progress: research.currentProgress,
-        maxProgress: research.maxProgress,
-      })),
+      activeResearch: activeResearch.map((research) => {
+        // Determine resource type for Level 0 research
+        let resourceType = 'FP'; // Default for Level 1+
+        if (research.researchType.researchLevel === 0) {
+          if (research.researchType.requiredEnergyTotal) resourceType = 'Energie';
+          else if (research.researchType.requiredDurastahlTotal) resourceType = 'Durastahl';
+          else if (research.researchType.requiredKristallinesSiliziumTotal) resourceType = 'Kristall';
+          else if (research.researchType.requiredCreditsTotal) resourceType = 'Credits';
+        }
+        
+        return {
+          id: research.id,
+          researchTypeName: research.researchType.name,
+          category: research.researchType.category,
+          progress: research.currentProgress,
+          maxProgress: research.maxProgress,
+          resourceType: resourceType,
+        };
+      }),
       totals: {
         credits: totalCredits,
         durastahl: totalDurastahl,

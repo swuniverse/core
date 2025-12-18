@@ -19,6 +19,7 @@ interface ResearchType {
     required: number;
     current: number;
     estimatedTicks: number;
+    totalRequired: number;
   };
 }
 
@@ -255,11 +256,11 @@ export default function Research() {
                         <div className="text-gray-400 mb-1">Kosten:</div>
                         {research.productionRequirement ? (
                           <div className="space-y-1">
-                            <div className={`font-bold ${research.productionRequirement.current >= research.productionRequirement.required ? 'text-green-400' : 'text-red-400'}`}>
-                              Benötigt: {research.productionRequirement.required} {research.productionRequirement.type}/Tick
+                            <div className="text-blue-400 font-bold">
+                              {research.productionRequirement.totalRequired.toLocaleString()} {research.productionRequirement.type}
                             </div>
                             <div className="text-xs text-gray-400">
-                              Deine Produktion: {research.productionRequirement.current}/Tick
+                              Deine Produktion: {research.productionRequirement.current} {research.productionRequirement.type}/Tick
                             </div>
                             <div className="text-xs text-blue-400">
                               Dauer: ~{research.productionRequirement.estimatedTicks} Tick{research.productionRequirement.estimatedTicks !== 1 ? 's' : ''}
