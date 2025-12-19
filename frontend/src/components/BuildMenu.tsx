@@ -1,7 +1,6 @@
 import { X, Clock, Coins, Wrench, Hammer, Zap, Factory, Shield, Microscope, Building2, Gem, Wind, Battery, Sparkles, Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
-import { useGameStore } from '../stores/gameStore';
 
 interface BuildingType {
   id: number;

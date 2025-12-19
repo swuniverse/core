@@ -222,7 +222,7 @@ export default function SystemView() {
                             style={{ width: '24px', height: '24px', padding: 0 }}
                             onMouseEnter={() => setHoveredCell({ x: col, y: row })}
                             onMouseLeave={() => setHoveredCell(null)}
-                            onClick={() => cell.type === 'planet' && navigate(`/planet/${cell.data.id}`)}
+                            onClick={() => cell.type === 'planet' && cell.data && navigate(`/planet/${cell.data.id}`)}
                           >
                             {/* Star */}
                             {cell.type === 'star' && (
@@ -233,7 +233,7 @@ export default function SystemView() {
                             )}
 
                             {/* Planet */}
-                            {cell.type === 'planet' && cell.data && (
+                            {cell.type === 'planet' && cell.data && 'planetType' in cell.data && (
                               <div 
                                 className="w-full h-full rounded-full transition-transform hover:scale-150"
                                 style={{ backgroundColor: getPlanetColor(cell.data.planetType) }}
