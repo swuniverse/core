@@ -599,10 +599,22 @@ export default function Planet() {
           <h3 className="text-white font-semibold mb-4">Planeteninformationen</h3>
           <div className="space-y-3">
             <div>
-              <p className="text-gray-400 text-xs">Koordinaten</p>
+              <p className="text-gray-400 text-xs">System-Koordinaten (Galaxy)</p>
               <p className="text-white font-mono flex items-center gap-1">
                 <MapPin size={14} />
-                {planet.orbitRadius}|{planet.orbitAngle} ({planet.system.name} {planet.system.fieldX}|{planet.system.fieldY})
+                {(planet.system.sector.x - 1) * 20 + planet.system.fieldX}|{(planet.system.sector.y - 1) * 20 + planet.system.fieldY}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">Planet-Position (System)</p>
+              <p className="text-white font-mono">
+                {(() => {
+                  const systemCenter = 5; // Default 10x10 system, center at 5
+                  const angleRad = (planet.orbitAngle * Math.PI) / 180;
+                  const planetX = Math.round(systemCenter + planet.orbitRadius * Math.cos(angleRad));
+                  const planetY = Math.round(systemCenter + planet.orbitRadius * Math.sin(angleRad));
+                  return `${planetX}|${planetY}`;
+                })()}
               </p>
             </div>
             <div>
