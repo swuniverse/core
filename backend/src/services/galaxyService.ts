@@ -244,7 +244,7 @@ export class GalaxyService {
         await prisma.planet.create({
           data: {
             name: planetName,
-            sectorId: sector.id,
+            systemId: system.id,
             fieldX,
             fieldY,
             planetType,

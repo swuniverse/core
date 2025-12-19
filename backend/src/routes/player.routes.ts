@@ -143,8 +143,8 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
       totalKyberKristalle += planet.kyberKristalle;
       totalBacta += planet.bacta;
       totalBeskar += planet.beskar;
-      totalEnergy += planet.energy;
-      totalMaxEnergy += planet.maxEnergy;
+      totalEnergy += planet.energyStorage;
+      totalMaxEnergy += planet.energyStorageCapacity;
       totalStorage += planet.storageCapacity;
 
       // Calculate production from active buildings
@@ -159,7 +159,7 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
           bactaProduction += building.buildingType.bactaProduction;
           beskarProduction += building.buildingType.beskarProduction;
           energyProduction += building.buildingType.energyProduction;
-          energyConsumption += building.buildingType.energyCost;
+          energyConsumption += building.buildingType.energyCostPerTick;
         }
       });
     });
@@ -191,8 +191,8 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
           kyberKristalle: planet.kyberKristalle,
           bacta: planet.bacta,
           beskar: planet.beskar,
-          energy: planet.energy,
-          maxEnergy: planet.maxEnergy,
+          energy: planet.energyStorage,
+          maxEnergy: planet.energyStorageCapacity,
           storageCapacity: planet.storageCapacity,
         },
         buildingCount: planet.buildings.length,

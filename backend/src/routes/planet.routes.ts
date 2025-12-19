@@ -129,6 +129,8 @@ router.get('/:planetId', authMiddleware, async (req: AuthRequest, res: Response)
       kyberKristalle: 0,
       bacta: 0,
       beskar: 0,
+      energyProduction: 0,
+      energyConsumption: 0,
     };
 
     for (const building of planet.buildings) {
@@ -141,6 +143,8 @@ router.get('/:planetId', authMiddleware, async (req: AuthRequest, res: Response)
         production.kyberKristalle += building.buildingType.kyberKristalleProduction * building.level;
         production.bacta += building.buildingType.bactaProduction * building.level;
         production.beskar += building.buildingType.beskarProduction * building.level;
+        production.energyProduction += building.buildingType.energyProduction * building.level;
+        production.energyConsumption += building.buildingType.energyCostPerTick * building.level;
       }
     }
 

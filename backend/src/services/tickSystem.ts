@@ -267,13 +267,6 @@ export class TickSystem {
     }
   }
 
-  stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      console.log('⏰ Tick system stopped');
-    }
-  }
-
   getCurrentTick(): number {
     return this.tickNumber;
   }

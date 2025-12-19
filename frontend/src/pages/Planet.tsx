@@ -340,7 +340,7 @@ export default function Planet() {
                 <div className="space-y-0.5">
                   {/* ORBIT Layer (rows 0-1) - STU Style */}
                   <div className="inline-block border border-blue-500/50 rounded-sm bg-blue-900/20">
-                    <div className="text-xs text-blue-400 px-1.5 py-0.5 font-semibold bg-blue-900/40">ORBIT</div>
+                    <div className="text-sm text-blue-400 px-2 py-1 font-semibold bg-blue-900/40">ORBIT</div>
                     {grid.slice(0, 2).map((row, y) => (
                       <div key={y} className="flex">
                         {row.map((field, x) => (
@@ -348,7 +348,7 @@ export default function Planet() {
                             key={`${x}-${y}`}
                             onClick={() => setSelectedField(field)}
                             className={`
-                              w-[40px] h-[40px] border border-gray-800/30 relative
+                              w-[50px] h-[50px] border border-gray-800/30 relative
                               transition-all duration-150
                               ${selectedField?.id === field.id ? 'ring-1 ring-yellow-400' : ''}
                               ${field.building 
@@ -363,14 +363,14 @@ export default function Planet() {
                           >
                             {field.building && field.building.isActive && (
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-xs font-bold bg-black/60 rounded-sm px-1">
+                                <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
                                   {field.building.level}
                                 </div>
                               </div>
                             )}
                             {!field.building?.isActive && field.building && (
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
                               </div>
                             )}
                           </button>
@@ -381,7 +381,7 @@ export default function Planet() {
 
                   {/* SURFACE Layer (rows 2-7) - STU Style */}
                   <div className="inline-block border border-green-500/50 rounded-sm bg-green-900/20">
-                    <div className="text-xs text-green-400 px-1.5 py-0.5 font-semibold bg-green-900/40">OBERFLÄCHE</div>
+                    <div className="text-sm text-green-400 px-2 py-1 font-semibold bg-green-900/40">OBERFLÄCHE</div>
                     {grid.slice(2, 8).map((row, y) => (
                       <div key={y + 2} className="flex">
                         {row.map((field, x) => (
@@ -389,7 +389,7 @@ export default function Planet() {
                             key={`${x}-${y + 2}`}
                             onClick={() => setSelectedField(field)}
                             className={`
-                              w-[40px] h-[40px] border border-gray-800/30 relative
+                              w-[50px] h-[50px] border border-gray-800/30 relative
                               transition-all duration-150
                               ${selectedField?.id === field.id ? 'ring-1 ring-yellow-400' : ''}
                               ${field.building 
@@ -404,14 +404,14 @@ export default function Planet() {
                           >
                             {field.building && field.building.isActive && (
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-xs font-bold bg-black/60 rounded-sm px-1">
+                                <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
                                   {field.building.level}
                                 </div>
                               </div>
                             )}
                             {!field.building?.isActive && field.building && (
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
                               </div>
                             )}
                           </button>
@@ -422,7 +422,7 @@ export default function Planet() {
 
                   {/* UNDERGROUND Layer (rows 8-9) - STU Style */}
                   <div className="inline-block border border-amber-500/50 rounded-sm bg-amber-900/20">
-                    <div className="text-xs text-amber-400 px-1.5 py-0.5 font-semibold bg-amber-900/40">UNTERGRUND</div>
+                    <div className="text-sm text-amber-400 px-2 py-1 font-semibold bg-amber-900/40">UNTERGRUND</div>
                     {grid.slice(8, 10).map((row, y) => (
                       <div key={y + 8} className="flex">
                         {row.map((field, x) => (
@@ -430,7 +430,7 @@ export default function Planet() {
                             key={`${x}-${y + 8}`}
                             onClick={() => setSelectedField(field)}
                             className={`
-                              w-[40px] h-[40px] border border-gray-800/30 relative
+                              w-[50px] h-[50px] border border-gray-800/30 relative
                               transition-all duration-150
                               ${selectedField?.id === field.id ? 'ring-1 ring-yellow-400' : ''}
                               ${field.building 
@@ -445,14 +445,14 @@ export default function Planet() {
                           >
                             {field.building && field.building.isActive && (
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-xs font-bold bg-black/60 rounded-sm px-1">
+                                <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
                                   {field.building.level}
                                 </div>
                               </div>
                             )}
                             {!field.building?.isActive && field.building && (
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
                               </div>
                             )}
                           </button>
@@ -659,7 +659,7 @@ export default function Planet() {
           {/* Planet Info Box */}
           <div className="bg-space-light p-4 rounded-lg border border-gray-700">
             <h3 className="text-white font-semibold mb-3 text-base">Planeteninformationen</h3>
-            <div className="space-y-2.5 text-xs">
+            <div className="space-y-2.5 text-sm">
               <div>
                 <p className="text-gray-400">System-Koordinaten</p>
                 <p className="text-white font-mono flex items-center gap-1">
