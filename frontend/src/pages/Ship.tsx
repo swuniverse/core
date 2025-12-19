@@ -9,6 +9,7 @@ interface ShipData {
     id: number;
     name: string | null;
     status: string;
+    currentSystemId: number | null;
     position: {
       galaxyX: number | null;
       galaxyY: number | null;
@@ -62,6 +63,7 @@ export default function Ship() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [charging, setCharging] = useState(false);
+  const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
 
   const loadShipData = useCallback(async () => {
     try {
@@ -126,11 +128,20 @@ export default function Ship() {
   };
 
   const setDestination = async (targetX: number, targetY: number) => {
+    if (!shipData) return;
+
     try {
-      await api.post(`/ship/${id}/move`, { targetX, targetY });
-      await loadShipData();
+      if (viewMode === 'system') {
+        // System-internal navigation
+        await api.post(`/ship/${id}/move-system`, { targetX, targetY });
+        await loadShipData();
+      } else {
+        // Galaxy (hyperspace) navigation
+        await api.post(`/ship/${id}/move`, { targetX, targetY });
+        await loadShipData();
+      }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Fehler beim Flugstart');
+      alert(err.response?.data?.error || 'Fehler beim Flug');
     }
   };
 
@@ -150,7 +161,7 @@ export default function Ship() {
           onClick={() => navigate('/fleet')}
           className="text-rebel hover:underline mt-2 inline-block"
         >
-          ← Zurück zur Flotte
+          ← Zurück zu Schiffe
         </button>
       </div>
     );
@@ -158,22 +169,41 @@ export default function Ship() {
 
   const { ship, shipType, sensorView } = shipData;
 
-  // Build sensor grid
+  // Determine if ship is in a system or in hyperspace
+  const isInSystem = ship.currentSystemId !== null;
+
+  // Build sensor grid based on mode
   const sensorGrid: Array<Array<any>> = [];
   const gridSize = sensorView.range * 2 + 1;
   
   for (let y = 0; y < gridSize; y++) {
     sensorGrid[y] = [];
     for (let x = 0; x < gridSize; x++) {
-      const actualX = sensorView.center.x - sensorView.range + x;
-      const actualY = sensorView.center.y - sensorView.range + y;
-      
-      sensorGrid[y][x] = {
-        x: actualX,
-        y: actualY,
-        ships: sensorView.ships.filter(s => s.currentGalaxyX === actualX && s.currentGalaxyY === actualY),
-        system: sensorView.systems.find(sys => sys.fieldX === actualX && sys.fieldY === actualY),
-      };
+      if (viewMode === 'galaxy') {
+        // Galaxy mode: show galaxy coordinates
+        const actualX = sensorView.center.x - sensorView.range + x;
+        const actualY = sensorView.center.y - sensorView.range + y;
+        
+        sensorGrid[y][x] = {
+          x: actualX,
+          y: actualY,
+          mode: 'galaxy',
+          ships: sensorView.ships.filter(s => s.currentGalaxyX === actualX && s.currentGalaxyY === actualY),
+          system: sensorView.systems.find(sys => sys.fieldX === actualX && sys.fieldY === actualY),
+        };
+      } else {
+        // System mode: show system-internal coordinates
+        const actualX = (ship.position.systemX || 0) - sensorView.range + x;
+        const actualY = (ship.position.systemY || 0) - sensorView.range + y;
+        
+        sensorGrid[y][x] = {
+          x: actualX,
+          y: actualY,
+          mode: 'system',
+          ships: [],
+          system: null,
+        };
+      }
     }
   }
 
@@ -186,7 +216,7 @@ export default function Ship() {
           className="text-gray-400 hover:text-white inline-flex items-center gap-2 mb-2"
         >
           <ArrowLeft size={20} />
-          Zurück zur Flotte
+          Zurück zu Schiffe
         </button>
         <h1 className="text-3xl font-bold text-white">
           {ship.name || `${shipType.name} ${ship.id}`}
@@ -197,46 +227,92 @@ export default function Ship() {
       <div className="grid grid-cols-2 gap-4">
         {/* LEFT: Sensor View (STU-Style) */}
         <div className="bg-space-light p-4 rounded-lg border border-gray-700">
-          <h2 className="text-lg font-semibold text-white mb-3">Sensoren (Reichweite: {sensorView.range})</h2>
-          
-          <div className="overflow-auto">
-            <div className="inline-block">
-              {sensorGrid.map((row, y) => (
-                <div key={y} className="flex">
-                  {row.map((cell, x) => {
-                    const isCenter = cell.x === sensorView.center.x && cell.y === sensorView.center.y;
-                    const hasShips = cell.ships.length > 0;
-                    const hasSystem = !!cell.system;
-
-                    return (
-                      <button
-                        key={x}
-                        onClick={() => !isCenter && setDestination(cell.x, cell.y)}
-                        className={`w-8 h-8 border border-gray-700 relative text-xs ${
-                          isCenter ? 'bg-yellow-500 ring-2 ring-yellow-400' :
-                          hasSystem ? 'bg-blue-700 hover:bg-blue-600' :
-                          'bg-gray-900 hover:bg-gray-800'
-                        }`}
-                        title={`${cell.x}|${cell.y}${hasSystem ? ` - ${cell.system.name}` : ''}`}
-                      >
-                        {hasShips && !isCenter && (
-                          <span className="text-red-400 font-bold">{cell.ships.length}</span>
-                        )}
-                        {isCenter && (
-                          <span className="text-white font-bold">●</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-white">Sensoren (Reichweite: {sensorView.range})</h2>
+            
+            {/* Mode Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('galaxy')}
+                className={`px-3 py-1 rounded text-sm ${
+                  viewMode === 'galaxy' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                }`}
+              >
+                Hyperraum
+              </button>
+              <button
+                onClick={() => setViewMode('system')}
+                disabled={!isInSystem}
+                className={`px-3 py-1 rounded text-sm ${
+                  viewMode === 'system' 
+                    ? 'bg-blue-600 text-white' 
+                    : isInSystem
+                      ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                System
+              </button>
             </div>
           </div>
+          
+          <div className="overflow-auto">
+            <table className="border-collapse">
+              <tbody>
+                {sensorGrid.map((row, y) => (
+                  <tr key={y}>
+                    {row.map((cell, x) => {
+                      const isCenterGalaxy = viewMode === 'galaxy' && cell.x === sensorView.center.x && cell.y === sensorView.center.y;
+                      const isCenterSystem = viewMode === 'system' && cell.x === ship.position.systemX && cell.y === ship.position.systemY;
+                      const isCenter = isCenterGalaxy || isCenterSystem;
+                      const hasShips = cell.ships.length > 0;
+                      const hasSystem = !!cell.system;
 
-          <div className="mt-3 text-xs text-gray-400">
-            <p>Position: {ship.position.galaxyX}|{ship.position.galaxyY}</p>
-            {ship.destination.x && (
-              <p>Ziel: {ship.destination.x}|{ship.destination.y}</p>
+                      return (
+                        <td
+                          key={x}
+                          onClick={() => !isCenter && setDestination(cell.x, cell.y)}
+                          className={`w-10 h-10 border border-gray-700 cursor-pointer relative text-xs text-center ${
+                            isCenter ? 'bg-yellow-500 ring-2 ring-yellow-400' :
+                            hasSystem && viewMode === 'galaxy' ? 'bg-blue-700 hover:bg-blue-600' :
+                            'bg-gray-900 hover:bg-gray-800'
+                          }`}
+                          title={`${cell.x}|${cell.y}${hasSystem ? ` - ${cell.system.name}` : ''}`}
+                        >
+                          {hasShips && !isCenter && (
+                            <span className="text-red-400 font-bold">{cell.ships.length}</span>
+                          )}
+                          {isCenter && (
+                            <span className="text-white font-bold text-lg">●</span>
+                          )}
+                          {hasSystem && viewMode === 'galaxy' && !isCenter && (
+                            <span className="text-blue-400">★</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3 text-xs text-gray-400 space-y-1">
+            <p className="font-semibold text-white mb-1">{viewMode === 'galaxy' ? 'Hyperraum-Modus' : 'System-Modus'}</p>
+            {viewMode === 'galaxy' ? (
+              <>
+                <p>Position: {ship.position.galaxyX}|{ship.position.galaxyY}</p>
+                {ship.destination.x && (
+                  <p>Ziel: {ship.destination.x}|{ship.destination.y}</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p>System-Position: {ship.position.systemX || 0}|{ship.position.systemY || 0}</p>
+                <p className="text-gray-500 italic">Klicke auf ein Feld um innerhalb des Systems zu fliegen</p>
+              </>
             )}
           </div>
         </div>
@@ -262,7 +338,7 @@ export default function Ship() {
                   style={{ width: `${(ship.energy.drive / ship.energy.maxDrive) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-400 mt-1">Reichweite: {ship.range} Felder</p>
+              <p className="text-xs text-gray-400 mt-1">Reichweite: {ship.range} Felder (1 Energie = 1 Feld)</p>
               
               {ship.status === 'DOCKED' && (
                 <div className="flex gap-2 mt-2">
@@ -344,7 +420,7 @@ export default function Ship() {
               </div>
               <div>
                 <p className="text-gray-400">Verbrauch</p>
-                <p className="text-white">{shipType.driveEfficiency}/Feld</p>
+                <p className="text-white">1 Energie/Feld</p>
               </div>
               <div>
                 <p className="text-gray-400">Sensoren</p>

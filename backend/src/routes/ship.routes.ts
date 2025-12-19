@@ -52,6 +52,7 @@ router.get('/:id', authMiddleware, async (req: any, res) => {
         id: ship.id,
         name: ship.name,
         status: ship.status,
+        currentSystemId: ship.currentSystemId,
         position: {
           galaxyX: ship.currentGalaxyX,
           galaxyY: ship.currentGalaxyY,
@@ -155,6 +156,79 @@ router.post('/:id/move', authMiddleware, async (req: any, res) => {
   } catch (error) {
     console.error('Error starting ship movement:', error);
     res.status(500).json({ error: 'Fehler beim Flugstart' });
+  }
+});
+
+/**
+ * POST /api/ship/:id/move-system
+ * Move within a system (system-internal navigation)
+ */
+router.post('/:id/move-system', authMiddleware, async (req: any, res) => {
+  try {
+    const shipId = parseInt(req.params.id);
+    const { targetX, targetY } = req.body;
+    const playerId = req.user?.player?.id;
+
+    if (!playerId) {
+      return res.status(403).json({ error: 'Kein Spieler-Account gefunden' });
+    }
+
+    if (targetX === undefined || targetY === undefined) {
+      return res.status(400).json({ error: 'Zielkoordinaten erforderlich' });
+    }
+
+    // Get ship
+    const ship = await prisma.ship.findFirst({
+      where: {
+        id: shipId,
+        planet: { playerId },
+      },
+      include: {
+        shipType: true,
+        system: true,
+      },
+    });
+
+    if (!ship) {
+      return res.status(404).json({ error: 'Schiff nicht gefunden' });
+    }
+
+    if (!ship.currentSystemId) {
+      return res.status(400).json({ error: 'Schiff ist nicht in einem System' });
+    }
+
+    // System-internal movement is almost free (1 energy per field)
+    const currentX = ship.currentSystemX || 0;
+    const currentY = ship.currentSystemY || 0;
+    const distance = Math.abs(targetX - currentX) + Math.abs(targetY - currentY);
+    const energyCost = distance; // 1 energy per field in system
+
+    if (ship.energyDrive < energyCost) {
+      return res.status(400).json({ 
+        error: 'Nicht genug Energie', 
+        required: energyCost, 
+        available: ship.energyDrive 
+      });
+    }
+
+    // Instant movement within system
+    await prisma.ship.update({
+      where: { id: shipId },
+      data: {
+        currentSystemX: targetX,
+        currentSystemY: targetY,
+        energyDrive: ship.energyDrive - energyCost,
+      },
+    });
+
+    res.json({ 
+      success: true, 
+      message: `Position im System: ${targetX}|${targetY}`,
+      energyCost,
+    });
+  } catch (error) {
+    console.error('Error moving ship in system:', error);
+    res.status(500).json({ error: 'Fehler bei System-Navigation' });
   }
 });
 

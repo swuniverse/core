@@ -45,14 +45,14 @@ export default function Fleet() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
-        <div className="text-gray-400">Lade Flotte...</div>
+        <div className="text-gray-400">Lade Schiffe...</div>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white mb-6">Flottenübersicht</h1>
+      <h1 className="text-3xl font-bold text-white mb-6">Schiffe</h1>
       
       {ships.length === 0 ? (
         <div className="bg-space-light p-6 rounded-lg border border-gray-700">

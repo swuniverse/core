@@ -258,9 +258,9 @@ model ShipType {
   defense                 Int
   requiredResearch        Int?
   sensorRange             Int      @default(3)  // Sensor radius in fields
-  driveEfficiency         Int      @default(10) // Energy cost per field
-  maxEnergyWeapons        Int      @default(100) // Max weapon/shield energy
-  maxEnergyDrive          Int      @default(500) // Max hyperdrive energy
+  driveEfficiency         Int      @default(1) // Energy cost per field (always 1)
+  maxEnergyWeapons        Int      @default(50) // Max weapon/shield energy
+  maxEnergyDrive          Int      @default(50) // Max hyperdrive energy (50 fields range)
   
   ships                   Ship[]
   shipBuildQueue          ShipBuildQueue[]

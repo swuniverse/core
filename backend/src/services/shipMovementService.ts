@@ -82,8 +82,8 @@ class ShipMovementService {
       return;
     }
 
-    // Check if ship has enough energy
-    if (ship.energyDrive < ship.shipType.driveEfficiency) {
+    // Check if ship has enough energy (1 energy per field)
+    if (ship.energyDrive < 1) {
       // Ship is stranded!
       await prisma.ship.update({
         where: { id: ship.id },
@@ -115,13 +115,13 @@ class ShipMovementService {
     const newX = currentGalaxyX + dx;
     const newY = currentGalaxyY + dy;
 
-    // Update ship position and consume energy
+    // Update ship position and consume energy (1 per field)
     await prisma.ship.update({
       where: { id: ship.id },
       data: {
         currentGalaxyX: newX,
         currentGalaxyY: newY,
-        energyDrive: ship.energyDrive - ship.shipType.driveEfficiency,
+        energyDrive: ship.energyDrive - 1,
       },
     });
 
@@ -132,24 +132,26 @@ class ShipMovementService {
         shipId: ship.id,
         x: newX,
         y: newY,
-        energyDrive: ship.energyDrive - ship.shipType.driveEfficiency,
+        energyDrive: ship.energyDrive - 1,
       });
     }
   }
 
   /**
    * Calculate how many fields a ship can reach with current drive energy
+   * 1 energy = 1 field
    */
   calculateRange(ship: any): number {
-    return Math.floor(ship.energyDrive / ship.shipType.driveEfficiency);
+    return ship.energyDrive;
   }
 
   /**
    * Calculate energy cost for a flight
+   * Always 1 energy per field
    */
   calculateFlightCost(ship: any, targetX: number, targetY: number): number {
     const distance = Math.abs(targetX - ship.currentGalaxyX) + Math.abs(targetY - ship.currentGalaxyY);
-    return distance * ship.shipType.driveEfficiency;
+    return distance; // 1 energy per field
   }
 }
 
