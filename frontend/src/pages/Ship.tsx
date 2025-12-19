@@ -49,9 +49,18 @@ interface ShipData {
       id: number;
       name: string;
       systemType: string;
-      fieldX: number;
-      fieldY: number;
+      galaxyX: number;
+      galaxyY: number;
     }>;
+    planets: Array<{
+      id: number;
+      name: string;
+      orbitRadius: number;
+      orbitAngle: number;
+      owner: string | null;
+      faction: string | null;
+    }>;
+    systemGridSize: number;
   };
 }
 
@@ -144,7 +153,7 @@ export default function Ship() {
         await api.post(`/ship/${id}/move-system`, { targetX, targetY });
         await loadShipData();
       } else {
-        // Galaxy (hyperspace) navigation
+        // Galaxy (hyperspace) navigation - just fly there
         await api.post(`/ship/${id}/move`, { targetX, targetY });
         await loadShipData();
       }
@@ -201,6 +210,11 @@ export default function Ship() {
 
   // Determine if ship is in a system or in hyperspace
   const isInSystem = ship.currentSystemId !== null;
+  
+  // Check if ship is at a system position (in galaxy mode)
+  const systemAtShipPosition = sensorView.systems.find(
+    s => s.galaxyX === ship.position.galaxyX && s.galaxyY === ship.position.galaxyY
+  );
 
   // Build sensor grid based on mode
   const sensorGrid: Array<Array<any>> = [];
@@ -219,12 +233,24 @@ export default function Ship() {
           y: actualY,
           mode: 'galaxy',
           ships: sensorView.ships.filter(s => s.currentGalaxyX === actualX && s.currentGalaxyY === actualY),
-          system: sensorView.systems.find(sys => sys.fieldX === actualX && sys.fieldY === actualY),
+          system: sensorView.systems.find(sys => sys.galaxyX === actualX && sys.galaxyY === actualY),
+          planets: [],
         };
       } else {
         // System mode: show system-internal coordinates
         const actualX = (ship.position.systemX || 0) - sensorView.range + x;
         const actualY = (ship.position.systemY || 0) - sensorView.range + y;
+        
+        // Calculate planet positions (orbit-based)
+        // System center is at gridSize/2
+        const systemCenter = Math.floor(sensorView.systemGridSize / 2);
+        const planetsAtPosition = sensorView.planets.filter(p => {
+          // Convert orbit to cartesian coordinates
+          const angleRad = (p.orbitAngle * Math.PI) / 180;
+          const planetX = Math.round(systemCenter + p.orbitRadius * Math.cos(angleRad));
+          const planetY = Math.round(systemCenter + p.orbitRadius * Math.sin(angleRad));
+          return planetX === actualX && planetY === actualY;
+        });
         
         sensorGrid[y][x] = {
           x: actualX,
@@ -232,6 +258,7 @@ export default function Ship() {
           mode: 'system',
           ships: [],
           system: null,
+          planets: planetsAtPosition,
         };
       }
     }
@@ -299,6 +326,7 @@ export default function Ship() {
                       const isCenter = isCenterGalaxy || isCenterSystem;
                       const hasShips = cell.ships.length > 0;
                       const hasSystem = !!cell.system;
+                      const hasPlanets = cell.planets && cell.planets.length > 0;
 
                       return (
                         <td
@@ -309,9 +337,11 @@ export default function Ship() {
                               ? 'bg-yellow-500 border-yellow-400 ring-2 ring-yellow-300' 
                               : hasSystem && viewMode === 'galaxy' 
                                 ? 'bg-blue-800 border-blue-600 hover:bg-blue-700' 
-                                : 'bg-gray-900 border-gray-700 hover:bg-gray-800 hover:border-gray-600'
+                                : hasPlanets && viewMode === 'system'
+                                  ? 'bg-green-800 border-green-600 hover:bg-green-700'
+                                  : 'bg-gray-900 border-gray-700 hover:bg-gray-800 hover:border-gray-600'
                           }`}
-                          title={`${cell.x}|${cell.y}${hasSystem ? ` - ${cell.system.name}` : ''}`}
+                          title={`${cell.x}|${cell.y}${hasSystem ? ` - ${cell.system.name}` : ''}${hasPlanets ? ` - ${cell.planets[0].name}` : ''}`}
                         >
                           <div className="flex items-center justify-center h-full">
                             {hasShips && !isCenter && (
@@ -323,12 +353,13 @@ export default function Ship() {
                             {hasSystem && viewMode === 'galaxy' && !isCenter && (
                               <span className="text-yellow-400 text-xl">★</span>
                             )}
+                            {hasPlanets && viewMode === 'system' && !isCenter && (
+                              <span className="text-green-400 text-xl">◉</span>
+                            )}
                           </div>
                         </td>
                       );
                     })}
-                  </tr>
-                ))}
                   </tr>
                 ))}
               </tbody>
@@ -354,12 +385,12 @@ export default function Ship() {
             
             {/* System Enter/Leave Buttons */}
             <div className="mt-3 pt-3 border-t border-gray-700">
-              {!isInSystem && ship.status === 'DOCKED' && (
+              {!isInSystem && ship.status === 'DOCKED' && systemAtShipPosition && (
                 <button
                   onClick={enterSystem}
                   className="w-full bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-sm font-semibold"
                 >
-                  System betreten
+                  System betreten: {systemAtShipPosition.name}
                 </button>
               )}
               {isInSystem && (

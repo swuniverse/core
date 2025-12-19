@@ -282,9 +282,7 @@ router.get('/ships', authMiddleware, async (req: AuthRequest, res: Response) => 
 
     const ships = await prisma.ship.findMany({
       where: {
-        planet: {
-          playerId: user.player.id,
-        },
+        playerId: user.player.id,
       },
       include: {
         shipType: {

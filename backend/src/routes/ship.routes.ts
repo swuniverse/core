@@ -22,9 +22,7 @@ router.get('/:id', authMiddleware, async (req: any, res) => {
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
-        planet: {
-          playerId, // Only own ships
-        },
+        playerId, // Check ownership directly
       },
       include: {
         shipType: true,
@@ -110,7 +108,7 @@ router.post('/:id/move', authMiddleware, async (req: any, res) => {
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
-        planet: { playerId },
+        playerId,
       },
       include: {
         shipType: true,
@@ -126,36 +124,53 @@ router.post('/:id/move', authMiddleware, async (req: any, res) => {
       return res.status(400).json({ error: 'Schiff bereits im Flug' });
     }
 
-    // Calculate energy cost
-    const cost = shipMovementService.calculateFlightCost(ship, targetX, targetY);
+    // Calculate energy cost (1 energy per field)
+    const currentX = ship.currentGalaxyX || 0;
+    const currentY = ship.currentGalaxyY || 0;
+    const distance = Math.abs(targetX - currentX) + Math.abs(targetY - currentY);
+    const energyCost = distance;
 
-    if (ship.energyDrive < cost) {
+    if (ship.energyDrive < energyCost) {
       return res.status(400).json({ 
         error: 'Nicht genug Antriebsenergie', 
-        required: cost, 
+        required: energyCost, 
         available: ship.energyDrive 
       });
     }
 
-    // Start flight
-    await prisma.ship.update({
+    // Instant hyperspace jump
+    const updatedShip = await prisma.ship.update({
       where: { id: shipId },
       data: {
-        status: 'IN_FLIGHT',
-        destinationX: targetX,
-        destinationY: targetY,
+        status: 'DOCKED',
+        currentGalaxyX: targetX,
+        currentGalaxyY: targetY,
+        energyDrive: ship.energyDrive - energyCost,
         planetId: null, // Undock from planet
+        destinationX: null,
+        destinationY: null,
       },
     });
 
+    // Emit socket event for real-time update
+    const io = (req as any).app.get('io');
+    if (io && playerId) {
+      io.to(`player-${playerId}`).emit('ship:moved', {
+        shipId: updatedShip.id,
+        galaxyX: targetX,
+        galaxyY: targetY,
+        energyDrive: updatedShip.energyDrive,
+      });
+    }
+
     res.json({ 
       success: true, 
-      message: `Flug nach ${targetX}|${targetY} gestartet`,
-      energyCost: cost,
+      message: `Hypersprung nach ${targetX}|${targetY} abgeschlossen`,
+      energyCost,
     });
   } catch (error) {
-    console.error('Error starting ship movement:', error);
-    res.status(500).json({ error: 'Fehler beim Flugstart' });
+    console.error('Error moving ship:', error);
+    res.status(500).json({ error: 'Fehler beim Hypersprung' });
   }
 });
 
@@ -181,7 +196,7 @@ router.post('/:id/move-system', authMiddleware, async (req: any, res) => {
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
-        planet: { playerId },
+        playerId,
       },
       include: {
         shipType: true,
@@ -212,7 +227,7 @@ router.post('/:id/move-system', authMiddleware, async (req: any, res) => {
     }
 
     // Instant movement within system
-    await prisma.ship.update({
+    const updatedShip = await prisma.ship.update({
       where: { id: shipId },
       data: {
         currentSystemX: targetX,
@@ -220,6 +235,17 @@ router.post('/:id/move-system', authMiddleware, async (req: any, res) => {
         energyDrive: ship.energyDrive - energyCost,
       },
     });
+
+    // Emit socket event for real-time update
+    const io = (req as any).app.get('io');
+    if (io && playerId) {
+      io.to(`player-${playerId}`).emit('ship:moved', {
+        shipId: updatedShip.id,
+        systemX: targetX,
+        systemY: targetY,
+        energyDrive: updatedShip.energyDrive,
+      });
+    }
 
     res.json({ 
       success: true, 
@@ -249,7 +275,7 @@ router.post('/:id/enter-system', authMiddleware, async (req: any, res) => {
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
-        planet: { playerId },
+        playerId,
       },
       include: {
         shipType: true,
@@ -329,7 +355,7 @@ router.post('/:id/leave-system', authMiddleware, async (req: any, res) => {
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
-        planet: { playerId },
+        playerId,
       },
       include: {
         shipType: true,
@@ -394,7 +420,7 @@ router.post('/:id/charge', authMiddleware, async (req: any, res) => {
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
-        planet: { playerId },
+        playerId,
       },
       include: {
         shipType: true,
@@ -444,6 +470,63 @@ router.post('/:id/charge', authMiddleware, async (req: any, res) => {
  */
 async function getSensorView(ship: any) {
   const sensorRange = ship.shipType.sensorRange;
+  
+  // If ship is in a system, return system-internal view
+  if (ship.currentSystemId) {
+    const planets = await prisma.planet.findMany({
+      where: {
+        systemId: ship.currentSystemId,
+      },
+      select: {
+        id: true,
+        name: true,
+        orbitRadius: true,
+        orbitAngle: true,
+        player: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                username: true,
+              },
+            },
+            faction: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Get system info to calculate grid center
+    const system = await prisma.system.findUnique({
+      where: { id: ship.currentSystemId },
+      select: { gridSize: true },
+    });
+
+    const centerX = ship.currentSystemX || Math.floor((system?.gridSize || 10) / 2);
+    const centerY = ship.currentSystemY || Math.floor((system?.gridSize || 10) / 2);
+
+    return {
+      range: sensorRange,
+      center: { x: centerX, y: centerY },
+      ships: [],
+      systems: [],
+      planets: planets.map(p => ({
+        id: p.id,
+        name: p.name,
+        orbitRadius: p.orbitRadius,
+        orbitAngle: p.orbitAngle,
+        owner: p.player?.user.username || null,
+        faction: p.player?.faction.name || null,
+      })),
+      systemGridSize: system?.gridSize || 10,
+    };
+  }
+
+  // Galaxy mode
   const centerX = ship.currentGalaxyX || 0;
   const centerY = ship.currentGalaxyY || 0;
 
@@ -466,48 +549,59 @@ async function getSensorView(ship: any) {
       id: true,
       currentGalaxyX: true,
       currentGalaxyY: true,
-      planet: {
+    },
+  });
+
+  // Get systems within sensor range
+  // Calculate galaxy coordinates for systems in view
+  const systems = await prisma.system.findMany({
+    where: {
+      sector: {
+        x: {
+          gte: Math.floor((centerX - sensorRange - 1) / 20) + 1,
+          lte: Math.floor((centerX + sensorRange + 1) / 20) + 1,
+        },
+        y: {
+          gte: Math.floor((centerY - sensorRange - 1) / 20) + 1,
+          lte: Math.floor((centerY + sensorRange + 1) / 20) + 1,
+        },
+      },
+    },
+    include: {
+      sector: {
         select: {
-          player: {
-            select: {
-              faction: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-          },
+          x: true,
+          y: true,
         },
       },
     },
   });
 
-  // Get systems within sensor range (simplified for now)
-  const systems = await prisma.system.findMany({
-    where: {
-      fieldX: {
-        gte: Math.floor((centerX - sensorRange) / 20) * 20 + 1,
-        lte: Math.floor((centerX + sensorRange) / 20) * 20 + 20,
-      },
-      fieldY: {
-        gte: Math.floor((centerY - sensorRange) / 20) * 20 + 1,
-        lte: Math.floor((centerY + sensorRange) / 20) * 20 + 20,
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-      systemType: true,
-      fieldX: true,
-      fieldY: true,
-    },
-  });
+  // Calculate galaxy coordinates for each system
+  const systemsWithGalaxyCoords = systems.map(system => {
+    const galaxyX = (system.sector.x - 1) * 20 + system.fieldX;
+    const galaxyY = (system.sector.y - 1) * 20 + system.fieldY;
+    
+    // Only include if within actual sensor range
+    if (Math.abs(galaxyX - centerX) <= sensorRange && Math.abs(galaxyY - centerY) <= sensorRange) {
+      return {
+        id: system.id,
+        name: system.name,
+        systemType: system.systemType,
+        galaxyX,
+        galaxyY,
+      };
+    }
+    return null;
+  }).filter(s => s !== null);
 
   return {
     range: sensorRange,
     center: { x: centerX, y: centerY },
     ships: nearbyShips,
-    systems,
+    systems: systemsWithGalaxyCoords,
+    planets: [],
+    systemGridSize: 0,
   };
 }
 

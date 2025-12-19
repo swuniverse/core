@@ -33,6 +33,7 @@ model Player {
   faction       Faction    @relation(fields: [factionId], references: [id])
   alliance      Alliance?  @relation(fields: [allianceId], references: [id])
   planets       Planet[]
+  ships         Ship[]
   research      PlayerResearch[]
   fleets        Fleet[]
 }
@@ -268,6 +269,7 @@ model ShipType {
 
 model Ship {
   id              Int      @id @default(autoincrement())
+  playerId        Int      // Owner of the ship
   fleetId         Int?
   shipTypeId      Int
   planetId        Int?     // Where it was built / is stationed (when DOCKED)
@@ -289,6 +291,7 @@ model Ship {
   energyWeapons   Int      @default(0)   // Current energy for weapons/shields
   energyDrive     Int      @default(0)   // Current energy for hyperdrive (determines range)
   
+  player          Player   @relation(fields: [playerId], references: [id])
   fleet           Fleet?   @relation(fields: [fleetId], references: [id])
   shipType        ShipType @relation(fields: [shipTypeId], references: [id])
   planet          Planet?  @relation(fields: [planetId], references: [id])

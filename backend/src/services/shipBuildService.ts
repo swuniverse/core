@@ -65,6 +65,7 @@ class ShipBuildService {
           for (let i = 0; i < queue.quantity; i++) {
             const ship = await prisma.ship.create({
               data: {
+                playerId: planet.playerId!,
                 shipTypeId: queue.shipTypeId,
                 planetId: queue.planetId,
                 health: 100,

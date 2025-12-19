@@ -32,17 +32,17 @@ export default function Layout() {
                   <Globe size={18} />
                   Planeten
                 </Link>
-                <Link to="/galaxy" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
-                  <Map size={18} />
-                  Galaxie
+                <Link to="/fleet" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
+                  <Users size={18} />
+                  Schiffe
                 </Link>
                 <Link to="/research" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
                   <FlaskConical size={18} />
                   Forschung
                 </Link>
-                <Link to="/fleet" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
-                  <Users size={18} />
-                  Schiffe
+                <Link to="/galaxy" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
+                  <Map size={18} />
+                  Galaxie
                 </Link>
               </div>
             </div>
