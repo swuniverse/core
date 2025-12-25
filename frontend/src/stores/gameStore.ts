@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
+import logger from '../lib/logger';
 
 interface Player {
   id: number;
@@ -154,7 +155,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { socket: existingSocket, user } = get();
     
     // Don't create duplicate connections
-    if (existingSocket?.connected) return;
+    if (existingSocket?.connected) {
+      logger.socket('Socket already connected, skipping...');
+      return;
+    }
+    
+    // Disconnect old socket if exists
+    if (existingSocket) {
+      logger.socket('Cleaning up old socket...');
+      existingSocket.disconnect();
+    }
     
     const socket = io('http://localhost:3000', {
       auth: {
@@ -165,7 +175,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     
     socket.on('connect', () => {
       set({ isConnected: true });
-      console.log('🔌 Connected to game server');
+      logger.socket('🔌 Connected to game server');
       
       // Join player room if user exists
       if (user?.player) {
@@ -175,7 +185,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     
     socket.on('disconnect', () => {
       set({ isConnected: false });
-      console.log('🔌 Disconnected from game server');
+      logger.socket('🔌 Disconnected from game server');
     });
     
     socket.on('tick:update', () => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { Link } from 'react-router-dom';
-import { Globe, Rocket, Wrench, Coins, Clock, Gem, Wind, Battery, Sparkles, Heart, Shield, FlaskConical, X } from 'lucide-react';
+import { Rocket, Wrench, Coins, Clock, Gem, Wind, Battery, Sparkles, Heart, Shield, FlaskConical, X } from 'lucide-react';
 import api from '../lib/api';
 
 interface DashboardData {
@@ -366,106 +366,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Planets List */}
-        <div className="lg:col-span-2 bg-space-light p-6 rounded-lg border border-gray-700">
-          <div className="flex items-center gap-2 mb-4">
-            <Globe size={20} className="text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">Deine Planeten</h3>
-          </div>
-          
-          {dashboardData && dashboardData.planets.length > 0 ? (
-            <div className="space-y-3">
-              {dashboardData.planets.map((planet) => (
-                <Link
-                  key={planet.id}
-                  to={`/planet/${planet.id}`}
-                  className="block p-4 bg-gray-700 hover:bg-gray-600 rounded transition"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="text-white font-semibold">{planet.name}</h4>
-                        <span className="text-xs text-gray-400">
-                          [{planet.sector.x}:{planet.sector.y}]
-                        </span>
-                        <span className="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded">
-                          {planet.planetType}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                        <div>
-                          <span className="text-gray-400">Credits:</span>
-                          <span className="text-yellow-400 ml-1 font-mono">
-                            {planet.resources.credits.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Durastahl:</span>
-                          <span className="text-gray-400 ml-1 font-mono">
-                            {planet.resources.durastahl.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Krist. Silizium:</span>
-                          <span className="text-purple-400 ml-1 font-mono">
-                            {planet.resources.kristallinesSilizium.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Tibanna-Gas:</span>
-                          <span className="text-cyan-400 ml-1 font-mono">
-                            {planet.resources.tibannaGas.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Energiemodule:</span>
-                          <span className="text-blue-400 ml-1 font-mono">
-                            {planet.resources.energiemodule.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Kyber:</span>
-                          <span className="text-green-400 ml-1 font-mono">
-                            {planet.resources.kyberKristalle.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Bacta:</span>
-                          <span className="text-rose-400 ml-1 font-mono">
-                            {planet.resources.bacta.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Beskar:</span>
-                          <span className="text-slate-400 ml-1 font-mono">
-                            {planet.resources.beskar.toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Energie:</span>
-                          <span className={`ml-1 font-mono ${
-                            planet.resources.energy < 0 ? 'text-red-400' : 'text-emerald-400'
-                          }`}>
-                            {planet.resources.energy}/{planet.resources.maxEnergy}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2 text-xs text-gray-400">
-                        {planet.buildingCount} Gebäude
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">Noch keine Planeten. Beginne zu erkunden!</p>
-          )}
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {/* Active Constructions */}
         <div className="bg-space-light p-6 rounded-lg border border-gray-700">
           <div className="flex items-center gap-2 mb-4">

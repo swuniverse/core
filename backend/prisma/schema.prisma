@@ -36,6 +36,7 @@ model Player {
   ships         Ship[]
   research      PlayerResearch[]
   fleets        Fleet[]
+  comnetMessages ComnetMessage[]
 }
 
 model Faction {
@@ -348,4 +349,17 @@ model InviteCode {
   
   createdBy   User?     @relation("UserInviteCodes", fields: [createdById], references: [id])
   usedBy      User[]    @relation("UsedInviteCode")
+}
+
+model ComnetMessage {
+  id        Int      @id @default(autoincrement())
+  playerId  Int
+  title     String?
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@index([createdAt])
 }

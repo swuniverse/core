@@ -154,7 +154,7 @@ export default function Research() {
       {playerStats && (
         <div className="mb-6 bg-gray-800 border border-gray-700 rounded-lg p-4">
           <h2 className="font-bold text-white mb-3">Deine Forschungskapazität</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
             <div>
               <div className="text-gray-400 text-sm">Forschungslabore</div>
               <div className="text-white font-bold">{playerStats.labCount}</div>
@@ -204,7 +204,7 @@ export default function Research() {
               <div className={`${levelBadge.bg} ${levelBadge.text} px-4 py-2 rounded-lg mb-4 inline-block font-bold`}>
                 {levelBadge.label}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groupedByLevel[level].map(research => {
                   const prerequisiteName = getPrerequisiteName(research.prerequisiteId);
                   

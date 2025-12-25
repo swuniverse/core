@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma';
 import { io } from '../index';
 import { emitToPlayer } from '../socket';
+import logger from '../lib/logger';
 
 export class BuildingCompletionService {
   private checkInterval: NodeJS.Timeout | null = null;

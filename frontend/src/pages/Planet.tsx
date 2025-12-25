@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Users, Zap, Trash2, Rocket } from 'lucide-react';
 import api from '../lib/api';
 import BuildMenu from '../components/BuildMenu';
 import { useGameStore } from '../stores/gameStore';
+import logger from '../lib/logger';
 
 interface Building {
   id: number;
@@ -151,13 +152,16 @@ export default function Planet() {
     if (!socket || !id) return;
 
     const handleBuildingCompleted = (data: any) => {
+      logger.socket('Building completed event:', data);
       // Reload planet if this building belongs to our planet
       if (data.planetId === parseInt(id)) {
+        logger.info('Reloading planet after building completion');
         loadPlanet();
       }
     };
 
     const handleResourcesUpdated = (data: any) => {
+      logger.socket('Resources updated event:', data);
       // Update planet resources in real-time if this is our planet
       if (data.planetId === parseInt(id)) {
         setPlanet(prev => prev ? {

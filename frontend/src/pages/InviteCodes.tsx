@@ -43,7 +43,8 @@ export default function InviteCodes() {
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
+    const timeout = setTimeout(() => setCopiedCode(null), 2000);
+    return () => clearTimeout(timeout);
   };
 
   if (isLoading) {

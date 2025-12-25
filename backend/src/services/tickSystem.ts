@@ -4,6 +4,7 @@ import redis from '../lib/redis';
 import prisma from '../lib/prisma';
 import cron from 'node-cron';
 import { researchService } from './researchService';
+import logger from '../lib/logger';
 
 export class TickSystem {
   private tickNumber: number = 0;
@@ -14,8 +15,8 @@ export class TickSystem {
     const lastTick = await redis.get('game:tick:current');
     this.tickNumber = lastTick ? parseInt(lastTick) : 0;
 
-    console.log(`⏰ Starting tick system at tick ${this.tickNumber}`);
-    console.log(`📅 Ticks run at: 12:00, 15:00, 18:00, 21:00, 00:00 (Europe/Berlin)`);
+    logger.tick(`⏰ Starting tick system at tick ${this.tickNumber}`);
+    logger.tick(`📅 Ticks run at: 12:00, 15:00, 18:00, 21:00, 00:00 (Europe/Berlin)`);
     
     // Run at 12:00, 15:00, 18:00, 21:00, 00:00 every day
     // Cron format: minute hour * * *
@@ -25,13 +26,13 @@ export class TickSystem {
       timezone: 'Europe/Berlin'
     });
 
-    console.log(`✅ Tick system scheduled`);
+    logger.tick(`✅ Tick system scheduled`);
   }
 
   stop() {
     if (this.cronJob) {
       this.cronJob.stop();
-      console.log('⏰ Tick system stopped');
+      logger.tick('⏰ Tick system stopped');
     }
   }
 

@@ -16,6 +16,7 @@ import InviteCodes from './pages/InviteCodes';
 import Admin from './pages/Admin';
 import Planets from './pages/Planets';
 import Ship from './pages/Ship';
+import Comnet from './pages/Comnet';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
         <Route path="/ship/:id" element={<Ship />} />
         <Route path="/research" element={<Research />} />
         <Route path="/fleet" element={<Fleet />} />
+        <Route path="/comnet" element={<Comnet />} />
         <Route path="/invite-codes" element={<InviteCodes />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/admin" element={<Admin />} />

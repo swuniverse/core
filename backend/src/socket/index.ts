@@ -16,7 +16,7 @@ export const setupSocketHandlers = (io: Server) => {
     });
 
     socket.on('disconnect', () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      logger.socket(`🔌 Client disconnected: ${socket.id}`);
     });
   });
 };
