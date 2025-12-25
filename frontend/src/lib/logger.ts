@@ -3,7 +3,8 @@
  * Enable/disable via VITE_DEBUG_LOGGING environment variable
  */
 
-const isDebugEnabled = import.meta.env.VITE_DEBUG_LOGGING === 'true';
+// @ts-ignore - Vite env is available at runtime
+const isDebugEnabled = import.meta.env?.VITE_DEBUG_LOGGING === 'true';
 
 export const logger = {
   debug: (...args: any[]) => {

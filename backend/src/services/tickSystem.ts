@@ -2,7 +2,7 @@ import { io } from '../index';
 import { emitToPlayer } from '../socket';
 import redis from '../lib/redis';
 import prisma from '../lib/prisma';
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import { researchService } from './researchService';
 import logger from '../lib/logger';
 

@@ -1,6 +1,13 @@
-FROM node:20-alpine AS builder
+# Build stage - Debian für bcrypt Kompilierung
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# Build-Tools für bcrypt
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Disable SSL verification for npm (build only)
+RUN npm config set strict-ssl false
 
 # Copy package files
 COPY backend/package*.json ./
@@ -21,23 +28,22 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package files
+# Copy files from builder
 COPY backend/package*.json ./
-
-# Install production dependencies only
-RUN npm ci --only=production
-
-# Copy built files and prisma from builder
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 
 # Expose port
 EXPOSE 3000
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
 # Run migrations and start
-CMD npx prisma migrate deploy && node dist/index.js
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

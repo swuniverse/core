@@ -2,103 +2,159 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A tick-based strategy browser game set in the Star Wars Universe, inspired by [Star Trek Universe (STU)](https://stuniverse.de).
+Ein tick-basiertes Strategie-Browserspiel im Star Wars Universum, inspiriert von [Star Trek Universe (STU)](https://stuniverse.de).
 
 ## 🌟 Features
 
-### ✅ Implemented
-- **Authentication**: Invite-code based registration, JWT login
-- **Faction System**: Galactic Empire & Rebel Alliance
-- **Resource Management**: Credits, Metal, Crystal, Energy with production rates
-- **Planet Management**: STU-style 10x10 grid with 3 layers
-  - Layer 1 (ORBIT): Rows 0-1, SPACE fields for space stations
-  - Layer 2 (SURFACE): Rows 2-7, LAND/WATER/MOUNTAIN fields for buildings
-  - Layer 3 (UNDERGROUND): Rows 8-9, ROCK/CRYSTAL/METAL fields for mines
-- **Building System**: 11 building types with real-time construction
-  - Basic: Command Center, Solar Plant, Metal Mine, Crystal Harvester, Warehouse, Trade Hub
-  - Advanced: Shipyard, Research Lab, Defense Grid, Refinery, Hangar
-  - Categorized build menu (Infrastructure, Resources, Production, Military, Research)
-  - Energy-dependent activation with auto-deactivation
-  - 50% refund on demolish/cancel
-- **Research System**: Tech tree with prerequisites
-  - Level 0: Resource-based research (no labs required)
-  - Level 1+: Research Points-based (requires Research Labs)
-  - Unlocks buildings and ship types
-- **Ship Construction**: 14 ship types across 7 classes
-  - Fighter, Bomber, Frigate, Cruiser, Battlecruiser, Battleship, Dreadnought
-  - Build queue in Shipyard with progress tracking
-  - TIE Fighters to Mon Calamari Cruisers
-- **Ship Navigation**: STU-style real-time movement system
-  - Dual energy system (weapons + drive)
-  - Real-time movement processing (1s interval)
-  - Sensor-based fog of war (sensorRange determines visibility)
-  - Drive efficiency affects energy consumption
-  - Ships can strand when energy runs out
-  - Status tracking: DOCKED, IN_FLIGHT, STRANDED
-- **Galaxy Map**: Multi-level hierarchical navigation
-  - 6x6 sectors (36 total)
-  - 20x20 fields per sector (120x120 galaxy)
-  - System layer between sector and planet
-  - ~450 systems with ~1360 planets
-  - System types: SINGLE_STAR (90%), BINARY_STAR (8%), NEUTRON_STAR (1.5%), BLACK_HOLE (0.5%)
-  - Orbital planet visualization
-- **Real-time Updates**: Socket.io events
-  - Building completion
-  - Resource updates
-  - Research progress
-  - Ship construction
-  - Ship movement and arrival
-- **Storage System**: Capacity limits, expandable with Warehouses
-- **Tick System**: 60-second intervals for resource production
-- **Background Services**:
-  - Building Completion (10s check)
-  - Research Progress (10s check)
-  - Ship Building (10s check)
-  - Ship Movement (1s real-time processing)
-- **Settings**: Username/password change, invite code generation
+### ✅ Implementiert
+- **Authentifizierung**: Invite-Code basierte Registrierung, JWT Login
+- **Faktionssystem**: Galaktisches Imperium & Rebellenallianz
+- **Ressourcenverwaltung**: Credits, Metall, Kristall, Energie mit Produktionsraten
+- **Planetenverwaltung**: STU-Style 10x10 Grid mit 3 Ebenen
+  - Ebene 1 (ORBIT): Reihen 0-1, SPACE Felder für Raumstationen
+  - Ebene 2 (OBERFLÄCHE): Reihen 2-7, LAND/WASSER/BERG Felder für Gebäude
+  - Ebene 3 (UNTERGRUND): Reihen 8-9, ROCK/KRISTALL/METALL Felder für Minen
+- **Gebäudesystem**: 11 Gebäudetypen mit Echtzeit-Konstruktion
+  - Basis: Kommandozentrale, Solarkraftwerk, Metallmine, Kristallsammler, Lager, Handelszentrum
+  - Erweitert: Werft, Forschungslabor, Verteidigungsgitter, Raffinerie, Hangar
+  - Kategorisiertes Baumenü (Infrastruktur, Ressourcen, Produktion, Militär, Forschung)
+  - Energieabhängige Aktivierung mit Auto-Deaktivierung
+  - 50% Rückerstattung beim Abriss/Abbruch
+- **Forschungssystem**: Tech-Tree mit Voraussetzungen
+  - Level 0: Ressourcenbasierte Forschung (keine Labs erforderlich)
+  - Level 1+: Forschungspunkte-basiert (erfordert Forschungslabore)
+  - Schaltet Gebäude und Schiffstypen frei
+- **Schiffskonstruktion**: 14 Schiffstypen in 7 Klassen
+  - Jäger, Bomber, Fregatte, Kreuzer, Schlachtkreuzer, Schlachtschiff, Dreadnought
+  - Bauqueue in der Werft mit Fortschrittsanzeige
+  - Von TIE-Jägern bis Mon Calamari Kreuzern
+- **Schiffsnavigation**: STU-Style Echtzeit-Bewegungssystem
+  - Duales Energiesystem (Waffen + Antrieb)
+  - Echtzeit-Bewegungsverarbeitung (1s Intervall)
+  - Sensorbasierter Nebel des Krieges (sensorRange bestimmt Sichtbarkeit)
+  - Antriebseffizienz beeinflusst Energieverbrauch
+  - Schiffe können stranden wenn Energie ausgeht
+  - Statusverfolgung: GEDOCKT, IM_FLUG, GESTRANDET
+- **Galaxiekarte**: Mehrstufige hierarchische Navigation
+  - 6x6 Sektoren (36 total)
+  - 20x20 Felder pro Sektor (120x120 Galaxie)
+  - System-Ebene zwischen Sektor und Planet
+  - ~450 Systeme mit ~1360 Planeten
+  - Systemtypen: EINZELSTERN (90%), DOPPELSTERN (8%), NEUTRONENSTERN (1.5%), SCHWARZES_LOCH (0.5%)
+  - Orbitale Planetenvisualisierung
+- **Comnet**: Galaxieweites RP-Forum
+  - Optionaler Titel (100 Zeichen)
+  - Nachricht (5000 Zeichen)
+  - 30-Minuten Bearbeitungsfenster
+  - Echtzeit-Updates via Socket.io
+  - Fraktionsfarben für Posts
+- **Echtzeit-Updates**: Socket.io Events
+  - Gebäudeabschluss
+  - Ressourcen-Updates
+  - Forschungsfortschritt
+  - Schiffskonstruktion
+  - Schiffsbewegung und Ankunft
+  - Comnet-Nachrichten
+- **Lagersystem**: Kapazitätsgrenzen, erweiterbar mit Lagern
+- **Tick-System**: 60-Sekunden-Intervalle für Ressourcenproduktion
+- **Hintergrunddienste**:
+  - Gebäudeabschluss (10s Check)
+  - Forschungsfortschritt (10s Check)
+  - Schiffsbau (10s Check)
+  - Schiffsbewegung (1s Echtzeit-Verarbeitung)
+- **Einstellungen**: Benutzername/Passwort ändern, Invite-Code Generierung
 
-### 🚧 Planned
-- Building upgrades (levels 2-10)
-- Fleet grouping and formations
-- Combat system
-- Trading system
-- Alliances
+### 🚧 Geplant
+- Gebäude-Upgrades (Level 2-10)
+- Flottengruppierung und Formationen
+- Kampfsystem
+- Handelssystem
+- Allianzen
 
 ## 🚀 Quick Start
 
-This project uses **devenv** (Nix-based development environment) to manage all services.
+Dieses Projekt nutzt **devenv** (Nix-basierte Entwicklungsumgebung) zur Verwaltung aller Services.
 
-### Prerequisites
-- [Nix package manager](https://nixos.org/download.html) installed
-- [devenv](https://devenv.sh/) installed
+### Voraussetzungen
+- [Nix Package Manager](https://nixos.org/download.html) installiert
+- [devenv](https://devenv.sh/) installiert
 
 ### Installation
 
-1. **Clone the repository:**
+1. **Repository klonen:**
 ```bash
 git clone <your-repo-url>
 cd swu
 ```
 
-2. **Start all services with devenv:**
+2. **Alle Services mit devenv starten:**
 ```bash
 devenv up
 ```
 
-This single command starts:
-- PostgreSQL 15 (port 5432)
-- Redis 7 (port 6379)
-- Backend API (port 3000)
-- Frontend dev server (port 5173)
+Dieser einzelne Befehl startet:
+- PostgreSQL 15 (Port 5432)
+- Redis 7 (Port 6379)
+- Backend API (Port 3000)
+- Frontend Dev-Server (Port 5173)
 
-All services run with auto-reload enabled. Code changes are picked up automatically.
+Alle Services laufen mit Auto-Reload. Code-Änderungen werden automatisch erkannt.
 
-3. **Initialize the database** (first time only, in a new terminal):
+3. **Datenbank initialisieren** (nur beim ersten Mal, in neuem Terminal):
 ```bash
 cd backend
 npm run db:reset
 ```
 
+Dies erstellt das Schema, führt Migrationen aus, befüllt Fraktionen/Gebäude/Forschungstypen und generiert die Galaxie.
+
+4. **Admin Invite-Code generieren:**
+```bash
+cd backend
+npm run seed:admin
+```
+
+5. **Spiel öffnen:**
+- Navigiere zu http://localhost:5173
+- Registriere dich mit dem Invite-Code
+- Generiere weitere Invite-Codes in den Einstellungen
+
+### Wichtige Hinweise
+- **NICHT** Backend/Frontend manuell mit npm/node Befehlen starten
+- **NICHT** versuchen, Prozesse manuell zu beenden oder neu zu starten
+- `devenv up` übernimmt automatisch das gesamte Hot-Reloading
+- Stoppe alle Services mit Strg+C im `devenv up` Prozess
+- Starte `devenv up` nur bei fundamentalen Config-Änderungen neu (schema.prisma, devenv.nix)
+
+## 🐳 Docker Deployment
+
+Für Production-Deployment via Docker siehe:
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Vollständige VPS/Server Deployment-Anleitung
+- **[CADDY.md](CADDY.md)** - Caddy Reverse Proxy mit automatischem HTTPS
+- **[DOCKER_FILES.md](DOCKER_FILES.md)** - Übersicht aller Docker/Config-Dateien
+
+**Schnellstart:**
+```bash
+# 1. Docker Images bauen
+./deploy.sh
+
+# 2. Environment konfigurieren
+cp .env.production.example .env.production
+nano .env.production  # Secrets anpassen!
+
+# 3. Container starten
+docker compose -f docker-compose.prod.yml up -d
+
+# 4. Reverse Proxy einrichten (siehe CADDY.md)
+```
+
+**Gebaute Images:**
+- `swu-backend:latest` (~500MB) - Node.js 20 (Debian) mit bcrypt Support
+- `swu-frontend:latest` (~220MB) - Node.js 20 (Alpine) mit Vite Build
+
+**Wichtig:** Container lauschen nur auf `127.0.0.1` - für externen Zugriff ist Caddy (oder Nginx) als Reverse Proxy erforderlich!
+
+This creates the schema, runs migrations, seeds factions/buildings/research types, and generates the galaxy.
 This creates the schema, runs migrations, seeds factions/buildings/research types, and generates the galaxy.
 
 4. **Generate an admin invite code:**
@@ -167,167 +223,206 @@ frontend/
     lib/                  # API client (Axios + Socket.io)
 ```
 
-## 🔧 Available Commands
+## 🔧 Verfügbare Befehle
 
-### Database Management (from backend/)
+### Datenbankverwaltung (aus backend/)
 ```bash
-npm run db:reset      # Complete reset: migrations + seed factions/buildings/research + init galaxy
-npm run db:migrate    # Run Prisma migrations only
-npm run seed:admin    # Generate admin invite code
+npm run db:reset      # Kompletter Reset: Migrationen + Seed Fraktionen/Gebäude/Forschung + Galaxie initialisieren
+npm run db:migrate    # Nur Prisma Migrationen ausführen
+npm run seed:admin    # Admin Invite-Code generieren
 ```
 
-### Development
+### Entwicklung
 ```bash
-devenv up             # Start all services (PostgreSQL, Redis, backend, frontend)
-# Press Ctrl+C to stop all services
+devenv up             # Alle Services starten (PostgreSQL, Redis, Backend, Frontend)
+# Strg+C zum Stoppen aller Services
 ```
 
-**Note:** Do not use `npm run dev` manually. `devenv up` handles everything.
+**Hinweis:** Verwende nicht `npm run dev` manuell. `devenv up` übernimmt alles.
 
-## ⚙️ Game Mechanics
+### Docker (Production)
+```bash
+./deploy.sh           # Backend und Frontend Docker-Images bauen
+docker images | grep swu  # Gebaute Images anzeigen
+```
 
-### Dual Time System
+## 🐛 Debugging & Logging
 
-1. **Tick System** (`tickSystem.ts`): Runs every 60 seconds
-   - Processes resource production (credits, metal, crystal)
-   - Checks energy balance and auto-deactivates buildings if negative
-   - NOT used for building completion
+### Logging aktivieren
 
-2. **Building Completion Service** (`buildingCompletionService.ts`): Runs every 10 seconds
-   - Checks `constructionStartedAt + buildTime` (in MINUTES)
-   - Real-time completion detection
-   - Emits Socket.io `building:completed` event
+**Frontend** (`.env.development` oder `.env.local`):
+```env
+VITE_DEBUG_LOGGING=true
+```
 
-3. **Ship Movement Service** (`shipMovementService.ts`): Runs every 1 second
-   - Real-time ship movement processing
-   - Energy consumption based on drive efficiency
-   - Ships strand when energy depleted
-   - Emits `ship:moved`, `ship:arrived`, `ship:stranded` events
+**Backend** (`.env`):
+```env
+DEBUG_LOGGING=true
+```
 
-### Resources & Economy
+### Logger verwenden
 
-- **Credits**: Main currency, from Command Center (100/tick) and Trade Hub (50/tick)
-- **Metal**: From Metal Mine (30/tick), costs 10 energy
-- **Crystal**: From Crystal Harvester (20/tick), costs 15 energy
-- **Energy**: From Solar Plant (50 production), consumed by active buildings
-- **Storage**: Base 1000, +500 per Warehouse
+```typescript
+import logger from '../lib/logger';
 
-### Planet Layout (STU-Style)
+logger.debug('Debug-Nachricht', data);    // Nur bei DEBUG_LOGGING=true
+logger.info('Info-Nachricht', data);      // Nur bei DEBUG_LOGGING=true
+logger.warn('Warnung', data);             // Nur bei DEBUG_LOGGING=true
+logger.error('Fehler', error);            // IMMER geloggt
+logger.socket('Socket Event', data);       // Socket.io Events
+logger.api('API Call', request);           // API Requests/Responses
+logger.db('DB Query', query);              // Datenbankabfragen (Backend)
+logger.tick('Tick System', tickNumber);    // Tick-System (Backend)
+```
 
-- 10 columns × 10 rows
-- 3 distinct layers with visual separation:
-  - **ORBIT** (rows 0-1): Space stations, orbital facilities (SPACE fields)
-  - **SURFACE** (rows 2-7): Main buildings (LAND/WATER/MOUNTAIN fields)
-  - **UNDERGROUND** (rows 8-9): Resource mines (ROCK/CRYSTAL/METAL fields)
+**Hinweis:** Fehler (`logger.error()`) werden IMMER geloggt, unabhängig von DEBUG_LOGGING.
 
-### Building System
+## ⚙️ Spielmechaniken
 
-- `buildTime` in schema is in **MINUTES** (real-time, not ticks)
-- Construction starts on placement, calculates completion via timestamp
-- Frontend displays countdown timers in minutes/seconds
-- 50% refund on demolish/cancel
-- Energy-dependent activation with auto-deactivation when energy negative
+### Duales Zeitsystem
 
-### Building Times (Minutes)
+1. **Tick-System** (`tickSystem.ts`): Läuft alle 60 Sekunden
+   - Verarbeitet Ressourcenproduktion (Credits, Metall, Kristall)
+   - Prüft Energiebilanz und deaktiviert Gebäude automatisch bei negativer Bilanz
+   - Wird NICHT für Gebäudeabschluss verwendet
 
-- Command Center: 0 (instant, starter building)
-- Solar Plant, Warehouse: 5
-- Metal Mine: 10
-- Crystal Harvester, Trade Hub, Defense Grid: 15
-- Refinery: 18
-- Shipyard: 20
-- Research Lab: 25
+2. **Gebäudeabschluss-Service** (`buildingCompletionService.ts`): Läuft alle 10 Sekunden
+   - Prüft `constructionStartedAt + buildTime` (in MINUTEN)
+   - Echtzeit-Abschlusserkennung
+   - Sendet Socket.io `building:completed` Event
+
+3. **Schiffsbewegungsservice** (`shipMovementService.ts`): Läuft jede Sekunde
+   - Echtzeit-Schiffsbewegungsverarbeitung
+   - Energieverbrauch basierend auf Antriebseffizienz
+   - Schiffe stranden bei erschöpfter Energie
+   - Sendet `ship:moved`, `ship:arrived`, `ship:stranded` Events
+
+### Ressourcen & Wirtschaft
+
+- **Credits**: Hauptwährung, aus Kommandozentrale (100/Tick) und Handelszentrum (50/Tick)
+- **Metall**: Aus Metallmine (30/Tick), kostet 10 Energie
+- **Kristall**: Aus Kristallsammler (20/Tick), kostet 15 Energie
+- **Energie**: Aus Solarkraftwerk (50 Produktion), verbraucht von aktiven Gebäuden
+- **Lager**: Basis 1000, +500 pro Lager
+
+### Planetenlayout (STU-Style)
+
+- 10 Spalten × 10 Reihen
+- 3 unterschiedliche Ebenen mit visueller Trennung:
+  - **ORBIT** (Reihen 0-1): Raumstationen, orbitale Einrichtungen (SPACE Felder)
+  - **OBERFLÄCHE** (Reihen 2-7): Hauptgebäude (LAND/WASSER/BERG Felder)
+  - **UNTERGRUND** (Reihen 8-9): Ressourcenminen (ROCK/KRISTALL/METALL Felder)
+
+### Gebäudesystem
+
+- `buildTime` im Schema ist in **MINUTEN** (Echtzeit, nicht Ticks)
+- Konstruktion startet bei Platzierung, berechnet Fertigstellung via Zeitstempel
+- Frontend zeigt Countdown-Timer in Minuten/Sekunden
+- 50% Rückerstattung bei Abriss/Abbruch
+- Energieabhängige Aktivierung mit Auto-Deaktivierung bei negativer Energie
+
+### Bauzeiten (Minuten)
+
+- Kommandozentrale: 0 (sofort, Startgebäude)
+- Solarkraftwerk, Lager: 5
+- Metallmine: 10
+- Kristallsammler, Handelszentrum, Verteidigungsgitter: 15
+- Raffinerie: 18
+- Werft: 20
+- Forschungslabor: 25
 - Hangar: 12
 
-### Ship Navigation System
+### Schiffsnavigationssystem
 
-- **Dual Energy System**:
-  - `energyWeapons`: For combat (not yet implemented)
-  - `energyDrive`: For movement, consumed based on distance and efficiency
-- **Movement**:
-  - Real-time processing every 1 second
-  - Energy cost: `distance / driveEfficiency` per step
-  - Ships move 1 field/second toward destination
-  - Status: DOCKED (at planet), IN_FLIGHT (moving), STRANDED (no energy)
-- **Sensor View**:
-  - Fog of war based on `sensorRange`
-  - Grid size: `(sensorRange * 2 + 1) × (sensorRange * 2 + 1)`
-  - Shows visible sectors, systems, ships within range
-- **Energy Management**:
-  - Charge at docked planet (costs planet resources)
-  - Max capacity: `maxEnergyDrive` and `maxEnergyWeapons` per ship type
+- **Duales Energiesystem**:
+  - `energyWeapons`: Für Kampf (noch nicht implementiert)
+  - `energyDrive`: Für Bewegung, verbraucht basierend auf Entfernung und Effizienz
+- **Bewegung**:
+  - Echtzeit-Verarbeitung jede Sekunde
+  - Energiekosten: `Entfernung / Antriebseffizienz` pro Schritt
+  - Schiffe bewegen sich 1 Feld/Sekunde zum Ziel
+  - Status: GEDOCKT (am Planeten), IM_FLUG (bewegend), GESTRANDET (keine Energie)
+- **Sensoransicht**:
+  - Nebel des Krieges basierend auf `sensorRange`
+  - Gridgröße: `(sensorRange * 2 + 1) × (sensorRange * 2 + 1)`
+  - Zeigt sichtbare Sektoren, Systeme, Schiffe in Reichweite
+- **Energieverwaltung**:
+  - Aufladen am gedockten Planeten (kostet Planetenressourcen)
+  - Max. Kapazität: `maxEnergyDrive` und `maxEnergyWeapons` pro Schiffstyp
 
-## 🌌 Galaxy System
+## 🌌 Galaxiesystem
 
-### Hierarchy
+### Hierarchie
 
-1. **Galaxy**: 6×6 sectors (36 total)
-2. **Sector**: 20×20 fields each (120×120 galaxy grid)
-3. **System**: Between sector and planet (~8-16 per sector, ~450 total)
-4. **Planet**: 1-5 per system (~1360 total)
+1. **Galaxie**: 6×6 Sektoren (36 gesamt)
+2. **Sektor**: 20×20 Felder je (120×120 Galaxiegrid)
+3. **System**: Zwischen Sektor und Planet (~8-16 pro Sektor, ~450 gesamt)
+4. **Planet**: 1-5 pro System (~1360 gesamt)
 
-### System Types
+### Systemtypen
 
-- **SINGLE_STAR**: 90% (single star)
-- **BINARY_STAR**: 8% (binary system)
-- **NEUTRON_STAR**: 1.5% (neutron star)
-- **BLACK_HOLE**: 0.5% (black hole)
+- **EINZELSTERN**: 90% (einzelner Stern)
+- **DOPPELSTERN**: 8% (Binärsystem)
+- **NEUTRONENSTERN**: 1.5% (Neutronenstern)
+- **SCHWARZES_LOCH**: 0.5% (Schwarzes Loch)
 
-### Planet Generation
+### Planetengenerierung
 
-- Orbital positions with `orbitRadius` and `orbitAngle`
-- 6 start planets (3 per faction) with Command Center pre-built
-- System type influences planet count and properties
+- Orbitalpositionen mit `orbitRadius` und `orbitAngle`
+- 6 Startplaneten (3 pro Fraktion) mit vorgebauter Kommandozentrale
+- Systemtyp beeinflusst Planetenanzahl und -eigenschaften
 
 ### Navigation
 
-- Galaxy → Sector → System → Planet
-- System view shows orbital planets around central star(s)
-- Click planet → Planet detail view (10×10 grid)
+- Galaxie → Sektor → System → Planet
+- Systemansicht zeigt orbitale Planeten um zentrale(n) Stern(e)
+- Klick auf Planet → Planetendetailansicht (10×10 Grid)
 
-## 🔬 Research System
+## 🔬 Forschungssystem
 
-### Level 0 (Starter Research)
+### Level 0 (Starter-Forschung)
 
-- No Research Labs required
-- Resource-based: `requiredMetalTotal`, `requiredCrystalTotal`, `requiredCreditsTotal`
-- Automatic progress via tick system
-- Unlocks basic buildings
+- Keine Forschungslabore erforderlich
+- Ressourcenbasiert: `requiredMetalTotal`, `requiredCrystalTotal`, `requiredCreditsTotal`
+- Automatischer Fortschritt via Tick-System
+- Schaltet Basisgebäude frei
 
-### Level 1-3 (Advanced Research)
+### Level 1-3 (Erweiterte Forschung)
 
-- Requires Research Labs
-- Research Points-based: `requiredResearchPoints`
-- Prerequisites: Dependencies on other research
-- Unlocks advanced buildings and ships
+- Erfordert Forschungslabore
+- Forschungspunkte-basiert: `requiredResearchPoints`
+- Voraussetzungen: Abhängigkeiten von anderer Forschung
+- Schaltet erweiterte Gebäude und Schiffe frei
 
-### Categories
+### Kategorien
 
-- **Military**: Weapons, shields, ship technologies
-- **Economy**: Resource efficiency, trade
-- **Energy**: Power plants, energy storage
-- **Science**: Research speed, new technologies
+- **Militär**: Waffen, Schilde, Schiffstechnologien
+- **Wirtschaft**: Ressourceneffizienz, Handel
+- **Energie**: Kraftwerke, Energiespeicher
+- **Wissenschaft**: Forschungsgeschwindigkeit, neue Technologien
 
 ## 🔌 Socket.io Events
 
 ### Client → Server
 
-- `join:planet` - Join planet room
-- `leave:planet` - Leave planet room
+- `join:planet` - Planetenraum betreten
+- `leave:planet` - Planetenraum verlassen
 
 ### Server → Client
 
-- `building:completed` - Building construction finished
-- `resource:updated` - Resources changed (tick processing)
-- `energy:depleted` - Energy ran out
-- `tick:update` - Tick processed
-- `research:progress` - Research progress updated
-- `ship:built` - Ship construction completed
-- `ship:moved` - Ship position changed
-- `ship:arrived` - Ship reached destination
-- `ship:stranded` - Ship ran out of energy
+- `building:completed` - Gebäudekonstruktion abgeschlossen
+- `resource:updated` - Ressourcen geändert (Tick-Verarbeitung)
+- `energy:depleted` - Energie aufgebraucht
+- `tick:update` - Tick verarbeitet
+- `research:progress` - Forschungsfortschritt aktualisiert
+- `ship:built` - Schiffskonstruktion abgeschlossen
+- `ship:moved` - Schiffsposition geändert
+- `ship:arrived` - Schiff hat Ziel erreicht
+- `ship:stranded` - Schiff hat keine Energie mehr
+- `comnet:message` - Neue Comnet-Nachricht
+- `comnet:updated` - Comnet-Nachricht bearbeitet
 
-## 📝 Environment Variables
+## 📝 Umgebungsvariablen
 
 ### Backend (.env)
 
@@ -335,10 +430,10 @@ devenv up             # Start all services (PostgreSQL, Redis, backend, frontend
 NODE_ENV=development
 PORT=3000
 
-# Database (automatically managed by devenv)
+# Datenbank (automatisch von devenv verwaltet)
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/swu_game?schema=public"
 
-# Redis (automatically managed by devenv)
+# Redis (automatisch von devenv verwaltet)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
@@ -346,47 +441,67 @@ REDIS_PORT=6379
 JWT_SECRET=your-secret-key-change-in-production
 JWT_EXPIRES_IN=7d
 
-# Game Settings
-TICK_INTERVAL=60000  # 60 seconds in milliseconds
+# Spieleinstellungen
+TICK_INTERVAL=60000  # 60 Sekunden in Millisekunden
+
+# Logging (optional)
+DEBUG_LOGGING=true   # Aktiviert detailliertes Logging
 ```
 
-## 🗄 Database Schema
+### Frontend (.env.development)
 
-### Main Models
+```env
+VITE_API_URL=http://localhost:3000
+VITE_DEBUG_LOGGING=true  # Aktiviert Frontend-Logging
+```
 
-- **User & Player**: JWT auth, invite system, player profile with resources
-- **Faction**: Empire & Rebel Alliance
-- **Galaxy, Sector, System, Planet**: Hierarchical structure
-  - 6×6 sectors (36 total)
-  - 8-16 systems per sector (~450 total)
-  - 1-5 planets per system (~1360 total)
-  - Planets with `orbitRadius` and `orbitAngle`
-- **PlanetField**: 10×10 grid with 3 layers (ORBIT/SURFACE/UNDERGROUND)
-- **BuildingType & Building**: 11 building types with real-time construction progress
+## 🗄 Datenbankschema
+
+### Hauptmodelle
+
+- **User & Player**: JWT Auth, Invite-System, Spielerprofil mit Ressourcen
+- **Faction**: Imperium & Rebellenallianz
+- **Galaxy, Sector, System, Planet**: Hierarchische Struktur
+  - 6×6 Sektoren (36 gesamt)
+  - 8-16 Systeme pro Sektor (~450 gesamt)
+  - 1-5 Planeten pro System (~1360 gesamt)
+  - Planeten mit `orbitRadius` und `orbitAngle`
+- **PlanetField**: 10×10 Grid mit 3 Ebenen (ORBIT/OBERFLÄCHE/UNTERGRUND)
+- **BuildingType & Building**: 11 Gebäudetypen mit Echtzeit-Konstruktionsfortschritt
 - **ResearchType & PlayerResearch**:
-  - Level 0: Resource-based research (`requiredMetalTotal`, etc.)
-  - Level 1+: Research Points-based with prerequisites
-  - Unlocks buildings and ships
-- **Fleet, Ship, ShipType**: Fleet system with real-time navigation
-  - Dual energy system (weapons + drive)
-  - Status tracking (DOCKED/IN_FLIGHT/STRANDED)
-  - Sensor range and drive efficiency
-- **InviteCode**: Invite-based registration with creator tracking
+  - Level 0: Ressourcenbasierte Forschung (`requiredMetalTotal`, etc.)
+  - Level 1+: Forschungspunkte-basiert mit Voraussetzungen
+  - Schaltet Gebäude und Schiffe frei
+- **Fleet, Ship, ShipType**: Flottensystem mit Echtzeit-Navigation
+  - Duales Energiesystem (Waffen + Antrieb)
+  - Statusverfolgung (GEDOCKT/IM_FLUG/GESTRANDET)
+  - Sensorreichweite und Antriebseffizienz
+- **InviteCode**: Invite-basierte Registrierung mit Creator-Tracking
+- **ComnetMessage**: RP-Forum mit Titel (optional), Nachricht, Bearbeitungshistorie
 
-### Key Features
+### Hauptmerkmale
 
-- **System**: Between Sector and Planet, with `systemType` (SINGLE_STAR, BINARY_STAR, etc.)
-- **Planet**: Has `systemId` instead of direct `sectorId`, with orbital parameters
-- **fieldLayer**: ORBIT, SURFACE, UNDERGROUND
-- **fieldType**: SPACE (orbit), LAND/WATER/MOUNTAIN (surface), ROCK/CRYSTAL/METAL (underground)
-- **constructionStartedAt**: Timestamp for real-time building progress
-- **storageCapacity**: Resource limit, expandable with Warehouse
-- **Ship navigation**: `currentGalaxyX/Y`, `currentSystemX/Y`, `destinationGalaxyX/Y`, energy systems
+- **System**: Zwischen Sektor und Planet, mit `systemType` (EINZELSTERN, DOPPELSTERN, etc.)
+- **Planet**: Hat `systemId` statt direktem `sectorId`, mit Orbitalparametern
+- **fieldLayer**: ORBIT, OBERFLÄCHE, UNTERGRUND
+- **fieldType**: SPACE (Orbit), LAND/WASSER/BERG (Oberfläche), ROCK/KRISTALL/METALL (Untergrund)
+- **constructionStartedAt**: Zeitstempel für Echtzeit-Gebäudefortschritt
+- **storageCapacity**: Ressourcenlimit, erweiterbar mit Lager
+- **Ship Navigation**: `currentGalaxyX/Y`, `currentSystemX/Y`, `destinationGalaxyX/Y`, Energiesysteme
+- **ComnetMessage**: `title`, `message`, `createdAt`, `updatedAt` für Bearbeitungsverfolgung
 
-## 📝 License
+## � Dokumentation
+
+- **[README.md](README.md)** - Diese Datei (Projekt-Übersicht, Development)
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production Deployment auf VPS/Server
+- **[CADDY.md](CADDY.md)** - Reverse Proxy mit automatischem HTTPS
+- **[DOCKER_FILES.md](DOCKER_FILES.md)** - Übersicht aller Docker/Config-Dateien
+- **[NOTES.md](NOTES.md)** - Entwickler-Notizen und TODOs
+
+## �📝 License
 
 MIT
 
-## 👥 Author
+## 👥 Autor
 
-Developed with ❤️ for Star Wars fans
+Entwickelt mit ❤️ für Star Wars Fans
