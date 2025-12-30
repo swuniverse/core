@@ -38,6 +38,10 @@ export default function Layout() {
                   <Users size={18} />
                   Schiffe
                 </Link>
+                <Link to="/comnet" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
+                  <Radio size={18} />
+                  Comnet
+                </Link>
                 <Link to="/research" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
                   <FlaskConical size={18} />
                   Forschung
@@ -45,10 +49,6 @@ export default function Layout() {
                 <Link to="/galaxy" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
                   <Map size={18} />
                   Galaxie
-                </Link>
-                <Link to="/comnet" className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-2 rounded-md">
-                  <Radio size={18} />
-                  Comnet
                 </Link>
               </div>
             </div>
@@ -115,6 +115,10 @@ export default function Layout() {
                 <Users size={20} />
                 Schiffe
               </Link>
+              <Link to="/comnet" className="flex items-center gap-3 text-white py-3 px-4 hover:bg-gray-700 rounded transition" onClick={() => setMobileMenuOpen(false)}>
+                <Radio size={20} />
+                Comnet
+              </Link>
               <Link to="/research" className="flex items-center gap-3 text-white py-3 px-4 hover:bg-gray-700 rounded transition" onClick={() => setMobileMenuOpen(false)}>
                 <FlaskConical size={20} />
                 Forschung
@@ -122,10 +126,6 @@ export default function Layout() {
               <Link to="/galaxy" className="flex items-center gap-3 text-white py-3 px-4 hover:bg-gray-700 rounded transition" onClick={() => setMobileMenuOpen(false)}>
                 <Map size={20} />
                 Galaxie
-              </Link>
-              <Link to="/comnet" className="flex items-center gap-3 text-white py-3 px-4 hover:bg-gray-700 rounded transition" onClick={() => setMobileMenuOpen(false)}>
-                <Radio size={20} />
-                Comnet
               </Link>
               <Link to="/settings" className="flex items-center gap-3 text-white py-3 px-4 hover:bg-gray-700 rounded transition" onClick={() => setMobileMenuOpen(false)}>
                 <Settings size={20} />

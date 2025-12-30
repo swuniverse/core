@@ -174,18 +174,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
     
     socket.on('connect', () => {
+      logger.socket('🔌 Socket connected - setting isConnected to true');
       set({ isConnected: true });
-      logger.socket('🔌 Connected to game server');
       
       // Join player room if user exists
-      if (user?.player) {
-        socket.emit('join:player', user.player.id);
+      const currentUser = get().user;
+      if (currentUser?.player) {
+        logger.socket(`📡 Joining player room: ${currentUser.player.id}`);
+        socket.emit('join:player', currentUser.player.id);
       }
     });
     
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
+      logger.socket(`🔌 Socket disconnected - reason: ${reason}`);
       set({ isConnected: false });
-      logger.socket('🔌 Disconnected from game server');
+    });
+    
+    socket.on('connect_error', (error) => {
+      logger.socket(`❌ Socket connection error: ${error.message}`);
+      set({ isConnected: false });
     });
     
     socket.on('tick:update', () => {

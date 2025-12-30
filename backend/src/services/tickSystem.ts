@@ -86,11 +86,16 @@ export class TickSystem {
       let energyProduction = 0;
       let energyConsumption = 0;
       let energyStorageCapacity = 1000; // Base capacity
+      let resourceStorageCapacity = 500; // Base from Command Center
 
-      // Calculate energy production, consumption and storage capacity
+      // Calculate energy production, consumption and storage capacities
       for (const building of planet.buildings) {
         energyProduction += building.buildingType.energyProduction * building.level;
-        energyStorageCapacity += building.buildingType.storageBonus * building.level;
+        // Energy storage grows with energy-producing buildings (simplified)
+        if (building.buildingType.energyProduction > 0) {
+          energyStorageCapacity += 100 * building.level;
+        }
+        resourceStorageCapacity += building.buildingType.storageBonus * building.level;
         
         // Only active buildings consume energy
         if (building.isActive) {
@@ -154,6 +159,7 @@ export class TickSystem {
         data: {
           energyStorage: newEnergyStorage,
           energyStorageCapacity: energyStorageCapacity,
+          storageCapacity: resourceStorageCapacity,
         },
       });
 
@@ -213,15 +219,50 @@ export class TickSystem {
         beskarProduction += building.buildingType.beskarProduction * building.level;
       }
 
-      // Cap resources at storage capacity
-      const newCredits = Math.min(planet.credits + creditProduction, planet.storageCapacity);
-      const newDurastahl = Math.min(planet.durastahl + durastahlProduction, planet.storageCapacity);
-      const newKristallinesSilizium = Math.min(planet.kristallinesSilizium + kristallinesSiliziumProduction, planet.storageCapacity);
-      const newTibannaGas = Math.min(planet.tibannaGas + tibannaGasProduction, planet.storageCapacity);
-      const newEnergiemodule = Math.min(planet.energiemodule + energiemoduleProduction, planet.storageCapacity);
-      const newKyberKristalle = Math.min(planet.kyberKristalle + kyberKristalleProduction, planet.storageCapacity);
-      const newBacta = Math.min(planet.bacta + bactaProduction, planet.storageCapacity);
-      const newBeskar = Math.min(planet.beskar + beskarProduction, planet.storageCapacity);
+      // Calculate current storage usage (all resources)
+      const currentStorage = planet.credits + planet.durastahl + planet.kristallinesSilizium + 
+                            planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + 
+                            planet.bacta + planet.beskar;
+      const availableStorage = planet.storageCapacity - currentStorage;
+
+      // All resources: Cap at storage limit
+      let creditGain = creditProduction;
+      let durastahlGain = durastahlProduction;
+      let kristallGain = kristallinesSiliziumProduction;
+      let tibannaGasGain = tibannaGasProduction;
+      let energiemoduleGain = energiemoduleProduction;
+      let kyberKristalleGain = kyberKristalleProduction;
+      let bactaGain = bactaProduction;
+      let beskarGain = beskarProduction;
+
+      // Distribute available storage proportionally if not enough space
+      const totalProduction = creditGain + durastahlGain + kristallGain + tibannaGasGain + 
+                              energiemoduleGain + kyberKristalleGain + bactaGain + beskarGain;
+      
+      if (totalProduction > availableStorage) {
+        if (totalProduction > 0) {
+          creditGain = Math.floor((creditGain / totalProduction) * availableStorage);
+          durastahlGain = Math.floor((durastahlGain / totalProduction) * availableStorage);
+          kristallGain = Math.floor((kristallGain / totalProduction) * availableStorage);
+          tibannaGasGain = Math.floor((tibannaGasGain / totalProduction) * availableStorage);
+          energiemoduleGain = Math.floor((energiemoduleGain / totalProduction) * availableStorage);
+          kyberKristalleGain = Math.floor((kyberKristalleGain / totalProduction) * availableStorage);
+          bactaGain = Math.floor((bactaGain / totalProduction) * availableStorage);
+          beskarGain = Math.floor((beskarGain / totalProduction) * availableStorage);
+        } else {
+          creditGain = durastahlGain = kristallGain = tibannaGasGain = 
+          energiemoduleGain = kyberKristalleGain = bactaGain = beskarGain = 0;
+        }
+      }
+
+      const newCredits = planet.credits + creditGain;
+      const newDurastahl = planet.durastahl + durastahlGain;
+      const newKristallinesSilizium = planet.kristallinesSilizium + kristallGain;
+      const newTibannaGas = planet.tibannaGas + tibannaGasGain;
+      const newEnergiemodule = planet.energiemodule + energiemoduleGain;
+      const newKyberKristalle = planet.kyberKristalle + kyberKristalleGain;
+      const newBacta = planet.bacta + bactaGain;
+      const newBeskar = planet.beskar + beskarGain;
 
       // Update planet resources
       await prisma.planet.update({
@@ -238,7 +279,8 @@ export class TickSystem {
         },
       });
       
-      console.log(`  Planet ${planet.name}: +${creditProduction} credits, +${durastahlProduction} durastahl, +${kristallinesSiliziumProduction} kristallines silizium (capped at ${planet.storageCapacity})`);
+      const finalStorage = currentStorage + creditGain + durastahlGain + kristallGain + tibannaGasGain + energiemoduleGain + kyberKristalleGain + bactaGain + beskarGain;
+      console.log(`  Planet ${planet.name}: +${creditGain}/${creditProduction} credits, +${durastahlGain}/${durastahlProduction} durastahl, +${kristallGain}/${kristallinesSiliziumProduction} kristall (${finalStorage}/${planet.storageCapacity} storage)`);
       
       // Notify player of resource update for this planet
       if (planet.playerId) {
@@ -262,6 +304,16 @@ export class TickSystem {
             kyberKristalle: kyberKristalleProduction,
             bacta: bactaProduction,
             beskar: beskarProduction,
+          },
+          gained: {
+            credits: creditGain,
+            durastahl: durastahlGain,
+            kristallinesSilizium: kristallGain,
+            tibannaGas: tibannaGasGain,
+            energiemodule: energiemoduleGain,
+            kyberKristalle: kyberKristalleGain,
+            bacta: bactaGain,
+            beskar: beskarGain,
           },
         });
       }

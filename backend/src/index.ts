@@ -27,10 +27,39 @@ dotenv.config();
 
 const app: Application = express();
 const httpServer = createServer(app);
+
+// Allow multiple origins for CORS (localhost + local network IPs)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/,  // Local network IPs
+  /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:5173$/,  // Alternative local network range
+];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin matches any allowed pattern
+      const isAllowed = allowedOrigins.some(allowed => {
+        if (typeof allowed === 'string') {
+          return origin === allowed;
+        } else {
+          return allowed.test(origin);
+        }
+      });
+      
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
@@ -41,7 +70,29 @@ let globalIo: Server;
 export const getIo = () => globalIo;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin matches any allowed pattern
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return origin === allowed;
+      } else {
+        return allowed.test(origin);
+      }
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // Health check

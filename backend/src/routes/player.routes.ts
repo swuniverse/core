@@ -76,7 +76,7 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
     const activeConstructions = await prisma.building.findMany({
       where: {
         planet: { playerId: user.player.id },
-        completedAt: null,
+        isActive: false,
       },
       include: {
         buildingType: true,
@@ -89,6 +89,14 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
       },
       orderBy: { constructionStartedAt: 'asc' },
     });
+
+    console.log('Active constructions found:', activeConstructions.length);
+    console.log('Active constructions:', activeConstructions.map(b => ({ 
+      id: b.id, 
+      name: b.buildingType.name, 
+      isActive: b.isActive,
+      planet: b.planet.name 
+    })));
 
     // Get active research
     const activeResearch = await prisma.playerResearch.findMany({
@@ -109,6 +117,8 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
       },
       orderBy: { startedAt: 'asc' },
     });
+
+    console.log('Active research found:', activeResearch.length);
 
     // Calculate total production across all planets
     let totalCredits = 0;

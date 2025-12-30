@@ -366,7 +366,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
         {/* Active Constructions */}
         <div className="bg-space-light p-6 rounded-lg border border-gray-700">
           <div className="flex items-center gap-2 mb-4">

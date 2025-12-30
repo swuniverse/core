@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, MapPin, Users, Zap, Trash2, Rocket } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Zap, Trash2, Rocket, X, Coins, Wrench, Gem, Factory, Clock, TrendingUp } from 'lucide-react';
 import api from '../lib/api';
 import BuildMenu from '../components/BuildMenu';
 import { useGameStore } from '../stores/gameStore';
@@ -111,6 +111,8 @@ const buildingColors: Record<string, string> = {
   'Hangar': 'bg-slate-600',
 };
 
+type LayerTab = 'orbit' | 'surface' | 'underground';
+
 export default function Planet() {
   const { id } = useParams();
   const { socket } = useGameStore();
@@ -120,9 +122,11 @@ export default function Planet() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [demolishing, setDemolishing] = useState(false);
-  const [, setTick] = useState(0); // Force re-render for timer updates
+  const [, setTick] = useState(0);
   const [editingName, setEditingName] = useState(false);
   const [newPlanetName, setNewPlanetName] = useState('');
+  const [activeTab, setActiveTab] = useState<LayerTab>('surface');
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
 
   const loadPlanet = useCallback(async () => {
     try {
@@ -139,7 +143,6 @@ export default function Planet() {
     loadPlanet();
   }, [loadPlanet]);
 
-  // Update timer every second for construction progress
   useEffect(() => {
     const interval = setInterval(() => {
       setTick(t => t + 1);
@@ -147,13 +150,11 @@ export default function Planet() {
     return () => clearInterval(interval);
   }, []);
 
-  // Listen for building completion events
   useEffect(() => {
     if (!socket || !id) return;
 
     const handleBuildingCompleted = (data: any) => {
       logger.socket('Building completed event:', data);
-      // Reload planet if this building belongs to our planet
       if (data.planetId === parseInt(id)) {
         logger.info('Reloading planet after building completion');
         loadPlanet();
@@ -162,7 +163,6 @@ export default function Planet() {
 
     const handleResourcesUpdated = (data: any) => {
       logger.socket('Resources updated event:', data);
-      // Update planet resources in real-time if this is our planet
       if (data.planetId === parseInt(id)) {
         setPlanet(prev => prev ? {
           ...prev,
@@ -188,7 +188,7 @@ export default function Planet() {
   }, [socket, id, loadPlanet]);
 
   const demolishBuilding = async (buildingId: number) => {
-    if (!confirm('Demolish this building? You will receive 50% of the build costs back.')) {
+    if (!confirm('Gebäude abreißen? Du erhältst 50% der Baukosten zurück.')) {
       return;
     }
 
@@ -197,6 +197,7 @@ export default function Planet() {
       const response = await api.delete(`/planet/${id}/building/${buildingId}`);
       alert(`Gebäude abgerissen! Rückerstattung: ${response.data.refund.credits} Credits, ${response.data.refund.durastahl} Durastahl, ${response.data.refund.kristallinesSilizium} Kristallines Silizium`);
       setSelectedField(null);
+      setShowBottomSheet(false);
       await loadPlanet();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to demolish building');
@@ -252,24 +253,287 @@ export default function Planet() {
     }
   }
 
+  // Get layers for tab navigation
+  const orbitFields = grid.slice(0, 2);
+  const surfaceFields = grid.slice(2, 8);
+  const undergroundFields = grid.slice(8, 10);
+
+  const handleFieldClick = (field: PlanetField) => {
+    setSelectedField(field);
+    // Mobile: open bottom sheet
+    if (window.innerWidth < 768) {
+      setShowBottomSheet(true);
+    }
+  };
+
+  const closeBottomSheet = () => {
+    setShowBottomSheet(false);
+    setShowBuildMenu(false);
+  };
+
+  const renderGrid = (fields: PlanetField[][], layerName: string, layerColor: string) => {
+    return (
+      <div className="inline-block border rounded-sm" style={{ borderColor: layerColor }}>
+        <div className="text-sm px-2 py-1 font-semibold" style={{ color: layerColor, backgroundColor: `${layerColor}20` }}>
+          {layerName}
+        </div>
+        {fields.map((row, y) => (
+          <div key={y} className="flex">
+            {row.map((field, x) => (
+              <button
+                key={`${x}-${y}`}
+                onClick={() => handleFieldClick(field)}
+                className={`
+                  w-[44px] h-[44px] md:w-[50px] md:h-[50px] border border-gray-800/30 relative
+                  transition-all duration-200 touch-manipulation
+                  ${selectedField?.id === field.id ? 'ring-2 ring-yellow-400 scale-105' : ''}
+                  ${field.building 
+                    ? buildingColors[field.building.buildingType.name] || 'bg-gray-500'
+                    : fieldTypeColors[field.fieldType]
+                  }
+                `}
+                title={field.building 
+                  ? `${field.building.buildingType.name} (Lvl ${field.building.level})`
+                  : field.fieldType
+                }
+              >
+                {field.building && field.building.isActive && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
+                      {field.building.level}
+                    </div>
+                  </div>
+                )}
+                {!field.building?.isActive && field.building && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderBuildingDetails = () => {
+    if (!selectedField) return null;
+
+    if (!selectedField.building) {
+      return (
+        <div className="space-y-4">
+          <div className="text-xs md:text-sm">
+            <p className="text-gray-400">Geländetyp</p>
+            <p className="text-white">{selectedField.fieldType}</p>
+          </div>
+          <button
+            onClick={() => setShowBuildMenu(true)}
+            className="w-full bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded transition flex items-center justify-center gap-2"
+          >
+            <Factory size={18} />
+            Gebäude errichten
+          </button>
+        </div>
+      );
+    }
+
+    const building = selectedField.building;
+    const startTime = new Date(building.constructionStartedAt).getTime();
+    const totalBuildTime = building.buildingType.buildTime * 60 * 1000;
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, totalBuildTime - elapsed);
+    const progress = Math.min(100, (elapsed / totalBuildTime) * 100);
+    const remainingMinutes = Math.ceil(remaining / 60000);
+    const remainingSeconds = Math.ceil(remaining / 1000);
+
+    return (
+      <div className="space-y-3">
+        <div className="text-xs md:text-sm">
+          <p className="text-gray-400">Gebäude</p>
+          <p className="text-white font-semibold text-base md:text-lg">{building.buildingType.name}</p>
+          <p className="text-gray-400 mt-1 text-xs">{building.buildingType.description}</p>
+        </div>
+
+        <div className="flex justify-between text-xs md:text-sm">
+          <span className="text-gray-400">Level</span>
+          <span className="text-white font-semibold">{building.level}</span>
+        </div>
+
+        <div className="flex justify-between text-xs md:text-sm">
+          <span className="text-gray-400">Status</span>
+          <span className={`font-semibold ${building.isActive ? 'text-green-400' : 'text-yellow-400'}`}>
+            {building.isActive ? 'Aktiv' : 'Im Bau'}
+          </span>
+        </div>
+
+        {!building.isActive && !building.completedAt && (
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded p-2">
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-yellow-400">Fortschritt</span>
+              <span className="text-yellow-400">{Math.round(progress)}%</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2 mb-1">
+              <div 
+                className="bg-yellow-500 h-2 rounded-full transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="text-xs text-yellow-400">
+              {remainingMinutes > 0 
+                ? `Noch ${remainingMinutes} Min ${remainingSeconds % 60} Sek`
+                : `Noch ${remainingSeconds} Sek`
+              }
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => demolishBuilding(building.id)}
+            disabled={demolishing}
+            className="flex-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 text-white px-3 py-2 rounded transition flex items-center justify-center gap-2 text-sm"
+          >
+            <Trash2 size={16} />
+            Abreißen
+          </button>
+        </div>
+
+        {building.buildingType.energyCostPerTick > 0 && (
+          <div className="bg-gray-800/50 border border-gray-700 rounded p-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400 flex items-center gap-1">
+                <Zap size={14} className="text-yellow-500" />
+                Energieverbrauch
+              </span>
+              <span className="text-red-400">-{building.buildingType.energyCostPerTick}/Tick</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPlanetDashboard = () => (
+    <div className="space-y-4 transition-all duration-300">
+      <h3 className="text-white font-semibold text-lg flex items-center gap-2">
+        <TrendingUp size={20} />
+        Planeten-Dashboard
+      </h3>
+      
+      {/* Resource Production Overview */}
+      <div className="bg-gray-800/50 border border-gray-700 rounded p-3">
+        <h4 className="text-gray-300 font-semibold mb-2 text-sm">Produktion pro Runde</h4>
+        <div className="space-y-2">
+          {planet.production && planet.production.credits > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-300 flex items-center gap-2">
+                <Coins size={14} className="text-yellow-400" />
+                Credits
+              </span>
+              <span className="text-green-400 font-mono">+{planet.production.credits}</span>
+            </div>
+          )}
+          {planet.production && planet.production.durastahl > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-300 flex items-center gap-2">
+                <Wrench size={14} className="text-gray-400" />
+                Durastahl
+              </span>
+              <span className="text-green-400 font-mono">+{planet.production.durastahl}</span>
+            </div>
+          )}
+          {planet.production && planet.production.kristallinesSilizium > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-300 flex items-center gap-2">
+                <Gem size={14} className="text-purple-400" />
+                Kristallines Silizium
+              </span>
+              <span className="text-green-400 font-mono">+{planet.production.kristallinesSilizium}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Build Queue */}
+      <div className="bg-gray-800/50 border border-gray-700 rounded p-3">
+        <h4 className="text-gray-300 font-semibold mb-2 text-sm flex items-center gap-2">
+          <Clock size={14} />
+          Bau-Queue
+        </h4>
+        {planet.buildings.filter(b => !b.isActive).length > 0 ? (
+          <div className="space-y-2">
+            {planet.buildings
+              .filter(b => !b.isActive)
+              .map(building => {
+                const startTime = new Date(building.constructionStartedAt).getTime();
+                const totalBuildTime = building.buildingType.buildTime * 60 * 1000;
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, totalBuildTime - elapsed);
+                const progress = Math.min(100, (elapsed / totalBuildTime) * 100);
+                const remainingMinutes = Math.ceil(remaining / 60000);
+
+                return (
+                  <div key={building.id} className="bg-gray-900/50 border border-gray-600 rounded p-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-white text-sm font-medium">{building.buildingType.name}</span>
+                      <span className="text-yellow-400 text-xs">{remainingMinutes} Min</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-1.5">
+                      <div 
+                        className="bg-yellow-500 h-1.5 rounded-full transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        ) : (
+          <p className="text-gray-400 text-sm">Keine Gebäude im Bau</p>
+        )}
+      </div>
+
+      {/* Building Statistics */}
+      <div className="bg-gray-800/50 border border-gray-700 rounded p-3">
+        <h4 className="text-gray-300 font-semibold mb-2 text-sm">Gebäude-Statistik</h4>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-gray-700/50 p-2 rounded">
+            <p className="text-white font-bold text-lg">{planet.buildings.length}</p>
+            <p className="text-gray-400 text-xs">Gesamt</p>
+          </div>
+          <div className="bg-gray-700/50 p-2 rounded">
+            <p className="text-green-400 font-bold text-lg">{planet.buildings.filter(b => b.isActive).length}</p>
+            <p className="text-gray-400 text-xs">Aktiv</p>
+          </div>
+          <div className="bg-gray-700/50 p-2 rounded">
+            <p className="text-yellow-400 font-bold text-lg">{planet.buildings.filter(b => !b.isActive).length}</p>
+            <p className="text-gray-400 text-xs">Im Bau</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div>
+    <div className="pb-20 md:pb-0">
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <Link to="/" className="text-gray-400 hover:text-white inline-flex items-center gap-2">
+          <Link to="/" className="text-gray-400 hover:text-white inline-flex items-center gap-2 text-sm md:text-base">
             <ArrowLeft size={20} />
-            Zurück zum Dashboard
+            <span className="hidden sm:inline">Zurück zum Dashboard</span>
+            <span className="sm:hidden">Zurück</span>
           </Link>
           
-          {/* Check if planet has active shipyard */}
           {planet.buildings.some(b => b.buildingType.name === 'Raumschiffwerft' && b.isActive) && (
             <Link
               to={`/shipyard/${planet.id}`}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded flex items-center gap-2 transition"
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 md:px-4 rounded flex items-center gap-2 transition text-sm"
             >
-              <Rocket size={18} />
-              Zur Raumschiffwerft
+              <Rocket size={16} />
+              <span className="hidden sm:inline">Zur Raumschiffwerft</span>
+              <span className="sm:hidden">Werft</span>
             </Link>
           )}
         </div>
@@ -284,18 +548,18 @@ export default function Planet() {
                 onChange={(e) => setNewPlanetName(e.target.value)}
                 onBlur={renamePlanet}
                 onKeyDown={(e) => e.key === 'Enter' && renamePlanet()}
-                className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white text-2xl font-bold focus:outline-none focus:border-rebel"
+                className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white text-xl md:text-2xl font-bold focus:outline-none focus:border-rebel"
                 autoFocus
               />
             </div>
           ) : (
             <h1 
-              className="text-3xl font-bold text-white mb-2 cursor-pointer hover:text-rebel transition"
+              className="text-2xl md:text-3xl font-bold text-white mb-2 cursor-pointer hover:text-rebel transition"
               onClick={() => {
                 setNewPlanetName(planet.name);
                 setEditingName(true);
               }}
-              title="Click to rename planet"
+              title="Klicken zum Umbenennen"
             >
               {planet.name}
             </h1>
@@ -303,14 +567,44 @@ export default function Planet() {
         </div>
       </div>
 
-      {/* STU-Style Compact Energy Bar at Top */}
-      <div className="mb-4 bg-space-light border border-gray-700 rounded p-2">
+      {/* Desktop: Storage Bar */}
+      <div className="hidden md:block mb-4 bg-space-light border border-gray-700 rounded p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-white text-sm">
+            Lager: <span className="font-mono font-bold">{(planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar).toLocaleString()}/{planet.storageCapacity.toLocaleString()}</span>
+          </div>
+          <div className={`text-sm font-bold ${
+            ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 0.9
+              ? 'text-green-400' 
+              : ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 1
+              ? 'text-yellow-400'
+              : 'text-red-400'
+          }`}>
+            {Math.round(((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) * 100)}%
+          </div>
+        </div>
+        <div className="bg-gray-900 rounded-full h-2 mt-2">
+          <div 
+            className={`h-2 rounded-full transition-all duration-500 ${
+              ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 0.9
+                ? 'bg-green-500' 
+                : ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 1
+                ? 'bg-yellow-500'
+                : 'bg-red-500'
+            }`}
+            style={{ width: `${planet.storageCapacity > 0 ? Math.max(0, Math.min(((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) * 100, 100)) : 0}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Desktop: Energy Bar */}
+      <div className="hidden md:block mb-4 bg-space-light border border-gray-700 rounded p-3">
         <div className="flex items-center justify-between">
           <div className="text-white text-sm">
             Energie: <span className="font-mono font-bold">{planet.energyStorage}/{planet.energyStorageCapacity}</span>
             {planet.production && (planet.production as any).energyProduction && (planet.production as any).energyConsumption && (
-              <span className="text-gray-400 ml-1">
-                ({((planet.production as any).energyProduction - (planet.production as any).energyConsumption) >= 0 ? '+' : ''}{(planet.production as any).energyProduction - (planet.production as any).energyConsumption}/Runde = {planet.energyStorage + ((planet.production as any).energyProduction - (planet.production as any).energyConsumption)})
+              <span className="text-gray-400 ml-2">
+                ({((planet.production as any).energyProduction - (planet.production as any).energyConsumption) >= 0 ? '+' : ''}{(planet.production as any).energyProduction - (planet.production as any).energyConsumption}/Runde)
               </span>
             )}
           </div>
@@ -325,456 +619,264 @@ export default function Planet() {
             }
           </div>
         </div>
-        <div className="bg-gray-900 rounded h-1.5 mt-1">
+        <div className="bg-gray-900 rounded-full h-2 mt-2">
           <div 
-            className="h-1.5 rounded bg-yellow-500 transition-all"
+            className="h-2 rounded-full bg-yellow-500 transition-all duration-500"
             style={{ width: `${planet.energyStorageCapacity > 0 ? Math.max(0, Math.min((planet.energyStorage / planet.energyStorageCapacity) * 100, 100)) : 0}%` }}
           />
         </div>
       </div>
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Planet Grid + Resources - Left Side */}
-        <div className="lg:col-span-3">
-          <div className="bg-space-light p-4 rounded-lg border border-gray-700">
-            <div className="flex items-start gap-4">
-              <div className="flex-1">
-                {/* Grid - STU Style Compact */}
-                <div className="space-y-0.5">
-                  {/* ORBIT Layer (rows 0-1) - STU Style */}
-                  <div className="inline-block border border-blue-500/50 rounded-sm bg-blue-900/20">
-                    <div className="text-sm text-blue-400 px-2 py-1 font-semibold bg-blue-900/40">ORBIT</div>
-                    {grid.slice(0, 2).map((row, y) => (
-                      <div key={y} className="flex">
-                        {row.map((field, x) => (
-                          <button
-                            key={`${x}-${y}`}
-                            onClick={() => setSelectedField(field)}
-                            className={`
-                              w-[50px] h-[50px] border border-gray-800/30 relative
-                              transition-all duration-150
-                              ${selectedField?.id === field.id ? 'ring-1 ring-yellow-400' : ''}
-                              ${field.building 
-                                ? buildingColors[field.building.buildingType.name] || 'bg-gray-500'
-                                : fieldTypeColors[field.fieldType]
-                              }
-                            `}
-                            title={field.building 
-                              ? `${field.building.buildingType.name} (Lvl ${field.building.level})`
-                              : field.fieldType
-                            }
-                          >
-                            {field.building && field.building.isActive && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
-                                  {field.building.level}
-                                </div>
-                              </div>
-                            )}
-                            {!field.building?.isActive && field.building && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+      {/* Desktop Layout */}
+      <div className="hidden md:grid md:grid-cols-12 gap-4">
+        {/* Left: Grid */}
+        <div className="col-span-8">
+          <div className="bg-space-light p-6 rounded-lg border border-gray-700">
+            {/* Centered Grid with fixed aspect ratio */}
+            <div className="flex justify-center">
+              <div className="space-y-1">
+                {renderGrid(orbitFields, 'ORBIT', '#3b82f6')}
+                {renderGrid(surfaceFields, 'OBERFLÄCHE', '#10b981')}
+                {renderGrid(undergroundFields, 'UNTERGRUND', '#8b5cf6')}
+              </div>
+            </div>
+          </div>
 
-                  {/* SURFACE Layer (rows 2-7) - STU Style */}
-                  <div className="inline-block border border-green-500/50 rounded-sm bg-green-900/20">
-                    <div className="text-sm text-green-400 px-2 py-1 font-semibold bg-green-900/40">OBERFLÄCHE</div>
-                    {grid.slice(2, 8).map((row, y) => (
-                      <div key={y + 2} className="flex">
-                        {row.map((field, x) => (
-                          <button
-                            key={`${x}-${y + 2}`}
-                            onClick={() => setSelectedField(field)}
-                            className={`
-                              w-[50px] h-[50px] border border-gray-800/30 relative
-                              transition-all duration-150
-                              ${selectedField?.id === field.id ? 'ring-1 ring-yellow-400' : ''}
-                              ${field.building 
-                                ? buildingColors[field.building.buildingType.name] || 'bg-gray-500'
-                                : fieldTypeColors[field.fieldType]
-                              }
-                            `}
-                            title={field.building 
-                              ? `${field.building.buildingType.name} (Lvl ${field.building.level})`
-                              : field.fieldType
-                            }
-                          >
-                            {field.building && field.building.isActive && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
-                                  {field.building.level}
-                                </div>
-                              </div>
-                            )}
-                            {!field.building?.isActive && field.building && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* UNDERGROUND Layer (rows 8-9) - STU Style */}
-                  <div className="inline-block border border-amber-500/50 rounded-sm bg-amber-900/20">
-                    <div className="text-sm text-amber-400 px-2 py-1 font-semibold bg-amber-900/40">UNTERGRUND</div>
-                    {grid.slice(8, 10).map((row, y) => (
-                      <div key={y + 8} className="flex">
-                        {row.map((field, x) => (
-                          <button
-                            key={`${x}-${y + 8}`}
-                            onClick={() => setSelectedField(field)}
-                            className={`
-                              w-[50px] h-[50px] border border-gray-800/30 relative
-                              transition-all duration-150
-                              ${selectedField?.id === field.id ? 'ring-1 ring-yellow-400' : ''}
-                              ${field.building 
-                                ? buildingColors[field.building.buildingType.name] || 'bg-gray-500'
-                                : fieldTypeColors[field.fieldType]
-                              }
-                            `}
-                            title={field.building 
-                              ? `${field.building.buildingType.name} (Lvl ${field.building.level})`
-                              : field.fieldType
-                            }
-                          >
-                            {field.building && field.building.isActive && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-sm font-bold bg-black/60 rounded-sm px-1.5">
-                                  {field.building.level}
-                                </div>
-                              </div>
-                            )}
-                            {!field.building?.isActive && field.building && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* STU-Style Resources (Lager) below grid */}
-                <div className="mt-4 p-4 bg-gray-900/50 border border-gray-700 rounded">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white text-base">
-                      Lager: <span className="font-mono">{(planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas).toLocaleString()}/{planet.storageCapacity.toLocaleString()}</span>
-                      <span className="text-gray-400 ml-1">
-                        ({Math.round(((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas) / planet.storageCapacity) * 100)}%)
-                      </span>
-                    </span>
-                    {planet.production && (
-                      <span className="text-green-400 text-base">
-                        +{(planet.production.credits + planet.production.durastahl + planet.production.kristallinesSilizium + planet.production.tibannaGas)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-y-1.5 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 flex items-center gap-1">
-                        <span className="text-yellow-400">💰</span> Credits
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-mono">{planet.credits.toLocaleString()}</span>
-                        {planet.production && planet.production.credits > 0 && (
-                          <span className="text-green-400">+{planet.production.credits}</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 flex items-center gap-1">
-                        <span className="text-gray-400">⚙️</span> Durastahl
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-mono">{planet.durastahl.toLocaleString()}</span>
-                        {planet.production && planet.production.durastahl > 0 && (
-                          <span className="text-green-400">+{planet.production.durastahl}</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 flex items-center gap-1">
-                        <span className="text-purple-400">💎</span> Kristallines Silizium
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-mono">{planet.kristallinesSilizium.toLocaleString()}</span>
-                        {planet.production && planet.production.kristallinesSilizium > 0 && (
-                          <span className="text-green-400">+{planet.production.kristallinesSilizium}</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300 flex items-center gap-1">
-                        <span className="text-blue-400">☁️</span> Tibanna Gas
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-mono">{planet.tibannaGas.toLocaleString()}</span>
-                        {planet.production && planet.production.tibannaGas > 0 && (
-                          <span className="text-green-400">+{planet.production.tibannaGas}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+          {/* Desktop Resources Display */}
+          <div className="mt-4 bg-space-light p-4 rounded-lg border border-gray-700">
+            <h3 className="text-white font-semibold mb-3">Ressourcen</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300 flex items-center gap-2">
+                  <Coins size={18} className="text-yellow-400" />
+                  Credits
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-mono">{planet.credits.toLocaleString()}</span>
+                  {planet.production && planet.production.credits > 0 && (
+                    <span className="text-green-400 text-sm">+{planet.production.credits}</span>
+                  )}
                 </div>
               </div>
 
-              {/* Field Details - Right Side (compact) */}
-              <div className="w-72 bg-gray-900/50 border border-gray-700 rounded p-4 flex-shrink-0">
-                {selectedField ? (
-                  <>
-                    <h3 className="text-white font-semibold mb-3 text-sm">Ausgewähltes Feld</h3>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300 flex items-center gap-2">
+                  <Wrench size={18} className="text-gray-400" />
+                  Durastahl
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-mono">{planet.durastahl.toLocaleString()}</span>
+                  {planet.production && planet.production.durastahl > 0 && (
+                    <span className="text-green-400 text-sm">+{planet.production.durastahl}</span>
+                  )}
+                </div>
+              </div>
 
-                    <div className="space-y-2.5">
-                      <div className="text-xs">
-                        <p className="text-gray-400">Geländetyp</p>
-                        <p className="text-white">{selectedField.fieldType}</p>
-                      </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300 flex items-center gap-2">
+                  <Gem size={18} className="text-purple-400" />
+                  Kristallines Silizium
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-mono">{planet.kristallinesSilizium.toLocaleString()}</span>
+                  {planet.production && planet.production.kristallinesSilizium > 0 && (
+                    <span className="text-green-400 text-sm">+{planet.production.kristallinesSilizium}</span>
+                  )}
+                </div>
+              </div>
 
-                      {selectedField.building ? (
-                        <>
-                          <div className="text-xs">
-                            <p className="text-gray-400">Gebäude</p>
-                            <p className="text-white font-semibold">
-                              {selectedField.building.buildingType.name}
-                            </p>
-                            <p className="text-gray-400 mt-0.5">
-                              {selectedField.building.buildingType.description}
-                            </p>
-                          </div>
-
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-400">Level</span>
-                            <span className="text-white font-semibold">
-                              {selectedField.building.level}
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-400">Status</span>
-                            <span className={`font-semibold ${
-                              selectedField.building.isActive 
-                                ? 'text-green-400' 
-                                : 'text-yellow-400'
-                            }`}>
-                              {selectedField.building.isActive 
-                                ? 'Aktiv' 
-                                : 'Im Bau'
-                              }
-                            </span>
-                          </div>
-
-                          {!selectedField.building.isActive && !selectedField.building.completedAt && (
-                            <div className="bg-yellow-900/20 border border-yellow-700 rounded p-1.5">
-                              {(() => {
-                                const startTime = new Date(selectedField.building.constructionStartedAt).getTime();
-                                const totalBuildTime = selectedField.building.buildingType.buildTime * 60 * 1000;
-                                const elapsed = Date.now() - startTime;
-                                const remaining = Math.max(0, totalBuildTime - elapsed);
-                                const progress = Math.min(100, (elapsed / totalBuildTime) * 100);
-                                const remainingMinutes = Math.ceil(remaining / 60000);
-                                const remainingSeconds = Math.ceil(remaining / 1000);
-
-                                return (
-                                  <>
-                                    <div className="flex justify-between text-xs mb-1">
-                                      <span className="text-yellow-400">Fortschritt</span>
-                                      <span className="text-yellow-400">{Math.round(progress)}%</span>
-                                    </div>
-                                    <div className="w-full bg-gray-700 rounded-full h-1 mb-0.5">
-                                      <div 
-                                        className="bg-yellow-400 h-1 rounded-full transition-all"
-                                        style={{ width: `${progress}%` }}
-                                      />
-                                    </div>
-                                    <p className="text-yellow-300 text-xs">
-                                      ~{remainingMinutes > 0 ? `${remainingMinutes}m` : `${remainingSeconds}s`} verbleibend
-                                    </p>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
-
-                          {selectedField.building.buildingType.energyCostPerTick > 0 && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-400 flex items-center gap-0.5">
-                                <Zap size={10} />
-                                Energie
-                              </span>
-                              <span className="text-white">
-                                {selectedField.building.buildingType.energyCostPerTick}
-                              </span>
-                            </div>
-                          )}
-
-                          <button
-                            onClick={() => demolishBuilding(selectedField.building!.id)}
-                            disabled={demolishing}
-                            className="w-full bg-red-900 hover:bg-red-800 text-white py-2 px-3 rounded transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                          >
-                            <Trash2 size={12} />
-                            {demolishing ? 'Verarbeite...' : 
-                              selectedField.building.isActive ? 'Abreißen (50%)' : 'Abbrechen (50%)'}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-gray-400 text-xs">Kein Gebäude auf diesem Feld</p>
-                          {selectedField.fieldType === 'LAND' && (
-                            <button
-                              onClick={() => setShowBuildMenu(true)}
-                              className="w-full bg-rebel hover:bg-rebel-light text-white py-2 px-3 rounded transition text-xs"
-                            >
-                              Hier bauen
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center text-gray-400 py-4">
-                    <p className="text-xs">Wähle ein Feld aus</p>
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300 flex items-center gap-2">
+                  <span className="text-blue-400">☁️</span>
+                  Tibanna Gas
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-mono">{planet.tibannaGas.toLocaleString()}</span>
+                  {planet.production && planet.production.tibannaGas > 0 && (
+                    <span className="text-green-400 text-sm">+{planet.production.tibannaGas}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side - Planet Info & Effects */}
-        <div className="space-y-4">
-          {/* Planet Info Box */}
-          <div className="bg-space-light p-4 rounded-lg border border-gray-700">
-            <h3 className="text-white font-semibold mb-3 text-base">Planeteninformationen</h3>
-            <div className="space-y-2.5 text-sm">
-              <div>
-                <p className="text-gray-400">System-Koordinaten</p>
-                <p className="text-white font-mono flex items-center gap-1">
-                  <MapPin size={12} />
-                  {(planet.system.sector.x - 1) * 20 + planet.system.fieldX}|{(planet.system.sector.y - 1) * 20 + planet.system.fieldY}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400">Planet-Position</p>
-                <p className="text-white font-mono">
-                  {(() => {
-                    const systemCenter = 5;
-                    const angleRad = (planet.orbitAngle * Math.PI) / 180;
-                    const planetX = Math.round(systemCenter + planet.orbitRadius * Math.cos(angleRad));
-                    const planetY = Math.round(systemCenter + planet.orbitRadius * Math.sin(angleRad));
-                    return `${planetX}|${planetY}`;
-                  })()}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400">System</p>
-                <p className="text-white">{planet.system.name}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">Planetentyp</p>
-                <p className="text-white">{planet.planetType}</p>
-              </div>
-              {planet.player && (
-                <div>
-                  <p className="text-gray-400">Besitzer</p>
-                  <p className="text-white flex items-center gap-1">
-                    <Users size={12} />
-                    {planet.player.user.username}
-                  </p>
-                </div>
-              )}
-              <div className="pt-2 border-t border-gray-700">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-gray-700/50 p-1.5 rounded">
-                    <p className="text-white font-bold">{planet.buildings.length}</p>
-                    <p className="text-gray-400 text-xs">Gesamt</p>
-                  </div>
-                  <div className="bg-gray-700/50 p-1.5 rounded">
-                    <p className="text-green-400 font-bold">{planet.buildings.filter(b => b.isActive).length}</p>
-                    <p className="text-gray-400 text-xs">Aktiv</p>
-                  </div>
-                  <div className="bg-gray-700/50 p-1.5 rounded">
-                    <p className="text-yellow-400 font-bold">{planet.buildings.filter(b => !b.completedAt).length}</p>
-                    <p className="text-gray-400 text-xs">Im Bau</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* STU-Style Effects (Produktionsboni) */}
-          <div className="bg-space-light p-4 rounded-lg border border-gray-700">
-            <h3 className="text-white font-semibold mb-3 text-base">Effekte</h3>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-              {planet.production && planet.production.credits > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">💰 Credits</span>
-                  <span className="text-green-400">+{planet.production.credits}</span>
-                </div>
-              )}
-              {planet.production && planet.production.durastahl > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">⚙️ Durastahl</span>
-                  <span className="text-green-400">+{planet.production.durastahl}</span>
-                </div>
-              )}
-              {planet.production && planet.production.kristallinesSilizium > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">💎 Kristall</span>
-                  <span className="text-green-400">+{planet.production.kristallinesSilizium}</span>
-                </div>
-              )}
-              {planet.production && planet.production.tibannaGas > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">☁️ Tibanna</span>
-                  <span className="text-green-400">+{planet.production.tibannaGas}</span>
-                </div>
-              )}
-              {planet.production && (planet.production as any).energyProduction > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">⚡ Energie-Prod.</span>
-                  <span className="text-green-400">+{(planet.production as any).energyProduction}</span>
-                </div>
-              )}
-              {planet.production && (planet.production as any).energyConsumption > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">⚡ Energie-Konsum</span>
-                  <span className="text-red-400">-{(planet.production as any).energyConsumption}</span>
-                </div>
-              )}
-              {planet.buildings.some(b => b.buildingType.name === 'Handelsstation' && b.isActive) && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">🛒 Handelsbonus</span>
-                  <span className="text-green-400">+10%</span>
-                </div>
-              )}
-              {planet.buildings.some(b => b.buildingType.name === 'Forschungslabor' && b.isActive) && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300">🔬 Forschung</span>
-                  <span className="text-green-400">+{planet.buildings.filter(b => b.buildingType.name === 'Forschungslabor' && b.isActive).length * 2}</span>
-                </div>
-              )}
+        {/* Right: Dashboard or Building Details */}
+        <div className="col-span-4">
+          <div className="bg-space-light p-4 rounded-lg border border-gray-700 sticky top-4">
+            <div className="transition-all duration-300 ease-in-out">
+              {selectedField ? renderBuildingDetails() : renderPlanetDashboard()}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Layout */}
+      <div className="md:hidden">
+        {/* Tab Navigation */}
+        <div className="bg-space-light border border-gray-700 rounded-t-lg overflow-hidden">
+          <div className="flex border-b border-gray-700">
+            <button
+              onClick={() => setActiveTab('orbit')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'orbit' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}
+            >
+              Orbit
+            </button>
+            <button
+              onClick={() => setActiveTab('surface')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'surface' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}
+            >
+              Oberfläche
+            </button>
+            <button
+              onClick={() => setActiveTab('underground')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'underground' 
+                  ? 'bg-purple-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}
+            >
+              Untergrund
+            </button>
+          </div>
+        </div>
+
+        {/* Grid Display (based on active tab) */}
+        <div className="bg-space-light p-4 rounded-b-lg border-x border-b border-gray-700">
+          <div className="flex justify-center overflow-x-auto">
+            {activeTab === 'orbit' && renderGrid(orbitFields, 'ORBIT', '#3b82f6')}
+            {activeTab === 'surface' && renderGrid(surfaceFields, 'OBERFLÄCHE', '#10b981')}
+            {activeTab === 'underground' && renderGrid(undergroundFields, 'UNTERGRUND', '#8b5cf6')}
+          </div>
+        </div>
+
+        {/* Mobile: Storage Bar */}
+        <div className="mt-4 bg-space-light border border-gray-700 rounded p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-white text-sm">
+              Lager: <span className="font-mono font-bold">{(planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar).toLocaleString()}/{planet.storageCapacity.toLocaleString()}</span>
+            </div>
+            <div className={`text-sm font-bold ${
+              ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 0.9
+                ? 'text-green-400' 
+                : ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 1
+                ? 'text-yellow-400'
+                : 'text-red-400'
+            }`}>
+              {Math.round(((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) * 100)}%
+            </div>
+          </div>
+          <div className="bg-gray-900 rounded-full h-2 mt-2">
+            <div 
+              className={`h-2 rounded-full transition-all duration-500 ${
+                ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 0.9
+                  ? 'bg-green-500' 
+                  : ((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) < 1
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
+              }`}
+              style={{ width: `${planet.storageCapacity > 0 ? Math.max(0, Math.min(((planet.credits + planet.durastahl + planet.kristallinesSilizium + planet.tibannaGas + planet.energiemodule + planet.kyberKristalle + planet.bacta + planet.beskar) / planet.storageCapacity) * 100, 100)) : 0}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Resource Cards */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="bg-space-light border border-gray-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Coins size={18} className="text-yellow-400" />
+              <span className="text-gray-400 text-xs font-medium">Credits</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-mono font-bold text-lg">{planet.credits.toLocaleString()}</span>
+              {planet.production && planet.production.credits > 0 && (
+                <span className="text-green-400 text-xs font-semibold">+{planet.production.credits}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-space-light border border-gray-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Wrench size={18} className="text-gray-400" />
+              <span className="text-gray-400 text-xs font-medium">Durastahl</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-mono font-bold text-lg">{planet.durastahl.toLocaleString()}</span>
+              {planet.production && planet.production.durastahl > 0 && (
+                <span className="text-green-400 text-xs font-semibold">+{planet.production.durastahl}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-space-light border border-gray-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Gem size={18} className="text-purple-400" />
+              <span className="text-gray-400 text-xs font-medium">Kristall</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-mono font-bold text-lg">{planet.kristallinesSilizium.toLocaleString()}</span>
+              {planet.production && planet.production.kristallinesSilizium > 0 && (
+                <span className="text-green-400 text-xs font-semibold">+{planet.production.kristallinesSilizium}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-space-light border border-gray-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap size={18} className="text-yellow-500" />
+              <span className="text-gray-400 text-xs font-medium">Energie</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-mono font-bold text-lg">{planet.energyStorage}/{planet.energyStorageCapacity}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Sheet */}
+      {showBottomSheet && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-end" onClick={closeBottomSheet}>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          
+          {/* Sheet */}
+          <div 
+            className="relative w-full bg-space-dark rounded-t-2xl border-t-2 border-gray-600 shadow-2xl transform transition-transform duration-300 ease-out animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: '80vh' }}
+          >
+            {/* Handle */}
+            <div className="flex justify-center pt-2 pb-3">
+              <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
+            </div>
+
+            {/* Content */}
+            <div className="px-4 pb-6 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 40px)' }}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white font-semibold text-lg">
+                  {selectedField?.building ? 'Gebäude-Details' : 'Feld-Details'}
+                </h3>
+                <button
+                  onClick={closeBottomSheet}
+                  className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-700 transition"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {renderBuildingDetails()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Build Menu Modal */}
       {showBuildMenu && selectedField && (
@@ -793,13 +895,35 @@ export default function Planet() {
             beskar: planet.beskar,
             energyStorage: planet.energyStorage,
           }}
-          onClose={() => setShowBuildMenu(false)}
+          onClose={() => {
+            setShowBuildMenu(false);
+            if (window.innerWidth < 768) {
+              setShowBottomSheet(false);
+            }
+          }}
           onBuildStarted={() => {
             setShowBuildMenu(false);
+            if (window.innerWidth < 768) {
+              setShowBottomSheet(false);
+            }
             loadPlanet();
           }}
         />
       )}
+
+      <style>{`
+        @keyframes slide-up {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
