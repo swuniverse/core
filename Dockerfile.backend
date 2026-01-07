@@ -40,6 +40,7 @@ COPY backend/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/scripts ./scripts
 COPY backend/docker-entrypoint.sh /app/
 
 RUN chmod +x /app/docker-entrypoint.sh
