@@ -38,9 +38,9 @@ export default function Layout() {
                   <Users size={18} />
                   Schiffe
                 </Link>
-                <Link to="/comnet" className="flex items-center gap-2 text-holo/70 hover:text-holo px-3 py-2 rounded-md transition-all hover:shadow-holo font-mono">
+                <Link to="/holonet" className="flex items-center gap-2 text-holo/70 hover:text-holo px-3 py-2 rounded-md transition-all hover:shadow-holo font-mono">
                   <Radio size={18} />
-                  Comnet
+                  HoloNet
                 </Link>
                 <Link to="/research" className="flex items-center gap-2 text-holo/70 hover:text-holo px-3 py-2 rounded-md transition-all hover:shadow-holo font-mono">
                   <FlaskConical size={18} />
@@ -115,9 +115,9 @@ export default function Layout() {
                 <Users size={20} />
                 Schiffe
               </Link>
-              <Link to="/comnet" className="flex items-center gap-3 text-holo/70 hover:text-holo py-3 px-4 hover:bg-holo/10 rounded transition font-mono" onClick={() => setMobileMenuOpen(false)}>
+              <Link to="/holonet" className="flex items-center gap-3 text-holo/70 hover:text-holo py-3 px-4 hover:bg-holo/10 rounded transition font-mono" onClick={() => setMobileMenuOpen(false)}>
                 <Radio size={20} />
-                Comnet
+                HoloNet
               </Link>
               <Link to="/research" className="flex items-center gap-3 text-holo/70 hover:text-holo py-3 px-4 hover:bg-holo/10 rounded transition font-mono" onClick={() => setMobileMenuOpen(false)}>
                 <FlaskConical size={20} />

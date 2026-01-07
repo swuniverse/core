@@ -9,7 +9,7 @@ const router = express.Router();
 // Get recent messages (last 100)
 router.get('/messages', authMiddleware, async (req, res) => {
   try {
-    const messages = await prisma.comnetMessage.findMany({
+    const messages = await prisma.holoNetMessage.findMany({
       take: 100,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -30,7 +30,7 @@ router.get('/messages', authMiddleware, async (req, res) => {
       },
     });
 
-    logger.api('Fetched comnet messages:', messages.length);
+    logger.api('Fetched HoloNet messages:', messages.length);
 
     res.json(
       messages.reverse().map((msg) => ({
@@ -47,7 +47,7 @@ router.get('/messages', authMiddleware, async (req, res) => {
       }))
     );
   } catch (error: any) {
-    logger.error('Failed to fetch comnet messages:', error);
+    logger.error('Failed to fetch HoloNet messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
@@ -70,7 +70,7 @@ router.post('/messages', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Titel zu lang (max 100 Zeichen)' });
     }
 
-    const newMessage = await prisma.comnetMessage.create({
+    const newMessage = await prisma.holoNetMessage.create({
       data: {
         playerId: user.player.id,
         title: title?.trim() || null,
@@ -94,11 +94,11 @@ router.post('/messages', authMiddleware, async (req, res) => {
       },
     });
 
-    logger.info('New comnet message posted:', newMessage.id, 'by', newMessage.player.user.username);
+    logger.info('New HoloNet message posted:', newMessage.id, 'by', newMessage.player.user.username);
 
     // Broadcast to all connected clients
     const io = getIo();
-    io.emit('comnet:message', {
+    io.emit('holonet:message', {
       id: newMessage.id,
       title: newMessage.title,
       message: newMessage.message,
@@ -122,7 +122,7 @@ router.post('/messages', authMiddleware, async (req, res) => {
       },
     });
   } catch (error: any) {
-    logger.error('Failed to post comnet message:', error);
+    logger.error('Failed to post HoloNet message:', error);
     res.status(500).json({ error: 'Failed to post message' });
   }
 });
@@ -147,7 +147,7 @@ router.put('/messages/:id', authMiddleware, async (req, res) => {
     }
 
     // Find existing message
-    const existingMessage = await prisma.comnetMessage.findUnique({
+    const existingMessage = await prisma.holoNetMessage.findUnique({
       where: { id: parseInt(id) },
       include: { player: true },
     });
@@ -171,7 +171,7 @@ router.put('/messages/:id', authMiddleware, async (req, res) => {
     }
 
     // Update message
-    const updatedMessage = await prisma.comnetMessage.update({
+    const updatedMessage = await prisma.holoNetMessage.update({
       where: { id: parseInt(id) },
       data: {
         title: title?.trim() || null,
@@ -195,11 +195,11 @@ router.put('/messages/:id', authMiddleware, async (req, res) => {
       },
     });
 
-    logger.info('Comnet message edited:', updatedMessage.id, 'by', updatedMessage.player.user.username);
+    logger.info('HoloNet message edited:', updatedMessage.id, 'by', updatedMessage.player.user.username);
 
     // Broadcast update to all connected clients
     const io = getIo();
-    io.emit('comnet:updated', {
+    io.emit('holonet:updated', {
       id: updatedMessage.id,
       title: updatedMessage.title,
       message: updatedMessage.message,
@@ -225,7 +225,7 @@ router.put('/messages/:id', authMiddleware, async (req, res) => {
       },
     });
   } catch (error: any) {
-    logger.error('Failed to edit comnet message:', error);
+    logger.error('Failed to edit HoloNet message:', error);
     res.status(500).json({ error: 'Fehler beim Bearbeiten' });
   }
 });

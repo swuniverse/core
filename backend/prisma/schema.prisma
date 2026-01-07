@@ -47,7 +47,7 @@ model Player {
   ships         Ship[]
   research      PlayerResearch[]
   fleets        Fleet[]
-  comnetMessages ComnetMessage[]
+  holonetMessages HoloNetMessage[]
 }
 
 model Faction {
@@ -363,7 +363,7 @@ model InviteCode {
   usedBy      User[]    @relation("UsedInviteCode")
 }
 
-model ComnetMessage {
+model HoloNetMessage {
   id        Int      @id @default(autoincrement())
   playerId  Int
   title     String?

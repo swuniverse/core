@@ -21,7 +21,7 @@ import factionRoutes from './routes/faction.routes';
 import shipyardRoutes from './routes/shipyard.routes';
 import adminRoutes from './routes/admin.routes';
 import shipRoutes from './routes/ship.routes';
-import comnetRoutes from './routes/comnet.routes';
+import holonetRoutes from './routes/holonet.routes';
 
 dotenv.config();
 
@@ -111,7 +111,7 @@ app.use('/api/factions', factionRoutes);
 app.use('/api/shipyard', shipyardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ship', shipRoutes);
-app.use('/api/comnet', comnetRoutes);
+app.use('/api/holonet', holonetRoutes);
 
 // Error handling
 app.use(errorHandler);

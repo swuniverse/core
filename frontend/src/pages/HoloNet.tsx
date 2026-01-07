@@ -4,7 +4,7 @@ import { Radio, Send, FileText, Edit2, X } from 'lucide-react';
 import api from '../lib/api';
 import logger from '../lib/logger';
 
-interface ComnetMessage {
+interface HoloNetMessage {
   id: number;
   title?: string;
   message: string;
@@ -17,10 +17,10 @@ interface ComnetMessage {
   };
 }
 
-export default function Comnet() {
+export default function HoloNet() {
   const socket = useGameStore((state) => state.socket);
   const user = useGameStore((state) => state.user);
-  const [messages, setMessages] = useState<ComnetMessage[]>([]);
+  const [messages, setMessages] = useState<HoloNetMessage[]>([]);
   const [title, setTitle] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,25 +37,25 @@ export default function Comnet() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleNewMessage = (message: ComnetMessage) => {
-      logger.socket('New comnet message received:', message);
+    const handleNewMessage = (message: HoloNetMessage) => {
+      logger.socket('New HoloNet message received:', message);
       setMessages((prev) => [...prev, message]);
       setTimeout(scrollToBottom, 100);
     };
 
-    const handleUpdatedMessage = (updatedMsg: ComnetMessage) => {
-      logger.socket('Comnet message updated:', updatedMsg);
+    const handleUpdatedMessage = (updatedMsg: HoloNetMessage) => {
+      logger.socket('HoloNet message updated:', updatedMsg);
       setMessages((prev) =>
         prev.map((msg) => (msg.id === updatedMsg.id ? updatedMsg : msg))
       );
     };
 
-    socket.on('comnet:message', handleNewMessage);
-    socket.on('comnet:updated', handleUpdatedMessage);
+    socket.on('holonet:message', handleNewMessage);
+    socket.on('holonet:updated', handleUpdatedMessage);
 
     return () => {
-      socket.off('comnet:message', handleNewMessage);
-      socket.off('comnet:updated', handleUpdatedMessage);
+      socket.off('holonet:message', handleNewMessage);
+      socket.off('holonet:updated', handleUpdatedMessage);
     };
   }, [socket]);
 
@@ -69,7 +69,7 @@ export default function Comnet() {
 
   const loadMessages = async () => {
     try {
-      const response = await api.get('/comnet/messages');
+      const response = await api.get('/holonet/messages');
       setMessages(response.data);
       setLoading(false);
     } catch (error) {
@@ -84,7 +84,7 @@ export default function Comnet() {
 
     setSending(true);
     try {
-      const response = await api.post('/comnet/messages', { 
+      const response = await api.post('/holonet/messages', { 
         title: title.trim() || undefined,
         message: newMessage 
       });
@@ -100,7 +100,7 @@ export default function Comnet() {
     }
   };
 
-  const startEdit = (msg: ComnetMessage) => {
+  const startEdit = (msg: HoloNetMessage) => {
     setEditingId(msg.id);
     setEditTitle(msg.title || '');
     setEditMessage(msg.message);
@@ -117,7 +117,7 @@ export default function Comnet() {
 
     setSending(true);
     try {
-      await api.put(`/comnet/messages/${id}`, {
+      await api.put(`/holonet/messages/${id}`, {
         title: editTitle.trim() || undefined,
         message: editMessage,
       });
@@ -131,7 +131,7 @@ export default function Comnet() {
     }
   };
 
-  const canEdit = (msg: ComnetMessage) => {
+  const canEdit = (msg: HoloNetMessage) => {
     if (msg.player.id !== user?.player?.id) return false;
     const now = new Date();
     const created = new Date(msg.createdAt);
@@ -171,7 +171,7 @@ export default function Comnet() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-400">Lade Comnet...</p>
+        <p className="text-gray-400">Lade HoloNet...</p>
       </div>
     );
   }
@@ -184,7 +184,7 @@ export default function Comnet() {
           <div className="flex items-center gap-3">
             <Radio size={24} className="text-cyan-400" />
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-white">Comnet</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-white">HoloNet</h1>
               <p className="text-sm text-gray-400">Galaktisches Kommunikationsnetzwerk - Rollenspiel & Story</p>
             </div>
           </div>
@@ -236,12 +236,12 @@ export default function Comnet() {
       <div className="space-y-4">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <p className="text-gray-400">Lade Comnet...</p>
+            <p className="text-gray-400">Lade HoloNet...</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="bg-space-light rounded-lg border border-gray-700 p-12 text-center text-gray-500">
             <Radio size={48} className="mx-auto mb-4 opacity-20" />
-            <p>Noch keine Beiträge im Comnet.</p>
+            <p>Noch keine Beiträge im HoloNet.</p>
             <p className="text-sm mt-2">Sei der Erste, der eine Story veröffentlicht!</p>
           </div>
         ) : (
