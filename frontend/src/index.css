@@ -3,21 +3,210 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Courier New', monospace, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0a0e27;
+  color: rgba(0, 255, 255, 0.9);
+  background-color: #000a0a;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: linear-gradient(135deg, #000a0a 0%, #001a2e 100%);
+  background-attachment: fixed;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* HoloNet Terminal Styles */
+@layer components {
+  .holo-terminal {
+    @apply relative border-2 border-holo bg-holo-card/50 backdrop-blur-sm;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.1);
+  }
+
+  .holo-text {
+    @apply text-holo animate-glow font-mono;
+  }
+
+  .holo-input {
+    @apply bg-holo-bg/80 border border-holo text-holo placeholder-holo/50 focus:outline-none focus:ring-2 focus:ring-holo focus:border-holo;
+    box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
+  }
+
+  .holo-button {
+    @apply relative px-4 py-2 font-mono font-bold text-holo-bg bg-holo border border-holo overflow-hidden transition-all;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+  }
+
+  .holo-button::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 hover:opacity-20 transition-opacity;
+  }
+
+  .holo-button:hover {
+    @apply shadow-holo-lg;
+  }
+
+  .holo-button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .holo-title {
+    @apply text-holo font-mono font-bold text-4xl animate-glow;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
+  }
+
+  .holo-subtitle {
+    @apply text-holo/70 font-mono text-sm tracking-widest;
+  }
+
+  .holo-link {
+    @apply text-holo hover:text-holo-light transition-colors font-bold;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  }
+
+  .holo-link:hover {
+    text-shadow: 0 0 15px rgba(0, 255, 255, 1);
+  }
+
+  .holo-error {
+    @apply bg-red-900/30 border border-red-500 text-red-300 p-3 rounded font-mono text-sm;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+  }
+
+  .holo-success {
+    @apply bg-green-900/30 border border-green-500 text-green-300 p-3 rounded font-mono text-sm;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  }
+
+  .holo-divider {
+    @apply bg-gradient-to-r from-transparent via-holo to-transparent h-px my-4 opacity-50;
+  }
+
+  .holo-scan-line {
+    @apply absolute inset-x-0 pointer-events-none;
+    animation: scan 8s linear infinite;
+    background: linear-gradient(to bottom, 
+      rgba(0, 255, 255, 0.03) 0%, 
+      rgba(0, 255, 255, 0) 100%);
+    height: 100%;
+  }
+
+  /* Navigation Map Styles */
+  .hyperspace-map {
+    @apply relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-blue-950;
+    background-size: 200% 200%;
+    animation: hyperspaceShift 20s ease infinite;
+  }
+
+  .hyperspace-map::before {
+    content: '';
+    @apply absolute inset-0 opacity-30;
+    background-image: radial-gradient(circle at 20% 50%, rgba(100, 150, 255, 0.3) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 80%, rgba(100, 150, 255, 0.3) 0%, transparent 50%);
+    animation: nebulaFloat 15s ease-in-out infinite;
+  }
+
+  .hyperspace-stars {
+    @apply absolute inset-0 opacity-60;
+    background-image: radial-gradient(2px 2px at 20% 30%, white, transparent),
+                      radial-gradient(2px 2px at 60% 70%, white, transparent),
+                      radial-gradient(1px 1px at 50% 50%, white, transparent),
+                      radial-gradient(1px 1px at 80% 10%, white, transparent),
+                      radial-gradient(2px 2px at 90% 60%, white, transparent),
+                      radial-gradient(1px 1px at 30% 80%, white, transparent);
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+  }
+
+  .system-map {
+    @apply relative bg-black;
+    background-image: radial-gradient(circle at center, rgba(20, 20, 30, 1) 0%, black 100%);
+  }
+
+  .system-sun {
+    @apply absolute rounded-full;
+    background: radial-gradient(circle, 
+      rgba(255, 220, 100, 1) 0%,
+      rgba(255, 180, 50, 0.8) 30%,
+      rgba(255, 140, 0, 0.4) 60%,
+      transparent 100%);
+    box-shadow: 0 0 80px rgba(255, 180, 50, 0.8),
+                0 0 120px rgba(255, 140, 0, 0.4);
+    animation: sunPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes hyperspaceShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes nebulaFloat {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(20px, -20px); }
+  }
+
+  @keyframes sunPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.9; }
+  }
+
+  .map-zoom-in {
+    animation: zoomIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .map-zoom-out {
+    animation: zoomOut 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes zoomIn {
+    from {
+      transform: scale(0.5);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes zoomOut {
+    from {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .hyperspace-streaks {
+    @apply absolute inset-0 pointer-events-none opacity-0;
+    transition: opacity 0.3s;
+  }
+
+  .hyperspace-streaks.active {
+    @apply opacity-100;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 10px,
+      rgba(100, 150, 255, 0.2) 10px,
+      rgba(100, 150, 255, 0.2) 12px
+    );
+    animation: streakMove 0.3s linear infinite;
+  }
+
+  @keyframes streakMove {
+    from { background-position: 0 0; }
+    to { background-position: 100px 0; }
+  }
 }

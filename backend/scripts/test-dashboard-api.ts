@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function testDashboard() {
-  const playerId = 1; // Saboti
+  const playerId = 1; // Admin
 
   console.log('Testing dashboard API logic...\n');
 

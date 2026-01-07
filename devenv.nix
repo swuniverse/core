@@ -2,7 +2,7 @@
 
 {
   # https://devenv.sh/basics/
-  env.GREET = "Star Wars Universe Dev Environment";
+  env.GREET = "Star Wars - HoloNet Dev Environment";
 
   # https://devenv.sh/packages/
   packages = [ 
@@ -30,7 +30,7 @@
     enable = true;
     package = pkgs.postgresql_15;
     initialDatabases = [
-      { name = "swu_game"; }
+      { name = "swholo_game"; }
     ];
     listen_addresses = "127.0.0.1";
     port = 5432;
@@ -46,7 +46,7 @@
 
   # https://devenv.sh/scripts/
   scripts.setup.exec = ''
-    echo "Setting up Star Wars Universe development environment..."
+    echo "Setting up Star Wars - HoloNet development environment..."
     cd backend
     cp .env.example .env 2>/dev/null || true
     npm install
@@ -93,7 +93,7 @@
     echo "  reset-db         - Reset & seed DB (factions, buildings, research, ships, galaxy)"
     echo ""
     echo "Services:"
-    echo "  PostgreSQL:      localhost:5432 (user: postgres, pass: postgres, db: swu_game)"
+    echo "  PostgreSQL:      localhost:5432 (user: postgres, pass: postgres, db: swholo_game)"
     echo "  Redis:           localhost:6379"
     echo "  Backend API:     http://localhost:3000"
     echo "  Frontend:        http://localhost:5173"

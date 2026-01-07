@@ -1,8 +1,10 @@
-# Star Wars Universe - Strategy Browser Game
+# Star Wars - HoloNet
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Ein tick-basiertes Strategie-Browserspiel im Star Wars Universum, inspiriert von [Star Trek Universe (STU)](https://stuniverse.de).
+
+🌐 **Live:** https://swholo.net
 
 ## 🌟 Features
 
@@ -83,8 +85,8 @@ Dieses Projekt nutzt **devenv** (Nix-basierte Entwicklungsumgebung) zur Verwaltu
 
 1. **Repository klonen:**
 ```bash
-git clone <your-repo-url>
-cd swu
+git clone https://github.com/swholonet/core.git
+cd core
 ```
 
 2. **Alle Services mit devenv starten:**
@@ -149,8 +151,8 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 **Gebaute Images:**
-- `swu-backend:latest` (~500MB) - Node.js 20 (Debian) mit bcrypt Support
-- `swu-frontend:latest` (~220MB) - Node.js 20 (Alpine) mit Vite Build
+- `swholo-backend:latest` (~500MB) - Node.js 20 (Debian) mit bcrypt Support
+- `swholo-frontend:latest` (~220MB) - Node.js 20 (Alpine) mit Vite Build
 
 **Wichtig:** Container lauschen nur auf `127.0.0.1` - für externen Zugriff ist Caddy (oder Nginx) als Reverse Proxy erforderlich!
 
@@ -243,7 +245,7 @@ devenv up             # Alle Services starten (PostgreSQL, Redis, Backend, Front
 ### Docker (Production)
 ```bash
 ./deploy.sh           # Backend und Frontend Docker-Images bauen
-docker images | grep swu  # Gebaute Images anzeigen
+docker images | grep swholo  # Gebaute Images anzeigen
 ```
 
 ## 🐛 Debugging & Logging
@@ -431,7 +433,7 @@ NODE_ENV=development
 PORT=3000
 
 # Datenbank (automatisch von devenv verwaltet)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/swu_game?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/swholo_game?schema=public"
 
 # Redis (automatisch von devenv verwaltet)
 REDIS_HOST=localhost

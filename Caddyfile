@@ -1,4 +1,4 @@
-# Star Wars Universe - Caddy Reverse Proxy
+# Star Wars - HoloNet - Caddy Reverse Proxy
 # Automatisches HTTPS mit Let's Encrypt
 
 # WICHTIG: Domain anpassen!
@@ -8,7 +8,7 @@ deine-domain.com {
 
     # Logging
     log {
-        output file /var/log/caddy/swu-access.log
+        output file /var/log/caddy/swholo-access.log
         format json
     }
 

@@ -12,7 +12,7 @@ Das `Caddyfile` im Projekt-Root ist eine fertige Reverse-Proxy-Konfiguration fü
 - ✅ **Gzip & Zstd Compression** (automatisch)
 - ✅ **Security Headers** (HSTS, X-Frame-Options, X-XSS-Protection, etc.)
 - ✅ **WebSocket Support** für Socket.io
-- ✅ **JSON Access Logs** in `/var/log/caddy/swu-access.log`
+- ✅ **JSON Access Logs** in `/var/log/caddy/swholo-access.log`
 
 ## Verwendung
 
@@ -135,7 +135,7 @@ header {
 ### Access Logs
 
 ```bash
-sudo tail -f /var/log/caddy/swu-access.log
+sudo tail -f /var/log/caddy/swholo-access.log
 ```
 
 Format: JSON (maschinenlesbar)

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Star Wars Universe - Build Script"
+echo "🚀 Star Wars - HoloNet - Build Script"
 echo "===================================="
 echo ""
 
@@ -12,7 +12,7 @@ NC='\033[0m'
 
 echo -e "${YELLOW}Schritt 1: Backend Docker Image bauen${NC}"
 cd backend
-docker build -t swu-backend:latest -f ../Dockerfile.backend ..
+docker build -t swholo-backend:latest -f ../Dockerfile.backend ..
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Backend erfolgreich gebaut${NC}"
 else
@@ -24,7 +24,7 @@ cd ..
 echo ""
 echo -e "${YELLOW}Schritt 2: Frontend Docker Image bauen${NC}"
 cd frontend
-docker build -t swu-frontend:latest -f ../Dockerfile.frontend ..
+docker build -t swholo-frontend:latest -f ../Dockerfile.frontend ..
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Frontend erfolgreich gebaut${NC}"
 else
@@ -36,4 +36,4 @@ cd ..
 echo ""
 echo -e "${GREEN}✅ Alle Images erfolgreich gebaut!${NC}"
 echo ""
-docker images | grep swu
+docker images | grep swholo

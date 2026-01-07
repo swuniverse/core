@@ -4,12 +4,12 @@
       vars = {
   version = "1.11.1";
   system = "aarch64-darwin";
-  devenv_root = "/Users/TMUNDIN/git/github.com/Saboti/swu";
-  project_input_ref = "path:/Users/TMUNDIN/git/github.com/Saboti/swu";
-  devenv_dotfile = "/Users/TMUNDIN/git/github.com/Saboti/swu/.devenv";
+  devenv_root = "/Users/TMUNDIN/git/github.com/swholonet/core";
+  project_input_ref = "path:/Users/TMUNDIN/git/github.com/swholonet/core";
+  devenv_dotfile = "/Users/TMUNDIN/git/github.com/swholonet/core/.devenv";
   devenv_dotfile_path = ./.devenv;
   devenv_tmpdir = "/var/folders/l9/czgvz6ld6tnb9x1q9x477ltw0000gn/T/";
-  devenv_runtime = "/var/folders/l9/czgvz6ld6tnb9x1q9x477ltw0000gn/T/devenv-4175415";
+  devenv_runtime = "/var/folders/l9/czgvz6ld6tnb9x1q9x477ltw0000gn/T/devenv-dfb51cd";
   devenv_istesting = false;
   devenv_direnvrc_latest_version = 1;
   container_name = null;
@@ -17,7 +17,7 @@
   ];
   hostname = "MB-FVFH2468Q05P";
   username = "TMUNDIN";
-  git_root = "/Users/TMUNDIN/git/github.com/Saboti/swu";
+  git_root = "/Users/TMUNDIN/git/github.com/swholonet/core";
   secretspec = null;
 };
     in
@@ -41,12 +41,12 @@
       vars = {
   version = "1.11.1";
   system = "aarch64-darwin";
-  devenv_root = "/Users/TMUNDIN/git/github.com/Saboti/swu";
-  project_input_ref = "path:/Users/TMUNDIN/git/github.com/Saboti/swu";
-  devenv_dotfile = "/Users/TMUNDIN/git/github.com/Saboti/swu/.devenv";
+  devenv_root = "/Users/TMUNDIN/git/github.com/swholonet/core";
+  project_input_ref = "path:/Users/TMUNDIN/git/github.com/swholonet/core";
+  devenv_dotfile = "/Users/TMUNDIN/git/github.com/swholonet/core/.devenv";
   devenv_dotfile_path = ./.devenv;
   devenv_tmpdir = "/var/folders/l9/czgvz6ld6tnb9x1q9x477ltw0000gn/T/";
-  devenv_runtime = "/var/folders/l9/czgvz6ld6tnb9x1q9x477ltw0000gn/T/devenv-4175415";
+  devenv_runtime = "/var/folders/l9/czgvz6ld6tnb9x1q9x477ltw0000gn/T/devenv-dfb51cd";
   devenv_istesting = false;
   devenv_direnvrc_latest_version = 1;
   container_name = null;
@@ -54,7 +54,7 @@
   ];
   hostname = "MB-FVFH2468Q05P";
   username = "TMUNDIN";
-  git_root = "/Users/TMUNDIN/git/github.com/Saboti/swu";
+  git_root = "/Users/TMUNDIN/git/github.com/swholonet/core";
   secretspec = null;
 };
       devenv =

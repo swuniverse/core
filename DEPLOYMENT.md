@@ -1,6 +1,6 @@
-# Star Wars Universe - Docker Deployment Guide
+# Star Wars - HoloNet - Docker Deployment Guide
 
-Vollständige Anleitung für das Deployment der Star Wars Universe Applikation via Docker auf einem VPS oder Server.
+Vollständige Anleitung für das Deployment der Star Wars - HoloNet Applikation via Docker auf einem VPS oder Server.
 
 ## 📋 Voraussetzungen
 
@@ -20,7 +20,7 @@ Vollständige Anleitung für das Deployment der Star Wars Universe Applikation v
 
 Das Projekt besteht aus zwei Docker-Images:
 
-### Backend Image (`swu-backend:latest`)
+### Backend Image (`swholo-backend:latest`)
 - **Basis**: `node:20-slim` (Debian-basiert, ~500MB)
 - **Features**:
   - Native Module Support (bcrypt)
@@ -30,7 +30,7 @@ Das Projekt besteht aus zwei Docker-Images:
   - TypeScript Compiler
 - **Ports**: 3000 (Express API + Socket.io)
 
-### Frontend Image (`swu-frontend:latest`)
+### Frontend Image (`swholo-frontend:latest`)
 - **Basis**: `node:20-alpine` (~220MB)
 - **Features**:
   - Vite Production Build
@@ -44,8 +44,8 @@ Das Projekt besteht aus zwei Docker-Images:
 
 ```bash
 cd /opt  # oder dein bevorzugtes Verzeichnis
-git clone https://github.com/dein-username/swu.git
-cd swu
+git clone https://github.com/swholonet/core.git
+cd core
 ```
 
 ### 2. Environment konfigurieren
@@ -61,11 +61,11 @@ nano .env.production
 # PostgreSQL
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=ÄNDERE-MICH-SICHERES-PASSWORT
-POSTGRES_DB=swu_game
+POSTGRES_DB=swholo_game
 
 # Backend
 NODE_ENV=production
-DATABASE_URL=postgresql://postgres:ÄNDERE-MICH-SICHERES-PASSWORT@postgres:5432/swu_game?schema=public
+DATABASE_URL=postgresql://postgres:ÄNDERE-MICH-SICHERES-PASSWORT@postgres:5432/swholo_game?schema=public
 JWT_SECRET=GENERIERE-MIT-openssl-rand-base64-32
 JWT_EXPIRES_IN=7d
 PORT=3000
@@ -100,7 +100,7 @@ Das Script führt aus:
 
 **Erwartete Ausgabe:**
 ```
-🚀 Star Wars Universe - Build Script
+🚀 Star Wars - HoloNet - Build Script
 ====================================
 
 Schritt 1: Backend Docker Image bauen
@@ -124,7 +124,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: swu-postgres
+    container_name: swholo-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -133,7 +133,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - swu-network
+      - swholo-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -142,13 +142,13 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: swu-redis
+    container_name: swholo-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     networks:
-      - swu-network
+      - swholo-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -156,8 +156,8 @@ services:
       retries: 5
 
   backend:
-    image: swu-backend:latest
-    container_name: swu-backend
+    image: swholo-backend:latest
+    container_name: swholo-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -175,27 +175,27 @@ services:
     ports:
       - "127.0.0.1:3000:3000"  # Nur localhost!
     networks:
-      - swu-network
+      - swholo-network
     command: >
       sh -c "npx prisma migrate deploy &&
              npm run seed:admin &&
              node dist/index.js"
 
   frontend:
-    image: swu-frontend:latest
-    container_name: swu-frontend
+    image: swholo-frontend:latest
+    container_name: swholo-frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:3000"  # Nur localhost!
     networks:
-      - swu-network
+      - swholo-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  swu-network:
+  swholo-network:
     driver: bridge
 ```
 
@@ -280,7 +280,7 @@ deine-domain.com {
 
     # Logging
     log {
-        output file /var/log/caddy/swu-access.log
+        output file /var/log/caddy/swholo-access.log
     }
 }
 ```
@@ -301,7 +301,7 @@ sudo systemctl status caddy
 sudo apt install nginx certbot python3-certbot-nginx
 ```
 
-**Nginx Config** (`/etc/nginx/sites-available/swu`):
+**Nginx Config** (`/etc/nginx/sites-available/swholo`):
 ```nginx
 # Redirect HTTP to HTTPS
 server {
@@ -352,7 +352,7 @@ server {
 
 **Aktivieren und SSL einrichten:**
 ```bash
-sudo ln -s /etc/nginx/sites-available/swu /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/swholo /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 sudo certbot --nginx -d deine-domain.com
@@ -364,11 +364,11 @@ Im Projekt-Root liegt eine fertige `nginx-vps.conf` mit allen nötigen Einstellu
 
 ```bash
 # Kopieren und anpassen
-sudo cp nginx-vps.conf /etc/nginx/sites-available/swu
-sudo nano /etc/nginx/sites-available/swu  # Domain anpassen!
+sudo cp nginx-vps.conf /etc/nginx/sites-available/swholo
+sudo nano /etc/nginx/sites-available/swholo  # Domain anpassen!
 
 # Aktivieren
-sudo ln -s /etc/nginx/sites-available/swu /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/swholo /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 
@@ -411,19 +411,19 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ```bash
 # Datenbank zurücksetzen (VORSICHT!)
-docker exec swu-backend npm run db:reset
+docker exec swholo-backend npm run db:reset
 
 # Nur Migrationen
-docker exec swu-backend npx prisma migrate deploy
+docker exec swholo-backend npx prisma migrate deploy
 
 # Prisma Studio (DB GUI auf Port 5555)
-docker exec -it swu-backend npx prisma studio
+docker exec -it swholo-backend npx prisma studio
 
 # Backup erstellen
-docker exec swu-postgres pg_dump -U postgres swu_game | gzip > backup_$(date +%Y%m%d).sql.gz
+docker exec swholo-postgres pg_dump -U postgres swholo_game | gzip > backup_$(date +%Y%m%d).sql.gz
 
 # Backup wiederherstellen
-gunzip < backup_20231225.sql.gz | docker exec -i swu-postgres psql -U postgres swu_game
+gunzip < backup_20231225.sql.gz | docker exec -i swholo-postgres psql -U postgres swholo_game
 ```
 
 ### Logs und Debugging
@@ -436,8 +436,8 @@ docker compose -f docker-compose.prod.yml logs -f
 docker compose -f docker-compose.prod.yml logs --tail=100
 
 # Container Shell
-docker exec -it swu-backend sh
-docker exec -it swu-frontend sh
+docker exec -it swholo-backend sh
+docker exec -it swholo-frontend sh
 
 # Resource Usage
 docker stats
@@ -447,27 +447,27 @@ docker stats
 
 ### Automatische Backups einrichten
 
-Erstelle `/etc/cron.daily/swu-backup`:
+Erstelle `/etc/cron.daily/swholo-backup`:
 
 ```bash
 #!/bin/bash
-BACKUP_DIR="/var/backups/swu"
+BACKUP_DIR="/var/backups/swholo"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p $BACKUP_DIR
 
 # PostgreSQL Backup
-docker exec swu-postgres pg_dump -U postgres swu_game | gzip > $BACKUP_DIR/swu_$DATE.sql.gz
+docker exec swholo-postgres pg_dump -U postgres swholo_game | gzip > $BACKUP_DIR/swholo_$DATE.sql.gz
 
 # Alte Backups löschen (älter als 7 Tage)
-find $BACKUP_DIR -name "swu_*.sql.gz" -mtime +7 -delete
+find $BACKUP_DIR -name "swholo_*.sql.gz" -mtime +7 -delete
 
-echo "Backup completed: swu_$DATE.sql.gz"
+echo "Backup completed: swholo_$DATE.sql.gz"
 ```
 
 Ausführbar machen:
 ```bash
-sudo chmod +x /etc/cron.daily/swu-backup
+sudo chmod +x /etc/cron.daily/swholo-backup
 ```
 
 ### Log Rotation
@@ -528,10 +528,10 @@ docker compose -f docker-compose.prod.yml ps
 
 ```bash
 # PostgreSQL Health
-docker exec swu-postgres pg_isready -U postgres
+docker exec swholo-postgres pg_isready -U postgres
 
 # Database existiert?
-docker exec swu-postgres psql -U postgres -l
+docker exec swholo-postgres psql -U postgres -l
 
 # Container neu starten
 docker compose -f docker-compose.prod.yml restart postgres
@@ -641,7 +641,7 @@ sudo systemctl restart sshd
 |----------|-------------|----------|
 | `POSTGRES_USER` | PostgreSQL Benutzer | `postgres` |
 | `POSTGRES_PASSWORD` | PostgreSQL Passwort | `SICHERES-PASSWORT` |
-| `POSTGRES_DB` | Datenbankname | `swu_game` |
+| `POSTGRES_DB` | Datenbankname | `swholo_game` |
 | `DATABASE_URL` | Prisma Connection String | `postgresql://...` |
 | `JWT_SECRET` | JWT Signing Key | `openssl rand -base64 32` |
 | `CORS_ORIGIN` | Erlaubte Frontend-Origin | `https://domain.com` |

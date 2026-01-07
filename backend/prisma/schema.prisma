@@ -7,6 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PlanetType {
+  DESERT
+  ICE
+  FOREST
+  CITY
+  VOLCANO
+  JUNGLE
+  VOLCANIC
+  TERRAN
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -97,26 +108,27 @@ model System {
 }
 
 model Planet {
-  id              Int      @id @default(autoincrement())
+  id              Int        @id @default(autoincrement())
   name            String
-  systemId        Int      // Planet belongs to a System now
+  systemId        Int        // Planet belongs to a System now
   playerId        Int?
-  planetType      String   // DESERT, ICE, JUNGLE, VOLCANIC, TERRAN
-  orbitRadius     Int      @default(3) // Distance from sun (1-10)
-  orbitAngle      Int      @default(0) // Position on orbit (0-359 degrees)
-  sizeX           Int      @default(10)
-  sizeY           Int      @default(10)
-  credits         Int      @default(10000)
-  durastahl       Int      @default(500)
-  kristallinesSilizium Int @default(500)
-  tibannaGas      Int      @default(0)
-  energiemodule   Int      @default(0)
-  kyberKristalle  Int      @default(0)
-  bacta           Int      @default(0)
-  beskar          Int      @default(0)
-  energyStorage   Int      @default(1000) // Start mit vollem Speicher
-  energyStorageCapacity Int @default(1000) // Max energy storage capacity
-  storageCapacity Int      @default(500)  // Base storage from Command Center
+  planetType      PlanetType @default(TERRAN) // Now using Enum
+  visualSeed      Int?       // For visual variations (1-N)
+  orbitRadius     Int        @default(3) // Distance from sun (1-10)
+  orbitAngle      Int        @default(0) // Position on orbit (0-359 degrees)
+  sizeX           Int        @default(10)
+  sizeY           Int        @default(10)
+  credits         Int        @default(10000)
+  durastahl       Int        @default(500)
+  kristallinesSilizium Int   @default(500)
+  tibannaGas      Int        @default(0)
+  energiemodule   Int        @default(0)
+  kyberKristalle  Int        @default(0)
+  bacta           Int        @default(0)
+  beskar          Int        @default(0)
+  energyStorage   Int        @default(1000) // Start mit vollem Speicher
+  energyStorageCapacity Int  @default(1000) // Max energy storage capacity
+  storageCapacity Int        @default(500)  // Base storage from Command Center
   
   system      System       @relation(fields: [systemId], references: [id])
   player      Player?      @relation(fields: [playerId], references: [id])

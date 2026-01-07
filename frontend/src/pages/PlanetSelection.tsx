@@ -3,30 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../stores/gameStore';
 import api from '../lib/api';
 import { Globe, MapPin, Check } from 'lucide-react';
+import PlanetImage, { planetTypeColors, getPlanetTypeLabel } from '../components/PlanetImage';
 
 interface StartPlanet {
   id: number;
   name: string;
   planetType: string;
+  visualSeed?: number;
   sectorX: number;
   sectorY: number;
   available: boolean;
 }
-
-const planetTypeColors: Record<string, string> = {
-  TERRAN: 'bg-green-600',
-  DESERT: 'bg-yellow-600',
-  ICE: 'bg-blue-400',
-  JUNGLE: 'bg-green-700',
-  VOLCANIC: 'bg-red-600',
-};
 
 const planetTypeDescriptions: Record<string, string> = {
   TERRAN: 'Erdähnlicher Planet mit ausgewogenen Ressourcen',
   DESERT: 'Trockene Welt mit Mineralvorkommen',
   ICE: 'Gefrorener Planet mit Wasserreserven',
   JUNGLE: 'Dichte Vegetation, reich an organischen Materialien',
+  FOREST: 'Grüner Planet mit ausgedehnten Wäldern',
   VOLCANIC: 'Geschmolzene Oberfläche mit seltenen Mineralien',
+  VOLCANO: 'Geschmolzene Oberfläche mit seltenen Mineralien',
+  CITY: 'Urbanisierte Welt mit fortschrittlicher Infrastruktur',
 };
 
 export default function PlanetSelection() {
@@ -123,14 +120,21 @@ export default function PlanetSelection() {
                       : 'border-gray-700 bg-space-light hover:border-gray-600'
                   }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <PlanetImage 
+                      planetType={planet.planetType}
+                      visualSeed={planet.visualSeed}
+                      alt={planet.name}
+                      size={80}
+                      className="rounded-lg"
+                    />
                     <div className="flex-1">
                       <h3 className="text-xl font-bold text-white mb-1">
                         {planet.name}
                       </h3>
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`px-3 py-1 rounded text-white text-sm ${planetTypeColors[planet.planetType]}`}>
-                          {planet.planetType}
+                          {getPlanetTypeLabel(planet.planetType)}
                         </span>
                         <span className="text-gray-400 text-sm flex items-center gap-1">
                           <MapPin size={14} />
@@ -158,15 +162,21 @@ export default function PlanetSelection() {
                   <div className="space-y-4 mb-6">
                     <div>
                       <h3 className="text-lg font-semibold text-white mb-2">{selectedPlanet.name}</h3>
-                      <div className={`w-full h-32 rounded-lg ${planetTypeColors[selectedPlanet.planetType]} flex items-center justify-center`}>
-                        <Globe size={64} className="text-white/50" />
+                      <div className="flex justify-center bg-black/30 rounded-lg p-4">
+                        <PlanetImage 
+                          planetType={selectedPlanet.planetType}
+                          visualSeed={selectedPlanet.visualSeed}
+                          alt={selectedPlanet.name}
+                          size={200}
+                          className="rounded-lg"
+                        />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-700/50 p-3 rounded">
                         <p className="text-gray-400 text-sm">Typ</p>
-                        <p className="text-white font-semibold">{selectedPlanet.planetType}</p>
+                        <p className="text-white font-semibold">{getPlanetTypeLabel(selectedPlanet.planetType)}</p>
                       </div>
                       <div className="bg-gray-700/50 p-3 rounded">
                         <p className="text-gray-400 text-sm">Standort</p>

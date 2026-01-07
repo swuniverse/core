@@ -16,7 +16,7 @@ Dieses Dokument erklärt alle Deployment-relevanten Dateien im Projekt.
 
 **Verwendung:**
 ```bash
-docker build -f Dockerfile.backend -t swu-backend:latest .
+docker build -f Dockerfile.backend -t swholo-backend:latest .
 ```
 
 ---
@@ -33,7 +33,7 @@ docker build -f Dockerfile.backend -t swu-backend:latest .
 
 **Verwendung:**
 ```bash
-docker build -f Dockerfile.frontend -t swu-frontend:latest .
+docker build -f Dockerfile.frontend -t swholo-frontend:latest .
 ```
 
 ---
@@ -42,8 +42,8 @@ docker build -f Dockerfile.frontend -t swu-frontend:latest .
 **Zweck:** Automatisches Build-Script für beide Docker Images.
 
 **Was es macht:**
-1. Baut Backend-Image (`swu-backend:latest`)
-2. Baut Frontend-Image (`swu-frontend:latest`)
+1. Baut Backend-Image (`swholo-backend:latest`)
+2. Baut Frontend-Image (`swholo-frontend:latest`)
 3. Zeigt gebaute Images an
 
 **Verwendung:**
@@ -53,7 +53,7 @@ docker build -f Dockerfile.frontend -t swu-frontend:latest .
 
 **Erwartete Ausgabe:**
 ```
-🚀 Star Wars Universe - Build Script
+🚀 Star Wars - HoloNet - Build Script
 ✅ Backend erfolgreich gebaut
 ✅ Frontend erfolgreich gebaut
 ✅ Alle Images erfolgreich gebaut!
@@ -67,8 +67,8 @@ docker build -f Dockerfile.frontend -t swu-frontend:latest .
 **Services:**
 - `postgres` - PostgreSQL 15 mit Health Checks
 - `redis` - Redis 7 mit Persistence
-- `backend` - SWU Backend API + Socket.io
-- `frontend` - SWU React Frontend
+- `backend` - Star Wars - HoloNet Backend API + Socket.io
+- `frontend` - Star Wars - HoloNet React Frontend
 
 **Container Ports:**
 - PostgreSQL: `5432:5432`
@@ -131,11 +131,11 @@ docker compose -f docker-compose.prod.yml down
 **Installation & Setup:**
 ```bash
 # Kopieren und anpassen
-sudo cp nginx-vps.conf /etc/nginx/sites-available/swu
-sudo nano /etc/nginx/sites-available/swu  # Domain anpassen!
+sudo cp nginx-vps.conf /etc/nginx/sites-available/swholo
+sudo nano /etc/nginx/sites-available/swholo  # Domain anpassen!
 
 # Aktivieren
-sudo ln -s /etc/nginx/sites-available/swu /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/swholo /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 
@@ -251,9 +251,9 @@ sudo cp Caddyfile /etc/caddy/Caddyfile
 sudo systemctl restart caddy
 
 # 4b. Alternativ: Nginx
-sudo cp nginx-vps.conf /etc/nginx/sites-available/swu
+sudo cp nginx-vps.conf /etc/nginx/sites-available/swholo
 # Domain anpassen!
-sudo ln -s /etc/nginx/sites-available/swu /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/swholo /etc/nginx/sites-enabled/
 sudo systemctl restart nginx
 sudo certbot --nginx -d deine-domain.com
 ```

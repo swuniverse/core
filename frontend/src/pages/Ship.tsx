@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Zap, Battery, AlertTriangle, Navigation } from 'lucide-react';
 import api from '../lib/api';
@@ -73,6 +73,9 @@ export default function Ship() {
   const [error, setError] = useState('');
   const [charging, setCharging] = useState(false);
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
+  const [isMoving, setIsMoving] = useState(false);
+  const [zoomTransition, setZoomTransition] = useState<'in' | 'out' | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   const loadShipData = useCallback(async () => {
     try {
@@ -148,38 +151,52 @@ export default function Ship() {
     if (!shipData) return;
 
     try {
-      if (viewMode === 'system') {
-        // System-internal navigation
-        await api.post(`/ship/${id}/move-system`, { targetX, targetY });
-        await loadShipData();
-      } else {
-        // Galaxy (hyperspace) navigation - just fly there
-        await api.post(`/ship/${id}/move`, { targetX, targetY });
-        await loadShipData();
-      }
+      setIsMoving(true);
+      
+      // Use universal move endpoint that auto-detects layer
+      await api.post(`/ship/${id}/move`, { targetX, targetY });
+      await loadShipData();
+      
+      // Show movement effect for 300ms
+      setTimeout(() => setIsMoving(false), 300);
     } catch (err: any) {
+      setIsMoving(false);
       alert(err.response?.data?.error || 'Fehler beim Flug');
     }
   };
 
   const enterSystem = async () => {
     try {
+      setZoomTransition('in');
       const response = await api.post(`/ship/${id}/enter-system`);
       alert(response.data.message);
-      await loadShipData();
-      setViewMode('system');
+      
+      // Wait for zoom animation
+      setTimeout(async () => {
+        await loadShipData();
+        setViewMode('system');
+        setZoomTransition(null);
+      }, 800);
     } catch (err: any) {
+      setZoomTransition(null);
       alert(err.response?.data?.error || 'Fehler beim System-Eintritt');
     }
   };
 
   const leaveSystem = async () => {
     try {
+      setZoomTransition('out');
       const response = await api.post(`/ship/${id}/leave-system`);
       alert(response.data.message);
-      await loadShipData();
-      setViewMode('galaxy');
+      
+      // Wait for zoom animation
+      setTimeout(async () => {
+        await loadShipData();
+        setViewMode('galaxy');
+        setZoomTransition(null);
+      }, 800);
     } catch (err: any) {
+      setZoomTransition(null);
       alert(err.response?.data?.error || 'Fehler beim System-Verlassen');
     }
   };
@@ -282,7 +299,7 @@ export default function Ship() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* LEFT: Sensor View (STU-Style) */}
+        {/* LEFT: Sensor View with Dual-Layer Visualization */}
         <div className="bg-space-light p-4 rounded-lg border border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-white">Sensoren (Reichweite: {sensorView.range})</h2>
@@ -293,7 +310,7 @@ export default function Ship() {
                 onClick={() => setViewMode('galaxy')}
                 className={`px-3 py-1 rounded text-sm ${
                   viewMode === 'galaxy' 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-holo text-white shadow-holo' 
                     : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                 }`}
               >
@@ -304,7 +321,7 @@ export default function Ship() {
                 disabled={!isInSystem}
                 className={`px-3 py-1 rounded text-sm ${
                   viewMode === 'system' 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-holo text-white shadow-holo' 
                     : isInSystem
                       ? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                       : 'bg-gray-800 text-gray-600 cursor-not-allowed'
@@ -315,90 +332,127 @@ export default function Ship() {
             </div>
           </div>
           
-          <div className="overflow-auto">
-            <table className="border-collapse mx-auto">
-              <tbody>
-                {sensorGrid.map((row, y) => (
-                  <tr key={y}>
-                    {row.map((cell, x) => {
-                      const isCenterGalaxy = viewMode === 'galaxy' && cell.x === sensorView.center.x && cell.y === sensorView.center.y;
-                      const isCenterSystem = viewMode === 'system' && cell.x === ship.position.systemX && cell.y === ship.position.systemY;
-                      const isCenter = isCenterGalaxy || isCenterSystem;
-                      const hasShips = cell.ships.length > 0;
-                      const hasSystem = !!cell.system;
-                      const hasPlanets = cell.planets && cell.planets.length > 0;
+          {/* Map Container with Layer-Specific Styling */}
+          <div 
+            ref={mapRef}
+            className={`relative overflow-hidden rounded-lg border-2 border-holo/30 ${
+              viewMode === 'galaxy' ? 'hyperspace-map' : 'system-map'
+            } ${
+              zoomTransition === 'in' ? 'map-zoom-in' : zoomTransition === 'out' ? 'map-zoom-out' : ''
+            }`}
+            style={{ minHeight: '400px' }}
+          >
+            {/* Hyperspace Stars Background */}
+            {viewMode === 'galaxy' && (
+              <div className="hyperspace-stars" />
+            )}
+            
+            {/* System Sun */}
+            {viewMode === 'system' && (
+              <div 
+                className="system-sun"
+                style={{
+                  width: '120px',
+                  height: '120px',
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            
+            {/* Movement Streaks Effect */}
+            <div className={`hyperspace-streaks ${isMoving && viewMode === 'galaxy' ? 'active' : ''}`} />
+            
+            {/* Sensor Grid */}
+            <div className="relative z-10 p-4 overflow-auto">
+              <table className="border-collapse mx-auto">
+                <tbody>
+                  {sensorGrid.map((row, y) => (
+                    <tr key={y}>
+                      {row.map((cell, x) => {
+                        const isCenterGalaxy = viewMode === 'galaxy' && cell.x === sensorView.center.x && cell.y === sensorView.center.y;
+                        const isCenterSystem = viewMode === 'system' && cell.x === ship.position.systemX && cell.y === ship.position.systemY;
+                        const isCenter = isCenterGalaxy || isCenterSystem;
+                        const hasShips = cell.ships.length > 0;
+                        const hasSystem = !!cell.system;
+                        const hasPlanets = cell.planets && cell.planets.length > 0;
 
-                      return (
-                        <td
-                          key={x}
-                          onClick={() => !isCenter && setDestination(cell.x, cell.y)}
-                          className={`w-12 h-12 border-2 cursor-pointer relative text-center transition-all ${
-                            isCenter 
-                              ? 'bg-yellow-500 border-yellow-400 ring-2 ring-yellow-300' 
-                              : hasSystem && viewMode === 'galaxy' 
-                                ? 'bg-blue-800 border-blue-600 hover:bg-blue-700' 
-                                : hasPlanets && viewMode === 'system'
-                                  ? 'bg-green-800 border-green-600 hover:bg-green-700'
-                                  : 'bg-gray-900 border-gray-700 hover:bg-gray-800 hover:border-gray-600'
-                          }`}
-                          title={`${cell.x}|${cell.y}${hasSystem ? ` - ${cell.system.name}` : ''}${hasPlanets ? ` - ${cell.planets[0].name}` : ''}`}
-                        >
-                          <div className="flex items-center justify-center h-full">
-                            {hasShips && !isCenter && (
-                              <span className="text-red-400 font-bold text-sm">{cell.ships.length}</span>
-                            )}
-                            {isCenter && (
-                              <span className="text-white font-bold text-2xl">●</span>
-                            )}
-                            {hasSystem && viewMode === 'galaxy' && !isCenter && (
-                              <span className="text-yellow-400 text-xl">★</span>
-                            )}
-                            {hasPlanets && viewMode === 'system' && !isCenter && (
-                              <span className="text-green-400 text-xl">◉</span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        return (
+                          <td
+                            key={x}
+                            onClick={() => !isCenter && setDestination(cell.x, cell.y)}
+                            className={`w-12 h-12 border cursor-pointer relative text-center transition-all ${
+                              isCenter 
+                                ? 'bg-holo/30 border-holo ring-2 ring-holo shadow-holo' 
+                                : hasSystem && viewMode === 'galaxy' 
+                                  ? 'bg-blue-800/40 border-blue-600/50 hover:bg-blue-700/60 hover:shadow-lg hover:shadow-blue-500/30' 
+                                  : hasPlanets && viewMode === 'system'
+                                    ? 'bg-green-800/40 border-green-600/50 hover:bg-green-700/60 hover:shadow-lg hover:shadow-green-500/30'
+                                    : 'bg-black/20 border-gray-700/30 hover:bg-gray-800/40 hover:border-holo/50'
+                            }`}
+                            title={`${cell.x}|${cell.y}${hasSystem ? ` - ${cell.system.name}` : ''}${hasPlanets ? ` - ${cell.planets[0].name}` : ''}`}
+                          >
+                            <div className="flex items-center justify-center h-full">
+                              {hasShips && !isCenter && (
+                                <span className="text-red-400 font-bold text-sm animate-pulse">{cell.ships.length}</span>
+                              )}
+                              {isCenter && (
+                                <span className="text-holo font-bold text-2xl drop-shadow-[0_0_8px_rgba(0,255,255,0.8)]">●</span>
+                              )}
+                              {hasSystem && viewMode === 'galaxy' && !isCenter && (
+                                <span className="text-yellow-400 text-xl drop-shadow-[0_0_6px_rgba(255,255,0,0.6)]">★</span>
+                              )}
+                              {hasPlanets && viewMode === 'system' && !isCenter && (
+                                <span className="text-green-400 text-xl drop-shadow-[0_0_6px_rgba(0,255,0,0.6)]">◉</span>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="mt-3 text-xs text-gray-400 space-y-1">
-            <p className="font-semibold text-white mb-1">{viewMode === 'galaxy' ? 'Hyperraum-Modus' : 'System-Modus'}</p>
+          <div className="mt-3 text-xs text-gray-400 space-y-1 font-mono">
+            <p className="font-semibold text-holo mb-1 tracking-wider">
+              {viewMode === 'galaxy' ? '[ HYPERRAUM-MODUS ]' : '[ SYSTEM-MODUS ]'}
+            </p>
             {viewMode === 'galaxy' ? (
               <>
-                <p>Galaxy-Position: {ship.position.galaxyX || '?'}|{ship.position.galaxyY || '?'}</p>
+                <p className="text-holo/80">Galaxy-Position: <span className="text-white">{ship.position.galaxyX || '?'}|{ship.position.galaxyY || '?'}</span></p>
                 {ship.destination.x && (
-                  <p className="text-blue-400">→ Ziel: {ship.destination.x}|{ship.destination.y}</p>
+                  <p className="text-blue-400">→ Ziel: <span className="text-white">{ship.destination.x}|{ship.destination.y}</span></p>
                 )}
-                <p className="text-gray-500 italic mt-2">Klicke auf ein Feld zum Hyperraum-Sprung</p>
+                <p className="text-gray-500 italic mt-2">▶ Klicke auf ein Feld zum Hyperraum-Sprung (1 Energie/Feld)</p>
               </>
             ) : (
               <>
-                <p>System-Position: {ship.position.systemX || '?'}|{ship.position.systemY || '?'}</p>
-                <p className="text-gray-500 italic mt-2">Klicke auf ein Feld um zu fliegen (1 Energie/Feld)</p>
+                <p className="text-holo/80">System-Position: <span className="text-white">{ship.position.systemX || '?'}|{ship.position.systemY || '?'}</span></p>
+                <p className="text-gray-500 italic mt-2">▶ Klicke auf ein Feld um zu fliegen (0.5 Energie/Feld)</p>
               </>
             )}
             
             {/* System Enter/Leave Buttons */}
-            <div className="mt-3 pt-3 border-t border-gray-700">
+            <div className="mt-3 pt-3 border-t border-holo/20">
               {!isInSystem && ship.status === 'DOCKED' && systemAtShipPosition && (
                 <button
                   onClick={enterSystem}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-sm font-semibold"
+                  className="w-full bg-holo/20 hover:bg-holo/30 text-holo border border-holo px-3 py-2 rounded text-sm font-semibold transition-all hover:shadow-holo"
                 >
-                  System betreten: {systemAtShipPosition.name}
+                  ▶ SYSTEM BETRETEN: {systemAtShipPosition.name}
                 </button>
               )}
               {isInSystem && (
                 <button
                   onClick={leaveSystem}
-                  className="w-full bg-orange-600 hover:bg-orange-500 text-white px-3 py-2 rounded text-sm font-semibold"
+                  className="w-full bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-600 px-3 py-2 rounded text-sm font-semibold transition-all hover:shadow-[0_0_10px_rgba(255,140,0,0.4)]"
                 >
-                  System verlassen (Hyperraum)
+                  ▶ SYSTEM VERLASSEN (Hyperraum)
                 </button>
               )}
             </div>

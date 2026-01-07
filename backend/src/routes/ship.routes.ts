@@ -88,7 +88,7 @@ router.get('/:id', authMiddleware, async (req: any, res) => {
 
 /**
  * POST /api/ship/:id/move
- * Set ship destination and start flight
+ * Universal move function - automatically detects layer (hyperspace/system)
  */
 router.post('/:id/move', authMiddleware, async (req: any, res) => {
   try {
@@ -100,18 +100,15 @@ router.post('/:id/move', authMiddleware, async (req: any, res) => {
       return res.status(403).json({ error: 'Kein Spieler-Account gefunden' });
     }
 
-    if (!targetX || !targetY) {
+    if (targetX === undefined || targetY === undefined) {
       return res.status(400).json({ error: 'Zielkoordinaten erforderlich' });
     }
 
-    // Get ship
+    // Verify ownership
     const ship = await prisma.ship.findFirst({
       where: {
         id: shipId,
         playerId,
-      },
-      include: {
-        shipType: true,
       },
     });
 
@@ -119,58 +116,22 @@ router.post('/:id/move', authMiddleware, async (req: any, res) => {
       return res.status(404).json({ error: 'Schiff nicht gefunden' });
     }
 
-    // Check if ship is docked or stranded
-    if (ship.status !== 'DOCKED' && ship.status !== 'STRANDED') {
-      return res.status(400).json({ error: 'Schiff bereits im Flug' });
+    // Use the universal move function
+    const result = await shipMovementService.move(shipId, targetX, targetY);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
     }
 
-    // Calculate energy cost (1 energy per field)
-    const currentX = ship.currentGalaxyX || 0;
-    const currentY = ship.currentGalaxyY || 0;
-    const distance = Math.abs(targetX - currentX) + Math.abs(targetY - currentY);
-    const energyCost = distance;
-
-    if (ship.energyDrive < energyCost) {
-      return res.status(400).json({ 
-        error: 'Nicht genug Antriebsenergie', 
-        required: energyCost, 
-        available: ship.energyDrive 
-      });
-    }
-
-    // Instant hyperspace jump
-    const updatedShip = await prisma.ship.update({
-      where: { id: shipId },
-      data: {
-        status: 'DOCKED',
-        currentGalaxyX: targetX,
-        currentGalaxyY: targetY,
-        energyDrive: ship.energyDrive - energyCost,
-        planetId: null, // Undock from planet
-        destinationX: null,
-        destinationY: null,
-      },
-    });
-
-    // Emit socket event for real-time update
-    const io = (req as any).app.get('io');
-    if (io && playerId) {
-      io.to(`player-${playerId}`).emit('ship:moved', {
-        shipId: updatedShip.id,
-        galaxyX: targetX,
-        galaxyY: targetY,
-        energyDrive: updatedShip.energyDrive,
-      });
-    }
-
-    res.json({ 
-      success: true, 
-      message: `Hypersprung nach ${targetX}|${targetY} abgeschlossen`,
-      energyCost,
+    res.json({
+      success: true,
+      message: result.message,
+      energyCost: result.energyCost,
+      layer: result.layer,
     });
   } catch (error) {
     console.error('Error moving ship:', error);
-    res.status(500).json({ error: 'Fehler beim Hypersprung' });
+    res.status(500).json({ error: 'Fehler beim Flug' });
   }
 });
 

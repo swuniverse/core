@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, ArrowLeft, Users, Star } from 'lucide-react';
 import api from '../lib/api';
+import PlanetImage, { getPlanetTypeLabel, planetTypeColors } from '../components/PlanetImage';
 
 interface Planet {
   id: string;
   name: string;
   planetType: string;
+  visualSeed?: number;
   orbitRadius: number;
   orbitAngle: number;
   fieldX: number;
@@ -73,30 +75,17 @@ export default function SystemView() {
     }
   };
 
-  const getPlanetTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      DESERT: 'Wüstenplanet',
-      OCEAN: 'Ozeanplanet',
-      JUNGLE: 'Dschungelplanet',
-      ICE: 'Eisplanet',
-      VOLCANIC: 'Vulkanplanet',
-      TERRAN: 'Erdähnlich',
-      BARREN: 'Öde',
-      GAS_GIANT: 'Gasriese'
-    };
-    return labels[type] || type;
-  };
-
-  const getPlanetColor = (type: string) => {
+  const getPlanetColorClass = (type: string): string => {
+    // Map planet type to Tailwind background color
     const colors: Record<string, string> = {
       DESERT: '#d4a574',
-      OCEAN: '#4a9eff',
-      JUNGLE: '#4a9e4a',
       ICE: '#a3d4ff',
+      FOREST: '#4a9e4a',
+      CITY: '#888888',
+      VOLCANO: '#ff6b4a',
       VOLCANIC: '#ff6b4a',
+      JUNGLE: '#4a9e4a',
       TERRAN: '#6ba3ff',
-      BARREN: '#8b7355',
-      GAS_GIANT: '#ffa366'
     };
     return colors[type] || '#888888';
   };
@@ -234,10 +223,15 @@ export default function SystemView() {
 
                             {/* Planet */}
                             {cell.type === 'planet' && cell.data && 'planetType' in cell.data && (
-                              <div 
-                                className="w-full h-full rounded-full transition-transform hover:scale-150"
-                                style={{ backgroundColor: getPlanetColor(cell.data.planetType) }}
-                              />
+                              <div className="w-full h-full flex items-center justify-center">
+                                <PlanetImage 
+                                  planetType={cell.data.planetType}
+                                  visualSeed={cell.data.visualSeed || 1}
+                                  alt={cell.data.name || 'Planet'}
+                                  size={20}
+                                  className="rounded-full transition-transform hover:scale-150"
+                                />
+                              </div>
                             )}
 
                             {/* Asteroid */}

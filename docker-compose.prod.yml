@@ -3,12 +3,12 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: swu-postgres
+    container_name: swholo-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-secure-password-here}
-      POSTGRES_DB: swu_game
+      POSTGRES_DB: swholo_game
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -21,7 +21,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: swu-redis
+    container_name: swholo-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
@@ -35,15 +35,13 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    container_name: swu-backend
+    image: ghcr.io/swholonet/core/backend:latest
+    container_name: swholo-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-your-secure-password-here}@postgres:5432/swu_game
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-your-secure-password-here}@postgres:5432/swholo_game
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
@@ -61,10 +59,8 @@ services:
       retries: 3
 
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: swu-frontend
+    image: ghcr.io/swholonet/core/frontend:latest
+    container_name: swholo-frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"  # Nur localhost, Caddy Reverse Proxy lauscht auf 443 (automatisches HTTPS)

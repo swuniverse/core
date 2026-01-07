@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Globe, Zap, Box, Coins, Gem, Wind, Battery, Sparkles, Heart, Shield, Wrench } from 'lucide-react';
 import api from '../lib/api';
+import PlanetImage, { getPlanetTypeLabel } from '../components/PlanetImage';
 
 interface Planet {
   id: number;
@@ -83,19 +84,32 @@ export default function Planets() {
         {planets.map((planet) => (
           <div key={planet.id} className="bg-space-light p-6 rounded-lg border border-gray-700">
             {/* Planet Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white mb-1">{planet.name}</h2>
-                <p className="text-gray-400 text-sm">
-                  {planet.orbitRadius}|{planet.orbitAngle} ({planet.system.name} {planet.system.fieldX}|{planet.system.fieldY})
-                </p>
+            <div className="flex items-start gap-4 mb-4">
+              <PlanetImage 
+                planetType={planet.planetType}
+                alt={planet.name}
+                size={100}
+                className="rounded-lg"
+              />
+              <div className="flex-1">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white mb-1">{planet.name}</h2>
+                    <p className="text-gray-400 text-sm">
+                      {getPlanetTypeLabel(planet.planetType)} • {planet.orbitRadius}|{planet.orbitAngle}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      {planet.system.name} {planet.system.fieldX}|{planet.system.fieldY}
+                    </p>
+                  </div>
+                  <Link
+                    to={`/planet/${planet.id}`}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    Planet verwalten
+                  </Link>
+                </div>
               </div>
-              <Link
-                to={`/planet/${planet.id}`}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Planet verwalten
-              </Link>
             </div>
 
             {/* Resources Grid */}
