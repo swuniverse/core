@@ -4,21 +4,6 @@
 
 set -e
 
-# URL encode function
-urlencode() {
-    local string="$1"
-    local encoded=""
-    local i
-    
-    for i in $(seq 0 $((${#string} - 1))); do
-        local c="${string:$i:1}"
-        case "$c" in
-            [-_.~a-zA-Z0-9]) echo -n "$c" ;;
-            *) printf "%%%02x" "'$c" ;;
-        esac
-    done
-}
-
 echo "================================"
 echo "🚀 Backend Entrypoint"
 echo "================================"
@@ -43,7 +28,9 @@ else
         POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
         POSTGRES_PORT="${POSTGRES_PORT:-5432}"
         
-        ENCODED_PASSWORD=$(urlencode "$POSTGRES_PASSWORD")
+        # Use Node.js to properly URL-encode the password (sh-compatible)
+        ENCODED_PASSWORD=$(node -e "console.log(encodeURIComponent('$POSTGRES_PASSWORD'))")
+        
         export DATABASE_URL="postgresql://postgres:${ENCODED_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/swholo_game?schema=public"
         echo "✅ DATABASE_URL constructed from POSTGRES_PASSWORD"
         echo "   postgresql://postgres:***@${POSTGRES_HOST}:${POSTGRES_PORT}/swholo_game?schema=public"
