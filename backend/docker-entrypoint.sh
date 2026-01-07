@@ -19,25 +19,59 @@ urlencode() {
     done
 }
 
-# If DATABASE_URL is not set, construct it from POSTGRES_PASSWORD
-if [ -z "$DATABASE_URL" ]; then
-    if [ -z "$POSTGRES_PASSWORD" ]; then
-        echo "ERROR: Either DATABASE_URL or POSTGRES_PASSWORD must be set"
+echo "================================"
+echo "🚀 Backend Entrypoint"
+echo "================================"
+
+# Debug: Show environment variables
+echo ""
+echo "Environment Variables:"
+echo "  NODE_ENV: $NODE_ENV"
+echo "  PORT: $PORT"
+echo "  DATABASE_URL: ${DATABASE_URL:-(not set)}"
+echo "  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:+(set)}"
+echo "  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}"
+echo ""
+
+# If DATABASE_URL is already set, use it (prefer explicit over constructed)
+if [ -n "$DATABASE_URL" ]; then
+    echo "✅ Using provided DATABASE_URL"
+else
+    # Try to construct from POSTGRES_PASSWORD
+    if [ -n "$POSTGRES_PASSWORD" ]; then
+        # Use environment variables for host/port or defaults
+        POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+        POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+        
+        ENCODED_PASSWORD=$(urlencode "$POSTGRES_PASSWORD")
+        export DATABASE_URL="postgresql://postgres:${ENCODED_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/swholo_game?schema=public"
+        echo "✅ DATABASE_URL constructed from POSTGRES_PASSWORD"
+        echo "   postgresql://postgres:***@${POSTGRES_HOST}:${POSTGRES_PORT}/swholo_game?schema=public"
+    else
+        echo "❌ ERROR: Neither DATABASE_URL nor POSTGRES_PASSWORD is set!"
+        echo ""
+        echo "Please ensure .env.production is properly loaded with:"
+        echo "  - DATABASE_URL or"
+        echo "  - POSTGRES_PASSWORD"
         exit 1
     fi
-    
-    ENCODED_PASSWORD=$(urlencode "$POSTGRES_PASSWORD")
-    export DATABASE_URL="postgresql://postgres:${ENCODED_PASSWORD}@postgres:5432/swholo_game?schema=public"
-    
-    echo "ℹ️  DATABASE_URL constructed from POSTGRES_PASSWORD"
-    echo "ℹ️  DATABASE_URL: postgresql://postgres:***@postgres:5432/swholo_game?schema=public"
 fi
 
-# Run migrations and start the app
-echo "ℹ️  Applying database migrations..."
-npx prisma migrate deploy || {
-    echo "⚠️  Migrations failed or already applied"
-}
+echo ""
+echo "================================"
+echo "Applying Migrations"
+echo "================================"
 
-echo "ℹ️  Starting backend server..."
+# Run migrations and start the app
+if npx prisma migrate deploy; then
+    echo "✅ Migrations applied successfully"
+else
+    echo "⚠️  Migrations failed or already applied"
+fi
+
+echo ""
+echo "================================"
+echo "Starting Backend Server"
+echo "================================"
+
 exec node dist/index.js
