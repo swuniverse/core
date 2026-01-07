@@ -49,7 +49,7 @@ swholo.net {
 
     # Frontend (React SPA)
     handle {
-        reverse_proxy swholo-frontend:80
+        reverse_proxy swholo-frontend:3000
     }
 }
 
