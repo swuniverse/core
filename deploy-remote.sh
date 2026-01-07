@@ -11,6 +11,19 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Load environment variables from .env.production
+if [ -f .env.production ]; then
+    echo -e "${BLUE}Loading .env.production...${NC}"
+    set -a
+    source .env.production
+    set +a
+    echo -e "${GREEN}✅ Environment variables loaded${NC}"
+else
+    echo -e "${RED}❌ Error: .env.production file not found${NC}"
+    exit 1
+fi
+echo ""
+
 # Prüfe ob GHCR_TOKEN gesetzt ist
 if [ -z "$GHCR_TOKEN" ]; then
     echo -e "${RED}❌ Fehler: GHCR_TOKEN Umgebungsvariable nicht gesetzt${NC}"
@@ -28,7 +41,7 @@ fi
 echo ""
 
 echo -e "${BLUE}Schritt 2: Neue Images von GHCR pullen${NC}"
-docker compose -f docker-compose.prod.yml pull
+docker compose --env-file .env.production -f docker-compose.prod.yml pull
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Images erfolgreich gepullt${NC}"
 else
@@ -38,7 +51,7 @@ fi
 echo ""
 
 echo -e "${BLUE}Schritt 3: Container neu starten${NC}"
-docker compose -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Container erfolgreich gestartet${NC}"
 else
@@ -48,7 +61,7 @@ fi
 echo ""
 
 echo -e "${BLUE}Schritt 4: Prisma Migrationen anwenden${NC}"
-docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Datenbank-Migrationen erfolgreich angewendet${NC}"
 else
@@ -68,7 +81,7 @@ echo ""
 echo -e "${GREEN}✅ Deployment erfolgreich abgeschlossen!${NC}"
 echo ""
 echo "Container Status:"
-docker compose -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker-compose.prod.yml ps
 echo ""
 echo -e "${BLUE}Logs anzeigen:${NC}"
 echo "  docker compose -f docker-compose.prod.yml logs -f backend"
