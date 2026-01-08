@@ -3,6 +3,15 @@
  */
 
 export const config = {
+  // CORS Configuration
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
+  CORS_DEV_ORIGINS: [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/,
+    /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:5173$/,
+  ],
+  
   // Asset URLs
   ASSET_BASE_URL: 'https://swholonet.github.io/assets',
   

@@ -210,16 +210,24 @@ export class AuthService {
   }
 
   private generateToken(userId: number): string {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     return jwt.sign(
       { userId },
-      process.env.JWT_SECRET || 'default-secret-key',
+      jwtSecret,
       { expiresIn: '7d' }
     );
   }
 
   verifyToken(token: string): { userId: number } {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     try {
-      return jwt.verify(token, process.env.JWT_SECRET || 'default-secret-key') as { userId: number };
+      return jwt.verify(token, jwtSecret) as { userId: number };
     } catch (error) {
       throw new Error('Invalid or expired token');
     }

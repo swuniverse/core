@@ -9,6 +9,7 @@ import { TickSystem } from './services/tickSystem';
 import { buildingCompletionService } from './services/buildingCompletionService';
 import { shipBuildService, setShipBuildIO } from './services/shipBuildService';
 import { shipMovementService } from './services/shipMovementService';
+import { config } from './config';
 
 // Routes
 import authRoutes from './routes/auth.routes';
@@ -28,50 +29,19 @@ dotenv.config();
 const app: Application = express();
 const httpServer = createServer(app);
 
-// Allow multiple origins for CORS (localhost + local network IPs)
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/,  // Local network IPs
-  /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:5173$/,  // Alternative local network range
-];
+// Helper function to build allowed origins
+const buildAllowedOrigins = () => {
+  const origins: (string | RegExp)[] = [...config.CORS_DEV_ORIGINS];
+  if (config.CORS_ORIGIN) {
+    origins.push(config.CORS_ORIGIN);
+  }
+  return origins;
+};
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-      
-      // Check if origin matches any allowed pattern
-      const isAllowed = allowedOrigins.some(allowed => {
-        if (typeof allowed === 'string') {
-          return origin === allowed;
-        } else {
-          return allowed.test(origin);
-        }
-      });
-      
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        console.warn(`CORS blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-});
-
-const PORT = Number(process.env.PORT) || 3000;
-
-// Global io accessor
-let globalIo: Server;
-export const getIo = () => globalIo;
-
-// Middleware
-app.use(cors({
-  origin: (origin, callback) => {
+const createCorsOriginValidator = () => {
+  const allowedOrigins = buildAllowedOrigins();
+  
+  return (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     
@@ -90,7 +60,26 @@ app.use(cors({
       console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
+  };
+};
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: createCorsOriginValidator(),
+    methods: ['GET', 'POST'],
+    credentials: true,
   },
+});
+
+const PORT = Number(process.env.PORT) || 3000;
+
+// Global io accessor
+let globalIo: Server;
+export const getIo = () => globalIo;
+
+// Middleware
+app.use(cors({
+  origin: createCorsOriginValidator(),
   credentials: true,
 }));
 app.use(express.json());
