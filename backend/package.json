@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:reset": "tsx scripts/reset-and-seed.ts"
+    "db:reset": "tsx scripts/reset-and-seed.ts",
+    "seed:modules": "tsx prisma/seed-modules.ts"
   },
   "keywords": [
     "game",
