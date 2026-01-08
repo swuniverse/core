@@ -89,9 +89,9 @@ async function seedBuildingTypes() {
 
     // ===== FORTGESCHRITTENE BASIS-GEBÄUDE =====
     {
-      name: 'Raumschiffwerft',
-      description: 'Konstruiert Raumschiffe und Jäger für deine Flotte.',
-      category: 'PRODUCTION',
+      name: 'Orbitales Raumdock',
+      description: 'Orbitale Werft fuer den Bau von Raumschiffen. Ermoeglicht den Zugriff auf den modularen Blueprint-Editor.',
+      category: 'ORBITAL',
       buildCostCredits: 800,
       buildCostDurastahl: 400,
       buildCostKristallinesSilizium: 200,
