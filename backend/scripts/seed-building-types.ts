@@ -5,6 +5,10 @@ const prisma = new PrismaClient();
 async function seedBuildingTypes() {
   console.log('Seeding building types...');
 
+  // Delete existing buildings before deleting types to avoid foreign key constraints
+  await prisma.building.deleteMany({});
+  console.log('✓ Deleted existing buildings');
+
   // Delete old building types
   await prisma.buildingType.deleteMany({});
 
