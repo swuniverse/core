@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PlanetSelection from './pages/PlanetSelection';
@@ -21,6 +22,7 @@ import BlueprintEditorPage from './pages/BlueprintEditor';
 function App() {
   return (
     <Routes>
+      <Route path="/welcome" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/select-planet" element={

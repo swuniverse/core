@@ -14,8 +14,13 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundImage: `linear-gradient(135deg, #000a0a 0%, #001a2e 100%)`, backgroundAttachment: 'fixed' }}>
-      <nav className="border-b border-holo/50 bg-holo-card/30 backdrop-blur-sm" style={{ boxShadow: '0 0 20px rgba(0, 255, 255, 0.2)' }}>
+    <div className="min-h-screen relative">
+      {/* HoloNet Terminal Frame Effect */}
+      <div className="fixed inset-0 pointer-events-none z-50 border border-cyan-900/20" />
+      <div className="fixed top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent pointer-events-none z-50" />
+      <div className="fixed bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent pointer-events-none z-50" />
+
+      <nav className="border-b border-cyan-500/30 bg-black/60 backdrop-blur-md sticky top-0 z-40" style={{ boxShadow: '0 0 30px rgba(0, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 255, 255, 0.1)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
