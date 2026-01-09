@@ -3,7 +3,6 @@ import {
   Plus,
   X,
   Lock,
-  ChevronDown,
   Zap,
   Gauge,
   Crosshair,

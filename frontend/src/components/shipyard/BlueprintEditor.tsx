@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Rocket, AlertTriangle, Check, RefreshCw } from 'lucide-react';
+import { Save, Rocket, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   ShipClass,
   ShipClassConfig,
@@ -9,7 +9,6 @@ import {
   ConstructionCosts,
   ResearchValidationResult,
   CreateBlueprintInput,
-  SHIP_CLASS_NAMES,
 } from '../../types/blueprint';
 import { blueprintApi } from '../../lib/blueprintApi';
 import HullSelector from './HullSelector';
@@ -51,7 +50,7 @@ export default function BlueprintEditor({
     initialBlueprint?.shipClass || null
   );
   const [modules, setModules] = useState<Map<number, BlueprintModule>>(new Map());
-  const [description, setDescription] = useState(initialBlueprint?.description || '');
+  const [description] = useState(initialBlueprint?.description || '');
 
   // Calculated State
   const [stats, setStats] = useState<BlueprintStats | null>(null);
@@ -295,7 +294,7 @@ export default function BlueprintEditor({
                   saving ||
                   !name.trim() ||
                   modules.size === 0 ||
-                  (validation && !validation.isValid)
+                  !!(validation && !validation.isValid)
                 }
                 className="w-full bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 disabled:from-gray-700 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-all"
               >

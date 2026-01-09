@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Rocket, Trash2, Copy, Edit } from 'lucide-react';
+import { ArrowLeft, Plus, Rocket, Trash2, Edit } from 'lucide-react';
 import { BlueprintEditor } from '../components/shipyard';
 import { blueprintApi } from '../lib/blueprintApi';
 import {
@@ -11,7 +11,7 @@ import {
 
 export default function BlueprintEditorPage() {
   const navigate = useNavigate();
-  const { planetId, blueprintId } = useParams();
+  const { planetId } = useParams();
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -32,7 +32,7 @@ export default function BlueprintEditorPage() {
     }
   };
 
-  const handleSave = (blueprint: Blueprint) => {
+  const handleSave = (_blueprint: Blueprint) => {
     setShowEditor(false);
     setEditingBlueprint(null);
     loadBlueprints();
