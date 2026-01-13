@@ -35,13 +35,12 @@ services:
     image: ghcr.io/swuniverse/core/backend:latest
     container_name: swuniverse-backend
     restart: unless-stopped
-    env_file: .env.production
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
       PORT: 3000
       REDIS_URL: redis://redis:6379
-      # DATABASE_URL constructed from POSTGRES_PASSWORD
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/swuniverse_game?schema=public
       # === SEEDING ===
       # Set RUN_SEEDS=true to run seed scripts on startup (use only once after major updates!)
       # Uncomment the line below when you need to reseed after schema changes:
