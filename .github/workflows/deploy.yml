@@ -49,7 +49,7 @@ jobs:
           cd frontend
           npm run build
         env:
-          VITE_API_URL: ""
+          VITE_API_URL: ''
           VITE_DEBUG_LOGGING: false
           VITE_ASSET_BASE_URL: https://swuniverse.github.io/assets/
 
@@ -103,7 +103,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_API_URL=""
+            VITE_API_URL=
             VITE_DEBUG_LOGGING=false
             VITE_ASSET_BASE_URL=https://swuniverse.github.io/assets/
 
