@@ -70,10 +70,19 @@ export default function HoloNet() {
   const loadMessages = async () => {
     try {
       const response = await api.get('/holonet/messages');
-      setMessages(response.data);
+
+      // Type check: ensure response.data is an array
+      if (Array.isArray(response.data)) {
+        setMessages(response.data);
+      } else {
+        console.error('Expected array but got:', typeof response.data, response.data);
+        setMessages([]); // Fallback to empty array
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Failed to load messages:', error);
+      setMessages([]); // Ensure messages is always an array
       setLoading(false);
     }
   };

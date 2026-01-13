@@ -48,7 +48,8 @@ router.get('/messages', authMiddleware, async (req, res) => {
     );
   } catch (error: any) {
     logger.error('Failed to fetch HoloNet messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    // Return empty array instead of error object to maintain API contract
+    res.status(200).json([]);
   }
 });
 
