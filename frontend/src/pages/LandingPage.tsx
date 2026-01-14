@@ -438,17 +438,6 @@ export default function LandingPage() {
                 Das ultimative Star Wars Strategiespiel im Browser. Erobere die Galaxis,
                 baue dein Imperium und schreibe Geschichte in einer weit, weit entfernten Galaxis.
               </p>
-              <div className="flex items-center gap-2 mt-4 text-xs text-cyan-500/60 font-mono">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                <a
-                  href="https://discord.gg/thR3x6hedp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-cyan-500/60 hover:text-cyan-400 transition-colors"
-                >
-                  Discord Community beitreten
-                </a>
-              </div>
             </div>
 
             {/* Legal */}
@@ -502,7 +491,9 @@ export default function LandingPage() {
                   Discord Server
                 </a>
                 <a
-                  href="#"
+                  href="https://github.com/swuniverse"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-3 text-cyan-500/70 hover:text-cyan-400 text-sm transition-colors group"
                 >
                   <div className="w-8 h-8 rounded-lg bg-slate-800/50 border border-cyan-600/20 flex items-center justify-center group-hover:border-cyan-500/40 transition-colors">
