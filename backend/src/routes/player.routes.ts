@@ -217,7 +217,7 @@ router.get('/dashboard', authMiddleware, async (req: AuthRequest, res: Response)
       planets: planets.map((planet) => ({
         id: planet.id,
         name: planet.name,
-        planetType: planet.planetType,
+        planetClass: planet.planetClass,
         orbitRadius: planet.orbitRadius,
         orbitAngle: planet.orbitAngle,
         system: {

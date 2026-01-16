@@ -7,15 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum PlanetType {
-  DESERT
-  ICE
-  FOREST
-  CITY
-  VOLCANO
-  JUNGLE
-  VOLCANIC
-  TERRAN
+enum PlanetClass {
+  // Lebensfreundliche Klassen (kolonisierbar)
+  CLASS_M     // erdähnlich (201, 401)
+  CLASS_O     // ozeanisch (202, 204, 205, 402, 404, 405)
+  CLASS_L     // bewaldet (203, 403)
+  CLASS_K     // marsähnlich (211, 311, 411)
+  CLASS_H     // wüstenbedeckt (213, 313, 413)
+  CLASS_P     // eisbedeckt (215, 415)
+  CLASS_P_T   // eisbedeckt weniger Wasser (216, 416)
+  CLASS_G     // tundrabedeckt (219, 319)
+  CLASS_D     // mondähnlich (231, 431)
+
+  // Extreme Klassen (schwer kolonisierbar)
+  CLASS_Q     // dichte Atmosphäre (221, 421)
+  CLASS_X     // vulkanisch (217, 417)
+
+  // Unbewohnbare Planeten (nicht kolonisierbar)
+  CLASS_S     // gezeitengebunden (207, 309, 407)
+  CLASS_T     // extreme Rotation (209, 409)
+  CLASS_I_1   // Gasriese Typ 1 (261)
+  CLASS_I_2   // Gasriese Typ 2 (262)
+  CLASS_I_3   // Gasriese Typ 3 (263)
+  CLASS_N     // spezielle Eigenschaften (423)
+
+  // Legacy Support (für Migration)
+  DESERT      // -> CLASS_H
+  ICE         // -> CLASS_P
+  FOREST      // -> CLASS_L
+  CITY        // -> CLASS_M
+  VOLCANO     // -> CLASS_X
+  JUNGLE      // -> CLASS_L
+  VOLCANIC    // -> CLASS_X
+  TERRAN      // -> CLASS_M
+}
+
+enum SystemType {
+  // STU System Types with Asset IDs
+  SMALL_BLUE      // (1001) Kleiner Blauer Stern
+  SMALL_YELLOW    // (1021) Kleiner Gelber Stern
+  MEDIUM_BLUE     // (1041) Mittlerer Blauer Stern
+  BLUE_GIANT      // (1053) Blauer Riese
+  RED_DWARF       // (1061) Roter Zwerg
+  NEUTRON_STAR    // (1070) Neutronenstern
+  BLACK_HOLE      // (1072) Schwarzes Loch
+  BINARY_SYSTEM   // (1074) Doppelsternsystem
 }
 
 // Blueprint System Enums
@@ -41,6 +77,16 @@ enum ShipClass {
   CAPITAL          // Grosskapitaeler (Sternzerstoerer)
   TRANSPORT        // Transporter (GR-75)
 }
+
+// STU-Style celestial object types for enhanced system generation
+enum CelestialType {
+  PLANET           // Regular planet
+  MOON             // Moon orbiting a planet
+  ASTEROID_FIELD   // Asteroid cluster (minable)
+}
+
+// SystemObjectType enum removed - consolidated into CelestialType.ASTEROID_FIELD
+// Legacy object types (DEBRIS_FIELD, SPACE_STATION, WORMHOLE, NEBULA_PATCH) had no real assets
 
 model User {
   id        Int      @id @default(autoincrement())
@@ -124,27 +170,40 @@ model System {
   id          Int      @id @default(autoincrement())
   name        String
   sectorId    Int
-  systemType  String   // SINGLE_STAR, BINARY_STAR, NEUTRON_STAR, BLACK_HOLE
+  systemType  SystemType // System star type for visual representation
   fieldX      Int      // X-coordinate in sector (1-20)
   fieldY      Int      // Y-coordinate in sector (1-20)
   gridSize    Int      @default(30) // Grid size for system view (20-40)
-  
+
   sector      Sector   @relation(fields: [sectorId], references: [id])
-  planets     Planet[]
+  planets     Planet[] // Includes regular planets, moons, and asteroid fields
   ships       Ship[]   // Ships currently in this system
-  
+
   @@unique([sectorId, fieldX, fieldY])
 }
+
+// SystemObject model removed - consolidated into Planet model with celestialType=ASTEROID_FIELD
+// Legacy object types had no real STU assets and caused UI confusion
 
 model Planet {
   id              Int        @id @default(autoincrement())
   name            String
   systemId        Int        // Planet belongs to a System now
   playerId        Int?
-  planetType      PlanetType @default(TERRAN) // Now using Enum
+  planetClass     PlanetClass @default(CLASS_M) // STU planet classification
   visualSeed      Int?       // For visual variations (1-N)
-  orbitRadius     Int        @default(3) // Distance from sun (1-10)
-  orbitAngle      Int        @default(0) // Position on orbit (0-359 degrees)
+
+  // Enhanced STU-style positioning
+  orbitRadius     Int        @default(3) // Distance from sun (1-10) - for orbital planets
+  orbitAngle      Int        @default(0) // Position on orbit (0-359 degrees) - for orbital planets
+  gridX           Int?       // Direct grid X position (for asteroids, special objects)
+  gridY           Int?       // Direct grid Y position (for asteroids, special objects)
+
+  // STU-style celestial object system
+  celestialType   CelestialType @default(PLANET) // PLANET, MOON, or ASTEROID_FIELD
+  parentPlanetId  Int?       // For moons - which planet do they orbit around
+  asteroidVariant String?    // For ASTEROID_FIELD: 'NORMAL', 'GREEN', 'RED', 'ICE'
+
   sizeX           Int        @default(10)
   sizeY           Int        @default(10)
   credits         Int        @default(10000)
@@ -161,6 +220,11 @@ model Planet {
   
   system      System       @relation(fields: [systemId], references: [id])
   player      Player?      @relation(fields: [playerId], references: [id])
+
+  // STU-style moon system: self-referencing relations
+  parentPlanet Planet?     @relation("PlanetMoons", fields: [parentPlanetId], references: [id])
+  moons       Planet[]     @relation("PlanetMoons")
+
   buildings   Building[]
   fields      PlanetField[]
   ships       Ship[]

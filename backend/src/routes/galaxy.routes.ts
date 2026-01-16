@@ -102,6 +102,7 @@ router.get('/system/:systemId', authMiddleware, async (req: AuthRequest, res: Re
             },
           },
         },
+        // systemObjects removed - now part of planets with celestialType=ASTEROID_FIELD
       },
     });
 
@@ -123,9 +124,17 @@ router.get('/system/:systemId', authMiddleware, async (req: AuthRequest, res: Re
       planets: system.planets.map(p => ({
         id: p.id,
         name: p.name,
-        planetType: p.planetType,
+        planetClass: p.planetClass,
+        celestialType: p.celestialType,
+        asteroidVariant: p.asteroidVariant, // For ASTEROID_FIELD types
+        gridX: p.gridX,
+        gridY: p.gridY,
+        visualSeed: p.visualSeed,
         orbitRadius: p.orbitRadius,
         orbitAngle: p.orbitAngle,
+        parentPlanetId: p.parentPlanetId,
+        durastahl: p.durastahl, // Resource data for asteroid fields
+        kristallinesSilizium: p.kristallinesSilizium,
         player: p.player ? {
           id: p.player.id,
           username: p.player.user.username,
@@ -135,6 +144,7 @@ router.get('/system/:systemId', authMiddleware, async (req: AuthRequest, res: Re
           },
         } : null,
       })),
+      // systemObjects removed - now included in planets array with celestialType=ASTEROID_FIELD
     });
   } catch (error) {
     console.error('Error loading system:', error);
@@ -152,18 +162,34 @@ router.get('/map', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Get available start planets for player's faction
+// Get available start planets for player's faction with optional query parameters
 router.get('/start-planets', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { user } = req as any;
-    
+
     if (!user?.player?.factionId) {
       return res.status(400).json({ error: 'Player faction not found' });
     }
 
-    const planets = await galaxyService.getAvailableStartPlanets(user.player.factionId);
+    // Extract query parameters for co-op and refresh functionality
+    const { nearSystem, refresh } = req.query;
+    const options = {
+      nearSystemName: nearSystem as string,
+      refreshCount: parseInt(refresh as string) || 0
+    };
+
+    const planets = await galaxyService.getAvailableStartPlanets(user.player.factionId, options);
+
+    // Handle co-op search specific responses
+    if (options.nearSystemName && planets.length === 0) {
+      return res.status(404).json({
+        error: `System "${options.nearSystemName}" nicht gefunden oder keine verfügbaren Planeten in der Nähe`
+      });
+    }
+
     res.json(planets);
   } catch (error: any) {
+    console.error('Error in start-planets endpoint:', error);
     res.status(500).json({ error: error.message });
   }
 });

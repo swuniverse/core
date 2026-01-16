@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Globe, Zap, Box, Coins, Gem, Wrench } from 'lucide-react';
 import api from '../lib/api';
-import PlanetImage, { getPlanetTypeLabel } from '../components/PlanetImage';
+import PlanetImage, { getPlanetClassLabel } from '../components/PlanetImage';
 
 interface Planet {
   id: number;
   name: string;
-  planetType: string;
+  planetClass: string;
   orbitRadius: number;
   orbitAngle: number;
   system: {
@@ -128,9 +128,9 @@ export default function Planets() {
             <div className="p-6">
               <div className="flex items-start gap-4 mb-4">
                 <PlanetImage
-                  planetType={planet.planetType}
+                  planetClass={planet.planetClass}
                   alt={planet.name}
-                  size={80}
+                  size={50}
                   className="rounded-lg border border-cyan-500/20"
                 />
                 <div className="flex-1">
@@ -140,7 +140,7 @@ export default function Planets() {
                         {planet.name.toUpperCase()}
                       </h2>
                       <p className="text-cyan-400/70 text-sm font-mono">
-                        {getPlanetTypeLabel(planet.planetType).toUpperCase()}
+                        {getPlanetClassLabel(planet.planetClass).toUpperCase()}
                       </p>
                       <p className="text-cyan-400/50 text-xs font-mono mt-1">
                         {planet.system.name} • {planet.system.fieldX}|{planet.system.fieldY}

@@ -39,8 +39,8 @@ async function resetAndSeed() {
   try {
     console.log('🗑️  Resetting database...\n');
 
-    // Drop and recreate database
-    execSync('npx prisma migrate reset --force --skip-seed', { stdio: 'inherit' });
+    // Drop and recreate database with current schema (STU-style system objects)
+    execSync('npx prisma db push --force-reset', { stdio: 'inherit' });
 
     console.log('\n🌱 Seeding factions...');
 
@@ -82,8 +82,8 @@ async function resetAndSeed() {
 
     // Initialize Galaxy directly via service
     const galaxy = await galaxyService.initializeGalaxy();
-    const startPlanets = await galaxyService.createStartPlanets();
-    console.log(`✓ Galaxy initialized: ${startPlanets.length} start planets created`);
+    console.log('✓ Galaxy initialized with dynamic start planet selection');
+    console.log('✓ Players will select from generated habitable planets in faction territories');
 
     console.log('\n✨ Database reset and seeding complete!\n');
     

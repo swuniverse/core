@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SW Universe - Asset Integration Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #FFE800;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .category {
+            margin-bottom: 50px;
+        }
+
+        .category h2 {
+            color: #4ADEAF;
+            border-bottom: 2px solid #4ADEAF;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .asset-item {
+            text-align: center;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .asset-item img {
+            max-width: 100%;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .asset-name {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        .asset-id {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 40px 0;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            color: #FFE800;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .error {
+            background: #2a1a1a;
+            border: 1px solid #600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌌 SW Universe Asset Integration</h1>
+        <p class="subtitle">Demo der neuen Planeten- und System-Assets basierend auf ST Universe</p>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">141</div>
+                <div class="stat-label">Planeten-Assets</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">75</div>
+                <div class="stat-label">System-Assets</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">46</div>
+                <div class="stat-label">Neue Planeten-Typen</div>
+            </div>
+        </div>
+
+        <!-- Habitable Worlds -->
+        <div class="category">
+            <h2>🌍 Bewohnbare Welten (200er Serie)</h2>
+            <div class="asset-grid" id="habitable-worlds"></div>
+        </div>
+
+        <!-- Colony Worlds -->
+        <div class="category">
+            <h2>🏭 Koloniewelten (300er Serie)</h2>
+            <div class="asset-grid" id="colony-worlds"></div>
+        </div>
+
+        <!-- Moons and Barren -->
+        <div class="category">
+            <h2>🌑 Monde & Karge Welten (400er Serie)</h2>
+            <div class="asset-grid" id="moons-barren"></div>
+        </div>
+
+        <!-- Special Objects -->
+        <div class="category">
+            <h2>⭐ Besondere Objekte (700er Serie)</h2>
+            <div class="asset-grid" id="special-objects"></div>
+        </div>
+
+        <!-- System Types -->
+        <div class="category">
+            <h2>🌟 Sternen-Systeme (1000er Serie)</h2>
+            <div class="asset-grid" id="system-types"></div>
+        </div>
+    </div>
+
+    <script>
+        const ASSET_BASE_URL = 'http://127.0.0.1:8080/';
+
+        const planetTypes = {
+            'habitable-worlds': [
+                { id: 201, name: 'Ozeanwelt', type: 'OCEAN' },
+                { id: 202, name: 'Kontinentalwelt', type: 'CONTINENTAL' },
+                { id: 203, name: 'Tropische Welt', type: 'TROPICAL' },
+                { id: 204, name: 'Gemäßigte Welt', type: 'TEMPERATE' },
+                { id: 207, name: 'Hochlandwelt', type: 'HIGHLAND' },
+                { id: 209, name: 'Sumpfwelt', type: 'MARSH' },
+                { id: 211, name: 'Moorwelt', type: 'SWAMP' },
+                { id: 261, name: 'Inselwelt', type: 'ARCHIPELAGO' },
+            ],
+            'colony-worlds': [
+                { id: 301, name: 'Koloniewelt', type: 'COLONY' },
+                { id: 302, name: 'Industriewelt', type: 'INDUSTRIAL' },
+                { id: 309, name: 'Agrarwelt', type: 'AGRICULTURAL' },
+                { id: 315, name: 'Bergbauwelt', type: 'MINING' },
+                { id: 319, name: 'Forschungswelt', type: 'RESEARCH' },
+                { id: 331, name: 'Handelswelt', type: 'TRADING' },
+                { id: 361, name: 'Militärbasis', type: 'MILITARY' },
+            ],
+            'moons-barren': [
+                { id: 401, name: 'Mond', type: 'MOON' },
+                { id: 404, name: 'Öde Welt', type: 'BARREN' },
+                { id: 409, name: 'Felsenwelt', type: 'ROCKY' },
+                { id: 415, name: 'Kraterwelt', type: 'CRATER' },
+                { id: 419, name: 'Leblose Welt', type: 'LIFELESS' },
+                { id: 431, name: 'Ödland', type: 'WASTELAND' },
+            ],
+            'special-objects': [
+                { id: 701, name: 'Asteroidenfeld', type: 'ASTEROID_FIELD' },
+                { id: 704, name: 'Trümmerfeld', type: 'DEBRIS_FIELD' },
+                { id: 707, name: 'Raumstation', type: 'SPACE_STATION' },
+                { id: 716, name: 'Außenposten', type: 'OUTPOST' },
+            ],
+            'system-types': [
+                { id: 1001, name: 'Kleiner Blauer Stern', type: 'SMALL_BLUE' },
+                { id: 1021, name: 'Kleiner Gelber Stern', type: 'SMALL_YELLOW' },
+                { id: 1041, name: 'Mittlerer Blauer Stern', type: 'MEDIUM_BLUE' },
+                { id: 1053, name: 'Blauer Riese', type: 'BLUE_GIANT' },
+                { id: 1061, name: 'Roter Zwerg', type: 'RED_DWARF' },
+                { id: 1070, name: 'Neutronenstern', type: 'NEUTRON_STAR' },
+                { id: 1072, name: 'Schwarzes Loch', type: 'BLACK_HOLE' },
+                { id: 1074, name: 'Doppelsternsystem', type: 'BINARY_SYSTEM' },
+            ]
+        };
+
+        function createAssetItem(asset, folder) {
+            const div = document.createElement('div');
+            div.className = 'asset-item';
+
+            const img = document.createElement('img');
+            img.src = `${ASSET_BASE_URL}${folder}/${asset.id}.png`;
+            img.alt = asset.name;
+            img.onerror = function() {
+                this.style.display = 'none';
+                div.classList.add('error');
+                div.innerHTML += '<div style="color: #ff6666; padding: 20px;">Asset nicht gefunden</div>';
+            };
+
+            const name = document.createElement('div');
+            name.className = 'asset-name';
+            name.textContent = asset.name;
+
+            const id = document.createElement('div');
+            id.className = 'asset-id';
+            id.textContent = `${asset.type} (#${asset.id})`;
+
+            div.appendChild(img);
+            div.appendChild(name);
+            div.appendChild(id);
+
+            return div;
+        }
+
+        // Populate categories
+        Object.entries(planetTypes).forEach(([categoryId, assets]) => {
+            const container = document.getElementById(categoryId);
+            const folder = categoryId === 'system-types' ? 'systemtypes' : 'planets';
+
+            assets.forEach(asset => {
+                container.appendChild(createAssetItem(asset, folder));
+            });
+        });
+
+        console.log('🌌 SW Universe Asset Demo geladen!');
+        console.log('📊 Asset-Statistiken:', {
+            'Habitable Welten': planetTypes['habitable-worlds'].length,
+            'Koloniewelten': planetTypes['colony-worlds'].length,
+            'Monde & Karge Welten': planetTypes['moons-barren'].length,
+            'Besondere Objekte': planetTypes['special-objects'].length,
+            'System-Typen': planetTypes['system-types'].length
+        });
+    </script>
+</body>
+</html>

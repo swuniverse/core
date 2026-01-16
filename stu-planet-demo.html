@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SW Universe - STU Planeten-Klassifizierung Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #FFE800;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 40px 0;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            color: #FFE800;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .category {
+            margin-bottom: 50px;
+        }
+
+        .category h2 {
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 1.5rem;
+        }
+
+        .lebensfreundlich h2 {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+        }
+
+        .unbewohnbar h2 {
+            background: linear-gradient(135deg, #dc2626, #f59e0b);
+            color: white;
+        }
+
+        .extrem h2 {
+            background: linear-gradient(135deg, #7c3aed, #ec4899);
+            color: white;
+        }
+
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+        }
+
+        .asset-item {
+            text-align: center;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            border: 1px solid #333;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .asset-item:hover {
+            transform: translateY(-2px);
+            border-color: #555;
+        }
+
+        .asset-item img {
+            max-width: 100%;
+            height: 100px;
+            object-fit: contain;
+            margin-bottom: 15px;
+            border-radius: 6px;
+        }
+
+        .asset-name {
+            font-size: 1rem;
+            color: #fff;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .asset-class {
+            font-size: 0.8rem;
+            color: #4ADEAF;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .asset-description {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .asset-resources {
+            font-size: 0.7rem;
+            color: #666;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .resource-tag {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+        }
+
+        .resource-durasteel { background: #4b5563; }
+        .resource-kyber { background: #3b82f6; }
+        .resource-hypermatter { background: #f59e0b; }
+        .resource-rare { background: #8b5cf6; }
+
+        .error {
+            background: #2a1a1a;
+            border: 1px solid #600;
+        }
+
+        .star-wars-ref {
+            font-size: 0.7rem;
+            color: #888;
+            font-style: italic;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌌 SW Universe - STU Planeten-Klassifizierung</h1>
+        <p class="subtitle">Star Trek Universe Planeten-System adaptiert für Star Wars</p>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">17</div>
+                <div class="stat-label">Planeten-Klassen</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">12</div>
+                <div class="stat-label">Mond-Typen</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">141</div>
+                <div class="stat-label">Planet Assets</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">75</div>
+                <div class="stat-label">Stern-Systeme</div>
+            </div>
+        </div>
+
+        <!-- Lebensfreundliche Klassen -->
+        <div class="category lebensfreundlich">
+            <h2>🌍 Lebensfreundliche Klassen</h2>
+            <div class="asset-grid" id="lebensfreundlich"></div>
+        </div>
+
+        <!-- Unbewohnbare Planeten -->
+        <div class="category unbewohnbar">
+            <h2>🚫 Unbewohnbare Planeten (nicht kolonisierbar)</h2>
+            <div class="asset-grid" id="unbewohnbar"></div>
+        </div>
+
+        <!-- Extreme Klassen -->
+        <div class="category extrem">
+            <h2>🌋 Extreme Klassen</h2>
+            <div class="asset-grid" id="extrem"></div>
+        </div>
+
+
+        <!-- Monde -->
+        <div class="category">
+            <h2 style="background: linear-gradient(135deg, #6b7280, #9ca3af); color: white; padding: 15px 20px; border-radius: 8px;">🌙 Monde (400er Serie)</h2>
+            <div class="asset-grid" id="monde"></div>
+        </div>
+
+        <!-- Sternen-Systeme -->
+        <div class="category">
+            <h2 style="background: linear-gradient(135deg, #f59e0b, #eab308); color: white; padding: 15px 20px; border-radius: 8px;">⭐ Sternen-Systeme</h2>
+            <div class="asset-grid" id="sterne"></div>
+        </div>
+    </div>
+
+    <script>
+        const ASSET_BASE_URL = 'http://127.0.0.1:8080/';
+
+        const planetClasses = {
+            'lebensfreundlich': [
+                {
+                    class: 'CLASS_M',
+                    name: 'Klasse-M Erdähnlich',
+                    description: 'erdähnlich',
+                    swRef: 'Naboo, Alderaan, Coruscant',
+                    assets: [201, 401], // Planet + Mond
+                    resources: ['Kyber', 'Durastahl', 'Hypermatter']
+                },
+                {
+                    class: 'CLASS_O',
+                    name: 'Klasse-O Ozeanwelt',
+                    description: 'ozeanisch',
+                    swRef: 'Kamino, Mon Cala',
+                    assets: [202, 204, 205, 402, 404, 405], // Planeten + Monde
+                    resources: ['Durastahl', 'Hypermatter']
+                },
+                {
+                    class: 'CLASS_L',
+                    name: 'Klasse-L Waldwelt',
+                    description: 'bewaldet',
+                    swRef: 'Endor, Kashyyyk',
+                    assets: [203, 403], // Planet + Mond
+                    resources: ['Kyber', 'Durastahl']
+                },
+                {
+                    class: 'CLASS_K',
+                    name: 'Klasse-K Marswelt',
+                    description: 'marsähnlich',
+                    swRef: 'Mars-ähnliche Kolonien',
+                    assets: [211, 311, 411], // Planet + Mond
+                    resources: ['Seltene Erze', 'Durastahl']
+                },
+                {
+                    class: 'CLASS_H',
+                    name: 'Klasse-H Wüstenwelt',
+                    description: 'wüstenbedeckt',
+                    swRef: 'Tatooine, Jakku, Geonosis',
+                    assets: [213, 313, 413], // Planet + Mond
+                    resources: ['Seltene Erze', 'Hypermatter']
+                },
+                {
+                    class: 'CLASS_P',
+                    name: 'Klasse-P Eiswelt',
+                    description: 'eisbedeckt',
+                    swRef: 'Hoth',
+                    assets: [215, 415], // Planet + Mond
+                    resources: ['Kyber', 'Seltene Erze']
+                },
+                {
+                    class: 'CLASS_P_T',
+                    name: 'Klasse-P-T Eiswelt',
+                    description: 'eisbedeckt (weniger Wasser)',
+                    swRef: 'Hoth Variante',
+                    assets: [216, 416], // Planet + Mond
+                    resources: ['Kyber', 'Seltene Erze']
+                },
+                {
+                    class: 'CLASS_G',
+                    name: 'Klasse-G Tundrawelt',
+                    description: 'tundrabedeckt',
+                    swRef: 'Orto Plutonia',
+                    assets: [219, 319], // Planet
+                    resources: ['Durastahl', 'Seltene Erze']
+                },
+                {
+                    class: 'CLASS_D',
+                    name: 'Klasse-D Mondähnlich',
+                    description: 'mondähnlich',
+                    swRef: 'Tatooine Monde, Yavin 4',
+                    assets: [231, 431], // Planet + Mond
+                    resources: ['Seltene Erze']
+                }
+            ],
+            'extrem': [
+                {
+                    class: 'CLASS_Q',
+                    name: 'Klasse-Q Dichteatmosphäre',
+                    description: 'dichte Atmosphäre',
+                    swRef: 'Malastare',
+                    assets: [221, 421], // Planet + Mond
+                    resources: ['Hypermatter', 'Seltene Erze']
+                },
+                {
+                    class: 'CLASS_X',
+                    name: 'Klasse-X Vulkanwelt',
+                    description: 'vulkanisch',
+                    swRef: 'Mustafar',
+                    assets: [217, 417], // Planet + Mond
+                    resources: ['Kyber', 'Seltene Erze']
+                }
+            ],
+            'unbewohnbar': [
+                {
+                    class: 'CLASS_S',
+                    name: 'Klasse-S Gezeitengebunden',
+                    description: 'tidally locked (nicht kolonisierbar)',
+                    swRef: 'Extreme Rotationswelten',
+                    assets: [207, 309, 407], // Planet + Mond
+                    resources: ['Seltene Erze']
+                },
+                {
+                    class: 'CLASS_T',
+                    name: 'Klasse-T Schnellrotation',
+                    description: 'extreme Rotation (nicht kolonisierbar)',
+                    swRef: 'Schnellrotierende Welten',
+                    assets: [209, 409], // Planet + Mond
+                    resources: ['Seltene Erze']
+                },
+                {
+                    class: 'CLASS_I_1',
+                    name: 'Klasse-I-1 Gasriese',
+                    description: 'Gasriese Typ 1 (nicht kolonisierbar)',
+                    swRef: 'Bespin',
+                    assets: [261],
+                    resources: ['Hypermatter']
+                },
+                {
+                    class: 'CLASS_I_2',
+                    name: 'Klasse-I-2 Gasriese',
+                    description: 'Gasriese Typ 2 (nicht kolonisierbar)',
+                    swRef: 'Bespin Variante',
+                    assets: [262],
+                    resources: ['Hypermatter']
+                },
+                {
+                    class: 'CLASS_I_3',
+                    name: 'Klasse-I-3 Gasriese',
+                    description: 'Gasriese Typ 3 (nicht kolonisierbar)',
+                    swRef: 'Bespin Variante',
+                    assets: [263],
+                    resources: ['Hypermatter']
+                },
+                {
+                    class: 'CLASS_N',
+                    name: 'Klasse-N Spezial',
+                    description: 'spezielle Eigenschaften (nicht kolonisierbar)',
+                    swRef: 'Besondere Monde',
+                    assets: [423],
+                    resources: ['Seltene Erze']
+                }
+            ],
+            'monde': [
+                { class: 'MOND_M', name: 'M-Mond (Erdähnlich)', description: 'erdähnlich', assets: [401], resources: ['Durastahl'] },
+                { class: 'MOND_O', name: 'O-Mond (Ozeanisch)', description: 'ozeanisch', assets: [402, 404, 405], resources: ['Hypermatter'] },
+                { class: 'MOND_L', name: 'L-Mond (Bewaldet)', description: 'bewaldet', assets: [403], resources: ['Kyber'] },
+                { class: 'MOND_K', name: 'K-Mond (Marsähnlich)', description: 'marsähnlich', assets: [411], resources: ['Seltene Erze'] },
+                { class: 'MOND_H', name: 'H-Mond (Wüste)', description: 'wüstenbedeckt', assets: [413], resources: ['Seltene Erze'] },
+                { class: 'MOND_P', name: 'P-Mond (Eis)', description: 'eisbedeckt', assets: [415], resources: ['Kyber'] },
+                { class: 'MOND_PT', name: 'P-T-Mond (Eis)', description: 'eisbedeckt weniger Wasser', assets: [416], resources: ['Kyber'] },
+                { class: 'MOND_X', name: 'X-Mond (Vulkanisch)', description: 'vulkanisch', assets: [417], resources: ['Seltene Erze'] },
+                { class: 'MOND_Q', name: 'Q-Mond (Dichte Atmosphäre)', description: 'dichte Atmosphäre', assets: [421], resources: ['Hypermatter'] },
+                { class: 'MOND_D', name: 'D-Mond (Mondähnlich)', description: 'mondähnlich', assets: [431], resources: ['Seltene Erze'] },
+                { class: 'MOND_S', name: 'S-Mond (Gezeitengebunden)', description: 'tidally locked', assets: [407], resources: ['Seltene Erze'] },
+                { class: 'MOND_T', name: 'T-Mond (Schnellrotation)', description: 'extreme Rotation', assets: [409], resources: ['Seltene Erze'] },
+            ],
+            'sterne': [
+                // Binärsysteme
+                { id: 1001, name: 'Binärsystem (Riese-Riese)', type: 'BINARY_GIANT_GIANT', description: 'verschiedenfarbig' },
+                { id: 1005, name: 'Binärsystem (Riese-Riese)', type: 'BINARY_GIANT_GIANT', description: 'verschiedenfarbig' },
+                { id: 1010, name: 'Binärsystem (Riese-Riese)', type: 'BINARY_GIANT_GIANT', description: 'verschiedenfarbig' },
+
+                { id: 1015, name: 'Binärsystem (Riese-Zwerg)', type: 'BINARY_GIANT_DWARF', description: 'gemischt' },
+                { id: 1025, name: 'Binärsystem (Riese-Zwerg)', type: 'BINARY_GIANT_DWARF', description: 'gemischt' },
+                { id: 1030, name: 'Binärsystem (Riese-Zwerg)', type: 'BINARY_GIANT_DWARF', description: 'gemischt' },
+
+                { id: 1035, name: 'Binärsystem (Zwerg-Zwerg)', type: 'BINARY_DWARF_DWARF', description: 'kleine Sterne' },
+                { id: 1040, name: 'Binärsystem (Zwerg-Zwerg)', type: 'BINARY_DWARF_DWARF', description: 'kleine Sterne' },
+
+                // Einzelsterne
+                { id: 1052, name: 'Roter Riese', type: 'RED_GIANT', description: 'großer roter Stern' },
+                { id: 1054, name: 'Gelber Überriese', type: 'YELLOW_SUPERGIANT', description: 'massiver gelber Stern' },
+                { id: 1057, name: 'Blauer Zwerg', type: 'BLUE_DWARF', description: 'kleiner blauer Stern' },
+                { id: 1058, name: 'Gelber Zwerg', type: 'YELLOW_DWARF', description: 'sonnenähnlich' },
+
+                // Kleine Zwerge
+                { id: 1050, name: 'Kleiner Zwerg', type: 'SMALL_DWARF', description: 'verschiedenfarbig' },
+                { id: 1055, name: 'Kleiner Zwerg', type: 'SMALL_DWARF', description: 'verschiedenfarbig' },
+                { id: 1060, name: 'Kleiner Zwerg', type: 'SMALL_DWARF', description: 'verschiedenfarbig' },
+
+                // Schwarze Löcher
+                { id: 1061, name: 'Schwarzes Loch', type: 'BLACK_HOLE', description: 'verschiedenfarbig' },
+                { id: 1062, name: 'Schwarzes Loch', type: 'BLACK_HOLE', description: 'verschiedenfarbig' },
+                { id: 1064, name: 'Schwarzes Loch', type: 'BLACK_HOLE', description: 'verschiedenfarbig' },
+                { id: 1066, name: 'Schwarzes Loch', type: 'BLACK_HOLE', description: 'verschiedenfarbig' },
+            ]
+        };
+
+        function getResourceClass(resource) {
+            const mapping = {
+                'Kyber': 'resource-kyber',
+                'Durastahl': 'resource-durasteel',
+                'Hypermatter': 'resource-hypermatter',
+                'Seltene Erze': 'resource-rare'
+            };
+            return mapping[resource] || 'resource-tag';
+        }
+
+        function createPlanetItem(planetClass, index) {
+            const div = document.createElement('div');
+            div.className = 'asset-item';
+
+            // Pick asset based on index
+            const assetId = planetClass.assets[index % planetClass.assets.length];
+
+            const img = document.createElement('img');
+            img.src = `${ASSET_BASE_URL}planets/${assetId}.png`;
+            img.alt = planetClass.name;
+            img.onerror = function() {
+                this.style.display = 'none';
+                div.classList.add('error');
+                div.innerHTML += '<div style="color: #ff6666; padding: 20px;">Asset nicht gefunden</div>';
+            };
+
+            const name = document.createElement('div');
+            name.className = 'asset-name';
+            name.textContent = planetClass.name;
+
+            const classLabel = document.createElement('div');
+            classLabel.className = 'asset-class';
+            classLabel.textContent = planetClass.class;
+
+            const description = document.createElement('div');
+            description.className = 'asset-description';
+            description.textContent = planetClass.description;
+
+            const swRef = document.createElement('div');
+            swRef.className = 'star-wars-ref';
+            swRef.textContent = `SW: ${planetClass.swRef}`;
+
+            const resources = document.createElement('div');
+            resources.className = 'asset-resources';
+            planetClass.resources.forEach(resource => {
+                const tag = document.createElement('span');
+                tag.className = `resource-tag ${getResourceClass(resource)}`;
+                tag.textContent = resource;
+                resources.appendChild(tag);
+            });
+
+            div.appendChild(img);
+            div.appendChild(name);
+            div.appendChild(classLabel);
+            div.appendChild(description);
+            div.appendChild(swRef);
+            div.appendChild(resources);
+
+            return div;
+        }
+
+        function createSystemItem(system) {
+            const div = document.createElement('div');
+            div.className = 'asset-item';
+
+            const img = document.createElement('img');
+            img.src = `${ASSET_BASE_URL}map/systemtypes/${system.id}.png`;
+            img.alt = system.name;
+            img.onerror = function() {
+                this.style.display = 'none';
+                div.classList.add('error');
+            };
+
+            const name = document.createElement('div');
+            name.className = 'asset-name';
+            name.textContent = system.name;
+
+            const type = document.createElement('div');
+            type.className = 'asset-class';
+            type.textContent = system.type;
+
+            div.appendChild(img);
+            div.appendChild(name);
+            div.appendChild(type);
+
+            return div;
+        }
+
+        // Populate categories
+        Object.entries(planetClasses).forEach(([categoryId, classes]) => {
+            const container = document.getElementById(categoryId);
+
+            if (categoryId === 'sterne') {
+                classes.forEach(system => {
+                    container.appendChild(createSystemItem(system));
+                });
+            } else if (categoryId === 'monde') {
+                classes.forEach(moonClass => {
+                    // Show all moon variations
+                    for (let i = 0; i < moonClass.assets.length; i++) {
+                        container.appendChild(createPlanetItem(moonClass, i));
+                    }
+                });
+            } else {
+                classes.forEach((planetClass, index) => {
+                    // Show 2-3 variations per class
+                    for (let i = 0; i < Math.min(3, planetClass.assets.length); i++) {
+                        container.appendChild(createPlanetItem(planetClass, i));
+                    }
+                });
+            }
+        });
+
+        console.log('🌌 STU Planet Classification Demo geladen!');
+        console.log('📊 Planeten-Klassen:', {
+            'Lebensfreundlich': planetClasses['lebensfreundlich'].length,
+            'Unbewohnbar': planetClasses['unbewohnbar'].length,
+            'Extrem': planetClasses['extrem'].length,
+            'Monde': planetClasses['monde'].length,
+            'Sterne': planetClasses['sterne'].length
+        });
+    </script>
+</body>
+</html>

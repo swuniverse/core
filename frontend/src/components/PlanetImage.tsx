@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 interface PlanetImageProps {
-  planetType: string;
+  planetClass: string;
   visualSeed?: number;
   alt?: string;
   className?: string;
@@ -31,45 +31,95 @@ const getFallbackImage = (): string => {
 };
 
 /**
+ * Map STU planet classes to correct asset IDs
+ * Based on STU planet classification system
+ */
+const planetClassToAssetId = (planetClass: string, visualSeed: number = 1): string => {
+  // STU Planet Class mappings with correct asset IDs
+  const classMapping: Record<string, number[]> = {
+    // ===== STU PLANET CLASSES =====
+    // Lebensfreundliche Klassen (kolonisierbar)
+    'CLASS_M': [201],          // erdähnlich (nur bevorzugte Variante)
+    'CLASS_O': [202],          // ozeanisch
+    'CLASS_L': [203],          // bewaldet
+    'CLASS_K': [211],          // marsähnlich
+    'CLASS_H': [213],          // wüstenbedeckt
+    'CLASS_P': [215],          // eisbedeckt
+    'CLASS_P_T': [216],        // eisbedeckt weniger Wasser
+    'CLASS_G': [219],          // tundrabedeckt
+    'CLASS_D': [231],          // mondähnlich
+
+    // Extreme Klassen (schwer kolonisierbar)
+    'CLASS_Q': [221],          // dichte Atmosphäre
+    'CLASS_X': [217],          // vulkanisch
+
+    // Unbewohnbare Planeten (nicht kolonisierbar)
+    'CLASS_S': [207, 309, 407], // gezeitengebunden
+    'CLASS_T': [209, 409],     // extreme Rotation
+    'CLASS_I_1': [261],        // Gasriese Typ 1
+    'CLASS_I_2': [262],        // Gasriese Typ 2
+    'CLASS_I_3': [263],        // Gasriese Typ 3
+    'CLASS_N': [423],          // spezielle Eigenschaften
+
+    // ===== LEGACY SUPPORT =====
+    // Map old planet types to appropriate STU classes
+    'DESERT': [213, 313, 413], // -> CLASS_H (wüstenbedeckt)
+    'ICE': [215, 415],         // -> CLASS_P (eisbedeckt)
+    'FOREST': [203, 403],      // -> CLASS_L (bewaldet)
+    'CITY': [201, 401],        // -> CLASS_M (erdähnlich)
+    'VOLCANO': [217, 417],     // -> CLASS_X (vulkanisch)
+    'JUNGLE': [203, 403],      // -> CLASS_L (bewaldet)
+    'VOLCANIC': [217, 417],    // -> CLASS_X (vulkanisch)
+    'TERRAN': [201, 401],      // -> CLASS_M (erdähnlich)
+  };
+
+  if (!planetClass) {
+    console.warn('Planet class is undefined/null, using fallback');
+    return '201'; // Default fallback to Class M
+  }
+
+  const normalizedClass = planetClass.toUpperCase();
+  const assetIds = classMapping[normalizedClass];
+
+  if (!assetIds || assetIds.length === 0) {
+    console.warn(`No asset mapping found for planet class: ${planetClass}`);
+    return '201'; // Default fallback to Class M
+  }
+
+  // Use visualSeed to pick a variation, cycling through available options
+  const assetId = assetIds[visualSeed % assetIds.length];
+  return assetId.toString();
+};
+
+/**
  * Get planet image URL from asset repository
- * @param planetType - Type of the planet (DESERT, ICE, FOREST, CITY, VOLCANO, etc.)
+ * @param planetClass - STU planet class (CLASS_M, CLASS_O, etc.) or legacy type
  * @param visualSeed - Visual variation seed (default: 1)
  */
-const getPlanetImageUrl = (planetType: string, visualSeed: number = 1): string => {
-  // Normalize planet type to lowercase
-  const normalizedType = planetType.toLowerCase();
-  
-  // Map alternative names to standard names
-  const typeMapping: Record<string, string> = {
-    'volcanic': 'volcano',
-    'terran': 'forest', // Fallback for terran
-    'jungle': 'forest',
-  };
-  
-  const mappedType = typeMapping[normalizedType] || normalizedType;
-  
-  return `${ASSET_BASE_URL}/planets/${mappedType}_${visualSeed}.png`;
+const getPlanetImageUrl = (planetClass: string, visualSeed: number = 1): string => {
+  const assetId = planetClassToAssetId(planetClass, visualSeed);
+  return `${ASSET_BASE_URL}planets/${assetId}.png`;
 };
 
 /**
  * PlanetImage component with automatic fallback handling
- * Loads planet images from the asset repository dynamically
+ * Loads planet images from the STU asset repository dynamically
  */
-export default function PlanetImage({ 
-  planetType, 
-  visualSeed = 1, 
-  alt = 'Planet', 
+export default function PlanetImage({
+  planetClass,
+  visualSeed = 1,
+  alt = 'Planet',
   className = '',
   size = 100
 }: PlanetImageProps) {
-  const [imageSrc, setImageSrc] = useState<string>(getPlanetImageUrl(planetType, visualSeed));
+  const [imageSrc, setImageSrc] = useState<string>(getPlanetImageUrl(planetClass, visualSeed));
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     // Reset error state when props change
     setImageError(false);
-    setImageSrc(getPlanetImageUrl(planetType, visualSeed));
-  }, [planetType, visualSeed]);
+    setImageSrc(getPlanetImageUrl(planetClass, visualSeed));
+  }, [planetClass, visualSeed]);
 
   const handleImageError = () => {
     console.warn(`Failed to load planet image: ${imageSrc}, using fallback`);
@@ -97,9 +147,34 @@ export default function PlanetImage({
 }
 
 /**
- * Planet type color mappings for badges/labels
+ * STU planet class color mappings for badges/labels
  */
-export const planetTypeColors: Record<string, string> = {
+export const planetClassColors: Record<string, string> = {
+  // ===== STU PLANET CLASSES =====
+  // Lebensfreundliche Klassen (kolonisierbar)
+  CLASS_M: 'bg-blue-500',      // erdähnlich
+  CLASS_O: 'bg-blue-600',      // ozeanisch
+  CLASS_L: 'bg-green-600',     // bewaldet
+  CLASS_K: 'bg-orange-600',    // marsähnlich
+  CLASS_H: 'bg-yellow-600',    // wüstenbedeckt
+  CLASS_P: 'bg-cyan-400',      // eisbedeckt
+  CLASS_P_T: 'bg-cyan-300',    // eisbedeckt weniger Wasser
+  CLASS_G: 'bg-slate-500',     // tundrabedeckt
+  CLASS_D: 'bg-gray-400',      // mondähnlich
+
+  // Extreme Klassen (schwer kolonisierbar)
+  CLASS_Q: 'bg-purple-600',    // dichte Atmosphäre
+  CLASS_X: 'bg-red-600',       // vulkanisch
+
+  // Unbewohnbare Planeten (nicht kolonisierbar)
+  CLASS_S: 'bg-amber-700',     // gezeitengebunden
+  CLASS_T: 'bg-red-700',       // extreme Rotation
+  CLASS_I_1: 'bg-indigo-500',  // Gasriese Typ 1
+  CLASS_I_2: 'bg-indigo-600',  // Gasriese Typ 2
+  CLASS_I_3: 'bg-indigo-700',  // Gasriese Typ 3
+  CLASS_N: 'bg-neutral-600',   // spezielle Eigenschaften
+
+  // ===== LEGACY SUPPORT =====
   DESERT: 'bg-yellow-600',
   ICE: 'bg-cyan-400',
   FOREST: 'bg-green-600',
@@ -111,19 +186,47 @@ export const planetTypeColors: Record<string, string> = {
 };
 
 /**
- * Get planet type display name (German)
+ * Get STU planet class display name (German) with Star Wars theming
  */
-export const getPlanetTypeLabel = (planetType: string): string => {
+export const getPlanetClassLabel = (planetClass: string): string => {
   const labels: Record<string, string> = {
-    DESERT: 'Wüste',
-    ICE: 'Eis',
-    FOREST: 'Wald',
-    CITY: 'Stadt',
-    VOLCANO: 'Vulkan',
-    VOLCANIC: 'Vulkan',
-    JUNGLE: 'Dschungel',
-    TERRAN: 'Terranisch',
+    // ===== STU PLANET CLASSES =====
+    // Lebensfreundliche Klassen (kolonisierbar)
+    CLASS_M: 'Klasse M (Erdähnlich)',           // like Coruscant, Naboo
+    CLASS_O: 'Klasse O (Ozeanisch)',            // like Kamino, Mon Cala
+    CLASS_L: 'Klasse L (Bewaldet)',             // like Endor, Kashyyyk
+    CLASS_K: 'Klasse K (Marsähnlich)',          // like Jakku, Geonosis
+    CLASS_H: 'Klasse H (Wüstenwelt)',           // like Tatooine
+    CLASS_P: 'Klasse P (Eiswelt)',              // like Hoth
+    CLASS_P_T: 'Klasse P-T (Polare Eiswelt)',   // like Orto Plutonia
+    CLASS_G: 'Klasse G (Tundrawelt)',           // like Rhen Var
+    CLASS_D: 'Klasse D (Mondähnlich)',          // like Yavin 4's moons
+
+    // Extreme Klassen (schwer kolonisierbar)
+    CLASS_Q: 'Klasse Q (Dichte Atmosphäre)',    // toxic atmosphere worlds
+    CLASS_X: 'Klasse X (Vulkanwelt)',           // like Mustafar
+
+    // Unbewohnbare Planeten (nicht kolonisierbar)
+    CLASS_S: 'Klasse S (Gezeitengebunden)',     // tidally locked worlds
+    CLASS_T: 'Klasse T (Extreme Rotation)',     // fast rotating worlds
+    CLASS_I_1: 'Klasse I-1 (Gasriese Typ 1)',  // like Yavin
+    CLASS_I_2: 'Klasse I-2 (Gasriese Typ 2)',  // like Bespin
+    CLASS_I_3: 'Klasse I-3 (Gasriese Typ 3)',  // massive gas giants
+    CLASS_N: 'Klasse N (Besondere Welt)',       // unique properties
+
+    // ===== LEGACY SUPPORT =====
+    DESERT: 'Wüstenwelt',
+    ICE: 'Eiswelt',
+    FOREST: 'Waldwelt',
+    CITY: 'Stadtwelt',
+    VOLCANO: 'Vulkanwelt',
+    VOLCANIC: 'Vulkanwelt',
+    JUNGLE: 'Dschungelwelt',
+    TERRAN: 'Erdähnliche Welt',
   };
-  
-  return labels[planetType] || planetType;
+
+  if (!planetClass) {
+    return 'Unbekannte Klasse';
+  }
+  return labels[planetClass.toUpperCase()] || planetClass;
 };

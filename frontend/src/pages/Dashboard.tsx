@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { Link } from 'react-router-dom';
-import { Rocket, Wrench, Clock, FlaskConical, X, Radio, FileText } from 'lucide-react';
+import { Rocket, Wrench, Clock, FlaskConical, X, Radio } from 'lucide-react';
 import api from '../lib/api';
+import { InlinePlotBadge } from '../components/PlotBadge';
 
 interface DashboardData {
   planets: Array<{
@@ -371,10 +372,7 @@ export default function Dashboard() {
                         {message.player.username}
                       </span>
                       {message.plot && (
-                        <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-purple-900/40 to-violet-800/30 border border-purple-500/30 rounded text-xs font-mono tracking-wider text-purple-300 backdrop-blur-sm">
-                          <FileText size={12} />
-                          <span>RPG: {message.plot.title.toUpperCase()}</span>
-                        </div>
+                        <InlinePlotBadge plot={message.plot} />
                       )}
                     </div>
                   </div>

@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
-import SystemStarImage from '../components/SystemStarImage';
+import SunImage from '../components/SunImage';
+import StarmapBackground from '../components/StarmapBackground';
 
 interface System {
   id: number;
   name: string;
-  systemType: string;
+  systemType: 'SMALL_BLUE' | 'SMALL_YELLOW' | 'MEDIUM_BLUE' | 'BLUE_GIANT' | 'RED_DWARF' | 'NEUTRON_STAR' | 'BLACK_HOLE' | 'BINARY_SYSTEM';
   fieldX: number;
   fieldY: number;
   planetCount: number;
@@ -29,6 +30,7 @@ interface SectorField {
 }
 
 type ViewMode = 'galaxy' | 'sector';
+
 
 export default function Galaxy() {
   const navigate = useNavigate();
@@ -216,54 +218,6 @@ export default function Galaxy() {
         </div>
       </div>
 
-      {/* Imperial Command Hover Info Terminal */}
-      <div className="mb-6 bg-gradient-to-r from-cyan-950/30 to-slate-900/40 border border-cyan-500/30 rounded p-4 min-h-[72px] flex items-center font-mono backdrop-blur-sm">
-        {viewMode === 'galaxy' && hoveredSector ? (
-          <>
-            <span className="text-cyan-200 font-semibold tracking-wider">[SEKTOR {hoveredSector.x},{hoveredSector.y}]</span>
-            {(() => {
-              const sector = sectors.get(`${hoveredSector.x},${hoveredSector.y}`);
-              if (!sector || sector.systems.length === 0) {
-                return <span className="text-cyan-400/60 ml-4">// KEINE SYSTEME</span>;
-              }
-              const ownedSystems = sector.systems.filter(s => s.hasPlayerPlanets);
-              if (ownedSystems.length === 0) {
-                return <span className="text-cyan-300/70 ml-4">// {sector.systems.length} UNBESIEDELTE(S) SYSTEM(E)</span>;
-              }
-              return (
-                <span className="text-green-400/90 ml-4">
-                  // {sector.systems.length} SYSTEM(E) - {ownedSystems[0].factionName?.toUpperCase()}
-                </span>
-              );
-            })()}
-          </>
-        ) : viewMode === 'sector' && hoveredField && selectedSector ? (
-          <>
-            {(() => {
-              // Calculate galaxy coordinates
-              const galaxyX = (selectedSector.x - 1) * FIELDS_PER_SECTOR + hoveredField.x;
-              const galaxyY = (selectedSector.y - 1) * FIELDS_PER_SECTOR + hoveredField.y;
-              const field = sectorFields.find(f => f.x === hoveredField.x && f.y === hoveredField.y);
-
-              return (
-                <>
-                  <span className="text-cyan-200 font-semibold tracking-wider">[POS {galaxyX}|{galaxyY}]</span>
-                  {field?.system ? (
-                    <span className="text-cyan-300/80 ml-4">
-                      // {field.system.name?.toUpperCase()} ({field.system.systemType}) - {field.system.planetCount} PLANET(EN)
-                      {field.system.hasPlayerPlanets && <span className="text-green-400/90"> - {field.system.factionName?.toUpperCase()}</span>}
-                    </span>
-                  ) : (
-                    <span className="text-cyan-400/60 ml-4">// LEERER RAUM</span>
-                  )}
-                </>
-              );
-            })()}
-          </>
-        ) : (
-          <span className="text-cyan-400/60 text-sm">// BEWEGE DIE MAUS ÜBER {viewMode === 'galaxy' ? 'EINEN SEKTOR' : 'EIN FELD'} FÜR DETAILS</span>
-        )}
-      </div>
       {/* Galaxy View - Sector Grid (6x6) - STU Style */}
       {viewMode === 'galaxy' && (
         <div className="relative rounded-lg p-6 overflow-auto border border-cyan-900/30" style={{ background: 'radial-gradient(ellipse at center, #000810 0%, #000205 100%)' }}>
@@ -315,12 +269,7 @@ export default function Galaxy() {
                       >
                         <div className="h-24 w-32 flex items-center justify-center relative">
                           <div className="text-center">
-                            <div className="text-cyan-400 font-semibold mb-1 font-mono text-sm">SEKTOR {sectorNum}</div>
-                            {sector && sector.systems.length > 0 && (
-                              <div className="text-xs text-cyan-600/60 font-mono">
-                                {sector.systems.length} System{sector.systems.length !== 1 ? 'e' : ''}
-                              </div>
-                            )}
+                            <div className="text-cyan-400 font-semibold font-mono text-sm">SEKTOR {sectorNum}</div>
                             {hasOwnPlanets && (
                               <div className="absolute top-1 right-1">
                                 <div className="w-2 h-2 bg-yellow-500 rounded-full shadow-lg shadow-yellow-500/50"></div>
@@ -394,18 +343,28 @@ export default function Galaxy() {
                           onMouseLeave={handleMouseLeave}
                         >
                           <div className="h-8 w-8 flex items-center justify-center relative">
+                            {/* Starmap background for ALL fields */}
+                            {selectedSector && (
+                              <StarmapBackground
+                                sectorX={selectedSector.x}
+                                sectorY={selectedSector.y}
+                                fieldX={x + 1}
+                                fieldY={y + 1}
+                              />
+                            )}
+
                             {hasSystem && field?.system && (
                               <>
                                 {/* System type visualization */}
-                                <SystemStarImage
-                                  systemType={field.system.systemType as 'SINGLE_STAR' | 'BINARY_STAR' | 'NEUTRON_STAR' | 'BLACK_HOLE'}
+                                <SunImage
+                                  systemType={field.system.systemType}
                                   size={18}
-                                  className="drop-shadow-lg"
                                   alt={field.system.name}
+                                  className="relative z-10"
                                 />
                                 {/* Own planets indicator */}
                                 {hasOwnPlanets && (
-                                  <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                                  <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-yellow-500 rounded-full z-20"></div>
                                 )}
                               </>
                             )}

@@ -109,6 +109,36 @@ Key files:
 - `backend/src/services/galaxyService.ts` - Galaxy/planet generation
 - `frontend/src/pages/Planet.tsx` - 3-layer grid visualization
 
+### Planet Image & Asset System
+The planet image system uses STU-style planet assets with optimized size and consistency:
+
+**Size Standards:**
+- **Native Size**: 50x50px (no scaling artifacts)
+- **Planets.tsx**: Uses `size={50}` for optimal display
+- **Other pages**: PlanetSelection (80px, 200px), SystemView (20px) use different sizes as needed
+
+**Asset Organization:**
+- **200-series (2xx)**: Primary planet assets for consistent colonizable planet display
+- **300-series (3xx)**: Legacy assets (normalized to 200-series for consistency)
+- **400-series (4xx)**: Moon assets (reserved for future moon-specific features)
+
+**Colonizable Planet Classes** (all use single 200-series asset for consistency):
+- `CLASS_M`: [201] - Erdähnlich (like Coruscant, Naboo)
+- `CLASS_O`: [202] - Ozeanisch (like Kamino, Mon Cala)
+- `CLASS_L`: [203] - Bewaldet (like Endor, Kashyyyk)
+- `CLASS_K`: [211] - Marsähnlich (like Jakku, Geonosis)
+- `CLASS_H`: [213] - Wüstenwelt (like Tatooine)
+- `CLASS_P`: [215] - Eiswelt (like Hoth)
+- `CLASS_P_T`: [216] - Polare Eiswelt (like Orto Plutonia)
+- `CLASS_G`: [219] - Tundrawelt (like Rhen Var)
+- `CLASS_D`: [231] - Mondähnlich (like Yavin 4's moons)
+- `CLASS_Q`: [221] - Dichte Atmosphäre (extreme environment)
+- `CLASS_X`: [217] - Vulkanwelt (like Mustafar)
+
+**Key Implementation Files:**
+- `frontend/src/components/PlanetImage.tsx` - Planet image component with asset mapping logic
+- `frontend/src/pages/Planets.tsx` - Main planet listing (uses 50px size)
+
 ### Resource & Energy System
 - **Credits:** Main currency (Command Center: 100/tick, Trade Hub: 50/tick)
 - **Metal:** From Metal Mines (30/tick, costs 10 energy)

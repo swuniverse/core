@@ -201,13 +201,13 @@ export default function Register() {
                 />
                 {inviteValid === true && (
                   <p className="mt-2 text-sm text-green-400 font-mono flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 block" />
                     Code gültig
                   </p>
                 )}
                 {inviteValid === false && (
                   <p className="mt-2 text-sm text-red-400 font-mono flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 block" />
                     Ungültiger oder bereits verwendeter Code
                   </p>
                 )}
