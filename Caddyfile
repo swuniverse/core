@@ -76,5 +76,10 @@ mail.swuniverse.net autodiscover.swuniverse.net autoconfig.swuniverse.net {
                 }
         }
 
-        reverse_proxy 127.0.0.1:8080
+        reverse_proxy 127.0.0.1:8080 {
+                header_up X-Real-IP {remote_host}
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto {scheme}
+                header_up X-Forwarded-Host {host}
+        }
 }
