@@ -30,12 +30,12 @@ swuniverse.net {
 
     # Health Check Endpoint
     handle /health {
-        reverse_proxy swuniverse-backend:3000
+        reverse_proxy 127.0.0.1:3000
     }
 
     # Socket.io WebSocket Support (Enhanced)
     handle /socket.io/* {
-        reverse_proxy swuniverse-backend:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             # WebSocket Headers
             header_up Upgrade {http.request.header.Upgrade}
             header_up Connection {http.request.header.Connection}
@@ -55,12 +55,12 @@ swuniverse.net {
 
     # Backend API
     handle /api/* {
-        reverse_proxy swuniverse-backend:3000
+        reverse_proxy 127.0.0.1:3000
     }
 
     # Frontend (React SPA)
     handle {
-        reverse_proxy swuniverse-frontend:3000
+        reverse_proxy 127.0.0.1:5173
     }
 }
 

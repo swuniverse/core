@@ -38,6 +38,8 @@ services:
     image: ghcr.io/swuniverse/core/backend:latest
     container_name: swuniverse-backend
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env.production
     environment:
@@ -67,6 +69,8 @@ services:
     image: ghcr.io/swuniverse/core/frontend:latest
     container_name: swuniverse-frontend
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:5173:5173"
     depends_on:
       - backend
 
@@ -74,10 +78,7 @@ services:
     image: caddy:latest
     container_name: swuniverse-caddy
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+    network_mode: host
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
