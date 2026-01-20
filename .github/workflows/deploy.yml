@@ -120,7 +120,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd /root/swuniverse/core || exit 1
+            cd /opt/swuniverse/core || exit 1
             git pull origin main || exit 1
             chmod +x deploy-remote.sh
             export GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"

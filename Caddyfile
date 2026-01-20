@@ -64,8 +64,17 @@ swuniverse.net {
     }
 }
 
-# Optional: HTTP zu HTTPS Redirect (Caddy macht das automatisch)
-# Falls du explizit konfigurieren willst:
-# http://deine-domain.com {
-#     redir https://{host}{uri} permanent
-# }
+mail.swuniverse.net autodiscover.swuniverse.net autoconfig.swuniverse.net {
+        log {
+                output file /var/log/caddy/mail.swuniverse.net.log {
+                        roll_disabled
+                        roll_size 512M
+                        roll_uncompressed
+                        roll_local_time
+                        roll_keep 3
+                        roll_keep_for 48h
+                }
+        }
+
+        reverse_proxy 127.0.0.1:8080
+}
