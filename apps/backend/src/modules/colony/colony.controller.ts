@@ -48,4 +48,14 @@ export class ColonyController {
   ) {
     return this.colonyService.build(id, req.user.sub, fieldIndex, buildingId);
   }
+
+  @Post(':id/build-ship')
+  buildShip(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('shipClassId') shipClassId: number,
+    @Body('name') name: string,
+  ) {
+    return this.colonyService.buildShip(id, req.user.sub, shipClassId, name);
+  }
 }

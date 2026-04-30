@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 
 const BUILDING_PRODUCTION: Record<number, { commodityId: number; amount: number }[]> = {
   1: [], // HQ — no production
@@ -34,6 +35,8 @@ export class ColonyService {
     private readonly fieldRepo: Repository<ColonyField>,
     @InjectRepository(ColonyStorage)
     readonly storageRepo: Repository<ColonyStorage>,
+    @InjectRepository(Spacecraft)
+    private readonly shipRepo: Repository<Spacecraft>,
   ) {}
 
   async findAllByUser(userId: number): Promise<Colony[]> {
@@ -75,6 +78,33 @@ export class ColonyService {
     field.buildFinishesAt = new Date(Date.now() + 60_000);
 
     return this.fieldRepo.save(field);
+  }
+
+  async buildShip(
+    colonyId: number,
+    userId: number,
+    shipClassId: number,
+    name: string,
+  ): Promise<Spacecraft> {
+    const colony = await this.findOne(colonyId, userId);
+
+    const hasShipyard = colony.fields.some(
+      (f) => f.buildingId === 7 && !f.isBuilding,
+    );
+    if (!hasShipyard) {
+      throw new BadRequestException('Colony needs a completed Shipyard');
+    }
+
+    const ship = this.shipRepo.create({
+      name,
+      shipClassId,
+      userId,
+      starSystemId: colony.starSystemId,
+      posX: colony.posX,
+      posY: colony.posY,
+    });
+
+    return this.shipRepo.save(ship);
   }
 
   async processTick(colony: Colony): Promise<void> {
