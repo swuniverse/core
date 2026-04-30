@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ColonyService } from '../colony/colony.service';
+import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { WsEventType } from '@swuniverse/shared';
 
 @Injectable()
@@ -18,7 +20,10 @@ export class TickService {
     private readonly colonyRepo: Repository<Colony>,
     @InjectRepository(ColonyField)
     private readonly fieldRepo: Repository<ColonyField>,
+    @InjectRepository(Spacecraft)
+    private readonly shipRepo: Repository<Spacecraft>,
     private readonly colonyService: ColonyService,
+    private readonly spacecraftService: SpacecraftService,
     private readonly gateway: GameGateway,
   ) {}
 
@@ -33,8 +38,15 @@ export class TickService {
       this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, { colonyId: colony.id });
     }
 
+    // Process spacecraft
+    const ships = await this.shipRepo.find();
+    for (const ship of ships) {
+      await this.spacecraftService.processTick(ship);
+      this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, { shipId: ship.id });
+    }
+
     this.gateway.emitToAll(WsEventType.TICK, { tick: this.tickCount });
-    this.logger.log(`Tick #${this.tickCount} completed — ${colonies.length} colonies processed`);
+    this.logger.log(`Tick #${this.tickCount} completed — ${colonies.length} colonies, ${ships.length} ships processed`);
   }
 
   @Cron(CronExpression.EVERY_MINUTE)

@@ -5,6 +5,7 @@ import { LoginPage } from '../pages/login';
 import { RegisterPage } from '../pages/register';
 import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
+import { SpacecraftPage } from '../pages/spacecraft';
 import { StarmapPage } from '../pages/starmap';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -28,7 +29,7 @@ export function App() {
         >
           <Route path="/" element={<DashboardPage />} />
           <Route path="/colonies" element={<ColoniesPage />} />
-          <Route path="/spacecraft" element={<Placeholder name="Spacecraft" />} />
+          <Route path="/spacecraft" element={<SpacecraftPage />} />
           <Route path="/starmap" element={<StarmapPage />} />
           <Route path="/research" element={<Placeholder name="Research" />} />
           <Route path="/trading" element={<Placeholder name="Trading" />} />
