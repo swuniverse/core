@@ -1,0 +1,47 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { StarSystem } from './star-system.entity';
+
+export enum CelestialObjectType {
+  PLANET = 1,
+  MOON = 2,
+  ASTEROID = 3,
+}
+
+@Entity('celestial_objects')
+@Index(['systemId'])
+export class CelestialObject {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  systemId: number;
+
+  @ManyToOne(() => StarSystem, (sys) => sys.celestialObjects)
+  @JoinColumn({ name: 'systemId' })
+  starSystem: StarSystem;
+
+  @Column({ type: 'int' })
+  objectType: CelestialObjectType;
+
+  @Column({ length: 255, nullable: true })
+  name: string;
+
+  @Column()
+  posX: number;
+
+  @Column()
+  posY: number;
+
+  @Column({ nullable: true })
+  classId: number;
+
+  @Column({ default: false })
+  isColonizable: boolean;
+}

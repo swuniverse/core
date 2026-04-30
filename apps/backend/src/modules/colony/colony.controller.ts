@@ -1,0 +1,51 @@
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+  ParseIntPipe,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ColonyService } from './colony.service';
+
+@Controller('colonies')
+@UseGuards(AuthGuard('jwt'))
+export class ColonyController {
+  constructor(private readonly colonyService: ColonyService) {}
+
+  @Get()
+  findAll(@Request() req: { user: { sub: number } }) {
+    return this.colonyService.findAllByUser(req.user.sub);
+  }
+
+  @Get(':id')
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.findOne(id, req.user.sub);
+  }
+
+  @Put(':id')
+  rename(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('name') name: string,
+  ) {
+    return this.colonyService.rename(id, req.user.sub, name);
+  }
+
+  @Post(':id/build')
+  build(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('fieldIndex') fieldIndex: number,
+    @Body('buildingId') buildingId: number,
+  ) {
+    return this.colonyService.build(id, req.user.sub, fieldIndex, buildingId);
+  }
+}
