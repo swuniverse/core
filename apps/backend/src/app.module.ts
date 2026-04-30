@@ -8,6 +8,7 @@ import { SpacecraftModule } from './modules/spacecraft/spacecraft.module';
 import { CombatModule } from './modules/combat/combat.module';
 import { ResearchModule } from './modules/research/research.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
+import { HolonetModule } from './modules/holonet/holonet.module';
 import { TickModule } from './modules/tick/tick.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { User } from './modules/auth/user.entity';
@@ -20,6 +21,7 @@ import { CelestialObject } from './modules/starmap/entities/celestial-object.ent
 import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
 import { Research } from './modules/research/entities/research.entity';
 import { Message } from './modules/messaging/entities/message.entity';
+import { HolonetPost } from './modules/holonet/entities/holonet-post.entity';
 
 @Module({
   imports: [
@@ -41,6 +43,7 @@ import { Message } from './modules/messaging/entities/message.entity';
           Spacecraft,
           Research,
           Message,
+          HolonetPost,
         ],
         synchronize: config.get('NODE_ENV') !== 'production',
         logging: config.get('NODE_ENV') !== 'production',
@@ -53,6 +56,7 @@ import { Message } from './modules/messaging/entities/message.entity';
     CombatModule,
     ResearchModule,
     MessagingModule,
+    HolonetModule,
     TickModule,
     WebsocketModule,
   ],

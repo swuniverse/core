@@ -9,6 +9,7 @@ import { SpacecraftPage } from '../pages/spacecraft';
 import { StarmapPage } from '../pages/starmap';
 import { ResearchPage } from '../pages/research';
 import { MessagesPage } from '../pages/messages';
+import { HolonetPage } from '../pages/holonet';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
@@ -35,20 +36,11 @@ export function App() {
           <Route path="/starmap" element={<StarmapPage />} />
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/holonet" element={<Placeholder name="HoloNet" />} />
+          <Route path="/holonet" element={<HolonetPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-  );
-}
-
-function Placeholder({ name }: { name: string }) {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-swu-accent">{name}</h1>
-      <p className="text-swu-muted mt-2">Coming soon...</p>
-    </div>
   );
 }
 
