@@ -16,6 +16,9 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@org/source"]
+    "baseUrl": ".",
+    "paths": {
+      "@swuniverse/shared": ["packages/shared/src/index.ts"]
+    }
   }
 }

@@ -38,12 +38,20 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Nx
 .nx/cache
 .nx/workspace-data
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-.claude/worktrees
-.claude/settings.local.json
 .nx/polygraph
 .nx/self-healing
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Test output
+test-output
+
+# Vite
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
