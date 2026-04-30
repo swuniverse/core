@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ColonyModule } from './modules/colony/colony.module';
 import { StarmapModule } from './modules/starmap/starmap.module';
 import { TickModule } from './modules/tick/tick.module';
+import { WebsocketModule } from './modules/websocket/websocket.module';
 import { User } from './modules/auth/user.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
@@ -39,6 +40,7 @@ import { CelestialObject } from './modules/starmap/entities/celestial-object.ent
     ColonyModule,
     StarmapModule,
     TickModule,
+    WebsocketModule,
   ],
 })
 export class AppModule {}

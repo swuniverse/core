@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ColonyService } from '../colony/colony.service';
+import { GameGateway } from '../websocket/game.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
+import { WsEventType } from '@swuniverse/shared';
 
 @Injectable()
 export class TickService {
@@ -17,6 +19,7 @@ export class TickService {
     @InjectRepository(ColonyField)
     private readonly fieldRepo: Repository<ColonyField>,
     private readonly colonyService: ColonyService,
+    private readonly gateway: GameGateway,
   ) {}
 
   @Cron('0 0 0,5,10,14,19 * * *')
@@ -27,8 +30,10 @@ export class TickService {
     const colonies = await this.colonyRepo.find({ relations: ['fields'] });
     for (const colony of colonies) {
       await this.colonyService.processTick(colony);
+      this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, { colonyId: colony.id });
     }
 
+    this.gateway.emitToAll(WsEventType.TICK, { tick: this.tickCount });
     this.logger.log(`Tick #${this.tickCount} completed — ${colonies.length} colonies processed`);
   }
 
