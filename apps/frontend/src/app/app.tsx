@@ -7,6 +7,8 @@ import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
 import { SpacecraftPage } from '../pages/spacecraft';
 import { StarmapPage } from '../pages/starmap';
+import { ResearchPage } from '../pages/research';
+import { MessagesPage } from '../pages/messages';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
@@ -31,8 +33,8 @@ export function App() {
           <Route path="/colonies" element={<ColoniesPage />} />
           <Route path="/spacecraft" element={<SpacecraftPage />} />
           <Route path="/starmap" element={<StarmapPage />} />
-          <Route path="/research" element={<Placeholder name="Research" />} />
-          <Route path="/trading" element={<Placeholder name="Trading" />} />
+          <Route path="/research" element={<ResearchPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
           <Route path="/holonet" element={<Placeholder name="HoloNet" />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

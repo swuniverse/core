@@ -6,7 +6,7 @@ const navItems = [
   { label: 'Ships', path: '/spacecraft', icon: 'S' },
   { label: 'Starmap', path: '/starmap', icon: 'M' },
   { label: 'Research', path: '/research', icon: 'R' },
-  { label: 'Trading', path: '/trading', icon: 'T' },
+  { label: 'Messages', path: '/messages', icon: 'P' },
   { label: 'HoloNet', path: '/holonet', icon: 'H' },
 ];
 

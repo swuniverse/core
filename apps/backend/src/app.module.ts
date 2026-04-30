@@ -6,6 +6,8 @@ import { ColonyModule } from './modules/colony/colony.module';
 import { StarmapModule } from './modules/starmap/starmap.module';
 import { SpacecraftModule } from './modules/spacecraft/spacecraft.module';
 import { CombatModule } from './modules/combat/combat.module';
+import { ResearchModule } from './modules/research/research.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 import { TickModule } from './modules/tick/tick.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { User } from './modules/auth/user.entity';
@@ -16,6 +18,8 @@ import { Layer } from './modules/starmap/entities/layer.entity';
 import { StarSystem } from './modules/starmap/entities/star-system.entity';
 import { CelestialObject } from './modules/starmap/entities/celestial-object.entity';
 import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
+import { Research } from './modules/research/entities/research.entity';
+import { Message } from './modules/messaging/entities/message.entity';
 
 @Module({
   imports: [
@@ -35,6 +39,8 @@ import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
           StarSystem,
           CelestialObject,
           Spacecraft,
+          Research,
+          Message,
         ],
         synchronize: config.get('NODE_ENV') !== 'production',
         logging: config.get('NODE_ENV') !== 'production',
@@ -45,6 +51,8 @@ import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
     StarmapModule,
     SpacecraftModule,
     CombatModule,
+    ResearchModule,
+    MessagingModule,
     TickModule,
     WebsocketModule,
   ],
