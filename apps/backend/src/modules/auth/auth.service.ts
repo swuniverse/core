@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { RegisterDto, LoginDto, AuthResponse, JwtPayload } from '@swuniverse/shared';
+import { ColonySeedService } from '../colony/colony-seed.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly colonySeedService: ColonySeedService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -34,6 +36,8 @@ export class AuthService {
       faction: dto.faction,
     });
     await this.userRepo.save(user);
+
+    await this.colonySeedService.createStarterColony(user.id, user.username);
 
     return this.generateTokens(user);
   }

@@ -31,7 +31,7 @@ export class Colony {
   user: User;
 
   @Column({ nullable: true })
-  starSystemId: number;
+  starSystemId: number | null;
 
   @ManyToOne(() => StarSystem, { nullable: true })
   @JoinColumn({ name: 'starSystemId' })

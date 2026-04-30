@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from './user.entity';
+import { ColonyModule } from '../colony/colony.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { User } from './user.entity';
         signOptions: { expiresIn: '15m' },
       }),
     }),
+    ColonyModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

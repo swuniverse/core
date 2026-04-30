@@ -28,7 +28,7 @@ export class ColonyField {
   fieldType: number;
 
   @Column({ nullable: true })
-  buildingId: number;
+  buildingId: number | null;
 
   @Column({ default: false })
   isBuilding: boolean;
@@ -37,5 +37,5 @@ export class ColonyField {
   buildProgress: number;
 
   @Column({ nullable: true })
-  buildFinishesAt: Date;
+  buildFinishesAt: Date | null;
 }

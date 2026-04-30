@@ -31,7 +31,7 @@ export class CelestialObject {
   objectType: CelestialObjectType;
 
   @Column({ length: 255, nullable: true })
-  name: string;
+  name: string | null;
 
   @Column()
   posX: number;
@@ -40,7 +40,7 @@ export class CelestialObject {
   posY: number;
 
   @Column({ nullable: true })
-  classId: number;
+  classId: number | null;
 
   @Column({ default: false })
   isColonizable: boolean;
