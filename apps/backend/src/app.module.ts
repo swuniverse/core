@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ColonyModule } from './modules/colony/colony.module';
 import { StarmapModule } from './modules/starmap/starmap.module';
 import { SpacecraftModule } from './modules/spacecraft/spacecraft.module';
+import { CombatModule } from './modules/combat/combat.module';
 import { TickModule } from './modules/tick/tick.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { User } from './modules/auth/user.entity';
@@ -43,6 +44,7 @@ import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
     ColonyModule,
     StarmapModule,
     SpacecraftModule,
+    CombatModule,
     TickModule,
     WebsocketModule,
   ],
