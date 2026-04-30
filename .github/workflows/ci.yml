@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: swuniverse_test
+          POSTGRES_USER: swuniverse
+          POSTGRES_PASSWORD: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx nx run-many --target=build --all
+
+      - run: npx nx run-many --target=lint --all
+
+      - run: npx nx run-many --target=test --all
+        env:
+          DATABASE_URL: postgresql://swuniverse:test@localhost:5432/swuniverse_test
+          JWT_SECRET: test-secret
