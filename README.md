@@ -10,6 +10,19 @@ A tick-based strategy browser game set in the Star Wars universe, inspired by [S
 - **Monorepo:** NX
 - **Deploy:** Docker Compose + Caddy
 
+## Features
+
+- **Colony Management** — 7x7 field grid, buildings, resource production, population growth
+- **Starmap** — Procedurally generated galaxy with star systems, planets, moons, asteroids
+- **Spacecraft** — Fleet management, in-system navigation, inter-system warp
+- **Combat** — Round-based engine with shields, hull damage, accuracy, criticals
+- **Research** — 12-tech tree across 5 categories with prerequisites
+- **Messaging** — Player-to-player messages with inbox/sent/compose
+- **HoloNet** — Forum with News, Roleplay, Trade, Recruitment categories
+- **Tick System** — 5 ticks/day for resource production + real-time building completions
+- **WebSocket** — Real-time updates on tick events and combat
+- **Factions** — Rebel Alliance & Galactic Empire
+
 ## Quick Start
 
 ### Prerequisites
