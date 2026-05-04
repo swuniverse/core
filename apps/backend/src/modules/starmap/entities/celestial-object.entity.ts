@@ -30,7 +30,7 @@ export class CelestialObject {
   @Column({ type: 'int' })
   objectType: CelestialObjectType;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   name: string | null;
 
   @Column()
@@ -39,7 +39,7 @@ export class CelestialObject {
   @Column()
   posY: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   classId: number | null;
 
   @Column({ default: false })

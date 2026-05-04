@@ -43,7 +43,7 @@ export class Spacecraft {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   starSystemId: number | null;
 
   @ManyToOne(() => StarSystem, { nullable: true })
@@ -98,16 +98,16 @@ export class Spacecraft {
   crewMax: number;
 
   // Navigation target (for in-flight)
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   targetSystemId: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   targetX: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   targetY: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   arrivalAt: Date | null;
 
   @CreateDateColumn()

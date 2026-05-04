@@ -11,6 +11,6 @@ COPY . .
 RUN npx nx build frontend --configuration=production
 
 FROM caddy:2-alpine AS production
-COPY --from=build /app/dist/apps/frontend /srv
-COPY apps/frontend/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/frontend/dist /srv
+COPY --from=build /app/apps/frontend/Caddyfile /etc/caddy/Caddyfile
 EXPOSE 5173

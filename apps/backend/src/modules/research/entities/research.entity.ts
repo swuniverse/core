@@ -38,7 +38,7 @@ export class Research {
   @Column({ default: 0 })
   progress: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   finishesAt: Date | null;
 
   @CreateDateColumn()

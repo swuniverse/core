@@ -30,7 +30,7 @@ export class Colony {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   starSystemId: number | null;
 
   @ManyToOne(() => StarSystem, { nullable: true })
