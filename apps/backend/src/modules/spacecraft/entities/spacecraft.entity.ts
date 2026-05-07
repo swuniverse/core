@@ -3,12 +3,17 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import { StarSystem } from '../../starmap/entities/star-system.entity';
+import { CelestialObject } from '../../starmap/entities/celestial-object.entity';
+import { Layer } from '../../starmap/entities/layer.entity';
+import { SpacecraftModule } from './spacecraft-module.entity';
+import { Fleet } from './fleet.entity';
 
 export enum SpacecraftStatus {
   DOCKED = 'DOCKED',
@@ -49,6 +54,29 @@ export class Spacecraft {
   @ManyToOne(() => StarSystem, { nullable: true })
   @JoinColumn({ name: 'starSystemId' })
   starSystem: StarSystem;
+
+  @Column({ type: 'int', nullable: true })
+  currentLayerId: number | null;
+
+  @ManyToOne(() => Layer, { nullable: true })
+  @JoinColumn({ name: 'currentLayerId' })
+  currentLayer: Layer | null;
+
+  @Column({ type: 'int', nullable: true })
+  celestialObjectId: number | null;
+
+  @ManyToOne(() => CelestialObject, { nullable: true })
+  @JoinColumn({ name: 'celestialObjectId' })
+  celestialObject: CelestialObject | null;
+
+  @Column({ default: false })
+  inSystem: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  currentSystemFieldX: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  currentSystemFieldY: number | null;
 
   @Column({ default: 10 })
   posX: number;
@@ -97,6 +125,18 @@ export class Spacecraft {
   @Column({ default: 20 })
   crewMax: number;
 
+  @Column({ default: 0 })
+  cargoUsed: number;
+
+  @Column({ default: 0 })
+  cargoMax: number;
+
+  @Column({ default: 0 })
+  battery: number;
+
+  @Column({ default: 0 })
+  batteryMax: number;
+
   // Navigation target (for in-flight)
   @Column({ type: 'int', nullable: true })
   targetSystemId: number | null;
@@ -109,6 +149,16 @@ export class Spacecraft {
 
   @Column({ type: 'timestamp', nullable: true })
   arrivalAt: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  fleetId: number | null;
+
+  @ManyToOne(() => Fleet, (f) => f.members, { nullable: true })
+  @JoinColumn({ name: 'fleetId' })
+  fleet: Fleet | null;
+
+  @OneToMany(() => SpacecraftModule, (m) => m.spacecraft, { eager: false })
+  modules: SpacecraftModule[];
 
   @CreateDateColumn()
   createdAt: Date;

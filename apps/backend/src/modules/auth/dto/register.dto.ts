@@ -1,5 +1,4 @@
-import { IsString, IsEmail, MinLength, MaxLength, IsEnum } from 'class-validator';
-import { Faction } from '@swuniverse/shared';
+import { IsString, IsEmail, MinLength, MaxLength } from 'class-validator';
 
 export class RegisterRequestDto {
   @IsString()
@@ -14,7 +13,4 @@ export class RegisterRequestDto {
   @MinLength(8)
   @MaxLength(128)
   password: string;
-
-  @IsEnum(Faction)
-  faction: Faction;
 }

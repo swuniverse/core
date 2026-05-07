@@ -63,6 +63,16 @@ Copy `.env.example` to `.env` and adjust values:
 cp .env.example .env
 ```
 
+Important for database schema handling:
+
+- `TYPEORM_SYNCHRONIZE=false` is recommended
+- use TypeORM migrations for schema changes
+- local Docker Compose migration run uses dedicated `migrate` service:
+
+```bash
+npm run docker:typeorm:migrate
+```
+
 ## Project Structure
 
 ```

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 
 interface Spacecraft {
   id: number;
   name: string;
   shipClassId: number;
+  shipClassName?: string;
+  shipClassKey?: string | null;
   status: string;
   alertState: string;
   hull: number;
@@ -17,9 +20,15 @@ interface Spacecraft {
   warpCooldown: number;
   crew: number;
   crewMax: number;
+  cargoUsed?: number;
+  cargoMax?: number;
+  moduleCount?: number;
+  fleetName?: string | null;
+  locationLabel?: string;
   posX: number;
   posY: number;
   starSystem?: { id: number; name: string };
+  celestialObject?: { id: number; name: string | null };
   arrivalAt: string | null;
 }
 
@@ -37,6 +46,7 @@ const ALERT_COLORS: Record<string, string> = {
 };
 
 export function SpacecraftPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [ships, setShips] = useState<Spacecraft[]>([]);
   const [selected, setSelected] = useState<Spacecraft | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,17 +55,23 @@ export function SpacecraftPage() {
   useEffect(() => {
     api.get<Spacecraft[]>('/spacecraft').then((data) => {
       setShips(data);
-      if (data.length > 0) setSelected(data[0]);
+      const requestedId = Number(searchParams.get('selected'));
+      const initialShip =
+        data.find((ship) => ship.id === requestedId) ?? data[0];
+      if (initialShip) setSelected(initialShip);
       setLoading(false);
     });
-  }, []);
+  }, [searchParams]);
 
   const refresh = async () => {
     const data = await api.get<Spacecraft[]>('/spacecraft');
     setShips(data);
     if (selected) {
       const updated = data.find((s) => s.id === selected.id);
-      if (updated) setSelected(updated);
+      if (updated) {
+        setSelected(updated);
+        setSearchParams({ selected: String(updated.id) }, { replace: true });
+      }
     }
   };
 
@@ -69,13 +85,16 @@ export function SpacecraftPage() {
     refresh();
   };
 
-  if (loading) return <div className="p-6 text-swu-muted">Loading fleet...</div>;
+  if (loading)
+    return <div className="p-6 text-swu-muted">Loading fleet...</div>;
 
   if (ships.length === 0) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold text-swu-accent">Spacecraft</h1>
-        <p className="text-swu-muted mt-4">No ships in your fleet. Build one in a colony shipyard.</p>
+        <p className="text-swu-muted mt-4">
+          No ships in your fleet. Build one in a colony shipyard.
+        </p>
       </div>
     );
   }
@@ -89,17 +108,29 @@ export function SpacecraftPage() {
           {ships.map((ship) => (
             <button
               key={ship.id}
-              onClick={() => setSelected(ship)}
+              onClick={() => {
+                setSelected(ship);
+                setSearchParams(
+                  { selected: String(ship.id) },
+                  { replace: true },
+                );
+              }}
               className={`w-full text-left p-3 rounded border transition-colors ${
                 selected?.id === ship.id
                   ? 'border-swu-accent bg-swu-accent/10'
                   : 'border-swu-border hover:border-swu-primary'
               }`}
             >
-              <div className="font-bold text-sm text-swu-primary">{ship.name}</div>
+              <div className="font-bold text-sm text-swu-primary">
+                {ship.name}
+              </div>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`w-2 h-2 rounded-full ${ALERT_COLORS[ship.alertState]}`} />
-                <span className={`text-xs ${STATUS_COLORS[ship.status]}`}>{ship.status}</span>
+                <span
+                  className={`w-2 h-2 rounded-full ${ALERT_COLORS[ship.alertState]}`}
+                />
+                <span className={`text-xs ${STATUS_COLORS[ship.status]}`}>
+                  {ship.status}
+                </span>
               </div>
             </button>
           ))}
@@ -112,14 +143,26 @@ export function SpacecraftPage() {
             <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-swu-primary">{selected.name}</h2>
+                  <h2 className="text-lg font-bold text-swu-primary">
+                    {selected.name}
+                  </h2>
                   <p className="text-xs text-swu-muted">
-                    Class: {selected.shipClassId} · {selected.starSystem?.name || 'Deep Space'} [{selected.posX},{selected.posY}]
+                    {selected.shipClassName || `Class ${selected.shipClassId}`}{' '}
+                    ·{' '}
+                    {selected.locationLabel ||
+                      selected.celestialObject?.name ||
+                      selected.starSystem?.name ||
+                      'Deep Space'}{' '}
+                    [{selected.posX},{selected.posY}]
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`w-3 h-3 rounded-full ${ALERT_COLORS[selected.alertState]}`} />
-                  <span className={`text-sm font-bold ${STATUS_COLORS[selected.status]}`}>
+                  <span
+                    className={`w-3 h-3 rounded-full ${ALERT_COLORS[selected.alertState]}`}
+                  />
+                  <span
+                    className={`text-sm font-bold ${STATUS_COLORS[selected.status]}`}
+                  >
                     {selected.status}
                   </span>
                 </div>
@@ -129,18 +172,63 @@ export function SpacecraftPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-3">
-                <h3 className="text-xs font-bold text-swu-muted">Ship Systems</h3>
-                <ShipBar label="Hull" current={selected.hull} max={selected.hullMax} color="bg-red-500" />
-                <ShipBar label="Shields" current={selected.shields} max={selected.shieldsMax} color="bg-blue-400" />
-                <ShipBar label="Energy" current={selected.energy} max={selected.energyMax} color="bg-yellow-400" />
+                <h3 className="text-xs font-bold text-swu-muted">
+                  Ship Systems
+                </h3>
+                <ShipBar
+                  label="Hull"
+                  current={selected.hull}
+                  max={selected.hullMax}
+                  color="bg-red-500"
+                />
+                <ShipBar
+                  label="Shields"
+                  current={selected.shields}
+                  max={selected.shieldsMax}
+                  color="bg-blue-400"
+                />
+                <ShipBar
+                  label="Energy"
+                  current={selected.energy}
+                  max={selected.energyMax}
+                  color="bg-yellow-400"
+                />
               </div>
               <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-2">
                 <h3 className="text-xs font-bold text-swu-muted">Specs</h3>
-                <StatRow label="Warp Speed" value={selected.warpSpeed.toString()} />
-                <StatRow label="Warp Cooldown" value={selected.warpCooldown > 0 ? `${selected.warpCooldown} ticks` : 'Ready'} />
-                <StatRow label="Crew" value={`${selected.crew}/${selected.crewMax}`} />
+                <StatRow
+                  label="Warp Speed"
+                  value={selected.warpSpeed.toString()}
+                />
+                <StatRow
+                  label="Warp Cooldown"
+                  value={
+                    selected.warpCooldown > 0
+                      ? `${selected.warpCooldown} ticks`
+                      : 'Ready'
+                  }
+                />
+                <StatRow
+                  label="Crew"
+                  value={`${selected.crew}/${selected.crewMax}`}
+                />
+                <StatRow
+                  label="Cargo"
+                  value={`${selected.cargoUsed ?? 0}/${selected.cargoMax ?? 0}`}
+                />
+                <StatRow
+                  label="Modules"
+                  value={String(selected.moduleCount ?? 0)}
+                />
+                <StatRow
+                  label="Fleet"
+                  value={selected.fleetName || 'No fleet'}
+                />
                 {selected.arrivalAt && (
-                  <StatRow label="ETA" value={new Date(selected.arrivalAt).toLocaleTimeString()} />
+                  <StatRow
+                    label="ETA"
+                    value={new Date(selected.arrivalAt).toLocaleTimeString()}
+                  />
                 )}
               </div>
             </div>
@@ -148,14 +236,18 @@ export function SpacecraftPage() {
             {/* Navigation */}
             {selected.status === 'DOCKED' && (
               <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-                <h3 className="text-xs font-bold text-swu-muted mb-2">Navigate (in-system)</h3>
+                <h3 className="text-xs font-bold text-swu-muted mb-2">
+                  Navigate (in-system)
+                </h3>
                 <div className="flex items-end gap-2">
                   <div>
                     <label className="text-[10px] text-swu-muted">X</label>
                     <input
                       type="number"
                       value={navTarget.x}
-                      onChange={(e) => setNavTarget({ ...navTarget, x: e.target.value })}
+                      onChange={(e) =>
+                        setNavTarget({ ...navTarget, x: e.target.value })
+                      }
                       className="w-16 bg-swu-bg border border-swu-border rounded px-2 py-1 text-sm text-swu-primary"
                       min={0}
                       max={20}
@@ -166,7 +258,9 @@ export function SpacecraftPage() {
                     <input
                       type="number"
                       value={navTarget.y}
-                      onChange={(e) => setNavTarget({ ...navTarget, y: e.target.value })}
+                      onChange={(e) =>
+                        setNavTarget({ ...navTarget, y: e.target.value })
+                      }
                       className="w-16 bg-swu-bg border border-swu-border rounded px-2 py-1 text-sm text-swu-primary"
                       min={0}
                       max={20}
@@ -188,16 +282,31 @@ export function SpacecraftPage() {
   );
 }
 
-function ShipBar({ label, current, max, color }: { label: string; current: number; max: number; color: string }) {
+function ShipBar({
+  label,
+  current,
+  max,
+  color,
+}: {
+  label: string;
+  current: number;
+  max: number;
+  color: string;
+}) {
   const pct = max > 0 ? (current / max) * 100 : 0;
   return (
     <div>
       <div className="flex justify-between text-xs text-swu-muted mb-1">
         <span>{label}</span>
-        <span>{current}/{max}</span>
+        <span>
+          {current}/{max}
+        </span>
       </div>
       <div className="h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border">
-        <div className={`h-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full ${color} transition-all`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );

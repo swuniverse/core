@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
+interface TechDependency {
+  type: 'REQUIRE' | 'REQUIRE_SOME' | 'EXCLUDE';
+  techIds: number[];
+}
+
 interface TechState {
   id: number;
   name: string;
   category: string;
+  tier: number;
   duration: number;
-  prerequisites: number[];
+  dependencies: TechDependency[];
   status: string;
   progress: number;
+  pointsRequired: number;
   finishesAt: string | null;
 }
 
@@ -18,6 +25,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   weapons: 'border-orange-500/50',
   defense: 'border-blue-500/50',
   navigation: 'border-purple-500/50',
+  special: 'border-cyan-500/50',
+  faction_rebellion: 'border-yellow-500/50',
+  faction_empire: 'border-red-700/50',
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -66,15 +76,24 @@ export function ResearchPage() {
                   <StatusBadge status={tech.status} />
                 </div>
                 <p className="text-[10px] text-swu-muted">
-                  Duration: {tech.duration} ticks
-                  {tech.prerequisites.length > 0 && (
-                    <> · Requires: {tech.prerequisites.map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</>
+                  Tier {tech.tier} · {tech.pointsRequired} pts
+                  {tech.dependencies.filter((d) => d.type === 'REQUIRE').length > 0 && (
+                    <> · Requires: {tech.dependencies.filter((d) => d.type === 'REQUIRE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</>
+                  )}
+                  {tech.dependencies.filter((d) => d.type === 'EXCLUDE').length > 0 && (
+                    <> · <span className="text-red-400">Excludes: {tech.dependencies.filter((d) => d.type === 'EXCLUDE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</span></>
                   )}
                 </p>
-                {tech.status === 'IN_PROGRESS' && tech.finishesAt && (
-                  <p className="text-[10px] text-swu-success mt-1">
-                    ETA: {new Date(tech.finishesAt).toLocaleString()}
-                  </p>
+                {tech.status === 'IN_PROGRESS' && (
+                  <div className="mt-1">
+                    <div className="flex justify-between text-[10px] text-swu-success">
+                      <span>Progress</span>
+                      <span>{tech.progress}/{tech.pointsRequired}</span>
+                    </div>
+                    <div className="h-1 bg-swu-bg rounded-full overflow-hidden mt-0.5">
+                      <div className="h-full bg-swu-success" style={{ width: `${(tech.progress / tech.pointsRequired) * 100}%` }} />
+                    </div>
+                  </div>
                 )}
                 {tech.status === 'AVAILABLE' && (
                   <button

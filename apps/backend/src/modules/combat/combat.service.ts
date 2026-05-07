@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Spacecraft, SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
+import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CombatEngine, CombatResult } from './combat.engine';
 import { GameGateway } from '../websocket/game.gateway';
 import { WsEventType } from '@swuniverse/shared';
@@ -11,6 +12,8 @@ export class CombatService {
   constructor(
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
+    @InjectRepository(SpacecraftModule)
+    private readonly moduleRepo: Repository<SpacecraftModule>,
     private readonly engine: CombatEngine,
     private readonly gateway: GameGateway,
   ) {}
@@ -43,7 +46,9 @@ export class CombatService {
       throw new BadRequestException('Target must be in same system');
     }
 
-    // Notify combat start
+    const attackerModules = await this.moduleRepo.find({ where: { spacecraftId: attacker.id } });
+    const defenderModules = await this.moduleRepo.find({ where: { spacecraftId: defender.id } });
+
     this.gateway.emitToUser(attacker.userId, WsEventType.COMBAT_STARTED, {
       attackerId: attacker.id,
       defenderId: defender.id,
@@ -53,10 +58,11 @@ export class CombatService {
       defenderId: defender.id,
     });
 
-    const result = this.engine.resolveCombat(attacker, defender);
+    const result = this.engine.resolveCombat(attacker, defender, attackerModules, defenderModules);
 
     await this.shipRepo.save(attacker);
     await this.shipRepo.save(defender);
+    await this.moduleRepo.save([...attackerModules, ...defenderModules]);
 
     return result;
   }

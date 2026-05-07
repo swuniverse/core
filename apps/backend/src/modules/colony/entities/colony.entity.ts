@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import { StarSystem } from '../../starmap/entities/star-system.entity';
+import { CelestialObject } from '../../starmap/entities/celestial-object.entity';
 import { ColonyField } from './colony-field.entity';
 import { ColonyStorage } from './colony-storage.entity';
 
@@ -36,6 +37,13 @@ export class Colony {
   @ManyToOne(() => StarSystem, { nullable: true })
   @JoinColumn({ name: 'starSystemId' })
   starSystem: StarSystem;
+
+  @Column({ type: 'int', nullable: true })
+  celestialObjectId: number | null;
+
+  @ManyToOne(() => CelestialObject, { nullable: true })
+  @JoinColumn({ name: 'celestialObjectId' })
+  celestialObject: CelestialObject | null;
 
   @Column({ default: 0 })
   posX: number;

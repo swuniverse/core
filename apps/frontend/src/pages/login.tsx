@@ -17,9 +17,12 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>('/auth/login', { username, password });
+      const res = await api.post<AuthResponse>('/auth/login', {
+        username,
+        password,
+      });
       setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/');
+      navigate('/onboarding');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed');
     } finally {
@@ -40,7 +43,9 @@ export function LoginPage() {
             </div>
           )}
           <div>
-            <label className="block text-sm text-swu-muted mb-1">Username</label>
+            <label className="block text-sm text-swu-muted mb-1">
+              Username
+            </label>
             <input
               type="text"
               value={username}
@@ -50,7 +55,9 @@ export function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-swu-muted mb-1">Password</label>
+            <label className="block text-sm text-swu-muted mb-1">
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -69,7 +76,10 @@ export function LoginPage() {
         </form>
         <p className="text-center text-sm text-swu-muted mt-4">
           No account?{' '}
-          <Link to="/register" className="text-swu-primary hover:text-swu-accent">
+          <Link
+            to="/register"
+            className="text-swu-primary hover:text-swu-accent"
+          >
             Register
           </Link>
         </p>

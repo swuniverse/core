@@ -2,39 +2,24 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
-
-interface TechDef {
-  id: number;
-  name: string;
-  category: string;
-  duration: number; // ticks to complete
-  prerequisites: number[];
-}
-
-const TECH_TREE: TechDef[] = [
-  { id: 1, name: 'Basic Engineering', category: 'infrastructure', duration: 2, prerequisites: [] },
-  { id: 2, name: 'Advanced Mining', category: 'infrastructure', duration: 3, prerequisites: [1] },
-  { id: 3, name: 'Energy Systems', category: 'infrastructure', duration: 3, prerequisites: [1] },
-  { id: 4, name: 'Shipyard Ops', category: 'military', duration: 4, prerequisites: [1] },
-  { id: 5, name: 'Blaster Technology', category: 'weapons', duration: 3, prerequisites: [4] },
-  { id: 6, name: 'Shield Technology', category: 'defense', duration: 3, prerequisites: [3] },
-  { id: 7, name: 'Hyperdrive Theory', category: 'navigation', duration: 5, prerequisites: [3, 4] },
-  { id: 8, name: 'Turbolaser Arrays', category: 'weapons', duration: 5, prerequisites: [5] },
-  { id: 9, name: 'Deflector Shields', category: 'defense', duration: 5, prerequisites: [6] },
-  { id: 10, name: 'Advanced Hyperdrive', category: 'navigation', duration: 6, prerequisites: [7] },
-  { id: 11, name: 'Proton Torpedoes', category: 'weapons', duration: 6, prerequisites: [5, 8] },
-  { id: 12, name: 'Capital Ship Construction', category: 'military', duration: 8, prerequisites: [4, 7] },
-];
+import { Colony } from '../colony/entities/colony.entity';
+import { ColonyField } from '../colony/entities/colony-field.entity';
+import { GameDataService, TechDef } from '../game-data/game-data.service';
 
 @Injectable()
 export class ResearchService {
   constructor(
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
+    @InjectRepository(Colony)
+    private readonly colonyRepo: Repository<Colony>,
+    @InjectRepository(ColonyField)
+    private readonly fieldRepo: Repository<ColonyField>,
+    private readonly gameData: GameDataService,
   ) {}
 
   getTechTree(): TechDef[] {
-    return TECH_TREE;
+    return this.gameData.getTechTree();
   }
 
   async getUserResearch(userId: number): Promise<Research[]> {
@@ -45,18 +30,19 @@ export class ResearchService {
   }
 
   async getResearchState(userId: number) {
+    const techTree = this.gameData.getTechTree();
     const userResearch = await this.getUserResearch(userId);
     const completed = new Set(
       userResearch.filter((r) => r.status === ResearchStatus.COMPLETED).map((r) => r.techId),
     );
 
-    return TECH_TREE.map((tech) => {
+    return techTree.map((tech) => {
       const existing = userResearch.find((r) => r.techId === tech.id);
       let status: ResearchStatus;
 
       if (existing) {
         status = existing.status;
-      } else if (tech.prerequisites.every((p) => completed.has(p))) {
+      } else if (this.areDependenciesMet(tech, completed)) {
         status = ResearchStatus.AVAILABLE;
       } else {
         status = ResearchStatus.LOCKED;
@@ -66,13 +52,14 @@ export class ResearchService {
         ...tech,
         status,
         progress: existing?.progress || 0,
+        pointsRequired: this.getPointsRequired(tech),
         finishesAt: existing?.finishesAt || null,
       };
     });
   }
 
   async startResearch(userId: number, techId: number): Promise<Research> {
-    const tech = TECH_TREE.find((t) => t.id === techId);
+    const tech = this.gameData.getTech(techId);
     if (!tech) throw new NotFoundException('Technology not found');
 
     const inProgress = await this.researchRepo.findOne({
@@ -90,24 +77,19 @@ export class ResearchService {
     if (completed.has(techId)) {
       throw new BadRequestException('Already researched');
     }
-    if (!tech.prerequisites.every((p) => completed.has(p))) {
-      throw new BadRequestException('Prerequisites not met');
+    if (!this.areDependenciesMet(tech, completed)) {
+      throw new BadRequestException('Dependencies not met');
     }
-
-    // Duration in ticks × 4.8h per tick → ms
-    const durationMs = tech.duration * 4.8 * 60 * 60 * 1000;
 
     let research = userResearch.find((r) => r.techId === techId);
     if (research) {
       research.status = ResearchStatus.IN_PROGRESS;
-      research.finishesAt = new Date(Date.now() + durationMs);
     } else {
       research = this.researchRepo.create({
         userId,
         techId,
         status: ResearchStatus.IN_PROGRESS,
         progress: 0,
-        finishesAt: new Date(Date.now() + durationMs),
       });
     }
 
@@ -120,11 +102,59 @@ export class ResearchService {
     });
     if (!inProgress) return;
 
-    if (inProgress.finishesAt && new Date() >= inProgress.finishesAt) {
+    const tech = this.gameData.getTech(inProgress.techId);
+    if (!tech) return;
+
+    const pointsPerTick = await this.calculateResearchOutput(userId);
+    const pointsRequired = this.getPointsRequired(tech);
+
+    inProgress.progress += pointsPerTick;
+
+    if (inProgress.progress >= pointsRequired) {
       inProgress.status = ResearchStatus.COMPLETED;
-      inProgress.progress = 100;
+      inProgress.progress = pointsRequired;
       inProgress.finishesAt = null;
-      await this.researchRepo.save(inProgress);
     }
+
+    await this.researchRepo.save(inProgress);
+  }
+
+  private async calculateResearchOutput(userId: number): Promise<number> {
+    const colonies = await this.colonyRepo.find({ where: { userId } });
+    let totalPoints = 1; // Base 1 point per tick even without labs
+
+    for (const colony of colonies) {
+      const fields = await this.fieldRepo.find({ where: { colonyId: colony.id } });
+      for (const field of fields) {
+        if (!field.buildingId || field.isBuilding) continue;
+        const def = this.gameData.getBuilding(field.buildingId);
+        if (def?.researchPoints) {
+          totalPoints += def.researchPoints;
+        }
+      }
+    }
+
+    return totalPoints;
+  }
+
+  private getPointsRequired(tech: TechDef): number {
+    return tech.duration * 10;
+  }
+
+  private areDependenciesMet(tech: TechDef, completed: Set<number>): boolean {
+    for (const dep of tech.dependencies) {
+      switch (dep.type) {
+        case 'REQUIRE':
+          if (!dep.techIds.every((id) => completed.has(id))) return false;
+          break;
+        case 'REQUIRE_SOME':
+          if (!dep.techIds.some((id) => completed.has(id))) return false;
+          break;
+        case 'EXCLUDE':
+          if (dep.techIds.some((id) => completed.has(id))) return false;
+          break;
+      }
+    }
+    return true;
   }
 }

@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
-import { Faction } from '@swuniverse/shared';
 import type { AuthResponse } from '@swuniverse/shared';
 
 export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [faction, setFaction] = useState<Faction>(Faction.REBEL_ALLIANCE);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -24,10 +22,9 @@ export function RegisterPage() {
         username,
         email,
         password,
-        faction,
       });
       setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/');
+      navigate('/onboarding');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed');
     } finally {
@@ -48,7 +45,9 @@ export function RegisterPage() {
             </div>
           )}
           <div>
-            <label className="block text-sm text-swu-muted mb-1">Username</label>
+            <label className="block text-sm text-swu-muted mb-1">
+              Username
+            </label>
             <input
               type="text"
               value={username}
@@ -70,7 +69,9 @@ export function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-swu-muted mb-1">Password</label>
+            <label className="block text-sm text-swu-muted mb-1">
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -79,33 +80,6 @@ export function RegisterPage() {
               required
               minLength={8}
             />
-          </div>
-          <div>
-            <label className="block text-sm text-swu-muted mb-2">Faction</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFaction(Faction.REBEL_ALLIANCE)}
-                className={`p-3 rounded border text-center transition-colors ${
-                  faction === Faction.REBEL_ALLIANCE
-                    ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-                    : 'border-swu-border text-swu-muted hover:border-swu-primary'
-                }`}
-              >
-                Rebel Alliance
-              </button>
-              <button
-                type="button"
-                onClick={() => setFaction(Faction.GALACTIC_EMPIRE)}
-                className={`p-3 rounded border text-center transition-colors ${
-                  faction === Faction.GALACTIC_EMPIRE
-                    ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-                    : 'border-swu-border text-swu-muted hover:border-swu-primary'
-                }`}
-              >
-                Galactic Empire
-              </button>
-            </div>
           </div>
           <button
             type="submit"

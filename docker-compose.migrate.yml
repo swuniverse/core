@@ -1,0 +1,14 @@
+services:
+  migrate:
+    image: node:22-alpine
+    working_dir: /workspace
+    environment:
+      DATABASE_URL: postgresql://swuniverse:${DB_PASSWORD:-devpassword}@db:5432/swuniverse
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./:/workspace
+    command: >-
+      sh -lc "npm ci --ignore-scripts &&
+      npm run typeorm:migrate"

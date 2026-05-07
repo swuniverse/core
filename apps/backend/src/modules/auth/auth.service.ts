@@ -8,8 +8,12 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
-import { RegisterDto, LoginDto, AuthResponse, JwtPayload } from '@swuniverse/shared';
-import { ColonySeedService } from '../colony/colony-seed.service';
+import {
+  RegisterDto,
+  LoginDto,
+  AuthResponse,
+  JwtPayload,
+} from '@swuniverse/shared';
 
 @Injectable()
 export class AuthService {
@@ -17,7 +21,6 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly jwtService: JwtService,
-    private readonly colonySeedService: ColonySeedService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -33,11 +36,11 @@ export class AuthService {
       username: dto.username,
       email: dto.email,
       passwordHash,
-      faction: dto.faction,
+      faction: null,
+      factionId: null,
+      onboardingCompleted: false,
     });
     await this.userRepo.save(user);
-
-    await this.colonySeedService.createStarterColony(user.id, user.username);
 
     return this.generateTokens(user);
   }
@@ -77,10 +80,11 @@ export class AuthService {
   }
 
   private async generateTokens(user: User): Promise<AuthResponse> {
-    const payload: JwtPayload = {
+    const payload: JwtPayload & { isAdmin: boolean } = {
       sub: user.id,
       username: user.username,
-      faction: user.faction,
+      faction: user.faction ?? undefined,
+      isAdmin: user.isAdmin,
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -95,8 +99,12 @@ export class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
-        faction: user.faction,
+        faction: user.faction ?? null,
         prestige: user.prestige,
+        onboardingCompleted: user.onboardingCompleted,
+        starterColonyId: user.starterColonyId,
+        starterShipId: user.starterShipId,
+        isAdmin: user.isAdmin,
         createdAt: user.createdAt.toISOString(),
       },
     };

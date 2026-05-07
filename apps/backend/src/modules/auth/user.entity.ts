@@ -5,8 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Faction } from '@swuniverse/shared';
+import { FactionEntity } from '../faction/entities/faction.entity';
 
 @Entity('users')
 export class User {
@@ -24,8 +27,30 @@ export class User {
   @Column()
   passwordHash: string;
 
-  @Column({ type: 'enum', enum: Faction })
-  faction: Faction;
+  @Column({ type: 'enum', enum: Faction, nullable: true })
+  faction: Faction | null;
+
+  @Column({ type: 'int', nullable: true })
+  factionId: number | null;
+
+  @ManyToOne(() => FactionEntity, { nullable: true })
+  @JoinColumn({ name: 'factionId' })
+  factionRef: FactionEntity | null;
+
+  @Column({ default: false })
+  onboardingCompleted: boolean;
+
+  @Column({ default: false })
+  isAdmin: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  starterColonyId: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  starterShipId: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  lastActiveTick: number | null;
 
   @Column({ default: 0 })
   prestige: number;

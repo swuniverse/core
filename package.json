@@ -8,7 +8,13 @@
     "build": "nx run-many --target=build --all",
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
-    "typecheck": "nx run-many --target=typecheck --all"
+    "typecheck": "nx run-many --target=typecheck --all",
+    "typeorm:migrate": "TS_NODE_PROJECT=apps/backend/tsconfig.app.json node --require ts-node/register --require tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d apps/backend/src/database/typeorm-migration.config.ts",
+    "typeorm:migrate:revert": "TS_NODE_PROJECT=apps/backend/tsconfig.app.json node --require ts-node/register --require tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d apps/backend/src/database/typeorm-migration.config.ts",
+    "typeorm:migration:generate": "TS_NODE_PROJECT=apps/backend/tsconfig.app.json node --require ts-node/register --require tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate apps/backend/src/database/migrations/Generated -d apps/backend/src/database/typeorm-migration.config.ts",
+    "typeorm:migration:create": "node --require ts-node/register --require tsconfig-paths/register ./node_modules/typeorm/cli.js migration:create apps/backend/src/database/migrations/Manual",
+    "docker:typeorm:migrate": "docker compose -f docker-compose.yml -f docker-compose.migrate.yml run --rm migrate",
+    "docker:typeorm:migrate:revert": "docker compose -f docker-compose.yml -f docker-compose.migrate.yml run --rm migrate sh -lc \"npm ci --ignore-scripts && npm run typeorm:migrate:revert\""
   },
   "private": true,
   "devDependencies": {
@@ -36,6 +42,7 @@
     "@testing-library/react": "16.3.0",
     "@types/bcrypt": "^6.0.0",
     "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "20.19.9",
     "@types/passport-jwt": "^4.0.1",
     "@types/react": "^19.0.0",
@@ -85,6 +92,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "ioredis": "^5.10.1",
+    "js-yaml": "^4.1.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.20.0",

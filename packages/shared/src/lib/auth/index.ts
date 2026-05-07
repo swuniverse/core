@@ -2,7 +2,6 @@ export interface RegisterDto {
   username: string;
   email: string;
   password: string;
-  faction: Faction;
 }
 
 export interface LoginDto {
@@ -20,15 +19,19 @@ export interface UserProfile {
   id: number;
   username: string;
   email: string;
-  faction: Faction;
+  faction?: Faction | null;
   prestige: number;
+  onboardingCompleted?: boolean;
+  starterColonyId?: number | null;
+  starterShipId?: number | null;
+  isAdmin?: boolean;
   createdAt: string;
 }
 
 export interface JwtPayload {
   sub: number;
   username: string;
-  faction: Faction;
+  faction?: Faction | null;
   iat?: number;
   exp?: number;
 }

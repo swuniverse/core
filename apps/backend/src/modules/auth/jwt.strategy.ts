@@ -15,6 +15,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload) {
-    return { sub: payload.sub, username: payload.username, faction: payload.faction };
+    return {
+      sub: payload.sub,
+      username: payload.username,
+      faction: payload.faction,
+      isAdmin: Boolean((payload as JwtPayload & { isAdmin?: boolean }).isAdmin),
+    };
   }
 }

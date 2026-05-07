@@ -46,6 +46,11 @@ export class GalaxyGeneratorService {
       name: 'Outer Rim',
       width: 8,
       height: 8,
+      sectorSize: 20,
+      isDefault: true,
+      isColonizable: true,
+      isNoobZone: true,
+      isFinished: false,
       isHidden: false,
     });
     await this.layerRepo.save(layer);

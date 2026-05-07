@@ -18,6 +18,21 @@ export class Layer {
   @Column()
   height: number;
 
+  @Column({ default: 20 })
+  sectorSize: number;
+
+  @Column({ default: false })
+  isDefault: boolean;
+
+  @Column({ default: false })
+  isColonizable: boolean;
+
+  @Column({ default: false })
+  isNoobZone: boolean;
+
+  @Column({ default: false })
+  isFinished: boolean;
+
   @Column({ default: true })
   isHidden: boolean;
 }

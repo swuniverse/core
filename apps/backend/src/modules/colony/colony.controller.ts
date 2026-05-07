@@ -5,17 +5,35 @@ import {
   Post,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ColonyService } from './colony.service';
+import { GameDataService } from '../game-data/game-data.service';
 
 @Controller('colonies')
 @UseGuards(AuthGuard('jwt'))
 export class ColonyController {
-  constructor(private readonly colonyService: ColonyService) {}
+  constructor(
+    private readonly colonyService: ColonyService,
+    private readonly gameData: GameDataService,
+  ) {}
+
+  @Get('buildings/available')
+  getAvailableBuildings(@Query('fieldType') fieldType?: string) {
+    if (fieldType) {
+      return this.gameData.getBuildingsForFieldType(Number(fieldType));
+    }
+    return this.gameData.getAllBuildings();
+  }
+
+  @Get('commodities/all')
+  getCommodities() {
+    return this.gameData.getAllCommodities();
+  }
 
   @Get()
   findAll(@Request() req: { user: { sub: number } }) {

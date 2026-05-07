@@ -2,7 +2,36 @@ import { useAuthStore } from '../stores/auth.store';
 
 const API_BASE = '/api';
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const { refreshToken, setAuth, logout } = useAuthStore.getState();
+  if (!refreshToken) return null;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) {
+      logout();
+      return null;
+    }
+    const data = await res.json();
+    setAuth(data.accessToken, data.refreshToken, data.user);
+    return data.accessToken;
+  } catch {
+    logout();
+    return null;
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  isRetry = false,
+): Promise<T> {
   const { accessToken } = useAuthStore.getState();
 
   const headers: Record<string, string> = {
@@ -15,6 +44,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  if (res.status === 401 && !isRetry && !path.startsWith('/auth/')) {
+    if (!refreshPromise) {
+      refreshPromise = refreshAccessToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    const newToken = await refreshPromise;
+    if (newToken) {
+      return request<T>(path, options, true);
+    }
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -40,5 +81,7 @@ export const api = {
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
