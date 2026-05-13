@@ -10,7 +10,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json nx.json tsconfig.base.json tsconfig.json ./
 COPY apps/backend ./apps/backend
 COPY packages ./packages
-RUN npx nx build backend
+RUN npx nx sync && npx nx build backend
 
 FROM base AS production
 COPY --from=deps /app/node_modules ./node_modules
