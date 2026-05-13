@@ -7,11 +7,14 @@ RUN npm ci --ignore-scripts
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npx nx build backend --configuration=production
+COPY package.json package-lock.json nx.json tsconfig.base.json ./
+COPY apps/backend ./apps/backend
+COPY packages ./packages
+RUN npx nx build backend
 
 FROM base AS production
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/apps/backend/dist ./
+COPY --from=build /app/apps/backend/dist ./dist
+COPY game-data ./game-data
 EXPOSE 3001
-CMD ["node", "main.js"]
+CMD ["node", "dist/main.js"]
