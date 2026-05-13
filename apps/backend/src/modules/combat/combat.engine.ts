@@ -214,7 +214,7 @@ export class CombatEngine {
     isCrit: boolean,
   ): void {
     const bleedthrough = Math.round(damage * formulas.shields.bleedthrough);
-    let shieldDamage = damage - bleedthrough;
+    const shieldDamage = damage - bleedthrough;
     let hullDamage = bleedthrough;
 
     if (target.ship.shields > 0) {
