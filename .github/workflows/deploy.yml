@@ -104,11 +104,13 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
     steps:
       - name: Send Discord Notification
+        if: env.DISCORD_WEBHOOK != ''
         uses: sarisia/actions-status-discord@v1
-        if: ${{ secrets.DISCORD_WEBHOOK != '' }}
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           username: "swuniverse.net Bot"
