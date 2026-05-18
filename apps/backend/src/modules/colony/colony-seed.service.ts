@@ -19,10 +19,10 @@ const FIELD_TYPES = {
   ORBIT: 900,
 };
 
-// Planet class IDs → terrain distribution weights (STU: M=balanced, L=forest, O=ocean)
+// Planet class IDs → terrain distribution weights (STU ID scheme)
 const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
-  // M-Klasse (Temperate/Balanced) — default
-  101: [
+  // Klasse M (201) — Temperiert/Ausgewogen — default
+  201: [
     [FIELD_TYPES.PLAINS, 30],
     [FIELD_TYPES.ROCK, 20],
     [FIELD_TYPES.FOREST, 18],
@@ -31,8 +31,8 @@ const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
     [FIELD_TYPES.MOUNTAIN, 7],
     [FIELD_TYPES.SWAMP, 5],
   ],
-  // L-Klasse (Forest/Jungle)
-  102: [
+  // Klasse L (203) — Wald/Dschungel
+  203: [
     [FIELD_TYPES.FOREST, 35],
     [FIELD_TYPES.PLAINS, 25],
     [FIELD_TYPES.SWAMP, 15],
@@ -40,8 +40,8 @@ const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
     [FIELD_TYPES.MOUNTAIN, 8],
     [FIELD_TYPES.ROCK, 7],
   ],
-  // O-Klasse (Ocean)
-  103: [
+  // Klasse O (205) — Ozean
+  205: [
     [FIELD_TYPES.OCEAN, 40],
     [FIELD_TYPES.PLAINS, 20],
     [FIELD_TYPES.SWAMP, 12],
@@ -49,24 +49,24 @@ const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
     [FIELD_TYPES.ICE, 10],
     [FIELD_TYPES.ROCK, 8],
   ],
-  // Desert
-  104: [
+  // Klasse K (211) — Wüste
+  211: [
     [FIELD_TYPES.DESERT, 40],
     [FIELD_TYPES.ROCK, 25],
     [FIELD_TYPES.MOUNTAIN, 15],
     [FIELD_TYPES.PLAINS, 12],
     [FIELD_TYPES.OCEAN, 8],
   ],
-  // Ice
-  105: [
+  // Klasse P (215) — Eis
+  215: [
     [FIELD_TYPES.ICE, 40],
     [FIELD_TYPES.MOUNTAIN, 20],
     [FIELD_TYPES.ROCK, 18],
     [FIELD_TYPES.OCEAN, 12],
     [FIELD_TYPES.PLAINS, 10],
   ],
-  // Volcanic
-  106: [
+  // Klasse H (213) — Vulkanisch
+  213: [
     [FIELD_TYPES.ROCK, 35],
     [FIELD_TYPES.MOUNTAIN, 30],
     [FIELD_TYPES.DESERT, 20],
@@ -116,7 +116,7 @@ export class ColonySeedService {
       celestialObjectId: planet?.id || null,
       posX: planet?.posX || 10,
       posY: planet?.posY || 10,
-      colonyClassId: planet?.classId || 101,
+      colonyClassId: planet?.classId || 201,
       energy: 50,
       energyMax: 100,
       population: 20,
@@ -219,8 +219,8 @@ export class ColonySeedService {
     await this.storageRepo.save(storage);
   }
 
-  private randomSurfaceFieldType(classId = 101): number {
-    const weights = TERRAIN_WEIGHTS_BY_CLASS[classId] || TERRAIN_WEIGHTS_BY_CLASS[101];
+  private randomSurfaceFieldType(classId = 201): number {
+    const weights = TERRAIN_WEIGHTS_BY_CLASS[classId] || TERRAIN_WEIGHTS_BY_CLASS[201];
     const totalWeight = weights.reduce((sum, [, w]) => sum + w, 0);
     let rand = Math.random() * totalWeight;
     for (const [fieldType, weight] of weights) {

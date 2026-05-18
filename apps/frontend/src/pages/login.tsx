@@ -24,7 +24,7 @@ export function LoginPage() {
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/onboarding');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Login failed');
+      setError(err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen');
     } finally {
       setLoading(false);
     }
@@ -44,7 +44,7 @@ export function LoginPage() {
           )}
           <div>
             <label className="block text-sm text-swu-muted mb-1">
-              Username
+              Benutzername
             </label>
             <input
               type="text"
@@ -56,7 +56,7 @@ export function LoginPage() {
           </div>
           <div>
             <label className="block text-sm text-swu-muted mb-1">
-              Password
+              Passwort
             </label>
             <input
               type="password"
@@ -71,16 +71,16 @@ export function LoginPage() {
             disabled={loading}
             className="w-full bg-swu-primary hover:bg-swu-accent text-white font-bold py-2 rounded transition-colors disabled:opacity-50"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Anmelden...' : 'Anmelden'}
           </button>
         </form>
         <p className="text-center text-sm text-swu-muted mt-4">
-          No account?{' '}
+          Kein Konto?{' '}
           <Link
             to="/register"
             className="text-swu-primary hover:text-swu-accent"
           >
-            Register
+            Registrieren
           </Link>
         </p>
       </div>

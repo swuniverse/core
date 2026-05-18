@@ -44,7 +44,7 @@ export function RegisterPage() {
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Registration failed');
+      setError(err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen');
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ export function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md bg-swu-surface border border-swu-border rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center text-swu-accent mb-6">
-          Join the Galaxy
+          Der Galaxis beitreten
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -64,7 +64,7 @@ export function RegisterPage() {
           )}
           <div>
             <label className="block text-sm text-swu-muted mb-1">
-              Username
+              Benutzername
             </label>
             <input
               type="text"
@@ -88,7 +88,7 @@ export function RegisterPage() {
           </div>
           <div>
             <label className="block text-sm text-swu-muted mb-1">
-              Password
+              Passwort
             </label>
             <input
               type="password"
@@ -125,13 +125,13 @@ export function RegisterPage() {
             disabled={loading || !factionId}
             className="w-full bg-swu-primary hover:bg-swu-accent text-white font-bold py-2 rounded transition-colors disabled:opacity-50"
           >
-            {loading ? 'Creating account...' : 'Register'}
+            {loading ? 'Konto wird erstellt...' : 'Registrieren'}
           </button>
         </form>
         <p className="text-center text-sm text-swu-muted mt-4">
-          Already have an account?{' '}
+          Bereits ein Konto?{' '}
           <Link to="/login" className="text-swu-primary hover:text-swu-accent">
-            Login
+            Anmelden
           </Link>
         </p>
       </div>

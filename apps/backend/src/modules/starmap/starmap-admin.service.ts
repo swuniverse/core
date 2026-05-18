@@ -263,21 +263,19 @@ export class StarmapAdminService {
       throw new NotFoundException('Layer not found');
     }
 
-    const systemSubQuery = this.systemRepo
-      .createQueryBuilder('system')
-      .subQuery()
-      .select('system.id')
-      .from(StarSystem, 'system')
-      .where('system."layerId" = :layerId')
-      .getQuery();
-
-    const objectSubQuery = this.objectRepo
-      .createQueryBuilder('obj')
-      .subQuery()
-      .select('obj.id')
-      .from(CelestialObject, 'obj')
-      .where(`obj."systemId" IN ${systemSubQuery}`)
-      .getQuery();
+    // Nullify/delete FK references from other tables
+    await this.entityManager.query(
+      `DELETE FROM "onboarding_selections" WHERE "selectedSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) OR "selectedLayerId" = $1`,
+      [layerId],
+    );
+    await this.entityManager.query(
+      `UPDATE "colonies" SET "celestialObjectId" = NULL, "starSystemId" = NULL WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+      [layerId],
+    );
+    await this.entityManager.query(
+      `UPDATE "spacecraft" SET "celestialObjectId" = NULL, "starSystemId" = NULL WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+      [layerId],
+    );
 
     // Delete planet_fields referencing celestial objects in this layer
     await this.entityManager.query(
@@ -286,20 +284,22 @@ export class StarmapAdminService {
     );
 
     // Delete system_fields (references celestial_objects via FK)
-    await this.systemFieldRepo
-      .createQueryBuilder()
-      .delete()
-      .where(`"starSystemId" IN ${systemSubQuery}`)
-      .setParameter('layerId', layerId)
-      .execute();
+    await this.entityManager.query(
+      `DELETE FROM "system_fields" WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+      [layerId],
+    );
 
     // Delete celestial_objects (now safe — no more FK references)
-    await this.objectRepo
-      .createQueryBuilder()
-      .delete()
-      .where(`"systemId" IN ${systemSubQuery}`)
-      .setParameter('layerId', layerId)
-      .execute();
+    await this.entityManager.query(
+      `DELETE FROM "celestial_objects" WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+      [layerId],
+    );
+
+    // Delete system explorations referencing star systems in this layer
+    await this.entityManager.query(
+      `DELETE FROM "system_explorations" WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+      [layerId],
+    );
 
     // Delete exploration states and influence areas for this layer
     await this.entityManager.query(

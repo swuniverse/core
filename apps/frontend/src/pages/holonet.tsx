@@ -332,7 +332,7 @@ export function HolonetPage() {
                   onClick={() => togglePin(selected.id)}
                   className="ml-auto text-[10px] text-swu-muted hover:text-swu-accent"
                 >
-                  {selected.isPinned ? 'Unpin' : 'Pin'}
+                  {selected.isPinned ? 'Loslösen' : 'Anheften'}
                 </button>
               )}
             </div>

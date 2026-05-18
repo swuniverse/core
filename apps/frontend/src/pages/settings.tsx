@@ -73,8 +73,8 @@ function ProfileTab() {
   return (
     <div className="space-y-4 max-w-lg">
       <Section title="Commander-Info">
-        <InfoRow label="Username" value={user?.username ?? ''} />
-        <InfoRow label="Fraktion" value={user?.faction ?? 'Keine'} />
+        <InfoRow label="Benutzername" value={user?.username ?? ''} />
+        <InfoRow label="Fraktion" value={user?.faction === 'REBEL_ALLIANCE' ? 'Rebellenallianz' : user?.faction === 'GALACTIC_EMPIRE' ? 'Galaktisches Imperium' : user?.faction ?? 'Keine'} />
         <InfoRow label="Prestige" value={String(user?.prestige ?? 0)} />
         <InfoRow
           label="Mitglied seit"

@@ -96,44 +96,43 @@ const STU_PLANET_CLASS_LABELS: Array<{
   { match: (classId) => classId >= 701 && classId <= 718, label: 'Asteroid' },
   { match: (classId) => classId >= 401 && classId <= 431, label: 'Mond' },
   { match: (classId) => classId >= 301 && classId <= 363, label: 'Ringplanet' },
-  { match: (classId) => classId >= 261 && classId <= 263, label: 'J' },
+  { match: (classId) => classId >= 261 && classId <= 263, label: 'I' },
   { match: (classId) => classId === 231, label: 'D' },
-  {
-    match: (classId) => classId === 223 || classId === 216 || classId === 215,
-    label: 'P',
-  },
+  { match: (classId) => classId === 223, label: 'N' },
   { match: (classId) => classId === 221, label: 'Q' },
   { match: (classId) => classId === 219, label: 'G' },
   { match: (classId) => classId === 217, label: 'X' },
+  { match: (classId) => classId === 216 || classId === 215, label: 'P' },
   { match: (classId) => classId === 213, label: 'H' },
   { match: (classId) => classId === 211, label: 'K' },
-  { match: (classId) => classId === 203, label: 'L' },
+  { match: (classId) => classId === 209, label: 'T' },
+  { match: (classId) => classId === 207, label: 'S' },
   { match: (classId) => classId === 205, label: 'O' },
+  { match: (classId) => classId === 203, label: 'L' },
   { match: (classId) => classId === 201, label: 'M' },
 ];
 
-function formatPlanetClass(classId: number | null | undefined) {
-  if (classId === null || classId === undefined) {
-    return 'Unknown';
-  }
-
-  const mappedClass = STU_PLANET_CLASS_LABELS.find((entry) =>
-    entry.match(classId),
-  );
-  if (mappedClass) {
-    return mappedClass.label;
-  }
-
-  return String(classId);
+function formatPlanetClass(classId: number | null | undefined): string {
+  if (classId === null || classId === undefined) return 'Unbekannt';
+  const mapped = STU_PLANET_CLASS_LABELS.find((e) => e.match(classId));
+  return mapped ? mapped.label : String(classId);
 }
 
 const PLANET_CLASS_DESCRIPTIONS: Record<string, string> = {
-  M: 'Ausgewogene Mischung aus Ebenen, Wäldern, Wüsten und Gewässern',
-  L: 'Stark bewaldet mit vielen Ebenen und Sümpfen',
-  O: 'Wasserreich, wenig Berge und keine Wüsten',
-  K: 'Trocken und wüstenartig, wenig Vegetation',
-  H: 'Vulkanisch, reich an Mineralien',
-  D: 'Eisbedeckt, karge Oberfläche',
+  M: 'Temperiert — ausgewogene Mischung aus Ebenen, Waeldern und Ozeanen',
+  L: 'Waldplanet — dichte Vegetation, Suempfe und Ebenen',
+  O: 'Ozeanplanet — wasserreich, wenig Landmasse',
+  K: 'Wuestenplanet — trocken, felsig, mineralreich',
+  H: 'Vulkanplanet — extremes Klima, mineralreich',
+  P: 'Eisplanet — gefroren, karge Oberflaeche',
+  D: 'Oedland — wenig Atmosphaere, karg',
+  X: 'Daemonenklasse — extrem feindlich',
+  G: 'Geodaetisch — gemischt, Eis und Gestein',
+  Q: 'Dichte Atmosphaere — spezielles Terrain',
+  S: 'Kleinplanet — geringe Oberflaeche',
+  T: 'Gasarm — minimale Felder',
+  I: 'Gasriese — nicht kolonisierbar',
+  N: 'Reduktiv — keine Oberflaeche',
 };
 
 function InfoStat({ label, value }: { label: string; value: string }) {

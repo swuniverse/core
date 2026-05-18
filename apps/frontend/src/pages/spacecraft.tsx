@@ -82,14 +82,14 @@ export function SpacecraftPage() {
   }, [selected?.status, refresh]);
 
   if (loading)
-    return <div className="p-6 text-swu-muted">Loading fleet...</div>;
+    return <div className="p-6 text-swu-muted">Flotte wird geladen...</div>;
 
   if (ships.length === 0) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-swu-accent">Spacecraft</h1>
+        <h1 className="text-2xl font-bold text-swu-accent">Raumschiffe</h1>
         <p className="text-swu-muted mt-4">
-          No ships in your fleet. Build one in a colony shipyard.
+          Keine Schiffe in deiner Flotte. Baue eines in einer Koloniewerft.
         </p>
       </div>
     );
@@ -97,7 +97,7 @@ export function SpacecraftPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-swu-accent mb-4">Spacecraft</h1>
+      <h1 className="text-2xl font-bold text-swu-accent mb-4">Raumschiffe</h1>
       <div className="flex gap-4">
         {/* Ship List (STU: Schiffsliste links) */}
         <div className="w-52 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto">
@@ -173,13 +173,13 @@ export function SpacecraftPage() {
                   {selected.name}
                 </h2>
                 <span className="text-[11px] text-swu-muted">
-                  {selected.shipClassName || `Class ${selected.shipClassId}`}
+                  {selected.shipClassName || `Klasse ${selected.shipClassId}`}
                 </span>
                 <span className="text-[11px] text-swu-muted">
                   {selected.locationLabel ||
                     selected.celestialObject?.name ||
                     selected.starSystem?.name ||
-                    'Deep Space'}{' '}
+                    'Tiefer Weltraum'}{' '}
                   [{selected.posX},{selected.posY}]
                 </span>
                 <div className="ml-auto flex items-center gap-3">

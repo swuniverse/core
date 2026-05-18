@@ -38,7 +38,7 @@ export function DashboardPage() {
               {user?.username}
             </p>
             <p className="text-xs text-swu-muted mt-1">
-              Faction: <span className="text-swu-accent">{user?.faction}</span>
+              Fraktion: <span className="text-swu-accent">{user?.faction === 'REBEL_ALLIANCE' ? 'Rebellenallianz' : user?.faction === 'GALACTIC_EMPIRE' ? 'Galaktisches Imperium' : user?.faction}</span>
             </p>
           </div>
           <div className="text-right">
@@ -52,11 +52,11 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
-          title="Colonies"
+          title="Kolonien"
           value={loading ? '...' : String(colonies.length)}
         />
         <StatCard
-          title="Total Population"
+          title="Bevoelkerung"
           value={
             loading
               ? '...'
@@ -66,7 +66,7 @@ export function DashboardPage() {
           }
         />
         <StatCard
-          title="Total Energy"
+          title="Energie"
           value={
             loading
               ? '...'
@@ -93,7 +93,7 @@ export function DashboardPage() {
       {colonies.length > 0 && (
         <section className="bg-swu-surface border border-swu-border rounded-lg p-4">
           <h2 className="text-sm font-bold text-swu-muted mb-3">
-            Colony Overview
+            Kolonie-Uebersicht
           </h2>
           <div className="space-y-3">
             {colonies.map((colony) => (
@@ -107,7 +107,7 @@ export function DashboardPage() {
                     {colony.name}
                   </p>
                   <p className="text-xs text-swu-muted mt-0.5">
-                    {colony.locationLabel || 'Unknown location'}
+                    {colony.locationLabel || 'Unbekannter Standort'}
                   </p>
                 </div>
                 <MiniBar

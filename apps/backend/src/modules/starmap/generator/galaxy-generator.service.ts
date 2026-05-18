@@ -156,7 +156,7 @@ export class GalaxyGeneratorService {
           name: null,
           posX: 5 + a * 4,
           posY: beltY,
-          classId: 501,
+          classId: 701,
           isColonizable: false,
         });
         await this.objectRepo.save(asteroid);

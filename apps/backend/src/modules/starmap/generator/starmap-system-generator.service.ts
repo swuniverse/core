@@ -242,7 +242,7 @@ export class StarmapSystemGeneratorService {
           name: null,
           posX: asx,
           posY: asy,
-          classId: 501,
+          classId: 701,
           isColonizable: false,
         });
       }
@@ -272,7 +272,7 @@ export class StarmapSystemGeneratorService {
       name: `${systemName} ${this.toRoman(index + 1)}`,
       posX: sx,
       posY: sy,
-      classId: config.classPool.length > 0 ? rng.choice(config.classPool) : 101,
+      classId: config.classPool.length > 0 ? rng.choice(config.classPool) : 201,
       isColonizable: rng.nextBoolean(config.colonizableChance),
     });
   }

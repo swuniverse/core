@@ -70,19 +70,22 @@ export function ResearchPage() {
     load();
   };
 
-  if (loading) return <div className="p-6 text-swu-muted">Loading research...</div>;
+  if (loading) return <div className="p-6 text-swu-muted">Forschung wird geladen...</div>;
 
   const categories = [...new Set(techs.map((t) => t.category))];
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-swu-accent mb-4">Research</h1>
+      <h1 className="text-2xl font-bold text-swu-accent mb-4">Forschung</h1>
 
-      {categories.map((cat) => (
+      {categories.map((cat) => {
+        const visible = techs.filter((t) => t.category === cat && t.status !== 'LOCKED');
+        if (visible.length === 0) return null;
+        return (
         <div key={cat} className="mb-6">
           <h2 className="text-sm font-bold text-swu-muted uppercase tracking-wider mb-2">{cat}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {techs.filter((t) => t.category === cat).map((tech) => (
+            {visible.map((tech) => (
               <div
                 key={tech.id}
                 className={`bg-swu-surface border rounded-lg p-4 transition-all ${CATEGORY_COLORS[tech.category] || 'border-swu-border'} ${STATUS_STYLES[tech.status] || ''}`}
@@ -92,12 +95,12 @@ export function ResearchPage() {
                   <StatusBadge status={tech.status} />
                 </div>
                 <p className="text-[10px] text-swu-muted">
-                  Tier {tech.tier} · {tech.pointsRequired} pts
+                  Stufe {tech.tier} · {tech.pointsRequired} Pkt
                   {tech.dependencies.filter((d) => d.type === 'REQUIRE').length > 0 && (
-                    <> · Requires: {tech.dependencies.filter((d) => d.type === 'REQUIRE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</>
+                    <> · Erfordert: {tech.dependencies.filter((d) => d.type === 'REQUIRE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</>
                   )}
                   {tech.dependencies.filter((d) => d.type === 'EXCLUDE').length > 0 && (
-                    <> · <span className="text-red-400">Excludes: {tech.dependencies.filter((d) => d.type === 'EXCLUDE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</span></>
+                    <> · <span className="text-red-400">Schliesst aus: {tech.dependencies.filter((d) => d.type === 'EXCLUDE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</span></>
                   )}
                 </p>
                 {getUnlocks(tech.name).length > 0 && (
@@ -108,7 +111,7 @@ export function ResearchPage() {
                 {tech.status === 'IN_PROGRESS' && (
                   <div className="mt-1">
                     <div className="flex justify-between text-[10px] text-swu-success">
-                      <span>Progress</span>
+                      <span>Fortschritt</span>
                       <span>{tech.progress}/{tech.pointsRequired}</span>
                     </div>
                     <div className="h-1 bg-swu-bg rounded-full overflow-hidden mt-0.5">
@@ -121,14 +124,15 @@ export function ResearchPage() {
                     onClick={() => startResearch(tech.id)}
                     className="mt-2 px-3 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs rounded hover:bg-swu-accent/30 transition-colors"
                   >
-                    Research
+                    Erforschen
                   </button>
                 )}
               </div>
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

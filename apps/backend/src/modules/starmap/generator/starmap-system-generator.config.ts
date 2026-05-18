@@ -20,14 +20,16 @@ export type StarmapGeneratorConfig = {
 };
 
 /**
- * Planet class pools by system context.
+ * Planet class pools by system context (STU ID scheme).
+ * Planets: 201=M, 203=L, 205=O, 211=K, 213=H, 215=P, 217=X, 219=G, 221=Q, 231=D
+ * Ring planets: 301=M-R, 303=L-R, 305=O-R
+ * Moons: 401=M, 403=L, 405=O, 411=K, 413=H, 415=P
+ * Asteroids: 701-718
  */
-const CLASS_POOL_STANDARD = [101, 102, 103, 104, 201, 202, 203, 204, 205];
-const CLASS_POOL_LARGE = [
-  101, 102, 103, 104, 201, 202, 203, 204, 205, 301, 302,
-];
-const CLASS_POOL_HOSTILE = [201, 202, 203, 301, 302, 401, 402];
-const CLASS_POOL_RARE = [301, 302, 401, 402, 501];
+const CLASS_POOL_STANDARD = [201, 203, 205, 211, 215];
+const CLASS_POOL_LARGE = [201, 203, 205, 211, 213, 215, 301, 303, 305];
+const CLASS_POOL_HOSTILE = [211, 213, 217, 231];
+const CLASS_POOL_RARE = [219, 221, 261, 262, 263];
 
 function getClassPoolForType(def: SystemTypeDefinition): number[] {
   if (def.rarity === 'VERY_RARE' || def.minPlanets === 0) return [];

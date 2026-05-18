@@ -4,14 +4,14 @@ import { useAuthStore } from '../../stores/auth.store';
 import { api } from '../../services/api';
 
 const baseNavItems = [
-  { label: 'Dashboard', path: '/', icon: 'D' },
-  { label: 'Colonies', path: '/colonies', icon: 'C' },
-  { label: 'Ships', path: '/spacecraft', icon: 'S' },
-  { label: 'Starmap', path: '/starmap', icon: 'M' },
-  { label: 'Research', path: '/research', icon: 'R' },
-  { label: 'Messages', path: '/messages', icon: 'P' },
+  { label: 'Maindesk', path: '/', icon: 'D' },
+  { label: 'Kolonien', path: '/colonies', icon: 'C' },
+  { label: 'Schiffe', path: '/spacecraft', icon: 'S' },
+  { label: 'Sternenkarte', path: '/starmap', icon: 'M' },
+  { label: 'Forschung', path: '/research', icon: 'R' },
+  { label: 'Nachrichten', path: '/messages', icon: 'P' },
   { label: 'HoloNet', path: '/holonet', icon: 'H' },
-  { label: 'Settings', path: '/settings', icon: '⚙' },
+  { label: 'Einstellungen', path: '/settings', icon: '⚙' },
 ];
 
 const adminNavItem = { label: 'Admin', path: '/admin', icon: 'A' };

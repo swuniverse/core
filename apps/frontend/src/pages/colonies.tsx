@@ -95,15 +95,15 @@ const FIELD_TYPE_COLORS: Record<number, string> = {
 };
 
 const FIELD_TYPE_NAMES: Record<number, string> = {
-  101: 'Plains',
-  111: 'Forest',
-  201: 'Ocean',
-  401: 'Desert',
-  501: 'Ice',
-  601: 'Swamp',
-  701: 'Rock',
-  703: 'Mountain',
-  801: 'Underground',
+  101: 'Ebene',
+  111: 'Wald',
+  201: 'Ozean',
+  401: 'Wueste',
+  501: 'Eis',
+  601: 'Sumpf',
+  701: 'Fels',
+  703: 'Gebirge',
+  801: 'Untergrund',
   900: 'Orbit',
 };
 
@@ -186,14 +186,14 @@ export function ColoniesPage() {
   };
 
   if (loading)
-    return <div className="p-6 text-swu-muted">Loading colonies...</div>;
+    return <div className="p-6 text-swu-muted">Kolonien werden geladen...</div>;
 
   if (colonies.length === 0) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-swu-accent">Colonies</h1>
+        <h1 className="text-2xl font-bold text-swu-accent">Kolonien</h1>
         <p className="text-swu-muted mt-4">
-          No colonies yet. Claim your first homeworld in onboarding.
+          Noch keine Kolonien. Waehle deine erste Heimatwelt im Dashboard.
         </p>
       </div>
     );
@@ -201,7 +201,7 @@ export function ColoniesPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-swu-accent mb-4">Colonies</h1>
+      <h1 className="text-2xl font-bold text-swu-accent mb-4">Kolonien</h1>
       <div className="flex gap-4">
         <div className="w-48 space-y-2">
           {colonies.map((c) => (
@@ -378,30 +378,30 @@ function ColonyDetail({
             </p>
           </div>
           <div className="text-right text-xs text-swu-muted">
-            <p>Fields: {colony.fieldCount ?? colony.fields?.length ?? 0}</p>
+            <p>Felder: {colony.fieldCount ?? colony.fields?.length ?? 0}</p>
             <p>
-              Storage entries:{' '}
+              Lagerposten:{' '}
               {colony.storageItemCount ?? colony.storage?.length ?? 0}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4">
           <ResourceBar
-            label="Energy"
+            label="Energie"
             current={colony.energy}
             max={colony.energyMax}
             color="text-yellow-400"
             barColor="bg-yellow-500"
           />
           <ResourceBar
-            label="Population"
+            label="Bevoelkerung"
             current={colony.population}
             max={colony.populationMax}
             color="text-swu-success"
             barColor="bg-swu-success"
           />
           <ResourceBar
-            label="Storage"
+            label="Lager"
             current={colony.storageUsed}
             max={colony.storageMax}
             color="text-swu-primary"
@@ -414,7 +414,7 @@ function ColonyDetail({
       <div className="flex gap-4">
         {/* Colony Grid */}
         <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-bold text-swu-muted">Colony Grid</h3>
+          <h3 className="text-sm font-bold text-swu-muted">Koloniefeld</h3>
 
           <div>
             <div className="text-[10px] text-indigo-400 font-bold uppercase mb-1">
@@ -585,23 +585,23 @@ function ColonyDetail({
           {!selectedBuilding && selectedField && (
             <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
               <h3 className="text-sm font-bold text-swu-primary mb-2">
-                Field #{selectedField.fieldIndex}
+                Feld #{selectedField.fieldIndex}
               </h3>
               <div className="text-xs text-swu-muted space-y-1">
                 <p>
                   Terrain:{' '}
-                  {FIELD_TYPE_NAMES[selectedField.fieldType] || 'Unknown'}
+                  {FIELD_TYPE_NAMES[selectedField.fieldType] || 'Unbekannt'}
                 </p>
                 {selectedField.buildingId && (
                   <p>
-                    Building:{' '}
+                    Gebaeude:{' '}
                     <span className="text-swu-accent">
                       {buildingMap[selectedField.buildingId]?.name ||
                         `#${selectedField.buildingId}`}
                     </span>
                     {selectedField.isBuilding && (
                       <span className="text-yellow-400 ml-1">
-                        (constructing...)
+                        (im Bau...)
                       </span>
                     )}
                   </p>
@@ -613,7 +613,7 @@ function ColonyDetail({
                       {buildingMap[selectedField.buildingId].bonuses
                         .energy !== 0 && (
                         <p>
-                          Energy:{' '}
+                          Energie:{' '}
                           <span
                             className={
                               buildingMap[selectedField.buildingId].bonuses
@@ -636,7 +636,7 @@ function ColonyDetail({
                       {buildingMap[selectedField.buildingId].production
                         .length > 0 && (
                         <p>
-                          Produces:{' '}
+                          Produziert:{' '}
                           {buildingMap[selectedField.buildingId].production
                             .map(
                               (p) =>
@@ -655,7 +655,7 @@ function ColonyDetail({
                     onClick={() => onDemolish(selectedField.fieldIndex)}
                     className="mt-3 px-3 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors"
                   >
-                    Demolish
+                    Abreissen
                   </button>
                 )}
             </div>
@@ -664,7 +664,7 @@ function ColonyDetail({
           {/* Storage */}
           {storage.length > 0 && (
             <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-              <h3 className="text-sm font-bold text-swu-muted mb-2">Storage</h3>
+              <h3 className="text-sm font-bold text-swu-muted mb-2">Lager</h3>
               <div className="space-y-1">
                 {storage.map((item) => (
                   <div key={item.id} className="flex justify-between text-xs">
@@ -788,7 +788,7 @@ function BuildingDetailPanel({
           <div className="space-y-0.5 text-xs">
             {building.bonuses.energy !== 0 && (
               <div className="flex justify-between">
-                <span className="text-swu-muted">Energy</span>
+                <span className="text-swu-muted">Energie</span>
                 <span
                   className={
                     building.bonuses.energy > 0
@@ -803,7 +803,7 @@ function BuildingDetailPanel({
             )}
             {building.bonuses.population !== 0 && (
               <div className="flex justify-between">
-                <span className="text-swu-muted">Population</span>
+                <span className="text-swu-muted">Bevoelkerung</span>
                 <span
                   className={
                     building.bonuses.population > 0
@@ -818,7 +818,7 @@ function BuildingDetailPanel({
             )}
             {building.bonuses.storage !== 0 && (
               <div className="flex justify-between">
-                <span className="text-swu-muted">Storage</span>
+                <span className="text-swu-muted">Lager</span>
                 <span
                   className={
                     building.bonuses.storage > 0
@@ -865,7 +865,7 @@ function BuildingDetailPanel({
         <div className="space-y-0.5 text-xs">
           {building.bonuses.energy !== 0 && (
             <div className="flex justify-between">
-              <span className="text-swu-muted">Energy</span>
+              <span className="text-swu-muted">Energie</span>
               <span className="text-swu-primary">
                 {colony.energyMax + building.bonuses.energy}{' '}
                 <span
@@ -883,7 +883,7 @@ function BuildingDetailPanel({
           )}
           {building.bonuses.population !== 0 && (
             <div className="flex justify-between">
-              <span className="text-swu-muted">Pop Max</span>
+              <span className="text-swu-muted">Bev. Max</span>
               <span className="text-swu-primary">
                 {colony.populationMax + building.bonuses.population}{' '}
                 <span
@@ -901,7 +901,7 @@ function BuildingDetailPanel({
           )}
           {building.bonuses.storage !== 0 && (
             <div className="flex justify-between">
-              <span className="text-swu-muted">Storage Max</span>
+              <span className="text-swu-muted">Lager Max</span>
               <span className="text-swu-primary">
                 {colony.storageMax + building.bonuses.storage}{' '}
                 <span

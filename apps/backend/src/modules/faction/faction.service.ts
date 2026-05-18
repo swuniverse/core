@@ -26,7 +26,7 @@ const DEFAULT_FACTIONS: Array<{
 }> = [
   {
     key: Faction.REBEL_ALLIANCE,
-    name: 'Rebel Alliance',
+    name: 'Rebellenallianz',
     colorPrimary: '#2563eb',
     colorSecondary: '#bfdbfe',
     homeZone: 'REBEL',
@@ -43,7 +43,7 @@ const DEFAULT_FACTIONS: Array<{
   },
   {
     key: Faction.GALACTIC_EMPIRE,
-    name: 'Galactic Empire',
+    name: 'Galaktisches Imperium',
     colorPrimary: '#dc2626',
     colorSecondary: '#fecaca',
     homeZone: 'EMPIRE',
