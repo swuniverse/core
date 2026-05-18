@@ -68,71 +68,60 @@ export class AddAdminAndStarmapWorldModel20260506130000 implements MigrationInte
       )
     `);
 
-    await queryRunner
-      .query(
-        `
-      ALTER TABLE "galaxy_fields"
-      ADD CONSTRAINT "FK_galaxy_fields_layer"
-      FOREIGN KEY ("layerId") REFERENCES "layers"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION
-    `,
-      )
-      .catch(() => undefined);
+    // Add constraints only if they don't already exist
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_galaxy_fields_layer') THEN
+          ALTER TABLE "galaxy_fields" ADD CONSTRAINT "FK_galaxy_fields_layer"
+            FOREIGN KEY ("layerId") REFERENCES "layers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$
+    `);
 
-    await queryRunner
-      .query(
-        `
-      ALTER TABLE "galaxy_fields"
-      ADD CONSTRAINT "FK_galaxy_fields_field_type"
-      FOREIGN KEY ("fieldTypeId") REFERENCES "galaxy_field_types"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION
-    `,
-      )
-      .catch(() => undefined);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_galaxy_fields_field_type') THEN
+          ALTER TABLE "galaxy_fields" ADD CONSTRAINT "FK_galaxy_fields_field_type"
+            FOREIGN KEY ("fieldTypeId") REFERENCES "galaxy_field_types"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$
+    `);
 
-    await queryRunner
-      .query(
-        `
-      ALTER TABLE "galaxy_fields"
-      ADD CONSTRAINT "FK_galaxy_fields_star_system"
-      FOREIGN KEY ("starSystemId") REFERENCES "star_systems"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION
-    `,
-      )
-      .catch(() => undefined);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_galaxy_fields_star_system') THEN
+          ALTER TABLE "galaxy_fields" ADD CONSTRAINT "FK_galaxy_fields_star_system"
+            FOREIGN KEY ("starSystemId") REFERENCES "star_systems"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$
+    `);
 
-    await queryRunner
-      .query(
-        `
-      ALTER TABLE "system_fields"
-      ADD CONSTRAINT "FK_system_fields_star_system"
-      FOREIGN KEY ("starSystemId") REFERENCES "star_systems"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION
-    `,
-      )
-      .catch(() => undefined);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_system_fields_star_system') THEN
+          ALTER TABLE "system_fields" ADD CONSTRAINT "FK_system_fields_star_system"
+            FOREIGN KEY ("starSystemId") REFERENCES "star_systems"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$
+    `);
 
-    await queryRunner
-      .query(
-        `
-      ALTER TABLE "system_fields"
-      ADD CONSTRAINT "FK_system_fields_field_type"
-      FOREIGN KEY ("fieldTypeId") REFERENCES "galaxy_field_types"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION
-    `,
-      )
-      .catch(() => undefined);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_system_fields_field_type') THEN
+          ALTER TABLE "system_fields" ADD CONSTRAINT "FK_system_fields_field_type"
+            FOREIGN KEY ("fieldTypeId") REFERENCES "galaxy_field_types"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$
+    `);
 
-    await queryRunner
-      .query(
-        `
-      ALTER TABLE "system_fields"
-      ADD CONSTRAINT "FK_system_fields_celestial_object"
-      FOREIGN KEY ("celestialObjectId") REFERENCES "celestial_objects"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION
-    `,
-      )
-      .catch(() => undefined);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_system_fields_celestial_object') THEN
+          ALTER TABLE "system_fields" ADD CONSTRAINT "FK_system_fields_celestial_object"
+            FOREIGN KEY ("celestialObjectId") REFERENCES "celestial_objects"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
