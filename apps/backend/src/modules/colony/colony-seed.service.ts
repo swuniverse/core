@@ -219,7 +219,7 @@ export class ColonySeedService {
     await this.storageRepo.save(storage);
   }
 
-  private randomSurfaceFieldType(classId: number = 101): number {
+  private randomSurfaceFieldType(classId = 101): number {
     const weights = TERRAIN_WEIGHTS_BY_CLASS[classId] || TERRAIN_WEIGHTS_BY_CLASS[101];
     const totalWeight = weights.reduce((sum, [, w]) => sum + w, 0);
     let rand = Math.random() * totalWeight;
