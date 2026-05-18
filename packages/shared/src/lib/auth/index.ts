@@ -2,6 +2,7 @@ export interface RegisterDto {
   username: string;
   email: string;
   password: string;
+  factionId: number;
 }
 
 export interface LoginDto {

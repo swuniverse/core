@@ -12,7 +12,9 @@ import {
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
+import { TransferService } from './transfer.service';
 import { GameDataService } from '../game-data/game-data.service';
 
 @Controller('spacecraft')
@@ -20,6 +22,7 @@ import { GameDataService } from '../game-data/game-data.service';
 export class SpacecraftController {
   constructor(
     private readonly spacecraftService: SpacecraftService,
+    private readonly transferService: TransferService,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -51,6 +54,32 @@ export class SpacecraftController {
     return this.spacecraftService.createFleet(req.user.sub, name, leaderId);
   }
 
+  @Post('admin/spawn')
+  @UseGuards(AdminGuard)
+  adminSpawnShip(
+    @Body('userId') userId: number,
+    @Body('shipClassId') shipClassId: number,
+    @Body('name') name: string,
+    @Body('layerId') layerId: number,
+    @Body('posX') posX: number,
+    @Body('posY') posY: number,
+  ) {
+    return this.spacecraftService.adminSpawnShip(
+      userId,
+      shipClassId,
+      name,
+      layerId,
+      posX,
+      posY,
+    );
+  }
+
+  @Get('admin/users')
+  @UseGuards(AdminGuard)
+  adminListUsers() {
+    return this.spacecraftService.adminListUsers();
+  }
+
   @Post('fleets/:fleetId/join')
   joinFleet(
     @Param('fleetId', ParseIntPipe) fleetId: number,
@@ -64,6 +93,14 @@ export class SpacecraftController {
   @Get()
   findAll(@Request() req: { user: { sub: number } }) {
     return this.spacecraftService.findAllByUser(req.user.sub);
+  }
+
+  @Get(':id/local-map')
+  getLocalMap(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.getLocalMap(id, req.user.sub);
   }
 
   // Parameterized routes
@@ -129,6 +166,32 @@ export class SpacecraftController {
     return this.spacecraftService.navigate(id, req.user.sub, targetX, targetY);
   }
 
+  @Post(':id/fly')
+  flyGalaxy(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('targetX') targetX: number,
+    @Body('targetY') targetY: number,
+  ) {
+    return this.spacecraftService.flyGalaxy(id, req.user.sub, targetX, targetY);
+  }
+
+  @Post(':id/enter-system')
+  enterSystem(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.enterSystem(id, req.user.sub);
+  }
+
+  @Post(':id/leave-system')
+  leaveSystem(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.leaveSystem(id, req.user.sub);
+  }
+
   @Post(':id/warp')
   warp(
     @Param('id', ParseIntPipe) id: number,
@@ -144,5 +207,47 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.leaveFleet(req.user.sub, id);
+  }
+
+  @Get(':id/cargo')
+  getCargo(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.transferService.getShipCargo(id);
+  }
+
+  @Post(':id/cargo/load')
+  loadCargo(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('colonyId') colonyId: number,
+    @Body('commodityId') commodityId: number,
+    @Body('amount') amount: number,
+  ) {
+    return this.transferService.loadCargo(
+      id,
+      req.user.sub,
+      colonyId,
+      commodityId,
+      amount,
+    );
+  }
+
+  @Post(':id/cargo/unload')
+  unloadCargo(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('colonyId') colonyId: number,
+    @Body('commodityId') commodityId: number,
+    @Body('amount') amount: number,
+  ) {
+    return this.transferService.unloadCargo(
+      id,
+      req.user.sub,
+      colonyId,
+      commodityId,
+      amount,
+    );
   }
 }

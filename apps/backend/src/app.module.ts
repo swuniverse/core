@@ -14,6 +14,7 @@ import { TickModule } from './modules/tick/tick.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { FactionModule } from './modules/faction/faction.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { User } from './modules/auth/user.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
@@ -24,6 +25,13 @@ import { CelestialObject } from './modules/starmap/entities/celestial-object.ent
 import { GalaxyFieldType } from './modules/starmap/entities/galaxy-field-type.entity';
 import { GalaxyField } from './modules/starmap/entities/galaxy-field.entity';
 import { SystemField } from './modules/starmap/entities/system-field.entity';
+import { MapRegion } from './modules/starmap/entities/map-region.entity';
+import { BorderType } from './modules/starmap/entities/border-type.entity';
+import { ExplorationState } from './modules/starmap/entities/exploration-state.entity';
+import { SystemExploration } from './modules/starmap/entities/system-exploration.entity';
+import { PlanetField } from './modules/starmap/entities/planet-field.entity';
+import { InfluenceArea } from './modules/starmap/entities/influence-area.entity';
+import { Wormhole } from './modules/starmap/entities/wormhole.entity';
 import { FactionEntity } from './modules/faction/entities/faction.entity';
 import { FactionModifier } from './modules/faction/entities/faction-modifier.entity';
 import { OnboardingSelection } from './modules/onboarding/entities/onboarding-selection.entity';
@@ -34,7 +42,11 @@ import { ShipClassDef } from './modules/spacecraft/entities/ship-class-def.entit
 import { Research } from './modules/research/entities/research.entity';
 import { Message } from './modules/messaging/entities/message.entity';
 import { HolonetPost } from './modules/holonet/entities/holonet-post.entity';
+import { HolonetComment } from './modules/holonet/entities/holonet-comment.entity';
+import { HolonetRating } from './modules/holonet/entities/holonet-rating.entity';
+import { HolonetCheckpoint } from './modules/holonet/entities/holonet-checkpoint.entity';
 import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
+import { UserSetting } from './modules/settings/entities/user-setting.entity';
 
 @Module({
   imports: [
@@ -56,6 +68,13 @@ import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
           GalaxyFieldType,
           GalaxyField,
           SystemField,
+          MapRegion,
+          BorderType,
+          ExplorationState,
+          SystemExploration,
+          PlanetField,
+          InfluenceArea,
+          Wormhole,
           FactionEntity,
           FactionModifier,
           OnboardingSelection,
@@ -66,7 +85,11 @@ import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
           Research,
           Message,
           HolonetPost,
+          HolonetComment,
+          HolonetRating,
+          HolonetCheckpoint,
           GameTickState,
+          UserSetting,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -83,6 +106,7 @@ import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
     ResearchModule,
     MessagingModule,
     HolonetModule,
+    SettingsModule,
     TickModule,
     WebsocketModule,
   ],

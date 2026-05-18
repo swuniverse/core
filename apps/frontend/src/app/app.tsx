@@ -11,35 +11,20 @@ import { ResearchPage } from '../pages/research';
 import { MessagesPage } from '../pages/messages';
 import { HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
+import { SettingsPage } from '../pages/settings';
 import { StarmapAdminPage } from '../pages/starmap-admin';
-
-type UserWithOnboarding = {
-  onboardingCompleted?: boolean;
-};
-
-function AuthOnlyRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <>{children}</>;
-}
+import { AdminPage } from '../pages/admin';
+import { AdminShipsPage } from '../pages/admin-ships';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
-  const user = useAuthStore((s) => s.user) as UserWithOnboarding | null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user && user.onboardingCompleted === false) {
-    return <Navigate to="/onboarding" replace />;
-  }
   return <>{children}</>;
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
-  const user = useAuthStore((s) => s.user) as UserWithOnboarding | null;
   if (!isAuthenticated) return <>{children}</>;
-  if (user && user.onboardingCompleted === false) {
-    return <Navigate to="/onboarding" replace />;
-  }
   return <Navigate to="/" replace />;
 }
 
@@ -64,14 +49,6 @@ export function App() {
           }
         />
         <Route
-          path="/onboarding"
-          element={
-            <AuthOnlyRoute>
-              <OnboardingPage />
-            </AuthOnlyRoute>
-          }
-        />
-        <Route
           element={
             <ProtectedRoute>
               <AppShell />
@@ -82,10 +59,14 @@ export function App() {
           <Route path="/colonies" element={<ColoniesPage />} />
           <Route path="/spacecraft" element={<SpacecraftPage />} />
           <Route path="/starmap" element={<StarmapPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/ships" element={<AdminShipsPage />} />
           <Route path="/admin/starmap" element={<StarmapAdminPage />} />
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/holonet" element={<HolonetPage />} />
+          <Route path="/claim-colony" element={<OnboardingPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

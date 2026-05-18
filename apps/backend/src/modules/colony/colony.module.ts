@@ -8,10 +8,12 @@ import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { ResearchModule } from '../research/research.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Colony, ColonyField, ColonyStorage, CelestialObject, Spacecraft]),
+    ResearchModule,
   ],
   controllers: [ColonyController],
   providers: [ColonyService, ColonySeedService],

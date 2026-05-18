@@ -127,6 +127,15 @@ function formatPlanetClass(classId: number | null | undefined) {
   return String(classId);
 }
 
+const PLANET_CLASS_DESCRIPTIONS: Record<string, string> = {
+  M: 'Ausgewogene Mischung aus Ebenen, Wäldern, Wüsten und Gewässern',
+  L: 'Stark bewaldet mit vielen Ebenen und Sümpfen',
+  O: 'Wasserreich, wenig Berge und keine Wüsten',
+  K: 'Trocken und wüstenartig, wenig Vegetation',
+  H: 'Vulkanisch, reich an Mineralien',
+  D: 'Eisbedeckt, karge Oberfläche',
+};
+
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded border border-swu-border bg-swu-bg/40 p-3">
@@ -181,7 +190,7 @@ export function OnboardingPage() {
 
       setUser(profile);
 
-      if (profile.onboardingCompleted) {
+      if (profile.starterColonyId) {
         navigate('/');
         return;
       }
@@ -195,12 +204,7 @@ export function OnboardingPage() {
       setSelectedLayerId(
         selectionRes.selectedLayerId ?? sectorRes[0]?.layerId ?? null,
       );
-      const selectedFactionKey =
-        factionRes.find((faction) => faction.id === selectionRes.factionId)
-          ?.key ??
-        profile.faction ??
-        null;
-      setSelectedFaction(selectedFactionKey);
+      setSelectedFaction(profile.faction ?? null);
       if (
         selectionRes.selectedSectorX !== null &&
         selectionRes.selectedSectorY !== null
@@ -234,25 +238,6 @@ export function OnboardingPage() {
     if (!selectedSystemId) return;
     void loadPlanets(selectedSystemId);
   }, [selectedSystemId]);
-
-  async function chooseFaction(faction: Faction) {
-    setSaving(true);
-    setError('');
-    try {
-      const nextSelection = await api.post<SelectionDto>(
-        '/onboarding/faction',
-        { faction },
-      );
-      setSelection(nextSelection);
-      setSelectedFaction(faction);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Failed to select faction',
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function loadSystems(
     layerId: number,
@@ -470,14 +455,14 @@ export function OnboardingPage() {
         <div className="space-y-8">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-swu-muted mb-2">
-              Onboarding
+              Kolonisierung
             </p>
             <h1 className="text-3xl font-bold text-swu-accent">
-              Choose your homeworld
+              Heimatwelt waehlen
             </h1>
             <p className="text-swu-muted mt-2">
-              Pick faction, sector, system, planet. Claim creates starter
-              colony, ship, fleet.
+              Waehle Sektor, System und Planet. Claim erstellt Starter-Kolonie,
+              Schiff und Flotte.
             </p>
           </div>
 
@@ -488,40 +473,7 @@ export function OnboardingPage() {
           )}
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">1. Faction</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {factions.map((faction) => {
-                const active = selectedFaction === faction.key;
-                return (
-                  <button
-                    key={faction.id}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void chooseFaction(faction.key)}
-                    className={`rounded-lg border p-4 text-left transition ${
-                      active
-                        ? 'border-swu-accent bg-swu-accent/10'
-                        : 'border-swu-border hover:border-swu-primary'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold">{faction.name}</span>
-                      <span className="text-xs text-swu-muted">
-                        {faction.homeZone ?? 'Unknown'}
-                      </span>
-                    </div>
-                    <div
-                      className="mt-3 h-2 rounded-full"
-                      style={{ backgroundColor: faction.colorPrimary }}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">2. Sector</h2>
+            <h2 className="text-lg font-bold mb-4">1. Sektor</h2>
             <div className="flex items-center gap-3 mb-4">
               <label className="text-sm text-swu-muted">Layer</label>
               <select
@@ -545,6 +497,12 @@ export function OnboardingPage() {
               </select>
             </div>
 
+            {sectors.length === 0 && (
+              <p className="text-swu-muted text-sm">
+                Keine Karte vorhanden. Ein Admin muss zuerst die Galaxie generieren.
+              </p>
+            )}
+
             {activeLayer && (
               <div
                 className="grid gap-2"
@@ -563,13 +521,13 @@ export function OnboardingPage() {
                     <button
                       key={`${x}-${y}`}
                       type="button"
-                      disabled={!selectedFaction || saving}
+                      disabled={saving}
                       onClick={() => setSelectedSector({ x, y })}
                       className={`rounded border p-3 text-left min-h-20 transition ${
                         active
                           ? 'border-swu-accent bg-swu-accent/10'
                           : 'border-swu-border hover:border-swu-primary'
-                      } ${!selectedFaction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      }`}
                     >
                       <div className="text-xs text-swu-muted mb-1">Sector</div>
                       <div className="font-bold">
@@ -584,7 +542,7 @@ export function OnboardingPage() {
 
           <section className="grid lg:grid-cols-2 gap-6">
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-4">3. System</h2>
+              <h2 className="text-lg font-bold mb-4">2. System</h2>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {systems.length === 0 && (
                   <p className="text-swu-muted text-sm">Choose sector first.</p>
@@ -613,39 +571,59 @@ export function OnboardingPage() {
             </div>
 
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-4">4. Planet</h2>
+              <h2 className="text-lg font-bold mb-4">3. Planet</h2>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {planets.length === 0 && (
                   <p className="text-swu-muted text-sm">Choose system first.</p>
                 )}
-                {planets.map((planet) => (
-                  <button
-                    key={planet.id}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setSelectedPlanetId(planet.id)}
-                    className={`w-full rounded border p-4 text-left transition ${
-                      selectedPlanetId === planet.id
-                        ? 'border-swu-accent bg-swu-accent/10'
-                        : 'border-swu-border hover:border-swu-primary'
-                    }`}
-                  >
-                    <div className="font-bold text-swu-primary">
-                      {planet.name ?? `Planet ${planet.id}`}
+                {planets.map((planet) => {
+                  const classLabel = formatPlanetClass(planet.classId);
+                  return (
+                    <button
+                      key={planet.id}
+                      type="button"
+                      disabled={saving}
+                      onClick={() => setSelectedPlanetId(planet.id)}
+                      className={`w-full rounded border p-4 text-left transition ${
+                        selectedPlanetId === planet.id
+                          ? 'border-swu-accent bg-swu-accent/10'
+                          : 'border-swu-border hover:border-swu-primary'
+                      }`}
+                    >
+                      <div className="font-bold text-swu-primary">
+                        {planet.name ?? `Planet ${planet.id}`}
+                      </div>
+                      <div className="text-xs text-swu-muted mt-1">
+                        Position: {planet.posX} | {planet.posY} · Klasse {classLabel}
+                        {PLANET_CLASS_DESCRIPTIONS[classLabel] && (
+                          <span className="ml-1 text-swu-muted/70">
+                            — {PLANET_CLASS_DESCRIPTIONS[classLabel]}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-4 rounded border border-swu-border bg-swu-bg/40 p-4">
+                <h4 className="text-xs font-bold text-swu-muted uppercase tracking-wide mb-2">
+                  Planetentypen
+                </h4>
+                <div className="space-y-1 text-xs text-swu-muted">
+                  {Object.entries(PLANET_CLASS_DESCRIPTIONS).map(([key, desc]) => (
+                    <div key={key}>
+                      <span className="font-bold text-swu-primary">{key}-Klasse:</span>{' '}
+                      {desc}
                     </div>
-                    <div className="text-xs text-swu-muted mt-1">
-                      Position: {planet.posX} | {planet.posY} · Klasse{' '}
-                      {formatPlanetClass(planet.classId)}
-                    </div>
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </section>
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold">5. Claim</h2>
+              <h2 className="text-lg font-bold">4. Claim</h2>
               <p className="text-sm text-swu-muted mt-1">
                 Final step. Creates starter colony, starter ship, starter fleet.
               </p>
@@ -653,7 +631,6 @@ export function OnboardingPage() {
             <button
               type="button"
               disabled={
-                !selectedFaction ||
                 !selectedSector ||
                 !selectedSystemId ||
                 !selectedPlanetId ||

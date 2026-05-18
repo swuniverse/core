@@ -5,15 +5,24 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import { User } from '../auth/user.entity';
+import {
+  AlertState,
+  Spacecraft,
+  SpacecraftStatus,
+} from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ShipClassService } from './ship-class.service';
+import { ExplorationService } from '../starmap/exploration.service';
+import { ExplorationLevel } from '../starmap/entities/exploration-state.entity';
 
 @Injectable()
 export class SpacecraftService {
@@ -30,8 +39,15 @@ export class SpacecraftService {
     private readonly layerRepo: Repository<Layer>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
+    @InjectRepository(GalaxyField)
+    private readonly galaxyFieldRepo: Repository<GalaxyField>,
+    @InjectRepository(SystemField)
+    private readonly systemFieldRepo: Repository<SystemField>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly gameData: GameDataService,
     private readonly shipClassService: ShipClassService,
+    private readonly explorationService: ExplorationService,
   ) {}
 
   async findAllByUser(userId: number): Promise<Spacecraft[]> {
@@ -171,6 +187,97 @@ export class SpacecraftService {
     const withSummary = await this.toShipSummary(ship);
     return Object.assign(withSummary, {
       moduleCategories: ship.modules?.map((module) => module.category) || [],
+    });
+  }
+
+  async adminListUsers(): Promise<
+    Array<Pick<User, 'id' | 'username' | 'email'>>
+  > {
+    return this.userRepo.find({
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+      order: { username: 'ASC' },
+    });
+  }
+
+  async adminSpawnShip(
+    userId: number,
+    shipClassId: number,
+    name: string,
+    layerId: number,
+    posX: number,
+    posY: number,
+  ): Promise<Spacecraft> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const shipClass = await this.shipClassService.findById(shipClassId);
+    if (!shipClass) {
+      throw new NotFoundException('Ship class not found');
+    }
+
+    const layer = await this.layerRepo.findOne({ where: { id: layerId } });
+    if (!layer) {
+      throw new NotFoundException('Layer not found');
+    }
+
+    if (posX < 1 || posX > layer.width || posY < 1 || posY > layer.height) {
+      throw new BadRequestException(
+        `Target out of bounds. Layer size: ${layer.width}x${layer.height}`,
+      );
+    }
+
+    const galaxyField = await this.galaxyFieldRepo.findOne({
+      where: { layerId, cx: posX, cy: posY },
+      relations: ['starSystem'],
+    });
+    if (!galaxyField) {
+      throw new BadRequestException('Target galaxy field does not exist');
+    }
+    if (!galaxyField.isPassable) {
+      throw new BadRequestException('Target galaxy field is not passable');
+    }
+
+    const shipName = name.trim() || shipClass.name;
+    const ship = await this.shipRepo.save(
+      this.shipRepo.create({
+        name: shipName,
+        shipClassId: shipClass.id,
+        userId: user.id,
+        starSystemId: galaxyField.starSystemId,
+        currentLayerId: layer.id,
+        celestialObjectId: null,
+        inSystem: false,
+        currentSystemFieldX: null,
+        currentSystemFieldY: null,
+        posX,
+        posY,
+        status: SpacecraftStatus.DOCKED,
+        alertState: AlertState.GREEN,
+        hull: shipClass.hullBase,
+        hullMax: shipClass.hullBase,
+        shields: shipClass.shieldBase,
+        shieldsMax: shipClass.shieldBase,
+        energy: shipClass.epsBase,
+        energyMax: shipClass.epsBase,
+        warpSpeed: shipClass.warpBase,
+        crew: shipClass.crewMin,
+        crewMax: shipClass.crewMax,
+        cargoUsed: 0,
+        cargoMax: shipClass.cargoCapacity,
+        battery: shipClass.batteryBase,
+        batteryMax: shipClass.batteryBase,
+      }),
+    );
+
+    return this.shipRepo.findOneOrFail({
+      where: { id: ship.id },
+      relations: ['modules', 'fleet', 'starSystem', 'celestialObject'],
     });
   }
 
@@ -356,7 +463,7 @@ export class SpacecraftService {
     await this.shipRepo.save(ship);
   }
 
-  // In-system impulse: 1 EPS per field, 10s per field travel time
+  // In-system impulse navigation: 1 EPS per field, 5s per field
   async navigate(
     shipId: number,
     userId: number,
@@ -374,16 +481,58 @@ export class SpacecraftService {
     if (ship.status === SpacecraftStatus.IN_FLIGHT) {
       throw new BadRequestException('Ship already in flight');
     }
+    if (!ship.inSystem) {
+      throw new BadRequestException(
+        'Ship is not in a system. Use galaxy flight instead.',
+      );
+    }
+    if (!ship.starSystemId) {
+      throw new BadRequestException('Ship has no current system');
+    }
 
-    const dx = Math.abs(targetX - ship.posX);
-    const dy = Math.abs(targetY - ship.posY);
-    const distance = Math.max(dx, dy);
+    const system = await this.systemRepo.findOne({
+      where: { id: ship.starSystemId },
+    });
+    if (!system) {
+      throw new NotFoundException('Current star system not found');
+    }
+
+    if (
+      targetX < 1 ||
+      targetX > system.maxX ||
+      targetY < 1 ||
+      targetY > system.maxY
+    ) {
+      throw new BadRequestException(
+        `Target out of bounds. System size: ${system.maxX}x${system.maxY}`,
+      );
+    }
+
+    const targetField = await this.systemFieldRepo.findOne({
+      where: { starSystemId: ship.starSystemId, sx: targetX, sy: targetY },
+    });
+    if (targetField && !targetField.isPassable) {
+      throw new BadRequestException('Target field is not passable');
+    }
+
+    const startX = ship.currentSystemFieldX ?? 1;
+    const startY = ship.currentSystemFieldY ?? 1;
+    const dx = Math.abs(targetX - startX);
+    const dy = Math.abs(targetY - startY);
+
+    if (dx > 0 && dy > 0) {
+      throw new BadRequestException(
+        'Only orthogonal movement allowed (horizontal or vertical)',
+      );
+    }
+
+    const distance = dx + dy;
 
     if (distance === 0) {
       throw new BadRequestException('Already at target position');
     }
 
-    const energyCost = distance;
+    const energyCost = distance * 5;
     if (ship.energy < energyCost) {
       throw new BadRequestException(
         `Not enough energy: need ${energyCost} EPS, have ${ship.energy}`,
@@ -391,12 +540,193 @@ export class SpacecraftService {
     }
 
     ship.energy -= energyCost;
-    const travelTimeMs = distance * 10_000;
+    ship.currentSystemFieldX = targetX;
+    ship.currentSystemFieldY = targetY;
+    ship.targetX = null;
+    ship.targetY = null;
+    ship.arrivalAt = null;
+    ship.status = SpacecraftStatus.DOCKED;
 
-    ship.status = SpacecraftStatus.IN_FLIGHT;
-    ship.targetX = targetX;
-    ship.targetY = targetY;
-    ship.arrivalAt = new Date(Date.now() + travelTimeMs);
+    await this.shipRepo.save(ship);
+
+    await this.explorationService.discoverSystem({
+      userId: ship.userId,
+      starSystemId: ship.starSystemId,
+      source: 'NAVIGATE',
+    });
+
+    return this.findOne(ship.id, userId);
+  }
+
+  // Galaxy-map flight: move between galaxy fields when NOT in a system
+  async flyGalaxy(
+    shipId: number,
+    userId: number,
+    targetX: number,
+    targetY: number,
+  ): Promise<Spacecraft> {
+    const ship = await this.findOne(shipId, userId);
+
+    if (ship.status === SpacecraftStatus.IN_COMBAT) {
+      throw new BadRequestException('Cannot fly during combat');
+    }
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException('Ship is destroyed');
+    }
+    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
+      throw new BadRequestException('Ship already in flight');
+    }
+    if (ship.inSystem) {
+      throw new BadRequestException(
+        'Ship is inside a system. Leave system first.',
+      );
+    }
+    if (!ship.currentLayerId) {
+      throw new BadRequestException('Ship has no current layer');
+    }
+
+    const targetField = await this.galaxyFieldRepo.findOne({
+      where: { layerId: ship.currentLayerId, cx: targetX, cy: targetY },
+    });
+    if (!targetField) {
+      throw new BadRequestException('Target galaxy field does not exist');
+    }
+    if (!targetField.isPassable) {
+      throw new BadRequestException('Target galaxy field is not passable');
+    }
+
+    const dx = Math.abs(targetX - ship.posX);
+    const dy = Math.abs(targetY - ship.posY);
+
+    if (dx > 0 && dy > 0) {
+      throw new BadRequestException(
+        'Only orthogonal movement allowed (horizontal or vertical)',
+      );
+    }
+
+    const distance = dx + dy;
+
+    if (distance === 0) {
+      throw new BadRequestException('Already at target position');
+    }
+
+    const energyCost = distance * 5;
+    if (ship.energy < energyCost) {
+      throw new BadRequestException(
+        `Not enough energy: need ${energyCost} EPS, have ${ship.energy}`,
+      );
+    }
+
+    ship.energy -= energyCost;
+    ship.posX = targetX;
+    ship.posY = targetY;
+    ship.targetX = null;
+    ship.targetY = null;
+    ship.targetSystemId = null;
+    ship.arrivalAt = null;
+    ship.status = SpacecraftStatus.DOCKED;
+
+    await this.shipRepo.save(ship);
+
+    await this.explorationService.discoverField({
+      userId: ship.userId,
+      layerId: ship.currentLayerId,
+      cx: targetX,
+      cy: targetY,
+      radius: 1,
+      level: ExplorationLevel.TERRAIN,
+      source: 'FLIGHT',
+    });
+
+    return this.findOne(ship.id, userId);
+  }
+
+  // Enter a star system from the galaxy map
+  async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
+    const ship = await this.findOne(shipId, userId);
+
+    if (ship.status === SpacecraftStatus.IN_COMBAT) {
+      throw new BadRequestException('Cannot enter system during combat');
+    }
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException('Ship is destroyed');
+    }
+    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
+      throw new BadRequestException('Ship is in flight');
+    }
+    if (ship.inSystem) {
+      throw new BadRequestException('Ship is already in a system');
+    }
+    if (!ship.currentLayerId) {
+      throw new BadRequestException('Ship has no current layer');
+    }
+
+    const galaxyField = await this.galaxyFieldRepo.findOne({
+      where: { layerId: ship.currentLayerId, cx: ship.posX, cy: ship.posY },
+    });
+    if (!galaxyField || !galaxyField.starSystemId) {
+      throw new BadRequestException(
+        'No star system at current galaxy position',
+      );
+    }
+
+    ship.inSystem = true;
+    ship.starSystemId = galaxyField.starSystemId;
+    ship.currentSystemFieldX = 1;
+    ship.currentSystemFieldY = 1;
+    ship.status = SpacecraftStatus.DOCKED;
+
+    await this.shipRepo.save(ship);
+
+    await this.explorationService.discoverSystem({
+      userId,
+      starSystemId: galaxyField.starSystemId,
+      source: 'ENTER',
+    });
+
+    return ship;
+  }
+
+  // Leave a star system back to the galaxy map
+  async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
+    const ship = await this.findOne(shipId, userId);
+
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException('Ship is destroyed');
+    }
+    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
+      throw new BadRequestException('Ship is in flight');
+    }
+    if (ship.status === SpacecraftStatus.IN_COMBAT) {
+      throw new BadRequestException('Cannot leave system during combat');
+    }
+    if (!ship.inSystem) {
+      throw new BadRequestException('Ship is not in a system');
+    }
+    if (ship.status !== SpacecraftStatus.DOCKED) {
+      throw new BadRequestException('Ship must be docked to leave system');
+    }
+    if (!ship.starSystemId) {
+      throw new BadRequestException('Ship has no current system');
+    }
+
+    // Get galaxy coordinates from the star system
+    const system = await this.systemRepo.findOne({
+      where: { id: ship.starSystemId },
+    });
+    if (!system) {
+      throw new NotFoundException('Current star system not found');
+    }
+
+    ship.inSystem = false;
+    ship.currentSystemFieldX = null;
+    ship.currentSystemFieldY = null;
+    ship.starSystemId = null;
+    ship.celestialObjectId = null;
+    ship.posX = system.cx;
+    ship.posY = system.cy;
+    ship.currentLayerId = system.layerId;
+    ship.status = SpacecraftStatus.DOCKED;
 
     return this.shipRepo.save(ship);
   }
@@ -535,13 +865,56 @@ export class SpacecraftService {
 
     if (new Date() >= ship.arrivalAt) {
       if (ship.targetSystemId) {
+        // Warp arrival: enter target system
+        const targetSystem = await this.systemRepo.findOne({
+          where: { id: ship.targetSystemId },
+        });
         ship.starSystemId = ship.targetSystemId;
-        ship.posX = 10;
-        ship.posY = 10;
+        ship.inSystem = true;
+        ship.currentSystemFieldX = 1;
+        ship.currentSystemFieldY = 1;
+        ship.posX = targetSystem?.cx ?? ship.posX;
+        ship.posY = targetSystem?.cy ?? ship.posY;
+        ship.currentLayerId = targetSystem?.layerId ?? ship.currentLayerId;
         ship.targetSystemId = null;
+
+        if (targetSystem) {
+          await this.explorationService.discoverSystem({
+            userId: ship.userId,
+            starSystemId: targetSystem.id,
+            source: 'WARP',
+          });
+        }
       } else if (ship.targetX !== null && ship.targetY !== null) {
-        ship.posX = ship.targetX;
-        ship.posY = ship.targetY;
+        if (ship.inSystem) {
+          // In-system navigation arrival
+          ship.currentSystemFieldX = ship.targetX;
+          ship.currentSystemFieldY = ship.targetY;
+
+          if (ship.starSystemId) {
+            await this.explorationService.discoverSystem({
+              userId: ship.userId,
+              starSystemId: ship.starSystemId,
+              source: 'NAVIGATE',
+            });
+          }
+        } else {
+          // Galaxy flight arrival
+          ship.posX = ship.targetX;
+          ship.posY = ship.targetY;
+
+          if (ship.currentLayerId) {
+            await this.explorationService.discoverField({
+              userId: ship.userId,
+              layerId: ship.currentLayerId,
+              cx: ship.targetX,
+              cy: ship.targetY,
+              radius: 1,
+              level: ExplorationLevel.TERRAIN,
+              source: 'FLIGHT',
+            });
+          }
+        }
       }
 
       ship.targetX = null;
@@ -551,6 +924,195 @@ export class SpacecraftService {
 
       await this.shipRepo.save(ship);
     }
+  }
+
+  async getSensorRange(ship: Spacecraft): Promise<number> {
+    const modules = await this.moduleRepo.find({
+      where: { spacecraftId: ship.id },
+    });
+    let maxRange = 3;
+    for (const mod of modules) {
+      const def = this.gameData
+        .getAllModules()
+        .find((m) => m.name === mod.moduleType);
+      if (def?.category === 'SENSORS') {
+        const base =
+          (def.public as Record<string, number>)?.baseSensorRange ?? 2;
+        const range = base + (mod.level - 1);
+        if (range > maxRange) maxRange = range;
+      }
+    }
+    return maxRange;
+  }
+
+  async getLocalMap(shipId: number, userId: number) {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['starSystem'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    const sensorRange = await this.getSensorRange(ship);
+
+    if (ship.inSystem && ship.starSystemId) {
+      const shipX = ship.currentSystemFieldX ?? 1;
+      const shipY = ship.currentSystemFieldY ?? 1;
+
+      const [fields, nearbyShips] = await Promise.all([
+        this.systemFieldRepo
+          .createQueryBuilder('sf')
+          .leftJoinAndSelect('sf.fieldType', 'ft')
+          .leftJoinAndSelect('sf.celestialObject', 'co')
+          .where('sf.starSystemId = :sid', { sid: ship.starSystemId })
+          .andWhere('sf.sx BETWEEN :minX AND :maxX', {
+            minX: shipX - sensorRange,
+            maxX: shipX + sensorRange,
+          })
+          .andWhere('sf.sy BETWEEN :minY AND :maxY', {
+            minY: shipY - sensorRange,
+            maxY: shipY + sensorRange,
+          })
+          .getMany(),
+        this.shipRepo
+          .createQueryBuilder('s')
+          .leftJoin('s.user', 'u')
+          .addSelect(['u.username'])
+          .where('s.starSystemId = :sid', { sid: ship.starSystemId })
+          .andWhere('s.inSystem = true')
+          .andWhere('s.id != :shipId', { shipId: ship.id })
+          .andWhere('s.status != :destroyed', {
+            destroyed: SpacecraftStatus.DESTROYED,
+          })
+          .andWhere('s.currentSystemFieldX BETWEEN :minX AND :maxX', {
+            minX: shipX - sensorRange,
+            maxX: shipX + sensorRange,
+          })
+          .andWhere('s.currentSystemFieldY BETWEEN :minY AND :maxY', {
+            minY: shipY - sensorRange,
+            maxY: shipY + sensorRange,
+          })
+          .getMany(),
+      ]);
+
+      return {
+        mode: 'system' as const,
+        shipX,
+        shipY,
+        sensorRange,
+        systemId: ship.starSystemId,
+        systemName: ship.starSystem?.name ?? null,
+        fields: fields.map((f) => ({
+          id: f.id,
+          sx: f.sx,
+          sy: f.sy,
+          fieldType: {
+            id: f.fieldType.id,
+            key: f.fieldType.key,
+            name: f.fieldType.name,
+          },
+          celestialObjectId: f.celestialObjectId,
+          celestialObject: f.celestialObject
+            ? {
+                id: f.celestialObject.id,
+                name: f.celestialObject.name,
+                objectType: f.celestialObject.objectType,
+                posX: f.celestialObject.posX,
+                posY: f.celestialObject.posY,
+              }
+            : null,
+        })),
+        ships: nearbyShips.map((s) => ({
+          id: s.id,
+          name: s.name,
+          userId: s.userId,
+          username: s.user?.username ?? null,
+          shipClassId: s.shipClassId,
+          posX: s.currentSystemFieldX,
+          posY: s.currentSystemFieldY,
+          status: s.status,
+          onSameField:
+            s.currentSystemFieldX === shipX &&
+            s.currentSystemFieldY === shipY,
+        })),
+        canEnterSystem: false,
+        canLeaveSystem: ship.status === SpacecraftStatus.DOCKED,
+      };
+    }
+
+    const [fields, nearbyShips] = await Promise.all([
+      this.galaxyFieldRepo
+        .createQueryBuilder('gf')
+        .leftJoinAndSelect('gf.fieldType', 'ft')
+        .leftJoinAndSelect('gf.starSystem', 'ss')
+        .where('gf.layerId = :lid', { lid: ship.currentLayerId })
+        .andWhere('gf.cx BETWEEN :minX AND :maxX', {
+          minX: ship.posX - sensorRange,
+          maxX: ship.posX + sensorRange,
+        })
+        .andWhere('gf.cy BETWEEN :minY AND :maxY', {
+          minY: ship.posY - sensorRange,
+          maxY: ship.posY + sensorRange,
+        })
+        .getMany(),
+      this.shipRepo
+        .createQueryBuilder('s')
+        .leftJoin('s.user', 'u')
+        .addSelect(['u.username'])
+        .where('s.currentLayerId = :lid', { lid: ship.currentLayerId })
+        .andWhere('s.inSystem = false')
+        .andWhere('s.id != :shipId', { shipId: ship.id })
+        .andWhere('s.status != :destroyed', {
+          destroyed: SpacecraftStatus.DESTROYED,
+        })
+        .andWhere('s.posX BETWEEN :minX AND :maxX', {
+          minX: ship.posX - sensorRange,
+          maxX: ship.posX + sensorRange,
+        })
+        .andWhere('s.posY BETWEEN :minY AND :maxY', {
+          minY: ship.posY - sensorRange,
+          maxY: ship.posY + sensorRange,
+        })
+        .getMany(),
+    ]);
+
+    const onSystemField = fields.find(
+      (f) => f.cx === ship.posX && f.cy === ship.posY && f.starSystemId,
+    );
+
+    return {
+      mode: 'galaxy' as const,
+      shipX: ship.posX,
+      shipY: ship.posY,
+      sensorRange,
+      fields: fields.map((f) => ({
+        id: f.id,
+        cx: f.cx,
+        cy: f.cy,
+        fieldType: {
+          id: f.fieldType.id,
+          key: f.fieldType.key,
+          name: f.fieldType.name,
+        },
+        starSystemId: f.starSystemId,
+        starSystem: f.starSystem
+          ? { id: f.starSystem.id, name: f.starSystem.name }
+          : null,
+        isPassable: f.isPassable,
+      })),
+      ships: nearbyShips.map((s) => ({
+        id: s.id,
+        name: s.name,
+        userId: s.userId,
+        username: s.user?.username ?? null,
+        shipClassId: s.shipClassId,
+        posX: s.posX,
+        posY: s.posY,
+        status: s.status,
+        onSameField: s.posX === ship.posX && s.posY === ship.posY,
+      })),
+      canEnterSystem:
+        Boolean(onSystemField) && ship.status === SpacecraftStatus.DOCKED,
+      canLeaveSystem: false,
+    };
   }
 
   async processTick(ship: Spacecraft): Promise<void> {

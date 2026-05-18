@@ -10,6 +10,7 @@ import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { GameDataService, BuildingCosts } from '../game-data/game-data.service';
+import { UnlockResolverService } from '../research/unlock-resolver.service';
 
 @Injectable()
 export class ColonyService {
@@ -23,6 +24,7 @@ export class ColonyService {
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
     private readonly gameData: GameDataService,
+    private readonly unlockResolver: UnlockResolverService,
   ) {}
 
   async findAllByUser(userId: number): Promise<Colony[]> {
@@ -75,6 +77,18 @@ export class ColonyService {
       throw new BadRequestException(
         'Building cannot be placed on this terrain',
       );
+    }
+
+    if (buildingDef.researchRequired) {
+      const unlocked = await this.unlockResolver.isBuildingUnlocked(
+        userId,
+        buildingId,
+      );
+      if (!unlocked) {
+        throw new BadRequestException(
+          `Research required: ${buildingDef.researchRequired}`,
+        );
+      }
     }
 
     if (buildingDef.isUnique) {
@@ -135,6 +149,30 @@ export class ColonyService {
     }
   }
 
+  async demolish(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    if (!field.buildingId) {
+      throw new BadRequestException('No building on this field');
+    }
+    if (field.buildingId === 1) {
+      throw new BadRequestException('Cannot demolish headquarters');
+    }
+    if (field.isBuilding) {
+      throw new BadRequestException('Cannot demolish a building under construction');
+    }
+
+    field.buildingId = null;
+    field.buildProgress = 0;
+    field.buildFinishesAt = null;
+    return this.fieldRepo.save(field);
+  }
+
   async buildShip(
     colonyId: number,
     userId: number,
@@ -144,7 +182,7 @@ export class ColonyService {
     const colony = await this.findOne(colonyId, userId);
 
     const hasShipyard = colony.fields.some(
-      (f) => f.buildingId === 7 && !f.isBuilding,
+      (f) => f.buildingId === 11 && !f.isBuilding,
     );
     if (!hasShipyard) {
       throw new BadRequestException('Colony needs a completed Shipyard');

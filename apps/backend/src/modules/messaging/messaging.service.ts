@@ -12,7 +12,7 @@ export class MessagingService {
 
   async getInbox(userId: number, page = 1, limit = 20) {
     const [data, total] = await this.messageRepo.findAndCount({
-      where: { recipientId: userId },
+      where: { recipientId: userId, deletedByRecipient: false },
       relations: ['sender'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -24,7 +24,7 @@ export class MessagingService {
 
   async getSent(userId: number, page = 1, limit = 20) {
     const [data, total] = await this.messageRepo.findAndCount({
-      where: { senderId: userId },
+      where: { senderId: userId, deletedBySender: false },
       relations: ['recipient'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -37,8 +37,8 @@ export class MessagingService {
   async getOne(messageId: number, userId: number): Promise<Message> {
     const message = await this.messageRepo.findOne({
       where: [
-        { id: messageId, recipientId: userId },
-        { id: messageId, senderId: userId },
+        { id: messageId, recipientId: userId, deletedByRecipient: false },
+        { id: messageId, senderId: userId, deletedBySender: false },
       ],
       relations: ['sender', 'recipient'],
     });
@@ -75,15 +75,26 @@ export class MessagingService {
 
   async getUnreadCount(userId: number): Promise<number> {
     return this.messageRepo.count({
-      where: { recipientId: userId, isRead: false },
+      where: { recipientId: userId, isRead: false, deletedByRecipient: false },
     });
   }
 
   async delete(messageId: number, userId: number): Promise<void> {
     const message = await this.messageRepo.findOne({
-      where: { id: messageId, recipientId: userId },
+      where: [
+        { id: messageId, recipientId: userId },
+        { id: messageId, senderId: userId },
+      ],
     });
     if (!message) throw new NotFoundException('Message not found');
-    await this.messageRepo.remove(message);
+
+    if (message.recipientId === userId) {
+      message.deletedByRecipient = true;
+    }
+    if (message.senderId === userId) {
+      message.deletedBySender = true;
+    }
+
+    await this.messageRepo.save(message);
   }
 }

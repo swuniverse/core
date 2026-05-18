@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 
@@ -36,19 +36,49 @@ interface Colony {
   storage?: ColonyStorageItem[];
 }
 
+interface BuildingProduction {
+  commodityId: number;
+  amount: number;
+}
+
+interface BuildingBonuses {
+  energy: number;
+  population: number;
+  storage: number;
+}
+
 interface BuildingDef {
   id: number;
   name: string;
+  nameShort: string;
+  description: string;
   category: string;
   costs: Record<string, number>;
   allowedFieldTypes: number[];
   isUnique: boolean;
+  production: BuildingProduction[];
+  bonuses: BuildingBonuses;
+  researchPoints?: number;
+  researchRequired?: string;
 }
 
 interface CommodityDef {
   id: number;
   name: string;
   nameShort: string;
+}
+
+interface ShipClassDef {
+  id: number;
+  key: string;
+  name: string;
+  category: string;
+  role: string;
+  hullBase: number;
+  shieldBase: number;
+  cargoCapacity: number;
+  warpBase: number;
+  starterAllowed: boolean;
 }
 
 const FIELD_TYPE_COLORS: Record<number, string> = {
@@ -77,20 +107,70 @@ const FIELD_TYPE_NAMES: Record<number, string> = {
   900: 'Orbit',
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  INFRASTRUCTURE: 'Infra',
+  PRODUCTION: 'Produktion',
+  HABITATION: 'Wohnen',
+  MILITARY: 'Militär',
+  RESEARCH: 'Forschung',
+  SPECIAL: 'Spezial',
+};
+
+const COST_COMMODITY_MAP: Record<string, number> = {
+  credits: 1,
+  durastahl: 2,
+  tibannaGas: 3,
+  kyberKristalle: 4,
+  beskar: 5,
+  kristallinesSilizium: 6,
+  energiemodule: 7,
+};
+
+function canAfford(
+  building: BuildingDef,
+  storage: ColonyStorageItem[],
+): boolean {
+  return Object.entries(COST_COMMODITY_MAP).every(([key, id]) => {
+    const required = building.costs[key] || 0;
+    return (
+      required <= 0 ||
+      (storage.find((s) => s.commodityId === id)?.amount || 0) >= required
+    );
+  });
+}
+
+function formatBuildTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 export function ColoniesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [colonies, setColonies] = useState<Colony[]>([]);
   const [selected, setSelected] = useState<Colony | null>(null);
   const [commodities, setCommodities] = useState<CommodityDef[]>([]);
+  const [buildingDefs, setBuildingDefs] = useState<BuildingDef[]>([]);
+  const [shipClasses, setShipClasses] = useState<ShipClassDef[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.get<Colony[]>('/colonies'),
       api.get<CommodityDef[]>('/colonies/commodities/all'),
-    ]).then(([data, comms]) => {
+      api.get<BuildingDef[]>('/colonies/buildings/available'),
+      api.get<ShipClassDef[]>('/spacecraft/classes'),
+    ]).then(([data, comms, buildings, classes]) => {
       setColonies(data);
       setCommodities(comms);
+      setBuildingDefs(buildings);
+      setShipClasses(classes);
       const requestedId = Number(searchParams.get('selected'));
       const initialColony =
         data.find((colony) => colony.id === requestedId) ?? data[0];
@@ -149,8 +229,16 @@ export function ColoniesPage() {
           <ColonyDetail
             colony={selected}
             commodities={commodities}
+            buildingDefs={buildingDefs}
+            shipClasses={shipClasses}
             onBuild={(fieldIndex, buildingId) =>
               handleBuild(selected.id, fieldIndex, buildingId)
+            }
+            onDemolish={(fieldIndex) =>
+              handleDemolish(selected.id, fieldIndex)
+            }
+            onBuildShip={(shipClassId, name) =>
+              handleBuildShip(selected.id, shipClassId, name)
             }
           />
         )}
@@ -166,59 +254,116 @@ export function ColoniesPage() {
     await api.post(`/colonies/${colonyId}/build`, { fieldIndex, buildingId });
     loadColonyDetail(colonyId);
   }
+
+  async function handleDemolish(colonyId: number, fieldIndex: number) {
+    await api.delete(`/colonies/${colonyId}/fields/${fieldIndex}/building`);
+    loadColonyDetail(colonyId);
+  }
+
+  async function handleBuildShip(
+    colonyId: number,
+    shipClassId: number,
+    name: string,
+  ) {
+    await api.post(`/colonies/${colonyId}/build-ship`, { shipClassId, name });
+    loadColonyDetail(colonyId);
+  }
 }
 
 function ColonyDetail({
   colony,
   commodities,
+  buildingDefs,
+  shipClasses,
   onBuild,
+  onDemolish,
+  onBuildShip,
 }: {
   colony: Colony;
   commodities: CommodityDef[];
+  buildingDefs: BuildingDef[];
+  shipClasses: ShipClassDef[];
   onBuild: (fieldIndex: number, buildingId: number) => void;
+  onDemolish: (fieldIndex: number) => void;
+  onBuildShip: (shipClassId: number, name: string) => void;
 }) {
+  const buildingMap = Object.fromEntries(buildingDefs.map((b) => [b.id, b]));
+  const commodityMap = Object.fromEntries(commodities.map((c) => [c.id, c]));
+
   const [selectedField, setSelectedField] = useState<ColonyField | null>(null);
-  const [showBuildMenu, setShowBuildMenu] = useState(false);
-  const [availableBuildings, setAvailableBuildings] = useState<BuildingDef[]>(
-    [],
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
+    null,
   );
 
   const fields = colony.fields || [];
+  const storage = colony.storage || [];
+
+  const categories = useMemo(() => {
+    const cats = new Set(buildingDefs.map((b) => b.category));
+    return Array.from(cats);
+  }, [buildingDefs]);
+
+  const categoryBuildings = useMemo(() => {
+    if (!selectedCategory) return [];
+    return buildingDefs.filter(
+      (b) => b.category === selectedCategory && b.id !== 1,
+    );
+  }, [selectedCategory, buildingDefs]);
+
+  const highlightedFields = useMemo(() => {
+    if (!selectedBuilding) return new Set<number>();
+    return new Set(
+      fields
+        .filter(
+          (f) =>
+            !f.buildingId &&
+            !f.isBuilding &&
+            selectedBuilding.allowedFieldTypes.includes(f.fieldType),
+        )
+        .map((f) => f.fieldIndex),
+    );
+  }, [selectedBuilding, fields]);
+
+  const isUniqueAlreadyBuilt = useMemo(() => {
+    if (!selectedBuilding || !selectedBuilding.isUnique) return false;
+    return fields.some(
+      (f) => f.buildingId === selectedBuilding.id && !f.isBuilding,
+    );
+  }, [selectedBuilding, fields]);
 
   const orbitFields = fields
-    .filter((f) => f.fieldIndex < 6)
-    .sort((a, b) => a.fieldIndex - b.fieldIndex);
-  const surfaceFields = fields
-    .filter((f) => f.fieldIndex >= 6 && f.fieldIndex < 66)
+    .filter((f) => f.fieldType === 900)
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
   const undergroundFields = fields
-    .filter((f) => f.fieldIndex >= 66)
+    .filter((f) => f.fieldType === 801)
+    .sort((a, b) => a.fieldIndex - b.fieldIndex);
+  const surfaceFields = fields
+    .filter((f) => f.fieldType !== 900 && f.fieldType !== 801)
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
 
-  const commodityMap = Object.fromEntries(commodities.map((c) => [c.id, c]));
-
-  const loadBuildings = async (fieldType: number) => {
-    const buildings = await api.get<BuildingDef[]>(
-      `/colonies/buildings/available?fieldType=${fieldType}`,
-    );
-    setAvailableBuildings(buildings.filter((b) => b.id !== 1));
+  const handleFieldClick = (field: ColonyField) => {
+    if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
+      onBuild(field.fieldIndex, selectedBuilding.id);
+      setSelectedBuilding(null);
+      setSelectedField(null);
+    } else if (!selectedBuilding) {
+      setSelectedField(field);
+    }
   };
 
-  const handleFieldClick = (field: ColonyField | undefined) => {
-    if (!field) return;
-    setSelectedField(field);
-    setShowBuildMenu(false);
-    setAvailableBuildings([]);
-  };
-
-  const handleBuildClick = () => {
-    if (!selectedField) return;
-    setShowBuildMenu(true);
-    loadBuildings(selectedField.fieldType);
+  const handleSelectBuilding = (building: BuildingDef) => {
+    if (selectedBuilding?.id === building.id) {
+      setSelectedBuilding(null);
+    } else {
+      setSelectedBuilding(building);
+      setSelectedField(null);
+    }
   };
 
   return (
     <div className="flex-1 space-y-4">
+      {/* Colony Header */}
       <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div>
@@ -265,81 +410,179 @@ function ColonyDetail({
         </div>
       </div>
 
+      {/* Grid + Build Panel */}
       <div className="flex gap-4">
+        {/* Colony Grid */}
         <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-3">
           <h3 className="text-sm font-bold text-swu-muted">Colony Grid</h3>
 
-          {/* Orbit Row */}
           <div>
             <div className="text-[10px] text-indigo-400 font-bold uppercase mb-1">
               Orbit
             </div>
-            <div className="grid grid-cols-6 gap-1">
-              {Array.from({ length: 6 }, (_, i) => {
-                const field = orbitFields.find((f) => f.fieldIndex === i);
-                return (
-                  <FieldCell
-                    key={i}
-                    index={i}
-                    field={field}
-                    selectedField={selectedField}
-                    onClick={() => handleFieldClick(field)}
-                  />
-                );
-              })}
+            <div className="grid grid-cols-10 gap-1">
+              {orbitFields.map((field) => (
+                <FieldCell
+                  key={field.fieldIndex}
+                  field={field}
+                  buildingName={
+                    field.buildingId
+                      ? buildingMap[field.buildingId]?.nameShort ||
+                        buildingMap[field.buildingId]?.name
+                      : undefined
+                  }
+                  isSelected={selectedField?.fieldIndex === field.fieldIndex}
+                  isHighlighted={highlightedFields.has(field.fieldIndex)}
+                  isBuildMode={!!selectedBuilding}
+                  onClick={() => handleFieldClick(field)}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Surface Grid 10×6 */}
           <div>
             <div className="text-[10px] text-green-400 font-bold uppercase mb-1">
               Surface
             </div>
             <div className="grid grid-cols-10 gap-1">
-              {Array.from({ length: 60 }, (_, i) => {
-                const idx = 6 + i;
-                const field = surfaceFields.find((f) => f.fieldIndex === idx);
-                return (
-                  <FieldCell
-                    key={idx}
-                    index={idx}
-                    field={field}
-                    selectedField={selectedField}
-                    onClick={() => handleFieldClick(field)}
-                  />
-                );
-              })}
+              {surfaceFields.map((field) => (
+                <FieldCell
+                  key={field.fieldIndex}
+                  field={field}
+                  buildingName={
+                    field.buildingId
+                      ? buildingMap[field.buildingId]?.nameShort ||
+                        buildingMap[field.buildingId]?.name
+                      : undefined
+                  }
+                  isSelected={selectedField?.fieldIndex === field.fieldIndex}
+                  isHighlighted={highlightedFields.has(field.fieldIndex)}
+                  isBuildMode={!!selectedBuilding}
+                  onClick={() => handleFieldClick(field)}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Underground Row */}
           <div>
             <div className="text-[10px] text-zinc-400 font-bold uppercase mb-1">
               Underground
             </div>
-            <div className="grid grid-cols-6 gap-1">
-              {Array.from({ length: 6 }, (_, i) => {
-                const idx = 66 + i;
-                const field = undergroundFields.find(
-                  (f) => f.fieldIndex === idx,
-                );
-                return (
-                  <FieldCell
-                    key={idx}
-                    index={idx}
-                    field={field}
-                    selectedField={selectedField}
-                    onClick={() => handleFieldClick(field)}
-                  />
-                );
-              })}
+            <div className="grid grid-cols-10 gap-1">
+              {undergroundFields.map((field) => (
+                <FieldCell
+                  key={field.fieldIndex}
+                  field={field}
+                  buildingName={
+                    field.buildingId
+                      ? buildingMap[field.buildingId]?.nameShort ||
+                        buildingMap[field.buildingId]?.name
+                      : undefined
+                  }
+                  isSelected={selectedField?.fieldIndex === field.fieldIndex}
+                  isHighlighted={highlightedFields.has(field.fieldIndex)}
+                  isBuildMode={!!selectedBuilding}
+                  onClick={() => handleFieldClick(field)}
+                />
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Field Detail / Build Menu / Storage */}
-        <div className="w-72 space-y-4">
-          {selectedField && (
+        {/* Build Panel (right side) */}
+        <div className="w-80 space-y-3">
+          {/* Category Tabs */}
+          <div className="bg-swu-surface border border-swu-border rounded-lg p-3">
+            <h3 className="text-xs font-bold text-swu-muted uppercase mb-2">
+              Baumenü
+            </h3>
+            <div className="flex flex-wrap gap-1">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setSelectedCategory(
+                      selectedCategory === cat ? null : cat,
+                    );
+                    setSelectedBuilding(null);
+                  }}
+                  className={`px-2 py-1 text-[10px] font-bold rounded border transition-colors ${
+                    selectedCategory === cat
+                      ? 'border-swu-accent bg-swu-accent/15 text-swu-accent'
+                      : 'border-swu-border text-swu-muted hover:border-swu-primary hover:text-swu-primary'
+                  }`}
+                >
+                  {CATEGORY_LABELS[cat] || cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Building List */}
+          {selectedCategory && categoryBuildings.length > 0 && (
+            <div className="bg-swu-surface border border-swu-border rounded-lg p-3">
+              <div className="grid grid-cols-3 gap-1.5">
+                {categoryBuildings.map((b) => {
+                  const affordable = canAfford(b, storage);
+                  const isSelected = selectedBuilding?.id === b.id;
+                  const alreadyBuilt =
+                    b.isUnique &&
+                    fields.some(
+                      (f) => f.buildingId === b.id && !f.isBuilding,
+                    );
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={() => handleSelectBuilding(b)}
+                      disabled={alreadyBuilt}
+                      className={`p-2 rounded border text-center transition-all ${
+                        isSelected
+                          ? 'border-swu-accent bg-swu-accent/15 ring-1 ring-swu-accent'
+                          : alreadyBuilt
+                            ? 'border-swu-border/30 opacity-40 cursor-not-allowed'
+                            : affordable
+                              ? 'border-swu-border hover:border-swu-primary'
+                              : 'border-red-900/50 opacity-60'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-swu-primary truncate">
+                        {b.nameShort}
+                      </div>
+                      <div className="text-[9px] text-swu-muted truncate mt-0.5">
+                        {b.name}
+                      </div>
+                      {alreadyBuilt && (
+                        <div className="text-[8px] text-swu-muted mt-0.5">
+                          ✓ gebaut
+                        </div>
+                      )}
+                      {!affordable && !alreadyBuilt && (
+                        <div className="text-[8px] text-red-400 mt-0.5">
+                          ✗ Kosten
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Building Detail */}
+          {selectedBuilding && (
+            <BuildingDetailPanel
+              building={selectedBuilding}
+              colony={colony}
+              storage={storage}
+              fields={fields}
+              commodityMap={commodityMap}
+              isUniqueAlreadyBuilt={isUniqueAlreadyBuilt}
+              highlightedCount={highlightedFields.size}
+            />
+          )}
+
+          {/* Field Info (when no building selected) */}
+          {!selectedBuilding && selectedField && (
             <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
               <h3 className="text-sm font-bold text-swu-primary mb-2">
                 Field #{selectedField.fieldIndex}
@@ -353,7 +596,8 @@ function ColonyDetail({
                   <p>
                     Building:{' '}
                     <span className="text-swu-accent">
-                      #{selectedField.buildingId}
+                      {buildingMap[selectedField.buildingId]?.name ||
+                        `#${selectedField.buildingId}`}
                     </span>
                     {selectedField.isBuilding && (
                       <span className="text-yellow-400 ml-1">
@@ -362,55 +606,67 @@ function ColonyDetail({
                     )}
                   </p>
                 )}
+                {selectedField.buildingId &&
+                  !selectedField.isBuilding &&
+                  buildingMap[selectedField.buildingId] && (
+                    <div className="mt-2 pt-2 border-t border-swu-border/50 space-y-1">
+                      {buildingMap[selectedField.buildingId].bonuses
+                        .energy !== 0 && (
+                        <p>
+                          Energy:{' '}
+                          <span
+                            className={
+                              buildingMap[selectedField.buildingId].bonuses
+                                .energy > 0
+                                ? 'text-green-400'
+                                : 'text-red-400'
+                            }
+                          >
+                            {buildingMap[selectedField.buildingId].bonuses
+                              .energy > 0
+                              ? '+'
+                              : ''}
+                            {
+                              buildingMap[selectedField.buildingId].bonuses
+                                .energy
+                            }
+                          </span>
+                        </p>
+                      )}
+                      {buildingMap[selectedField.buildingId].production
+                        .length > 0 && (
+                        <p>
+                          Produces:{' '}
+                          {buildingMap[selectedField.buildingId].production
+                            .map(
+                              (p) =>
+                                `${commodityMap[p.commodityId]?.nameShort || '?'} +${p.amount}`,
+                            )
+                            .join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
               </div>
-              {!selectedField.buildingId && !selectedField.isBuilding && (
-                <button
-                  onClick={handleBuildClick}
-                  className="mt-3 px-3 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs rounded hover:bg-swu-accent/30 transition-colors"
-                >
-                  Build...
-                </button>
-              )}
+              {selectedField.buildingId &&
+                !selectedField.isBuilding &&
+                selectedField.buildingId !== 1 && (
+                  <button
+                    onClick={() => onDemolish(selectedField.fieldIndex)}
+                    className="mt-3 px-3 py-1 bg-red-900/30 border border-red-500/50 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors"
+                  >
+                    Demolish
+                  </button>
+                )}
             </div>
           )}
 
-          {showBuildMenu && selectedField && !selectedField.buildingId && (
-            <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-              <h3 className="text-sm font-bold text-swu-muted mb-2">
-                Available Buildings
-              </h3>
-              {availableBuildings.length === 0 ? (
-                <p className="text-xs text-swu-muted">
-                  No buildings for this terrain.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {availableBuildings.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => {
-                        onBuild(selectedField.fieldIndex, b.id);
-                        setShowBuildMenu(false);
-                        setSelectedField(null);
-                      }}
-                      className="w-full text-left px-2 py-2 text-xs text-swu-muted hover:text-swu-accent hover:bg-swu-accent/10 rounded transition-colors border border-transparent hover:border-swu-accent/30"
-                    >
-                      <div className="font-bold">{b.name}</div>
-                      <div className="text-[10px] text-swu-muted/70 mt-0.5">
-                        {formatCosts(b.costs, commodityMap)}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {colony.storage && colony.storage.length > 0 && (
+          {/* Storage */}
+          {storage.length > 0 && (
             <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
               <h3 className="text-sm font-bold text-swu-muted mb-2">Storage</h3>
               <div className="space-y-1">
-                {colony.storage.map((item) => (
+                {storage.map((item) => (
                   <div key={item.id} className="flex justify-between text-xs">
                     <span className="text-swu-muted">
                       {commodityMap[item.commodityId]?.name ||
@@ -424,45 +680,391 @@ function ColonyDetail({
               </div>
             </div>
           )}
+
+          {/* Ship Build Panel */}
+          {fields.some((f) => f.buildingId === 11 && !f.isBuilding) &&
+            shipClasses.length > 0 && (
+              <ShipBuildPanel
+                shipClasses={shipClasses}
+                onBuildShip={onBuildShip}
+              />
+            )}
         </div>
       </div>
     </div>
   );
 }
 
+function BuildingDetailPanel({
+  building,
+  colony,
+  storage,
+  fields,
+  commodityMap,
+  isUniqueAlreadyBuilt,
+  highlightedCount,
+}: {
+  building: BuildingDef;
+  colony: Colony;
+  storage: ColonyStorageItem[];
+  fields: ColonyField[];
+  commodityMap: Record<number, CommodityDef>;
+  isUniqueAlreadyBuilt: boolean;
+  highlightedCount: number;
+}) {
+  const affordable = canAfford(building, storage);
+
+  return (
+    <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-3">
+      {/* Header */}
+      <div>
+        <h3 className="text-sm font-bold text-swu-accent">{building.name}</h3>
+        <p className="text-[10px] text-swu-muted mt-0.5">
+          {building.description}
+        </p>
+      </div>
+
+      {/* Baukosten */}
+      <div>
+        <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
+          Baukosten
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          {Object.entries(COST_COMMODITY_MAP).map(([key, commodityId]) => {
+            const amount = building.costs[key];
+            if (!amount || amount <= 0) return null;
+            const available =
+              storage.find((s) => s.commodityId === commodityId)?.amount || 0;
+            const enough = available >= amount;
+            return (
+              <div key={key} className="flex justify-between text-xs">
+                <span className="text-swu-muted">
+                  {commodityMap[commodityId]?.nameShort || key}
+                </span>
+                <span className={enough ? 'text-swu-primary' : 'text-red-400'}>
+                  {amount}
+                  {!enough && (
+                    <span className="text-[9px] ml-0.5">
+                      ({available})
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Produktion */}
+      {building.production.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
+            Produktion
+          </div>
+          <div className="space-y-0.5">
+            {building.production.map((p) => (
+              <div
+                key={p.commodityId}
+                className="flex justify-between text-xs"
+              >
+                <span className="text-swu-muted">
+                  {commodityMap[p.commodityId]?.name || `#${p.commodityId}`}
+                </span>
+                <span className="text-green-400">+{p.amount}/Tick</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Auswirkungen */}
+      {(building.bonuses.energy !== 0 ||
+        building.bonuses.population !== 0 ||
+        building.bonuses.storage !== 0) && (
+        <div>
+          <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
+            Auswirkungen
+          </div>
+          <div className="space-y-0.5 text-xs">
+            {building.bonuses.energy !== 0 && (
+              <div className="flex justify-between">
+                <span className="text-swu-muted">Energy</span>
+                <span
+                  className={
+                    building.bonuses.energy > 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }
+                >
+                  {building.bonuses.energy > 0 ? '+' : ''}
+                  {building.bonuses.energy}
+                </span>
+              </div>
+            )}
+            {building.bonuses.population !== 0 && (
+              <div className="flex justify-between">
+                <span className="text-swu-muted">Population</span>
+                <span
+                  className={
+                    building.bonuses.population > 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }
+                >
+                  {building.bonuses.population > 0 ? '+' : ''}
+                  {building.bonuses.population}
+                </span>
+              </div>
+            )}
+            {building.bonuses.storage !== 0 && (
+              <div className="flex justify-between">
+                <span className="text-swu-muted">Storage</span>
+                <span
+                  className={
+                    building.bonuses.storage > 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }
+                >
+                  {building.bonuses.storage > 0 ? '+' : ''}
+                  {building.bonuses.storage}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Baubar + Bauzeit */}
+      <div className="flex justify-between text-xs">
+        <div>
+          <span className="text-swu-muted">Baubar: </span>
+          {building.isUnique ? (
+            <span
+              className={isUniqueAlreadyBuilt ? 'text-red-400' : 'text-swu-primary'}
+            >
+              {isUniqueAlreadyBuilt ? '0/1' : '1/1'}
+            </span>
+          ) : (
+            <span className="text-swu-primary">{highlightedCount} Felder</span>
+          )}
+        </div>
+        <div>
+          <span className="text-swu-muted">Bauzeit: </span>
+          <span className="text-swu-primary">
+            {formatBuildTime(building.costs.buildTime || 0)}
+          </span>
+        </div>
+      </div>
+
+      {/* Vorschau */}
+      <div>
+        <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
+          Vorschau
+        </div>
+        <div className="space-y-0.5 text-xs">
+          {building.bonuses.energy !== 0 && (
+            <div className="flex justify-between">
+              <span className="text-swu-muted">Energy</span>
+              <span className="text-swu-primary">
+                {colony.energyMax + building.bonuses.energy}{' '}
+                <span
+                  className={
+                    building.bonuses.energy > 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }
+                >
+                  ({building.bonuses.energy > 0 ? '+' : ''}
+                  {building.bonuses.energy})
+                </span>
+              </span>
+            </div>
+          )}
+          {building.bonuses.population !== 0 && (
+            <div className="flex justify-between">
+              <span className="text-swu-muted">Pop Max</span>
+              <span className="text-swu-primary">
+                {colony.populationMax + building.bonuses.population}{' '}
+                <span
+                  className={
+                    building.bonuses.population > 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }
+                >
+                  ({building.bonuses.population > 0 ? '+' : ''}
+                  {building.bonuses.population})
+                </span>
+              </span>
+            </div>
+          )}
+          {building.bonuses.storage !== 0 && (
+            <div className="flex justify-between">
+              <span className="text-swu-muted">Storage Max</span>
+              <span className="text-swu-primary">
+                {colony.storageMax + building.bonuses.storage}{' '}
+                <span
+                  className={
+                    building.bonuses.storage > 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }
+                >
+                  ({building.bonuses.storage > 0 ? '+' : ''}
+                  {building.bonuses.storage})
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Erlaubte Felder */}
+      <div>
+        <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
+          Erlaubte Felder
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {building.allowedFieldTypes.map((ft) => (
+            <span
+              key={ft}
+              className={`w-5 h-5 rounded border border-swu-border/50 ${FIELD_TYPE_COLORS[ft] || 'bg-swu-bg'}`}
+              title={FIELD_TYPE_NAMES[ft] || String(ft)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Affordability warning */}
+      {!affordable && (
+        <div className="text-[10px] text-red-400 border-t border-swu-border/50 pt-2">
+          Nicht genug Ressourcen
+        </div>
+      )}
+      {isUniqueAlreadyBuilt && (
+        <div className="text-[10px] text-yellow-400 border-t border-swu-border/50 pt-2">
+          Bereits gebaut (einzigartig)
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FieldCell({
-  index,
   field,
-  selectedField,
+  buildingName,
+  isSelected,
+  isHighlighted,
+  isBuildMode,
   onClick,
 }: {
-  index: number;
-  field: ColonyField | undefined;
-  selectedField: ColonyField | null;
+  field: ColonyField;
+  buildingName?: string;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  isBuildMode: boolean;
   onClick: () => void;
 }) {
-  const isSelected = field && selectedField?.fieldIndex === index;
+  const shortName = buildingName
+    ? buildingName.length > 4
+      ? buildingName.slice(0, 3) + '.'
+      : buildingName
+    : null;
+
   return (
     <button
       onClick={onClick}
       className={`w-9 h-9 rounded border text-xs flex items-center justify-center transition-all
-        ${isSelected ? 'border-swu-accent ring-1 ring-swu-accent' : 'border-swu-border/50'}
-        ${field ? FIELD_TYPE_COLORS[field.fieldType] || 'bg-swu-bg' : 'bg-swu-bg/30'}
-        ${field?.isBuilding ? 'animate-pulse' : ''}
-        hover:border-swu-primary
+        ${isSelected ? 'border-swu-accent ring-1 ring-swu-accent' : ''}
+        ${isHighlighted ? 'border-dashed border-swu-accent ring-2 ring-swu-accent/60 animate-pulse' : ''}
+        ${!isSelected && !isHighlighted ? 'border-swu-border/50' : ''}
+        ${FIELD_TYPE_COLORS[field.fieldType] || 'bg-swu-bg'}
+        ${field.isBuilding ? 'animate-pulse' : ''}
+        ${isBuildMode && !isHighlighted && !field.buildingId ? 'opacity-30' : ''}
+        ${isHighlighted ? 'cursor-crosshair' : 'hover:border-swu-primary'}
       `}
-      title={
-        field
-          ? `${FIELD_TYPE_NAMES[field.fieldType] || 'Unknown'} (${index})`
-          : `Empty (${index})`
-      }
+      title={`${FIELD_TYPE_NAMES[field.fieldType] || 'Unknown'}${buildingName ? ' — ' + buildingName : ''} (${field.fieldIndex})`}
     >
-      {field?.buildingId && (
-        <span className="text-[9px] font-bold text-swu-accent">
-          {field.buildingId}
+      {shortName && (
+        <span className="text-[8px] font-bold text-swu-accent leading-none">
+          {shortName}
         </span>
       )}
     </button>
+  );
+}
+
+function ShipBuildPanel({
+  shipClasses,
+  onBuildShip,
+}: {
+  shipClasses: ShipClassDef[];
+  onBuildShip: (shipClassId: number, name: string) => void;
+}) {
+  const [selectedClass, setSelectedClass] = useState<ShipClassDef | null>(null);
+  const [shipName, setShipName] = useState('');
+  const [building, setBuilding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleBuild = async () => {
+    if (!selectedClass || !shipName.trim()) return;
+    setBuilding(true);
+    setError(null);
+    try {
+      onBuildShip(selectedClass.id, shipName.trim());
+      setShipName('');
+      setSelectedClass(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Fehler beim Schiffbau');
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  return (
+    <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
+      <h3 className="text-sm font-bold text-swu-muted mb-2">Werft</h3>
+      <div className="space-y-2">
+        {shipClasses.map((sc) => (
+          <button
+            key={sc.id}
+            onClick={() => setSelectedClass(sc)}
+            className={`w-full text-left p-2 rounded border text-xs transition-colors ${
+              selectedClass?.id === sc.id
+                ? 'border-swu-accent bg-swu-accent/10'
+                : 'border-swu-border hover:border-swu-primary'
+            }`}
+          >
+            <div className="font-bold text-swu-primary">{sc.name}</div>
+            <div className="text-swu-muted mt-0.5">
+              Hull {sc.hullBase} | Shields {sc.shieldBase} | Cargo{' '}
+              {sc.cargoCapacity} | Warp {sc.warpBase}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {selectedClass && (
+        <div className="mt-3 pt-3 border-t border-swu-border/50 space-y-2">
+          <input
+            type="text"
+            placeholder="Schiffsname..."
+            value={shipName}
+            onChange={(e) => setShipName(e.target.value)}
+            className="w-full px-3 py-1.5 bg-swu-bg border border-swu-border rounded text-xs text-swu-primary placeholder-swu-muted/50 focus:outline-none focus:border-swu-accent"
+          />
+          <button
+            onClick={handleBuild}
+            disabled={!shipName.trim() || building}
+            className="w-full px-3 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-bold rounded hover:bg-swu-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {building ? 'Baue...' : `${selectedClass.name} bauen`}
+          </button>
+          {error && <p className="text-[10px] text-red-400">{error}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -496,34 +1098,4 @@ function ResourceBar({
       </div>
     </div>
   );
-}
-
-function formatCosts(
-  costs: Record<string, number>,
-  commodityMap: Record<number, CommodityDef>,
-): string {
-  const COST_COMMODITY_MAP: Record<string, number> = {
-    credits: 1,
-    durastahl: 2,
-    tibannaGas: 3,
-    kyberKristalle: 4,
-    beskar: 5,
-    kristallinesSilizium: 6,
-    energiemodule: 7,
-  };
-
-  const parts: string[] = [];
-  for (const [key, commodityId] of Object.entries(COST_COMMODITY_MAP)) {
-    const amount = costs[key];
-    if (amount && amount > 0) {
-      const name = commodityMap[commodityId]?.nameShort || key;
-      parts.push(`${amount} ${name}`);
-    }
-  }
-
-  if (costs.buildTime) {
-    parts.push(`${costs.buildTime}s`);
-  }
-
-  return parts.join(' · ');
 }

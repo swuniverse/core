@@ -55,6 +55,21 @@ export class User {
   @Column({ default: 0 })
   prestige: number;
 
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({ default: false })
+  vacationMode: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  vacationStartedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  vacationEndedAt: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  deletionMark: number;
+
   @Column({ nullable: true })
   refreshToken: string;
 

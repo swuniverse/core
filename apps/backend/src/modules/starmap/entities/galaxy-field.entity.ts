@@ -9,6 +9,8 @@ import {
 import { Layer } from './layer.entity';
 import { StarSystem } from './star-system.entity';
 import { GalaxyFieldType } from './galaxy-field-type.entity';
+import { MapRegion } from './map-region.entity';
+import { BorderType } from './border-type.entity';
 
 export enum FactionZone {
   REBEL = 'REBEL',
@@ -54,6 +56,9 @@ export class GalaxyField {
   factionZone: FactionZone;
 
   @Column({ type: 'int', nullable: true })
+  systemTypeId: number | null;
+
+  @Column({ type: 'int', nullable: true })
   starSystemId: number | null;
 
   @ManyToOne(() => StarSystem, { nullable: true })
@@ -74,4 +79,24 @@ export class GalaxyField {
 
   @Column({ type: 'varchar', length: 64, nullable: true })
   adminRegionKey: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  regionId: number | null;
+
+  @ManyToOne(() => MapRegion, { nullable: true })
+  @JoinColumn({ name: 'regionId' })
+  region: MapRegion | null;
+
+  @Column({ type: 'int', nullable: true })
+  borderTypeId: number | null;
+
+  @ManyToOne(() => BorderType, { nullable: true })
+  @JoinColumn({ name: 'borderTypeId' })
+  borderType: BorderType | null;
+
+  @Column({ type: 'simple-json', nullable: true })
+  effects: string[] | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  passableOverride: boolean | null;
 }

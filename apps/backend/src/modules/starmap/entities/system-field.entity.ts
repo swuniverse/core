@@ -54,4 +54,16 @@ export class SystemField {
 
   @Column({ type: 'simple-json', nullable: true })
   effects: string[] | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  regionKey: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  adminRegionKey: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  influenceAreaId: number | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  borderMask: string | null;
 }

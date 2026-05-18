@@ -44,4 +44,16 @@ export class CelestialObject {
 
   @Column({ default: false })
   isColonizable: boolean;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  planetClass: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  surfaceWidth: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  surfaceHeight: number | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  terrainSeed: string | null;
 }

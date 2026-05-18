@@ -1,4 +1,4 @@
-import { IsString, IsEmail, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsEmail, MinLength, MaxLength, IsInt } from 'class-validator';
 
 export class RegisterRequestDto {
   @IsString()
@@ -13,4 +13,7 @@ export class RegisterRequestDto {
   @MinLength(8)
   @MaxLength(128)
   password: string;
+
+  @IsInt()
+  factionId: number;
 }

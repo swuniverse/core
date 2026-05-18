@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { Spacecraft, SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { WsEventType } from '@swuniverse/shared';
 import {
@@ -123,6 +123,35 @@ export class TickService {
       );
       throw error;
     }
+  }
+
+  async triggerManualTick(): Promise<{ tickNumber: number; status: string }> {
+    this.logger.log('Manual tick triggered by admin');
+    await this.handleTick();
+    return { tickNumber: this.tickCount, status: 'completed' };
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkWarpArrivals() {
+    const inFlightShips = await this.shipRepo.find({
+      where: { status: SpacecraftStatus.IN_FLIGHT },
+    });
+
+    const now = new Date();
+    const arrived = inFlightShips.filter(
+      (s) => s.arrivalAt && new Date(s.arrivalAt) <= now,
+    );
+
+    if (arrived.length === 0) return;
+
+    for (const ship of arrived) {
+      await this.spacecraftService.processMovement(ship);
+      this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
+        shipId: ship.id,
+      });
+    }
+
+    this.logger.log(`Processed ${arrived.length} warp arrival(s)`);
   }
 
   private async startTick(

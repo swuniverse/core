@@ -37,13 +37,33 @@ export class CombatService {
       throw new BadRequestException('Cannot attack own ship');
     }
     if (attacker.status !== SpacecraftStatus.DOCKED) {
-      throw new BadRequestException('Ship must be docked to initiate combat');
+      throw new BadRequestException('Ship must be idle to initiate combat');
     }
     if (defender.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Target already destroyed');
     }
-    if (attacker.starSystemId !== defender.starSystemId) {
-      throw new BadRequestException('Target must be in same system');
+    if (defender.status === SpacecraftStatus.IN_FLIGHT) {
+      throw new BadRequestException('Target is in flight');
+    }
+
+    if (attacker.inSystem && defender.inSystem) {
+      if (
+        attacker.starSystemId !== defender.starSystemId ||
+        attacker.currentSystemFieldX !== defender.currentSystemFieldX ||
+        attacker.currentSystemFieldY !== defender.currentSystemFieldY
+      ) {
+        throw new BadRequestException('Target must be on same field');
+      }
+    } else if (!attacker.inSystem && !defender.inSystem) {
+      if (
+        attacker.currentLayerId !== defender.currentLayerId ||
+        attacker.posX !== defender.posX ||
+        attacker.posY !== defender.posY
+      ) {
+        throw new BadRequestException('Target must be on same field');
+      }
+    } else {
+      throw new BadRequestException('Target must be on same field');
     }
 
     const attackerModules = await this.moduleRepo.find({ where: { spacecraftId: attacker.id } });

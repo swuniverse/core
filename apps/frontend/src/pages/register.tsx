@@ -1,20 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import type { AuthResponse } from '@swuniverse/shared';
 
+interface FactionOption {
+  id: number;
+  key: string;
+  name: string;
+  colorPrimary: string;
+}
+
 export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [factionId, setFactionId] = useState<number | null>(null);
+  const [factions, setFactions] = useState<FactionOption[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
+  useEffect(() => {
+    api.get<FactionOption[]>('/factions').then(setFactions);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!factionId) {
+      setError('Waehle eine Fraktion');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -22,9 +39,10 @@ export function RegisterPage() {
         username,
         email,
         password,
+        factionId,
       });
       setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/onboarding');
+      navigate('/');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed');
     } finally {
@@ -81,9 +99,30 @@ export function RegisterPage() {
               minLength={8}
             />
           </div>
+          <div>
+            <label className="block text-sm text-swu-muted mb-2">
+              Fraktion
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {factions.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFactionId(f.id)}
+                  className={`p-3 rounded border text-center transition-all ${
+                    factionId === f.id
+                      ? 'border-swu-accent bg-swu-accent/20 text-swu-accent'
+                      : 'border-swu-border bg-swu-bg text-swu-text hover:border-swu-primary'
+                  }`}
+                >
+                  <div className="text-sm font-bold">{f.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !factionId}
             className="w-full bg-swu-primary hover:bg-swu-accent text-white font-bold py-2 rounded transition-colors disabled:opacity-50"
           >
             {loading ? 'Creating account...' : 'Register'}

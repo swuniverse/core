@@ -14,6 +14,7 @@ import { FactionService } from '../faction/faction.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import { GalaxyField, FactionZone } from '../starmap/entities/galaxy-field.entity';
 import { ColonySeedService } from '../colony/colony-seed.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { User } from '../auth/user.entity';
@@ -31,6 +32,8 @@ export class OnboardingService {
     private readonly starSystemRepo: Repository<StarSystem>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
+    @InjectRepository(GalaxyField)
+    private readonly galaxyFieldRepo: Repository<GalaxyField>,
     private readonly factionService: FactionService,
     private readonly colonySeedService: ColonySeedService,
     private readonly spacecraftService: SpacecraftService,
@@ -95,13 +98,36 @@ export class OnboardingService {
     const minY = sectorY * sectorSize;
     const maxY = minY + sectorSize - 1;
 
-    const systems = await this.starSystemRepo
+    const allowedZones = this.getAllowedFactionZones(selection.factionId);
+
+    let systemIds: number[] | null = null;
+    if (allowedZones.length > 0) {
+      const zoneFields = await this.galaxyFieldRepo
+        .createQueryBuilder('gf')
+        .select('DISTINCT gf.starSystemId', 'starSystemId')
+        .where('gf.layerId = :layerId', { layerId })
+        .andWhere('gf.cx BETWEEN :minX AND :maxX', { minX, maxX })
+        .andWhere('gf.cy BETWEEN :minY AND :maxY', { minY, maxY })
+        .andWhere('gf.starSystemId IS NOT NULL')
+        .andWhere('gf.factionZone IN (:...zones)', { zones: allowedZones })
+        .getRawMany<{ starSystemId: number }>();
+      systemIds = zoneFields.map((f) => f.starSystemId);
+    }
+
+    const query = this.starSystemRepo
       .createQueryBuilder('system')
       .where('system.layerId = :layerId', { layerId })
       .andWhere('system.cx BETWEEN :minX AND :maxX', { minX, maxX })
-      .andWhere('system.cy BETWEEN :minY AND :maxY', { minY, maxY })
-      .orderBy('system.name', 'ASC')
-      .getMany();
+      .andWhere('system.cy BETWEEN :minY AND :maxY', { minY, maxY });
+
+    if (systemIds !== null) {
+      if (systemIds.length === 0) {
+        return [];
+      }
+      query.andWhere('system.id IN (:...systemIds)', { systemIds });
+    }
+
+    const systems = await query.orderBy('system.name', 'ASC').getMany();
 
     selection.selectedLayerId = layerId;
     selection.selectedSectorX = sectorX;
@@ -199,5 +225,17 @@ export class OnboardingService {
       starterColonyId: colony.id,
       starterShipId: starterShip.id,
     };
+  }
+
+  private getAllowedFactionZones(factionId: number | null): FactionZone[] {
+    if (!factionId) return [];
+    // factionId 1 = Rebel, factionId 2 = Empire (based on faction seeding)
+    if (factionId === 1) {
+      return [FactionZone.REBEL, FactionZone.CONTESTED, FactionZone.NEUTRAL];
+    }
+    if (factionId === 2) {
+      return [FactionZone.EMPIRE, FactionZone.CONTESTED, FactionZone.NEUTRAL];
+    }
+    return [FactionZone.CONTESTED, FactionZone.NEUTRAL, FactionZone.UNKNOWN];
   }
 }

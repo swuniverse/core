@@ -38,6 +38,15 @@ export class HolonetPost {
   @Column({ type: 'varchar', default: PostCategory.NEWS })
   category: PostCategory;
 
+  @Column({ default: false })
+  isPinned: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  commentCount: number;
+
+  @Column({ type: 'int', default: 0 })
+  rating: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }

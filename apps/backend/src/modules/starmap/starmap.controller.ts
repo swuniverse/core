@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   UseGuards,
   ParseIntPipe,
 } from '@nestjs/common';
@@ -14,7 +15,48 @@ import { AdminGuard } from '../auth/admin.guard';
 import { StarmapService } from './starmap.service';
 import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
-import { FactionZone } from './entities/galaxy-field.entity';
+import { ExplorationService } from './exploration.service';
+import { PlanetGeneratorService } from './generator/planet-generator.service';
+import { PlanetFieldLayer } from './entities/planet-field.entity';
+import { InfluenceService } from './influence.service';
+import { WormholeService } from './wormhole.service';
+import type {
+  StarmapBorderTypeDto,
+  StarmapBulkEditFieldsDto,
+  StarmapCreateBorderTypeDto,
+  StarmapCreateLayerDto,
+  StarmapCreateMapRegionDto,
+  StarmapCreateSystemDto,
+  StarmapCreateWormholeDto,
+  StarmapDiscoverFieldDto,
+  StarmapDiscoverSystemDto,
+  StarmapExploredSectorDto,
+  StarmapExplorationStateDto,
+  StarmapFieldTypeDto,
+  StarmapFillSectorDto,
+  StarmapGalaxyFieldDto,
+  StarmapGeneratePlanetDto,
+  StarmapGenerateSystemsDto,
+  StarmapInfluenceAreaDto,
+  StarmapInitializeGridDto,
+  StarmapLayerDto,
+  StarmapLayerOverviewDto,
+  StarmapMapRegionDto,
+  StarmapOperationResultDto,
+  StarmapPlanetSurfaceDto,
+  StarmapRegenerateSystemDto,
+  StarmapSectorDto,
+  StarmapSystemDetailDto,
+  StarmapSystemFieldDto,
+  StarmapSystemGridDto,
+  StarmapSystemListItemDto,
+  StarmapSystemTypeOptionDto,
+  StarmapUpdateBorderTypeDto,
+  StarmapUpdateGalaxyFieldDto,
+  StarmapUpdateMapRegionDto,
+  StarmapUpdateSystemFieldDto,
+  StarmapWormholeDto,
+} from '@swuniverse/shared';
 
 @Controller('starmap')
 @UseGuards(AuthGuard('jwt'))
@@ -23,20 +65,28 @@ export class StarmapController {
     private readonly starmapService: StarmapService,
     private readonly starmapAdminService: StarmapAdminService,
     private readonly starmapQueryService: StarmapQueryService,
+    private readonly explorationService: ExplorationService,
+    private readonly planetGenerator: PlanetGeneratorService,
+    private readonly influenceService: InfluenceService,
+    private readonly wormholeService: WormholeService,
   ) {}
 
   @Get('layers')
-  getLayers() {
+  getLayers(): Promise<StarmapLayerDto[]> {
     return this.starmapService.getLayers();
   }
 
   @Get('layers/:layerId/systems')
-  getSystemsInLayer(@Param('layerId', ParseIntPipe) layerId: number) {
+  getSystemsInLayer(
+    @Param('layerId', ParseIntPipe) layerId: number,
+  ): Promise<StarmapSystemListItemDto[]> {
     return this.starmapService.getSystemsInLayer(layerId);
   }
 
   @Get('layers/:layerId/sectors')
-  getSectorsInLayer(@Param('layerId', ParseIntPipe) layerId: number) {
+  getSectorsInLayer(
+    @Param('layerId', ParseIntPipe) layerId: number,
+  ): Promise<StarmapSectorDto[]> {
     return this.starmapService.getSectorsInLayer(layerId);
   }
 
@@ -45,7 +95,7 @@ export class StarmapController {
     @Param('layerId', ParseIntPipe) layerId: number,
     @Param('sectorX', ParseIntPipe) sectorX: number,
     @Param('sectorY', ParseIntPipe) sectorY: number,
-  ) {
+  ): Promise<StarmapGalaxyFieldDto[]> {
     return this.starmapQueryService.getGalaxySectorFields(
       layerId,
       sectorX,
@@ -54,30 +104,168 @@ export class StarmapController {
   }
 
   @Get('systems/:id/grid')
-  getSystemGrid(@Param('id', ParseIntPipe) id: number) {
+  getSystemGrid(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapSystemGridDto> {
     return this.starmapQueryService.getSystemGrid(id);
   }
 
   @Get('systems/:id')
-  getSystemDetail(@Param('id', ParseIntPipe) id: number) {
+  getSystemDetail(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapSystemDetailDto> {
     return this.starmapService.getSystemDetail(id);
+  }
+
+  // --- Planet Surfaces ---
+
+  @Get('planets/:id/surface')
+  async getPlanetSurface(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapPlanetSurfaceDto> {
+    const fields = await this.planetGenerator.getPlanetFields(id);
+    const obj = await this.starmapService.getCelestialObject(id);
+    return {
+      celestialObject: {
+        id: obj.id,
+        objectType: obj.objectType,
+        name: obj.name,
+        posX: obj.posX,
+        posY: obj.posY,
+        classId: obj.classId,
+        isColonizable: obj.isColonizable,
+        planetClass: obj.planetClass,
+        surfaceWidth: obj.surfaceWidth,
+        surfaceHeight: obj.surfaceHeight,
+      },
+      orbit: fields.filter(f => f.fieldLayer === PlanetFieldLayer.ORBIT).map(f => ({
+        id: f.id, celestialObjectId: f.celestialObjectId, fieldLayer: f.fieldLayer,
+        px: f.px, py: f.py, terrainType: f.terrainType,
+        buildingId: f.buildingId, isBuildable: f.isBuildable, resourceModifier: f.resourceModifier,
+      })),
+      surface: fields.filter(f => f.fieldLayer === PlanetFieldLayer.SURFACE).map(f => ({
+        id: f.id, celestialObjectId: f.celestialObjectId, fieldLayer: f.fieldLayer,
+        px: f.px, py: f.py, terrainType: f.terrainType,
+        buildingId: f.buildingId, isBuildable: f.isBuildable, resourceModifier: f.resourceModifier,
+      })),
+      underground: fields.filter(f => f.fieldLayer === PlanetFieldLayer.UNDERGROUND).map(f => ({
+        id: f.id, celestialObjectId: f.celestialObjectId, fieldLayer: f.fieldLayer,
+        px: f.px, py: f.py, terrainType: f.terrainType,
+        buildingId: f.buildingId, isBuildable: f.isBuildable, resourceModifier: f.resourceModifier,
+      })),
+    };
+  }
+
+  @Post('admin/planets/generate')
+  @UseGuards(AdminGuard)
+  async generatePlanetSurface(
+    @Body() body: StarmapGeneratePlanetDto,
+  ): Promise<StarmapOperationResultDto> {
+    const obj = await this.starmapService.getCelestialObject(body.celestialObjectId);
+    obj.planetClass = body.planetClass;
+    obj.terrainSeed = body.terrainSeed ?? `planet-${obj.id}-${Date.now()}`;
+    const classDef = await import('./generator/planet-classes.config').then(
+      m => m.PLANET_CLASS_BY_KEY.get(body.planetClass),
+    );
+    if (classDef) {
+      obj.surfaceWidth = classDef.surfaceWidth;
+      obj.surfaceHeight = classDef.surfaceHeight;
+    }
+    await this.starmapService.saveCelestialObject(obj);
+    const created = await this.planetGenerator.generateAndPersist(obj.id);
+    return { created };
+  }
+
+  // --- Exploration / Fog of War ---
+
+  @Get('layers/:layerId/explored-sector/:sectorX/:sectorY')
+  async getExploredSectorFields(
+    @Req() req: { user: { sub: number; isAdmin?: boolean } },
+    @Param('layerId', ParseIntPipe) layerId: number,
+    @Param('sectorX', ParseIntPipe) sectorX: number,
+    @Param('sectorY', ParseIntPipe) sectorY: number,
+  ): Promise<StarmapExploredSectorDto> {
+    if (req.user.isAdmin) {
+      const fields = await this.starmapQueryService.getGalaxySectorFields(layerId, sectorX, sectorY);
+      return {
+        fields: fields.map(f => ({ ...f, explorationLevel: 'FULL' as const })),
+        hiddenCount: 0,
+      };
+    }
+    return this.starmapQueryService.getExploredSectorFields(
+      req.user.sub, layerId, sectorX, sectorY, this.explorationService,
+    );
+  }
+
+  @Get('layers/:layerId/exploration')
+  getExplorationState(
+    @Req() req: { user: { sub: number } },
+    @Param('layerId', ParseIntPipe) layerId: number,
+  ): Promise<StarmapExplorationStateDto[]> {
+    return this.explorationService.getExploredFields(req.user.sub, layerId).then(
+      states => states.map(s => ({ cx: s.cx, cy: s.cy, explorationLevel: s.explorationLevel })),
+    );
+  }
+
+  @Post('exploration/discover-field')
+  async discoverField(
+    @Req() req: { user: { sub: number } },
+    @Body() body: StarmapDiscoverFieldDto,
+  ): Promise<StarmapOperationResultDto> {
+    const discovered = await this.explorationService.discoverField({
+      userId: req.user.sub,
+      layerId: body.layerId,
+      cx: body.cx,
+      cy: body.cy,
+      radius: body.radius,
+      level: body.level as any,
+      source: body.source,
+    });
+    return { created: discovered };
+  }
+
+  @Post('exploration/discover-system')
+  async discoverSystem(
+    @Req() req: { user: { sub: number } },
+    @Body() body: StarmapDiscoverSystemDto,
+  ): Promise<StarmapOperationResultDto> {
+    await this.explorationService.discoverSystem({
+      userId: req.user.sub,
+      starSystemId: body.starSystemId,
+      source: body.source,
+    });
+    return { created: 1 };
+  }
+
+  @Post('admin/exploration/discover-all')
+  @UseGuards(AdminGuard)
+  async adminDiscoverAll(
+    @Req() req: { user: { sub: number } },
+    @Body() body: { layerId: number; userId?: number },
+  ): Promise<StarmapOperationResultDto> {
+    const layer = await this.starmapService.getLayerById(body.layerId);
+    const targetUserId = body.userId ?? req.user.sub;
+    const created = await this.explorationService.discoverAllForAdmin(
+      targetUserId, body.layerId, layer.width, layer.height,
+    );
+    return { created };
   }
 
   @Get('admin/field-types')
   @UseGuards(AdminGuard)
-  getAdminFieldTypes() {
+  getAdminFieldTypes(): Promise<StarmapFieldTypeDto[]> {
     return this.starmapAdminService.listFieldTypes();
   }
 
   @Post('admin/field-types/ensure-defaults')
   @UseGuards(AdminGuard)
-  ensureDefaultFieldTypes() {
+  ensureDefaultFieldTypes(): Promise<StarmapFieldTypeDto[]> {
     return this.starmapAdminService.ensureDefaultFieldTypes();
   }
 
   @Get('admin/system-types')
   @UseGuards(AdminGuard)
-  getAdminSystemTypes() {
+  getAdminSystemTypes(): StarmapSystemTypeOptionDto[] {
     return this.starmapAdminService.listSystemTypes();
   }
 
@@ -85,24 +273,16 @@ export class StarmapController {
   @UseGuards(AdminGuard)
   createLayer(
     @Body()
-    body: {
-      name: string;
-      width: number;
-      height: number;
-      sectorSize?: number;
-      isDefault?: boolean;
-      isColonizable?: boolean;
-      isNoobZone?: boolean;
-      isFinished?: boolean;
-      isHidden?: boolean;
-    },
-  ) {
+    body: StarmapCreateLayerDto,
+  ): Promise<StarmapLayerDto> {
     return this.starmapAdminService.createLayer(body);
   }
 
   @Delete('admin/layers/:id')
   @UseGuards(AdminGuard)
-  deleteLayer(@Param('id', ParseIntPipe) id: number) {
+  deleteLayer(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapOperationResultDto> {
     return this.starmapAdminService.deleteLayer(id);
   }
 
@@ -110,24 +290,26 @@ export class StarmapController {
   @UseGuards(AdminGuard)
   initializeLayerGrid(
     @Param('id', ParseIntPipe) id: number,
-    @Body('defaultFieldTypeId') defaultFieldTypeId: number,
-  ) {
-    return this.starmapAdminService.initializeLayerGrid(id, defaultFieldTypeId);
+    @Body() body: StarmapInitializeGridDto,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.initializeLayerGrid(id, body);
+  }
+
+  @Post('admin/layers/:id/generate-systems')
+  @UseGuards(AdminGuard)
+  generateSystemsForLayer(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapGenerateSystemsDto,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.generateSystemsForLayer(id, body.limit);
   }
 
   @Post('admin/sectors/fill')
   @UseGuards(AdminGuard)
   fillSector(
     @Body()
-    body: {
-      layerId: number;
-      sectorX: number;
-      sectorY: number;
-      fieldTypeId?: number;
-      factionZone?: FactionZone;
-      adminRegionKey?: string | null;
-    },
-  ) {
+    body: StarmapFillSectorDto,
+  ): Promise<StarmapOperationResultDto> {
     return this.starmapAdminService.bulkUpdateSectorFields(body);
   }
 
@@ -135,16 +317,8 @@ export class StarmapController {
   @UseGuards(AdminGuard)
   createSystem(
     @Body()
-    body: {
-      layerId: number;
-      name: string;
-      cx: number;
-      cy: number;
-      systemTypeId: number;
-      maxX?: number;
-      maxY?: number;
-    },
-  ) {
+    body: StarmapCreateSystemDto,
+  ): Promise<StarmapSystemListItemDto> {
     return this.starmapAdminService.createStarSystem(body);
   }
 
@@ -152,12 +326,18 @@ export class StarmapController {
   @UseGuards(AdminGuard)
   initializeSystemGrid(
     @Param('id', ParseIntPipe) id: number,
-    @Body('defaultFieldTypeId') defaultFieldTypeId: number,
-  ) {
-    return this.starmapAdminService.initializeSystemGrid(
-      id,
-      defaultFieldTypeId,
-    );
+    @Body() body: StarmapInitializeGridDto,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.initializeSystemGrid(id, body);
+  }
+
+  @Post('admin/systems/:id/regenerate')
+  @UseGuards(AdminGuard)
+  regenerateSystem(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapRegenerateSystemDto,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.regenerateSystem(id, body);
   }
 
   @Patch('admin/fields/:id')
@@ -165,13 +345,8 @@ export class StarmapController {
   updateGalaxyField(
     @Param('id', ParseIntPipe) id: number,
     @Body()
-    body: {
-      fieldTypeId?: number;
-      factionZone?: FactionZone;
-      adminRegionKey?: string | null;
-      starSystemId?: number | null;
-    },
-  ) {
+    body: StarmapUpdateGalaxyFieldDto,
+  ): Promise<StarmapGalaxyFieldDto> {
     return this.starmapAdminService.updateGalaxyField(id, body);
   }
 
@@ -180,11 +355,163 @@ export class StarmapController {
   updateSystemField(
     @Param('id', ParseIntPipe) id: number,
     @Body()
-    body: {
-      fieldTypeId?: number;
-      celestialObjectId?: number | null;
-    },
-  ) {
+    body: StarmapUpdateSystemFieldDto,
+  ): Promise<StarmapSystemFieldDto> {
     return this.starmapAdminService.updateSystemField(id, body);
+  }
+
+  // --- Bulk Edit ---
+
+  @Patch('admin/galaxy-fields/bulk')
+  @UseGuards(AdminGuard)
+  bulkEditFields(
+    @Body() body: StarmapBulkEditFieldsDto,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.bulkEditFields(body);
+  }
+
+  // --- Layer Overview ---
+
+  @Get('admin/layers/:id/overview')
+  @UseGuards(AdminGuard)
+  getLayerOverview(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapLayerOverviewDto> {
+    return this.starmapAdminService.getLayerOverview(id);
+  }
+
+  // --- Map Regions CRUD ---
+
+  @Get('admin/layers/:id/regions')
+  @UseGuards(AdminGuard)
+  listRegions(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapMapRegionDto[]> {
+    return this.starmapAdminService.listRegions(id);
+  }
+
+  @Post('admin/regions')
+  @UseGuards(AdminGuard)
+  createRegion(
+    @Body() body: StarmapCreateMapRegionDto,
+  ): Promise<StarmapMapRegionDto> {
+    return this.starmapAdminService.createRegion(body);
+  }
+
+  @Patch('admin/regions/:id')
+  @UseGuards(AdminGuard)
+  updateRegion(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapUpdateMapRegionDto,
+  ): Promise<StarmapMapRegionDto> {
+    return this.starmapAdminService.updateRegion(id, body);
+  }
+
+  @Delete('admin/regions/:id')
+  @UseGuards(AdminGuard)
+  deleteRegion(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.deleteRegion(id);
+  }
+
+  // --- Border Types CRUD ---
+
+  @Get('admin/border-types')
+  @UseGuards(AdminGuard)
+  listBorderTypes(): Promise<StarmapBorderTypeDto[]> {
+    return this.starmapAdminService.listBorderTypes();
+  }
+
+  @Post('admin/border-types')
+  @UseGuards(AdminGuard)
+  createBorderType(
+    @Body() body: StarmapCreateBorderTypeDto,
+  ): Promise<StarmapBorderTypeDto> {
+    return this.starmapAdminService.createBorderType(body);
+  }
+
+  @Patch('admin/border-types/:id')
+  @UseGuards(AdminGuard)
+  updateBorderType(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapUpdateBorderTypeDto,
+  ): Promise<StarmapBorderTypeDto> {
+    return this.starmapAdminService.updateBorderType(id, body);
+  }
+
+  @Delete('admin/border-types/:id')
+  @UseGuards(AdminGuard)
+  deleteBorderType(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.deleteBorderType(id);
+  }
+
+  // --- Wormholes ---
+
+  @Get('admin/layers/:id/wormholes')
+  @UseGuards(AdminGuard)
+  listWormholes(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapWormholeDto[]> {
+    return this.wormholeService.listForLayer(id);
+  }
+
+  @Post('admin/wormholes')
+  @UseGuards(AdminGuard)
+  createWormhole(
+    @Body() body: StarmapCreateWormholeDto,
+  ): Promise<StarmapWormholeDto> {
+    return this.wormholeService.create(body);
+  }
+
+  @Delete('admin/wormholes/:id')
+  @UseGuards(AdminGuard)
+  deleteWormhole(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapOperationResultDto> {
+    return this.wormholeService.delete(id).then(() => ({ deleted: true }));
+  }
+
+  @Patch('admin/wormholes/:id/toggle')
+  @UseGuards(AdminGuard)
+  toggleWormhole(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { isActive: boolean },
+  ): Promise<StarmapWormholeDto> {
+    return this.wormholeService.toggle(id, body.isActive);
+  }
+
+  // --- Influence Areas ---
+
+  @Get('layers/:layerId/influence/:sectorX/:sectorY')
+  getInfluenceInSector(
+    @Param('layerId', ParseIntPipe) layerId: number,
+    @Param('sectorX', ParseIntPipe) sectorX: number,
+    @Param('sectorY', ParseIntPipe) sectorY: number,
+  ): Promise<StarmapInfluenceAreaDto[]> {
+    return this.starmapService.getLayerById(layerId).then(layer => {
+      const minX = sectorX * layer.sectorSize + 1;
+      const maxX = Math.min((sectorX + 1) * layer.sectorSize, layer.width);
+      const minY = sectorY * layer.sectorSize + 1;
+      const maxY = Math.min((sectorY + 1) * layer.sectorSize, layer.height);
+      return this.influenceService.getInfluenceInSector(layerId, minX, maxX, minY, maxY);
+    });
+  }
+
+  @Post('admin/layers/:id/recalculate-influence')
+  @UseGuards(AdminGuard)
+  async recalculateInfluence(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { sources?: Array<{ sourceType: string; sourceId: number; cx: number; cy: number; radius: number; strength: number }> },
+  ): Promise<StarmapOperationResultDto> {
+    const sources = (body.sources ?? []).map(s => ({
+      ...s,
+      sourceType: s.sourceType as any,
+      layerId: id,
+    }));
+    const created = await this.influenceService.calculateInfluenceForLayer(id, sources);
+    return { created };
   }
 }

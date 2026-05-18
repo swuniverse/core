@@ -15,7 +15,6 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             nodejs_22
-            nodePackages.npm
             docker-compose
             postgresql_16
             redis

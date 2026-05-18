@@ -19,6 +19,12 @@ interface TechState {
   finishesAt: string | null;
 }
 
+interface BuildingDef {
+  id: number;
+  name: string;
+  researchRequired?: string;
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   infrastructure: 'border-green-500/50',
   military: 'border-red-500/50',
@@ -39,15 +45,25 @@ const STATUS_STYLES: Record<string, string> = {
 
 export function ResearchPage() {
   const [techs, setTechs] = useState<TechState[]>([]);
+  const [buildings, setBuildings] = useState<BuildingDef[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const data = await api.get<TechState[]>('/research');
+    const [data, bldgs] = await Promise.all([
+      api.get<TechState[]>('/research'),
+      api.get<BuildingDef[]>('/colonies/buildings/available'),
+    ]);
     setTechs(data);
+    setBuildings(bldgs);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  const getUnlocks = (techName: string): string[] =>
+    buildings
+      .filter((b) => b.researchRequired === techName)
+      .map((b) => b.name);
 
   const startResearch = async (techId: number) => {
     await api.post('/research/start', { techId });
@@ -84,6 +100,11 @@ export function ResearchPage() {
                     <> · <span className="text-red-400">Excludes: {tech.dependencies.filter((d) => d.type === 'EXCLUDE').flatMap((d) => d.techIds).map((p) => techs.find((t) => t.id === p)?.name || `#${p}`).join(', ')}</span></>
                   )}
                 </p>
+                {getUnlocks(tech.name).length > 0 && (
+                  <p className="text-[10px] text-cyan-400 mt-1">
+                    Schaltet frei: {getUnlocks(tech.name).join(', ')}
+                  </p>
+                )}
                 {tech.status === 'IN_PROGRESS' && (
                   <div className="mt-1">
                     <div className="flex justify-between text-[10px] text-swu-success">

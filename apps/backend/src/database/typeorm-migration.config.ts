@@ -8,6 +8,13 @@ import { CelestialObject } from '../modules/starmap/entities/celestial-object.en
 import { GalaxyFieldType } from '../modules/starmap/entities/galaxy-field-type.entity';
 import { GalaxyField } from '../modules/starmap/entities/galaxy-field.entity';
 import { SystemField } from '../modules/starmap/entities/system-field.entity';
+import { MapRegion } from '../modules/starmap/entities/map-region.entity';
+import { BorderType } from '../modules/starmap/entities/border-type.entity';
+import { ExplorationState } from '../modules/starmap/entities/exploration-state.entity';
+import { SystemExploration } from '../modules/starmap/entities/system-exploration.entity';
+import { PlanetField } from '../modules/starmap/entities/planet-field.entity';
+import { InfluenceArea } from '../modules/starmap/entities/influence-area.entity';
+import { Wormhole } from '../modules/starmap/entities/wormhole.entity';
 import { FactionEntity } from './migration-entities/faction.entity';
 import { FactionModifier } from './migration-entities/faction-modifier.entity';
 
@@ -30,6 +37,13 @@ const appDataSource = new DataSource({
     GalaxyFieldType,
     GalaxyField,
     SystemField,
+    MapRegion,
+    BorderType,
+    ExplorationState,
+    SystemExploration,
+    PlanetField,
+    InfluenceArea,
+    Wormhole,
     FactionEntity,
     FactionModifier,
   ],

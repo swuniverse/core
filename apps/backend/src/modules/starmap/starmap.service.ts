@@ -5,18 +5,13 @@ import { Layer } from './entities/layer.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { CelestialObject } from './entities/celestial-object.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
-
-export interface SectorSummary {
-  layerId: number;
-  sectorX: number;
-  sectorY: number;
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-  fieldCount: number;
-  systemCount: number;
-}
+import type {
+  StarmapCelestialObjectDto,
+  StarmapLayerDto,
+  StarmapSectorDto,
+  StarmapSystemDetailDto,
+  StarmapSystemListItemDto,
+} from '@swuniverse/shared';
 
 @Injectable()
 export class StarmapService {
@@ -31,18 +26,43 @@ export class StarmapService {
     private readonly galaxyFieldRepo: Repository<GalaxyField>,
   ) {}
 
-  async getLayers(): Promise<Layer[]> {
-    return this.layerRepo.find({ where: { isHidden: false } });
+  async getLayers(): Promise<StarmapLayerDto[]> {
+    const layers = await this.layerRepo.find({ where: { isHidden: false } });
+
+    return layers.map((layer) => ({
+      id: layer.id,
+      name: layer.name,
+      width: layer.width,
+      height: layer.height,
+      sectorSize: layer.sectorSize,
+      isDefault: layer.isDefault,
+      isColonizable: layer.isColonizable,
+      isNoobZone: layer.isNoobZone,
+      isFinished: layer.isFinished,
+      isHidden: layer.isHidden,
+    }));
   }
 
-  async getSystemsInLayer(layerId: number): Promise<StarSystem[]> {
-    return this.systemRepo.find({
+  async getSystemsInLayer(
+    layerId: number,
+  ): Promise<StarmapSystemListItemDto[]> {
+    const systems = await this.systemRepo.find({
       where: { layerId },
       order: { cx: 'ASC', cy: 'ASC' },
     });
+
+    return systems.map((system) => ({
+      id: system.id,
+      name: system.name,
+      cx: system.cx,
+      cy: system.cy,
+      maxX: system.maxX,
+      maxY: system.maxY,
+      systemTypeId: system.systemTypeId,
+    }));
   }
 
-  async getSectorsInLayer(layerId: number): Promise<SectorSummary[]> {
+  async getSectorsInLayer(layerId: number): Promise<StarmapSectorDto[]> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) throw new NotFoundException('Layer not found');
 
@@ -79,7 +99,7 @@ export class StarmapService {
       ]),
     );
 
-    const sectors: SectorSummary[] = [];
+    const sectors: StarmapSectorDto[] = [];
     for (let sectorY = 0; sectorY < sectorRows; sectorY++) {
       for (let sectorX = 0; sectorX < sectorColumns; sectorX++) {
         const key = `${sectorX}:${sectorY}`;
@@ -101,13 +121,41 @@ export class StarmapService {
     return sectors;
   }
 
-  async getSystemDetail(systemId: number): Promise<StarSystem> {
+  async getLayerById(layerId: number): Promise<Layer> {
+    const layer = await this.layerRepo.findOneBy({ id: layerId });
+    if (!layer) throw new NotFoundException('Layer not found');
+    return layer;
+  }
+
+  async getSystemDetail(systemId: number): Promise<StarmapSystemDetailDto> {
     const system = await this.systemRepo.findOne({
       where: { id: systemId },
       relations: ['celestialObjects'],
     });
     if (!system) throw new NotFoundException('System not found');
-    return system;
+
+    return {
+      id: system.id,
+      name: system.name,
+      cx: system.cx,
+      cy: system.cy,
+      systemTypeId: system.systemTypeId,
+      maxX: system.maxX,
+      maxY: system.maxY,
+      celestialObjects: system.celestialObjects.map((object) =>
+        this.toCelestialObjectDto(object),
+      ),
+    };
+  }
+
+  async getCelestialObject(id: number): Promise<CelestialObject> {
+    const obj = await this.objectRepo.findOneBy({ id });
+    if (!obj) throw new NotFoundException('Celestial object not found');
+    return obj;
+  }
+
+  async saveCelestialObject(obj: CelestialObject): Promise<CelestialObject> {
+    return this.objectRepo.save(obj);
   }
 
   async getObjectsInSystem(systemId: number): Promise<CelestialObject[]> {
@@ -115,5 +163,19 @@ export class StarmapService {
       where: { systemId },
       order: { posX: 'ASC', posY: 'ASC' },
     });
+  }
+
+  private toCelestialObjectDto(
+    object: CelestialObject,
+  ): StarmapCelestialObjectDto {
+    return {
+      id: object.id,
+      objectType: object.objectType,
+      name: object.name,
+      posX: object.posX,
+      posY: object.posY,
+      classId: object.classId,
+      isColonizable: object.isColonizable,
+    };
   }
 }

@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Post,
+  Delete,
   Param,
   Body,
   Query,
@@ -65,6 +66,15 @@ export class ColonyController {
     @Body('buildingId') buildingId: number,
   ) {
     return this.colonyService.build(id, req.user.sub, fieldIndex, buildingId);
+  }
+
+  @Delete(':id/fields/:fieldIndex/building')
+  demolish(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('fieldIndex', ParseIntPipe) fieldIndex: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.demolish(id, req.user.sub, fieldIndex);
   }
 
   @Post(':id/build-ship')

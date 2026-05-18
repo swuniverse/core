@@ -42,6 +42,12 @@ export class Message {
   @Column({ default: false })
   isSystem: boolean;
 
+  @Column({ default: false })
+  deletedBySender: boolean;
+
+  @Column({ default: false })
+  deletedByRecipient: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

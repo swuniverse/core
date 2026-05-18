@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
 
 interface Spacecraft {
   id: number;
@@ -34,7 +35,7 @@ interface Spacecraft {
 
 const STATUS_COLORS: Record<string, string> = {
   DOCKED: 'text-green-400',
-  IN_FLIGHT: 'text-swu-success',
+  IN_FLIGHT: 'text-amber-400',
   IN_COMBAT: 'text-red-400',
   DESTROYED: 'text-gray-500',
 };
@@ -50,7 +51,6 @@ export function SpacecraftPage() {
   const [ships, setShips] = useState<Spacecraft[]>([]);
   const [selected, setSelected] = useState<Spacecraft | null>(null);
   const [loading, setLoading] = useState(true);
-  const [navTarget, setNavTarget] = useState({ x: '', y: '' });
 
   useEffect(() => {
     api.get<Spacecraft[]>('/spacecraft').then((data) => {
@@ -63,7 +63,7 @@ export function SpacecraftPage() {
     });
   }, [searchParams]);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const data = await api.get<Spacecraft[]>('/spacecraft');
     setShips(data);
     if (selected) {
@@ -73,17 +73,13 @@ export function SpacecraftPage() {
         setSearchParams({ selected: String(updated.id) }, { replace: true });
       }
     }
-  };
+  }, [selected, setSearchParams]);
 
-  const handleNavigate = async () => {
-    if (!selected || !navTarget.x || !navTarget.y) return;
-    await api.post(`/spacecraft/${selected.id}/navigate`, {
-      targetX: Number(navTarget.x),
-      targetY: Number(navTarget.y),
-    });
-    setNavTarget({ x: '', y: '' });
-    refresh();
-  };
+  useEffect(() => {
+    if (selected?.status !== 'IN_FLIGHT') return;
+    const interval = setInterval(() => void refresh(), 5000);
+    return () => clearInterval(interval);
+  }, [selected?.status, refresh]);
 
   if (loading)
     return <div className="p-6 text-swu-muted">Loading fleet...</div>;
@@ -103,8 +99,8 @@ export function SpacecraftPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold text-swu-accent mb-4">Spacecraft</h1>
       <div className="flex gap-4">
-        {/* Ship List */}
-        <div className="w-52 space-y-2">
+        {/* Ship List (STU: Schiffsliste links) */}
+        <div className="w-52 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto">
           {ships.map((ship) => (
             <button
               key={ship.id}
@@ -115,99 +111,132 @@ export function SpacecraftPage() {
                   { replace: true },
                 );
               }}
-              className={`w-full text-left p-3 rounded border transition-colors ${
+              className={`w-full text-left p-2 rounded border transition-colors ${
                 selected?.id === ship.id
                   ? 'border-swu-accent bg-swu-accent/10'
                   : 'border-swu-border hover:border-swu-primary'
               }`}
             >
-              <div className="font-bold text-sm text-swu-primary">
+              <div className="font-bold text-xs text-swu-primary truncate">
                 {ship.name}
               </div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span
                   className={`w-2 h-2 rounded-full ${ALERT_COLORS[ship.alertState]}`}
                 />
-                <span className={`text-xs ${STATUS_COLORS[ship.status]}`}>
+                <span className={`text-[10px] ${STATUS_COLORS[ship.status]}`}>
                   {ship.status}
                 </span>
+                <span className="text-[10px] text-swu-muted ml-auto">
+                  [{ship.posX},{ship.posY}]
+                </span>
+              </div>
+              {/* Mini bars */}
+              <div className="flex gap-1 mt-1">
+                <MiniBar
+                  value={ship.hull}
+                  max={ship.hullMax}
+                  color="bg-red-500"
+                />
+                <MiniBar
+                  value={ship.shields}
+                  max={ship.shieldsMax}
+                  color="bg-blue-400"
+                />
+                <MiniBar
+                  value={ship.energy}
+                  max={ship.energyMax}
+                  color="bg-yellow-400"
+                />
               </div>
             </button>
           ))}
         </div>
 
-        {/* Ship Detail */}
+        {/* Ship Detail (STU: Hauptansicht) */}
         {selected && (
-          <div className="flex-1 space-y-4">
-            {/* Header */}
-            <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-swu-primary">
-                    {selected.name}
-                  </h2>
-                  <p className="text-xs text-swu-muted">
-                    {selected.shipClassName || `Class ${selected.shipClassId}`}{' '}
-                    ·{' '}
-                    {selected.locationLabel ||
-                      selected.celestialObject?.name ||
-                      selected.starSystem?.name ||
-                      'Deep Space'}{' '}
-                    [{selected.posX},{selected.posY}]
-                  </p>
-                </div>
+          <div className="flex-1 space-y-3">
+            {/* Header bar — STU style: Type, Position, Bars, Alert, Name */}
+            <div className="bg-swu-surface border border-swu-border rounded-lg p-3">
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span
                     className={`w-3 h-3 rounded-full ${ALERT_COLORS[selected.alertState]}`}
                   />
                   <span
-                    className={`text-sm font-bold ${STATUS_COLORS[selected.status]}`}
+                    className={`text-xs font-bold ${STATUS_COLORS[selected.status]}`}
                   >
                     {selected.status}
+                  </span>
+                </div>
+                <h2 className="text-sm font-bold text-swu-primary">
+                  {selected.name}
+                </h2>
+                <span className="text-[11px] text-swu-muted">
+                  {selected.shipClassName || `Class ${selected.shipClassId}`}
+                </span>
+                <span className="text-[11px] text-swu-muted">
+                  {selected.locationLabel ||
+                    selected.celestialObject?.name ||
+                    selected.starSystem?.name ||
+                    'Deep Space'}{' '}
+                  [{selected.posX},{selected.posY}]
+                </span>
+                <div className="ml-auto flex items-center gap-3">
+                  <HeaderBar
+                    label="H"
+                    value={selected.hull}
+                    max={selected.hullMax}
+                    color="bg-red-500"
+                  />
+                  <HeaderBar
+                    label="S"
+                    value={selected.shields}
+                    max={selected.shieldsMax}
+                    color="bg-blue-400"
+                  />
+                  <HeaderBar
+                    label="E"
+                    value={selected.energy}
+                    max={selected.energyMax}
+                    color="bg-yellow-400"
+                  />
+                  <span className="text-[10px] text-swu-muted">
+                    W:{selected.warpSpeed} C:{selected.crew}/{selected.crewMax}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-3">
-                <h3 className="text-xs font-bold text-swu-muted">
-                  Ship Systems
+            {/* Navigation Panel (LSS + Steuerkreuz) — Primary interaction */}
+            <NavigationPanel ship={selected} onShipUpdate={refresh} />
+
+            {/* Bottom: Specs + Systems + Cargo — secondary info */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
+                <h3 className="text-[10px] font-bold text-swu-muted uppercase">
+                  Antrieb
                 </h3>
-                <ShipBar
-                  label="Hull"
-                  current={selected.hull}
-                  max={selected.hullMax}
-                  color="bg-red-500"
-                />
-                <ShipBar
-                  label="Shields"
-                  current={selected.shields}
-                  max={selected.shieldsMax}
-                  color="bg-blue-400"
-                />
-                <ShipBar
-                  label="Energy"
-                  current={selected.energy}
-                  max={selected.energyMax}
-                  color="bg-yellow-400"
-                />
-              </div>
-              <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-2">
-                <h3 className="text-xs font-bold text-swu-muted">Specs</h3>
+                <StatRow label="Warp" value={`${selected.warpSpeed}`} />
                 <StatRow
-                  label="Warp Speed"
-                  value={selected.warpSpeed.toString()}
-                />
-                <StatRow
-                  label="Warp Cooldown"
+                  label="Cooldown"
                   value={
                     selected.warpCooldown > 0
-                      ? `${selected.warpCooldown} ticks`
-                      : 'Ready'
+                      ? `${selected.warpCooldown}T`
+                      : '—'
                   }
                 />
+                {selected.status === 'IN_FLIGHT' && selected.arrivalAt && (
+                  <StatRow
+                    label="ETA"
+                    value={new Date(selected.arrivalAt).toLocaleTimeString()}
+                  />
+                )}
+              </div>
+              <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
+                <h3 className="text-[10px] font-bold text-swu-muted uppercase">
+                  Kapazität
+                </h3>
                 <StatRow
                   label="Crew"
                   value={`${selected.crew}/${selected.crewMax}`}
@@ -217,64 +246,21 @@ export function SpacecraftPage() {
                   value={`${selected.cargoUsed ?? 0}/${selected.cargoMax ?? 0}`}
                 />
                 <StatRow
-                  label="Modules"
+                  label="Module"
                   value={String(selected.moduleCount ?? 0)}
                 />
-                <StatRow
-                  label="Fleet"
-                  value={selected.fleetName || 'No fleet'}
-                />
-                {selected.arrivalAt && (
-                  <StatRow
-                    label="ETA"
-                    value={new Date(selected.arrivalAt).toLocaleTimeString()}
-                  />
-                )}
+              </div>
+              <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
+                <h3 className="text-[10px] font-bold text-swu-muted uppercase">
+                  Flotte
+                </h3>
+                <StatRow label="Flotte" value={selected.fleetName || '—'} />
+                <StatRow label="Batterie" value="—" />
               </div>
             </div>
 
-            {/* Navigation */}
-            {selected.status === 'DOCKED' && (
-              <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-                <h3 className="text-xs font-bold text-swu-muted mb-2">
-                  Navigate (in-system)
-                </h3>
-                <div className="flex items-end gap-2">
-                  <div>
-                    <label className="text-[10px] text-swu-muted">X</label>
-                    <input
-                      type="number"
-                      value={navTarget.x}
-                      onChange={(e) =>
-                        setNavTarget({ ...navTarget, x: e.target.value })
-                      }
-                      className="w-16 bg-swu-bg border border-swu-border rounded px-2 py-1 text-sm text-swu-primary"
-                      min={0}
-                      max={20}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-swu-muted">Y</label>
-                    <input
-                      type="number"
-                      value={navTarget.y}
-                      onChange={(e) =>
-                        setNavTarget({ ...navTarget, y: e.target.value })
-                      }
-                      className="w-16 bg-swu-bg border border-swu-border rounded px-2 py-1 text-sm text-swu-primary"
-                      min={0}
-                      max={20}
-                    />
-                  </div>
-                  <button
-                    onClick={handleNavigate}
-                    className="px-3 py-1 bg-swu-primary/20 border border-swu-primary text-swu-primary text-sm rounded hover:bg-swu-primary/30 transition-colors"
-                  >
-                    Go
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Cargo / Transfer Panel */}
+            <CargoPanel shipId={selected.id} cargoMax={selected.cargoMax ?? 0} onTransfer={refresh} />
           </div>
         )}
       </div>
@@ -282,41 +268,214 @@ export function SpacecraftPage() {
   );
 }
 
-function ShipBar({
+function MiniBar({
+  value,
+  max,
+  color,
+}: {
+  value: number;
+  max: number;
+  color: string;
+}) {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <div className="flex-1 h-1.5 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
+      <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function HeaderBar({
   label,
-  current,
+  value,
   max,
   color,
 }: {
   label: string;
-  current: number;
+  value: number;
   max: number;
   color: string;
 }) {
-  const pct = max > 0 ? (current / max) * 100 : 0;
+  const pct = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div>
-      <div className="flex justify-between text-xs text-swu-muted mb-1">
-        <span>{label}</span>
-        <span>
-          {current}/{max}
-        </span>
-      </div>
-      <div className="h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border">
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] text-swu-muted">{label}</span>
+      <div className="w-16 h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
         <div
           className={`h-full ${color} transition-all`}
           style={{ width: `${pct}%` }}
         />
       </div>
+      <span className="text-[10px] text-swu-muted font-mono">{value}</span>
     </div>
   );
 }
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-xs">
+    <div className="flex justify-between text-[11px]">
       <span className="text-swu-muted">{label}</span>
       <span className="text-swu-primary font-mono">{value}</span>
+    </div>
+  );
+}
+
+interface CargoItemData {
+  id: number;
+  commodityId: number;
+  amount: number;
+}
+
+interface ColonySummary {
+  id: number;
+  name: string;
+}
+
+function CargoPanel({
+  shipId,
+  cargoMax,
+  onTransfer,
+}: {
+  shipId: number;
+  cargoMax: number;
+  onTransfer: () => void;
+}) {
+  const [cargo, setCargo] = useState<CargoItemData[]>([]);
+  const [colonies, setColonies] = useState<ColonySummary[]>([]);
+  const [selectedColony, setSelectedColony] = useState<number | null>(null);
+  const [transferCommodity, setTransferCommodity] = useState<number>(1);
+  const [transferAmount, setTransferAmount] = useState<number>(10);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<CargoItemData[]>(`/spacecraft/${shipId}/cargo`).then(setCargo);
+    api.get<ColonySummary[]>('/colonies').then((c) => {
+      setColonies(c);
+      if (c.length > 0 && !selectedColony) setSelectedColony(c[0].id);
+    });
+  }, [shipId]);
+
+  const handleLoad = async () => {
+    if (!selectedColony) return;
+    setMessage(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/cargo/load`, {
+        colonyId: selectedColony,
+        commodityId: transferCommodity,
+        amount: transferAmount,
+      });
+      const updated = await api.get<CargoItemData[]>(
+        `/spacecraft/${shipId}/cargo`,
+      );
+      setCargo(updated);
+      onTransfer();
+      setMessage('Beladen erfolgreich');
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : 'Fehler');
+    }
+  };
+
+  const handleUnload = async () => {
+    if (!selectedColony) return;
+    setMessage(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/cargo/unload`, {
+        colonyId: selectedColony,
+        commodityId: transferCommodity,
+        amount: transferAmount,
+      });
+      const updated = await api.get<CargoItemData[]>(
+        `/spacecraft/${shipId}/cargo`,
+      );
+      setCargo(updated);
+      onTransfer();
+      setMessage('Entladen erfolgreich');
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : 'Fehler');
+    }
+  };
+
+  const cargoUsed = cargo.reduce((sum, c) => sum + c.amount, 0);
+
+  return (
+    <div className="bg-swu-surface border border-swu-border rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[10px] font-bold text-swu-muted uppercase">
+          Frachtraum
+        </h3>
+        <span className="text-[10px] text-swu-muted">
+          {cargoUsed}/{cargoMax}
+        </span>
+      </div>
+
+      {cargo.length > 0 ? (
+        <div className="grid grid-cols-4 gap-1 mb-3">
+          {cargo.map((item) => (
+            <div
+              key={item.id}
+              className="bg-swu-bg/50 border border-swu-border/30 rounded px-2 py-1 text-[10px]"
+            >
+              <span className="text-swu-muted">#{item.commodityId}</span>
+              <span className="text-swu-primary font-mono ml-1">
+                {item.amount}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[10px] text-swu-muted mb-3">Frachtraum leer</p>
+      )}
+
+      {colonies.length > 0 && (
+        <div className="border-t border-swu-border/50 pt-2 space-y-2">
+          <div className="flex gap-2 items-center">
+            <select
+              value={selectedColony ?? ''}
+              onChange={(e) => setSelectedColony(Number(e.target.value))}
+              className="flex-1 px-2 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary"
+            >
+              {colonies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={1}
+              value={transferCommodity}
+              onChange={(e) => setTransferCommodity(Number(e.target.value))}
+              className="w-14 px-1 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary text-center"
+              title="Commodity ID"
+            />
+            <input
+              type="number"
+              min={1}
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(Number(e.target.value))}
+              className="w-16 px-1 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary text-center"
+              title="Menge"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => void handleLoad()}
+              className="flex-1 px-2 py-1 rounded border border-green-500/60 bg-green-500/10 text-[10px] font-bold text-green-300 hover:bg-green-500/20"
+            >
+              Beladen
+            </button>
+            <button
+              onClick={() => void handleUnload()}
+              className="flex-1 px-2 py-1 rounded border border-amber-500/60 bg-amber-500/10 text-[10px] font-bold text-amber-300 hover:bg-amber-500/20"
+            >
+              Entladen
+            </button>
+          </div>
+          {message && (
+            <p className="text-[10px] text-swu-muted">{message}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

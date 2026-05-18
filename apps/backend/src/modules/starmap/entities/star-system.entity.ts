@@ -35,10 +35,10 @@ export class StarSystem {
   @Column()
   systemTypeId: number;
 
-  @Column({ default: 20 })
+  @Column({ default: 22 })
   maxX: number;
 
-  @Column({ default: 20 })
+  @Column({ default: 22 })
   maxY: number;
 
   @OneToMany(() => CelestialObject, (obj) => obj.starSystem)

@@ -3,15 +3,48 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Layer } from '../entities/layer.entity';
 import { StarSystem } from '../entities/star-system.entity';
-import { CelestialObject, CelestialObjectType } from '../entities/celestial-object.entity';
+import {
+  CelestialObject,
+  CelestialObjectType,
+} from '../entities/celestial-object.entity';
 
 const STAR_NAMES = [
-  'Tatooine', 'Coruscant', 'Naboo', 'Hoth', 'Endor', 'Dagobah',
-  'Mustafar', 'Kashyyyk', 'Kamino', 'Geonosis', 'Bespin', 'Yavin',
-  'Alderaan', 'Mandalore', 'Lothal', 'Scarif', 'Jedha', 'Jakku',
-  'Corellia', 'Kessel', 'Dantooine', 'Mon Cala', 'Sullust', 'Ryloth',
-  'Nal Hutta', 'Felucia', 'Christophsis', 'Dathomir', 'Ilum', 'Crait',
-  'Exegol', 'Kijimi', 'Pasaana', 'Ajan Kloss', 'Nevarro', 'Arvala-7',
+  'Tatooine',
+  'Coruscant',
+  'Naboo',
+  'Hoth',
+  'Endor',
+  'Dagobah',
+  'Mustafar',
+  'Kashyyyk',
+  'Kamino',
+  'Geonosis',
+  'Bespin',
+  'Yavin',
+  'Alderaan',
+  'Mandalore',
+  'Lothal',
+  'Scarif',
+  'Jedha',
+  'Jakku',
+  'Corellia',
+  'Kessel',
+  'Dantooine',
+  'Mon Cala',
+  'Sullust',
+  'Ryloth',
+  'Nal Hutta',
+  'Felucia',
+  'Christophsis',
+  'Dathomir',
+  'Ilum',
+  'Crait',
+  'Exegol',
+  'Kijimi',
+  'Pasaana',
+  'Ajan Kloss',
+  'Nevarro',
+  'Arvala-7',
 ];
 
 const PLANET_CLASSES = [101, 102, 103, 104, 105, 201, 202, 203, 301, 302];
@@ -73,8 +106,8 @@ export class GalaxyGeneratorService {
         cy,
         layerId: layer.id,
         systemTypeId: 1001 + Math.floor(Math.random() * 10),
-        maxX: 20,
-        maxY: 20,
+        maxX: 22,
+        maxY: 22,
       });
       await this.systemRepo.save(system);
 
@@ -92,7 +125,8 @@ export class GalaxyGeneratorService {
         name: `${system.name} ${this.toRoman(i + 1)}`,
         posX: 3 + i * 3 + Math.floor(Math.random() * 2),
         posY: 8 + Math.floor(Math.random() * 5),
-        classId: PLANET_CLASSES[Math.floor(Math.random() * PLANET_CLASSES.length)],
+        classId:
+          PLANET_CLASSES[Math.floor(Math.random() * PLANET_CLASSES.length)],
         isColonizable: Math.random() > 0.3,
       });
       await this.objectRepo.save(planet);
@@ -131,7 +165,18 @@ export class GalaxyGeneratorService {
   }
 
   private toRoman(n: number): string {
-    const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+    const numerals = [
+      'I',
+      'II',
+      'III',
+      'IV',
+      'V',
+      'VI',
+      'VII',
+      'VIII',
+      'IX',
+      'X',
+    ];
     return numerals[n - 1] || `${n}`;
   }
 }

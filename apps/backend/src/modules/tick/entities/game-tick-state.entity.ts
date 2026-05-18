@@ -23,7 +23,7 @@ export class GameTickState {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'bigint' })
   tickNumber: number;
 
   @Column({ type: 'varchar' })
