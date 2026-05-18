@@ -86,8 +86,10 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd /opt/swuniverse/core || exit 1
+            git config --global url."https://x-access-token:${{ secrets.GHCR_TOKEN }}@github.com/".insteadOf "https://github.com/"
             git pull origin main || exit 1
             git submodule update --init --recursive || exit 1
+            git config --global --unset url."https://x-access-token:${{ secrets.GHCR_TOKEN }}@github.com/".insteadOf
             chmod +x deploy-remote.sh
             export GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"
             ./deploy-remote.sh
