@@ -1,9 +1,7 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get } from '@nestjs/common';
 import { FactionService } from './faction.service';
 
 @Controller('factions')
-@UseGuards(AuthGuard('jwt'))
 export class FactionController {
   constructor(private readonly factionService: FactionService) {}
 
