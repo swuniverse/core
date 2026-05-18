@@ -36,8 +36,6 @@ export class StarmapService {
       height: layer.height,
       sectorSize: layer.sectorSize,
       isDefault: layer.isDefault,
-      isColonizable: layer.isColonizable,
-      isNoobZone: layer.isNoobZone,
       isFinished: layer.isFinished,
       isHidden: layer.isHidden,
     }));

@@ -248,8 +248,6 @@ export class StarmapAdminService {
       height: input.height,
       sectorSize: input.sectorSize ?? 20,
       isDefault: input.isDefault ?? false,
-      isColonizable: input.isColonizable ?? true,
-      isNoobZone: input.isNoobZone ?? false,
       isFinished: input.isFinished ?? false,
       isHidden: input.isHidden ?? false,
     });
@@ -1009,8 +1007,6 @@ export class StarmapAdminService {
       height: layer.height,
       sectorSize: layer.sectorSize,
       isDefault: layer.isDefault,
-      isColonizable: layer.isColonizable,
-      isNoobZone: layer.isNoobZone,
       isFinished: layer.isFinished,
       isHidden: layer.isHidden,
     };

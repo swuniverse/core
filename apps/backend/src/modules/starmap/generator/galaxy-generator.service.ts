@@ -81,8 +81,6 @@ export class GalaxyGeneratorService {
       height: 8,
       sectorSize: 20,
       isDefault: true,
-      isColonizable: true,
-      isNoobZone: true,
       isFinished: false,
       isHidden: false,
     });

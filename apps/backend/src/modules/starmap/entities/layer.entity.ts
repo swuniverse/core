@@ -25,12 +25,6 @@ export class Layer {
   isDefault: boolean;
 
   @Column({ default: false })
-  isColonizable: boolean;
-
-  @Column({ default: false })
-  isNoobZone: boolean;
-
-  @Column({ default: false })
   isFinished: boolean;
 
   @Column({ default: true })

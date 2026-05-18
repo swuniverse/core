@@ -45,8 +45,7 @@ export function LayerPanel() {
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-swu-muted">
           {([
-            ['isDefault', 'Default'], ['isColonizable', 'Colonizable'],
-            ['isNoobZone', 'Noob Zone'], ['isFinished', 'Finished'], ['isHidden', 'Hidden'],
+            ['isDefault', 'Default'], ['isFinished', 'Finished'], ['isHidden', 'Hidden'],
           ] as Array<[keyof StarmapCreateLayerDto, string]>).map(([key, label]) => (
             <label key={key} className="flex items-center gap-2">
               <input type="checkbox" checked={Boolean(layerForm[key])}

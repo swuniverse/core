@@ -54,8 +54,6 @@ export const defaultLayerForm: StarmapCreateLayerDto = {
   height: 120,
   sectorSize: 20,
   isDefault: true,
-  isColonizable: true,
-  isNoobZone: false,
   isFinished: false,
   isHidden: false,
 };

@@ -5,8 +5,6 @@ export interface StarmapLayerDto {
   height: number;
   sectorSize: number;
   isDefault: boolean;
-  isColonizable: boolean;
-  isNoobZone: boolean;
   isFinished: boolean;
   isHidden: boolean;
 }
@@ -124,8 +122,6 @@ export interface StarmapCreateLayerDto {
   height: number;
   sectorSize?: number;
   isDefault?: boolean;
-  isColonizable?: boolean;
-  isNoobZone?: boolean;
   isFinished?: boolean;
   isHidden?: boolean;
 }
