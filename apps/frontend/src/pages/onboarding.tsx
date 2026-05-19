@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Faction } from '@swuniverse/shared';
+import {
+  Faction,
+  getStuClassDescription,
+  getStuClassLabel,
+  isStarterPlanetClass,
+  STU_CELESTIAL_CLASSES,
+} from '@swuniverse/shared';
 import type { UserProfile } from '@swuniverse/shared';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
+import { planetImage } from '../lib/assets';
 
 type UserWithOnboarding = UserProfile & {
   onboardingCompleted?: boolean;
@@ -53,6 +60,8 @@ interface CelestialObjectDto {
   posY: number;
   classId: number | null;
   systemId: number;
+  objectType?: number;
+  isColonizable?: boolean;
 }
 
 interface StarterColonyDto {
@@ -89,51 +98,13 @@ interface StarterClassHint {
   starterAllowed: boolean;
 }
 
-const STU_PLANET_CLASS_LABELS: Array<{
-  match: (classId: number) => boolean;
-  label: string;
-}> = [
-  { match: (classId) => classId >= 701 && classId <= 718, label: 'Asteroid' },
-  { match: (classId) => classId >= 401 && classId <= 431, label: 'Mond' },
-  { match: (classId) => classId >= 301 && classId <= 363, label: 'Ringplanet' },
-  { match: (classId) => classId >= 261 && classId <= 263, label: 'I' },
-  { match: (classId) => classId === 231, label: 'D' },
-  { match: (classId) => classId === 223, label: 'N' },
-  { match: (classId) => classId === 221, label: 'Q' },
-  { match: (classId) => classId === 219, label: 'G' },
-  { match: (classId) => classId === 217, label: 'X' },
-  { match: (classId) => classId === 216 || classId === 215, label: 'P' },
-  { match: (classId) => classId === 213, label: 'H' },
-  { match: (classId) => classId === 211, label: 'K' },
-  { match: (classId) => classId === 209, label: 'T' },
-  { match: (classId) => classId === 207, label: 'S' },
-  { match: (classId) => classId === 205, label: 'O' },
-  { match: (classId) => classId === 203, label: 'L' },
-  { match: (classId) => classId === 201, label: 'M' },
-];
-
 function formatPlanetClass(classId: number | null | undefined): string {
-  if (classId === null || classId === undefined) return 'Unbekannt';
-  const mapped = STU_PLANET_CLASS_LABELS.find((e) => e.match(classId));
-  return mapped ? mapped.label : String(classId);
+  return getStuClassLabel(classId);
 }
 
-const PLANET_CLASS_DESCRIPTIONS: Record<string, string> = {
-  M: 'Temperiert — ausgewogene Mischung aus Ebenen, Waeldern und Ozeanen',
-  L: 'Waldplanet — dichte Vegetation, Suempfe und Ebenen',
-  O: 'Ozeanplanet — wasserreich, wenig Landmasse',
-  K: 'Wuestenplanet — trocken, felsig, mineralreich',
-  H: 'Vulkanplanet — extremes Klima, mineralreich',
-  P: 'Eisplanet — gefroren, karge Oberflaeche',
-  D: 'Oedland — wenig Atmosphaere, karg',
-  X: 'Daemonenklasse — extrem feindlich',
-  G: 'Geodaetisch — gemischt, Eis und Gestein',
-  Q: 'Dichte Atmosphaere — spezielles Terrain',
-  S: 'Kleinplanet — geringe Oberflaeche',
-  T: 'Gasarm — minimale Felder',
-  I: 'Gasriese — nicht kolonisierbar',
-  N: 'Reduktiv — keine Oberflaeche',
-};
+const STARTER_PLANET_CLASS_DESCRIPTIONS = STU_CELESTIAL_CLASSES.filter(
+  (definition) => definition.allowStart,
+).map((definition) => [definition.code, definition.description] as const);
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
@@ -269,7 +240,9 @@ export function OnboardingPage() {
       const planetRes = await api.get<CelestialObjectDto[]>(
         `/onboarding/planets?systemId=${systemId}`,
       );
-      setPlanets(planetRes);
+      setPlanets(
+        planetRes.filter((planet) => isStarterPlanetClass(planet.classId)),
+      );
       setSelectedPlanetId(null);
     } catch (err) {
       setError(
@@ -460,8 +433,10 @@ export function OnboardingPage() {
               Heimatwelt waehlen
             </h1>
             <p className="text-swu-muted mt-2">
-              Waehle Sektor, System und Planet. Claim erstellt Starter-Kolonie,
-              Schiff und Flotte.
+              Waehle Sektor, System und Planet. Als Startplaneten werden nur
+              kolonialisierbare M-, L- oder O-Klasse-Planeten angezeigt; andere
+              Klassen benoetigen spaeter passende Technologie. Claim erstellt
+              Starter-Kolonie, Schiff und Flotte.
             </p>
           </div>
 
@@ -498,7 +473,8 @@ export function OnboardingPage() {
 
             {sectors.length === 0 && (
               <p className="text-swu-muted text-sm">
-                Keine Karte vorhanden. Ein Admin muss zuerst die Galaxie generieren.
+                Keine Karte vorhanden. Ein Admin muss zuerst die Galaxie
+                generieren.
               </p>
             )}
 
@@ -551,7 +527,11 @@ export function OnboardingPage() {
                     key={system.id}
                     type="button"
                     disabled={saving}
-                    onClick={() => setSelectedSystemId(system.id)}
+                    onClick={() => {
+                      setPlanets([]);
+                      setSelectedPlanetId(null);
+                      setSelectedSystemId(system.id);
+                    }}
                     className={`w-full rounded border p-4 text-left transition ${
                       selectedSystemId === system.id
                         ? 'border-swu-accent bg-swu-accent/10'
@@ -570,10 +550,18 @@ export function OnboardingPage() {
             </div>
 
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-4">3. Planet</h2>
+              <h2 className="text-lg font-bold mb-2">3. Planet</h2>
+              <p className="text-xs text-swu-muted mb-4">
+                Nur kolonialisierbare M-, L- und O-Klasse-Planeten koennen als
+                Heimatwelt gewaehlt werden.
+              </p>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {planets.length === 0 && (
-                  <p className="text-swu-muted text-sm">Choose system first.</p>
+                  <p className="text-swu-muted text-sm">
+                    {selectedSystemId
+                      ? 'In diesem System gibt es keine geeigneten Startplaneten der Klasse M, L oder O.'
+                      : 'Choose system first.'}
+                  </p>
                 )}
                 {planets.map((planet) => {
                   const classLabel = formatPlanetClass(planet.classId);
@@ -583,22 +571,30 @@ export function OnboardingPage() {
                       type="button"
                       disabled={saving}
                       onClick={() => setSelectedPlanetId(planet.id)}
-                      className={`w-full rounded border p-4 text-left transition ${
+                      className={`w-full rounded border p-4 text-left transition flex items-center gap-4 ${
                         selectedPlanetId === planet.id
                           ? 'border-swu-accent bg-swu-accent/10'
                           : 'border-swu-border hover:border-swu-primary'
                       }`}
                     >
-                      <div className="font-bold text-swu-primary">
-                        {planet.name ?? `Planet ${planet.id}`}
-                      </div>
-                      <div className="text-xs text-swu-muted mt-1">
-                        Position: {planet.posX} | {planet.posY} · Klasse {classLabel}
-                        {PLANET_CLASS_DESCRIPTIONS[classLabel] && (
+                      {planet.classId && (
+                        <img
+                          src={planetImage(planet.classId)}
+                          alt={`Klasse ${classLabel}`}
+                          className="w-12 h-12 object-contain shrink-0"
+                        />
+                      )}
+                      <div>
+                        <div className="font-bold text-swu-primary">
+                          {planet.name ?? `Planet ${planet.id}`}
+                        </div>
+                        <div className="text-xs text-swu-muted mt-1">
+                          Position: {planet.posX} | {planet.posY} · Klasse{' '}
+                          {classLabel}
                           <span className="ml-1 text-swu-muted/70">
-                            — {PLANET_CLASS_DESCRIPTIONS[classLabel]}
+                            — {getStuClassDescription(planet.classId)}
                           </span>
-                        )}
+                        </div>
                       </div>
                     </button>
                   );
@@ -608,10 +604,15 @@ export function OnboardingPage() {
                 <h4 className="text-xs font-bold text-swu-muted uppercase tracking-wide mb-2">
                   Planetentypen
                 </h4>
+                <p className="text-xs text-swu-muted mb-2">
+                  Fuer den Spielstart sind nur M-, L- und O-Klasse erlaubt.
+                </p>
                 <div className="space-y-1 text-xs text-swu-muted">
-                  {Object.entries(PLANET_CLASS_DESCRIPTIONS).map(([key, desc]) => (
+                  {STARTER_PLANET_CLASS_DESCRIPTIONS.map(([key, desc]) => (
                     <div key={key}>
-                      <span className="font-bold text-swu-primary">{key}-Klasse:</span>{' '}
+                      <span className="font-bold text-swu-primary">
+                        {key}-Klasse:
+                      </span>{' '}
                       {desc}
                     </div>
                   ))}

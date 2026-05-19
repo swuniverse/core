@@ -1015,6 +1015,7 @@ export class SpacecraftService {
                 id: f.celestialObject.id,
                 name: f.celestialObject.name,
                 objectType: f.celestialObject.objectType,
+                classId: f.celestialObject.classId,
                 posX: f.celestialObject.posX,
                 posY: f.celestialObject.posY,
               }

@@ -6,6 +6,7 @@ import { GalaxyField } from './entities/galaxy-field.entity';
 import { SystemField } from './entities/system-field.entity';
 import type { ExplorationService } from './exploration.service';
 import { ExplorationLevel } from './entities/exploration-state.entity';
+import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import type {
   StarmapCelestialObjectDto,
   StarmapExploredGalaxyFieldDto,
@@ -161,11 +162,18 @@ export class StarmapQueryService {
         relations: ['fieldType', 'starSystem'],
         order: { cy: 'ASC', cx: 'ASC' },
       }),
-      explorationService.getExploredFieldsInSector(userId, layerId, minX, maxX, minY, maxY),
+      explorationService.getExploredFieldsInSector(
+        userId,
+        layerId,
+        minX,
+        maxX,
+        minY,
+        maxY,
+      ),
     ]);
 
     const exploredMap = new Map(
-      exploredStates.map(s => [`${s.cx},${s.cy}`, s.explorationLevel]),
+      exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
     );
 
     const fields: StarmapExploredGalaxyFieldDto[] = [];
@@ -204,7 +212,9 @@ export class StarmapQueryService {
           regionId: field.regionId,
           explorationLevel: 'FULL',
           fieldType: this.toFieldTypeDTO(field.fieldType),
-          starSystem: field.starSystem ? this.toSystemListItemDTO(field.starSystem) : null,
+          starSystem: field.starSystem
+            ? this.toSystemListItemDTO(field.starSystem)
+            : null,
         });
       }
     }
@@ -251,7 +261,12 @@ export class StarmapQueryService {
       maxX: system.maxX,
       maxY: system.maxY,
       systemTypeId: system.systemTypeId,
+      systemTypeName: this.getSystemTypeName(system.systemTypeId),
     };
+  }
+
+  private getSystemTypeName(systemTypeId: number): string {
+    return SYSTEM_TYPE_BY_ID[systemTypeId]?.name ?? `Typ ${systemTypeId}`;
   }
 
   private toSystemFieldDTO(field: SystemField): StarmapSystemFieldDto {
@@ -270,6 +285,9 @@ export class StarmapQueryService {
       influenceAreaId: field.influenceAreaId,
       borderMask: field.borderMask,
       fieldType: this.toFieldTypeDTO(field.fieldType),
+      celestialObject: field.celestialObject
+        ? this.toCelestialObjectDTO(field.celestialObject)
+        : null,
     };
   }
 

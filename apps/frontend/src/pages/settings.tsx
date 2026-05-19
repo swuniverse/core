@@ -200,12 +200,28 @@ function SecurityTab() {
 function NotificationsTab() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get<Record<string, string>>('/user/settings').then((s) => {
-      setSettings(s);
-      setLoaded(true);
-    });
+    let active = true;
+    api
+      .get<Record<string, string>>('/user/settings')
+      .then((s) => {
+        if (!active) return;
+        setSettings(s);
+      })
+      .catch((e: Error) => {
+        if (!active) return;
+        setError(e.message || 'Einstellungen konnten nicht geladen werden.');
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const toggle = async (key: string) => {
@@ -216,6 +232,7 @@ function NotificationsTab() {
   };
 
   if (!loaded) return <p className="text-swu-muted text-sm">Laden...</p>;
+  if (error) return <p className="text-red-300 text-sm">{error}</p>;
 
   return (
     <div className="space-y-3 max-w-lg">
@@ -243,12 +260,28 @@ function NotificationsTab() {
 function GameplayTab() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get<Record<string, string>>('/user/settings').then((s) => {
-      setSettings(s);
-      setLoaded(true);
-    });
+    let active = true;
+    api
+      .get<Record<string, string>>('/user/settings')
+      .then((s) => {
+        if (!active) return;
+        setSettings(s);
+      })
+      .catch((e: Error) => {
+        if (!active) return;
+        setError(e.message || 'Einstellungen konnten nicht geladen werden.');
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const setDefault = async (value: string) => {
@@ -258,6 +291,7 @@ function GameplayTab() {
   };
 
   if (!loaded) return <p className="text-swu-muted text-sm">Laden...</p>;
+  if (error) return <p className="text-red-300 text-sm">{error}</p>;
 
   return (
     <div className="space-y-3 max-w-lg">

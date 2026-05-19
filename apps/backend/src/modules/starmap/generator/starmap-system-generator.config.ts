@@ -16,27 +16,95 @@ export type StarmapGeneratorConfig = {
   isBinary: boolean;
   primarySystemTypeId: number;
   secondarySystemTypeId: number | null;
+  planetProbabilities: Record<number, number>;
+  moonProbabilities: Record<number, number>;
+  asteroidProbabilities: Record<number, number>;
+  planetProbabilityBlacklist: number[];
+  moonProbabilityBlacklist: number[];
+  asteroidProbabilityBlacklist: number[];
+  /** @deprecated use planetProbabilities + planetProbabilityBlacklist */
   classPool: number[];
 };
 
-/**
- * Planet class pools by system context (STU ID scheme).
- * Planets: 201=M, 203=L, 205=O, 211=K, 213=H, 215=P, 217=X, 219=G, 221=Q, 231=D
- * Ring planets: 301=M-R, 303=L-R, 305=O-R
- * Moons: 401=M, 403=L, 405=O, 411=K, 413=H, 415=P
- * Asteroids: 701-718
- */
-const CLASS_POOL_STANDARD = [201, 203, 205, 211, 215];
-const CLASS_POOL_LARGE = [201, 203, 205, 211, 213, 215, 301, 303, 305];
-const CLASS_POOL_HOSTILE = [211, 213, 217, 231];
-const CLASS_POOL_RARE = [219, 221, 261, 262, 263];
+export const STU_PLANET_PROBABILITIES: Record<number, number> = {
+  231: 100,
+  215: 92,
+  213: 86,
+  219: 85,
+  211: 84,
+  201: 74,
+  203: 73,
+  217: 70,
+  205: 69,
+  221: 63,
+  223: 57,
+  209: 47,
+  207: 43,
+  361: 25,
+  262: 19,
+  216: 18,
+  362: 18,
+  263: 15,
+  363: 15,
+  317: 14,
+  331: 13,
+  313: 12,
+  315: 12,
+  261: 11,
+  305: 9,
+  303: 9,
+  301: 9,
+};
 
-function getClassPoolForType(def: SystemTypeDefinition): number[] {
-  if (def.rarity === 'VERY_RARE' || def.minPlanets === 0) return [];
-  if (def.rarity === 'RARE') return CLASS_POOL_RARE;
-  if (def.id >= 1061 && def.id <= 1066) return CLASS_POOL_HOSTILE;
-  if (def.gridSizeMax >= 25) return CLASS_POOL_LARGE;
-  return CLASS_POOL_STANDARD;
+export const STU_MOON_PROBABILITIES: Record<number, number> = {
+  431: 100,
+  415: 41,
+  419: 40,
+  413: 40,
+  411: 39,
+  403: 25,
+  405: 22,
+  401: 21,
+  417: 15,
+  407: 13,
+  416: 12,
+  421: 11,
+  423: 9,
+  409: 6,
+};
+
+export const STU_ASTEROID_PROBABILITIES: Record<number, number> = {
+  701: 18,
+  702: 14,
+  703: 8,
+  704: 14,
+  705: 11,
+  706: 6,
+  707: 14,
+  708: 11,
+  709: 6,
+  716: 10,
+  717: 8,
+  718: 5,
+};
+
+const ALL_STU_PLANET_CLASS_IDS = Object.keys(STU_PLANET_PROBABILITIES).map(
+  Number,
+);
+
+function getPlanetBlacklistForType(def: SystemTypeDefinition): number[] {
+  if (def.rarity === 'VERY_RARE' || def.minPlanets === 0) {
+    return ALL_STU_PLANET_CLASS_IDS;
+  }
+  // Very hot / hostile systems should not contain starter-friendly M/L/O worlds.
+  if (def.id >= 1061 && def.id <= 1066) {
+    return [201, 203, 205, 301, 303, 305];
+  }
+  // Rare compact/special systems skew toward uncommon and uninhabitable classes.
+  if (def.rarity === 'RARE') {
+    return [201, 203, 205, 211, 213, 215, 301, 303, 305];
+  }
+  return [];
 }
 
 /**
@@ -55,6 +123,8 @@ export function resolveGeneratorConfig(
   const gridSize = rng.nextInt(def.gridSizeMin, def.gridSizeMax);
   const starRadius = gridSize >= 25 ? 2 : 1;
 
+  const planetProbabilityBlacklist = getPlanetBlacklistForType(def);
+
   return {
     width: gridSize,
     height: gridSize,
@@ -67,7 +137,15 @@ export function resolveGeneratorConfig(
     isBinary: def.isBinary,
     primarySystemTypeId: systemTypeId,
     secondarySystemTypeId: null,
-    classPool: getClassPoolForType(def),
+    planetProbabilities: STU_PLANET_PROBABILITIES,
+    moonProbabilities: STU_MOON_PROBABILITIES,
+    asteroidProbabilities: STU_ASTEROID_PROBABILITIES,
+    planetProbabilityBlacklist,
+    moonProbabilityBlacklist: [],
+    asteroidProbabilityBlacklist: [],
+    classPool: ALL_STU_PLANET_CLASS_IDS.filter(
+      (id) => !planetProbabilityBlacklist.includes(id),
+    ),
   };
 }
 
@@ -84,7 +162,13 @@ function buildFallbackConfig(): StarmapGeneratorConfig {
     isBinary: false,
     primarySystemTypeId: 1050,
     secondarySystemTypeId: null,
-    classPool: CLASS_POOL_STANDARD,
+    planetProbabilities: STU_PLANET_PROBABILITIES,
+    moonProbabilities: STU_MOON_PROBABILITIES,
+    asteroidProbabilities: STU_ASTEROID_PROBABILITIES,
+    planetProbabilityBlacklist: [],
+    moonProbabilityBlacklist: [],
+    asteroidProbabilityBlacklist: [],
+    classPool: ALL_STU_PLANET_CLASS_IDS,
   };
 }
 

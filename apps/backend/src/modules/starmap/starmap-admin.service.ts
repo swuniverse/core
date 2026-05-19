@@ -8,6 +8,7 @@ import { EntityManager, In, Repository } from 'typeorm';
 import {
   STARMAP_SYSTEM_TYPE_OPTIONS,
   SYSTEM_TYPE_DEFINITIONS,
+  SYSTEM_TYPE_BY_ID,
   RARITY_WEIGHTS,
   type StarmapSystemTypeOption,
 } from './starmap-system-types';
@@ -22,6 +23,7 @@ import { BorderType } from './entities/border-type.entity';
 import type {
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
+  StarmapCelestialObjectDto,
   StarmapCreateBorderTypeDto,
   StarmapCreateLayerDto,
   StarmapCreateMapRegionDto,
@@ -410,7 +412,8 @@ export class StarmapAdminService {
     if (patch.starSystemId !== undefined)
       field.starSystemId = patch.starSystemId;
     if (patch.regionId !== undefined) field.regionId = patch.regionId;
-    if (patch.borderTypeId !== undefined) field.borderTypeId = patch.borderTypeId;
+    if (patch.borderTypeId !== undefined)
+      field.borderTypeId = patch.borderTypeId;
     if (patch.effects !== undefined) field.effects = patch.effects;
     if (patch.passableOverride !== undefined)
       field.passableOverride = patch.passableOverride;
@@ -565,7 +568,10 @@ export class StarmapAdminService {
     const bt = await this.borderTypeRepo.findOneBy({ id });
     if (!bt) throw new NotFoundException('Border type not found');
 
-    await this.galaxyFieldRepo.update({ borderTypeId: id }, { borderTypeId: null });
+    await this.galaxyFieldRepo.update(
+      { borderTypeId: id },
+      { borderTypeId: null },
+    );
     await this.borderTypeRepo.delete({ id });
     return { deleted: true };
   }
@@ -575,9 +581,6 @@ export class StarmapAdminService {
   async getLayerOverview(layerId: number): Promise<StarmapLayerOverviewDto> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) throw new NotFoundException('Layer not found');
-
-    const sectorsX = Math.ceil(layer.width / layer.sectorSize);
-    const sectorsY = Math.ceil(layer.height / layer.sectorSize);
 
     const rawData = await this.galaxyFieldRepo
       .createQueryBuilder('f')
@@ -717,7 +720,10 @@ export class StarmapAdminService {
 
       const systemType = this.requireSystemType(field.systemTypeId as number);
       const systemName = await this.generateSystemName();
-      const layout = this.systemGenerator.createLayout(systemName, systemType.id);
+      const layout = this.systemGenerator.createLayout(
+        systemName,
+        systemType.id,
+      );
 
       const system = await this.systemRepo.save(
         this.systemRepo.create({
@@ -758,7 +764,11 @@ export class StarmapAdminService {
     await this.objectRepo.delete({ systemId: system.id });
 
     system.systemTypeId = systemType.id;
-    const layout = this.systemGenerator.createLayout(system.name, systemType.id, input.seed);
+    const layout = this.systemGenerator.createLayout(
+      system.name,
+      systemType.id,
+      input.seed,
+    );
     system.maxX = layout.width;
     system.maxY = layout.height;
     await this.systemRepo.save(system);
@@ -857,7 +867,7 @@ export class StarmapAdminService {
     const updatedField = await this.systemFieldRepo.save(field);
     const hydratedField = await this.systemFieldRepo.findOne({
       where: { id: updatedField.id },
-      relations: ['fieldType'],
+      relations: ['fieldType', 'celestialObject'],
     });
     if (!hydratedField) throw new NotFoundException('System field not found');
 
@@ -873,7 +883,10 @@ export class StarmapAdminService {
     });
     if (existingGrid > 0) return;
 
-    const layout = this.systemGenerator.createLayout(system.name, systemType.id);
+    const layout = this.systemGenerator.createLayout(
+      system.name,
+      systemType.id,
+    );
     system.maxX = layout.width;
     system.maxY = layout.height;
     await this.systemRepo.save(system);
@@ -1021,7 +1034,12 @@ export class StarmapAdminService {
       maxX: system.maxX,
       maxY: system.maxY,
       systemTypeId: system.systemTypeId,
+      systemTypeName: this.getSystemTypeName(system.systemTypeId),
     };
+  }
+
+  private getSystemTypeName(systemTypeId: number): string {
+    return SYSTEM_TYPE_BY_ID[systemTypeId]?.name ?? `Typ ${systemTypeId}`;
   }
 
   private toGalaxyFieldDto(field: GalaxyField): StarmapGalaxyFieldDto {
@@ -1080,11 +1098,31 @@ export class StarmapAdminService {
       influenceAreaId: field.influenceAreaId,
       borderMask: field.borderMask,
       fieldType: this.toFieldTypeDto(field.fieldType),
+      celestialObject: field.celestialObject
+        ? this.toCelestialObjectDto(field.celestialObject)
+        : null,
+    };
+  }
+
+  private toCelestialObjectDto(
+    object: CelestialObject,
+  ): StarmapCelestialObjectDto {
+    return {
+      id: object.id,
+      objectType: object.objectType,
+      name: object.name,
+      posX: object.posX,
+      posY: object.posY,
+      classId: object.classId,
+      isColonizable: object.isColonizable,
     };
   }
 
   private pickWeightedSystemType(): number {
-    const totalWeight = Object.values(RARITY_WEIGHTS).reduce((s, w) => s + w, 0);
+    const totalWeight = Object.values(RARITY_WEIGHTS).reduce(
+      (s, w) => s + w,
+      0,
+    );
     let roll = Math.random() * totalWeight;
     let selectedRarity = 'COMMON';
     for (const [rarity, weight] of Object.entries(RARITY_WEIGHTS)) {
@@ -1094,7 +1132,9 @@ export class StarmapAdminService {
         break;
       }
     }
-    const candidates = SYSTEM_TYPE_DEFINITIONS.filter(d => d.rarity === selectedRarity);
+    const candidates = SYSTEM_TYPE_DEFINITIONS.filter(
+      (d) => d.rarity === selectedRarity,
+    );
     return candidates[Math.floor(Math.random() * candidates.length)].id;
   }
 }

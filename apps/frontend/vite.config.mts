@@ -1,4 +1,5 @@
 /// <reference types='vitest' />
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -23,6 +24,14 @@ export default defineConfig(() => ({
   preview: {
     port: 5173,
     host: 'localhost',
+  },
+  resolve: {
+    alias: {
+      '@swuniverse/shared': resolve(
+        import.meta.dirname,
+        '../../packages/shared/src/index.ts',
+      ),
+    },
   },
   plugins: [react(), tailwindcss()],
   // Uncomment this if you are using workers.

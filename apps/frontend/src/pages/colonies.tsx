@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { planetImage } from '../lib/assets';
 
 interface ColonyField {
   id: number;
@@ -31,7 +32,7 @@ interface Colony {
   fieldCount?: number;
   storageItemCount?: number;
   starSystem?: { name: string };
-  celestialObject?: { name: string | null };
+  celestialObject?: { name: string | null; classId: number | null };
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
 }
@@ -366,16 +367,25 @@ function ColonyDetail({
       {/* Colony Header */}
       <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
         <div className="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <h2 className="text-lg font-bold text-swu-primary">
-              {colony.name}
-            </h2>
-            <p className="text-xs text-swu-muted mt-1">
-              {colony.locationLabel ||
-                colony.celestialObject?.name ||
-                colony.starSystem?.name ||
-                'Unknown location'}
-            </p>
+          <div className="flex items-center gap-3">
+            {colony.celestialObject?.classId && (
+              <img
+                src={planetImage(colony.celestialObject.classId)}
+                alt=""
+                className="w-10 h-10 object-contain shrink-0"
+              />
+            )}
+            <div>
+              <h2 className="text-lg font-bold text-swu-primary">
+                {colony.name}
+              </h2>
+              <p className="text-xs text-swu-muted mt-1">
+                {colony.locationLabel ||
+                  colony.celestialObject?.name ||
+                  colony.starSystem?.name ||
+                  'Unknown location'}
+              </p>
+            </div>
           </div>
           <div className="text-right text-xs text-swu-muted">
             <p>Felder: {colony.fieldCount ?? colony.fields?.length ?? 0}</p>

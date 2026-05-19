@@ -1,3 +1,6 @@
 [submodule "game-data"]
 	path = game-data
 	url = https://github.com/swuniverse/game-data.git
+[submodule "assets"]
+	path = assets
+	url = https://github.com/swuniverse/assets.git

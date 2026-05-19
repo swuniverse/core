@@ -1,13 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import type {
-  StarmapGalaxyFieldDto,
-  StarmapLayerDto,
-  StarmapSectorDto,
-  StarmapSystemDetailDto,
-  StarmapSystemGridDto,
-  StarmapSystemListItemDto,
+import {
+  getStuClassLabel,
+  type StarmapGalaxyFieldDto,
+  type StarmapLayerDto,
+  type StarmapSectorDto,
+  type StarmapSystemDetailDto,
+  type StarmapSystemGridDto,
+  type StarmapSystemListItemDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
+import {
+  planetThumbnail,
+  spaceBackgroundTile,
+  starTileImage,
+  systemTypeImage,
+} from '../lib/assets';
+import {
+  getStarTileConfig,
+  getStarTileIdAt,
+  getSystemTypeName,
+  type StarAssetConfig,
+} from '../lib/star-tiles';
 
 type Layer = Pick<
   StarmapLayerDto,
@@ -21,6 +34,12 @@ type SystemGrid = StarmapSystemGridDto;
 
 type ViewMode = 'galaxy' | 'sector' | 'system';
 
+type StarTileLayer = {
+  key: 'primary' | 'secondary';
+  config: StarAssetConfig;
+  center: { x: number; y: number };
+};
+
 const OBJECT_TYPE_ICONS: Record<number, string> = {
   1: '🪐',
   2: '🌙',
@@ -33,16 +52,12 @@ const OBJECT_TYPE_NAMES: Record<number, string> = {
   3: 'Asteroid',
 };
 
-const SECTOR_FIELD_STYLES: Record<string, string> = {
-  EMPTY_SPACE:
-    'bg-[radial-gradient(circle_at_center,_rgba(120,150,255,0.14),_rgba(0,0,0,0.95)_70%)] border-slate-800',
-  STAR_SYSTEM:
-    'bg-[radial-gradient(circle_at_center,_rgba(255,210,90,0.45),_rgba(25,18,0,0.96)_70%)] border-amber-500/80',
+const SECTOR_OVERLAY_STYLES: Record<string, string> = {
   NEBULA:
-    'bg-[radial-gradient(circle_at_35%_35%,_rgba(110,255,180,0.45),_rgba(15,20,35,0.95)_70%)] border-emerald-400/50',
+    'after:absolute after:inset-0 after:bg-emerald-500/20 after:rounded-sm',
   ASTEROID_FIELD:
-    'bg-[radial-gradient(circle_at_center,_rgba(160,160,160,0.28),_rgba(0,0,0,0.95)_70%)] border-stone-500/70',
-  BLOCKED: 'bg-red-950/80 border-red-700',
+    'after:absolute after:inset-0 after:bg-stone-400/15 after:rounded-sm',
+  BLOCKED: 'after:absolute after:inset-0 after:bg-red-900/60 after:rounded-sm',
 };
 
 const SYSTEM_FIELD_STYLES: Record<string, string> = {
@@ -56,13 +71,11 @@ const SYSTEM_FIELD_STYLES: Record<string, string> = {
 };
 
 function getSectorFieldClasses(field: GalaxyField, isActive: boolean): string {
-  const base =
-    SECTOR_FIELD_STYLES[field.fieldType.key] ||
-    'bg-[radial-gradient(circle_at_center,_rgba(80,90,140,0.12),_rgba(0,0,0,0.95)_72%)] border-slate-900';
+  const overlay = SECTOR_OVERLAY_STYLES[field.fieldType.key] || '';
 
   return [
-    'relative h-7 w-7 border text-[10px] flex items-center justify-center transition-all',
-    base,
+    'relative h-7 w-7 border-0 text-[10px] flex items-center justify-center transition-all bg-center overflow-hidden',
+    overlay,
     field.starSystemId ? 'shadow-[0_0_10px_rgba(255,220,120,0.25)]' : '',
     isActive ? 'ring-2 ring-swu-accent z-10' : '',
   ].join(' ');
@@ -73,6 +86,76 @@ function getSystemFieldClasses(key: string | undefined): string {
     SYSTEM_FIELD_STYLES[key ?? ''] ||
     'bg-swu-bg border-swu-border/40 text-swu-muted'
   );
+}
+
+function isStarObject(classId: number | null | undefined): boolean {
+  return classId != null && classId >= 9001 && classId <= 9005;
+}
+
+function getObjectTypeName(
+  objectType: number,
+  classId?: number | null,
+): string {
+  if (classId === 9001) return 'Stern A';
+  if (classId === 9002) return 'Stern B';
+  if (isStarObject(classId)) return 'Stern';
+  const classLabel = getStuClassLabel(classId);
+  const typeName = OBJECT_TYPE_NAMES[objectType] ?? 'Objekt';
+  return classId == null ? typeName : `${typeName} Klasse ${classLabel}`;
+}
+
+function getSystemTypeDisplayName(
+  system: SystemDetail,
+  selectedSystem: StarSystem,
+): string {
+  const name =
+    system.systemTypeName ??
+    selectedSystem.systemTypeName ??
+    getSystemTypeName(system.systemTypeId);
+  if (!name) return String(system.systemTypeId);
+  return name.replace(/^Typ\s+/i, '');
+}
+
+function calculateRenderedStarAreaSize(
+  assetGridSize: number,
+  systemGridSize: number,
+): number {
+  const scaled = Math.ceil(assetGridSize / 3);
+  const maxStarArea = Math.floor(systemGridSize / 6);
+  return Math.min(Math.max(scaled, 2), maxStarArea);
+}
+
+function calculateFallbackBinaryStarCenters(
+  systemGridSize: number,
+  primary: StarAssetConfig,
+  secondary: StarAssetConfig,
+): { primary: { x: number; y: number }; secondary: { x: number; y: number } } {
+  const gridCenter = Math.floor(systemGridSize / 2);
+  const primaryRadius = Math.floor(
+    calculateRenderedStarAreaSize(primary.gridSize, systemGridSize) / 2,
+  );
+  const secondaryRadius = Math.floor(
+    calculateRenderedStarAreaSize(secondary.gridSize, systemGridSize) / 2,
+  );
+  const minSeparation = primaryRadius + secondaryRadius + 2;
+  const offsetDistance = Math.max(3, Math.floor(minSeparation / 2));
+
+  return {
+    primary: {
+      x: Math.max(primaryRadius + 1, gridCenter - offsetDistance),
+      y: Math.max(primaryRadius + 1, gridCenter - offsetDistance),
+    },
+    secondary: {
+      x: Math.min(
+        systemGridSize - secondaryRadius,
+        gridCenter + offsetDistance,
+      ),
+      y: Math.min(
+        systemGridSize - secondaryRadius,
+        gridCenter + offsetDistance,
+      ),
+    },
+  };
 }
 
 export function StarmapPage() {
@@ -150,6 +233,59 @@ export function StarmapPage() {
       ),
     [systemGrid],
   );
+
+  const starTileLayers = useMemo<StarTileLayer[]>(() => {
+    if (!systemGrid) return [];
+    const config = getStarTileConfig(systemGrid.system.systemTypeId);
+    if (!config) return [];
+
+    const starObjects = (systemGrid.celestialObjects ?? []).filter(
+      (o) => o.classId != null && o.classId >= 9001 && o.classId <= 9005,
+    );
+
+    const fallbackCenter = {
+      x: Math.ceil(systemGrid.system.maxX / 2),
+      y: Math.ceil(systemGrid.system.maxY / 2),
+    };
+
+    const primaryObject =
+      starObjects.find((o) => o.classId === 9001) ?? starObjects[0];
+    const primaryCenter = primaryObject
+      ? { x: primaryObject.posX, y: primaryObject.posY }
+      : fallbackCenter;
+
+    if (!config.secondary) {
+      return [
+        { key: 'primary', config: config.primary, center: primaryCenter },
+      ];
+    }
+
+    const fallbackBinaryCenters = calculateFallbackBinaryStarCenters(
+      Math.min(systemGrid.system.maxX, systemGrid.system.maxY),
+      config.primary,
+      config.secondary,
+    );
+    const secondaryObject =
+      starObjects.find((o) => o.classId === 9002) ??
+      starObjects.find((o) => o.id !== primaryObject?.id);
+
+    return [
+      {
+        key: 'primary',
+        config: config.primary,
+        center: primaryObject
+          ? { x: primaryObject.posX, y: primaryObject.posY }
+          : fallbackBinaryCenters.primary,
+      },
+      {
+        key: 'secondary',
+        config: config.secondary,
+        center: secondaryObject
+          ? { x: secondaryObject.posX, y: secondaryObject.posY }
+          : fallbackBinaryCenters.secondary,
+      },
+    ];
+  }, [systemGrid]);
 
   const systemsInSector = useMemo(() => {
     const seen = new Map<number, StarSystem>();
@@ -322,7 +458,7 @@ export function StarmapPage() {
               {selectedSector.minY}-{selectedSector.maxY}]
             </div>
             <div
-              className="grid gap-px min-w-max"
+              className="grid min-w-max"
               style={{
                 gridTemplateColumns: `48px repeat(${selectedSector.maxX - selectedSector.minX + 1}, 28px)`,
               }}
@@ -355,8 +491,7 @@ export function StarmapPage() {
                       </div>
                       {Array.from(
                         {
-                          length:
-                            selectedSector.maxX - selectedSector.minX + 1,
+                          length: selectedSector.maxX - selectedSector.minX + 1,
                         },
                         (_, col) => {
                           const x = selectedSector.minX + col;
@@ -371,9 +506,12 @@ export function StarmapPage() {
                               />
                             );
                           }
-                          const isActive =
-                            selectedSystem?.cx === field.starSystem?.cx &&
-                            selectedSystem?.cy === field.starSystem?.cy;
+                          const isActive = !!(
+                            selectedSystem &&
+                            field.starSystem &&
+                            selectedSystem.cx === field.starSystem.cx &&
+                            selectedSystem.cy === field.starSystem.cy
+                          );
                           return (
                             <button
                               key={field.id}
@@ -383,15 +521,23 @@ export function StarmapPage() {
                                 }
                               }}
                               className={getSectorFieldClasses(field, isActive)}
+                              style={{
+                                backgroundImage: `url(${spaceBackgroundTile(field.cx, field.cy)})`,
+                                backgroundSize: '107%',
+                              }}
                               title={`${field.cx},${field.cy} · ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${field.adminRegionKey ? ` · ${field.adminRegionKey}` : ''}`}
                             >
-                              {field.starSystemId
-                                ? '★'
-                                : field.fieldType.key === 'NEBULA'
-                                  ? '·'
-                                  : ''}
+                              {field.systemTypeId ? (
+                                <img
+                                  src={systemTypeImage(field.systemTypeId)}
+                                  alt=""
+                                  className="w-full h-full object-contain absolute inset-0"
+                                />
+                              ) : field.fieldType.key === 'NEBULA' ? (
+                                <span className="text-emerald-300/60">·</span>
+                              ) : null}
                               {field.adminRegionKey && (
-                                <span className="absolute bottom-0.5 right-0.5 text-[7px] text-cyan-200/80">
+                                <span className="absolute bottom-0.5 right-0.5 text-[7px] text-cyan-200/80 z-10">
                                   {field.adminRegionKey
                                     .replace('SYS_', '')
                                     .slice(0, 1)}
@@ -504,11 +650,29 @@ export function StarmapPage() {
                           const object = field.celestialObjectId
                             ? celestialObjectsById.get(field.celestialObjectId)
                             : null;
-                          const label = object
-                            ? OBJECT_TYPE_ICONS[object.objectType] || '●'
-                            : field.fieldType.key === 'STAR_CORE'
-                              ? '✦'
-                              : field.fieldType.key === 'ASTEROID_CLUSTER'
+
+                          const starTileId =
+                            starTileLayers
+                              .map((layer) =>
+                                getStarTileIdAt(
+                                  layer.config,
+                                  field.sx,
+                                  field.sy,
+                                  layer.center.x,
+                                  layer.center.y,
+                                ),
+                              )
+                              .find(
+                                (tileId): tileId is number => tileId !== null,
+                              ) ?? null;
+
+                          const hasImage =
+                            object?.classId != null && !starTileId;
+                          const fallbackLabel =
+                            !starTileId && object
+                              ? OBJECT_TYPE_ICONS[object.objectType] || '●'
+                              : !starTileId &&
+                                  field.fieldType.key === 'ASTEROID_CLUSTER'
                                 ? '·'
                                 : '';
 
@@ -516,16 +680,35 @@ export function StarmapPage() {
                             <div
                               key={field.id}
                               className={[
-                                'relative h-6 w-6 rounded-sm border flex items-center justify-center text-[10px]',
-                                getSystemFieldClasses(field.fieldType.key),
-                                field.regionKey === 'STAR_CORE'
-                                  ? 'shadow-[0_0_22px_rgba(255,210,80,0.6)] scale-105 z-10'
+                                'relative h-6 w-6 rounded-sm border-0 flex items-center justify-center text-[10px] overflow-hidden',
+                                starTileId
+                                  ? ''
+                                  : getSystemFieldClasses(field.fieldType.key),
+                                field.borderMask
+                                  ? 'border border-slate-600'
                                   : '',
-                                field.borderMask ? 'border-slate-600' : '',
                               ].join(' ')}
-                              title={`${field.sx},${field.sy} · ${field.fieldType.name}${field.regionKey ? ` · ${field.regionKey}` : ''}${object ? ` · ${object.name || OBJECT_TYPE_NAMES[object.objectType]}` : ''}`}
+                              style={{
+                                backgroundImage: `url(${spaceBackgroundTile(field.sx, field.sy)})`,
+                                backgroundSize: 'cover',
+                              }}
+                              title={`${field.sx},${field.sy} · ${field.fieldType.name}${field.regionKey ? ` · ${field.regionKey}` : ''}${object ? ` · ${object.name || getObjectTypeName(object.objectType, object.classId)}` : ''}`}
                             >
-                              {label}
+                              {starTileId ? (
+                                <img
+                                  src={starTileImage(starTileId)}
+                                  alt=""
+                                  className="absolute inset-0 w-full h-full"
+                                />
+                              ) : hasImage ? (
+                                <img
+                                  src={planetThumbnail(object!.classId!)}
+                                  alt=""
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                fallbackLabel
+                              )}
                             </div>
                           );
                         },
@@ -543,7 +726,9 @@ export function StarmapPage() {
                 {systemDetail.name}
               </div>
               <div className="mt-2 text-xs text-swu-muted space-y-1">
-                <p>Typ: {selectedSystem.systemTypeId}</p>
+                <p title={`ID: ${systemDetail.systemTypeId}`}>
+                  {getSystemTypeDisplayName(systemDetail, selectedSystem)}
+                </p>
                 <p>
                   Koordinaten: {systemDetail.cx}|{systemDetail.cy}
                 </p>
@@ -561,16 +746,27 @@ export function StarmapPage() {
                     key={obj.id}
                     className="flex items-center gap-2 p-1.5 bg-swu-bg/50 rounded border border-swu-border/50"
                   >
-                    <span className="text-sm">
-                      {OBJECT_TYPE_ICONS[obj.objectType] || '?'}
-                    </span>
+                    {obj.classId != null && !isStarObject(obj.classId) ? (
+                      <img
+                        src={planetThumbnail(obj.classId)}
+                        alt=""
+                        className="w-6 h-6 object-contain shrink-0"
+                      />
+                    ) : (
+                      <span className="text-sm w-6 h-6 shrink-0 flex items-center justify-center">
+                        {isStarObject(obj.classId)
+                          ? '✦'
+                          : OBJECT_TYPE_ICONS[obj.objectType] || '?'}
+                      </span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-swu-primary truncate">
-                        {obj.name || OBJECT_TYPE_NAMES[obj.objectType]}
+                        {obj.name ||
+                          getObjectTypeName(obj.objectType, obj.classId)}
                       </p>
                       <p className="text-[10px] text-swu-muted">
-                        {OBJECT_TYPE_NAMES[obj.objectType]} · [{obj.posX},
-                        {obj.posY}]
+                        {getObjectTypeName(obj.objectType, obj.classId)} · [
+                        {obj.posX},{obj.posY}]
                       </p>
                     </div>
                   </div>

@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { isHabitableByClass } from '@swuniverse/shared';
 import { CelestialObjectType } from '../entities/celestial-object.entity';
-import { BINARY_SYSTEM_COMBOS, SYSTEM_TYPE_BY_ID } from '../starmap-system-types';
-import { resolveGeneratorConfig, LEGACY_TYPE_MAPPING } from './starmap-system-generator.config';
+import {
+  BINARY_SYSTEM_COMBOS,
+  SYSTEM_TYPE_BY_ID,
+} from '../starmap-system-types';
+import {
+  resolveGeneratorConfig,
+  LEGACY_TYPE_MAPPING,
+  type StarmapGeneratorConfig,
+} from './starmap-system-generator.config';
 import { SeededRNG } from './seeded-rng';
 import {
   calculateBinaryStarAreas,
@@ -81,10 +89,18 @@ export class StarmapSystemGeneratorService {
         fields.push({
           sx,
           sy,
-          fieldTypeKey: this.backgroundFieldType(resolvedTypeId, sx, sy, cx, cy, rng),
+          fieldTypeKey: this.backgroundFieldType(
+            resolvedTypeId,
+            sx,
+            sy,
+            cx,
+            cy,
+            rng,
+          ),
           regionKey: ring,
           adminRegionKey: ring ? `SYS_${ring}` : null,
-          influenceAreaId: ring === 'INNER_CORE' ? 1 : ring === 'INNER_BAND' ? 2 : null,
+          influenceAreaId:
+            ring === 'INNER_CORE' ? 1 : ring === 'INNER_BAND' ? 2 : null,
           borderMask: this.getBorderMask(sx, sy, width, height),
         });
       }
@@ -92,10 +108,18 @@ export class StarmapSystemGeneratorService {
 
     // Phase 2: Place stars and mark exclusion zones
     if (isBinary && secondaryTypeId) {
-      const areas = calculateBinaryStarAreas(width, primaryTypeId, secondaryTypeId);
+      const areas = calculateBinaryStarAreas(
+        width,
+        primaryTypeId,
+        secondaryTypeId,
+      );
 
       // Primary star
-      const primaryPositions = this.collectCircle(areas.primary.centerX, areas.primary.centerY, areas.primary.radius);
+      const primaryPositions = this.collectCircle(
+        areas.primary.centerX,
+        areas.primary.centerY,
+        areas.primary.radius,
+      );
       for (const pos of primaryPositions) {
         this.markStarField(fields, pos, occupied);
       }
@@ -110,7 +134,11 @@ export class StarmapSystemGeneratorService {
       });
 
       // Secondary star
-      const secondaryPositions = this.collectCircle(areas.secondary.centerX, areas.secondary.centerY, areas.secondary.radius);
+      const secondaryPositions = this.collectCircle(
+        areas.secondary.centerX,
+        areas.secondary.centerY,
+        areas.secondary.radius,
+      );
       for (const pos of secondaryPositions) {
         this.markStarField(fields, pos, occupied);
       }
@@ -130,8 +158,20 @@ export class StarmapSystemGeneratorService {
       for (let sy = 1; sy <= height; sy++) {
         for (let sx = 1; sx <= width; sx++) {
           if (
-            isPositionInStarExclusionZone(sx, sy, areas.primary.centerX, areas.primary.centerY, primaryExclusion) ||
-            isPositionInStarExclusionZone(sx, sy, areas.secondary.centerX, areas.secondary.centerY, secondaryExclusion)
+            isPositionInStarExclusionZone(
+              sx,
+              sy,
+              areas.primary.centerX,
+              areas.primary.centerY,
+              primaryExclusion,
+            ) ||
+            isPositionInStarExclusionZone(
+              sx,
+              sy,
+              areas.secondary.centerX,
+              areas.secondary.centerY,
+              secondaryExclusion,
+            )
           ) {
             occupied.add(this.key(sx, sy));
           }
@@ -166,29 +206,74 @@ export class StarmapSystemGeneratorService {
     }
 
     // Phase 3: Place planets on orbital rings
-    const orbitRings = this.buildOrbitRings(width, height, config.minPlanets + config.maxPlanets);
+    const orbitRings = this.buildOrbitRings(
+      width,
+      height,
+      config.minPlanets + config.maxPlanets,
+    );
     const targetPlanetCount = rng.nextInt(config.minPlanets, config.maxPlanets);
 
     let createdPlanets = 0;
-    for (let ringIdx = 0; ringIdx < orbitRings.length && createdPlanets < targetPlanetCount; ringIdx++) {
+    for (
+      let ringIdx = 0;
+      ringIdx < orbitRings.length && createdPlanets < targetPlanetCount;
+      ringIdx++
+    ) {
       const radius = orbitRings[ringIdx];
       const angle = rng.nextFloat(0, 2 * Math.PI);
       const sx = Math.round(cx + radius * Math.cos(angle));
       const sy = Math.round(cy + radius * Math.sin(angle));
 
-      if (!this.isInside(sx, sy, width, height) || occupied.has(this.key(sx, sy))) {
+      if (
+        !this.isInside(sx, sy, width, height) ||
+        occupied.has(this.key(sx, sy))
+      ) {
         // Try cardinal/diagonal fallback
-        const fallback = this.findFreeOrbitPosition(cx, cy, radius, occupied, width, height, rng);
+        const fallback = this.findFreeOrbitPosition(
+          cx,
+          cy,
+          radius,
+          occupied,
+          width,
+          height,
+          rng,
+        );
         if (!fallback) continue;
-        this.placePlanet(fallback.sx, fallback.sy, createdPlanets, systemName, config, rng, fields, objects, occupied);
+        this.placePlanet(
+          fallback.sx,
+          fallback.sy,
+          createdPlanets,
+          systemName,
+          config,
+          rng,
+          fields,
+          objects,
+          occupied,
+        );
       } else {
-        this.placePlanet(sx, sy, createdPlanets, systemName, config, rng, fields, objects, occupied);
+        this.placePlanet(
+          sx,
+          sy,
+          createdPlanets,
+          systemName,
+          config,
+          rng,
+          fields,
+          objects,
+          occupied,
+        );
       }
 
       // Moon
       if (rng.nextBoolean(config.moonChance)) {
         const lastPlanetPos = objects[objects.length - 1];
-        const moonPos = this.findMoonSlot(lastPlanetPos.posX, lastPlanetPos.posY, occupied, width, height);
+        const moonPos = this.findMoonSlot(
+          lastPlanetPos.posX,
+          lastPlanetPos.posY,
+          occupied,
+          width,
+          height,
+        );
         if (moonPos) {
           const moonKey = `moon-${createdPlanets + 1}`;
           occupied.add(this.key(moonPos.sx, moonPos.sy));
@@ -200,14 +285,19 @@ export class StarmapSystemGeneratorService {
             moonField.adminRegionKey = 'SYS_PLANETARY_BAND';
           }
           const planetName = objects[objects.length - 1].name ?? systemName;
+          const moonClassId = this.pickWeightedClass(
+            config.moonProbabilities,
+            config.moonProbabilityBlacklist,
+            rng,
+          );
           objects.push({
             key: moonKey,
             objectType: CelestialObjectType.MOON,
             name: `${planetName}a`,
             posX: moonPos.sx,
             posY: moonPos.sy,
-            classId: 401,
-            isColonizable: false,
+            classId: moonClassId,
+            isColonizable: isHabitableByClass(moonClassId),
           });
         }
       }
@@ -217,14 +307,20 @@ export class StarmapSystemGeneratorService {
 
     // Phase 4: Asteroid ring
     if (rng.nextBoolean(config.asteroidRingChance)) {
-      const asteroidRadius = orbitRings[Math.max(orbitRings.length - 1, 0)] ?? Math.floor(Math.min(width, height) / 2) - 2;
+      const asteroidRadius =
+        orbitRings[Math.max(orbitRings.length - 1, 0)] ??
+        Math.floor(Math.min(width, height) / 2) - 2;
       const arcCount = rng.nextInt(6, 14);
       for (let a = 0; a < arcCount; a++) {
-        const angle = (2 * Math.PI / arcCount) * a + rng.nextFloat(-0.3, 0.3);
+        const angle = ((2 * Math.PI) / arcCount) * a + rng.nextFloat(-0.3, 0.3);
         const r = asteroidRadius + rng.nextInt(-1, 1);
         const asx = Math.round(cx + r * Math.cos(angle));
         const asy = Math.round(cy + r * Math.sin(angle));
-        if (!this.isInside(asx, asy, width, height) || occupied.has(this.key(asx, asy))) continue;
+        if (
+          !this.isInside(asx, asy, width, height) ||
+          occupied.has(this.key(asx, asy))
+        )
+          continue;
 
         const asteroidKey = `asteroid-${asx}-${asy}`;
         occupied.add(this.key(asx, asy));
@@ -236,14 +332,19 @@ export class StarmapSystemGeneratorService {
           field.adminRegionKey = 'SYS_OUTER_RING';
           field.influenceAreaId = 3;
         }
+        const asteroidClassId = this.pickWeightedClass(
+          config.asteroidProbabilities,
+          config.asteroidProbabilityBlacklist,
+          rng,
+        );
         objects.push({
           key: asteroidKey,
           objectType: CelestialObjectType.ASTEROID,
           name: null,
           posX: asx,
           posY: asy,
-          classId: 701,
-          isColonizable: false,
+          classId: asteroidClassId,
+          isColonizable: isHabitableByClass(asteroidClassId),
         });
       }
     }
@@ -252,10 +353,15 @@ export class StarmapSystemGeneratorService {
   }
 
   private placePlanet(
-    sx: number, sy: number, index: number,
-    systemName: string, config: { classPool: number[]; colonizableChance: number },
-    rng: SeededRNG, fields: GeneratedSystemField[],
-    objects: GeneratedCelestialObject[], occupied: Set<string>,
+    sx: number,
+    sy: number,
+    index: number,
+    systemName: string,
+    config: StarmapGeneratorConfig,
+    rng: SeededRNG,
+    fields: GeneratedSystemField[],
+    objects: GeneratedCelestialObject[],
+    occupied: Set<string>,
   ) {
     const objectKey = `planet-${index + 1}`;
     occupied.add(this.key(sx, sy));
@@ -266,20 +372,42 @@ export class StarmapSystemGeneratorService {
       field.regionKey = 'PLANETARY_BAND';
       field.adminRegionKey = 'SYS_PLANETARY_BAND';
     }
+    const planetClassId = this.pickWeightedClass(
+      config.planetProbabilities,
+      config.planetProbabilityBlacklist,
+      rng,
+    );
     objects.push({
       key: objectKey,
       objectType: CelestialObjectType.PLANET,
       name: `${systemName} ${this.toRoman(index + 1)}`,
       posX: sx,
       posY: sy,
-      classId: config.classPool.length > 0 ? rng.choice(config.classPool) : 201,
-      isColonizable: rng.nextBoolean(config.colonizableChance),
+      classId: planetClassId,
+      isColonizable: isHabitableByClass(planetClassId),
     });
   }
 
+  private pickWeightedClass(
+    probabilities: Record<number, number>,
+    blacklist: number[],
+    rng: SeededRNG,
+  ): number {
+    const blacklistSet = new Set(blacklist);
+    const items = Object.entries(probabilities)
+      .map(([item, weight]) => ({ item: Number(item), weight }))
+      .filter((entry) => !blacklistSet.has(entry.item));
+
+    return rng.weightedChoice(items);
+  }
+
   private findFreeOrbitPosition(
-    cx: number, cy: number, radius: number,
-    occupied: Set<string>, width: number, height: number,
+    cx: number,
+    cy: number,
+    radius: number,
+    occupied: Set<string>,
+    width: number,
+    height: number,
     rng: SeededRNG,
   ): { sx: number; sy: number } | null {
     const attempts = 8;
@@ -287,7 +415,10 @@ export class StarmapSystemGeneratorService {
       const angle = rng.nextFloat(0, 2 * Math.PI);
       const sx = Math.round(cx + radius * Math.cos(angle));
       const sy = Math.round(cy + radius * Math.sin(angle));
-      if (this.isInside(sx, sy, width, height) && !occupied.has(this.key(sx, sy))) {
+      if (
+        this.isInside(sx, sy, width, height) &&
+        !occupied.has(this.key(sx, sy))
+      ) {
         return { sx, sy };
       }
     }
@@ -295,16 +426,31 @@ export class StarmapSystemGeneratorService {
   }
 
   private backgroundFieldType(
-    systemTypeId: number, sx: number, sy: number,
-    cx: number, cy: number, rng: SeededRNG,
+    systemTypeId: number,
+    sx: number,
+    sy: number,
+    cx: number,
+    cy: number,
+    rng: SeededRNG,
   ): string {
     const distance = Math.abs(cx - sx) + Math.abs(cy - sy);
     // Nebula systems have background nebula clouds
-    if (systemTypeId >= 1064 && systemTypeId <= 1066 && distance > 7 && rng.nextBoolean(0.25)) {
+    if (
+      systemTypeId >= 1064 &&
+      systemTypeId <= 1066 &&
+      distance > 7 &&
+      rng.nextBoolean(0.25)
+    ) {
       return 'NEBULA';
     }
     // Rare systems with asteroid backgrounds
-    if (systemTypeId >= 1069 && systemTypeId <= 1070 && distance >= 5 && distance <= 8 && rng.nextBoolean(0.35)) {
+    if (
+      systemTypeId >= 1069 &&
+      systemTypeId <= 1070 &&
+      distance >= 5 &&
+      distance <= 8 &&
+      rng.nextBoolean(0.35)
+    ) {
       return 'ASTEROID_CLUSTER';
     }
     return 'EMPTY_SPACE';
@@ -342,10 +488,17 @@ export class StarmapSystemGeneratorService {
    * Build orbit rings dynamically based on system size.
    * Distributes orbits evenly between star exclusion zone and grid edge.
    */
-  private buildOrbitRings(width: number, height: number, desiredCount: number): number[] {
+  private buildOrbitRings(
+    width: number,
+    height: number,
+    desiredCount: number,
+  ): number[] {
     const maxRadius = Math.floor(Math.min(width, height) / 2) - 1;
     const minRadius = 4;
-    const ringCount = Math.min(desiredCount, Math.max(4, maxRadius - minRadius));
+    const ringCount = Math.min(
+      desiredCount,
+      Math.max(4, maxRadius - minRadius),
+    );
     const step = (maxRadius - minRadius) / Math.max(1, ringCount - 1);
 
     const rings: number[] = [];
@@ -356,8 +509,11 @@ export class StarmapSystemGeneratorService {
   }
 
   private findMoonSlot(
-    sx: number, sy: number, occupied: Set<string>,
-    width: number, height: number,
+    sx: number,
+    sy: number,
+    occupied: Set<string>,
+    width: number,
+    height: number,
   ): { sx: number; sy: number } | null {
     const candidates = [
       { sx: sx + 1, sy },
@@ -365,16 +521,23 @@ export class StarmapSystemGeneratorService {
       { sx: sx - 1, sy },
       { sx, sy: sy + 1 },
     ].filter(
-      c => this.isInside(c.sx, c.sy, width, height) && !occupied.has(this.key(c.sx, c.sy)),
+      (c) =>
+        this.isInside(c.sx, c.sy, width, height) &&
+        !occupied.has(this.key(c.sx, c.sy)),
     );
     return candidates[0] ?? null;
   }
 
   private findField(fields: GeneratedSystemField[], sx: number, sy: number) {
-    return fields.find(f => f.sx === sx && f.sy === sy);
+    return fields.find((f) => f.sx === sx && f.sy === sy);
   }
 
-  private getRegionRing(sx: number, sy: number, cx: number, cy: number): string | null {
+  private getRegionRing(
+    sx: number,
+    sy: number,
+    cx: number,
+    cy: number,
+  ): string | null {
     const distance = Math.max(Math.abs(cx - sx), Math.abs(cy - sy));
     if (distance <= 2) return 'INNER_CORE';
     if (distance <= 6) return 'INNER_BAND';
@@ -382,7 +545,12 @@ export class StarmapSystemGeneratorService {
     return 'OUTER_BAND';
   }
 
-  private getBorderMask(sx: number, sy: number, width: number, height: number): string | null {
+  private getBorderMask(
+    sx: number,
+    sy: number,
+    width: number,
+    height: number,
+  ): string | null {
     const parts: string[] = [];
     if (sy === 1) parts.push('N');
     if (sx === width) parts.push('E');
@@ -391,7 +559,12 @@ export class StarmapSystemGeneratorService {
     return parts.length > 0 ? parts.join('') : null;
   }
 
-  private isInside(sx: number, sy: number, width: number, height: number): boolean {
+  private isInside(
+    sx: number,
+    sy: number,
+    width: number,
+    height: number,
+  ): boolean {
     return sx >= 1 && sy >= 1 && sx <= width && sy <= height;
   }
 
@@ -400,8 +573,25 @@ export class StarmapSystemGeneratorService {
   }
 
   private toRoman(n: number): string {
-    const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
-      'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII'];
+    const numerals = [
+      'I',
+      'II',
+      'III',
+      'IV',
+      'V',
+      'VI',
+      'VII',
+      'VIII',
+      'IX',
+      'X',
+      'XI',
+      'XII',
+      'XIII',
+      'XIV',
+      'XV',
+      'XVI',
+      'XVII',
+    ];
     return numerals[n - 1] || `${n}`;
   }
 }

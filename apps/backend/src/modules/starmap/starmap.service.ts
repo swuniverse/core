@@ -5,6 +5,7 @@ import { Layer } from './entities/layer.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { CelestialObject } from './entities/celestial-object.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
+import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import type {
   StarmapCelestialObjectDto,
   StarmapLayerDto,
@@ -49,15 +50,7 @@ export class StarmapService {
       order: { cx: 'ASC', cy: 'ASC' },
     });
 
-    return systems.map((system) => ({
-      id: system.id,
-      name: system.name,
-      cx: system.cx,
-      cy: system.cy,
-      maxX: system.maxX,
-      maxY: system.maxY,
-      systemTypeId: system.systemTypeId,
-    }));
+    return systems.map((system) => this.toSystemListItemDto(system));
   }
 
   async getSectorsInLayer(layerId: number): Promise<StarmapSectorDto[]> {
@@ -138,6 +131,7 @@ export class StarmapService {
       cx: system.cx,
       cy: system.cy,
       systemTypeId: system.systemTypeId,
+      systemTypeName: this.getSystemTypeName(system.systemTypeId),
       maxX: system.maxX,
       maxY: system.maxY,
       celestialObjects: system.celestialObjects.map((object) =>
@@ -161,6 +155,23 @@ export class StarmapService {
       where: { systemId },
       order: { posX: 'ASC', posY: 'ASC' },
     });
+  }
+
+  private toSystemListItemDto(system: StarSystem): StarmapSystemListItemDto {
+    return {
+      id: system.id,
+      name: system.name,
+      cx: system.cx,
+      cy: system.cy,
+      maxX: system.maxX,
+      maxY: system.maxY,
+      systemTypeId: system.systemTypeId,
+      systemTypeName: this.getSystemTypeName(system.systemTypeId),
+    };
+  }
+
+  private getSystemTypeName(systemTypeId: number): string {
+    return SYSTEM_TYPE_BY_ID[systemTypeId]?.name ?? `Typ ${systemTypeId}`;
   }
 
   private toCelestialObjectDto(

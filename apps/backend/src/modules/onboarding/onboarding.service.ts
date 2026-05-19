@@ -4,8 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Faction } from '@swuniverse/shared';
+import { In, Repository } from 'typeorm';
+import {
+  Faction,
+  STU_STARTER_PLANET_CLASS_IDS,
+  isStarterPlanetClass,
+} from '@swuniverse/shared';
 import {
   OnboardingSelection,
   OnboardingSelectionStatus,
@@ -13,11 +17,20 @@ import {
 import { FactionService } from '../faction/faction.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
-import { CelestialObject } from '../starmap/entities/celestial-object.entity';
-import { GalaxyField, FactionZone } from '../starmap/entities/galaxy-field.entity';
+import {
+  CelestialObject,
+  CelestialObjectType,
+} from '../starmap/entities/celestial-object.entity';
+import {
+  GalaxyField,
+  FactionZone,
+} from '../starmap/entities/galaxy-field.entity';
 import { ColonySeedService } from '../colony/colony-seed.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { User } from '../auth/user.entity';
+
+const INVALID_STARTER_PLANET_MESSAGE =
+  'Only colonizable M, L or O class planets can be claimed as homeworld';
 
 @Injectable()
 export class OnboardingService {
@@ -145,7 +158,12 @@ export class OnboardingService {
     }
 
     const objects = await this.objectRepo.find({
-      where: { systemId, isColonizable: true },
+      where: {
+        systemId,
+        objectType: CelestialObjectType.PLANET,
+        isColonizable: true,
+        classId: In(STU_STARTER_PLANET_CLASS_IDS),
+      },
       order: { posX: 'ASC', posY: 'ASC' },
     });
 
@@ -161,12 +179,12 @@ export class OnboardingService {
       throw new BadRequestException('Faction must be selected first');
     }
 
-    const object = await this.objectRepo.findOneBy({
-      id: celestialObjectId,
-      isColonizable: true,
-    });
+    const object = await this.objectRepo.findOneBy({ id: celestialObjectId });
     if (!object) {
-      throw new NotFoundException('Colonizable celestial object not found');
+      throw new NotFoundException('Celestial object not found');
+    }
+    if (!this.isAllowedStarterPlanet(object)) {
+      throw new BadRequestException(INVALID_STARTER_PLANET_MESSAGE);
     }
 
     const user = await this.userRepo.findOneBy({ id: userId });
@@ -225,6 +243,14 @@ export class OnboardingService {
       starterColonyId: colony.id,
       starterShipId: starterShip.id,
     };
+  }
+
+  private isAllowedStarterPlanet(object: CelestialObject): boolean {
+    return (
+      object.objectType === CelestialObjectType.PLANET &&
+      object.isColonizable &&
+      isStarterPlanetClass(object.classId)
+    );
   }
 
   private getAllowedFactionZones(factionId: number | null): FactionZone[] {

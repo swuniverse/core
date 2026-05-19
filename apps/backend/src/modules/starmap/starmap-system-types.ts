@@ -97,13 +97,56 @@ export const BINARY_SYSTEM_COMBOS: Record<number, BinarySystemCombo> = {
   1048: { primarySystemTypeId: 1062, secondarySystemTypeId: 1052 },
 };
 
+const SINGLE_SYSTEM_TYPE_NAMES: Record<number, string> = {
+  1049: 'Blauer Riese',
+  1050: 'Gelber Riese',
+  1051: 'Orangener Riese',
+  1052: 'Roter Riese',
+  1053: 'Blauer Überriese',
+  1054: 'Gelber Überriese',
+  1055: 'Orangener Überriese',
+  1056: 'Roter Überriese',
+  1057: 'Blauer Zwerg',
+  1058: 'Gelber Zwerg',
+  1059: 'Orangener Zwerg',
+  1060: 'Roter Zwerg',
+  1061: 'Schwarzes Loch ZO',
+  1062: 'Schwarzes Loch ZR',
+  1063: 'Schwarzes Loch ZL',
+  1064: 'Schwarzes Loch',
+  1065: 'Schwarzes Loch',
+  1066: 'Schwarzes Loch',
+  1067: 'Neutronenstern',
+  1068: 'Neutronenstern',
+  1069: 'Asteroiden-System',
+  1070: 'Asteroiden-System',
+  1071: 'Seltenes Tiefraum-System',
+  1072: 'Seltenes Tiefraum-System',
+  1073: 'Seltenes Tiefraum-System',
+  1074: 'Seltenes Tiefraum-System',
+  1075: 'Seltenes Tiefraum-System',
+};
+
+function getSystemTypeDisplayName(systemTypeId: number): string {
+  const combo = BINARY_SYSTEM_COMBOS[systemTypeId];
+  if (combo) {
+    const primary = SINGLE_SYSTEM_TYPE_NAMES[combo.primarySystemTypeId];
+    const secondary = SINGLE_SYSTEM_TYPE_NAMES[combo.secondarySystemTypeId];
+    if (primary && secondary) {
+      return `Binärsystem ${primary} - ${secondary}`;
+    }
+  }
+
+  return SINGLE_SYSTEM_TYPE_NAMES[systemTypeId] ?? `Typ ${systemTypeId}`;
+}
+
 // All 75 system type definitions
 export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   // === BINARY SYSTEMS (1001-1040): 35% of all systems ===
   ...Array.from({ length: 10 }, (_, i) => ({
     id: 1001 + i,
     key: `BIN_${1001 + i}`,
-    name: `Binaersystem ${1001 + i} (Riese+Riese)`,
+    name: getSystemTypeDisplayName(1001 + i),
     isBinary: true,
     rarity: 'BINARY' as SystemTypeRarity,
     gridSizeMin: 23,
@@ -119,7 +162,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 10 }, (_, i) => ({
     id: 1011 + i,
     key: `BIN_${1011 + i}`,
-    name: `Binaersystem ${1011 + i} (Riese+Ueberriese)`,
+    name: getSystemTypeDisplayName(1011 + i),
     isBinary: true,
     rarity: 'BINARY' as SystemTypeRarity,
     gridSizeMin: 25,
@@ -135,7 +178,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 10 }, (_, i) => ({
     id: 1021 + i,
     key: `BIN_${1021 + i}`,
-    name: `Binaersystem ${1021 + i} (Riese+Zwerg)`,
+    name: getSystemTypeDisplayName(1021 + i),
     isBinary: true,
     rarity: 'BINARY' as SystemTypeRarity,
     gridSizeMin: 22,
@@ -151,7 +194,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 10 }, (_, i) => ({
     id: 1031 + i,
     key: `BIN_${1031 + i}`,
-    name: `Binaersystem ${1031 + i} (Zwerg+Zwerg)`,
+    name: getSystemTypeDisplayName(1031 + i),
     isBinary: true,
     rarity: 'BINARY' as SystemTypeRarity,
     gridSizeMin: 20,
@@ -169,7 +212,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 4 }, (_, i) => ({
     id: 1041 + i,
     key: `BIN_${1041 + i}`,
-    name: `Binaersystem ${1041 + i} (Neutronenstern+Riese)`,
+    name: getSystemTypeDisplayName(1041 + i),
     isBinary: true,
     rarity: 'BINARY' as SystemTypeRarity,
     gridSizeMin: 22,
@@ -185,7 +228,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 4 }, (_, i) => ({
     id: 1045 + i,
     key: `BIN_${1045 + i}`,
-    name: `Binaersystem ${1045 + i} (Schwarzes Loch+Riese)`,
+    name: getSystemTypeDisplayName(1045 + i),
     isBinary: true,
     rarity: 'BINARY' as SystemTypeRarity,
     gridSizeMin: 24,
@@ -204,7 +247,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 4 }, (_, i) => ({
     id: 1049 + i,
     key: `SYS_${1049 + i}`,
-    name: `Riesenstern Typ ${i + 1}`,
+    name: getSystemTypeDisplayName(1049 + i),
     isBinary: false,
     rarity: 'COMMON' as SystemTypeRarity,
     gridSizeMin: 22,
@@ -221,7 +264,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 4 }, (_, i) => ({
     id: 1053 + i,
     key: `SYS_${1053 + i}`,
-    name: `Ueberriese Typ ${i + 1}`,
+    name: getSystemTypeDisplayName(1053 + i),
     isBinary: false,
     rarity: 'COMMON' as SystemTypeRarity,
     gridSizeMin: 24,
@@ -238,7 +281,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 4 }, (_, i) => ({
     id: 1057 + i,
     key: `SYS_${1057 + i}`,
-    name: `Zwergstern Typ ${i + 1}`,
+    name: getSystemTypeDisplayName(1057 + i),
     isBinary: false,
     rarity: 'COMMON' as SystemTypeRarity,
     gridSizeMin: 20,
@@ -257,7 +300,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 3 }, (_, i) => ({
     id: 1061 + i,
     key: `SYS_${1061 + i}`,
-    name: `Spezial-Stern ${i + 1} (leer)`,
+    name: getSystemTypeDisplayName(1061 + i),
     isBinary: false,
     rarity: 'UNCOMMON' as SystemTypeRarity,
     gridSizeMin: 7,
@@ -274,7 +317,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 3 }, (_, i) => ({
     id: 1064 + i,
     key: `SYS_${1064 + i}`,
-    name: `Mittlerer Spezial-Stern ${i + 1}`,
+    name: getSystemTypeDisplayName(1064 + i),
     isBinary: false,
     rarity: 'UNCOMMON' as SystemTypeRarity,
     gridSizeMin: 15,
@@ -293,7 +336,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 2 }, (_, i) => ({
     id: 1067 + i,
     key: `SYS_${1067 + i}`,
-    name: `Neutronenstern Typ ${i + 1}`,
+    name: getSystemTypeDisplayName(1067 + i),
     isBinary: false,
     rarity: 'RARE' as SystemTypeRarity,
     gridSizeMin: 17,
@@ -310,7 +353,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 2 }, (_, i) => ({
     id: 1069 + i,
     key: `SYS_${1069 + i}`,
-    name: `Seltenes System Typ ${i + 1}`,
+    name: getSystemTypeDisplayName(1069 + i),
     isBinary: false,
     rarity: 'RARE' as SystemTypeRarity,
     gridSizeMin: 19,
@@ -328,7 +371,7 @@ export const SYSTEM_TYPE_DEFINITIONS: SystemTypeDefinition[] = [
   ...Array.from({ length: 5 }, (_, i) => ({
     id: 1071 + i,
     key: `SYS_${1071 + i}`,
-    name: `Ultra-seltenes System Typ ${i + 1}`,
+    name: getSystemTypeDisplayName(1071 + i),
     isBinary: false,
     rarity: 'VERY_RARE' as SystemTypeRarity,
     gridSizeMin: 7,

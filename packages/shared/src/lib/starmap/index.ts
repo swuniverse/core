@@ -1,3 +1,5 @@
+export * from './planet-classes.js';
+
 export interface StarmapLayerDto {
   id: number;
   name: string;
@@ -17,6 +19,7 @@ export interface StarmapSystemListItemDto {
   maxX: number;
   maxY: number;
   systemTypeId: number;
+  systemTypeName?: string;
 }
 
 export interface StarmapSectorDto {
@@ -81,6 +84,7 @@ export interface StarmapSystemFieldDto {
   influenceAreaId: number | null;
   borderMask: string | null;
   fieldType: StarmapFieldTypeDto;
+  celestialObject?: StarmapCelestialObjectDto | null;
 }
 
 export interface StarmapSystemGridDto {
@@ -105,6 +109,7 @@ export interface StarmapSystemDetailDto {
   cx: number;
   cy: number;
   systemTypeId: number;
+  systemTypeName?: string;
   maxX: number;
   maxY: number;
   celestialObjects: StarmapCelestialObjectDto[];

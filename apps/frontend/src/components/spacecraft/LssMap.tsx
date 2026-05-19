@@ -1,4 +1,5 @@
 import { getGalaxyFieldStyle, getSystemFieldStyle } from './field-styles';
+import { planetThumbnail } from '../../lib/assets';
 
 interface FieldType {
   id: number;
@@ -26,6 +27,7 @@ interface SystemLocalField {
     id: number;
     name: string | null;
     objectType: number;
+    classId: number | null;
     posX: number;
     posY: number;
   } | null;
@@ -75,7 +77,7 @@ interface LssMapProps {
   onFieldClick: (x: number, y: number) => void;
 }
 
-const OBJECT_TYPE_ICONS: Record<number, string> = {
+const OBJECT_TYPE_EMOJI: Record<number, string> = {
   1: '🪐',
   2: '🌙',
   3: '☄️',
@@ -186,8 +188,9 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                   );
                 }
                 const obj = field.celestialObject;
-                const label = obj
-                  ? OBJECT_TYPE_ICONS[obj.objectType] || '●'
+                const hasImage = obj?.classId != null;
+                const fallbackLabel = obj
+                  ? OBJECT_TYPE_EMOJI[obj.objectType] || '●'
                   : field.fieldType.key === 'STAR_CORE'
                     ? '✦'
                     : field.fieldType.key === 'ASTEROID_CLUSTER'
@@ -200,7 +203,7 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     onClick={() => onFieldClick(x, y)}
                     style={{ width: cellSize, height: cellSize }}
                     className={[
-                      'relative border rounded-sm text-[10px] flex items-center justify-center transition-all',
+                      'relative border rounded-sm text-[10px] flex items-center justify-center transition-all overflow-hidden',
                       getSystemFieldStyle(field.fieldType.key),
                       field.fieldType.key === 'STAR_CORE'
                         ? 'shadow-[0_0_14px_rgba(255,210,80,0.5)]'
@@ -214,7 +217,9 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                       ? '🚀'
                       : shipsByPos.has(`${x},${y}`)
                         ? '⚔'
-                        : label}
+                        : hasImage
+                          ? <img src={planetThumbnail(obj!.classId!)} alt="" className="w-full h-full object-contain" />
+                          : fallbackLabel}
                   </button>
                 );
               })}

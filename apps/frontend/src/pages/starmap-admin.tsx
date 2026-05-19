@@ -13,7 +13,6 @@ import { SystemEditor } from '../components/starmap-admin/SystemEditor';
 import { BrushToolbar } from '../components/starmap-admin/BrushToolbar';
 import { RegionEditor } from '../components/starmap-admin/RegionEditor';
 import { BorderTypeEditor } from '../components/starmap-admin/BorderTypeEditor';
-import { OverviewMap } from '../components/starmap-admin/OverviewMap';
 import type { UserProfile } from '@swuniverse/shared';
 import { api } from '../services/api';
 
@@ -30,7 +29,10 @@ export function StarmapAdminPage() {
     ensureDefaults,
     layers,
     selectedLayerId,
+    selectedSector,
+    selectedSystemId,
     selectLayer,
+    selectSector,
     deleteSelectedLayer,
   } = useStarmapAdminStore();
 
@@ -61,8 +63,16 @@ export function StarmapAdminPage() {
     return <div className="p-6 text-swu-muted">Lade Karten-Admin...</div>;
   }
 
+  const selectedLayer =
+    layers.find((layer) => layer.id === selectedLayerId) ?? null;
+  const viewMode = selectedSystemId
+    ? 'system'
+    : selectedSector
+      ? 'sector'
+      : 'galaxy';
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-swu-muted">
@@ -70,14 +80,15 @@ export function StarmapAdminPage() {
               Admin
             </Link>
             <span>/</span>
-            <span>Map Admin</span>
+            <span>Starmap</span>
           </div>
           <h1 className="text-2xl font-bold text-swu-accent">Starmap Admin</h1>
           <p className="text-sm text-swu-muted mt-1">
-            STU-naher 20x20-Sektionseditor fuer Galaxy- und Systemfelder.
+            Gleiche Navigation wie Sternenkarte: Karte → Sektor → System. Felder
+            per Klick textbasiert bearbeiten.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => void ensureDefaults()}
             className="rounded border border-swu-accent px-3 py-2 text-sm text-swu-accent hover:bg-swu-accent/10"
@@ -89,9 +100,9 @@ export function StarmapAdminPage() {
             onChange={(e) => void selectLayer(Number(e.target.value))}
             className="rounded border border-swu-border bg-swu-surface px-3 py-2 text-sm text-swu-text"
           >
-            {layers.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
+            {layers.map((layer) => (
+              <option key={layer.id} value={layer.id}>
+                {layer.name}
               </option>
             ))}
           </select>
@@ -105,6 +116,48 @@ export function StarmapAdminPage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 text-xs text-swu-muted">
+        <button
+          disabled={!selectedLayer}
+          onClick={() => selectedLayer && void selectLayer(selectedLayer.id)}
+          className={[
+            'rounded border px-2 py-1 disabled:opacity-40',
+            viewMode === 'galaxy'
+              ? 'border-swu-accent text-swu-accent'
+              : 'border-swu-border',
+          ].join(' ')}
+        >
+          Karte
+        </button>
+        <span>/</span>
+        <button
+          disabled={!selectedSector}
+          onClick={() => selectedSector && void selectSector(selectedSector)}
+          className={[
+            'rounded border px-2 py-1 disabled:opacity-40',
+            viewMode === 'sector'
+              ? 'border-swu-accent text-swu-accent'
+              : 'border-swu-border',
+          ].join(' ')}
+        >
+          {selectedSector
+            ? `Sektor ${selectedSector.sectorX + 1}|${selectedSector.sectorY + 1}`
+            : 'Sektor'}
+        </button>
+        <span>/</span>
+        <button
+          disabled={!selectedSystemId}
+          className={[
+            'rounded border px-2 py-1 disabled:opacity-40',
+            viewMode === 'system'
+              ? 'border-swu-accent text-swu-accent'
+              : 'border-swu-border',
+          ].join(' ')}
+        >
+          {selectedSystemId ? `System #${selectedSystemId}` : 'System'}
+        </button>
+      </div>
+
       {message && (
         <div className="rounded border border-swu-success/40 bg-swu-success/10 px-4 py-3 text-sm text-swu-success">
           {message}
@@ -116,24 +169,31 @@ export function StarmapAdminPage() {
         </div>
       )}
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_auto]">
-        <LayerPanel />
-        <FieldTypeLegend />
-      </section>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <main className="min-w-0">
+          {viewMode === 'galaxy' && <SectorGrid />}
+          {viewMode === 'sector' && <GalaxyFieldGrid />}
+          {viewMode === 'system' && <SystemEditor />}
+        </main>
 
-      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
-        <div className="space-y-4">
-          <SectorGrid />
-          <OverviewMap />
-        </div>
-        <GalaxyFieldGrid />
-        <section className="space-y-4">
-          <BrushToolbar />
-          <SectorFillPanel />
-          <FieldEditor />
-          <SystemList />
-          <SystemEditor />
-        </section>
+        <aside className="space-y-4">
+          <LayerPanel />
+          {viewMode === 'galaxy' && <FieldTypeLegend />}
+          {viewMode === 'sector' && (
+            <>
+              <FieldEditor />
+              <SystemList />
+              <BrushToolbar />
+              <SectorFillPanel />
+            </>
+          )}
+          {viewMode === 'system' && (
+            <>
+              <SystemList />
+              <FieldEditor />
+            </>
+          )}
+        </aside>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-2">
