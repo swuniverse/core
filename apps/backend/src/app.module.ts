@@ -16,6 +16,8 @@ import { FactionModule } from './modules/faction/faction.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { User } from './modules/auth/user.entity';
+import { InviteKey } from './modules/auth/invite-key.entity';
+import { InviteQuota } from './modules/auth/invite-quota.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from './modules/colony/entities/colony-storage.entity';
@@ -59,6 +61,8 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
         url: config.get('DATABASE_URL'),
         entities: [
           User,
+          InviteKey,
+          InviteQuota,
           Colony,
           ColonyField,
           ColonyStorage,

@@ -15,6 +15,7 @@ import { SettingsPage } from '../pages/settings';
 import { StarmapAdminPage } from '../pages/starmap-admin';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
+import { AdminInvitesPage } from '../pages/admin-invites';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
@@ -26,6 +27,12 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
   if (!isAuthenticated) return <>{children}</>;
   return <Navigate to="/" replace />;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user?.isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 export function App() {
@@ -59,9 +66,38 @@ export function App() {
           <Route path="/colonies" element={<ColoniesPage />} />
           <Route path="/spacecraft" element={<SpacecraftPage />} />
           <Route path="/starmap" element={<StarmapPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/admin/ships" element={<AdminShipsPage />} />
-          <Route path="/admin/starmap" element={<StarmapAdminPage />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/ships"
+            element={
+              <AdminRoute>
+                <AdminShipsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/starmap"
+            element={
+              <AdminRoute>
+                <StarmapAdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/invites"
+            element={
+              <AdminRoute>
+                <AdminInvitesPage />
+              </AdminRoute>
+            }
+          />
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/holonet" element={<HolonetPage />} />
