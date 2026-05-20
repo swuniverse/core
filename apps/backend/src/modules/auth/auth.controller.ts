@@ -10,6 +10,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto } from './dto/register.dto';
 import { LoginRequestDto } from './dto/login.dto';
+import { AdminGuard } from './admin.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -34,5 +35,33 @@ export class AuthController {
   @Get('me')
   getProfile(@Request() req: { user: { sub: number } }) {
     return this.authService.getProfile(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('invites')
+  getMyInvites(@Request() req: { user: { sub: number } }) {
+    return this.authService.getMyInvites(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('invites')
+  createMyInvite(@Request() req: { user: { sub: number } }) {
+    return this.authService.createMyInvite(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('admin/invites')
+  getAdminInvites() {
+    return this.authService.getAdminInvites();
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('admin/invites')
+  adminCreateInvites(
+    @Request() req: { user: { sub: number } },
+    @Body()
+    body: { ownerUserId?: number; keyCount?: number; additionalQuota?: number },
+  ) {
+    return this.authService.adminCreateInvites(req.user.sub, body ?? {});
   }
 }

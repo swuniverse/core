@@ -17,11 +17,21 @@ const adminCards = [
       'Galaxy- und Systemkarten bearbeiten, Layer pflegen und Regionen verwalten.',
     badge: 'Starmap',
   },
+  {
+    title: 'Einladungen',
+    path: '/admin/invites',
+    description:
+      'Closed-Alpha Invite Keys, Spieler-Kontingente und neu ausgestellte Keys verwalten.',
+    badge: 'Alpha',
+  },
 ];
 
 function TickTrigger() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ tickNumber: number; status: string } | null>(null);
+  const [result, setResult] = useState<{
+    tickNumber: number;
+    status: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const trigger = async () => {
@@ -29,7 +39,10 @@ function TickTrigger() {
     setError(null);
     setResult(null);
     try {
-      const res = await api.post<{ tickNumber: number; status: string }>('/admin/tick/trigger', {});
+      const res = await api.post<{ tickNumber: number; status: string }>(
+        '/admin/tick/trigger',
+        {},
+      );
       setResult(res);
     } catch (e: any) {
       setError(e.message || 'Tick fehlgeschlagen');
@@ -44,7 +57,8 @@ function TickTrigger() {
         <div>
           <div className="text-lg font-semibold text-swu-text">Game Tick</div>
           <p className="mt-1 text-sm text-swu-muted">
-            Haupttick manuell ausloesen — verarbeitet Resourcen, Forschung, Bevoelkerung und Schiffe.
+            Haupttick manuell ausloesen — verarbeitet Resourcen, Forschung,
+            Bevoelkerung und Schiffe.
           </p>
         </div>
         <span className="rounded border border-swu-accent/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-swu-accent">
@@ -81,14 +95,18 @@ export function AdminPage() {
       </div>
 
       <section>
-        <h2 className="text-sm font-bold text-swu-muted uppercase tracking-wider mb-3">Quick Actions</h2>
+        <h2 className="text-sm font-bold text-swu-muted uppercase tracking-wider mb-3">
+          Quick Actions
+        </h2>
         <div className="grid gap-4 md:grid-cols-2">
           <TickTrigger />
         </div>
       </section>
 
       <section>
-        <h2 className="text-sm font-bold text-swu-muted uppercase tracking-wider mb-3">Tools</h2>
+        <h2 className="text-sm font-bold text-swu-muted uppercase tracking-wider mb-3">
+          Tools
+        </h2>
         <div className="grid gap-4 md:grid-cols-2">
           {adminCards.map((card) => (
             <Link

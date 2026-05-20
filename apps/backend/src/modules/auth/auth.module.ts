@@ -9,13 +9,15 @@ import { JwtStrategy } from './jwt.strategy';
 import { AdminGuard } from './admin.guard';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { User } from './user.entity';
+import { InviteKey } from './invite-key.entity';
+import { InviteQuota } from './invite-quota.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { ColonyModule } from '../colony/colony.module';
 import { FactionModule } from '../faction/faction.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, FactionEntity]),
+    TypeOrmModule.forFeature([User, FactionEntity, InviteKey, InviteQuota]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

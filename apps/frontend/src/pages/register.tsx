@@ -15,6 +15,7 @@ export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteKey, setInviteKey] = useState('');
   const [factionId, setFactionId] = useState<number | null>(null);
   const [factions, setFactions] = useState<FactionOption[]>([]);
   const [error, setError] = useState('');
@@ -40,11 +41,14 @@ export function RegisterPage() {
         email,
         password,
         factionId,
+        inviteKey: inviteKey.trim() || undefined,
       });
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen');
+      setError(
+        err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen',
+      );
     } finally {
       setLoading(false);
     }
@@ -53,9 +57,14 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md bg-swu-surface border border-swu-border rounded-lg p-8">
-        <h1 className="text-2xl font-bold text-center text-swu-accent mb-6">
+        <h1 className="text-2xl font-bold text-center text-swu-accent mb-3">
           Der Galaxis beitreten
         </h1>
+        <p className="mb-6 rounded border border-swu-accent/30 bg-swu-accent/10 p-3 text-center text-xs text-swu-muted">
+          Closed Alpha: Neue Kommandanten benoetigen einen Invite Key. Nur der
+          allererste Account einer leeren Galaxis darf ohne Key starten und wird
+          Admin.
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-swu-danger/20 border border-swu-danger text-swu-text rounded p-3 text-sm">
@@ -98,6 +107,23 @@ export function RegisterPage() {
               required
               minLength={8}
             />
+          </div>
+          <div>
+            <label className="block text-sm text-swu-muted mb-1">
+              Invite Key
+            </label>
+            <input
+              type="text"
+              value={inviteKey}
+              onChange={(e) => setInviteKey(e.target.value)}
+              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-2 text-swu-text focus:border-swu-primary outline-none uppercase tracking-wider"
+              placeholder="SWU-ABCDE-23456-FGHIJ"
+              minLength={8}
+              maxLength={128}
+            />
+            <p className="mt-1 text-xs text-swu-muted">
+              Das Feld darf nur beim ersten Admin-Account leer bleiben.
+            </p>
           </div>
           <div>
             <label className="block text-sm text-swu-muted mb-2">
