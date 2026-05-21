@@ -131,7 +131,8 @@ export class OnboardingService {
       .createQueryBuilder('system')
       .where('system.layerId = :layerId', { layerId })
       .andWhere('system.cx BETWEEN :minX AND :maxX', { minX, maxX })
-      .andWhere('system.cy BETWEEN :minY AND :maxY', { minY, maxY });
+      .andWhere('system.cy BETWEEN :minY AND :maxY', { minY, maxY })
+      .andWhere('system.landmarkKey IS NULL');
 
     if (systemIds !== null) {
       if (systemIds.length === 0) {
@@ -153,7 +154,7 @@ export class OnboardingService {
   async listPlanets(userId: number, systemId: number) {
     const selection = await this.getOrCreateSelection(userId);
     const system = await this.starSystemRepo.findOneBy({ id: systemId });
-    if (!system) {
+    if (!system || system.landmarkKey) {
       throw new NotFoundException('System not found');
     }
 
@@ -175,22 +176,30 @@ export class OnboardingService {
 
   async claimHomeworld(userId: number, celestialObjectId: number) {
     const selection = await this.getOrCreateSelection(userId);
-    if (!selection.factionId) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const factionId = selection.factionId ?? user.factionId;
+    if (!factionId) {
       throw new BadRequestException('Faction must be selected first');
+    }
+    if (!selection.factionId) {
+      selection.factionId = factionId;
     }
 
     const object = await this.objectRepo.findOneBy({ id: celestialObjectId });
     if (!object) {
       throw new NotFoundException('Celestial object not found');
     }
+    const system = await this.starSystemRepo.findOneBy({ id: object.systemId });
+    if (!system || system.landmarkKey) {
+      throw new BadRequestException(INVALID_STARTER_PLANET_MESSAGE);
+    }
     if (!this.isAllowedStarterPlanet(object)) {
       throw new BadRequestException(INVALID_STARTER_PLANET_MESSAGE);
     }
 
-    const user = await this.userRepo.findOneBy({ id: userId });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
     if (
       user.onboardingCompleted ||
       user.starterColonyId ||
@@ -226,14 +235,14 @@ export class OnboardingService {
     );
     const starterShip = await this.spacecraftService.spawnStarterShip(
       user.id,
-      selection.factionId,
+      factionId,
       celestialObjectId,
     );
 
     user.onboardingCompleted = true;
     user.starterColonyId = colony.id;
     user.starterShipId = starterShip.id;
-    user.factionId = selection.factionId;
+    user.factionId = factionId;
     await this.userRepo.save(user);
 
     return {

@@ -275,10 +275,18 @@ export class SpacecraftService {
       }),
     );
 
-    return this.shipRepo.findOneOrFail({
+    const hydratedShip = await this.shipRepo.findOneOrFail({
       where: { id: ship.id },
       relations: ['modules', 'fleet', 'starSystem', 'celestialObject'],
     });
+    await this.discoverGalaxyAroundShip(
+      hydratedShip,
+      layer.id,
+      posX,
+      posY,
+      'SPAWN',
+    );
+    return hydratedShip;
   }
 
   async spawnStarterShip(
@@ -341,10 +349,23 @@ export class SpacecraftService {
 
     await this.installStarterModules(ship.id);
     await this.ensureStarterFleet(ship);
-    return this.shipRepo.findOneOrFail({
+    const hydratedShip = await this.shipRepo.findOneOrFail({
       where: { id: ship.id },
       relations: ['modules', 'fleet', 'starSystem'],
     });
+    const currentSystem = await this.systemRepo.findOneBy({
+      id: celestialObject.systemId,
+    });
+    if (currentSystem) {
+      await this.discoverGalaxyAroundShip(
+        hydratedShip,
+        currentSystem.layerId,
+        currentSystem.cx,
+        currentSystem.cy,
+        'STARTER_SHIP',
+      );
+    }
+    return hydratedShip;
   }
 
   private async installStarterModules(shipId: number): Promise<void> {
@@ -628,15 +649,13 @@ export class SpacecraftService {
 
     await this.shipRepo.save(ship);
 
-    await this.explorationService.discoverField({
-      userId: ship.userId,
-      layerId: ship.currentLayerId,
-      cx: targetX,
-      cy: targetY,
-      radius: 1,
-      level: ExplorationLevel.TERRAIN,
-      source: 'FLIGHT',
-    });
+    await this.discoverGalaxyAroundShip(
+      ship,
+      ship.currentLayerId,
+      targetX,
+      targetY,
+      'FLIGHT',
+    );
 
     return this.findOne(ship.id, userId);
   }
@@ -904,15 +923,13 @@ export class SpacecraftService {
           ship.posY = ship.targetY;
 
           if (ship.currentLayerId) {
-            await this.explorationService.discoverField({
-              userId: ship.userId,
-              layerId: ship.currentLayerId,
-              cx: ship.targetX,
-              cy: ship.targetY,
-              radius: 1,
-              level: ExplorationLevel.TERRAIN,
-              source: 'FLIGHT',
-            });
+            await this.discoverGalaxyAroundShip(
+              ship,
+              ship.currentLayerId,
+              ship.targetX,
+              ship.targetY,
+              'FLIGHT',
+            );
           }
         }
       }
@@ -924,6 +941,25 @@ export class SpacecraftService {
 
       await this.shipRepo.save(ship);
     }
+  }
+
+  private async discoverGalaxyAroundShip(
+    ship: Spacecraft,
+    layerId: number | null,
+    cx: number | null,
+    cy: number | null,
+    source: string,
+  ): Promise<void> {
+    if (!layerId || cx == null || cy == null) return;
+    await this.explorationService.discoverArea({
+      userId: ship.userId,
+      layerId,
+      cx,
+      cy,
+      radius: await this.getSensorRange(ship),
+      level: ExplorationLevel.TERRAIN,
+      source,
+    });
   }
 
   async getSensorRange(ship: Spacecraft): Promise<number> {
@@ -1031,11 +1067,20 @@ export class SpacecraftService {
           posY: s.currentSystemFieldY,
           status: s.status,
           onSameField:
-            s.currentSystemFieldX === shipX &&
-            s.currentSystemFieldY === shipY,
+            s.currentSystemFieldX === shipX && s.currentSystemFieldY === shipY,
         })),
         canEnterSystem: false,
         canLeaveSystem: ship.status === SpacecraftStatus.DOCKED,
+        context: await this.buildLocalMapContext({
+          ship,
+          layerId: ship.currentLayerId,
+          cx: ship.starSystem?.cx ?? null,
+          cy: ship.starSystem?.cy ?? null,
+          localX: shipX,
+          localY: shipY,
+          sensorRange,
+          visibleFields: [],
+        }),
       };
     }
 
@@ -1113,6 +1158,85 @@ export class SpacecraftService {
       canEnterSystem:
         Boolean(onSystemField) && ship.status === SpacecraftStatus.DOCKED,
       canLeaveSystem: false,
+      context: await this.buildLocalMapContext({
+        ship,
+        layerId: ship.currentLayerId,
+        cx: ship.posX,
+        cy: ship.posY,
+        localX: ship.posX,
+        localY: ship.posY,
+        sensorRange,
+        visibleFields: fields,
+      }),
+    };
+  }
+
+  private async buildLocalMapContext(input: {
+    ship: Spacecraft;
+    layerId: number | null;
+    cx: number | null;
+    cy: number | null;
+    localX: number | null;
+    localY: number | null;
+    sensorRange: number;
+    visibleFields: GalaxyField[];
+  }) {
+    const {
+      ship,
+      layerId,
+      cx,
+      cy,
+      localX,
+      localY,
+      sensorRange,
+      visibleFields,
+    } = input;
+    const layer = layerId
+      ? await this.layerRepo.findOneBy({ id: layerId })
+      : null;
+    const currentField =
+      layerId && cx != null && cy != null
+        ? await this.galaxyFieldRepo.findOne({
+            where: { layerId, cx, cy },
+            relations: ['starSystem'],
+          })
+        : null;
+    const sectorX =
+      layer && cx != null ? Math.floor((cx - 1) / layer.sectorSize) : null;
+    const sectorY =
+      layer && cy != null ? Math.floor((cy - 1) / layer.sectorSize) : null;
+    const nearestSystemField = visibleFields
+      .filter((field) => field.starSystem)
+      .sort(
+        (a, b) =>
+          Math.hypot(a.cx - (cx ?? a.cx), a.cy - (cy ?? a.cy)) -
+          Math.hypot(b.cx - (cx ?? b.cx), b.cy - (cy ?? b.cy)),
+      )[0];
+
+    return {
+      layerId,
+      sectorX,
+      sectorY,
+      sectorNumber:
+        layer && sectorX != null && sectorY != null
+          ? sectorY * Math.ceil(layer.width / layer.sectorSize) + sectorX + 1
+          : null,
+      coordinates: { x: localX, y: localY },
+      galaxyCoordinates: { x: cx, y: cy },
+      sensorRange,
+      factionZone: currentField?.factionZone ?? null,
+      adminRegionKey: currentField?.adminRegionKey ?? null,
+      systemName:
+        ship.starSystem?.name ?? currentField?.starSystem?.name ?? null,
+      nearestSystem: nearestSystemField?.starSystem
+        ? {
+            id: nearestSystemField.starSystem.id,
+            name: nearestSystemField.starSystem.name,
+            cx: nearestSystemField.starSystem.cx,
+            cy: nearestSystemField.starSystem.cy,
+          }
+        : null,
+      nearbyRouteNames: [] as string[],
     };
   }
 

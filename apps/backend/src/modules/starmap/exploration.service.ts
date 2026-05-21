@@ -32,10 +32,15 @@ export class ExplorationService {
     private readonly systemExplorationRepo: Repository<SystemExploration>,
   ) {}
 
+  async discoverArea(input: DiscoverFieldsInput): Promise<number> {
+    return this.discoverField(input);
+  }
+
   async discoverField(input: DiscoverFieldsInput): Promise<number> {
     const radius = input.radius ?? 0;
     const level = input.level ?? ExplorationLevel.TERRAIN;
     let discovered = 0;
+    const now = new Date();
 
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -56,8 +61,12 @@ export class ExplorationService {
           ) {
             existing.explorationLevel = ExplorationLevel.FULL;
             existing.discoverySource = input.source ?? existing.discoverySource;
+            existing.lastSeenAt = now;
             await this.explorationRepo.save(existing);
             discovered++;
+          } else {
+            existing.lastSeenAt = now;
+            await this.explorationRepo.save(existing);
           }
           continue;
         }

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
+import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
+import { ShipInformationPanel } from '../components/spacecraft/ShipInformationPanel';
+import type { LocalMapResponse } from '../components/spacecraft/LssMap';
 
 interface Spacecraft {
   id: number;
@@ -50,6 +53,8 @@ export function SpacecraftPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [ships, setShips] = useState<Spacecraft[]>([]);
   const [selected, setSelected] = useState<Spacecraft | null>(null);
+  const [selectedLocalMap, setSelectedLocalMap] =
+    useState<LocalMapResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,6 +111,7 @@ export function SpacecraftPage() {
               key={ship.id}
               onClick={() => {
                 setSelected(ship);
+                setSelectedLocalMap(null);
                 setSearchParams(
                   { selected: String(ship.id) },
                   { replace: true },
@@ -156,67 +162,37 @@ export function SpacecraftPage() {
         {/* Ship Detail (STU: Hauptansicht) */}
         {selected && (
           <div className="flex-1 space-y-3">
-            {/* Header bar — STU style: Type, Position, Bars, Alert, Name */}
-            <div className="bg-swu-surface border border-swu-border rounded-lg p-3">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-3 h-3 rounded-full ${ALERT_COLORS[selected.alertState]}`}
-                  />
-                  <span
-                    className={`text-xs font-bold ${STATUS_COLORS[selected.status]}`}
-                  >
-                    {selected.status}
-                  </span>
-                </div>
-                <h2 className="text-sm font-bold text-swu-primary">
-                  {selected.name}
-                </h2>
-                <span className="text-[11px] text-swu-muted">
-                  {selected.shipClassName || `Klasse ${selected.shipClassId}`}
-                </span>
-                <span className="text-[11px] text-swu-muted">
-                  {selected.locationLabel ||
-                    selected.celestialObject?.name ||
-                    selected.starSystem?.name ||
-                    'Tiefer Weltraum'}{' '}
-                  [{selected.posX},{selected.posY}]
-                </span>
-                <div className="ml-auto flex items-center gap-3">
-                  <HeaderBar
-                    label="H"
-                    value={selected.hull}
-                    max={selected.hullMax}
-                    color="bg-red-500"
-                  />
-                  <HeaderBar
-                    label="S"
-                    value={selected.shields}
-                    max={selected.shieldsMax}
-                    color="bg-blue-400"
-                  />
-                  <HeaderBar
-                    label="E"
-                    value={selected.energy}
-                    max={selected.energyMax}
-                    color="bg-yellow-400"
-                  />
-                  <span className="text-[10px] text-swu-muted">
-                    W:{selected.warpSpeed} C:{selected.crew}/{selected.crewMax}
-                  </span>
-                </div>
-              </div>
+            <ShipHeaderTable ship={selected} />
+
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_360px]">
+              <NavigationPanel
+                ship={selected}
+                onShipUpdate={refresh}
+                onLocalMapChange={setSelectedLocalMap}
+              />
+              <ShipInformationPanel localMap={selectedLocalMap} />
             </div>
 
-            {/* Navigation Panel (LSS + Steuerkreuz) — Primary interaction */}
-            <NavigationPanel ship={selected} onShipUpdate={refresh} />
-
-            {/* Bottom: Specs + Systems + Cargo — secondary info */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
                 <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-                  Antrieb
+                  Schiffskontrolle
                 </h3>
+                <StatRow label="Alarm" value={selected.alertState} />
+                <StatRow label="Status" value={selected.status} />
+                <StatRow
+                  label="Schilde"
+                  value={`${selected.shields}/${selected.shieldsMax}`}
+                />
+              </div>
+              <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
+                <h3 className="text-[10px] font-bold text-swu-muted uppercase">
+                  Reaktor + Antrieb
+                </h3>
+                <StatRow
+                  label="EPS"
+                  value={`${selected.energy}/${selected.energyMax}`}
+                />
                 <StatRow label="Warp" value={`${selected.warpSpeed}`} />
                 <StatRow
                   label="Cooldown"
@@ -226,12 +202,6 @@ export function SpacecraftPage() {
                       : '—'
                   }
                 />
-                {selected.status === 'IN_FLIGHT' && selected.arrivalAt && (
-                  <StatRow
-                    label="ETA"
-                    value={new Date(selected.arrivalAt).toLocaleTimeString()}
-                  />
-                )}
               </div>
               <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
                 <h3 className="text-[10px] font-bold text-swu-muted uppercase">
@@ -245,22 +215,15 @@ export function SpacecraftPage() {
                   label="Cargo"
                   value={`${selected.cargoUsed ?? 0}/${selected.cargoMax ?? 0}`}
                 />
-                <StatRow
-                  label="Module"
-                  value={String(selected.moduleCount ?? 0)}
-                />
-              </div>
-              <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
-                <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-                  Flotte
-                </h3>
                 <StatRow label="Flotte" value={selected.fleetName || '—'} />
-                <StatRow label="Batterie" value="—" />
               </div>
             </div>
 
-            {/* Cargo / Transfer Panel */}
-            <CargoPanel shipId={selected.id} cargoMax={selected.cargoMax ?? 0} onTransfer={refresh} />
+            <CargoPanel
+              shipId={selected.id}
+              cargoMax={selected.cargoMax ?? 0}
+              onTransfer={refresh}
+            />
           </div>
         )}
       </div>
@@ -281,32 +244,6 @@ function MiniBar({
   return (
     <div className="flex-1 h-1.5 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
       <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
-function HeaderBar({
-  label,
-  value,
-  max,
-  color,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-}) {
-  const pct = max > 0 ? (value / max) * 100 : 0;
-  return (
-    <div className="flex items-center gap-1">
-      <span className="text-[10px] text-swu-muted">{label}</span>
-      <div className="w-16 h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
-        <div
-          className={`h-full ${color} transition-all`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-[10px] text-swu-muted font-mono">{value}</span>
     </div>
   );
 }
@@ -471,9 +408,7 @@ function CargoPanel({
               Entladen
             </button>
           </div>
-          {message && (
-            <p className="text-[10px] text-swu-muted">{message}</p>
-          )}
+          {message && <p className="text-[10px] text-swu-muted">{message}</p>}
         </div>
       )}
     </div>

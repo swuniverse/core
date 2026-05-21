@@ -36,6 +36,10 @@ export interface StarmapSectorDto {
   maxY: number;
   fieldCount: number;
   systemCount: number;
+  exploredCount?: number;
+  totalCount?: number;
+  explorationPercent?: number;
+  isDiscovered?: boolean;
 }
 
 export interface StarmapFieldTypeDto {
@@ -330,7 +334,7 @@ export interface StarmapSectorOverviewEntry {
 
 // --- Phase 4: Exploration / Fog of War ---
 
-export type StarmapExplorationLevel = 'TERRAIN' | 'FULL';
+export type StarmapExplorationLevel = 'UNKNOWN' | 'TERRAIN' | 'FULL';
 
 export interface StarmapExplorationStateDto {
   cx: number;
@@ -352,18 +356,8 @@ export interface StarmapDiscoverSystemDto {
   source?: string;
 }
 
-export interface StarmapExploredGalaxyFieldDto {
-  id: number;
-  cx: number;
-  cy: number;
-  fieldTypeId: number;
-  systemTypeId: number | null;
-  factionZone: StarmapFactionZone;
-  starSystemId: number | null;
-  regionId: number | null;
+export interface StarmapExploredGalaxyFieldDto extends StarmapGalaxyFieldDto {
   explorationLevel: StarmapExplorationLevel;
-  fieldType: StarmapFieldTypeDto;
-  starSystem: StarmapSystemListItemDto | null;
 }
 
 export interface StarmapExploredSectorDto {

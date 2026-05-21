@@ -45,6 +45,21 @@ export interface NearbyShip {
   onSameField: boolean;
 }
 
+export interface LocalMapContext {
+  layerId: number | null;
+  sectorX: number | null;
+  sectorY: number | null;
+  sectorNumber: number | null;
+  coordinates: { x: number | null; y: number | null };
+  galaxyCoordinates: { x: number | null; y: number | null };
+  sensorRange: number;
+  factionZone: string | null;
+  adminRegionKey: string | null;
+  systemName: string | null;
+  nearestSystem: { id: number; name: string; cx: number; cy: number } | null;
+  nearbyRouteNames: string[];
+}
+
 export interface LocalMapGalaxy {
   mode: 'galaxy';
   shipX: number;
@@ -54,6 +69,7 @@ export interface LocalMapGalaxy {
   ships?: NearbyShip[];
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
+  context?: LocalMapContext;
 }
 
 export interface LocalMapSystem {
@@ -67,6 +83,7 @@ export interface LocalMapSystem {
   ships?: NearbyShip[];
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
+  context?: LocalMapContext;
 }
 
 export type LocalMapResponse = LocalMapGalaxy | LocalMapSystem;
@@ -213,13 +230,19 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     ].join(' ')}
                     title={`[${x},${y}] ${field.fieldType.name}${obj ? ` · ${obj.name || 'Object'}` : ''}`}
                   >
-                    {isShip
-                      ? '🚀'
-                      : shipsByPos.has(`${x},${y}`)
-                        ? '⚔'
-                        : hasImage
-                          ? <img src={planetThumbnail(obj!.classId!)} alt="" className="w-full h-full object-contain" />
-                          : fallbackLabel}
+                    {isShip ? (
+                      '🚀'
+                    ) : shipsByPos.has(`${x},${y}`) ? (
+                      '⚔'
+                    ) : hasImage ? (
+                      <img
+                        src={planetThumbnail(obj!.classId!)}
+                        alt=""
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      fallbackLabel
+                    )}
                   </button>
                 );
               })}

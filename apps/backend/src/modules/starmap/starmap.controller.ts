@@ -90,28 +90,52 @@ export class StarmapController {
   @Get('layers/:layerId/hyperspace-routes')
   getHyperspaceRoutes(
     @Param('layerId', ParseIntPipe) layerId: number,
+    @Req() req: { user: { sub: number; isAdmin?: boolean } },
   ): Promise<HyperspaceRouteDto[]> {
-    return this.starmapQueryService.getHyperspaceRoutes(layerId);
+    if (req.user.isAdmin)
+      return this.starmapQueryService.getHyperspaceRoutes(layerId);
+    return this.starmapQueryService.getVisibleHyperspaceRoutes(
+      req.user.sub,
+      layerId,
+      this.explorationService,
+    );
   }
 
   @Get('layers/:layerId/sectors')
   getSectorsInLayer(
     @Param('layerId', ParseIntPipe) layerId: number,
+    @Req() req: { user: { sub: number; isAdmin?: boolean } },
   ): Promise<StarmapSectorDto[]> {
-    return this.starmapService.getSectorsInLayer(layerId);
+    if (req.user.isAdmin) return this.starmapService.getSectorsInLayer(layerId);
+    return this.starmapQueryService.getExploredGalaxySectors(
+      req.user.sub,
+      layerId,
+      this.explorationService,
+    );
   }
 
   @Get('layers/:layerId/sectors/:sectorX/:sectorY')
-  getSectorFields(
+  async getSectorFields(
     @Param('layerId', ParseIntPipe) layerId: number,
     @Param('sectorX', ParseIntPipe) sectorX: number,
     @Param('sectorY', ParseIntPipe) sectorY: number,
+    @Req() req: { user: { sub: number; isAdmin?: boolean } },
   ): Promise<StarmapGalaxyFieldDto[]> {
-    return this.starmapQueryService.getGalaxySectorFields(
+    if (req.user.isAdmin) {
+      return this.starmapQueryService.getGalaxySectorFields(
+        layerId,
+        sectorX,
+        sectorY,
+      );
+    }
+    const explored = await this.starmapQueryService.getExploredSectorFields(
+      req.user.sub,
       layerId,
       sectorX,
       sectorY,
+      this.explorationService,
     );
+    return explored.fields;
   }
 
   @Get('systems/:id/grid')

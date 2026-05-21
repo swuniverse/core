@@ -16,6 +16,7 @@ interface Ship {
 interface NavigationPanelProps {
   ship: Ship;
   onShipUpdate: () => void;
+  onLocalMapChange?: (localMap: LocalMapResponse | null) => void;
 }
 
 interface CombatLogEntry {
@@ -41,7 +42,11 @@ interface CombatResult {
   defenderDestroyed: boolean;
 }
 
-export function NavigationPanel({ ship, onShipUpdate }: NavigationPanelProps) {
+export function NavigationPanel({
+  ship,
+  onShipUpdate,
+  onLocalMapChange,
+}: NavigationPanelProps) {
   const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
   const [navTarget, setNavTarget] = useState<{ x: number; y: number } | null>(
     null,
@@ -59,11 +64,13 @@ export function NavigationPanel({ ship, onShipUpdate }: NavigationPanelProps) {
         `/spacecraft/${ship.id}/local-map`,
       );
       setLocalMap(data);
+      onLocalMapChange?.(data);
     } catch {
       setLocalMap(null);
+      onLocalMapChange?.(null);
     }
     setLoading(false);
-  }, [ship.id]);
+  }, [onLocalMapChange, ship.id]);
 
   useEffect(() => {
     setLoading(true);

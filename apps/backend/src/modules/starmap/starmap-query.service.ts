@@ -84,6 +84,41 @@ export class StarmapQueryService {
     return sectors;
   }
 
+  async getExploredGalaxySectors(
+    userId: number,
+    layerId: number,
+    explorationService: ExplorationService,
+  ): Promise<StarmapSectorDto[]> {
+    const sectors = await this.getGalaxySectors(layerId);
+    const exploredFields = await explorationService.getExploredFields(
+      userId,
+      layerId,
+    );
+    const explored = new Set(
+      exploredFields.map((field) => `${field.cx},${field.cy}`),
+    );
+
+    return sectors.map((sector) => {
+      let exploredCount = 0;
+      for (let cy = sector.minY; cy <= sector.maxY; cy++) {
+        for (let cx = sector.minX; cx <= sector.maxX; cx++) {
+          if (explored.has(`${cx},${cy}`)) exploredCount++;
+        }
+      }
+      const totalCount = sector.maxX - sector.minX + 1;
+      const totalFields = totalCount * (sector.maxY - sector.minY + 1);
+      return {
+        ...sector,
+        systemCount: 0,
+        exploredCount,
+        totalCount: totalFields,
+        explorationPercent:
+          totalFields > 0 ? Math.round((exploredCount / totalFields) * 100) : 0,
+        isDiscovered: exploredCount > 0,
+      };
+    });
+  }
+
   async getGalaxySectorFields(
     layerId: number,
     sectorX: number,
@@ -125,6 +160,31 @@ export class StarmapQueryService {
         ? this.toSystemListItemDTO(field.starSystem)
         : null,
     }));
+  }
+
+  async getVisibleHyperspaceRoutes(
+    userId: number,
+    layerId: number,
+    explorationService: ExplorationService,
+  ): Promise<HyperspaceRouteDto[]> {
+    const routes = await this.getHyperspaceRoutes(layerId);
+    const exploredFields = await explorationService.getExploredFields(
+      userId,
+      layerId,
+    );
+    const visible = new Set(
+      exploredFields.map((field) => `${field.cx},${field.cy}`),
+    );
+    return routes
+      .map((route) => ({
+        ...route,
+        segments: route.segments.filter(
+          (segment) =>
+            visible.has(`${segment.fromSystem.cx},${segment.fromSystem.cy}`) &&
+            visible.has(`${segment.toSystem.cx},${segment.toSystem.cy}`),
+        ),
+      }))
+      .filter((route) => route.segments.length > 0);
   }
 
   async getHyperspaceRoutes(layerId: number): Promise<HyperspaceRouteDto[]> {
@@ -227,6 +287,32 @@ export class StarmapQueryService {
       const level = exploredMap.get(`${field.cx},${field.cy}`);
       if (!level) {
         hiddenCount++;
+        fields.push({
+          id: field.id,
+          cx: field.cx,
+          cy: field.cy,
+          fieldTypeId: 0,
+          systemTypeId: null,
+          factionZone: 'UNKNOWN',
+          adminRegionKey: null,
+          starSystemId: null,
+          regionId: null,
+          borderTypeId: null,
+          effects: null,
+          passableOverride: null,
+          explorationLevel: 'UNKNOWN',
+          fieldType: {
+            id: 0,
+            key: 'UNKNOWN',
+            name: 'Unbekannt',
+            passable: false,
+            energyCost: 0,
+            damage: 0,
+            isSystem: false,
+            colorKey: null,
+          },
+          starSystem: null,
+        });
         continue;
       }
 
@@ -238,8 +324,12 @@ export class StarmapQueryService {
           fieldTypeId: field.fieldTypeId,
           systemTypeId: null,
           factionZone: field.factionZone,
+          adminRegionKey: null,
           starSystemId: null,
           regionId: field.regionId,
+          borderTypeId: null,
+          effects: null,
+          passableOverride: null,
           explorationLevel: 'TERRAIN',
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: null,
@@ -252,8 +342,12 @@ export class StarmapQueryService {
           fieldTypeId: field.fieldTypeId,
           systemTypeId: field.systemTypeId,
           factionZone: field.factionZone,
+          adminRegionKey: field.adminRegionKey,
           starSystemId: field.starSystemId,
           regionId: field.regionId,
+          borderTypeId: field.borderTypeId,
+          effects: field.effects,
+          passableOverride: field.passableOverride,
           explorationLevel: 'FULL',
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: field.starSystem

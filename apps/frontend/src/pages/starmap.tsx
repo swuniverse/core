@@ -57,6 +57,7 @@ const OBJECT_TYPE_NAMES: Record<number, string> = {
 };
 
 const SECTOR_OVERLAY_STYLES: Record<string, string> = {
+  UNKNOWN: 'bg-black border border-slate-900',
   NEBULA:
     'after:absolute after:inset-0 after:bg-emerald-500/20 after:rounded-sm',
   ASTEROID_FIELD:
@@ -543,7 +544,9 @@ export function StarmapPage() {
                               {sector.maxY}]
                             </div>
                             <div className="mt-1 text-[11px] text-swu-muted">
-                              {sector.systemCount} Systeme
+                              {sector.exploredCount !== undefined
+                                ? `${sector.explorationPercent ?? 0}% entdeckt`
+                                : `${sector.systemCount} Systeme`}
                             </div>
                           </button>
                         );
@@ -674,10 +677,14 @@ export function StarmapPage() {
                                   field,
                                   isActive,
                                 )}
-                                style={{
-                                  backgroundImage: `url(${spaceBackgroundTile(field.cx, field.cy)})`,
-                                  backgroundSize: '107%',
-                                }}
+                                style={
+                                  field.fieldType.key === 'UNKNOWN'
+                                    ? undefined
+                                    : {
+                                        backgroundImage: `url(${spaceBackgroundTile(field.cx, field.cy)})`,
+                                        backgroundSize: '107%',
+                                      }
+                                }
                                 title={`${field.cx},${field.cy} · ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}${field.starSystem.isMapOnly ? ' · Kartenmarker' : ''}` : ''}`}
                               >
                                 {field.systemTypeId ? (

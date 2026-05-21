@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   Index,
+  UpdateDateColumn,
 } from 'typeorm';
 
 export enum ExplorationLevel {
@@ -38,4 +39,7 @@ export class ExplorationState {
 
   @CreateDateColumn()
   discoveredAt: Date;
+
+  @UpdateDateColumn()
+  lastSeenAt: Date;
 }
