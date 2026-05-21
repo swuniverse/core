@@ -20,6 +20,10 @@ export interface StarmapSystemListItemDto {
   maxY: number;
   systemTypeId: number;
   systemTypeName?: string;
+  isLandmark?: boolean;
+  isMapOnly?: boolean;
+  landmarkKey?: string | null;
+  landmarkCategory?: string | null;
 }
 
 export interface StarmapSectorDto {
@@ -112,7 +116,60 @@ export interface StarmapSystemDetailDto {
   systemTypeName?: string;
   maxX: number;
   maxY: number;
+  isLandmark?: boolean;
+  isMapOnly?: boolean;
+  landmarkKey?: string | null;
+  landmarkCategory?: string | null;
   celestialObjects: StarmapCelestialObjectDto[];
+}
+
+export interface HyperspaceRouteSegmentDto {
+  id: number;
+  routeId: number;
+  sortOrder: number;
+  fromSystem: StarmapSystemListItemDto;
+  toSystem: StarmapSystemListItemDto;
+  controlPoints: Array<{ x: number; y: number }> | null;
+}
+
+export interface HyperspaceRouteDto {
+  id: number;
+  layerId: number;
+  key: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  segments: HyperspaceRouteSegmentDto[];
+}
+
+export type StarWarsPresetModeDto = 'landmarks' | 'curated' | 'full';
+
+export interface ApplyStarWarsPresetOptionsDto {
+  mode?: StarWarsPresetModeDto;
+  recreateRoutes?: boolean;
+  overwriteExisting?: boolean;
+  fullLimit?: number;
+  fullOffset?: number;
+  regionFilter?: string;
+}
+
+export interface ApplyStarWarsPresetResultDto extends StarmapOperationResultDto {
+  createdLandmarks: number;
+  updatedLandmarks: number;
+  createdRoutes: number;
+  conflicts: string[];
+}
+
+export interface StarmapFieldContextDto {
+  layerId: number;
+  cx: number;
+  cy: number;
+  sectorX: number;
+  sectorY: number;
+  factionZone?: string | null;
+  adminRegionKey?: string | null;
+  regionName?: string | null;
+  nearestSystem?: StarmapSystemListItemDto | null;
 }
 
 export interface StarmapSystemTypeOptionDto {

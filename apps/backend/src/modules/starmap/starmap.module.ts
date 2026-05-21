@@ -18,6 +18,8 @@ import { SystemExploration } from './entities/system-exploration.entity';
 import { PlanetField } from './entities/planet-field.entity';
 import { InfluenceArea } from './entities/influence-area.entity';
 import { Wormhole } from './entities/wormhole.entity';
+import { HyperspaceRoute } from './entities/hyperspace-route.entity';
+import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
 import { AuthModule } from '../auth/auth.module';
 import { StarmapSystemGeneratorService } from './generator/starmap-system-generator.service';
 import { PlanetGeneratorService } from './generator/planet-generator.service';
@@ -40,6 +42,8 @@ import { WormholeService } from './wormhole.service';
       PlanetField,
       InfluenceArea,
       Wormhole,
+      HyperspaceRoute,
+      HyperspaceRouteSegment,
     ]),
     AuthModule,
   ],

@@ -1,9 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { Layer } from './entities/layer.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
 import { SystemField } from './entities/system-field.entity';
+import { StarSystem } from './entities/star-system.entity';
+import { HyperspaceRoute } from './entities/hyperspace-route.entity';
+import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
 import type { ExplorationService } from './exploration.service';
 import { ExplorationLevel } from './entities/exploration-state.entity';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
@@ -11,6 +18,7 @@ import type {
   StarmapCelestialObjectDto,
   StarmapExploredGalaxyFieldDto,
   StarmapExploredSectorDto,
+  HyperspaceRouteDto,
   StarmapFieldTypeDto,
   StarmapGalaxyFieldDto,
   StarmapSectorDto,
@@ -28,6 +36,12 @@ export class StarmapQueryService {
     private readonly galaxyFieldRepo: Repository<GalaxyField>,
     @InjectRepository(SystemField)
     private readonly systemFieldRepo: Repository<SystemField>,
+    @InjectRepository(StarSystem)
+    private readonly systemRepo: Repository<StarSystem>,
+    @InjectRepository(HyperspaceRoute)
+    private readonly hyperspaceRouteRepo: Repository<HyperspaceRoute>,
+    @InjectRepository(HyperspaceRouteSegment)
+    private readonly hyperspaceRouteSegmentRepo: Repository<HyperspaceRouteSegment>,
   ) {}
 
   async getGalaxySectors(layerId: number): Promise<StarmapSectorDto[]> {
@@ -113,7 +127,37 @@ export class StarmapQueryService {
     }));
   }
 
+  async getHyperspaceRoutes(layerId: number): Promise<HyperspaceRouteDto[]> {
+    const routes = await this.hyperspaceRouteRepo.find({
+      where: { layerId },
+      order: { sortOrder: 'ASC', id: 'ASC' },
+    });
+    if (routes.length === 0) return [];
+
+    const segments = await this.hyperspaceRouteSegmentRepo.find({
+      where: { routeId: In(routes.map((route) => route.id)) },
+      relations: ['fromSystem', 'toSystem'],
+      order: { sortOrder: 'ASC', id: 'ASC' },
+    });
+    const segmentsByRoute = new Map<number, HyperspaceRouteSegment[]>();
+    for (const segment of segments) {
+      const list = segmentsByRoute.get(segment.routeId) ?? [];
+      list.push(segment);
+      segmentsByRoute.set(segment.routeId, list);
+    }
+
+    return routes.map((route) =>
+      this.toHyperspaceRouteDTO(route, segmentsByRoute.get(route.id) ?? []),
+    );
+  }
+
   async getSystemGrid(systemId: number): Promise<StarmapSystemGridDto> {
+    const targetSystem = await this.systemRepo.findOneBy({ id: systemId });
+    if (!targetSystem) throw new NotFoundException('System not found');
+    if (targetSystem.landmarkKey?.startsWith('atlas:')) {
+      throw new BadRequestException('Map-only systems cannot be entered');
+    }
+
     const fields = await this.systemFieldRepo.find({
       where: { starSystemId: systemId },
       relations: ['fieldType', 'celestialObject', 'starSystem'],
@@ -222,6 +266,30 @@ export class StarmapQueryService {
     return { fields, hiddenCount };
   }
 
+  private toHyperspaceRouteDTO(
+    route: HyperspaceRoute,
+    segments: HyperspaceRouteSegment[],
+  ): HyperspaceRouteDto {
+    return {
+      id: route.id,
+      layerId: route.layerId,
+      key: route.key,
+      name: route.name,
+      color: route.color,
+      sortOrder: route.sortOrder,
+      segments: [...segments]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((segment) => ({
+          id: segment.id,
+          routeId: segment.routeId,
+          sortOrder: segment.sortOrder,
+          fromSystem: this.toSystemListItemDTO(segment.fromSystem),
+          toSystem: this.toSystemListItemDTO(segment.toSystem),
+          controlPoints: segment.controlPointJson,
+        })),
+    };
+  }
+
   private toFieldTypeDTO(fieldType: {
     id: number;
     key: string;
@@ -252,7 +320,11 @@ export class StarmapQueryService {
     maxX: number;
     maxY: number;
     systemTypeId: number;
+    isLandmark?: boolean;
+    landmarkKey?: string | null;
+    landmarkCategory?: string | null;
   }): StarmapSystemListItemDto {
+    const landmarkKey = system.landmarkKey ?? null;
     return {
       id: system.id,
       name: system.name,
@@ -262,6 +334,10 @@ export class StarmapQueryService {
       maxY: system.maxY,
       systemTypeId: system.systemTypeId,
       systemTypeName: this.getSystemTypeName(system.systemTypeId),
+      isLandmark: system.isLandmark ?? false,
+      isMapOnly: landmarkKey?.startsWith('atlas:') ?? false,
+      landmarkKey,
+      landmarkCategory: system.landmarkCategory ?? null,
     };
   }
 

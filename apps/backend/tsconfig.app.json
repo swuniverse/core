@@ -10,10 +10,10 @@
     "strictPropertyInitialization": false,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "composite": false,
-    "declaration": false,
-    "declarationMap": false,
-    "emitDeclarationOnly": false
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*.ts"],
   "exclude": [

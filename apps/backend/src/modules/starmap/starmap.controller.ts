@@ -17,10 +17,14 @@ import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
 import { ExplorationService } from './exploration.service';
 import { PlanetGeneratorService } from './generator/planet-generator.service';
+import { PLANET_CLASS_BY_KEY } from './generator/planet-classes.config';
 import { PlanetFieldLayer } from './entities/planet-field.entity';
 import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
 import type {
+  ApplyStarWarsPresetOptionsDto,
+  ApplyStarWarsPresetResultDto,
+  HyperspaceRouteDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCreateBorderTypeDto,
@@ -83,6 +87,13 @@ export class StarmapController {
     return this.starmapService.getSystemsInLayer(layerId);
   }
 
+  @Get('layers/:layerId/hyperspace-routes')
+  getHyperspaceRoutes(
+    @Param('layerId', ParseIntPipe) layerId: number,
+  ): Promise<HyperspaceRouteDto[]> {
+    return this.starmapQueryService.getHyperspaceRoutes(layerId);
+  }
+
   @Get('layers/:layerId/sectors')
   getSectorsInLayer(
     @Param('layerId', ParseIntPipe) layerId: number,
@@ -138,21 +149,45 @@ export class StarmapController {
         surfaceWidth: obj.surfaceWidth,
         surfaceHeight: obj.surfaceHeight,
       },
-      orbit: fields.filter(f => f.fieldLayer === PlanetFieldLayer.ORBIT).map(f => ({
-        id: f.id, celestialObjectId: f.celestialObjectId, fieldLayer: f.fieldLayer,
-        px: f.px, py: f.py, terrainType: f.terrainType,
-        buildingId: f.buildingId, isBuildable: f.isBuildable, resourceModifier: f.resourceModifier,
-      })),
-      surface: fields.filter(f => f.fieldLayer === PlanetFieldLayer.SURFACE).map(f => ({
-        id: f.id, celestialObjectId: f.celestialObjectId, fieldLayer: f.fieldLayer,
-        px: f.px, py: f.py, terrainType: f.terrainType,
-        buildingId: f.buildingId, isBuildable: f.isBuildable, resourceModifier: f.resourceModifier,
-      })),
-      underground: fields.filter(f => f.fieldLayer === PlanetFieldLayer.UNDERGROUND).map(f => ({
-        id: f.id, celestialObjectId: f.celestialObjectId, fieldLayer: f.fieldLayer,
-        px: f.px, py: f.py, terrainType: f.terrainType,
-        buildingId: f.buildingId, isBuildable: f.isBuildable, resourceModifier: f.resourceModifier,
-      })),
+      orbit: fields
+        .filter((f) => f.fieldLayer === PlanetFieldLayer.ORBIT)
+        .map((f) => ({
+          id: f.id,
+          celestialObjectId: f.celestialObjectId,
+          fieldLayer: f.fieldLayer,
+          px: f.px,
+          py: f.py,
+          terrainType: f.terrainType,
+          buildingId: f.buildingId,
+          isBuildable: f.isBuildable,
+          resourceModifier: f.resourceModifier,
+        })),
+      surface: fields
+        .filter((f) => f.fieldLayer === PlanetFieldLayer.SURFACE)
+        .map((f) => ({
+          id: f.id,
+          celestialObjectId: f.celestialObjectId,
+          fieldLayer: f.fieldLayer,
+          px: f.px,
+          py: f.py,
+          terrainType: f.terrainType,
+          buildingId: f.buildingId,
+          isBuildable: f.isBuildable,
+          resourceModifier: f.resourceModifier,
+        })),
+      underground: fields
+        .filter((f) => f.fieldLayer === PlanetFieldLayer.UNDERGROUND)
+        .map((f) => ({
+          id: f.id,
+          celestialObjectId: f.celestialObjectId,
+          fieldLayer: f.fieldLayer,
+          px: f.px,
+          py: f.py,
+          terrainType: f.terrainType,
+          buildingId: f.buildingId,
+          isBuildable: f.isBuildable,
+          resourceModifier: f.resourceModifier,
+        })),
     };
   }
 
@@ -161,12 +196,12 @@ export class StarmapController {
   async generatePlanetSurface(
     @Body() body: StarmapGeneratePlanetDto,
   ): Promise<StarmapOperationResultDto> {
-    const obj = await this.starmapService.getCelestialObject(body.celestialObjectId);
+    const obj = await this.starmapService.getCelestialObject(
+      body.celestialObjectId,
+    );
     obj.planetClass = body.planetClass;
     obj.terrainSeed = body.terrainSeed ?? `planet-${obj.id}-${Date.now()}`;
-    const classDef = await import('./generator/planet-classes.config').then(
-      m => m.PLANET_CLASS_BY_KEY.get(body.planetClass),
-    );
+    const classDef = PLANET_CLASS_BY_KEY.get(body.planetClass);
     if (classDef) {
       obj.surfaceWidth = classDef.surfaceWidth;
       obj.surfaceHeight = classDef.surfaceHeight;
@@ -186,14 +221,25 @@ export class StarmapController {
     @Param('sectorY', ParseIntPipe) sectorY: number,
   ): Promise<StarmapExploredSectorDto> {
     if (req.user.isAdmin) {
-      const fields = await this.starmapQueryService.getGalaxySectorFields(layerId, sectorX, sectorY);
+      const fields = await this.starmapQueryService.getGalaxySectorFields(
+        layerId,
+        sectorX,
+        sectorY,
+      );
       return {
-        fields: fields.map(f => ({ ...f, explorationLevel: 'FULL' as const })),
+        fields: fields.map((f) => ({
+          ...f,
+          explorationLevel: 'FULL' as const,
+        })),
         hiddenCount: 0,
       };
     }
     return this.starmapQueryService.getExploredSectorFields(
-      req.user.sub, layerId, sectorX, sectorY, this.explorationService,
+      req.user.sub,
+      layerId,
+      sectorX,
+      sectorY,
+      this.explorationService,
     );
   }
 
@@ -202,9 +248,15 @@ export class StarmapController {
     @Req() req: { user: { sub: number } },
     @Param('layerId', ParseIntPipe) layerId: number,
   ): Promise<StarmapExplorationStateDto[]> {
-    return this.explorationService.getExploredFields(req.user.sub, layerId).then(
-      states => states.map(s => ({ cx: s.cx, cy: s.cy, explorationLevel: s.explorationLevel })),
-    );
+    return this.explorationService
+      .getExploredFields(req.user.sub, layerId)
+      .then((states) =>
+        states.map((s) => ({
+          cx: s.cx,
+          cy: s.cy,
+          explorationLevel: s.explorationLevel,
+        })),
+      );
   }
 
   @Post('exploration/discover-field')
@@ -246,7 +298,10 @@ export class StarmapController {
     const layer = await this.starmapService.getLayerById(body.layerId);
     const targetUserId = body.userId ?? req.user.sub;
     const created = await this.explorationService.discoverAllForAdmin(
-      targetUserId, body.layerId, layer.width, layer.height,
+      targetUserId,
+      body.layerId,
+      layer.width,
+      layer.height,
     );
     return { created };
   }
@@ -293,6 +348,15 @@ export class StarmapController {
     @Body() body: StarmapInitializeGridDto,
   ): Promise<StarmapOperationResultDto> {
     return this.starmapAdminService.initializeLayerGrid(id, body);
+  }
+
+  @Post('admin/layers/:id/apply-star-wars-preset')
+  @UseGuards(AdminGuard)
+  applyStarWarsPreset(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ApplyStarWarsPresetOptionsDto = {},
+  ): Promise<ApplyStarWarsPresetResultDto> {
+    return this.starmapAdminService.applyStarWarsPreset(id, body);
   }
 
   @Post('admin/layers/:id/generate-systems')
@@ -491,12 +555,18 @@ export class StarmapController {
     @Param('sectorX', ParseIntPipe) sectorX: number,
     @Param('sectorY', ParseIntPipe) sectorY: number,
   ): Promise<StarmapInfluenceAreaDto[]> {
-    return this.starmapService.getLayerById(layerId).then(layer => {
+    return this.starmapService.getLayerById(layerId).then((layer) => {
       const minX = sectorX * layer.sectorSize + 1;
       const maxX = Math.min((sectorX + 1) * layer.sectorSize, layer.width);
       const minY = sectorY * layer.sectorSize + 1;
       const maxY = Math.min((sectorY + 1) * layer.sectorSize, layer.height);
-      return this.influenceService.getInfluenceInSector(layerId, minX, maxX, minY, maxY);
+      return this.influenceService.getInfluenceInSector(
+        layerId,
+        minX,
+        maxX,
+        minY,
+        maxY,
+      );
     });
   }
 
@@ -504,14 +574,27 @@ export class StarmapController {
   @UseGuards(AdminGuard)
   async recalculateInfluence(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { sources?: Array<{ sourceType: string; sourceId: number; cx: number; cy: number; radius: number; strength: number }> },
+    @Body()
+    body: {
+      sources?: Array<{
+        sourceType: string;
+        sourceId: number;
+        cx: number;
+        cy: number;
+        radius: number;
+        strength: number;
+      }>;
+    },
   ): Promise<StarmapOperationResultDto> {
-    const sources = (body.sources ?? []).map(s => ({
+    const sources = (body.sources ?? []).map((s) => ({
       ...s,
       sourceType: s.sourceType as any,
       layerId: id,
     }));
-    const created = await this.influenceService.calculateInfluenceForLayer(id, sources);
+    const created = await this.influenceService.calculateInfluenceForLayer(
+      id,
+      sources,
+    );
     return { created };
   }
 }

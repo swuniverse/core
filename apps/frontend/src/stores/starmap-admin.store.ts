@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type {
+  ApplyStarWarsPresetOptionsDto,
+  ApplyStarWarsPresetResultDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCreateBorderTypeDto,
@@ -11,6 +13,7 @@ import type {
   StarmapGalaxyFieldDto,
   StarmapGenerateSystemsDto,
   StarmapInitializeGridDto,
+  HyperspaceRouteDto,
   StarmapLayerDto,
   StarmapLayerOverviewDto,
   StarmapMapRegionDto,
@@ -37,6 +40,7 @@ export type GalaxyField = StarmapGalaxyFieldDto;
 export type SystemField = StarmapSystemFieldDto;
 export type MapRegion = StarmapMapRegionDto;
 export type BorderType = StarmapBorderTypeDto;
+export type HyperspaceRoute = HyperspaceRouteDto;
 
 export type SectorFillForm = Pick<
   StarmapFillSectorDto,
@@ -77,6 +81,7 @@ interface StarmapAdminState {
   systemFields: SystemField[];
   regions: MapRegion[];
   borderTypes: BorderType[];
+  hyperspaceRoutes: HyperspaceRoute[];
   layerOverview: StarmapLayerOverviewDto | null;
 
   // Selection
@@ -107,16 +112,28 @@ interface StarmapAdminState {
   createLayer: () => Promise<void>;
   deleteSelectedLayer: () => Promise<void>;
   initializeLayerGrid: () => Promise<void>;
-  selectSector: (sector: SectorSummary, preserveFieldId?: number | null) => Promise<void>;
+  selectSector: (
+    sector: SectorSummary,
+    preserveFieldId?: number | null,
+  ) => Promise<void>;
   fillSelectedSector: () => Promise<void>;
   setSelectedField: (field: GalaxyField | null) => void;
-  updateField: (fieldId: number, patch: StarmapUpdateGalaxyFieldDto) => Promise<void>;
+  updateField: (
+    fieldId: number,
+    patch: StarmapUpdateGalaxyFieldDto,
+  ) => Promise<void>;
   createSystemForSelectedField: () => Promise<void>;
   generateSystemsForLayer: () => Promise<void>;
+  applyStarWarsPreset: (
+    options?: ApplyStarWarsPresetOptionsDto,
+  ) => Promise<void>;
   regenerateSelectedSystem: () => Promise<void>;
   initializeSelectedSystemGrid: () => Promise<void>;
   openSystem: (systemId: number) => Promise<void>;
-  updateSystemFieldType: (fieldId: number, fieldTypeId: number) => Promise<void>;
+  updateSystemFieldType: (
+    fieldId: number,
+    fieldTypeId: number,
+  ) => Promise<void>;
   setSelectedSystemField: (field: SystemField | null) => void;
   setLayerForm: (form: StarmapCreateLayerDto) => void;
   setLayerGridFieldTypeId: (id: number) => void;
@@ -129,7 +146,9 @@ interface StarmapAdminState {
   toggleFieldSelection: (fieldId: number, shiftKey: boolean) => void;
   clearSelection: () => void;
   setBrushMode: (mode: BrushMode) => void;
-  bulkEditSelected: (patch: Omit<StarmapBulkEditFieldsDto, 'fieldIds'>) => Promise<void>;
+  bulkEditSelected: (
+    patch: Omit<StarmapBulkEditFieldsDto, 'fieldIds'>,
+  ) => Promise<void>;
 
   // Regions
   loadRegions: () => Promise<void>;
@@ -140,7 +159,10 @@ interface StarmapAdminState {
   // Border Types
   loadBorderTypes: () => Promise<void>;
   createBorderType: (input: StarmapCreateBorderTypeDto) => Promise<void>;
-  updateBorderType: (id: number, patch: StarmapUpdateBorderTypeDto) => Promise<void>;
+  updateBorderType: (
+    id: number,
+    patch: StarmapUpdateBorderTypeDto,
+  ) => Promise<void>;
   deleteBorderType: (id: number) => Promise<void>;
 
   // Overview
@@ -156,6 +178,7 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   systemFields: [],
   regions: [],
   borderTypes: [],
+  hyperspaceRoutes: [],
   layerOverview: null,
   selectedLayerId: null,
   selectedSector: null,
@@ -167,7 +190,12 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   layerForm: defaultLayerForm,
   layerGridFieldTypeId: 1,
   systemGridFieldTypeId: 1,
-  sectorFillForm: { fieldTypeId: 1, systemTypeId: null, factionZone: 'UNKNOWN', adminRegionKey: '' },
+  sectorFillForm: {
+    fieldTypeId: 1,
+    systemTypeId: null,
+    factionZone: 'UNKNOWN',
+    adminRegionKey: '',
+  },
   createSystemForm: defaultCreateSystemForm,
   loading: true,
   message: null,
@@ -186,7 +214,10 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
       ]);
       const defaultFtId = fieldTypes[0]?.id ?? 1;
       set({
-        layers, fieldTypes, systemTypes, borderTypes,
+        layers,
+        fieldTypes,
+        systemTypes,
+        borderTypes,
         layerGridFieldTypeId: defaultFtId,
         systemGridFieldTypeId: defaultFtId,
         sectorFillForm: { ...get().sectorFillForm, fieldTypeId: defaultFtId },
@@ -194,11 +225,16 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
       if (layers.length > 0) {
         const firstLayerId = layers[0].id;
         set({ selectedLayerId: firstLayerId });
-        const [sectors, regions] = await Promise.all([
+        const [sectors, regions, hyperspaceRoutes] = await Promise.all([
           api.get<SectorSummary[]>(`/starmap/layers/${firstLayerId}/sectors`),
           api.get<MapRegion[]>(`/starmap/admin/layers/${firstLayerId}/regions`),
+          api.get<HyperspaceRoute[]>(
+            `/starmap/layers/${firstLayerId}/hyperspace-routes`,
+          ),
         ]);
-        set({ sectors, regions });
+        set({ sectors, regions, hyperspaceRoutes });
+      } else {
+        set({ hyperspaceRoutes: [] });
       }
     } catch (err) {
       set({ error: readError(err) });
@@ -210,7 +246,10 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   ensureDefaults: async () => {
     set({ message: null, error: null });
     try {
-      const fieldTypes = await api.post<FieldType[]>('/starmap/admin/field-types/ensure-defaults', {});
+      const fieldTypes = await api.post<FieldType[]>(
+        '/starmap/admin/field-types/ensure-defaults',
+        {},
+      );
       set({ fieldTypes, message: 'Default FieldTypes bereit.' });
     } catch (err) {
       set({ error: readError(err) });
@@ -219,17 +258,28 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
 
   selectLayer: async (layerId) => {
     set({
-      selectedLayerId: layerId, selectedSector: null, sectorFields: [],
-      selectedField: null, selectedSystemId: null, systemFields: [],
-      selectedSystemField: null, selectedFieldIds: [], layerOverview: null,
-      message: null, error: null,
+      selectedLayerId: layerId,
+      selectedSector: null,
+      sectorFields: [],
+      selectedField: null,
+      selectedSystemId: null,
+      systemFields: [],
+      selectedSystemField: null,
+      selectedFieldIds: [],
+      layerOverview: null,
+      hyperspaceRoutes: [],
+      message: null,
+      error: null,
     });
     try {
-      const [sectors, regions] = await Promise.all([
+      const [sectors, regions, hyperspaceRoutes] = await Promise.all([
         api.get<SectorSummary[]>(`/starmap/layers/${layerId}/sectors`),
         api.get<MapRegion[]>(`/starmap/admin/layers/${layerId}/regions`),
+        api.get<HyperspaceRoute[]>(
+          `/starmap/layers/${layerId}/hyperspace-routes`,
+        ),
       ]);
-      set({ sectors, regions });
+      set({ sectors, regions, hyperspaceRoutes });
     } catch (err) {
       set({ error: readError(err) });
     }
@@ -238,11 +288,30 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   createLayer: async () => {
     set({ message: null, error: null });
     try {
-      const created = await api.post<Layer, StarmapCreateLayerDto>('/starmap/admin/layers', get().layerForm);
+      const created = await api.post<Layer, StarmapCreateLayerDto>(
+        '/starmap/admin/layers',
+        get().layerForm,
+      );
       const layers = [...get().layers, created].sort((a, b) => a.id - b.id);
-      set({ layers, selectedLayerId: created.id, layerForm: defaultLayerForm, message: `Layer ${created.name} angelegt.` });
-      const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${created.id}/sectors`);
-      set({ sectors, selectedSector: null, sectorFields: [], selectedField: null });
+      set({
+        layers,
+        selectedLayerId: created.id,
+        layerForm: defaultLayerForm,
+        message: `Layer ${created.name} angelegt.`,
+      });
+      const [sectors, hyperspaceRoutes] = await Promise.all([
+        api.get<SectorSummary[]>(`/starmap/layers/${created.id}/sectors`),
+        api.get<HyperspaceRoute[]>(
+          `/starmap/layers/${created.id}/hyperspace-routes`,
+        ),
+      ]);
+      set({
+        sectors,
+        hyperspaceRoutes,
+        selectedSector: null,
+        sectorFields: [],
+        selectedField: null,
+      });
     } catch (err) {
       set({ error: readError(err) });
     }
@@ -251,24 +320,38 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   deleteSelectedLayer: async () => {
     const { selectedLayerId, layers } = get();
     if (!selectedLayerId) return;
-    const layer = layers.find(l => l.id === selectedLayerId);
-    if (!layer || !window.confirm(`Layer "${layer.name}" wirklich loeschen?`)) return;
+    const layer = layers.find((l) => l.id === selectedLayerId);
+    if (!layer || !window.confirm(`Layer "${layer.name}" wirklich loeschen?`))
+      return;
     set({ message: null, error: null });
     try {
-      await api.delete<StarmapOperationResultDto>(`/starmap/admin/layers/${selectedLayerId}`);
-      const remaining = layers.filter(l => l.id !== selectedLayerId);
+      await api.delete<StarmapOperationResultDto>(
+        `/starmap/admin/layers/${selectedLayerId}`,
+      );
+      const remaining = layers.filter((l) => l.id !== selectedLayerId);
       const nextId = remaining[0]?.id ?? null;
       set({
-        layers: remaining, selectedLayerId: nextId,
-        selectedSector: null, sectorFields: [], selectedField: null,
-        selectedSystemId: null, systemFields: [], selectedSystemField: null,
+        layers: remaining,
+        selectedLayerId: nextId,
+        selectedSector: null,
+        sectorFields: [],
+        selectedField: null,
+        selectedSystemId: null,
+        systemFields: [],
+        selectedSystemField: null,
+        hyperspaceRoutes: [],
         message: `Layer ${layer.name} geloescht.`,
       });
       if (nextId) {
-        const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${nextId}/sectors`);
-        set({ sectors });
+        const [sectors, hyperspaceRoutes] = await Promise.all([
+          api.get<SectorSummary[]>(`/starmap/layers/${nextId}/sectors`),
+          api.get<HyperspaceRoute[]>(
+            `/starmap/layers/${nextId}/hyperspace-routes`,
+          ),
+        ]);
+        set({ sectors, hyperspaceRoutes });
       } else {
-        set({ sectors: [] });
+        set({ sectors: [], hyperspaceRoutes: [] });
       }
     } catch (err) {
       set({ error: readError(err) });
@@ -280,12 +363,16 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     if (!selectedLayerId) return;
     set({ message: null, error: null });
     try {
-      const result = await api.post<StarmapOperationResultDto, StarmapInitializeGridDto>(
-        `/starmap/admin/layers/${selectedLayerId}/initialize-grid`,
-        { defaultFieldTypeId: layerGridFieldTypeId },
-      );
+      const result = await api.post<
+        StarmapOperationResultDto,
+        StarmapInitializeGridDto
+      >(`/starmap/admin/layers/${selectedLayerId}/initialize-grid`, {
+        defaultFieldTypeId: layerGridFieldTypeId,
+      });
       set({ message: `Grid initialisiert. ${result.created} Felder.` });
-      const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${selectedLayerId}/sectors`);
+      const sectors = await api.get<SectorSummary[]>(
+        `/starmap/layers/${selectedLayerId}/sectors`,
+      );
       set({ sectors });
     } catch (err) {
       set({ error: readError(err) });
@@ -294,9 +381,13 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
 
   selectSector: async (sector, preserveFieldId) => {
     set({
-      selectedSector: sector, selectedField: null,
-      selectedSystemId: null, systemFields: [], selectedSystemField: null,
-      message: null, error: null,
+      selectedSector: sector,
+      selectedField: null,
+      selectedSystemId: null,
+      systemFields: [],
+      selectedSystemField: null,
+      message: null,
+      error: null,
     });
     try {
       const fields = await api.get<GalaxyField[]>(
@@ -304,7 +395,7 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
       );
       set({ sectorFields: fields });
       if (preserveFieldId) {
-        const preserved = fields.find(f => f.id === preserveFieldId) ?? null;
+        const preserved = fields.find((f) => f.id === preserveFieldId) ?? null;
         set({ selectedField: preserved });
       }
     } catch (err) {
@@ -313,24 +404,27 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   },
 
   fillSelectedSector: async () => {
-    const { selectedSector, selectedLayerId, sectorFillForm, selectedField } = get();
+    const { selectedSector, selectedLayerId, sectorFillForm, selectedField } =
+      get();
     if (!selectedSector || !selectedLayerId) return;
     set({ message: null, error: null });
     try {
-      const result = await api.post<StarmapOperationResultDto, StarmapFillSectorDto>(
-        '/starmap/admin/sectors/fill',
-        {
-          layerId: selectedLayerId,
-          sectorX: selectedSector.sectorX,
-          sectorY: selectedSector.sectorY,
-          fieldTypeId: sectorFillForm.fieldTypeId,
-          systemTypeId: sectorFillForm.systemTypeId,
-          factionZone: sectorFillForm.factionZone,
-          adminRegionKey: sectorFillForm.adminRegionKey || null,
-        },
-      );
+      const result = await api.post<
+        StarmapOperationResultDto,
+        StarmapFillSectorDto
+      >('/starmap/admin/sectors/fill', {
+        layerId: selectedLayerId,
+        sectorX: selectedSector.sectorX,
+        sectorY: selectedSector.sectorY,
+        fieldTypeId: sectorFillForm.fieldTypeId,
+        systemTypeId: sectorFillForm.systemTypeId,
+        factionZone: sectorFillForm.factionZone,
+        adminRegionKey: sectorFillForm.adminRegionKey || null,
+      });
       set({ message: `Sektion gefuellt. ${result.updated} Felder.` });
-      const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${selectedLayerId}/sectors`);
+      const sectors = await api.get<SectorSummary[]>(
+        `/starmap/layers/${selectedLayerId}/sectors`,
+      );
       set({ sectors });
       await get().selectSector(selectedSector, selectedField?.id);
     } catch (err) {
@@ -346,14 +440,22 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     set({ message: null, error: null });
     try {
       const updated = await api.patch<GalaxyField, StarmapUpdateGalaxyFieldDto>(
-        `/starmap/admin/fields/${fieldId}`, patch,
+        `/starmap/admin/fields/${fieldId}`,
+        patch,
       );
       set({
-        sectorFields: get().sectorFields.map(f => f.id === fieldId ? { ...f, ...updated } : f),
-        selectedField: selectedField?.id === fieldId ? { ...selectedField, ...updated } : selectedField,
+        sectorFields: get().sectorFields.map((f) =>
+          f.id === fieldId ? { ...f, ...updated } : f,
+        ),
+        selectedField:
+          selectedField?.id === fieldId
+            ? { ...selectedField, ...updated }
+            : selectedField,
         message: `Feld ${updated.cx}/${updated.cy} aktualisiert.`,
       });
-      const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${selectedLayerId}/sectors`);
+      const sectors = await api.get<SectorSummary[]>(
+        `/starmap/layers/${selectedLayerId}/sectors`,
+      );
       set({ sectors });
       await get().selectSector(selectedSector, fieldId);
     } catch (err) {
@@ -362,19 +464,24 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   },
 
   createSystemForSelectedField: async () => {
-    const { selectedField, selectedLayerId, createSystemForm, selectedSector, systemTypes } = get();
-    if (!selectedField || !selectedLayerId || selectedField.starSystemId) return;
+    const { selectedField, selectedLayerId, createSystemForm, selectedSector } =
+      get();
+    if (!selectedField || !selectedLayerId || selectedField.starSystemId)
+      return;
     set({ message: null, error: null });
     try {
-      const created = await api.post<StarSystem, StarmapCreateSystemDto>('/starmap/admin/systems', {
-        layerId: selectedLayerId,
-        name: createSystemForm.name,
-        cx: selectedField.cx,
-        cy: selectedField.cy,
-        systemTypeId: createSystemForm.systemTypeId,
-        maxX: createSystemForm.maxX,
-        maxY: createSystemForm.maxY,
-      });
+      const created = await api.post<StarSystem, StarmapCreateSystemDto>(
+        '/starmap/admin/systems',
+        {
+          layerId: selectedLayerId,
+          name: createSystemForm.name,
+          cx: selectedField.cx,
+          cy: selectedField.cy,
+          systemTypeId: createSystemForm.systemTypeId,
+          maxX: createSystemForm.maxX,
+          maxY: createSystemForm.maxY,
+        },
+      );
       set({
         message: `System ${created.name} angelegt.`,
         selectedSystemId: created.id,
@@ -386,7 +493,9 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
         },
       });
       if (selectedSector) {
-        const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${selectedLayerId}/sectors`);
+        const sectors = await api.get<SectorSummary[]>(
+          `/starmap/layers/${selectedLayerId}/sectors`,
+        );
         set({ sectors });
         await get().selectSector(selectedSector, selectedField.id);
       }
@@ -401,12 +510,54 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     if (!selectedLayerId) return;
     set({ message: null, error: null });
     try {
-      const result = await api.post<StarmapOperationResultDto, StarmapGenerateSystemsDto>(
-        `/starmap/admin/layers/${selectedLayerId}/generate-systems`, { limit: 10 },
-      );
+      const result = await api.post<
+        StarmapOperationResultDto,
+        StarmapGenerateSystemsDto
+      >(`/starmap/admin/layers/${selectedLayerId}/generate-systems`, {
+        limit: 10,
+      });
       set({ message: `Systeme generiert: ${result.generated ?? 0}.` });
-      const sectors = await api.get<SectorSummary[]>(`/starmap/layers/${selectedLayerId}/sectors`);
+      const sectors = await api.get<SectorSummary[]>(
+        `/starmap/layers/${selectedLayerId}/sectors`,
+      );
       set({ sectors });
+      if (selectedSector) {
+        await get().selectSector(selectedSector, selectedField?.id);
+      }
+    } catch (err) {
+      set({ error: readError(err) });
+    }
+  },
+
+  applyStarWarsPreset: async (options = {}) => {
+    const { selectedLayerId, selectedSector, selectedField } = get();
+    if (!selectedLayerId) return;
+    if (
+      !window.confirm(
+        'Star-Wars-Landmark-Preset additiv auf diese Layer anwenden? Bestehende Systeme bleiben erhalten.',
+      )
+    )
+      return;
+    set({ message: null, error: null });
+    try {
+      const result = await api.post<
+        ApplyStarWarsPresetResultDto,
+        ApplyStarWarsPresetOptionsDto
+      >(
+        `/starmap/admin/layers/${selectedLayerId}/apply-star-wars-preset`,
+        options,
+      );
+      const [sectors, hyperspaceRoutes] = await Promise.all([
+        api.get<SectorSummary[]>(`/starmap/layers/${selectedLayerId}/sectors`),
+        api.get<HyperspaceRoute[]>(
+          `/starmap/layers/${selectedLayerId}/hyperspace-routes`,
+        ),
+      ]);
+      set({
+        sectors,
+        hyperspaceRoutes,
+        message: `Star-Wars-Preset: ${result.createdLandmarks} Systeme neu, ${result.updatedLandmarks} Systeme aktualisiert, ${result.createdRoutes} Routen, ${result.conflicts.length} Konflikte.${result.conflicts.length ? ` Details: ${result.conflicts.join('; ')}` : ''}`,
+      });
       if (selectedSector) {
         await get().selectSector(selectedSector, selectedField?.id);
       }
@@ -441,10 +592,12 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     if (!systemId) return;
     set({ message: null, error: null });
     try {
-      const result = await api.post<StarmapOperationResultDto, StarmapInitializeGridDto>(
-        `/starmap/admin/systems/${systemId}/initialize-grid`,
-        { defaultFieldTypeId: systemGridFieldTypeId },
-      );
+      const result = await api.post<
+        StarmapOperationResultDto,
+        StarmapInitializeGridDto
+      >(`/starmap/admin/systems/${systemId}/initialize-grid`, {
+        defaultFieldTypeId: systemGridFieldTypeId,
+      });
       set({ message: `System-Grid initialisiert. ${result.created} Felder.` });
       await get().openSystem(systemId);
     } catch (err) {
@@ -453,9 +606,16 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   },
 
   openSystem: async (systemId) => {
-    set({ selectedSystemId: systemId, selectedSystemField: null, message: null, error: null });
+    set({
+      selectedSystemId: systemId,
+      selectedSystemField: null,
+      message: null,
+      error: null,
+    });
     try {
-      const grid = await api.get<StarmapSystemGridDto>(`/starmap/systems/${systemId}/grid`);
+      const grid = await api.get<StarmapSystemGridDto>(
+        `/starmap/systems/${systemId}/grid`,
+      );
       set({ systemFields: grid.fields });
     } catch (err) {
       set({ error: readError(err) });
@@ -468,12 +628,17 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     set({ message: null, error: null });
     try {
       const updated = await api.patch<SystemField, StarmapUpdateSystemFieldDto>(
-        `/starmap/admin/system-fields/${fieldId}`, { fieldTypeId },
+        `/starmap/admin/system-fields/${fieldId}`,
+        { fieldTypeId },
       );
       set({
-        systemFields: get().systemFields.map(f => f.id === fieldId ? { ...f, ...updated } : f),
-        selectedSystemField: get().selectedSystemField?.id === fieldId
-          ? { ...get().selectedSystemField!, ...updated } : get().selectedSystemField,
+        systemFields: get().systemFields.map((f) =>
+          f.id === fieldId ? { ...f, ...updated } : f,
+        ),
+        selectedSystemField:
+          get().selectedSystemField?.id === fieldId
+            ? { ...get().selectedSystemField!, ...updated }
+            : get().selectedSystemField,
         message: `Systemfeld ${updated.sx}/${updated.sy} aktualisiert.`,
       });
     } catch (err) {
@@ -490,14 +655,16 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
 
   // Multi-Select / Brush
   toggleFieldSelection: (fieldId, shiftKey) => {
-    const { selectedFieldIds, sectorFields } = get();
+    const { selectedFieldIds } = get();
     if (!shiftKey) {
       const isAlready = selectedFieldIds.includes(fieldId);
       set({ selectedFieldIds: isAlready ? [] : [fieldId] });
       return;
     }
     if (selectedFieldIds.includes(fieldId)) {
-      set({ selectedFieldIds: selectedFieldIds.filter(id => id !== fieldId) });
+      set({
+        selectedFieldIds: selectedFieldIds.filter((id) => id !== fieldId),
+      });
     } else {
       set({ selectedFieldIds: [...selectedFieldIds, fieldId] });
     }
@@ -506,14 +673,17 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   setBrushMode: (mode) => set({ brushMode: mode }),
 
   bulkEditSelected: async (patch) => {
-    const { selectedFieldIds, selectedSector, selectedLayerId, selectedField } = get();
+    const { selectedFieldIds, selectedSector, selectedField } = get();
     if (!selectedFieldIds.length) return;
     set({ message: null, error: null });
     try {
-      const result = await api.patch<StarmapOperationResultDto, StarmapBulkEditFieldsDto>(
-        '/starmap/admin/galaxy-fields/bulk',
-        { fieldIds: selectedFieldIds, ...patch },
-      );
+      const result = await api.patch<
+        StarmapOperationResultDto,
+        StarmapBulkEditFieldsDto
+      >('/starmap/admin/galaxy-fields/bulk', {
+        fieldIds: selectedFieldIds,
+        ...patch,
+      });
       set({ message: `Bulk-Edit: ${result.updated} Felder aktualisiert.` });
       if (selectedSector) {
         await get().selectSector(selectedSector, selectedField?.id);
@@ -528,7 +698,9 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     const { selectedLayerId } = get();
     if (!selectedLayerId) return;
     try {
-      const regions = await api.get<MapRegion[]>(`/starmap/admin/layers/${selectedLayerId}/regions`);
+      const regions = await api.get<MapRegion[]>(
+        `/starmap/admin/layers/${selectedLayerId}/regions`,
+      );
       set({ regions });
     } catch (err) {
       set({ error: readError(err) });
@@ -538,8 +710,14 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   createRegion: async (input) => {
     set({ message: null, error: null });
     try {
-      const created = await api.post<MapRegion, StarmapCreateMapRegionDto>('/starmap/admin/regions', input);
-      set({ regions: [...get().regions, created], message: `Region "${created.name}" angelegt.` });
+      const created = await api.post<MapRegion, StarmapCreateMapRegionDto>(
+        '/starmap/admin/regions',
+        input,
+      );
+      set({
+        regions: [...get().regions, created],
+        message: `Region "${created.name}" angelegt.`,
+      });
     } catch (err) {
       set({ error: readError(err) });
     }
@@ -548,9 +726,12 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   updateRegion: async (id, patch) => {
     set({ message: null, error: null });
     try {
-      const updated = await api.patch<MapRegion, StarmapUpdateMapRegionDto>(`/starmap/admin/regions/${id}`, patch);
+      const updated = await api.patch<MapRegion, StarmapUpdateMapRegionDto>(
+        `/starmap/admin/regions/${id}`,
+        patch,
+      );
       set({
-        regions: get().regions.map(r => r.id === id ? updated : r),
+        regions: get().regions.map((r) => (r.id === id ? updated : r)),
         message: `Region "${updated.name}" aktualisiert.`,
       });
     } catch (err) {
@@ -559,12 +740,17 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   },
 
   deleteRegion: async (id) => {
-    const region = get().regions.find(r => r.id === id);
+    const region = get().regions.find((r) => r.id === id);
     if (!region || !window.confirm(`Region "${region.name}" loeschen?`)) return;
     set({ message: null, error: null });
     try {
-      await api.delete<StarmapOperationResultDto>(`/starmap/admin/regions/${id}`);
-      set({ regions: get().regions.filter(r => r.id !== id), message: `Region "${region.name}" geloescht.` });
+      await api.delete<StarmapOperationResultDto>(
+        `/starmap/admin/regions/${id}`,
+      );
+      set({
+        regions: get().regions.filter((r) => r.id !== id),
+        message: `Region "${region.name}" geloescht.`,
+      });
     } catch (err) {
       set({ error: readError(err) });
     }
@@ -573,7 +759,9 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   // Border Types
   loadBorderTypes: async () => {
     try {
-      const borderTypes = await api.get<BorderType[]>('/starmap/admin/border-types');
+      const borderTypes = await api.get<BorderType[]>(
+        '/starmap/admin/border-types',
+      );
       set({ borderTypes });
     } catch (err) {
       set({ error: readError(err) });
@@ -583,8 +771,14 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   createBorderType: async (input) => {
     set({ message: null, error: null });
     try {
-      const created = await api.post<BorderType, StarmapCreateBorderTypeDto>('/starmap/admin/border-types', input);
-      set({ borderTypes: [...get().borderTypes, created], message: `Border-Typ "${created.name}" angelegt.` });
+      const created = await api.post<BorderType, StarmapCreateBorderTypeDto>(
+        '/starmap/admin/border-types',
+        input,
+      );
+      set({
+        borderTypes: [...get().borderTypes, created],
+        message: `Border-Typ "${created.name}" angelegt.`,
+      });
     } catch (err) {
       set({ error: readError(err) });
     }
@@ -593,9 +787,14 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   updateBorderType: async (id, patch) => {
     set({ message: null, error: null });
     try {
-      const updated = await api.patch<BorderType, StarmapUpdateBorderTypeDto>(`/starmap/admin/border-types/${id}`, patch);
+      const updated = await api.patch<BorderType, StarmapUpdateBorderTypeDto>(
+        `/starmap/admin/border-types/${id}`,
+        patch,
+      );
       set({
-        borderTypes: get().borderTypes.map(bt => bt.id === id ? updated : bt),
+        borderTypes: get().borderTypes.map((bt) =>
+          bt.id === id ? updated : bt,
+        ),
         message: `Border-Typ "${updated.name}" aktualisiert.`,
       });
     } catch (err) {
@@ -604,12 +803,17 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
   },
 
   deleteBorderType: async (id) => {
-    const bt = get().borderTypes.find(b => b.id === id);
+    const bt = get().borderTypes.find((b) => b.id === id);
     if (!bt || !window.confirm(`Border-Typ "${bt.name}" loeschen?`)) return;
     set({ message: null, error: null });
     try {
-      await api.delete<StarmapOperationResultDto>(`/starmap/admin/border-types/${id}`);
-      set({ borderTypes: get().borderTypes.filter(b => b.id !== id), message: `Border-Typ "${bt.name}" geloescht.` });
+      await api.delete<StarmapOperationResultDto>(
+        `/starmap/admin/border-types/${id}`,
+      );
+      set({
+        borderTypes: get().borderTypes.filter((b) => b.id !== id),
+        message: `Border-Typ "${bt.name}" geloescht.`,
+      });
     } catch (err) {
       set({ error: readError(err) });
     }
@@ -621,7 +825,9 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
     if (!selectedLayerId) return;
     set({ message: null, error: null });
     try {
-      const overview = await api.get<StarmapLayerOverviewDto>(`/starmap/admin/layers/${selectedLayerId}/overview`);
+      const overview = await api.get<StarmapLayerOverviewDto>(
+        `/starmap/admin/layers/${selectedLayerId}/overview`,
+      );
       set({ layerOverview: overview });
     } catch (err) {
       set({ error: readError(err) });

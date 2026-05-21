@@ -35,11 +35,17 @@ export function MessagesPage() {
   const [total, setTotal] = useState(0);
   const limit = 20;
 
-  const [compose, setCompose] = useState({ recipientName: '', subject: '', body: '' });
+  const [compose, setCompose] = useState({
+    recipientName: '',
+    subject: '',
+    body: '',
+  });
   const [recipientId, setRecipientId] = useState<number | null>(null);
-  const [suggestions, setSuggestions] = useState<{ id: number; username: string }[]>([]);
+  const [suggestions, setSuggestions] = useState<
+    { id: number; username: string }[]
+  >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadMessages = async (t: Tab, p: number) => {
     setLoading(true);
@@ -161,7 +167,13 @@ export function MessagesPage() {
                 : 'border-swu-border text-swu-muted hover:border-swu-primary'
             }`}
           >
-            {t === 'inbox' ? 'Posteingang' : t === 'sent' ? 'Gesendet' : t === 'system' ? 'System' : 'Verfassen'}
+            {t === 'inbox'
+              ? 'Posteingang'
+              : t === 'sent'
+                ? 'Gesendet'
+                : t === 'system'
+                  ? 'System'
+                  : 'Verfassen'}
           </button>
         ))}
       </div>
@@ -196,7 +208,9 @@ export function MessagesPage() {
             <label className="text-xs text-swu-muted">Betreff</label>
             <input
               value={compose.subject}
-              onChange={(e) => setCompose({ ...compose, subject: e.target.value })}
+              onChange={(e) =>
+                setCompose({ ...compose, subject: e.target.value })
+              }
               className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary mt-1"
             />
           </div>
@@ -223,7 +237,9 @@ export function MessagesPage() {
             {loading ? (
               <div className="p-4 text-swu-muted text-sm">Laden...</div>
             ) : messages.length === 0 ? (
-              <div className="p-4 text-swu-muted text-sm">Keine Nachrichten.</div>
+              <div className="p-4 text-swu-muted text-sm">
+                Keine Nachrichten.
+              </div>
             ) : (
               <div className="divide-y divide-swu-border/50">
                 {messages.map((msg) => (
@@ -296,9 +312,12 @@ export function MessagesPage() {
 
           {selected && (
             <div className="w-96 bg-swu-surface border border-swu-border rounded-lg p-4">
-              <h3 className="font-bold text-swu-primary mb-1">{selected.subject}</h3>
+              <h3 className="font-bold text-swu-primary mb-1">
+                {selected.subject}
+              </h3>
               <p className="text-[10px] text-swu-muted mb-3">
-                {selected.sender?.username || 'System'} · {timeAgo(selected.createdAt)}
+                {selected.sender?.username || 'System'} ·{' '}
+                {timeAgo(selected.createdAt)}
               </p>
               <div className="text-sm text-swu-muted whitespace-pre-wrap mb-4">
                 {selected.body}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { useStarmapAdminStore } from '../stores/starmap-admin.store';
@@ -13,7 +13,7 @@ import { SystemEditor } from '../components/starmap-admin/SystemEditor';
 import { BrushToolbar } from '../components/starmap-admin/BrushToolbar';
 import { RegionEditor } from '../components/starmap-admin/RegionEditor';
 import { BorderTypeEditor } from '../components/starmap-admin/BorderTypeEditor';
-import type { UserProfile } from '@swuniverse/shared';
+import type { StarWarsPresetModeDto, UserProfile } from '@swuniverse/shared';
 import { api } from '../services/api';
 
 export function StarmapAdminPage() {
@@ -27,6 +27,7 @@ export function StarmapAdminPage() {
     error,
     bootstrap,
     ensureDefaults,
+    applyStarWarsPreset,
     layers,
     selectedLayerId,
     selectedSector,
@@ -35,6 +36,12 @@ export function StarmapAdminPage() {
     selectSector,
     deleteSelectedLayer,
   } = useStarmapAdminStore();
+
+  const [starWarsMode, setStarWarsMode] =
+    useState<StarWarsPresetModeDto>('curated');
+  const [starWarsRecreateRoutes, setStarWarsRecreateRoutes] = useState(true);
+  const [starWarsOverwriteExisting, setStarWarsOverwriteExisting] =
+    useState(true);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -89,6 +96,56 @@ export function StarmapAdminPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <div className="rounded border border-amber-400/50 bg-amber-950/10 p-2 text-xs text-amber-100">
+            <div className="mb-2 font-bold text-amber-300">
+              Star Wars Preset
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={starWarsMode}
+                onChange={(event) =>
+                  setStarWarsMode(event.target.value as StarWarsPresetModeDto)
+                }
+                className="rounded border border-swu-border bg-swu-surface px-2 py-1 text-swu-text"
+              >
+                <option value="landmarks">Landmarken</option>
+                <option value="curated">Kuratiert</option>
+              </select>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={starWarsRecreateRoutes}
+                  onChange={(event) =>
+                    setStarWarsRecreateRoutes(event.target.checked)
+                  }
+                />
+                Routen
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={starWarsOverwriteExisting}
+                  onChange={(event) =>
+                    setStarWarsOverwriteExisting(event.target.checked)
+                  }
+                />
+                Überschreiben
+              </label>
+              <button
+                onClick={() =>
+                  void applyStarWarsPreset({
+                    mode: starWarsMode,
+                    recreateRoutes: starWarsRecreateRoutes,
+                    overwriteExisting: starWarsOverwriteExisting,
+                  })
+                }
+                disabled={!selectedLayerId}
+                className="rounded border border-amber-400 px-3 py-1 text-amber-300 enabled:hover:bg-amber-400/10 disabled:opacity-50"
+              >
+                Anwenden
+              </button>
+            </div>
+          </div>
           <button
             onClick={() => void ensureDefaults()}
             className="rounded border border-swu-accent px-3 py-2 text-sm text-swu-accent hover:bg-swu-accent/10"

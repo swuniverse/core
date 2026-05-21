@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PlanetField, PlanetFieldLayer } from '../entities/planet-field.entity';
 import { CelestialObject } from '../entities/celestial-object.entity';
-import { PLANET_CLASS_BY_KEY, type PlanetClassDefinition } from './planet-classes.config';
+import {
+  PLANET_CLASS_BY_KEY,
+  type PlanetClassDefinition,
+} from './planet-classes.config';
 import { SeededRNG } from './seeded-rng';
 
 export interface PlanetLayout {
@@ -37,7 +40,7 @@ export class PlanetGeneratorService {
     }
 
     const rng = new SeededRNG(seed);
-    const orbit = this.generateOrbit(classDef, rng);
+    const orbit = this.generateOrbit(classDef);
     const surface = this.generateSurface(classDef, rng);
     const underground = this.generateUnderground(classDef, rng);
 
@@ -55,11 +58,15 @@ export class PlanetGeneratorService {
 
     const seed = obj.terrainSeed ?? `planet-${obj.id}`;
     const layout = this.generateLayout(obj.planetClass, seed);
-    const allFields = [...layout.orbit, ...layout.surface, ...layout.underground];
+    const allFields = [
+      ...layout.orbit,
+      ...layout.surface,
+      ...layout.underground,
+    ];
 
     if (allFields.length === 0) return 0;
 
-    const entities = allFields.map(f =>
+    const entities = allFields.map((f) =>
       this.planetFieldRepo.create({
         celestialObjectId,
         fieldLayer: f.layer,
@@ -82,7 +89,7 @@ export class PlanetGeneratorService {
     });
   }
 
-  private generateOrbit(classDef: PlanetClassDefinition, rng: SeededRNG): PlanetFieldData[] {
+  private generateOrbit(classDef: PlanetClassDefinition): PlanetFieldData[] {
     const fields: PlanetFieldData[] = [];
     const width = classDef.orbitSlots;
     for (let px = 1; px <= width; px++) {
@@ -106,13 +113,17 @@ export class PlanetGeneratorService {
     return fields;
   }
 
-  private generateSurface(classDef: PlanetClassDefinition, rng: SeededRNG): PlanetFieldData[] {
+  private generateSurface(
+    classDef: PlanetClassDefinition,
+    rng: SeededRNG,
+  ): PlanetFieldData[] {
     if (classDef.surfaceWidth === 0) return [];
 
     const fields: PlanetFieldData[] = [];
     const { surfaceWidth: w, surfaceHeight: h } = classDef;
-    const terrainKeys = Object.keys(classDef.terrainWeights);
-    const weights = Object.values(classDef.terrainWeights);
+    const terrainChoices = Object.entries(classDef.terrainWeights).map(
+      ([item, weight]) => ({ item, weight }),
+    );
 
     for (let py = 1; py <= h; py++) {
       for (let px = 1; px <= w; px++) {
@@ -121,14 +132,22 @@ export class PlanetGeneratorService {
         const isPolar = py === 1 || py === h;
         const isEquatorial = py === Math.ceil(h / 2);
 
-        if (isPolar && classDef.polarTerrains.length > 0 && rng.nextFloat() < 0.6) {
+        if (
+          isPolar &&
+          classDef.polarTerrains.length > 0 &&
+          rng.nextFloat() < 0.6
+        ) {
           terrain = rng.choice(classDef.polarTerrains);
-        } else if (isEquatorial && classDef.equatorialTerrains.length > 0 && rng.nextFloat() < 0.5) {
+        } else if (
+          isEquatorial &&
+          classDef.equatorialTerrains.length > 0 &&
+          rng.nextFloat() < 0.5
+        ) {
           terrain = rng.choice(classDef.equatorialTerrains);
         } else if (classDef.rareTerrains.length > 0 && rng.nextFloat() < 0.08) {
           terrain = rng.choice(classDef.rareTerrains);
         } else {
-          terrain = rng.weightedChoice(terrainKeys, weights);
+          terrain = rng.weightedChoice(terrainChoices);
         }
 
         const resourceMod = rng.nextFloat() < 0.15 ? rng.nextInt(1, 3) : 0;
@@ -147,7 +166,10 @@ export class PlanetGeneratorService {
     return fields;
   }
 
-  private generateUnderground(classDef: PlanetClassDefinition, rng: SeededRNG): PlanetFieldData[] {
+  private generateUnderground(
+    classDef: PlanetClassDefinition,
+    rng: SeededRNG,
+  ): PlanetFieldData[] {
     if (classDef.undergroundSlots === 0) return [];
 
     const fields: PlanetFieldData[] = [];
@@ -157,7 +179,11 @@ export class PlanetGeneratorService {
       for (let py = 1; py <= classDef.undergroundSlots; py++) {
         const terrainKeys = Object.keys(classDef.terrainWeights);
         const isMineral = rng.nextFloat() < 0.3;
-        const terrain = isMineral ? 'MINERAL_DEPOSIT' : (terrainKeys.length > 0 ? rng.choice(terrainKeys) : 'BARE_ROCK');
+        const terrain = isMineral
+          ? 'MINERAL_DEPOSIT'
+          : terrainKeys.length > 0
+            ? rng.choice(terrainKeys)
+            : 'BARE_ROCK';
         const resourceMod = isMineral ? rng.nextInt(2, 5) : 0;
 
         fields.push({

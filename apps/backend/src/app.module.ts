@@ -34,6 +34,8 @@ import { SystemExploration } from './modules/starmap/entities/system-exploration
 import { PlanetField } from './modules/starmap/entities/planet-field.entity';
 import { InfluenceArea } from './modules/starmap/entities/influence-area.entity';
 import { Wormhole } from './modules/starmap/entities/wormhole.entity';
+import { HyperspaceRoute } from './modules/starmap/entities/hyperspace-route.entity';
+import { HyperspaceRouteSegment } from './modules/starmap/entities/hyperspace-route-segment.entity';
 import { FactionEntity } from './modules/faction/entities/faction.entity';
 import { FactionModifier } from './modules/faction/entities/faction-modifier.entity';
 import { OnboardingSelection } from './modules/onboarding/entities/onboarding-selection.entity';
@@ -79,6 +81,8 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           PlanetField,
           InfluenceArea,
           Wormhole,
+          HyperspaceRoute,
+          HyperspaceRouteSegment,
           FactionEntity,
           FactionModifier,
           OnboardingSelection,

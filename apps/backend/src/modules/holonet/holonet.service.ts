@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
@@ -61,8 +60,15 @@ export class HolonetService {
     return this.postRepo.save(post);
   }
 
-  async update(id: number, userId: number, title: string, body: string): Promise<HolonetPost> {
-    const post = await this.postRepo.findOne({ where: { id, authorId: userId } });
+  async update(
+    id: number,
+    userId: number,
+    title: string,
+    body: string,
+  ): Promise<HolonetPost> {
+    const post = await this.postRepo.findOne({
+      where: { id, authorId: userId },
+    });
     if (!post) throw new NotFoundException('Post not found');
     post.title = title;
     post.body = body;
@@ -70,7 +76,9 @@ export class HolonetService {
   }
 
   async delete(id: number, userId: number): Promise<void> {
-    const post = await this.postRepo.findOne({ where: { id, authorId: userId } });
+    const post = await this.postRepo.findOne({
+      where: { id, authorId: userId },
+    });
     if (!post) throw new NotFoundException('Post not found');
     await this.postRepo.remove(post);
   }
@@ -95,7 +103,11 @@ export class HolonetService {
     return { data, total, page, limit };
   }
 
-  async addComment(postId: number, authorId: number, body: string): Promise<HolonetComment> {
+  async addComment(
+    postId: number,
+    authorId: number,
+    body: string,
+  ): Promise<HolonetComment> {
     if (!body || body.length > 250) {
       throw new BadRequestException('Comment must be 1-250 characters');
     }
@@ -134,7 +146,11 @@ export class HolonetService {
 
   // --- Ratings ---
 
-  async rate(postId: number, userId: number, value: number): Promise<{ rating: number }> {
+  async rate(
+    postId: number,
+    userId: number,
+    value: number,
+  ): Promise<{ rating: number }> {
     if (value !== 1 && value !== -1) {
       throw new BadRequestException('Value must be 1 or -1');
     }
@@ -164,7 +180,11 @@ export class HolonetService {
         await this.ratingRepo.save(existing);
         post.rating += value - oldValue;
         await this.postRepo.save(post);
-        await this.userRepo.increment({ id: post.authorId }, 'prestige', value - oldValue);
+        await this.userRepo.increment(
+          { id: post.authorId },
+          'prestige',
+          value - oldValue,
+        );
       }
     } else {
       // New rating
@@ -198,9 +218,8 @@ export class HolonetService {
     });
     if (!latest) return;
 
-    await this.checkpointRepo.upsert(
-      { userId, lastReadPostId: latest.id },
-      ['userId'],
-    );
+    await this.checkpointRepo.upsert({ userId, lastReadPostId: latest.id }, [
+      'userId',
+    ]);
   }
 }

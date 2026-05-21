@@ -13,10 +13,10 @@
     ],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "composite": false,
-    "declaration": false,
-    "declarationMap": false,
-    "emitDeclarationOnly": false,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
     "noUnusedLocals": false
   },
   "exclude": [

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Layer } from './entities/layer.entity';
@@ -124,6 +128,9 @@ export class StarmapService {
       relations: ['celestialObjects'],
     });
     if (!system) throw new NotFoundException('System not found');
+    if (system.landmarkKey?.startsWith('atlas:')) {
+      throw new BadRequestException('Map-only systems cannot be entered');
+    }
 
     return {
       id: system.id,
@@ -134,6 +141,10 @@ export class StarmapService {
       systemTypeName: this.getSystemTypeName(system.systemTypeId),
       maxX: system.maxX,
       maxY: system.maxY,
+      isLandmark: system.isLandmark,
+      isMapOnly: system.landmarkKey?.startsWith('atlas:') ?? false,
+      landmarkKey: system.landmarkKey,
+      landmarkCategory: system.landmarkCategory,
       celestialObjects: system.celestialObjects.map((object) =>
         this.toCelestialObjectDto(object),
       ),
@@ -167,6 +178,10 @@ export class StarmapService {
       maxY: system.maxY,
       systemTypeId: system.systemTypeId,
       systemTypeName: this.getSystemTypeName(system.systemTypeId),
+      isLandmark: system.isLandmark,
+      isMapOnly: system.landmarkKey?.startsWith('atlas:') ?? false,
+      landmarkKey: system.landmarkKey,
+      landmarkCategory: system.landmarkCategory,
     };
   }
 

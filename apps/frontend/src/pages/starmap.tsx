@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   getStuClassLabel,
+  type HyperspaceRouteDto,
   type StarmapGalaxyFieldDto,
   type StarmapLayerDto,
   type StarmapSectorDto,
@@ -13,6 +14,7 @@ import {
   planetThumbnail,
   spaceBackgroundTile,
   starTileImage,
+  starWarsMarkerImage,
   systemTypeImage,
 } from '../lib/assets';
 import {
@@ -21,6 +23,7 @@ import {
   getSystemTypeName,
   type StarAssetConfig,
 } from '../lib/star-tiles';
+import { HyperspaceRouteOverlay } from '../components/starmap/HyperspaceRouteOverlay';
 
 type Layer = Pick<
   StarmapLayerDto,
@@ -31,6 +34,7 @@ type GalaxyField = StarmapGalaxyFieldDto;
 type StarSystem = StarmapSystemListItemDto;
 type SystemDetail = StarmapSystemDetailDto;
 type SystemGrid = StarmapSystemGridDto;
+type HyperspaceRoute = HyperspaceRouteDto;
 
 type ViewMode = 'galaxy' | 'sector' | 'system';
 
@@ -169,6 +173,10 @@ export function StarmapPage() {
   const [selectedSystem, setSelectedSystem] = useState<StarSystem | null>(null);
   const [systemDetail, setSystemDetail] = useState<SystemDetail | null>(null);
   const [systemGrid, setSystemGrid] = useState<SystemGrid | null>(null);
+  const [hyperspaceRoutes, setHyperspaceRoutes] = useState<HyperspaceRoute[]>(
+    [],
+  );
+  const [hiddenRouteIds, setHiddenRouteIds] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('galaxy');
   const [loading, setLoading] = useState(true);
 
@@ -177,10 +185,14 @@ export function StarmapPage() {
       setLayers(data);
       if (data.length > 0) {
         setSelectedLayer(data[0]);
-        const loadedSectors = await api.get<SectorSummary[]>(
-          `/starmap/layers/${data[0].id}/sectors`,
-        );
+        const [loadedSectors, loadedRoutes] = await Promise.all([
+          api.get<SectorSummary[]>(`/starmap/layers/${data[0].id}/sectors`),
+          api.get<HyperspaceRoute[]>(
+            `/starmap/layers/${data[0].id}/hyperspace-routes`,
+          ),
+        ]);
         setSectors(loadedSectors);
+        setHyperspaceRoutes(loadedRoutes);
       }
       setLoading(false);
     });
@@ -193,10 +205,14 @@ export function StarmapPage() {
     setSystemDetail(null);
     setSystemGrid(null);
     setViewMode('galaxy');
-    const loadedSectors = await api.get<SectorSummary[]>(
-      `/starmap/layers/${layer.id}/sectors`,
-    );
+    const [loadedSectors, loadedRoutes] = await Promise.all([
+      api.get<SectorSummary[]>(`/starmap/layers/${layer.id}/sectors`),
+      api.get<HyperspaceRoute[]>(
+        `/starmap/layers/${layer.id}/hyperspace-routes`,
+      ),
+    ]);
     setSectors(loadedSectors);
+    setHyperspaceRoutes(loadedRoutes);
     setSectorFields([]);
   }
 
@@ -297,6 +313,94 @@ export function StarmapPage() {
     return [...seen.values()].sort((a, b) => a.cy - b.cy || a.cx - b.cx);
   }, [sectorFields]);
 
+  const visibleHyperspaceRoutes = useMemo(
+    () =>
+      hyperspaceRoutes.filter((route) => !hiddenRouteIds.includes(route.id)),
+    [hiddenRouteIds, hyperspaceRoutes],
+  );
+
+  const sectorByCoord = useMemo(
+    () =>
+      new Map(
+        sectors.map((sector) => [
+          `${sector.sectorX},${sector.sectorY}`,
+          sector,
+        ]),
+      ),
+    [sectors],
+  );
+
+  const getNeighborSector = (dx: number, dy: number) => {
+    if (!selectedSector) return null;
+    return (
+      sectorByCoord.get(
+        `${selectedSector.sectorX + dx},${selectedSector.sectorY + dy}`,
+      ) ?? null
+    );
+  };
+
+  const currentSectorNumber = selectedSector
+    ? selectedSector.sectorY *
+        Math.ceil(
+          (selectedLayer?.width ?? 0) / (selectedLayer?.sectorSize ?? 1),
+        ) +
+      selectedSector.sectorX +
+      1
+    : 0;
+
+  const renderSectorNavigation = () => {
+    const north = getNeighborSector(0, -1);
+    const west = getNeighborSector(-1, 0);
+    const east = getNeighborSector(1, 0);
+    const south = getNeighborSector(0, 1);
+    const navButtonClass =
+      'h-8 w-12 border border-swu-border bg-swu-bg/70 text-swu-primary disabled:cursor-not-allowed disabled:opacity-30 enabled:hover:border-swu-accent enabled:hover:text-swu-accent';
+
+    return (
+      <div className="grid grid-cols-3 gap-px rounded border border-swu-border bg-black/40 p-1 text-center text-xs">
+        <div />
+        <button
+          className={navButtonClass}
+          disabled={!north}
+          onClick={() => north && void selectSector(north)}
+          title="Sektor nördlich"
+        >
+          ∧
+        </button>
+        <div />
+        <button
+          className={navButtonClass}
+          disabled={!west}
+          onClick={() => west && void selectSector(west)}
+          title="Sektor westlich"
+        >
+          &lt;
+        </button>
+        <div className="flex h-8 w-12 items-center justify-center border border-swu-border bg-black text-swu-primary">
+          {currentSectorNumber}
+        </div>
+        <button
+          className={navButtonClass}
+          disabled={!east}
+          onClick={() => east && void selectSector(east)}
+          title="Sektor östlich"
+        >
+          &gt;
+        </button>
+        <div />
+        <button
+          className={navButtonClass}
+          disabled={!south}
+          onClick={() => south && void selectSector(south)}
+          title="Sektor südlich"
+        >
+          ∨
+        </button>
+        <div />
+      </div>
+    );
+  };
+
   if (loading)
     return <div className="p-6 text-swu-muted">Loading starmap...</div>;
 
@@ -360,92 +464,95 @@ export function StarmapPage() {
           <div className="mb-3 text-sm text-swu-muted">
             Karte · Sektorenübersicht
           </div>
-          <div
-            className="grid gap-px overflow-auto"
-            style={{
-              gridTemplateColumns: `56px repeat(${Math.ceil(selectedLayer.width / selectedLayer.sectorSize)}, minmax(120px, 1fr))`,
-            }}
-          >
-            <div className="bg-swu-bg/50 p-2 text-xs font-bold text-swu-muted">
-              x|y
-            </div>
-            {Array.from(
-              {
-                length: Math.ceil(
-                  selectedLayer.width / selectedLayer.sectorSize,
-                ),
-              },
-              (_, i) => (
-                <div
-                  key={`x-${i}`}
-                  className="bg-swu-bg/50 p-2 text-center text-xs font-bold text-swu-muted"
-                >
-                  {(i + 1) * selectedLayer.sectorSize}
-                </div>
-              ),
-            )}
-            {Array.from(
-              {
-                length: Math.ceil(
-                  selectedLayer.height / selectedLayer.sectorSize,
-                ),
-              },
-              (_, row) => (
-                <>
+          <div className="relative">
+            <div
+              className="grid gap-px overflow-auto"
+              style={{
+                gridTemplateColumns: `56px repeat(${Math.ceil(selectedLayer.width / selectedLayer.sectorSize)}, minmax(120px, 1fr))`,
+              }}
+            >
+              <div className="bg-swu-bg/50 p-2 text-xs font-bold text-swu-muted">
+                x|y
+              </div>
+              {Array.from(
+                {
+                  length: Math.ceil(
+                    selectedLayer.width / selectedLayer.sectorSize,
+                  ),
+                },
+                (_, i) => (
                   <div
-                    key={`y-${row}`}
-                    className="bg-swu-bg/50 p-2 text-xs font-bold text-swu-muted"
+                    key={`x-${i}`}
+                    className="bg-swu-bg/50 p-2 text-center text-xs font-bold text-swu-muted"
                   >
-                    {(row + 1) * selectedLayer.sectorSize}
+                    {(i + 1) * selectedLayer.sectorSize}
                   </div>
-                  {Array.from(
-                    {
-                      length: Math.ceil(
-                        selectedLayer.width / selectedLayer.sectorSize,
-                      ),
-                    },
-                    (_, col) => {
-                      const sector = sectors.find(
-                        (entry) =>
-                          entry.sectorX === col && entry.sectorY === row,
-                      );
-                      if (!sector) {
-                        return (
-                          <div
-                            key={`empty-${row}-${col}`}
-                            className="min-h-[64px] bg-swu-bg/30"
-                          />
+                ),
+              )}
+              {Array.from(
+                {
+                  length: Math.ceil(
+                    selectedLayer.height / selectedLayer.sectorSize,
+                  ),
+                },
+                (_, row) => (
+                  <>
+                    <div
+                      key={`y-${row}`}
+                      className="bg-swu-bg/50 p-2 text-xs font-bold text-swu-muted"
+                    >
+                      {(row + 1) * selectedLayer.sectorSize}
+                    </div>
+                    {Array.from(
+                      {
+                        length: Math.ceil(
+                          selectedLayer.width / selectedLayer.sectorSize,
+                        ),
+                      },
+                      (_, col) => {
+                        const sector = sectors.find(
+                          (entry) =>
+                            entry.sectorX === col && entry.sectorY === row,
                         );
-                      }
-                      return (
-                        <button
-                          key={`${sector.sectorX}-${sector.sectorY}`}
-                          onClick={() => void selectSector(sector)}
-                          className="min-h-[64px] border border-swu-border bg-swu-bg/40 px-3 py-2 text-left hover:border-swu-accent hover:bg-swu-accent/5"
-                        >
-                          <div className="font-semibold text-swu-primary">
-                            Sektor{' '}
-                            {sector.sectorY *
-                              Math.ceil(
-                                selectedLayer.width / selectedLayer.sectorSize,
-                              ) +
-                              sector.sectorX +
-                              1}
-                          </div>
-                          <div className="mt-1 text-[11px] text-swu-muted">
-                            [{sector.minX}-{sector.maxX}] · [{sector.minY}-
-                            {sector.maxY}]
-                          </div>
-                          <div className="mt-1 text-[11px] text-swu-muted">
-                            {sector.systemCount} Systeme
-                          </div>
-                        </button>
-                      );
-                    },
-                  )}
-                </>
-              ),
-            )}
+                        if (!sector) {
+                          return (
+                            <div
+                              key={`empty-${row}-${col}`}
+                              className="min-h-[64px] bg-swu-bg/30"
+                            />
+                          );
+                        }
+                        return (
+                          <button
+                            key={`${sector.sectorX}-${sector.sectorY}`}
+                            onClick={() => void selectSector(sector)}
+                            className="min-h-[64px] border border-swu-border bg-swu-bg/40 px-3 py-2 text-left hover:border-swu-accent hover:bg-swu-accent/5"
+                          >
+                            <div className="font-semibold text-swu-primary">
+                              Sektor{' '}
+                              {sector.sectorY *
+                                Math.ceil(
+                                  selectedLayer.width /
+                                    selectedLayer.sectorSize,
+                                ) +
+                                sector.sectorX +
+                                1}
+                            </div>
+                            <div className="mt-1 text-[11px] text-swu-muted">
+                              [{sector.minX}-{sector.maxX}] · [{sector.minY}-
+                              {sector.maxY}]
+                            </div>
+                            <div className="mt-1 text-[11px] text-swu-muted">
+                              {sector.systemCount} Systeme
+                            </div>
+                          </button>
+                        );
+                      },
+                    )}
+                  </>
+                ),
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -453,104 +560,161 @@ export function StarmapPage() {
       {viewMode === 'sector' && selectedSector && (
         <div className="flex gap-4">
           <div className="rounded-lg border border-swu-border bg-swu-surface p-4 overflow-auto">
-            <div className="mb-3 text-sm text-swu-muted">
-              Sektoransicht · [{selectedSector.minX}-{selectedSector.maxX}] / [
-              {selectedSector.minY}-{selectedSector.maxY}]
+            <div className="mb-3 flex items-start justify-between gap-4 text-sm text-swu-muted">
+              <div>
+                Sektoransicht · [{selectedSector.minX}-{selectedSector.maxX}] /
+                [{selectedSector.minY}-{selectedSector.maxY}]
+              </div>
+              {renderSectorNavigation()}
             </div>
             <div
-              className="grid min-w-max"
+              className="relative min-w-max"
               style={{
-                gridTemplateColumns: `48px repeat(${selectedSector.maxX - selectedSector.minX + 1}, 28px)`,
+                width: `${48 + (selectedSector.maxX - selectedSector.minX + 1) * 28}px`,
               }}
             >
-              <div className="bg-swu-bg/50 text-xs text-swu-muted flex items-center justify-center">
-                x|y
-              </div>
-              {Array.from(
-                { length: selectedSector.maxX - selectedSector.minX + 1 },
-                (_, i) => (
-                  <div
-                    key={`sx-${i}`}
-                    className="bg-swu-bg/50 text-[10px] text-swu-muted flex items-center justify-center"
-                  >
-                    {selectedSector.minX + i}
-                  </div>
-                ),
+              {selectedLayer && (
+                <div
+                  className="pointer-events-none absolute z-20"
+                  style={{
+                    left: '48px',
+                    top: '28px',
+                    width: `${(selectedSector.maxX - selectedSector.minX + 1) * 28}px`,
+                    height: `${(selectedSector.maxY - selectedSector.minY + 1) * 28}px`,
+                  }}
+                >
+                  <HyperspaceRouteOverlay
+                    layer={selectedLayer}
+                    routes={visibleHyperspaceRoutes}
+                    renderMode="sector"
+                    cellSize={28}
+                    widthPx={
+                      (selectedSector.maxX - selectedSector.minX + 1) * 28
+                    }
+                    heightPx={
+                      (selectedSector.maxY - selectedSector.minY + 1) * 28
+                    }
+                    bounds={{
+                      minX: selectedSector.minX,
+                      maxX: selectedSector.maxX,
+                      minY: selectedSector.minY,
+                      maxY: selectedSector.maxY,
+                    }}
+                  />
+                </div>
               )}
-              {Array.from(
-                { length: selectedSector.maxY - selectedSector.minY + 1 },
-                (_, row) => {
-                  const y = selectedSector.minY + row;
-                  return (
-                    <>
-                      <div
-                        key={`sy-${y}`}
-                        className="bg-swu-bg/50 text-[10px] text-swu-muted flex items-center justify-center"
-                      >
-                        {y}
-                      </div>
-                      {Array.from(
-                        {
-                          length: selectedSector.maxX - selectedSector.minX + 1,
-                        },
-                        (_, col) => {
-                          const x = selectedSector.minX + col;
-                          const field = sectorFields.find(
-                            (entry) => entry.cx === x && entry.cy === y,
-                          );
-                          if (!field) {
-                            return (
-                              <div
-                                key={`field-empty-${x}-${y}`}
-                                className="h-7 w-7 bg-black"
-                              />
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: `48px repeat(${selectedSector.maxX - selectedSector.minX + 1}, 28px)`,
+                }}
+              >
+                <div className="bg-swu-bg/50 text-xs text-swu-muted flex h-7 items-center justify-center">
+                  x|y
+                </div>
+                {Array.from(
+                  { length: selectedSector.maxX - selectedSector.minX + 1 },
+                  (_, i) => (
+                    <div
+                      key={`sx-${i}`}
+                      className="bg-swu-bg/50 text-[10px] text-swu-muted flex h-7 items-center justify-center"
+                    >
+                      {selectedSector.minX + i}
+                    </div>
+                  ),
+                )}
+                {Array.from(
+                  { length: selectedSector.maxY - selectedSector.minY + 1 },
+                  (_, row) => {
+                    const y = selectedSector.minY + row;
+                    return (
+                      <>
+                        <div
+                          key={`sy-${y}`}
+                          className="bg-swu-bg/50 text-[10px] text-swu-muted flex h-7 items-center justify-center"
+                        >
+                          {y}
+                        </div>
+                        {Array.from(
+                          {
+                            length:
+                              selectedSector.maxX - selectedSector.minX + 1,
+                          },
+                          (_, col) => {
+                            const x = selectedSector.minX + col;
+                            const field = sectorFields.find(
+                              (entry) => entry.cx === x && entry.cy === y,
                             );
-                          }
-                          const isActive = !!(
-                            selectedSystem &&
-                            field.starSystem &&
-                            selectedSystem.cx === field.starSystem.cx &&
-                            selectedSystem.cy === field.starSystem.cy
-                          );
-                          return (
-                            <button
-                              key={field.id}
-                              onClick={() => {
-                                if (field.starSystem) {
-                                  void selectSystem(field.starSystem);
-                                }
-                              }}
-                              className={getSectorFieldClasses(field, isActive)}
-                              style={{
-                                backgroundImage: `url(${spaceBackgroundTile(field.cx, field.cy)})`,
-                                backgroundSize: '107%',
-                              }}
-                              title={`${field.cx},${field.cy} · ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${field.adminRegionKey ? ` · ${field.adminRegionKey}` : ''}`}
-                            >
-                              {field.systemTypeId ? (
-                                <img
-                                  src={systemTypeImage(field.systemTypeId)}
-                                  alt=""
-                                  className="w-full h-full object-contain absolute inset-0"
+                            if (!field) {
+                              return (
+                                <div
+                                  key={`field-empty-${x}-${y}`}
+                                  className="h-7 w-7 bg-black"
                                 />
-                              ) : field.fieldType.key === 'NEBULA' ? (
-                                <span className="text-emerald-300/60">·</span>
-                              ) : null}
-                              {field.adminRegionKey && (
-                                <span className="absolute bottom-0.5 right-0.5 text-[7px] text-cyan-200/80 z-10">
-                                  {field.adminRegionKey
-                                    .replace('SYS_', '')
-                                    .slice(0, 1)}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        },
-                      )}
-                    </>
-                  );
-                },
-              )}
+                              );
+                            }
+                            const isActive = !!(
+                              selectedSystem &&
+                              field.starSystem &&
+                              selectedSystem.cx === field.starSystem.cx &&
+                              selectedSystem.cy === field.starSystem.cy
+                            );
+                            return (
+                              <button
+                                key={field.id}
+                                onClick={() => {
+                                  if (
+                                    field.starSystem &&
+                                    !field.starSystem.isMapOnly
+                                  ) {
+                                    void selectSystem(field.starSystem);
+                                  }
+                                }}
+                                className={getSectorFieldClasses(
+                                  field,
+                                  isActive,
+                                )}
+                                style={{
+                                  backgroundImage: `url(${spaceBackgroundTile(field.cx, field.cy)})`,
+                                  backgroundSize: '107%',
+                                }}
+                                title={`${field.cx},${field.cy} · ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}${field.starSystem.isMapOnly ? ' · Kartenmarker' : ''}` : ''}`}
+                              >
+                                {field.systemTypeId ? (
+                                  <img
+                                    src={
+                                      field.starSystem?.isMapOnly
+                                        ? starWarsMarkerImage(
+                                            field.starSystem.landmarkKey,
+                                            field.systemTypeId,
+                                          )
+                                        : systemTypeImage(field.systemTypeId)
+                                    }
+                                    alt=""
+                                    className={[
+                                      'absolute inset-0 object-contain',
+                                      field.starSystem?.isMapOnly
+                                        ? 'm-auto h-3.5 w-3.5 opacity-80 drop-shadow-[0_0_4px_rgba(250,204,21,0.65)]'
+                                        : 'h-full w-full',
+                                    ].join(' ')}
+                                  />
+                                ) : field.fieldType.key === 'NEBULA' ? (
+                                  <span className="text-emerald-300/60">·</span>
+                                ) : null}
+                                {field.starSystem?.isMapOnly && (
+                                  <span className="absolute bottom-0 right-0 rounded-tl bg-black/75 px-0.5 text-[8px] text-yellow-200">
+                                    ◇
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          },
+                        )}
+                      </>
+                    );
+                  },
+                )}
+              </div>
             </div>
           </div>
 
@@ -569,20 +733,60 @@ export function StarmapPage() {
 
             <div className="rounded-lg border border-swu-border bg-swu-surface p-4">
               <h4 className="text-xs font-bold text-swu-muted mb-2">
+                Hyperrouten
+              </h4>
+              <div className="space-y-1">
+                {hyperspaceRoutes.map((route) => (
+                  <label
+                    key={route.id}
+                    className="flex items-center gap-2 text-xs text-swu-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!hiddenRouteIds.includes(route.id)}
+                      onChange={(event) => {
+                        setHiddenRouteIds((current) =>
+                          event.target.checked
+                            ? current.filter((id) => id !== route.id)
+                            : [...current, route.id],
+                        );
+                      }}
+                    />
+                    <span
+                      className="inline-block h-2 w-4 rounded-full"
+                      style={{ backgroundColor: route.color }}
+                    />
+                    <span>{route.name}</span>
+                  </label>
+                ))}
+                {hyperspaceRoutes.length === 0 && (
+                  <p className="text-xs text-swu-muted">Keine Hyperrouten.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-swu-border bg-swu-surface p-4">
+              <h4 className="text-xs font-bold text-swu-muted mb-2">
                 Systeme in Sektor
               </h4>
               <div className="space-y-2">
                 {systemsInSector.map((system) => (
                   <button
                     key={system.id}
-                    onClick={() => void selectSystem(system)}
-                    className="w-full rounded border border-swu-border bg-swu-bg/40 px-3 py-2 text-left text-xs hover:border-swu-accent hover:bg-swu-accent/5"
+                    onClick={() => {
+                      if (!system.isMapOnly) void selectSystem(system);
+                    }}
+                    disabled={system.isMapOnly}
+                    className="w-full rounded border border-swu-border bg-swu-bg/40 px-3 py-2 text-left text-xs hover:border-swu-accent hover:bg-swu-accent/5 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <div className="font-semibold text-swu-primary">
                       {system.name}
                     </div>
                     <div className="mt-1 text-[11px] text-swu-muted">
-                      [{system.cx},{system.cy}] · {system.maxX}x{system.maxY}
+                      [{system.cx},{system.cy}] ·{' '}
+                      {system.isMapOnly
+                        ? 'Kartenmarker'
+                        : `${system.maxX}x${system.maxY}`}
                     </div>
                   </button>
                 ))}

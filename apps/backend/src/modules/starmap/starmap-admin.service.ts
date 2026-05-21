@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   Injectable,
   BadRequestException,
@@ -20,7 +22,17 @@ import { SystemField } from './entities/system-field.entity';
 import { CelestialObject } from './entities/celestial-object.entity';
 import { MapRegion } from './entities/map-region.entity';
 import { BorderType } from './entities/border-type.entity';
+import { HyperspaceRoute } from './entities/hyperspace-route.entity';
+import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
+import {
+  STAR_WARS_HYPERSPACE_ROUTES,
+  STAR_WARS_LANDMARKS,
+  type StarWarsHyperspaceRouteSegmentPreset,
+  type StarWarsLandmarkPresetEntry,
+} from './presets/star-wars-landmarks';
 import type {
+  ApplyStarWarsPresetOptionsDto,
+  ApplyStarWarsPresetResultDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCelestialObjectDto,
@@ -46,6 +58,47 @@ import type {
   StarmapUpdateSystemFieldDto,
 } from '@swuniverse/shared';
 import { StarmapSystemGeneratorService } from './generator/starmap-system-generator.service';
+
+interface StarWarsSystemCatalogEntry {
+  name: string;
+  sector: string;
+  region: string;
+  grid: string;
+}
+
+const STAR_WARS_SYSTEM_CATALOG = loadStarWarsSystemCatalog(
+  'star-wars-systems.json',
+);
+const STAR_WARS_FULL_SYSTEM_CATALOG = loadStarWarsSystemCatalog(
+  'star-wars-systems.full.json',
+);
+const STAR_WARS_SYSTEM_CATALOG_BY_KEY = new Map(
+  STAR_WARS_SYSTEM_CATALOG.map((entry) => [systemKey(entry.name), entry]),
+);
+
+function systemKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function loadStarWarsSystemCatalog(
+  fileName: string,
+): StarWarsSystemCatalogEntry[] {
+  const candidates = [
+    join(process.cwd(), 'game-data/starmap', fileName),
+    join(process.cwd(), '../../game-data/starmap', fileName),
+  ];
+  const catalogPath = candidates.find((candidate) => existsSync(candidate));
+  if (!catalogPath) return [];
+  const parsed = JSON.parse(
+    readFileSync(catalogPath, 'utf8'),
+  ) as StarWarsSystemCatalogEntry[];
+  return parsed.filter(
+    (entry) => entry.name && entry.sector && entry.region && entry.grid,
+  );
+}
 
 const AUTO_SYSTEM_NAMES = [
   'Aldoria',
@@ -109,6 +162,10 @@ export class StarmapAdminService {
     private readonly regionRepo: Repository<MapRegion>,
     @InjectRepository(BorderType)
     private readonly borderTypeRepo: Repository<BorderType>,
+    @InjectRepository(HyperspaceRoute)
+    private readonly hyperspaceRouteRepo: Repository<HyperspaceRoute>,
+    @InjectRepository(HyperspaceRouteSegment)
+    private readonly hyperspaceRouteSegmentRepo: Repository<HyperspaceRouteSegment>,
     private readonly systemGenerator: StarmapSystemGeneratorService,
     private readonly entityManager: EntityManager,
   ) {}
@@ -745,6 +802,325 @@ export class StarmapAdminService {
     return { generated };
   }
 
+  async applyStarWarsPreset(
+    layerId: number,
+    options: ApplyStarWarsPresetOptionsDto = {},
+  ): Promise<ApplyStarWarsPresetResultDto> {
+    const layer = await this.layerRepo.findOneBy({ id: layerId });
+    if (!layer) throw new NotFoundException('Layer not found');
+
+    const systemFieldType = await this.fieldTypeRepo.findOne({
+      where: { key: 'STAR_SYSTEM' },
+    });
+    if (!systemFieldType)
+      throw new NotFoundException('STAR_SYSTEM field type not found');
+
+    const emptyFieldType = await this.fieldTypeRepo.findOne({
+      where: { key: 'EMPTY_SPACE' },
+    });
+    if (!emptyFieldType)
+      throw new NotFoundException('EMPTY_SPACE field type not found');
+
+    const mode = options.mode ?? 'curated';
+    const recreateRoutes = options.recreateRoutes ?? true;
+    const overwriteExisting = options.overwriteExisting ?? true;
+    const fullLimitInput = Number.isFinite(options.fullLimit)
+      ? Number(options.fullLimit)
+      : 500;
+    const fullOffsetInput = Number.isFinite(options.fullOffset)
+      ? Number(options.fullOffset)
+      : 0;
+    const fullLimit = Math.max(1, Math.min(fullLimitInput, 5000));
+    const fullOffset = Math.max(0, fullOffsetInput);
+    const normalizedRegionFilter = options.regionFilter?.trim().toLowerCase();
+    const fullCatalog = normalizedRegionFilter
+      ? STAR_WARS_FULL_SYSTEM_CATALOG.filter((entry) =>
+          entry.region.toLowerCase().includes(normalizedRegionFilter),
+        )
+      : STAR_WARS_FULL_SYSTEM_CATALOG;
+    const selectedCatalog =
+      mode === 'full'
+        ? fullCatalog.slice(fullOffset, fullOffset + fullLimit)
+        : STAR_WARS_SYSTEM_CATALOG;
+    const selectedCatalogByKey = new Map(
+      selectedCatalog.map((entry) => [systemKey(entry.name), entry]),
+    );
+
+    const landmarkByKey = new Map<string, StarSystem>();
+    let createdLandmarks = 0;
+    let updatedLandmarks = 0;
+    const conflicts: string[] = [];
+
+    for (const entry of STAR_WARS_LANDMARKS) {
+      const target = this.resolvePresetCoordinate(layer, entry);
+      const placement = await this.findLandmarkPlacement(
+        layer.id,
+        target.cx,
+        target.cy,
+        entry.key,
+      );
+      if (placement.cx !== target.cx || placement.cy !== target.cy) {
+        conflicts.push(
+          `${entry.name}: moved from ${target.cx}|${target.cy} to ${placement.cx}|${placement.cy}`,
+        );
+      }
+
+      const atlasKey = `atlas:${entry.key}`;
+      let system = await this.systemRepo.findOne({
+        where: { layerId, landmarkKey: In([entry.key, atlasKey]) },
+      });
+
+      if (system && !overwriteExisting) {
+        system.isLandmark = false;
+        system.landmarkKey = atlasKey;
+        system.landmarkCategory = entry.category;
+        system = await this.systemRepo.save(system);
+        updatedLandmarks++;
+        await this.attachLandmarkToGalaxyField(
+          system,
+          systemFieldType,
+          emptyFieldType,
+        );
+        await this.purgeSystemContent(system.id);
+        landmarkByKey.set(entry.key, system);
+        continue;
+      }
+
+      if (!system) {
+        system = await this.systemRepo.save(
+          this.systemRepo.create({
+            name: entry.name,
+            layerId,
+            cx: placement.cx,
+            cy: placement.cy,
+            systemTypeId: entry.systemTypeId,
+            maxX: 22,
+            maxY: 22,
+            isLandmark: false,
+            landmarkKey: atlasKey,
+            landmarkCategory: entry.category,
+          }),
+        );
+        createdLandmarks++;
+      } else {
+        system.name = entry.name;
+        system.cx = placement.cx;
+        system.cy = placement.cy;
+        system.systemTypeId = entry.systemTypeId;
+        system.isLandmark = false;
+        system.landmarkKey = atlasKey;
+        system.landmarkCategory = entry.category;
+        system = await this.systemRepo.save(system);
+        updatedLandmarks++;
+      }
+
+      await this.attachLandmarkToGalaxyField(
+        system,
+        systemFieldType,
+        emptyFieldType,
+      );
+      await this.purgeSystemContent(system.id);
+      landmarkByKey.set(entry.key, system);
+    }
+
+    const ensureSeedSystem = async (
+      waypointKey: string,
+      mapOnly = true,
+    ): Promise<StarSystem | null> => {
+      const existing = landmarkByKey.get(waypointKey);
+      if (existing) return existing;
+
+      const catalogEntry =
+        selectedCatalogByKey.get(waypointKey) ??
+        STAR_WARS_SYSTEM_CATALOG_BY_KEY.get(waypointKey);
+      if (!catalogEntry) return null;
+
+      const seedEntry: StarWarsLandmarkPresetEntry = {
+        key: waypointKey,
+        name: catalogEntry.name,
+        grid: catalogEntry.grid,
+        sector: catalogEntry.sector,
+        region: catalogEntry.region,
+        category: this.starWarsCategoryFromRegion(catalogEntry.region),
+        systemTypeId: this.starWarsSystemTypeFromRegion(catalogEntry.region),
+        seedSystem: true,
+      };
+      const target = this.resolvePresetCoordinate(layer, seedEntry);
+      const placement = await this.findLandmarkPlacement(
+        layer.id,
+        target.cx,
+        target.cy,
+        seedEntry.key,
+      );
+
+      const atlasKey = `atlas:${seedEntry.key}`;
+      let system = await this.systemRepo.findOne({
+        where: { layerId, landmarkKey: mapOnly ? atlasKey : seedEntry.key },
+      });
+      if (!system) {
+        system = await this.systemRepo.findOne({
+          where: { layerId, name: seedEntry.name },
+        });
+      }
+
+      if (system && !overwriteExisting && mapOnly) {
+        system.isLandmark = false;
+        system.landmarkKey = atlasKey;
+        system.landmarkCategory = seedEntry.category;
+        system = await this.systemRepo.save(system);
+        updatedLandmarks++;
+        await this.attachLandmarkToGalaxyField(
+          system,
+          systemFieldType,
+          emptyFieldType,
+        );
+        await this.purgeSystemContent(system.id);
+        landmarkByKey.set(seedEntry.key, system);
+        return system;
+      }
+
+      if (system && !overwriteExisting) {
+        landmarkByKey.set(seedEntry.key, system);
+        return system;
+      }
+
+      if (!system) {
+        system = await this.systemRepo.save(
+          this.systemRepo.create({
+            name: seedEntry.name,
+            layerId,
+            cx: placement.cx,
+            cy: placement.cy,
+            systemTypeId: seedEntry.systemTypeId,
+            maxX: 22,
+            maxY: 22,
+            isLandmark: !mapOnly,
+            landmarkKey: mapOnly ? atlasKey : seedEntry.key,
+            landmarkCategory: seedEntry.category,
+          }),
+        );
+        createdLandmarks++;
+      } else {
+        system.name = seedEntry.name;
+        system.cx = placement.cx;
+        system.cy = placement.cy;
+        system.systemTypeId = seedEntry.systemTypeId;
+        system.isLandmark = !mapOnly;
+        system.landmarkKey = mapOnly ? atlasKey : seedEntry.key;
+        system.landmarkCategory = seedEntry.category;
+        system = await this.systemRepo.save(system);
+        updatedLandmarks++;
+      }
+
+      await this.attachLandmarkToGalaxyField(
+        system,
+        systemFieldType,
+        emptyFieldType,
+      );
+      if (mapOnly) {
+        await this.purgeSystemContent(system.id);
+      } else {
+        await this.ensureLandmarkSystemContent(system, seedEntry.systemTypeId);
+      }
+      landmarkByKey.set(seedEntry.key, system);
+      return system;
+    };
+
+    if (mode !== 'landmarks') {
+      for (const catalogEntry of selectedCatalog) {
+        await ensureSeedSystem(systemKey(catalogEntry.name), true);
+      }
+    }
+
+    let createdRoutes = 0;
+    if (recreateRoutes) {
+      await this.hyperspaceRouteSegmentRepo
+        .createQueryBuilder()
+        .delete()
+        .where(
+          '"routeId" IN (SELECT id FROM "hyperspace_routes" WHERE "layerId" = :layerId)',
+          { layerId },
+        )
+        .execute();
+      await this.hyperspaceRouteRepo.delete({ layerId });
+
+      for (
+        let routeIndex = 0;
+        routeIndex < STAR_WARS_HYPERSPACE_ROUTES.length;
+        routeIndex++
+      ) {
+        const presetRoute = STAR_WARS_HYPERSPACE_ROUTES[routeIndex];
+        const route = await this.hyperspaceRouteRepo.save(
+          this.hyperspaceRouteRepo.create({
+            layerId,
+            key: presetRoute.key,
+            name: presetRoute.name,
+            color: presetRoute.color,
+            sortOrder: routeIndex,
+          }),
+        );
+        const segments: HyperspaceRouteSegment[] = [];
+        for (
+          let segmentIndex = 0;
+          segmentIndex < presetRoute.segments.length;
+          segmentIndex++
+        ) {
+          const presetSegment: StarWarsHyperspaceRouteSegmentPreset =
+            presetRoute.segments[segmentIndex];
+          const fromAllowed =
+            landmarkByKey.has(presetSegment.fromKey) ||
+            selectedCatalogByKey.has(presetSegment.fromKey);
+          const toAllowed =
+            landmarkByKey.has(presetSegment.toKey) ||
+            selectedCatalogByKey.has(presetSegment.toKey);
+          if (mode === 'full' && (!fromAllowed || !toAllowed)) {
+            conflicts.push(
+              `${presetRoute.name}: skipped segment ${presetSegment.fromKey} -> ${presetSegment.toKey} outside selected full-atlas batch`,
+            );
+            continue;
+          }
+          const fromSystem = await ensureSeedSystem(presetSegment.fromKey);
+          const toSystem = await ensureSeedSystem(presetSegment.toKey);
+          if (!fromSystem || !toSystem) {
+            conflicts.push(
+              `${presetRoute.name}: missing segment ${presetSegment.fromKey} -> ${presetSegment.toKey}`,
+            );
+            continue;
+          }
+          segments.push(
+            this.hyperspaceRouteSegmentRepo.create({
+              routeId: route.id,
+              fromSystemId: fromSystem.id,
+              toSystemId: toSystem.id,
+              sortOrder: segmentIndex,
+              controlPointJson: (presetSegment.controlPoints ?? []).map(
+                (point) => {
+                  const coord = this.resolveGridCoordinate(
+                    layer,
+                    point.grid,
+                    `${presetRoute.key}-${segmentIndex}-${point.grid}`,
+                  );
+                  return { x: coord.cx, y: coord.cy };
+                },
+              ),
+            }),
+          );
+        }
+        await this.hyperspaceRouteSegmentRepo.save(segments);
+        createdRoutes++;
+      }
+    }
+
+    return {
+      createdLandmarks,
+      updatedLandmarks,
+      createdRoutes,
+      conflicts,
+      created: createdLandmarks,
+      updated: updatedLandmarks,
+    };
+  }
+
   async regenerateSystem(
     systemId: number,
     input: StarmapRegenerateSystemDto = {},
@@ -989,6 +1365,192 @@ export class StarmapAdminService {
     return `System-${usedSystems.length + 1}`;
   }
 
+  private resolvePresetCoordinate(
+    layer: Layer,
+    entry: Pick<StarWarsLandmarkPresetEntry, 'grid' | 'key' | 'name'>,
+  ): { cx: number; cy: number } {
+    return this.resolveGridCoordinate(
+      layer,
+      entry.grid,
+      entry.key || entry.name,
+    );
+  }
+
+  private resolveGridCoordinate(
+    layer: Layer,
+    grid: string,
+    salt: string,
+  ): { cx: number; cy: number } {
+    const match = /^([A-W])-(\d{1,2})$/i.exec(grid.trim());
+    if (!match)
+      return {
+        cx: Math.ceil(layer.width / 2),
+        cy: Math.ceil(layer.height / 2),
+      };
+
+    const column = match[1].toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
+    const row = Number(match[2]) - 1;
+    const columns = 23;
+    const rows = 21;
+    const cellWidth = layer.width / columns;
+    const cellHeight = layer.height / rows;
+    const hash = this.hashString(salt);
+    const offsetX = ((hash % 997) / 996 - 0.5) * 0.68;
+    const offsetY = (((hash >> 10) % 997) / 996 - 0.5) * 0.68;
+    const rawX = (column + 0.5 + offsetX) * cellWidth;
+    const rawY = (row + 0.5 + offsetY) * cellHeight;
+
+    return {
+      cx: Math.max(1, Math.min(layer.width, Math.round(rawX))),
+      cy: Math.max(1, Math.min(layer.height, Math.round(rawY))),
+    };
+  }
+
+  private hashString(value: string): number {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  private starWarsCategoryFromRegion(
+    region: string,
+  ): StarWarsLandmarkPresetEntry['category'] {
+    const normalized = region.toLowerCase();
+    if (normalized.includes('core')) return 'CORE';
+    if (normalized.includes('colonies')) return 'COLONIES';
+    if (normalized.includes('inner')) return 'INNER_RIM';
+    if (normalized.includes('mid')) return 'MID_RIM';
+    if (normalized.includes('expansion')) return 'EXPANSION_REGION';
+    if (normalized.includes('unknown')) return 'UNKNOWN_REGIONS';
+    if (normalized.includes('hutt')) return 'HUTT_SPACE';
+    if (normalized.includes('wild')) return 'WILD_SPACE';
+    return 'OUTER_RIM';
+  }
+
+  private starWarsSystemTypeFromRegion(region: string): number {
+    const category = this.starWarsCategoryFromRegion(region);
+    if (category === 'CORE' || category === 'COLONIES') return 1050;
+    if (category === 'UNKNOWN_REGIONS') return 1067;
+    if (category === 'HUTT_SPACE') return 1058;
+    if (category === 'WILD_SPACE') return 1068;
+    if (category === 'OUTER_RIM') return 1057;
+    return 1058;
+  }
+
+  private factionZoneForStarWarsCategory(category: string | null): FactionZone {
+    if (category === 'CORE' || category === 'COLONIES')
+      return FactionZone.EMPIRE;
+    if (category === 'HUTT_SPACE') return FactionZone.CONTESTED;
+    if (category === 'UNKNOWN_REGIONS' || category === 'WILD_SPACE') {
+      return FactionZone.UNKNOWN;
+    }
+    return FactionZone.NEUTRAL;
+  }
+
+  private async findLandmarkPlacement(
+    layerId: number,
+    targetCx: number,
+    targetCy: number,
+    landmarkKey: string,
+  ): Promise<{ cx: number; cy: number }> {
+    const existingAtTarget = await this.systemRepo.findOneBy({
+      layerId,
+      cx: targetCx,
+      cy: targetCy,
+    });
+    if (!existingAtTarget || existingAtTarget.landmarkKey === landmarkKey) {
+      return { cx: targetCx, cy: targetCy };
+    }
+
+    for (let radius = 1; radius <= 4; radius++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+          const cx = targetCx + dx;
+          const cy = targetCy + dy;
+          if (cx < 1 || cy < 1) continue;
+          const existing = await this.systemRepo.findOneBy({ layerId, cx, cy });
+          if (!existing) return { cx, cy };
+        }
+      }
+    }
+
+    return { cx: targetCx, cy: targetCy };
+  }
+
+  private async attachLandmarkToGalaxyField(
+    system: StarSystem,
+    systemFieldType: GalaxyFieldType,
+    emptyFieldType: GalaxyFieldType,
+  ): Promise<void> {
+    await this.galaxyFieldRepo.update(
+      { layerId: system.layerId, starSystemId: system.id },
+      { starSystemId: null },
+    );
+
+    let galaxyField = await this.galaxyFieldRepo.findOne({
+      where: { layerId: system.layerId, cx: system.cx, cy: system.cy },
+    });
+
+    if (!galaxyField) {
+      galaxyField = this.galaxyFieldRepo.create({
+        layerId: system.layerId,
+        cx: system.cx,
+        cy: system.cy,
+        fieldTypeId: emptyFieldType.id,
+        factionZone: FactionZone.NEUTRAL,
+        systemTypeId: null,
+        starSystemId: null,
+        isPassable: emptyFieldType.passable,
+        energyCost: emptyFieldType.energyCost,
+        damage: emptyFieldType.damage,
+        effectFlags: emptyFieldType.effects,
+        effects: emptyFieldType.effects,
+      });
+    }
+
+    galaxyField.fieldTypeId = systemFieldType.id;
+    galaxyField.systemTypeId = system.systemTypeId;
+    galaxyField.starSystemId = system.id;
+    galaxyField.factionZone = this.factionZoneForStarWarsCategory(
+      system.landmarkCategory,
+    );
+    if (!galaxyField.adminRegionKey && system.landmarkCategory) {
+      galaxyField.adminRegionKey = `SW_${system.landmarkCategory}`;
+    }
+    galaxyField.isPassable = systemFieldType.passable;
+    galaxyField.energyCost = systemFieldType.energyCost;
+    galaxyField.damage = systemFieldType.damage;
+    galaxyField.effectFlags = systemFieldType.effects;
+    galaxyField.effects = systemFieldType.effects;
+    await this.galaxyFieldRepo.save(galaxyField);
+  }
+
+  private async purgeSystemContent(systemId: number): Promise<void> {
+    await this.systemFieldRepo.delete({ starSystemId: systemId });
+    await this.objectRepo.delete({ systemId });
+  }
+
+  private async ensureLandmarkSystemContent(
+    system: StarSystem,
+    systemTypeId: number,
+  ): Promise<void> {
+    const existingGrid = await this.systemFieldRepo.count({
+      where: { starSystemId: system.id },
+    });
+    if (existingGrid === 0) {
+      const systemType = this.requireSystemType(systemTypeId);
+      await this.generateSystemContent(system, systemType);
+    }
+    await this.objectRepo.update(
+      { systemId: system.id },
+      { isColonizable: false },
+    );
+  }
+
   private requireSystemType(systemTypeId: number): StarmapSystemTypeOption {
     const systemType = STARMAP_SYSTEM_TYPE_OPTIONS.find(
       (entry) => entry.id === systemTypeId,
@@ -1035,6 +1597,9 @@ export class StarmapAdminService {
       maxY: system.maxY,
       systemTypeId: system.systemTypeId,
       systemTypeName: this.getSystemTypeName(system.systemTypeId),
+      isLandmark: system.isLandmark,
+      landmarkKey: system.landmarkKey,
+      landmarkCategory: system.landmarkCategory,
     };
   }
 

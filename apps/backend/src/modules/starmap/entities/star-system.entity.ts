@@ -41,6 +41,15 @@ export class StarSystem {
   @Column({ default: 22 })
   maxY: number;
 
+  @Column({ default: false })
+  isLandmark: boolean;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  landmarkKey: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  landmarkCategory: string | null;
+
   @OneToMany(() => CelestialObject, (obj) => obj.starSystem)
   celestialObjects: CelestialObject[];
 }
