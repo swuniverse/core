@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   ApplyStarWarsPresetOptionsDto,
   ApplyStarWarsPresetResultDto,
+  DefaultStarWarsGalaxySeedResultDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCreateBorderTypeDto,
@@ -108,6 +109,7 @@ interface StarmapAdminState {
   // Actions
   bootstrap: () => Promise<void>;
   ensureDefaults: () => Promise<void>;
+  initializeDefaultStarWarsGalaxy: () => Promise<void>;
   selectLayer: (layerId: number) => Promise<void>;
   createLayer: () => Promise<void>;
   deleteSelectedLayer: () => Promise<void>;
@@ -253,6 +255,37 @@ export const useStarmapAdminStore = create<StarmapAdminState>((set, get) => ({
       set({ fieldTypes, message: 'Default FieldTypes bereit.' });
     } catch (err) {
       set({ error: readError(err) });
+    }
+  },
+
+  initializeDefaultStarWarsGalaxy: async () => {
+    if (
+      !window.confirm(
+        'Star-Wars-Galaxie manuell initialisieren? Der Flow ist idempotent und ueberschreibt keine bestehenden Spieler-, Kolonie- oder Schiffdaten.',
+      )
+    )
+      return;
+    set({ loading: true, message: null, error: null });
+    try {
+      const result = await api.post<DefaultStarWarsGalaxySeedResultDto>(
+        '/starmap/admin/default-star-wars-galaxy',
+        {},
+      );
+      await get().bootstrap();
+      set({
+        selectedLayerId: result.layerId,
+        message: `Star-Wars-Galaxie initialisiert: Layer ${result.createdLayer ? 'neu' : 'vorhanden'}, ${result.createdFields} Felder, ${result.seededPlayableFields} spielbare Systemfelder, ${result.generatedPlayableSystems} spielbare Systeme, ${result.preset?.createdLandmarks ?? 0} Preset-Systeme, ${result.preset?.createdRoutes ?? 0} Routen, ${result.conflicts.length} Hinweise.${result.conflicts.length ? ` Details: ${result.conflicts.join('; ')}` : ''}`,
+      });
+      const [sectors, regions, hyperspaceRoutes] = await Promise.all([
+        api.get<SectorSummary[]>(`/starmap/layers/${result.layerId}/sectors`),
+        api.get<MapRegion[]>(`/starmap/admin/layers/${result.layerId}/regions`),
+        api.get<HyperspaceRoute[]>(
+          `/starmap/layers/${result.layerId}/hyperspace-routes`,
+        ),
+      ]);
+      set({ sectors, regions, hyperspaceRoutes });
+    } catch (err) {
+      set({ error: readError(err), loading: false });
     }
   },
 

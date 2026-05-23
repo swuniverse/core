@@ -24,6 +24,7 @@ import { WormholeService } from './wormhole.service';
 import type {
   ApplyStarWarsPresetOptionsDto,
   ApplyStarWarsPresetResultDto,
+  DefaultStarWarsGalaxySeedResultDto,
   HyperspaceRouteDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
@@ -355,6 +356,12 @@ export class StarmapController {
     body: StarmapCreateLayerDto,
   ): Promise<StarmapLayerDto> {
     return this.starmapAdminService.createLayer(body);
+  }
+
+  @Post('admin/default-star-wars-galaxy')
+  @UseGuards(AdminGuard)
+  initializeDefaultStarWarsGalaxy(): Promise<DefaultStarWarsGalaxySeedResultDto> {
+    return this.starmapAdminService.initializeDefaultStarWarsGalaxy();
   }
 
   @Delete('admin/layers/:id')

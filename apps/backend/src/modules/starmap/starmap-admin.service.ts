@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   STARMAP_SYSTEM_TYPE_OPTIONS,
   SYSTEM_TYPE_DEFINITIONS,
@@ -33,6 +33,7 @@ import {
 import type {
   ApplyStarWarsPresetOptionsDto,
   ApplyStarWarsPresetResultDto,
+  DefaultStarWarsGalaxySeedResultDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCelestialObjectDto,
@@ -314,71 +315,206 @@ export class StarmapAdminService {
     return this.toLayerDto(createdLayer);
   }
 
+  async initializeDefaultStarWarsGalaxy(): Promise<DefaultStarWarsGalaxySeedResultDto> {
+    const conflicts: string[] = [];
+    const fieldTypes = await this.ensureDefaultFieldTypes();
+
+    let layer = await this.layerRepo.findOne({
+      where: { name: 'Star Wars Galaxy' },
+    });
+    let createdLayer = false;
+    if (!layer) {
+      layer = await this.layerRepo.save(
+        this.layerRepo.create({
+          name: 'Star Wars Galaxy',
+          width: 120,
+          height: 120,
+          sectorSize: 20,
+          isDefault: true,
+          isFinished: true,
+          isHidden: false,
+        }),
+      );
+      createdLayer = true;
+    } else if (
+      layer.width !== 120 ||
+      layer.height !== 120 ||
+      layer.sectorSize !== 20
+    ) {
+      conflicts.push(
+        `Existing Star Wars Galaxy layer has ${layer.width}x${layer.height}/${layer.sectorSize}; expected 120x120/20`,
+      );
+    }
+
+    const emptyFieldType = await this.fieldTypeRepo.findOne({
+      where: { key: 'EMPTY_SPACE' },
+    });
+    if (!emptyFieldType)
+      throw new NotFoundException('EMPTY_SPACE field type not found');
+
+    const existingFields = await this.galaxyFieldRepo.count({
+      where: { layerId: layer.id },
+    });
+    let createdFields = 0;
+    if (existingFields === 0) {
+      const initialized = await this.initializeLayerGrid(layer.id, {
+        defaultFieldTypeId: emptyFieldType.id,
+      });
+      createdFields = initialized.created ?? 0;
+      await this.applyDefaultStarWarsFactionZones(layer.id);
+    } else if (existingFields !== layer.width * layer.height) {
+      conflicts.push(
+        `Layer grid already has ${existingFields} fields; expected ${layer.width * layer.height}`,
+      );
+    }
+
+    const existingSystems = await this.systemRepo.count({
+      where: { layerId: layer.id },
+    });
+    let preset: ApplyStarWarsPresetResultDto | null = null;
+    let skippedPreset = false;
+    if (existingSystems === 0) {
+      preset = await this.applyStarWarsPreset(layer.id, {
+        mode: 'curated',
+        recreateRoutes: true,
+        overwriteExisting: false,
+      });
+      conflicts.push(...preset.conflicts);
+    } else {
+      skippedPreset = true;
+      conflicts.push(
+        `Preset skipped because layer already contains ${existingSystems} systems`,
+      );
+    }
+
+    const seededPlayableFields = await this.seedDefaultPlayableSystemFields(
+      layer.id,
+    );
+    const generated = await this.generateSystemsForLayer(
+      layer.id,
+      seededPlayableFields,
+    );
+    const generatedPlayableSystems = generated.generated ?? 0;
+
+    return {
+      layerId: layer.id,
+      createdLayer,
+      createdFields,
+      fieldTypes: fieldTypes.length,
+      seededPlayableFields,
+      generatedPlayableSystems,
+      preset,
+      conflicts,
+      skippedPreset,
+      created: createdFields,
+      generated: generatedPlayableSystems,
+    };
+  }
+
   async deleteLayer(layerId: number): Promise<StarmapOperationResultDto> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) {
       throw new NotFoundException('Layer not found');
     }
 
-    // Nullify/delete FK references from other tables
-    await this.entityManager.query(
-      `DELETE FROM "onboarding_selections" WHERE "selectedSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) OR "selectedLayerId" = $1`,
-      [layerId],
-    );
-    await this.entityManager.query(
-      `UPDATE "colonies" SET "celestialObjectId" = NULL, "starSystemId" = NULL WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
-      [layerId],
-    );
-    await this.entityManager.query(
-      `UPDATE "spacecraft" SET "celestialObjectId" = NULL, "starSystemId" = NULL WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
-      [layerId],
-    );
+    await this.entityManager.transaction(async (manager) => {
+      // Nullify/delete FK references from other tables. Keep player-owned data,
+      // but detach it from the removed map layer/systems/objects.
+      await manager.query(
+        `DELETE FROM "onboarding_selections"
+         WHERE "selectedSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            OR "selectedLayerId" = $1`,
+        [layerId],
+      );
+      await manager.query(
+        `UPDATE "colonies"
+         SET "celestialObjectId" = NULL, "starSystemId" = NULL
+         WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            OR "celestialObjectId" IN (
+              SELECT id FROM "celestial_objects"
+              WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            )`,
+        [layerId],
+      );
+      await manager.query(
+        `UPDATE "spacecraft"
+         SET "celestialObjectId" = NULL,
+             "starSystemId" = NULL,
+             "currentLayerId" = CASE WHEN "currentLayerId" = $1 THEN NULL ELSE "currentLayerId" END,
+             "targetSystemId" = CASE
+               WHEN "targetSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN NULL
+               ELSE "targetSystemId"
+             END,
+             "inSystem" = CASE WHEN "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN false ELSE "inSystem" END,
+             "currentSystemFieldX" = CASE WHEN "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN NULL ELSE "currentSystemFieldX" END,
+             "currentSystemFieldY" = CASE WHEN "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN NULL ELSE "currentSystemFieldY" END
+         WHERE "currentLayerId" = $1
+            OR "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            OR "targetSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            OR "celestialObjectId" IN (
+              SELECT id FROM "celestial_objects"
+              WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            )`,
+        [layerId],
+      );
 
-    // Delete planet_fields referencing celestial objects in this layer
-    await this.entityManager.query(
-      `DELETE FROM "planet_fields" WHERE "celestialObjectId" IN (SELECT id FROM "celestial_objects" WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1))`,
-      [layerId],
-    );
-
-    // Delete system_fields (references celestial_objects via FK)
-    await this.entityManager.query(
-      `DELETE FROM "system_fields" WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
-      [layerId],
-    );
-
-    // Delete celestial_objects (now safe — no more FK references)
-    await this.entityManager.query(
-      `DELETE FROM "celestial_objects" WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
-      [layerId],
-    );
-
-    // Delete system explorations referencing star systems in this layer
-    await this.entityManager.query(
-      `DELETE FROM "system_explorations" WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
-      [layerId],
-    );
-
-    // Delete exploration states and influence areas for this layer
-    await this.entityManager.query(
-      `DELETE FROM "exploration_states" WHERE "layerId" = $1`,
-      [layerId],
-    );
-    await this.entityManager.query(
-      `DELETE FROM "influence_areas" WHERE "layerId" = $1`,
-      [layerId],
-    );
-    await this.entityManager.query(
-      `DELETE FROM "wormholes" WHERE "entryLayerId" = $1 OR "exitLayerId" = $1`,
-      [layerId],
-    );
-
-    await this.galaxyFieldRepo.delete({ layerId });
-    await this.systemRepo.delete({ layerId });
-    await this.entityManager.query(
-      `DELETE FROM "map_regions" WHERE "layerId" = $1`,
-      [layerId],
-    );
-    await this.layerRepo.delete({ id: layerId });
+      await manager.query(
+        `DELETE FROM "hyperspace_route_segments"
+         WHERE "routeId" IN (SELECT id FROM "hyperspace_routes" WHERE "layerId" = $1)
+            OR "fromSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+            OR "toSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "hyperspace_routes" WHERE "layerId" = $1`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "planet_fields"
+         WHERE "celestialObjectId" IN (
+           SELECT id FROM "celestial_objects"
+           WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
+         )`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "system_fields"
+         WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "celestial_objects"
+         WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "system_explorations"
+         WHERE "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "exploration_states" WHERE "layerId" = $1`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "influence_areas" WHERE "layerId" = $1`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "wormholes" WHERE "entryLayerId" = $1 OR "exitLayerId" = $1`,
+        [layerId],
+      );
+      await manager.query(`DELETE FROM "galaxy_fields" WHERE "layerId" = $1`, [
+        layerId,
+      ]);
+      await manager.query(`DELETE FROM "star_systems" WHERE "layerId" = $1`, [
+        layerId,
+      ]);
+      await manager.query(`DELETE FROM "map_regions" WHERE "layerId" = $1`, [
+        layerId,
+      ]);
+      await manager.query(`DELETE FROM "layers" WHERE id = $1`, [layerId]);
+    });
 
     return { deleted: true };
   }
@@ -1351,6 +1487,112 @@ export class StarmapAdminService {
       galaxyField.effectFlags = systemFieldType.effects;
       await this.galaxyFieldRepo.save(galaxyField);
     }
+  }
+
+  private async applyDefaultStarWarsFactionZones(
+    layerId: number,
+  ): Promise<void> {
+    await this.entityManager.query(
+      `UPDATE "galaxy_fields"
+       SET "factionZone" = CASE
+         WHEN cx <= 40 AND cy <= 60 THEN 'REBEL'
+         WHEN cx >= 81 AND cy >= 61 THEN 'EMPIRE'
+         WHEN cx BETWEEN 41 AND 80 OR cy BETWEEN 41 AND 80 THEN 'CONTESTED'
+         ELSE 'UNKNOWN'
+       END
+       WHERE "layerId" = $1`,
+      [layerId],
+    );
+  }
+
+  private async seedDefaultPlayableSystemFields(
+    layerId: number,
+  ): Promise<number> {
+    const systemFieldType = await this.fieldTypeRepo.findOne({
+      where: { key: 'STAR_SYSTEM' },
+    });
+    if (!systemFieldType)
+      throw new NotFoundException('STAR_SYSTEM field type not found');
+
+    const existingPlayableSystems = await this.systemRepo.count({
+      where: { layerId, landmarkKey: IsNull() },
+    });
+    if (existingPlayableSystems > 0) return 0;
+
+    const perFaction = 36;
+    const [rebelCandidates, empireCandidates] = await Promise.all([
+      this.getPlayableFieldCandidates(layerId, FactionZone.REBEL),
+      this.getPlayableFieldCandidates(layerId, FactionZone.EMPIRE),
+    ]);
+
+    const rebelFields = this.pickSpreadOutFields(
+      rebelCandidates,
+      perFaction,
+      'rebel-starter-systems',
+    );
+    const empireFields = this.pickSpreadOutFields(
+      empireCandidates,
+      perFaction,
+      'empire-starter-systems',
+    );
+    const fields = [...rebelFields, ...empireFields];
+
+    for (const field of fields) {
+      field.fieldTypeId = systemFieldType.id;
+      field.systemTypeId = this.pickWeightedSystemType();
+      field.isPassable = systemFieldType.passable;
+      field.energyCost = systemFieldType.energyCost;
+      field.damage = systemFieldType.damage;
+      field.effectFlags = systemFieldType.effects;
+    }
+
+    await this.galaxyFieldRepo.save(fields, { chunk: 500 });
+    return fields.length;
+  }
+
+  private getPlayableFieldCandidates(
+    layerId: number,
+    factionZone: FactionZone,
+  ): Promise<GalaxyField[]> {
+    return this.galaxyFieldRepo
+      .createQueryBuilder('field')
+      .where('field.layerId = :layerId', { layerId })
+      .andWhere('field.starSystemId IS NULL')
+      .andWhere('field.systemTypeId IS NULL')
+      .andWhere('field.factionZone = :factionZone', { factionZone })
+      .orderBy('field.cy', 'ASC')
+      .addOrderBy('field.cx', 'ASC')
+      .getMany();
+  }
+
+  private pickSpreadOutFields(
+    candidates: GalaxyField[],
+    targetCount: number,
+    salt: string,
+  ): GalaxyField[] {
+    const shuffled = [...candidates].sort(
+      (a, b) =>
+        this.hashString(`${salt}:${a.cx}:${a.cy}`) -
+        this.hashString(`${salt}:${b.cx}:${b.cy}`),
+    );
+    const selected: GalaxyField[] = [];
+    let minDistance = 6;
+
+    while (selected.length < targetCount && minDistance >= 1) {
+      for (const field of shuffled) {
+        if (selected.length >= targetCount) break;
+        if (selected.some((entry) => entry.id === field.id)) continue;
+        const tooClose = selected.some(
+          (entry) =>
+            Math.abs(entry.cx - field.cx) + Math.abs(entry.cy - field.cy) <
+            minDistance,
+        );
+        if (!tooClose) selected.push(field);
+      }
+      minDistance--;
+    }
+
+    return selected.slice(0, targetCount);
   }
 
   private async generateSystemName(): Promise<string> {

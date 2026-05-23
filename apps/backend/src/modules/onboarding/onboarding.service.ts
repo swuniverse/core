@@ -28,6 +28,7 @@ import {
 import { ColonySeedService } from '../colony/colony-seed.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { User } from '../auth/user.entity';
+import { sectorToFieldRange } from './onboarding-sector.util';
 
 const INVALID_STARTER_PLANET_MESSAGE =
   'Only colonizable M, L or O class planets can be claimed as homeworld';
@@ -82,15 +83,96 @@ export class OnboardingService {
   async listSectors(userId: number) {
     const selection = await this.getOrCreateSelection(userId);
     const layers = await this.layerRepo.find({ order: { id: 'ASC' } });
+    const allowedZones = this.getAllowedFactionZones(selection.factionId);
 
-    return layers.map((layer) => ({
-      layerId: layer.id,
-      layerName: layer.name,
-      sectorSize: layer.sectorSize,
-      sectorColumns: Math.ceil(layer.width / layer.sectorSize),
-      sectorRows: Math.ceil(layer.height / layer.sectorSize),
-      suggestedFactionId: selection.factionId,
-    }));
+    return Promise.all(
+      layers.map(async (layer) => {
+        const sectorSize = layer.sectorSize;
+        const sectorColumns = Math.ceil(layer.width / sectorSize);
+        const sectorRows = Math.ceil(layer.height / sectorSize);
+        const rows = (await this.galaxyFieldRepo.query(
+          `SELECT
+             FLOOR((gf.cx - 1) / $2)::int AS "sectorX",
+             FLOOR((gf.cy - 1) / $2)::int AS "sectorY",
+             COUNT(DISTINCT s.id)::int AS "playableSystemCount",
+             COUNT(DISTINCT co.id)::int AS "totalStarterPlanets",
+             COUNT(DISTINCT CASE WHEN c.id IS NULL THEN co.id END)::int AS "availableStarterPlanets",
+             MIN(gf."factionZone") AS "dominantFactionZone"
+           FROM "galaxy_fields" gf
+           JOIN "star_systems" s
+             ON s.id = gf."starSystemId"
+            AND s."landmarkKey" IS NULL
+           LEFT JOIN "celestial_objects" co
+             ON co."systemId" = s.id
+            AND co."objectType" = $3
+            AND co."isColonizable" = true
+            AND co."classId" = ANY($4::int[])
+           LEFT JOIN "colonies" c
+             ON c."celestialObjectId" = co.id
+           WHERE gf."layerId" = $1
+             AND ($5::text[] IS NULL OR gf."factionZone" = ANY($5::text[]))
+           GROUP BY FLOOR((gf.cx - 1) / $2), FLOOR((gf.cy - 1) / $2)`,
+          [
+            layer.id,
+            sectorSize,
+            CelestialObjectType.PLANET,
+            STU_STARTER_PLANET_CLASS_IDS,
+            allowedZones.length > 0 ? allowedZones : null,
+          ],
+        )) as Array<{
+          sectorX: number;
+          sectorY: number;
+          playableSystemCount: number;
+          totalStarterPlanets: number;
+          availableStarterPlanets: number;
+          dominantFactionZone: FactionZone | null;
+        }>;
+
+        const statsBySector = new Map(
+          rows.map((row) => [`${row.sectorX}:${row.sectorY}`, row]),
+        );
+
+        return {
+          layerId: layer.id,
+          layerName: layer.name,
+          sectorSize,
+          sectorColumns,
+          sectorRows,
+          suggestedFactionId: selection.factionId,
+          sectors: Array.from(
+            { length: sectorColumns * sectorRows },
+            (_, index) => {
+              const sectorX = index % sectorColumns;
+              const sectorY = Math.floor(index / sectorColumns);
+              const stats = statsBySector.get(`${sectorX}:${sectorY}`);
+              return {
+                layerId: layer.id,
+                sectorX,
+                sectorY,
+                minX: sectorX * sectorSize + 1,
+                minY: sectorY * sectorSize + 1,
+                maxX: Math.min((sectorX + 1) * sectorSize, layer.width),
+                maxY: Math.min((sectorY + 1) * sectorSize, layer.height),
+                fieldCount:
+                  (Math.min((sectorX + 1) * sectorSize, layer.width) -
+                    (sectorX * sectorSize + 1) +
+                    1) *
+                  (Math.min((sectorY + 1) * sectorSize, layer.height) -
+                    (sectorY * sectorSize + 1) +
+                    1),
+                systemCount: Number(stats?.playableSystemCount ?? 0),
+                playableSystemCount: Number(stats?.playableSystemCount ?? 0),
+                totalStarterPlanets: Number(stats?.totalStarterPlanets ?? 0),
+                availableStarterPlanets: Number(
+                  stats?.availableStarterPlanets ?? 0,
+                ),
+                dominantFactionZone: stats?.dominantFactionZone ?? null,
+              };
+            },
+          ),
+        };
+      }),
+    );
   }
 
   async listSystems(
@@ -106,10 +188,11 @@ export class OnboardingService {
     }
 
     const sectorSize = layer.sectorSize;
-    const minX = sectorX * sectorSize;
-    const maxX = minX + sectorSize - 1;
-    const minY = sectorY * sectorSize;
-    const maxY = minY + sectorSize - 1;
+    const { minX, maxX, minY, maxY } = sectorToFieldRange(
+      sectorX,
+      sectorY,
+      sectorSize,
+    );
 
     const allowedZones = this.getAllowedFactionZones(selection.factionId);
 

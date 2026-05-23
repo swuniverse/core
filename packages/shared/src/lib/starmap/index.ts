@@ -36,10 +36,24 @@ export interface StarmapSectorDto {
   maxY: number;
   fieldCount: number;
   systemCount: number;
+  dominantFactionZone?: StarmapFactionZone | null;
+  availableStarterPlanets?: number;
+  totalStarterPlanets?: number;
+  playableSystemCount?: number;
   exploredCount?: number;
   totalCount?: number;
   explorationPercent?: number;
   isDiscovered?: boolean;
+}
+
+export interface OnboardingLayerSectorsDto {
+  layerId: number;
+  layerName: string;
+  sectorSize: number;
+  sectorColumns: number;
+  sectorRows: number;
+  suggestedFactionId: number | null;
+  sectors: StarmapSectorDto[];
 }
 
 export interface StarmapFieldTypeDto {
@@ -162,6 +176,18 @@ export interface ApplyStarWarsPresetResultDto extends StarmapOperationResultDto 
   updatedLandmarks: number;
   createdRoutes: number;
   conflicts: string[];
+}
+
+export interface DefaultStarWarsGalaxySeedResultDto extends StarmapOperationResultDto {
+  layerId: number;
+  createdLayer: boolean;
+  createdFields: number;
+  fieldTypes: number;
+  seededPlayableFields: number;
+  generatedPlayableSystems: number;
+  preset: ApplyStarWarsPresetResultDto | null;
+  conflicts: string[];
+  skippedPreset: boolean;
 }
 
 export interface StarmapFieldContextDto {

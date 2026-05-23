@@ -7,7 +7,11 @@ import {
   isStarterPlanetClass,
   STU_CELESTIAL_CLASSES,
 } from '@swuniverse/shared';
-import type { UserProfile } from '@swuniverse/shared';
+import type {
+  OnboardingLayerSectorsDto,
+  StarmapSectorDto,
+  UserProfile,
+} from '@swuniverse/shared';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { planetImage } from '../lib/assets';
@@ -37,14 +41,8 @@ interface SelectionDto {
   completedAt: string | null;
 }
 
-interface SectorOverview {
-  layerId: number;
-  layerName: string;
-  sectorSize: number;
-  sectorColumns: number;
-  sectorRows: number;
-  suggestedFactionId: number | null;
-}
+type SectorOverview = OnboardingLayerSectorsDto;
+type SectorOption = StarmapSectorDto;
 
 interface StarSystemDto {
   id: number;
@@ -127,10 +125,9 @@ export function OnboardingPage() {
   const [sectors, setSectors] = useState<SectorOverview[]>([]);
   const [selectedFaction, setSelectedFaction] = useState<Faction | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<number | null>(null);
-  const [selectedSector, setSelectedSector] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [selectedSector, setSelectedSector] = useState<SectorOption | null>(
+    null,
+  );
   const [systems, setSystems] = useState<StarSystemDto[]>([]);
   const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null);
   const [planets, setPlanets] = useState<CelestialObjectDto[]>([]);
@@ -180,8 +177,21 @@ export function OnboardingPage() {
         selectionRes.selectedSectorY !== null
       ) {
         setSelectedSector({
-          x: selectionRes.selectedSectorX,
-          y: selectionRes.selectedSectorY,
+          layerId: selectionRes.selectedLayerId ?? sectorRes[0]?.layerId ?? 0,
+          sectorX: selectionRes.selectedSectorX,
+          sectorY: selectionRes.selectedSectorY,
+          minX:
+            selectionRes.selectedSectorX * (sectorRes[0]?.sectorSize ?? 20) + 1,
+          minY:
+            selectionRes.selectedSectorY * (sectorRes[0]?.sectorSize ?? 20) + 1,
+          maxX:
+            (selectionRes.selectedSectorX + 1) *
+            (sectorRes[0]?.sectorSize ?? 20),
+          maxY:
+            (selectionRes.selectedSectorY + 1) *
+            (sectorRes[0]?.sectorSize ?? 20),
+          fieldCount: 0,
+          systemCount: 0,
         });
       }
       if (selectionRes.selectedSystemId) {
@@ -201,13 +211,40 @@ export function OnboardingPage() {
 
   useEffect(() => {
     if (!selectedLayerId || !selectedSector) return;
-    void loadSystems(selectedLayerId, selectedSector.x, selectedSector.y);
-  }, [selectedLayerId, selectedSector?.x, selectedSector?.y]);
+    void loadSystems(
+      selectedLayerId,
+      selectedSector.sectorX,
+      selectedSector.sectorY,
+    );
+  }, [selectedLayerId, selectedSector?.sectorX, selectedSector?.sectorY]);
 
   useEffect(() => {
     if (!selectedSystemId) return;
     void loadPlanets(selectedSystemId);
   }, [selectedSystemId]);
+
+  async function chooseFaction(faction: Faction) {
+    setSaving(true);
+    setError('');
+    try {
+      await api.post('/onboarding/faction', { faction });
+      setSelectedFaction(faction);
+      const sectorRes = await api.get<SectorOverview[]>('/onboarding/sectors');
+      setSectors(sectorRes);
+      setSelectedLayerId(sectorRes[0]?.layerId ?? null);
+      setSelectedSector(null);
+      setSystems([]);
+      setPlanets([]);
+      setSelectedSystemId(null);
+      setSelectedPlanetId(null);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Failed to select faction',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function loadSystems(
     layerId: number,
@@ -286,6 +323,16 @@ export function OnboardingPage() {
       sectors.find((sector) => sector.layerId === selectedLayerId) ??
       sectors[0],
     [sectors, selectedLayerId],
+  );
+  const sectorByCoord = useMemo(
+    () =>
+      new Map(
+        (activeLayer?.sectors ?? []).map((sector) => [
+          `${sector.sectorX}:${sector.sectorY}`,
+          sector,
+        ]),
+      ),
+    [activeLayer],
   );
 
   if (loading) {
@@ -447,7 +494,36 @@ export function OnboardingPage() {
           )}
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">1. Sektor</h2>
+            <h2 className="text-lg font-bold mb-4">1. Fraktion</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {factions.map((faction) => {
+                const active = selectedFaction === faction.key;
+                return (
+                  <button
+                    key={faction.id}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void chooseFaction(faction.key)}
+                    className={`rounded border p-4 text-left transition ${
+                      active
+                        ? 'border-swu-accent bg-swu-accent/10'
+                        : 'border-swu-border hover:border-swu-primary'
+                    }`}
+                  >
+                    <div className="font-bold text-swu-primary">
+                      {faction.name}
+                    </div>
+                    <div className="mt-1 text-xs text-swu-muted">
+                      Startzone: {faction.homeZone ?? 'automatisch'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
+            <h2 className="text-lg font-bold mb-4">2. Sektor</h2>
             <div className="flex items-center gap-3 mb-4">
               <label className="text-sm text-swu-muted">Layer</label>
               <select
@@ -490,23 +566,45 @@ export function OnboardingPage() {
                 }).map((_, index) => {
                   const x = index % activeLayer.sectorColumns;
                   const y = Math.floor(index / activeLayer.sectorColumns);
+                  const sector = sectorByCoord.get(`${x}:${y}`);
                   const active =
-                    selectedSector?.x === x && selectedSector?.y === y;
+                    selectedSector?.sectorX === x &&
+                    selectedSector?.sectorY === y;
+                  const available = sector?.availableStarterPlanets ?? 0;
+                  const disabled = saving || !sector || available <= 0;
                   return (
                     <button
                       key={`${x}-${y}`}
                       type="button"
-                      disabled={saving}
-                      onClick={() => setSelectedSector({ x, y })}
-                      className={`rounded border p-3 text-left min-h-20 transition ${
+                      disabled={disabled}
+                      onClick={() => sector && setSelectedSector(sector)}
+                      className={`rounded border p-3 text-left min-h-28 transition ${
                         active
                           ? 'border-swu-accent bg-swu-accent/10'
-                          : 'border-swu-border hover:border-swu-primary'
+                          : disabled
+                            ? 'border-swu-border opacity-50'
+                            : 'border-swu-border hover:border-swu-primary'
                       }`}
                     >
-                      <div className="text-xs text-swu-muted mb-1">Sector</div>
+                      <div className="flex items-center justify-between gap-2 text-xs text-swu-muted mb-1">
+                        <span>Sector</span>
+                        <span>{sector?.dominantFactionZone ?? 'UNKNOWN'}</span>
+                      </div>
                       <div className="font-bold">
                         {x + 1} | {y + 1}
+                      </div>
+                      <div className="mt-2 text-xs text-swu-muted">
+                        Systeme:{' '}
+                        {sector?.playableSystemCount ??
+                          sector?.systemCount ??
+                          0}
+                      </div>
+                      <div
+                        className={`text-xs ${available > 0 ? 'text-swu-success' : 'text-red-300'}`}
+                      >
+                        {available > 0
+                          ? `Startwelten: ${available}/${sector?.totalStarterPlanets ?? 0}`
+                          : 'Keine freien Startwelten'}
                       </div>
                     </button>
                   );
@@ -517,7 +615,7 @@ export function OnboardingPage() {
 
           <section className="grid lg:grid-cols-2 gap-6">
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-4">2. System</h2>
+              <h2 className="text-lg font-bold mb-4">3. System</h2>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {systems.length === 0 && (
                   <p className="text-swu-muted text-sm">Choose sector first.</p>
@@ -550,7 +648,7 @@ export function OnboardingPage() {
             </div>
 
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-2">3. Planet</h2>
+              <h2 className="text-lg font-bold mb-2">4. Planet</h2>
               <p className="text-xs text-swu-muted mb-4">
                 Nur kolonialisierbare M-, L- und O-Klasse-Planeten koennen als
                 Heimatwelt gewaehlt werden.
@@ -623,7 +721,7 @@ export function OnboardingPage() {
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold">4. Claim</h2>
+              <h2 className="text-lg font-bold">5. Claim</h2>
               <p className="text-sm text-swu-muted mt-1">
                 Final step. Creates starter colony, starter ship, starter fleet.
               </p>
@@ -667,7 +765,7 @@ export function OnboardingPage() {
             label="Sector"
             value={
               selectedSector
-                ? `${selectedSector.x + 1} | ${selectedSector.y + 1}`
+                ? `${selectedSector.sectorX + 1} | ${selectedSector.sectorY + 1}`
                 : 'Not selected'
             }
           />
