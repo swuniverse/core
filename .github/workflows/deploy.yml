@@ -21,6 +21,12 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GHCR_TOKEN }}
+          submodules: recursive
+
+      - name: Verify frontend assets
+        run: test -s assets/planets/205.gif
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
