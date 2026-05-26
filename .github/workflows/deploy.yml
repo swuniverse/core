@@ -87,7 +87,9 @@ jobs:
           script: |
             cd /opt/swuniverse/core || exit 1
             git config --global url."https://x-access-token:${{ secrets.GHCR_TOKEN }}@github.com/".insteadOf "https://github.com/"
-            git pull origin main || exit 1
+            git fetch origin main || exit 1
+            git reset --hard origin/main || exit 1
+            git clean -fd || exit 1
             git submodule update --init --recursive || exit 1
             git config --global --unset url."https://x-access-token:${{ secrets.GHCR_TOKEN }}@github.com/".insteadOf
             chmod +x deploy-remote.sh
@@ -115,8 +117,8 @@ jobs:
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          username: "swuniverse.net Bot"
-          title: "Deployment erfolgreich"
+          username: 'swuniverse.net Bot'
+          title: 'Deployment erfolgreich'
           description: |
             **Branch:** `${{ github.ref_name }}`
             **Commit:** `${{ github.sha }}`
