@@ -223,29 +223,6 @@ export function OnboardingPage() {
     void loadPlanets(selectedSystemId);
   }, [selectedSystemId]);
 
-  async function chooseFaction(faction: Faction) {
-    setSaving(true);
-    setError('');
-    try {
-      await api.post('/onboarding/faction', { faction });
-      setSelectedFaction(faction);
-      const sectorRes = await api.get<SectorOverview[]>('/onboarding/sectors');
-      setSectors(sectorRes);
-      setSelectedLayerId(sectorRes[0]?.layerId ?? null);
-      setSelectedSector(null);
-      setSystems([]);
-      setPlanets([]);
-      setSelectedSystemId(null);
-      setSelectedPlanetId(null);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Failed to select faction',
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function loadSystems(
     layerId: number,
     sectorX: number,
@@ -494,36 +471,7 @@ export function OnboardingPage() {
           )}
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">1. Fraktion</h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              {factions.map((faction) => {
-                const active = selectedFaction === faction.key;
-                return (
-                  <button
-                    key={faction.id}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void chooseFaction(faction.key)}
-                    className={`rounded border p-4 text-left transition ${
-                      active
-                        ? 'border-swu-accent bg-swu-accent/10'
-                        : 'border-swu-border hover:border-swu-primary'
-                    }`}
-                  >
-                    <div className="font-bold text-swu-primary">
-                      {faction.name}
-                    </div>
-                    <div className="mt-1 text-xs text-swu-muted">
-                      Startzone: {faction.homeZone ?? 'automatisch'}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">2. Sektor</h2>
+            <h2 className="text-lg font-bold mb-4">1. Sektor</h2>
             <div className="flex items-center gap-3 mb-4">
               <label className="text-sm text-swu-muted">Layer</label>
               <select
@@ -615,7 +563,7 @@ export function OnboardingPage() {
 
           <section className="grid lg:grid-cols-2 gap-6">
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-4">3. System</h2>
+              <h2 className="text-lg font-bold mb-4">2. System</h2>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {systems.length === 0 && (
                   <p className="text-swu-muted text-sm">Choose sector first.</p>
@@ -648,7 +596,7 @@ export function OnboardingPage() {
             </div>
 
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-2">4. Planet</h2>
+              <h2 className="text-lg font-bold mb-2">3. Planet</h2>
               <p className="text-xs text-swu-muted mb-4">
                 Nur kolonialisierbare M-, L- und O-Klasse-Planeten koennen als
                 Heimatwelt gewaehlt werden.
@@ -721,7 +669,7 @@ export function OnboardingPage() {
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold">5. Claim</h2>
+              <h2 className="text-lg font-bold">4. Claim</h2>
               <p className="text-sm text-swu-muted mt-1">
                 Final step. Creates starter colony, starter ship, starter fleet.
               </p>

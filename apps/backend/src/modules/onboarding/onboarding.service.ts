@@ -83,50 +83,53 @@ export class OnboardingService {
   async listSectors(userId: number) {
     const selection = await this.getOrCreateSelection(userId);
     const layers = await this.layerRepo.find({ order: { id: 'ASC' } });
-    const allowedZones = this.getAllowedFactionZones(selection.factionId);
+    const factionId = await this.getEffectiveFactionId(userId, selection);
+    const allowedZones = this.getStarterFactionZones(factionId);
 
     return Promise.all(
       layers.map(async (layer) => {
         const sectorSize = layer.sectorSize;
         const sectorColumns = Math.ceil(layer.width / sectorSize);
         const sectorRows = Math.ceil(layer.height / sectorSize);
-        const rows = (await this.galaxyFieldRepo.query(
-          `SELECT
-             FLOOR((gf.cx - 1) / $2)::int AS "sectorX",
-             FLOOR((gf.cy - 1) / $2)::int AS "sectorY",
-             COUNT(DISTINCT s.id)::int AS "playableSystemCount",
-             COUNT(DISTINCT co.id)::int AS "totalStarterPlanets",
-             COUNT(DISTINCT CASE WHEN c.id IS NULL THEN co.id END)::int AS "availableStarterPlanets",
-             MIN(gf."factionZone") AS "dominantFactionZone"
-           FROM "galaxy_fields" gf
-           JOIN "star_systems" s
-             ON s.id = gf."starSystemId"
-            AND s."landmarkKey" IS NULL
-           LEFT JOIN "celestial_objects" co
-             ON co."systemId" = s.id
-            AND co."objectType" = $3
-            AND co."isColonizable" = true
-            AND co."classId" = ANY($4::int[])
-           LEFT JOIN "colonies" c
-             ON c."celestialObjectId" = co.id
-           WHERE gf."layerId" = $1
-             AND ($5::text[] IS NULL OR gf."factionZone" = ANY($5::text[]))
-           GROUP BY FLOOR((gf.cx - 1) / $2), FLOOR((gf.cy - 1) / $2)`,
-          [
-            layer.id,
-            sectorSize,
-            CelestialObjectType.PLANET,
-            STU_STARTER_PLANET_CLASS_IDS,
-            allowedZones.length > 0 ? allowedZones : null,
-          ],
-        )) as Array<{
+        const rows = allowedZones.length
+          ? ((await this.galaxyFieldRepo.query(
+              `SELECT
+                 FLOOR((gf.cx - 1) / $2)::int AS "sectorX",
+                 FLOOR((gf.cy - 1) / $2)::int AS "sectorY",
+                 COUNT(DISTINCT s.id)::int AS "playableSystemCount",
+                 COUNT(DISTINCT co.id)::int AS "totalStarterPlanets",
+                 COUNT(DISTINCT CASE WHEN c.id IS NULL THEN co.id END)::int AS "availableStarterPlanets",
+                 MIN(gf."factionZone") AS "dominantFactionZone"
+               FROM "galaxy_fields" gf
+               JOIN "star_systems" s
+                 ON s.id = gf."starSystemId"
+                AND s."landmarkKey" IS NULL
+               LEFT JOIN "celestial_objects" co
+                 ON co."systemId" = s.id
+                AND co."objectType" = $3
+                AND co."isColonizable" = true
+                AND co."classId" = ANY($4::int[])
+               LEFT JOIN "colonies" c
+                 ON c."celestialObjectId" = co.id
+               WHERE gf."layerId" = $1
+                 AND gf."factionZone" = ANY($5::text[])
+               GROUP BY FLOOR((gf.cx - 1) / $2), FLOOR((gf.cy - 1) / $2)`,
+              [
+                layer.id,
+                sectorSize,
+                CelestialObjectType.PLANET,
+                STU_STARTER_PLANET_CLASS_IDS,
+                allowedZones,
+              ],
+            )) as Array<{
           sectorX: number;
           sectorY: number;
           playableSystemCount: number;
           totalStarterPlanets: number;
           availableStarterPlanets: number;
           dominantFactionZone: FactionZone | null;
-        }>;
+        }>)
+          : [];
 
         const statsBySector = new Map(
           rows.map((row) => [`${row.sectorX}:${row.sectorY}`, row]),
@@ -194,7 +197,9 @@ export class OnboardingService {
       sectorSize,
     );
 
-    const allowedZones = this.getAllowedFactionZones(selection.factionId);
+    const factionId = await this.getEffectiveFactionId(userId, selection);
+    const allowedZones = this.getStarterFactionZones(factionId);
+    if (allowedZones.length === 0) return [];
 
     let systemIds: number[] | null = null;
     if (allowedZones.length > 0) {
@@ -240,6 +245,8 @@ export class OnboardingService {
     if (!system || system.landmarkKey) {
       throw new NotFoundException('System not found');
     }
+    const factionId = await this.getEffectiveFactionId(userId, selection);
+    await this.assertSystemInStarterFaction(system, factionId);
 
     const objects = await this.objectRepo.find({
       where: {
@@ -282,6 +289,7 @@ export class OnboardingService {
     if (!this.isAllowedStarterPlanet(object)) {
       throw new BadRequestException(INVALID_STARTER_PLANET_MESSAGE);
     }
+    await this.assertSystemInStarterFaction(system, factionId);
 
     if (
       user.onboardingCompleted ||
@@ -345,15 +353,38 @@ export class OnboardingService {
     );
   }
 
-  private getAllowedFactionZones(factionId: number | null): FactionZone[] {
+  private async getEffectiveFactionId(
+    userId: number,
+    selection: OnboardingSelection,
+  ): Promise<number | null> {
+    if (selection.factionId) return selection.factionId;
+    const user = await this.userRepo.findOneBy({ id: userId });
+    return user?.factionId ?? null;
+  }
+
+  private getStarterFactionZones(factionId: number | null): FactionZone[] {
     if (!factionId) return [];
     // factionId 1 = Rebel, factionId 2 = Empire (based on faction seeding)
-    if (factionId === 1) {
-      return [FactionZone.REBEL, FactionZone.CONTESTED, FactionZone.NEUTRAL];
+    if (factionId === 1) return [FactionZone.REBEL];
+    if (factionId === 2) return [FactionZone.EMPIRE];
+    return [];
+  }
+
+  private async assertSystemInStarterFaction(
+    system: StarSystem,
+    factionId: number | null,
+  ): Promise<void> {
+    const allowedZones = this.getStarterFactionZones(factionId);
+    if (allowedZones.length === 0) {
+      throw new BadRequestException('Faction must be selected first');
     }
-    if (factionId === 2) {
-      return [FactionZone.EMPIRE, FactionZone.CONTESTED, FactionZone.NEUTRAL];
+    const field = await this.galaxyFieldRepo.findOne({
+      where: { starSystemId: system.id },
+    });
+    if (!field || !allowedZones.includes(field.factionZone)) {
+      throw new BadRequestException(
+        'Selected system is not in your faction starter zone',
+      );
     }
-    return [FactionZone.CONTESTED, FactionZone.NEUTRAL, FactionZone.UNKNOWN];
   }
 }
