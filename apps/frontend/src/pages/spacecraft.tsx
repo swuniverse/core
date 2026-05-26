@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
@@ -93,9 +93,25 @@ export function SpacecraftPage() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold text-swu-accent">Raumschiffe</h1>
-        <p className="text-swu-muted mt-4">
-          Keine Schiffe in deiner Flotte. Baue eines in einer Koloniewerft.
+        <p className="text-swu-muted mt-4 max-w-2xl">
+          Du startest ohne Schiff. Erforsche zuerst Grundlegende
+          Ingenieurswissenschaft und danach Werftbetrieb, baue einen Werfthub
+          auf deiner Kolonie und konstruiere dort dein erstes Schiff.
         </p>
+        <div className="flex flex-wrap gap-3 mt-4">
+          <Link
+            to="/research?focus=1"
+            className="px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
+          >
+            Forschung starten
+          </Link>
+          <Link
+            to="/colonies"
+            className="px-4 py-2 border border-swu-border text-swu-text text-sm font-semibold rounded hover:border-swu-primary transition-colors"
+          >
+            Kolonie oeffnen
+          </Link>
+        </div>
       </div>
     );
   }

@@ -19,6 +19,7 @@ import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ShipClassService } from './ship-class.service';
 import { StarmapModule } from '../starmap/starmap.module';
+import { ResearchModule } from '../research/research.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { StarmapModule } from '../starmap/starmap.module';
       ColonyStorage,
     ]),
     forwardRef(() => StarmapModule),
+    ResearchModule,
   ],
   controllers: [SpacecraftController],
   providers: [SpacecraftService, ShipClassService, TransferService],

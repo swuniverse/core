@@ -26,7 +26,6 @@ import {
   FactionZone,
 } from '../starmap/entities/galaxy-field.entity';
 import { ColonySeedService } from '../colony/colony-seed.service';
-import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { User } from '../auth/user.entity';
 import { sectorToFieldRange } from './onboarding-sector.util';
 
@@ -50,7 +49,6 @@ export class OnboardingService {
     private readonly galaxyFieldRepo: Repository<GalaxyField>,
     private readonly factionService: FactionService,
     private readonly colonySeedService: ColonySeedService,
-    private readonly spacecraftService: SpacecraftService,
   ) {}
 
   async getOrCreateSelection(userId: number): Promise<OnboardingSelection> {
@@ -122,13 +120,13 @@ export class OnboardingService {
                 allowedZones,
               ],
             )) as Array<{
-          sectorX: number;
-          sectorY: number;
-          playableSystemCount: number;
-          totalStarterPlanets: number;
-          availableStarterPlanets: number;
-          dominantFactionZone: FactionZone | null;
-        }>)
+              sectorX: number;
+              sectorY: number;
+              playableSystemCount: number;
+              totalStarterPlanets: number;
+              availableStarterPlanets: number;
+              dominantFactionZone: FactionZone | null;
+            }>)
           : [];
 
         const statsBySector = new Map(
@@ -291,11 +289,7 @@ export class OnboardingService {
     }
     await this.assertSystemInStarterFaction(system, factionId);
 
-    if (
-      user.onboardingCompleted ||
-      user.starterColonyId ||
-      user.starterShipId
-    ) {
+    if (user.onboardingCompleted || user.starterColonyId) {
       throw new BadRequestException('Onboarding already completed');
     }
     if (
@@ -324,15 +318,9 @@ export class OnboardingService {
       user.username,
       celestialObjectId,
     );
-    const starterShip = await this.spacecraftService.spawnStarterShip(
-      user.id,
-      factionId,
-      celestialObjectId,
-    );
-
     user.onboardingCompleted = true;
     user.starterColonyId = colony.id;
-    user.starterShipId = starterShip.id;
+    user.starterShipId = null;
     user.factionId = factionId;
     await this.userRepo.save(user);
 
@@ -341,7 +329,11 @@ export class OnboardingService {
       celestialObjectId,
       selectionId: selection.id,
       starterColonyId: colony.id,
-      starterShipId: starterShip.id,
+      nextObjective: {
+        key: 'RESEARCH_BASIC_ENGINEERING',
+        label: 'Grundlegende Ingenieurswissenschaft erforschen',
+        href: '/research?focus=1',
+      },
     };
   }
 

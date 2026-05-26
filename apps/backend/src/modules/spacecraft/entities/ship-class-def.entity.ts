@@ -21,6 +21,9 @@ export class ShipClassDef {
   @Column({ type: 'int', nullable: true })
   factionId: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  unlockTechId: number | null;
+
   @Column({ default: 0 })
   buildTimeTicks: number;
 

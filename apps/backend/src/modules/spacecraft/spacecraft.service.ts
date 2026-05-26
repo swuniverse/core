@@ -23,6 +23,7 @@ import { GameDataService } from '../game-data/game-data.service';
 import { ShipClassService } from './ship-class.service';
 import { ExplorationService } from '../starmap/exploration.service';
 import { ExplorationLevel } from '../starmap/entities/exploration-state.entity';
+import { UnlockResolverService } from '../research/unlock-resolver.service';
 
 @Injectable()
 export class SpacecraftService {
@@ -48,6 +49,7 @@ export class SpacecraftService {
     private readonly gameData: GameDataService,
     private readonly shipClassService: ShipClassService,
     private readonly explorationService: ExplorationService,
+    private readonly unlockResolver: UnlockResolverService,
   ) {}
 
   async findAllByUser(userId: number): Promise<Spacecraft[]> {
@@ -163,8 +165,53 @@ export class SpacecraftService {
     return this.moduleRepo.find({ where: { spacecraftId: shipId } });
   }
 
-  async getShipClasses(): Promise<ShipClassDef[]> {
-    return this.shipClassService.findAll();
+  async getShipClasses(
+    userId?: number,
+  ): Promise<
+    Array<
+      ShipClassDef & {
+        unlocked?: boolean;
+        buildCosts?: Record<string, number>;
+        requirementLabel?: string | null;
+      }
+    >
+  > {
+    const classes = await this.shipClassService.findAll();
+    if (!userId) {
+      return classes;
+    }
+
+    return Promise.all(
+      classes.map(async (shipClass) => {
+        const unlocked = await this.unlockResolver.isShipClassUnlocked(
+          userId,
+          shipClass.id,
+        );
+        return Object.assign(shipClass, {
+          unlocked,
+          buildCosts: this.calculateBuildCosts(shipClass),
+          requirementLabel: shipClass.unlockTechId
+            ? (this.gameData.getTech(shipClass.unlockTechId)?.name ??
+              `Tech #${shipClass.unlockTechId}`)
+            : null,
+        });
+      }),
+    );
+  }
+
+  calculateBuildCosts(shipClass: ShipClassDef): Record<string, number> {
+    return {
+      credits: Math.max(100, Math.round(shipClass.hullBase * 4)),
+      durastahl: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
+      tibannaGas: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
+      kyberKristalle: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
+      beskar: 0,
+      kristallinesSilizium: Math.max(
+        20,
+        Math.round(shipClass.cargoCapacity * 0.25),
+      ),
+      energiemodule: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
+    };
   }
 
   private async toShipSummary(ship: Spacecraft): Promise<Spacecraft> {

@@ -3,12 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
 import { GameDataService } from '../game-data/game-data.service';
+import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 
 @Injectable()
 export class UnlockResolverService {
   constructor(
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
+    @InjectRepository(ShipClassDef)
+    private readonly shipClassRepo: Repository<ShipClassDef>,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -25,10 +28,20 @@ export class UnlockResolverService {
 
   async isShipClassUnlocked(
     userId: number,
-    _shipClassId: number,
+    shipClassId: number,
   ): Promise<boolean> {
-    // All ship classes currently unlocked (no researchRequired field on ShipClassDef yet)
-    return true;
+    const shipClass = await this.shipClassRepo.findOneBy({ id: shipClassId });
+    if (!shipClass || shipClass.isNpc) return false;
+    if (!shipClass.unlockTechId) return true;
+
+    const research = await this.researchRepo.findOne({
+      where: {
+        userId,
+        techId: shipClass.unlockTechId,
+        status: ResearchStatus.COMPLETED,
+      },
+    });
+    return !!research;
   }
 
   async getCompletedTechNames(userId: number): Promise<Set<string>> {
@@ -45,10 +58,7 @@ export class UnlockResolverService {
     return names;
   }
 
-  private async hasTechByName(
-    userId: number,
-    techName: string,
-  ): Promise<boolean> {
+  async hasTechByName(userId: number, techName: string): Promise<boolean> {
     const techTree = this.gameData.getTechTree();
     const tech = techTree.find((t) => t.name === techName);
     if (!tech) return true;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
+import { AuthLayout } from '../components/auth/AuthLayout';
 import type { AuthResponse } from '@swuniverse/shared';
 
 interface FactionOption {
@@ -55,112 +56,132 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-md bg-swu-surface border border-swu-border rounded-lg p-8">
-        <h1 className="text-2xl font-bold text-center text-swu-accent mb-3">
-          Der Galaxis beitreten
-        </h1>
-        <p className="mb-6 rounded border border-swu-accent/30 bg-swu-accent/10 p-3 text-center text-xs text-swu-muted">
-          Closed Alpha: Neue Kommandanten benoetigen einen Invite Key. Nur der
-          allererste Account einer leeren Galaxis darf ohne Key starten und wird
-          Admin.
-        </p>
+    <AuthLayout>
+      <div className="auth-stagger space-y-5">
+        <div className="text-center">
+          <p className="auth-subtitle">Neue Rekruten</p>
+          <h1 className="auth-title">Der Galaxis beitreten</h1>
+        </div>
+
+        <div className="auth-notice">
+          Closed Alpha — Neue Kommandanten benoetigen einen Invite Key. Nur der
+          allererste Account darf ohne Key starten und wird Admin.
+        </div>
+
+        {error && <div className="auth-error">{error}</div>}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-swu-danger/20 border border-swu-danger text-swu-text rounded p-3 text-sm">
-              {error}
-            </div>
-          )}
           <div>
-            <label className="block text-sm text-swu-muted mb-1">
+            <label className="auth-label" htmlFor="reg-user">
               Benutzername
             </label>
             <input
+              id="reg-user"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-2 text-swu-text focus:border-swu-primary outline-none"
+              className="auth-input"
               required
               minLength={3}
               maxLength={32}
+              autoComplete="username"
             />
           </div>
+
           <div>
-            <label className="block text-sm text-swu-muted mb-1">Email</label>
+            <label className="auth-label" htmlFor="reg-email">
+              Email
+            </label>
             <input
+              id="reg-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-2 text-swu-text focus:border-swu-primary outline-none"
+              className="auth-input"
               required
+              autoComplete="email"
             />
           </div>
+
           <div>
-            <label className="block text-sm text-swu-muted mb-1">
+            <label className="auth-label" htmlFor="reg-pass">
               Passwort
             </label>
             <input
+              id="reg-pass"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-2 text-swu-text focus:border-swu-primary outline-none"
+              className="auth-input"
               required
               minLength={8}
+              autoComplete="new-password"
             />
           </div>
+
           <div>
-            <label className="block text-sm text-swu-muted mb-1">
+            <label className="auth-label" htmlFor="reg-invite">
               Invite Key
             </label>
             <input
+              id="reg-invite"
               type="text"
               value={inviteKey}
               onChange={(e) => setInviteKey(e.target.value)}
-              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-2 text-swu-text focus:border-swu-primary outline-none uppercase tracking-wider"
+              className="auth-input uppercase tracking-wider"
               placeholder="SWU-ABCDE-23456-FGHIJ"
               minLength={8}
               maxLength={128}
             />
-            <p className="mt-1 text-xs text-swu-muted">
-              Das Feld darf nur beim ersten Admin-Account leer bleiben.
+            <p className="mt-1.5 text-xs text-swu-muted opacity-70">
+              Leer lassen nur beim allerersten Admin-Account.
             </p>
           </div>
+
           <div>
-            <label className="block text-sm text-swu-muted mb-2">
-              Fraktion
-            </label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="auth-label">Fraktion</label>
+            <div className="auth-faction-grid">
               {factions.map((f) => (
                 <button
                   key={f.id}
                   type="button"
                   onClick={() => setFactionId(f.id)}
-                  className={`p-3 rounded border text-center transition-all ${
+                  className={`auth-faction-btn ${factionId === f.id ? 'auth-faction-btn--selected' : ''}`}
+                  style={
                     factionId === f.id
-                      ? 'border-swu-accent bg-swu-accent/20 text-swu-accent'
-                      : 'border-swu-border bg-swu-bg text-swu-text hover:border-swu-primary'
-                  }`}
+                      ? {
+                          borderColor: f.colorPrimary,
+                          boxShadow: `0 0 20px ${f.colorPrimary}25, inset 0 0 30px ${f.colorPrimary}08`,
+                        }
+                      : undefined
+                  }
                 >
-                  <div className="text-sm font-bold">{f.name}</div>
+                  <div
+                    className="w-3 h-3 rounded-full mx-auto mb-2"
+                    style={{ backgroundColor: f.colorPrimary }}
+                  />
+                  <div className="auth-faction-name">{f.name}</div>
                 </button>
               ))}
             </div>
           </div>
+
           <button
             type="submit"
             disabled={loading || !factionId}
-            className="w-full bg-swu-primary hover:bg-swu-accent text-white font-bold py-2 rounded transition-colors disabled:opacity-50"
+            className="auth-btn"
           >
             {loading ? 'Konto wird erstellt...' : 'Registrieren'}
           </button>
         </form>
-        <p className="text-center text-sm text-swu-muted mt-4">
+
+        <p className="text-center text-sm text-swu-muted">
           Bereits ein Konto?{' '}
-          <Link to="/login" className="text-swu-primary hover:text-swu-accent">
+          <Link to="/login" className="auth-link">
             Anmelden
           </Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

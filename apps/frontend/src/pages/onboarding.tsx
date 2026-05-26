@@ -74,26 +74,10 @@ interface StarterColonyDto {
   storageMax: number;
 }
 
-interface StarterShipDto {
-  id: number;
-  name: string;
-  shipClassName?: string;
-  locationLabel?: string;
-  fleetName?: string | null;
-  moduleCount?: number;
-  hull: number;
-  hullMax: number;
-  shields: number;
-  shieldsMax: number;
-  energy: number;
-  energyMax: number;
-}
-
-interface StarterClassHint {
-  id: number;
-  name: string;
-  factionId: number | null;
-  starterAllowed: boolean;
+interface NextObjectiveDto {
+  key: string;
+  label: string;
+  href: string;
 }
 
 function formatPlanetClass(classId: number | null | undefined): string {
@@ -135,8 +119,9 @@ export function OnboardingPage() {
   const [starterColony, setStarterColony] = useState<StarterColonyDto | null>(
     null,
   );
-  const [starterShip, setStarterShip] = useState<StarterShipDto | null>(null);
-  const [starterClasses, setStarterClasses] = useState<StarterClassHint[]>([]);
+  const [nextObjective, setNextObjective] = useState<NextObjectiveDto | null>(
+    null,
+  );
 
   useEffect(() => {
     void loadInitial();
@@ -146,14 +131,12 @@ export function OnboardingPage() {
     setLoading(true);
     setError('');
     try {
-      const [profile, selectionRes, factionRes, sectorRes, shipClassRes] =
-        await Promise.all([
-          api.get<UserWithOnboarding>('/auth/me'),
-          api.get<SelectionDto>('/onboarding/selection'),
-          api.get<FactionOption[]>('/factions'),
-          api.get<SectorOverview[]>('/onboarding/sectors'),
-          api.get<StarterClassHint[]>('/spacecraft/classes'),
-        ]);
+      const [profile, selectionRes, factionRes, sectorRes] = await Promise.all([
+        api.get<UserWithOnboarding>('/auth/me'),
+        api.get<SelectionDto>('/onboarding/selection'),
+        api.get<FactionOption[]>('/factions'),
+        api.get<SectorOverview[]>('/onboarding/sectors'),
+      ]);
 
       setUser(profile);
 
@@ -165,9 +148,6 @@ export function OnboardingPage() {
       setSelection(selectionRes);
       setFactions(factionRes);
       setSectors(sectorRes);
-      setStarterClasses(
-        shipClassRes.filter((shipClass) => shipClass.starterAllowed),
-      );
       setSelectedLayerId(
         selectionRes.selectedLayerId ?? sectorRes[0]?.layerId ?? null,
       );
@@ -274,18 +254,17 @@ export function OnboardingPage() {
     try {
       const claimRes = await api.post<{
         starterColonyId: number;
-        starterShipId: number;
+        nextObjective?: NextObjectiveDto;
       }>('/onboarding/claim-homeworld', {
         celestialObjectId: selectedPlanetId,
       });
-      const [profile, colony, ship] = await Promise.all([
+      const [profile, colony] = await Promise.all([
         api.get<UserWithOnboarding>('/auth/me'),
         api.get<StarterColonyDto>(`/colonies/${claimRes.starterColonyId}`),
-        api.get<StarterShipDto>(`/spacecraft/${claimRes.starterShipId}`),
       ]);
       setUser(profile);
       setStarterColony(colony);
-      setStarterShip(ship);
+      setNextObjective(claimRes.nextObjective ?? null);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Failed to claim homeworld',
@@ -320,7 +299,7 @@ export function OnboardingPage() {
     );
   }
 
-  if (starterColony && starterShip) {
+  if (starterColony) {
     return (
       <div className="min-h-screen bg-swu-bg text-swu-text px-6 py-10">
         <div className="max-w-5xl mx-auto space-y-8">
@@ -332,8 +311,9 @@ export function OnboardingPage() {
               Homeworld secured
             </h1>
             <p className="text-swu-muted mt-2">
-              Colony, starter ship, fleet ready. Next step: open maindesk or
-              inspect assets.
+              Deine Heimatwelt ist bereit. Der nächste Schritt ist Forschung und
+              Aufbau deiner Werft — dein erstes Schiff entsteht später im
+              Spielverlauf.
             </p>
           </div>
 
@@ -370,38 +350,22 @@ export function OnboardingPage() {
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6 space-y-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
-                  Starter Ship
+                  Naechster Schritt
                 </p>
                 <h2 className="text-2xl font-bold text-swu-primary">
-                  {starterShip.name}
+                  {nextObjective?.label ?? 'Kolonie pruefen'}
                 </h2>
                 <p className="text-sm text-swu-muted mt-1">
-                  {starterShip.shipClassName || 'Unknown class'} ·{' '}
-                  {starterShip.locationLabel || 'Unknown location'}
+                  Baue zuerst deine Heimatwelt auf, starte Forschung und schalte
+                  den Werftbetrieb frei. So entsteht Schritt fuer Schritt deine
+                  erste eigene Flotte.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm">
                 <InfoStat
-                  label="Fleet"
-                  value={starterShip.fleetName || 'No fleet'}
+                  label="Aufbaupfad"
+                  value="Forschung → Werfthub → Schiffbau"
                 />
-                <InfoStat
-                  label="Modules"
-                  value={String(starterShip.moduleCount || 0)}
-                />
-                <InfoStat
-                  label="Hull"
-                  value={`${starterShip.hull}/${starterShip.hullMax}`}
-                />
-                <InfoStat
-                  label="Shields"
-                  value={`${starterShip.shields}/${starterShip.shieldsMax}`}
-                />
-                <InfoStat
-                  label="Energy"
-                  value={`${starterShip.energy}/${starterShip.energyMax}`}
-                />
-                <InfoStat label="Ship ID" value={`#${starterShip.id}`} />
               </div>
             </div>
           </div>
@@ -423,10 +387,10 @@ export function OnboardingPage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate(`/spacecraft?selected=${starterShip.id}`)}
+              onClick={() => navigate(nextObjective?.href ?? '/research')}
               className="border border-swu-border hover:border-swu-primary text-swu-text py-3 px-6 rounded transition-colors"
             >
-              Open Ship
+              Forschung oeffnen
             </button>
           </div>
         </div>
@@ -440,11 +404,6 @@ export function OnboardingPage() {
     systems.find((system) => system.id === selectedSystemId) ?? null;
   const selectedPlanet =
     planets.find((planet) => planet.id === selectedPlanetId) ?? null;
-  const starterClassHint =
-    starterClasses.find(
-      (shipClass) => shipClass.factionId === selectedFactionOption?.id,
-    ) ?? null;
-
   return (
     <div className="min-h-screen bg-swu-bg text-swu-text px-6 py-10">
       <div className="max-w-7xl mx-auto grid xl:grid-cols-[minmax(0,1fr)_340px] gap-8 items-start">
@@ -460,7 +419,8 @@ export function OnboardingPage() {
               Waehle Sektor, System und Planet. Als Startplaneten werden nur
               kolonialisierbare M-, L- oder O-Klasse-Planeten angezeigt; andere
               Klassen benoetigen spaeter passende Technologie. Claim erstellt
-              Starter-Kolonie, Schiff und Flotte.
+              Starter-Kolonie mit Startressourcen. Dein erstes Schiff baust du
+              spaeter ueber Forschung und Werft.
             </p>
           </div>
 
@@ -671,7 +631,8 @@ export function OnboardingPage() {
             <div>
               <h2 className="text-lg font-bold">4. Claim</h2>
               <p className="text-sm text-swu-muted mt-1">
-                Final step. Creates starter colony, starter ship, starter fleet.
+                Final step. Creates your starter colony and stores starting
+                resources there.
               </p>
             </div>
             <button
@@ -693,21 +654,19 @@ export function OnboardingPage() {
         <aside className="bg-swu-surface border border-swu-border rounded-lg p-6 space-y-4 sticky top-8">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
-              Claim Summary
+              Zusammenfassung
             </p>
-            <h2 className="text-xl font-bold text-swu-accent">Chosen path</h2>
+            <h2 className="text-xl font-bold text-swu-accent">
+              Gewaehlter Pfad
+            </h2>
             <p className="text-sm text-swu-muted mt-1">
-              Review picks before final claim.
+              Pruefe deine Auswahl vor der Gruendung deiner Heimatwelt.
             </p>
           </div>
 
           <InfoStat
             label="Faction"
             value={selectedFactionOption?.name || 'Not selected'}
-          />
-          <InfoStat
-            label="Layer"
-            value={activeLayer?.layerName || 'Not selected'}
           />
           <InfoStat
             label="Sector"
@@ -728,19 +687,15 @@ export function OnboardingPage() {
               (selectedPlanet ? `Planet ${selectedPlanet.id}` : 'Not selected')
             }
           />
-          <InfoStat
-            label="Starter Ship"
-            value={starterClassHint?.name || 'Unknown'}
-          />
-
           <div className="rounded border border-swu-border bg-swu-bg/40 p-4 text-sm text-swu-muted">
             <p className="font-bold text-swu-primary mb-2">
-              What happens on claim
+              Was bei der Gruendung passiert
             </p>
             <ul className="space-y-1 list-disc pl-4">
-              <li>starter colony created on chosen world</li>
-              <li>starter ship spawned with modules</li>
-              <li>starter fleet created automatically</li>
+              <li>
+                Deine erste Kolonie wird auf dem gewaehlten Planeten gegruendet.
+              </li>
+              <li>Startressourcen werden im Kolonielager eingelagert.</li>
             </ul>
           </div>
         </aside>

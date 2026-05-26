@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
@@ -33,8 +37,11 @@ export class ResearchService {
     const techTree = this.gameData.getTechTree();
     const userResearch = await this.getUserResearch(userId);
     const completed = new Set(
-      userResearch.filter((r) => r.status === ResearchStatus.COMPLETED).map((r) => r.techId),
+      userResearch
+        .filter((r) => r.status === ResearchStatus.COMPLETED)
+        .map((r) => r.techId),
     );
+    const pointsPerTick = await this.calculateResearchOutput(userId);
 
     return techTree.map((tech) => {
       const existing = userResearch.find((r) => r.techId === tech.id);
@@ -48,11 +55,21 @@ export class ResearchService {
         status = ResearchStatus.LOCKED;
       }
 
+      const progress = existing?.progress || 0;
+      const pointsRequired = this.getPointsRequired(tech);
       return {
         ...tech,
         status,
-        progress: existing?.progress || 0,
-        pointsRequired: this.getPointsRequired(tech),
+        progress,
+        pointsRequired,
+        pointsPerTick,
+        ticksRemaining:
+          status === ResearchStatus.IN_PROGRESS
+            ? Math.max(
+                0,
+                Math.ceil((pointsRequired - progress) / pointsPerTick),
+              )
+            : null,
         finishesAt: existing?.finishesAt || null,
       };
     });
@@ -71,7 +88,9 @@ export class ResearchService {
 
     const userResearch = await this.getUserResearch(userId);
     const completed = new Set(
-      userResearch.filter((r) => r.status === ResearchStatus.COMPLETED).map((r) => r.techId),
+      userResearch
+        .filter((r) => r.status === ResearchStatus.COMPLETED)
+        .map((r) => r.techId),
     );
 
     if (completed.has(techId)) {
@@ -124,7 +143,9 @@ export class ResearchService {
     let totalPoints = 1; // Base 1 point per tick even without labs
 
     for (const colony of colonies) {
-      const fields = await this.fieldRepo.find({ where: { colonyId: colony.id } });
+      const fields = await this.fieldRepo.find({
+        where: { colonyId: colony.id },
+      });
       for (const field of fields) {
         if (!field.buildingId || field.isBuilding) continue;
         const def = this.gameData.getBuilding(field.buildingId);

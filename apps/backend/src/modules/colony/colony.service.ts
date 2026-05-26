@@ -5,10 +5,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import {
+  AlertState,
+  Spacecraft,
+  SpacecraftStatus,
+} from '../spacecraft/entities/spacecraft.entity';
+import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { GameDataService, BuildingCosts } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 
@@ -23,6 +29,10 @@ export class ColonyService {
     readonly storageRepo: Repository<ColonyStorage>,
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
+    @InjectRepository(Research)
+    private readonly researchRepo: Repository<Research>,
+    @InjectRepository(ShipClassDef)
+    private readonly shipClassRepo: Repository<ShipClassDef>,
     private readonly gameData: GameDataService,
     private readonly unlockResolver: UnlockResolverService,
   ) {}
@@ -42,7 +52,109 @@ export class ColonyService {
       relations: ['fields', 'storage', 'starSystem', 'celestialObject'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
-    return this.toColonyDetail(colony);
+    return this.toColonyDetail(colony, userId);
+  }
+
+  async getCurrentObjective(userId: number) {
+    const colonies = await this.colonyRepo.find({
+      where: { userId },
+      relations: ['fields'],
+      order: { id: 'ASC' },
+    });
+    if (colonies.length === 0) {
+      return {
+        key: 'CLAIM_HOMEWORLD',
+        label: 'Heimatwelt waehlen',
+        description: 'Waehle deinen ersten Planeten und gruende deine Kolonie.',
+        href: '/claim-colony',
+        completed: false,
+      };
+    }
+
+    const completedResearch = await this.researchRepo.find({
+      where: { userId, status: ResearchStatus.COMPLETED },
+    });
+    const completedTechIds = new Set(completedResearch.map((r) => r.techId));
+    const activeResearch = await this.researchRepo.findOne({
+      where: { userId, status: ResearchStatus.IN_PROGRESS },
+    });
+    const primaryColony = colonies[0];
+    const hasCompletedShipyard = colonies.some((colony) =>
+      colony.fields?.some(
+        (field) => field.buildingId === 11 && !field.isBuilding,
+      ),
+    );
+    const hasShipyardInProgress = colonies.some((colony) =>
+      colony.fields?.some(
+        (field) => field.buildingId === 11 && field.isBuilding,
+      ),
+    );
+    const shipCount = await this.shipRepo.count({ where: { userId } });
+
+    if (!completedTechIds.has(1)) {
+      return {
+        key: 'RESEARCH_BASIC_ENGINEERING',
+        label: 'Grundlegende Ingenieurswissenschaft erforschen',
+        description:
+          activeResearch?.techId === 1
+            ? 'Forschung laeuft. Warte auf den naechsten Tick oder fuehre einen Tick aus.'
+            : 'Diese Grundlagenforschung oeffnet den Pfad zum Werftbetrieb.',
+        href: '/research?focus=1',
+        completed: false,
+        colonyId: primaryColony.id,
+      };
+    }
+
+    if (!completedTechIds.has(4)) {
+      return {
+        key: 'RESEARCH_SHIPYARD_OPERATIONS',
+        label: 'Werftbetrieb erforschen',
+        description:
+          activeResearch?.techId === 4
+            ? 'Werftbetrieb wird erforscht. Danach kannst du den Werfthub bauen.'
+            : 'Werftbetrieb schaltet den Werftpfad fuer dein erstes Schiff frei.',
+        href: '/research?focus=4',
+        completed: false,
+        colonyId: primaryColony.id,
+      };
+    }
+
+    if (!hasCompletedShipyard) {
+      return {
+        key: hasShipyardInProgress ? 'SHIPYARD_BUILDING' : 'BUILD_SHIPYARD_HUB',
+        label: hasShipyardInProgress
+          ? 'Werfthub fertigstellen'
+          : 'Werfthub bauen',
+        description: hasShipyardInProgress
+          ? 'Der Werfthub ist im Bau. Nach Fertigstellung beginnt der Schiffbaupfad.'
+          : 'Baue einen Werfthub auf einem passenden Koloniefeld.',
+        href: `/colonies?selected=${primaryColony.id}`,
+        completed: false,
+        colonyId: primaryColony.id,
+      };
+    }
+
+    if (shipCount === 0) {
+      return {
+        key: 'BUILD_FIRST_SHIP',
+        label: 'Erstes Schiff bauen',
+        description:
+          'Deine Werft ist bereit. Plane jetzt dein erstes Schiff mit Kosten und Bauzeit.',
+        href: `/colonies?selected=${primaryColony.id}`,
+        completed: false,
+        colonyId: primaryColony.id,
+      };
+    }
+
+    return {
+      key: 'OPEN_SPACECRAFT',
+      label: 'Erstes Schiff einsetzen',
+      description:
+        'Dein erstes Schiff ist bereit. Jetzt werden Bewegung, Erkundung und Transfer relevant.',
+      href: '/spacecraft',
+      completed: true,
+      colonyId: primaryColony.id,
+    };
   }
 
   async rename(
@@ -164,7 +276,9 @@ export class ColonyService {
       throw new BadRequestException('Cannot demolish headquarters');
     }
     if (field.isBuilding) {
-      throw new BadRequestException('Cannot demolish a building under construction');
+      throw new BadRequestException(
+        'Cannot demolish a building under construction',
+      );
     }
 
     field.buildingId = null;
@@ -188,16 +302,79 @@ export class ColonyService {
       throw new BadRequestException('Colony needs a completed Shipyard');
     }
 
+    const hasShipyardOperations = await this.unlockResolver.hasTechByName(
+      userId,
+      'Werftbetrieb',
+    );
+    if (!hasShipyardOperations) {
+      throw new BadRequestException('Research required: Werftbetrieb');
+    }
+
+    const shipClass = await this.shipClassRepo.findOneBy({ id: shipClassId });
+    if (!shipClass || shipClass.isNpc) {
+      throw new BadRequestException('Unknown ship class');
+    }
+
+    const unlocked = await this.unlockResolver.isShipClassUnlocked(
+      userId,
+      shipClassId,
+    );
+    if (!unlocked) {
+      throw new BadRequestException('Ship class is not unlocked');
+    }
+
+    const costs = this.calculateShipBuildCosts(shipClass);
+    await this.deductBuildCosts(colony, {
+      ...costs,
+      buildTime: shipClass.buildTimeTicks,
+    });
+
     const ship = this.shipRepo.create({
-      name,
+      name: name?.trim() || shipClass.name,
       shipClassId,
       userId,
       starSystemId: colony.starSystemId,
+      currentLayerId: colony.starSystem?.layerId ?? null,
+      celestialObjectId: colony.celestialObjectId,
+      inSystem: true,
+      currentSystemFieldX: colony.posX,
+      currentSystemFieldY: colony.posY,
       posX: colony.posX,
       posY: colony.posY,
+      status: SpacecraftStatus.DOCKED,
+      alertState: AlertState.GREEN,
+      hull: shipClass.hullBase,
+      hullMax: shipClass.hullBase,
+      shields: shipClass.shieldBase,
+      shieldsMax: shipClass.shieldBase,
+      energy: shipClass.epsBase,
+      energyMax: shipClass.epsBase,
+      warpSpeed: shipClass.warpBase,
+      crew: shipClass.crewMin,
+      crewMax: shipClass.crewMax,
+      cargoUsed: 0,
+      cargoMax: shipClass.cargoCapacity,
+      battery: shipClass.batteryBase,
+      batteryMax: shipClass.batteryBase,
     });
 
     return this.shipRepo.save(ship);
+  }
+
+  private calculateShipBuildCosts(shipClass: ShipClassDef): BuildingCosts {
+    return {
+      credits: Math.max(100, Math.round(shipClass.hullBase * 4)),
+      durastahl: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
+      tibannaGas: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
+      kyberKristalle: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
+      beskar: 0,
+      kristallinesSilizium: Math.max(
+        20,
+        Math.round(shipClass.cargoCapacity * 0.25),
+      ),
+      energiemodule: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
+      buildTime: shipClass.buildTimeTicks,
+    };
   }
 
   private toColonySummary(colony: Colony): Colony {
@@ -207,11 +384,182 @@ export class ColonyService {
     });
   }
 
-  private toColonyDetail(colony: Colony): Colony {
+  private async toColonyDetail(
+    colony: Colony,
+    userId: number,
+  ): Promise<Colony> {
+    const fields = colony.fields ?? [];
+    const storage = colony.storage ?? [];
+    const completedBuildings = fields.filter(
+      (field) => field.buildingId && !field.isBuilding,
+    );
+    const productionDelta = new Map<number, number>();
+    let energyDelta = 0;
+    let researchPoints = 1;
+
+    for (const field of completedBuildings) {
+      const definition = this.gameData.getBuilding(field.buildingId!);
+      if (!definition) continue;
+      energyDelta += definition.bonuses.energy || 0;
+      researchPoints += definition.researchPoints || 0;
+      for (const output of definition.production) {
+        productionDelta.set(
+          output.commodityId,
+          (productionDelta.get(output.commodityId) || 0) + output.amount,
+        );
+      }
+    }
+
+    const orbitShips = colony.starSystemId
+      ? await this.shipRepo.find({
+          where: {
+            userId,
+            starSystemId: colony.starSystemId,
+            ...(colony.celestialObjectId
+              ? { celestialObjectId: colony.celestialObjectId }
+              : {}),
+          },
+          order: { id: 'ASC' },
+        })
+      : [];
+    const shipyardUnlocked = await this.unlockResolver.isBuildingUnlocked(
+      userId,
+      11,
+    );
+    const hasCompletedShipyard = fields.some(
+      (field) => field.buildingId === 11 && !field.isBuilding,
+    );
+    const hasShipyardInProgress = fields.some(
+      (field) => field.buildingId === 11 && field.isBuilding,
+    );
+
     return Object.assign(this.toColonySummary(colony), {
-      fieldCount: colony.fields?.length || 0,
-      storageItemCount: colony.storage?.length || 0,
+      fieldCount: fields.length,
+      storageItemCount: storage.length,
+      detailV2: {
+        energy: {
+          current: colony.energy,
+          max: colony.energyMax,
+          delta: energyDelta,
+        },
+        storage: {
+          current: colony.storageUsed,
+          max: colony.storageMax,
+          delta: Array.from(productionDelta.values()).reduce(
+            (sum, value) => sum + value,
+            0,
+          ),
+        },
+        population: {
+          current: colony.population,
+          max: colony.populationMax,
+          growth: this.calculatePopulationGrowth(fields),
+        },
+        inventory: storage.map((item) => {
+          const commodity = this.gameData.getCommodity(item.commodityId);
+          return {
+            id: item.id,
+            commodityId: item.commodityId,
+            name: commodity?.name ?? `Ware #${item.commodityId}`,
+            nameShort: commodity?.nameShort ?? String(item.commodityId),
+            amount: item.amount,
+            delta: productionDelta.get(item.commodityId) ?? 0,
+          };
+        }),
+        productionDeltas: Array.from(productionDelta.entries()).map(
+          ([commodityId, amount]) => {
+            const commodity = this.gameData.getCommodity(commodityId);
+            return {
+              commodityId,
+              name: commodity?.name ?? `Ware #${commodityId}`,
+              nameShort: commodity?.nameShort ?? String(commodityId),
+              amount,
+            };
+          },
+        ),
+        activeBuildJobs: fields
+          .filter((field) => field.isBuilding && field.buildingId)
+          .map((field) => {
+            const building = this.gameData.getBuilding(field.buildingId!);
+            return {
+              fieldIndex: field.fieldIndex,
+              buildingId: field.buildingId,
+              buildingName: building?.name ?? `Gebaeude #${field.buildingId}`,
+              finishesAt: field.buildFinishesAt,
+              progress: field.buildProgress,
+            };
+          }),
+        effects: this.buildEffectSummary(fields),
+        orbitShips: orbitShips.map((ship) => ({
+          id: ship.id,
+          name: ship.name,
+          shipClassId: ship.shipClassId,
+          hull: ship.hull,
+          hullMax: ship.hullMax,
+          shields: ship.shields,
+          shieldsMax: ship.shieldsMax,
+          energy: ship.energy,
+          energyMax: ship.energyMax,
+          status: ship.status,
+        })),
+        research: {
+          pointsPerTick: researchPoints,
+        },
+        shipyard: {
+          unlocked: shipyardUnlocked,
+          completed: hasCompletedShipyard,
+          inProgress: hasShipyardInProgress,
+          buildingId: 11,
+          buildingName: this.gameData.getBuilding(11)?.name ?? 'Werfthub',
+        },
+      },
     });
+  }
+
+  private calculatePopulationGrowth(fields: ColonyField[]): number {
+    return fields.reduce((growth, field) => {
+      if (!field.buildingId || field.isBuilding) return growth;
+      const definition = this.gameData.getBuilding(field.buildingId);
+      return growth + (definition?.bonuses.population || 0);
+    }, 1);
+  }
+
+  private buildEffectSummary(fields: ColonyField[]) {
+    const effects: Array<{ label: string; value: number; source: string }> = [];
+    let researchPoints = 1;
+    for (const field of fields) {
+      if (!field.buildingId || field.isBuilding) continue;
+      const definition = this.gameData.getBuilding(field.buildingId);
+      if (!definition) continue;
+      if (definition.bonuses.energy !== 0) {
+        effects.push({
+          label: 'Energie',
+          value: definition.bonuses.energy,
+          source: definition.name,
+        });
+      }
+      if (definition.bonuses.population !== 0) {
+        effects.push({
+          label: 'Bevoelkerung',
+          value: definition.bonuses.population,
+          source: definition.name,
+        });
+      }
+      if (definition.researchPoints) {
+        researchPoints += definition.researchPoints;
+        effects.push({
+          label: 'Forschungspunkte',
+          value: definition.researchPoints,
+          source: definition.name,
+        });
+      }
+    }
+    effects.unshift({
+      label: 'Basis-Forschung',
+      value: researchPoints > 0 ? 1 : 0,
+      source: 'Kolonie',
+    });
+    return effects;
   }
 
   async processTick(colony: Colony): Promise<void> {

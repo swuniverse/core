@@ -41,8 +41,8 @@ export class SpacecraftController {
   }
 
   @Get('classes')
-  getShipClasses() {
-    return this.spacecraftService.getShipClasses();
+  getShipClasses(@Request() req: { user: { sub: number } }) {
+    return this.spacecraftService.getShipClasses(req.user.sub);
   }
 
   @Post('fleets/create')

@@ -19,6 +19,54 @@ interface ColonyStorageItem {
   amount: number;
 }
 
+interface ColonyDetailV2 {
+  energy: { current: number; max: number; delta: number };
+  storage: { current: number; max: number; delta: number };
+  population: { current: number; max: number; growth: number };
+  inventory: Array<{
+    id: number;
+    commodityId: number;
+    name: string;
+    nameShort: string;
+    amount: number;
+    delta: number;
+  }>;
+  productionDeltas: Array<{
+    commodityId: number;
+    name: string;
+    nameShort: string;
+    amount: number;
+  }>;
+  activeBuildJobs: Array<{
+    fieldIndex: number;
+    buildingId: number;
+    buildingName: string;
+    finishesAt: string | null;
+    progress: number;
+  }>;
+  effects: Array<{ label: string; value: number; source: string }>;
+  orbitShips: Array<{
+    id: number;
+    name: string;
+    shipClassId: number;
+    status: string;
+    hull: number;
+    hullMax: number;
+    shields: number;
+    shieldsMax: number;
+    energy: number;
+    energyMax: number;
+  }>;
+  research: { pointsPerTick: number };
+  shipyard: {
+    unlocked: boolean;
+    completed: boolean;
+    inProgress: boolean;
+    buildingId: number;
+    buildingName: string;
+  };
+}
+
 interface Colony {
   id: number;
   name: string;
@@ -35,6 +83,7 @@ interface Colony {
   celestialObject?: { name: string | null; classId: number | null };
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
+  detailV2?: ColonyDetailV2;
 }
 
 interface BuildingProduction {
@@ -80,6 +129,10 @@ interface ShipClassDef {
   cargoCapacity: number;
   warpBase: number;
   starterAllowed: boolean;
+  unlockTechId?: number | null;
+  unlocked?: boolean;
+  requirementLabel?: string | null;
+  buildCosts?: Record<string, number>;
 }
 
 const FIELD_TYPE_COLORS: Record<number, string> = {
@@ -235,9 +288,7 @@ export function ColoniesPage() {
             onBuild={(fieldIndex, buildingId) =>
               handleBuild(selected.id, fieldIndex, buildingId)
             }
-            onDemolish={(fieldIndex) =>
-              handleDemolish(selected.id, fieldIndex)
-            }
+            onDemolish={(fieldIndex) => handleDemolish(selected.id, fieldIndex)}
             onBuildShip={(shipClassId, name) =>
               handleBuildShip(selected.id, shipClassId, name)
             }
@@ -286,7 +337,7 @@ function ColonyDetail({
   shipClasses: ShipClassDef[];
   onBuild: (fieldIndex: number, buildingId: number) => void;
   onDemolish: (fieldIndex: number) => void;
-  onBuildShip: (shipClassId: number, name: string) => void;
+  onBuildShip: (shipClassId: number, name: string) => Promise<void> | void;
 }) {
   const buildingMap = Object.fromEntries(buildingDefs.map((b) => [b.id, b]));
   const commodityMap = Object.fromEntries(commodities.map((c) => [c.id, c]));
@@ -398,27 +449,32 @@ function ColonyDetail({
         <div className="grid grid-cols-3 gap-4">
           <ResourceBar
             label="Energie"
-            current={colony.energy}
-            max={colony.energyMax}
+            current={colony.detailV2?.energy.current ?? colony.energy}
+            max={colony.detailV2?.energy.max ?? colony.energyMax}
+            delta={colony.detailV2?.energy.delta}
             color="text-yellow-400"
             barColor="bg-yellow-500"
           />
           <ResourceBar
             label="Bevoelkerung"
-            current={colony.population}
-            max={colony.populationMax}
+            current={colony.detailV2?.population.current ?? colony.population}
+            max={colony.detailV2?.population.max ?? colony.populationMax}
+            delta={colony.detailV2?.population.growth}
             color="text-swu-success"
             barColor="bg-swu-success"
           />
           <ResourceBar
             label="Lager"
-            current={colony.storageUsed}
-            max={colony.storageMax}
+            current={colony.detailV2?.storage.current ?? colony.storageUsed}
+            max={colony.detailV2?.storage.max ?? colony.storageMax}
+            delta={colony.detailV2?.storage.delta}
             color="text-swu-primary"
             barColor="bg-swu-primary"
           />
         </div>
       </div>
+
+      {colony.detailV2 && <ColonyRuntimeOverview detail={colony.detailV2} />}
 
       {/* Grid + Build Panel */}
       <div className="flex gap-4">
@@ -511,9 +567,7 @@ function ColonyDetail({
                 <button
                   key={cat}
                   onClick={() => {
-                    setSelectedCategory(
-                      selectedCategory === cat ? null : cat,
-                    );
+                    setSelectedCategory(selectedCategory === cat ? null : cat);
                     setSelectedBuilding(null);
                   }}
                   className={`px-2 py-1 text-[10px] font-bold rounded border transition-colors ${
@@ -537,9 +591,7 @@ function ColonyDetail({
                   const isSelected = selectedBuilding?.id === b.id;
                   const alreadyBuilt =
                     b.isUnique &&
-                    fields.some(
-                      (f) => f.buildingId === b.id && !f.isBuilding,
-                    );
+                    fields.some((f) => f.buildingId === b.id && !f.isBuilding);
                   return (
                     <button
                       key={b.id}
@@ -584,7 +636,6 @@ function ColonyDetail({
               building={selectedBuilding}
               colony={colony}
               storage={storage}
-              fields={fields}
               commodityMap={commodityMap}
               isUniqueAlreadyBuilt={isUniqueAlreadyBuilt}
               highlightedCount={highlightedFields.size}
@@ -610,9 +661,7 @@ function ColonyDetail({
                         `#${selectedField.buildingId}`}
                     </span>
                     {selectedField.isBuilding && (
-                      <span className="text-yellow-400 ml-1">
-                        (im Bau...)
-                      </span>
+                      <span className="text-yellow-400 ml-1">(im Bau...)</span>
                     )}
                   </p>
                 )}
@@ -620,8 +669,8 @@ function ColonyDetail({
                   !selectedField.isBuilding &&
                   buildingMap[selectedField.buildingId] && (
                     <div className="mt-2 pt-2 border-t border-swu-border/50 space-y-1">
-                      {buildingMap[selectedField.buildingId].bonuses
-                        .energy !== 0 && (
+                      {buildingMap[selectedField.buildingId].bonuses.energy !==
+                        0 && (
                         <p>
                           Energie:{' '}
                           <span
@@ -643,8 +692,8 @@ function ColonyDetail({
                           </span>
                         </p>
                       )}
-                      {buildingMap[selectedField.buildingId].production
-                        .length > 0 && (
+                      {buildingMap[selectedField.buildingId].production.length >
+                        0 && (
                         <p>
                           Produziert:{' '}
                           {buildingMap[selectedField.buildingId].production
@@ -705,11 +754,126 @@ function ColonyDetail({
   );
 }
 
+function ColonyRuntimeOverview({ detail }: { detail: ColonyDetailV2 }) {
+  return (
+    <div className="grid gap-3 xl:grid-cols-4">
+      <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
+        <h3 className="text-xs font-bold text-swu-muted uppercase mb-2">
+          Produktion / Tick
+        </h3>
+        {detail.productionDeltas.length === 0 ? (
+          <p className="text-xs text-swu-muted">Noch keine Warenproduktion.</p>
+        ) : (
+          <div className="space-y-1">
+            {detail.productionDeltas.map((delta) => (
+              <div
+                key={delta.commodityId}
+                className="flex justify-between text-xs"
+              >
+                <span className="text-swu-muted">{delta.nameShort}</span>
+                <span className="text-green-400">+{delta.amount}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
+        <h3 className="text-xs font-bold text-swu-muted uppercase mb-2">
+          Aktive Baujobs
+        </h3>
+        {detail.activeBuildJobs.length === 0 ? (
+          <p className="text-xs text-swu-muted">
+            Keine laufenden Bauauftraege.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {detail.activeBuildJobs.map((job) => (
+              <div
+                key={`${job.fieldIndex}-${job.buildingId}`}
+                className="text-xs"
+              >
+                <div className="flex justify-between gap-2">
+                  <span className="text-swu-primary truncate">
+                    {job.buildingName}
+                  </span>
+                  <span className="text-swu-muted">Feld {job.fieldIndex}</span>
+                </div>
+                <p className="text-[10px] text-swu-muted">
+                  Fertig:{' '}
+                  {job.finishesAt
+                    ? new Date(job.finishesAt).toLocaleString()
+                    : 'bald'}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
+        <h3 className="text-xs font-bold text-swu-muted uppercase mb-2">
+          Forschung & Werft
+        </h3>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between">
+            <span className="text-swu-muted">FP/Tick</span>
+            <span className="text-swu-primary">
+              {detail.research.pointsPerTick}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-swu-muted">Werft-Forschung</span>
+            <span
+              className={
+                detail.shipyard.unlocked ? 'text-green-400' : 'text-yellow-400'
+              }
+            >
+              {detail.shipyard.unlocked ? 'bereit' : 'fehlt'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-swu-muted">Werfthub</span>
+            <span
+              className={
+                detail.shipyard.completed ? 'text-green-400' : 'text-swu-muted'
+              }
+            >
+              {detail.shipyard.completed
+                ? 'gebaut'
+                : detail.shipyard.inProgress
+                  ? 'im Bau'
+                  : 'fehlt'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
+        <h3 className="text-xs font-bold text-swu-muted uppercase mb-2">
+          Orbit
+        </h3>
+        {detail.orbitShips.length === 0 ? (
+          <p className="text-xs text-swu-muted">Keine Schiffe im Orbit.</p>
+        ) : (
+          <div className="space-y-1">
+            {detail.orbitShips.map((ship) => (
+              <div key={ship.id} className="text-xs text-swu-primary truncate">
+                {ship.name}{' '}
+                <span className="text-swu-muted">({ship.status})</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BuildingDetailPanel({
   building,
   colony,
   storage,
-  fields,
   commodityMap,
   isUniqueAlreadyBuilt,
   highlightedCount,
@@ -717,7 +881,6 @@ function BuildingDetailPanel({
   building: BuildingDef;
   colony: Colony;
   storage: ColonyStorageItem[];
-  fields: ColonyField[];
   commodityMap: Record<number, CommodityDef>;
   isUniqueAlreadyBuilt: boolean;
   highlightedCount: number;
@@ -754,9 +917,7 @@ function BuildingDetailPanel({
                 <span className={enough ? 'text-swu-primary' : 'text-red-400'}>
                   {amount}
                   {!enough && (
-                    <span className="text-[9px] ml-0.5">
-                      ({available})
-                    </span>
+                    <span className="text-[9px] ml-0.5">({available})</span>
                   )}
                 </span>
               </div>
@@ -773,10 +934,7 @@ function BuildingDetailPanel({
           </div>
           <div className="space-y-0.5">
             {building.production.map((p) => (
-              <div
-                key={p.commodityId}
-                className="flex justify-between text-xs"
-              >
+              <div key={p.commodityId} className="flex justify-between text-xs">
                 <span className="text-swu-muted">
                   {commodityMap[p.commodityId]?.name || `#${p.commodityId}`}
                 </span>
@@ -851,7 +1009,9 @@ function BuildingDetailPanel({
           <span className="text-swu-muted">Baubar: </span>
           {building.isUnique ? (
             <span
-              className={isUniqueAlreadyBuilt ? 'text-red-400' : 'text-swu-primary'}
+              className={
+                isUniqueAlreadyBuilt ? 'text-red-400' : 'text-swu-primary'
+              }
             >
               {isUniqueAlreadyBuilt ? '0/1' : '1/1'}
             </span>
@@ -1010,7 +1170,7 @@ function ShipBuildPanel({
   onBuildShip,
 }: {
   shipClasses: ShipClassDef[];
-  onBuildShip: (shipClassId: number, name: string) => void;
+  onBuildShip: (shipClassId: number, name: string) => Promise<void> | void;
 }) {
   const [selectedClass, setSelectedClass] = useState<ShipClassDef | null>(null);
   const [shipName, setShipName] = useState('');
@@ -1022,7 +1182,7 @@ function ShipBuildPanel({
     setBuilding(true);
     setError(null);
     try {
-      onBuildShip(selectedClass.id, shipName.trim());
+      await onBuildShip(selectedClass.id, shipName.trim());
       setShipName('');
       setSelectedClass(null);
     } catch (e: unknown) {
@@ -1032,28 +1192,57 @@ function ShipBuildPanel({
     }
   };
 
+  const visibleClasses = shipClasses;
+
   return (
     <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
       <h3 className="text-sm font-bold text-swu-muted mb-2">Werft</h3>
       <div className="space-y-2">
-        {shipClasses.map((sc) => (
-          <button
-            key={sc.id}
-            onClick={() => setSelectedClass(sc)}
-            className={`w-full text-left p-2 rounded border text-xs transition-colors ${
-              selectedClass?.id === sc.id
-                ? 'border-swu-accent bg-swu-accent/10'
-                : 'border-swu-border hover:border-swu-primary'
-            }`}
-          >
-            <div className="font-bold text-swu-primary">{sc.name}</div>
-            <div className="text-swu-muted mt-0.5">
-              Hull {sc.hullBase} | Shields {sc.shieldBase} | Cargo{' '}
-              {sc.cargoCapacity} | Warp {sc.warpBase}
-            </div>
-          </button>
-        ))}
+        {visibleClasses.map((sc) => {
+          const locked = sc.unlocked === false;
+          return (
+            <button
+              key={sc.id}
+              onClick={() => !locked && setSelectedClass(sc)}
+              disabled={locked}
+              className={`w-full text-left p-2 rounded border text-xs transition-colors ${
+                selectedClass?.id === sc.id
+                  ? 'border-swu-accent bg-swu-accent/10'
+                  : locked
+                    ? 'border-swu-border/40 opacity-50 cursor-not-allowed'
+                    : 'border-swu-border hover:border-swu-primary'
+              }`}
+            >
+              <div className="font-bold text-swu-primary">{sc.name}</div>
+              <div className="text-swu-muted mt-0.5">
+                Hull {sc.hullBase} | Shields {sc.shieldBase} | Cargo{' '}
+                {sc.cargoCapacity} | Warp {sc.warpBase}
+              </div>
+              {locked && (
+                <div className="text-[10px] text-yellow-400 mt-1">
+                  Erfordert: {sc.requirementLabel || 'weitere Forschung'}
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {selectedClass?.buildCosts && (
+        <div className="mt-3 rounded border border-swu-border/60 bg-swu-bg/40 p-2 text-[10px]">
+          <div className="font-bold text-swu-muted uppercase mb-1">
+            Baukosten
+          </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            {Object.entries(selectedClass.buildCosts).map(([key, value]) => (
+              <div key={key} className="flex justify-between gap-2">
+                <span className="text-swu-muted">{key}</span>
+                <span className="text-swu-primary">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedClass && (
         <div className="mt-3 pt-3 border-t border-swu-border/50 space-y-2">
@@ -1082,12 +1271,14 @@ function ResourceBar({
   label,
   current,
   max,
+  delta,
   color,
   barColor,
 }: {
   label: string;
   current: number;
   max: number;
+  delta?: number;
   color: string;
   barColor: string;
 }) {
@@ -1098,6 +1289,16 @@ function ResourceBar({
         <span>{label}</span>
         <span className={color}>
           {current}/{max}
+          {delta !== undefined && (
+            <span
+              className={
+                delta >= 0 ? 'text-green-400 ml-1' : 'text-red-400 ml-1'
+              }
+            >
+              {delta >= 0 ? '+' : ''}
+              {delta}
+            </span>
+          )}
         </span>
       </div>
       <div className="h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border">

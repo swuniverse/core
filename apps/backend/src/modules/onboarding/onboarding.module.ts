@@ -10,7 +10,6 @@ import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { FactionModule } from '../faction/faction.module';
 import { ColonyModule } from '../colony/colony.module';
-import { SpacecraftModule } from '../spacecraft/spacecraft.module';
 
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { SpacecraftModule } from '../spacecraft/spacecraft.module';
     ]),
     FactionModule,
     ColonyModule,
-    SpacecraftModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],

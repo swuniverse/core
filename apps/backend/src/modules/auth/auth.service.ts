@@ -128,7 +128,7 @@ export class AuthService {
         passwordHash,
         faction: faction.key as any,
         factionId: faction.id,
-        onboardingCompleted: true,
+        onboardingCompleted: false,
         isAdmin: userCount === 0,
       });
       const savedUser = await userRepo.save(createdUser);

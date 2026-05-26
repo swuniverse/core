@@ -41,6 +41,11 @@ export class ColonyController {
     return this.colonyService.findAllByUser(req.user.sub);
   }
 
+  @Get('objectives/current')
+  getCurrentObjective(@Request() req: { user: { sub: number } }) {
+    return this.colonyService.getCurrentObjective(req.user.sub);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,

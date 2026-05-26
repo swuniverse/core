@@ -15,14 +15,28 @@ interface ColonySummary {
   locationLabel?: string;
 }
 
+interface CurrentObjective {
+  key: string;
+  label: string;
+  description: string;
+  href: string;
+  completed: boolean;
+  colonyId?: number;
+}
+
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [colonies, setColonies] = useState<ColonySummary[]>([]);
+  const [objective, setObjective] = useState<CurrentObjective | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<ColonySummary[]>('/colonies').then((data) => {
-      setColonies(data);
+    Promise.all([
+      api.get<ColonySummary[]>('/colonies'),
+      api.get<CurrentObjective>('/colonies/objectives/current'),
+    ]).then(([colonyData, objectiveData]) => {
+      setColonies(colonyData);
+      setObjective(objectiveData);
       setLoading(false);
     });
   }, []);
@@ -38,7 +52,14 @@ export function DashboardPage() {
               {user?.username}
             </p>
             <p className="text-xs text-swu-muted mt-1">
-              Fraktion: <span className="text-swu-accent">{user?.faction === 'REBEL_ALLIANCE' ? 'Rebellenallianz' : user?.faction === 'GALACTIC_EMPIRE' ? 'Galaktisches Imperium' : user?.faction}</span>
+              Fraktion:{' '}
+              <span className="text-swu-accent">
+                {user?.faction === 'REBEL_ALLIANCE'
+                  ? 'Rebellenallianz'
+                  : user?.faction === 'GALACTIC_EMPIRE'
+                    ? 'Galaktisches Imperium'
+                    : user?.faction}
+              </span>
             </p>
           </div>
           <div className="text-right">
@@ -75,17 +96,26 @@ export function DashboardPage() {
         />
       </div>
 
-      {!loading && colonies.length === 0 && (
+      {!loading && objective && (
         <section className="bg-swu-accent/10 border border-swu-accent rounded-lg p-5">
-          <h2 className="text-lg font-bold text-swu-accent">Keine Heimatwelt</h2>
-          <p className="text-sm text-swu-muted mt-1">
-            Du hast noch keine Kolonie. Waehle einen Planeten um deine Heimatwelt zu gruenden.
+          <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
+            Naechste Aufgabe
           </p>
+          <h2 className="text-lg font-bold text-swu-accent">
+            {objective.label}
+          </h2>
+          <p className="text-sm text-swu-muted mt-1">{objective.description}</p>
           <Link
-            to="/claim-colony"
+            to={objective.href}
             className="inline-block mt-3 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
           >
-            Planet waehlen
+            {objective.key === 'CLAIM_HOMEWORLD'
+              ? 'Planet waehlen'
+              : objective.key.startsWith('RESEARCH')
+                ? 'Forschung oeffnen'
+                : objective.key === 'OPEN_SPACECRAFT'
+                  ? 'Raumschiffe oeffnen'
+                  : 'Aufgabe oeffnen'}
           </Link>
         </section>
       )}

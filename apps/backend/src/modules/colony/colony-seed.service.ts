@@ -76,13 +76,13 @@ const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
 };
 
 const STARTING_COMMODITIES = [
-  { commodityId: 1, amount: 500 },   // Credits
-  { commodityId: 2, amount: 300 },   // Durastahl
-  { commodityId: 3, amount: 150 },   // Tibanna-Gas
-  { commodityId: 4, amount: 50 },    // Kyber-Kristalle
-  { commodityId: 5, amount: 0 },     // Beskar
-  { commodityId: 6, amount: 100 },   // Kristallines Silizium
-  { commodityId: 7, amount: 80 },    // Energiemodule
+  { commodityId: 1, amount: 2500 }, // Credits
+  { commodityId: 2, amount: 700 }, // Durastahl
+  { commodityId: 3, amount: 200 }, // Tibanna-Gas
+  { commodityId: 4, amount: 80 }, // Kyber-Kristalle
+  { commodityId: 5, amount: 40 }, // Beskar
+  { commodityId: 6, amount: 300 }, // Kristallines Silizium
+  { commodityId: 7, amount: 220 }, // Energiemodule
 ];
 
 @Injectable()
@@ -106,7 +106,10 @@ export class ColonySeedService {
     preferredCelestialObjectId?: number,
   ): Promise<Colony> {
     const planet = preferredCelestialObjectId
-      ? await this.objectRepo.findOneBy({ id: preferredCelestialObjectId, isColonizable: true })
+      ? await this.objectRepo.findOneBy({
+          id: preferredCelestialObjectId,
+          isColonizable: true,
+        })
       : await this.findAvailablePlanet();
 
     const colony = this.colonyRepo.create({
@@ -129,7 +132,9 @@ export class ColonySeedService {
     await this.generateFields(colony);
     await this.grantStartingResources(colony);
 
-    this.logger.log(`Starter colony created for user ${username} (id: ${colony.id})`);
+    this.logger.log(
+      `Starter colony created for user ${username} (id: ${colony.id})`,
+    );
     return colony;
   }
 
@@ -167,35 +172,41 @@ export class ColonySeedService {
 
     // Orbit: 20 fields (indices 0-19)
     for (let i = 0; i < ORBIT_COUNT; i++) {
-      fields.push(this.fieldRepo.create({
-        colonyId: colony.id,
-        fieldIndex: i,
-        fieldType: FIELD_TYPES.ORBIT,
-        buildingId: null,
-        isBuilding: false,
-      }));
+      fields.push(
+        this.fieldRepo.create({
+          colonyId: colony.id,
+          fieldIndex: i,
+          fieldType: FIELD_TYPES.ORBIT,
+          buildingId: null,
+          isBuilding: false,
+        }),
+      );
     }
 
     // Surface: 50 fields (indices 20-69)
     for (let i = 0; i < SURFACE_COUNT; i++) {
-      fields.push(this.fieldRepo.create({
-        colonyId: colony.id,
-        fieldIndex: ORBIT_COUNT + i,
-        fieldType: this.randomSurfaceFieldType(classId),
-        buildingId: null,
-        isBuilding: false,
-      }));
+      fields.push(
+        this.fieldRepo.create({
+          colonyId: colony.id,
+          fieldIndex: ORBIT_COUNT + i,
+          fieldType: this.randomSurfaceFieldType(classId),
+          buildingId: null,
+          isBuilding: false,
+        }),
+      );
     }
 
     // Underground: 20 fields (indices 70-89)
     for (let i = 0; i < UNDERGROUND_COUNT; i++) {
-      fields.push(this.fieldRepo.create({
-        colonyId: colony.id,
-        fieldIndex: ORBIT_COUNT + SURFACE_COUNT + i,
-        fieldType: FIELD_TYPES.UNDERGROUND,
-        buildingId: null,
-        isBuilding: false,
-      }));
+      fields.push(
+        this.fieldRepo.create({
+          colonyId: colony.id,
+          fieldIndex: ORBIT_COUNT + SURFACE_COUNT + i,
+          fieldType: FIELD_TYPES.UNDERGROUND,
+          buildingId: null,
+          isBuilding: false,
+        }),
+      );
     }
 
     // Place HQ at surface center (index 20 + 25 = 45)
@@ -220,7 +231,8 @@ export class ColonySeedService {
   }
 
   private randomSurfaceFieldType(classId = 201): number {
-    const weights = TERRAIN_WEIGHTS_BY_CLASS[classId] || TERRAIN_WEIGHTS_BY_CLASS[201];
+    const weights =
+      TERRAIN_WEIGHTS_BY_CLASS[classId] || TERRAIN_WEIGHTS_BY_CLASS[201];
     const totalWeight = weights.reduce((sum, [, w]) => sum + w, 0);
     let rand = Math.random() * totalWeight;
     for (const [fieldType, weight] of weights) {
