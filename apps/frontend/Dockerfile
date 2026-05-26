@@ -14,5 +14,6 @@ RUN npx nx sync && npx nx build frontend
 
 FROM caddy:2-alpine AS production
 COPY --from=build /app/apps/frontend/dist /srv
+COPY assets /srv/assets
 COPY --from=build /app/apps/frontend/Caddyfile /etc/caddy/Caddyfile
 EXPOSE 5173
