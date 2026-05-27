@@ -6,61 +6,66 @@ export function StarField() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom')) {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.userAgent.includes('jsdom')
+    ) {
       return;
     }
 
-    let ctx: CanvasRenderingContext2D | null = null;
+    const canvasElement = canvas;
+    let renderingContext: CanvasRenderingContext2D | null = null;
     try {
-      ctx = canvas.getContext('2d');
+      renderingContext = canvasElement.getContext('2d');
     } catch {
       // jsdom has no canvas implementation; keep tests and non-canvas clients safe.
       return;
     }
-    if (!ctx) return;
+    if (!renderingContext) return;
 
+    const ctx = renderingContext;
     let animId: number;
     let stars: { x: number; y: number; z: number; o: number }[] = [];
 
     function resize() {
-      canvas!.width = window.innerWidth;
-      canvas!.height = window.innerHeight;
+      canvasElement.width = window.innerWidth;
+      canvasElement.height = window.innerHeight;
     }
 
     function initStars() {
       stars = Array.from({ length: 400 }, () => ({
-        x: Math.random() * canvas!.width - canvas!.width / 2,
-        y: Math.random() * canvas!.height - canvas!.height / 2,
+        x: Math.random() * canvasElement.width - canvasElement.width / 2,
+        y: Math.random() * canvasElement.height - canvasElement.height / 2,
         z: Math.random() * 1000,
         o: Math.random(),
       }));
     }
 
     function draw() {
-      ctx!.fillStyle = 'rgba(10, 14, 39, 0.15)';
-      ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
+      ctx.fillStyle = 'rgba(10, 14, 39, 0.15)';
+      ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
-      const cx = canvas!.width / 2;
-      const cy = canvas!.height / 2;
+      const centerX = canvasElement.width / 2;
+      const centerY = canvasElement.height / 2;
 
       for (const star of stars) {
         star.z -= 0.3;
         if (star.z <= 0) {
           star.z = 1000;
-          star.x = Math.random() * canvas!.width - cx;
-          star.y = Math.random() * canvas!.height - cy;
+          star.x = Math.random() * canvasElement.width - centerX;
+          star.y = Math.random() * canvasElement.height - centerY;
           star.o = Math.random();
         }
 
-        const sx = (star.x / star.z) * 300 + cx;
-        const sy = (star.y / star.z) * 300 + cy;
-        const r = Math.max(0, (1 - star.z / 1000) * 2);
+        const screenX = (star.x / star.z) * 300 + centerX;
+        const screenY = (star.y / star.z) * 300 + centerY;
+        const radius = Math.max(0, (1 - star.z / 1000) * 2);
         const alpha = (1 - star.z / 1000) * star.o;
 
-        ctx!.beginPath();
-        ctx!.arc(sx, sy, r, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(200, 210, 255, ${alpha})`;
-        ctx!.fill();
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
+        ctx.fill();
       }
 
       animId = requestAnimationFrame(draw);
