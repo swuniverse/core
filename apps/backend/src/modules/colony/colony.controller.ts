@@ -24,11 +24,14 @@ export class ColonyController {
   ) {}
 
   @Get('buildings/available')
-  getAvailableBuildings(@Query('fieldType') fieldType?: string) {
-    if (fieldType) {
-      return this.gameData.getBuildingsForFieldType(Number(fieldType));
-    }
-    return this.gameData.getAllBuildings();
+  getAvailableBuildings(
+    @Request() req: { user: { sub: number } },
+    @Query('fieldType') fieldType?: string,
+  ) {
+    return this.colonyService.getAvailableBuildings(
+      req.user.sub,
+      fieldType ? Number(fieldType) : undefined,
+    );
   }
 
   @Get('commodities/all')

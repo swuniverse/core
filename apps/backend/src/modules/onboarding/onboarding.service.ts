@@ -27,6 +27,7 @@ import {
 } from '../starmap/entities/galaxy-field.entity';
 import { ColonySeedService } from '../colony/colony-seed.service';
 import { User } from '../auth/user.entity';
+import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { sectorToFieldRange } from './onboarding-sector.util';
 
 const INVALID_STARTER_PLANET_MESSAGE =
@@ -47,6 +48,8 @@ export class OnboardingService {
     private readonly objectRepo: Repository<CelestialObject>,
     @InjectRepository(GalaxyField)
     private readonly galaxyFieldRepo: Repository<GalaxyField>,
+    @InjectRepository(Research)
+    private readonly researchRepo: Repository<Research>,
     private readonly factionService: FactionService,
     private readonly colonySeedService: ColonySeedService,
   ) {}
@@ -323,6 +326,7 @@ export class OnboardingService {
     user.starterShipId = null;
     user.factionId = factionId;
     await this.userRepo.save(user);
+    await this.ensureBaseResearchCompleted(user.id, factionId);
 
     return {
       success: true,
@@ -330,11 +334,43 @@ export class OnboardingService {
       selectionId: selection.id,
       starterColonyId: colony.id,
       nextObjective: {
-        key: 'RESEARCH_BASIC_ENGINEERING',
-        label: 'Grundlegende Ingenieurswissenschaft erforschen',
-        href: '/research?focus=1',
+        key: 'RESEARCH_AQUAFARM',
+        label: 'Aquafarm erforschen',
+        href: '/research?focus=220101',
       },
     };
+  }
+
+  private async ensureBaseResearchCompleted(
+    userId: number,
+    factionId: number,
+  ): Promise<void> {
+    const baseResearchId = factionId === 2 ? 1002 : 1001;
+    const existing = await this.researchRepo.findOne({
+      where: { userId, techId: baseResearchId },
+    });
+    if (existing) {
+      existing.status = ResearchStatus.COMPLETED;
+      existing.progress = 0;
+      existing.remainingPoints = 0;
+      existing.spentPoints = 0;
+      existing.blockedReason = null;
+      await this.researchRepo.save(existing);
+      return;
+    }
+
+    await this.researchRepo.save(
+      this.researchRepo.create({
+        userId,
+        techId: baseResearchId,
+        status: ResearchStatus.COMPLETED,
+        progress: 0,
+        remainingPoints: 0,
+        spentPoints: 0,
+        sourceCommodityId: 1701,
+        blockedReason: null,
+      }),
+    );
   }
 
   private isAllowedStarterPlanet(object: CelestialObject): boolean {

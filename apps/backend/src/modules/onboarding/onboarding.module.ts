@@ -8,6 +8,7 @@ import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import { Research } from '../research/entities/research.entity';
 import { FactionModule } from '../faction/faction.module';
 import { ColonyModule } from '../colony/colony.module';
 
@@ -20,6 +21,7 @@ import { ColonyModule } from '../colony/colony.module';
       StarSystem,
       CelestialObject,
       GalaxyField,
+      Research,
     ]),
     FactionModule,
     ColonyModule,

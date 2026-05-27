@@ -37,6 +37,19 @@ export class ColonyService {
     private readonly unlockResolver: UnlockResolverService,
   ) {}
 
+  async getAvailableBuildings(userId: number, fieldType?: number) {
+    const buildings = fieldType
+      ? this.gameData.getBuildingsForFieldType(fieldType)
+      : this.gameData.getAllBuildings();
+    const result = [];
+    for (const building of buildings) {
+      if (await this.unlockResolver.isBuildingUnlocked(userId, building.id)) {
+        result.push(building);
+      }
+    }
+    return result;
+  }
+
   async findAllByUser(userId: number): Promise<Colony[]> {
     const colonies = await this.colonyRepo.find({
       where: { userId },
@@ -91,29 +104,43 @@ export class ColonyService {
     );
     const shipCount = await this.shipRepo.count({ where: { userId } });
 
-    if (!completedTechIds.has(1)) {
+    if (!completedTechIds.has(220101)) {
       return {
-        key: 'RESEARCH_BASIC_ENGINEERING',
-        label: 'Grundlegende Ingenieurswissenschaft erforschen',
+        key: 'RESEARCH_AQUAFARM',
+        label: 'Aquafarm erforschen',
         description:
-          activeResearch?.techId === 1
-            ? 'Forschung laeuft. Warte auf den naechsten Tick oder fuehre einen Tick aus.'
-            : 'Diese Grundlagenforschung oeffnet den Pfad zum Werftbetrieb.',
-        href: '/research?focus=1',
+          activeResearch?.techId === 220101
+            ? 'Forschung laeuft. Fehlt Baumaterial, pausiert der Fortschritt automatisch.'
+            : 'Erweitere deine Nahrungsproduktion auf Wasserfelder. Kostet Baumaterial pro Tick.',
+        href: '/research?focus=220101',
         completed: false,
         colonyId: primaryColony.id,
       };
     }
 
-    if (!completedTechIds.has(4)) {
+    if (!completedTechIds.has(230101)) {
       return {
-        key: 'RESEARCH_SHIPYARD_OPERATIONS',
-        label: 'Werftbetrieb erforschen',
+        key: 'RESEARCH_WATER_POWER',
+        label: 'Wasserenergieanlage erforschen',
         description:
-          activeResearch?.techId === 4
-            ? 'Werftbetrieb wird erforscht. Danach kannst du den Werfthub bauen.'
-            : 'Werftbetrieb schaltet den Werftpfad fuer dein erstes Schiff frei.',
-        href: '/research?focus=4',
+          activeResearch?.techId === 230101
+            ? 'Forschung laeuft. Fehlt Baumaterial, pausiert der Fortschritt automatisch.'
+            : 'Schalte eine fruehe Energieoption fuer Wasserfelder frei.',
+        href: '/research?focus=230101',
+        completed: false,
+        colonyId: primaryColony.id,
+      };
+    }
+
+    if (!completedTechIds.has(254001)) {
+      return {
+        key: 'RESEARCH_BASIC_CHEMISTRY',
+        label: 'Grundstoffchemie erforschen',
+        description:
+          activeResearch?.techId === 254001
+            ? 'Forschung laeuft. Fehlt Baumaterial, pausiert der Fortschritt automatisch.'
+            : 'Schalte chemische Komponenten als naechsten Industriezweig frei.',
+        href: '/research?focus=254001',
         completed: false,
         colonyId: primaryColony.id,
       };

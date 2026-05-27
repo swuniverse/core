@@ -21,6 +21,8 @@ interface TechState {
   finishesAt: string | null;
   pointsPerTick?: number;
   ticksRemaining?: number | null;
+  commodity?: { id: number; name: string } | null;
+  blockedReason?: string | null;
 }
 
 interface BuildingDef {
@@ -85,9 +87,12 @@ export function ResearchPage() {
   if (loading)
     return <div className="p-6 text-swu-muted">Forschung wird geladen...</div>;
 
-  const categories = [...new Set(techs.map((t) => t.category))];
-  const basicEngineering = techs.find((tech) => tech.id === 1);
-  const shipyardOperations = techs.find((tech) => tech.id === 4);
+  const categories = [
+    ...new Set(techs.map((t) => t.category ?? 'uncategorized')),
+  ];
+  const aquafarm = techs.find((tech) => tech.id === 220101);
+  const waterPower = techs.find((tech) => tech.id === 230101);
+  const basicChemistry = techs.find((tech) => tech.id === 254001);
   const activeResearch = techs.find((tech) => tech.status === 'IN_PROGRESS');
 
   return (
@@ -108,17 +113,17 @@ export function ResearchPage() {
 
       <section className="mb-6 bg-swu-accent/10 border border-swu-accent rounded-lg p-4">
         <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
-          Frueher Werftpfad
+          Fruehe Entwicklung
         </p>
         <h2 className="text-lg font-bold text-swu-accent">
-          Forschung fuer dein erstes Schiff
+          Grundlagen deiner Kolonie
         </h2>
         <p className="text-sm text-swu-muted mt-1">
-          Starte mit Grundlegender Ingenieurswissenschaft und erforsche danach
-          Werftbetrieb, um den Werfthub bauen zu koennen.
+          Starte mit Nahrung, Energie und Grundstoffproduktion. Forschung
+          verbraucht pro Tick Ressourcen; fehlt die Ressource, pausiert sie.
         </p>
         <div className="grid gap-3 md:grid-cols-2 mt-4">
-          {[basicEngineering, shipyardOperations]
+          {[aquafarm, waterPower, basicChemistry]
             .filter(Boolean)
             .map((tech) => (
               <EarlyResearchGoal
@@ -133,7 +138,8 @@ export function ResearchPage() {
 
       {categories.map((cat) => {
         const visible = techs.filter(
-          (t) => t.category === cat && t.status !== 'LOCKED',
+          (t) =>
+            (t.category ?? 'uncategorized') === cat && t.status === 'AVAILABLE',
         );
         if (visible.length === 0) return null;
         return (
@@ -230,6 +236,35 @@ export function ResearchPage() {
           </div>
         );
       })}
+
+      <section className="mt-8 bg-swu-surface border border-swu-border rounded-lg p-4">
+        <h2 className="text-sm font-bold text-swu-muted uppercase tracking-wider mb-3">
+          Abgeschlossene Forschungen
+        </h2>
+        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+          {techs
+            .filter((tech) => tech.status === 'COMPLETED')
+            .slice(0, 24)
+            .map((tech) => (
+              <div
+                key={tech.id}
+                className="rounded border border-green-500/30 bg-green-900/10 p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-swu-primary">
+                    {tech.name}
+                  </span>
+                  <StatusBadge status={tech.status} />
+                </div>
+              </div>
+            ))}
+          {techs.filter((tech) => tech.status === 'COMPLETED').length === 0 && (
+            <p className="text-sm text-swu-muted">
+              Noch keine Forschung abgeschlossen.
+            </p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -285,9 +320,9 @@ function EarlyResearchGoal({
         <div>
           <h3 className="text-sm font-bold text-swu-primary">{tech.name}</h3>
           <p className="text-[10px] text-swu-muted mt-0.5">
-            {tech.id === 1
-              ? 'Grundlage fuer den fruehen Aufbau.'
-              : 'Schaltet den Weg zum Werfthub frei.'}
+            {tech.commodity
+              ? `Benötigt ${tech.commodity.name} als Forschungsressource.`
+              : 'Grundlage fuer den fruehen Aufbau.'}
           </p>
         </div>
         <StatusBadge status={tech.status} />

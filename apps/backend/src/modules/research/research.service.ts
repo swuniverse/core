@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
 import { Colony } from '../colony/entities/colony.entity';
-import { ColonyField } from '../colony/entities/colony-field.entity';
+import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
 
 @Injectable()
@@ -17,8 +17,8 @@ export class ResearchService {
     private readonly researchRepo: Repository<Research>,
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
-    @InjectRepository(ColonyField)
-    private readonly fieldRepo: Repository<ColonyField>,
+    @InjectRepository(ColonyStorage)
+    private readonly storageRepo: Repository<ColonyStorage>,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -41,38 +41,52 @@ export class ResearchService {
         .filter((r) => r.status === ResearchStatus.COMPLETED)
         .map((r) => r.techId),
     );
-    const pointsPerTick = await this.calculateResearchOutput(userId);
+    return techTree
+      .filter((tech) => !tech.hidden && !tech.excludeFromNormalProgression)
+      .filter((tech) => {
+        if (tech.id !== 1001 && tech.id !== 1002) return true;
+        return userResearch.some(
+          (research) =>
+            research.techId === tech.id &&
+            research.status === ResearchStatus.COMPLETED,
+        );
+      })
+      .map((tech) => {
+        const existing = userResearch.find((r) => r.techId === tech.id);
+        let status: ResearchStatus;
 
-    return techTree.map((tech) => {
-      const existing = userResearch.find((r) => r.techId === tech.id);
-      let status: ResearchStatus;
+        if (existing) {
+          status = existing.status;
+        } else if (this.areDependenciesMet(tech, completed)) {
+          status = ResearchStatus.AVAILABLE;
+        } else {
+          status = ResearchStatus.LOCKED;
+        }
 
-      if (existing) {
-        status = existing.status;
-      } else if (this.areDependenciesMet(tech, completed)) {
-        status = ResearchStatus.AVAILABLE;
-      } else {
-        status = ResearchStatus.LOCKED;
-      }
-
-      const progress = existing?.progress || 0;
-      const pointsRequired = this.getPointsRequired(tech);
-      return {
-        ...tech,
-        status,
-        progress,
-        pointsRequired,
-        pointsPerTick,
-        ticksRemaining:
-          status === ResearchStatus.IN_PROGRESS
-            ? Math.max(
-                0,
-                Math.ceil((pointsRequired - progress) / pointsPerTick),
-              )
+        const effort = this.getPointsRequired(tech);
+        const spentPoints = existing?.spentPoints ?? existing?.progress ?? 0;
+        const remainingPoints =
+          existing?.remainingPoints ?? Math.max(0, effort - spentPoints);
+        const commodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
+        return {
+          ...tech,
+          status,
+          effort,
+          progress: spentPoints,
+          spentPoints,
+          remainingPoints,
+          pointsRequired: effort,
+          commodity: commodityId
+            ? (this.gameData.getCommodity(commodityId) ?? {
+                id: commodityId,
+                name: `Ware #${commodityId}`,
+              })
             : null,
-        finishesAt: existing?.finishesAt || null,
-      };
-    });
+          blockedReason: existing?.blockedReason ?? null,
+          unlocks: tech.unlocks ?? {},
+          finishesAt: existing?.finishesAt || null,
+        };
+      });
   }
 
   async startResearch(userId: number, techId: number): Promise<Research> {
@@ -109,6 +123,10 @@ export class ResearchService {
         techId,
         status: ResearchStatus.IN_PROGRESS,
         progress: 0,
+        remainingPoints: this.getPointsRequired(tech),
+        spentPoints: 0,
+        sourceCommodityId: tech.mappedCommodityId ?? tech.commodityId ?? null,
+        blockedReason: null,
       });
     }
 
@@ -124,42 +142,64 @@ export class ResearchService {
     const tech = this.gameData.getTech(inProgress.techId);
     if (!tech) return;
 
-    const pointsPerTick = await this.calculateResearchOutput(userId);
-    const pointsRequired = this.getPointsRequired(tech);
-
-    inProgress.progress += pointsPerTick;
-
-    if (inProgress.progress >= pointsRequired) {
+    const commodityId =
+      inProgress.sourceCommodityId ??
+      tech.mappedCommodityId ??
+      tech.commodityId;
+    if (!commodityId) {
       inProgress.status = ResearchStatus.COMPLETED;
-      inProgress.progress = pointsRequired;
+      inProgress.remainingPoints = 0;
+      inProgress.blockedReason = null;
+      await this.researchRepo.save(inProgress);
+      return;
+    }
+
+    const colony = await this.getPrimaryColony(userId);
+    if (!colony) return;
+
+    const storage = await this.getStorage(colony.id, commodityId);
+    const available = storage?.amount ?? 0;
+    const remaining =
+      inProgress.remainingPoints ?? this.getPointsRequired(tech);
+    const amount = Math.min(available, remaining);
+
+    if (!storage || amount <= 0) {
+      inProgress.blockedReason = 'MISSING_RESOURCE';
+      await this.researchRepo.save(inProgress);
+      return;
+    }
+
+    storage.amount -= amount;
+    await this.storageRepo.save(storage);
+
+    inProgress.spentPoints = (inProgress.spentPoints ?? 0) + amount;
+    inProgress.progress = inProgress.spentPoints;
+    inProgress.remainingPoints = remaining - amount;
+    inProgress.blockedReason = null;
+    inProgress.lastAdvancedAt = new Date();
+
+    if (inProgress.remainingPoints <= 0) {
+      inProgress.status = ResearchStatus.COMPLETED;
+      inProgress.remainingPoints = 0;
       inProgress.finishesAt = null;
     }
 
     await this.researchRepo.save(inProgress);
   }
 
-  private async calculateResearchOutput(userId: number): Promise<number> {
-    const colonies = await this.colonyRepo.find({ where: { userId } });
-    let totalPoints = 1; // Base 1 point per tick even without labs
+  private async getPrimaryColony(userId: number): Promise<Colony | null> {
+    return this.colonyRepo.findOne({
+      where: { userId },
+      order: { id: 'ASC' },
+    });
+  }
 
-    for (const colony of colonies) {
-      const fields = await this.fieldRepo.find({
-        where: { colonyId: colony.id },
-      });
-      for (const field of fields) {
-        if (!field.buildingId || field.isBuilding) continue;
-        const def = this.gameData.getBuilding(field.buildingId);
-        if (def?.researchPoints) {
-          totalPoints += def.researchPoints;
-        }
-      }
-    }
-
-    return totalPoints;
+  private async getStorage(colonyId: number, commodityId: number) {
+    return this.storageRepo.findOne({ where: { colonyId, commodityId } });
   }
 
   private getPointsRequired(tech: TechDef): number {
-    return tech.duration * 10;
+    return tech.effort ?? (tech.duration ?? 1) * 10;
   }
 
   private areDependenciesMet(tech: TechDef, completed: Set<number>): boolean {

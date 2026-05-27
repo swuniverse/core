@@ -38,6 +38,21 @@ export class Research {
   @Column({ default: 0 })
   progress: number;
 
+  @Column({ type: 'int', nullable: true })
+  remainingPoints: number | null;
+
+  @Column({ default: 0 })
+  spentPoints: number;
+
+  @Column({ type: 'int', nullable: true })
+  sourceCommodityId: number | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  blockedReason: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastAdvancedAt: Date | null;
+
   @Column({ type: 'timestamp', nullable: true })
   finishesAt: Date | null;
 

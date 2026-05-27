@@ -69,11 +69,18 @@ export interface CombatFormulas {
     min: number;
     max: number;
   };
-  ship_class_modifiers: Record<string, { damage: number; speed: number; hull: number; evasion: number }>;
+  ship_class_modifiers: Record<
+    string,
+    { damage: number; speed: number; hull: number; evasion: number }
+  >;
   combat_flow: {
     max_rounds: number;
     initiative: { speed_weight: number; sensor_weight: number };
-    escape: { base_chance: number; speed_bonus: number; damage_penalty: number };
+    escape: {
+      base_chance: number;
+      speed_bonus: number;
+      damage_penalty: number;
+    };
   };
   ion_effects: {
     disable_chance: number;
@@ -98,13 +105,35 @@ export interface TechDependency {
   techIds: number[];
 }
 
+export interface ResearchUnlocks {
+  buildings?: Array<
+    number | { id: number; name?: string; rawName?: string; visible?: boolean }
+  >;
+  shipClasses?: number[];
+  modules?: string[];
+  colonyTypes?: number[];
+}
+
 export interface TechDef {
   id: number;
+  key?: string;
+  source?: 'stu' | 'swu';
+  sourceId?: number;
+  rawName?: string;
   name: string;
+  description?: string;
   category: string;
-  tier: number;
-  duration: number;
+  tier?: number;
+  sort?: number;
+  duration?: number;
+  effort?: number;
+  commodityId?: number;
+  mappedCommodityId?: number | null;
+  hidden?: boolean;
+  adminOnly?: boolean;
+  excludeFromNormalProgression?: boolean;
   dependencies: TechDependency[];
+  unlocks?: ResearchUnlocks;
 }
 
 @Injectable()
@@ -119,7 +148,9 @@ export class GameDataService implements OnModuleInit {
   private techTree: TechDef[] = [];
 
   onModuleInit() {
-    this.dataPath = process.env.GAME_DATA_PATH || path.resolve(process.cwd(), '../../game-data/data');
+    this.dataPath =
+      process.env.GAME_DATA_PATH ||
+      path.resolve(process.cwd(), '../../game-data/data');
     if (!fs.existsSync(this.dataPath)) {
       this.dataPath = path.resolve(process.cwd(), '../game-data/data');
     }
@@ -145,7 +176,33 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadCommodities() {
-    const data = this.loadYaml<{ commodities: Commodity[] }>('commodities.yaml');
+    const stuData = this.loadYaml<{
+      commodities: Array<{
+        id: number;
+        name: string;
+        rawName?: string;
+        visible?: boolean;
+        type?: number;
+      }>;
+    }>('commodities/stu-commodity-map.yaml');
+    if (stuData?.commodities?.length) {
+      for (const c of stuData.commodities) {
+        this.commodities.set(c.id, {
+          id: c.id,
+          name: c.name,
+          nameShort: c.name.slice(0, 3).toUpperCase(),
+          description: c.rawName ? `Aus STU importiert: ${c.rawName}` : c.name,
+          density: 1,
+          isTradeOnly: c.type !== 1 || c.visible === false,
+        });
+      }
+      this.logger.log(`Loaded ${this.commodities.size} STU commodities`);
+      return;
+    }
+
+    const data = this.loadYaml<{ commodities: Commodity[] }>(
+      'commodities.yaml',
+    );
     if (data?.commodities) {
       for (const c of data.commodities) {
         this.commodities.set(c.id, c);
@@ -155,7 +212,9 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadBuildings() {
-    const data = this.loadYaml<{ buildings: BuildingDef[] }>('buildings/buildings.yaml');
+    const data = this.loadYaml<{ buildings: BuildingDef[] }>(
+      'buildings/buildings.yaml',
+    );
     if (data?.buildings) {
       for (const b of data.buildings) {
         this.buildings.set(b.id, b);
@@ -165,7 +224,9 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadCombatFormulas() {
-    const data = this.loadYaml<{ combat: CombatFormulas }>('combat/formulas.yaml');
+    const data = this.loadYaml<{ combat: CombatFormulas }>(
+      'combat/formulas.yaml',
+    );
     if (data?.combat) {
       this.combatFormulas = data.combat;
       this.logger.log('Loaded combat formulas');
@@ -173,19 +234,48 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadModules() {
-    const moduleFiles = ['weapons', 'shields', 'engines', 'hull', 'sensors', 'cargo', 'life-support', 'tractor-beam', 'hyperdrive', 'special'];
+    const moduleFiles = [
+      'weapons',
+      'shields',
+      'engines',
+      'hull',
+      'sensors',
+      'cargo',
+      'life-support',
+      'tractor-beam',
+      'hyperdrive',
+      'special',
+    ];
     for (const file of moduleFiles) {
-      const data = this.loadYaml<{ modules: ModuleDef[] }>(`modules/${file}.yaml`);
+      const data = this.loadYaml<{ modules: ModuleDef[] }>(
+        `modules/${file}.yaml`,
+      );
       if (data?.modules) {
         this.modules.set(file, data.modules);
       }
     }
-    const total = Array.from(this.modules.values()).reduce((sum, m) => sum + m.length, 0);
-    this.logger.log(`Loaded ${total} ship modules across ${this.modules.size} categories`);
+    const total = Array.from(this.modules.values()).reduce(
+      (sum, m) => sum + m.length,
+      0,
+    );
+    this.logger.log(
+      `Loaded ${total} ship modules across ${this.modules.size} categories`,
+    );
   }
 
   private loadTechTree() {
-    const data = this.loadYaml<{ technologies: TechDef[] }>('research/tech-tree.yaml');
+    const stuData = this.loadYaml<{ technologies: TechDef[] }>(
+      'research/stu-research-tree.yaml',
+    );
+    if (stuData?.technologies?.length) {
+      this.techTree = stuData.technologies;
+      this.logger.log(`Loaded ${this.techTree.length} STU technologies`);
+      return;
+    }
+
+    const data = this.loadYaml<{ technologies: TechDef[] }>(
+      'research/tech-tree.yaml',
+    );
     if (data?.technologies) {
       this.techTree = data.technologies;
       this.logger.log(`Loaded ${this.techTree.length} technologies`);
@@ -209,7 +299,9 @@ export class GameDataService implements OnModuleInit {
   }
 
   getBuildingsForFieldType(fieldType: number): BuildingDef[] {
-    return Array.from(this.buildings.values()).filter(b => b.allowedFieldTypes.includes(fieldType));
+    return Array.from(this.buildings.values()).filter((b) =>
+      b.allowedFieldTypes.includes(fieldType),
+    );
   }
 
   getCombatFormulas(): CombatFormulas {
