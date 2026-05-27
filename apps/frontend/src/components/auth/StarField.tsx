@@ -6,7 +6,17 @@ export function StarField() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    if (typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom')) {
+      return;
+    }
+
+    let ctx: CanvasRenderingContext2D | null = null;
+    try {
+      ctx = canvas.getContext('2d');
+    } catch {
+      // jsdom has no canvas implementation; keep tests and non-canvas clients safe.
+      return;
+    }
     if (!ctx) return;
 
     let animId: number;
@@ -59,14 +69,15 @@ export function StarField() {
     resize();
     initStars();
     draw();
-    window.addEventListener('resize', () => {
+    const handleResize = () => {
       resize();
       initStars();
-    });
+    };
+    window.addEventListener('resize', handleResize);
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 

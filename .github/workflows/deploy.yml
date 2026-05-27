@@ -96,7 +96,8 @@ jobs:
             git fetch origin main || exit 1
             git reset --hard origin/main || exit 1
             git clean -fd || exit 1
-            git submodule update --init --recursive || exit 1
+            git submodule foreach --recursive 'git reset --hard && git clean -fd' || true
+            git submodule update --init --recursive --force || exit 1
             git config --global --unset url."https://x-access-token:${{ secrets.GHCR_TOKEN }}@github.com/".insteadOf
             chmod +x deploy-remote.sh
             export GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"

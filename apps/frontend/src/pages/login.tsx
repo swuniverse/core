@@ -142,7 +142,8 @@ export function LoginPage() {
         <div className="landing-hero__content">
           <div className="landing-hero__text">
             <p className="landing-hero__tagline">Browsergame · Open Source · Closed Alpha</p>
-            <h1 className="landing-hero__title">
+            <h1 className="landing-hero__title" aria-label="Star Wars Universe">
+              <span className="sr-only">Star Wars Universe</span>
               STAR WARS
               <span className="landing-hero__title--accent"> UNIVERSE</span>
             </h1>
