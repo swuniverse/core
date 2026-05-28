@@ -11,6 +11,7 @@ const baseNavItems = [
   { label: 'Forschung', path: '/research', icon: 'R' },
   { label: 'Nachrichten', path: '/messages', icon: 'P' },
   { label: 'HoloNet', path: '/holonet', icon: 'H' },
+  { label: 'Datenbank', path: '/database', icon: 'DB' },
   { label: 'Einstellungen', path: '/settings', icon: '⚙' },
 ];
 
@@ -43,7 +44,10 @@ export function Sidebar() {
     if (!accessToken) return;
 
     const fetchUnread = () => {
-      api.get<number>('/messages/unread').then(setUnreadCount).catch(() => undefined);
+      api
+        .get<number>('/messages/unread')
+        .then(setUnreadCount)
+        .catch(() => undefined);
     };
 
     fetchUnread();

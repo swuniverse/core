@@ -12,6 +12,7 @@ import { MessagesPage } from '../pages/messages';
 import { HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
+import { DatabasePage } from '../pages/database';
 import { StarmapAdminPage } from '../pages/starmap-admin';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
@@ -101,6 +102,7 @@ export function App() {
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/holonet" element={<HolonetPage />} />
+          <Route path="/database" element={<DatabasePage />} />
           <Route path="/claim-colony" element={<OnboardingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
