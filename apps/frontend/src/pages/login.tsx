@@ -171,7 +171,7 @@ export function LoginPage() {
             <GithubIcon />
           </a>
           <a
-            href="https://discord.com/invite/URaHDQAPev"
+            href="https://discord.com/invite/vvUwR6UZbB"
             target="_blank"
             rel="noopener noreferrer"
             className="landing-nav__link"
@@ -205,7 +205,7 @@ export function LoginPage() {
                 Closed Alpha joinen
               </Link>
               <a
-                href="https://discord.com/invite/URaHDQAPev"
+                href="https://discord.com/invite/vvUwR6UZbB"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="auth-btn auth-btn--secondary landing-hero__cta"
@@ -214,7 +214,9 @@ export function LoginPage() {
               </a>
             </div>
             <div className="landing-hero__invite-note">
-              <span className="landing-hero__invite-badge">2x Player Invites</span>
+              <span className="landing-hero__invite-badge">
+                2x Player Invites
+              </span>
               <p>
                 Nach deiner Registrierung bekommst du ein eigenes Kontingent und
                 kannst bis zu zwei weitere Spieler selbst einladen.
@@ -337,8 +339,8 @@ export function LoginPage() {
               <div className="landing-flow__step-number">2</div>
               <h3 className="landing-flow__step-title">Account erstellen</h3>
               <p className="landing-flow__step-desc">
-                Registriere dich mit deinem Invite Key, waehle deine Fraktion und
-                starte in die Closed Alpha.
+                Registriere dich mit deinem Invite Key, waehle deine Fraktion
+                und starte in die Closed Alpha.
               </p>
             </div>
             <div className="landing-flow__step">
@@ -359,24 +361,31 @@ export function LoginPage() {
           <h2 className="landing-needs__title">Wachse ueber die Community</h2>
           <div className="landing-needs__grid">
             <div className="landing-needs__card">
-              <h3 className="landing-needs__card-title">Start-Invites via Discord</h3>
+              <h3 className="landing-needs__card-title">
+                Start-Invites ueber Discord
+              </h3>
               <p className="landing-needs__card-desc">
-                Neue Spieler kommen ueber Discord rein, stellen sich kurz vor und
-                erhalten dort ihren ersten Zugang zur Closed Alpha.
+                Neue Spieler melden sich im Discord, erhalten dort ihren ersten
+                Invite Key und starten direkt in die Closed Alpha.
               </p>
             </div>
             <div className="landing-needs__card">
-              <h3 className="landing-needs__card-title">2 eigene Player Keys</h3>
+              <h3 className="landing-needs__card-title">
+                Zwei eigene Invite Keys
+              </h3>
               <p className="landing-needs__card-desc">
-                Jeder registrierte Commander kann spaeter bis zu zwei eigene Keys
-                im Spiel erzeugen und direkt an Freunde weitergeben.
+                Nach der Registrierung kann jeder Commander bis zu zwei weitere
+                Spieler persoenlich einladen.
               </p>
             </div>
             <div className="landing-needs__card">
-              <h3 className="landing-needs__card-title">Kontrolliertes Wachstum</h3>
+              <h3 className="landing-needs__card-title">
+                Wachstum mit Qualitaet
+              </h3>
               <p className="landing-needs__card-desc">
-                So bleibt die Alpha bewusst klein, aber gute Spieler koennen selbst
-                weitere starke Tester und Mitbauer nachholen.
+                Die Alpha waechst bewusst langsam: aktive Spieler bringen neue
+                Tester mit, die wirklich mitspielen, Feedback geben oder
+                mitbauen.
               </p>
             </div>
           </div>
@@ -388,9 +397,9 @@ export function LoginPage() {
         <div className="landing-community__content">
           <h2 className="landing-community__title">Community</h2>
           <p className="landing-community__desc">
-            Closed Alpha mit Community-Wachstum: erste Zugänge laufen über
-            Discord, danach kann jeder registrierte Spieler bis zu zwei weitere
-            Commander selbst per Invite Key einladen.
+            Star Wars Universe entsteht offen mit der Community. Im Discord
+            bekommst du Zugang zur Closed Alpha, kannst Feedback geben, Bugs
+            melden und dich mit anderen Commandern abstimmen.
           </p>
           <div className="landing-community__links">
             <a
@@ -403,12 +412,12 @@ export function LoginPage() {
               <div>
                 <div className="landing-community__card-title">GitHub</div>
                 <div className="landing-community__card-desc">
-                  Source Code & Issues
+                  Code, Issues & Contributions
                 </div>
               </div>
             </a>
             <a
-              href="https://discord.com/invite/URaHDQAPev"
+              href="https://discord.com/invite/vvUwR6UZbB"
               target="_blank"
               rel="noopener noreferrer"
               className="landing-community__card"
@@ -417,7 +426,7 @@ export function LoginPage() {
               <div>
                 <div className="landing-community__card-title">Discord</div>
                 <div className="landing-community__card-desc">
-                  Chat & Announcements
+                  Alpha-Zugang, Feedback & Updates
                 </div>
               </div>
             </a>
