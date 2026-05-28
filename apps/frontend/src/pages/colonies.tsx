@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import { planetImage } from '../lib/assets';
+import { buildingImage, commodityImage, planetImage } from '../lib/assets';
 
 interface ColonyField {
   id: number;
@@ -616,6 +616,12 @@ function ColonyDetail({
                               : 'border-red-900/50 opacity-60'
                       }`}
                     >
+                      <img
+                        src={buildingImage(b.id)}
+                        alt=""
+                        className="mx-auto mb-1 h-10 w-10 rounded border border-swu-border/40 object-cover"
+                        loading="lazy"
+                      />
                       <div className="text-xs font-bold text-swu-primary truncate">
                         {b.nameShort}
                       </div>
@@ -735,10 +741,18 @@ function ColonyDetail({
               <h3 className="text-sm font-bold text-swu-muted mb-2">Lager</h3>
               <div className="space-y-1">
                 {storage.map((item) => (
-                  <div key={item.id} className="flex justify-between text-xs">
-                    <span className="text-swu-muted">
-                      {commodityMap[item.commodityId]?.name ||
-                        `Item #${item.commodityId}`}
+                  <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex min-w-0 items-center gap-2 text-swu-muted">
+                      <img
+                        src={commodityImage(item.commodityId)}
+                        alt=""
+                        className="h-5 w-5 rounded border border-swu-border/40 object-cover"
+                        loading="lazy"
+                      />
+                      <span className="truncate">
+                        {commodityMap[item.commodityId]?.name ||
+                          `Item #${item.commodityId}`}
+                      </span>
                     </span>
                     <span className="text-swu-primary font-mono">
                       {item.amount.toLocaleString()}

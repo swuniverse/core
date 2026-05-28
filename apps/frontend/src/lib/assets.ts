@@ -28,8 +28,46 @@ export function shipImage(shipClassId: number): string {
   return `${ASSET_BASE}/ships/${shipClassId}.png`;
 }
 
+const GENERATED_COMMODITY_SLUGS: Record<number, string> = {
+  1: 'nahrung',
+  2: 'baumaterial',
+  3: 'chemische-komponenten',
+  4: 'transparistahl',
+  5: 'deuterium',
+  6: 'antimaterie',
+  7: 'plasma',
+  8: 'kyber-kristalle',
+  11: 'iridium-erz',
+  21: 'durastahl',
+};
+
+const GENERATED_BUILDING_SLUGS: Record<number, string> = {
+  1: 'koloniezentrale',
+  2: 'baumaterialfabrik',
+  3: 'solarzellen',
+  4: 'farm',
+  5: 'chemiefabrik',
+  6: 'transparistahl-werk',
+  7: 'wohnhaeuser',
+  13: 'lager',
+  17: 'iridium-mine',
+  18: 'durastahl-verarbeitung',
+  220101: 'aquafarm',
+  230101: 'wasserenergieanlage',
+};
+
 export function commodityImage(commodityId: number): string {
-  return `${ASSET_BASE}/commodities/${commodityId}.png`;
+  const generatedSlug = GENERATED_COMMODITY_SLUGS[commodityId];
+  return generatedSlug
+    ? `${ASSET_BASE}/commodities/generated/${commodityId}-${generatedSlug}.png`
+    : `${ASSET_BASE}/commodities/${commodityId}.png`;
+}
+
+export function buildingImage(buildingId: number): string {
+  const generatedSlug = GENERATED_BUILDING_SLUGS[buildingId];
+  return generatedSlug
+    ? `${ASSET_BASE}/buildings/generated/${buildingId}-${generatedSlug}.png`
+    : `${ASSET_BASE}/buildings/${buildingId}.png`;
 }
 
 export function researchImage(techId: number): string {
