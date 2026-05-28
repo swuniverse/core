@@ -19,6 +19,9 @@ interface TechState {
   progress: number;
   pointsRequired: number;
   finishesAt: string | null;
+  effort?: number;
+  spentPoints?: number;
+  remainingPoints?: number;
   pointsPerTick?: number;
   ticksRemaining?: number | null;
   commodity?: { id: number; name: string } | null;
@@ -160,7 +163,7 @@ export function ResearchPage() {
                     <StatusBadge status={tech.status} />
                   </div>
                   <p className="text-[10px] text-swu-muted">
-                    Stufe {tech.tier} · {tech.pointsRequired} Pkt
+                    {formatResearchCost(tech)}
                     {tech.dependencies.filter((d) => d.type === 'REQUIRE')
                       .length > 0 && (
                       <>
@@ -203,11 +206,9 @@ export function ResearchPage() {
                   {tech.status === 'IN_PROGRESS' && (
                     <div className="mt-1">
                       <div className="flex justify-between text-[10px] text-swu-success">
+                        <span>Fortschritt</span>
                         <span>
-                          Fortschritt · {tech.pointsPerTick ?? 1} Pkt/Tick
-                        </span>
-                        <span>
-                          {tech.progress}/{tech.pointsRequired}
+                          {formatResearchProgress(tech)}
                           {tech.ticksRemaining != null &&
                             ` · ${tech.ticksRemaining} Tick(s)`}
                         </span>
@@ -269,6 +270,26 @@ export function ResearchPage() {
   );
 }
 
+function formatResearchCost(tech: TechState): string {
+  const effort = tech.effort ?? tech.pointsRequired;
+  const commodityName = tech.commodity?.name ?? 'Ressource';
+  return `Aufwand: ${effort} ${commodityName}`;
+}
+
+function formatResearchProgress(tech: TechState): string {
+  const spent = tech.spentPoints ?? tech.progress ?? 0;
+  const effort = tech.effort ?? tech.pointsRequired;
+  const commodityName = tech.commodity?.name ?? 'Ressource';
+  return `${spent}/${effort} ${commodityName}`;
+}
+
+function formatBlockedReason(reason: string, tech: TechState): string {
+  if (reason === 'MISSING_RESOURCE') {
+    return `Pausiert: nicht genug ${tech.commodity?.name ?? 'Ressourcen'} vorhanden`;
+  }
+  return reason;
+}
+
 function ActiveResearchPanel({ tech }: { tech: TechState }) {
   const progressPercent =
     tech.pointsRequired > 0 ? (tech.progress / tech.pointsRequired) * 100 : 0;
@@ -281,10 +302,11 @@ function ActiveResearchPanel({ tech }: { tech: TechState }) {
         <div>
           <h2 className="text-lg font-bold text-swu-success">{tech.name}</h2>
           <p className="text-sm text-swu-muted mt-1">
-            {tech.progress}/{tech.pointsRequired} Punkte ·{' '}
-            {tech.pointsPerTick ?? 1} Punkt(e) pro Tick
-            {tech.ticksRemaining != null &&
-              ` · ca. ${tech.ticksRemaining} Tick(s) verbleibend`}
+            {formatResearchProgress(tech)}
+            {tech.remainingPoints != null &&
+              ` · Rest: ${tech.remainingPoints} ${tech.commodity?.name ?? 'Ressource'}`}
+            {tech.blockedReason &&
+              ` · ${formatBlockedReason(tech.blockedReason, tech)}`}
           </p>
         </div>
         <StatusBadge status={tech.status} />
@@ -331,9 +353,7 @@ function EarlyResearchGoal({
         <div className="mt-2">
           <div className="flex justify-between text-[10px] text-swu-success">
             <span>Fortschritt</span>
-            <span>
-              {tech.progress}/{tech.pointsRequired}
-            </span>
+            <span>{formatResearchProgress(tech)}</span>
           </div>
           <div className="h-1 bg-swu-bg rounded-full overflow-hidden mt-0.5">
             <div

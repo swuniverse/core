@@ -64,8 +64,9 @@ export function RegisterPage() {
         </div>
 
         <div className="auth-notice">
-          Closed Alpha — Neue Kommandanten benoetigen einen Invite Key. Nur der
-          allererste Account darf ohne Key starten und wird Admin.
+          Closed Alpha — Neue Kommandanten benoetigen einen Invite Key. Deinen
+          ersten Key bekommst du ueber Discord, danach hat jeder Spieler bis zu
+          zwei eigene Einladungen fuer weitere Commander.
         </div>
 
         {error && <div className="auth-error">{error}</div>}
@@ -134,7 +135,9 @@ export function RegisterPage() {
               maxLength={128}
             />
             <p className="mt-1.5 text-xs text-swu-muted opacity-70">
-              Leer lassen nur beim allerersten Admin-Account.
+              Deinen ersten Key bekommst du ueber Discord. Danach kannst du im
+              Bereich Einstellungen selbst bis zu zwei weitere Invite Keys
+              erzeugen.
             </p>
           </div>
 

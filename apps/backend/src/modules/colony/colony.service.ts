@@ -239,7 +239,11 @@ export class ColonyService {
       }
     }
 
-    await this.deductBuildCosts(colony, buildingDef.costs);
+    await this.deductBuildCosts(
+      colony,
+      buildingDef.costs,
+      buildingDef.resourceCosts,
+    );
 
     const buildTimeMs = buildingDef.costs.buildTime * 1000;
     field.buildingId = buildingId;
@@ -253,16 +257,19 @@ export class ColonyService {
   private async deductBuildCosts(
     colony: Colony,
     costs: BuildingCosts,
+    resourceCosts?: Array<{ commodityId: number; amount: number }>,
   ): Promise<void> {
-    const costMap: [number, number][] = [
-      [1, costs.credits || 0],
-      [2, costs.durastahl || 0],
-      [3, costs.tibannaGas || 0],
-      [4, costs.kyberKristalle || 0],
-      [5, costs.beskar || 0],
-      [6, costs.kristallinesSilizium || 0],
-      [7, costs.energiemodule || 0],
-    ];
+    const costMap: [number, number][] = resourceCosts?.length
+      ? resourceCosts.map((cost) => [cost.commodityId, cost.amount])
+      : [
+          [1, costs.credits || 0],
+          [2, costs.durastahl || 0],
+          [3, costs.tibannaGas || 0],
+          [4, costs.kyberKristalle || 0],
+          [5, costs.beskar || 0],
+          [6, costs.kristallinesSilizium || 0],
+          [7, costs.energiemodule || 0],
+        ];
 
     for (const [commodityId, required] of costMap) {
       if (required <= 0) continue;

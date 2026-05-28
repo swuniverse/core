@@ -43,6 +43,7 @@ export interface BuildingDef {
   allowedFieldTypes: number[];
   isUnique: boolean;
   costs: BuildingCosts;
+  resourceCosts?: Array<{ commodityId: number; amount: number }>;
   production: BuildingProduction[];
   bonuses: BuildingBonuses;
   researchPoints?: number;

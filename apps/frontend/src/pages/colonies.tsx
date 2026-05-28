@@ -104,6 +104,7 @@ interface BuildingDef {
   description: string;
   category: string;
   costs: Record<string, number>;
+  resourceCosts?: Array<{ commodityId: number; amount: number }>;
   allowedFieldTypes: number[];
   isUnique: boolean;
   production: BuildingProduction[];
@@ -184,6 +185,14 @@ function canAfford(
   building: BuildingDef,
   storage: ColonyStorageItem[],
 ): boolean {
+  if (building.resourceCosts?.length) {
+    return building.resourceCosts.every((cost) => {
+      const available =
+        storage.find((s) => s.commodityId === cost.commodityId)?.amount || 0;
+      return available >= cost.amount;
+    });
+  }
+
   return Object.entries(COST_COMMODITY_MAP).every(([key, id]) => {
     const required = building.costs[key] || 0;
     return (
@@ -903,8 +912,18 @@ function BuildingDetailPanel({
           Baukosten
         </div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-          {Object.entries(COST_COMMODITY_MAP).map(([key, commodityId]) => {
-            const amount = building.costs[key];
+          {(building.resourceCosts?.length
+            ? building.resourceCosts.map((cost) => ({
+                key: String(cost.commodityId),
+                commodityId: cost.commodityId,
+                amount: cost.amount,
+              }))
+            : Object.entries(COST_COMMODITY_MAP).map(([key, commodityId]) => ({
+                key,
+                commodityId,
+                amount: building.costs[key] || 0,
+              }))
+          ).map(({ key, commodityId, amount }) => {
             if (!amount || amount <= 0) return null;
             const available =
               storage.find((s) => s.commodityId === commodityId)?.amount || 0;

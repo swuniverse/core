@@ -23,32 +23,72 @@ function DiscordIcon() {
 
 function StarIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+      />
     </svg>
   );
 }
 
 function PlanetIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418"
+      />
     </svg>
   );
 }
 
 function RocketIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
+      />
     </svg>
   );
 }
 
 function ShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+      />
     </svg>
   );
 }
@@ -83,6 +123,12 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+
+  function scrollToLandingInfo() {
+    document
+      .getElementById('landing-info')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -141,20 +187,22 @@ export function LoginPage() {
         <div className="landing-hero__bg" />
         <div className="landing-hero__content">
           <div className="landing-hero__text">
-            <p className="landing-hero__tagline">Browsergame · Open Source · Closed Alpha</p>
+            <p className="landing-hero__tagline">
+              Browsergame · Open Source · Closed Alpha
+            </p>
             <h1 className="landing-hero__title" aria-label="Star Wars Universe">
               <span className="sr-only">Star Wars Universe</span>
               STAR WARS
               <span className="landing-hero__title--accent"> UNIVERSE</span>
             </h1>
             <p className="landing-hero__desc">
-              Errichte dein Imperium in einer lebenden Galaxie. Kolonialisiere
-              Planeten, befehlige Flotten, schmiede Allianzen — oder zerstoere
-              sie.
+              Star Wars Universe befindet sich in der Closed Alpha. Wir suchen
+              aktive Tester, ehrliches Feedback und Mitentwickler, die das Spiel
+              frueh mitpraegen wollen.
             </p>
             <div className="landing-hero__actions">
               <Link to="/register" className="auth-btn landing-hero__cta">
-                Jetzt beitreten
+                Closed Alpha joinen
               </Link>
               <a
                 href="https://discord.com/invite/URaHDQAPev"
@@ -164,6 +212,13 @@ export function LoginPage() {
               >
                 <DiscordIcon /> Discord beitreten
               </a>
+            </div>
+            <div className="landing-hero__invite-note">
+              <span className="landing-hero__invite-badge">2x Player Invites</span>
+              <p>
+                Nach deiner Registrierung bekommst du ein eigenes Kontingent und
+                kannst bis zu zwei weitere Spieler selbst einladen.
+              </p>
             </div>
           </div>
 
@@ -179,6 +234,12 @@ export function LoginPage() {
                   <div>
                     <p className="auth-subtitle">Kommandozentrale</p>
                     <h2 className="auth-title text-xl!">Anmelden</h2>
+                  </div>
+
+                  <div className="auth-notice">
+                    Closed Alpha: Neue Accounts benoetigen aktuell einen Invite
+                    Key. Bitte tritt dem Discord bei oder registriere dich mit
+                    deinem Invite.
                   </div>
 
                   {error && <div className="auth-error">{error}</div>}
@@ -222,9 +283,9 @@ export function LoginPage() {
                   </form>
 
                   <p className="text-center text-sm text-swu-muted">
-                    Kein Konto?{' '}
+                    Noch kein Konto?{' '}
                     <Link to="/register" className="auth-link">
-                      Registrieren
+                      Mit Invite registrieren
                     </Link>
                   </p>
                 </div>
@@ -232,10 +293,20 @@ export function LoginPage() {
             </div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={scrollToLandingInfo}
+          className="landing-scroll-cue"
+          aria-label="Mehr Informationen anzeigen"
+        >
+          <span className="landing-scroll-cue__text">Mehr entdecken</span>
+          <span className="landing-scroll-cue__line" />
+          <span className="landing-scroll-cue__chevron">⌄</span>
+        </button>
       </section>
 
       {/* Features */}
-      <section className="landing-features">
+      <section id="landing-info" className="landing-features">
         <p className="auth-subtitle text-center">Was dich erwartet</p>
         <h2 className="landing-features__title">Deine Galaxie wartet</h2>
         <div className="landing-features__grid">
@@ -249,13 +320,77 @@ export function LoginPage() {
         </div>
       </section>
 
+      <section className="landing-flow">
+        <div className="landing-flow__content">
+          <p className="auth-subtitle text-center">Closed Alpha Zugang</p>
+          <h2 className="landing-flow__title">So kommst du in die Galaxie</h2>
+          <div className="landing-flow__grid">
+            <div className="landing-flow__step">
+              <div className="landing-flow__step-number">1</div>
+              <h3 className="landing-flow__step-title">Discord joinen</h3>
+              <p className="landing-flow__step-desc">
+                Tritt dem Server bei, hol dir Orientierung und frage in #rollen
+                nach einem Start-Invite, wenn du direkt mitmachen willst.
+              </p>
+            </div>
+            <div className="landing-flow__step">
+              <div className="landing-flow__step-number">2</div>
+              <h3 className="landing-flow__step-title">Account erstellen</h3>
+              <p className="landing-flow__step-desc">
+                Registriere dich mit deinem Invite Key, waehle deine Fraktion und
+                starte in die Closed Alpha.
+              </p>
+            </div>
+            <div className="landing-flow__step">
+              <div className="landing-flow__step-number">3</div>
+              <h3 className="landing-flow__step-title">2 Freunde einladen</h3>
+              <p className="landing-flow__step-desc">
+                Jeder neue Spieler erhaelt danach bis zu zwei eigene Invite Keys
+                und kann weitere Commander direkt selbst reinholen.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-needs">
+        <div className="landing-needs__content">
+          <p className="auth-subtitle text-center">Invite-System</p>
+          <h2 className="landing-needs__title">Wachse ueber die Community</h2>
+          <div className="landing-needs__grid">
+            <div className="landing-needs__card">
+              <h3 className="landing-needs__card-title">Start-Invites via Discord</h3>
+              <p className="landing-needs__card-desc">
+                Neue Spieler kommen ueber Discord rein, stellen sich kurz vor und
+                erhalten dort ihren ersten Zugang zur Closed Alpha.
+              </p>
+            </div>
+            <div className="landing-needs__card">
+              <h3 className="landing-needs__card-title">2 eigene Player Keys</h3>
+              <p className="landing-needs__card-desc">
+                Jeder registrierte Commander kann spaeter bis zu zwei eigene Keys
+                im Spiel erzeugen und direkt an Freunde weitergeben.
+              </p>
+            </div>
+            <div className="landing-needs__card">
+              <h3 className="landing-needs__card-title">Kontrolliertes Wachstum</h3>
+              <p className="landing-needs__card-desc">
+                So bleibt die Alpha bewusst klein, aber gute Spieler koennen selbst
+                weitere starke Tester und Mitbauer nachholen.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Community */}
       <section className="landing-community">
         <div className="landing-community__content">
           <h2 className="landing-community__title">Community</h2>
           <p className="landing-community__desc">
-            Open Source Projekt — Beitraege willkommen. Diskutiere Features,
-            melde Bugs, oder bau mit.
+            Closed Alpha mit Community-Wachstum: erste Zugänge laufen über
+            Discord, danach kann jeder registrierte Spieler bis zu zwei weitere
+            Commander selbst per Invite Key einladen.
           </p>
           <div className="landing-community__links">
             <a

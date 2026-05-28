@@ -415,9 +415,9 @@ function InvitesTab() {
     <div className="space-y-4 max-w-3xl">
       <Section title="Alpha-Einladungen">
         <p className="text-sm text-swu-muted">
-          Jeder Commander kann aus seinem Kontingent Invite Keys erzeugen und
-          weitergeben. Keys werden aus Sicherheitsgruenden nur direkt nach
-          Erstellung voll angezeigt.
+          Jeder Commander kann bis zu zwei Invite Keys aus seinem persönlichen
+          Kontingent erzeugen und direkt an Freunde weitergeben. Keys werden aus
+          Sicherheitsgruenden nur direkt nach Erstellung voll angezeigt.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <InfoRow
