@@ -741,7 +741,10 @@ function ColonyDetail({
               <h3 className="text-sm font-bold text-swu-muted mb-2">Lager</h3>
               <div className="space-y-1">
                 {storage.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-2 text-xs"
+                  >
                     <span className="flex min-w-0 items-center gap-2 text-swu-muted">
                       <img
                         src={commodityImage(item.commodityId)}

@@ -8,7 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
-import { Spacecraft, SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftStatus,
+} from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { WsEventType } from '@swuniverse/shared';
 import {
@@ -39,7 +42,7 @@ export class TickService {
     private readonly gateway: GameGateway,
   ) {}
 
-  @Cron('0 0 0,5,10,14,19 * * *')
+  @Cron('0 0 0,12,15,18,21 * * *')
   async handleTick() {
     this.tickCount++;
     const tickState = await this.startTick(GameTickType.MAIN, this.tickCount);
