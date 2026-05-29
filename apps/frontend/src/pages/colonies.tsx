@@ -506,6 +506,7 @@ function ColonyDetail({
                         buildingMap[field.buildingId]?.name
                       : undefined
                   }
+                  buildingId={field.buildingId ?? undefined}
                   isSelected={selectedField?.fieldIndex === field.fieldIndex}
                   isHighlighted={highlightedFields.has(field.fieldIndex)}
                   isBuildMode={!!selectedBuilding}
@@ -530,6 +531,7 @@ function ColonyDetail({
                         buildingMap[field.buildingId]?.name
                       : undefined
                   }
+                  buildingId={field.buildingId ?? undefined}
                   isSelected={selectedField?.fieldIndex === field.fieldIndex}
                   isHighlighted={highlightedFields.has(field.fieldIndex)}
                   isBuildMode={!!selectedBuilding}
@@ -554,6 +556,7 @@ function ColonyDetail({
                         buildingMap[field.buildingId]?.name
                       : undefined
                   }
+                  buildingId={field.buildingId ?? undefined}
                   isSelected={selectedField?.fieldIndex === field.fieldIndex}
                   isHighlighted={highlightedFields.has(field.fieldIndex)}
                   isBuildMode={!!selectedBuilding}
@@ -619,7 +622,7 @@ function ColonyDetail({
                       <img
                         src={buildingImage(b.id)}
                         alt=""
-                        className="mx-auto mb-1 h-10 w-10 rounded border border-swu-border/40 object-cover"
+                        className="mx-auto mb-1 h-14 w-14 object-contain drop-shadow-[0_0_10px_rgba(34,211,238,0.18)]"
                         loading="lazy"
                       />
                       <div className="text-xs font-bold text-swu-primary truncate">
@@ -749,7 +752,7 @@ function ColonyDetail({
                       <img
                         src={commodityImage(item.commodityId)}
                         alt=""
-                        className="h-5 w-5 rounded border border-swu-border/40 object-cover"
+                        className="h-7 w-7 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.16)]"
                         loading="lazy"
                       />
                       <span className="truncate">
@@ -1160,6 +1163,7 @@ function BuildingDetailPanel({
 function FieldCell({
   field,
   buildingName,
+  buildingId,
   isSelected,
   isHighlighted,
   isBuildMode,
@@ -1167,6 +1171,7 @@ function FieldCell({
 }: {
   field: ColonyField;
   buildingName?: string;
+  buildingId?: number;
   isSelected: boolean;
   isHighlighted: boolean;
   isBuildMode: boolean;
@@ -1181,7 +1186,7 @@ function FieldCell({
   return (
     <button
       onClick={onClick}
-      className={`w-9 h-9 rounded border text-xs flex items-center justify-center transition-all
+      className={`w-10 h-10 rounded border text-xs flex items-center justify-center transition-all
         ${isSelected ? 'border-swu-accent ring-1 ring-swu-accent' : ''}
         ${isHighlighted ? 'border-dashed border-swu-accent ring-2 ring-swu-accent/60 animate-pulse' : ''}
         ${!isSelected && !isHighlighted ? 'border-swu-border/50' : ''}
@@ -1192,11 +1197,18 @@ function FieldCell({
       `}
       title={`${FIELD_TYPE_NAMES[field.fieldType] || 'Unknown'}${buildingName ? ' — ' + buildingName : ''} (${field.fieldIndex})`}
     >
-      {shortName && (
+      {buildingId ? (
+        <img
+          src={buildingImage(buildingId)}
+          alt=""
+          className="h-9 w-9 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.16)]"
+          loading="lazy"
+        />
+      ) : shortName ? (
         <span className="text-[8px] font-bold text-swu-accent leading-none">
           {shortName}
         </span>
-      )}
+      ) : null}
     </button>
   );
 }

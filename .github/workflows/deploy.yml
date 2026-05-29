@@ -119,6 +119,12 @@ jobs:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
     steps:
+      - name: Build changelog summary
+        id: changelog
+        run: |
+          summary=$(jq -r '.head_commit.message // "Deployment update"' "$GITHUB_EVENT_PATH" | head -n 1)
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+
       - name: Send Discord Notification
         if: env.DISCORD_WEBHOOK != ''
         uses: sarisia/actions-status-discord@v1
@@ -127,7 +133,7 @@ jobs:
           username: 'swuniverse.net Bot'
           title: 'Deployment erfolgreich'
           description: |
+            **Update:** ${{ steps.changelog.outputs.summary }}
             **Branch:** `${{ github.ref_name }}`
-            **Commit:** `${{ github.sha }}`
             **Autor:** ${{ github.actor }}
           color: 0x3498db
