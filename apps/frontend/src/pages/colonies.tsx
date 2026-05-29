@@ -753,6 +753,12 @@ function ColonyDetail({
                         src={commodityImage(item.commodityId)}
                         alt=""
                         className="h-7 w-7 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.16)]"
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          maxWidth: '28px',
+                          maxHeight: '28px',
+                        }}
                         loading="lazy"
                       />
                       <span className="truncate">
@@ -1201,7 +1207,13 @@ function FieldCell({
         <img
           src={buildingImage(buildingId)}
           alt=""
-          className="h-9 w-9 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.16)]"
+          className="colony-field-building-icon h-8 w-8 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.16)]"
+          style={{
+            width: '32px',
+            height: '32px',
+            maxWidth: '32px',
+            maxHeight: '32px',
+          }}
           loading="lazy"
         />
       ) : shortName ? (
