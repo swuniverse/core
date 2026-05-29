@@ -13,5 +13,5 @@ swuniverse.net {
 }
 
 mail.swuniverse.net, autodiscover.swuniverse.net, autoconfig.swuniverse.net {
-	reverse_proxy host.docker.internal:8080
+	reverse_proxy nginx-mailcow:8080
 }
