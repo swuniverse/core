@@ -214,6 +214,10 @@ function formatBuildTime(seconds: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function formatSignedAmount(value: number): string {
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
 export function ColoniesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [colonies, setColonies] = useState<Colony[]>([]);
@@ -717,7 +721,7 @@ function ColonyDetail({
                           {buildingMap[selectedField.buildingId].production
                             .map(
                               (p) =>
-                                `${commodityMap[p.commodityId]?.nameShort || '?'} +${p.amount}`,
+                                `${commodityMap[p.commodityId]?.nameShort || '?'} ${formatSignedAmount(p.amount)}`,
                             )
                             .join(', ')}
                         </p>
@@ -806,7 +810,13 @@ function ColonyRuntimeOverview({ detail }: { detail: ColonyDetailV2 }) {
                 className="flex justify-between text-xs"
               >
                 <span className="text-swu-muted">{delta.nameShort}</span>
-                <span className="text-green-400">+{delta.amount}</span>
+                <span
+                  className={
+                    delta.amount < 0 ? 'text-red-400' : 'text-green-400'
+                  }
+                >
+                  {formatSignedAmount(delta.amount)}
+                </span>
               </div>
             ))}
           </div>
@@ -983,7 +993,11 @@ function BuildingDetailPanel({
                 <span className="text-swu-muted">
                   {commodityMap[p.commodityId]?.name || `#${p.commodityId}`}
                 </span>
-                <span className="text-green-400">+{p.amount}/Tick</span>
+                <span
+                  className={p.amount < 0 ? 'text-red-400' : 'text-green-400'}
+                >
+                  {formatSignedAmount(p.amount)}/Tick
+                </span>
               </div>
             ))}
           </div>
