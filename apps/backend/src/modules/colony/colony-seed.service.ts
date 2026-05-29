@@ -76,13 +76,10 @@ const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
 };
 
 const STARTING_COMMODITIES = [
-  { commodityId: 1, amount: 2500 }, // Credits
-  { commodityId: 2, amount: 700 }, // Durastahl
-  { commodityId: 3, amount: 200 }, // Tibanna-Gas
-  { commodityId: 4, amount: 80 }, // Kyber-Kristalle
-  { commodityId: 5, amount: 40 }, // Beskar
-  { commodityId: 6, amount: 300 }, // Kristallines Silizium
-  { commodityId: 7, amount: 220 }, // Energiemodule
+  { commodityId: 2, amount: 300 }, // Baumaterial
+  { commodityId: 4, amount: 150 }, // Transparistahl
+  { commodityId: 5, amount: 100 }, // Deuterium
+  { commodityId: 21, amount: 150 }, // Durastahl
 ];
 
 @Injectable()

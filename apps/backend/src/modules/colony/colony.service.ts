@@ -622,6 +622,16 @@ export class ColonyService {
           source: definition.name,
         });
       }
+      for (const output of definition.production) {
+        const commodity = this.gameData.getCommodity(output.commodityId);
+        if (commodity?.isTradeOnly) {
+          effects.push({
+            label: commodity.name,
+            value: output.amount,
+            source: definition.name,
+          });
+        }
+      }
       if (definition.researchPoints) {
         researchPoints += definition.researchPoints;
         effects.push({
@@ -694,19 +704,29 @@ export class ColonyService {
 
     if (production.size > 0) {
       for (const [commodityId, amount] of production) {
+        const commodity = this.gameData.getCommodity(commodityId);
+        if (commodity?.isTradeOnly) {
+          continue;
+        }
+
         let storage = await this.storageRepo.findOne({
           where: { colonyId: colony.id, commodityId },
         });
+        if (amount < 0 && (!storage || storage.amount + amount < 0)) {
+          continue;
+        }
         if (storage) {
           storage.amount += amount;
-        } else {
+        } else if (amount > 0) {
           storage = this.storageRepo.create({
             colonyId: colony.id,
             commodityId,
             amount,
           });
         }
-        await this.storageRepo.save(storage);
+        if (storage) {
+          await this.storageRepo.save(storage);
+        }
       }
 
       const totalStored = await this.storageRepo
