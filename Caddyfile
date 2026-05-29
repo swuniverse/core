@@ -11,3 +11,7 @@ swuniverse.net {
 		reverse_proxy frontend:5173
 	}
 }
+
+mail.swuniverse.net, autodiscover.swuniverse.net, autoconfig.swuniverse.net {
+	reverse_proxy host.docker.internal:8080
+}
