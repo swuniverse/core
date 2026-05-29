@@ -146,7 +146,27 @@ export class ColonyService {
       };
     }
 
-    if (!hasCompletedShipyard) {
+    const shipyardUnlocked = await this.unlockResolver.isBuildingUnlocked(
+      userId,
+      11,
+    );
+    if (!shipyardUnlocked) {
+      const nextResearch = this.getNextAvailableResearch(completedTechIds);
+      if (nextResearch) {
+        return {
+          key: `RESEARCH_${nextResearch.id}`,
+          label: `${nextResearch.name} erforschen`,
+          description: nextResearch.mappedCommodityId
+            ? `Kostet ${this.gameData.getCommodity(nextResearch.mappedCommodityId)?.name ?? 'Ressourcen'} pro Tick.`
+            : 'Schaltet den naechsten Entwicklungsschritt frei.',
+          href: `/research?focus=${nextResearch.id}`,
+          completed: false,
+          colonyId: primaryColony.id,
+        };
+      }
+    }
+
+    if (shipyardUnlocked && !hasCompletedShipyard) {
       return {
         key: hasShipyardInProgress ? 'SHIPYARD_BUILDING' : 'BUILD_SHIPYARD_HUB',
         label: hasShipyardInProgress
@@ -182,6 +202,29 @@ export class ColonyService {
       completed: true,
       colonyId: primaryColony.id,
     };
+  }
+
+  private getNextAvailableResearch(completedTechIds: Set<number>) {
+    return this.gameData
+      .getTechTree()
+      .filter((tech) => !tech.hidden && !tech.excludeFromNormalProgression)
+      .filter((tech) => {
+        if (tech.id === 1001 || tech.id === 1002) return false;
+        return true;
+      })
+      .filter((tech) => !completedTechIds.has(tech.id))
+      .filter((tech) =>
+        tech.dependencies.every((dependency) => {
+          if (dependency.type === 'EXCLUDE') {
+            return !dependency.techIds.some((id) => completedTechIds.has(id));
+          }
+          if (dependency.type === 'REQUIRE_SOME') {
+            return dependency.techIds.some((id) => completedTechIds.has(id));
+          }
+          return dependency.techIds.every((id) => completedTechIds.has(id));
+        }),
+      )
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id - b.id)[0];
   }
 
   async rename(
