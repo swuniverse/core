@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -17,24 +17,6 @@ function DiscordIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
       <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-    </svg>
-  );
-}
-
-function StarIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="w-6 h-6"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-      />
     </svg>
   );
 }
@@ -75,6 +57,24 @@ function RocketIcon() {
   );
 }
 
+function StarIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="w-6 h-6"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+      />
+    </svg>
+  );
+}
+
 function ShieldIcon() {
   return (
     <svg
@@ -96,23 +96,45 @@ function ShieldIcon() {
 const FEATURES = [
   {
     icon: <PlanetIcon />,
-    title: 'Kolonien gruenden',
-    desc: 'Beanspruche Planeten, baue Infrastruktur, wachse zur Supermacht.',
+    code: 'COL-01',
+    title: 'Kolonien gründen',
+    desc: 'Beanspruche Planeten, baue Infrastruktur und forme entlegene Welten zu Machtzentren.',
   },
   {
     icon: <RocketIcon />,
+    code: 'FLT-07',
     title: 'Flotten befehligen',
-    desc: 'Baue Schiffe, stelle Flotten zusammen, erkunde unbekannte Sektoren.',
+    desc: 'Entwerfe Schiffe, bündele Verbände und schicke Expeditionen durch unsichere Sektoren.',
   },
   {
     icon: <StarIcon />,
-    title: 'Galaxie erkunden',
-    desc: 'Interaktive Sternenkarte mit tausenden Systemen und Sektoren.',
+    code: 'MAP-12',
+    title: 'Sternenkarte lesen',
+    desc: 'Navigiere Systeme, Routen und Grenzräume auf einer wachsenden taktischen Galaxiekarte.',
   },
   {
     icon: <ShieldIcon />,
-    title: 'Fraktionen & Diplomatie',
-    desc: 'Waehle deine Seite. Verbünde dich — oder erobere.',
+    code: 'DIP-03',
+    title: 'Diplomatie riskieren',
+    desc: 'Schließe Bündnisse, teile Aufklärung oder bringe rivalisierende Fraktionen ins Wanken.',
+  },
+];
+
+const ACCESS_STEPS = [
+  {
+    number: '01',
+    title: 'Discord anfunken',
+    desc: 'Tritt dem Server bei, lies die Alpha-Hinweise und frage nach einem Start-Invite.',
+  },
+  {
+    number: '02',
+    title: 'Invite einlösen',
+    desc: 'Registriere dich mit deinem Key, wähle deine Fraktion und aktiviere dein Kommando.',
+  },
+  {
+    number: '03',
+    title: 'Zwei Spieler rekrutieren',
+    desc: 'Nach dem Start kannst du bis zu zwei weitere Commander persönlich einladen.',
   },
 ];
 
@@ -130,7 +152,7 @@ export function LoginPage() {
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -151,15 +173,26 @@ export function LoginPage() {
   }
 
   return (
-    <div className="landing">
+    <div className="landing landing--dossier">
       <StarField />
       <div className="auth-scanlines" />
+      <div className="landing-grid-sky" />
+      <div className="landing-route-field" aria-hidden="true">
+        <span className="landing-route landing-route--one" />
+        <span className="landing-route landing-route--two" />
+        <span className="landing-route landing-route--three" />
+      </div>
       <div className="auth-nebula auth-nebula--left" />
       <div className="auth-nebula auth-nebula--right" />
 
-      {/* Nav */}
-      <nav className="landing-nav">
-        <div className="landing-nav__logo">SWU</div>
+      <nav className="landing-nav landing-nav--dossier">
+        <a
+          href="#top"
+          className="landing-nav__mark"
+          aria-label="Star Wars Universe Start"
+        >
+          <span className="landing-nav__sigil">SWU</span>
+        </a>
         <div className="landing-nav__links">
           <a
             href="https://github.com/swuniverse"
@@ -169,273 +202,266 @@ export function LoginPage() {
             aria-label="GitHub"
           >
             <GithubIcon />
+            <span>GitHub</span>
           </a>
           <a
             href="https://discord.com/invite/vvUwR6UZbB"
             target="_blank"
             rel="noopener noreferrer"
-            className="landing-nav__link"
+            className="landing-nav__link landing-nav__link--primary"
             aria-label="Discord"
           >
             <DiscordIcon />
+            <span>Discord</span>
           </a>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="landing-hero">
-        <div className="landing-hero__bg" />
-        <div className="landing-hero__content">
-          <div className="landing-hero__text">
-            <p className="landing-hero__tagline">
-              Browsergame · Open Source · Closed Alpha
+      <main id="top">
+        <section className="landing-hero landing-hero--dossier">
+          <div className="landing-hero__bg" />
+          <div className="landing-hero__content landing-hero__content--dossier">
+            <div className="landing-briefing">
+              <div className="landing-briefing__kicker">
+                <span>Classified Alpha Dossier</span>
+                <strong>Invite Only</strong>
+              </div>
+              <h1 className="landing-briefing__title landing-briefing__title--swu">
+                Star Wars
+                <span>Universe</span>
+              </h1>
+              <p className="landing-briefing__lead">
+                Star Wars Universe ist ein tickbasiertes Open-Source-Browsergame
+                in der Closed Alpha. Wir suchen Commander, die Systeme testen,
+                Bugs melden, Strategien brechen und die Galaxie mitformen.
+              </p>
+
+              <div className="landing-briefing__actions">
+                <Link
+                  to="/register"
+                  className="auth-btn landing-hero__cta landing-hero__cta--primary"
+                >
+                  Registrieren
+                </Link>
+                <a
+                  href="https://discord.com/invite/vvUwR6UZbB"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="auth-btn auth-btn--secondary landing-hero__cta landing-hero__cta--signal"
+                >
+                  <DiscordIcon /> Discord beitreten
+                </a>
+              </div>
+
+              <div className="landing-intel-strip" aria-label="Alpha Status">
+                <div>
+                  <span>Status</span>
+                  <strong>Closed Alpha</strong>
+                </div>
+                <div>
+                  <span>Zugang</span>
+                  <strong>Invite Key</strong>
+                </div>
+                <div>
+                  <span>Rekrutierung</span>
+                  <strong>2 Player Invites</strong>
+                </div>
+              </div>
+            </div>
+
+            <aside
+              className="landing-terminal landing-terminal--stu"
+              aria-label="Star Wars Universe Login"
+            >
+              <div className="landing-stu-login__frame">
+                <div className="landing-stu-login__header">
+                  <span>Star Wars Universe</span>
+                  <small>Closed Alpha</small>
+                </div>
+
+                <div className="landing-stu-login__subheader">
+                  Login für Siedler und Commander
+                </div>
+
+                {error && <div className="auth-error">{error}</div>}
+
+                <form
+                  onSubmit={handleSubmit}
+                  className="landing-stu-login__form"
+                >
+                  <label
+                    className="landing-stu-login__row"
+                    htmlFor="login-user"
+                  >
+                    <span>Siedler:</span>
+                    <input
+                      id="login-user"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="landing-stu-login__input"
+                      required
+                      autoComplete="username"
+                    />
+                  </label>
+                  <label
+                    className="landing-stu-login__row"
+                    htmlFor="login-pass"
+                  >
+                    <span>Password:</span>
+                    <input
+                      id="login-pass"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="landing-stu-login__input"
+                      required
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="landing-stu-login__button"
+                  >
+                    {loading ? 'Login...' : 'Login'}
+                  </button>
+                </form>
+
+                <div className="landing-stu-login__links">
+                  <Link to="/register" className="auth-link">
+                    Mit Invite registrieren
+                  </Link>
+                  <a
+                    href="https://discord.com/invite/vvUwR6UZbB"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="auth-link"
+                  >
+                    Invite im Discord holen
+                  </a>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <button
+            type="button"
+            onClick={scrollToLandingInfo}
+            className="landing-scroll-cue landing-scroll-cue--dossier"
+            aria-label="Mehr Informationen anzeigen"
+          >
+            <span className="landing-scroll-cue__text">Briefing öffnen</span>
+            <span className="landing-scroll-cue__line" />
+            <span className="landing-scroll-cue__chevron">⌄</span>
+          </button>
+        </section>
+
+        <section
+          id="landing-info"
+          className="landing-dossier-section landing-dossier-section--features"
+        >
+          <div className="landing-section-heading">
+            <p className="auth-subtitle">Mission Briefing</p>
+            <h2>Was dich erwartet</h2>
+            <span>Vier operative Ebenen, eine persistente Galaxie.</span>
+          </div>
+          <div className="landing-mission-grid">
+            {FEATURES.map((feature) => (
+              <article key={feature.title} className="landing-mission-card">
+                <div className="landing-mission-card__topline">
+                  <span>{feature.code}</span>
+                  <div>{feature.icon}</div>
+                </div>
+                <h3>{feature.title}</h3>
+                <p>{feature.desc}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="landing-dossier-section landing-dossier-section--access">
+          <div className="landing-section-heading">
+            <p className="auth-subtitle">Access Protocol</p>
+            <h2>So kommst du in die Galaxie</h2>
+            <span>
+              Bewusst langsam wachsend: aktive Spieler bringen aktive Tester
+              mit.
+            </span>
+          </div>
+          <div className="landing-access-line">
+            {ACCESS_STEPS.map((step) => (
+              <article key={step.number} className="landing-access-step">
+                <div className="landing-access-step__number">{step.number}</div>
+                <h3>{step.title}</h3>
+                <p>{step.desc}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="landing-dossier-section landing-dossier-section--invite">
+          <div className="landing-invite-panel">
+            <div className="landing-invite-panel__stamp">Invite-System</div>
+            <div>
+              <p className="auth-subtitle">Community Growth</p>
+              <h2>Wachse über persönliche Rekrutierung</h2>
+            </div>
+            <p>
+              Der erste Zugang kommt über Discord. Danach erhält jeder neue
+              Commander bis zu zwei eigene Invite Keys. So bleibt die Alpha
+              klein, fokussiert und spielbar, während Feedback direkt aus
+              aktiven Runden kommt.
             </p>
-            <h1 className="landing-hero__title" aria-label="Star Wars Universe">
-              <span className="sr-only">Star Wars Universe</span>
-              STAR WARS
-              <span className="landing-hero__title--accent"> UNIVERSE</span>
-            </h1>
-            <p className="landing-hero__desc">
-              Star Wars Universe befindet sich in der Closed Alpha. Wir suchen
-              aktive Tester, ehrliches Feedback und Mitentwickler, die das Spiel
-              frueh mitpraegen wollen.
+          </div>
+        </section>
+
+        <section className="landing-community landing-community--dossier">
+          <div className="landing-community__content">
+            <p className="auth-subtitle">Transmission Channels</p>
+            <h2 className="landing-community__title">
+              Community & Entwicklung
+            </h2>
+            <p className="landing-community__desc">
+              Star Wars Universe entsteht offen mit der Community. Im Discord
+              bekommst du Alpha-Zugang, im GitHub findest du Code, Issues und
+              offene Baustellen.
             </p>
-            <div className="landing-hero__actions">
-              <Link to="/register" className="auth-btn landing-hero__cta">
-                Closed Alpha joinen
-              </Link>
+            <div className="landing-community__links">
+              <a
+                href="https://github.com/swuniverse"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="landing-community__card"
+              >
+                <GithubIcon />
+                <div>
+                  <div className="landing-community__card-title">GitHub</div>
+                  <div className="landing-community__card-desc">
+                    Code, Issues & Contributions
+                  </div>
+                </div>
+              </a>
               <a
                 href="https://discord.com/invite/vvUwR6UZbB"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="auth-btn auth-btn--secondary landing-hero__cta"
+                className="landing-community__card landing-community__card--discord"
               >
-                <DiscordIcon /> Discord beitreten
+                <DiscordIcon />
+                <div>
+                  <div className="landing-community__card-title">Discord</div>
+                  <div className="landing-community__card-desc">
+                    Alpha-Zugang, Feedback & Updates
+                  </div>
+                </div>
               </a>
             </div>
-            <div className="landing-hero__invite-note">
-              <span className="landing-hero__invite-badge">
-                2x Player Invites
-              </span>
-              <p>
-                Nach deiner Registrierung bekommst du ein eigenes Kontingent und
-                kannst bis zu zwei weitere Spieler selbst einladen.
-              </p>
-            </div>
           </div>
+        </section>
+      </main>
 
-          {/* Login form */}
-          <div className="landing-hero__form">
-            <div className="auth-panel">
-              <div className="auth-panel__corner auth-panel__corner--tl" />
-              <div className="auth-panel__corner auth-panel__corner--tr" />
-              <div className="auth-panel__corner auth-panel__corner--bl" />
-              <div className="auth-panel__corner auth-panel__corner--br" />
-              <div className="auth-panel__content">
-                <div className="auth-stagger space-y-5">
-                  <div>
-                    <p className="auth-subtitle">Kommandozentrale</p>
-                    <h2 className="auth-title text-xl!">Anmelden</h2>
-                  </div>
-
-                  <div className="auth-notice">
-                    Closed Alpha: Neue Accounts benoetigen aktuell einen Invite
-                    Key. Bitte tritt dem Discord bei oder registriere dich mit
-                    deinem Invite.
-                  </div>
-
-                  {error && <div className="auth-error">{error}</div>}
-
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                      <label className="auth-label" htmlFor="login-user">
-                        Benutzername
-                      </label>
-                      <input
-                        id="login-user"
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="auth-input"
-                        required
-                        autoComplete="username"
-                      />
-                    </div>
-                    <div>
-                      <label className="auth-label" htmlFor="login-pass">
-                        Passwort
-                      </label>
-                      <input
-                        id="login-pass"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="auth-input"
-                        required
-                        autoComplete="current-password"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="auth-btn"
-                    >
-                      {loading ? 'Authentifiziere...' : 'Zugang erhalten'}
-                    </button>
-                  </form>
-
-                  <p className="text-center text-sm text-swu-muted">
-                    Noch kein Konto?{' '}
-                    <Link to="/register" className="auth-link">
-                      Mit Invite registrieren
-                    </Link>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={scrollToLandingInfo}
-          className="landing-scroll-cue"
-          aria-label="Mehr Informationen anzeigen"
-        >
-          <span className="landing-scroll-cue__text">Mehr entdecken</span>
-          <span className="landing-scroll-cue__line" />
-          <span className="landing-scroll-cue__chevron">⌄</span>
-        </button>
-      </section>
-
-      {/* Features */}
-      <section id="landing-info" className="landing-features">
-        <p className="auth-subtitle text-center">Was dich erwartet</p>
-        <h2 className="landing-features__title">Deine Galaxie wartet</h2>
-        <div className="landing-features__grid">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="landing-feature-card">
-              <div className="landing-feature-card__icon">{f.icon}</div>
-              <h3 className="landing-feature-card__title">{f.title}</h3>
-              <p className="landing-feature-card__desc">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-flow">
-        <div className="landing-flow__content">
-          <p className="auth-subtitle text-center">Closed Alpha Zugang</p>
-          <h2 className="landing-flow__title">So kommst du in die Galaxie</h2>
-          <div className="landing-flow__grid">
-            <div className="landing-flow__step">
-              <div className="landing-flow__step-number">1</div>
-              <h3 className="landing-flow__step-title">Discord joinen</h3>
-              <p className="landing-flow__step-desc">
-                Tritt dem Server bei, hol dir Orientierung und frage in #rollen
-                nach einem Start-Invite, wenn du direkt mitmachen willst.
-              </p>
-            </div>
-            <div className="landing-flow__step">
-              <div className="landing-flow__step-number">2</div>
-              <h3 className="landing-flow__step-title">Account erstellen</h3>
-              <p className="landing-flow__step-desc">
-                Registriere dich mit deinem Invite Key, waehle deine Fraktion
-                und starte in die Closed Alpha.
-              </p>
-            </div>
-            <div className="landing-flow__step">
-              <div className="landing-flow__step-number">3</div>
-              <h3 className="landing-flow__step-title">2 Freunde einladen</h3>
-              <p className="landing-flow__step-desc">
-                Jeder neue Spieler erhaelt danach bis zu zwei eigene Invite Keys
-                und kann weitere Commander direkt selbst reinholen.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-needs">
-        <div className="landing-needs__content">
-          <p className="auth-subtitle text-center">Invite-System</p>
-          <h2 className="landing-needs__title">Wachse ueber die Community</h2>
-          <div className="landing-needs__grid">
-            <div className="landing-needs__card">
-              <h3 className="landing-needs__card-title">
-                Start-Invites ueber Discord
-              </h3>
-              <p className="landing-needs__card-desc">
-                Neue Spieler melden sich im Discord, erhalten dort ihren ersten
-                Invite Key und starten direkt in die Closed Alpha.
-              </p>
-            </div>
-            <div className="landing-needs__card">
-              <h3 className="landing-needs__card-title">
-                Zwei eigene Invite Keys
-              </h3>
-              <p className="landing-needs__card-desc">
-                Nach der Registrierung kann jeder Commander bis zu zwei weitere
-                Spieler persoenlich einladen.
-              </p>
-            </div>
-            <div className="landing-needs__card">
-              <h3 className="landing-needs__card-title">
-                Wachstum mit Qualitaet
-              </h3>
-              <p className="landing-needs__card-desc">
-                Die Alpha waechst bewusst langsam: aktive Spieler bringen neue
-                Tester mit, die wirklich mitspielen, Feedback geben oder
-                mitbauen.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Community */}
-      <section className="landing-community">
-        <div className="landing-community__content">
-          <h2 className="landing-community__title">Community</h2>
-          <p className="landing-community__desc">
-            Star Wars Universe entsteht offen mit der Community. Im Discord
-            bekommst du Zugang zur Closed Alpha, kannst Feedback geben, Bugs
-            melden und dich mit anderen Commandern abstimmen.
-          </p>
-          <div className="landing-community__links">
-            <a
-              href="https://github.com/swuniverse"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="landing-community__card"
-            >
-              <GithubIcon />
-              <div>
-                <div className="landing-community__card-title">GitHub</div>
-                <div className="landing-community__card-desc">
-                  Code, Issues & Contributions
-                </div>
-              </div>
-            </a>
-            <a
-              href="https://discord.com/invite/vvUwR6UZbB"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="landing-community__card"
-            >
-              <DiscordIcon />
-              <div>
-                <div className="landing-community__card-title">Discord</div>
-                <div className="landing-community__card-desc">
-                  Alpha-Zugang, Feedback & Updates
-                </div>
-              </div>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="landing-footer">
+      <footer className="landing-footer landing-footer--dossier">
         <span className="landing-footer__line" />
         <span className="landing-footer__text">
           STAR WARS UNIVERSE · OPEN SOURCE · {new Date().getFullYear()}

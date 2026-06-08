@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
-import { AuthLayout } from '../components/auth/AuthLayout';
+import { StarField } from '../components/auth/StarField';
 import type { AuthResponse } from '@swuniverse/shared';
 
 interface FactionOption {
@@ -10,6 +10,22 @@ interface FactionOption {
   key: string;
   name: string;
   colorPrimary: string;
+}
+
+function GithubIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
+
+function DiscordIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+    </svg>
+  );
 }
 
 export function RegisterPage() {
@@ -28,7 +44,7 @@ export function RegisterPage() {
     api.get<FactionOption[]>('/factions').then(setFactions);
   }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!factionId) {
       setError('Waehle eine Fraktion');
@@ -56,135 +72,160 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthLayout>
-      <div className="auth-stagger space-y-5">
-        <div className="text-center">
-          <p className="auth-subtitle">Neue Rekruten</p>
-          <h1 className="auth-title">Der Galaxis beitreten</h1>
-        </div>
+    <div className="landing landing--dossier register-dossier">
+      <StarField />
+      <div className="auth-scanlines" />
+      <div className="landing-grid-sky" />
+      <div className="auth-nebula auth-nebula--left" />
+      <div className="auth-nebula auth-nebula--right" />
 
-        <div className="auth-notice">
-          Closed Alpha — Neue Kommandanten benoetigen einen Invite Key. Deinen
-          ersten Key bekommst du ueber Discord, danach hat jeder Spieler bis zu
-          zwei eigene Einladungen fuer weitere Commander.
-        </div>
-
-        {error && <div className="auth-error">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="auth-label" htmlFor="reg-user">
-              Benutzername
-            </label>
-            <input
-              id="reg-user"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="auth-input"
-              required
-              minLength={3}
-              maxLength={32}
-              autoComplete="username"
-            />
-          </div>
-
-          <div>
-            <label className="auth-label" htmlFor="reg-email">
-              Email
-            </label>
-            <input
-              id="reg-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="auth-input"
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          <div>
-            <label className="auth-label" htmlFor="reg-pass">
-              Passwort
-            </label>
-            <input
-              id="reg-pass"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="auth-input"
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
-          </div>
-
-          <div>
-            <label className="auth-label" htmlFor="reg-invite">
-              Invite Key
-            </label>
-            <input
-              id="reg-invite"
-              type="text"
-              value={inviteKey}
-              onChange={(e) => setInviteKey(e.target.value)}
-              className="auth-input uppercase tracking-wider"
-              placeholder="SWU-ABCDE-23456-FGHIJ"
-              minLength={8}
-              maxLength={128}
-            />
-            <p className="mt-1.5 text-xs text-swu-muted opacity-70">
-              Deinen ersten Key bekommst du ueber Discord. Danach kannst du im
-              Bereich Einstellungen selbst bis zu zwei weitere Invite Keys
-              erzeugen.
-            </p>
-          </div>
-
-          <div>
-            <label className="auth-label">Fraktion</label>
-            <div className="auth-faction-grid">
-              {factions.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFactionId(f.id)}
-                  className={`auth-faction-btn ${factionId === f.id ? 'auth-faction-btn--selected' : ''}`}
-                  style={
-                    factionId === f.id
-                      ? {
-                          borderColor: f.colorPrimary,
-                          boxShadow: `0 0 20px ${f.colorPrimary}25, inset 0 0 30px ${f.colorPrimary}08`,
-                        }
-                      : undefined
-                  }
-                >
-                  <div
-                    className="w-3 h-3 rounded-full mx-auto mb-2"
-                    style={{ backgroundColor: f.colorPrimary }}
-                  />
-                  <div className="auth-faction-name">{f.name}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !factionId}
-            className="auth-btn"
+      <nav className="landing-nav landing-nav--dossier">
+        <Link
+          to="/login"
+          className="landing-nav__mark"
+          aria-label="Zur Login-Seite"
+        >
+          <span className="landing-nav__sigil">SWU</span>
+          <span className="landing-nav__meta">Star Wars Universe</span>
+        </Link>
+        <div className="landing-nav__links">
+          <a
+            href="https://github.com/swuniverse"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="landing-nav__link"
+            aria-label="GitHub"
           >
-            {loading ? 'Konto wird erstellt...' : 'Registrieren'}
-          </button>
-        </form>
+            <GithubIcon />
+            <span>GitHub</span>
+          </a>
+          <a
+            href="https://discord.com/invite/vvUwR6UZbB"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="landing-nav__link landing-nav__link--primary"
+            aria-label="Discord"
+          >
+            <DiscordIcon />
+            <span>Discord</span>
+          </a>
+        </div>
+      </nav>
 
-        <p className="text-center text-sm text-swu-muted">
-          Bereits ein Konto?{' '}
-          <Link to="/login" className="auth-link">
-            Anmelden
+      <main className="register-dossier__shell">
+        <section className="register-dossier__intro">
+          <p className="auth-subtitle">Closed Alpha Registrierung</p>
+          <h1>Neuen Siedler anlegen</h1>
+          <p>
+            Erstelle deinen Zugang mit Invite Key. Der Name heißt hier bewusst
+            <strong> Loginname</strong> — derselbe Zugang, den du später im
+            Login als <strong>Siedler</strong> verwendest.
+          </p>
+          <Link to="/login" className="register-dossier__backlink">
+            Bereits registriert? Zum Login
           </Link>
-        </p>
-      </div>
-    </AuthLayout>
+        </section>
+
+        <section className="register-dossier__panel" aria-label="Registrierung">
+          <div className="register-dossier__bar">
+            Registrierung · Star Wars Universe
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="register-dossier__form">
+            <label className="register-dossier__field" htmlFor="reg-user">
+              <span>Loginname</span>
+              <input
+                id="reg-user"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="register-dossier__input"
+                required
+                minLength={3}
+                maxLength={32}
+                autoComplete="username"
+              />
+              <small>3 bis 32 Buchstaben/Zahlen</small>
+            </label>
+
+            <label className="register-dossier__field" htmlFor="reg-email">
+              <span>E-Mail Adresse</span>
+              <input
+                id="reg-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="register-dossier__input"
+                required
+                autoComplete="email"
+              />
+            </label>
+
+            <label className="register-dossier__field" htmlFor="reg-pass">
+              <span>Password</span>
+              <input
+                id="reg-pass"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="register-dossier__input"
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </label>
+
+            <label className="register-dossier__field" htmlFor="reg-invite">
+              <span>Invite Key</span>
+              <input
+                id="reg-invite"
+                type="text"
+                value={inviteKey}
+                onChange={(e) => setInviteKey(e.target.value)}
+                className="register-dossier__input register-dossier__input--code"
+                placeholder="SWU-ABCDE-23456-FGHIJ"
+                minLength={8}
+                maxLength={128}
+              />
+              <small>
+                Ersten Key über Discord holen. Danach kannst du zwei weitere
+                Siedler einladen.
+              </small>
+            </label>
+
+            <div className="register-dossier__factions">
+              <span>Fraktion wählen</span>
+              <div className="register-dossier__faction-list">
+                {factions.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFactionId(f.id)}
+                    className={`register-dossier__faction ${factionId === f.id ? 'register-dossier__faction--selected' : ''}`}
+                    style={{
+                      borderColor:
+                        factionId === f.id ? f.colorPrimary : undefined,
+                    }}
+                  >
+                    <i style={{ backgroundColor: f.colorPrimary }} />
+                    {f.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !factionId}
+              className="register-dossier__submit"
+            >
+              {loading ? 'Registriere...' : 'Registrieren'}
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
   );
 }
