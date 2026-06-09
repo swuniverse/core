@@ -16,6 +16,7 @@ import { FactionModule } from './modules/faction/faction.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { MailModule } from './modules/mail/mail.module';
 import { User } from './modules/auth/user.entity';
 import { InviteKey } from './modules/auth/invite-key.entity';
 import { InviteQuota } from './modules/auth/invite-quota.entity';
@@ -117,6 +118,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
     HolonetModule,
     SettingsModule,
     DatabaseModule,
+    MailModule,
     TickModule,
     WebsocketModule,
   ],

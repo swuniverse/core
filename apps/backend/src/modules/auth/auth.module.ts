@@ -14,6 +14,7 @@ import { InviteQuota } from './invite-quota.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { ColonyModule } from '../colony/colony.module';
 import { FactionModule } from '../faction/faction.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { FactionModule } from '../faction/faction.module';
     }),
     ColonyModule,
     FactionModule,
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, AdminGuard, AdminBootstrapService],

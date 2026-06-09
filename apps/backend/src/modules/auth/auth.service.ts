@@ -20,6 +20,7 @@ import {
   AuthResponse,
   JwtPayload,
 } from '@swuniverse/shared';
+import { MailService } from '../mail/mail.service';
 
 const INITIAL_INVITE_QUOTA = 2;
 const INVITE_KEY_BYTES = 15;
@@ -66,6 +67,7 @@ export class AuthService {
     private readonly inviteQuotaRepo: Repository<InviteQuota>,
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -149,6 +151,8 @@ export class AuthService {
 
       return savedUser;
     });
+
+    void this.mailService.sendWelcomeMail(user.email, user.username);
 
     return this.generateTokens(user);
   }
