@@ -28,6 +28,9 @@ export class ColonyField {
   fieldType: number;
 
   @Column({ type: 'int', nullable: true })
+  terrainTileId: number | null;
+
+  @Column({ type: 'int', nullable: true })
   buildingId: number | null;
 
   @Column({ default: false })

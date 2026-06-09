@@ -323,6 +323,7 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "colonyId" integer NOT NULL,
         "fieldIndex" integer NOT NULL,
         "fieldType" integer NOT NULL,
+        "terrainTileId" integer,
         "buildingId" integer,
         "isBuilding" boolean NOT NULL DEFAULT false,
         "buildProgress" integer NOT NULL DEFAULT 0,

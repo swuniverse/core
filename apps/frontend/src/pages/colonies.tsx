@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import { buildingImage, commodityImage, planetImage } from '../lib/assets';
+import {
+  buildingImage,
+  colonyFieldTileImage,
+  commodityImage,
+  planetImage,
+} from '../lib/assets';
 
 interface ColonyField {
   id: number;
   fieldIndex: number;
   fieldType: number;
+  terrainTileId: number | null;
   buildingId: number | null;
   isBuilding: boolean;
   buildProgress: number;
@@ -160,6 +166,21 @@ const FIELD_TYPE_NAMES: Record<number, string> = {
   703: 'Gebirge',
   801: 'Untergrund',
   900: 'Orbit',
+};
+
+const TILE_TYPE_NAMES: Record<number, string> = {
+  ...FIELD_TYPE_NAMES,
+  112: 'Nadelwald',
+  121: 'Sumpf',
+  122: 'Sumpf',
+  210: 'Seichtwasser',
+  211: 'Korallen',
+  212: 'Korallen',
+  221: 'Küste',
+  222: 'Küste',
+  501: 'Eis',
+  802: 'Untergrundfels',
+  851: 'Untergrundwasser',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -673,7 +694,11 @@ function ColonyDetail({
               <div className="text-xs text-swu-muted space-y-1">
                 <p>
                   Terrain:{' '}
-                  {FIELD_TYPE_NAMES[selectedField.fieldType] || 'Unbekannt'}
+                  {TILE_TYPE_NAMES[
+                    selectedField.terrainTileId ?? selectedField.fieldType
+                  ] ||
+                    FIELD_TYPE_NAMES[selectedField.fieldType] ||
+                    'Unbekannt'}
                 </p>
                 {selectedField.buildingId && (
                   <p>
@@ -1202,11 +1227,12 @@ function FieldCell({
       ? buildingName.slice(0, 3) + '.'
       : buildingName
     : null;
+  const terrainTileId = field.terrainTileId ?? field.fieldType;
 
   return (
     <button
       onClick={onClick}
-      className={`w-10 h-10 rounded border text-xs flex items-center justify-center transition-all
+      className={`relative w-10 h-10 overflow-hidden rounded border text-xs flex items-center justify-center transition-all
         ${isSelected ? 'border-swu-accent ring-1 ring-swu-accent' : ''}
         ${isHighlighted ? 'border-dashed border-swu-accent ring-2 ring-swu-accent/60 animate-pulse' : ''}
         ${!isSelected && !isHighlighted ? 'border-swu-border/50' : ''}
@@ -1215,13 +1241,19 @@ function FieldCell({
         ${isBuildMode && !isHighlighted && !field.buildingId ? 'opacity-30' : ''}
         ${isHighlighted ? 'cursor-crosshair' : 'hover:border-swu-primary'}
       `}
-      title={`${FIELD_TYPE_NAMES[field.fieldType] || 'Unknown'}${buildingName ? ' — ' + buildingName : ''} (${field.fieldIndex})`}
+      title={`${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || 'Unknown'}${buildingName ? ' — ' + buildingName : ''} (${field.fieldIndex})`}
     >
+      <img
+        src={colonyFieldTileImage(terrainTileId)}
+        alt=""
+        className="h-full w-full rounded object-cover"
+        loading="lazy"
+      />
       {buildingId ? (
         <img
           src={buildingImage(buildingId)}
           alt=""
-          className="colony-field-building-icon h-8 w-8 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.16)]"
+          className="colony-field-building-icon absolute h-8 w-8 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]"
           style={{
             width: '32px',
             height: '32px',
@@ -1231,7 +1263,7 @@ function FieldCell({
           loading="lazy"
         />
       ) : shortName ? (
-        <span className="text-[8px] font-bold text-swu-accent leading-none">
+        <span className="absolute text-[8px] font-bold text-swu-accent leading-none">
           {shortName}
         </span>
       ) : null}

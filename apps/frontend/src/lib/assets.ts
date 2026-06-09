@@ -78,6 +78,10 @@ export function buildingImage(buildingId: number): string {
     : `${ASSET_BASE}/buildings/${buildingId}.png`;
 }
 
+export function colonyFieldTileImage(tileId: number): string {
+  return `${ASSET_BASE}/generated/fields/${tileId}.png`;
+}
+
 export function researchImage(techId: number): string {
   return `${ASSET_BASE}/research/${techId}.png`;
 }

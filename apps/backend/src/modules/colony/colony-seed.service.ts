@@ -5,74 +5,15 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import {
+  STU_DEFAULT_COLONY_CLASS_ID,
+  normalizeStuTerrainType,
+  stuColonySurfaceGenerator,
+} from './stu-colony-surface.generator';
 
 const FIELD_TYPES = {
   PLAINS: 101,
-  FOREST: 111,
-  OCEAN: 201,
-  DESERT: 401,
-  ICE: 501,
-  SWAMP: 601,
-  ROCK: 701,
-  MOUNTAIN: 703,
   UNDERGROUND: 801,
-  ORBIT: 900,
-};
-
-// Planet class IDs → terrain distribution weights (STU ID scheme)
-const TERRAIN_WEIGHTS_BY_CLASS: Record<number, [number, number][]> = {
-  // Klasse M (201) — Temperiert/Ausgewogen — default
-  201: [
-    [FIELD_TYPES.PLAINS, 30],
-    [FIELD_TYPES.ROCK, 20],
-    [FIELD_TYPES.FOREST, 18],
-    [FIELD_TYPES.OCEAN, 12],
-    [FIELD_TYPES.DESERT, 8],
-    [FIELD_TYPES.MOUNTAIN, 7],
-    [FIELD_TYPES.SWAMP, 5],
-  ],
-  // Klasse L (203) — Wald/Dschungel
-  203: [
-    [FIELD_TYPES.FOREST, 35],
-    [FIELD_TYPES.PLAINS, 25],
-    [FIELD_TYPES.SWAMP, 15],
-    [FIELD_TYPES.OCEAN, 10],
-    [FIELD_TYPES.MOUNTAIN, 8],
-    [FIELD_TYPES.ROCK, 7],
-  ],
-  // Klasse O (205) — Ozean
-  205: [
-    [FIELD_TYPES.OCEAN, 40],
-    [FIELD_TYPES.PLAINS, 20],
-    [FIELD_TYPES.SWAMP, 12],
-    [FIELD_TYPES.FOREST, 10],
-    [FIELD_TYPES.ICE, 10],
-    [FIELD_TYPES.ROCK, 8],
-  ],
-  // Klasse K (211) — Wüste
-  211: [
-    [FIELD_TYPES.DESERT, 40],
-    [FIELD_TYPES.ROCK, 25],
-    [FIELD_TYPES.MOUNTAIN, 15],
-    [FIELD_TYPES.PLAINS, 12],
-    [FIELD_TYPES.OCEAN, 8],
-  ],
-  // Klasse P (215) — Eis
-  215: [
-    [FIELD_TYPES.ICE, 40],
-    [FIELD_TYPES.MOUNTAIN, 20],
-    [FIELD_TYPES.ROCK, 18],
-    [FIELD_TYPES.OCEAN, 12],
-    [FIELD_TYPES.PLAINS, 10],
-  ],
-  // Klasse H (213) — Vulkanisch
-  213: [
-    [FIELD_TYPES.ROCK, 35],
-    [FIELD_TYPES.MOUNTAIN, 30],
-    [FIELD_TYPES.DESERT, 20],
-    [FIELD_TYPES.PLAINS, 10],
-    [FIELD_TYPES.OCEAN, 5],
-  ],
 };
 
 const STARTING_COMMODITIES = [
@@ -116,7 +57,7 @@ export class ColonySeedService {
       celestialObjectId: planet?.id || null,
       posX: planet?.posX || 10,
       posY: planet?.posY || 10,
-      colonyClassId: planet?.classId || 201,
+      colonyClassId: planet?.classId || STU_DEFAULT_COLONY_CLASS_ID,
       energy: 50,
       energyMax: 100,
       population: 20,
@@ -160,56 +101,31 @@ export class ColonySeedService {
   }
 
   private async generateFields(colony: Colony): Promise<void> {
-    const fields: ColonyField[] = [];
+    const seed =
+      colony.celestialObject?.terrainSeed ??
+      (colony.celestialObjectId
+        ? `celestial-${colony.celestialObjectId}`
+        : `colony-${colony.id}`);
+    const surface = stuColonySurfaceGenerator.generate(
+      colony.colonyClassId,
+      seed,
+      2,
+    );
 
-    const ORBIT_COUNT = 20;
-    const SURFACE_COUNT = 50;
-    const UNDERGROUND_COUNT = 20;
-    const classId = colony.colonyClassId;
+    const fields: ColonyField[] = surface.fields.map((field) =>
+      this.fieldRepo.create({
+        colonyId: colony.id,
+        fieldIndex: field.fieldIndex,
+        fieldType: normalizeStuTerrainType(field.fieldType),
+        terrainTileId: field.fieldType,
+        buildingId: null,
+        isBuilding: false,
+      }),
+    );
 
-    // Orbit: 20 fields (indices 0-19)
-    for (let i = 0; i < ORBIT_COUNT; i++) {
-      fields.push(
-        this.fieldRepo.create({
-          colonyId: colony.id,
-          fieldIndex: i,
-          fieldType: FIELD_TYPES.ORBIT,
-          buildingId: null,
-          isBuilding: false,
-        }),
-      );
-    }
-
-    // Surface: 50 fields (indices 20-69)
-    for (let i = 0; i < SURFACE_COUNT; i++) {
-      fields.push(
-        this.fieldRepo.create({
-          colonyId: colony.id,
-          fieldIndex: ORBIT_COUNT + i,
-          fieldType: this.randomSurfaceFieldType(classId),
-          buildingId: null,
-          isBuilding: false,
-        }),
-      );
-    }
-
-    // Underground: 20 fields (indices 70-89)
-    for (let i = 0; i < UNDERGROUND_COUNT; i++) {
-      fields.push(
-        this.fieldRepo.create({
-          colonyId: colony.id,
-          fieldIndex: ORBIT_COUNT + SURFACE_COUNT + i,
-          fieldType: FIELD_TYPES.UNDERGROUND,
-          buildingId: null,
-          isBuilding: false,
-        }),
-      );
-    }
-
-    // Place HQ at surface center (index 20 + 25 = 45)
-    const hqIndex = ORBIT_COUNT + Math.floor(SURFACE_COUNT / 2);
-    const hqField = fields.find((f) => f.fieldIndex === hqIndex)!;
+    const hqField = this.findHeadquartersField(fields);
     hqField.fieldType = FIELD_TYPES.PLAINS;
+    hqField.terrainTileId = FIELD_TYPES.PLAINS;
     hqField.buildingId = 1;
     hqField.buildProgress = 100;
 
@@ -227,15 +143,23 @@ export class ColonySeedService {
     await this.storageRepo.save(storage);
   }
 
-  private randomSurfaceFieldType(classId = 201): number {
-    const weights =
-      TERRAIN_WEIGHTS_BY_CLASS[classId] || TERRAIN_WEIGHTS_BY_CLASS[201];
-    const totalWeight = weights.reduce((sum, [, w]) => sum + w, 0);
-    let rand = Math.random() * totalWeight;
-    for (const [fieldType, weight] of weights) {
-      rand -= weight;
-      if (rand <= 0) return fieldType;
-    }
-    return FIELD_TYPES.PLAINS;
+  private findHeadquartersField(fields: ColonyField[]): ColonyField {
+    const surfaceFields = fields.filter(
+      (field) =>
+        field.fieldType !== FIELD_TYPES.UNDERGROUND && field.fieldType !== 900,
+    );
+    const center = Math.floor(surfaceFields.length / 2);
+    return (
+      surfaceFields
+        .slice()
+        .sort(
+          (a, b) =>
+            Math.abs(a.fieldIndex - surfaceFields[center].fieldIndex) -
+            Math.abs(b.fieldIndex - surfaceFields[center].fieldIndex),
+        )
+        .find((field) => field.fieldType !== 201) ??
+      surfaceFields[center] ??
+      fields[0]
+    );
   }
 }
