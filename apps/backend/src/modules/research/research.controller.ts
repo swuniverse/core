@@ -31,4 +31,9 @@ export class ResearchController {
   ) {
     return this.researchService.startResearch(req.user.sub, techId);
   }
+
+  @Post('cancel')
+  cancel(@Request() req: { user: { sub: number } }) {
+    return this.researchService.cancelResearch(req.user.sub);
+  }
 }

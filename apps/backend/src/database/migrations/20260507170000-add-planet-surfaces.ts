@@ -5,9 +5,6 @@ export class AddPlanetSurfaces20260507170000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      'ALTER TABLE "celestial_objects" ADD COLUMN IF NOT EXISTS "planetClass" character varying(32)',
-    );
-    await queryRunner.query(
       'ALTER TABLE "celestial_objects" ADD COLUMN IF NOT EXISTS "surfaceWidth" integer',
     );
     await queryRunner.query(
@@ -24,7 +21,8 @@ export class AddPlanetSurfaces20260507170000 implements MigrationInterface {
         "fieldLayer" character varying(16) NOT NULL,
         "px" integer NOT NULL,
         "py" integer NOT NULL,
-        "terrainType" character varying(64) NOT NULL,
+        "fieldType" integer NOT NULL,
+        "terrainTileId" integer NOT NULL,
         "buildingId" integer,
         "isBuildable" boolean NOT NULL DEFAULT true,
         "resourceModifier" integer NOT NULL DEFAULT 0,
@@ -51,9 +49,6 @@ export class AddPlanetSurfaces20260507170000 implements MigrationInterface {
     );
     await queryRunner.query(
       'ALTER TABLE "celestial_objects" DROP COLUMN IF EXISTS "surfaceWidth"',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "celestial_objects" DROP COLUMN IF EXISTS "planetClass"',
     );
   }
 }

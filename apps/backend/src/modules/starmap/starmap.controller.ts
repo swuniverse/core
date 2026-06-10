@@ -16,9 +16,6 @@ import { StarmapService } from './starmap.service';
 import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
 import { ExplorationService } from './exploration.service';
-import { PlanetGeneratorService } from './generator/planet-generator.service';
-import { PLANET_CLASS_BY_KEY } from './generator/planet-classes.config';
-import { PlanetFieldLayer } from './entities/planet-field.entity';
 import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
 import type {
@@ -40,7 +37,6 @@ import type {
   StarmapFieldTypeDto,
   StarmapFillSectorDto,
   StarmapGalaxyFieldDto,
-  StarmapGeneratePlanetDto,
   StarmapGenerateSystemsDto,
   StarmapInfluenceAreaDto,
   StarmapInitializeGridDto,
@@ -48,7 +44,6 @@ import type {
   StarmapLayerOverviewDto,
   StarmapMapRegionDto,
   StarmapOperationResultDto,
-  StarmapPlanetSurfaceDto,
   StarmapRegenerateSystemDto,
   StarmapSectorDto,
   StarmapSystemDetailDto,
@@ -71,7 +66,6 @@ export class StarmapController {
     private readonly starmapAdminService: StarmapAdminService,
     private readonly starmapQueryService: StarmapQueryService,
     private readonly explorationService: ExplorationService,
-    private readonly planetGenerator: PlanetGeneratorService,
     private readonly influenceService: InfluenceService,
     private readonly wormholeService: WormholeService,
   ) {}
@@ -151,89 +145,6 @@ export class StarmapController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapSystemDetailDto> {
     return this.starmapService.getSystemDetail(id);
-  }
-
-  // --- Planet Surfaces ---
-
-  @Get('planets/:id/surface')
-  async getPlanetSurface(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<StarmapPlanetSurfaceDto> {
-    const fields = await this.planetGenerator.getPlanetFields(id);
-    const obj = await this.starmapService.getCelestialObject(id);
-    return {
-      celestialObject: {
-        id: obj.id,
-        objectType: obj.objectType,
-        name: obj.name,
-        posX: obj.posX,
-        posY: obj.posY,
-        classId: obj.classId,
-        isColonizable: obj.isColonizable,
-        planetClass: obj.planetClass,
-        surfaceWidth: obj.surfaceWidth,
-        surfaceHeight: obj.surfaceHeight,
-      },
-      orbit: fields
-        .filter((f) => f.fieldLayer === PlanetFieldLayer.ORBIT)
-        .map((f) => ({
-          id: f.id,
-          celestialObjectId: f.celestialObjectId,
-          fieldLayer: f.fieldLayer,
-          px: f.px,
-          py: f.py,
-          terrainType: f.terrainType,
-          buildingId: f.buildingId,
-          isBuildable: f.isBuildable,
-          resourceModifier: f.resourceModifier,
-        })),
-      surface: fields
-        .filter((f) => f.fieldLayer === PlanetFieldLayer.SURFACE)
-        .map((f) => ({
-          id: f.id,
-          celestialObjectId: f.celestialObjectId,
-          fieldLayer: f.fieldLayer,
-          px: f.px,
-          py: f.py,
-          terrainType: f.terrainType,
-          buildingId: f.buildingId,
-          isBuildable: f.isBuildable,
-          resourceModifier: f.resourceModifier,
-        })),
-      underground: fields
-        .filter((f) => f.fieldLayer === PlanetFieldLayer.UNDERGROUND)
-        .map((f) => ({
-          id: f.id,
-          celestialObjectId: f.celestialObjectId,
-          fieldLayer: f.fieldLayer,
-          px: f.px,
-          py: f.py,
-          terrainType: f.terrainType,
-          buildingId: f.buildingId,
-          isBuildable: f.isBuildable,
-          resourceModifier: f.resourceModifier,
-        })),
-    };
-  }
-
-  @Post('admin/planets/generate')
-  @UseGuards(AdminGuard)
-  async generatePlanetSurface(
-    @Body() body: StarmapGeneratePlanetDto,
-  ): Promise<StarmapOperationResultDto> {
-    const obj = await this.starmapService.getCelestialObject(
-      body.celestialObjectId,
-    );
-    obj.planetClass = body.planetClass;
-    obj.terrainSeed = body.terrainSeed ?? `planet-${obj.id}-${Date.now()}`;
-    const classDef = PLANET_CLASS_BY_KEY.get(body.planetClass);
-    if (classDef) {
-      obj.surfaceWidth = classDef.surfaceWidth;
-      obj.surfaceHeight = classDef.surfaceHeight;
-    }
-    await this.starmapService.saveCelestialObject(obj);
-    const created = await this.planetGenerator.generateAndPersist(obj.id);
-    return { created };
   }
 
   // --- Exploration / Fog of War ---

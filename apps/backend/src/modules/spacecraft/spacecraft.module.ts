@@ -18,6 +18,7 @@ import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ShipClassService } from './ship-class.service';
+import { SpacecraftScanService } from './spacecraft-scan.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
 
@@ -43,8 +44,18 @@ import { ResearchModule } from '../research/research.module';
     ResearchModule,
   ],
   controllers: [SpacecraftController],
-  providers: [SpacecraftService, ShipClassService, TransferService],
-  exports: [SpacecraftService, ShipClassService, TransferService],
+  providers: [
+    SpacecraftService,
+    ShipClassService,
+    TransferService,
+    SpacecraftScanService,
+  ],
+  exports: [
+    SpacecraftService,
+    ShipClassService,
+    TransferService,
+    SpacecraftScanService,
+  ],
 })
 export class SpacecraftModule implements OnModuleInit {
   constructor(private readonly shipClassService: ShipClassService) {}

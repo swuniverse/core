@@ -3,6 +3,15 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
 
+interface ActiveResearch {
+  name: string;
+  progress: number;
+  pointsRequired: number;
+  ticksRemaining?: number | null;
+  commodity?: { id: number; name: string } | null;
+  blockedReason?: string | null;
+}
+
 interface ColonySummary {
   id: number;
   name: string;
@@ -66,6 +75,7 @@ export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [colonies, setColonies] = useState<ColonySummary[]>([]);
   const [objective, setObjective] = useState<CurrentObjective | null>(null);
+  const [activeResearch, setActiveResearch] = useState<ActiveResearch | null>(null);
   const [loading, setLoading] = useState(true);
   const [tickState, setTickState] = useState(() => getTickState());
 
@@ -78,100 +88,69 @@ export function DashboardPage() {
     Promise.all([
       api.get<ColonySummary[]>('/colonies'),
       api.get<CurrentObjective>('/colonies/objectives/current'),
-    ]).then(([colonyData, objectiveData]) => {
+      api.get<Array<{ status: string; name: string; progress: number; pointsRequired: number; ticksRemaining?: number | null; commodity?: { id: number; name: string } | null; blockedReason?: string | null }>>('/research'),
+    ]).then(([colonyData, objectiveData, researchData]) => {
       setColonies(colonyData);
       setObjective(objectiveData);
+      const active = researchData.find((r) => r.status === 'IN_PROGRESS');
+      setActiveResearch(active ?? null);
       setLoading(false);
     });
   }, []);
 
+  const totalPopulation = colonies.reduce((sum, c) => sum + c.population, 0);
+  const totalEnergy = colonies.reduce((sum, c) => sum + c.energy, 0);
+  const totalEnergyMax = colonies.reduce((sum, c) => sum + c.energyMax, 0);
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-swu-accent">Maindesk</h1>
 
-      <TickTimeline tickState={tickState} />
-
-      <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-swu-primary font-bold text-lg">
-              {user?.username}
-            </p>
-            <p className="text-xs text-swu-muted mt-1">
-              Fraktion:{' '}
-              <span className="text-swu-accent">
-                {user?.faction === 'REBEL_ALLIANCE'
-                  ? 'Rebellenallianz'
-                  : user?.faction === 'GALACTIC_EMPIRE'
-                    ? 'Galaktisches Imperium'
-                    : user?.faction}
-              </span>
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-swu-muted">Prestige</p>
-            <p className="text-xl font-bold text-swu-accent">
-              {user?.prestige ?? 0}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard
-          title="Kolonien"
-          value={loading ? '...' : String(colonies.length)}
-        />
-        <StatCard
-          title="Bevoelkerung"
-          value={
-            loading
-              ? '...'
-              : String(
-                  colonies.reduce((sum, colony) => sum + colony.population, 0),
-                )
-          }
-        />
-        <StatCard
-          title="Energie"
-          value={
-            loading
-              ? '...'
-              : String(colonies.reduce((sum, colony) => sum + colony.energy, 0))
-          }
-        />
-      </div>
-
       {!loading && objective && (
-        <section className="bg-swu-accent/10 border border-swu-accent rounded-lg p-5">
-          <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
-            Naechste Aufgabe
-          </p>
-          <h2 className="text-lg font-bold text-swu-accent">
-            {objective.label}
-          </h2>
-          <p className="text-sm text-swu-muted mt-1">{objective.description}</p>
-          <Link
-            to={objective.href}
-            className="inline-block mt-3 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
-          >
-            {objective.key === 'CLAIM_HOMEWORLD'
-              ? 'Planet waehlen'
-              : objective.key.startsWith('RESEARCH')
-                ? 'Forschung oeffnen'
-                : objective.key === 'OPEN_SPACECRAFT'
-                  ? 'Raumschiffe oeffnen'
-                  : 'Aufgabe oeffnen'}
-          </Link>
+        <section className="bg-swu-accent/10 border border-swu-accent rounded-lg p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-1">
+                Naechste Aufgabe
+              </p>
+              <h2 className="text-base font-bold text-swu-accent">
+                {objective.label}
+              </h2>
+              <p className="text-xs text-swu-muted mt-1">{objective.description}</p>
+            </div>
+            <Link
+              to={objective.href}
+              className="shrink-0 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
+            >
+              {objective.key === 'CLAIM_HOMEWORLD'
+                ? 'Planet waehlen'
+                : objective.key.startsWith('RESEARCH')
+                  ? 'Forschung oeffnen'
+                  : objective.key === 'OPEN_SPACECRAFT'
+                    ? 'Raumschiffe oeffnen'
+                    : 'Aufgabe oeffnen'}
+            </Link>
+          </div>
         </section>
       )}
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {activeResearch && <ResearchWidget research={activeResearch} />}
+        <TickCompact tickState={tickState} />
+      </div>
+
       {colonies.length > 0 && (
         <section className="bg-swu-surface border border-swu-border rounded-lg p-4">
-          <h2 className="text-sm font-bold text-swu-muted mb-3">
-            Kolonie-Uebersicht
-          </h2>
-          <div className="space-y-3">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-swu-muted">
+              Kolonien ({colonies.length})
+            </h2>
+            <div className="flex gap-4 text-xs text-swu-muted">
+              <span>Bevölkerung: {totalPopulation}</span>
+              <span>Energie: {totalEnergy}/{totalEnergyMax}</span>
+            </div>
+          </div>
+          <div className="space-y-2">
             {colonies.map((colony) => (
               <Link
                 key={colony.id}
@@ -182,7 +161,7 @@ export function DashboardPage() {
                   <p className="text-sm font-bold text-swu-primary truncate">
                     {colony.name}
                   </p>
-                  <p className="text-xs text-swu-muted mt-0.5">
+                  <p className="text-[10px] text-swu-muted">
                     {colony.locationLabel || 'Unbekannter Standort'}
                   </p>
                 </div>
@@ -209,6 +188,8 @@ export function DashboardPage() {
           </div>
         </section>
       )}
+
+      <TickTimeline tickState={tickState} />
     </div>
   );
 }
@@ -287,12 +268,23 @@ function TickTimeline({
   );
 }
 
-function StatCard({ title, value }: { title: string; value: string }) {
+function TickCompact({ tickState }: { tickState: ReturnType<typeof getTickState> }) {
   return (
-    <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-      <h3 className="text-xs text-swu-muted">{title}</h3>
-      <p className="text-2xl font-bold text-swu-primary mt-1">{value}</p>
-    </div>
+    <section className="bg-swu-surface border border-swu-border rounded-lg p-4">
+      <h2 className="text-xs font-bold text-swu-muted uppercase tracking-wider">
+        Naechster Tick
+      </h2>
+      <p className="font-mono text-2xl font-bold text-swu-accent mt-1">
+        {formatDuration(tickState.msToNext)}
+      </p>
+      <p className="text-xs text-swu-muted mt-1">
+        Tick {tickState.currentTickIndex + 1}/{TICK_HOURS.length} ·{' '}
+        {tickState.nextTickDate.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </p>
+    </section>
   );
 }
 
@@ -321,5 +313,42 @@ function MiniBar({
         />
       </div>
     </div>
+  );
+}
+
+function ResearchWidget({ research }: { research: ActiveResearch }) {
+  const pct = research.pointsRequired > 0 ? (research.progress / research.pointsRequired) * 100 : 0;
+  return (
+    <section className="bg-swu-surface border border-swu-success/30 rounded-lg p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xs font-bold text-swu-muted uppercase tracking-wider">
+          Aktive Forschung
+        </h2>
+        <Link
+          to="/research"
+          className="text-[10px] text-swu-accent hover:underline"
+        >
+          Zur Forschung
+        </Link>
+      </div>
+      <p className="mt-1 text-sm font-bold text-swu-primary">{research.name}</p>
+      <div className="mt-2">
+        <div className="flex justify-between text-xs text-swu-muted mb-1">
+          <span>{research.progress} / {research.pointsRequired} Punkte</span>
+          {research.ticksRemaining != null && (
+            <span>{research.ticksRemaining} Tick(s) verbleibend</span>
+          )}
+        </div>
+        <div className="h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
+          <div
+            className="h-full bg-swu-success transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+      {research.blockedReason && (
+        <p className="mt-1 text-xs text-red-400 font-bold">Blockiert: Ressource fehlt</p>
+      )}
+    </section>
   );
 }

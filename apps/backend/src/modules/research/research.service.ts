@@ -133,6 +133,19 @@ export class ResearchService {
     return this.researchRepo.save(research);
   }
 
+  async cancelResearch(userId: number): Promise<Research> {
+    const research = await this.researchRepo.findOne({
+      where: { userId, status: ResearchStatus.IN_PROGRESS },
+    });
+    if (!research) {
+      throw new BadRequestException('No active research to cancel');
+    }
+
+    research.status = ResearchStatus.AVAILABLE;
+    research.blockedReason = null;
+    return this.researchRepo.save(research);
+  }
+
   async processTick(userId: number): Promise<void> {
     const inProgress = await this.researchRepo.findOne({
       where: { userId, status: ResearchStatus.IN_PROGRESS },

@@ -37,8 +37,11 @@ export class PlanetField {
   @Column()
   py: number;
 
-  @Column({ type: 'varchar', length: 64 })
-  terrainType: string;
+  @Column({ type: 'int' })
+  fieldType: number;
+
+  @Column({ type: 'int' })
+  terrainTileId: number;
 
   @Column({ type: 'int', nullable: true })
   buildingId: number | null;

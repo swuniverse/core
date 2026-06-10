@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
+import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
 
 @Controller('spacecraft')
@@ -23,6 +24,7 @@ export class SpacecraftController {
   constructor(
     private readonly spacecraftService: SpacecraftService,
     private readonly transferService: TransferService,
+    private readonly scanService: SpacecraftScanService,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -154,6 +156,15 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.removeModule(id, req.user.sub, moduleId);
+  }
+
+  @Post(':id/surface-scan')
+  surfaceScan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('celestialObjectId') celestialObjectId: number,
+  ) {
+    return this.scanService.surfaceScan(id, req.user.sub, celestialObjectId);
   }
 
   @Post(':id/navigate')

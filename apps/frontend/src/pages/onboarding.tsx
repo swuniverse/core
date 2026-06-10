@@ -13,6 +13,14 @@ import type {
   UserProfile,
 } from '@swuniverse/shared';
 import { api, ApiError } from '../services/api';
+
+const FACTION_ZONE_LABELS: Record<string, string> = {
+  REBEL: 'Rebellen',
+  EMPIRE: 'Imperium',
+  NEUTRAL: 'Neutral',
+  CONTESTED: 'Umkämpft',
+  UNKNOWN: 'Unbekannt',
+};
 import { useAuthStore } from '../stores/auth.store';
 import { planetImage } from '../lib/assets';
 
@@ -495,8 +503,8 @@ export function OnboardingPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 text-xs text-swu-muted mb-1">
-                        <span>Sector</span>
-                        <span>{sector?.dominantFactionZone ?? 'UNKNOWN'}</span>
+                        <span>Sektor</span>
+                        <span>{FACTION_ZONE_LABELS[sector?.dominantFactionZone ?? ''] ?? 'Unbekannt'}</span>
                       </div>
                       <div className="font-bold">
                         {x + 1} | {y + 1}

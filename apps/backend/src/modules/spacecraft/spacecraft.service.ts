@@ -23,6 +23,8 @@ import { GameDataService } from '../game-data/game-data.service';
 import { ShipClassService } from './ship-class.service';
 import { ExplorationService } from '../starmap/exploration.service';
 import { ExplorationLevel } from '../starmap/entities/exploration-state.entity';
+import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
+import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.generator';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 
 @Injectable()
@@ -49,6 +51,7 @@ export class SpacecraftService {
     private readonly gameData: GameDataService,
     private readonly shipClassService: ShipClassService,
     private readonly explorationService: ExplorationService,
+    private readonly planetGenerator: PlanetGeneratorService,
     private readonly unlockResolver: UnlockResolverService,
   ) {}
 
@@ -165,9 +168,54 @@ export class SpacecraftService {
     return this.moduleRepo.find({ where: { spacecraftId: shipId } });
   }
 
-  async getShipClasses(
-    userId?: number,
-  ): Promise<
+  async surfaceScan(
+    shipId: number,
+    userId: number,
+    celestialObjectId: number,
+  ): Promise<{ celestialObjectId: number; created: number }> {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['modules'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship.inSystem || !ship.starSystemId) {
+      throw new BadRequestException(
+        'Surface scan requires ship inside a system',
+      );
+    }
+    if (!this.hasSurfaceScanner(ship.modules ?? [])) {
+      throw new BadRequestException('Matrixsensoren module required');
+    }
+
+    const object = await this.objectRepo.findOneBy({ id: celestialObjectId });
+    if (!object) throw new NotFoundException('Celestial object not found');
+    if (object.systemId !== ship.starSystemId) {
+      throw new BadRequestException(
+        'Celestial object is not in current system',
+      );
+    }
+    if (!supportsStuSurface(object.classId)) {
+      throw new BadRequestException(
+        'Celestial object has no scannable surface',
+      );
+    }
+
+    const shipX = ship.currentSystemFieldX ?? ship.posX;
+    const shipY = ship.currentSystemFieldY ?? ship.posY;
+    const range = await this.getSensorRange(ship);
+    const distance = Math.max(
+      Math.abs(object.posX - shipX),
+      Math.abs(object.posY - shipY),
+    );
+    if (distance > range) {
+      throw new BadRequestException('Celestial object is outside sensor range');
+    }
+
+    const created = await this.planetGenerator.generateAndPersist(object.id);
+    return { celestialObjectId: object.id, created };
+  }
+
+  async getShipClasses(userId?: number): Promise<
     Array<
       ShipClassDef & {
         unlocked?: boolean;
@@ -1010,9 +1058,11 @@ export class SpacecraftService {
   }
 
   async getSensorRange(ship: Spacecraft): Promise<number> {
-    const modules = await this.moduleRepo.find({
-      where: { spacecraftId: ship.id },
-    });
+    const modules =
+      ship.modules ??
+      (await this.moduleRepo.find({
+        where: { spacecraftId: ship.id },
+      }));
     let maxRange = 3;
     for (const mod of modules) {
       const def = this.gameData
@@ -1026,6 +1076,20 @@ export class SpacecraftService {
       }
     }
     return maxRange;
+  }
+
+  private hasSurfaceScanner(modules: SpacecraftModule[]): boolean {
+    return modules.some((module) => {
+      if (!module.isActive || module.integrity <= 0) return false;
+      const def = this.gameData
+        .getAllModules()
+        .find((candidate) => candidate.name === module.moduleType);
+      return Boolean(
+        def &&
+        def.category === 'SENSORS' &&
+        (def.public as Record<string, unknown>)?.canSurfaceScan === true,
+      );
+    });
   }
 
   async getLocalMap(shipId: number, userId: number) {

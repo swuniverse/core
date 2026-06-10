@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StarmapController } from './starmap.controller';
+import { PlanetSurfacesController } from './planet-surfaces.controller';
 import { StarmapService } from './starmap.service';
 import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
@@ -20,7 +21,6 @@ import { InfluenceArea } from './entities/influence-area.entity';
 import { Wormhole } from './entities/wormhole.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
-import { AuthModule } from '../auth/auth.module';
 import { StarmapSystemGeneratorService } from './generator/starmap-system-generator.service';
 import { PlanetGeneratorService } from './generator/planet-generator.service';
 import { InfluenceService } from './influence.service';
@@ -45,9 +45,8 @@ import { WormholeService } from './wormhole.service';
       HyperspaceRoute,
       HyperspaceRouteSegment,
     ]),
-    AuthModule,
   ],
-  controllers: [StarmapController],
+  controllers: [StarmapController, PlanetSurfacesController],
   providers: [
     StarmapService,
     StarmapAdminService,

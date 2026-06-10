@@ -53,21 +53,37 @@ export class UnlockResolverService {
     const names = new Set<string>();
     for (const r of completed) {
       const tech = techTree.find((t) => t.id === r.techId);
-      if (tech) names.add(tech.name);
+      if (tech) {
+        names.add(tech.name);
+        if (tech.rawName) names.add(tech.rawName);
+        if (tech.key) names.add(tech.key);
+      }
     }
     return names;
   }
 
   async hasTechByName(userId: number, techName: string): Promise<boolean> {
     const techTree = this.gameData.getTechTree();
-    const tech = techTree.find(
-      (t) => t.name === techName || t.rawName === techName,
-    );
+    const normalized = this.normalizeTechName(techName);
+    const tech = techTree.find((t) => {
+      const candidates = [t.name, t.rawName, t.key].filter(Boolean) as string[];
+      return candidates.some(
+        (candidate) => this.normalizeTechName(candidate) === normalized,
+      );
+    });
     if (!tech) return false;
 
     const research = await this.researchRepo.findOne({
       where: { userId, techId: tech.id, status: ResearchStatus.COMPLETED },
     });
     return !!research;
+  }
+
+  private normalizeTechName(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[´'`’]/g, '')
+      .replace(/\s+/g, ' ');
   }
 }

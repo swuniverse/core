@@ -5,9 +5,10 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import { PlanetField } from '../starmap/entities/planet-field.entity';
+import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
 import {
   STU_DEFAULT_COLONY_CLASS_ID,
-  normalizeStuTerrainType,
   stuColonySurfaceGenerator,
 } from './stu-colony-surface.generator';
 
@@ -36,6 +37,9 @@ export class ColonySeedService {
     private readonly storageRepo: Repository<ColonyStorage>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
+    @InjectRepository(PlanetField)
+    private readonly planetFieldRepo: Repository<PlanetField>,
+    private readonly planetGenerator: PlanetGeneratorService,
   ) {}
 
   async createStarterColony(
@@ -101,27 +105,34 @@ export class ColonySeedService {
   }
 
   private async generateFields(colony: Colony): Promise<void> {
-    const seed =
-      colony.celestialObject?.terrainSeed ??
-      (colony.celestialObjectId
-        ? `celestial-${colony.celestialObjectId}`
-        : `colony-${colony.id}`);
-    const surface = stuColonySurfaceGenerator.generate(
-      colony.colonyClassId,
-      seed,
-      2,
-    );
+    const planetFields = colony.celestialObjectId
+      ? await this.getOrCreatePlanetFields(colony.celestialObjectId)
+      : [];
 
-    const fields: ColonyField[] = surface.fields.map((field) =>
-      this.fieldRepo.create({
-        colonyId: colony.id,
-        fieldIndex: field.fieldIndex,
-        fieldType: normalizeStuTerrainType(field.fieldType),
-        terrainTileId: field.fieldType,
-        buildingId: null,
-        isBuilding: false,
-      }),
-    );
+    const fields: ColonyField[] =
+      planetFields.length > 0
+        ? planetFields.map((field, index) =>
+            this.fieldRepo.create({
+              colonyId: colony.id,
+              fieldIndex: index,
+              fieldType: field.fieldType,
+              terrainTileId: field.terrainTileId,
+              buildingId: null,
+              isBuilding: false,
+            }),
+          )
+        : stuColonySurfaceGenerator
+            .generate(colony.colonyClassId, `colony-${colony.id}`, 2)
+            .fields.map((field) =>
+              this.fieldRepo.create({
+                colonyId: colony.id,
+                fieldIndex: field.fieldIndex,
+                fieldType: field.fieldType,
+                terrainTileId: field.terrainTileId,
+                buildingId: null,
+                isBuilding: false,
+              }),
+            );
 
     const hqField = this.findHeadquartersField(fields);
     hqField.fieldType = FIELD_TYPES.PLAINS;
@@ -130,6 +141,16 @@ export class ColonySeedService {
     hqField.buildProgress = 100;
 
     await this.fieldRepo.save(fields);
+  }
+
+  private async getOrCreatePlanetFields(
+    celestialObjectId: number,
+  ): Promise<PlanetField[]> {
+    await this.planetGenerator.ensureGenerated(celestialObjectId);
+    return this.planetFieldRepo.find({
+      where: { celestialObjectId },
+      order: { fieldLayer: 'ASC', py: 'ASC', px: 'ASC' },
+    });
   }
 
   private async grantStartingResources(colony: Colony): Promise<void> {

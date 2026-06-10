@@ -543,7 +543,7 @@ function ColonyDetail({
 
           <div>
             <div className="text-[10px] text-green-400 font-bold uppercase mb-1">
-              Surface
+              Oberfläche
             </div>
             <div className="grid grid-cols-10 gap-1">
               {surfaceFields.map((field) => (
@@ -568,7 +568,7 @@ function ColonyDetail({
 
           <div>
             <div className="text-[10px] text-zinc-400 font-bold uppercase mb-1">
-              Underground
+              Untergrund
             </div>
             <div className="grid grid-cols-10 gap-1">
               {undergroundFields.map((field) => (

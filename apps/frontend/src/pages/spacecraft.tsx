@@ -43,10 +43,23 @@ const STATUS_COLORS: Record<string, string> = {
   DESTROYED: 'text-gray-500',
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  DOCKED: 'Angedockt',
+  IN_FLIGHT: 'Im Flug',
+  IN_COMBAT: 'Im Kampf',
+  DESTROYED: 'Zerstört',
+};
+
 const ALERT_COLORS: Record<string, string> = {
   GREEN: 'bg-green-500',
   YELLOW: 'bg-yellow-500',
   RED: 'bg-red-500',
+};
+
+const ALERT_LABELS: Record<string, string> = {
+  GREEN: 'Grün',
+  YELLOW: 'Gelb',
+  RED: 'Rot',
 };
 
 export function SpacecraftPage() {
@@ -147,7 +160,7 @@ export function SpacecraftPage() {
                   className={`w-2 h-2 rounded-full ${ALERT_COLORS[ship.alertState]}`}
                 />
                 <span className={`text-[10px] ${STATUS_COLORS[ship.status]}`}>
-                  {ship.status}
+                  {STATUS_LABELS[ship.status] ?? ship.status}
                 </span>
                 <span className="text-[10px] text-swu-muted ml-auto">
                   [{ship.posX},{ship.posY}]
@@ -194,8 +207,8 @@ export function SpacecraftPage() {
                 <h3 className="text-[10px] font-bold text-swu-muted uppercase">
                   Schiffskontrolle
                 </h3>
-                <StatRow label="Alarm" value={selected.alertState} />
-                <StatRow label="Status" value={selected.status} />
+                <StatRow label="Alarm" value={ALERT_LABELS[selected.alertState] ?? selected.alertState} />
+                <StatRow label="Status" value={STATUS_LABELS[selected.status] ?? selected.status} />
                 <StatRow
                   label="Schilde"
                   value={`${selected.shields}/${selected.shieldsMax}`}

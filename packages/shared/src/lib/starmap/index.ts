@@ -401,7 +401,8 @@ export interface StarmapPlanetFieldDto {
   fieldLayer: StarmapPlanetFieldLayer;
   px: number;
   py: number;
-  terrainType: string;
+  fieldType: number;
+  terrainTileId: number;
   buildingId: number | null;
   isBuildable: boolean;
   resourceModifier: number;
@@ -409,7 +410,6 @@ export interface StarmapPlanetFieldDto {
 
 export interface StarmapPlanetSurfaceDto {
   celestialObject: StarmapCelestialObjectDto & {
-    planetClass: string | null;
     surfaceWidth: number | null;
     surfaceHeight: number | null;
   };
@@ -418,9 +418,9 @@ export interface StarmapPlanetSurfaceDto {
   underground: StarmapPlanetFieldDto[];
 }
 
-export interface StarmapGeneratePlanetDto {
+export interface StarmapGeneratePlanetSurfaceDto {
   celestialObjectId: number;
-  planetClass: string;
+  classId?: number;
   terrainSeed?: string;
 }
 

@@ -4,8 +4,21 @@ interface ShipInformationPanelProps {
   localMap: LocalMapResponse | null;
 }
 
+const FACTION_ZONE_LABELS: Record<string, string> = {
+  REBEL: 'Rebellen',
+  EMPIRE: 'Imperium',
+  NEUTRAL: 'Neutral',
+  CONTESTED: 'Umkämpft',
+  UNKNOWN: 'Unbekannt',
+};
+
 function formatValue(value: string | number | null | undefined) {
   return value === null || value === undefined || value === '' ? '—' : value;
+}
+
+function formatFactionZone(value: string | null | undefined) {
+  if (!value) return '—';
+  return FACTION_ZONE_LABELS[value] ?? value;
 }
 
 export function ShipInformationPanel({ localMap }: ShipInformationPanelProps) {
@@ -55,7 +68,7 @@ export function ShipInformationPanel({ localMap }: ShipInformationPanelProps) {
         />
         <InfoLine
           icon="?"
-          text={`Kontrollzone ${formatValue(context?.factionZone)}`}
+          text={`Kontrollzone ${formatFactionZone(context?.factionZone)}`}
         />
         <InfoLine
           icon="?"

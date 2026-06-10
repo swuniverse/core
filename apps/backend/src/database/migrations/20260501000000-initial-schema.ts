@@ -158,8 +158,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "UQ_galaxy_fields_coords" UNIQUE ("layerId", "cx", "cy")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_galaxy_fields_star_system" ON "galaxy_fields" ("starSystemId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_galaxy_fields_faction_zone" ON "galaxy_fields" ("layerId", "factionZone")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_galaxy_fields_star_system" ON "galaxy_fields" ("starSystemId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_galaxy_fields_faction_zone" ON "galaxy_fields" ("layerId", "factionZone")`,
+    );
 
     // === Starmap: Celestial Objects ===
     await queryRunner.query(`
@@ -172,14 +176,15 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "posY" integer NOT NULL,
         "classId" integer,
         "isColonizable" boolean NOT NULL DEFAULT false,
-        "planetClass" varchar(32),
         "surfaceWidth" integer,
         "surfaceHeight" integer,
         "terrainSeed" varchar(64),
         CONSTRAINT "FK_celestial_objects_system" FOREIGN KEY ("systemId") REFERENCES "star_systems"("id") ON DELETE CASCADE
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_celestial_objects_system" ON "celestial_objects" ("systemId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_celestial_objects_system" ON "celestial_objects" ("systemId")`,
+    );
 
     // === Starmap: System Fields ===
     await queryRunner.query(`
@@ -213,7 +218,8 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "fieldLayer" varchar(16) NOT NULL,
         "px" integer NOT NULL,
         "py" integer NOT NULL,
-        "terrainType" varchar(64) NOT NULL,
+        "fieldType" integer NOT NULL,
+        "terrainTileId" integer NOT NULL,
         "buildingId" integer,
         "isBuildable" boolean NOT NULL DEFAULT true,
         "resourceModifier" integer NOT NULL DEFAULT 0,
@@ -221,7 +227,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "UQ_planet_fields_coords" UNIQUE ("celestialObjectId", "fieldLayer", "px", "py")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_planet_fields_object_layer" ON "planet_fields" ("celestialObjectId", "fieldLayer")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_planet_fields_object_layer" ON "planet_fields" ("celestialObjectId", "fieldLayer")`,
+    );
 
     // === Starmap: Exploration States ===
     await queryRunner.query(`
@@ -238,7 +246,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "UQ_exploration_states_coords" UNIQUE ("userId", "layerId", "cx", "cy")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_exploration_states_user_layer" ON "exploration_states" ("userId", "layerId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_exploration_states_user_layer" ON "exploration_states" ("userId", "layerId")`,
+    );
 
     // === Starmap: System Explorations ===
     await queryRunner.query(`
@@ -253,7 +263,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "UQ_system_explorations_user_system" UNIQUE ("userId", "starSystemId")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_system_explorations_user" ON "system_explorations" ("userId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_system_explorations_user" ON "system_explorations" ("userId")`,
+    );
 
     // === Starmap: Influence Areas ===
     await queryRunner.query(`
@@ -269,8 +281,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "calculatedAt" timestamp NOT NULL DEFAULT now()
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_influence_areas_coords" ON "influence_areas" ("layerId", "cx", "cy")`);
-    await queryRunner.query(`CREATE INDEX "IDX_influence_areas_source" ON "influence_areas" ("sourceType", "sourceId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_influence_areas_coords" ON "influence_areas" ("layerId", "cx", "cy")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_influence_areas_source" ON "influence_areas" ("sourceType", "sourceId")`,
+    );
 
     // === Starmap: Wormholes ===
     await queryRunner.query(`
@@ -288,8 +304,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "isActive" boolean NOT NULL DEFAULT true
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_wormholes_entry" ON "wormholes" ("entryLayerId", "entryCx", "entryCy")`);
-    await queryRunner.query(`CREATE INDEX "IDX_wormholes_exit" ON "wormholes" ("exitLayerId", "exitCx", "exitCy")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_wormholes_entry" ON "wormholes" ("entryLayerId", "entryCx", "entryCy")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_wormholes_exit" ON "wormholes" ("exitLayerId", "exitCx", "exitCy")`,
+    );
 
     // === Colonies ===
     await queryRunner.query(`
@@ -314,8 +334,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "FK_colonies_celestial_object" FOREIGN KEY ("celestialObjectId") REFERENCES "celestial_objects"("id") ON DELETE SET NULL
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_colonies_user" ON "colonies" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_colonies_star_system" ON "colonies" ("starSystemId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_colonies_user" ON "colonies" ("userId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_colonies_star_system" ON "colonies" ("starSystemId")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "colony_fields" (
@@ -377,7 +401,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "FK_fleets_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_fleets_user" ON "fleets" ("userId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_fleets_user" ON "fleets" ("userId")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "spacecraft" (
@@ -422,8 +448,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "FK_spacecraft_fleet" FOREIGN KEY ("fleetId") REFERENCES "fleets"("id") ON DELETE SET NULL
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_spacecraft_user" ON "spacecraft" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_spacecraft_star_system" ON "spacecraft" ("starSystemId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_spacecraft_user" ON "spacecraft" ("userId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_spacecraft_star_system" ON "spacecraft" ("starSystemId")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "spacecraft_modules" (
@@ -438,7 +468,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "FK_spacecraft_modules_spacecraft" FOREIGN KEY ("spacecraftId") REFERENCES "spacecraft"("id") ON DELETE CASCADE
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_spacecraft_modules_spacecraft" ON "spacecraft_modules" ("spacecraftId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_spacecraft_modules_spacecraft" ON "spacecraft_modules" ("spacecraftId")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "cargo_items" (
@@ -466,7 +498,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "FK_holonet_posts_author" FOREIGN KEY ("authorId") REFERENCES "users"("id") ON DELETE CASCADE
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_holonet_posts_category" ON "holonet_posts" ("category")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_holonet_posts_category" ON "holonet_posts" ("category")`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "holonet_comments" (
@@ -519,8 +553,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         CONSTRAINT "FK_messages_recipient" FOREIGN KEY ("recipientId") REFERENCES "users"("id") ON DELETE CASCADE
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_messages_recipient_read" ON "messages" ("recipientId", "isRead")`);
-    await queryRunner.query(`CREATE INDEX "IDX_messages_sender" ON "messages" ("senderId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_messages_recipient_read" ON "messages" ("recipientId", "isRead")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_messages_sender" ON "messages" ("senderId")`,
+    );
 
     // === Onboarding ===
     await queryRunner.query(`
@@ -592,14 +630,20 @@ export class InitialSchema20260501000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "game_tick_states" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "user_settings" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "research" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "onboarding_selections" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "onboarding_selections" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "messages" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "holonet_checkpoints" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "holonet_checkpoints" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "holonet_ratings" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "holonet_comments" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "holonet_posts" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "cargo_items" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "spacecraft_modules" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "spacecraft_modules" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "spacecraft" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "fleets" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "ship_class_defs" CASCADE`);
@@ -608,8 +652,12 @@ export class InitialSchema20260501000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "colonies" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "influence_areas" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "wormholes" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "system_explorations" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "exploration_states" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "system_explorations" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "exploration_states" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "planet_fields" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "system_fields" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "celestial_objects" CASCADE`);
@@ -617,7 +665,9 @@ export class InitialSchema20260501000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "star_systems" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "map_regions" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "border_types" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "galaxy_field_types" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "galaxy_field_types" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "layers" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "users" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "faction_modifiers" CASCADE`);
