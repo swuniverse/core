@@ -13,6 +13,8 @@ import type {
   UserProfile,
 } from '@swuniverse/shared';
 import { api, ApiError } from '../services/api';
+import { useAuthStore } from '../stores/auth.store';
+import { planetImage } from '../lib/assets';
 
 const FACTION_ZONE_LABELS: Record<string, string> = {
   REBEL: 'Rebellen',
@@ -21,8 +23,6 @@ const FACTION_ZONE_LABELS: Record<string, string> = {
   CONTESTED: 'Umkämpft',
   UNKNOWN: 'Unbekannt',
 };
-import { useAuthStore } from '../stores/auth.store';
-import { planetImage } from '../lib/assets';
 
 type UserWithOnboarding = UserProfile & {
   onboardingCompleted?: boolean;
