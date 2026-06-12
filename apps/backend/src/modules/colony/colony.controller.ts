@@ -94,4 +94,13 @@ export class ColonyController {
   ) {
     return this.colonyService.buildShip(id, req.user.sub, shipClassId, name);
   }
+
+  @Post(':id/fields/:fieldIndex/toggle')
+  toggleBuilding(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('fieldIndex', ParseIntPipe) fieldIndex: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.toggleBuilding(id, req.user.sub, fieldIndex);
+  }
 }

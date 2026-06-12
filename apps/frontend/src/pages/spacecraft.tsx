@@ -100,11 +100,13 @@ export function SpacecraftPage() {
   }, [selected?.status, refresh]);
 
   if (loading)
-    return <div className="p-6 text-swu-muted">Flotte wird geladen...</div>;
+    return (
+      <div className="p-3 text-swu-muted md:p-6">Flotte wird geladen...</div>
+    );
 
   if (ships.length === 0) {
     return (
-      <div className="p-6">
+      <div className="p-3 md:p-6">
         <h1 className="text-2xl font-bold text-swu-accent">Raumschiffe</h1>
         <p className="text-swu-muted mt-4 max-w-2xl">
           Du startest ohne Schiff. Erforsche zuerst Grundlegende
@@ -130,11 +132,11 @@ export function SpacecraftPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-swu-accent mb-4">Raumschiffe</h1>
-      <div className="flex gap-4">
+    <div className="p-3 md:p-6">
+      <h1 className="mb-4 text-2xl font-bold text-swu-accent">Raumschiffe</h1>
+      <div className="flex flex-col gap-4 md:flex-row">
         {/* Ship List (STU: Schiffsliste links) */}
-        <div className="w-52 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <div className="w-full space-y-1 overflow-x-auto md:w-52 md:max-h-[calc(100svh-8rem)] md:overflow-y-auto">
           {ships.map((ship) => (
             <button
               key={ship.id}
@@ -202,13 +204,21 @@ export function SpacecraftPage() {
               <ShipInformationPanel localMap={selectedLocalMap} />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 md:grid-cols-3">
               <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
                 <h3 className="text-[10px] font-bold text-swu-muted uppercase">
                   Schiffskontrolle
                 </h3>
-                <StatRow label="Alarm" value={ALERT_LABELS[selected.alertState] ?? selected.alertState} />
-                <StatRow label="Status" value={STATUS_LABELS[selected.status] ?? selected.status} />
+                <StatRow
+                  label="Alarm"
+                  value={
+                    ALERT_LABELS[selected.alertState] ?? selected.alertState
+                  }
+                />
+                <StatRow
+                  label="Status"
+                  value={STATUS_LABELS[selected.status] ?? selected.status}
+                />
                 <StatRow
                   label="Schilde"
                   value={`${selected.shields}/${selected.shieldsMax}`}

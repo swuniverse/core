@@ -153,10 +153,10 @@ export function MessagesPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
       <h1 className="text-2xl font-bold text-swu-accent mb-4">Nachrichten</h1>
 
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {(['inbox', 'sent', 'system', 'compose'] as const).map((t) => (
           <button
             key={t}
@@ -232,7 +232,7 @@ export function MessagesPage() {
           </button>
         </div>
       ) : (
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-4 md:flex-row">
           <div className="flex-1 bg-swu-surface border border-swu-border rounded-lg overflow-hidden">
             {loading ? (
               <div className="p-4 text-swu-muted text-sm">Laden...</div>
@@ -311,7 +311,7 @@ export function MessagesPage() {
           </div>
 
           {selected && (
-            <div className="w-96 bg-swu-surface border border-swu-border rounded-lg p-4">
+            <div className="w-full bg-swu-surface border border-swu-border rounded-lg p-4 md:w-96">
               <h3 className="font-bold text-swu-primary mb-1">
                 {selected.subject}
               </h3>

@@ -32,3 +32,9 @@ body {
 * {
   scrollbar-color: var(--color-swu-border) var(--color-swu-bg);
 }
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  :root {
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

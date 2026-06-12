@@ -8,12 +8,14 @@ import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { Research } from '../research/entities/research.entity';
 import { FactionModule } from '../faction/faction.module';
 import { GameDataModule } from '../game-data/game-data.module';
+import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Colony, Spacecraft, Research]),
     FactionModule,
     GameDataModule,
+    WebsocketModule,
   ],
   controllers: [DatabaseController],
   providers: [DatabaseService],

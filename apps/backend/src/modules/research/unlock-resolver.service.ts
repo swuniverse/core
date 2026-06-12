@@ -21,9 +21,17 @@ export class UnlockResolverService {
   ): Promise<boolean> {
     const building = this.gameData.getBuilding(buildingId);
     if (!building) return false;
-    if (!building.researchRequired) return true;
 
-    return this.hasTechByName(userId, building.researchRequired);
+    if (building.researchId == null) return true;
+
+    const research = await this.researchRepo.findOne({
+      where: {
+        userId,
+        techId: building.researchId,
+        status: ResearchStatus.COMPLETED,
+      },
+    });
+    return !!research;
   }
 
   async isShipClassUnlocked(
@@ -44,24 +52,6 @@ export class UnlockResolverService {
     return !!research;
   }
 
-  async getCompletedTechNames(userId: number): Promise<Set<string>> {
-    const completed = await this.researchRepo.find({
-      where: { userId, status: ResearchStatus.COMPLETED },
-    });
-
-    const techTree = this.gameData.getTechTree();
-    const names = new Set<string>();
-    for (const r of completed) {
-      const tech = techTree.find((t) => t.id === r.techId);
-      if (tech) {
-        names.add(tech.name);
-        if (tech.rawName) names.add(tech.rawName);
-        if (tech.key) names.add(tech.key);
-      }
-    }
-    return names;
-  }
-
   async hasTechByName(userId: number, techName: string): Promise<boolean> {
     const techTree = this.gameData.getTechTree();
     const normalized = this.normalizeTechName(techName);
@@ -77,6 +67,23 @@ export class UnlockResolverService {
       where: { userId, techId: tech.id, status: ResearchStatus.COMPLETED },
     });
     return !!research;
+  }
+
+  async getCompletedTechNames(userId: number): Promise<Set<string>> {
+    const completed = await this.researchRepo.find({
+      where: { userId, status: ResearchStatus.COMPLETED },
+    });
+
+    const names = new Set<string>();
+    for (const r of completed) {
+      const tech = this.gameData.getTech(r.techId);
+      if (tech) {
+        names.add(tech.name);
+        if (tech.rawName) names.add(tech.rawName);
+        if (tech.key) names.add(tech.key);
+      }
+    }
+    return names;
   }
 
   private normalizeTechName(value: string): string {

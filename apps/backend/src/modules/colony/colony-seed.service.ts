@@ -17,6 +17,11 @@ const FIELD_TYPES = {
   UNDERGROUND: 801,
 };
 
+const STU_STARTER_BUILDINGS_BY_FACTION_ID: Record<number, number> = {
+  1: 82010100, // Föderation -> später Rebel
+  2: 82010300, // Klingonen -> später Imperial
+};
+
 const STARTING_COMMODITIES = [
   { commodityId: 2, amount: 300 }, // Baumaterial
   { commodityId: 4, amount: 150 }, // Transparistahl
@@ -46,6 +51,7 @@ export class ColonySeedService {
     userId: number,
     username: string,
     preferredCelestialObjectId?: number,
+    factionId?: number | null,
   ): Promise<Colony> {
     const planet = preferredCelestialObjectId
       ? await this.objectRepo.findOneBy({
@@ -71,7 +77,7 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
-    await this.generateFields(colony);
+    await this.generateFields(colony, factionId);
     await this.grantStartingResources(colony);
 
     this.logger.log(
@@ -104,7 +110,10 @@ export class ColonySeedService {
     return query.orderBy('RANDOM()').getOne();
   }
 
-  private async generateFields(colony: Colony): Promise<void> {
+  private async generateFields(
+    colony: Colony,
+    factionId?: number | null,
+  ): Promise<void> {
     const planetFields = colony.celestialObjectId
       ? await this.getOrCreatePlanetFields(colony.celestialObjectId)
       : [];
@@ -137,7 +146,9 @@ export class ColonySeedService {
     const hqField = this.findHeadquartersField(fields);
     hqField.fieldType = FIELD_TYPES.PLAINS;
     hqField.terrainTileId = FIELD_TYPES.PLAINS;
-    hqField.buildingId = 1;
+    hqField.buildingId =
+      STU_STARTER_BUILDINGS_BY_FACTION_ID[factionId ?? 1] ??
+      STU_STARTER_BUILDINGS_BY_FACTION_ID[1];
     hqField.buildProgress = 100;
 
     await this.fieldRepo.save(fields);

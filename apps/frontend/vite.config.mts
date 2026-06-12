@@ -9,7 +9,7 @@ export default defineConfig(() => ({
   cacheDir: '../../node_modules/.vite/apps/frontend',
   server: {
     port: 5173,
-    host: 'localhost',
+    host: '0.0.0.0',
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -23,7 +23,7 @@ export default defineConfig(() => ({
   },
   preview: {
     port: 5173,
-    host: 'localhost',
+    host: '0.0.0.0',
   },
   resolve: {
     alias: {

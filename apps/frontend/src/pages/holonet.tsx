@@ -52,7 +52,11 @@ export function HolonetPage() {
   const [filter, setFilter] = useState<string>('');
   const [selected, setSelected] = useState<HolonetPost | null>(null);
   const [showCompose, setShowCompose] = useState(false);
-  const [compose, setCompose] = useState({ title: '', body: '', category: 'NEWS' });
+  const [compose, setCompose] = useState({
+    title: '',
+    body: '',
+    category: 'NEWS',
+  });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -136,7 +140,10 @@ export function HolonetPage() {
 
   const rate = async (value: number) => {
     if (!selected) return;
-    const res = await api.post<{ rating: number }>(`/holonet/${selected.id}/rate`, { value });
+    const res = await api.post<{ rating: number }>(
+      `/holonet/${selected.id}/rate`,
+      { value },
+    );
     setSelected({ ...selected, rating: res.rating });
     setMyRating((prev) => (prev === value ? 0 : value));
   };
@@ -161,7 +168,9 @@ export function HolonetPage() {
     });
     setSelected({ ...selected, title: editTitle, body: editBody });
     setPosts((prev) =>
-      prev.map((p) => (p.id === selected.id ? { ...p, title: editTitle, body: editBody } : p)),
+      prev.map((p) =>
+        p.id === selected.id ? { ...p, title: editTitle, body: editBody } : p,
+      ),
     );
     setEditing(false);
   };
@@ -169,7 +178,9 @@ export function HolonetPage() {
   const togglePin = async (postId: number) => {
     const updated = await api.patch<HolonetPost>(`/holonet/${postId}/pin`, {});
     setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, isPinned: updated.isPinned } : p)),
+      prev.map((p) =>
+        p.id === postId ? { ...p, isPinned: updated.isPinned } : p,
+      ),
     );
     if (selected?.id === postId) {
       setSelected({ ...selected, isPinned: updated.isPinned });
@@ -179,7 +190,7 @@ export function HolonetPage() {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-swu-accent">HoloNet</h1>
         <button
@@ -195,16 +206,23 @@ export function HolonetPage() {
           onClick={markAsRead}
           className="w-full mb-4 py-2 bg-swu-accent/10 border border-swu-accent/30 rounded text-sm text-swu-accent hover:bg-swu-accent/20 transition-colors"
         >
-          {newCount} neue{newCount === 1 ? 'r' : ''} Beitr{newCount === 1 ? 'ag' : 'aege'} seit letztem Besuch — als gelesen markieren
+          {newCount} neue{newCount === 1 ? 'r' : ''} Beitr
+          {newCount === 1 ? 'ag' : 'aege'} seit letztem Besuch — als gelesen
+          markieren
         </button>
       )}
 
       {/* Category Filter */}
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         <button
-          onClick={() => { setFilter(''); setPage(1); }}
+          onClick={() => {
+            setFilter('');
+            setPage(1);
+          }}
           className={`px-2 py-1 text-xs rounded border transition-colors ${
-            !filter ? 'border-swu-accent text-swu-accent' : 'border-swu-border text-swu-muted hover:border-swu-primary'
+            !filter
+              ? 'border-swu-accent text-swu-accent'
+              : 'border-swu-border text-swu-muted hover:border-swu-primary'
           }`}
         >
           Alle
@@ -212,9 +230,14 @@ export function HolonetPage() {
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
-            onClick={() => { setFilter(cat); setPage(1); }}
+            onClick={() => {
+              setFilter(cat);
+              setPage(1);
+            }}
             className={`px-2 py-1 text-xs rounded border transition-colors ${
-              filter === cat ? 'border-swu-accent text-swu-accent' : 'border-swu-border text-swu-muted hover:border-swu-primary'
+              filter === cat
+                ? 'border-swu-accent text-swu-accent'
+                : 'border-swu-border text-swu-muted hover:border-swu-primary'
             }`}
           >
             {cat}
@@ -233,11 +256,15 @@ export function HolonetPage() {
           />
           <select
             value={compose.category}
-            onChange={(e) => setCompose({ ...compose, category: e.target.value })}
+            onChange={(e) =>
+              setCompose({ ...compose, category: e.target.value })
+            }
             className="bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary"
           >
             {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
           <textarea
@@ -258,7 +285,7 @@ export function HolonetPage() {
       )}
 
       {/* Posts */}
-      <div className="flex gap-4">
+      <div className="flex flex-col gap-4 md:flex-row">
         <div className="flex-1 space-y-2">
           {loading ? (
             <p className="text-swu-muted text-sm">Laden...</p>
@@ -270,26 +297,44 @@ export function HolonetPage() {
                 key={post.id}
                 onClick={() => selectPost(post)}
                 className={`w-full text-left bg-swu-surface border rounded-lg p-3 transition-colors hover:border-swu-primary ${
-                  selected?.id === post.id ? 'border-swu-accent' : 'border-swu-border'
+                  selected?.id === post.id
+                    ? 'border-swu-accent'
+                    : 'border-swu-border'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  {post.isPinned && <span className="text-xs" title="Angepinnt">📌</span>}
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_STYLES[post.category] || ''}`}>
+                  {post.isPinned && (
+                    <span className="text-xs" title="Angepinnt">
+                      📌
+                    </span>
+                  )}
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_STYLES[post.category] || ''}`}
+                  >
                     {post.category}
                   </span>
-                  <span className="text-sm font-bold text-swu-primary flex-1">{post.title}</span>
+                  <span className="text-sm font-bold text-swu-primary flex-1">
+                    {post.title}
+                  </span>
                   <span className="text-[10px] text-swu-muted">
                     {post.rating !== 0 && (
-                      <span className={post.rating > 0 ? 'text-green-400' : 'text-red-400'}>
-                        {post.rating > 0 ? '+' : ''}{post.rating}
+                      <span
+                        className={
+                          post.rating > 0 ? 'text-green-400' : 'text-red-400'
+                        }
+                      >
+                        {post.rating > 0 ? '+' : ''}
+                        {post.rating}
                       </span>
                     )}
-                    {post.commentCount > 0 && <span className="ml-2">💬{post.commentCount}</span>}
+                    {post.commentCount > 0 && (
+                      <span className="ml-2">💬{post.commentCount}</span>
+                    )}
                   </span>
                 </div>
                 <p className="text-[10px] text-swu-muted">
-                  {post.author.username} · {new Date(post.createdAt).toLocaleDateString('de-DE')}
+                  {post.author.username} ·{' '}
+                  {new Date(post.createdAt).toLocaleDateString('de-DE')}
                 </p>
               </button>
             ))
@@ -321,10 +366,12 @@ export function HolonetPage() {
 
         {/* Detail Panel */}
         {selected && (
-          <div className="w-[420px] bg-swu-surface border border-swu-border rounded-lg p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="w-full bg-swu-surface border border-swu-border rounded-lg p-4 md:w-[420px] max-h-[calc(100svh-200px)] overflow-y-auto">
             <div className="flex items-center gap-2 mb-2">
               {selected.isPinned && <span title="Angepinnt">📌</span>}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_STYLES[selected.category] || ''}`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_STYLES[selected.category] || ''}`}
+              >
                 {selected.category}
               </span>
               {user?.isAdmin && (
@@ -368,7 +415,9 @@ export function HolonetPage() {
             ) : (
               <>
                 <div className="flex items-start justify-between">
-                  <h2 className="text-lg font-bold text-swu-primary mb-1">{selected.title}</h2>
+                  <h2 className="text-lg font-bold text-swu-primary mb-1">
+                    {selected.title}
+                  </h2>
                   {selected.authorId === user?.id && (
                     <button
                       onClick={startEdit}
@@ -379,7 +428,8 @@ export function HolonetPage() {
                   )}
                 </div>
                 <p className="text-[10px] text-swu-muted mb-3">
-                  {selected.author.username} · {new Date(selected.createdAt).toLocaleString('de-DE')}
+                  {selected.author.username} ·{' '}
+                  {new Date(selected.createdAt).toLocaleString('de-DE')}
                 </p>
                 <div className="text-sm text-swu-muted whitespace-pre-wrap mb-4">
                   {selected.body}
@@ -399,10 +449,17 @@ export function HolonetPage() {
               >
                 👍
               </button>
-              <span className={`text-sm font-bold ${
-                selected.rating > 0 ? 'text-green-400' : selected.rating < 0 ? 'text-red-400' : 'text-swu-muted'
-              }`}>
-                {selected.rating > 0 ? '+' : ''}{selected.rating}
+              <span
+                className={`text-sm font-bold ${
+                  selected.rating > 0
+                    ? 'text-green-400'
+                    : selected.rating < 0
+                      ? 'text-red-400'
+                      : 'text-swu-muted'
+                }`}
+              >
+                {selected.rating > 0 ? '+' : ''}
+                {selected.rating}
               </span>
               <button
                 onClick={() => rate(-1)}
@@ -460,7 +517,9 @@ export function HolonetPage() {
                 <div className="relative">
                   <textarea
                     value={commentBody}
-                    onChange={(e) => setCommentBody(e.target.value.slice(0, 250))}
+                    onChange={(e) =>
+                      setCommentBody(e.target.value.slice(0, 250))
+                    }
                     rows={2}
                     placeholder="Kommentar (max 250 Zeichen)..."
                     className="w-full bg-swu-bg border border-swu-border rounded px-2 py-1.5 text-xs text-swu-primary resize-none"

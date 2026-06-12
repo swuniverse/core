@@ -10,6 +10,8 @@ import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
 
+const ROOT_TECH_IDS = new Set([1001, 1003]);
+
 @Injectable()
 export class ResearchService {
   constructor(
@@ -44,7 +46,7 @@ export class ResearchService {
     return techTree
       .filter((tech) => !tech.hidden && !tech.excludeFromNormalProgression)
       .filter((tech) => {
-        if (tech.id !== 1001 && tech.id !== 1002) return true;
+        if (!ROOT_TECH_IDS.has(tech.id)) return true;
         return userResearch.some(
           (research) =>
             research.techId === tech.id &&
@@ -92,6 +94,9 @@ export class ResearchService {
   async startResearch(userId: number, techId: number): Promise<Research> {
     const tech = this.gameData.getTech(techId);
     if (!tech) throw new NotFoundException('Technology not found');
+    if (ROOT_TECH_IDS.has(techId)) {
+      throw new BadRequestException('Root research cannot be started manually');
+    }
 
     const inProgress = await this.researchRepo.findOne({
       where: { userId, status: ResearchStatus.IN_PROGRESS },

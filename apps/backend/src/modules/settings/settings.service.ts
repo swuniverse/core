@@ -56,6 +56,25 @@ export class SettingsService {
     return this.getSettings(userId);
   }
 
+  async getNotes(userId: number): Promise<{ notes: string }> {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException();
+    return { notes: user.notes ?? '' };
+  }
+
+  async updateNotes(userId: number, notes: string): Promise<{ notes: string }> {
+    if (typeof notes !== 'string') {
+      throw new BadRequestException('Notes must be a string');
+    }
+
+    if (notes.length > 100_000) {
+      throw new BadRequestException('Notes are too long');
+    }
+
+    await this.userRepo.update(userId, { notes });
+    return { notes };
+  }
+
   async changePassword(
     userId: number,
     oldPassword: string,
@@ -153,14 +172,18 @@ export class SettingsService {
     }
 
     if (user.deletionMark === 3) {
-      throw new ForbiddenException('Account deletion has been forbidden by admin');
+      throw new ForbiddenException(
+        'Account deletion has been forbidden by admin',
+      );
     }
 
     user.deletionMark = 1;
     await this.userRepo.save(user);
   }
 
-  async searchUsers(query: string): Promise<{ id: number; username: string }[]> {
+  async searchUsers(
+    query: string,
+  ): Promise<{ id: number; username: string }[]> {
     if (!query || query.length < 2) return [];
 
     const users = await this.userRepo

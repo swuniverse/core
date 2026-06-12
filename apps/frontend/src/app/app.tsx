@@ -17,6 +17,7 @@ import { StarmapAdminPage } from '../pages/starmap-admin';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
+import { NotesPage } from '../pages/notes';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
@@ -104,6 +105,7 @@ export function App() {
           <Route path="/holonet" element={<HolonetPage />} />
           <Route path="/database" element={<DatabasePage />} />
           <Route path="/claim-colony" element={<OnboardingPage />} />
+          <Route path="/notes" element={<NotesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

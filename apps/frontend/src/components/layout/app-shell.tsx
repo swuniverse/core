@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
+import { BottomNav } from './bottom-nav';
 import { useSocket } from '../../hooks/use-socket';
 
 export function AppShell() {
@@ -10,7 +11,8 @@ export function AppShell() {
     <div className="min-h-screen bg-swu-bg">
       <Header />
       <Sidebar />
-      <main className="ml-[120px] mt-20 p-5">
+      <BottomNav />
+      <main className="md:ml-[68px] mt-[52px] px-3 md:px-4 py-2 pb-[calc(56px+env(safe-area-inset-bottom,0px)+8px)] md:pb-2">
         <Outlet />
       </main>
     </div>

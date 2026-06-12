@@ -26,4 +26,9 @@ export class DatabaseController {
   getRankings() {
     return this.databaseService.getRankings();
   }
+
+  @Get('online')
+  getOnlinePlayers() {
+    return this.databaseService.getOnlinePlayers();
+  }
 }

@@ -13,28 +13,30 @@ export class AdminBootstrapService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const configuredAdmin = process.env.BOOTSTRAP_ADMIN_USERNAME;
-    if (!configuredAdmin) {
+    const configuredAdmins = process.env.BOOTSTRAP_ADMIN_USERNAME;
+    if (!configuredAdmins) {
       return;
     }
 
-    const user = await this.userRepo.findOne({
-      where: { username: configuredAdmin },
-    });
+    const usernames = configuredAdmins.split(',').map((u) => u.trim()).filter(Boolean);
 
-    if (!user) {
-      this.logger.warn(
-        `BOOTSTRAP_ADMIN_USERNAME configured but user not found: ${configuredAdmin}`,
-      );
-      return;
+    for (const username of usernames) {
+      const user = await this.userRepo.findOne({ where: { username } });
+
+      if (!user) {
+        this.logger.warn(
+          `BOOTSTRAP_ADMIN_USERNAME: user not found: ${username}`,
+        );
+        continue;
+      }
+
+      if (user.isAdmin) {
+        continue;
+      }
+
+      user.isAdmin = true;
+      await this.userRepo.save(user);
+      this.logger.log(`Granted admin rights to ${username}`);
     }
-
-    if (user.isAdmin) {
-      return;
-    }
-
-    user.isAdmin = true;
-    await this.userRepo.save(user);
-    this.logger.log(`Granted admin rights to ${configuredAdmin}`);
   }
 }

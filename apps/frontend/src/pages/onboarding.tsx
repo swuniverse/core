@@ -301,7 +301,7 @@ export function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-swu-muted">
+      <div className="min-h-[calc(100svh-52px-56px-env(safe-area-inset-bottom,0px))] flex items-center justify-center text-swu-muted">
         Loading onboarding...
       </div>
     );
@@ -309,7 +309,7 @@ export function OnboardingPage() {
 
   if (starterColony) {
     return (
-      <div className="min-h-screen bg-swu-bg text-swu-text px-6 py-10">
+      <div className="min-h-[calc(100svh-52px-56px-env(safe-area-inset-bottom,0px))] bg-swu-bg text-swu-text px-3 py-4 md:px-6 md:py-10">
         <div className="max-w-5xl mx-auto space-y-8">
           <div className="bg-swu-surface border border-swu-border rounded-lg p-8">
             <p className="text-sm uppercase tracking-[0.3em] text-swu-muted mb-2">
@@ -413,7 +413,7 @@ export function OnboardingPage() {
   const selectedPlanet =
     planets.find((planet) => planet.id === selectedPlanetId) ?? null;
   return (
-    <div className="min-h-screen bg-swu-bg text-swu-text px-6 py-10">
+    <div className="min-h-[calc(100svh-52px-56px-env(safe-area-inset-bottom,0px))] bg-swu-bg text-swu-text px-3 py-4 md:px-6 md:py-10">
       <div className="max-w-7xl mx-auto grid xl:grid-cols-[minmax(0,1fr)_340px] gap-8 items-start">
         <div className="space-y-8">
           <div>
@@ -504,7 +504,11 @@ export function OnboardingPage() {
                     >
                       <div className="flex items-center justify-between gap-2 text-xs text-swu-muted mb-1">
                         <span>Sektor</span>
-                        <span>{FACTION_ZONE_LABELS[sector?.dominantFactionZone ?? ''] ?? 'Unbekannt'}</span>
+                        <span>
+                          {FACTION_ZONE_LABELS[
+                            sector?.dominantFactionZone ?? ''
+                          ] ?? 'Unbekannt'}
+                        </span>
                       </div>
                       <div className="font-bold">
                         {x + 1} | {y + 1}

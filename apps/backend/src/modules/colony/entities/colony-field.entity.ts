@@ -41,4 +41,7 @@ export class ColonyField {
 
   @Column({ type: 'timestamp', nullable: true })
   buildFinishesAt: Date | null;
+
+  @Column({ default: true })
+  isActive: boolean;
 }

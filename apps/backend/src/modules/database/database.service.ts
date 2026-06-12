@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { FactionService } from '../faction/faction.service';
 import { GameDataService } from '../game-data/game-data.service';
+import { GameGateway } from '../websocket/game.gateway';
 
 @Injectable()
 export class DatabaseService {
@@ -21,7 +22,18 @@ export class DatabaseService {
     private readonly researchRepo: Repository<Research>,
     private readonly factionService: FactionService,
     private readonly gameData: GameDataService,
+    private readonly gameGateway: GameGateway,
   ) {}
+
+  async getOnlinePlayers() {
+    const onlineUserIds = this.gameGateway.onlineUserIds;
+    if (onlineUserIds.length === 0) return [];
+    const users = await this.userRepo.find({
+      where: { id: In(onlineUserIds) },
+      select: ['id', 'username', 'faction'],
+    });
+    return users.map((u) => ({ id: u.id, username: u.username, faction: u.faction }));
+  }
 
   async getOverview() {
     const [settlers, colonies, ships, completedResearch] = await Promise.all([

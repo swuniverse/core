@@ -12,6 +12,14 @@ interface ActiveResearch {
   blockedReason?: string | null;
 }
 
+interface ActiveBuildJob {
+  fieldIndex: number;
+  buildingId: number;
+  buildingName: string;
+  finishesAt: string | null;
+  progress: number;
+}
+
 interface ColonySummary {
   id: number;
   name: string;
@@ -33,322 +41,318 @@ interface CurrentObjective {
   colonyId?: number;
 }
 
-const TICK_HOURS = [0, 12, 15, 18, 21];
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function getTickState(now = new Date()) {
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-  const elapsedMs = now.getTime() - dayStart.getTime();
-  const currentHour = now.getHours() + now.getMinutes() / 60;
-  const currentTickIndex = TICK_HOURS.reduce(
-    (latest, hour, index) => (currentHour >= hour ? index : latest),
-    TICK_HOURS.length - 1,
-  );
-  const nextTickHour = TICK_HOURS.find((hour) => hour > currentHour);
-  const nextTickDate = new Date(dayStart);
-  if (nextTickHour === undefined) {
-    nextTickDate.setDate(nextTickDate.getDate() + 1);
-    nextTickDate.setHours(TICK_HOURS[0], 0, 0, 0);
-  } else {
-    nextTickDate.setHours(nextTickHour, 0, 0, 0);
-  }
-  const msToNext = Math.max(0, nextTickDate.getTime() - now.getTime());
-
-  return {
-    dayProgressPercent: (elapsedMs / DAY_MS) * 100,
-    currentTickIndex,
-    nextTickDate,
-    msToNext,
-  };
-}
-
-function formatDuration(ms: number): string {
-  const totalMinutes = Math.ceil(ms / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours <= 0) return `${minutes}m`;
-  return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-}
-
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [colonies, setColonies] = useState<ColonySummary[]>([]);
   const [objective, setObjective] = useState<CurrentObjective | null>(null);
-  const [activeResearch, setActiveResearch] = useState<ActiveResearch | null>(null);
+  const [activeResearch, setActiveResearch] = useState<ActiveResearch | null>(
+    null,
+  );
+  const [buildJobs, setBuildJobs] = useState<ActiveBuildJob[]>([]);
+  const [onlinePlayers, setOnlinePlayers] = useState<
+    Array<{ id: number; username: string; faction: string }>
+  >([]);
   const [loading, setLoading] = useState(true);
-  const [tickState, setTickState] = useState(() => getTickState());
-
-  useEffect(() => {
-    const interval = setInterval(() => setTickState(getTickState()), 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     Promise.all([
       api.get<ColonySummary[]>('/colonies'),
       api.get<CurrentObjective>('/colonies/objectives/current'),
-      api.get<Array<{ status: string; name: string; progress: number; pointsRequired: number; ticksRemaining?: number | null; commodity?: { id: number; name: string } | null; blockedReason?: string | null }>>('/research'),
-    ]).then(([colonyData, objectiveData, researchData]) => {
+      api.get<
+        Array<{
+          status: string;
+          name: string;
+          progress: number;
+          pointsRequired: number;
+          ticksRemaining?: number | null;
+          commodity?: { id: number; name: string } | null;
+          blockedReason?: string | null;
+        }>
+      >('/research'),
+    ]).then(async ([colonyData, objectiveData, researchData]) => {
       setColonies(colonyData);
       setObjective(objectiveData);
       const active = researchData.find((r) => r.status === 'IN_PROGRESS');
       setActiveResearch(active ?? null);
+
+      // Fetch build jobs from first colony detail
+      if (colonyData.length > 0) {
+        try {
+          const detail = await api.get<{
+            detailV2?: { activeBuildJobs: ActiveBuildJob[] };
+          }>(`/colonies/${colonyData[0].id}`);
+          setBuildJobs(detail.detailV2?.activeBuildJobs ?? []);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      // Fetch online players
+      api
+        .get<Array<{ id: number; username: string; faction: string }>>(
+          '/database/online',
+        )
+        .then(setOnlinePlayers)
+        .catch(() => undefined);
+
       setLoading(false);
     });
   }, []);
+
+  if (loading)
+    return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
 
   const totalPopulation = colonies.reduce((sum, c) => sum + c.population, 0);
   const totalEnergy = colonies.reduce((sum, c) => sum + c.energy, 0);
   const totalEnergyMax = colonies.reduce((sum, c) => sum + c.energyMax, 0);
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-swu-accent">Maindesk</h1>
+    <div className="space-y-3">
+      {/* Breadcrumb */}
+      <div className="text-xs text-swu-muted">/ Maindesk</div>
 
-      {!loading && objective && (
-        <section className="bg-swu-accent/10 border border-swu-accent rounded-lg p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-1">
-                Naechste Aufgabe
-              </p>
-              <h2 className="text-base font-bold text-swu-accent">
-                {objective.label}
-              </h2>
-              <p className="text-xs text-swu-muted mt-1">{objective.description}</p>
-            </div>
+      <div className="flex flex-col gap-4 md:flex-row">
+        {/* Main Content */}
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Objective */}
+          {objective && (
             <Link
               to={objective.href}
-              className="shrink-0 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
+              className="flex items-start justify-between gap-3 px-3 py-2 bg-swu-accent/10 border border-swu-accent/40 rounded hover:bg-swu-accent/15 transition-colors md:items-center"
             >
-              {objective.key === 'CLAIM_HOMEWORLD'
-                ? 'Planet waehlen'
-                : objective.key.startsWith('RESEARCH')
-                  ? 'Forschung oeffnen'
-                  : objective.key === 'OPEN_SPACECRAFT'
-                    ? 'Raumschiffe oeffnen'
-                    : 'Aufgabe oeffnen'}
+              <div className="min-w-0">
+                <span className="text-[10px] text-swu-muted uppercase tracking-wider">
+                  Nächste Aufgabe:{' '}
+                </span>
+                <span className="text-xs font-bold text-swu-accent">
+                  {objective.label}
+                </span>
+                <span className="text-[10px] text-swu-muted ml-2">
+                  {objective.description}
+                </span>
+              </div>
+              <span className="text-xs text-swu-accent shrink-0">→</span>
             </Link>
-          </div>
-        </section>
-      )}
+          )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {activeResearch && <ResearchWidget research={activeResearch} />}
-        <TickCompact tickState={tickState} />
-      </div>
-
-      {colonies.length > 0 && (
-        <section className="bg-swu-surface border border-swu-border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-swu-muted">
-              Kolonien ({colonies.length})
-            </h2>
-            <div className="flex gap-4 text-xs text-swu-muted">
-              <span>Bevölkerung: {totalPopulation}</span>
-              <span>Energie: {totalEnergy}/{totalEnergyMax}</span>
+          {/* Active Jobs */}
+          {(activeResearch || buildJobs.length > 0) && (
+            <div className="bg-swu-surface border border-swu-border rounded">
+              <div className="px-3 py-1.5 border-b border-swu-border/50">
+                <span className="text-xs font-bold text-swu-muted">
+                  Laufende Aufträge
+                </span>
+              </div>
+              <div className="divide-y divide-swu-border/20">
+                {activeResearch && (
+                  <div className="px-3 py-1.5 flex flex-wrap items-center gap-2 text-xs md:flex-nowrap">
+                    <span className="text-swu-success">◆</span>
+                    <span className="text-swu-muted shrink-0">Forschung:</span>
+                    <span className="text-swu-primary font-bold truncate">
+                      {activeResearch.name}
+                    </span>
+                    <div className="w-16 h-1 bg-swu-bg rounded-full overflow-hidden border border-swu-border/30 shrink-0">
+                      <div
+                        className="h-full bg-swu-success"
+                        style={{
+                          width: `${activeResearch.pointsRequired > 0 ? (activeResearch.progress / activeResearch.pointsRequired) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-mono text-swu-muted shrink-0">
+                      {activeResearch.progress}/{activeResearch.pointsRequired}
+                    </span>
+                    {activeResearch.ticksRemaining != null && (
+                      <span className="text-[10px] text-swu-muted shrink-0">
+                        ~{activeResearch.ticksRemaining} Ticks
+                      </span>
+                    )}
+                    {activeResearch.blockedReason && (
+                      <span className="text-[10px] text-red-400 font-bold shrink-0">
+                        Blockiert
+                      </span>
+                    )}
+                  </div>
+                )}
+                {buildJobs.map((job) => (
+                  <div
+                    key={`${job.fieldIndex}-${job.buildingId}`}
+                    className="px-3 py-1.5 flex flex-wrap items-center gap-2 text-xs md:flex-nowrap"
+                  >
+                    <span className="text-yellow-400">▲</span>
+                    <span className="text-swu-muted shrink-0">Bau:</span>
+                    <span className="text-swu-primary font-bold truncate">
+                      {job.buildingName}
+                    </span>
+                    <span className="text-[10px] text-swu-muted shrink-0">
+                      Feld {job.fieldIndex}
+                    </span>
+                    <span className="text-[10px] text-swu-muted ml-auto shrink-0">
+                      {job.finishesAt
+                        ? new Date(job.finishesAt).toLocaleString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            day: '2-digit',
+                            month: '2-digit',
+                          })
+                        : 'bald'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            {colonies.map((colony) => (
-              <Link
-                key={colony.id}
-                to={`/colonies?selected=${colony.id}`}
-                className="flex items-center gap-4 p-2 bg-swu-bg/50 rounded border border-swu-border/50 hover:border-swu-primary transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-swu-primary truncate">
-                    {colony.name}
-                  </p>
-                  <p className="text-[10px] text-swu-muted">
-                    {colony.locationLabel || 'Unbekannter Standort'}
-                  </p>
-                </div>
-                <MiniBar
-                  label="E"
-                  current={colony.energy}
-                  max={colony.energyMax}
-                  color="bg-yellow-500"
-                />
-                <MiniBar
-                  label="P"
-                  current={colony.population}
-                  max={colony.populationMax}
-                  color="bg-swu-success"
-                />
-                <MiniBar
-                  label="S"
-                  current={colony.storageUsed}
-                  max={colony.storageMax}
-                  color="bg-swu-primary"
-                />
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+          )}
 
-      <TickTimeline tickState={tickState} />
+          {/* Colony Table */}
+          {colonies.length > 0 && (
+            <div className="bg-swu-surface border border-swu-border rounded overflow-x-auto">
+              <div className="px-3 py-2 border-b border-swu-border/50 flex items-center justify-between">
+                <span className="text-xs font-bold text-swu-muted">
+                  Kolonien ({colonies.length})
+                </span>
+                <span className="text-[10px] text-swu-muted">
+                  Bevölkerung: {totalPopulation} · Energie: {totalEnergy}/
+                  {totalEnergyMax}
+                </span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[10px] text-swu-muted border-b border-swu-border/30">
+                    <th className="text-left px-3 py-1.5 font-normal">Name</th>
+                    <th className="text-left px-3 py-1.5 font-normal hidden md:table-cell">
+                      Standort
+                    </th>
+                    <th className="text-right px-3 py-1.5 font-normal">
+                      Energie
+                    </th>
+                    <th className="text-right px-3 py-1.5 font-normal">
+                      Bevölkerung
+                    </th>
+                    <th className="text-right px-3 py-1.5 font-normal">
+                      Lager
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {colonies.map((colony) => (
+                    <tr
+                      key={colony.id}
+                      className="border-b border-swu-border/20 hover:bg-swu-accent/5 transition-colors"
+                    >
+                      <td className="px-3 py-1.5">
+                        <Link
+                          to={`/colonies?selected=${colony.id}`}
+                          className="font-bold text-swu-primary hover:text-swu-accent"
+                        >
+                          {colony.name}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-1.5 text-swu-muted hidden md:table-cell">
+                        {colony.locationLabel || 'Unbekannt'}
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <StatCell
+                          value={colony.energy}
+                          max={colony.energyMax}
+                          color="text-yellow-400"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <StatCell
+                          value={colony.population}
+                          max={colony.populationMax}
+                          color="text-swu-success"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <StatCell
+                          value={colony.storageUsed}
+                          max={colony.storageMax}
+                          color="text-swu-primary"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Right Sidebar (desktop only) */}
+        <div className="hidden md:block w-48 space-y-3 shrink-0">
+          {/* Online Players */}
+          <div className="bg-swu-surface border border-swu-border rounded px-3 py-2">
+            <div className="text-[10px] text-swu-muted uppercase mb-1">
+              Spieler online ({onlinePlayers.length})
+            </div>
+            {onlinePlayers.length === 0 ? (
+              <div className="text-[10px] text-swu-muted">Niemand online.</div>
+            ) : (
+              <div className="space-y-1">
+                {onlinePlayers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-1.5 text-[10px]"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                    <span className="text-swu-primary truncate">
+                      {p.username}
+                    </span>
+                    <span className="text-swu-muted text-[9px] ml-auto shrink-0">
+                      {p.faction === 'REBEL_ALLIANCE' ? 'Reb' : 'Imp'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Admin Tick Trigger */}
+          {user?.isAdmin && <AdminTickButton />}
+        </div>
+      </div>
     </div>
   );
 }
 
-function TickTimeline({
-  tickState,
-}: {
-  tickState: ReturnType<typeof getTickState>;
-}) {
-  return (
-    <section className="bg-swu-surface border border-swu-border rounded-lg p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-swu-muted">
-            Tageszyklus
-          </p>
-          <h2 className="text-lg font-bold text-swu-primary mt-1">
-            Tick {tickState.currentTickIndex + 1} / {TICK_HOURS.length}
-          </h2>
-        </div>
-        <div className="text-left md:text-right">
-          <p className="text-xs text-swu-muted">Naechster Tick</p>
-          <p className="font-mono text-lg font-bold text-swu-accent">
-            {formatDuration(tickState.msToNext)}
-          </p>
-          <p className="text-[10px] text-swu-muted">
-            {tickState.nextTickDate.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </p>
-        </div>
-      </div>
-
-      <div className="relative mt-4 h-12 rounded border border-swu-border bg-swu-bg/60 px-3 py-5">
-        <div className="absolute left-3 right-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-swu-border/50" />
-        <div
-          className="absolute left-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-swu-accent/70 shadow-[0_0_12px_rgba(194,185,66,0.35)]"
-          style={{
-            width: `calc((100% - 1.5rem) * ${tickState.dayProgressPercent / 100})`,
-          }}
-        />
-        <div
-          className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-swu-accent bg-swu-surface shadow-[0_0_18px_rgba(194,185,66,0.5)]"
-          style={{
-            left: `calc(0.75rem + (100% - 1.5rem) * ${tickState.dayProgressPercent / 100})`,
-          }}
-          title="Aktuelle Tagesposition"
-        />
-        {TICK_HOURS.map((hour, index) => {
-          const left = (hour / 24) * 100;
-          const active = index === tickState.currentTickIndex;
-          return (
-            <div
-              key={hour}
-              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-center"
-              style={{
-                left: `calc(0.75rem + (100% - 1.5rem) * ${left / 100})`,
-              }}
-            >
-              <div
-                className={`mx-auto h-3 w-3 rounded-full border ${
-                  active
-                    ? 'border-swu-accent bg-swu-accent'
-                    : 'border-swu-muted bg-swu-bg'
-                }`}
-              />
-              <div className="mt-3 font-mono text-[10px] text-swu-muted">
-                {String(hour).padStart(2, '0')}:00
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function TickCompact({ tickState }: { tickState: ReturnType<typeof getTickState> }) {
-  return (
-    <section className="bg-swu-surface border border-swu-border rounded-lg p-4">
-      <h2 className="text-xs font-bold text-swu-muted uppercase tracking-wider">
-        Naechster Tick
-      </h2>
-      <p className="font-mono text-2xl font-bold text-swu-accent mt-1">
-        {formatDuration(tickState.msToNext)}
-      </p>
-      <p className="text-xs text-swu-muted mt-1">
-        Tick {tickState.currentTickIndex + 1}/{TICK_HOURS.length} ·{' '}
-        {tickState.nextTickDate.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
-      </p>
-    </section>
-  );
-}
-
-function MiniBar({
-  label,
-  current,
+function StatCell({
+  value,
   max,
   color,
 }: {
-  label: string;
-  current: number;
+  value: number;
   max: number;
   color: string;
 }) {
-  const pct = max > 0 ? (current / max) * 100 : 0;
+  const pct = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div className="w-20">
-      <div className="flex justify-between text-[10px] text-swu-muted mb-0.5">
-        <span>{label}</span>
-        <span>{current}</span>
-      </div>
-      <div className="h-1.5 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
+    <div className="inline-flex items-center gap-1.5">
+      <div className="w-12 h-1 bg-swu-bg rounded-full overflow-hidden border border-swu-border/30">
         <div
-          className={`h-full ${color} transition-all`}
+          className={`h-full ${color === 'text-yellow-400' ? 'bg-yellow-500' : color === 'text-swu-success' ? 'bg-swu-success' : 'bg-swu-primary'} transition-all`}
           style={{ width: `${pct}%` }}
         />
       </div>
+      <span className={`font-mono ${color}`}>
+        {value}
+        <span className="text-swu-border">/{max}</span>
+      </span>
     </div>
   );
 }
 
-function ResearchWidget({ research }: { research: ActiveResearch }) {
-  const pct = research.pointsRequired > 0 ? (research.progress / research.pointsRequired) * 100 : 0;
+function AdminTickButton() {
+  const handleTick = async () => {
+    await api.post('/admin/tick/trigger', {});
+    window.location.reload();
+  };
   return (
-    <section className="bg-swu-surface border border-swu-success/30 rounded-lg p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-bold text-swu-muted uppercase tracking-wider">
-          Aktive Forschung
-        </h2>
-        <Link
-          to="/research"
-          className="text-[10px] text-swu-accent hover:underline"
-        >
-          Zur Forschung
-        </Link>
-      </div>
-      <p className="mt-1 text-sm font-bold text-swu-primary">{research.name}</p>
-      <div className="mt-2">
-        <div className="flex justify-between text-xs text-swu-muted mb-1">
-          <span>{research.progress} / {research.pointsRequired} Punkte</span>
-          {research.ticksRemaining != null && (
-            <span>{research.ticksRemaining} Tick(s) verbleibend</span>
-          )}
-        </div>
-        <div className="h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
-          <div
-            className="h-full bg-swu-success transition-all"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-      {research.blockedReason && (
-        <p className="mt-1 text-xs text-red-400 font-bold">Blockiert: Ressource fehlt</p>
-      )}
-    </section>
+    <button
+      onClick={handleTick}
+      className="w-full px-3 py-1.5 bg-swu-primary/20 border border-swu-primary text-swu-primary text-xs font-bold rounded hover:bg-swu-primary/30 transition-colors"
+    >
+      Tick ausfuehren
+    </button>
   );
 }

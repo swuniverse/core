@@ -55,6 +55,9 @@ export class User {
   @Column({ default: 0 })
   prestige: number;
 
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
+
   @Column({ nullable: true })
   refreshToken: string;
 

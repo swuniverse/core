@@ -320,6 +320,7 @@ export class OnboardingService {
       user.id,
       user.username,
       celestialObjectId,
+      factionId,
     );
     user.onboardingCompleted = true;
     user.starterColonyId = colony.id;
@@ -345,7 +346,7 @@ export class OnboardingService {
     userId: number,
     factionId: number,
   ): Promise<void> {
-    const baseResearchId = factionId === 2 ? 1002 : 1001;
+    const baseResearchId = factionId === 2 ? 1003 : 1001;
     const existing = await this.researchRepo.findOne({
       where: { userId, techId: baseResearchId },
     });

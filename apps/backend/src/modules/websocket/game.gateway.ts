@@ -63,4 +63,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   get onlineCount(): number {
     return this.userSockets.size;
   }
+
+  get onlineUserIds(): number[] {
+    return [...this.userSockets.keys()];
+  }
 }

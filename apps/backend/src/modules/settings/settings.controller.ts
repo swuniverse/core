@@ -29,6 +29,19 @@ export class SettingsController {
     return this.settingsService.updateSettings(req.user.sub, body);
   }
 
+  @Get('notes')
+  getNotes(@Request() req: { user: { sub: number } }) {
+    return this.settingsService.getNotes(req.user.sub);
+  }
+
+  @Patch('notes')
+  updateNotes(
+    @Request() req: { user: { sub: number } },
+    @Body() body: { notes: string },
+  ) {
+    return this.settingsService.updateNotes(req.user.sub, body.notes);
+  }
+
   @Patch('password')
   changePassword(
     @Request() req: { user: { sub: number } },

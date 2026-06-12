@@ -34,20 +34,41 @@ export interface BuildingBonuses {
   storage: number;
 }
 
+export interface BuildingFieldAlternative {
+  fieldtype: number;
+  alternateBuildingId: number;
+  researchId: number | null;
+}
+
 export interface BuildingDef {
   id: number;
   name: string;
-  nameShort: string;
-  description: string;
+  rawName?: string;
+  source?: 'stu' | 'swu';
+  sourceId?: number;
   category: string;
   allowedFieldTypes: number[];
   isUnique: boolean;
+  visible?: boolean;
+  researchId?: number | null;
+  researchRequired?: string | null;
+  researchPoints?: number;
   costs: BuildingCosts;
   resourceCosts?: Array<{ commodityId: number; amount: number }>;
   production: BuildingProduction[];
   bonuses: BuildingBonuses;
-  researchPoints?: number;
-  researchRequired?: string;
+  fieldAlternatives?: BuildingFieldAlternative[];
+  lager?: number;
+  epsCost?: number;
+  eps?: number;
+  epsProc?: number;
+  bevPro?: number;
+  bevUse?: number;
+  integrity?: number;
+  blimit?: number;
+  bclimit?: number;
+  isActivateable?: boolean;
+  bmCol?: number;
 }
 
 export interface CombatFormulas {
@@ -177,36 +198,27 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadCommodities() {
-    const stuData = this.loadYaml<{
+    const data = this.loadYaml<{
       commodities: Array<{
         id: number;
         name: string;
         rawName?: string;
         visible?: boolean;
         type?: number;
+        bound?: boolean;
+        npcCommodity?: boolean;
       }>;
     }>('commodities/stu-commodity-map.yaml');
-    if (stuData?.commodities?.length) {
-      for (const c of stuData.commodities) {
+    if (data?.commodities?.length) {
+      for (const c of data.commodities) {
         this.commodities.set(c.id, {
           id: c.id,
           name: c.name,
           nameShort: c.name.slice(0, 3).toUpperCase(),
-          description: c.rawName ? `Aus STU importiert: ${c.rawName}` : c.name,
+          description: c.name,
           density: 1,
           isTradeOnly: c.type !== 1 || c.visible === false,
         });
-      }
-      this.logger.log(`Loaded ${this.commodities.size} STU commodities`);
-      return;
-    }
-
-    const data = this.loadYaml<{ commodities: Commodity[] }>(
-      'commodities.yaml',
-    );
-    if (data?.commodities) {
-      for (const c of data.commodities) {
-        this.commodities.set(c.id, c);
       }
       this.logger.log(`Loaded ${this.commodities.size} commodities`);
     }
@@ -214,12 +226,10 @@ export class GameDataService implements OnModuleInit {
 
   private loadBuildings() {
     const data = this.loadYaml<{ buildings: BuildingDef[] }>(
-      'buildings/buildings.yaml',
+      'buildings/stu-buildings.yaml',
     );
-    if (data?.buildings) {
-      for (const b of data.buildings) {
-        this.buildings.set(b.id, b);
-      }
+    if (data?.buildings?.length) {
+      for (const b of data.buildings) this.buildings.set(b.id, b);
       this.logger.log(`Loaded ${this.buildings.size} buildings`);
     }
   }
@@ -265,19 +275,10 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadTechTree() {
-    const stuData = this.loadYaml<{ technologies: TechDef[] }>(
+    const data = this.loadYaml<{ technologies: TechDef[] }>(
       'research/stu-research-tree.yaml',
     );
-    if (stuData?.technologies?.length) {
-      this.techTree = stuData.technologies;
-      this.logger.log(`Loaded ${this.techTree.length} STU technologies`);
-      return;
-    }
-
-    const data = this.loadYaml<{ technologies: TechDef[] }>(
-      'research/tech-tree.yaml',
-    );
-    if (data?.technologies) {
+    if (data?.technologies?.length) {
       this.techTree = data.technologies;
       this.logger.log(`Loaded ${this.techTree.length} technologies`);
     }
@@ -300,9 +301,13 @@ export class GameDataService implements OnModuleInit {
   }
 
   getBuildingsForFieldType(fieldType: number): BuildingDef[] {
-    return Array.from(this.buildings.values()).filter((b) =>
-      b.allowedFieldTypes.includes(fieldType),
+    return Array.from(this.buildings.values()).filter(
+      (b) => b.visible !== false && b.allowedFieldTypes.includes(fieldType),
     );
+  }
+
+  getBuildingsByName(name: string): BuildingDef[] {
+    return Array.from(this.buildings.values()).filter((b) => b.name === name);
   }
 
   getCombatFormulas(): CombatFormulas {

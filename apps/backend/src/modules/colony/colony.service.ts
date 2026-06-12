@@ -20,6 +20,9 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 
 @Injectable()
 export class ColonyService {
+  private readonly shipyardBuildingIds = new Set([11, 85010100, 85010300]);
+  private readonly headquartersBuildingIds = new Set([1, 82010100, 82010300]);
+
   constructor(
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
@@ -40,7 +43,13 @@ export class ColonyService {
   async getAvailableBuildings(userId: number, fieldType?: number) {
     const buildings = fieldType
       ? this.gameData.getBuildingsForFieldType(fieldType)
-      : this.gameData.getAllBuildings();
+      : this.gameData
+          .getAllBuildings()
+          .filter(
+            (building) =>
+              building.visible !== false &&
+              building.allowedFieldTypes.length > 0,
+          );
     const result = [];
     for (const building of buildings) {
       if (await this.unlockResolver.isBuildingUnlocked(userId, building.id)) {
@@ -93,54 +102,58 @@ export class ColonyService {
     });
     const primaryColony = colonies[0];
     const hasCompletedShipyard = colonies.some((colony) =>
-      colony.fields?.some(
-        (field) => field.buildingId === 11 && !field.isBuilding,
-      ),
+      colony.fields?.some((field) => this.isShipyardField(field, false)),
     );
     const hasShipyardInProgress = colonies.some((colony) =>
-      colony.fields?.some(
-        (field) => field.buildingId === 11 && field.isBuilding,
-      ),
+      colony.fields?.some((field) => this.isShipyardField(field, true)),
     );
     const shipCount = await this.shipRepo.count({ where: { userId } });
 
-    if (!completedTechIds.has(220101)) {
+    const isKlingon = completedTechIds.has(1003);
+    const foodTechId = isKlingon ? 220103 : 220101;
+    const waterPowerTechId = isKlingon ? 230103 : 230101;
+    const chemistryTechId = isKlingon ? 254003 : 254001;
+
+    if (!completedTechIds.has(foodTechId)) {
+      const tech = this.gameData.getTech(foodTechId);
       return {
-        key: 'RESEARCH_AQUAFARM',
-        label: 'Aquafarm erforschen',
+        key: 'RESEARCH_FOOD',
+        label: `${tech?.name ?? 'Nahrungsforschung'} erforschen`,
         description:
-          activeResearch?.techId === 220101
+          activeResearch?.techId === foodTechId
             ? 'Forschung laeuft. Fehlt Baumaterial, pausiert der Fortschritt automatisch.'
             : 'Erweitere deine Nahrungsproduktion auf Wasserfelder. Kostet Baumaterial pro Tick.',
-        href: '/research?focus=220101',
+        href: `/research?focus=${foodTechId}`,
         completed: false,
         colonyId: primaryColony.id,
       };
     }
 
-    if (!completedTechIds.has(230101)) {
+    if (!completedTechIds.has(waterPowerTechId)) {
+      const tech = this.gameData.getTech(waterPowerTechId);
       return {
         key: 'RESEARCH_WATER_POWER',
-        label: 'Wasserenergieanlage erforschen',
+        label: `${tech?.name ?? 'Wasserenergieanlage'} erforschen`,
         description:
-          activeResearch?.techId === 230101
+          activeResearch?.techId === waterPowerTechId
             ? 'Forschung laeuft. Fehlt Baumaterial, pausiert der Fortschritt automatisch.'
             : 'Schalte eine fruehe Energieoption fuer Wasserfelder frei.',
-        href: '/research?focus=230101',
+        href: `/research?focus=${waterPowerTechId}`,
         completed: false,
         colonyId: primaryColony.id,
       };
     }
 
-    if (!completedTechIds.has(254001)) {
+    if (!completedTechIds.has(chemistryTechId)) {
+      const tech = this.gameData.getTech(chemistryTechId);
       return {
         key: 'RESEARCH_BASIC_CHEMISTRY',
-        label: 'Grundstoffchemie erforschen',
+        label: `${tech?.name ?? 'Grundstoffchemie'} erforschen`,
         description:
-          activeResearch?.techId === 254001
+          activeResearch?.techId === chemistryTechId
             ? 'Forschung laeuft. Fehlt Baumaterial, pausiert der Fortschritt automatisch.'
             : 'Schalte chemische Komponenten als naechsten Industriezweig frei.',
-        href: '/research?focus=254001',
+        href: `/research?focus=${chemistryTechId}`,
         completed: false,
         colonyId: primaryColony.id,
       };
@@ -209,7 +222,7 @@ export class ColonyService {
       .getTechTree()
       .filter((tech) => !tech.hidden && !tech.excludeFromNormalProgression)
       .filter((tech) => {
-        if (tech.id === 1001 || tech.id === 1002) return false;
+        if (tech.id === 1001 || tech.id === 1003) return false;
         return true;
       })
       .filter((tech) => !completedTechIds.has(tech.id))
@@ -261,14 +274,14 @@ export class ColonyService {
       );
     }
 
-    if (buildingDef.researchRequired) {
+    if (buildingDef.researchId != null) {
       const unlocked = await this.unlockResolver.isBuildingUnlocked(
         userId,
         buildingId,
       );
       if (!unlocked) {
         throw new BadRequestException(
-          `Research required: ${buildingDef.researchRequired}`,
+          `Research required: ${buildingDef.researchRequired || buildingDef.researchId}`,
         );
       }
     }
@@ -349,7 +362,7 @@ export class ColonyService {
     if (!field.buildingId) {
       throw new BadRequestException('No building on this field');
     }
-    if (field.buildingId === 1) {
+    if (this.isHeadquartersField(field)) {
       throw new BadRequestException('Cannot demolish headquarters');
     }
     if (field.isBuilding) {
@@ -359,8 +372,64 @@ export class ColonyService {
     }
 
     field.buildingId = null;
+    field.isActive = true;
     field.buildProgress = 0;
     field.buildFinishesAt = null;
+    return this.fieldRepo.save(field);
+  }
+
+  async toggleBuilding(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    if (!field.buildingId || field.isBuilding) {
+      throw new BadRequestException('No completed building on this field');
+    }
+    if (this.isHeadquartersField(field)) {
+      throw new BadRequestException('Cannot deactivate headquarters');
+    }
+
+    const definition = this.gameData.getBuilding(field.buildingId);
+    if (!definition) {
+      throw new BadRequestException('Unknown building');
+    }
+
+    if (field.isActive) {
+      field.isActive = false;
+    } else {
+      const activeBuildings = colony.fields.filter(
+        (f) =>
+          f.buildingId &&
+          !f.isBuilding &&
+          f.isActive &&
+          f.fieldIndex !== fieldIndex,
+      );
+      let currentWorkersUsed = 0;
+      let currentEnergyDelta = 0;
+      for (const f of activeBuildings) {
+        const def = this.gameData.getBuilding(f.buildingId!);
+        if (!def) continue;
+        currentWorkersUsed += def.bevUse || 0;
+        currentEnergyDelta += def.bonuses.energy || 0;
+      }
+
+      const availableWorkers = colony.population - currentWorkersUsed;
+      if ((definition.bevUse || 0) > availableWorkers) {
+        throw new BadRequestException('Nicht genug freie Arbeiter');
+      }
+
+      const energyAfter = currentEnergyDelta + (definition.bonuses.energy || 0);
+      if (energyAfter + colony.energy < 0) {
+        throw new BadRequestException('Nicht genug Energie');
+      }
+
+      field.isActive = true;
+    }
+
     return this.fieldRepo.save(field);
   }
 
@@ -372,8 +441,8 @@ export class ColonyService {
   ): Promise<Spacecraft> {
     const colony = await this.findOne(colonyId, userId);
 
-    const hasShipyard = colony.fields.some(
-      (f) => f.buildingId === 11 && !f.isBuilding,
+    const hasShipyard = colony.fields.some((field) =>
+      this.isShipyardField(field, false),
     );
     if (!hasShipyard) {
       throw new BadRequestException('Colony needs a completed Shipyard');
@@ -470,15 +539,20 @@ export class ColonyService {
     const completedBuildings = fields.filter(
       (field) => field.buildingId && !field.isBuilding,
     );
+    const activeBuildings = completedBuildings.filter((f) => f.isActive);
     const productionDelta = new Map<number, number>();
     let energyDelta = 0;
     let researchPoints = 1;
+    let workersUsed = 0;
+    let housingTotal = 0;
 
-    for (const field of completedBuildings) {
+    for (const field of activeBuildings) {
       const definition = this.gameData.getBuilding(field.buildingId!);
       if (!definition) continue;
       energyDelta += definition.bonuses.energy || 0;
       researchPoints += definition.researchPoints || 0;
+      workersUsed += definition.bevUse || 0;
+      housingTotal += definition.bevPro || 0;
       for (const output of definition.production) {
         productionDelta.set(
           output.commodityId,
@@ -499,15 +573,18 @@ export class ColonyService {
           order: { id: 'ASC' },
         })
       : [];
-    const shipyardUnlocked = await this.unlockResolver.isBuildingUnlocked(
-      userId,
-      11,
+    const shipyardBuilding = this.getPrimaryShipyardBuilding();
+    const shipyardUnlocked = shipyardBuilding
+      ? await this.unlockResolver.isBuildingUnlocked(
+          userId,
+          shipyardBuilding.id,
+        )
+      : false;
+    const hasCompletedShipyard = fields.some((field) =>
+      this.isShipyardField(field, false),
     );
-    const hasCompletedShipyard = fields.some(
-      (field) => field.buildingId === 11 && !field.isBuilding,
-    );
-    const hasShipyardInProgress = fields.some(
-      (field) => field.buildingId === 11 && field.isBuilding,
+    const hasShipyardInProgress = fields.some((field) =>
+      this.isShipyardField(field, true),
     );
 
     return Object.assign(this.toColonySummary(colony), {
@@ -531,6 +608,9 @@ export class ColonyService {
           current: colony.population,
           max: colony.populationMax,
           growth: this.calculatePopulationGrowth(fields),
+          workers: workersUsed,
+          available: colony.population - workersUsed,
+          housing: housingTotal,
         },
         inventory: storage.map((item) => {
           const commodity = this.gameData.getCommodity(item.commodityId);
@@ -586,8 +666,8 @@ export class ColonyService {
           unlocked: shipyardUnlocked,
           completed: hasCompletedShipyard,
           inProgress: hasShipyardInProgress,
-          buildingId: 11,
-          buildingName: this.gameData.getBuilding(11)?.name ?? 'Werfthub',
+          buildingId: shipyardBuilding?.id ?? 85010100,
+          buildingName: shipyardBuilding?.name ?? 'Werfthub',
         },
       },
     });
@@ -740,6 +820,28 @@ export class ColonyService {
     if (energyDelta !== 0 || production.size > 0) {
       await this.colonyRepo.save(colony);
     }
+  }
+
+  private getPrimaryShipyardBuilding() {
+    return (
+      this.gameData.getBuilding(85010100) ??
+      this.gameData.getBuilding(85010300) ??
+      this.gameData.getBuilding(11) ??
+      null
+    );
+  }
+
+  private isShipyardField(field: ColonyField, inProgress?: boolean): boolean {
+    if (!field.buildingId || !this.shipyardBuildingIds.has(field.buildingId)) {
+      return false;
+    }
+    return inProgress == null ? true : field.isBuilding === inProgress;
+  }
+
+  private isHeadquartersField(field: ColonyField): boolean {
+    return (
+      !!field.buildingId && this.headquartersBuildingIds.has(field.buildingId)
+    );
   }
 
   private async growPopulation(colony: Colony): Promise<void> {

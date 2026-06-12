@@ -28,53 +28,112 @@ export function shipImage(shipClassId: number): string {
   return `${ASSET_BASE}/ships/${shipClassId}.png`;
 }
 
-const GENERATED_COMMODITY_SLUGS: Record<number, string> = {
-  1: 'nahrung',
-  2: 'baumaterial',
-  3: 'chemische-komponenten',
-  4: 'transparistahl',
-  5: 'deuterium',
-  6: 'antimaterie',
-  7: 'plasma',
-  8: 'kyber-kristalle',
-  11: 'iridium-erz',
-  21: 'durastahl',
+const GENERATED_COMMODITY_FILES: Record<number, string> = {
+  2: '2-baumaterial.png',
+  4: '4-transparentes-aluminium.png',
+  8: '8-dilithium.png',
+  12: '12-galazit-erz.png',
+  13: '13-nitrium-erz.png',
+  14: '14-magnesit-erz.png',
+  15: '15-kelbonit-erz.png',
+  16: '16-talgonit-erz.png',
+  19: '19-tritanium-erz.png',
+  20: '20-iridium.png',
+  21: '21-duranium.png',
+  22: '22-galazit.png',
+  23: '23-nitrium.png',
+  24: '24-magnesit.png',
+  25: '25-kelbonit.png',
+  26: '26-talgonit.png',
+  29: '29-tritanium.png',
+  31: '31-isolineare-speicherchips.png',
+  32: '32-hochenergie-plasma.png',
+  33: '33-nitrium-schaltkreise.png',
+  34: '34-subraum-feldspulen.png',
+  35: '35-metaphasen-konverter.png',
+  36: '36-mikrodyne-modulator.png',
+  40: '40-chateau-picard.png',
+  41: '41-bat-leth.png',
+  42: '42-container.png',
+  43: '43-selbstdichtende-schaftbolzen.png',
+  44: '44-kontaminiertes-warpplasma.png',
+  45: '45-werkzeugkoffer.png',
+  46: '46-blutwein.png',
+  47: '47-targ.png',
+  1101: '1101-wohnhauser.png',
+  1300: '1300-lebensstandard.png',
 };
 
-const GENERATED_BUILDING_SLUGS: Record<number, string> = {
-  1: 'koloniezentrale',
-  2: 'baumaterialfabrik',
-  3: 'solarzellen',
-  4: 'farm',
-  5: 'chemiefabrik',
-  6: 'transparistahl-werk',
-  7: 'wohnhaeuser',
-  8: 'kaserne',
-  9: 'forschungslabor',
-  10: 'forschungszentrum',
-  11: 'werfthub',
-  12: 'torpedofabrik',
-  13: 'lager',
-  14: 'raumbahnhof',
-  15: 'solarsatellit',
-  16: 'verteidigungsposten',
-  17: 'iridium-mine',
-  18: 'durastahl-verarbeitung',
-  220101: 'aquafarm',
-  230101: 'wasserenergieanlage',
+const GENERATED_COMMODITY_NAME_FILES: Record<string, string> = {
+  Doonium: 'doonium.png',
+  Hypermaterie: 'hypermaterie.png',
 };
 
-export function commodityImage(commodityId: number): string {
-  const generatedSlug = GENERATED_COMMODITY_SLUGS[commodityId];
-  return generatedSlug
-    ? `${ASSET_BASE}/commodities/generated/${commodityId}-${generatedSlug}.png`
+const GENERATED_BUILDING_FILES: Record<number, string> = {
+  1: '1-admingebaude.png',
+  11010100: '11010100-rebel-hauser.png',
+  11010300: '11010300-imperiale-hauser.png',
+  21010100: '21010100-rebel-farm.png',
+  21010300: '21010300-imperiale-targfarm.png',
+  21020100: '21020100-algenfarm.png',
+  21020200: '21020100-algenfarm.png',
+  21910300: '21910300-anti-grav-trainingszentrum.png',
+  22010500: '22010500-bar.png',
+  22020200: '22020200-ale-brauerei.png',
+  22020300: '22020300-blutwein-kelterei.png',
+  24010100: '24010100-campingplatz.png',
+  24010200: '24010200-bibliothek.png',
+  24010400: '24010400-brunnenplatz.png',
+  24020400: '24020400-denkmal.png',
+  24030300: '24030300-arena.png',
+  24030500: '24030500-borse.png',
+  25030500: '25030500-ausbildungsstatte-physiotherapie.png',
+  45010200: '45010200-athenaeum.png',
+  45010500: '45010500-borsenzentrum.png',
+  51010100: '51010100-akademie.png',
+  31010100: '31010100-rebel-solarzellen.png',
+  31010300: '31010300-imperiale-solarzellen.png',
+  61010100: '61010100-rebel-baumaterialfabrik.png',
+  61010300: '61010300-imperiale-baumaterialfabrik.png',
+  61020100: '61020100-deuteriumsynthesizer.png',
+  61020200: '61020100-deuteriumsynthesizer.png',
+  61020300: '61020100-deuteriumsynthesizer.png',
+  61020400: '61020100-deuteriumsynthesizer.png',
+  61020500: '61020100-deuteriumsynthesizer.png',
+  61040100: '61040100-deuterium-pumpe.png',
+  61040200: '61040100-deuterium-pumpe.png',
+  61040300: '61040100-deuterium-pumpe.png',
+  61040400: '61040100-deuterium-pumpe.png',
+  61040500: '61040100-deuterium-pumpe.png',
+  61210100: '61210100-dilithium-mine.png',
+  61210200: '61210100-dilithium-mine.png',
+  61210300: '61210100-dilithium-mine.png',
+  61210400: '61210100-dilithium-mine.png',
+  61210500: '61210100-dilithium-mine.png',
+  62020100: '62020100-aluminiumwerk.png',
+  62020200: '62020100-aluminiumwerk.png',
+  62020300: '62020100-aluminiumwerk.png',
+  62020400: '62020100-aluminiumwerk.png',
+  62020500: '62020100-aluminiumwerk.png',
+  81210100: '81210100-rebel-lager.png',
+  81210300: '81210300-imperiale-lager.png',
+  82010100: '82010100-rebel-koloniezentrale.png',
+  82010300: '82010300-imperiale-koloniezentrale.png',
+};
+
+export function commodityImage(commodityId: number, commodityName?: string): string {
+  const generatedFile =
+    GENERATED_COMMODITY_FILES[commodityId] ||
+    (commodityName ? GENERATED_COMMODITY_NAME_FILES[commodityName] : undefined);
+  return generatedFile
+    ? `${ASSET_BASE}/commodities/generated/${generatedFile}`
     : `${ASSET_BASE}/commodities/${commodityId}.png`;
 }
 
 export function buildingImage(buildingId: number): string {
-  const generatedSlug = GENERATED_BUILDING_SLUGS[buildingId];
-  return generatedSlug
-    ? `${ASSET_BASE}/buildings/generated/${buildingId}-${generatedSlug}.png`
+  const generatedFile = GENERATED_BUILDING_FILES[buildingId];
+  return generatedFile
+    ? `${ASSET_BASE}/buildings/generated/${generatedFile}`
     : `${ASSET_BASE}/buildings/${buildingId}.png`;
 }
 
