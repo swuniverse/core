@@ -410,39 +410,49 @@ export class StuPlanetSurfaceGenerator {
       config.width !== 10 ? bonusFieldAmount - 1 : bonusFieldAmount;
     if (remaining <= 0) return [];
 
-    const candidates: Array<() => StuSurfacePhaseConfig | null> = [
-      () => this.maybeBonusPhase(rng, () => this.bonusPhase([701], [70121])),
-      () =>
-        this.maybeBonusPhase(rng, () =>
-          this.bonusPhase([701, 201, 210, 211], [70112, 20111, 21011, 21111]),
-        ),
-      () =>
-        this.maybeBonusPhase(rng, () =>
-          this.bonusPhase([401, 201, 211], [40131, 20132, 21132]),
-        ),
-      () =>
-        this.maybeBonusPhase(rng, () =>
-          this.bonusPhase([101, 111, 601], [10103, 11103, 60103]),
-        ),
-      () =>
-        this.maybeBonusPhase(rng, () =>
-          this.bonusPhase(
-            [101, 111, 121, 201, 211],
-            [10101, 11101, 12101, 20102, 21102],
-          ),
-        ),
-    ];
+    const bonusTypes = config.bonusTypes.length > 0
+      ? config.bonusTypes
+      : ['AENERGY', 'HABITAT'];
 
     const phases: StuSurfacePhaseConfig[] = [];
-    for (const build of rng.shuffle(candidates)) {
+    for (const bonusType of rng.shuffle([...bonusTypes])) {
       if (remaining <= 0) break;
-      const next = build();
-      if (next) {
-        phases.push(next);
+      const phase = this.maybeBonusPhase(rng, () =>
+        this.bonusPhaseForType(bonusType),
+      );
+      if (phase) {
+        phases.push(phase);
         remaining -= 1;
       }
     }
     return phases;
+  }
+
+  private bonusPhaseForType(
+    type: string,
+  ): StuSurfacePhaseConfig | null {
+    switch (type) {
+      case 'SUPER':
+        return this.bonusPhase([701], [70121]);
+      case 'ORE':
+        return this.bonusPhase([701, 702, 703, 704, 705, 706], [70112, 70212, 70312, 70412, 70512, 70612]);
+      case 'DEUTERIUM':
+        return this.bonusPhase([201, 210, 211, 221, 222, 231, 501], [20111, 21011, 21111, 22111, 22211, 23111, 50111]);
+      case 'AENERGY':
+        return this.bonusPhase([401, 201, 211], [40131, 20132, 21132]);
+      case 'SENERGY':
+        return this.bonusPhase([401, 402, 403, 404], [40131, 40231, 40331, 40431]);
+      case 'WENERGY':
+        return this.bonusPhase([201, 211, 212, 221, 222], [20132, 21132, 21232, 22132, 22232]);
+      case 'HABITAT':
+        return this.bonusPhase([101, 111, 601], [10103, 11103, 60103]);
+      case 'ANYRESOURCE':
+        return this.bonusPhase([701, 201, 210, 211], [70112, 20111, 21011, 21111]);
+      case 'QUALITY':
+        return this.bonusPhase([101, 111, 121, 201, 211], [10101, 11101, 12101, 20102, 21102]);
+      default:
+        return null;
+    }
   }
 
   private bonusPhase(from: number[], to: number[]): StuSurfacePhaseConfig {

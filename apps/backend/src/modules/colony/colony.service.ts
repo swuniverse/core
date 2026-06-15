@@ -15,7 +15,7 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
-import { GameDataService, BuildingCosts } from '../game-data/game-data.service';
+import { GameDataService, BuildingDef } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 
 @Injectable()
@@ -295,14 +295,21 @@ export class ColonyService {
       }
     }
 
-    await this.deductBuildCosts(
-      colony,
-      buildingDef.costs,
-      buildingDef.resourceCosts,
+    const actualBuildingId = this.resolveFieldAlternative(
+      buildingDef,
+      field.fieldType,
     );
+    const actualDef =
+      actualBuildingId !== buildingId
+        ? this.gameData.getBuilding(actualBuildingId) ?? buildingDef
+        : buildingDef;
+
+    this.checkDepositAvailability(colony, actualDef);
+
+    await this.deductBuildCosts(colony, buildingDef.resourceCosts);
 
     const buildTimeMs = buildingDef.costs.buildTime * 1000;
-    field.buildingId = buildingId;
+    field.buildingId = actualBuildingId;
     field.isBuilding = true;
     field.buildProgress = 0;
     field.buildFinishesAt = new Date(Date.now() + buildTimeMs);
@@ -312,20 +319,12 @@ export class ColonyService {
 
   private async deductBuildCosts(
     colony: Colony,
-    costs: BuildingCosts,
-    resourceCosts?: Array<{ commodityId: number; amount: number }>,
+    resourceCosts: Array<{ commodityId: number; amount: number }>,
   ): Promise<void> {
-    const costMap: [number, number][] = resourceCosts?.length
-      ? resourceCosts.map((cost) => [cost.commodityId, cost.amount])
-      : [
-          [1, costs.credits || 0],
-          [2, costs.durastahl || 0],
-          [3, costs.tibannaGas || 0],
-          [4, costs.kyberKristalle || 0],
-          [5, costs.beskar || 0],
-          [6, costs.kristallinesSilizium || 0],
-          [7, costs.energiemodule || 0],
-        ];
+    const costMap: [number, number][] = resourceCosts.map((cost) => [
+      cost.commodityId,
+      cost.amount,
+    ]);
 
     for (const [commodityId, required] of costMap) {
       if (required <= 0) continue;
@@ -348,6 +347,57 @@ export class ColonyService {
       });
       storage!.amount -= required;
       await this.storageRepo.save(storage!);
+    }
+  }
+
+  private resolveFieldAlternative(
+    buildingDef: BuildingDef,
+    fieldType: number,
+  ): number {
+    if (!buildingDef.fieldAlternatives?.length) return buildingDef.id;
+    const alt = buildingDef.fieldAlternatives.find(
+      (a) => a.fieldtype === fieldType,
+    );
+    if (!alt) return buildingDef.id;
+    return alt.alternateBuildingId;
+  }
+
+  private checkDepositAvailability(
+    colony: Colony,
+    buildingDef: BuildingDef,
+  ): void {
+    const deposits = (buildingDef.production || []).filter(
+      (p) => p.amount < 0 && p.commodityId >= 1500 && p.commodityId < 2000,
+    );
+    if (deposits.length === 0) return;
+
+    const colonyClass = this.gameData.getColonyClass(colony.colonyClassId);
+    const activeFields = (colony.fields ?? []).filter(
+      (f) => f.buildingId && !f.isBuilding && f.isActive,
+    );
+
+    for (const deposit of deposits) {
+      let available =
+        colonyClass?.baseProduction.find(
+          (bp) => bp.commodityId === deposit.commodityId,
+        )?.amount ?? 0;
+
+      for (const field of activeFields) {
+        const def = this.gameData.getBuilding(field.buildingId!);
+        if (!def) continue;
+        for (const p of def.production) {
+          if (p.commodityId === deposit.commodityId) {
+            available += p.amount;
+          }
+        }
+      }
+
+      if (available + deposit.amount < 0) {
+        const commodity = this.gameData.getCommodity(deposit.commodityId);
+        throw new BadRequestException(
+          `Nicht genug ${commodity?.name || 'Vorkommen'} verfügbar (${available} vorhanden)`,
+        );
+      }
     }
   }
 
@@ -470,10 +520,7 @@ export class ColonyService {
     }
 
     const costs = this.calculateShipBuildCosts(shipClass);
-    await this.deductBuildCosts(colony, {
-      ...costs,
-      buildTime: shipClass.buildTimeTicks,
-    });
+    await this.deductBuildCosts(colony, costs);
 
     const ship = this.shipRepo.create({
       name: name?.trim() || shipClass.name,
@@ -507,20 +554,17 @@ export class ColonyService {
     return this.shipRepo.save(ship);
   }
 
-  private calculateShipBuildCosts(shipClass: ShipClassDef): BuildingCosts {
-    return {
-      credits: Math.max(100, Math.round(shipClass.hullBase * 4)),
-      durastahl: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
-      tibannaGas: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
-      kyberKristalle: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
-      beskar: 0,
-      kristallinesSilizium: Math.max(
-        20,
-        Math.round(shipClass.cargoCapacity * 0.25),
-      ),
-      energiemodule: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
-      buildTime: shipClass.buildTimeTicks,
-    };
+  private calculateShipBuildCosts(
+    shipClass: ShipClassDef,
+  ): Array<{ commodityId: number; amount: number }> {
+    return [
+      { commodityId: 1, amount: Math.max(100, Math.round(shipClass.hullBase * 4)) },
+      { commodityId: 2, amount: Math.max(50, Math.round(shipClass.hullBase * 1.5)) },
+      { commodityId: 3, amount: Math.max(20, Math.round(shipClass.shieldBase * 0.5)) },
+      { commodityId: 4, amount: Math.max(0, Math.round(shipClass.epsBase * 0.1)) },
+      { commodityId: 6, amount: Math.max(20, Math.round(shipClass.cargoCapacity * 0.25)) },
+      { commodityId: 7, amount: Math.max(20, Math.round(shipClass.epsBase * 0.4)) },
+    ].filter((c) => c.amount > 0);
   }
 
   private toColonySummary(colony: Colony): Colony {
@@ -557,6 +601,16 @@ export class ColonyService {
         productionDelta.set(
           output.commodityId,
           (productionDelta.get(output.commodityId) || 0) + output.amount,
+        );
+      }
+    }
+
+    const colonyClass = this.gameData.getColonyClass(colony.colonyClassId);
+    if (colonyClass) {
+      for (const bp of colonyClass.baseProduction) {
+        productionDelta.set(
+          bp.commodityId,
+          (productionDelta.get(bp.commodityId) || 0) + bp.amount,
         );
       }
     }

@@ -50,6 +50,9 @@ export class StarSystem {
   @Column({ type: 'varchar', length: 32, nullable: true })
   landmarkCategory: string | null;
 
+  @Column({ type: 'smallint', default: 2 })
+  bonusFields: number;
+
   @OneToMany(() => CelestialObject, (obj) => obj.starSystem)
   celestialObjects: CelestialObject[];
 }

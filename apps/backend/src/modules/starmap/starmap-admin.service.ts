@@ -882,6 +882,7 @@ export class StarmapAdminService {
         systemTypeId: input.systemTypeId,
         maxX: input.maxX ?? 22,
         maxY: input.maxY ?? 22,
+        bonusFields: this.rollBonusFieldAmount(),
       }),
     );
 
@@ -927,6 +928,7 @@ export class StarmapAdminService {
           systemTypeId: systemType.id,
           maxX: layout.width,
           maxY: layout.height,
+          bonusFields: this.rollBonusFieldAmount(),
         }),
       );
 
@@ -1943,5 +1945,13 @@ export class StarmapAdminService {
       (d) => d.rarity === selectedRarity,
     );
     return candidates[Math.floor(Math.random() * candidates.length)].id;
+  }
+
+  private rollBonusFieldAmount(): number {
+    const roll = Math.random() * 100;
+    if (roll < 1) return 0;
+    if (roll < 11) return 1;
+    if (roll < 74) return 2;
+    return 3;
   }
 }

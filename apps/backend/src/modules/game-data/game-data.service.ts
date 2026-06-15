@@ -13,14 +13,16 @@ export interface Commodity {
 }
 
 export interface BuildingCosts {
+  buildTime: number;
+}
+
+export interface ModuleCosts {
   credits: number;
   durastahl: number;
   tibannaGas: number;
   kyberKristalle: number;
   beskar: number;
   kristallinesSilizium: number;
-  energiemodule: number;
-  buildTime: number;
 }
 
 export interface BuildingProduction {
@@ -118,7 +120,7 @@ export interface ModuleDef {
   maxLevel: number;
   public: Record<string, unknown>;
   secret: Record<string, unknown>;
-  costs: BuildingCosts;
+  costs: ModuleCosts;
   research: { name: string; level: number } | null;
 }
 
@@ -158,6 +160,13 @@ export interface TechDef {
   unlocks?: ResearchUnlocks;
 }
 
+export interface ColonyClassDef {
+  classId: number;
+  name: string;
+  type: number;
+  baseProduction: Array<{ commodityId: number; amount: number }>;
+}
+
 @Injectable()
 export class GameDataService implements OnModuleInit {
   private readonly logger = new Logger(GameDataService.name);
@@ -168,6 +177,7 @@ export class GameDataService implements OnModuleInit {
   private combatFormulas: CombatFormulas;
   private modules: Map<string, ModuleDef[]> = new Map();
   private techTree: TechDef[] = [];
+  private colonyClasses: Map<number, ColonyClassDef> = new Map();
 
   onModuleInit() {
     this.dataPath =
@@ -185,6 +195,7 @@ export class GameDataService implements OnModuleInit {
     this.loadCombatFormulas();
     this.loadModules();
     this.loadTechTree();
+    this.loadColonyClasses();
   }
 
   private loadYaml<T>(relativePath: string): T | null {
@@ -284,6 +295,16 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadColonyClasses() {
+    const data = this.loadYaml<{ colonyClasses: ColonyClassDef[] }>(
+      'colony-classes/stu-colony-classes.yaml',
+    );
+    if (data?.colonyClasses?.length) {
+      for (const cc of data.colonyClasses) this.colonyClasses.set(cc.classId, cc);
+      this.logger.log(`Loaded ${this.colonyClasses.size} colony classes`);
+    }
+  }
+
   getCommodity(id: number): Commodity | undefined {
     return this.commodities.get(id);
   }
@@ -328,5 +349,9 @@ export class GameDataService implements OnModuleInit {
 
   getTech(id: number): TechDef | undefined {
     return this.techTree.find((t) => t.id === id);
+  }
+
+  getColonyClass(classId: number): ColonyClassDef | undefined {
+    return this.colonyClasses.get(classId);
   }
 }

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PlanetField, PlanetFieldLayer } from '../entities/planet-field.entity';
 import { CelestialObject } from '../entities/celestial-object.entity';
+import { StarSystem } from '../entities/star-system.entity';
 import {
   getStuSurfaceClassConfig,
   stuPlanetSurfaceGenerator,
@@ -32,6 +33,8 @@ export class PlanetGeneratorService {
     private readonly planetFieldRepo: Repository<PlanetField>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
+    @InjectRepository(StarSystem)
+    private readonly systemRepo: Repository<StarSystem>,
   ) {}
 
   generateLayout(
@@ -82,7 +85,11 @@ export class PlanetGeneratorService {
     if (classId == null) return 0;
 
     const seed = obj.terrainSeed ?? `planet-${obj.id}`;
-    const layout = this.generateLayout(classId, seed);
+    const system = obj.systemId
+      ? await this.systemRepo.findOneBy({ id: obj.systemId })
+      : null;
+    const bonusAmount = system?.bonusFields ?? 2;
+    const layout = this.generateLayout(classId, seed, bonusAmount);
     const allFields = [
       ...layout.orbit,
       ...layout.surface,

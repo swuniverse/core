@@ -13,6 +13,17 @@ export interface StuSurfacePhaseConfig {
   fragmentation: number;
 }
 
+export type BonusType =
+  | 'AENERGY'
+  | 'SENERGY'
+  | 'WENERGY'
+  | 'HABITAT'
+  | 'ORE'
+  | 'DEUTERIUM'
+  | 'SUPER'
+  | 'ANYRESOURCE'
+  | 'QUALITY';
+
 export interface StuSurfaceClassConfig {
   classId: number;
   name: string;
@@ -26,6 +37,7 @@ export interface StuSurfaceClassConfig {
   surfacePhases: StuSurfacePhaseConfig[];
   orbitPhases: StuSurfacePhaseConfig[];
   undergroundPhases: StuSurfacePhaseConfig[];
+  bonusTypes: BonusType[];
 }
 
 function phase(input: {
@@ -81,6 +93,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [801], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 7, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: [],
   },
   203: {
     classId: 203,
@@ -103,6 +116,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Untergrundfels", "num": 10, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT'],
   },
   205: {
     classId: 205,
@@ -127,6 +141,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [801], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 4, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'HABITAT'],
   },
   207: {
     classId: 207,
@@ -144,6 +159,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   209: {
     classId: 209,
@@ -161,6 +177,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   211: {
     classId: 211,
@@ -185,6 +202,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundeis", "num": 5, "from": [803], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 4, "from": [803], "to": [813], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT', 'HABITAT'],
   },
   213: {
     classId: 213,
@@ -206,6 +224,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Erde", "num": 8, "from": [807], "to": [817], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
     ],
+    bonusTypes: ['AENERGY', 'AENERGY', 'HABITAT'],
   },
   215: {
     classId: 215,
@@ -228,6 +247,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Erde", "num": 8, "from": [805], "to": [815], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
       phase({"mode": "normal", "description": "Eis", "num": 5, "from": [805], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 25}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'DEUTERIUM'],
   },
   216: {
     classId: 216,
@@ -252,6 +272,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Erde", "num": 8, "from": [805], "to": [815], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
       phase({"mode": "normal", "description": "Eis", "num": 5, "from": [805], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 25}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'DEUTERIUM'],
   },
   217: {
     classId: 217,
@@ -284,6 +305,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Untergrund Magma", "num": 5, "from": [828], "to": [831], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 8}),
     ],
+    bonusTypes: [],
   },
   219: {
     classId: 219,
@@ -309,6 +331,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [806], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 5, "from": [806], "to": [816], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT', 'HABITAT'],
   },
   221: {
     classId: 221,
@@ -341,6 +364,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   223: {
     classId: 223,
@@ -358,6 +382,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   231: {
     classId: 231,
@@ -390,6 +415,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   261: {
     classId: 261,
@@ -467,6 +493,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   262: {
     classId: 262,
@@ -544,6 +571,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   263: {
     classId: 263,
@@ -621,6 +649,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   301: {
     classId: 301,
@@ -649,6 +678,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [801], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 7, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: [],
   },
   303: {
     classId: 303,
@@ -672,6 +702,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Untergrundfels", "num": 11, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT'],
   },
   305: {
     classId: 305,
@@ -697,6 +728,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [801], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 4, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'HABITAT'],
   },
   311: {
     classId: 311,
@@ -722,6 +754,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundeis", "num": 5, "from": [803], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 5, "from": [803], "to": [813], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'AENERGY', 'HABITAT'],
   },
   313: {
     classId: 313,
@@ -744,6 +777,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Erde", "num": 9, "from": [807], "to": [817], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
     ],
+    bonusTypes: ['AENERGY', 'AENERGY', 'HABITAT'],
   },
   315: {
     classId: 315,
@@ -767,6 +801,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Erde", "num": 5, "from": [805], "to": [815], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
       phase({"mode": "normal", "description": "Eis", "num": 5, "from": [805], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 25}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'DEUTERIUM'],
   },
   317: {
     classId: 317,
@@ -800,6 +835,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Untergrund Magma", "num": 6, "from": [828], "to": [831], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 8}),
     ],
+    bonusTypes: [],
   },
   331: {
     classId: 331,
@@ -833,6 +869,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   361: {
     classId: 361,
@@ -911,6 +948,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   362: {
     classId: 362,
@@ -989,6 +1027,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   363: {
     classId: 363,
@@ -1067,6 +1106,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   401: {
     classId: 401,
@@ -1094,6 +1134,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [801], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 6, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: [],
   },
   403: {
     classId: 403,
@@ -1116,6 +1157,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Untergrundfels", "num": 11, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT'],
   },
   405: {
     classId: 405,
@@ -1140,6 +1182,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [801], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 4, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'HABITAT'],
   },
   407: {
     classId: 407,
@@ -1157,6 +1200,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   409: {
     classId: 409,
@@ -1174,6 +1218,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   411: {
     classId: 411,
@@ -1198,6 +1243,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundeis", "num": 5, "from": [801], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 6, "from": [801], "to": [802], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT', 'HABITAT'],
   },
   413: {
     classId: 413,
@@ -1219,6 +1265,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     undergroundPhases: [
       phase({"mode": "normal", "description": "Erde", "num": 8, "from": [802], "to": [801], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
     ],
+    bonusTypes: ['AENERGY', 'AENERGY', 'HABITAT'],
   },
   415: {
     classId: 415,
@@ -1241,6 +1288,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Erde", "num": 4, "from": [802], "to": [801], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
       phase({"mode": "normal", "description": "Eis", "num": 5, "from": [802], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 25}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'DEUTERIUM'],
   },
   416: {
     classId: 416,
@@ -1265,6 +1313,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Erde", "num": 6, "from": [802], "to": [801], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 15}),
       phase({"mode": "normal", "description": "Eis", "num": 4, "from": [802], "to": [821], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 25}),
     ],
+    bonusTypes: ['WENERGY', 'WENERGY', 'DEUTERIUM'],
   },
   417: {
     classId: 417,
@@ -1294,6 +1343,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   419: {
     classId: 419,
@@ -1319,6 +1369,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
       phase({"mode": "normal", "description": "Untergrundwasser", "num": 5, "from": [806], "to": [851], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 2}),
       phase({"mode": "normal", "description": "Untergrundfels", "num": 6, "from": [806], "to": [816], "adjacent": 0, "noadjacent": 0, "noadjacentlimit": 0, "fragmentation": 10}),
     ],
+    bonusTypes: ['AENERGY', 'HABITAT', 'HABITAT'],
   },
   421: {
     classId: 421,
@@ -1343,6 +1394,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   423: {
     classId: 423,
@@ -1360,6 +1412,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   431: {
     classId: 431,
@@ -1384,6 +1437,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: ['ORE', 'HABITAT', 'HABITAT'],
   },
   432: {
     classId: 432,
@@ -1408,6 +1462,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   701: {
     classId: 701,
@@ -1461,6 +1516,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   702: {
     classId: 702,
@@ -1514,6 +1570,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   703: {
     classId: 703,
@@ -1567,6 +1624,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   704: {
     classId: 704,
@@ -1620,6 +1678,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   705: {
     classId: 705,
@@ -1673,6 +1732,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   706: {
     classId: 706,
@@ -1726,6 +1786,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   707: {
     classId: 707,
@@ -1779,6 +1840,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   708: {
     classId: 708,
@@ -1832,6 +1894,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   709: {
     classId: 709,
@@ -1885,6 +1948,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   716: {
     classId: 716,
@@ -1938,6 +2002,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   717: {
     classId: 717,
@@ -1991,6 +2056,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
   718: {
     classId: 718,
@@ -2044,6 +2110,7 @@ export const STU_SURFACE_CLASS_CONFIGS: Record<number, StuSurfaceClassConfig> = 
     ],
     undergroundPhases: [
     ],
+    bonusTypes: [],
   },
 };
 
