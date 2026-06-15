@@ -471,9 +471,10 @@ export class StuPlanetSurfaceGenerator {
 
   private maybeBonusPhase(
     rng: SeededRNG,
-    build: () => StuSurfacePhaseConfig,
+    build: () => StuSurfacePhaseConfig | null,
   ): StuSurfacePhaseConfig | null {
-    return rng.nextInt(1, 100) <= 75 ? build() : null;
+    if (rng.nextInt(1, 100) > 75) return null;
+    return build();
   }
 }
 
