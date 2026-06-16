@@ -1,144 +1,50 @@
-import { useState, type SyntheticEvent } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
 import type { AuthResponse } from '@swuniverse/shared';
 
-function GithubIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-    </svg>
-  );
-}
-
-function DiscordIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-    </svg>
-  );
-}
-
-function PlanetIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="w-6 h-6"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418"
-      />
-    </svg>
-  );
-}
-
-function RocketIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="w-6 h-6"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
-      />
-    </svg>
-  );
-}
-
-function StarIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="w-6 h-6"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-      />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="w-6 h-6"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-      />
-    </svg>
-  );
-}
-
-const FEATURES = [
+const features = [
   {
-    icon: <PlanetIcon />,
-    code: 'COL-01',
-    title: 'Kolonien gründen',
-    desc: 'Beanspruche Planeten, baue Infrastruktur und forme entlegene Welten zu Machtzentren.',
+    title: 'Kolonien & Ressourcen',
+    copy: 'Baue Außenposten auf, sichere Hyperraum-Routen und optimiere jede Tick-Produktion wie ein echter Sektor-Gouverneur.',
+    icon: 'orbit',
   },
   {
-    icon: <RocketIcon />,
-    code: 'FLT-07',
-    title: 'Flotten befehligen',
-    desc: 'Entwerfe Schiffe, bündele Verbände und schicke Expeditionen durch unsichere Sektoren.',
+    title: 'Flotten & Taktik',
+    copy: 'Plane Manöver über mehrere Ticks, stelle Verbände zusammen und nutze Timing statt Reflexe als wichtigste Waffe.',
+    icon: 'fleet',
   },
   {
-    icon: <StarIcon />,
-    code: 'MAP-12',
-    title: 'Sternenkarte lesen',
-    desc: 'Navigiere Systeme, Routen und Grenzräume auf einer wachsenden taktischen Galaxiekarte.',
-  },
-  {
-    icon: <ShieldIcon />,
-    code: 'DIP-03',
-    title: 'Diplomatie riskieren',
-    desc: 'Schließe Bündnisse, teile Aufklärung oder bringe rivalisierende Fraktionen ins Wanken.',
+    title: 'Diplomatie & Allianzen',
+    copy: 'Schmiede Bündnisse, handle Nichtangriffspakte aus und entscheide, wann Verrat mehr wert ist als Loyalität.',
+    icon: 'signal',
   },
 ];
 
-const ACCESS_STEPS = [
-  {
-    number: '01',
-    title: 'Discord anfunken',
-    desc: 'Tritt dem Server bei, lies die Alpha-Hinweise und frage nach einem Start-Invite.',
-  },
-  {
-    number: '02',
-    title: 'Invite einlösen',
-    desc: 'Registriere dich mit deinem Key, wähle deine Fraktion und aktiviere dein Kommando.',
-  },
-  {
-    number: '03',
-    title: 'Zwei Spieler rekrutieren',
-    desc: 'Nach dem Start kannst du bis zu zwei weitere Commander persönlich einladen.',
-  },
+const steps = [
+  { title: 'Invite Key holen', copy: 'Tritt dem Discord bei und sichere dir deinen persönlichen Alpha-Zugangsschlüssel.' },
+  { title: 'Commander anlegen', copy: 'Registriere dich mit deinem Key, wähle eine Fraktion und betrete die Galaxis.' },
+  { title: 'Flotte entsenden', copy: 'Setze Befehle, warte auf den nächsten Tick und beobachte, wie die Galaxis reagiert.' },
 ];
+
+function CinematicBackdrop() {
+  return (
+    <div className="swu-backdrop" aria-hidden="true">
+      <div className="swu-backdrop__stars swu-backdrop__stars--near" />
+      <div className="swu-backdrop__stars swu-backdrop__stars--far" />
+      <div className="swu-backdrop__nebula" />
+      <div className="swu-backdrop__planet" />
+      <div className="swu-backdrop__destroyer" />
+      <div className="swu-backdrop__rays" />
+      <div className="swu-backdrop__flare" />
+    </div>
+  );
+}
 
 export function LoginPage() {
+  const [loginOpen, setLoginOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -146,328 +52,167 @@ export function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  function scrollToLandingInfo() {
-    document
-      .getElementById('landing-info')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  useEffect(() => {
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLoginOpen(false);
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, []);
 
-  async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
+  async function handleLogin(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>('/auth/login', {
-        username,
-        password,
-      });
+      const res = await api.post<AuthResponse>('/auth/login', { username, password });
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/onboarding');
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen',
-      );
+      setError(err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="landing landing--dossier">
+    <main className="swu-page swu-page--landing">
       <StarField />
-      <div className="auth-scanlines" />
-      <div className="landing-grid-sky" />
-      <div className="landing-route-field" aria-hidden="true">
-        <span className="landing-route landing-route--one" />
-        <span className="landing-route landing-route--two" />
-        <span className="landing-route landing-route--three" />
-      </div>
-      <div className="auth-nebula auth-nebula--left" />
-      <div className="auth-nebula auth-nebula--right" />
+      <CinematicBackdrop />
 
-      <nav className="landing-nav landing-nav--dossier">
-        <a
-          href="#top"
-          className="landing-nav__mark"
-          aria-label="Star Wars Universe Start"
-        >
-          <span className="landing-nav__sigil">SWU</span>
+      <nav className="swu-nav" aria-label="Hauptnavigation">
+        <a className="swu-nav__brand" href="#top" aria-label="Star Wars Universe Start">
+          <span className="swu-nav__sigil" aria-hidden="true" />
+          <span>SWU</span>
         </a>
-        <div className="landing-nav__links">
-          <a
-            href="https://github.com/swuniverse"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="landing-nav__link"
-            aria-label="GitHub"
-          >
-            <GithubIcon />
-            <span>GitHub</span>
-          </a>
-          <a
-            href="https://discord.com/invite/vvUwR6UZbB"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="landing-nav__link landing-nav__link--primary"
-            aria-label="Discord"
-          >
-            <DiscordIcon />
-            <span>Discord</span>
-          </a>
+        <div className="swu-nav__links">
+          <a href="#features">Features</a>
+          <a href="#start">Start</a>
+          <a href="https://github.com/swuniverse" rel="noopener noreferrer" target="_blank">GitHub</a>
+          <button className="swu-nav__link-button" type="button" onClick={() => setLoginOpen(true)}>Login</button>
+          <a className="swu-nav__discord" href="https://discord.com/invite/vvUwR6UZbB" target="_blank" rel="noopener noreferrer">Discord</a>
         </div>
       </nav>
 
-      <main id="top">
-        <section className="landing-hero landing-hero--dossier">
-          <div className="landing-hero__bg" />
-          <div className="landing-hero__content landing-hero__content--dossier">
-            <div className="landing-briefing">
-              <div className="landing-briefing__kicker">
-                <span>Classified Alpha Dossier</span>
-                <strong>Invite Only</strong>
-              </div>
-              <h1 className="landing-briefing__title landing-briefing__title--swu">
-                Star Wars
-                <span>Universe</span>
-              </h1>
-              <p className="landing-briefing__lead">
-                Star Wars Universe ist ein tickbasiertes Open-Source-Browsergame
-                in der Closed Alpha. Wir suchen Commander, die Systeme testen,
-                Bugs melden, Strategien brechen und die Galaxie mitformen.
-              </p>
-
-              <div className="landing-briefing__actions">
-                <Link
-                  to="/register"
-                  className="auth-btn landing-hero__cta landing-hero__cta--primary"
-                >
-                  Registrieren
-                </Link>
-                <a
-                  href="https://discord.com/invite/vvUwR6UZbB"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="auth-btn auth-btn--secondary landing-hero__cta landing-hero__cta--signal"
-                >
-                  <DiscordIcon /> Discord beitreten
-                </a>
-              </div>
-
-              <div className="landing-intel-strip" aria-label="Alpha Status">
-                <div>
-                  <span>Status</span>
-                  <strong>Closed Alpha</strong>
-                </div>
-                <div>
-                  <span>Zugang</span>
-                  <strong>Invite Key</strong>
-                </div>
-                <div>
-                  <span>Rekrutierung</span>
-                  <strong>2 Player Invites</strong>
-                </div>
-              </div>
-            </div>
-
-            <aside
-              className="landing-terminal landing-terminal--stu"
-              aria-label="Star Wars Universe Login"
-            >
-              <div className="landing-stu-login__frame">
-                <div className="landing-stu-login__header">
-                  <span>Star Wars Universe</span>
-                  <small>Closed Alpha</small>
-                </div>
-
-                <div className="landing-stu-login__subheader">
-                  Login für Siedler und Commander
-                </div>
-
-                {error && <div className="auth-error">{error}</div>}
-
-                <form
-                  onSubmit={handleSubmit}
-                  className="landing-stu-login__form"
-                >
-                  <label
-                    className="landing-stu-login__row"
-                    htmlFor="login-user"
-                  >
-                    <span>Siedler:</span>
-                    <input
-                      id="login-user"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="landing-stu-login__input"
-                      required
-                      autoComplete="username"
-                    />
-                  </label>
-                  <label
-                    className="landing-stu-login__row"
-                    htmlFor="login-pass"
-                  >
-                    <span>Password:</span>
-                    <input
-                      id="login-pass"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="landing-stu-login__input"
-                      required
-                      autoComplete="current-password"
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="landing-stu-login__button"
-                  >
-                    {loading ? 'Login...' : 'Login'}
-                  </button>
-                </form>
-
-                <div className="landing-stu-login__links">
-                  <Link to="/register" className="auth-link">
-                    Mit Invite registrieren
-                  </Link>
-                  <a
-                    href="https://discord.com/invite/vvUwR6UZbB"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="auth-link"
-                  >
-                    Invite im Discord holen
-                  </a>
-                </div>
-              </div>
-            </aside>
+      <section className="swu-hero" id="top">
+        <div className="swu-hero__aura" aria-hidden="true" />
+        <div className="swu-hero__content">
+          <p className="swu-eyebrow">Open Source · Closed Alpha</p>
+          <h1 className="swu-hero__title">Star Wars Universe</h1>
+          <p className="swu-hero__tagline">
+            Ein tick-basiertes Browsergame über Kolonien, Flotten und Allianzen — gebaut für Commander, die in Sternen denken.
+          </p>
+          <div className="swu-hero__actions">
+            <Link className="swu-btn swu-btn--primary" to="/register">
+              Jetzt beitreten
+            </Link>
+            <a className="swu-btn swu-btn--ghost" href="#features">
+              Mehr erfahren
+            </a>
           </div>
+        </div>
+      </section>
 
-          <button
-            type="button"
-            onClick={scrollToLandingInfo}
-            className="landing-scroll-cue landing-scroll-cue--dossier"
-            aria-label="Mehr Informationen anzeigen"
+      <section className="swu-section swu-section--features" id="features">
+        <div className="swu-section__header">
+          <p className="swu-eyebrow">Strategie mit Lichtgeschwindigkeit</p>
+          <h2>Dein Imperium wartet</h2>
+        </div>
+        <div className="swu-feature-grid">
+          {features.map((feature) => (
+            <article className="swu-feature-card" key={feature.title}>
+              <div className={`swu-feature-card__icon swu-feature-card__icon--${feature.icon}`} aria-hidden="true" />
+              <h3>{feature.title}</h3>
+              <p>{feature.copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="swu-section swu-section--timeline" id="start">
+        <div className="swu-section__header swu-section__header--center">
+          <p className="swu-eyebrow">Drei Ticks bis zum Aufbruch</p>
+          <h2>So startest du</h2>
+        </div>
+        <ol className="swu-timeline">
+          {steps.map((step, index) => (
+            <li className="swu-timeline__item" key={step.title}>
+              <span className="swu-timeline__node">0{index + 1}</span>
+              <h3>{step.title}</h3>
+              <p>{step.copy}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="swu-section swu-section--cta" id="join">
+        <div className="swu-cta-card">
+          <p className="swu-eyebrow">Closed Alpha</p>
+          <h2>Die Galaxis braucht dich.</h2>
+          <p>Invite Keys werden ausschließlich im Discord vergeben. Tritt bei, stell dich kurz vor — und sichere dir deinen Platz in der Alpha.</p>
+          <a
+            className="swu-btn swu-btn--primary swu-btn--wide"
+            href="https://discord.com/invite/vvUwR6UZbB"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            <span className="landing-scroll-cue__text">Briefing öffnen</span>
-            <span className="landing-scroll-cue__line" />
-            <span className="landing-scroll-cue__chevron">⌄</span>
-          </button>
-        </section>
+            Discord beitreten & Key holen
+          </a>
+          <Link className="swu-btn swu-btn--ghost swu-btn--wide" to="/register" style={{ marginTop: '12px' }}>
+            Bereits einen Key? Registrieren
+          </Link>
+        </div>
+      </section>
 
-        <section
-          id="landing-info"
-          className="landing-dossier-section landing-dossier-section--features"
-        >
-          <div className="landing-section-heading">
-            <p className="auth-subtitle">Mission Briefing</p>
-            <h2>Was dich erwartet</h2>
-            <span>Vier operative Ebenen, eine persistente Galaxie.</span>
-          </div>
-          <div className="landing-mission-grid">
-            {FEATURES.map((feature) => (
-              <article key={feature.title} className="landing-mission-card">
-                <div className="landing-mission-card__topline">
-                  <span>{feature.code}</span>
-                  <div>{feature.icon}</div>
-                </div>
-                <h3>{feature.title}</h3>
-                <p>{feature.desc}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="landing-dossier-section landing-dossier-section--access">
-          <div className="landing-section-heading">
-            <p className="auth-subtitle">Access Protocol</p>
-            <h2>So kommst du in die Galaxie</h2>
-            <span>
-              Bewusst langsam wachsend: aktive Spieler bringen aktive Tester
-              mit.
-            </span>
-          </div>
-          <div className="landing-access-line">
-            {ACCESS_STEPS.map((step) => (
-              <article key={step.number} className="landing-access-step">
-                <div className="landing-access-step__number">{step.number}</div>
-                <h3>{step.title}</h3>
-                <p>{step.desc}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="landing-dossier-section landing-dossier-section--invite">
-          <div className="landing-invite-panel">
-            <div className="landing-invite-panel__stamp">Invite-System</div>
-            <div>
-              <p className="auth-subtitle">Community Growth</p>
-              <h2>Wachse über persönliche Rekrutierung</h2>
-            </div>
-            <p>
-              Der erste Zugang kommt über Discord. Danach erhält jeder neue
-              Commander bis zu zwei eigene Invite Keys. So bleibt die Alpha
-              klein, fokussiert und spielbar, während Feedback direkt aus
-              aktiven Runden kommt.
-            </p>
-          </div>
-        </section>
-
-        <section className="landing-community landing-community--dossier">
-          <div className="landing-community__content">
-            <p className="auth-subtitle">Transmission Channels</p>
-            <h2 className="landing-community__title">
-              Community & Entwicklung
-            </h2>
-            <p className="landing-community__desc">
-              Star Wars Universe entsteht offen mit der Community. Im Discord
-              bekommst du Alpha-Zugang, im GitHub findest du Code, Issues und
-              offene Baustellen.
-            </p>
-            <div className="landing-community__links">
-              <a
-                href="https://github.com/swuniverse"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="landing-community__card"
-              >
-                <GithubIcon />
-                <div>
-                  <div className="landing-community__card-title">GitHub</div>
-                  <div className="landing-community__card-desc">
-                    Code, Issues & Contributions
-                  </div>
-                </div>
-              </a>
-              <a
-                href="https://discord.com/invite/vvUwR6UZbB"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="landing-community__card landing-community__card--discord"
-              >
-                <DiscordIcon />
-                <div>
-                  <div className="landing-community__card-title">Discord</div>
-                  <div className="landing-community__card-desc">
-                    Alpha-Zugang, Feedback & Updates
-                  </div>
-                </div>
-              </a>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="landing-footer landing-footer--dossier">
-        <span className="landing-footer__line" />
-        <span className="landing-footer__text">
-          STAR WARS UNIVERSE · OPEN SOURCE · {new Date().getFullYear()}
-        </span>
-        <span className="landing-footer__line" />
+      <footer className="swu-footer">
+        <span className="swu-footer__logo">Star Wars Universe</span>
+        <span>Open Source · {new Date().getFullYear()}</span>
+        <div>
+          <a href="https://github.com/swuniverse" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://discord.com/invite/vvUwR6UZbB" target="_blank" rel="noopener noreferrer">Discord</a>
+        </div>
       </footer>
-    </div>
+
+      {/* Login Drawer */}
+      <div className={`swu-login ${loginOpen ? 'swu-login--open' : ''}`} aria-hidden={!loginOpen}>
+        <button className="swu-login__scrim" type="button" onClick={() => setLoginOpen(false)} aria-label="Login schließen" />
+        <form className="swu-login__panel" onSubmit={handleLogin} aria-label="Login Formular">
+          <button className="swu-login__close" type="button" onClick={() => setLoginOpen(false)} aria-label="Schließen">×</button>
+          <p className="swu-eyebrow">Commander Login</p>
+          <h2>Zurück auf die Brücke</h2>
+          {error && <div className="auth-error">{error}</div>}
+          <label className="swu-field">
+            <span>Username</span>
+            <input
+              name="username"
+              autoComplete="username"
+              placeholder="Commander"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </label>
+          <label className="swu-field">
+            <span>Password</span>
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+          <button className="swu-btn swu-btn--primary swu-btn--wide" type="submit" disabled={loading}>
+            {loading ? 'Login...' : 'Login'}
+          </button>
+          <div className="swu-login__meta">
+            <Link to="/register">Register</Link>
+            <a href="https://discord.com/invite/vvUwR6UZbB" target="_blank" rel="noopener noreferrer">Discord</a>
+          </div>
+        </form>
+      </div>
+    </main>
   );
 }
