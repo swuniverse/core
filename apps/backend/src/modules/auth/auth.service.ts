@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Raw, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
@@ -82,7 +82,10 @@ export class AuthService {
       const inviteQuotaRepo = manager.getRepository(InviteQuota);
 
       const exists = await userRepo.findOne({
-        where: [{ username: dto.username }, { email: dto.email }],
+        where: [
+          { username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, { username: dto.username }) },
+          { email: dto.email },
+        ],
       });
       if (exists) {
         throw new ConflictException('Username or email already taken');
@@ -159,7 +162,7 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<AuthResponse> {
     const user = await this.userRepo.findOne({
-      where: { username: dto.username },
+      where: { username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, { username: dto.username }) },
     });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
