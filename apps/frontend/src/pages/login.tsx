@@ -106,6 +106,9 @@ export function LoginPage() {
             <Link className="swu-btn swu-btn--primary" to="/register">
               Jetzt beitreten
             </Link>
+            <button className="swu-btn swu-btn--ghost" type="button" onClick={() => setLoginOpen(true)}>
+              Login
+            </button>
             <a className="swu-btn swu-btn--ghost" href="#features">
               Mehr erfahren
             </a>
