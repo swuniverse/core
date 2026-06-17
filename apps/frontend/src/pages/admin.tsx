@@ -24,6 +24,13 @@ const adminCards = [
       'Closed-Alpha Invite Keys, Spieler-Kontingente und neu ausgestellte Keys verwalten.',
     badge: 'Alpha',
   },
+  {
+    title: 'Benutzerrechte',
+    path: '/admin/users',
+    description:
+      'Berechtigungen für Spieler verwalten (z.B. Map Editor Zugang).',
+    badge: 'Users',
+  },
 ];
 
 function TickTrigger() {

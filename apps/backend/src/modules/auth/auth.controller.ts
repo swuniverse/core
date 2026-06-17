@@ -2,7 +2,9 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
+  Param,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -63,5 +65,20 @@ export class AuthController {
     body: { ownerUserId?: number; keyCount?: number; additionalQuota?: number },
   ) {
     return this.authService.adminCreateInvites(req.user.sub, body ?? {});
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('admin/users')
+  listUsers() {
+    return this.authService.listUsers();
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch('admin/users/:id/permissions')
+  updatePermissions(
+    @Param('id') id: string,
+    @Body() body: { permissions: string[] },
+  ) {
+    return this.authService.updatePermissions(Number(id), body.permissions);
   }
 }

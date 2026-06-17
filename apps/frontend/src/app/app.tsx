@@ -17,6 +17,7 @@ import { StarmapAdminPage } from '../pages/starmap-admin';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
+import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,13 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   if (!user?.isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function MapEditorRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user?.isAdmin && !user?.permissions?.includes('MAP_EDITOR'))
+    return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -87,9 +95,9 @@ export function App() {
           <Route
             path="/admin/starmap"
             element={
-              <AdminRoute>
+              <MapEditorRoute>
                 <StarmapAdminPage />
-              </AdminRoute>
+              </MapEditorRoute>
             }
           />
           <Route
@@ -97,6 +105,14 @@ export function App() {
             element={
               <AdminRoute>
                 <AdminInvitesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminRoute>
+                <AdminUsersPage />
               </AdminRoute>
             }
           />

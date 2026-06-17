@@ -454,12 +454,30 @@ export class AuthService {
     return { id: user.id, username: user.username, email: user.email };
   }
 
+  async listUsers() {
+    const users = await this.userRepo.find({
+      select: ['id', 'username', 'isAdmin', 'permissions'],
+      order: { username: 'ASC' },
+    });
+    return users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      isAdmin: u.isAdmin,
+      permissions: u.permissions ?? [],
+    }));
+  }
+
+  async updatePermissions(userId: number, permissions: string[]) {
+    await this.userRepo.update(userId, { permissions });
+  }
+
   private async generateTokens(user: User): Promise<AuthResponse> {
     const payload: JwtPayload & { isAdmin: boolean } = {
       sub: user.id,
       username: user.username,
       faction: user.faction ?? undefined,
       isAdmin: user.isAdmin,
+      permissions: user.permissions ?? [],
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -480,6 +498,7 @@ export class AuthService {
         starterColonyId: user.starterColonyId,
         starterShipId: user.starterShipId,
         isAdmin: user.isAdmin,
+        permissions: user.permissions ?? [],
         createdAt: user.createdAt.toISOString(),
       },
     };

@@ -23,7 +23,8 @@ export function Sidebar() {
   const setUser = useAuthStore((state) => state.setUser);
   const [unreadCount, setUnreadCount] = useState(0);
   const { tick } = useStatusBar();
-  const items = user?.isAdmin ? [...NAV_ITEMS, adminNavItem] : NAV_ITEMS;
+  const showAdmin = user?.isAdmin || user?.permissions?.includes('MAP_EDITOR');
+  const items = showAdmin ? [...NAV_ITEMS, adminNavItem] : NAV_ITEMS;
 
   useEffect(() => {
     if (!accessToken) return;

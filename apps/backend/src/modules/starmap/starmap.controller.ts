@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/admin.guard';
+import { PermissionGuard, RequirePermission } from '../auth/permission.guard';
+import { Permission } from '../auth/permissions';
 import { StarmapService } from './starmap.service';
 import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
@@ -90,6 +92,21 @@ export class StarmapController {
     if (req.user.isAdmin)
       return this.starmapQueryService.getHyperspaceRoutes(layerId);
     return this.starmapQueryService.getVisibleHyperspaceRoutes(
+      req.user.sub,
+      layerId,
+      this.explorationService,
+    );
+  }
+
+  @Get('layers/:layerId/fields')
+  async getAllFields(
+    @Param('layerId', ParseIntPipe) layerId: number,
+    @Req() req: { user: { sub: number; isAdmin?: boolean } },
+  ): Promise<StarmapGalaxyFieldDto[]> {
+    if (req.user.isAdmin) {
+      return this.starmapQueryService.getAllLayerFields(layerId);
+    }
+    return this.starmapQueryService.getExploredLayerFields(
       req.user.sub,
       layerId,
       this.explorationService,
@@ -243,19 +260,22 @@ export class StarmapController {
   }
 
   @Get('admin/field-types')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   getAdminFieldTypes(): Promise<StarmapFieldTypeDto[]> {
     return this.starmapAdminService.listFieldTypes();
   }
 
   @Post('admin/field-types/ensure-defaults')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   ensureDefaultFieldTypes(): Promise<StarmapFieldTypeDto[]> {
     return this.starmapAdminService.ensureDefaultFieldTypes();
   }
 
   @Get('admin/system-types')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   getAdminSystemTypes(): StarmapSystemTypeOptionDto[] {
     return this.starmapAdminService.listSystemTypes();
   }
@@ -284,7 +304,8 @@ export class StarmapController {
   }
 
   @Post('admin/layers/:id/initialize-grid')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   initializeLayerGrid(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: StarmapInitializeGridDto,
@@ -293,7 +314,8 @@ export class StarmapController {
   }
 
   @Post('admin/layers/:id/apply-star-wars-preset')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   applyStarWarsPreset(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: ApplyStarWarsPresetOptionsDto = {},
@@ -311,7 +333,8 @@ export class StarmapController {
   }
 
   @Post('admin/sectors/fill')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   fillSector(
     @Body()
     body: StarmapFillSectorDto,
@@ -320,7 +343,8 @@ export class StarmapController {
   }
 
   @Post('admin/systems')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   createSystem(
     @Body()
     body: StarmapCreateSystemDto,
@@ -329,7 +353,8 @@ export class StarmapController {
   }
 
   @Post('admin/systems/:id/initialize-grid')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   initializeSystemGrid(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: StarmapInitializeGridDto,
@@ -338,7 +363,8 @@ export class StarmapController {
   }
 
   @Post('admin/systems/:id/regenerate')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   regenerateSystem(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: StarmapRegenerateSystemDto,
@@ -347,7 +373,8 @@ export class StarmapController {
   }
 
   @Patch('admin/fields/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   updateGalaxyField(
     @Param('id', ParseIntPipe) id: number,
     @Body()
@@ -357,7 +384,8 @@ export class StarmapController {
   }
 
   @Patch('admin/system-fields/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   updateSystemField(
     @Param('id', ParseIntPipe) id: number,
     @Body()
@@ -369,7 +397,8 @@ export class StarmapController {
   // --- Bulk Edit ---
 
   @Patch('admin/galaxy-fields/bulk')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   bulkEditFields(
     @Body() body: StarmapBulkEditFieldsDto,
   ): Promise<StarmapOperationResultDto> {
@@ -379,7 +408,8 @@ export class StarmapController {
   // --- Layer Overview ---
 
   @Get('admin/layers/:id/overview')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   getLayerOverview(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapLayerOverviewDto> {
@@ -389,7 +419,8 @@ export class StarmapController {
   // --- Map Regions CRUD ---
 
   @Get('admin/layers/:id/regions')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   listRegions(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapMapRegionDto[]> {
@@ -397,7 +428,8 @@ export class StarmapController {
   }
 
   @Post('admin/regions')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   createRegion(
     @Body() body: StarmapCreateMapRegionDto,
   ): Promise<StarmapMapRegionDto> {
@@ -405,7 +437,8 @@ export class StarmapController {
   }
 
   @Patch('admin/regions/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   updateRegion(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: StarmapUpdateMapRegionDto,
@@ -414,7 +447,8 @@ export class StarmapController {
   }
 
   @Delete('admin/regions/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   deleteRegion(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapOperationResultDto> {
@@ -424,13 +458,15 @@ export class StarmapController {
   // --- Border Types CRUD ---
 
   @Get('admin/border-types')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   listBorderTypes(): Promise<StarmapBorderTypeDto[]> {
     return this.starmapAdminService.listBorderTypes();
   }
 
   @Post('admin/border-types')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   createBorderType(
     @Body() body: StarmapCreateBorderTypeDto,
   ): Promise<StarmapBorderTypeDto> {
@@ -438,7 +474,8 @@ export class StarmapController {
   }
 
   @Patch('admin/border-types/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   updateBorderType(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: StarmapUpdateBorderTypeDto,
@@ -447,7 +484,8 @@ export class StarmapController {
   }
 
   @Delete('admin/border-types/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   deleteBorderType(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapOperationResultDto> {
@@ -457,7 +495,8 @@ export class StarmapController {
   // --- Wormholes ---
 
   @Get('admin/layers/:id/wormholes')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   listWormholes(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapWormholeDto[]> {
@@ -465,7 +504,8 @@ export class StarmapController {
   }
 
   @Post('admin/wormholes')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   createWormhole(
     @Body() body: StarmapCreateWormholeDto,
   ): Promise<StarmapWormholeDto> {
@@ -473,7 +513,8 @@ export class StarmapController {
   }
 
   @Delete('admin/wormholes/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   deleteWormhole(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapOperationResultDto> {
@@ -481,7 +522,8 @@ export class StarmapController {
   }
 
   @Patch('admin/wormholes/:id/toggle')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   toggleWormhole(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { isActive: boolean },
@@ -513,7 +555,8 @@ export class StarmapController {
   }
 
   @Post('admin/layers/:id/recalculate-influence')
-  @UseGuards(AdminGuard)
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
   async recalculateInfluence(
     @Param('id', ParseIntPipe) id: number,
     @Body()

@@ -14,12 +14,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload) {
+  validate(payload: JwtPayload & { isAdmin?: boolean }) {
     return {
       sub: payload.sub,
       username: payload.username,
       faction: payload.faction,
-      isAdmin: Boolean((payload as JwtPayload & { isAdmin?: boolean }).isAdmin),
+      isAdmin: Boolean(payload.isAdmin),
+      permissions: payload.permissions ?? [],
     };
   }
 }

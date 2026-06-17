@@ -27,6 +27,7 @@ export interface UserProfile {
   starterColonyId?: number | null;
   starterShipId?: number | null;
   isAdmin?: boolean;
+  permissions?: string[];
   createdAt: string;
 }
 
@@ -34,6 +35,7 @@ export interface JwtPayload {
   sub: number;
   username: string;
   faction?: Faction | null;
+  permissions?: string[];
   iat?: number;
   exp?: number;
 }

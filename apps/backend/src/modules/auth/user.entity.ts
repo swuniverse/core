@@ -43,6 +43,9 @@ export class User {
   @Column({ default: false })
   isAdmin: boolean;
 
+  @Column({ type: 'simple-json', default: '[]' })
+  permissions: string[];
+
   @Column({ type: 'int', nullable: true })
   starterColonyId: number | null;
 
