@@ -4,5 +4,8 @@
   "private": true,
   "nx": {
     "name": "frontend"
+  },
+  "dependencies": {
+    "pixi.js": "^8.19.0"
   }
 }
