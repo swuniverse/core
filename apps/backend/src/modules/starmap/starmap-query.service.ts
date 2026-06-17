@@ -119,6 +119,38 @@ export class StarmapQueryService {
     });
   }
 
+  async getAllLayerFields(
+    layerId: number,
+  ): Promise<StarmapGalaxyFieldDto[]> {
+    const layer = await this.layerRepo.findOneBy({ id: layerId });
+    if (!layer) throw new NotFoundException('Layer not found');
+
+    const fields = await this.galaxyFieldRepo.find({
+      where: { layerId },
+      relations: ['fieldType', 'starSystem'],
+      order: { cy: 'ASC', cx: 'ASC' },
+    });
+
+    return fields.map((field) => ({
+      id: field.id,
+      cx: field.cx,
+      cy: field.cy,
+      fieldTypeId: field.fieldTypeId,
+      systemTypeId: field.systemTypeId,
+      factionZone: field.factionZone,
+      adminRegionKey: field.adminRegionKey,
+      starSystemId: field.starSystemId,
+      regionId: field.regionId,
+      borderTypeId: field.borderTypeId,
+      effects: field.effects,
+      passableOverride: field.passableOverride,
+      fieldType: this.toFieldTypeDTO(field.fieldType),
+      starSystem: field.starSystem
+        ? this.toSystemListItemDTO(field.starSystem)
+        : null,
+    }));
+  }
+
   async getGalaxySectorFields(
     layerId: number,
     sectorX: number,
@@ -243,6 +275,67 @@ export class StarmapQueryService {
         )
         .map((object) => this.toCelestialObjectDTO(object)),
     };
+  }
+
+  async getExploredLayerFields(
+    userId: number,
+    layerId: number,
+    explorationService: ExplorationService,
+  ): Promise<StarmapGalaxyFieldDto[]> {
+    const [allFields, exploredStates] = await Promise.all([
+      this.galaxyFieldRepo.find({
+        where: { layerId },
+        relations: ['fieldType', 'starSystem'],
+        order: { cy: 'ASC', cx: 'ASC' },
+      }),
+      explorationService.getExploredFields(userId, layerId),
+    ]);
+
+    const exploredMap = new Map(
+      exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
+    );
+
+    return allFields
+      .filter((field) => exploredMap.has(`${field.cx},${field.cy}`))
+      .map((field) => {
+        const level = exploredMap.get(`${field.cx},${field.cy}`)!;
+        if (level === ExplorationLevel.TERRAIN) {
+          return {
+            id: field.id,
+            cx: field.cx,
+            cy: field.cy,
+            fieldTypeId: field.fieldTypeId,
+            systemTypeId: null,
+            factionZone: field.factionZone,
+            adminRegionKey: null,
+            starSystemId: null,
+            regionId: field.regionId,
+            borderTypeId: null,
+            effects: null,
+            passableOverride: null,
+            fieldType: this.toFieldTypeDTO(field.fieldType),
+            starSystem: null,
+          };
+        }
+        return {
+          id: field.id,
+          cx: field.cx,
+          cy: field.cy,
+          fieldTypeId: field.fieldTypeId,
+          systemTypeId: field.systemTypeId,
+          factionZone: field.factionZone,
+          adminRegionKey: field.adminRegionKey,
+          starSystemId: field.starSystemId,
+          regionId: field.regionId,
+          borderTypeId: field.borderTypeId,
+          effects: field.effects,
+          passableOverride: field.passableOverride,
+          fieldType: this.toFieldTypeDTO(field.fieldType),
+          starSystem: field.starSystem
+            ? this.toSystemListItemDTO(field.starSystem)
+            : null,
+        };
+      });
   }
 
   async getExploredSectorFields(
