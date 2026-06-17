@@ -3,6 +3,8 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/shared/package.json ./packages/shared/
 RUN npm ci --ignore-scripts
 
 FROM base AS build
