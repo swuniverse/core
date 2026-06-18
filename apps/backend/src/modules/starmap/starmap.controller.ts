@@ -582,4 +582,17 @@ export class StarmapController {
     );
     return { created };
   }
+
+  @Get('admin/layers/:id/export')
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
+  exportLayer(@Param('id', ParseIntPipe) id: number) {
+    return this.starmapAdminService.exportLayer(id);
+  }
+
+  @Post('admin/layers/import')
+  @UseGuards(AdminGuard)
+  importLayer(@Body() body: any) {
+    return this.starmapAdminService.importLayer(body);
+  }
 }

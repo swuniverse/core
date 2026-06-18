@@ -1,8 +1,11 @@
+import { useRef } from 'react';
 import {
   useStarmapAdminStore,
   defaultLayerForm,
 } from '../../stores/starmap-admin.store';
 import type { StarmapCreateLayerDto } from '@swuniverse/shared';
+import { useAuthStore } from '../../stores/auth.store';
+import { api } from '../../services/api';
 
 export function LayerPanel() {
   const {
@@ -152,6 +155,73 @@ export function LayerPanel() {
           </button>
         </div>
       </div>
+
+      <ExportImportPanel />
+    </div>
+  );
+}
+
+function ExportImportPanel() {
+  const { selectedLayerId } = useStarmapAdminStore();
+  const user = useAuthStore((s) => s.user);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleExport() {
+    if (!selectedLayerId) return;
+    const data = await api.get<object>(`/starmap/admin/layers/${selectedLayerId}/export`);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `galaxy-export-${selectedLayerId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImport(file: File) {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    await api.post('/starmap/admin/layers/import', data);
+    window.location.reload();
+  }
+
+  return (
+    <div className="rounded-lg border border-swu-border bg-swu-surface p-4 space-y-3">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-swu-muted">
+        Export / Import
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => void handleExport()}
+          disabled={!selectedLayerId}
+          className="rounded border border-swu-accent px-3 py-2 text-sm text-swu-accent enabled:hover:bg-swu-accent/10 disabled:opacity-50"
+        >
+          Galaxy exportieren (JSON)
+        </button>
+        {user?.isAdmin && (
+          <>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="rounded border border-red-400 px-3 py-2 text-sm text-red-300 hover:bg-red-400/10"
+            >
+              Galaxy importieren
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImport(file);
+              }}
+            />
+          </>
+        )}
+      </div>
+      <p className="text-[10px] text-swu-muted">
+        Export speichert den aktuellen Layer als JSON. Import ersetzt alle Daten des Layers (nur Admin).
+      </p>
     </div>
   );
 }

@@ -1954,4 +1954,366 @@ export class StarmapAdminService {
     if (roll < 74) return 2;
     return 3;
   }
+
+  async exportLayer(layerId: number) {
+    const layer = await this.layerRepo.findOneOrFail({
+      where: { id: layerId },
+    });
+    const fieldTypes = await this.fieldTypeRepo.find();
+    const borderTypes = await this.borderTypeRepo.find();
+    const regions = await this.regionRepo.find({ where: { layerId } });
+    const galaxyFields = await this.galaxyFieldRepo.find({
+      where: { layerId },
+      relations: ['fieldType'],
+    });
+    const systems = await this.systemRepo.find({
+      where: { layerId },
+      relations: ['celestialObjects'],
+    });
+    const systemFields = await this.systemFieldRepo
+      .createQueryBuilder('sf')
+      .innerJoin('sf.starSystem', 's')
+      .where('s."layerId" = :layerId', { layerId })
+      .leftJoinAndSelect('sf.fieldType', 'ft')
+      .getMany();
+    const routes = await this.hyperspaceRouteRepo.find({ where: { layerId } });
+    const segments = await this.hyperspaceRouteSegmentRepo
+      .createQueryBuilder('seg')
+      .innerJoin('seg.route', 'r')
+      .where('r."layerId" = :layerId', { layerId })
+      .leftJoinAndSelect('seg.fromSystem', 'fs')
+      .leftJoinAndSelect('seg.toSystem', 'ts')
+      .addSelect(['seg.routeId', 'seg.sortOrder', 'seg.controlPointJson'])
+      .getMany();
+    const wormholes: any[] = await this.entityManager.query(
+      `SELECT * FROM "wormholes" WHERE "entryLayerId" = $1 OR "exitLayerId" = $1`,
+      [layerId],
+    );
+
+    const fieldTypeMap = new Map(fieldTypes.map((ft) => [ft.id, ft.key]));
+    const systemFieldsBySystem = new Map<number, typeof systemFields>();
+    for (const sf of systemFields) {
+      const arr = systemFieldsBySystem.get(sf.starSystemId) ?? [];
+      arr.push(sf);
+      systemFieldsBySystem.set(sf.starSystemId, arr);
+    }
+    const segmentsByRoute = new Map<number, typeof segments>();
+    for (const seg of segments) {
+      const arr = segmentsByRoute.get(seg.routeId) ?? [];
+      arr.push(seg);
+      segmentsByRoute.set(seg.routeId, arr);
+    }
+
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      layer: {
+        name: layer.name,
+        width: layer.width,
+        height: layer.height,
+        sectorSize: layer.sectorSize,
+      },
+      fieldTypes: fieldTypes.map((ft) => ({
+        key: ft.key,
+        name: ft.name,
+        passable: ft.passable,
+        energyCost: ft.energyCost,
+        damage: ft.damage,
+        isSystem: ft.isSystem,
+        colorKey: ft.colorKey,
+      })),
+      borderTypes: borderTypes.map((bt) => ({
+        name: bt.name,
+        colorKey: bt.colorKey,
+        style: bt.style,
+      })),
+      regions: regions.map((r) => ({
+        name: r.name,
+        description: r.description,
+        colorKey: r.colorKey,
+      })),
+      galaxyFields: galaxyFields.map((f) => ({
+        cx: f.cx,
+        cy: f.cy,
+        fieldTypeKey:
+          f.fieldType?.key ?? fieldTypeMap.get(f.fieldTypeId) ?? 'EMPTY_SPACE',
+        factionZone: f.factionZone,
+        adminRegionKey: f.adminRegionKey,
+        effects: f.effects,
+        passableOverride: f.passableOverride,
+        systemTypeId: f.systemTypeId,
+      })),
+      systems: systems.map((s) => ({
+        name: s.name,
+        cx: s.cx,
+        cy: s.cy,
+        systemTypeId: s.systemTypeId,
+        maxX: s.maxX,
+        maxY: s.maxY,
+        isLandmark: s.isLandmark,
+        landmarkKey: s.landmarkKey,
+        landmarkCategory: s.landmarkCategory,
+        bonusFields: s.bonusFields,
+        celestialObjects: (s.celestialObjects ?? []).map((o) => ({
+          objectType: o.objectType,
+          name: o.name,
+          posX: o.posX,
+          posY: o.posY,
+          classId: o.classId,
+          isColonizable: o.isColonizable,
+        })),
+        fields: (systemFieldsBySystem.get(s.id) ?? []).map((sf) => ({
+          sx: sf.sx,
+          sy: sf.sy,
+          fieldTypeKey:
+            sf.fieldType?.key ??
+            fieldTypeMap.get(sf.fieldTypeId) ??
+            'EMPTY_SPACE',
+          isPassable: sf.isPassable,
+          energyCost: sf.energyCost,
+          damage: sf.damage,
+          effects: sf.effects,
+        })),
+      })),
+      hyperspaceRoutes: routes.map((r) => ({
+        key: r.key,
+        name: r.name,
+        color: r.color,
+        sortOrder: r.sortOrder,
+        segments: (segmentsByRoute.get(r.id) ?? []).map((seg) => ({
+          fromSystemName: seg.fromSystem?.name,
+          toSystemName: seg.toSystem?.name,
+          sortOrder: seg.sortOrder,
+          controlPoints: seg.controlPointJson,
+        })),
+      })),
+      wormholes: wormholes.map((w) => ({
+        entryCx: w.entryCx,
+        entryCy: w.entryCy,
+        exitCx: w.exitCx,
+        exitCy: w.exitCy,
+        isBidirectional: w.isBidirectional,
+        isRandomExit: w.isRandomExit,
+        name: w.name,
+        isActive: w.isActive,
+      })),
+    };
+  }
+
+  async importLayer(data: any) {
+    const {
+      layer: layerData,
+      fieldTypes: ftData,
+      borderTypes: btData,
+      regions: regData,
+      galaxyFields: gfData,
+      systems: sysData,
+      hyperspaceRoutes: routeData,
+      wormholes: whData,
+    } = data;
+
+    // 1. Ensure field types
+    for (const ft of ftData ?? []) {
+      const existing = await this.fieldTypeRepo.findOne({
+        where: { key: ft.key },
+      });
+      if (!existing)
+        await this.fieldTypeRepo.save(this.fieldTypeRepo.create(ft));
+    }
+    const fieldTypes = await this.fieldTypeRepo.find();
+    const ftByKey = new Map(fieldTypes.map((ft) => [ft.key, ft]));
+
+    // 2. Ensure border types
+    for (const bt of btData ?? []) {
+      const existing = await this.borderTypeRepo.findOne({
+        where: { name: bt.name },
+      });
+      if (!existing)
+        await this.borderTypeRepo.save(this.borderTypeRepo.create(bt));
+    }
+
+    // 3. Create or find layer
+    let layer = await this.layerRepo.findOne({
+      where: { name: layerData.name },
+    });
+    if (!layer) {
+      layer = await this.layerRepo.save(
+        this.layerRepo.create({
+          name: layerData.name,
+          width: layerData.width,
+          height: layerData.height,
+          sectorSize: layerData.sectorSize,
+        }),
+      );
+    }
+    const layerId = layer.id;
+
+    // 4. Clear existing data for layer
+    await this.entityManager.query(
+      `DELETE FROM "hyperspace_route_segments" WHERE "routeId" IN (SELECT id FROM "hyperspace_routes" WHERE "layerId" = $1)`,
+      [layerId],
+    );
+    await this.hyperspaceRouteRepo.delete({ layerId });
+    await this.systemFieldRepo
+      .createQueryBuilder()
+      .delete()
+      .where(
+        `"starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = :layerId)`,
+        { layerId },
+      )
+      .execute();
+    await this.objectRepo
+      .createQueryBuilder()
+      .delete()
+      .where(
+        `"systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = :layerId)`,
+        { layerId },
+      )
+      .execute();
+    await this.galaxyFieldRepo.delete({ layerId });
+    await this.systemRepo.delete({ layerId });
+    await this.regionRepo.delete({ layerId });
+    await this.entityManager.query(
+      `DELETE FROM "wormholes" WHERE "entryLayerId" = $1 OR "exitLayerId" = $1`,
+      [layerId],
+    );
+
+    // 5. Create regions
+    const regionMap = new Map<string, number>();
+    for (const r of regData ?? []) {
+      const saved = await this.regionRepo.save(
+        this.regionRepo.create({ ...r, layerId }) as unknown as MapRegion,
+      );
+      regionMap.set(r.name, saved.id);
+    }
+
+    // 6. Create systems
+    const systemMap = new Map<string, number>();
+    for (const s of sysData ?? []) {
+      const sys = await this.systemRepo.save(
+        this.systemRepo.create({
+          name: s.name,
+          cx: s.cx,
+          cy: s.cy,
+          layerId,
+          systemTypeId: s.systemTypeId,
+          maxX: s.maxX,
+          maxY: s.maxY,
+          isLandmark: s.isLandmark,
+          landmarkKey: s.landmarkKey,
+          landmarkCategory: s.landmarkCategory,
+          bonusFields: s.bonusFields,
+        }),
+      );
+      systemMap.set(s.name, sys.id);
+
+      // Celestial objects
+      const objMap = new Map<number, number>();
+      for (let i = 0; i < (s.celestialObjects ?? []).length; i++) {
+        const o = s.celestialObjects[i];
+        const obj = await this.objectRepo.save(
+          this.objectRepo.create({
+            systemId: sys.id,
+            objectType: o.objectType,
+            name: o.name,
+            posX: o.posX,
+            posY: o.posY,
+            classId: o.classId,
+            isColonizable: o.isColonizable,
+          }),
+        );
+        objMap.set(i, obj.id);
+      }
+
+      // System fields
+      const sysFields = (s.fields ?? []).map((f: any) =>
+        this.systemFieldRepo.create({
+          starSystemId: sys.id,
+          sx: f.sx,
+          sy: f.sy,
+          fieldTypeId:
+            ftByKey.get(f.fieldTypeKey)?.id ?? ftByKey.get('EMPTY_SPACE')!.id,
+          isPassable: f.isPassable ?? true,
+          energyCost: f.energyCost ?? 1,
+          damage: f.damage ?? 0,
+          effects: f.effects,
+        }),
+      );
+      if (sysFields.length)
+        await this.systemFieldRepo.save(sysFields, { chunk: 500 });
+    }
+
+    // 7. Create galaxy fields
+    const galaxyFields = (gfData ?? []).map((f: any) => {
+      const systemName = sysData?.find(
+        (s: any) => s.cx === f.cx && s.cy === f.cy,
+      )?.name;
+      return this.galaxyFieldRepo.create({
+        layerId,
+        cx: f.cx,
+        cy: f.cy,
+        fieldTypeId:
+          ftByKey.get(f.fieldTypeKey)?.id ?? ftByKey.get('EMPTY_SPACE')!.id,
+        factionZone: f.factionZone,
+        adminRegionKey: f.adminRegionKey,
+        effects: f.effects,
+        passableOverride: f.passableOverride,
+        systemTypeId: f.systemTypeId,
+        starSystemId: systemName ? (systemMap.get(systemName) ?? null) : null,
+      });
+    });
+    if (galaxyFields.length)
+      await this.galaxyFieldRepo.save(galaxyFields, { chunk: 500 });
+
+    // 8. Hyperspace routes
+    for (const r of routeData ?? []) {
+      const route = await this.hyperspaceRouteRepo.save(
+        this.hyperspaceRouteRepo.create({
+          layerId,
+          key: r.key,
+          name: r.name,
+          color: r.color,
+          sortOrder: r.sortOrder,
+        }),
+      );
+      for (const seg of r.segments ?? []) {
+        const fromId = seg.fromSystemName
+          ? systemMap.get(seg.fromSystemName)
+          : null;
+        const toId = seg.toSystemName ? systemMap.get(seg.toSystemName) : null;
+        if (fromId && toId) {
+          await this.hyperspaceRouteSegmentRepo.save(
+            this.hyperspaceRouteSegmentRepo.create({
+              routeId: route.id,
+              fromSystemId: fromId,
+              toSystemId: toId,
+              sortOrder: seg.sortOrder,
+              controlPointJson: seg.controlPoints,
+            }),
+          );
+        }
+      }
+    }
+
+    // 9. Wormholes
+    for (const w of whData ?? []) {
+      await this.entityManager.query(
+        `INSERT INTO "wormholes" ("entryLayerId", "entryCx", "entryCy", "exitLayerId", "exitCx", "exitCy", "isBidirectional", "isRandomExit", "name", "isActive") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          layerId,
+          w.entryCx,
+          w.entryCy,
+          layerId,
+          w.exitCx,
+          w.exitCy,
+          w.isBidirectional,
+          w.isRandomExit,
+          w.name,
+          w.isActive,
+        ],
+      );
+    }
+
+    return { layerId, imported: true };
+  }
 }
