@@ -16,6 +16,7 @@ const NAV_ITEMS = [
 ];
 
 const adminNavItem = { label: 'Admin', path: '/admin', icon: NavIconAdmin };
+const mapEditorNavItem = { label: 'Karteneditor', path: '/admin/starmap', icon: NavIconMap };
 
 export function Sidebar() {
   const user = useAuthStore((state) => state.user);
@@ -23,8 +24,12 @@ export function Sidebar() {
   const setUser = useAuthStore((state) => state.setUser);
   const [unreadCount, setUnreadCount] = useState(0);
   const { tick } = useStatusBar();
-  const showAdmin = user?.isAdmin || user?.permissions?.includes('MAP_EDITOR');
-  const items = showAdmin ? [...NAV_ITEMS, adminNavItem] : NAV_ITEMS;
+  const extraItems = user?.isAdmin
+    ? [adminNavItem]
+    : user?.permissions?.includes('MAP_EDITOR')
+      ? [mapEditorNavItem]
+      : [];
+  const items = [...NAV_ITEMS, ...extraItems];
 
   useEffect(() => {
     if (!accessToken) return;
