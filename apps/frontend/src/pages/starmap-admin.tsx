@@ -43,24 +43,25 @@ export function StarmapAdminPage() {
   const [starWarsOverwriteExisting, setStarWarsOverwriteExisting] =
     useState(true);
 
+  const hasAccess = user?.isAdmin || user?.permissions?.includes('MAP_EDITOR');
+
   useEffect(() => {
     if (!accessToken) return;
-    if (user?.isAdmin) {
+    if (hasAccess) {
       void bootstrap();
       return;
     }
     void api.get<UserProfile>('/auth/me').then((profile) => {
       setUser(profile);
-      if (profile.isAdmin) void bootstrap();
+      if (profile.isAdmin || profile.permissions?.includes('MAP_EDITOR')) void bootstrap();
     });
   }, [accessToken]);
 
-  if (!user?.isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="p-6">
         <div className="rounded border border-swu-danger/40 bg-swu-danger/10 px-4 py-3 text-sm text-red-300">
-          Kein Admin-Zugriff. Setze deinen Benutzer auf `isAdmin = true` und
-          melde dich neu an.
+          Kein Zugriff. Du benötigst Admin- oder Karteneditor-Rechte.
         </div>
       </div>
     );
