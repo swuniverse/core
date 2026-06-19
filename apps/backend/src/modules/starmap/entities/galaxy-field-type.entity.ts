@@ -32,4 +32,7 @@ export class GalaxyFieldType {
 
   @Column({ type: 'varchar', length: 32, nullable: true })
   colorKey: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  category: string | null;
 }

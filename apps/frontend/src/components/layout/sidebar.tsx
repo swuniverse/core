@@ -25,7 +25,7 @@ export function Sidebar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const { tick } = useStatusBar();
   const extraItems = user?.isAdmin
-    ? [adminNavItem]
+    ? [adminNavItem, mapEditorNavItem]
     : user?.permissions?.includes('MAP_EDITOR')
       ? [mapEditorNavItem]
       : [];

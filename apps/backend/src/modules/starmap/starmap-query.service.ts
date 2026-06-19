@@ -119,9 +119,7 @@ export class StarmapQueryService {
     });
   }
 
-  async getAllLayerFields(
-    layerId: number,
-  ): Promise<StarmapGalaxyFieldDto[]> {
+  async getAllLayerFields(layerId: number): Promise<StarmapGalaxyFieldDto[]> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) throw new NotFoundException('Layer not found');
 
@@ -403,6 +401,7 @@ export class StarmapQueryService {
             damage: 0,
             isSystem: false,
             colorKey: null,
+            category: 'UNKNOWN',
           },
           starSystem: null,
         });
@@ -486,6 +485,7 @@ export class StarmapQueryService {
     damage: number;
     isSystem: boolean;
     colorKey: string | null;
+    category?: string | null;
   }): StarmapFieldTypeDto {
     return {
       id: fieldType.id,
@@ -496,6 +496,7 @@ export class StarmapQueryService {
       damage: fieldType.damage,
       isSystem: fieldType.isSystem,
       colorKey: fieldType.colorKey,
+      category: fieldType.category ?? null,
     };
   }
 

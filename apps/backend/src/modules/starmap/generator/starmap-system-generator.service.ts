@@ -21,6 +21,7 @@ export type GeneratedSystemField = {
   sx: number;
   sy: number;
   fieldTypeKey: string;
+  fieldTypeId?: number;
   objectKey?: string;
   regionKey?: string | null;
   adminRegionKey?: string | null;
@@ -86,6 +87,7 @@ export class StarmapSystemGeneratorService {
     for (let sy = 1; sy <= height; sy++) {
       for (let sx = 1; sx <= width; sx++) {
         const ring = this.getRegionRing(sx, sy, cx, cy);
+        const bgId = this.backgroundFieldTypeId(resolvedTypeId, sx, sy, cx, cy, rng);
         fields.push({
           sx,
           sy,
@@ -97,6 +99,7 @@ export class StarmapSystemGeneratorService {
             cy,
             rng,
           ),
+          fieldTypeId: bgId,
           regionKey: ring,
           adminRegionKey: ring ? `SYS_${ring}` : null,
           influenceAreaId:
@@ -425,6 +428,10 @@ export class StarmapSystemGeneratorService {
     return null;
   }
 
+  // ponytail: STU nebula IDs for background variety, upgrade to config-driven if needed
+  private static readonly NEBULA_IDS = [100, 101, 110, 111, 120, 121, 130, 131, 140, 141, 150, 151, 160, 161, 170, 171, 180, 181];
+  private static readonly ASTEROID_IDS = [701, 702, 703];
+
   private backgroundFieldType(
     systemTypeId: number,
     sx: number,
@@ -434,7 +441,6 @@ export class StarmapSystemGeneratorService {
     rng: SeededRNG,
   ): string {
     const distance = Math.abs(cx - sx) + Math.abs(cy - sy);
-    // Nebula systems have background nebula clouds
     if (
       systemTypeId >= 1064 &&
       systemTypeId <= 1066 &&
@@ -443,7 +449,6 @@ export class StarmapSystemGeneratorService {
     ) {
       return 'NEBULA';
     }
-    // Rare systems with asteroid backgrounds
     if (
       systemTypeId >= 1069 &&
       systemTypeId <= 1070 &&
@@ -454,6 +459,35 @@ export class StarmapSystemGeneratorService {
       return 'ASTEROID_CLUSTER';
     }
     return 'EMPTY_SPACE';
+  }
+
+  private backgroundFieldTypeId(
+    systemTypeId: number,
+    sx: number,
+    sy: number,
+    cx: number,
+    cy: number,
+    rng: SeededRNG,
+  ): number {
+    const distance = Math.abs(cx - sx) + Math.abs(cy - sy);
+    if (
+      systemTypeId >= 1064 &&
+      systemTypeId <= 1066 &&
+      distance > 7 &&
+      rng.nextBoolean(0.25)
+    ) {
+      return rng.choice(StarmapSystemGeneratorService.NEBULA_IDS);
+    }
+    if (
+      systemTypeId >= 1069 &&
+      systemTypeId <= 1070 &&
+      distance >= 5 &&
+      distance <= 8 &&
+      rng.nextBoolean(0.35)
+    ) {
+      return rng.choice(StarmapSystemGeneratorService.ASTEROID_IDS);
+    }
+    return 1;
   }
 
   private markStarField(

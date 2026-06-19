@@ -13,7 +13,7 @@ import { HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
 import { DatabasePage } from '../pages/database';
-import { StarmapAdminPage } from '../pages/starmap-admin';
+import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
@@ -96,7 +96,7 @@ export function App() {
             path="/admin/starmap"
             element={
               <MapEditorRoute>
-                <StarmapAdminPage />
+                <StarmapAdminFullmapPage />
               </MapEditorRoute>
             }
           />

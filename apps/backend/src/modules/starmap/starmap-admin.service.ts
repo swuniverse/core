@@ -1436,13 +1436,18 @@ export class StarmapAdminService {
       if (savedObject) objectByKey.set(object.key, savedObject);
     });
 
+    const fieldTypeById = new Map(
+      fieldTypes.map((ft) => [ft.id, ft]),
+    );
+
     const rows = layout.fields.map((field) => {
-      const fieldType =
-        fieldTypeByKey.get(field.fieldTypeKey) ??
-        fieldTypeByKey.get('EMPTY_SPACE');
+      const fieldType = field.fieldTypeId
+        ? fieldTypeById.get(field.fieldTypeId)
+        : (fieldTypeByKey.get(field.fieldTypeKey) ??
+          fieldTypeByKey.get('EMPTY_SPACE'));
       if (!fieldType) {
         throw new NotFoundException(
-          `Field type ${field.fieldTypeKey} not found`,
+          `Field type ${field.fieldTypeId ?? field.fieldTypeKey} not found`,
         );
       }
       const celestialObject = field.objectKey
@@ -1815,6 +1820,7 @@ export class StarmapAdminService {
       damage: fieldType.damage,
       isSystem: fieldType.isSystem,
       colorKey: fieldType.colorKey,
+      category: fieldType.category,
     };
   }
 

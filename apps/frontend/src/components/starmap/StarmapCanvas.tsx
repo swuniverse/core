@@ -706,18 +706,31 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         const cellX = (field.cx - 1) * CELL_SIZE;
         const cellY = (field.cy - 1) * CELL_SIZE;
 
+        // Use field type tile for non-space fields; procedural bg for basic space
+        const tileUrl = field.fieldTypeId > 1 && !field.systemTypeId
+          ? starTileImage(field.fieldTypeId)
+          : spaceBackgroundTile(field.cx, field.cy);
         try {
-          const bgUrl = spaceBackgroundTile(field.cx, field.cy);
-          const texture = await Assets.load(bgUrl);
+          const texture = await Assets.load(tileUrl);
           const sprite = new Sprite(texture);
           sprite.position.set(cellX, cellY);
           sprite.width = CELL_SIZE;
           sprite.height = CELL_SIZE;
           bgLayer.addChild(sprite);
         } catch {
-          const g = new Graphics();
-          g.rect(cellX, cellY, CELL_SIZE, CELL_SIZE).fill({ color: FIELD_TYPE_COLORS[field.fieldType.key] ?? 0x0a0a1a });
-          bgLayer.addChild(g);
+          try {
+            const bgUrl = spaceBackgroundTile(field.cx, field.cy);
+            const texture = await Assets.load(bgUrl);
+            const sprite = new Sprite(texture);
+            sprite.position.set(cellX, cellY);
+            sprite.width = CELL_SIZE;
+            sprite.height = CELL_SIZE;
+            bgLayer.addChild(sprite);
+          } catch {
+            const g = new Graphics();
+            g.rect(cellX, cellY, CELL_SIZE, CELL_SIZE).fill({ color: FIELD_TYPE_COLORS[field.fieldType.key] ?? 0x0a0a1a });
+            bgLayer.addChild(g);
+          }
         }
 
         if (field.systemTypeId) {
