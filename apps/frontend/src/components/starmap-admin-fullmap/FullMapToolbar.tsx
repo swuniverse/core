@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { LayerCreateDialog } from './LayerCreateDialog';
 import { FullMapActions } from './FullMapActions';
@@ -35,7 +35,7 @@ export function FullMapToolbar() {
 
       <button
         onClick={() => {
-          if (confirm('Layer wirklich löschen?')) void deleteSelectedLayer();
+          if (window.confirm('Layer wirklich löschen?')) void deleteSelectedLayer();
         }}
         disabled={!selectedLayerId || layers.length <= 1}
         className="rounded border border-red-600 px-2 py-1 text-xs text-red-300 hover:bg-red-950/40 disabled:opacity-40"

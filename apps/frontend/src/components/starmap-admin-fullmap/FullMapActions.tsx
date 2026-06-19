@@ -40,7 +40,7 @@ export function FullMapActions() {
           <ActionBtn
             label="Star Wars Galaxie initialisieren"
             onClick={async () => {
-              if (confirm('Neue Star Wars Galaxie erstellen? (überschreibt bestehenden Default-Layer)')) {
+              if (window.confirm('Neue Star Wars Galaxie erstellen? (überschreibt bestehenden Default-Layer)')) {
                 await initStarWars();
               }
               setOpen(false);
