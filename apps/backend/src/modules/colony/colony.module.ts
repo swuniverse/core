@@ -7,6 +7,7 @@ import { ColonyStatsService } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyCrewService } from './colony-crew.service';
+import { ColonyDefenseService } from './colony-defense.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -62,6 +63,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyStorageService,
     BuildingLifecycleService,
     ColonyCrewService,
+    ColonyDefenseService,
     SpacecraftStatsService,
   ],
   exports: [
@@ -71,6 +73,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyStorageService,
     BuildingLifecycleService,
     ColonyCrewService,
+    ColonyDefenseService,
     SpacecraftStatsService,
   ],
 })
