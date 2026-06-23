@@ -5,7 +5,7 @@ import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
 import {
@@ -20,10 +20,11 @@ import {
   GameTickType,
 } from './entities/game-tick-state.entity';
 
+type StartedTick = { tickState: GameTickState; shouldRun: boolean };
+
 @Injectable()
 export class TickService {
   private readonly logger = new Logger(TickService.name);
-  private tickCount = 0;
 
   constructor(
     @InjectRepository(Colony)
@@ -43,19 +44,59 @@ export class TickService {
   ) {}
 
   @Cron('0 0 0,12,15,18,21 * * *')
-  async handleTick() {
-    this.tickCount++;
-    const tickState = await this.startTick(GameTickType.MAIN, this.tickCount);
+  async handleTick(
+    manualTickNumber?: number,
+  ): Promise<{ tickNumber: number; status: string }> {
+    const tickNumber = manualTickNumber ?? this.getMainTickNumber(new Date());
+    const { tickState, shouldRun } = await this.startTick(
+      GameTickType.MAIN,
+      tickNumber,
+    );
+
+    if (!shouldRun) {
+      this.logger.warn(
+        `Tick #${tickNumber} skipped; existing status is ${tickState.status}`,
+      );
+      return { tickNumber, status: tickState.status };
+    }
 
     try {
-      this.logger.log(`Tick #${this.tickCount} started`);
+      this.logger.log(`Tick #${tickNumber} started`);
 
-      const colonies = await this.colonyRepo.find({ relations: ['fields'] });
+      const researchByUser = new Map<number, number>();
+      const commodityProductionByUser = new Map<number, Map<number, number>>();
+      const colonies = await this.colonyRepo.find({
+        relations: ['fields', 'stats'],
+      });
       for (const colony of colonies) {
-        await this.colonyService.processTick(colony);
+        const tickResult = await this.colonyService.processTick(colony);
+        researchByUser.set(
+          colony.userId,
+          (researchByUser.get(colony.userId) || 0) + tickResult.researchPoints,
+        );
+        if (!commodityProductionByUser.has(colony.userId)) {
+          commodityProductionByUser.set(colony.userId, new Map());
+        }
+        const userProd = commodityProductionByUser.get(colony.userId)!;
+        for (const [commodityId, amount] of tickResult.productionDelta) {
+          if (amount > 0) {
+            userProd.set(commodityId, (userProd.get(commodityId) || 0) + amount);
+          }
+        }
         this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
           colonyId: colony.id,
         });
+        if (tickResult.events.length > 0) {
+          this.gateway.emitToUser(
+            colony.userId,
+            WsEventType.COLONY_TICK_REPORT,
+            {
+              colonyId: colony.id,
+              tick: tickNumber,
+              events: tickResult.events,
+            },
+          );
+        }
       }
 
       const ships = await this.shipRepo.find();
@@ -68,14 +109,19 @@ export class TickService {
 
       const users = await this.userRepo.find({ select: ['id'] });
       for (const user of users) {
-        await this.researchService.processTick(user.id);
+        await this.researchService.processTick(
+          user.id,
+          researchByUser.get(user.id) || 0,
+          commodityProductionByUser.get(user.id) || new Map(),
+        );
       }
 
-      this.gateway.emitToAll(WsEventType.TICK, { tick: this.tickCount });
+      this.gateway.emitToAll(WsEventType.TICK, { tick: tickNumber });
       this.logger.log(
-        `Tick #${this.tickCount} completed — ${colonies.length} colonies, ${ships.length} ships, ${users.length} users processed`,
+        `Tick #${tickNumber} completed — ${colonies.length} colonies, ${ships.length} ships, ${users.length} users processed`,
       );
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
+      return { tickNumber, status: GameTickStatus.COMPLETED };
     } catch (error) {
       await this.finishTick(
         tickState,
@@ -89,14 +135,15 @@ export class TickService {
   @Cron(CronExpression.EVERY_MINUTE)
   async checkBuildingCompletions() {
     const tickNumber = Date.now();
-    const tickState = await this.startTick(
+    const { tickState, shouldRun } = await this.startTick(
       GameTickType.BUILDING_COMPLETION,
       tickNumber,
     );
+    if (!shouldRun) return;
 
     try {
       const activeBuilds = await this.fieldRepo.find({
-        where: { isBuilding: true },
+        where: [{ isBuilding: true }, { terraformingId: Not(IsNull()) }],
         relations: ['colony'],
       });
 
@@ -108,7 +155,7 @@ export class TickService {
       const colonyIds = [...new Set(activeBuilds.map((f) => f.colonyId))];
       const colonies = await this.colonyRepo.find({
         where: colonyIds.map((id) => ({ id })),
-        relations: ['fields'],
+        relations: ['fields', 'stats'],
       });
 
       for (const colony of colonies) {
@@ -128,10 +175,10 @@ export class TickService {
     }
   }
 
-  async triggerManualTick(): Promise<{ tickNumber: number; status: string }> {
-    this.logger.log('Manual tick triggered by admin');
-    await this.handleTick();
-    return { tickNumber: this.tickCount, status: 'completed' };
+  triggerManualTick(): Promise<{ tickNumber: number; status: string }> {
+    const manualTickNumber = Date.now();
+    this.logger.log(`Manual tick triggered by admin (#${manualTickNumber})`);
+    return this.handleTick(manualTickNumber);
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -160,24 +207,48 @@ export class TickService {
   private async startTick(
     tickType: GameTickType,
     tickNumber: number,
-  ): Promise<GameTickState> {
+  ): Promise<StartedTick> {
     const existing = await this.tickStateRepo.findOne({
       where: { tickType, tickNumber },
     });
     if (existing) {
-      return existing;
+      return {
+        tickState: existing,
+        shouldRun: existing.status === GameTickStatus.FAILED,
+      };
     }
 
-    return this.tickStateRepo.save(
+    const tickState = await this.tickStateRepo.save(
       this.tickStateRepo.create({
         tickType,
         tickNumber,
-        scheduledFor: new Date(),
+        scheduledFor: new Date(tickNumber),
         startedAt: new Date(),
         status: GameTickStatus.STARTED,
         lockKey: `${tickType}:${tickNumber}`,
       }),
     );
+    return { tickState, shouldRun: true };
+  }
+
+  private getMainTickNumber(now: Date): number {
+    const scheduledHours = [0, 12, 15, 18, 21];
+    const slot = new Date(now);
+    slot.setMinutes(0, 0, 0);
+
+    const currentHour = slot.getHours();
+    const hour = [...scheduledHours]
+      .reverse()
+      .find((candidate) => candidate <= currentHour);
+
+    if (hour == null) {
+      slot.setDate(slot.getDate() - 1);
+      slot.setHours(21, 0, 0, 0);
+    } else {
+      slot.setHours(hour, 0, 0, 0);
+    }
+
+    return slot.getTime();
   }
 
   private async finishTick(

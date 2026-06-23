@@ -52,6 +52,13 @@ export class UnlockResolverService {
     return !!research;
   }
 
+  async hasTech(userId: number, techId: number): Promise<boolean> {
+    const research = await this.researchRepo.findOne({
+      where: { userId, techId, status: ResearchStatus.COMPLETED },
+    });
+    return !!research;
+  }
+
   async hasTechByName(userId: number, techName: string): Promise<boolean> {
     const techTree = this.gameData.getTechTree();
     const normalized = this.normalizeTechName(techName);

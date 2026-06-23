@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: swuniverse
       POSTGRES_PASSWORD: devpassword
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+      - ./infra/postgres-data-dev:/var/lib/postgresql/data
     ports:
       - '5490:5432'
     healthcheck:
@@ -24,6 +24,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-volumes:
-  postgres_dev_data:

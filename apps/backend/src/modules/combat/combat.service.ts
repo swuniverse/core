@@ -1,11 +1,19 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Spacecraft, SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftStatus,
+} from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CombatEngine, CombatResult } from './combat.engine';
 import { GameGateway } from '../websocket/game.gateway';
 import { WsEventType } from '@swuniverse/shared';
+import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
 
 @Injectable()
 export class CombatService {
@@ -16,6 +24,7 @@ export class CombatService {
     private readonly moduleRepo: Repository<SpacecraftModule>,
     private readonly engine: CombatEngine,
     private readonly gateway: GameGateway,
+    private readonly spacecraftCrewService: SpacecraftCrewService,
   ) {}
 
   async attack(
@@ -45,6 +54,9 @@ export class CombatService {
     if (defender.status === SpacecraftStatus.IN_FLIGHT) {
       throw new BadRequestException('Target is in flight');
     }
+    if (!(await this.spacecraftCrewService.hasEnoughCrew(attacker))) {
+      throw new BadRequestException('Not enough crew');
+    }
 
     if (attacker.inSystem && defender.inSystem) {
       if (
@@ -66,8 +78,12 @@ export class CombatService {
       throw new BadRequestException('Target must be on same field');
     }
 
-    const attackerModules = await this.moduleRepo.find({ where: { spacecraftId: attacker.id } });
-    const defenderModules = await this.moduleRepo.find({ where: { spacecraftId: defender.id } });
+    const attackerModules = await this.moduleRepo.find({
+      where: { spacecraftId: attacker.id },
+    });
+    const defenderModules = await this.moduleRepo.find({
+      where: { spacecraftId: defender.id },
+    });
 
     this.gateway.emitToUser(attacker.userId, WsEventType.COMBAT_STARTED, {
       attackerId: attacker.id,
@@ -78,7 +94,12 @@ export class CombatService {
       defenderId: defender.id,
     });
 
-    const result = this.engine.resolveCombat(attacker, defender, attackerModules, defenderModules);
+    const result = this.engine.resolveCombat(
+      attacker,
+      defender,
+      attackerModules,
+      defenderModules,
+    );
 
     await this.shipRepo.save(attacker);
     await this.shipRepo.save(defender);

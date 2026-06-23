@@ -44,4 +44,22 @@ export class ColonyField {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ default: 0 })
+  integrity: number;
+
+  @Column({ default: 0 })
+  maxIntegrity: number;
+
+  @Column({ default: true })
+  activateAfterBuild: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  reactivateAfterUpgrade: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  terraformingId: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  terraformingFinishesAt: Date | null;
 }

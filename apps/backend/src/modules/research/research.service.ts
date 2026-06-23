@@ -6,8 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
-import { Colony } from '../colony/entities/colony.entity';
-import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
 
 const ROOT_TECH_IDS = new Set([1001, 1003]);
@@ -17,10 +15,6 @@ export class ResearchService {
   constructor(
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
-    @InjectRepository(Colony)
-    private readonly colonyRepo: Repository<Colony>,
-    @InjectRepository(ColonyStorage)
-    private readonly storageRepo: Repository<ColonyStorage>,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -85,7 +79,30 @@ export class ResearchService {
               })
             : null,
           blockedReason: existing?.blockedReason ?? null,
-          unlocks: tech.unlocks ?? {},
+          unlocks: {
+            ...tech.unlocks,
+            buildings: (tech.unlocks?.buildings ?? [])
+              .filter((b: any) => b.visible !== false)
+              .map((b: any) => {
+                const def = this.gameData.getBuilding(b.id);
+                return {
+                  id: b.id,
+                  name: b.name ?? def?.name,
+                  buildTime: def?.costs?.buildTime ?? 0,
+                  resourceCosts: (def?.resourceCosts ?? []).map((c) => ({
+                    ...c,
+                    name: this.gameData.getCommodity(c.commodityId)?.name ?? `#${c.commodityId}`,
+                  })),
+                  production: (def?.production ?? []).map((p) => ({
+                    ...p,
+                    name: this.gameData.getCommodity(p.commodityId)?.name ?? `#${p.commodityId}`,
+                  })),
+                  epsProc: def?.epsProc ?? 0,
+                  bevPro: def?.bevPro ?? 0,
+                  bonuses: def?.bonuses ?? { energy: 0, population: 0, storage: 0 },
+                };
+              }),
+          },
           finishesAt: existing?.finishesAt || null,
         };
       });
@@ -151,7 +168,11 @@ export class ResearchService {
     return this.researchRepo.save(research);
   }
 
-  async processTick(userId: number): Promise<void> {
+  async processTick(
+    userId: number,
+    producedResearchPoints = 0,
+    commodityProduction: Map<number, number> = new Map(),
+  ): Promise<void> {
     const inProgress = await this.researchRepo.findOne({
       where: { userId, status: ResearchStatus.IN_PROGRESS },
     });
@@ -160,35 +181,36 @@ export class ResearchService {
     const tech = this.gameData.getTech(inProgress.techId);
     if (!tech) return;
 
-    const commodityId =
-      inProgress.sourceCommodityId ??
-      tech.mappedCommodityId ??
-      tech.commodityId;
-    if (!commodityId) {
+    const remaining =
+      inProgress.remainingPoints ?? this.getPointsRequired(tech);
+    if (remaining <= 0 || this.getPointsRequired(tech) <= 0) {
       inProgress.status = ResearchStatus.COMPLETED;
       inProgress.remainingPoints = 0;
       inProgress.blockedReason = null;
+      inProgress.finishesAt = null;
       await this.researchRepo.save(inProgress);
       return;
     }
 
-    const colony = await this.getPrimaryColony(userId);
-    if (!colony) return;
+    let points: number;
+    if (tech.researchMode === 'commodity') {
+      const commodityId = tech.mappedCommodityId ?? tech.commodityId;
+      points = commodityId != null ? (commodityProduction.get(commodityId) || 0) : 0;
+      if (points <= 0) {
+        inProgress.blockedReason = 'NO_COMMODITY_PRODUCTION';
+        await this.researchRepo.save(inProgress);
+        return;
+      }
+    } else {
+      points = producedResearchPoints;
+    }
 
-    const storage = await this.getStorage(colony.id, commodityId);
-    const available = storage?.amount ?? 0;
-    const remaining =
-      inProgress.remainingPoints ?? this.getPointsRequired(tech);
-    const amount = Math.min(available, remaining);
-
-    if (!storage || amount <= 0) {
-      inProgress.blockedReason = 'MISSING_RESOURCE';
+    const amount = Math.min(Math.max(0, points), remaining);
+    if (amount <= 0) {
+      inProgress.blockedReason = 'NO_RESEARCH_PRODUCTION';
       await this.researchRepo.save(inProgress);
       return;
     }
-
-    storage.amount -= amount;
-    await this.storageRepo.save(storage);
 
     inProgress.spentPoints = (inProgress.spentPoints ?? 0) + amount;
     inProgress.progress = inProgress.spentPoints;
@@ -203,17 +225,6 @@ export class ResearchService {
     }
 
     await this.researchRepo.save(inProgress);
-  }
-
-  private async getPrimaryColony(userId: number): Promise<Colony | null> {
-    return this.colonyRepo.findOne({
-      where: { userId },
-      order: { id: 'ASC' },
-    });
-  }
-
-  private async getStorage(colonyId: number, commodityId: number) {
-    return this.storageRepo.findOne({ where: { colonyId, commodityId } });
   }
 
   private getPointsRequired(tech: TechDef): number {

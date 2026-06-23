@@ -22,8 +22,8 @@ commodities:
     source: stu
   - id: 3
     sourceId: 3
-    rawName: Chemische Komponenten
-    name: Chemische Komponenten
+    rawName: Tibanna-Gas
+    name: Tibanna-Gas
     sort: 3
     type: 1
     visible: true

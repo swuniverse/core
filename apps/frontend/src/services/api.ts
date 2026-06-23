@@ -16,6 +16,7 @@ async function refreshAccessToken(): Promise<string | null> {
     });
     if (!res.ok) {
       logout();
+      window.location.href = '/login';
       return null;
     }
     const data = await res.json();
@@ -23,6 +24,7 @@ async function refreshAccessToken(): Promise<string | null> {
     return data.accessToken;
   } catch {
     logout();
+    window.location.href = '/login';
     return null;
   }
 }

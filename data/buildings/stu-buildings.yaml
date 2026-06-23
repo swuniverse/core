@@ -70929,9 +70929,9 @@ buildings:
   - id: 61030100
     source: stu
     sourceId: 61030100
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       - 101
@@ -71118,9 +71118,9 @@ buildings:
   - id: 61030199
     source: stu
     sourceId: 61030199
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       []
@@ -71162,9 +71162,9 @@ buildings:
   - id: 61030200
     source: stu
     sourceId: 61030200
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       - 101
@@ -71351,9 +71351,9 @@ buildings:
   - id: 61030299
     source: stu
     sourceId: 61030299
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       []
@@ -71395,9 +71395,9 @@ buildings:
   - id: 61030300
     source: stu
     sourceId: 61030300
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       - 101
@@ -71584,9 +71584,9 @@ buildings:
   - id: 61030399
     source: stu
     sourceId: 61030399
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       []
@@ -71628,9 +71628,9 @@ buildings:
   - id: 61030400
     source: stu
     sourceId: 61030400
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       - 101
@@ -71817,9 +71817,9 @@ buildings:
   - id: 61030499
     source: stu
     sourceId: 61030499
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       []
@@ -71861,9 +71861,9 @@ buildings:
   - id: 61030500
     source: stu
     sourceId: 61030500
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       - 101
@@ -72050,9 +72050,9 @@ buildings:
   - id: 61030599
     source: stu
     sourceId: 61030599
-    rawName: Chemiefabrik
-    name: Chemiefabrik
-    description: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
+    description: Tibanna-Extraktor
     category: stu
     allowedFieldTypes:
       []

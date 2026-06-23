@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  OneToOne,
   CreateDateColumn,
   Index,
 } from 'typeorm';
@@ -13,6 +14,7 @@ import { StarSystem } from '../../starmap/entities/star-system.entity';
 import { CelestialObject } from '../../starmap/entities/celestial-object.entity';
 import { ColonyField } from './colony-field.entity';
 import { ColonyStorage } from './colony-storage.entity';
+import { ColonyStats } from './colony-stats.entity';
 
 @Entity('colonies')
 @Index(['userId'])
@@ -75,8 +77,13 @@ export class Colony {
   @OneToMany(() => ColonyField, (field) => field.colony, { cascade: true })
   fields: ColonyField[];
 
-  @OneToMany(() => ColonyStorage, (storage) => storage.colony, { cascade: true })
+  @OneToMany(() => ColonyStorage, (storage) => storage.colony, {
+    cascade: true,
+  })
   storage: ColonyStorage[];
+
+  @OneToOne(() => ColonyStats, (stats) => stats.colony, { cascade: true })
+  stats: ColonyStats;
 
   @CreateDateColumn()
   createdAt: Date;

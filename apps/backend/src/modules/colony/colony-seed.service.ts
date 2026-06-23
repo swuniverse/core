@@ -4,9 +4,12 @@ import { Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
+import { ColonyStats } from './entities/colony-stats.entity';
+import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { PlanetField } from '../starmap/entities/planet-field.entity';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
+import { GameDataService } from '../game-data/game-data.service';
 import {
   STU_DEFAULT_COLONY_CLASS_ID,
   stuColonySurfaceGenerator,
@@ -40,11 +43,16 @@ export class ColonySeedService {
     private readonly fieldRepo: Repository<ColonyField>,
     @InjectRepository(ColonyStorage)
     private readonly storageRepo: Repository<ColonyStorage>,
+    @InjectRepository(ColonyStats)
+    private readonly statsRepo: Repository<ColonyStats>,
+    @InjectRepository(ColonyDepositMining)
+    private readonly depositMiningRepo: Repository<ColonyDepositMining>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
     @InjectRepository(PlanetField)
     private readonly planetFieldRepo: Repository<PlanetField>,
     private readonly planetGenerator: PlanetGeneratorService,
+    private readonly gameData: GameDataService,
   ) {}
 
   async createStarterColony(
@@ -78,6 +86,8 @@ export class ColonySeedService {
     await this.colonyRepo.save(colony);
 
     await this.generateFields(colony, factionId);
+    await this.createInitialStats(colony);
+    await this.createInitialDepositMining(colony);
     await this.grantStartingResources(colony);
 
     this.logger.log(
@@ -150,6 +160,7 @@ export class ColonySeedService {
       STU_STARTER_BUILDINGS_BY_FACTION_ID[factionId ?? 1] ??
       STU_STARTER_BUILDINGS_BY_FACTION_ID[1];
     hqField.buildProgress = 100;
+    hqField.isActive = true;
 
     await this.fieldRepo.save(fields);
   }
@@ -162,6 +173,52 @@ export class ColonySeedService {
       where: { celestialObjectId },
       order: { fieldLayer: 'ASC', py: 'ASC', px: 'ASC' },
     });
+  }
+
+  private async createInitialStats(colony: Colony): Promise<void> {
+    const activeFields = await this.fieldRepo.find({
+      where: { colonyId: colony.id, isBuilding: false, isActive: true },
+    });
+    const activeHousing = activeFields.reduce((sum, field) => {
+      const building = field.buildingId
+        ? this.gameData.getBuilding(field.buildingId)
+        : undefined;
+      return sum + (building?.bevPro ?? 0);
+    }, 0);
+
+    await this.statsRepo.save(
+      this.statsRepo.create({
+        colonyId: colony.id,
+        workers: 0,
+        workless: colony.population,
+        maxPopulation: activeHousing || colony.populationMax,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        maxEnergy: colony.energyMax,
+        maxStorage: colony.storageMax,
+        shields: null,
+        maxShields: 0,
+        shieldFrequency: null,
+        torpedoTypeId: null,
+        trainedCrew: 0,
+        isBlockaded: false,
+      }),
+    );
+  }
+
+  private async createInitialDepositMining(colony: Colony): Promise<void> {
+    const deposits = this.gameData.getColonyClassDeposits(colony.colonyClassId);
+    if (deposits.length === 0) return;
+    await this.depositMiningRepo.save(
+      deposits.map((deposit) =>
+        this.depositMiningRepo.create({
+          userId: colony.userId,
+          colonyId: colony.id,
+          commodityId: deposit.commodityId,
+          amountLeft: deposit.maxAmount,
+        }),
+      ),
+    );
   }
 
   private async grantStartingResources(colony: Colony): Promise<void> {

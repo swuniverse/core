@@ -17,8 +17,11 @@ import { FactionEntity } from '../faction/entities/faction.entity';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { ShipClassService } from './ship-class.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
+import { SpacecraftStatsService } from './spacecraft-stats.service';
+import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
 
@@ -39,6 +42,7 @@ import { ResearchModule } from '../research/research.module';
       User,
       Colony,
       ColonyStorage,
+      CrewAssignment,
     ]),
     forwardRef(() => StarmapModule),
     ResearchModule,
@@ -49,12 +53,16 @@ import { ResearchModule } from '../research/research.module';
     ShipClassService,
     TransferService,
     SpacecraftScanService,
+    SpacecraftStatsService,
+    SpacecraftCrewService,
   ],
   exports: [
     SpacecraftService,
     ShipClassService,
     TransferService,
     SpacecraftScanService,
+    SpacecraftStatsService,
+    SpacecraftCrewService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

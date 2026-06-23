@@ -23,6 +23,14 @@ import { InviteQuota } from './modules/auth/invite-quota.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from './modules/colony/entities/colony-storage.entity';
+import { ColonyStats } from './modules/colony/entities/colony-stats.entity';
+import { ColonyDepositMining } from './modules/colony/entities/colony-deposit-mining.entity';
+import { ColonyShipBuildQueue } from './modules/colony/entities/colony-ship-build-queue.entity';
+import { ColonyFabricationQueue } from './modules/colony/entities/colony-fabrication-queue.entity';
+import { ColonyCrewTrainingQueue } from './modules/colony/entities/colony-crew-training-queue.entity';
+import { ColonyShipBuildplan } from './modules/colony/entities/colony-ship-buildplan.entity';
+import { Crew } from './modules/colony/entities/crew.entity';
+import { CrewAssignment } from './modules/colony/entities/crew-assignment.entity';
 import { Layer } from './modules/starmap/entities/layer.entity';
 import { StarSystem } from './modules/starmap/entities/star-system.entity';
 import { CelestialObject } from './modules/starmap/entities/celestial-object.entity';
@@ -70,6 +78,14 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           Colony,
           ColonyField,
           ColonyStorage,
+          ColonyStats,
+          ColonyDepositMining,
+          ColonyShipBuildQueue,
+          ColonyFabricationQueue,
+          ColonyCrewTrainingQueue,
+          ColonyShipBuildplan,
+          Crew,
+          CrewAssignment,
           Layer,
           StarSystem,
           CelestialObject,

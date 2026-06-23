@@ -1117,6 +1117,7 @@ technologies:
     tier: 1
     sort: 2
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1163,6 +1164,7 @@ technologies:
     tier: 1
     sort: 2
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1377,6 +1379,7 @@ technologies:
     tier: 1
     sort: 3
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1423,6 +1426,7 @@ technologies:
     tier: 1
     sort: 3
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1469,6 +1473,7 @@ technologies:
     tier: 1
     sort: 3
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1515,6 +1520,7 @@ technologies:
     tier: 1
     sort: 3
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1561,6 +1567,7 @@ technologies:
     tier: 1
     sort: 3
     effort: 5
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1620,13 +1627,14 @@ technologies:
     key: stu-254001-chemiefabrik
     source: stu
     sourceId: 254001
-    rawName: Chemiefabrik
-    name: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
     description: Erlaubt die Herstellung chemischer Grundstoffe
     category: stu
     tier: 1
     sort: 4
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1636,8 +1644,8 @@ technologies:
     unlocks:
       buildings:
         - id: 61030100
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: true
           buildTime: 900
           costs:
@@ -1645,8 +1653,8 @@ technologies:
               mappedCommodityId: 2
               amount: 30
         - id: 61030199
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: false
           buildTime: 900
           costs:
@@ -1657,13 +1665,14 @@ technologies:
     key: stu-254002-chemiefabrik
     source: stu
     sourceId: 254002
-    rawName: Chemiefabrik
-    name: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
     description: Erlaubt die Herstellung chemischer Grundstoffe
     category: stu
     tier: 1
     sort: 4
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1673,8 +1682,8 @@ technologies:
     unlocks:
       buildings:
         - id: 61030200
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: true
           buildTime: 900
           costs:
@@ -1682,8 +1691,8 @@ technologies:
               mappedCommodityId: 2
               amount: 30
         - id: 61030299
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: false
           buildTime: 900
           costs:
@@ -1694,13 +1703,14 @@ technologies:
     key: stu-254003-chemiefabrik
     source: stu
     sourceId: 254003
-    rawName: Chemiefabrik
-    name: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
     description: Erlaubt die Herstellung chemischer Grundstoffe
     category: stu
     tier: 1
     sort: 4
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1710,8 +1720,8 @@ technologies:
     unlocks:
       buildings:
         - id: 61030300
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: true
           buildTime: 900
           costs:
@@ -1719,8 +1729,8 @@ technologies:
               mappedCommodityId: 2
               amount: 30
         - id: 61030399
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: false
           buildTime: 900
           costs:
@@ -1731,14 +1741,15 @@ technologies:
     key: stu-254004-chemiefabrik
     source: stu
     sourceId: 254004
-    rawName: Chemiefabrik
-    name: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
     description: In diesem Gebäude werden chemische Grundstoffe hergestellt, welche zur Fertigung von transparentem
       Aluminium benötigt werden.
     category: stu
     tier: 1
     sort: 4
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1748,8 +1759,8 @@ technologies:
     unlocks:
       buildings:
         - id: 61030400
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: true
           buildTime: 900
           costs:
@@ -1757,8 +1768,8 @@ technologies:
               mappedCommodityId: 2
               amount: 30
         - id: 61030499
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: false
           buildTime: 900
           costs:
@@ -1769,14 +1780,15 @@ technologies:
     key: stu-254005-chemiefabrik
     source: stu
     sourceId: 254005
-    rawName: Chemiefabrik
-    name: Chemiefabrik
+    rawName: Tibanna-Extraktor
+    name: Tibanna-Extraktor
     description: In diesem Gebäude werden chemische Grundstoffe hergestellt, welche zur Fertigung von transparentem
       Aluminium benötigt werden.
     category: stu
     tier: 1
     sort: 4
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1786,8 +1798,8 @@ technologies:
     unlocks:
       buildings:
         - id: 61030500
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: true
           buildTime: 900
           costs:
@@ -1795,8 +1807,8 @@ technologies:
               mappedCommodityId: 2
               amount: 30
         - id: 61030599
-          rawName: Chemiefabrik
-          name: Chemiefabrik
+          rawName: Tibanna-Extraktor
+          name: Tibanna-Extraktor
           visible: false
           buildTime: 900
           costs:
@@ -1815,6 +1827,7 @@ technologies:
     tier: 1
     sort: 5
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1853,6 +1866,7 @@ technologies:
     tier: 1
     sort: 5
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1891,6 +1905,7 @@ technologies:
     tier: 1
     sort: 5
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1929,6 +1944,7 @@ technologies:
     tier: 1
     sort: 5
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -1967,6 +1983,7 @@ technologies:
     tier: 1
     sort: 5
     effort: 10
+    researchMode: commodity
     commodityId: 2
     mappedCommodityId: 2
     dependencies:
@@ -2004,6 +2021,7 @@ technologies:
     tier: 1
     sort: 6
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2050,6 +2068,7 @@ technologies:
     tier: 1
     sort: 6
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2096,6 +2115,7 @@ technologies:
     tier: 1
     sort: 6
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2142,6 +2162,7 @@ technologies:
     tier: 1
     sort: 6
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2188,6 +2209,7 @@ technologies:
     tier: 1
     sort: 6
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2234,6 +2256,7 @@ technologies:
     tier: 1
     sort: 7
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2277,6 +2300,7 @@ technologies:
     tier: 1
     sort: 7
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2320,6 +2344,7 @@ technologies:
     tier: 1
     sort: 7
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2363,6 +2388,7 @@ technologies:
     tier: 1
     sort: 7
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2406,6 +2432,7 @@ technologies:
     tier: 1
     sort: 7
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2449,6 +2476,7 @@ technologies:
     tier: 1
     sort: 8
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2504,6 +2532,7 @@ technologies:
     tier: 1
     sort: 8
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2559,6 +2588,7 @@ technologies:
     tier: 1
     sort: 8
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2614,6 +2644,7 @@ technologies:
     tier: 1
     sort: 8
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2669,6 +2700,7 @@ technologies:
     tier: 1
     sort: 8
     effort: 12
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -2724,6 +2756,7 @@ technologies:
     tier: 1
     sort: 9
     effort: 30
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -2767,6 +2800,7 @@ technologies:
     tier: 1
     sort: 9
     effort: 30
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -2810,6 +2844,7 @@ technologies:
     tier: 1
     sort: 9
     effort: 30
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -2853,6 +2888,7 @@ technologies:
     tier: 1
     sort: 9
     effort: 30
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -2896,6 +2932,7 @@ technologies:
     tier: 1
     sort: 9
     effort: 30
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -2939,6 +2976,7 @@ technologies:
     tier: 1
     sort: 10
     effort: 20
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -3039,6 +3077,7 @@ technologies:
     tier: 1
     sort: 11
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3091,6 +3130,7 @@ technologies:
     tier: 1
     sort: 11
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3143,6 +3183,7 @@ technologies:
     tier: 1
     sort: 11
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3195,6 +3236,7 @@ technologies:
     tier: 1
     sort: 11
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3247,6 +3289,7 @@ technologies:
     tier: 1
     sort: 11
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3300,6 +3343,7 @@ technologies:
     tier: 1
     sort: 12
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3350,6 +3394,7 @@ technologies:
     tier: 1
     sort: 12
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3400,6 +3445,7 @@ technologies:
     tier: 1
     sort: 12
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3450,6 +3496,7 @@ technologies:
     tier: 1
     sort: 12
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -3500,6 +3547,7 @@ technologies:
     tier: 1
     sort: 12
     effort: 12
+    researchMode: commodity
     commodityId: 21
     mappedCommodityId: 21
     dependencies:
@@ -33414,6 +33462,7 @@ technologies:
     tier: 6
     sort: 141
     effort: 30
+    researchMode: commodity
     commodityId: 5
     mappedCommodityId: 5
     dependencies:
@@ -37006,6 +37055,7 @@ technologies:
     tier: 6
     sort: 148
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -37049,6 +37099,7 @@ technologies:
     tier: 6
     sort: 148
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -37092,6 +37143,7 @@ technologies:
     tier: 6
     sort: 148
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -37135,6 +37187,7 @@ technologies:
     tier: 6
     sort: 148
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:
@@ -37178,6 +37231,7 @@ technologies:
     tier: 6
     sort: 148
     effort: 8
+    researchMode: commodity
     commodityId: 4
     mappedCommodityId: 4
     dependencies:

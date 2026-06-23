@@ -30,8 +30,10 @@ export function shipImage(shipClassId: number): string {
 
 const GENERATED_COMMODITY_FILES: Record<number, string> = {
   2: '2-baumaterial.png',
+  3: '3-tibanna-gas.png',
   4: '4-transparentes-aluminium.png',
   8: '8-dilithium.png',
+  11: '11-phrik-erz.png',
   12: '12-galazit-erz.png',
   13: '13-nitrium-erz.png',
   14: '14-magnesit-erz.png',
@@ -119,9 +121,47 @@ const GENERATED_BUILDING_FILES: Record<number, string> = {
   81210300: '81210300-imperiale-lager.png',
   82010100: '82010100-rebel-koloniezentrale.png',
   82010300: '82010300-imperiale-koloniezentrale.png',
+  81010100: '81010100-aussenposten.png',
+  81010300: '81010100-aussenposten.png',
+  21020300: '21020300-nerf-zucht.png',
+  21020302: '21020300-nerf-zucht.png',
+  31020100: '31020100-gezeitenkraftwerk.png',
+  31020132: '31020100-gezeitenkraftwerk.png',
+  31020300: '31020100-gezeitenkraftwerk.png',
+  31020332: '31020100-gezeitenkraftwerk.png',
+  61030100: '61030100-tibanna-extraktor.png',
+  61030300: '61030100-tibanna-extraktor.png',
+  61110100: '61110100-phrik-mine.png',
+  61110112: '61110100-phrik-mine.png',
+  61110300: '61110100-phrik-mine.png',
+  61110312: '61110100-phrik-mine.png',
+  81110100: '81110100-landeplattform.png',
+  81110300: '81110100-landeplattform.png',
+  63100100: '63100100-phrik-raffinerie.png',
+  63100300: '63100100-phrik-raffinerie.png',
+  63110100: '63110100-durastahl-schmiede.png',
+  63110300: '63110100-durastahl-schmiede.png',
+  71010100: '71010100-forschungslabor.png',
+  71010300: '71010100-forschungslabor.png',
+  72010100: '72010100-forschungszentrum-stufe-i.png',
+  72010300: '72010100-forschungszentrum-stufe-i.png',
+  22020100: '22020100-blaue-milch-brauerei.png',
+  22010100: '22010100-cantina-allianz.png',
+  22010300: '22010300-cantina-imperium.png',
+  33010100: '33010100-solarspiegel.png',
+  33010131: '33010100-solarspiegel.png',
+  33010300: '33010100-solarspiegel.png',
+  33010331: '33010100-solarspiegel.png',
+  33020100: '33020100-solarfokus.png',
+  33020300: '33020100-solarfokus.png',
+  33030100: '33030100-stromungsanker.png',
+  33030300: '33030100-stromungsanker.png',
 };
 
-export function commodityImage(commodityId: number, commodityName?: string): string {
+export function commodityImage(
+  commodityId: number,
+  commodityName?: string,
+): string {
   const generatedFile =
     GENERATED_COMMODITY_FILES[commodityId] ||
     (commodityName ? GENERATED_COMMODITY_NAME_FILES[commodityName] : undefined);

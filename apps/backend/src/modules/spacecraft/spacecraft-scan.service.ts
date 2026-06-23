@@ -11,6 +11,7 @@ import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.gene
 import { GameDataService } from '../game-data/game-data.service';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { SpacecraftCrewService } from './spacecraft-crew.service';
 
 @Injectable()
 export class SpacecraftScanService {
@@ -23,6 +24,7 @@ export class SpacecraftScanService {
     private readonly objectRepo: Repository<CelestialObject>,
     private readonly planetGenerator: PlanetGeneratorService,
     private readonly gameData: GameDataService,
+    private readonly spacecraftCrewService: SpacecraftCrewService,
   ) {}
 
   async surfaceScan(
@@ -45,6 +47,9 @@ export class SpacecraftScanService {
     }
     if (ship.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Destroyed ship cannot scan');
+    }
+    if (!(await this.spacecraftCrewService.hasEnoughCrew(ship))) {
+      throw new BadRequestException('Not enough crew');
     }
 
     const object = await this.objectRepo.findOneBy({ id: celestialObjectId });
@@ -90,7 +95,9 @@ export class SpacecraftScanService {
   }
 
   private async getSensorRange(ship: Spacecraft): Promise<number> {
-    const modules = ship.modules ?? [];
+    const modules =
+      ship.modules ??
+      (await this.moduleRepo.find({ where: { spacecraftId: ship.id } }));
     let maxRange = 3;
     for (const mod of modules) {
       const def = this.gameData

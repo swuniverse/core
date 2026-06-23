@@ -26,6 +26,8 @@ import { ExplorationLevel } from '../starmap/entities/exploration-state.entity';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
 import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.generator';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
+import { SpacecraftStatsService } from './spacecraft-stats.service';
+import { SpacecraftCrewService } from './spacecraft-crew.service';
 
 @Injectable()
 export class SpacecraftService {
@@ -53,6 +55,8 @@ export class SpacecraftService {
     private readonly explorationService: ExplorationService,
     private readonly planetGenerator: PlanetGeneratorService,
     private readonly unlockResolver: UnlockResolverService,
+    private readonly spacecraftStatsService: SpacecraftStatsService,
+    private readonly spacecraftCrewService: SpacecraftCrewService,
   ) {}
 
   async findAllByUser(userId: number): Promise<Spacecraft[]> {
@@ -534,49 +538,19 @@ export class SpacecraftService {
   }
 
   private async recalculateStats(ship: Spacecraft): Promise<void> {
-    const modules = await this.moduleRepo.find({
-      where: { spacecraftId: ship.id },
-    });
-
-    let hullBonus = 0;
-    let shieldBonus = 0;
-    let energyBonus = 0;
-
-    for (const mod of modules) {
-      if (!mod.isActive) continue;
-      const def = this.gameData
-        .getAllModules()
-        .find((m) => m.name === mod.moduleType);
-      if (!def) continue;
-
-      const levelScale = 1 + (mod.level - 1) * 0.2;
-
-      if (def.category === 'HULL') {
-        const baseHull =
-          (def.public as Record<string, number>).baseHullPoints || 0;
-        hullBonus += Math.round(baseHull * levelScale);
-      }
-      if (def.category === 'SHIELDS') {
-        const baseShield =
-          (def.public as Record<string, number>).baseShieldPoints || 0;
-        shieldBonus += Math.round(baseShield * levelScale);
-      }
-      if (def.category === 'ENGINES') {
-        const baseEnergy =
-          (def.public as Record<string, number>).baseEnergyOutput || 0;
-        energyBonus += Math.round(baseEnergy * levelScale);
-      }
-    }
-
-    ship.hullMax = 50 + hullBonus;
-    ship.shieldsMax = 20 + shieldBonus;
-    ship.energyMax = 50 + energyBonus;
-
-    ship.hull = Math.min(ship.hull, ship.hullMax);
-    ship.shields = Math.min(ship.shields, ship.shieldsMax);
-    ship.energy = Math.min(ship.energy, ship.energyMax);
-
+    const [modules, shipClass] = await Promise.all([
+      this.moduleRepo.find({ where: { spacecraftId: ship.id } }),
+      this.shipClassService.findById(ship.shipClassId),
+    ]);
+    if (!shipClass) return;
+    this.spacecraftStatsService.applyStats(ship, shipClass, modules);
     await this.shipRepo.save(ship);
+  }
+
+  private async assertEnoughCrew(ship: Spacecraft): Promise<void> {
+    if (!(await this.spacecraftCrewService.hasEnoughCrew(ship))) {
+      throw new BadRequestException('Not enough crew');
+    }
   }
 
   // In-system impulse navigation: 1 EPS per field, 5s per field
@@ -605,6 +579,7 @@ export class SpacecraftService {
     if (!ship.starSystemId) {
       throw new BadRequestException('Ship has no current system');
     }
+    await this.assertEnoughCrew(ship);
 
     const system = await this.systemRepo.findOne({
       where: { id: ship.starSystemId },
@@ -700,6 +675,7 @@ export class SpacecraftService {
     if (!ship.currentLayerId) {
       throw new BadRequestException('Ship has no current layer');
     }
+    await this.assertEnoughCrew(ship);
 
     const targetField = await this.galaxyFieldRepo.findOne({
       where: { layerId: ship.currentLayerId, cx: targetX, cy: targetY },
@@ -774,6 +750,7 @@ export class SpacecraftService {
     if (!ship.currentLayerId) {
       throw new BadRequestException('Ship has no current layer');
     }
+    await this.assertEnoughCrew(ship);
 
     const galaxyField = await this.galaxyFieldRepo.findOne({
       where: { layerId: ship.currentLayerId, cx: ship.posX, cy: ship.posY },
@@ -823,6 +800,7 @@ export class SpacecraftService {
     if (!ship.starSystemId) {
       throw new BadRequestException('Ship has no current system');
     }
+    await this.assertEnoughCrew(ship);
 
     // Get galaxy coordinates from the star system
     const system = await this.systemRepo.findOne({
@@ -868,6 +846,7 @@ export class SpacecraftService {
     if (!ship.starSystemId) {
       throw new BadRequestException('Ship has no current system');
     }
+    await this.assertEnoughCrew(ship);
 
     const currentSystem = await this.systemRepo.findOne({
       where: { id: ship.starSystemId },

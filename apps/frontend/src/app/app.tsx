@@ -21,15 +21,15 @@ import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const accessToken = useAuthStore((s) => s.accessToken);
+  if (!accessToken) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
-  if (!isAuthenticated) return <>{children}</>;
-  return <Navigate to="/" replace />;
+  const accessToken = useAuthStore((s) => s.accessToken);
+  if (accessToken) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
