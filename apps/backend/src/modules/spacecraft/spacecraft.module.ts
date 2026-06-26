@@ -8,6 +8,7 @@ import { SpacecraftModule as SpacecraftModuleEntity } from './entities/spacecraf
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { CargoItem } from './entities/cargo-item.entity';
+import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -22,6 +23,8 @@ import { ShipClassService } from './ship-class.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { SpacecraftStatsService } from './spacecraft-stats.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
+import { ColonyStorageService } from '../colony/colony-storage.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
 
@@ -33,6 +36,7 @@ import { ResearchModule } from '../research/research.module';
       Fleet,
       ShipClassDef,
       CargoItem,
+      SpacecraftTorpedoStorage,
       StarSystem,
       Layer,
       CelestialObject,
@@ -55,6 +59,8 @@ import { ResearchModule } from '../research/research.module';
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    SpacecraftTorpedoService,
+    ColonyStorageService,
   ],
   exports: [
     SpacecraftService,
@@ -63,6 +69,7 @@ import { ResearchModule } from '../research/research.module';
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    SpacecraftTorpedoService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

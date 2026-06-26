@@ -31,6 +31,10 @@ import { ColonyService } from './colony.service';
 import { ColonyStatsService } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
+import { ColonyDefenseService } from './colony-defense.service';
+import { ColonyBuildingManagementService } from './colony-building-management.service';
+import { ColonySocialService } from './colony-social.service';
+import { ColonyEconomyService } from './colony-economy.service';
 import { TickService } from '../tick/tick.service';
 import {
   GameTickStatus,
@@ -129,6 +133,117 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
             { commodityId: 2, amount: 5 },
             { commodityId: 1300, amount: 84 },
           ],
+          functions: [1],
+        },
+        81110100: {
+          id: 81110100,
+          name: 'Landeplattform',
+          epsProc: 0,
+          epsCost: 100,
+          researchPoints: 0,
+          bevUse: 0,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [101],
+          isUnique: false,
+          costs: { buildTime: 60 },
+          resourceCosts: [
+            { commodityId: 2, amount: 100 },
+            { commodityId: 4, amount: 36 },
+          ],
+          production: [],
+          functions: [4],
+        },
+        81120100: {
+          id: 81120100,
+          name: 'Raumbahnhof',
+          epsProc: -5,
+          epsCost: 170,
+          researchPoints: 0,
+          bevUse: 12,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [101],
+          isUnique: false,
+          costs: { buildTime: 7200 },
+          resourceCosts: [
+            { commodityId: 2, amount: 170 },
+            { commodityId: 4, amount: 56 },
+            { commodityId: 21, amount: 40 },
+          ],
+          production: [{ commodityId: 1801, amount: 14 }],
+          functions: [4],
+        },
+        81130100: {
+          id: 81130100,
+          name: 'Raumhafen',
+          epsProc: -7,
+          epsCost: 240,
+          researchPoints: 0,
+          bevUse: 18,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [101],
+          isUnique: false,
+          costs: { buildTime: 14400 },
+          resourceCosts: [
+            { commodityId: 2, amount: 71 },
+            { commodityId: 4, amount: 96 },
+            { commodityId: 21, amount: 62 },
+          ],
+          production: [{ commodityId: 1801, amount: 20 }],
+          functions: [4],
+        },
+        85130100: {
+          id: 85130100,
+          name: 'Korvettenwerft',
+          epsProc: -5,
+          researchPoints: 0,
+          bevUse: 2,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [],
+          isUnique: false,
+          costs: { buildTime: 60 },
+          resourceCosts: [],
+          production: [],
+          functions: [6],
+        },
+        81810100: {
+          id: 81810100,
+          name: 'Waffenmodulfertigung',
+          epsProc: -5,
+          researchPoints: 0,
+          bevUse: 2,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [],
+          isUnique: false,
+          costs: { buildTime: 60 },
+          resourceCosts: [],
+          production: [],
+          functions: [10],
+        },
+        81910100: {
+          id: 81910100,
+          name: 'Schildmodulfertigung',
+          epsProc: -5,
+          researchPoints: 0,
+          bevUse: 2,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [],
+          isUnique: false,
+          costs: { buildTime: 60 },
+          resourceCosts: [],
+          production: [],
+          functions: [13],
         },
         100: {
           id: 100,
@@ -260,28 +375,54 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       return buildings[id];
     }),
     getBuildingFunctions: jest.fn((buildingId: number) =>
-      buildingId === 85010100
-        ? [22]
-        : buildingId === 85210100
-          ? [6]
-          : buildingId === 85310100
-            ? [7]
-            : buildingId === 81810100
-              ? [10]
-              : buildingId === 81910100
-                ? [13]
-                : buildingId === 82010101
-                  ? [16]
-                  : buildingId === 81710100
-                    ? [9]
-                    : buildingId === 51010100
-                      ? [20]
-                      : [],
+      buildingId === 82010100
+        ? [1]
+        : buildingId === 81110100
+          ? [4]
+          : buildingId === 81120100
+            ? [4]
+            : buildingId === 81130100
+              ? [4]
+              : buildingId === 85130100
+                ? [6]
+                : buildingId === 85010100
+                  ? [22]
+                  : buildingId === 85210100
+                    ? [6]
+                    : buildingId === 85310100
+                      ? [7]
+                      : buildingId === 81810100
+                        ? [10]
+                        : buildingId === 81910100
+                          ? [13]
+                          : buildingId === 82010101
+                            ? [16]
+                            : buildingId === 81710100
+                              ? [9]
+                              : buildingId === 51010100
+                                ? [20]
+                                : buildingId === 100010100
+                                  ? [24]
+                                  : buildingId === 100020100
+                                    ? [25]
+                                    : buildingId === 100030100
+                                      ? [26]
+                                      : buildingId === 100040100
+                                        ? [27]
+                                        : buildingId === 100050100
+                                          ? [28]
+                                          : [],
     ),
     getBuildingFunction: jest.fn((id: number) => ({
       id,
+      key: `FUNCTION_${id}`,
       name: `Function ${id}`,
     })),
+    getAllBuildingFunctions: jest.fn(() =>
+      [1, 2, 4, 5, 6, 7, 8, 9, 10, 13, 16, 20, 21, 22, 24, 25, 26, 27, 28].map(
+        (id) => ({ id, key: `FUNCTION_${id}`, name: `Function ${id}` }),
+      ),
+    ),
     buildingHasFunction: jest.fn(
       (buildingId: number, functionId: number) =>
         (buildingId === 81810100 && functionId === 10) ||
@@ -289,7 +430,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         (buildingId === 82010101 && functionId === 16) ||
         (buildingId === 81710100 && functionId === 9) ||
         (buildingId === 51010100 && functionId === 20) ||
-        (buildingId === 81130100 && functionId === 4) ||
+        ([81110100, 81120100, 81130100].includes(buildingId) &&
+          functionId === 4) ||
         (buildingId === 85010100 && functionId === 22) ||
         (buildingId === 85210100 && functionId === 6) ||
         (buildingId === 100010100 && functionId === 24) ||
@@ -510,6 +652,35 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         costs: [{ commodityId: 2, amount: 4 }],
       },
     ]),
+    getSocialEffects: jest.fn(() => ({
+      lifeStandardCommodityId: 1300,
+      fallback: {
+        primaryEffectCommodityId: 1001,
+        secondaryEffectCommodityId: 1601,
+      },
+      factions: {},
+    })),
+    getTorpedoType: jest.fn((id: number) =>
+      id === 81
+        ? { id: 81, commodityId: 81, name: 'Micro', baseDamage: 90 }
+        : undefined,
+    ),
+    getAllTorpedoTypes: jest.fn(() => [
+      { id: 81, commodityId: 81, name: 'Micro', baseDamage: 90 },
+    ]),
+    getTorpedoTypeByCommodity: jest.fn((commodityId: number) =>
+      commodityId === 81
+        ? { id: 81, commodityId: 81, name: 'Micro', baseDamage: 90 }
+        : undefined,
+    ),
+    getAllCommodities: jest.fn(() => [
+      { id: 2, name: 'Doonium', nameShort: 'DOO' },
+      { id: 3, name: 'Tibanna-Gas', nameShort: 'TIB' },
+      { id: 7, name: 'Plasma', nameShort: 'PLA' },
+      { id: 81, name: 'Micro-Protonentorpedo', nameShort: 'MPT' },
+      { id: 10001, name: 'Ersatzteil', nameShort: 'ERS' },
+      { id: 10002, name: 'Systemkomponente', nameShort: 'SYS' },
+    ]),
     getCommodity: jest.fn((id: number) => ({
       id,
       name: String(id),
@@ -521,19 +692,47 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   };
 
   const statsService = new ColonyStatsService(gameData as any);
+  const colonyEconomyService = new ColonyEconomyService(
+    statsService as any,
+    gameData as any,
+  );
+  const colonySocialService = new ColonySocialService(gameData as any);
   const colonyStorageService = new ColonyStorageService(storageRepo as any);
   const buildingLifecycleService = new BuildingLifecycleService(
     fieldRepo as any,
     statsRepo as any,
   );
+  const colonyDefenseService = new ColonyDefenseService(
+    colonyStorageService as any,
+    gameData as any,
+  );
+  const colonyEventService = {
+    createActionEvent: jest.fn(async (value) => value),
+    listForColony: jest.fn(async () => []),
+    markRead: jest.fn(async (value) => value),
+    markAllRead: jest.fn(async () => ({ updated: 0 })),
+    getUnreadCountForColony: jest.fn(async () => 0),
+    getLatestForColony: jest.fn(async () => []),
+  };
   const spacecraftStatsService = {
     applyStats: jest.fn((ship) => ship),
+  };
+  const buildingManagementService = new ColonyBuildingManagementService(
+    fieldRepo as any,
+    gameData as any,
+    buildingLifecycleService as any,
+    statsService as any,
+    colonyStorageService as any,
+  );
+  const spacecraftTorpedoService = {
+    loadFromColony: jest.fn(async () => undefined),
   };
   const colonyCrewService = {
     getRemainingCount: jest.fn(async () => 999),
     getTrainableCount: jest.fn(async () => 999),
     getInTrainingCount: jest.fn(async () => 0),
     getFreeAssignmentCount: jest.fn(async () => 999),
+    getAssignedCount: jest.fn(async () => 0),
     getAvailableColonyCrew: jest.fn(async () => [
       { crewId: 1 },
       { crewId: 2 },
@@ -577,10 +776,16 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     gameData as any,
     unlockResolver as any,
     statsService,
+    colonyEconomyService,
     colonyStorageService,
     buildingLifecycleService,
     spacecraftStatsService as any,
     colonyCrewService as any,
+    colonyDefenseService as any,
+    colonyEventService as any,
+    spacecraftTorpedoService as any,
+    buildingManagementService as any,
+    colonySocialService as any,
   );
 
   return Object.assign(
@@ -602,10 +807,16 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       gameData,
       unlockResolver,
       statsService,
+      colonyEconomyService,
       colonyStorageService,
       buildingLifecycleService,
+      buildingManagementService,
+      colonySocialService,
       spacecraftStatsService,
+      spacecraftTorpedoService,
       colonyCrewService,
+      colonyDefenseService,
+      colonyEventService,
     },
     overrides,
   );
@@ -673,7 +884,7 @@ describe('colony tick calculations', () => {
       population: 84,
       populationMax: 0,
       storageMax: 3000,
-      stats: { maxPopulation: 168 },
+      stats: { workers: 24, workless: 60, maxPopulation: 168 },
       fields: [
         { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
       ],
@@ -684,6 +895,61 @@ describe('colony tick calculations', () => {
     expect(summary.housingBonus).toBe(84);
     expect(summary.effectivePopulationMax).toBe(168);
     expect(summary.freeHousing).toBe(84);
+  });
+
+  it('uses stats population for STU-style full housing numbers', () => {
+    const { service, statsService } = createColonyService();
+    const colony = {
+      id: 1,
+      colonyClassId: 201,
+      population: 999,
+      populationMax: 0,
+      storageMax: 3000,
+      stats: {
+        workers: 450,
+        workless: 180,
+        maxPopulation: 630,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+
+    const summary = statsService.calculateSummary(colony as any);
+
+    expect(summary.maxHousing).toBe(630);
+    expect(summary.freeHousing).toBe(0);
+    expect((service as any).calculatePopulationGrowth(colony, summary)).toBe(0);
+  });
+
+  it('guards drifted colony population and housing with STU changeable stats', () => {
+    const { service, statsService } = createColonyService();
+    const colony = {
+      id: 1,
+      colonyClassId: 201,
+      population: 184,
+      populationMax: 100,
+      storageMax: 3000,
+      stats: {
+        workers: 20,
+        workless: 132,
+        maxPopulation: 100,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+
+    const summary = statsService.calculateSummary(colony as any);
+
+    expect(colony.stats.workers + colony.stats.workless).toBe(152);
+    expect(summary.maxHousing).toBe(152);
+    expect(summary.freeHousing).toBe(0);
+    expect((service as any).calculatePopulationGrowth(colony, summary)).toBe(0);
   });
 
   it('returns no immigration without free housing, enabled immigration, or population-limit capacity', () => {
@@ -759,6 +1025,108 @@ describe('colony tick calculations', () => {
     expect(colony.stats.workless).toBe(117);
     expect(statsRepo.save).toHaveBeenCalledWith(colony.stats);
     expect(colonyRepo.save).toHaveBeenCalledWith(colony);
+  });
+
+  it('builds effective economy state with active functions and production categories', () => {
+    const { statsService } = createColonyService();
+    const colony = {
+      id: 1,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 0,
+      storageMax: 3000,
+      storageUsed: 100,
+      energy: 50,
+      energyMax: 100,
+      stats: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        maxEnergy: 100,
+        maxStorage: 3000,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+
+    const state = statsService.calculateSummary(colony as any).effectiveState;
+
+    expect(state.population).toMatchObject({
+      current: 84,
+      workers: 24,
+      available: 60,
+      freeHousing: 84,
+      maxHousing: 168,
+    });
+    expect(state.energy).toMatchObject({
+      current: 50,
+      max: 100,
+      delta: 16,
+      production: 16,
+      consumption: 0,
+    });
+    expect(state.storage.free).toBe(3900);
+    expect(state.functions.active).toContainEqual(
+      expect.objectContaining({ id: 1, name: 'Function 1' }),
+    );
+    expect(state.production.storage).toContainEqual({
+      commodityId: 2,
+      amount: 5,
+    });
+    expect(state.production.effects).toContainEqual({
+      commodityId: 1300,
+      amount: 84,
+    });
+    expect(state.production.deposits).toContainEqual({
+      commodityId: 1505,
+      amount: 12,
+    });
+  });
+
+  it('builds feature access from present buildings and active functions', () => {
+    const { colonyEconomyService } = createColonyService();
+    const base = {
+      id: 1,
+      colonyClassId: 999,
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+
+    let access = colonyEconomyService.buildFeatureAccess(base as any);
+    expect(access.tabs.info.visible).toBe(true);
+    expect(access.tabs.build.visible).toBe(true);
+    expect(access.tabs.events.visible).toBe(true);
+    expect(access.tabs.crew.visible).toBe(true);
+    expect(access.tabs.shipyard.visible).toBe(false);
+    expect(access.tabs.fabrication.visible).toBe(false);
+
+    access = colonyEconomyService.buildFeatureAccess({
+      ...base,
+      fields: [
+        ...base.fields,
+        { id: 2, buildingId: 81910100, isBuilding: false, isActive: false },
+        { id: 3, buildingId: 85130100, isBuilding: false, isActive: false },
+      ],
+    } as any);
+    expect(access.tabs.fabrication.visible).toBe(true);
+    expect(access.tabs.fabrication.presentFunctionIds).toContain(13);
+    expect(access.tabs.fabrication.activeFunctionIds).not.toContain(13);
+    expect(access.tabs.shipyard.visible).toBe(true);
+    expect(access.tabs.shipyard.presentFunctionIds).toContain(6);
+    expect(access.tabs.shipyard.activeFunctionIds).not.toContain(6);
+
+    access = colonyEconomyService.buildFeatureAccess({
+      ...base,
+      fields: [
+        ...base.fields,
+        { id: 2, buildingId: 81910100, isBuilding: false, isActive: true },
+        { id: 3, buildingId: 85130100, isBuilding: false, isActive: true },
+      ],
+    } as any);
+    expect(access.tabs.fabrication.activeFunctionIds).toContain(13);
+    expect(access.tabs.shipyard.activeFunctionIds).toContain(6);
   });
 
   it('keeps a typical STU HQ + mine fixture consistent', () => {
@@ -1262,9 +1630,67 @@ describe('colony tick calculations', () => {
       expect.objectContaining({
         type: 'BUILDING_DEACTIVATED',
         fieldIndex: 7,
-        reason: 'ENERGY',
+        reason: 'Energie',
       }),
     );
+  });
+
+  it('exposes airfield progression orbital maintenance values', () => {
+    const { statsService, gameData } = createColonyService();
+    const raumbahnhof = gameData.getBuilding(81120100);
+    const raumhafen = gameData.getBuilding(81130100);
+
+    expect(gameData.buildingHasFunction(81110100, 4)).toBe(true);
+    expect(gameData.buildingHasFunction(81120100, 4)).toBe(true);
+    expect(gameData.buildingHasFunction(81130100, 4)).toBe(true);
+    expect(raumhafen).toMatchObject({
+      epsProc: -7,
+      bevUse: 18,
+      epsCost: 240,
+      costs: { buildTime: 14400 },
+      resourceCosts: [
+        { commodityId: 2, amount: 71 },
+        { commodityId: 4, amount: 96 },
+        { commodityId: 21, amount: 62 },
+      ],
+    });
+
+    const raumbahnhofState = statsService.calculateSummary({
+      id: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [
+        { id: 1, buildingId: 81120100, isBuilding: false, isActive: true },
+      ],
+    } as any).effectiveState;
+    expect(raumbahnhofState.orbitalMaintenance).toEqual({
+      production: 14,
+      consumption: 0,
+      balance: 14,
+    });
+
+    const raumhafenState = statsService.calculateSummary({
+      id: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [
+        { id: 1, buildingId: 81130100, isBuilding: false, isActive: true },
+      ],
+    } as any).effectiveState;
+    expect(raumhafenState.orbitalMaintenance).toEqual({
+      production: 20,
+      consumption: 0,
+      balance: 20,
+    });
+    expect(raumbahnhof).toBeDefined();
   });
 
   it('deactivates orbital maintenance consumers when maintenance is missing', async () => {
@@ -1292,6 +1718,43 @@ describe('colony tick calculations', () => {
 
     expect(field.isActive).toBe(false);
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
+  });
+
+  it('keeps orbital maintenance consumers active when maintenance is sufficient', async () => {
+    const { service, fieldRepo } = createColonyService();
+    const consumer = {
+      id: 1,
+      fieldIndex: 9,
+      buildingId: 600,
+      isBuilding: false,
+      isActive: true,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 10,
+      energyMax: 100,
+      population: 20,
+      populationMax: 100,
+      storageMax: 100,
+      stats: { workers: 12, workless: 8, maxPopulation: 100 },
+      fields: [
+        {
+          id: 2,
+          fieldIndex: 2,
+          buildingId: 81120100,
+          isBuilding: false,
+          isActive: true,
+        },
+        consumer,
+      ],
+    };
+
+    await (service as any).balanceAndProduce(colony);
+
+    expect(consumer.isActive).toBe(true);
+    expect(fieldRepo.save).not.toHaveBeenCalledWith(consumer);
   });
 
   it('deactivates a non-HQ building when EPS would go below zero', async () => {
@@ -1358,10 +1821,11 @@ describe('colony shields', () => {
     colonyRepo.findOne.mockResolvedValue(colony);
 
     await service.setShieldFrequency(1, 1, 12345);
-    await service.loadShields(1, 1, 7);
+    await service.loadShields(1, 1, 70);
 
     expect(colony.stats.shieldFrequency).toBe(12345);
-    expect(colony.stats.shields).toBe(7);
+    expect(colony.stats.maxShields).toBe(14000);
+    expect(colony.stats.shields).toBe(70);
     expect(colony.energy).toBe(43);
     expect(statsRepo.save).toHaveBeenCalledWith(colony.stats);
     expect(repo.save).toHaveBeenCalledWith(colony);
@@ -1369,6 +1833,36 @@ describe('colony shields', () => {
 });
 
 describe('crew training queues', () => {
+  it('queues limited crew training from colony central before academy', async () => {
+    const { service, colonyRepo, crewTrainingQueueRepo, statsRepo } =
+      createColonyService();
+    const stats = { workless: 5, trainedCrew: 0 };
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      fields: [
+        {
+          id: 1,
+          buildingId: 82010100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+      storage: [],
+      stats,
+    });
+
+    const queue = await service.queueCrewTraining(1, 1, 5);
+
+    expect(crewTrainingQueueRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 2, userId: 1, colonyId: 1 }),
+    );
+    expect(stats.workless).toBe(3);
+    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+    expect(queue).toMatchObject({ amount: 2 });
+  });
+
   it('queues crew training when academy is active', async () => {
     const { service, colonyRepo, crewTrainingQueueRepo, statsRepo } =
       createColonyService();
@@ -2221,6 +2715,7 @@ describe('main tick idempotency', () => {
       { find: jest.fn() } as any,
       tickStateRepo as any,
       {} as any,
+      { createTickEvents: jest.fn(async () => []) } as any,
       {} as any,
       {} as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
@@ -2246,6 +2741,7 @@ describe('main tick idempotency', () => {
       { find: jest.fn(async () => []) } as any,
       tickStateRepo as any,
       {} as any,
+      { createTickEvents: jest.fn(async () => []) } as any,
       {} as any,
       { processTick: jest.fn(async () => undefined) } as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
@@ -2278,12 +2774,13 @@ describe('main tick idempotency', () => {
           {
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: 7,
-            reason: 'ENERGY',
+            reason: 'Energie',
           },
         ],
       })),
     };
     const researchService = { processTick: jest.fn(async () => undefined) };
+    const colonyEventService = { createTickEvents: jest.fn(async () => []) };
     const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
     const service = new TickService(
       colonyRepo as any,
@@ -2292,6 +2789,7 @@ describe('main tick idempotency', () => {
       userRepo as any,
       tickStateRepo as any,
       colonyService as any,
+      colonyEventService as any,
       {} as any,
       researchService as any,
       gateway as any,
@@ -2299,6 +2797,12 @@ describe('main tick idempotency', () => {
 
     await service.handleTick();
 
+    expect(colonyEventService.createTickEvents).toHaveBeenCalledWith(
+      1,
+      7,
+      expect.any(Array),
+      expect.any(Number),
+    );
     expect(gateway.emitToUser).toHaveBeenCalledWith(
       7,
       WsEventType.COLONY_TICK_REPORT,
@@ -2307,7 +2811,7 @@ describe('main tick idempotency', () => {
         events: [
           expect.objectContaining({
             type: 'BUILDING_DEACTIVATED',
-            reason: 'ENERGY',
+            reason: 'Energie',
           }),
         ],
       }),

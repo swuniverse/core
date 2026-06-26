@@ -11,6 +11,7 @@ jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
 }));
 
 import { ColonyCrewService } from './colony-crew.service';
+import { ColonySocialService } from './colony-social.service';
 
 function createService() {
   const colonyRepo = { find: jest.fn<Promise<any[]>, any[]>(async () => []) };
@@ -33,10 +34,26 @@ function createService() {
   const shipRepo = { save: jest.fn(async (value) => value) };
   const colonyStatsService = {
     calculateSummary: jest.fn(() => ({
-      productionDelta: new Map([[1300, 100]]),
+      productionDelta: new Map([
+        [1001, 20],
+        [1601, 0],
+        [1300, 100],
+      ]),
       workersUsed: 20,
     })),
   };
+  const gameData = {
+    getSocialEffects: jest.fn(() => ({
+      lifeStandardCommodityId: 1300,
+      fallback: {
+        primaryEffectCommodityId: 1001,
+        secondaryEffectCommodityId: 1601,
+      },
+      factions: {},
+    })),
+    getCommodity: jest.fn((id: number) => ({ id, name: String(id) })),
+  };
+  const colonySocialService = new ColonySocialService(gameData as any);
   const service = new ColonyCrewService(
     colonyRepo as any,
     statsRepo as any,
@@ -45,6 +62,7 @@ function createService() {
     crewAssignmentRepo as any,
     shipRepo as any,
     colonyStatsService as any,
+    colonySocialService as any,
   );
   return {
     service,
@@ -55,6 +73,7 @@ function createService() {
     crewAssignmentRepo,
     shipRepo,
     colonyStatsService,
+    colonySocialService,
   };
 }
 
@@ -68,7 +87,7 @@ describe('ColonyCrewService', () => {
       fields: [],
     };
 
-    expect(service.getLocalCrewLimit(colony as any)).toBe(14);
+    expect(service.getLocalCrewLimit(colony as any)).toBe(13);
   });
 
   it('sums local crew limits into a global user crew limit', async () => {
@@ -78,7 +97,7 @@ describe('ColonyCrewService', () => {
       { id: 2, population: 50, stats: { workers: 20 }, fields: [] },
     ]);
 
-    await expect(service.getGlobalCrewLimit(1)).resolves.toBe(28);
+    await expect(service.getGlobalCrewLimit(1)).resolves.toBe(26);
   });
 
   it('computes remaining and trainable crew counts', async () => {
@@ -90,7 +109,7 @@ describe('ColonyCrewService', () => {
     crewAssignmentRepo.count.mockResolvedValue(3);
     crewTrainingQueueRepo.find.mockResolvedValue([{ amount: 2 }]);
 
-    await expect(service.getRemainingCount(1)).resolves.toBe(9);
+    await expect(service.getRemainingCount(1)).resolves.toBe(8);
     await expect(service.getTrainableCount(1)).resolves.toBe(2);
   });
 

@@ -14,6 +14,20 @@ import { CombatEngine, CombatResult } from './combat.engine';
 import { GameGateway } from '../websocket/game.gateway';
 import { WsEventType } from '@swuniverse/shared';
 import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
+import { Colony } from '../colony/entities/colony.entity';
+import { ColonyStats } from '../colony/entities/colony-stats.entity';
+import { ColonyField } from '../colony/entities/colony-field.entity';
+import { ColonyDefenseService } from '../colony/colony-defense.service';
+import { GameDataService } from '../game-data/game-data.service';
+import { ColonyEventService } from '../colony/colony-event.service';
+import {
+  ColonyDamageService,
+  DamagedColonyFieldResult,
+} from '../colony/colony-damage.service';
+import {
+  ColonyEventSeverity,
+  ColonyEventType,
+} from '../colony/entities/colony-event.entity';
 
 @Injectable()
 export class CombatService {
@@ -22,9 +36,19 @@ export class CombatService {
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(SpacecraftModule)
     private readonly moduleRepo: Repository<SpacecraftModule>,
+    @InjectRepository(Colony)
+    private readonly colonyRepo: Repository<Colony>,
+    @InjectRepository(ColonyStats)
+    private readonly colonyStatsRepo: Repository<ColonyStats>,
+    @InjectRepository(ColonyField)
+    private readonly colonyFieldRepo: Repository<ColonyField>,
     private readonly engine: CombatEngine,
     private readonly gateway: GameGateway,
     private readonly spacecraftCrewService: SpacecraftCrewService,
+    private readonly colonyDefenseService: ColonyDefenseService,
+    private readonly gameData: GameDataService,
+    private readonly colonyEventService: ColonyEventService,
+    private readonly colonyDamageService: ColonyDamageService,
   ) {}
 
   async attack(
@@ -94,7 +118,7 @@ export class CombatService {
       defenderId: defender.id,
     });
 
-    const result = this.engine.resolveCombat(
+    const result = await this.engine.resolveCombat(
       attacker,
       defender,
       attackerModules,
@@ -106,5 +130,207 @@ export class CombatService {
     await this.moduleRepo.save([...attackerModules, ...defenderModules]);
 
     return result;
+  }
+
+  async attackColony(
+    attackerId: number,
+    colonyId: number,
+    userId: number,
+  ): Promise<
+    CombatResult & {
+      defenderType: 'COLONY';
+      colonyShields: number;
+      damagedFields: DamagedColonyFieldResult[];
+    }
+  > {
+    const attacker = await this.shipRepo.findOne({
+      where: { id: attackerId, userId },
+    });
+    if (!attacker) throw new NotFoundException('Attacker not found');
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId },
+      relations: ['fields', 'stats'],
+    });
+    if (!colony) throw new NotFoundException('Colony not found');
+    if (colony.userId === attacker.userId) {
+      throw new BadRequestException('Cannot attack own colony');
+    }
+    if (attacker.status !== SpacecraftStatus.DOCKED) {
+      throw new BadRequestException('Ship must be idle to initiate combat');
+    }
+    if (!(await this.spacecraftCrewService.hasEnoughCrew(attacker))) {
+      throw new BadRequestException('Not enough crew');
+    }
+    if (
+      attacker.starSystemId !== colony.starSystemId ||
+      (colony.celestialObjectId != null &&
+        attacker.celestialObjectId !== colony.celestialObjectId)
+    ) {
+      throw new BadRequestException('Colony must be in same orbit');
+    }
+    if (!colony.stats) throw new BadRequestException('Colony stats missing');
+
+    const functionIds = this.getActiveColonyFunctionIds(colony);
+    const maxShields =
+      this.colonyDefenseService.calculateMaxShieldsByFunctions(functionIds);
+    this.colonyDefenseService.syncShieldCapacity(colony, maxShields);
+
+    const attackerModules = await this.moduleRepo.find({
+      where: { spacecraftId: attacker.id },
+    });
+    let outgoingDamage = this.calculateShipAttackDamage(attackerModules);
+    const hasProjectileAttack = attackerModules.some(
+      (module) =>
+        module.isActive !== false &&
+        module.integrity > 0 &&
+        module.category === 'PROJECTILE',
+    );
+    if (
+      hasProjectileAttack &&
+      this.colonyDefenseService.hasAntiParticle(functionIds)
+    ) {
+      outgoingDamage = Math.ceil(
+        (outgoingDamage *
+          (100 -
+            this.colonyDefenseService.constants.phalanx.antiParticle
+              .incomingProjectileReductionPercent)) /
+          100,
+      );
+    }
+    const shieldsBefore = colony.stats.shields ?? 0;
+    const absorbed = Math.min(shieldsBefore, outgoingDamage);
+    colony.stats.shields = Math.max(0, shieldsBefore - outgoingDamage);
+    const remainingDamage = Math.max(0, outgoingDamage - absorbed);
+    const damagedFields = this.colonyDamageService.applyIncomingDamage(
+      colony,
+      remainingDamage,
+    );
+    const log = [
+      {
+        action: 'COLONY_SHIELD_ABSORB' as any,
+        source: 'defender' as const,
+        value: absorbed,
+      },
+    ];
+
+    if (
+      this.colonyDefenseService.hasEnergyPhalanx(functionIds) &&
+      colony.energy >=
+        this.colonyDefenseService.constants.phalanx.energy.energyCost
+    ) {
+      colony.energy -=
+        this.colonyDefenseService.constants.phalanx.energy.energyCost;
+      attacker.hull = Math.max(
+        0,
+        attacker.hull -
+          this.colonyDefenseService.constants.phalanx.energy.damage,
+      );
+      log.push({
+        action: 'ENERGY_PHALANX_HIT' as any,
+        source: 'defender' as const,
+        value: this.colonyDefenseService.constants.phalanx.energy.damage,
+      });
+    }
+
+    if (this.colonyDefenseService.hasParticlePhalanx(functionIds)) {
+      const torpedoType = colony.stats.torpedoTypeId
+        ? this.gameData.getTorpedoType(colony.stats.torpedoTypeId)
+        : null;
+      const consumed =
+        await this.colonyDefenseService.consumeParticlePhalanxTorpedo(colony);
+      if (
+        torpedoType &&
+        consumed &&
+        colony.energy >=
+          this.colonyDefenseService.constants.phalanx.particle.energyCost
+      ) {
+        colony.energy -=
+          this.colonyDefenseService.constants.phalanx.particle.energyCost;
+        const damage = torpedoType.baseDamage;
+        attacker.hull = Math.max(0, attacker.hull - damage);
+        log.push({
+          action: 'PARTICLE_PHALANX_HIT' as any,
+          source: 'defender' as const,
+          value: damage,
+        });
+      }
+    }
+
+    attacker.status =
+      attacker.hull <= 0 ? SpacecraftStatus.DESTROYED : SpacecraftStatus.DOCKED;
+    await this.shipRepo.save(attacker);
+    for (const damagedField of damagedFields) {
+      const field = (colony.fields ?? []).find(
+        (candidate) => candidate.fieldIndex === damagedField.fieldIndex,
+      );
+      if (field) await this.colonyFieldRepo.save(field);
+    }
+    await this.colonyStatsRepo.save(colony.stats);
+    await this.colonyRepo.save(colony);
+
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId: colony.userId,
+      type: ColonyEventType.COLONY_ATTACKED,
+      severity:
+        attacker.hull <= 0
+          ? ColonyEventSeverity.WARNING
+          : ColonyEventSeverity.CRITICAL,
+      title: 'Kolonie angegriffen',
+      message: `Die Kolonie wurde von Schiff #${attacker.id} angegriffen.`,
+      payload: {
+        attackerId: attacker.id,
+        absorbed,
+        remainingDamage,
+        damagedFields,
+        colonyShields: colony.stats.shields,
+        log,
+      },
+    });
+
+    const result = {
+      defenderType: 'COLONY' as const,
+      colonyShields: colony.stats.shields ?? 0,
+      damagedFields,
+      rounds: [
+        {
+          round: 1,
+          attackerShields: attacker.shields,
+          defenderShields: colony.stats.shields ?? 0,
+          attackerHull: attacker.hull,
+          defenderHull: 0,
+          log,
+        },
+      ],
+      winner:
+        attacker.hull <= 0 ? ('defender' as const) : ('attacker' as const),
+      attackerDestroyed: attacker.hull <= 0,
+      defenderDestroyed: false,
+    };
+    return result;
+  }
+
+  private getActiveColonyFunctionIds(colony: Colony): number[] {
+    return (colony.fields ?? [])
+      .filter(
+        (field) => field.buildingId && !field.isBuilding && field.isActive,
+      )
+      .flatMap((field) =>
+        this.gameData.getBuildingFunctions(field.buildingId!),
+      );
+  }
+
+  private calculateShipAttackDamage(modules: SpacecraftModule[]): number {
+    const activeWeapons = modules.filter(
+      (module) =>
+        module.isActive !== false &&
+        module.integrity > 0 &&
+        ['WEAPONS', 'PROJECTILE'].includes(module.category),
+    );
+    if (activeWeapons.length === 0) return 50;
+    return activeWeapons.reduce(
+      (sum, module) => sum + 100 * Math.max(1, module.level),
+      0,
+    );
   }
 }

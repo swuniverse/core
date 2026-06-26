@@ -258,6 +258,35 @@ export interface HangarShipDef {
   defaultTorpedoAmount: number;
 }
 
+export interface SocialEffectsDef {
+  lifeStandardCommodityId: number;
+  fallback: {
+    primaryEffectCommodityId: number;
+    secondaryEffectCommodityId: number;
+  };
+  factions: Record<
+    string,
+    { primaryEffectCommodityId: number; secondaryEffectCommodityId: number }
+  >;
+}
+
+export interface TorpedoTypeDef {
+  id: number;
+  commodityId: number;
+  name: string;
+  level: number;
+  baseDamage: number;
+  criticalChance: number;
+  hitFactor: number;
+  hullDamageFactor: number;
+  shieldDamageFactor: number;
+  variance: number;
+  energyCost: number;
+  productionAmount: number;
+  researchId: number | null;
+  compatibleShipCategories?: string[];
+}
+
 @Injectable()
 export class GameDataService implements OnModuleInit {
   private readonly logger = new Logger(GameDataService.name);
@@ -279,6 +308,9 @@ export class GameDataService implements OnModuleInit {
   private terraformingBySourceField: Map<number, TerraformingDef[]> = new Map();
   private fabricationItems: Map<string, FabricationItemDef> = new Map();
   private shipClassSlotRules: Map<string, ShipClassSlotRuleDef> = new Map();
+  private socialEffects: SocialEffectsDef | null = null;
+  private torpedoTypes: Map<number, TorpedoTypeDef> = new Map();
+  private torpedoTypesByCommodity: Map<number, TorpedoTypeDef> = new Map();
   private hangarShipDefsByClassKey: Map<string, HangarShipDef> = new Map();
   private hangarShipDefsByCommodity: Map<number, HangarShipDef> = new Map();
 
@@ -303,6 +335,8 @@ export class GameDataService implements OnModuleInit {
     this.loadModules();
     this.loadFabricationItems();
     this.loadShipClassSlotRules();
+    this.loadSocialEffects();
+    this.loadTorpedoTypes();
     this.loadHangarShipDefs();
     this.loadTechTree();
     this.loadColonyClasses();
@@ -497,6 +531,28 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadSocialEffects() {
+    this.socialEffects = this.loadYaml<SocialEffectsDef>(
+      'colony-social/stu-social-effects.yaml',
+    );
+    if (this.socialEffects) {
+      this.logger.log('Loaded colony social effects');
+    }
+  }
+
+  private loadTorpedoTypes() {
+    const data = this.loadYaml<{ torpedoTypes: TorpedoTypeDef[] }>(
+      'torpedoes/stu-torpedoes.yaml',
+    );
+    for (const torpedo of data?.torpedoTypes ?? []) {
+      this.torpedoTypes.set(torpedo.id, torpedo);
+      this.torpedoTypesByCommodity.set(torpedo.commodityId, torpedo);
+    }
+    if (this.torpedoTypes.size > 0) {
+      this.logger.log(`Loaded ${this.torpedoTypes.size} torpedo types`);
+    }
+  }
+
   private loadHangarShipDefs() {
     const data = this.loadYaml<{ hangarShips: HangarShipDef[] }>(
       'ship-building/ship-class-hangar.yaml',
@@ -654,6 +710,22 @@ export class GameDataService implements OnModuleInit {
 
   getAllShipClassSlotRules(): ShipClassSlotRuleDef[] {
     return Array.from(this.shipClassSlotRules.values());
+  }
+
+  getSocialEffects(): SocialEffectsDef | null {
+    return this.socialEffects;
+  }
+
+  getTorpedoType(id: number): TorpedoTypeDef | undefined {
+    return this.torpedoTypes.get(id);
+  }
+
+  getTorpedoTypeByCommodity(commodityId: number): TorpedoTypeDef | undefined {
+    return this.torpedoTypesByCommodity.get(commodityId);
+  }
+
+  getAllTorpedoTypes(): TorpedoTypeDef[] {
+    return Array.from(this.torpedoTypes.values());
   }
 
   getHangarShipDef(shipClassKey: string): HangarShipDef | undefined {

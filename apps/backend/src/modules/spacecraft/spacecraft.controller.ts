@@ -220,6 +220,46 @@ export class SpacecraftController {
     return this.spacecraftService.leaveFleet(req.user.sub, id);
   }
 
+  @Get(':id/torpedoes')
+  getTorpedoes(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.getTorpedoStorage(id, req.user.sub);
+  }
+
+  @Post(':id/torpedoes/load')
+  loadTorpedoes(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('colonyId') colonyId: number,
+    @Body('torpedoTypeId') torpedoTypeId: number,
+    @Body('amount') amount: number,
+  ) {
+    return this.spacecraftService.loadTorpedoes(
+      id,
+      req.user.sub,
+      colonyId,
+      torpedoTypeId,
+      amount,
+    );
+  }
+
+  @Post(':id/torpedoes/unload')
+  unloadTorpedoes(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('colonyId') colonyId: number,
+    @Body('amount') amount?: number,
+  ) {
+    return this.spacecraftService.unloadTorpedoes(
+      id,
+      req.user.sub,
+      colonyId,
+      amount,
+    );
+  }
+
   @Get(':id/cargo')
   getCargo(
     @Param('id', ParseIntPipe) id: number,

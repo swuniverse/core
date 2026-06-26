@@ -104,6 +104,62 @@ describe('GameDataService building upgrades', () => {
   });
 });
 
+describe('GameDataService social effects', () => {
+  let service: GameDataService;
+
+  beforeAll(() => {
+    service = new GameDataService();
+    service.onModuleInit();
+  });
+
+  it('loads curated social effect mappings', () => {
+    expect(service.getSocialEffects()).toMatchObject({
+      lifeStandardCommodityId: 1300,
+      fallback: {
+        primaryEffectCommodityId: 1001,
+        secondaryEffectCommodityId: 1601,
+      },
+    });
+    expect(service.getCommodity(1300)).toBeDefined();
+    expect(service.getCommodity(1001)).toBeDefined();
+    expect(service.getCommodity(1601)).toBeDefined();
+  });
+});
+
+describe('GameDataService torpedo types', () => {
+  let service: GameDataService;
+
+  beforeAll(() => {
+    service = new GameDataService();
+    service.onModuleInit();
+  });
+
+  it('loads representative STU-like torpedo types', () => {
+    expect(service.getTorpedoType(81)).toMatchObject({
+      commodityId: 81,
+      name: 'Micro-Protonentorpedo',
+      baseDamage: expect.any(Number),
+      energyCost: expect.any(Number),
+    });
+    expect(service.getTorpedoTypeByCommodity(82)).toMatchObject({ id: 82 });
+    expect(service.getAllTorpedoTypes().length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('references existing commodities and fabrication outputs', () => {
+    for (const torpedo of service.getAllTorpedoTypes()) {
+      expect(service.getCommodity(torpedo.commodityId)).toBeDefined();
+      expect(torpedo.baseDamage).toBeGreaterThan(0);
+      expect(torpedo.hitFactor).toBeGreaterThan(0);
+      expect(torpedo.productionAmount).toBeGreaterThan(0);
+      expect(
+        service
+          .getAllFabricationItems()
+          .some((item) => item.outputCommodityId === torpedo.commodityId),
+      ).toBe(true);
+    }
+  });
+});
+
 describe('GameDataService fabrication items', () => {
   let service: GameDataService;
 
@@ -233,12 +289,31 @@ describe('GameDataService building function mapping', () => {
   });
 
   it('maps airfields and shipyards by function instead of hardcoded building ids', () => {
+    expect(service.buildingHasFunction(81110100, FUNCTIONS.AIRFIELD)).toBe(
+      true,
+    );
+    expect(service.buildingHasFunction(81120100, FUNCTIONS.AIRFIELD)).toBe(
+      true,
+    );
     expect(service.buildingHasFunction(81130100, FUNCTIONS.AIRFIELD)).toBe(
       true,
     );
     expect(
       service.buildingHasFunction(85010100, FUNCTIONS.REPAIR_SHIPYARD),
     ).toBe(true);
+    expect(service.getBuilding(81130100)).toMatchObject({
+      name: 'Raumhafen',
+      epsCost: 240,
+      epsProc: -7,
+      bevUse: 18,
+      costs: { buildTime: 14400 },
+      production: [{ commodityId: 1801, amount: 20 }],
+      resourceCosts: [
+        { commodityId: 2, amount: 71 },
+        { commodityId: 4, amount: 96 },
+        { commodityId: 21, amount: 62 },
+      ],
+    });
     expect(
       service.buildingHasFunction(85110100, FUNCTIONS.FIGHTER_SHIPYARD),
     ).toBe(true);

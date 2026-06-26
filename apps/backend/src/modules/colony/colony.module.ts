@@ -4,10 +4,15 @@ import { ColonyController } from './colony.controller';
 import { ColonyService } from './colony.service';
 import { ColonySeedService } from './colony-seed.service';
 import { ColonyStatsService } from './colony-stats.service';
+import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
+import { ColonyDamageService } from './colony-damage.service';
+import { ColonyBuildingManagementService } from './colony-building-management.service';
+import { ColonyEventService } from './colony-event.service';
+import { ColonySocialService } from './colony-social.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -17,6 +22,7 @@ import { ColonyShipBuildQueue } from './entities/colony-ship-build-queue.entity'
 import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
 import { ColonyFabricationQueue } from './entities/colony-fabrication-queue.entity';
 import { ColonyCrewTrainingQueue } from './entities/colony-crew-training-queue.entity';
+import { ColonyEvent } from './entities/colony-event.entity';
 import { Crew } from './entities/crew.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -24,6 +30,8 @@ import { PlanetField } from '../starmap/entities/planet-field.entity';
 import { StarmapModule } from '../starmap/starmap.module';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
+import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
+import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { ResearchModule } from '../research/research.module';
@@ -42,12 +50,14 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
       ColonyShipBuildplan,
       ColonyFabricationQueue,
       ColonyCrewTrainingQueue,
+      ColonyEvent,
       Crew,
       CrewAssignment,
       CelestialObject,
       PlanetField,
       Spacecraft,
       SpacecraftModule,
+      SpacecraftTorpedoStorage,
       CargoItem,
       Research,
       ShipClassDef,
@@ -60,21 +70,33 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyService,
     ColonySeedService,
     ColonyStatsService,
+    ColonyEconomyService,
     ColonyStorageService,
     BuildingLifecycleService,
+    ColonyBuildingManagementService,
     ColonyCrewService,
     ColonyDefenseService,
+    ColonyDamageService,
+    ColonyEventService,
+    ColonySocialService,
     SpacecraftStatsService,
+    SpacecraftTorpedoService,
   ],
   exports: [
     ColonyService,
     ColonySeedService,
     ColonyStatsService,
+    ColonyEconomyService,
     ColonyStorageService,
     BuildingLifecycleService,
+    ColonyBuildingManagementService,
     ColonyCrewService,
     ColonyDefenseService,
+    ColonyDamageService,
+    ColonyEventService,
+    ColonySocialService,
     SpacecraftStatsService,
+    SpacecraftTorpedoService,
   ],
 })
 export class ColonyModule {}

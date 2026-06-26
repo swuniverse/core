@@ -60,6 +60,38 @@ export class ColonyController {
     return this.colonyService.getCurrentObjective(req.user.sub);
   }
 
+  @Get(':id/events')
+  getEvents(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Query('limit') limit?: string,
+    @Query('unreadOnly') unreadOnly?: string,
+  ) {
+    return this.colonyService.getEvents(
+      id,
+      req.user.sub,
+      Number(limit) || 50,
+      unreadOnly === 'true',
+    );
+  }
+
+  @Post(':id/events/read-all')
+  markAllEventsRead(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.markAllEventsRead(id, req.user.sub);
+  }
+
+  @Post(':id/events/:eventId/read')
+  markEventRead(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.markEventRead(id, req.user.sub, eventId);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -103,6 +135,19 @@ export class ColonyController {
     @Body('frequency') frequency: number,
   ) {
     return this.colonyService.setShieldFrequency(id, req.user.sub, frequency);
+  }
+
+  @Post(':id/defense/torpedo-type')
+  setDefenseTorpedoType(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('torpedoTypeId') torpedoTypeId: number | null,
+  ) {
+    return this.colonyService.setDefenseTorpedoType(
+      id,
+      req.user.sub,
+      torpedoTypeId,
+    );
   }
 
   @Post(':id/shields/load')
@@ -241,6 +286,66 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.colonyService.cancelShipyardQueue(id, req.user.sub, queueId);
+  }
+
+  @Get(':id/buildings/repair-preview')
+  getBuildingRepairPreview(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Query('fieldIndexes') fieldIndexes?: string,
+  ) {
+    const parsed = fieldIndexes
+      ? fieldIndexes
+          .split(',')
+          .map((value) => Number(value.trim()))
+          .filter((value) => Number.isInteger(value))
+      : undefined;
+    return this.colonyService.getBuildingRepairPreview(
+      id,
+      req.user.sub,
+      parsed,
+    );
+  }
+
+  @Post(':id/buildings/repair-damaged')
+  repairDamagedBuildings(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('fieldIndexes') fieldIndexes?: number[],
+  ) {
+    return this.colonyService.repairDamagedBuildings(
+      id,
+      req.user.sub,
+      fieldIndexes,
+    );
+  }
+
+  @Post(':id/buildings/activate')
+  activateBuildings(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('mode') mode: number,
+    @Body('fieldIndexes') fieldIndexes?: number[],
+    @Body('commodityId') commodityId?: number,
+  ) {
+    return this.colonyService.activateBuildings(id, req.user.sub, mode, {
+      fieldIndexes,
+      commodityId,
+    });
+  }
+
+  @Post(':id/buildings/deactivate')
+  deactivateBuildings(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('mode') mode: number,
+    @Body('fieldIndexes') fieldIndexes?: number[],
+    @Body('commodityId') commodityId?: number,
+  ) {
+    return this.colonyService.deactivateBuildings(id, req.user.sub, mode, {
+      fieldIndexes,
+      commodityId,
+    });
   }
 
   @Post(':id/hangar/build-rump')

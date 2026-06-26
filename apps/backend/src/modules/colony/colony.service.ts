@@ -45,10 +45,22 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 import {
   ColonyInternalSummary,
   ColonyStatsService,
+  getEffectiveCurrentPopulation,
 } from './colony-stats.service';
+import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyCrewService } from './colony-crew.service';
+import { ColonyDefenseService } from './colony-defense.service';
+import { ColonyEventService } from './colony-event.service';
+import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
+import { ColonyBuildingManagementService } from './colony-building-management.service';
+import { ColonySocialService } from './colony-social.service';
+import { BuildingMassActionMode } from './colony-building-management.types';
+import {
+  ColonyEventSeverity,
+  ColonyEventType,
+} from './entities/colony-event.entity';
 
 export interface ColonyTickEvent {
   type:
@@ -114,11 +126,68 @@ export class ColonyService {
     private readonly gameData: GameDataService,
     private readonly unlockResolver: UnlockResolverService,
     private readonly colonyStatsService: ColonyStatsService,
+    private readonly colonyEconomyService: ColonyEconomyService,
     private readonly colonyStorageService: ColonyStorageService,
     private readonly buildingLifecycleService: BuildingLifecycleService,
     private readonly spacecraftStatsService: SpacecraftStatsService,
     private readonly colonyCrewService: ColonyCrewService,
+    private readonly colonyDefenseService: ColonyDefenseService,
+    private readonly colonyEventService: ColonyEventService,
+    private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
+    private readonly buildingManagementService: ColonyBuildingManagementService,
+    private readonly colonySocialService: ColonySocialService,
   ) {}
+
+  async getEvents(
+    colonyId: number,
+    userId: number,
+    limit = 50,
+    unreadOnly = false,
+  ) {
+    await this.findOne(colonyId, userId);
+    return this.colonyEventService.listForColony(colonyId, userId, {
+      limit,
+      unreadOnly,
+    });
+  }
+
+  async markEventRead(colonyId: number, userId: number, eventId: number) {
+    await this.findOne(colonyId, userId);
+    return this.colonyEventService.markRead(colonyId, userId, eventId);
+  }
+
+  async markAllEventsRead(colonyId: number, userId: number) {
+    await this.findOne(colonyId, userId);
+    return this.colonyEventService.markAllRead(colonyId, userId);
+  }
+
+  async activateBuildings(
+    colonyId: number,
+    userId: number,
+    mode: BuildingMassActionMode,
+    options: { fieldIndexes?: number[]; commodityId?: number } = {},
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    return this.buildingManagementService.activateBuildings(
+      colony,
+      mode,
+      options,
+    );
+  }
+
+  async deactivateBuildings(
+    colonyId: number,
+    userId: number,
+    mode: BuildingMassActionMode,
+    options: { fieldIndexes?: number[]; commodityId?: number } = {},
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    return this.buildingManagementService.deactivateBuildings(
+      colony,
+      mode,
+      options,
+    );
+  }
 
   async getAvailableBuildings(userId: number, fieldType?: number) {
     const buildings = fieldType
@@ -603,33 +672,71 @@ export class ColonyService {
     }
     this.assertOrbitAllowed(colony, field, 'repair orbital buildings');
 
-    const definition = this.gameData.getBuilding(field.buildingId);
-    if (!definition) {
-      throw new BadRequestException('Unknown building');
-    }
-
-    const damageRatio =
-      (field.maxIntegrity - field.integrity) / field.maxIntegrity;
-    const epsCost = Math.ceil((definition.epsCost || 0) * damageRatio);
-    if (epsCost > colony.energy) {
+    const repairPlan = this.buildingManagementService.calculateRepairPlan(
+      colony,
+      field,
+      { checkStorageAvailability: false },
+    );
+    if (!repairPlan.repairable) {
       throw new BadRequestException(
-        `Not enough energy: need ${epsCost}, have ${colony.energy}`,
+        repairPlan.reason ?? 'Building is not repairable',
       );
     }
+    await this.deductBuildCosts(colony, repairPlan.costs);
 
-    const repairCosts = (definition.resourceCosts ?? [])
-      .map((cost) => ({
-        commodityId: cost.commodityId,
-        amount: Math.ceil(cost.amount * damageRatio),
-      }))
-      .filter((cost) => cost.amount > 0);
-    await this.deductBuildCosts(colony, repairCosts);
-
-    colony.energy -= epsCost;
+    colony.energy -= repairPlan.energyCost;
     await this.colonyRepo.save(colony);
 
     this.buildingLifecycleService.repairBuilding(field);
-    return this.fieldRepo.save(field);
+    const saved = await this.fieldRepo.save(field);
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.BUILDING_REPAIRED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Gebäude repariert',
+      message: `${repairPlan.buildingName} auf Feld ${field.fieldIndex} wurde repariert.`,
+      payload: { fieldIndex: field.fieldIndex, buildingId: field.buildingId },
+    });
+    return saved;
+  }
+
+  async getBuildingRepairPreview(
+    colonyId: number,
+    userId: number,
+    fieldIndexes?: number[],
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    return this.buildingManagementService.getRepairPreview(
+      colony,
+      fieldIndexes,
+    );
+  }
+
+  async repairDamagedBuildings(
+    colonyId: number,
+    userId: number,
+    fieldIndexes?: number[],
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    const result = await this.buildingManagementService.repairDamagedBuildings(
+      colony,
+      fieldIndexes,
+    );
+    await this.colonyRepo.save(colony);
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.BUILDINGS_REPAIRED,
+      severity:
+        result.skipped.length > 0
+          ? ColonyEventSeverity.WARNING
+          : ColonyEventSeverity.INFO,
+      title: 'Gebäudereparatur abgeschlossen',
+      message: `${result.repaired.length} Gebäude repariert, ${result.skipped.length} übersprungen.`,
+      payload: result as unknown as Record<string, unknown>,
+    });
+    return result;
   }
 
   async terraformField(
@@ -804,11 +911,30 @@ export class ColonyService {
   ): Promise<Colony> {
     const colony = await this.findOne(colonyId, userId);
     if (!colony.stats) throw new BadRequestException('Colony stats missing');
-    if (!this.hasActiveBuildingFunction(colony, 24)) {
+    const maxShields = this.getMaxShields(colony);
+    if (maxShields <= 0 || !this.hasActiveBuildingFunction(colony, 24)) {
       throw new BadRequestException('Active shield generator required');
     }
+    this.colonyDefenseService.syncShieldCapacity(colony, maxShields);
     colony.stats.shieldFrequency = frequency;
     await this.statsRepo.save(colony.stats);
+    return colony;
+  }
+
+  async setDefenseTorpedoType(
+    colonyId: number,
+    userId: number,
+    torpedoTypeId: number | null,
+  ): Promise<Colony> {
+    const colony = await this.findOne(colonyId, userId);
+    if (!this.hasActiveBuildingFunction(colony, 27)) {
+      throw new BadRequestException('Active particle phalanx required');
+    }
+    if (torpedoTypeId != null && !this.gameData.getTorpedoType(torpedoTypeId)) {
+      throw new BadRequestException('Unknown torpedo type');
+    }
+    this.colonyDefenseService.setTorpedoType(colony, torpedoTypeId);
+    if (colony.stats) await this.statsRepo.save(colony.stats);
     return colony;
   }
 
@@ -819,32 +945,48 @@ export class ColonyService {
   ): Promise<Colony> {
     const colony = await this.findOne(colonyId, userId);
     if (!colony.stats) throw new BadRequestException('Colony stats missing');
-    if (!this.hasActiveBuildingFunction(colony, 25)) {
-      throw new BadRequestException('Active shield battery required');
+    const maxShields = this.getMaxShields(colony);
+    if (maxShields <= 0 || !this.hasActiveBuildingFunction(colony, 24)) {
+      throw new BadRequestException('Active shield generator required');
     }
-    if (amount <= 0) throw new BadRequestException('Amount must be positive');
-    const maxShields = Math.max(0, colony.stats.maxShields || 100);
-    const current = colony.stats.shields ?? 0;
-    const loadAmount = Math.min(amount, maxShields - current, colony.energy);
-    if (loadAmount <= 0)
-      throw new BadRequestException('No shield capacity or energy available');
-    colony.energy -= loadAmount;
-    colony.stats.maxShields = maxShields;
-    colony.stats.shields = current + loadAmount;
+    const loaded = this.colonyDefenseService.loadShields(
+      colony,
+      amount,
+      maxShields,
+    );
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.SHIELDS_LOADED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Schilde geladen',
+      message: `Kolonieschilde wurden um ${loaded} Punkte geladen.`,
+      payload: {
+        amount: loaded,
+        current: colony.stats.shields,
+        max: maxShields,
+      },
+    });
     await this.statsRepo.save(colony.stats);
     await this.colonyRepo.save(colony);
     return colony;
+  }
+
+  private getActiveBuildingFunctionIds(colony: Colony): number[] {
+    return this.colonyEconomyService.getActiveFunctionIds(colony);
+  }
+
+  private getMaxShields(colony: Colony): number {
+    return this.colonyDefenseService.calculateMaxShieldsByFunctions(
+      this.getActiveBuildingFunctionIds(colony),
+    );
   }
 
   private hasActiveBuildingFunction(
     colony: Colony,
     functionId: number,
   ): boolean {
-    return (colony.fields ?? []).some((field) => {
-      if (!field.buildingId || field.isBuilding || !field.isActive)
-        return false;
-      return this.gameData.buildingHasFunction(field.buildingId, functionId);
-    });
+    return this.colonyEconomyService.hasActiveFunction(colony, functionId);
   }
 
   private hasActiveAirfield(colony: Colony): boolean {
@@ -915,13 +1057,13 @@ export class ColonyService {
     amount: number,
   ): Promise<ColonyCrewTrainingQueue> {
     const colony = await this.findOne(colonyId, userId);
-    const hasAcademy = colony.fields.some((field) => {
-      if (!field.buildingId || field.isBuilding || !field.isActive)
-        return false;
-      return this.gameData.buildingHasFunction(field.buildingId, 20);
-    });
-    if (!hasAcademy) {
-      throw new BadRequestException('Academy required for crew training');
+    const trainingFacility =
+      this.colonyEconomyService.getCrewTrainingFacility(colony);
+    if (!trainingFacility.present) {
+      throw new BadRequestException('Crew training facility required');
+    }
+    if (!trainingFacility.active) {
+      throw new BadRequestException('Crew training facility must be active');
     }
     if (!Number.isInteger(amount) || amount <= 0) {
       throw new BadRequestException('Amount must be positive');
@@ -937,7 +1079,11 @@ export class ColonyService {
         this.colonyCrewService.getInTrainingCount(userId),
         this.colonyCrewService.getFreeAssignmentCount(colony),
       ]);
-    const trainableNow = Math.max(0, trainableGlobal - inTraining);
+    const trainableNow = this.getColonyTrainableCrewNow(
+      colony,
+      trainableGlobal,
+      inTraining,
+    );
     const finalAmount = Math.min(
       amount,
       remainingGlobal,
@@ -1125,6 +1271,19 @@ export class ColonyService {
       1,
       maxStorage,
     );
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.SHIP_LANDED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Schiff gelandet',
+      message: `${ship.name} ist auf der Kolonie gelandet.`,
+      payload: {
+        shipId: ship.id,
+        shipClassId: ship.shipClassId,
+        hangarCommodityId: hangarDef.hangarCommodityId,
+      },
+    });
     await this.colonyCrewService.transferCrewFromShipToColony(
       colony,
       ship,
@@ -1253,6 +1412,39 @@ export class ColonyService {
         savedShip.id,
         crewIds,
       );
+    }
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.HANGAR_SHIP_STARTED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Hangarschiff gestartet',
+      message: `${savedShip.name} wurde aus dem Hangar gestartet.`,
+      payload: {
+        shipId: savedShip.id,
+        shipClassId: shipClass.id,
+        hangarCommodityId: hangarDef.hangarCommodityId,
+      },
+    });
+    if (
+      hangarDef.defaultTorpedoCommodityId &&
+      hangarDef.defaultTorpedoAmount > 0
+    ) {
+      const torpedoType = this.gameData.getTorpedoTypeByCommodity(
+        hangarDef.defaultTorpedoCommodityId,
+      );
+      if (torpedoType) {
+        try {
+          await this.spacecraftTorpedoService.loadFromColony(
+            colony,
+            savedShip,
+            torpedoType.id,
+            hangarDef.defaultTorpedoAmount,
+          );
+        } catch {
+          // STU starts even if default torpedo loading cannot be fully satisfied.
+        }
+      }
     }
     this.spacecraftStatsService.applyStats(savedShip, shipClass, modules);
     await this.shipRepo.save(savedShip);
@@ -2389,7 +2581,16 @@ export class ColonyService {
   ): Promise<Colony> {
     const fields = colony.fields ?? [];
     const storage = colony.storage ?? [];
-    const summary = this.colonyStatsService.calculateSummary(colony);
+    const summary = this.colonyEconomyService.calculateSummary(colony);
+    const effectiveState = summary.effectiveState;
+    const activeFunctionIds = effectiveState.functions.activeIds;
+    const effectiveCurrentPopulation = effectiveState.population.current;
+    if (colony.stats && colony.population !== effectiveCurrentPopulation) {
+      colony.population = effectiveCurrentPopulation;
+      await this.colonyRepo.save(colony);
+    }
+    const workers = effectiveState.population.workers;
+    const available = effectiveState.population.available;
     const productionDelta = new Map([
       ...summary.productionDelta,
       ...summary.depositDelta,
@@ -2468,6 +2669,7 @@ export class ColonyService {
       remainingGlobal,
       trainableGlobal,
       inTraining,
+      assignedTotal,
     ] = await Promise.all([
       this.colonyCrewService.getAssignedToColonyCount(colony.id),
       Promise.resolve(this.colonyCrewService.getLocalCrewLimit(colony)),
@@ -2475,31 +2677,30 @@ export class ColonyService {
       this.colonyCrewService.getRemainingCount(userId),
       this.colonyCrewService.getTrainableCount(userId),
       this.colonyCrewService.getInTrainingCount(userId),
+      this.colonyCrewService.getAssignedCount(userId),
     ]);
-    const activeFabricationFunctionIds = [
-      ...new Set(
-        fields
-          .filter(
-            (field) => field.buildingId && !field.isBuilding && field.isActive,
-          )
-          .flatMap((field) =>
-            this.gameData.getBuildingFunctions(field.buildingId!),
-          )
-          .filter(
-            (functionId) =>
-              functionId === 9 || (functionId >= 10 && functionId <= 18),
-          ),
-      ),
-    ].sort((a, b) => a - b);
+    const featureAccess = this.colonyEconomyService.buildFeatureAccess(colony);
+    const presentFabricationFunctionIds =
+      featureAccess.functions.groups.fabrication.presentFunctionIds;
+    const activeFabricationFunctionIds =
+      featureAccess.functions.groups.fabrication.activeFunctionIds;
+    const presentFabricationFunctionIdSet = new Set(
+      presentFabricationFunctionIds,
+    );
     const activeFabricationFunctionIdSet = new Set(
       activeFabricationFunctionIds,
     );
+    const [eventUnreadCount, latestEvents] = await Promise.all([
+      this.colonyEventService.getUnreadCountForColony(colony.id, userId),
+      this.colonyEventService.getLatestForColony(colony.id, userId, 3),
+    ]);
     const hangarInventory = await this.getHangarInventory(colony);
     const startableHangarShips = await this.getStartableHangarShips(
       userId,
       colony,
     );
-    const hasAirfield = this.hasActiveAirfield(colony);
+    const hasAirfield =
+      featureAccess.functions.groups.airfield.activeFunctionIds.length > 0;
 
     const planetaryDefense = fields
       .filter(
@@ -2516,8 +2717,8 @@ export class ColonyService {
           buildingName: building?.name ?? `Gebäude #${field.buildingId}`,
           functionId,
           functionName:
-            this.gameData.getBuildingFunction(functionId)?.name ??
-            String(functionId),
+            effectiveState.functions.active.find((fn) => fn.id === functionId)
+              ?.name ?? String(functionId),
         }));
       });
 
@@ -2540,9 +2741,9 @@ export class ColonyService {
       })
       .filter(Boolean);
 
-    const hasCompletedShipyard = fields.some((field) =>
-      this.isShipyardField(field, false),
-    );
+    const hasCompletedShipyard =
+      featureAccess.tabs.shipyard?.visible ??
+      fields.some((field) => this.isShipyardField(field, false));
     const hasShipyardInProgress = fields.some((field) =>
       this.isShipyardField(field, true),
     );
@@ -2551,26 +2752,37 @@ export class ColonyService {
       fieldCount: fields.length,
       storageItemCount: storage.length,
       detailV2: {
+        featureAccess,
+        eventSummary: {
+          unreadCount: eventUnreadCount,
+          latest: latestEvents.map((event) => ({
+            id: event.id,
+            type: event.type,
+            severity: event.severity,
+            title: event.title,
+            message: event.message,
+            createdAt: event.createdAt,
+            readAt: event.readAt,
+          })),
+        },
+        activeFunctions: effectiveState.functions.active,
+        effectiveState,
         energy: {
-          current: colony.energy,
-          max: colony.stats?.maxEnergy ?? colony.energyMax,
-          delta: summary.energyDelta,
+          current: effectiveState.energy.current,
+          max: effectiveState.energy.max,
+          delta: effectiveState.energy.delta,
         },
         storage: {
-          current: colony.storageUsed,
-          max: summary.effectiveStorageMax,
-          delta: Array.from(productionDelta.values()).reduce(
-            (sum, value) => sum + value,
-            0,
-          ),
+          current: effectiveState.storage.current,
+          max: effectiveState.storage.max,
+          delta: effectiveState.storage.delta,
         },
         population: {
-          current: colony.population,
+          current: effectiveCurrentPopulation,
           max: summary.effectivePopulationMax,
           growth: this.calculatePopulationGrowth(colony, summary),
-          workers: colony.stats?.workers ?? summary.workersUsed,
-          available:
-            colony.stats?.workless ?? colony.population - summary.workersUsed,
+          workers,
+          available,
           housing: summary.freeHousing,
           housingFree: summary.freeHousing,
           housingMax: summary.maxHousing,
@@ -2610,6 +2822,69 @@ export class ColonyService {
             };
           },
         ),
+        buildingManagement: {
+          counts: {
+            active: fields.filter(
+              (field) =>
+                field.buildingId && !field.isBuilding && field.isActive,
+            ).length,
+            inactive: fields.filter(
+              (field) =>
+                field.buildingId && !field.isBuilding && !field.isActive,
+            ).length,
+            damaged: fields.filter(
+              (field) =>
+                field.buildingId &&
+                !field.isBuilding &&
+                field.maxIntegrity > 0 &&
+                field.integrity < field.maxIntegrity,
+            ).length,
+            building: fields.filter(
+              (field) => field.buildingId && field.isBuilding,
+            ).length,
+          },
+          fields: fields
+            .filter((field) => field.buildingId)
+            .map((field) => {
+              const building = field.buildingId
+                ? this.gameData.getBuilding(field.buildingId)
+                : undefined;
+              return {
+                fieldIndex: field.fieldIndex,
+                buildingId: field.buildingId,
+                buildingName: building?.name ?? `Gebäude #${field.buildingId}`,
+                isActive: field.isActive,
+                isBuilding: field.isBuilding,
+                integrity: field.integrity,
+                maxIntegrity: field.maxIntegrity,
+                epsProc: building?.epsProc ?? 0,
+                bevUse: building?.bevUse ?? 0,
+                bevPro: building?.bevPro ?? 0,
+                production: building?.production ?? [],
+                functions: (building?.functions ?? [])
+                  .map(
+                    (functionId) =>
+                      effectiveState.functions.active.find(
+                        (fn) => fn.id === functionId,
+                      ) ?? this.gameData.getBuildingFunction(functionId),
+                  )
+                  .filter(Boolean),
+              };
+            }),
+          usableCommodities: this.gameData
+            .getAllCommodities()
+            .filter((commodity) =>
+              fields.some((field) => {
+                const building = field.buildingId
+                  ? this.gameData.getBuilding(field.buildingId)
+                  : undefined;
+                return building?.production?.some(
+                  (entry) => entry.commodityId === commodity.id,
+                );
+              }),
+            )
+            .map((commodity) => ({ id: commodity.id, name: commodity.name })),
+        },
         activeBuildJobs: fields
           .filter((field) => field.isBuilding && field.buildingId)
           .map((field) => {
@@ -2696,10 +2971,39 @@ export class ColonyService {
           pointsPerTick: summary.researchPoints,
         },
         planetaryDefense,
+        defense: colony.stats
+          ? {
+              shields: {
+                current: colony.stats.shields ?? 0,
+                max: this.getMaxShields(colony),
+                frequency: colony.stats.shieldFrequency,
+              },
+              activeFunctionIds,
+              energyPhalanx:
+                this.colonyDefenseService.hasEnergyPhalanx(activeFunctionIds),
+              particlePhalanx:
+                this.colonyDefenseService.hasParticlePhalanx(activeFunctionIds),
+              antiParticle:
+                this.colonyDefenseService.hasAntiParticle(activeFunctionIds),
+              torpedoTypeId: colony.stats.torpedoTypeId,
+              selectedTorpedoType: colony.stats.torpedoTypeId
+                ? this.gameData.getTorpedoType(colony.stats.torpedoTypeId)
+                : null,
+              availableTorpedoTypes: this.gameData
+                .getAllTorpedoTypes()
+                .map((torpedo) => {
+                  const inventoryItem = storage.find(
+                    (item) => item.commodityId === torpedo.commodityId,
+                  );
+                  return { ...torpedo, amount: inventoryItem?.amount ?? 0 };
+                })
+                .filter((torpedo) => torpedo.amount > 0),
+            }
+          : null,
         shields: colony.stats
           ? {
               current: colony.stats.shields ?? 0,
-              max: colony.stats.maxShields,
+              max: this.getMaxShields(colony),
               frequency: colony.stats.shieldFrequency,
             }
           : null,
@@ -2769,6 +3073,11 @@ export class ColonyService {
         }),
         fabricationCatalog: this.gameData
           .getAllFabricationItems()
+          .filter((item) =>
+            item.buildingFunctionIds.some((functionId) =>
+              presentFabricationFunctionIdSet.has(functionId),
+            ),
+          )
           .map((item) => ({
             ...item,
             available: item.buildingFunctionIds.some((functionId) =>
@@ -2776,6 +3085,13 @@ export class ColonyService {
             ),
           })),
         activeFabricationFunctionIds,
+        social: this.colonySocialService.buildSocialSummary(colony, summary, {
+          globalCrewLimit,
+          crewOnShips: Math.max(0, assignedTotal - assignedToColony),
+          availableCrewOnColony: assignedToColony,
+          inTraining,
+          trainableRemaining: remainingGlobal,
+        }),
         crew: {
           available: assignedToColony,
           assignedToColony,
@@ -2783,7 +3099,21 @@ export class ColonyService {
           localLimit: localCrewLimit,
           globalLimit: globalCrewLimit,
           remainingGlobal,
-          trainableNow: Math.max(0, trainableGlobal - inTraining),
+          trainableNow: this.getColonyTrainableCrewNow(
+            colony,
+            trainableGlobal,
+            inTraining,
+          ),
+          trainingFacility: (() => {
+            const facility =
+              this.colonyEconomyService.getCrewTrainingFacility(colony);
+            return {
+              ...facility,
+              maxConcurrent: Number.isFinite(facility.maxConcurrent)
+                ? facility.maxConcurrent
+                : null,
+            };
+          })(),
           trainingQueue: crewTrainingQueue.map((job) => ({
             id: job.id,
             amount: job.amount,
@@ -2839,10 +3169,62 @@ export class ColonyService {
           inProgress: hasShipyardInProgress,
           buildingId: shipyardBuilding?.id ?? 85010100,
           buildingName: shipyardBuilding?.name ?? 'Werfthub',
+          hasAirfield:
+            featureAccess.functions.groups.airfield.presentFunctionIds.length >
+            0,
+          airfieldPresentFunctionIds:
+            featureAccess.functions.groups.airfield.presentFunctionIds,
+          airfieldActiveFunctionIds:
+            featureAccess.functions.groups.airfield.activeFunctionIds,
+          airfield: {
+            present:
+              featureAccess.functions.groups.airfield.presentFunctionIds
+                .length > 0,
+            active:
+              featureAccess.functions.groups.airfield.activeFunctionIds.length >
+              0,
+            buildableCount: startableHangarShips.length,
+            startableCount: startableHangarShips.filter(
+              ({ amount }) => amount > 0,
+            ).length,
+            landableCount: orbitShips.filter((ship) => {
+              const shipClass = orbitShipClassMap.get(ship.shipClassId);
+              return (
+                this.canManageOrbitShip(colony, ship) &&
+                hasAirfield &&
+                !!shipClass &&
+                !!this.getHangarDefForShipClass(shipClass)
+              );
+            }).length,
+          },
+          orbitalMaintenance: effectiveState.orbitalMaintenance,
+          presentFunctionIds:
+            featureAccess.functions.groups.shipyards.presentFunctionIds,
+          activeFunctionIds:
+            featureAccess.functions.groups.shipyards.activeFunctionIds,
+          repairPresentFunctionIds:
+            featureAccess.functions.groups.repairShipyards.presentFunctionIds,
+          repairActiveFunctionIds:
+            featureAccess.functions.groups.repairShipyards.activeFunctionIds,
           slotRules: this.gameData.getAllShipClassSlotRules(),
         },
       },
     });
+  }
+
+  private getColonyTrainableCrewNow(
+    colony: Colony,
+    trainableGlobal: number,
+    inTraining: number,
+  ): number {
+    const trainingFacility =
+      this.colonyEconomyService.getCrewTrainingFacility(colony);
+    const globalTrainableNow = Math.max(0, trainableGlobal - inTraining);
+    if (trainingFacility.mode !== 'CENTRAL') {
+      return trainingFacility.active ? globalTrainableNow : 0;
+    }
+    if (!trainingFacility.active) return 0;
+    return Math.min(globalTrainableNow, Math.max(0, 2 - inTraining));
   }
 
   private calculatePopulationGrowth(
@@ -2853,7 +3235,8 @@ export class ColonyService {
       return 0;
     }
 
-    const freeHousing = summary.maxHousing - colony.population;
+    const currentPopulation = getEffectiveCurrentPopulation(colony);
+    const freeHousing = summary.maxHousing - currentPopulation;
     if (freeHousing <= 0) {
       return 0;
     }
@@ -2864,9 +3247,9 @@ export class ColonyService {
     }
 
     const lifeStandardPercentage =
-      lifeStandardProduction > colony.population || colony.population <= 0
+      lifeStandardProduction > currentPopulation || currentPopulation <= 0
         ? 100
-        : Math.floor((lifeStandardProduction * 100) / colony.population);
+        : Math.floor((lifeStandardProduction * 100) / currentPopulation);
     const bevGrowthRate =
       this.gameData.getColonyClass(colony.colonyClassId)?.bevGrowthRate ?? 100;
 
@@ -2874,16 +3257,16 @@ export class ColonyService {
       (freeHousing / 3 / 100) * bevGrowthRate * (lifeStandardPercentage / 50),
     );
 
-    if (colony.population + immigration > summary.maxHousing) {
-      immigration = summary.maxHousing - colony.population;
+    if (currentPopulation + immigration > summary.maxHousing) {
+      immigration = summary.maxHousing - currentPopulation;
     }
 
     const populationLimit = colony.stats?.populationLimit ?? 0;
     if (
       populationLimit > 0 &&
-      colony.population + immigration > populationLimit
+      currentPopulation + immigration > populationLimit
     ) {
-      immigration = populationLimit - colony.population;
+      immigration = populationLimit - currentPopulation;
     }
 
     return Math.max(0, immigration);
@@ -2937,6 +3320,7 @@ export class ColonyService {
   async processTick(colony: Colony): Promise<ColonyTickResult> {
     const events: ColonyTickEvent[] = [];
     await this.checkBuildingCompletions(colony, events);
+    this.syncDefenseStats(colony);
     await this.balanceAndProduce(colony, events);
     await this.growPopulation(colony);
     await this.processFabricationQueue(colony);
@@ -2949,6 +3333,14 @@ export class ColonyService {
       productionDelta: summary.productionDelta,
       events,
     };
+  }
+
+  private syncDefenseStats(colony: Colony): void {
+    if (!colony.stats) return;
+    this.colonyDefenseService.syncShieldCapacity(
+      colony,
+      this.getMaxShields(colony),
+    );
   }
 
   async checkBuildingCompletions(
@@ -3028,7 +3420,7 @@ export class ColonyService {
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: victim.fieldIndex,
             buildingId: victim.buildingId,
-            reason: 'ENERGY',
+            reason: 'Energie',
           });
           rewind = true;
         }
@@ -3048,7 +3440,7 @@ export class ColonyService {
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: victim.fieldIndex,
             buildingId: victim.buildingId,
-            reason: 'WORKERS',
+            reason: 'Arbeiter',
           });
           rewind = true;
         }
@@ -3076,7 +3468,7 @@ export class ColonyService {
               fieldIndex: victim.fieldIndex,
               buildingId: victim.buildingId,
               commodityId,
-              reason: 'DEPOSIT',
+              reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
             });
             rewind = true;
           }
@@ -3109,7 +3501,7 @@ export class ColonyService {
               fieldIndex: victim.fieldIndex,
               buildingId: victim.buildingId,
               commodityId,
-              reason: 'RESOURCE',
+              reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
             });
             rewind = true;
           }
@@ -3173,20 +3565,13 @@ export class ColonyService {
         if (storedAmount < amount) {
           events.push({ type: 'STORAGE_FULL', commodityId });
         }
-        let storage = await this.storageRepo.findOne({
-          where: { colonyId: colony.id, commodityId },
-        });
-        if (storage) {
-          storage.amount += storedAmount;
-        } else {
-          storage = this.storageRepo.create({
-            colonyId: colony.id,
-            commodityId,
-            amount: storedAmount,
-          });
-        }
-        currentStored += storedAmount;
-        await this.storageRepo.save(storage);
+        const actualStored = await this.colonyStorageService.upperStorage(
+          colony,
+          commodityId,
+          storedAmount,
+          summary.effectiveStorageMax,
+        );
+        currentStored += actualStored;
       }
 
       colony.storageUsed = currentStored;
@@ -3262,22 +3647,27 @@ export class ColonyService {
 
   private async growPopulation(colony: Colony): Promise<void> {
     const summary = this.colonyStatsService.calculateSummary(colony);
+    const currentPopulation = getEffectiveCurrentPopulation(colony);
     const growth = this.calculatePopulationGrowth(colony, summary);
     if (growth <= 0) {
+      if (colony.stats && colony.population !== currentPopulation) {
+        colony.population = currentPopulation;
+        await this.colonyRepo.save(colony);
+      }
       return;
     }
 
-    const previousPopulation = colony.population;
-    colony.population = Math.min(
-      colony.population + growth,
+    const nextPopulation = Math.min(
+      currentPopulation + growth,
       summary.effectivePopulationMax,
     );
-    const actualGrowth = colony.population - previousPopulation;
+    const actualGrowth = nextPopulation - currentPopulation;
 
     if (actualGrowth > 0 && colony.stats) {
       colony.stats.workless += actualGrowth;
       await this.statsRepo.save(colony.stats);
     }
+    colony.population = getEffectiveCurrentPopulation(colony);
     await this.colonyRepo.save(colony);
   }
 }

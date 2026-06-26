@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Colony } from './entities/colony.entity';
 import { ColonyStorageService } from './colony-storage.service';
+import { GameDataService } from '../game-data/game-data.service';
 
 export interface ColonyDefenseConstants {
   shield: {
@@ -37,7 +38,10 @@ export const DEFAULT_COLONY_DEFENSE: ColonyDefenseConstants = {
 export class ColonyDefenseService {
   readonly constants = DEFAULT_COLONY_DEFENSE;
 
-  constructor(private readonly storageService: ColonyStorageService) {}
+  constructor(
+    private readonly storageService: ColonyStorageService,
+    private readonly gameData: GameDataService,
+  ) {}
 
   calculateMaxShields(colony: Colony): number {
     let max = 0;
@@ -45,7 +49,8 @@ export class ColonyDefenseService {
       if (!field.buildingId || field.isBuilding || !field.isActive) continue;
       const functions = (field as any).functions as number[] | undefined;
       // Prefer explicit test helpers when present, otherwise use building ids via callers.
-      if (functions?.includes(24)) max += this.constants.shield.generatorCapacity;
+      if (functions?.includes(24))
+        max += this.constants.shield.generatorCapacity;
       if (functions?.includes(25)) max += this.constants.shield.batteryCapacity;
     }
     return max;
@@ -53,15 +58,21 @@ export class ColonyDefenseService {
 
   calculateMaxShieldsByFunctions(functionIds: number[]): number {
     let max = 0;
-    if (functionIds.includes(24)) max += this.constants.shield.generatorCapacity;
-    max += functionIds.filter((id) => id === 25).length * this.constants.shield.batteryCapacity;
+    if (functionIds.includes(24))
+      max += this.constants.shield.generatorCapacity;
+    max +=
+      functionIds.filter((id) => id === 25).length *
+      this.constants.shield.batteryCapacity;
     return max;
   }
 
   syncShieldCapacity(colony: Colony, maxShields: number): void {
     if (!colony.stats) throw new BadRequestException('Colony stats missing');
     colony.stats.maxShields = Math.max(0, maxShields);
-    colony.stats.shields = Math.min(colony.stats.shields ?? 0, colony.stats.maxShields);
+    colony.stats.shields = Math.min(
+      colony.stats.shields ?? 0,
+      colony.stats.maxShields,
+    );
     if (colony.stats.maxShields <= 0) {
       colony.stats.shields = 0;
       colony.stats.shieldFrequency = null;
@@ -71,14 +82,21 @@ export class ColonyDefenseService {
   loadShields(colony: Colony, amount: number, maxShields: number): number {
     if (!colony.stats) throw new BadRequestException('Colony stats missing');
     if (amount <= 0) throw new BadRequestException('Amount must be positive');
-    if (maxShields <= 0) throw new BadRequestException('Active shield generator required');
+    if (maxShields <= 0)
+      throw new BadRequestException('Active shield generator required');
     const current = colony.stats.shields ?? 0;
     const capacity = Math.max(0, maxShields - current);
-    const loadAmount = Math.min(amount, capacity, colony.energy * this.constants.shield.loadPerEnergy);
+    const loadAmount = Math.min(
+      amount,
+      capacity,
+      colony.energy * this.constants.shield.loadPerEnergy,
+    );
     if (loadAmount <= 0) {
       throw new BadRequestException('No shield capacity or energy available');
     }
-    const energyCost = Math.ceil(loadAmount / this.constants.shield.loadPerEnergy);
+    const energyCost = Math.ceil(
+      loadAmount / this.constants.shield.loadPerEnergy,
+    );
     colony.energy -= energyCost;
     colony.stats.maxShields = maxShields;
     colony.stats.shields = current + loadAmount;
@@ -104,10 +122,14 @@ export class ColonyDefenseService {
 
   async consumeParticlePhalanxTorpedo(colony: Colony): Promise<boolean> {
     if (!colony.stats?.torpedoTypeId) return false;
+    const torpedoType = this.gameData.getTorpedoType(
+      colony.stats.torpedoTypeId,
+    );
+    if (!torpedoType) return false;
     try {
       await this.storageService.lowerStorage(
         colony,
-        colony.stats.torpedoTypeId,
+        torpedoType.commodityId,
         this.constants.phalanx.particle.torpedoAmount,
       );
       return true;

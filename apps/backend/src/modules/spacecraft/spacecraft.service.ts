@@ -28,6 +28,8 @@ import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.gene
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { SpacecraftStatsService } from './spacecraft-stats.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
+import { Colony } from '../colony/entities/colony.entity';
 
 @Injectable()
 export class SpacecraftService {
@@ -50,6 +52,8 @@ export class SpacecraftService {
     private readonly systemFieldRepo: Repository<SystemField>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Colony)
+    private readonly colonyRepo: Repository<Colony>,
     private readonly gameData: GameDataService,
     private readonly shipClassService: ShipClassService,
     private readonly explorationService: ExplorationService,
@@ -57,7 +61,75 @@ export class SpacecraftService {
     private readonly unlockResolver: UnlockResolverService,
     private readonly spacecraftStatsService: SpacecraftStatsService,
     private readonly spacecraftCrewService: SpacecraftCrewService,
+    private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
   ) {}
+
+  async getTorpedoStorage(shipId: number, userId: number) {
+    await this.findOne(shipId, userId);
+    return this.spacecraftTorpedoService.getStorage(shipId);
+  }
+
+  async loadTorpedoes(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+    torpedoTypeId: number,
+    amount: number,
+  ) {
+    const { ship, colony } = await this.getShipAndColonyForTransfer(
+      shipId,
+      userId,
+      colonyId,
+    );
+    return this.spacecraftTorpedoService.loadFromColony(
+      colony,
+      ship,
+      torpedoTypeId,
+      amount,
+    );
+  }
+
+  async unloadTorpedoes(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+    amount?: number,
+  ) {
+    const { ship, colony } = await this.getShipAndColonyForTransfer(
+      shipId,
+      userId,
+      colonyId,
+    );
+    return this.spacecraftTorpedoService.unloadToColony(
+      colony,
+      ship,
+      amount,
+      colony.storageMax,
+    );
+  }
+
+  private async getShipAndColonyForTransfer(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+  ): Promise<{ ship: Spacecraft; colony: Colony }> {
+    const ship = await this.findOne(shipId, userId);
+    if (ship.status !== SpacecraftStatus.DOCKED) {
+      throw new BadRequestException('Ship must be idle');
+    }
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId, userId },
+    });
+    if (!colony) throw new NotFoundException('Colony not found');
+    if (
+      ship.starSystemId !== colony.starSystemId ||
+      (colony.celestialObjectId != null &&
+        ship.celestialObjectId !== colony.celestialObjectId)
+    ) {
+      throw new BadRequestException('Ship must be in colony orbit');
+    }
+    return { ship, colony };
+  }
 
   async findAllByUser(userId: number): Promise<Spacecraft[]> {
     const ships = await this.shipRepo.find({

@@ -10,6 +10,7 @@ import {
 import { Crew, CrewGender, CrewType } from './entities/crew.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { ColonyStatsService } from './colony-stats.service';
+import { ColonySocialService } from './colony-social.service';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 
 @Injectable()
@@ -28,45 +29,12 @@ export class ColonyCrewService {
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
     private readonly colonyStatsService: ColonyStatsService,
+    private readonly colonySocialService: ColonySocialService,
   ) {}
 
   getLocalCrewLimit(colony: Colony): number {
     const summary = this.colonyStatsService.calculateSummary(colony);
-    const workers = colony.stats?.workers ?? summary.workersUsed;
-    const population = Math.max(0, colony.population ?? 0);
-    const lifeStandardProduction = summary.productionDelta.get(1300) ?? 0;
-    const lifeStandardPercentage = this.getLifeStandardPercentage(
-      population,
-      lifeStandardProduction,
-    );
-    const negativeEffect = Math.ceil(population / 70);
-
-    // STU uses faction primary/secondary effect commodities. SWU does not yet
-    // model those fully, so use available life-standard production as a
-    // conservative positive effect fallback while keeping the formula shape.
-    const positiveEffectPrimary = Math.max(lifeStandardProduction, workers);
-    const positiveEffectSecondary = 0;
-    const effectivePositive = Math.min(
-      Math.max(
-        positiveEffectPrimary -
-          4 * Math.max(0, negativeEffect - positiveEffectSecondary),
-        0,
-      ),
-      workers,
-    );
-
-    return Math.floor(
-      10 + (effectivePositive / 5) * (lifeStandardPercentage / 100),
-    );
-  }
-
-  private getLifeStandardPercentage(
-    population: number,
-    production: number,
-  ): number {
-    if (production <= 0 || population <= 0) return production > 0 ? 100 : 0;
-    if (production > population) return 100;
-    return Math.floor((production * 100) / population);
+    return this.colonySocialService.calculateLocalCrewLimit(colony, summary);
   }
 
   async getGlobalCrewLimit(userId: number): Promise<number> {

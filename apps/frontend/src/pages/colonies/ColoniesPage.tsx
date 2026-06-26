@@ -1,0 +1,828 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { api } from '../../services/api';
+import { commodityImage, planetImage } from '../../lib/assets';
+
+import { formatSignedAmount } from './utils';
+import type {
+  BuildingDef,
+  Colony,
+  ColonyEventDto,
+  ColonyField,
+  CommodityDef,
+  DetailTab,
+  ShipClassDef,
+  TerraformingDef,
+} from './types';
+
+import { PanelEvents } from './components/PanelEvents';
+import { PanelDefense } from './components/PanelDefense';
+import { PanelHangar } from './components/PanelHangar';
+import { PanelCrew } from './components/PanelCrew';
+import { PanelFabrication } from './components/PanelFabrication';
+import { PanelShipyard } from './components/PanelShipyard';
+import { FieldCell } from './components/FieldCell';
+import { FieldInfoModal } from './components/FieldInfoModal';
+import { PanelInfo } from './components/PanelInfo';
+import { PanelBuild } from './components/PanelBuild';
+import { ColonyOverview } from './components/ColonyOverview';
+import { PanelBuildingManagement } from './components/PanelBuildingManagement';
+import { PanelSocial } from './components/PanelSocial';
+
+// ─── Page ────────────────────────────────────────────────────
+
+export function ColoniesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [colonies, setColonies] = useState<Colony[]>([]);
+  const [selected, setSelected] = useState<Colony | null>(null);
+  const [commodities, setCommodities] = useState<CommodityDef[]>([]);
+  const [buildingDefs, setBuildingDefs] = useState<BuildingDef[]>([]);
+  const [allBuildingDefs, setAllBuildingDefs] = useState<BuildingDef[]>([]);
+  const [shipClasses, setShipClasses] = useState<ShipClassDef[]>([]);
+  const [terraformingDefs, setTerraformingDefs] = useState<TerraformingDef[]>(
+    [],
+  );
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<DetailTab>('info');
+
+  useEffect(() => {
+    Promise.all([
+      api.get<Colony[]>('/colonies'),
+      api.get<CommodityDef[]>('/colonies/commodities/all'),
+      api.get<BuildingDef[]>('/colonies/buildings/available'),
+      api.get<BuildingDef[]>('/colonies/buildings/all'),
+      api.get<TerraformingDef[]>('/colonies/terraforming/all'),
+      api.get<ShipClassDef[]>('/spacecraft/classes'),
+    ]).then(([data, comms, buildings, allBuildings, terraforming, classes]) => {
+      setColonies(data);
+      setCommodities(comms);
+      setBuildingDefs(buildings);
+      setAllBuildingDefs(allBuildings);
+      setTerraformingDefs(terraforming);
+      setShipClasses(classes);
+      const reqId = Number(searchParams.get('selected'));
+      if (reqId) loadColonyDetail(reqId);
+      setLoading(false);
+    });
+  }, []);
+
+  const loadColonyDetail = async (id: number) => {
+    const detail = await api.get<Colony>(`/colonies/${id}`);
+    setSelected(detail);
+    setSearchParams({ selected: String(id) }, { replace: true });
+  };
+
+  const goBack = () => {
+    setSelected(null);
+    setSearchParams({}, { replace: true });
+  };
+
+  if (loading)
+    return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
+  if (!selected)
+    return (
+      <ColonyOverview
+        colonies={colonies}
+        onSelect={(id) => loadColonyDetail(id)}
+      />
+    );
+
+  return (
+    <ColonyDetail
+      colony={selected}
+      commodities={commodities}
+      buildingDefs={buildingDefs}
+      allBuildingDefs={allBuildingDefs}
+      shipClasses={shipClasses}
+      terraformingDefs={terraformingDefs}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      onBack={goBack}
+      onBuild={async (fi, bi) => {
+        await api.post(`/colonies/${selected.id}/build`, {
+          fieldIndex: fi,
+          buildingId: bi,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onDemolish={async (fi) => {
+        await api.delete(`/colonies/${selected.id}/fields/${fi}/building`);
+        loadColonyDetail(selected.id);
+      }}
+      onToggle={async (fi) => {
+        await api.post(`/colonies/${selected.id}/fields/${fi}/toggle`, {});
+        loadColonyDetail(selected.id);
+      }}
+      onTerraform={async (fi, ti) => {
+        await api.post(`/colonies/${selected.id}/fields/${fi}/terraform`, {
+          terraformingId: ti,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onBuildShip={async (
+        sci: number,
+        name: string,
+        moduleTypes?: string[],
+        buildPlanName?: string,
+        moduleCommodityIds?: number[],
+      ) => {
+        await api.post(`/colonies/${selected.id}/build-ship`, {
+          shipClassId: sci,
+          name,
+          moduleTypes,
+          buildPlanName,
+          moduleCommodityIds,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onStartFabrication={async (
+        itemKey: string,
+        queueType: 'MODULE' | 'TORPEDO',
+        buildingFunctionId: number,
+      ) => {
+        await api.post(`/colonies/${selected.id}/fabrication-queue`, {
+          itemKey,
+          queueType,
+          amount: 1,
+          buildingFunctionId,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onCancelFabrication={async (queueId: number) => {
+        await api.delete(
+          `/colonies/${selected.id}/fabrication-queue/${queueId}`,
+        );
+        loadColonyDetail(selected.id);
+      }}
+      onQueueCrewTraining={async (amount: number) => {
+        await api.post(`/colonies/${selected.id}/crew-training`, { amount });
+        loadColonyDetail(selected.id);
+      }}
+      onAssignCrewToShip={async (shipId: number, amount: number) => {
+        await api.post(`/colonies/${selected.id}/ships/${shipId}/crew/assign`, {
+          amount,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onUnassignCrewFromShip={async (shipId: number, amount: number) => {
+        await api.post(
+          `/colonies/${selected.id}/ships/${shipId}/crew/unassign`,
+          { amount },
+        );
+        loadColonyDetail(selected.id);
+      }}
+      onLandShip={async (shipId: number) => {
+        await api.post(`/colonies/${selected.id}/ships/${shipId}/land`, {});
+        loadColonyDetail(selected.id);
+      }}
+      onDisassembleShip={async (shipId: number) => {
+        await api.post(
+          `/colonies/${selected.id}/ships/${shipId}/disassemble`,
+          {},
+        );
+        loadColonyDetail(selected.id);
+      }}
+      onQueueShipRepair={async (shipId: number) => {
+        await api.post(
+          `/colonies/${selected.id}/ships/${shipId}/repair-queue`,
+          {},
+        );
+        loadColonyDetail(selected.id);
+      }}
+      onQueueShipRetrofit={async (
+        shipId: number,
+        moduleCommodityIds: number[],
+        buildPlanName?: string,
+      ) => {
+        await api.post(
+          `/colonies/${selected.id}/ships/${shipId}/retrofit-queue`,
+          {
+            moduleCommodityIds,
+            buildPlanName,
+          },
+        );
+        loadColonyDetail(selected.id);
+      }}
+      onCancelShipyardQueue={async (queueId: number) => {
+        await api.delete(`/colonies/${selected.id}/shipyard-queue/${queueId}`);
+        loadColonyDetail(selected.id);
+      }}
+      onBuildAirfieldRump={async (shipClassId: number, amount: number) => {
+        await api.post(`/colonies/${selected.id}/hangar/build-rump`, {
+          shipClassId,
+          amount,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onStartHangarShip={async (shipClassId: number, name?: string) => {
+        await api.post(`/colonies/${selected.id}/hangar/start-ship`, {
+          shipClassId,
+          name,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onLoadColonyShields={async (amount: number) => {
+        await api.post(`/colonies/${selected.id}/shields/load`, { amount });
+        loadColonyDetail(selected.id);
+      }}
+      onSetShieldFrequency={async (frequency: number) => {
+        await api.post(`/colonies/${selected.id}/shields/frequency`, {
+          frequency,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onSetDefenseTorpedoType={async (torpedoTypeId: number | null) => {
+        await api.post(`/colonies/${selected.id}/defense/torpedo-type`, {
+          torpedoTypeId,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onLoadColonyEvents={async (unreadOnly = false) =>
+        api.get<ColonyEventDto[]>(
+          `/colonies/${selected.id}/events?limit=50&unreadOnly=${unreadOnly}`,
+        )
+      }
+      onMarkColonyEventRead={async (eventId: number) => {
+        await api.post(`/colonies/${selected.id}/events/${eventId}/read`, {});
+        loadColonyDetail(selected.id);
+      }}
+      onMarkAllColonyEventsRead={async () => {
+        await api.post(`/colonies/${selected.id}/events/read-all`, {});
+        loadColonyDetail(selected.id);
+      }}
+      onActivateBuildings={async (mode, options) => {
+        const result = await api.post<any, unknown>(
+          `/colonies/${selected.id}/buildings/activate`,
+          { mode, ...options },
+        );
+        loadColonyDetail(selected.id);
+        return result;
+      }}
+      onDeactivateBuildings={async (mode, options) => {
+        const result = await api.post<any, unknown>(
+          `/colonies/${selected.id}/buildings/deactivate`,
+          { mode, ...options },
+        );
+        loadColonyDetail(selected.id);
+        return result;
+      }}
+    />
+  );
+}
+
+// ─── Overview ────────────────────────────────────────────────
+
+function ColonyDetail({
+  colony,
+  commodities,
+  buildingDefs,
+  allBuildingDefs,
+  shipClasses,
+  terraformingDefs,
+  activeTab,
+  setActiveTab,
+  onBack,
+  onBuild,
+  onDemolish,
+  onToggle,
+  onTerraform,
+  onBuildShip,
+  onStartFabrication,
+  onCancelFabrication,
+  onQueueCrewTraining,
+  onAssignCrewToShip,
+  onUnassignCrewFromShip,
+  onLandShip,
+  onDisassembleShip,
+  onQueueShipRepair,
+  onQueueShipRetrofit,
+  onCancelShipyardQueue,
+  onBuildAirfieldRump,
+  onStartHangarShip,
+  onLoadColonyShields,
+  onSetShieldFrequency,
+  onSetDefenseTorpedoType,
+  onLoadColonyEvents,
+  onMarkColonyEventRead,
+  onMarkAllColonyEventsRead,
+  onActivateBuildings,
+  onDeactivateBuildings,
+}: {
+  colony: Colony;
+  commodities: CommodityDef[];
+  buildingDefs: BuildingDef[];
+  allBuildingDefs: BuildingDef[];
+  shipClasses: ShipClassDef[];
+  terraformingDefs: TerraformingDef[];
+  activeTab: DetailTab;
+  setActiveTab: (t: DetailTab) => void;
+  onBack: () => void;
+  onBuild: (fi: number, bi: number) => void;
+  onDemolish: (fi: number) => void;
+  onToggle: (fi: number) => void;
+  onTerraform: (fi: number, ti: number) => Promise<void> | void;
+  onBuildShip: (
+    sci: number,
+    name: string,
+    moduleTypes?: string[],
+    buildPlanName?: string,
+    moduleCommodityIds?: number[],
+  ) => Promise<void> | void;
+  onStartFabrication: (
+    itemKey: string,
+    queueType: 'MODULE' | 'TORPEDO',
+    buildingFunctionId: number,
+  ) => Promise<void> | void;
+  onCancelFabrication: (queueId: number) => Promise<void> | void;
+  onQueueCrewTraining: (amount: number) => Promise<void> | void;
+  onAssignCrewToShip: (shipId: number, amount: number) => Promise<void> | void;
+  onUnassignCrewFromShip: (
+    shipId: number,
+    amount: number,
+  ) => Promise<void> | void;
+  onLandShip: (shipId: number) => Promise<void> | void;
+  onDisassembleShip: (shipId: number) => Promise<void> | void;
+  onQueueShipRepair: (shipId: number) => Promise<void> | void;
+  onQueueShipRetrofit: (
+    shipId: number,
+    moduleCommodityIds: number[],
+    buildPlanName?: string,
+  ) => Promise<void> | void;
+  onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
+  onBuildAirfieldRump: (
+    shipClassId: number,
+    amount: number,
+  ) => Promise<void> | void;
+  onStartHangarShip: (
+    shipClassId: number,
+    name?: string,
+  ) => Promise<void> | void;
+  onLoadColonyShields: (amount: number) => Promise<void> | void;
+  onSetShieldFrequency: (frequency: number) => Promise<void> | void;
+  onSetDefenseTorpedoType: (commodityId: number | null) => Promise<void> | void;
+  onLoadColonyEvents: (unreadOnly?: boolean) => Promise<ColonyEventDto[]>;
+  onMarkColonyEventRead: (eventId: number) => Promise<void> | void;
+  onMarkAllColonyEventsRead: () => Promise<void> | void;
+  onActivateBuildings: (
+    mode: number,
+    options: { fieldIndexes?: number[]; commodityId?: number },
+  ) => Promise<any>;
+  onDeactivateBuildings: (
+    mode: number,
+    options: { fieldIndexes?: number[]; commodityId?: number },
+  ) => Promise<any>;
+}) {
+  const buildingMap = useMemo(
+    () => Object.fromEntries(allBuildingDefs.map((b) => [b.id, b])),
+    [allBuildingDefs],
+  );
+  const commodityMap = useMemo(
+    () => Object.fromEntries(commodities.map((c) => [c.id, c])),
+    [commodities],
+  );
+  const [selectedField, setSelectedField] = useState<ColonyField | null>(null);
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
+    null,
+  );
+  const [modalField, setModalField] = useState<ColonyField | null>(null);
+
+  const fields = colony.fields || [];
+  const storage = colony.storage || [];
+  const detail = colony.detailV2;
+
+  const highlightedFields = useMemo(() => {
+    if (!selectedBuilding) return new Set<number>();
+    return new Set(
+      fields
+        .filter(
+          (f) =>
+            !f.buildingId &&
+            !f.isBuilding &&
+            selectedBuilding.allowedFieldTypes.includes(f.fieldType),
+        )
+        .map((f) => f.fieldIndex),
+    );
+  }, [selectedBuilding, fields]);
+
+  const handleFieldClick = (field: ColonyField) => {
+    if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
+      onBuild(field.fieldIndex, selectedBuilding.id);
+      setSelectedBuilding(null);
+      setSelectedField(null);
+    } else if (!selectedBuilding) {
+      if (field.buildingId && !field.isBuilding) {
+        setModalField(field);
+      } else {
+        setSelectedField(field);
+      }
+    }
+  };
+
+  const orbitFields = fields
+    .filter((f) => f.fieldType === 900)
+    .sort((a, b) => a.fieldIndex - b.fieldIndex);
+  const surfaceFields = fields
+    .filter((f) => f.fieldType !== 900 && f.fieldType !== 801)
+    .sort((a, b) => a.fieldIndex - b.fieldIndex);
+  const undergroundFields = fields
+    .filter((f) => f.fieldType === 801)
+    .sort((a, b) => a.fieldIndex - b.fieldIndex);
+
+  const tabAccess = detail?.featureAccess?.tabs;
+  const isTabVisible = (key: DetailTab, fallback = true) =>
+    tabAccess?.[key]?.visible ?? fallback;
+  const tabs: Array<{ key: DetailTab; label: string; show: boolean }> = [
+    { key: 'info', label: 'Informationen', show: isTabVisible('info') },
+    { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
+    {
+      key: 'buildingManagement',
+      label: 'Gebäudemanagement',
+      show: isTabVisible('buildingManagement'),
+    },
+    {
+      key: 'shipyard',
+      label: 'Werft',
+      show: isTabVisible('shipyard', false),
+    },
+    {
+      key: 'fabrication',
+      label: 'Fabrikation',
+      show: isTabVisible('fabrication', false),
+    },
+    {
+      key: 'defense',
+      label: 'Verteidigung',
+      show: isTabVisible('defense', false),
+    },
+    {
+      key: 'events',
+      label: `Ereignisse${detail?.eventSummary?.unreadCount ? ` (${detail.eventSummary.unreadCount})` : ''}`,
+      show: isTabVisible('events'),
+    },
+    { key: 'hangar', label: 'Hangar', show: isTabVisible('hangar', false) },
+    { key: 'social', label: 'Soziales', show: isTabVisible('social') },
+    { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
+  ];
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.key === activeTab && tab.show)) {
+      setActiveTab(tabs.find((tab) => tab.show)?.key ?? 'info');
+    }
+  }, [activeTab, setActiveTab, tabs]);
+
+  return (
+    <div className="space-y-2">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="text-xs text-swu-muted hover:text-swu-accent"
+        >
+          ← Kolonien
+        </button>
+        {colony.celestialObject?.classId && (
+          <img
+            src={planetImage(colony.celestialObject.classId)}
+            alt=""
+            className="w-6 h-6 object-contain"
+          />
+        )}
+        <span className="text-sm font-bold text-swu-primary">
+          {colony.name}
+        </span>
+        <span className="text-[10px] text-swu-muted">
+          {colony.locationLabel || ''}
+        </span>
+      </div>
+
+      {/* Resource bar */}
+      <div className="flex flex-wrap items-center gap-4 text-[10px] bg-swu-surface border border-swu-border rounded px-3 py-1.5">
+        <span>
+          Energie:{' '}
+          <span className="text-yellow-400 font-mono">
+            {detail?.energy.current ?? colony.energy}/
+            {detail?.energy.max ?? colony.energyMax}
+          </span>
+          {detail?.energy.delta != null && (
+            <span
+              className={
+                detail.energy.delta >= 0 ? 'text-green-400' : 'text-red-400'
+              }
+            >
+              {' '}
+              ({formatSignedAmount(detail.energy.delta)})
+            </span>
+          )}
+        </span>
+        <span>
+          Bevölkerung:{' '}
+          <span className="text-swu-success font-mono">
+            {detail?.population.current ?? colony.population}/
+            {detail?.population.max ?? colony.populationMax}
+          </span>
+        </span>
+        <span>
+          Lager:{' '}
+          <span className="text-swu-primary font-mono">
+            {detail?.storage.current ?? colony.storageUsed}/
+            {detail?.storage.max ?? colony.storageMax}
+          </span>
+        </span>
+        {detail && (
+          <span>
+            Orbit:{' '}
+            <span className="text-swu-muted font-mono">
+              {detail.orbitShips.length} Schiffe
+            </span>
+          </span>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-0 border-b border-swu-border overflow-x-auto">
+        {tabs
+          .filter((t) => t.show)
+          .map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-1.5 text-xs whitespace-nowrap border-b-2 transition-colors ${activeTab === t.key ? 'border-swu-accent text-swu-accent' : 'border-transparent text-swu-muted hover:text-swu-primary'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+      </div>
+
+      {/* Main: Left (Grid+Storage) + Right (Tab content) */}
+      <div className="flex gap-3 flex-col lg:flex-row">
+        {/* LEFT: Grid + Storage (always visible) */}
+        <div className="lg:w-[440px] shrink-0 space-y-2 overflow-x-auto">
+          {orbitFields.length > 0 && (
+            <div>
+              <div className="text-[9px] text-indigo-400 font-bold uppercase mb-0.5">
+                Orbit
+              </div>
+              <div className="grid grid-cols-10 gap-0">
+                {orbitFields.map((f) => (
+                  <FieldCell
+                    key={f.fieldIndex}
+                    field={f}
+                    buildingId={f.buildingId ?? undefined}
+                    buildingName={
+                      f.buildingId
+                        ? buildingMap[f.buildingId]?.nameShort ||
+                          buildingMap[f.buildingId]?.name
+                        : undefined
+                    }
+                    isSelected={selectedField?.fieldIndex === f.fieldIndex}
+                    isHighlighted={highlightedFields.has(f.fieldIndex)}
+                    isBuildMode={!!selectedBuilding}
+                    isFieldActive={f.isActive}
+                    onClick={() => handleFieldClick(f)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <div className="text-[9px] text-green-400 font-bold uppercase mb-0.5">
+              Oberfläche
+            </div>
+            <div className="grid grid-cols-10 gap-0">
+              {surfaceFields.map((f) => (
+                <FieldCell
+                  key={f.fieldIndex}
+                  field={f}
+                  buildingId={f.buildingId ?? undefined}
+                  buildingName={
+                    f.buildingId
+                      ? buildingMap[f.buildingId]?.nameShort ||
+                        buildingMap[f.buildingId]?.name
+                      : undefined
+                  }
+                  isSelected={selectedField?.fieldIndex === f.fieldIndex}
+                  isHighlighted={highlightedFields.has(f.fieldIndex)}
+                  isBuildMode={!!selectedBuilding}
+                  isFieldActive={f.isActive}
+                  onClick={() => handleFieldClick(f)}
+                />
+              ))}
+            </div>
+          </div>
+          {undergroundFields.length > 0 && (
+            <div>
+              <div className="text-[9px] text-zinc-400 font-bold uppercase mb-0.5">
+                Untergrund
+              </div>
+              <div className="grid grid-cols-10 gap-0">
+                {undergroundFields.map((f) => (
+                  <FieldCell
+                    key={f.fieldIndex}
+                    field={f}
+                    buildingId={f.buildingId ?? undefined}
+                    buildingName={
+                      f.buildingId
+                        ? buildingMap[f.buildingId]?.nameShort ||
+                          buildingMap[f.buildingId]?.name
+                        : undefined
+                    }
+                    isSelected={selectedField?.fieldIndex === f.fieldIndex}
+                    isHighlighted={highlightedFields.has(f.fieldIndex)}
+                    isBuildMode={!!selectedBuilding}
+                    isFieldActive={f.isActive}
+                    onClick={() => handleFieldClick(f)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Storage table */}
+          {storage.length > 0 && (
+            <div className="bg-swu-surface border border-swu-border rounded">
+              <div className="px-2 py-1 border-b border-swu-border/50 text-[10px] font-bold text-swu-muted uppercase">
+                Lager
+              </div>
+              <div className="divide-y divide-swu-border/20">
+                {storage
+                  .sort((a, b) => b.amount - a.amount)
+                  .map((item) => {
+                    const delta = detail?.productionDeltas.find(
+                      (d) => d.commodityId === item.commodityId,
+                    )?.amount;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-2 px-2 py-0.5 text-[10px]"
+                      >
+                        <img
+                          src={commodityImage(
+                            item.commodityId,
+                            commodityMap[item.commodityId]?.name,
+                          )}
+                          alt=""
+                          className="h-5 w-5 object-contain"
+                          loading="lazy"
+                        />
+                        <span className="text-swu-muted truncate flex-1">
+                          {commodityMap[item.commodityId]?.name ||
+                            `#${item.commodityId}`}
+                        </span>
+                        <span className="font-mono text-swu-primary">
+                          {item.amount}
+                        </span>
+                        {delta != null && (
+                          <span
+                            className={`font-mono ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                          >
+                            {formatSignedAmount(delta)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: Tab content */}
+        <div className="flex-1 min-w-0">
+          {activeTab === 'info' && (
+            <PanelInfo
+              colony={colony}
+              detail={detail}
+              selectedField={selectedField}
+              buildingMap={buildingMap}
+              commodityMap={commodityMap}
+              terraformingDefs={terraformingDefs}
+              onTerraform={onTerraform}
+            />
+          )}
+          {activeTab === 'build' && (
+            <PanelBuild
+              buildingDefs={buildingDefs}
+              fields={fields}
+              storage={storage}
+              commodityMap={commodityMap}
+              selectedBuilding={selectedBuilding}
+              onSelectBuilding={(b: BuildingDef) => {
+                if (selectedBuilding?.id === b.id) setSelectedBuilding(null);
+                else {
+                  setSelectedBuilding(b);
+                  setSelectedField(null);
+                }
+              }}
+            />
+          )}
+          {activeTab === 'buildingManagement' && detail?.buildingManagement && (
+            <PanelBuildingManagement
+              management={detail.buildingManagement}
+              onActivate={onActivateBuildings as any}
+              onDeactivate={onDeactivateBuildings as any}
+            />
+          )}
+          {activeTab === 'shipyard' && (
+            <PanelShipyard
+              shipyard={detail?.shipyard}
+              shipClasses={shipClasses}
+              queue={detail?.shipBuildQueue ?? []}
+              availableModules={detail?.availableShipModules ?? []}
+              slotRules={detail?.shipyard.slotRules ?? []}
+              availableCrew={detail?.crew?.available ?? 0}
+              commodityMap={commodityMap}
+              orbitShips={detail?.orbitShips ?? []}
+              onBuildShip={onBuildShip}
+              onQueueShipRepair={onQueueShipRepair}
+              onQueueShipRetrofit={onQueueShipRetrofit}
+              onCancelShipyardQueue={onCancelShipyardQueue}
+            />
+          )}
+          {activeTab === 'events' && (
+            <PanelEvents
+              initialEvents={detail?.eventSummary?.latest ?? []}
+              onLoadEvents={onLoadColonyEvents}
+              onMarkRead={onMarkColonyEventRead}
+              onMarkAllRead={onMarkAllColonyEventsRead}
+            />
+          )}
+          {activeTab === 'defense' && detail?.defense && (
+            <PanelDefense
+              defense={detail.defense}
+              inventory={detail.inventory}
+              onLoadColonyShields={onLoadColonyShields}
+              onSetShieldFrequency={onSetShieldFrequency}
+              onSetDefenseTorpedoType={onSetDefenseTorpedoType}
+            />
+          )}
+          {activeTab === 'hangar' && detail?.hangar && (
+            <PanelHangar
+              hangar={detail.hangar}
+              orbitShips={detail.orbitShips}
+              commodityMap={commodityMap}
+              onBuildAirfieldRump={onBuildAirfieldRump}
+              onStartHangarShip={onStartHangarShip}
+              onLandShip={onLandShip}
+            />
+          )}
+          {activeTab === 'fabrication' && (
+            <PanelFabrication
+              catalog={detail?.fabricationCatalog ?? []}
+              queue={detail?.fabricationQueue ?? []}
+              activeFunctionIds={detail?.activeFabricationFunctionIds ?? []}
+              presentFunctions={
+                detail?.featureAccess?.functions.present.filter((fn) =>
+                  [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 29, 30].includes(
+                    fn.id,
+                  ),
+                ) ?? []
+              }
+              commodityMap={commodityMap}
+              onStartFabrication={onStartFabrication}
+              onCancelFabrication={onCancelFabrication}
+            />
+          )}
+          {activeTab === 'social' &&
+            (detail?.social ? (
+              <PanelSocial social={detail.social} />
+            ) : (
+              <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
+                Keine Sozialdaten verfügbar. Bitte Backend/Seite neu laden.
+              </div>
+            ))}
+          {activeTab === 'crew' && detail?.crew && (
+            <PanelCrew
+              crew={detail.crew}
+              orbitShips={detail.orbitShips}
+              onQueueCrewTraining={onQueueCrewTraining}
+              onAssignCrewToShip={onAssignCrewToShip}
+              onUnassignCrewFromShip={onUnassignCrewFromShip}
+              onLandShip={onLandShip}
+              onDisassembleShip={onDisassembleShip}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Field Info Modal */}
+      {modalField && modalField.buildingId && (
+        <FieldInfoModal
+          field={modalField}
+          building={buildingMap[modalField.buildingId]}
+          commodityMap={commodityMap}
+          onClose={() => setModalField(null)}
+          onDemolish={() => {
+            onDemolish(modalField.fieldIndex);
+            setModalField(null);
+          }}
+          onToggle={() => {
+            onToggle(modalField.fieldIndex);
+            setModalField(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Panel: Informationen ────────────────────────────────────

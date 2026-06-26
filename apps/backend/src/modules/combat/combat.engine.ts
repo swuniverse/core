@@ -1,7 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Spacecraft, SpacecraftStatus, AlertState } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftStatus,
+  AlertState,
+} from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
-import { GameDataService, CombatFormulas } from '../game-data/game-data.service';
+import {
+  GameDataService,
+  CombatFormulas,
+  TorpedoTypeDef,
+} from '../game-data/game-data.service';
+import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 
 export enum CombatAction {
   ENERGY_HIT = 'ENERGY_HIT',
@@ -50,14 +59,17 @@ interface Combatant {
 
 @Injectable()
 export class CombatEngine {
-  constructor(private readonly gameData: GameDataService) {}
+  constructor(
+    private readonly gameData: GameDataService,
+    private readonly torpedoService: SpacecraftTorpedoService,
+  ) {}
 
-  resolveCombat(
+  async resolveCombat(
     attacker: Spacecraft,
     defender: Spacecraft,
     attackerModules: SpacecraftModule[],
     defenderModules: SpacecraftModule[],
-  ): CombatResult {
+  ): Promise<CombatResult> {
     const formulas = this.gameData.getCombatFormulas();
     const maxRounds = formulas.combat_flow.max_rounds;
 
@@ -97,16 +109,40 @@ export class CombatEngine {
       }
 
       // Phase 1: Energy weapons
-      this.fireWeaponsPhase(aCombatant, dCombatant, formulas, 'WEAPONS', log);
+      await this.fireWeaponsPhase(
+        aCombatant,
+        dCombatant,
+        formulas,
+        'WEAPONS',
+        log,
+      );
       if (defender.hull > 0) {
-        this.fireWeaponsPhase(dCombatant, aCombatant, formulas, 'WEAPONS', log);
+        await this.fireWeaponsPhase(
+          dCombatant,
+          aCombatant,
+          formulas,
+          'WEAPONS',
+          log,
+        );
       }
 
       // Phase 2: Projectile weapons (torpedoes etc.)
       if (attacker.hull > 0 && defender.hull > 0) {
-        this.fireWeaponsPhase(aCombatant, dCombatant, formulas, 'PROJECTILE', log);
+        await this.fireWeaponsPhase(
+          aCombatant,
+          dCombatant,
+          formulas,
+          'PROJECTILE',
+          log,
+        );
         if (defender.hull > 0) {
-          this.fireWeaponsPhase(dCombatant, aCombatant, formulas, 'PROJECTILE', log);
+          await this.fireWeaponsPhase(
+            dCombatant,
+            aCombatant,
+            formulas,
+            'PROJECTILE',
+            log,
+          );
         }
       }
 
@@ -154,44 +190,90 @@ export class CombatEngine {
     return { rounds, winner, attackerDestroyed, defenderDestroyed };
   }
 
-  private fireWeaponsPhase(
+  private async fireWeaponsPhase(
     shooter: Combatant,
     target: Combatant,
     formulas: CombatFormulas,
     weaponCategory: string,
     log: CombatLogEntry[],
-  ): void {
+  ): Promise<void> {
     const weapons = shooter.modules.filter(
-      (m) => m.category === weaponCategory && m.isActive && m.cooldown === 0 && m.integrity > 0,
+      (m) =>
+        m.category === weaponCategory &&
+        m.isActive &&
+        m.cooldown === 0 &&
+        m.integrity > 0,
     );
 
     for (const weapon of weapons) {
-      const weaponDef = this.gameData.getAllModules().find((m) => m.name === weapon.moduleType);
+      const weaponDef = this.gameData
+        .getAllModules()
+        .find((m) => m.name === weapon.moduleType);
       if (!weaponDef) continue;
 
-      const baseDamage = (weaponDef.secret as Record<string, number>).baseDamage || 10;
-      const hitChance = this.calculateHitChance(shooter, target, formulas);
+      const torpedo =
+        weaponCategory === 'PROJECTILE'
+          ? await this.torpedoService.consumeForAttack(shooter.ship, 1)
+          : null;
+      if (weaponCategory === 'PROJECTILE' && !torpedo) {
+        continue;
+      }
+
+      const baseDamage =
+        torpedo?.baseDamage ??
+        (weaponDef.secret as Record<string, number>).baseDamage ??
+        10;
+      const hitChance = this.calculateHitChance(
+        shooter,
+        target,
+        formulas,
+        torpedo,
+      );
 
       if (Math.random() > hitChance) {
-        const action = weaponCategory === 'WEAPONS' ? CombatAction.ENERGY_MISS : CombatAction.PROJECTILE_MISS;
+        const action =
+          weaponCategory === 'WEAPONS'
+            ? CombatAction.ENERGY_MISS
+            : CombatAction.PROJECTILE_MISS;
         log.push({ action, source: shooter.role, detail: weapon.moduleType });
         continue;
       }
 
       const levelScale = 1 + (weapon.level - 1) * formulas.damage.level_scaling;
       const classModifier = this.getClassModifier(shooter.shipClass, formulas);
-      const variance = formulas.damage.variance_min + Math.random() * (formulas.damage.variance_max - formulas.damage.variance_min);
+      const variance =
+        formulas.damage.variance_min +
+        Math.random() *
+          (formulas.damage.variance_max - formulas.damage.variance_min);
 
-      let damage = Math.round(baseDamage * levelScale * classModifier.damage * variance * formulas.damage.base_multiplier);
+      let damage = Math.round(
+        baseDamage *
+          levelScale *
+          classModifier.damage *
+          variance *
+          formulas.damage.base_multiplier,
+      );
 
       const isCrit = Math.random() < formulas.damage.crit_chance;
       if (isCrit) {
         damage = Math.round(damage * formulas.damage.crit_multiplier);
-        log.push({ action: CombatAction.CRITICAL_HIT, source: shooter.role, value: damage });
+        log.push({
+          action: CombatAction.CRITICAL_HIT,
+          source: shooter.role,
+          value: damage,
+        });
       }
 
-      const action = weaponCategory === 'WEAPONS' ? CombatAction.ENERGY_HIT : CombatAction.PROJECTILE_HIT;
-      log.push({ action, source: shooter.role, value: damage, detail: weapon.moduleType });
+      const action =
+        weaponCategory === 'WEAPONS'
+          ? CombatAction.ENERGY_HIT
+          : CombatAction.PROJECTILE_HIT;
+      log.push({
+        action,
+        source: shooter.role,
+        value: damage,
+        detail: weapon.moduleType,
+      });
 
       this.applyDamage(target, damage, formulas, log, shooter, isCrit);
 
@@ -218,9 +300,16 @@ export class CombatEngine {
     let hullDamage = bleedthrough;
 
     if (target.ship.shields > 0) {
-      const absorbed = Math.round(Math.min(target.ship.shields, shieldDamage) * formulas.shields.efficiency);
+      const absorbed = Math.round(
+        Math.min(target.ship.shields, shieldDamage) *
+          formulas.shields.efficiency,
+      );
       target.ship.shields = Math.max(0, target.ship.shields - shieldDamage);
-      log.push({ action: CombatAction.SHIELD_ABSORB, source: target.role, value: absorbed });
+      log.push({
+        action: CombatAction.SHIELD_ABSORB,
+        source: target.role,
+        value: absorbed,
+      });
 
       if (target.ship.shields <= 0) {
         hullDamage += shieldDamage - absorbed;
@@ -231,11 +320,16 @@ export class CombatEngine {
 
     if (hullDamage > 0) {
       target.ship.hull = Math.max(0, target.ship.hull - hullDamage);
-      log.push({ action: CombatAction.HULL_DAMAGE, source: target.role, value: hullDamage });
+      log.push({
+        action: CombatAction.HULL_DAMAGE,
+        source: target.role,
+        value: hullDamage,
+      });
 
       // Critical hits can damage modules
       if (isCrit && target.modules.length > 0) {
-        const randomMod = target.modules[Math.floor(Math.random() * target.modules.length)];
+        const randomMod =
+          target.modules[Math.floor(Math.random() * target.modules.length)];
         const integrityLoss = 10 + Math.floor(Math.random() * 20);
         randomMod.integrity = Math.max(0, randomMod.integrity - integrityLoss);
         log.push({
@@ -256,17 +350,28 @@ export class CombatEngine {
     }
   }
 
-  private calculateHitChance(shooter: Combatant, target: Combatant, formulas: CombatFormulas): number {
+  private calculateHitChance(
+    shooter: Combatant,
+    target: Combatant,
+    formulas: CombatFormulas,
+    torpedo?: TorpedoTypeDef | null,
+  ): number {
     const classModShooter = this.getClassModifier(shooter.shipClass, formulas);
     const classModTarget = this.getClassModifier(target.shipClass, formulas);
 
     const speedDiff = (classModShooter.speed - classModTarget.speed) * 10;
-    let hitChance = formulas.hit_chance.base + speedDiff * formulas.hit_chance.speed_modifier;
+    let hitChance = torpedo
+      ? torpedo.hitFactor / 100
+      : formulas.hit_chance.base +
+        speedDiff * formulas.hit_chance.speed_modifier;
 
     // Evasion reduces hit chance
     hitChance -= (classModTarget.evasion - 1.0) * 0.15;
 
-    return Math.max(formulas.hit_chance.min, Math.min(formulas.hit_chance.max, hitChance));
+    return Math.max(
+      formulas.hit_chance.min,
+      Math.min(formulas.hit_chance.max, hitChance),
+    );
   }
 
   private attemptEscape(
@@ -295,20 +400,40 @@ export class CombatEngine {
     return false;
   }
 
-  private regenShields(combatant: Combatant, formulas: CombatFormulas, log: CombatLogEntry[]): void {
+  private regenShields(
+    combatant: Combatant,
+    formulas: CombatFormulas,
+    log: CombatLogEntry[],
+  ): void {
     if (combatant.ship.shields < combatant.ship.shieldsMax) {
       const activeShieldMods = combatant.modules.filter(
         (m) => m.category === 'SHIELDS' && m.isActive && m.integrity > 0,
       );
       if (activeShieldMods.length > 0) {
-        const regen = Math.max(1, Math.round(combatant.ship.shieldsMax * formulas.shields.recharge_rate));
-        combatant.ship.shields = Math.min(combatant.ship.shieldsMax, combatant.ship.shields + regen);
-        log.push({ action: CombatAction.SHIELD_REGEN, source: combatant.role, value: regen });
+        const regen = Math.max(
+          1,
+          Math.round(
+            combatant.ship.shieldsMax * formulas.shields.recharge_rate,
+          ),
+        );
+        combatant.ship.shields = Math.min(
+          combatant.ship.shieldsMax,
+          combatant.ship.shields + regen,
+        );
+        log.push({
+          action: CombatAction.SHIELD_REGEN,
+          source: combatant.role,
+          value: regen,
+        });
       }
     }
   }
 
-  private disableRandomSystem(target: Combatant, formulas: CombatFormulas, log: CombatLogEntry[]): void {
+  private disableRandomSystem(
+    target: Combatant,
+    formulas: CombatFormulas,
+    log: CombatLogEntry[],
+  ): void {
     const priority = formulas.ion_effects.systems_priority;
 
     for (const systemCategory of priority) {
@@ -343,11 +468,26 @@ export class CombatEngine {
     shipClass: string,
     formulas: CombatFormulas,
   ): { damage: number; speed: number; hull: number; evasion: number } {
-    return formulas.ship_class_modifiers[shipClass] || { damage: 1, speed: 1, hull: 1, evasion: 1 };
+    return (
+      formulas.ship_class_modifiers[shipClass] || {
+        damage: 1,
+        speed: 1,
+        hull: 1,
+        evasion: 1,
+      }
+    );
   }
 
   private getShipClass(shipClassId: number): string {
-    const classes = ['FIGHTER', 'BOMBER', 'CORVETTE', 'FRIGATE', 'CRUISER', 'CAPITAL', 'TRANSPORT'];
+    const classes = [
+      'FIGHTER',
+      'BOMBER',
+      'CORVETTE',
+      'FRIGATE',
+      'CRUISER',
+      'CAPITAL',
+      'TRANSPORT',
+    ];
     return classes[shipClassId - 1] || 'CORVETTE';
   }
 

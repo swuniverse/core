@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ColonyService } from '../colony/colony.service';
+import { ColonyEventService } from '../colony/colony-event.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
@@ -38,6 +39,7 @@ export class TickService {
     @InjectRepository(GameTickState)
     private readonly tickStateRepo: Repository<GameTickState>,
     private readonly colonyService: ColonyService,
+    private readonly colonyEventService: ColonyEventService,
     private readonly spacecraftService: SpacecraftService,
     private readonly researchService: ResearchService,
     private readonly gateway: GameGateway,
@@ -80,13 +82,22 @@ export class TickService {
         const userProd = commodityProductionByUser.get(colony.userId)!;
         for (const [commodityId, amount] of tickResult.productionDelta) {
           if (amount > 0) {
-            userProd.set(commodityId, (userProd.get(commodityId) || 0) + amount);
+            userProd.set(
+              commodityId,
+              (userProd.get(commodityId) || 0) + amount,
+            );
           }
         }
         this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
           colonyId: colony.id,
         });
         if (tickResult.events.length > 0) {
+          await this.colonyEventService.createTickEvents(
+            colony.id,
+            colony.userId,
+            tickResult.events,
+            tickNumber,
+          );
           this.gateway.emitToUser(
             colony.userId,
             WsEventType.COLONY_TICK_REPORT,
