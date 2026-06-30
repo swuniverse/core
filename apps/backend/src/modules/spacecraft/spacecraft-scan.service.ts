@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import { Colony } from '../colony/entities/colony.entity';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
 import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.generator';
 import { GameDataService } from '../game-data/game-data.service';
@@ -22,6 +23,8 @@ export class SpacecraftScanService {
     private readonly moduleRepo: Repository<SpacecraftModule>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
+    @InjectRepository(Colony)
+    private readonly colonyRepo: Repository<Colony>,
     private readonly planetGenerator: PlanetGeneratorService,
     private readonly gameData: GameDataService,
     private readonly spacecraftCrewService: SpacecraftCrewService,
@@ -78,6 +81,137 @@ export class SpacecraftScanService {
 
     const created = await this.planetGenerator.generateAndPersist(object.id);
     return { celestialObjectId: object.id, created };
+  }
+
+  async colonyScan(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+  ): Promise<{
+    colony: {
+      id: number;
+      name: string;
+      owner: { id: number; username: string | null };
+      colonyClassId: number;
+      starSystemId: number | null;
+      celestialObject: {
+        id: number;
+        name: string | null;
+        classId: number | null;
+        posX: number;
+        posY: number;
+      } | null;
+    };
+    surface: {
+      width: number | null;
+      height: number | null;
+      fields: Array<{
+        fieldIndex: number;
+        fieldType: number;
+        terrainTileId: number | null;
+        buildingId: number | null;
+        buildingName: string | null;
+        hasBuilding: boolean;
+        isConstruction: boolean;
+        isActive: boolean;
+        integrityPercent: number | null;
+      }>;
+    };
+    intelligence: { level: 'SURFACE_SCAN'; redacted: string[] };
+  }> {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['modules'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship.inSystem || !ship.starSystemId) {
+      throw new BadRequestException('Colony scan requires ship inside a system');
+    }
+    if (!this.hasSurfaceScanner(ship.modules ?? [])) {
+      throw new BadRequestException('Matrixsensoren module required');
+    }
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException('Destroyed ship cannot scan');
+    }
+    if (!(await this.spacecraftCrewService.hasEnoughCrew(ship))) {
+      throw new BadRequestException('Not enough crew');
+    }
+
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId },
+      relations: ['fields', 'user', 'celestialObject'],
+    });
+    if (!colony) throw new NotFoundException('Colony not found');
+    if (colony.starSystemId !== ship.starSystemId) {
+      throw new BadRequestException('Colony is not in current system');
+    }
+
+    const shipX = ship.currentSystemFieldX ?? ship.posX;
+    const shipY = ship.currentSystemFieldY ?? ship.posY;
+    const colonyX = colony.celestialObject?.posX ?? colony.posX;
+    const colonyY = colony.celestialObject?.posY ?? colony.posY;
+    const distance = Math.max(Math.abs(colonyX - shipX), Math.abs(colonyY - shipY));
+    const range = await this.getSensorRange(ship);
+    if (distance > range) {
+      throw new BadRequestException('Colony is outside sensor range');
+    }
+
+    const fields = [...(colony.fields ?? [])].sort(
+      (a, b) => a.fieldIndex - b.fieldIndex,
+    );
+
+    return {
+      colony: {
+        id: colony.id,
+        name: colony.name,
+        owner: { id: colony.userId, username: colony.user?.username ?? null },
+        colonyClassId: colony.colonyClassId,
+        starSystemId: colony.starSystemId,
+        celestialObject: colony.celestialObject
+          ? {
+              id: colony.celestialObject.id,
+              name: colony.celestialObject.name,
+              classId: colony.celestialObject.classId,
+              posX: colony.celestialObject.posX,
+              posY: colony.celestialObject.posY,
+            }
+          : null,
+      },
+      surface: {
+        width: colony.celestialObject?.surfaceWidth ?? null,
+        height: colony.celestialObject?.surfaceHeight ?? null,
+        fields: fields.map((field) => {
+          const building = field.buildingId
+            ? this.gameData.getBuilding(field.buildingId)
+            : undefined;
+          return {
+            fieldIndex: field.fieldIndex,
+            fieldType: field.fieldType,
+            terrainTileId: field.terrainTileId,
+            buildingId: field.buildingId,
+            buildingName: building?.name ?? null,
+            hasBuilding: field.buildingId != null,
+            isConstruction: field.isBuilding,
+            isActive: field.isActive,
+            integrityPercent:
+              field.maxIntegrity > 0
+                ? Math.round((field.integrity / field.maxIntegrity) * 100)
+                : null,
+          };
+        }),
+      },
+      intelligence: {
+        level: 'SURFACE_SCAN',
+        redacted: [
+          'storage',
+          'defense',
+          'population',
+          'production',
+          'events',
+          'queues',
+        ],
+      },
+    };
   }
 
   private hasSurfaceScanner(modules: SpacecraftModule[]): boolean {

@@ -114,13 +114,16 @@ export class DatabaseService {
   }
 
   async getRankings() {
-    const [research, prestige, colonies] = await Promise.all([
-      this.getResearchRanking(),
-      this.getPrestigeRanking(),
-      this.getColonyRanking(),
-    ]);
+    const [research, prestige, colonies, colonyWorth, colonyProductionWorth] =
+      await Promise.all([
+        this.getResearchRanking(),
+        this.getPrestigeRanking(),
+        this.getColonyRanking(),
+        this.getColonyWorthRanking(),
+        this.getColonyProductionWorthRanking(),
+      ]);
 
-    return { research, prestige, colonies };
+    return { research, prestige, colonies, colonyWorth, colonyProductionWorth };
   }
 
   private async getResearchRanking() {
@@ -163,6 +166,52 @@ export class DatabaseService {
       .addGroupBy('user.username')
       .orderBy('COUNT(colony.id)', 'DESC')
       .addOrderBy('user.username', 'ASC')
+      .limit(10)
+      .getRawMany();
+  }
+
+  private async getColonyWorthRanking() {
+    return this.colonyRepo
+      .createQueryBuilder('colony')
+      .innerJoin(User, 'user', 'user.id = colony.userId')
+      .leftJoin('colony.fields', 'field')
+      .select('colony.id', 'colonyId')
+      .addSelect('colony.name', 'colonyName')
+      .addSelect('user.id', 'userId')
+      .addSelect('user.username', 'username')
+      .addSelect(
+        `SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false THEN 1 ELSE 0 END)`,
+        'score',
+      )
+      .groupBy('colony.id')
+      .addGroupBy('colony.name')
+      .addGroupBy('user.id')
+      .addGroupBy('user.username')
+      .orderBy('score', 'DESC')
+      .addOrderBy('colony.name', 'ASC')
+      .limit(10)
+      .getRawMany();
+  }
+
+  private async getColonyProductionWorthRanking() {
+    return this.colonyRepo
+      .createQueryBuilder('colony')
+      .innerJoin(User, 'user', 'user.id = colony.userId')
+      .leftJoin('colony.fields', 'field')
+      .select('colony.id', 'colonyId')
+      .addSelect('colony.name', 'colonyName')
+      .addSelect('user.id', 'userId')
+      .addSelect('user.username', 'username')
+      .addSelect(
+        `SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false AND field.isActive = true THEN 1 ELSE 0 END)`,
+        'score',
+      )
+      .groupBy('colony.id')
+      .addGroupBy('colony.name')
+      .addGroupBy('user.id')
+      .addGroupBy('user.username')
+      .orderBy('score', 'DESC')
+      .addOrderBy('colony.name', 'ASC')
       .limit(10)
       .getRawMany();
   }

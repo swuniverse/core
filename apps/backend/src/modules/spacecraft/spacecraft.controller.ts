@@ -167,6 +167,15 @@ export class SpacecraftController {
     return this.scanService.surfaceScan(id, req.user.sub, celestialObjectId);
   }
 
+  @Post(':id/colony-scan')
+  colonyScan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('colonyId') colonyId: number,
+  ) {
+    return this.scanService.colonyScan(id, req.user.sub, colonyId);
+  }
+
   @Post(':id/navigate')
   navigate(
     @Param('id', ParseIntPipe) id: number,
