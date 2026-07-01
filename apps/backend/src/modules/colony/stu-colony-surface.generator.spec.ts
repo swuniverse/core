@@ -28,12 +28,14 @@ describe('StuColonySurfaceGenerator', () => {
     },
   );
 
-  it('keeps STU tile ids but normalizes terrain families for build rules', () => {
-    expect(normalizeStuTerrainType(112)).toBe(101);
-    expect(normalizeStuTerrainType(121)).toBe(601);
-    expect(normalizeStuTerrainType(211)).toBe(201);
+  it('keeps 3-digit types as-is, strips 5-digit bonus tiles to 3-digit base', () => {
+    expect(normalizeStuTerrainType(112)).toBe(112);
+    expect(normalizeStuTerrainType(121)).toBe(121);
+    expect(normalizeStuTerrainType(211)).toBe(211);
+    expect(normalizeStuTerrainType(851)).toBe(851);
     expect(normalizeStuTerrainType(40131)).toBe(401);
     expect(normalizeStuTerrainType(70121)).toBe(701);
-    expect(normalizeStuTerrainType(851)).toBe(801);
+    expect(normalizeStuTerrainType(11101)).toBe(111);
+    expect(normalizeStuTerrainType(10103)).toBe(101);
   });
 });
