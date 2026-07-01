@@ -133,7 +133,7 @@ export class ColonyEventService {
           type: ColonyEventType.BUILDING_DEACTIVATED,
           severity: ColonyEventSeverity.WARNING,
           title: 'Gebäude deaktiviert',
-          message: `Gebäude auf Feld ${event.fieldIndex ?? '?'} wurde deaktiviert (${event.reason ?? 'Mangel'}).`,
+          message: `${event.buildingName ?? 'Gebäude'} wurde deaktiviert (${event.reason ?? 'Mangel'}).`,
           payload: { ...event },
         };
       case 'STORAGE_FULL':
@@ -149,7 +149,7 @@ export class ColonyEventService {
           type: ColonyEventType.BUILDING_FINISHED,
           severity: ColonyEventSeverity.INFO,
           title: 'Gebäude fertiggestellt',
-          message: `Gebäude auf Feld ${event.fieldIndex ?? '?'} wurde fertiggestellt.`,
+          message: `${event.buildingName ?? 'Gebäude'} wurde fertiggestellt.`,
           payload: { ...event },
         };
       case 'TERRAFORMING_FINISHED':

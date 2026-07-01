@@ -8,7 +8,9 @@ jest.mock('./entities/spacecraft-module.entity', () => ({
 jest.mock('../starmap/entities/celestial-object.entity', () => ({
   CelestialObject: class CelestialObject {},
 }));
-jest.mock('../colony/entities/colony.entity', () => ({ Colony: class Colony {} }));
+jest.mock('../colony/entities/colony.entity', () => ({
+  Colony: class Colony {},
+}));
 jest.mock('../starmap/generator/planet-generator.service', () => ({
   PlanetGeneratorService: class PlanetGeneratorService {},
 }));
@@ -47,7 +49,9 @@ function createService() {
     ]),
     getBuilding: jest.fn((id: number) => ({ id, name: `Gebäude ${id}` })),
   };
-  const spacecraftCrewService = { hasEnoughCrew: jest.fn().mockResolvedValue(true) };
+  const spacecraftCrewService = {
+    hasEnoughCrew: jest.fn().mockResolvedValue(true),
+  };
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,

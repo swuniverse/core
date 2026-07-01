@@ -24,9 +24,22 @@ export function planetThumbnail(classId: number): string {
   return `${ASSET_BASE}/planets/${classId}s.${planetAssetExtension(classId, true)}`;
 }
 
-export function shipImage(shipClassId: number): string {
+const SHIP_CLASS_KEY_FILES: Record<string, string> = {
+  REBEL_CORVETTE_GR75: 'gr75-medium-transport.png',
+  EMPIRE_FRIGATE_SENTINEL: 'sentinel-class-landing-craft.png',
+  REBEL_FREIGHTER: 'yt-class-freighter.png',
+  EMPIRE_FREIGHTER: 'gozanti-class-cruiser.png',
+};
+
+export function shipImage(
+  shipClassId: number,
+  shipClassKey?: string | null,
+): string {
+  const keyFile = shipClassKey ? SHIP_CLASS_KEY_FILES[shipClassKey] : undefined;
+  if (keyFile) return `${ASSET_BASE}/ships/${keyFile}`;
   return `${ASSET_BASE}/ships/${shipClassId}.png`;
 }
+
 
 const GENERATED_COMMODITY_FILES: Record<number, string> = {
   2: '2-baumaterial.png',
@@ -78,7 +91,6 @@ const GENERATED_BUILDING_FILES: Record<number, string> = {
   21010100: '21010100-rebel-farm.png',
   21010300: '21010300-imperiale-targfarm.png',
   21020100: '21020100-algenfarm.png',
-  21020200: '21020100-algenfarm.png',
   21910300: '21910300-anti-grav-trainingszentrum.png',
   22010500: '22010500-bar.png',
   22020200: '22020200-ale-brauerei.png',

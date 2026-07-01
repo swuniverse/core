@@ -71,14 +71,14 @@ describe('GameDataService terraforming', () => {
   });
 
   it('loads curated STU-like terraforming options', () => {
-    expect(service.getTerraforming(101201)).toMatchObject({
-      fromFieldType: 101,
-      toFieldType: 201,
-      energyCost: 20,
+    expect(service.getTerraforming(111101)).toMatchObject({
+      fromFieldType: 111,
+      toFieldType: 101,
+      energyCost: 25,
     });
     expect(
-      service.getTerraformingForFieldType(101).map((option) => option.id),
-    ).toContain(101201);
+      service.getTerraformingForFieldType(111).map((option) => option.id),
+    ).toContain(111101);
   });
 });
 
@@ -222,14 +222,14 @@ describe('GameDataService hangar ship definitions', () => {
   });
 
   it('loads curated airfield hangar definitions', () => {
-    expect(service.getHangarShipDef('REBEL_STARTER_CORVETTE')).toMatchObject({
+    expect(service.getHangarShipDef('REBEL_CORVETTE_GR75')).toMatchObject({
       hangarCommodityId: 21601,
       airfieldFunctionId: FUNCTIONS.AIRFIELD,
       startEnergyCost: expect.any(Number),
       buildCosts: expect.any(Array),
     });
     expect(service.getHangarShipDefByCommodity(21601)).toMatchObject({
-      shipClassKey: 'REBEL_STARTER_CORVETTE',
+      shipClassKey: 'REBEL_CORVETTE_GR75',
     });
     expect(service.getAllHangarShipDefs().length).toBeGreaterThanOrEqual(2);
   });

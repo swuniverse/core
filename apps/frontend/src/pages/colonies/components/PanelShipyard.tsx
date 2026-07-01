@@ -17,10 +17,15 @@ export function PanelShipyard({
   availableCrew,
   commodityMap,
   orbitShips,
+  buildplans,
   onBuildShip,
   onQueueShipRepair,
   onQueueShipRetrofit,
   onCancelShipyardQueue,
+  onCreateBuildplan,
+  onRenameBuildplan,
+  onDeleteBuildplan,
+  onBuildFromBuildplan,
 }: {
   shipyard?: ColonyDetailV2['shipyard'];
   shipClasses: ShipClassDef[];
@@ -30,6 +35,7 @@ export function PanelShipyard({
   availableCrew: number;
   commodityMap: Record<number, CommodityDef>;
   orbitShips: ColonyDetailV2['orbitShips'];
+  buildplans: NonNullable<ColonyDetailV2['buildplans']>;
   onBuildShip: (
     sci: number,
     name: string,
@@ -44,6 +50,18 @@ export function PanelShipyard({
     buildPlanName?: string,
   ) => Promise<void> | void;
   onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
+  onCreateBuildplan: (
+    shipClassId: number,
+    name: string,
+    moduleCommodityIds?: number[],
+    moduleTypes?: string[],
+  ) => Promise<void> | void;
+  onRenameBuildplan: (planId: number, name: string) => Promise<void> | void;
+  onDeleteBuildplan: (planId: number) => Promise<void> | void;
+  onBuildFromBuildplan: (
+    planId: number,
+    name: string,
+  ) => Promise<void> | void;
 }) {
   const [selectedClass, setSelectedClass] = useState<ShipClassDef | null>(null);
   const [shipName, setShipName] = useState('');
@@ -62,6 +80,13 @@ export function PanelShipyard({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [buildplanShipNames, setBuildplanShipNames] = useState<
+    Record<number, string>
+  >({});
+  const [renamingBuildplanId, setRenamingBuildplanId] = useState<number | null>(
+    null,
+  );
+  const [renameBuildplanName, setRenameBuildplanName] = useState('');
 
   const queueModeLabel: Record<ShipyardQueueMode, string> = {
     BUILD: 'Bau',
@@ -114,6 +139,31 @@ export function PanelShipyard({
     }
   };
 
+  const handleCreateBuildplan = async () => {
+    if (!selectedClass || !buildPlanName.trim()) return;
+    const moduleTypes = moduleInput
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    await runShipyardAction('create-buildplan', async () => {
+      await onCreateBuildplan(
+        selectedClass.id,
+        buildPlanName.trim(),
+        selectedModuleCommodityIds,
+        moduleTypes,
+      );
+      setBuildPlanName('');
+    });
+  };
+
+  const startRenameBuildplan = (planId: number, currentName: string) => {
+    setRenamingBuildplanId(planId);
+    setRenameBuildplanName(currentName);
+  };
+
+  const buildplanShipName = (planId: number, fallback: string) =>
+    buildplanShipNames[planId]?.trim() || fallback;
+
   const runShipyardAction = async (
     key: string,
     action: () => Promise<void> | void,
@@ -138,10 +188,12 @@ export function PanelShipyard({
   };
 
   const activeShipyardIds = [
+    ...(shipyard?.fighterActiveFunctionIds ?? []),
     ...(shipyard?.activeFunctionIds ?? []),
     ...(shipyard?.repairActiveFunctionIds ?? []),
   ];
   const presentShipyardIds = [
+    ...(shipyard?.fighterPresentFunctionIds ?? []),
     ...(shipyard?.presentFunctionIds ?? []),
     ...(shipyard?.repairPresentFunctionIds ?? []),
   ];
@@ -175,6 +227,121 @@ export function PanelShipyard({
               blockiert.
             </div>
           )}
+        </div>
+      )}
+      {buildplans.length > 0 && (
+        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-2">
+          <div className="text-[10px] font-bold text-swu-muted uppercase">
+            Baupläne
+          </div>
+          {buildplans.map((plan) => {
+            const shipClass = shipClasses.find((sc) => sc.id === plan.shipClassId);
+            const defaultShipName = shipClass?.name ?? `Schiff #${plan.shipClassId}`;
+            const isRenaming = renamingBuildplanId === plan.id;
+            return (
+              <div
+                key={plan.id}
+                className="space-y-1 border-b border-swu-border/20 pb-2 last:border-0 last:pb-0"
+              >
+                <div className="flex flex-col md:flex-row md:items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-swu-primary truncate">
+                      {plan.name}
+                    </div>
+                    <div className="text-[10px] text-swu-muted">
+                      {shipClass?.name ?? `Klasse #${plan.shipClassId}`}
+                      {plan.moduleTypes.length > 0
+                        ? ` · ${plan.moduleTypes.join(', ')}`
+                        : ''}
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={buildplanShipNames[plan.id] ?? ''}
+                    onChange={(event) =>
+                      setBuildplanShipNames((current) => ({
+                        ...current,
+                        [plan.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="Schiffsname"
+                    className="md:w-40 px-2 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary"
+                  />
+                  <button
+                    onClick={() =>
+                      runShipyardAction(`use-plan-${plan.id}`, () =>
+                        onBuildFromBuildplan(
+                          plan.id,
+                          buildplanShipName(plan.id, defaultShipName),
+                        ),
+                      )
+                    }
+                    disabled={busyShipyardAction === `use-plan-${plan.id}`}
+                    className="px-2 py-1 rounded bg-swu-accent/20 border border-swu-accent text-[10px] text-swu-accent disabled:opacity-40"
+                  >
+                    Verwenden
+                  </button>
+                  <button
+                    onClick={() => startRenameBuildplan(plan.id, plan.name)}
+                    className="px-2 py-1 rounded bg-swu-primary/10 border border-swu-border text-[10px] text-swu-primary"
+                  >
+                    Umbenennen
+                  </button>
+                  <button
+                    onClick={() =>
+                      runShipyardAction(`delete-plan-${plan.id}`, () =>
+                        onDeleteBuildplan(plan.id),
+                      )
+                    }
+                    disabled={busyShipyardAction === `delete-plan-${plan.id}`}
+                    className="px-2 py-1 rounded border border-red-500/50 bg-red-900/20 text-[10px] text-red-300 disabled:opacity-40"
+                  >
+                    Löschen
+                  </button>
+                </div>
+                {isRenaming && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={renameBuildplanName}
+                      onChange={(event) =>
+                        setRenameBuildplanName(event.target.value)
+                      }
+                      className="flex-1 px-2 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary"
+                    />
+                    <button
+                      onClick={() =>
+                        runShipyardAction(`rename-plan-${plan.id}`, async () => {
+                          await onRenameBuildplan(
+                            plan.id,
+                            renameBuildplanName,
+                          );
+                          setRenamingBuildplanId(null);
+                          setRenameBuildplanName('');
+                        })
+                      }
+                      disabled={
+                        !renameBuildplanName.trim() ||
+                        busyShipyardAction === `rename-plan-${plan.id}`
+                      }
+                      className="px-2 py-1 rounded bg-swu-accent/20 border border-swu-accent text-[10px] text-swu-accent disabled:opacity-40"
+                    >
+                      Speichern
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRenamingBuildplanId(null);
+                        setRenameBuildplanName('');
+                      }}
+                      className="px-2 py-1 rounded bg-swu-primary/10 border border-swu-border text-[10px] text-swu-muted"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       {shipyard?.airfield?.present && (
@@ -565,6 +732,16 @@ export function PanelShipyard({
               className="px-3 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-bold rounded hover:bg-swu-accent/30 disabled:opacity-40 transition-colors"
             >
               {building ? '...' : 'Bauen'}
+            </button>
+            <button
+              onClick={handleCreateBuildplan}
+              disabled={
+                !buildPlanName.trim() ||
+                busyShipyardAction === 'create-buildplan'
+              }
+              className="px-3 py-1 bg-swu-primary/10 border border-swu-border text-swu-primary text-xs font-bold rounded hover:bg-swu-primary/20 disabled:opacity-40 transition-colors"
+            >
+              Plan speichern
             </button>
           </div>
           {error && <p className="text-[10px] text-red-400">{error}</p>}

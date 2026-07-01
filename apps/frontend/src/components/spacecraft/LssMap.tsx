@@ -30,6 +30,7 @@ interface SystemLocalField {
     classId: number | null;
     posX: number;
     posY: number;
+    isColonizable?: boolean;
   } | null;
 }
 
@@ -228,8 +229,13 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                       isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                       isTarget ? 'ring-2 ring-swu-accent z-10' : '',
                     ].join(' ')}
-                    title={`[${x},${y}] ${field.fieldType.name}${obj ? ` · ${obj.name || 'Object'}` : ''}`}
+                    title={`[${x},${y}] ${field.fieldType.name}${obj ? ` · ${obj.name || 'Object'}${obj.isColonizable ? ' · kolonisierbar' : ''}` : ''}`}
                   >
+                    {obj?.isColonizable && !isShip && (
+                      <span className="absolute right-0.5 top-0.5 z-10 rounded bg-emerald-500/80 px-0.5 text-[7px] leading-none text-black">
+                        K
+                      </span>
+                    )}
                     {isShip ? (
                       '🚀'
                     ) : shipsByPos.has(`${x},${y}`) ? (

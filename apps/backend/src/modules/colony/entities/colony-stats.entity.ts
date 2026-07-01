@@ -25,6 +25,9 @@ export class ColonyStats {
   @Column({ default: true })
   immigrationEnabled: boolean;
 
+  @Column({ type: 'text', nullable: true })
+  colonyMessage: string | null;
+
   @Column({ default: 0 })
   maxEnergy: number;
 

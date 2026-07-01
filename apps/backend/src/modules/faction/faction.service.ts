@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { Faction } from '@swuniverse/shared';
 import { FactionEntity } from './entities/faction.entity';
 import { FactionModifier } from './entities/faction-modifier.entity';
-import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 
 const DEFAULT_FACTIONS: Array<{
   key: Faction;
@@ -67,8 +66,6 @@ export class FactionService {
     private readonly factionRepo: Repository<FactionEntity>,
     @InjectRepository(FactionModifier)
     private readonly factionModifierRepo: Repository<FactionModifier>,
-    @InjectRepository(ShipClassDef)
-    private readonly shipClassRepo: Repository<ShipClassDef>,
   ) {}
 
   async seedDefaults(): Promise<void> {
@@ -100,18 +97,7 @@ export class FactionService {
   }
 
   async syncStarterShipClassIds(): Promise<void> {
-    const factions = await this.factionRepo.find();
-    for (const faction of factions) {
-      const starterClass = await this.shipClassRepo.findOne({
-        where: { factionId: faction.id, starterAllowed: true },
-        order: { id: 'ASC' },
-      });
-
-      if (starterClass && faction.starterShipClassId !== starterClass.id) {
-        faction.starterShipClassId = starterClass.id;
-        await this.factionRepo.save(faction);
-      }
-    }
+    // ponytail: legacy stub, remove when starterShipClassId column dropped
   }
 
   findAll(): Promise<FactionEntity[]> {

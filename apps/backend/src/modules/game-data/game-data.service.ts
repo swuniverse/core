@@ -258,6 +258,29 @@ export interface HangarShipDef {
   defaultTorpedoAmount: number;
 }
 
+export interface ShipClassYamlDef {
+  key: string;
+  name: string;
+  category: string;
+  role: string;
+  factionKey: string;
+  unlockTechId: number | null;
+  buildTimeTicks: number;
+  cargoCapacity: number;
+  crewMin: number;
+  crewMax: number;
+  hullBase: number;
+  shieldBase: number;
+  epsBase: number;
+  warpBase: number;
+  batteryBase: number;
+  starterAllowed: boolean;
+  isNpc: boolean;
+  isColonizer?: boolean;
+  colonizerTier?: number | null;
+  colonizationBuildingId?: number | null;
+}
+
 export interface SocialEffectsDef {
   lifeStandardCommodityId: number;
   fallback: {
@@ -313,6 +336,7 @@ export class GameDataService implements OnModuleInit {
   private torpedoTypesByCommodity: Map<number, TorpedoTypeDef> = new Map();
   private hangarShipDefsByClassKey: Map<string, HangarShipDef> = new Map();
   private hangarShipDefsByCommodity: Map<number, HangarShipDef> = new Map();
+  private shipClassDefs: ShipClassYamlDef[] = [];
 
   onModuleInit() {
     this.dataPath =
@@ -338,6 +362,7 @@ export class GameDataService implements OnModuleInit {
     this.loadSocialEffects();
     this.loadTorpedoTypes();
     this.loadHangarShipDefs();
+    this.loadShipClasses();
     this.loadTechTree();
     this.loadColonyClasses();
   }
@@ -571,6 +596,18 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadShipClasses() {
+    const data = this.loadYaml<{ shipClasses: ShipClassYamlDef[] }>(
+      'ship-building/ship-classes.yaml',
+    );
+    this.shipClassDefs = data?.shipClasses ?? [];
+    if (this.shipClassDefs.length > 0) {
+      this.logger.log(
+        `Loaded ${this.shipClassDefs.length} ship class definitions`,
+      );
+    }
+  }
+
   private loadTechTree() {
     const data = this.loadYaml<{ technologies: TechDef[] }>(
       'research/stu-research-tree.yaml',
@@ -738,6 +775,10 @@ export class GameDataService implements OnModuleInit {
 
   getAllHangarShipDefs(): HangarShipDef[] {
     return Array.from(this.hangarShipDefsByClassKey.values());
+  }
+
+  getShipClassDefs(): ShipClassYamlDef[] {
+    return this.shipClassDefs;
   }
 
   getTechTree(): TechDef[] {

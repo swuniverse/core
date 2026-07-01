@@ -27,6 +27,8 @@ import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
+import { GameDataModule } from '../game-data/game-data.module';
+import { ColonizationModule } from '../colonization/colonization.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { ResearchModule } from '../research/research.module';
     ]),
     forwardRef(() => StarmapModule),
     ResearchModule,
+    GameDataModule,
+    ColonizationModule,
   ],
   controllers: [SpacecraftController],
   providers: [

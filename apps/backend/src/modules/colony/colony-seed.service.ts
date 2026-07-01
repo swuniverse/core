@@ -17,7 +17,6 @@ import {
 
 const FIELD_TYPES = {
   PLAINS: 101,
-  UNDERGROUND: 801,
 };
 
 const STU_STARTER_BUILDINGS_BY_FACTION_ID: Record<number, number> = {
@@ -31,6 +30,22 @@ const STARTING_COMMODITIES = [
   { commodityId: 5, amount: 100 }, // Deuterium
   { commodityId: 21, amount: 150 }, // Durastahl
 ];
+
+const FOLLOW_UP_STARTING_COMMODITIES = [
+  { commodityId: 2, amount: 150 },
+  { commodityId: 4, amount: 75 },
+  { commodityId: 5, amount: 50 },
+  { commodityId: 21, amount: 75 },
+];
+
+export interface CreateFollowUpColonyOptions {
+  userId: number;
+  username: string;
+  celestialObjectId: number;
+  buildingId: number;
+  resources?: Array<{ commodityId: number; amount: number }>;
+  name?: string;
+}
 
 @Injectable()
 export class ColonySeedService {
@@ -85,13 +100,54 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
-    await this.generateFields(colony, factionId);
+    await this.generateFields(colony, { factionId });
     await this.createInitialStats(colony);
     await this.createInitialDepositMining(colony);
-    await this.grantStartingResources(colony);
+    await this.grantStartingResources(colony, STARTING_COMMODITIES);
 
     this.logger.log(
       `Starter colony created for user ${username} (id: ${colony.id})`,
+    );
+    return colony;
+  }
+
+  async createFollowUpColony(
+    options: CreateFollowUpColonyOptions,
+  ): Promise<Colony> {
+    const object = await this.objectRepo.findOneBy({
+      id: options.celestialObjectId,
+      isColonizable: true,
+    });
+
+    const colony = this.colonyRepo.create({
+      name: options.name?.trim() || `${options.username}'s Kolonie`,
+      userId: options.userId,
+      starSystemId: object?.systemId || null,
+      celestialObjectId: object?.id || null,
+      posX: object?.posX || 10,
+      posY: object?.posY || 10,
+      colonyClassId: object?.classId || STU_DEFAULT_COLONY_CLASS_ID,
+      energy: 25,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageUsed: 0,
+      storageMax: 1500,
+    });
+    await this.colonyRepo.save(colony);
+
+    await this.generateFields(colony, {
+      initialBuildingId: options.buildingId,
+    });
+    await this.createInitialStats(colony);
+    await this.createInitialDepositMining(colony);
+    await this.grantStartingResources(
+      colony,
+      options.resources ?? FOLLOW_UP_STARTING_COMMODITIES,
+    );
+
+    this.logger.log(
+      `Follow-up colony created for user ${options.username} (id: ${colony.id})`,
     );
     return colony;
   }
@@ -122,7 +178,7 @@ export class ColonySeedService {
 
   private async generateFields(
     colony: Colony,
-    factionId?: number | null,
+    options: { factionId?: number | null; initialBuildingId?: number } = {},
   ): Promise<void> {
     const planetFields = colony.celestialObjectId
       ? await this.getOrCreatePlanetFields(colony.celestialObjectId)
@@ -157,7 +213,8 @@ export class ColonySeedService {
     hqField.fieldType = FIELD_TYPES.PLAINS;
     hqField.terrainTileId = FIELD_TYPES.PLAINS;
     hqField.buildingId =
-      STU_STARTER_BUILDINGS_BY_FACTION_ID[factionId ?? 1] ??
+      options.initialBuildingId ??
+      STU_STARTER_BUILDINGS_BY_FACTION_ID[options.factionId ?? 1] ??
       STU_STARTER_BUILDINGS_BY_FACTION_ID[1];
     hqField.buildProgress = 100;
     hqField.isActive = true;
@@ -194,6 +251,7 @@ export class ColonySeedService {
         maxPopulation: activeHousing || colony.populationMax,
         populationLimit: 0,
         immigrationEnabled: true,
+        colonyMessage: null,
         maxEnergy: colony.energyMax,
         maxStorage: colony.storageMax,
         shields: null,
@@ -221,8 +279,11 @@ export class ColonySeedService {
     );
   }
 
-  private async grantStartingResources(colony: Colony): Promise<void> {
-    const storage = STARTING_COMMODITIES.map((c) =>
+  private async grantStartingResources(
+    colony: Colony,
+    resources: Array<{ commodityId: number; amount: number }>,
+  ): Promise<void> {
+    const storage = resources.map((c) =>
       this.storageRepo.create({
         colonyId: colony.id,
         commodityId: c.commodityId,
@@ -233,10 +294,7 @@ export class ColonySeedService {
   }
 
   private findHeadquartersField(fields: ColonyField[]): ColonyField {
-    const surfaceFields = fields.filter(
-      (field) =>
-        field.fieldType !== FIELD_TYPES.UNDERGROUND && field.fieldType !== 900,
-    );
+    const surfaceFields = fields.filter((field) => field.fieldType < 800);
     const center = Math.floor(surfaceFields.length / 2);
     return (
       surfaceFields

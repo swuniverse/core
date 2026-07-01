@@ -6,6 +6,7 @@ import { RegisterPage } from '../pages/register';
 import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
 import { SpacecraftPage } from '../pages/spacecraft';
+import { SpacecraftDetailPage } from '../pages/spacecraft-detail';
 import { StarmapPage } from '../pages/starmap';
 import { ResearchPage } from '../pages/research';
 import { MessagesPage } from '../pages/messages';
@@ -75,6 +76,7 @@ export function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/colonies" element={<ColoniesPage />} />
           <Route path="/spacecraft" element={<SpacecraftPage />} />
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
           <Route path="/starmap" element={<StarmapPage />} />
           <Route
             path="/admin"

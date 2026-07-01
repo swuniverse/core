@@ -23,6 +23,15 @@ export const colonyApi = {
     api.get<TerraformingDef[]>('/colonies/terraforming/all'),
   fetchShipClasses: () => api.get<ShipClassDef[]>('/spacecraft/classes'),
 
+  renameColony: (colonyId: number, name: string) =>
+    api.put(`/colonies/${colonyId}`, { name }),
+  setPopulationLimit: (colonyId: number, limit: number) =>
+    api.post(`/colonies/${colonyId}/population-limit`, { limit }),
+  setImmigration: (colonyId: number, enabled: boolean) =>
+    api.post(`/colonies/${colonyId}/immigration`, { enabled }),
+  setColonyMessage: (colonyId: number, message: string | null) =>
+    api.post(`/colonies/${colonyId}/message`, { message }),
+
   activateBuildings: (
     colonyId: number,
     mode: BuildingMassActionMode,

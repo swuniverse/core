@@ -6,6 +6,7 @@ interface ShipHeaderTableProps {
     name: string;
     shipClassId: number;
     shipClassName?: string;
+    shipClassKey?: string | null;
     status: string;
     alertState: string;
     hull: number;
@@ -51,7 +52,7 @@ export function ShipHeaderTable({ ship }: ShipHeaderTableProps) {
             <td className="border border-swu-border px-2 py-2">
               <div className="flex items-center justify-center gap-2">
                 <img
-                  src={shipImage(ship.shipClassId)}
+                  src={shipImage(ship.shipClassId, ship.shipClassKey)}
                   alt=""
                   className="h-8 w-14 object-contain"
                 />

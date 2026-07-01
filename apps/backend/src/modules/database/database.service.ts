@@ -32,7 +32,11 @@ export class DatabaseService {
       where: { id: In(onlineUserIds) },
       select: ['id', 'username', 'faction'],
     });
-    return users.map((u) => ({ id: u.id, username: u.username, faction: u.faction }));
+    return users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      faction: u.faction,
+    }));
   }
 
   async getOverview() {

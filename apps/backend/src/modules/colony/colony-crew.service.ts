@@ -82,6 +82,21 @@ export class ColonyCrewService {
     return this.crewAssignmentRepo.count({ where: { colonyId } });
   }
 
+  async getCrewCountsByColonyIds(
+    colonyIds: number[],
+  ): Promise<Map<number, number>> {
+    if (!colonyIds.length) return new Map();
+    const rows: Array<{ colonyId: number; cnt: string }> =
+      await this.crewAssignmentRepo
+        .createQueryBuilder('ca')
+        .select('ca.colonyId', 'colonyId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('ca.colonyId IN (:...ids)', { ids: colonyIds })
+        .groupBy('ca.colonyId')
+        .getRawMany();
+    return new Map(rows.map((r) => [r.colonyId, Number(r.cnt)]));
+  }
+
   async getAvailableColonyCrew(colonyId: number): Promise<CrewAssignment[]> {
     return this.crewAssignmentRepo.find({
       where: { colonyId },

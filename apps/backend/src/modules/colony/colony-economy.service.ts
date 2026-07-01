@@ -28,14 +28,13 @@ export interface ColonyFeatureAccess {
 
 @Injectable()
 export class ColonyEconomyService {
-  private readonly airfieldShipyardFunctionIds = [4];
-  private readonly shipyardFunctionIds = [5, 6, 7, 8, 21];
-  private readonly repairShipyardFunctionIds = [22];
-  private readonly fabricationFunctionIds = [
-    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 29, 30,
-  ];
-  private readonly defenseFunctionIds = [24, 25, 26, 27, 28];
   private readonly airfieldFunctionIds = [4];
+  private readonly fighterShipyardFunctionIds = [5];
+  private readonly shipyardFunctionIds = [6, 7, 8, 21];
+  private readonly repairShipyardFunctionIds = [22];
+  private readonly fabricationFunctionIds = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  private readonly fabricationSupportFunctionIds = [29, 30];
+  private readonly defenseFunctionIds = [24, 25, 26, 27, 28];
   private readonly academyFunctionIds = [20];
   private readonly centralCrewTrainingFunctionIds = [1, 2];
 
@@ -108,13 +107,17 @@ export class ColonyEconomyService {
       return { presentFunctionIds, activeFunctionIds };
     };
     const shipyardIds = [
-      ...this.airfieldShipyardFunctionIds,
+      ...this.fighterShipyardFunctionIds,
       ...this.shipyardFunctionIds,
       ...this.repairShipyardFunctionIds,
     ];
+    const fabricationIds = [
+      ...this.fabricationFunctionIds,
+      ...this.fabricationSupportFunctionIds,
+    ];
     const coreVisible = { visible: true };
     const shipyardGroup = group(shipyardIds);
-    const fabricationGroup = group(this.fabricationFunctionIds);
+    const fabricationGroup = group(fabricationIds);
     const defenseGroup = group(this.defenseFunctionIds);
     const airfieldGroup = group(this.airfieldFunctionIds);
 
@@ -124,7 +127,7 @@ export class ColonyEconomyService {
         build: coreVisible,
         events: coreVisible,
         buildingManagement: coreVisible,
-        social: coreVisible,
+        settings: coreVisible,
         crew: coreVisible,
         shipyard: {
           visible: hasPresent(shipyardIds),
@@ -134,10 +137,10 @@ export class ColonyEconomyService {
           activeFunctionIds: shipyardGroup.activeFunctionIds,
         },
         fabrication: {
-          visible: hasPresent(this.fabricationFunctionIds),
+          visible: hasPresent(fabricationIds),
           reason:
-            'Benötigt eine gebaute Torpedo-, Modul- oder Komponentenfertigung',
-          requiredFunctionIds: this.fabricationFunctionIds,
+            'Benötigt eine gebaute Torpedo-, Modul- oder Fabrikationsunterstützung',
+          requiredFunctionIds: fabricationIds,
           presentFunctionIds: fabricationGroup.presentFunctionIds,
           activeFunctionIds: fabricationGroup.activeFunctionIds,
         },
@@ -160,9 +163,11 @@ export class ColonyEconomyService {
         present: this.toFunctionDefs(presentIds),
         active: this.toFunctionDefs(activeIds),
         groups: {
+          fighterShipyards: group(this.fighterShipyardFunctionIds),
           shipyards: group(this.shipyardFunctionIds),
           repairShipyards: group(this.repairShipyardFunctionIds),
           fabrication: group(this.fabricationFunctionIds),
+          fabricationSupport: group(this.fabricationSupportFunctionIds),
           defense: group(this.defenseFunctionIds),
           airfield: group(this.airfieldFunctionIds),
           academy: group(this.academyFunctionIds),

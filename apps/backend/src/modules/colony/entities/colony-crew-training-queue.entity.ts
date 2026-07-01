@@ -21,8 +21,8 @@ export class ColonyCrewTrainingQueue {
   @Column({ default: 1 })
   amount: number;
 
-  @Column({ type: 'timestamp' })
-  finishesAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  finishesAt: Date | null;
 
   @Column({ type: 'varchar', default: ColonyCrewTrainingQueueStatus.QUEUED })
   status: ColonyCrewTrainingQueueStatus;

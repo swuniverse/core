@@ -125,7 +125,9 @@ export class SpacecraftScanService {
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     if (!ship.inSystem || !ship.starSystemId) {
-      throw new BadRequestException('Colony scan requires ship inside a system');
+      throw new BadRequestException(
+        'Colony scan requires ship inside a system',
+      );
     }
     if (!this.hasSurfaceScanner(ship.modules ?? [])) {
       throw new BadRequestException('Matrixsensoren module required');
@@ -150,7 +152,10 @@ export class SpacecraftScanService {
     const shipY = ship.currentSystemFieldY ?? ship.posY;
     const colonyX = colony.celestialObject?.posX ?? colony.posX;
     const colonyY = colony.celestialObject?.posY ?? colony.posY;
-    const distance = Math.max(Math.abs(colonyX - shipX), Math.abs(colonyY - shipY));
+    const distance = Math.max(
+      Math.abs(colonyX - shipX),
+      Math.abs(colonyY - shipY),
+    );
     const range = await this.getSensorRange(ship);
     if (distance > range) {
       throw new BadRequestException('Colony is outside sensor range');

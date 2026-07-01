@@ -17,6 +17,7 @@ import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
+import { ColonizationService } from '../colonization/colonization.service';
 
 @Controller('spacecraft')
 @UseGuards(AuthGuard('jwt'))
@@ -26,15 +27,16 @@ export class SpacecraftController {
     private readonly transferService: TransferService,
     private readonly scanService: SpacecraftScanService,
     private readonly gameData: GameDataService,
+    private readonly colonizationService: ColonizationService,
   ) {}
 
   // Static routes first (before :id)
   @Get('modules/available')
   getAvailableModules(@Query('category') category?: string) {
-    if (category) {
-      return this.gameData.getModulesByCategory(category);
-    }
-    return this.gameData.getAllModules();
+    const modules = category
+      ? this.gameData.getModulesByCategory(category)
+      : this.gameData.getAllModules();
+    return modules.map(({ secret, ...rest }) => rest);
   }
 
   @Get('fleets/all')
@@ -165,6 +167,19 @@ export class SpacecraftController {
     @Body('celestialObjectId') celestialObjectId: number,
   ) {
     return this.scanService.surfaceScan(id, req.user.sub, celestialObjectId);
+  }
+
+  @Post(':id/colonize')
+  colonize(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('celestialObjectId') celestialObjectId: number,
+  ) {
+    return this.colonizationService.colonize(
+      req.user.sub,
+      id,
+      celestialObjectId,
+    );
   }
 
   @Post(':id/colony-scan')

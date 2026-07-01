@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -107,6 +108,33 @@ export class ColonyController {
     @Body('name') name: string,
   ) {
     return this.colonyService.rename(id, req.user.sub, name);
+  }
+
+  @Post(':id/population-limit')
+  setPopulationLimit(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('limit') limit: number,
+  ) {
+    return this.colonyService.setPopulationLimit(id, req.user.sub, limit);
+  }
+
+  @Post(':id/immigration')
+  setImmigration(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('enabled') enabled: boolean,
+  ) {
+    return this.colonyService.setImmigration(id, req.user.sub, enabled);
+  }
+
+  @Post(':id/message')
+  setColonyMessage(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('message') message: string | null,
+  ) {
+    return this.colonyService.setColonyMessage(id, req.user.sub, message);
   }
 
   @Post(':id/build')
@@ -396,6 +424,64 @@ export class ColonyController {
       moduleTypes,
       buildPlanName,
       moduleCommodityIds,
+    );
+  }
+
+  @Post(':id/buildplans')
+  createBuildplan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('shipClassId') shipClassId: number,
+    @Body('name') name: string,
+    @Body('moduleCommodityIds') moduleCommodityIds?: number[],
+    @Body('moduleTypes') moduleTypes?: string[],
+  ) {
+    return this.colonyService.createShipBuildplan(
+      id,
+      req.user.sub,
+      shipClassId,
+      name,
+      moduleCommodityIds ?? [],
+      moduleTypes ?? [],
+    );
+  }
+
+  @Patch(':id/buildplans/:planId')
+  renameBuildplan(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('planId', ParseIntPipe) planId: number,
+    @Request() req: { user: { sub: number } },
+    @Body('name') name: string,
+  ) {
+    return this.colonyService.renameShipBuildplan(
+      id,
+      req.user.sub,
+      planId,
+      name,
+    );
+  }
+
+  @Delete(':id/buildplans/:planId')
+  deleteBuildplan(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('planId', ParseIntPipe) planId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.deleteShipBuildplan(id, req.user.sub, planId);
+  }
+
+  @Post(':id/buildplans/:planId/build')
+  buildFromBuildplan(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('planId', ParseIntPipe) planId: number,
+    @Request() req: { user: { sub: number } },
+    @Body('name') name: string,
+  ) {
+    return this.colonyService.buildShipFromBuildplan(
+      id,
+      req.user.sub,
+      planId,
+      name,
     );
   }
 

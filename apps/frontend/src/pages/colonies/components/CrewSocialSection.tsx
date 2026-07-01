@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ColonyDetailV2 } from '../types';
 
-export function PanelSocial({
+export function CrewSocialSection({
   social,
 }: {
   social: NonNullable<ColonyDetailV2['social']>;
@@ -19,7 +19,6 @@ export function PanelSocial({
   const [population, setPopulation] = useState(
     social.calculatorDefaults.population,
   );
-
   const calculatedCrew = useMemo(() => {
     const lifePercent =
       population <= 0

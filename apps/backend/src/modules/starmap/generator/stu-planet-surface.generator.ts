@@ -58,22 +58,14 @@ export function supportsStuSurface(
   );
 }
 
-export function normalizeStuTerrainType(fieldType: number): number {
-  if (fieldType >= 10000) {
-    return normalizeStuTerrainType(Math.floor(fieldType / 100));
+export function normalizeStuTerrainType(terrainTileId: number): number {
+  // 5-digit bonus tiles (e.g. 11101, 21011) → strip to 3-digit base
+  if (terrainTileId >= 10000) {
+    return normalizeStuTerrainType(Math.floor(terrainTileId / 100));
   }
-  if (fieldType === 900) return 900;
-  if (fieldType === 801 || fieldType === 802 || fieldType === 851) return 801;
-  if (fieldType >= 1000) return 701;
-
-  const base = Math.floor(fieldType / 100);
-  if (base === 1) return fieldType === 121 || fieldType === 122 ? 601 : 101;
-  if (base === 2) return 201;
-  if (base === 4) return 401;
-  if (base === 5) return 501;
-  if (base === 6) return 601;
-  if (base === 7) return fieldType >= 703 && fieldType <= 706 ? 703 : 701;
-  return fieldType;
+  // 3-digit and below: keep as-is — each is a distinct field type
+  // with its own terraform and building rules
+  return terrainTileId;
 }
 
 export class StuPlanetSurfaceGenerator {

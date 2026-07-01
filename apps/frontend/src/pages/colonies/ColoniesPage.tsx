@@ -27,7 +27,8 @@ import { PanelInfo } from './components/PanelInfo';
 import { PanelBuild } from './components/PanelBuild';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelBuildingManagement } from './components/PanelBuildingManagement';
-import { PanelSocial } from './components/PanelSocial';
+import { PanelSettings } from './components/PanelSettings';
+import { PanelOrbit } from './components/PanelOrbit';
 
 // ─── Page ────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ export function ColoniesPage() {
     return (
       <ColonyOverview
         colonies={colonies}
+        commodities={commodities}
         onSelect={(id) => loadColonyDetail(id)}
       />
     );
@@ -207,6 +209,36 @@ export function ColoniesPage() {
         await api.delete(`/colonies/${selected.id}/shipyard-queue/${queueId}`);
         loadColonyDetail(selected.id);
       }}
+      onCreateBuildplan={async (
+        shipClassId: number,
+        name: string,
+        moduleCommodityIds?: number[],
+        moduleTypes?: string[],
+      ) => {
+        await api.post(`/colonies/${selected.id}/buildplans`, {
+          shipClassId,
+          name,
+          moduleCommodityIds,
+          moduleTypes,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onRenameBuildplan={async (planId: number, name: string) => {
+        await api.patch(`/colonies/${selected.id}/buildplans/${planId}`, {
+          name,
+        });
+        loadColonyDetail(selected.id);
+      }}
+      onDeleteBuildplan={async (planId: number) => {
+        await api.delete(`/colonies/${selected.id}/buildplans/${planId}`);
+        loadColonyDetail(selected.id);
+      }}
+      onBuildFromBuildplan={async (planId: number, name: string) => {
+        await api.post(`/colonies/${selected.id}/buildplans/${planId}/build`, {
+          name,
+        });
+        loadColonyDetail(selected.id);
+      }}
       onBuildAirfieldRump={async (shipClassId: number, amount: number) => {
         await api.post(`/colonies/${selected.id}/hangar/build-rump`, {
           shipClassId,
@@ -250,6 +282,22 @@ export function ColoniesPage() {
         await api.post(`/colonies/${selected.id}/events/read-all`, {});
         loadColonyDetail(selected.id);
       }}
+      onRenameColony={async (name: string) => {
+        await api.put(`/colonies/${selected.id}`, { name });
+        loadColonyDetail(selected.id);
+      }}
+      onSetPopulationLimit={async (limit: number) => {
+        await api.post(`/colonies/${selected.id}/population-limit`, { limit });
+        loadColonyDetail(selected.id);
+      }}
+      onSetImmigration={async (enabled: boolean) => {
+        await api.post(`/colonies/${selected.id}/immigration`, { enabled });
+        loadColonyDetail(selected.id);
+      }}
+      onSetColonyMessage={async (message: string | null) => {
+        await api.post(`/colonies/${selected.id}/message`, { message });
+        loadColonyDetail(selected.id);
+      }}
       onActivateBuildings={async (mode, options) => {
         const result = await api.post<any, unknown>(
           `/colonies/${selected.id}/buildings/activate`,
@@ -272,7 +320,7 @@ export function ColoniesPage() {
 
 // ─── Overview ────────────────────────────────────────────────
 
-function ColonyDetail({
+export function ColonyDetail({
   colony,
   commodities,
   buildingDefs,
@@ -297,6 +345,10 @@ function ColonyDetail({
   onQueueShipRepair,
   onQueueShipRetrofit,
   onCancelShipyardQueue,
+  onCreateBuildplan,
+  onRenameBuildplan,
+  onDeleteBuildplan,
+  onBuildFromBuildplan,
   onBuildAirfieldRump,
   onStartHangarShip,
   onLoadColonyShields,
@@ -305,6 +357,10 @@ function ColonyDetail({
   onLoadColonyEvents,
   onMarkColonyEventRead,
   onMarkAllColonyEventsRead,
+  onRenameColony,
+  onSetPopulationLimit,
+  onSetImmigration,
+  onSetColonyMessage,
   onActivateBuildings,
   onDeactivateBuildings,
 }: {
@@ -349,6 +405,15 @@ function ColonyDetail({
     buildPlanName?: string,
   ) => Promise<void> | void;
   onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
+  onCreateBuildplan: (
+    shipClassId: number,
+    name: string,
+    moduleCommodityIds?: number[],
+    moduleTypes?: string[],
+  ) => Promise<void> | void;
+  onRenameBuildplan: (planId: number, name: string) => Promise<void> | void;
+  onDeleteBuildplan: (planId: number) => Promise<void> | void;
+  onBuildFromBuildplan: (planId: number, name: string) => Promise<void> | void;
   onBuildAirfieldRump: (
     shipClassId: number,
     amount: number,
@@ -363,6 +428,10 @@ function ColonyDetail({
   onLoadColonyEvents: (unreadOnly?: boolean) => Promise<ColonyEventDto[]>;
   onMarkColonyEventRead: (eventId: number) => Promise<void> | void;
   onMarkAllColonyEventsRead: () => Promise<void> | void;
+  onRenameColony: (name: string) => Promise<void> | void;
+  onSetPopulationLimit: (limit: number) => Promise<void> | void;
+  onSetImmigration: (enabled: boolean) => Promise<void> | void;
+  onSetColonyMessage: (message: string | null) => Promise<void> | void;
   onActivateBuildings: (
     mode: number,
     options: { fieldIndexes?: number[]; commodityId?: number },
@@ -389,6 +458,14 @@ function ColonyDetail({
   const fields = colony.fields || [];
   const storage = colony.storage || [];
   const detail = colony.detailV2;
+
+  useEffect(() => {
+    if (selectedField) {
+      const fresh = fields.find((f) => f.fieldIndex === selectedField.fieldIndex);
+      if (fresh) setSelectedField(fresh);
+      else setSelectedField(null);
+    }
+  }, [fields]);
 
   const highlightedFields = useMemo(() => {
     if (!selectedBuilding) return new Set<number>();
@@ -419,13 +496,13 @@ function ColonyDetail({
   };
 
   const orbitFields = fields
-    .filter((f) => f.fieldType === 900)
-    .sort((a, b) => a.fieldIndex - b.fieldIndex);
-  const surfaceFields = fields
-    .filter((f) => f.fieldType !== 900 && f.fieldType !== 801)
+    .filter((f) => f.fieldType >= 900)
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
   const undergroundFields = fields
-    .filter((f) => f.fieldType === 801)
+    .filter((f) => f.fieldType >= 800 && f.fieldType < 900)
+    .sort((a, b) => a.fieldIndex - b.fieldIndex);
+  const surfaceFields = fields
+    .filter((f) => f.fieldType < 800)
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
 
   const tabAccess = detail?.featureAccess?.tabs;
@@ -433,7 +510,9 @@ function ColonyDetail({
     tabAccess?.[key]?.visible ?? fallback;
   const tabs: Array<{ key: DetailTab; label: string; show: boolean }> = [
     { key: 'info', label: 'Informationen', show: isTabVisible('info') },
+    { key: 'orbit', label: 'Orbit', show: (detail?.orbitShips.length ?? 0) > 0 },
     { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
+    { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
     {
       key: 'buildingManagement',
       label: 'Gebäudemanagement',
@@ -454,14 +533,17 @@ function ColonyDetail({
       label: 'Verteidigung',
       show: isTabVisible('defense', false),
     },
+    { key: 'hangar', label: 'Hangar', show: isTabVisible('hangar', false) },
     {
       key: 'events',
       label: `Ereignisse${detail?.eventSummary?.unreadCount ? ` (${detail.eventSummary.unreadCount})` : ''}`,
       show: isTabVisible('events'),
     },
-    { key: 'hangar', label: 'Hangar', show: isTabVisible('hangar', false) },
-    { key: 'social', label: 'Soziales', show: isTabVisible('social') },
-    { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
+    {
+      key: 'settings',
+      label: 'Einstellungen',
+      show: isTabVisible('settings'),
+    },
   ];
 
   useEffect(() => {
@@ -699,6 +781,15 @@ function ColonyDetail({
               onTerraform={onTerraform}
             />
           )}
+          {activeTab === 'orbit' && detail && (
+            <PanelOrbit
+              orbitShips={detail.orbitShips}
+              orbitBlockers={detail.orbitBlockers}
+              isBlockaded={colony.stats?.isBlockaded ?? false}
+              onLandShip={onLandShip}
+              onDisassembleShip={onDisassembleShip}
+            />
+          )}
           {activeTab === 'build' && (
             <PanelBuild
               buildingDefs={buildingDefs}
@@ -732,10 +823,15 @@ function ColonyDetail({
               availableCrew={detail?.crew?.available ?? 0}
               commodityMap={commodityMap}
               orbitShips={detail?.orbitShips ?? []}
+              buildplans={detail?.buildplans ?? []}
               onBuildShip={onBuildShip}
               onQueueShipRepair={onQueueShipRepair}
               onQueueShipRetrofit={onQueueShipRetrofit}
               onCancelShipyardQueue={onCancelShipyardQueue}
+              onCreateBuildplan={onCreateBuildplan}
+              onRenameBuildplan={onRenameBuildplan}
+              onDeleteBuildplan={onDeleteBuildplan}
+              onBuildFromBuildplan={onBuildFromBuildplan}
             />
           )}
           {activeTab === 'events' && (
@@ -782,25 +878,34 @@ function ColonyDetail({
               onCancelFabrication={onCancelFabrication}
             />
           )}
-          {activeTab === 'social' &&
-            (detail?.social ? (
-              <PanelSocial social={detail.social} />
-            ) : (
-              <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
-                Keine Sozialdaten verfügbar. Bitte Backend/Seite neu laden.
-              </div>
-            ))}
-          {activeTab === 'crew' && detail?.crew && (
-            <PanelCrew
-              crew={detail.crew}
-              orbitShips={detail.orbitShips}
-              onQueueCrewTraining={onQueueCrewTraining}
-              onAssignCrewToShip={onAssignCrewToShip}
-              onUnassignCrewFromShip={onUnassignCrewFromShip}
-              onLandShip={onLandShip}
-              onDisassembleShip={onDisassembleShip}
+          {activeTab === 'settings' && detail && (
+            <PanelSettings
+              colonyName={colony.name}
+              population={detail.population}
+              options={detail.options}
+              onRenameColony={onRenameColony}
+              onSetPopulationLimit={onSetPopulationLimit}
+              onSetImmigration={onSetImmigration}
+              onSetColonyMessage={onSetColonyMessage}
             />
           )}
+          {activeTab === 'crew' &&
+            (detail?.crew ? (
+              <PanelCrew
+                crew={detail.crew}
+                social={detail.social}
+                orbitShips={detail.orbitShips}
+                onQueueCrewTraining={onQueueCrewTraining}
+                onAssignCrewToShip={onAssignCrewToShip}
+                onUnassignCrewFromShip={onUnassignCrewFromShip}
+                onLandShip={onLandShip}
+                onDisassembleShip={onDisassembleShip}
+              />
+            ) : (
+              <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
+                Keine Crewdaten verfügbar. Bitte Backend/Seite neu laden.
+              </div>
+            ))}
         </div>
       </div>
 

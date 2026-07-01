@@ -56,4 +56,13 @@ export class ShipClassDef {
 
   @Column({ default: false })
   isNpc: boolean;
+
+  @Column({ default: false })
+  isColonizer: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  colonizerTier: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  colonizationBuildingId: number | null;
 }

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { ColonyDetailV2 } from '../types';
+import { CrewSocialSection } from './CrewSocialSection';
 
 // ─── Panel: Crew ─────────────────────────────────────────────
 
 export function PanelCrew({
   crew,
+  social,
   orbitShips,
   onQueueCrewTraining,
   onAssignCrewToShip,
@@ -13,6 +15,7 @@ export function PanelCrew({
   onDisassembleShip: _onDisassembleShip,
 }: {
   crew: NonNullable<ColonyDetailV2['crew']>;
+  social?: ColonyDetailV2['social'];
   orbitShips: ColonyDetailV2['orbitShips'];
   onQueueCrewTraining: (amount: number) => Promise<void> | void;
   onAssignCrewToShip: (shipId: number, amount: number) => Promise<void> | void;
@@ -125,6 +128,14 @@ export function PanelCrew({
         {error && <p className="text-[10px] text-red-400">{error}</p>}
       </div>
 
+      {social ? (
+        <CrewSocialSection social={social} />
+      ) : (
+        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
+          Keine Sozialdaten verfügbar. Bitte Backend/Seite neu laden.
+        </div>
+      )}
+
       <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs">
         <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
           Orbit-Crew
@@ -178,7 +189,7 @@ export function PanelCrew({
               >
                 <span className="text-swu-primary">{job.amount} Crew</span>
                 <span className="text-swu-muted">
-                  bis {new Date(job.finishesAt).toLocaleString()}
+                  nächster Tick
                 </span>
               </div>
             ))}

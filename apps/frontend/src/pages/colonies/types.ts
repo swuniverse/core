@@ -260,6 +260,12 @@ export interface ColonyDetailV2 {
   };
   energy: { current: number; max: number; delta: number };
   storage: { current: number; max: number; delta: number };
+  options?: {
+    name: string;
+    colonyMessage: string | null;
+    populationLimit: number;
+    immigrationEnabled: boolean;
+  };
   population: {
     current: number;
     max: number;
@@ -270,6 +276,8 @@ export interface ColonyDetailV2 {
     housingFree?: number;
     housingMax?: number;
     housingBonus?: number;
+    populationLimit?: number;
+    immigrationEnabled?: boolean;
   };
   inventory: Array<{
     id: number;
@@ -305,6 +313,10 @@ export interface ColonyDetailV2 {
     id: number;
     name: string;
     shipClassId: number;
+    shipClassKey?: string | null;
+    shipClassName?: string;
+    shipCategory?: string | null;
+    shipRole?: string | null;
     status: string;
     hull: number;
     hullMax: number;
@@ -320,6 +332,24 @@ export interface ColonyDetailV2 {
     canDisassemble?: boolean;
     canRepair?: boolean;
     canRetrofit?: boolean;
+    canManage?: boolean;
+    canDefend?: boolean;
+    canBlock?: boolean;
+    canManageShuttle?: boolean;
+    orbitGroup?: 'SINGLE' | 'FLEET';
+    orbitGroupLabel?: string;
+    fleetId?: number | null;
+    actionBlockers?: {
+      defend?: string | null;
+      block?: string | null;
+      shuttleManagement?: string | null;
+      station?: string | null;
+    };
+    station?: {
+      id: number;
+      name: string;
+      type?: string | null;
+    } | null;
     damageSummary?: { hullDamage: number; damagedModules: number };
     modules?: Array<{
       id: number;
@@ -430,6 +460,11 @@ export interface ColonyDetailV2 {
       shipClassId: number;
     }>;
   };
+  orbitBlockers?: {
+    shuttleManagement?: string;
+    station?: string;
+    defense?: string;
+  };
   social?: {
     local: {
       primaryEffect: { commodityId: number; name: string; value: number };
@@ -507,6 +542,8 @@ export interface ColonyDetailV2 {
       consumption: number;
       balance: number;
     };
+    fighterPresentFunctionIds?: number[];
+    fighterActiveFunctionIds?: number[];
     presentFunctionIds?: number[];
     activeFunctionIds?: number[];
     repairPresentFunctionIds?: number[];
@@ -538,6 +575,17 @@ export interface Colony {
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
   detailV2?: ColonyDetailV2;
+  stats?: {
+    isBlockaded?: boolean;
+  };
+  crewSummary?: { assigned: number; limit: number; inTraining: number };
+  productionDeltas?: Array<{ commodityId: number; amount: number }>;
+  activeBuildJobs?: Array<{
+    fieldIndex: number;
+    buildingId: number;
+    buildingName: string;
+    finishesAt: string | null;
+  }>;
 }
 
 export interface BuildingDef {
@@ -604,12 +652,13 @@ export interface ShipClassDef {
 
 export type DetailTab =
   | 'info'
+  | 'orbit'
   | 'build'
   | 'buildingManagement'
   | 'shipyard'
   | 'fabrication'
   | 'defense'
   | 'events'
-  | 'social'
+  | 'settings'
   | 'crew'
   | 'hangar';

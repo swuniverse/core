@@ -14,6 +14,7 @@ import { TickModule } from './modules/tick/tick.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { FactionModule } from './modules/faction/faction.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { ColonizationModule } from './modules/colonization/colonization.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { MailModule } from './modules/mail/mail.module';
@@ -130,6 +131,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
     AuthModule,
     OnboardingModule,
     ColonyModule,
+    ColonizationModule,
     StarmapModule,
     SpacecraftModule,
     CombatModule,

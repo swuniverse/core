@@ -194,14 +194,16 @@ export function PanelBuildingManagement({
         )}
       </div>
 
-      <div className="bg-swu-surface border border-swu-border rounded divide-y divide-swu-border/20 text-xs">
-        {management.fields.map((field) => {
+      <div className="bg-swu-surface border border-swu-border rounded text-xs">
+        {[...management.fields]
+          .sort((a, b) => a.buildingName.localeCompare(b.buildingName))
+          .map((field) => {
           const damaged =
             field.maxIntegrity > 0 && field.integrity < field.maxIntegrity;
           return (
             <label
               key={field.fieldIndex}
-              className="flex items-center gap-2 px-3 py-1.5"
+              className="flex items-center gap-2 px-3 py-1.5 odd:bg-swu-bg/30"
             >
               <input
                 type="checkbox"
@@ -216,16 +218,11 @@ export function PanelBuildingManagement({
                   )
                 }
               />
-              <span className="w-12 text-swu-muted">
-                Feld {field.fieldIndex}
-              </span>
-              <span className="flex-1 text-swu-primary">
+              <span className="w-48 truncate text-swu-primary" title={field.buildingName}>
                 {field.buildingName}
               </span>
               <span
-                className={
-                  field.isActive ? 'text-green-400' : 'text-yellow-400'
-                }
+                className={`font-mono ${field.isActive ? 'text-green-400' : 'text-yellow-400'}`}
               >
                 {field.isActive ? 'aktiv' : 'inaktiv'}
               </span>
@@ -242,17 +239,15 @@ export function PanelBuildingManagement({
                   ))}
                 </span>
               )}
-              <span className={damaged ? 'text-orange-400' : 'text-swu-muted'}>
+              <span className={`font-mono ${damaged ? 'text-orange-400' : 'text-swu-muted'}`}>
                 {field.integrity}/{field.maxIntegrity}
               </span>
               <span
-                className={
-                  field.epsProc >= 0 ? 'text-green-400' : 'text-red-400'
-                }
+                className={`font-mono ${field.epsProc >= 0 ? 'text-green-400' : 'text-red-400'}`}
               >
                 EPS {field.epsProc}
               </span>
-              <span className="text-swu-muted">Arb {field.bevUse}</span>
+              <span className="font-mono text-swu-muted">Arb {field.bevUse}</span>
             </label>
           );
         })}

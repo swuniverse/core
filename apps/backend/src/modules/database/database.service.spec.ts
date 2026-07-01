@@ -1,5 +1,7 @@
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
-jest.mock('../colony/entities/colony.entity', () => ({ Colony: class Colony {} }));
+jest.mock('../colony/entities/colony.entity', () => ({
+  Colony: class Colony {},
+}));
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
 }));
@@ -55,12 +57,26 @@ describe('DatabaseService rankings', () => {
   it('returns deterministic public colony worth rankings without private intel', async () => {
     const { service, userRepo, colonyRepo, researchRepo } = createService();
     const research = rankingBuilder([{ userId: 1, username: 'A', score: '2' }]);
-    const colonyCount = rankingBuilder([{ userId: 2, username: 'B', score: '3' }]);
+    const colonyCount = rankingBuilder([
+      { userId: 2, username: 'B', score: '3' },
+    ]);
     const colonyWorth = rankingBuilder([
-      { colonyId: 10, colonyName: 'Alpha', userId: 1, username: 'A', score: '4' },
+      {
+        colonyId: 10,
+        colonyName: 'Alpha',
+        userId: 1,
+        username: 'A',
+        score: '4',
+      },
     ]);
     const colonyProductionWorth = rankingBuilder([
-      { colonyId: 11, colonyName: 'Beta', userId: 2, username: 'B', score: '2' },
+      {
+        colonyId: 11,
+        colonyName: 'Beta',
+        userId: 2,
+        username: 'B',
+        score: '2',
+      },
     ]);
     researchRepo.createQueryBuilder.mockReturnValue(research);
     colonyRepo.createQueryBuilder
@@ -76,10 +92,22 @@ describe('DatabaseService rankings', () => {
       prestige: [{ userId: 3, username: 'C', score: 9 }],
       colonies: [{ userId: 2, username: 'B', score: '3' }],
       colonyWorth: [
-        { colonyId: 10, colonyName: 'Alpha', userId: 1, username: 'A', score: '4' },
+        {
+          colonyId: 10,
+          colonyName: 'Alpha',
+          userId: 1,
+          username: 'A',
+          score: '4',
+        },
       ],
       colonyProductionWorth: [
-        { colonyId: 11, colonyName: 'Beta', userId: 2, username: 'B', score: '2' },
+        {
+          colonyId: 11,
+          colonyName: 'Beta',
+          userId: 2,
+          username: 'B',
+          score: '2',
+        },
       ],
     });
     expect(JSON.stringify(result)).not.toContain('storage');

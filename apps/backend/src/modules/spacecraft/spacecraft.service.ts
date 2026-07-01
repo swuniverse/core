@@ -347,6 +347,9 @@ export class SpacecraftService {
     return Object.assign(ship, {
       shipClassName: shipClass?.name || `Class ${ship.shipClassId}`,
       shipClassKey: shipClass?.key || null,
+      isColonizer: shipClass?.isColonizer ?? false,
+      colonizerTier: shipClass?.colonizerTier ?? null,
+      colonizationBuildingId: shipClass?.colonizationBuildingId ?? null,
       locationLabel:
         ship.celestialObject?.name || ship.starSystem?.name || 'Deep Space',
       moduleCount,
@@ -458,155 +461,6 @@ export class SpacecraftService {
       'SPAWN',
     );
     return hydratedShip;
-  }
-
-  async spawnStarterShip(
-    userId: number,
-    factionId: number,
-    celestialObjectId: number,
-  ): Promise<Spacecraft> {
-    const existingStarter = await this.shipRepo.findOne({
-      where: { userId, celestialObjectId },
-      order: { id: 'ASC' },
-    });
-    if (existingStarter) {
-      return existingStarter;
-    }
-
-    const shipClass =
-      await this.shipClassService.findStarterByFactionId(factionId);
-    if (!shipClass) {
-      throw new NotFoundException('Starter ship class not found for faction');
-    }
-
-    const celestialObject = await this.objectRepo.findOneBy({
-      id: celestialObjectId,
-    });
-    if (!celestialObject) {
-      throw new NotFoundException('Celestial object not found');
-    }
-
-    const layer = await this.layerRepo.findOne({ where: { isDefault: true } });
-
-    const ship = await this.shipRepo.save(
-      this.shipRepo.create({
-        name: shipClass.name,
-        shipClassId: shipClass.id,
-        userId,
-        starSystemId: celestialObject.systemId,
-        currentLayerId: layer?.id ?? null,
-        celestialObjectId: celestialObject.id,
-        inSystem: true,
-        posX: celestialObject.posX,
-        posY: celestialObject.posY,
-        currentSystemFieldX: celestialObject.posX,
-        currentSystemFieldY: celestialObject.posY,
-        status: SpacecraftStatus.DOCKED,
-        hull: shipClass.hullBase,
-        hullMax: shipClass.hullBase,
-        shields: shipClass.shieldBase,
-        shieldsMax: shipClass.shieldBase,
-        energy: shipClass.epsBase,
-        energyMax: shipClass.epsBase,
-        warpSpeed: shipClass.warpBase,
-        crew: shipClass.crewMin,
-        crewMax: shipClass.crewMax,
-        cargoUsed: 0,
-        cargoMax: shipClass.cargoCapacity,
-        battery: shipClass.batteryBase,
-        batteryMax: shipClass.batteryBase,
-      }),
-    );
-
-    await this.installStarterModules(ship.id);
-    await this.ensureStarterFleet(ship);
-    const hydratedShip = await this.shipRepo.findOneOrFail({
-      where: { id: ship.id },
-      relations: ['modules', 'fleet', 'starSystem'],
-    });
-    const currentSystem = await this.systemRepo.findOneBy({
-      id: celestialObject.systemId,
-    });
-    if (currentSystem) {
-      await this.discoverGalaxyAroundShip(
-        hydratedShip,
-        currentSystem.layerId,
-        currentSystem.cx,
-        currentSystem.cy,
-        'STARTER_SHIP',
-      );
-    }
-    return hydratedShip;
-  }
-
-  private async installStarterModules(shipId: number): Promise<void> {
-    const starterModules = [
-      'Durastahl-Panzerung',
-      'Standard-Deflektorschild',
-      'Ion-Triebwerk',
-      'Standard-Hyperantrieb',
-      'Standard-Scanner',
-      'Standard-Frachtraum',
-      'Standard-Lebenserhaltung',
-      'Leichter Turbolaser',
-    ];
-
-    for (const moduleType of starterModules) {
-      const exists = await this.moduleRepo.findOne({
-        where: { spacecraftId: shipId, moduleType },
-      });
-      if (exists) {
-        continue;
-      }
-
-      const moduleDef = this.gameData
-        .getAllModules()
-        .find((module) => module.name === moduleType);
-      if (!moduleDef) {
-        continue;
-      }
-
-      await this.moduleRepo.save(
-        this.moduleRepo.create({
-          spacecraftId: shipId,
-          moduleType,
-          category: moduleDef.category,
-          level: 1,
-          integrity: 100,
-          cooldown: 0,
-          isActive: true,
-        }),
-      );
-    }
-
-    const ship = await this.shipRepo.findOneByOrFail({ id: shipId });
-    await this.recalculateStats(ship);
-  }
-
-  private async ensureStarterFleet(ship: Spacecraft): Promise<void> {
-    if (ship.fleetId) {
-      return;
-    }
-
-    const existingFleet = await this.fleetRepo.findOne({
-      where: { userId: ship.userId, leaderId: ship.id },
-    });
-    if (existingFleet) {
-      ship.fleetId = existingFleet.id;
-      await this.shipRepo.save(ship);
-      return;
-    }
-
-    const fleet = await this.fleetRepo.save(
-      this.fleetRepo.create({
-        userId: ship.userId,
-        leaderId: ship.id,
-        name: `${ship.name} Fleet`,
-      }),
-    );
-
-    ship.fleetId = fleet.id;
-    await this.shipRepo.save(ship);
   }
 
   private async recalculateStats(ship: Spacecraft): Promise<void> {
@@ -1214,6 +1068,7 @@ export class SpacecraftService {
                 name: f.celestialObject.name,
                 objectType: f.celestialObject.objectType,
                 classId: f.celestialObject.classId,
+                isColonizable: f.celestialObject.isColonizable,
                 posX: f.celestialObject.posX,
                 posY: f.celestialObject.posY,
               }

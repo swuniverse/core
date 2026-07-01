@@ -1,4 +1,5 @@
 export * from './planet-classes.js';
+export * from './colonization-rules.js';
 
 export interface StarmapLayerDto {
   id: number;
@@ -69,11 +70,7 @@ export interface StarmapFieldTypeDto {
 }
 
 export type StarmapFactionZone =
-  | 'REBEL'
-  | 'EMPIRE'
-  | 'CONTESTED'
-  | 'UNKNOWN'
-  | 'NEUTRAL';
+  'REBEL' | 'EMPIRE' | 'CONTESTED' | 'UNKNOWN' | 'NEUTRAL';
 
 export interface StarmapGalaxyFieldDto {
   id: number;

@@ -20,6 +20,10 @@ interface ActiveBuildJob {
   progress: number;
 }
 
+interface DashboardBuildJob extends ActiveBuildJob {
+  colonyName: string;
+}
+
 interface ColonySummary {
   id: number;
   name: string;
@@ -41,17 +45,49 @@ interface CurrentObjective {
   colonyId?: number;
 }
 
+interface HolonetPost {
+  id: number;
+  title: string;
+  authorName: string;
+  createdAt: string;
+  category: string;
+  commentCount: number;
+}
+
+interface ColonizationLimit {
+  type: string;
+  count: number;
+  limit: number;
+  max: number;
+}
+
+interface ColonizationStatus {
+  limits: {
+    planet: ColonizationLimit;
+    moon: ColonizationLimit;
+    asteroid: ColonizationLimit;
+  };
+}
+
+interface CrewInfo {
+  assigned: number;
+  globalLimit: number;
+}
+
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const [colonies, setColonies] = useState<ColonySummary[]>([]);
   const [objective, setObjective] = useState<CurrentObjective | null>(null);
   const [activeResearch, setActiveResearch] = useState<ActiveResearch | null>(
     null,
   );
-  const [buildJobs, setBuildJobs] = useState<ActiveBuildJob[]>([]);
+  const [buildJobs, setBuildJobs] = useState<DashboardBuildJob[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState<
     Array<{ id: number; username: string; faction: string }>
   >([]);
+  const [holonetPosts, setHolonetPosts] = useState<HolonetPost[]>([]);
+  const [colonizationLimits, setColonizationLimits] =
+    useState<ColonizationStatus | null>(null);
+  const [crewInfo, setCrewInfo] = useState<CrewInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,46 +105,79 @@ export function DashboardPage() {
           blockedReason?: string | null;
         }>
       >('/research'),
-    ]).then(async ([colonyData, objectiveData, researchData]) => {
-      setColonies(colonyData);
-      setObjective(objectiveData);
-      const active = researchData.find((r) => r.status === 'IN_PROGRESS');
-      setActiveResearch(active ?? null);
-
-      // Fetch build jobs from first colony detail
-      if (colonyData.length > 0) {
-        try {
-          const detail = await api.get<{
-            detailV2?: { activeBuildJobs: ActiveBuildJob[] };
-          }>(`/colonies/${colonyData[0].id}`);
-          setBuildJobs(detail.detailV2?.activeBuildJobs ?? []);
-        } catch {
-          /* ignore */
-        }
-      }
-
-      // Fetch online players
+      api
+        .get<{ data: HolonetPost[] }>('/holonet?page=1')
+        .catch(() => ({ data: [] })),
+      api.get<ColonizationStatus>('/colonization/status').catch(() => null),
       api
         .get<Array<{ id: number; username: string; faction: string }>>(
           '/database/online',
         )
-        .then(setOnlinePlayers)
-        .catch(() => undefined);
+        .catch(() => []),
+    ]).then(
+      async ([
+        colonyData,
+        objectiveData,
+        researchData,
+        holonetData,
+        colonizationData,
+        onlineData,
+      ]) => {
+        setObjective(objectiveData);
+        const active = researchData.find((r) => r.status === 'IN_PROGRESS');
+        setActiveResearch(active ?? null);
+        setHolonetPosts((holonetData?.data ?? []).slice(0, 5));
+        if (colonizationData) setColonizationLimits(colonizationData);
+        setOnlinePlayers(onlineData);
 
-      setLoading(false);
-    });
+        // Fetch all colony details for build jobs + crew info
+        if (colonyData.length > 0) {
+          const details = await Promise.all(
+            colonyData.map((c) =>
+              api
+                .get<{
+                  detailV2?: { activeBuildJobs: ActiveBuildJob[] };
+                  crew?: {
+                    globalLimit: number;
+                    remainingGlobal: number;
+                  };
+                }>(`/colonies/${c.id}`)
+                .catch(() => null),
+            ),
+          );
+
+          const allJobs: DashboardBuildJob[] = [];
+          let foundCrew: CrewInfo | null = null;
+
+          for (let i = 0; i < details.length; i++) {
+            const detail = details[i];
+            if (!detail) continue;
+            const jobs = detail.detailV2?.activeBuildJobs ?? [];
+            allJobs.push(
+              ...jobs.map((j) => ({ ...j, colonyName: colonyData[i].name })),
+            );
+            if (!foundCrew && detail.crew) {
+              foundCrew = {
+                assigned: detail.crew.globalLimit - detail.crew.remainingGlobal,
+                globalLimit: detail.crew.globalLimit,
+              };
+            }
+          }
+
+          setBuildJobs(allJobs);
+          if (foundCrew) setCrewInfo(foundCrew);
+        }
+
+        setLoading(false);
+      },
+    );
   }, []);
 
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
 
-  const totalPopulation = colonies.reduce((sum, c) => sum + c.population, 0);
-  const totalEnergy = colonies.reduce((sum, c) => sum + c.energy, 0);
-  const totalEnergyMax = colonies.reduce((sum, c) => sum + c.energyMax, 0);
-
   return (
     <div className="space-y-3">
-      {/* Breadcrumb */}
       <div className="text-xs text-swu-muted">/ Maindesk</div>
 
       <div className="flex flex-col gap-4 md:flex-row">
@@ -134,6 +203,54 @@ export function DashboardPage() {
               <span className="text-xs text-swu-accent shrink-0">→</span>
             </Link>
           )}
+
+          {/* Holonet Posts */}
+          <div className="bg-swu-surface border border-swu-border rounded">
+            <div className="px-3 py-1.5 border-b border-swu-border/50 flex items-center justify-between">
+              <span className="text-xs font-bold text-swu-muted">
+                Neue HN-Beiträge
+              </span>
+              <Link
+                to="/holonet"
+                className="text-[10px] text-swu-accent hover:underline"
+              >
+                Alle anzeigen →
+              </Link>
+            </div>
+            {holonetPosts.length === 0 ? (
+              <div className="px-3 py-2 text-[10px] text-swu-muted">
+                Keine Beiträge.
+              </div>
+            ) : (
+              <div className="divide-y divide-swu-border/20">
+                {holonetPosts.map((post) => (
+                  <Link
+                    key={post.id}
+                    to={`/holonet/${post.id}`}
+                    className="px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-swu-accent/5 transition-colors"
+                  >
+                    <span className="text-[9px] text-swu-muted uppercase w-10 shrink-0">
+                      {post.category?.slice(0, 4) ?? 'POST'}
+                    </span>
+                    <span className="text-swu-primary truncate flex-1">
+                      {post.title}
+                    </span>
+                    <span className="text-[10px] text-swu-muted shrink-0">
+                      {post.authorName}
+                    </span>
+                    {post.commentCount > 0 && (
+                      <span className="text-[10px] text-swu-muted shrink-0">
+                        💬{post.commentCount}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-swu-muted shrink-0">
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Active Jobs */}
           {(activeResearch || buildJobs.length > 0) && (
@@ -176,7 +293,7 @@ export function DashboardPage() {
                 )}
                 {buildJobs.map((job) => (
                   <div
-                    key={`${job.fieldIndex}-${job.buildingId}`}
+                    key={`${job.colonyName}-${job.fieldIndex}-${job.buildingId}`}
                     className="px-3 py-1.5 flex flex-wrap items-center gap-2 text-xs md:flex-nowrap"
                   >
                     <span className="text-yellow-400">▲</span>
@@ -185,7 +302,7 @@ export function DashboardPage() {
                       {job.buildingName}
                     </span>
                     <span className="text-[10px] text-swu-muted shrink-0">
-                      Feld {job.fieldIndex}
+                      ({job.colonyName}, Feld {job.fieldIndex})
                     </span>
                     <span className="text-[10px] text-swu-muted ml-auto shrink-0">
                       {job.finishesAt
@@ -202,89 +319,60 @@ export function DashboardPage() {
               </div>
             </div>
           )}
-
-          {/* Colony Table */}
-          {colonies.length > 0 && (
-            <div className="bg-swu-surface border border-swu-border rounded overflow-x-auto">
-              <div className="px-3 py-2 border-b border-swu-border/50 flex items-center justify-between">
-                <span className="text-xs font-bold text-swu-muted">
-                  Kolonien ({colonies.length})
-                </span>
-                <span className="text-[10px] text-swu-muted">
-                  Bevölkerung: {totalPopulation} · Energie: {totalEnergy}/
-                  {totalEnergyMax}
-                </span>
-              </div>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[10px] text-swu-muted border-b border-swu-border/30">
-                    <th className="text-left px-3 py-1.5 font-normal">Name</th>
-                    <th className="text-left px-3 py-1.5 font-normal hidden md:table-cell">
-                      Standort
-                    </th>
-                    <th className="text-right px-3 py-1.5 font-normal">
-                      Energie
-                    </th>
-                    <th className="text-right px-3 py-1.5 font-normal">
-                      Bevölkerung
-                    </th>
-                    <th className="text-right px-3 py-1.5 font-normal">
-                      Lager
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {colonies.map((colony) => (
-                    <tr
-                      key={colony.id}
-                      className="border-b border-swu-border/20 hover:bg-swu-accent/5 transition-colors"
-                    >
-                      <td className="px-3 py-1.5">
-                        <Link
-                          to={`/colonies?selected=${colony.id}`}
-                          className="font-bold text-swu-primary hover:text-swu-accent"
-                        >
-                          {colony.name}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-1.5 text-swu-muted hidden md:table-cell">
-                        {colony.locationLabel || 'Unbekannt'}
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        <StatCell
-                          value={colony.energy}
-                          max={colony.energyMax}
-                          color="text-yellow-400"
-                        />
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        <StatCell
-                          value={colony.population}
-                          max={colony.populationMax}
-                          color="text-swu-success"
-                        />
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        <StatCell
-                          value={colony.storageUsed}
-                          max={colony.storageMax}
-                          color="text-swu-primary"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
         {/* Right Sidebar (desktop only) */}
         <div className="hidden md:block w-48 space-y-3 shrink-0">
+          {/* Colony Limits */}
+          {colonizationLimits && (
+            <div className="bg-swu-surface border border-swu-border rounded px-3 py-2">
+              <div className="text-[10px] text-swu-muted uppercase mb-2">
+                Kolonielimitierung
+              </div>
+              <div className="space-y-1">
+                <LimitRow
+                  label="Planeten"
+                  count={colonizationLimits.limits.planet.count}
+                  limit={colonizationLimits.limits.planet.limit}
+                />
+                <LimitRow
+                  label="Monde"
+                  count={colonizationLimits.limits.moon.count}
+                  limit={colonizationLimits.limits.moon.limit}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Crew Limits */}
+          {crewInfo && (
+            <div className="bg-swu-surface border border-swu-border rounded px-3 py-2">
+              <div className="text-[10px] text-swu-muted uppercase mb-1">
+                Crewlimitierung
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-swu-bg rounded-full overflow-hidden border border-swu-border/30">
+                  <div
+                    className="h-full bg-swu-accent"
+                    style={{
+                      width: `${crewInfo.globalLimit > 0 ? (crewInfo.assigned / crewInfo.globalLimit) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-mono text-swu-primary">
+                  {crewInfo.assigned}
+                  <span className="text-swu-muted">
+                    /{crewInfo.globalLimit}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Online Players */}
           <div className="bg-swu-surface border border-swu-border rounded px-3 py-2">
             <div className="text-[10px] text-swu-muted uppercase mb-1">
-              Spieler online ({onlinePlayers.length})
+              Zufällige Spieler ({onlinePlayers.length})
             </div>
             {onlinePlayers.length === 0 ? (
               <div className="text-[10px] text-swu-muted">Niemand online.</div>
@@ -316,27 +404,23 @@ export function DashboardPage() {
   );
 }
 
-function StatCell({
-  value,
-  max,
-  color,
+function LimitRow({
+  label,
+  count,
+  limit,
 }: {
-  value: number;
-  max: number;
-  color: string;
+  label: string;
+  count: number;
+  limit: number;
 }) {
-  const pct = max > 0 ? (value / max) * 100 : 0;
+  const atLimit = count >= limit;
   return (
-    <div className="inline-flex items-center gap-1.5">
-      <div className="w-12 h-1 bg-swu-bg rounded-full overflow-hidden border border-swu-border/30">
-        <div
-          className={`h-full ${color === 'text-yellow-400' ? 'bg-yellow-500' : color === 'text-swu-success' ? 'bg-swu-success' : 'bg-swu-primary'} transition-all`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className={`font-mono ${color}`}>
-        {value}
-        <span className="text-swu-border">/{max}</span>
+    <div className="flex items-center justify-between text-[11px]">
+      <span className="text-swu-muted">{label}</span>
+      <span
+        className={`font-mono ${atLimit ? 'text-yellow-400' : 'text-swu-primary'}`}
+      >
+        {count}/{limit}
       </span>
     </div>
   );

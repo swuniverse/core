@@ -638,8 +638,8 @@ buildings:
     source: stu
     sourceId: 11010103
     rawName: Häuser
-    name: Häuser
-    description: Häuser
+    name: Häuser (verdichtet)
+    description: Verdichtete Häuser
     category: stu
     allowedFieldTypes:
       []
@@ -788,8 +788,8 @@ buildings:
     source: stu
     sourceId: 21010101
     rawName: Farm
-    name: Farm
-    description: Farm
+    name: Farm (fruchtbar)
+    description: Farm auf fruchtbarem Feld
     category: stu
     allowedFieldTypes:
       []
@@ -1102,8 +1102,8 @@ buildings:
     source: stu
     sourceId: 31010131
     rawName: Solarzellen
-    name: Solarzellen
-    description: Solarzellen
+    name: Solarzellen (Hochleistung)
+    description: Hochleistungs-Solarzellen
     category: stu
     allowedFieldTypes:
       []
@@ -1970,8 +1970,8 @@ buildings:
     source: stu
     sourceId: 11010203
     rawName: Häuser
-    name: Häuser
-    description: Häuser
+    name: Häuser (verdichtet)
+    description: Verdichtete Häuser
     category: stu
     allowedFieldTypes:
       []
@@ -2120,8 +2120,8 @@ buildings:
     source: stu
     sourceId: 21010201
     rawName: Farm
-    name: Farm
-    description: Farm
+    name: Farm (fruchtbar)
+    description: Farm auf fruchtbarem Feld
     category: stu
     allowedFieldTypes:
       []
@@ -2434,8 +2434,8 @@ buildings:
     source: stu
     sourceId: 31010231
     rawName: Solarzellen
-    name: Solarzellen
-    description: Solarzellen
+    name: Solarzellen (Hochleistung)
+    description: Hochleistungs-Solarzellen
     category: stu
     allowedFieldTypes:
       []
@@ -3302,8 +3302,8 @@ buildings:
     source: stu
     sourceId: 11010303
     rawName: Häuser
-    name: Häuser
-    description: Häuser
+    name: Häuser (verdichtet)
+    description: Verdichtete Häuser
     category: stu
     allowedFieldTypes:
       []
@@ -3452,8 +3452,8 @@ buildings:
     source: stu
     sourceId: 21010301
     rawName: Targfarm
-    name: Targfarm
-    description: Targfarm
+    name: Targfarm (fruchtbar)
+    description: Targfarm auf fruchtbarem Feld
     category: stu
     allowedFieldTypes:
       []
@@ -3766,8 +3766,8 @@ buildings:
     source: stu
     sourceId: 31010331
     rawName: Solarzellen
-    name: Solarzellen
-    description: Solarzellen
+    name: Solarzellen (Hochleistung)
+    description: Hochleistungs-Solarzellen
     category: stu
     allowedFieldTypes:
       []
@@ -4634,8 +4634,8 @@ buildings:
     source: stu
     sourceId: 11010403
     rawName: Häuser
-    name: Häuser
-    description: Häuser
+    name: Häuser (verdichtet)
+    description: Verdichtete Häuser
     category: stu
     allowedFieldTypes:
       []
@@ -4784,8 +4784,8 @@ buildings:
     source: stu
     sourceId: 21010401
     rawName: Sem´hal Farm
-    name: Sem´hal Farm
-    description: Sem´hal Farm
+    name: Sem´hal Farm (fruchtbar)
+    description: Sem´hal Farm auf fruchtbarem Feld
     category: stu
     allowedFieldTypes:
       []
@@ -5098,8 +5098,8 @@ buildings:
     source: stu
     sourceId: 31010431
     rawName: Solarzellen
-    name: Solarzellen
-    description: Solarzellen
+    name: Solarzellen (Hochleistung)
+    description: Hochleistungs-Solarzellen
     category: stu
     allowedFieldTypes:
       []
@@ -5966,8 +5966,8 @@ buildings:
     source: stu
     sourceId: 11010503
     rawName: Häuser
-    name: Häuser
-    description: Häuser
+    name: Häuser (verdichtet)
+    description: Verdichtete Häuser
     category: stu
     allowedFieldTypes:
       []
@@ -6116,8 +6116,8 @@ buildings:
     source: stu
     sourceId: 21010501
     rawName: Rohrmadenfarm
-    name: Rohrmadenfarm
-    description: Rohrmadenfarm
+    name: Rohrmadenfarm (fruchtbar)
+    description: Rohrmadenfarm auf fruchtbarem Feld
     category: stu
     allowedFieldTypes:
       []
@@ -6430,8 +6430,8 @@ buildings:
     source: stu
     sourceId: 31010531
     rawName: Solarzellen
-    name: Solarzellen
-    description: Solarzellen
+    name: Solarzellen (Hochleistung)
+    description: Hochleistungs-Solarzellen
     category: stu
     allowedFieldTypes:
       []
@@ -22525,8 +22525,8 @@ buildings:
     source: stu
     sourceId: 12010104
     rawName: Habitatkuppel
-    name: Habitatkuppel
-    description: Habitatkuppel
+    name: Habitatkuppel (erweitert)
+    description: Erweiterte Habitatkuppel
     category: stu
     allowedFieldTypes:
       []
@@ -22895,8 +22895,8 @@ buildings:
     source: stu
     sourceId: 12010204
     rawName: Habitatkuppel
-    name: Habitatkuppel
-    description: Habitatkuppel
+    name: Habitatkuppel (erweitert)
+    description: Erweiterte Habitatkuppel
     category: stu
     allowedFieldTypes:
       []
@@ -23265,8 +23265,8 @@ buildings:
     source: stu
     sourceId: 12010304
     rawName: Habitatkuppel
-    name: Habitatkuppel
-    description: Habitatkuppel
+    name: Habitatkuppel (erweitert)
+    description: Erweiterte Habitatkuppel
     category: stu
     allowedFieldTypes:
       []
@@ -23635,8 +23635,8 @@ buildings:
     source: stu
     sourceId: 12010404
     rawName: Habitatkuppel
-    name: Habitatkuppel
-    description: Habitatkuppel
+    name: Habitatkuppel (erweitert)
+    description: Erweiterte Habitatkuppel
     category: stu
     allowedFieldTypes:
       []
@@ -24005,8 +24005,8 @@ buildings:
     source: stu
     sourceId: 12010504
     rawName: Habitatkuppel
-    name: Habitatkuppel
-    description: Habitatkuppel
+    name: Habitatkuppel (erweitert)
+    description: Erweiterte Habitatkuppel
     category: stu
     allowedFieldTypes:
       []
@@ -25067,7 +25067,7 @@ buildings:
     sourceId: 21020100
     rawName: Algenfarm
     name: Algenfarm
-    description: Algenfarm
+    description: Algenfarm auf Wasserfeldern
     category: stu
     allowedFieldTypes:
       - 201
@@ -25149,8 +25149,8 @@ buildings:
     source: stu
     sourceId: 21020102
     rawName: Algenfarm
-    name: Algenfarm
-    description: Algenfarm
+    name: Algenfarm (Tiefwasser)
+    description: Algenfarm auf Tiefwasserfeldern
     category: stu
     allowedFieldTypes:
       []
@@ -25193,8 +25193,8 @@ buildings:
     source: stu
     sourceId: 21020199
     rawName: Algenfarm
-    name: Algenfarm
-    description: Algenfarm
+    name: Algenfarm (inaktiv)
+    description: Inaktive Algenfarm
     category: stu
     allowedFieldTypes:
       []
@@ -25238,7 +25238,7 @@ buildings:
     sourceId: 21020200
     rawName: Algenfarm
     name: Algenfarm
-    description: Algenfarm
+    description: Algenfarm auf Wasserfeldern
     category: stu
     allowedFieldTypes:
       - 201
@@ -25320,8 +25320,8 @@ buildings:
     source: stu
     sourceId: 21020202
     rawName: Algenfarm
-    name: Algenfarm
-    description: Algenfarm
+    name: Algenfarm (Tiefwasser)
+    description: Algenfarm auf Tiefwasserfeldern
     category: stu
     allowedFieldTypes:
       []
@@ -25364,8 +25364,8 @@ buildings:
     source: stu
     sourceId: 21020299
     rawName: Algenfarm
-    name: Algenfarm
-    description: Algenfarm
+    name: Algenfarm (inaktiv)
+    description: Inaktive Algenfarm
     category: stu
     allowedFieldTypes:
       []
@@ -25491,7 +25491,7 @@ buildings:
     source: stu
     sourceId: 21020302
     rawName: Gaghfarm
-    name: Gaghfarm
+    name: Gaghfarm (Tiefwasser)
     description: Gaghfarm
     category: stu
     allowedFieldTypes:
@@ -25662,7 +25662,7 @@ buildings:
     source: stu
     sourceId: 21020402
     rawName: Algenfarm
-    name: Algenfarm
+    name: Algenfarm (Tiefwasser)
     description: Algenfarm
     category: stu
     allowedFieldTypes:
@@ -25833,7 +25833,7 @@ buildings:
     source: stu
     sourceId: 21020502
     rawName: Vak-Klee Farm
-    name: Vak-Klee Farm
+    name: Vak-Klee Farm (Tiefwasser)
     description: Vak-Klee Farm
     category: stu
     allowedFieldTypes:
@@ -41705,8 +41705,8 @@ buildings:
     source: stu
     sourceId: 33040132
     rawName: Strömungturbinen
-    name: Strömungturbinen
-    description: Strömungturbinen
+    name: Strömungturbinen (Tiefenstrom)
+    description: Strömungturbinen für Tiefenströmungen
     category: stu
     allowedFieldTypes:
       []
@@ -41890,8 +41890,8 @@ buildings:
     source: stu
     sourceId: 33040232
     rawName: Strömungturbinen
-    name: Strömungturbinen
-    description: Strömungturbinen
+    name: Strömungturbinen (Tiefenstrom)
+    description: Strömungturbinen für Tiefenströmungen
     category: stu
     allowedFieldTypes:
       []
@@ -42075,7 +42075,7 @@ buildings:
     source: stu
     sourceId: 33040332
     rawName: Strömungturbinen
-    name: Strömungturbinen
+    name: Strömungturbinen (Tiefenstrom)
     description: Strömungturbinen
     category: stu
     allowedFieldTypes:
@@ -42260,7 +42260,7 @@ buildings:
     source: stu
     sourceId: 33040432
     rawName: Strömungturbinen
-    name: Strömungturbinen
+    name: Strömungturbinen (Tiefenstrom)
     description: Strömungturbinen
     category: stu
     allowedFieldTypes:
@@ -42445,7 +42445,7 @@ buildings:
     source: stu
     sourceId: 33040532
     rawName: Strömungturbinen
-    name: Strömungturbinen
+    name: Strömungturbinen (Tiefenstrom)
     description: Strömungturbinen
     category: stu
     allowedFieldTypes:
@@ -43281,8 +43281,8 @@ buildings:
     source: stu
     sourceId: 33010131
     rawName: Solarspiegel
-    name: Solarspiegel
-    description: Solarspiegel
+    name: Solarspiegel (Fokusfeld)
+    description: Solarspiegel auf Fokusfeld
     category: stu
     allowedFieldTypes:
       []
@@ -43442,8 +43442,8 @@ buildings:
     source: stu
     sourceId: 33010231
     rawName: Solarspiegel
-    name: Solarspiegel
-    description: Solarspiegel
+    name: Solarspiegel (Fokusfeld)
+    description: Solarspiegel auf Fokusfeld
     category: stu
     allowedFieldTypes:
       []
@@ -43603,7 +43603,7 @@ buildings:
     source: stu
     sourceId: 33010331
     rawName: Solarspiegel
-    name: Solarspiegel
+    name: Solarspiegel (Fokusfeld)
     description: Solarspiegel
     category: stu
     allowedFieldTypes:
@@ -43764,7 +43764,7 @@ buildings:
     source: stu
     sourceId: 33010431
     rawName: Solarspiegel
-    name: Solarspiegel
+    name: Solarspiegel (Fokusfeld)
     description: Solarspiegel
     category: stu
     allowedFieldTypes:
@@ -43925,7 +43925,7 @@ buildings:
     source: stu
     sourceId: 33010531
     rawName: Solarspiegel
-    name: Solarspiegel
+    name: Solarspiegel (Fokusfeld)
     description: Solarspiegel
     category: stu
     allowedFieldTypes:
@@ -52504,8 +52504,8 @@ buildings:
     source: stu
     sourceId: 61110112
     rawName: Iridium-Mine
-    name: Iridium-Mine
-    description: Iridium-Mine
+    name: Iridium-Mine (ergiebig)
+    description: Ergiebige Iridium-Mine
     category: stu
     allowedFieldTypes:
       []
@@ -52850,8 +52850,8 @@ buildings:
     source: stu
     sourceId: 61110212
     rawName: Iridium-Mine
-    name: Iridium-Mine
-    description: Iridium-Mine
+    name: Iridium-Mine (ergiebig)
+    description: Ergiebige Iridium-Mine
     category: stu
     allowedFieldTypes:
       []
@@ -53196,7 +53196,7 @@ buildings:
     source: stu
     sourceId: 61110312
     rawName: Iridium-Mine
-    name: Iridium-Mine
+    name: Iridium-Mine (ergiebig)
     description: Iridium-Mine
     category: stu
     allowedFieldTypes:
@@ -53542,7 +53542,7 @@ buildings:
     source: stu
     sourceId: 61110412
     rawName: Iridium-Mine
-    name: Iridium-Mine
+    name: Iridium-Mine (ergiebig)
     description: Iridium-Mine
     category: stu
     allowedFieldTypes:
@@ -53888,7 +53888,7 @@ buildings:
     source: stu
     sourceId: 61110512
     rawName: Iridium-Mine
-    name: Iridium-Mine
+    name: Iridium-Mine (ergiebig)
     description: Iridium-Mine
     category: stu
     allowedFieldTypes:
@@ -67269,8 +67269,8 @@ buildings:
     source: stu
     sourceId: 61020111
     rawName: Deuteriumsynthesizer
-    name: Deuteriumsynthesizer
-    description: Deuteriumsynthesizer
+    name: Deuteriumsynthesizer (ergiebig)
+    description: Ergiebiger Deuteriumsynthesizer
     category: stu
     allowedFieldTypes:
       []
@@ -67479,8 +67479,8 @@ buildings:
     source: stu
     sourceId: 61020211
     rawName: Deuteriumsynthesizer
-    name: Deuteriumsynthesizer
-    description: Deuteriumsynthesizer
+    name: Deuteriumsynthesizer (ergiebig)
+    description: Ergiebiger Deuteriumsynthesizer
     category: stu
     allowedFieldTypes:
       []
@@ -67689,7 +67689,7 @@ buildings:
     source: stu
     sourceId: 61020311
     rawName: Deuteriumsynthesizer
-    name: Deuteriumsynthesizer
+    name: Deuteriumsynthesizer (ergiebig)
     description: Deuteriumsynthesizer
     category: stu
     allowedFieldTypes:
@@ -67899,8 +67899,8 @@ buildings:
     source: stu
     sourceId: 61020411
     rawName: Deuteriumsynthesizer
-    name: Deuteriumsynthesizer
-    description: Deuteriumsynthesizer
+    name: Deuteriumsynthesizer (ergiebig)
+    description: Ergiebiger Deuteriumsynthesizer
     category: stu
     allowedFieldTypes:
       []
@@ -68109,8 +68109,8 @@ buildings:
     source: stu
     sourceId: 61020511
     rawName: Deuteriumsynthesizer
-    name: Deuteriumsynthesizer
-    description: Deuteriumsynthesizer
+    name: Deuteriumsynthesizer (ergiebig)
+    description: Ergiebiger Deuteriumsynthesizer
     category: stu
     allowedFieldTypes:
       []
@@ -113391,8 +113391,8 @@ buildings:
     source: stu
     sourceId: 21120102
     rawName: Kälteresistente Algenfarm
-    name: Kälteresistente Algenfarm
-    description: Kälteresistente Algenfarm
+    name: Kälteresistente Algenfarm (Tiefwasser)
+    description: Kälteresistente Algenfarm auf Tiefwasserfeldern
     category: stu
     allowedFieldTypes:
       []
@@ -113534,8 +113534,8 @@ buildings:
     source: stu
     sourceId: 21120202
     rawName: Kälteresistente Algenfarm
-    name: Kälteresistente Algenfarm
-    description: Kälteresistente Algenfarm
+    name: Kälteresistente Algenfarm (Tiefwasser)
+    description: Kälteresistente Algenfarm auf Tiefwasserfeldern
     category: stu
     allowedFieldTypes:
       []
@@ -113677,7 +113677,7 @@ buildings:
     source: stu
     sourceId: 21120302
     rawName: Kälteresistente Gaghfarm
-    name: Kälteresistente Gaghfarm
+    name: Kälteresistente Gaghfarm (Tiefwasser)
     description: Kälteresistente Gaghfarm
     category: stu
     allowedFieldTypes:
@@ -113820,7 +113820,7 @@ buildings:
     source: stu
     sourceId: 21120402
     rawName: Kälteresistente Algenfarm
-    name: Kälteresistente Algenfarm
+    name: Kälteresistente Algenfarm (Tiefwasser)
     description: Kälteresistente Algenfarm
     category: stu
     allowedFieldTypes:
@@ -113963,7 +113963,7 @@ buildings:
     source: stu
     sourceId: 21120502
     rawName: Kälteresistente Gaghfarm
-    name: Kälteresistente Gaghfarm
+    name: Kälteresistente Gaghfarm (Tiefwasser)
     description: Kälteresistente Gaghfarm
     category: stu
     allowedFieldTypes:

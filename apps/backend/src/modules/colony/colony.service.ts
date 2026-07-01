@@ -71,6 +71,7 @@ export interface ColonyTickEvent {
     | 'CREW_LIMIT_EXCEEDED';
   fieldIndex?: number;
   buildingId?: number | null;
+  buildingName?: string;
   commodityId?: number;
   reason?: string;
   amount?: number;
@@ -208,13 +209,65 @@ export class ColonyService {
     return result;
   }
 
-  async findAllByUser(userId: number): Promise<Colony[]> {
+  async findAllByUser(userId: number) {
     const colonies = await this.colonyRepo.find({
       where: { userId },
-      relations: ['starSystem', 'celestialObject'],
+      relations: ['starSystem', 'celestialObject', 'fields'],
       order: { id: 'ASC' },
     });
-    return colonies.map((colony) => this.toColonySummary(colony));
+    const colonyIds = colonies.map((c) => c.id);
+    const [crewCounts, trainingQueues] = await Promise.all([
+      this.colonyCrewService.getCrewCountsByColonyIds(colonyIds),
+      this.crewTrainingQueueRepo.find({
+        where: {
+          userId,
+          status: ColonyCrewTrainingQueueStatus.QUEUED,
+        },
+      }),
+    ]);
+    const trainingByColony = new Map<number, number>();
+    for (const q of trainingQueues) {
+      trainingByColony.set(
+        q.colonyId,
+        (trainingByColony.get(q.colonyId) || 0) + q.amount,
+      );
+    }
+
+    return colonies.map((colony) => {
+      const summary = this.colonyStatsService.calculateSummary(colony);
+      const crewLimit = this.colonyCrewService.getLocalCrewLimit(colony);
+      const crewAssigned = crewCounts.get(colony.id) || 0;
+      const crewInTraining = trainingByColony.get(colony.id) || 0;
+      const productionDeltas: Array<{ commodityId: number; amount: number }> =
+        [];
+      for (const [commodityId, amount] of summary.productionDelta) {
+        if (amount === 0) continue;
+        const commodity = this.gameData.getCommodity(commodityId);
+        if (commodity?.isEffect || commodity?.isDeposit) continue;
+        productionDeltas.push({ commodityId, amount });
+      }
+      const activeBuildJobs = (colony.fields ?? [])
+        .filter((f) => f.isBuilding && f.buildingId)
+        .map((f) => ({
+          fieldIndex: f.fieldIndex,
+          buildingId: f.buildingId!,
+          buildingName:
+            this.gameData.getBuilding(f.buildingId!)?.name || `#${f.buildingId}`,
+          finishesAt: f.buildFinishesAt?.toISOString() || null,
+        }));
+
+      const base = this.toColonySummary(colony);
+      delete (base as any).fields;
+      return Object.assign(base, {
+        crewSummary: {
+          assigned: crewAssigned,
+          limit: crewLimit,
+          inTraining: crewInTraining,
+        },
+        productionDeltas,
+        activeBuildJobs,
+      });
+    });
   }
 
   async findOne(colonyId: number, userId: number): Promise<Colony> {
@@ -400,9 +453,83 @@ export class ColonyService {
     userId: number,
     name: string,
   ): Promise<Colony> {
+    const normalizedName = this.normalizeColonyName(name);
     const colony = await this.findOne(colonyId, userId);
-    colony.name = name;
+    colony.name = normalizedName;
     return this.colonyRepo.save(colony);
+  }
+
+  async setPopulationLimit(
+    colonyId: number,
+    userId: number,
+    limit: number,
+  ): Promise<{ populationLimit: number }> {
+    if (!Number.isInteger(limit) || limit < 0) {
+      throw new BadRequestException('Population limit must be zero or higher');
+    }
+    const colony = await this.findOwnedColonyWithStats(colonyId, userId);
+    colony.stats.populationLimit = limit;
+    await this.statsRepo.save(colony.stats);
+    return { populationLimit: colony.stats.populationLimit };
+  }
+
+  async setImmigration(
+    colonyId: number,
+    userId: number,
+    enabled: boolean,
+  ): Promise<{ immigrationEnabled: boolean }> {
+    if (typeof enabled !== 'boolean') {
+      throw new BadRequestException('Immigration flag must be boolean');
+    }
+    const colony = await this.findOwnedColonyWithStats(colonyId, userId);
+    colony.stats.immigrationEnabled = enabled;
+    await this.statsRepo.save(colony.stats);
+    return { immigrationEnabled: colony.stats.immigrationEnabled };
+  }
+
+  async setColonyMessage(
+    colonyId: number,
+    userId: number,
+    message: string | null,
+  ): Promise<{ colonyMessage: string | null }> {
+    if (message != null && typeof message !== 'string') {
+      throw new BadRequestException('Colony message must be text');
+    }
+    const normalizedMessage = message?.trim() ? message.trim() : null;
+    if (normalizedMessage && normalizedMessage.length > 2000) {
+      throw new BadRequestException('Colony message is too long');
+    }
+    const colony = await this.findOwnedColonyWithStats(colonyId, userId);
+    colony.stats.colonyMessage = normalizedMessage;
+    await this.statsRepo.save(colony.stats);
+    return { colonyMessage: colony.stats.colonyMessage };
+  }
+
+  private normalizeColonyName(name: string): string {
+    if (typeof name !== 'string') {
+      throw new BadRequestException('Colony name must be text');
+    }
+    const normalizedName = name.trim();
+    if (normalizedName.length < 3) {
+      throw new BadRequestException('Colony name is too short');
+    }
+    if (normalizedName.length > 255) {
+      throw new BadRequestException('Colony name is too long');
+    }
+    return normalizedName;
+  }
+
+  private async findOwnedColonyWithStats(
+    colonyId: number,
+    userId: number,
+  ): Promise<Colony> {
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId, userId },
+      relations: ['stats'],
+    });
+    if (!colony) throw new NotFoundException('Colony not found');
+    if (!colony.stats) throw new BadRequestException('Colony stats missing');
+    return colony;
   }
 
   async build(
@@ -619,6 +746,113 @@ export class ColonyService {
     }
   }
 
+  private getDemolitionRefunds(
+    definition: BuildingDef,
+  ): Array<{ commodityId: number; amount: number }> {
+    return (definition.resourceCosts ?? [])
+      .map((cost) => ({
+        commodityId: cost.commodityId,
+        amount: Math.floor(cost.amount / 2),
+      }))
+      .filter((cost) => cost.amount > 0);
+  }
+
+  private getUnavailableEffectCommodity(
+    summary: ColonyInternalSummary,
+    definition: BuildingDef,
+  ): { commodityId: number; available: number } | null {
+    for (const production of definition.production ?? []) {
+      if (production.amount >= 0) continue;
+      const commodity = this.gameData.getCommodity(production.commodityId);
+      if (!commodity || commodity.isSaveable || commodity.isDeposit) continue;
+
+      const available = summary.productionDelta.get(production.commodityId) ?? 0;
+      if (available + production.amount < 0) {
+        return { commodityId: production.commodityId, available };
+      }
+    }
+
+    return null;
+  }
+
+  private assertCanActivateBuilding(
+    colony: Colony,
+    field: ColonyField,
+    definition: BuildingDef,
+  ): void {
+    const summaryWithoutField = this.colonyStatsService.calculateSummary(
+      colony,
+      new Set([field.id]),
+    );
+    const availableWorkers =
+      summaryWithoutField.effectiveState.population.available;
+    if ((definition.bevUse || 0) > availableWorkers) {
+      throw new BadRequestException('Nicht genug freie Arbeiter');
+    }
+
+    const energyAfter =
+      summaryWithoutField.energyDelta + (definition.epsProc || 0);
+    if (energyAfter < 0 && colony.energy + energyAfter < 0) {
+      throw new BadRequestException('Nicht genug Energie');
+    }
+
+    const missingEffectCommodity = this.getUnavailableEffectCommodity(
+      summaryWithoutField,
+      definition,
+    );
+    if (missingEffectCommodity) {
+      const commodity = this.gameData.getCommodity(
+        missingEffectCommodity.commodityId,
+      );
+      throw new BadRequestException(
+        `Nicht genug ${commodity?.name ?? 'Effekt-Ressource'} verfügbar (${missingEffectCommodity.available} vorhanden)`,
+      );
+    }
+  }
+
+  private async deactivateDependentBuildings(
+    colony: Colony,
+    fieldToRemove: ColonyField,
+  ): Promise<ColonyField[]> {
+    const deactivated: ColonyField[] = [];
+
+    for (let round = 0; round < 100; round++) {
+      const summary = this.colonyStatsService.calculateSummary(
+        colony,
+        new Set([fieldToRemove.id, ...deactivated.map((field) => field.id)]),
+      );
+      let victim: ColonyField | null = null;
+
+      for (const field of summary.activeFields) {
+        if (field.id === fieldToRemove.id || this.isHeadquartersField(field)) {
+          continue;
+        }
+        const definition = this.gameData.getBuilding(field.buildingId!);
+        if (!definition) continue;
+        const missingEffectCommodity = this.getUnavailableEffectCommodity(
+          summary,
+          definition,
+        );
+        if (missingEffectCommodity) {
+          victim = field;
+          break;
+        }
+      }
+
+      if (!victim) break;
+      const victimDefinition = this.gameData.getBuilding(victim.buildingId!);
+      if (!victimDefinition) break;
+      await this.buildingLifecycleService.deactivateBuilding(
+        colony,
+        victim,
+        victimDefinition,
+      );
+      deactivated.push(victim);
+    }
+
+    return deactivated;
+  }
+
   async demolish(
     colonyId: number,
     userId: number,
@@ -644,16 +878,59 @@ export class ColonyService {
       throw new BadRequestException('Unknown building');
     }
 
+    const deactivatedFields: ColonyField[] = [];
     if (field.isActive) {
       await this.buildingLifecycleService.deactivateBuilding(
         colony,
         field,
         definition,
       );
+      deactivatedFields.push(field);
     }
+    deactivatedFields.push(
+      ...(await this.deactivateDependentBuildings(colony, field)),
+    );
 
     this.buildingLifecycleService.clearBuilding(field);
-    return this.fieldRepo.save(field);
+    const saved = await this.fieldRepo.save(field);
+
+    const storageMax = this.colonyStatsService.calculateSummary(
+      colony,
+    ).effectiveStorageMax;
+    const recycled: Array<{ commodityId: number; amount: number }> = [];
+    let currentStored = await this.colonyStorageService.getStorageUsed(colony.id);
+    for (const refund of this.getDemolitionRefunds(definition)) {
+      const stored = await this.colonyStorageService.upperStorage(
+        colony,
+        refund.commodityId,
+        refund.amount,
+        storageMax,
+      );
+      if (stored > 0) {
+        recycled.push({ commodityId: refund.commodityId, amount: stored });
+        currentStored += stored;
+      }
+    }
+    colony.storageUsed = currentStored;
+    await this.colonyRepo.save(colony);
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.BUILDING_DESTROYED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Gebäude abgerissen',
+      message: `${definition.name} auf Feld ${field.fieldIndex} wurde abgerissen.`,
+      payload: {
+        fieldIndex: field.fieldIndex,
+        buildingId: definition.id,
+        recycled,
+        deactivatedFieldIndexes: deactivatedFields
+          .filter((entry) => entry.id !== field.id)
+          .map((entry) => entry.fieldIndex),
+      },
+    });
+
+    return saved;
   }
 
   async repairBuilding(
@@ -873,28 +1150,15 @@ export class ColonyService {
     }
 
     if (field.isActive) {
-      return this.buildingLifecycleService.deactivateBuilding(
+      await this.buildingLifecycleService.deactivateBuilding(
         colony,
         field,
         definition,
       );
+      await this.deactivateDependentBuildings(colony, field);
+      return field;
     } else {
-      const summaryWithoutField = this.colonyStatsService.calculateSummary(
-        colony,
-        new Set([field.id]),
-      );
-      const availableWorkers =
-        colony.stats?.workless ??
-        colony.population - summaryWithoutField.workersUsed;
-      if ((definition.bevUse || 0) > availableWorkers) {
-        throw new BadRequestException('Nicht genug freie Arbeiter');
-      }
-
-      const energyAfter =
-        summaryWithoutField.energyDelta + (definition.epsProc || 0);
-      if (energyAfter < 0 && colony.energy + energyAfter < 0) {
-        throw new BadRequestException('Nicht genug Energie');
-      }
+      this.assertCanActivateBuilding(colony, field, definition);
 
       return this.buildingLifecycleService.activateBuilding(
         colony,
@@ -1102,7 +1366,6 @@ export class ColonyService {
       colonyId: colony.id,
       userId,
       amount: finalAmount,
-      finishesAt: new Date(Date.now() + Math.max(1, finalAmount) * 60_000),
       status: ColonyCrewTrainingQueueStatus.QUEUED,
     });
     return this.crewTrainingQueueRepo.save(queue);
@@ -1796,6 +2059,7 @@ export class ColonyService {
       selectedModuleCommodityIds,
     );
     const buildPlan = await this.getOrCreateBuildplan(
+      colony.id,
       userId,
       ship.shipClassId,
       buildPlanName?.trim() || `${shipClass.name} Retrofit`,
@@ -1933,6 +2197,44 @@ export class ColonyService {
     return createHash('sha256').update(canonical).digest('hex');
   }
 
+  private async assertSingleColonizerAvailability(
+    userId: number,
+    shipClass: ShipClassDef,
+  ): Promise<void> {
+    if (!shipClass.isColonizer) return;
+
+    const activeColonizer = await this.shipRepo
+      .createQueryBuilder('ship')
+      .innerJoin(ShipClassDef, 'shipClass', 'shipClass.id = ship.shipClassId')
+      .where('ship.userId = :userId', { userId })
+      .andWhere('ship.status != :destroyed', {
+        destroyed: SpacecraftStatus.DESTROYED,
+      })
+      .andWhere('shipClass.isColonizer = true')
+      .getOne();
+    if (activeColonizer) {
+      throw new BadRequestException(
+        'Only one operational colonization ship is allowed',
+      );
+    }
+
+    const activeQueue = await this.shipBuildQueueRepo
+      .createQueryBuilder('queue')
+      .innerJoin(ShipClassDef, 'shipClass', 'shipClass.id = queue.shipClassId')
+      .where('queue.userId = :userId', { userId })
+      .andWhere('queue.status = :status', {
+        status: ColonyShipBuildQueueStatus.QUEUED,
+      })
+      .andWhere('queue.mode = :mode', { mode: ColonyShipBuildQueueMode.BUILD })
+      .andWhere('shipClass.isColonizer = true')
+      .getOne();
+    if (activeQueue) {
+      throw new BadRequestException(
+        'A colonization ship is already under construction',
+      );
+    }
+  }
+
   async buildShip(
     colonyId: number,
     userId: number,
@@ -1941,6 +2243,7 @@ export class ColonyService {
     moduleTypes: string[] = [],
     buildPlanName?: string,
     moduleCommodityIds: number[] = [],
+    sourceBuildplan?: ColonyShipBuildplan,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
 
@@ -1969,6 +2272,7 @@ export class ColonyService {
     if (!unlocked) {
       throw new BadRequestException('Ship class is not unlocked');
     }
+    await this.assertSingleColonizerAvailability(userId, shipClass);
     this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
 
     const selectedModuleCommodityIds =
@@ -2002,14 +2306,17 @@ export class ColonyService {
       shipClassId,
       selectedModuleCommodityIds,
     );
-    const buildPlan = await this.getOrCreateBuildplan(
-      userId,
-      shipClassId,
-      buildPlanName?.trim() || `${shipClass.name} Buildplan`,
-      buildPlanSignature,
-      selectedModuleCommodityIds,
-      selectedModuleTypes,
-    );
+    const buildPlan =
+      sourceBuildplan ??
+      (await this.getOrCreateBuildplan(
+        colony.id,
+        userId,
+        shipClassId,
+        buildPlanName?.trim() || `${shipClass.name} Buildplan`,
+        buildPlanSignature,
+        selectedModuleCommodityIds,
+        selectedModuleTypes,
+      ));
 
     const costs = this.calculateShipBuildCosts(shipClass);
     await this.deductBuildCosts(colony, costs);
@@ -2108,7 +2415,140 @@ export class ColonyService {
     }
   }
 
+  private validateBuildplanName(name: string): string {
+    const trimmed = name?.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Buildplan name is required');
+    }
+    return trimmed;
+  }
+
+  private async assertBuildplanNameAvailable(
+    colonyId: number,
+    name: string,
+    exceptId?: number,
+  ): Promise<void> {
+    const existing = await this.shipBuildplanRepo.findOne({
+      where: { colonyId, name },
+    });
+    if (existing && existing.id !== exceptId) {
+      throw new BadRequestException('Buildplan name already exists');
+    }
+  }
+
+  private toBuildplanDto(buildplan: ColonyShipBuildplan) {
+    return {
+      id: buildplan.id,
+      colonyId: buildplan.colonyId,
+      shipClassId: buildplan.shipClassId,
+      name: buildplan.name,
+      signature: buildplan.signature,
+      moduleCommodityIds: buildplan.moduleCommodityIds,
+      moduleTypes: buildplan.moduleTypes,
+    };
+  }
+
+  async createShipBuildplan(
+    colonyId: number,
+    userId: number,
+    shipClassId: number,
+    name: string,
+    moduleCommodityIds: number[] = [],
+    moduleTypes: string[] = [],
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    const trimmedName = this.validateBuildplanName(name);
+    await this.assertBuildplanNameAvailable(colony.id, trimmedName);
+
+    const shipClass = await this.shipClassRepo.findOneBy({ id: shipClassId });
+    if (!shipClass || shipClass.isNpc) {
+      throw new BadRequestException('Unknown ship class');
+    }
+
+    const selectedModuleCommodityIds =
+      this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    const selectedModuleTypes =
+      selectedModuleCommodityIds.length > 0
+        ? selectedModuleCommodityIds.map(
+            (commodityId) =>
+              this.gameData.getFabricationItemByOutputCommodity(commodityId)!
+                .moduleType!,
+          )
+        : this.validateShipBuildModules(moduleTypes);
+    this.assertModuleSlotCompatibility(shipClass, selectedModuleCommodityIds);
+
+    const buildplan = this.shipBuildplanRepo.create({
+      colonyId: colony.id,
+      userId,
+      shipClassId,
+      name: trimmedName,
+      signature: this.createBuildplanSignature(
+        shipClassId,
+        selectedModuleCommodityIds,
+      ),
+      moduleCommodityIds: selectedModuleCommodityIds,
+      moduleTypes: selectedModuleTypes,
+    });
+    return this.toBuildplanDto(await this.shipBuildplanRepo.save(buildplan));
+  }
+
+  async renameShipBuildplan(
+    colonyId: number,
+    userId: number,
+    planId: number,
+    name: string,
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    const buildplan = await this.shipBuildplanRepo.findOne({
+      where: { id: planId, colonyId: colony.id, userId },
+    });
+    if (!buildplan) throw new NotFoundException('Buildplan not found');
+
+    const trimmedName = this.validateBuildplanName(name);
+    await this.assertBuildplanNameAvailable(colony.id, trimmedName, buildplan.id);
+    buildplan.name = trimmedName;
+    return this.toBuildplanDto(await this.shipBuildplanRepo.save(buildplan));
+  }
+
+  async deleteShipBuildplan(
+    colonyId: number,
+    userId: number,
+    planId: number,
+  ) {
+    const colony = await this.findOne(colonyId, userId);
+    const buildplan = await this.shipBuildplanRepo.findOne({
+      where: { id: planId, colonyId: colony.id, userId },
+    });
+    if (!buildplan) throw new NotFoundException('Buildplan not found');
+    await this.shipBuildplanRepo.delete({ id: buildplan.id });
+    return { deleted: true, id: buildplan.id };
+  }
+
+  async buildShipFromBuildplan(
+    colonyId: number,
+    userId: number,
+    planId: number,
+    name: string,
+  ): Promise<ColonyShipBuildQueue> {
+    const colony = await this.findOne(colonyId, userId);
+    const buildplan = await this.shipBuildplanRepo.findOne({
+      where: { id: planId, colonyId: colony.id, userId },
+    });
+    if (!buildplan) throw new NotFoundException('Buildplan not found');
+    return this.buildShip(
+      colony.id,
+      userId,
+      buildplan.shipClassId,
+      name,
+      buildplan.moduleTypes,
+      buildplan.name,
+      buildplan.moduleCommodityIds,
+      buildplan,
+    );
+  }
+
   private async getOrCreateBuildplan(
+    colonyId: number,
     userId: number,
     shipClassId: number,
     name: string,
@@ -2117,14 +2557,17 @@ export class ColonyService {
     moduleTypes: string[],
   ): Promise<ColonyShipBuildplan> {
     const existing = await this.shipBuildplanRepo.findOne({
-      where: { userId, signature },
+      where: { colonyId, signature },
     });
     if (existing) return existing;
 
+    const trimmedName = this.validateBuildplanName(name);
+    await this.assertBuildplanNameAvailable(colonyId, trimmedName);
     const buildplan = this.shipBuildplanRepo.create({
+      colonyId,
       userId,
       shipClassId,
-      name,
+      name: trimmedName,
       signature,
       moduleCommodityIds,
       moduleTypes,
@@ -2198,16 +2641,13 @@ export class ColonyService {
   }
 
   private async processCrewTrainingQueue(colony: Colony): Promise<void> {
-    const finishedJobs = await this.crewTrainingQueueRepo.find({
+    const jobs = await this.crewTrainingQueueRepo.find({
       where: {
         colonyId: colony.id,
         status: ColonyCrewTrainingQueueStatus.QUEUED,
       },
     });
-    const now = new Date();
-    for (const job of finishedJobs.filter(
-      (candidate) => candidate.finishesAt <= now,
-    )) {
+    for (const job of jobs) {
       await this.colonyCrewService.createCrewOnColony(colony, job.amount);
       job.status = ColonyCrewTrainingQueueStatus.COMPLETED;
       await this.crewTrainingQueueRepo.save(job);
@@ -2645,7 +3085,7 @@ export class ColonyService {
       order: { finishesAt: 'ASC' },
     });
     const buildplans = await this.shipBuildplanRepo.find({
-      where: { userId },
+      where: { colonyId: colony.id, userId },
       order: { id: 'ASC' },
     });
     const fabricationQueue = await this.fabricationQueueRepo.find({
@@ -2660,7 +3100,7 @@ export class ColonyService {
         colonyId: colony.id,
         status: ColonyCrewTrainingQueueStatus.QUEUED,
       },
-      order: { finishesAt: 'ASC' },
+      order: { id: 'ASC' },
     });
     const [
       assignedToColony,
@@ -2767,6 +3207,12 @@ export class ColonyService {
         },
         activeFunctions: effectiveState.functions.active,
         effectiveState,
+        options: {
+          name: colony.name,
+          colonyMessage: colony.stats?.colonyMessage ?? null,
+          populationLimit: colony.stats?.populationLimit ?? 0,
+          immigrationEnabled: colony.stats?.immigrationEnabled ?? true,
+        },
         energy: {
           current: effectiveState.energy.current,
           max: effectiveState.energy.max,
@@ -2787,6 +3233,8 @@ export class ColonyService {
           housingFree: summary.freeHousing,
           housingMax: summary.maxHousing,
           housingBonus: summary.housingBonus,
+          populationLimit: colony.stats?.populationLimit ?? 0,
+          immigrationEnabled: colony.stats?.immigrationEnabled ?? true,
         },
         inventory: storage.map((item) => {
           const commodity = this.gameData.getCommodity(item.commodityId);
@@ -2811,8 +3259,9 @@ export class ColonyService {
             depleted: deposit.amountLeft <= 0,
           };
         }),
-        productionDeltas: Array.from(productionDelta.entries()).map(
-          ([commodityId, amount]) => {
+        productionDeltas: Array.from(productionDelta.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([commodityId, amount]) => {
             const commodity = this.gameData.getCommodity(commodityId);
             return {
               commodityId,
@@ -2927,10 +3376,15 @@ export class ColonyService {
                 return false;
               }
             })();
+          const shuttleModelAvailable = !!shipClass && !!this.getHangarDefForShipClass(shipClass);
           return {
             id: ship.id,
             name: ship.name,
             shipClassId: ship.shipClassId,
+            shipClassKey: shipClass?.key ?? null,
+            shipClassName: shipClass?.name ?? `Schiffsklasse #${ship.shipClassId}`,
+            shipCategory: shipClass?.category ?? null,
+            shipRole: shipClass?.role ?? null,
             hull: ship.hull,
             hullMax: ship.hullMax,
             shields: ship.shields,
@@ -2949,6 +3403,22 @@ export class ColonyService {
             canDisassemble: canManage && colony.energy >= 20,
             canRepair,
             canRetrofit,
+            canManage,
+            canDefend: false,
+            canBlock: false,
+            canManageShuttle: shuttleModelAvailable,
+            orbitGroup: ship.fleetId != null ? 'FLEET' : 'SINGLE',
+            orbitGroupLabel: ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiff',
+            fleetId: ship.fleetId,
+            actionBlockers: {
+              defend: 'Orbit defense hooks are not implemented in SWU yet.',
+              block: 'Orbit blockade hooks are not implemented in SWU yet.',
+              shuttleManagement: shuttleModelAvailable
+                ? null
+                : 'No shuttle-specific SWU model exists beyond generic hangar launch/land flows.',
+              station: 'No station entity is linked to colony orbit in SWU yet.',
+            },
+            station: null,
             damageSummary: {
               hullDamage: Math.max(0, ship.hullMax - ship.hull),
               damagedModules: damagedModules.length,
@@ -3163,6 +3633,14 @@ export class ColonyService {
               shipClassId: ship.shipClassId,
             })),
         },
+        orbitBlockers: {
+          shuttleManagement:
+            'Blocked: SWU has no dedicated shuttle entity or shuttle-only management API beyond generic hangar launch/land loops.',
+          station:
+            'Blocked: SWU has no station entity attached to colony orbit; only general station influence types exist.',
+          defense:
+            'Blocked: colony UI exposes planetary defense only; no orbit defend/block endpoints or hooks exist yet.',
+        },
         shipyard: {
           unlocked: shipyardUnlocked,
           completed: hasCompletedShipyard,
@@ -3198,6 +3676,10 @@ export class ColonyService {
             }).length,
           },
           orbitalMaintenance: effectiveState.orbitalMaintenance,
+          fighterPresentFunctionIds:
+            featureAccess.functions.groups.fighterShipyards.presentFunctionIds,
+          fighterActiveFunctionIds:
+            featureAccess.functions.groups.fighterShipyards.activeFunctionIds,
           presentFunctionIds:
             featureAccess.functions.groups.shipyards.presentFunctionIds,
           activeFunctionIds:
@@ -3387,6 +3869,7 @@ export class ColonyService {
           type: 'BUILDING_FINISHED',
           fieldIndex: field.fieldIndex,
           buildingId: field.buildingId,
+          buildingName: definition.name,
         });
       }
     }
@@ -3420,13 +3903,14 @@ export class ColonyService {
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: victim.fieldIndex,
             buildingId: victim.buildingId,
+            buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
             reason: 'Energie',
           });
           rewind = true;
         }
       }
 
-      if (summary.workersUsed > colony.population) {
+      if (summary.workersUsed > getEffectiveCurrentPopulation(colony)) {
         const victim = activeFields.find((field) => {
           if (this.isHeadquartersField(field)) return false;
           const definition = this.gameData.getBuilding(field.buildingId!);
@@ -3440,17 +3924,19 @@ export class ColonyService {
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: victim.fieldIndex,
             buildingId: victim.buildingId,
+            buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
             reason: 'Arbeiter',
           });
           rewind = true;
         }
       }
 
-      for (const [commodityId, needed] of summary.depositConsumption) {
-        const mining = await this.depositMiningRepo.findOne({
-          where: { colonyId: colony.id, userId: colony.userId, commodityId },
-        });
-        if (!mining || mining.amountLeft < needed) {
+      for (const [commodityId] of summary.depositConsumption) {
+        const netDelta = summary.depositDelta.get(commodityId) ?? 0;
+        if (netDelta >= 0) continue;
+        const shortfall = Math.abs(netDelta);
+        const mining = await this.ensureDepositMining(colony, commodityId);
+        if (!mining || mining.amountLeft < shortfall) {
           const victim = activeFields.find((field) => {
             if (this.isHeadquartersField(field)) return false;
             const definition = this.gameData.getBuilding(field.buildingId!);
@@ -3467,6 +3953,7 @@ export class ColonyService {
               type: 'BUILDING_DEACTIVATED',
               fieldIndex: victim.fieldIndex,
               buildingId: victim.buildingId,
+              buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
               commodityId,
               reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
             });
@@ -3500,6 +3987,7 @@ export class ColonyService {
               type: 'BUILDING_DEACTIVATED',
               fieldIndex: victim.fieldIndex,
               buildingId: victim.buildingId,
+              buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
               commodityId,
               reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
             });
@@ -3516,7 +4004,7 @@ export class ColonyService {
       deactivatedFieldIds,
     );
     const finalProduction = summary.productionDelta;
-    await this.applyDepositConsumption(colony, summary.depositConsumption);
+    await this.applyDepositConsumption(colony, summary.depositConsumption, summary.depositDelta);
 
     if (summary.energyDelta !== 0) {
       colony.energy = Math.max(
@@ -3586,16 +4074,38 @@ export class ColonyService {
     }
   }
 
+  private async ensureDepositMining(
+    colony: Colony,
+    commodityId: number,
+  ): Promise<ColonyDepositMining | null> {
+    const existing = await this.depositMiningRepo.findOne({
+      where: { colonyId: colony.id, userId: colony.userId, commodityId },
+    });
+    if (existing) return existing;
+    const deposits = this.gameData.getColonyClassDeposits(colony.colonyClassId);
+    const def = deposits.find((d) => d.commodityId === commodityId);
+    if (!def) return null;
+    const mining = this.depositMiningRepo.create({
+      userId: colony.userId,
+      colonyId: colony.id,
+      commodityId,
+      amountLeft: def.maxAmount,
+    });
+    await this.depositMiningRepo.save(mining);
+    return mining;
+  }
+
   private async applyDepositConsumption(
     colony: Colony,
     depositConsumption: Map<number, number>,
+    depositDelta: Map<number, number>,
   ): Promise<void> {
-    for (const [commodityId, amount] of depositConsumption) {
-      const mining = await this.depositMiningRepo.findOne({
-        where: { colonyId: colony.id, userId: colony.userId, commodityId },
-      });
+    for (const commodityId of depositConsumption.keys()) {
+      const netDelta = depositDelta.get(commodityId) ?? 0;
+      if (netDelta >= 0) continue;
+      const mining = await this.ensureDepositMining(colony, commodityId);
       if (!mining) continue;
-      mining.amountLeft = Math.max(0, mining.amountLeft - amount);
+      mining.amountLeft = Math.max(0, mining.amountLeft + netDelta);
       await this.depositMiningRepo.save(mining);
     }
   }
