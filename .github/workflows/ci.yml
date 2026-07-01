@@ -28,6 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.GHCR_TOKEN }}
           submodules: recursive
 
       - uses: actions/setup-node@v4
