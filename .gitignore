@@ -60,3 +60,20 @@ test-output
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
 /.agent-shell/
+
+# AI/Tool artifacts
+.pi-lens/
+.pi/
+.codegraph/
+.nanocoder/
+.playwright-mcp/
+.claude/
+*.tsbuildinfo
+
+# Plans & progress (local only)
+plans/
+PLAN.md
+progress.md
+
+# Screenshots
+*.png
