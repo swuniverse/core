@@ -91,15 +91,23 @@ export class ResearchService {
                   buildTime: def?.costs?.buildTime ?? 0,
                   resourceCosts: (def?.resourceCosts ?? []).map((c) => ({
                     ...c,
-                    name: this.gameData.getCommodity(c.commodityId)?.name ?? `#${c.commodityId}`,
+                    name:
+                      this.gameData.getCommodity(c.commodityId)?.name ??
+                      `#${c.commodityId}`,
                   })),
                   production: (def?.production ?? []).map((p) => ({
                     ...p,
-                    name: this.gameData.getCommodity(p.commodityId)?.name ?? `#${p.commodityId}`,
+                    name:
+                      this.gameData.getCommodity(p.commodityId)?.name ??
+                      `#${p.commodityId}`,
                   })),
                   epsProc: def?.epsProc ?? 0,
                   bevPro: def?.bevPro ?? 0,
-                  bonuses: def?.bonuses ?? { energy: 0, population: 0, storage: 0 },
+                  bonuses: def?.bonuses ?? {
+                    energy: 0,
+                    population: 0,
+                    storage: 0,
+                  },
                 };
               }),
           },
@@ -170,7 +178,7 @@ export class ResearchService {
 
   async processTick(
     userId: number,
-    producedResearchPoints = 0,
+    _producedResearchPoints = 0,
     commodityProduction: Map<number, number> = new Map(),
   ): Promise<void> {
     const inProgress = await this.researchRepo.findOne({
@@ -192,25 +200,20 @@ export class ResearchService {
       return;
     }
 
-    let points: number;
-    if (tech.researchMode === 'commodity') {
-      const commodityId = tech.mappedCommodityId ?? tech.commodityId;
-      points = commodityId != null ? (commodityProduction.get(commodityId) || 0) : 0;
-      if (points <= 0) {
-        inProgress.blockedReason = 'NO_COMMODITY_PRODUCTION';
-        await this.researchRepo.save(inProgress);
-        return;
-      }
-    } else {
-      points = producedResearchPoints;
-    }
+    const commodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
+    const points =
+      commodityId != null ? commodityProduction.get(commodityId) || 0 : 0;
 
-    const amount = Math.min(Math.max(0, points), remaining);
-    if (amount <= 0) {
-      inProgress.blockedReason = 'NO_RESEARCH_PRODUCTION';
+    if (points <= 0) {
+      inProgress.blockedReason =
+        tech.researchMode === 'commodity'
+          ? 'NO_COMMODITY_PRODUCTION'
+          : 'NO_RESEARCH_PRODUCTION';
       await this.researchRepo.save(inProgress);
       return;
     }
+
+    const amount = Math.min(Math.max(0, points), remaining);
 
     inProgress.spentPoints = (inProgress.spentPoints ?? 0) + amount;
     inProgress.progress = inProgress.spentPoints;

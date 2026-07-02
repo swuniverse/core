@@ -102,7 +102,7 @@ export class ColonyStatsService {
     let energyDelta = 0;
     let energyProduction = 0;
     let energyConsumption = 0;
-    let researchPoints = 1;
+    let researchPoints = 0;
     let workersUsed = 0;
     let housingBonus = 0;
     let storageBonus = 0;

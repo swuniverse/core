@@ -479,7 +479,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     ),
     getBuildingsForFieldType: jest.fn(() => []),
     getBuildingsForFieldTypes: jest.fn(() => []),
-    getFieldBuildRule: jest.fn((_buildingId: number, _fieldType: number) => null),
+    getFieldBuildRule: jest.fn(
+      (_buildingId: number, _fieldType: number) => null,
+    ),
     getFieldBuildRuleForFieldTypes: jest.fn(),
     getTerraforming: jest.fn((id: number) =>
       id === 101201
@@ -897,7 +899,7 @@ describe('colony tick calculations', () => {
     expect(summary.productionDelta.get(2)).toBe(5);
     expect(summary.productionDelta.get(1300)).toBe(84);
     expect(summary.depositDelta.get(1505)).toBe(12);
-    expect(summary.researchPoints).toBe(3);
+    expect(summary.researchPoints).toBe(2);
     expect(summary.effectivePopulationMax).toBe(184);
     expect(summary.effectiveStorageMax).toBe(4000);
   });
@@ -1288,7 +1290,7 @@ describe('colony tick calculations', () => {
   "dooniumDelta": 15,
   "effectiveStorageMax": 4000,
   "energyDelta": 16,
-  "researchPoints": 3,
+  "researchPoints": 2,
 }
 `);
   });
@@ -3672,7 +3674,73 @@ describe('building lifecycle', () => {
 });
 
 describe('research tick semantics', () => {
-  it('advances research by produced points instead of stored inventory', async () => {
+  it('blocks non-commodity research without produced research commodity points', async () => {
+    const research = {
+      userId: 1,
+      techId: 210103,
+      status: ResearchStatus.IN_PROGRESS,
+      remainingPoints: 10,
+      spentPoints: 0,
+      progress: 0,
+      blockedReason: null,
+    };
+    const researchRepo = {
+      findOne: jest.fn(async () => research),
+      save: jest.fn(async (value) => value),
+    };
+    const gameData = {
+      getTech: jest.fn(() => ({
+        id: 210103,
+        effort: 10,
+        commodityId: 1702,
+        mappedCommodityId: 1702,
+        dependencies: [],
+      })),
+    };
+    const service = new ResearchService(researchRepo as any, gameData as any);
+
+    await service.processTick(1, 3, new Map());
+
+    expect(research.spentPoints).toBe(0);
+    expect(research.remainingPoints).toBe(10);
+    expect(research.status).toBe(ResearchStatus.IN_PROGRESS);
+    expect(research.blockedReason).toBe('NO_RESEARCH_PRODUCTION');
+  });
+
+  it('advances non-commodity research by produced research commodity points', async () => {
+    const research = {
+      userId: 1,
+      techId: 210103,
+      status: ResearchStatus.IN_PROGRESS,
+      remainingPoints: 10,
+      spentPoints: 0,
+      progress: 0,
+      blockedReason: null,
+    };
+    const researchRepo = {
+      findOne: jest.fn(async () => research),
+      save: jest.fn(async (value) => value),
+    };
+    const gameData = {
+      getTech: jest.fn(() => ({
+        id: 210103,
+        effort: 10,
+        commodityId: 1702,
+        mappedCommodityId: 1702,
+        dependencies: [],
+      })),
+    };
+    const service = new ResearchService(researchRepo as any, gameData as any);
+
+    await service.processTick(1, 0, new Map([[1702, 3]]));
+
+    expect(research.spentPoints).toBe(3);
+    expect(research.remainingPoints).toBe(7);
+    expect(research.status).toBe(ResearchStatus.IN_PROGRESS);
+    expect(research.blockedReason).toBeNull();
+  });
+
+  it('advances commodity research only from matching produced commodity', async () => {
     const research = {
       userId: 1,
       techId: 220101,
@@ -3680,21 +3748,35 @@ describe('research tick semantics', () => {
       remainingPoints: 10,
       spentPoints: 0,
       progress: 0,
+      blockedReason: null,
     };
     const researchRepo = {
       findOne: jest.fn(async () => research),
       save: jest.fn(async (value) => value),
     };
     const gameData = {
-      getTech: jest.fn(() => ({ id: 220101, effort: 10, dependencies: [] })),
+      getTech: jest.fn(() => ({
+        id: 220101,
+        effort: 10,
+        commodityId: 2,
+        mappedCommodityId: 2,
+        researchMode: 'commodity',
+        dependencies: [],
+      })),
     };
     const service = new ResearchService(researchRepo as any, gameData as any);
 
-    await service.processTick(1, 3);
+    await service.processTick(1, 99, new Map([[4, 5]]));
 
-    expect(research.spentPoints).toBe(3);
-    expect(research.remainingPoints).toBe(7);
-    expect(research.status).toBe(ResearchStatus.IN_PROGRESS);
+    expect(research.spentPoints).toBe(0);
+    expect(research.remainingPoints).toBe(10);
+    expect(research.blockedReason).toBe('NO_COMMODITY_PRODUCTION');
+
+    await service.processTick(1, 0, new Map([[2, 4]]));
+
+    expect(research.spentPoints).toBe(4);
+    expect(research.remainingPoints).toBe(6);
+    expect(research.blockedReason).toBeNull();
   });
 });
 
