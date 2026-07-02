@@ -603,6 +603,11 @@ export interface BuildingDef {
   researchId?: number | null;
   production: Array<{ commodityId: number; amount: number }>;
   bonuses: { energy: number; population: number; storage: number };
+  fieldAlternatives?: Array<{
+    fieldtype: number;
+    alternateBuildingId: number;
+    researchId: number | null;
+  }>;
   researchPoints?: number;
   researchRequired?: string;
   bmCol?: number;

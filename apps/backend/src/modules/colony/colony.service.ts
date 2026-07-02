@@ -192,7 +192,9 @@ export class ColonyService {
 
   async getAvailableBuildings(userId: number, fieldType?: number) {
     const buildings = fieldType
-      ? this.gameData.getBuildingsForFieldType(fieldType)
+      ? this.gameData.getBuildingsForFieldTypes(
+          this.getFieldTypeCandidatesFromType(fieldType),
+        )
       : this.gameData
           .getAllBuildings()
           .filter(
@@ -252,7 +254,8 @@ export class ColonyService {
           fieldIndex: f.fieldIndex,
           buildingId: f.buildingId!,
           buildingName:
-            this.gameData.getBuilding(f.buildingId!)?.name || `#${f.buildingId}`,
+            this.gameData.getBuilding(f.buildingId!)?.name ||
+            `#${f.buildingId}`,
           finishesAt: f.buildFinishesAt?.toISOString() || null,
         }));
 
@@ -550,7 +553,7 @@ export class ColonyService {
       throw new BadRequestException('Unknown building type');
     }
 
-    if (!buildingDef.allowedFieldTypes.includes(field.fieldType)) {
+    if (!this.isBuildingAllowedOnField(buildingDef, field)) {
       throw new BadRequestException(
         'Building cannot be placed on this terrain',
       );
@@ -569,9 +572,9 @@ export class ColonyService {
       }
     }
 
-    const fieldBuildRule = this.gameData.getFieldBuildRule(
+    const fieldBuildRule = this.gameData.getFieldBuildRuleForFieldTypes(
       buildingId,
-      field.fieldType,
+      this.getFieldTypeCandidates(field),
     );
     if (fieldBuildRule?.researchId != null) {
       const hasFieldResearch = await this.unlockResolver.hasTech(
@@ -585,16 +588,13 @@ export class ColonyService {
       }
     }
 
-    await this.checkBuildingLimits(colony, userId, buildingDef);
-
-    const actualBuildingId = this.resolveFieldAlternative(
-      buildingDef,
-      field.fieldType,
-    );
+    const actualBuildingId = this.resolveFieldAlternative(buildingDef, field);
     const actualDef =
       actualBuildingId !== buildingId
         ? (this.gameData.getBuilding(actualBuildingId) ?? buildingDef)
         : buildingDef;
+
+    await this.checkBuildingLimits(colony, userId, actualDef);
 
     this.checkDepositAvailability(colony, actualDef);
 
@@ -695,16 +695,49 @@ export class ColonyService {
     }
   }
 
+  private getFieldTypeCandidates(field: ColonyField): number[] {
+    return this.getFieldTypeCandidatesFromType(
+      field.fieldType,
+      field.terrainTileId ?? undefined,
+    );
+  }
+
+  private getFieldTypeCandidatesFromType(
+    fieldType: number,
+    terrainTileId?: number,
+  ): number[] {
+    const normalizedFieldType = this.normalizeFieldTypeCandidate(fieldType);
+    return [terrainTileId, fieldType, normalizedFieldType].filter(
+      (candidate, index, values): candidate is number =>
+        candidate != null && values.indexOf(candidate) === index,
+    );
+  }
+
+  private normalizeFieldTypeCandidate(fieldType: number): number {
+    return fieldType >= 10000 ? Math.floor(fieldType / 100) : fieldType;
+  }
+
+  private isBuildingAllowedOnField(
+    buildingDef: BuildingDef,
+    field: ColonyField,
+  ): boolean {
+    return this.getFieldTypeCandidates(field).some((fieldType) =>
+      buildingDef.allowedFieldTypes.includes(fieldType),
+    );
+  }
+
   private resolveFieldAlternative(
     buildingDef: BuildingDef,
-    fieldType: number,
+    field: ColonyField,
   ): number {
     if (!buildingDef.fieldAlternatives?.length) return buildingDef.id;
-    const alt = buildingDef.fieldAlternatives.find(
-      (a) => a.fieldtype === fieldType,
-    );
-    if (!alt) return buildingDef.id;
-    return alt.alternateBuildingId;
+    for (const fieldType of this.getFieldTypeCandidates(field)) {
+      const alt = buildingDef.fieldAlternatives.find(
+        (alternative) => alternative.fieldtype === fieldType,
+      );
+      if (alt) return alt.alternateBuildingId;
+    }
+    return buildingDef.id;
   }
 
   private checkDepositAvailability(
@@ -766,7 +799,8 @@ export class ColonyService {
       const commodity = this.gameData.getCommodity(production.commodityId);
       if (!commodity || commodity.isSaveable || commodity.isDeposit) continue;
 
-      const available = summary.productionDelta.get(production.commodityId) ?? 0;
+      const available =
+        summary.productionDelta.get(production.commodityId) ?? 0;
       if (available + production.amount < 0) {
         return { commodityId: production.commodityId, available };
       }
@@ -894,11 +928,12 @@ export class ColonyService {
     this.buildingLifecycleService.clearBuilding(field);
     const saved = await this.fieldRepo.save(field);
 
-    const storageMax = this.colonyStatsService.calculateSummary(
-      colony,
-    ).effectiveStorageMax;
+    const storageMax =
+      this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
     const recycled: Array<{ commodityId: number; amount: number }> = [];
-    let currentStored = await this.colonyStorageService.getStorageUsed(colony.id);
+    let currentStored = await this.colonyStorageService.getStorageUsed(
+      colony.id,
+    );
     for (const refund of this.getDemolitionRefunds(definition)) {
       const stored = await this.colonyStorageService.upperStorage(
         colony,
@@ -2505,16 +2540,16 @@ export class ColonyService {
     if (!buildplan) throw new NotFoundException('Buildplan not found');
 
     const trimmedName = this.validateBuildplanName(name);
-    await this.assertBuildplanNameAvailable(colony.id, trimmedName, buildplan.id);
+    await this.assertBuildplanNameAvailable(
+      colony.id,
+      trimmedName,
+      buildplan.id,
+    );
     buildplan.name = trimmedName;
     return this.toBuildplanDto(await this.shipBuildplanRepo.save(buildplan));
   }
 
-  async deleteShipBuildplan(
-    colonyId: number,
-    userId: number,
-    planId: number,
-  ) {
+  async deleteShipBuildplan(colonyId: number, userId: number, planId: number) {
     const colony = await this.findOne(colonyId, userId);
     const buildplan = await this.shipBuildplanRepo.findOne({
       where: { id: planId, colonyId: colony.id, userId },
@@ -3269,8 +3304,7 @@ export class ColonyService {
               nameShort: commodity?.nameShort ?? String(commodityId),
               amount,
             };
-          },
-        ),
+          }),
         buildingManagement: {
           counts: {
             active: fields.filter(
@@ -3376,13 +3410,15 @@ export class ColonyService {
                 return false;
               }
             })();
-          const shuttleModelAvailable = !!shipClass && !!this.getHangarDefForShipClass(shipClass);
+          const shuttleModelAvailable =
+            !!shipClass && !!this.getHangarDefForShipClass(shipClass);
           return {
             id: ship.id,
             name: ship.name,
             shipClassId: ship.shipClassId,
             shipClassKey: shipClass?.key ?? null,
-            shipClassName: shipClass?.name ?? `Schiffsklasse #${ship.shipClassId}`,
+            shipClassName:
+              shipClass?.name ?? `Schiffsklasse #${ship.shipClassId}`,
             shipCategory: shipClass?.category ?? null,
             shipRole: shipClass?.role ?? null,
             hull: ship.hull,
@@ -3408,7 +3444,8 @@ export class ColonyService {
             canBlock: false,
             canManageShuttle: shuttleModelAvailable,
             orbitGroup: ship.fleetId != null ? 'FLEET' : 'SINGLE',
-            orbitGroupLabel: ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiff',
+            orbitGroupLabel:
+              ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiff',
             fleetId: ship.fleetId,
             actionBlockers: {
               defend: 'Orbit defense hooks are not implemented in SWU yet.',
@@ -3416,7 +3453,8 @@ export class ColonyService {
               shuttleManagement: shuttleModelAvailable
                 ? null
                 : 'No shuttle-specific SWU model exists beyond generic hangar launch/land flows.',
-              station: 'No station entity is linked to colony orbit in SWU yet.',
+              station:
+                'No station entity is linked to colony orbit in SWU yet.',
             },
             station: null,
             damageSummary: {
@@ -4004,7 +4042,11 @@ export class ColonyService {
       deactivatedFieldIds,
     );
     const finalProduction = summary.productionDelta;
-    await this.applyDepositConsumption(colony, summary.depositConsumption, summary.depositDelta);
+    await this.applyDepositConsumption(
+      colony,
+      summary.depositConsumption,
+      summary.depositDelta,
+    );
 
     if (summary.energyDelta !== 0) {
       colony.energy = Math.max(

@@ -1,4 +1,4 @@
-import type { BuildingDef, ColonyStorageItem } from './types';
+import type { BuildingDef, ColonyField, ColonyStorageItem } from './types';
 
 export function canAfford(
   building: BuildingDef,
@@ -24,4 +24,34 @@ export function formatBuildTime(seconds: number): string {
 
 export function formatSignedAmount(value: number): string {
   return value > 0 ? `+${value}` : `${value}`;
+}
+
+export function getFieldTypeCandidates(field: ColonyField): number[] {
+  const terrainTileId = field.terrainTileId ?? undefined;
+  const normalizedFieldType =
+    field.fieldType >= 10000
+      ? Math.floor(field.fieldType / 100)
+      : field.fieldType;
+  return [terrainTileId, field.fieldType, normalizedFieldType].filter(
+    (fieldType, index, values): fieldType is number =>
+      fieldType !== null &&
+      fieldType !== undefined &&
+      values.indexOf(fieldType) === index,
+  );
+}
+
+export function getEffectiveBuildingForField(
+  building: BuildingDef,
+  field: ColonyField,
+  buildingMap: Record<number, BuildingDef | undefined>,
+): BuildingDef {
+  for (const fieldType of getFieldTypeCandidates(field)) {
+    const alternative = building.fieldAlternatives?.find(
+      (entry) => entry.fieldtype === fieldType,
+    );
+    if (alternative) {
+      return buildingMap[alternative.alternateBuildingId] ?? building;
+    }
+  }
+  return building;
 }

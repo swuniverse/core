@@ -402,7 +402,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           costs: { buildTime: 60 },
           resourceCosts: [],
           production: [],
-        }
+        },
       };
       return buildings[id];
     }),
@@ -457,9 +457,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       name: `Function ${id}`,
     })),
     getAllBuildingFunctions: jest.fn(() =>
-      [1, 2, 4, 5, 6, 7, 8, 9, 10, 13, 16, 20, 21, 22, 24, 25, 26, 27, 28, 29].map(
-        (id) => ({ id, key: `FUNCTION_${id}`, name: `Function ${id}` }),
-      ),
+      [
+        1, 2, 4, 5, 6, 7, 8, 9, 10, 13, 16, 20, 21, 22, 24, 25, 26, 27, 28, 29,
+      ].map((id) => ({ id, key: `FUNCTION_${id}`, name: `Function ${id}` })),
     ),
     buildingHasFunction: jest.fn(
       (buildingId: number, functionId: number) =>
@@ -477,7 +477,10 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         (buildingId === 100010100 && functionId === 24) ||
         (buildingId === 100020100 && functionId === 25),
     ),
-    getFieldBuildRule: jest.fn(() => null),
+    getBuildingsForFieldType: jest.fn(() => []),
+    getBuildingsForFieldTypes: jest.fn(() => []),
+    getFieldBuildRule: jest.fn((_buildingId: number, _fieldType: number) => null),
+    getFieldBuildRuleForFieldTypes: jest.fn(),
     getTerraforming: jest.fn((id: number) =>
       id === 101201
         ? {
@@ -733,6 +736,16 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       isDeposit: id === 1505,
     })),
   };
+
+  gameData.getFieldBuildRuleForFieldTypes.mockImplementation(
+    (buildingId: number, fieldTypes: number[]) => {
+      for (const fieldType of fieldTypes) {
+        const rule = gameData.getFieldBuildRule(buildingId, fieldType);
+        if (rule) return rule;
+      }
+      return null;
+    },
+  );
 
   const statsService = new ColonyStatsService(gameData as any);
   const colonyEconomyService = new ColonyEconomyService(
@@ -1210,11 +1223,17 @@ describe('colony tick calculations', () => {
       expect.arrayContaining([5, 22]),
     );
     expect(access.tabs.shipyard.activeFunctionIds).toHaveLength(0);
-    expect(access.functions.groups.fighterShipyards.presentFunctionIds).toEqual([5]);
+    expect(access.functions.groups.fighterShipyards.presentFunctionIds).toEqual(
+      [5],
+    );
     expect(access.functions.groups.shipyards.presentFunctionIds).toEqual([]);
-    expect(access.functions.groups.repairShipyards.presentFunctionIds).toEqual([22]);
+    expect(access.functions.groups.repairShipyards.presentFunctionIds).toEqual([
+      22,
+    ]);
     expect(access.functions.groups.fabrication.presentFunctionIds).toEqual([]);
-    expect(access.functions.groups.fabricationSupport.presentFunctionIds).toEqual([29]);
+    expect(
+      access.functions.groups.fabricationSupport.presentFunctionIds,
+    ).toEqual([29]);
 
     access = colonyEconomyService.buildFeatureAccess({
       ...base,
@@ -1229,11 +1248,17 @@ describe('colony tick calculations', () => {
     expect(access.tabs.shipyard.activeFunctionIds).toEqual(
       expect.arrayContaining([5, 22]),
     );
-    expect(access.functions.groups.fighterShipyards.activeFunctionIds).toEqual([5]);
+    expect(access.functions.groups.fighterShipyards.activeFunctionIds).toEqual([
+      5,
+    ]);
     expect(access.functions.groups.shipyards.activeFunctionIds).toEqual([]);
-    expect(access.functions.groups.repairShipyards.activeFunctionIds).toEqual([22]);
+    expect(access.functions.groups.repairShipyards.activeFunctionIds).toEqual([
+      22,
+    ]);
     expect(access.functions.groups.fabrication.activeFunctionIds).toEqual([]);
-    expect(access.functions.groups.fabricationSupport.activeFunctionIds).toEqual([29]);
+    expect(
+      access.functions.groups.fabricationSupport.activeFunctionIds,
+    ).toEqual([29]);
   });
 
   it('keeps a typical STU HQ + mine fixture consistent', () => {
@@ -1633,6 +1658,238 @@ describe('colony tick calculations', () => {
     expect(field.isBuilding).toBe(true);
     expect(field.isActive).toBe(false);
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
+  });
+
+  it('allows bonus-field buildings and prefers exact bonus alternatives', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo, gameData } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: 10103,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [field],
+      storage: [],
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 10 };
+    const bonusBuilding = {
+      ...gameData.getBuilding(100),
+      allowedFieldTypes: [10103],
+      fieldAlternatives: [{ fieldtype: 10103, alternateBuildingId: 100050100 }],
+    };
+
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+    gameData.getBuilding.mockImplementation((id: number) => {
+      if (id === 100) return bonusBuilding;
+      if (id === 100050100) {
+        return { ...bonusBuilding, id: 100050100, fieldAlternatives: [] };
+      }
+      return undefined;
+    });
+    gameData.getFieldBuildRule.mockImplementation(((
+      id: number,
+      fieldType: number,
+    ) =>
+      id === 100 && fieldType === 10103
+        ? { buildingsId: 100, type: 10103, researchId: 9999 }
+        : id === 100 && fieldType === 101
+          ? { buildingsId: 100, type: 101, researchId: 5555 }
+          : null) as any);
+
+    await service.build(1, 1, 5, 100);
+
+    expect(gameData.getFieldBuildRule).toHaveBeenNthCalledWith(1, 100, 10103);
+    expect(field.buildingId).toBe(100050100);
+    expect(fieldRepo.save).toHaveBeenCalledWith(field);
+  });
+
+  it('falls back to base field type when bonus field has no exact match', async () => {
+    const { service, colonyRepo, storageRepo, gameData } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: 10103,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [field],
+      storage: [],
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 10 };
+    const baseBuilding = {
+      ...gameData.getBuilding(100),
+      allowedFieldTypes: [101],
+      fieldAlternatives: [],
+    };
+
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+    gameData.getBuilding.mockImplementation((id: number) =>
+      id === 100 ? baseBuilding : undefined,
+    );
+
+    await service.build(1, 1, 5, 100);
+
+    expect(field.buildingId).toBe(100);
+  });
+
+  it('rejects bonus fields when neither exact nor base type matches', async () => {
+    const { service, colonyRepo, gameData } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: 10103,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+    };
+
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [field],
+      storage: [],
+    });
+    const defaultBuilding = gameData.getBuilding(100);
+    gameData.getBuilding.mockImplementation((id: number) =>
+      id === 100
+        ? {
+            ...defaultBuilding,
+            allowedFieldTypes: [201],
+            fieldAlternatives: [],
+          }
+        : undefined,
+    );
+
+    await expect(service.build(1, 1, 5, 100)).rejects.toThrow(
+      'Building cannot be placed on this terrain',
+    );
+  });
+
+  it('enforces limits on exact bonus alternate buildings', async () => {
+    const { service, colonyRepo, storageRepo, gameData } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: 10103,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [
+        field,
+        {
+          id: 2,
+          fieldIndex: 6,
+          fieldType: 101,
+          terrainTileId: 10103,
+          buildingId: 100050100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+      storage: [],
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 10 };
+    const bonusBuilding = {
+      ...gameData.getBuilding(100),
+      allowedFieldTypes: [10103],
+      fieldAlternatives: [{ fieldtype: 10103, alternateBuildingId: 100050100 }],
+      colonyLimit: 0,
+      bclimit: 0,
+    };
+    const alternateBuilding = {
+      ...bonusBuilding,
+      id: 100050100,
+      fieldAlternatives: [],
+      colonyLimit: 1,
+      bclimit: 1,
+    };
+
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+    gameData.getBuilding.mockImplementation((id: number) => {
+      if (id === 100) return bonusBuilding;
+      if (id === 100050100) return alternateBuilding;
+      return undefined;
+    });
+
+    await expect(service.build(1, 1, 5, 100)).rejects.toThrow(
+      'limited to 1 per colony',
+    );
+  });
+
+  it('returns base-field buildings for exact bonus field queries', async () => {
+    const { service, unlockResolver, gameData } = createColonyService();
+    const baseBuilding = {
+      ...gameData.getBuilding(100),
+      id: 100,
+      allowedFieldTypes: [101],
+      visible: true,
+    };
+    const bonusOnlyBuilding = {
+      ...gameData.getBuilding(100),
+      id: 101,
+      allowedFieldTypes: [10103],
+      visible: true,
+    };
+
+    gameData.getBuildingsForFieldTypes.mockReturnValue([
+      baseBuilding,
+      bonusOnlyBuilding,
+    ] as any);
+    unlockResolver.isBuildingUnlocked.mockResolvedValue(true);
+
+    const result = await service.getAvailableBuildings(1, 10103);
+
+    expect(gameData.getBuildingsForFieldTypes).toHaveBeenCalledWith([
+      10103, 101,
+    ]);
+    expect(result).toEqual([baseBuilding, bonusOnlyBuilding]);
   });
 
   it('enforces formalized per-colony building limits', async () => {
@@ -3039,12 +3296,7 @@ describe('ship building compatibility', () => {
     });
     shipBuildplanRepo.findOne.mockResolvedValueOnce(buildplan);
 
-    const queue = await service.buildShipFromBuildplan(
-      1,
-      1,
-      7,
-      'Planned Ship',
-    );
+    const queue = await service.buildShipFromBuildplan(1, 1, 7, 'Planned Ship');
 
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -3234,8 +3486,13 @@ describe('orbit ship operations', () => {
 
 describe('orbit dto blockers', () => {
   it('exposes orbit blocker metadata when no station or shuttle model exists', async () => {
-    const { service, colonyRepo, shipRepo, shipClassRepo, spacecraftModuleRepo } =
-      createColonyService();
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      spacecraftModuleRepo,
+    } = createColonyService();
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
@@ -3277,30 +3534,28 @@ describe('orbit dto blockers', () => {
         torpedoTypeId: null,
       },
     });
-    shipRepo.find.mockResolvedValue(
-      [
-        {
-          id: 7,
-          userId: 1,
-          name: 'Solo Ship',
-          shipClassId: 1,
-          starSystemId: 10,
-          celestialObjectId: 20,
-          hull: 80,
-          hullMax: 100,
-          shields: 40,
-          shieldsMax: 50,
-          energy: 70,
-          energyMax: 100,
-          crew: 2,
-          crewMax: 5,
-          cargoUsed: 3,
-          cargoMax: 20,
-          status: 'DOCKED',
-          fleetId: null,
-        },
-      ] as unknown as never[],
-    );
+    shipRepo.find.mockResolvedValue([
+      {
+        id: 7,
+        userId: 1,
+        name: 'Solo Ship',
+        shipClassId: 1,
+        starSystemId: 10,
+        celestialObjectId: 20,
+        hull: 80,
+        hullMax: 100,
+        shields: 40,
+        shieldsMax: 50,
+        energy: 70,
+        energyMax: 100,
+        crew: 2,
+        crewMax: 5,
+        cargoUsed: 3,
+        cargoMax: 20,
+        status: 'DOCKED',
+        fleetId: null,
+      },
+    ] as unknown as never[]);
     spacecraftModuleRepo.find.mockResolvedValue([]);
     Object.assign(shipClassRepo, {
       findBy: jest.fn(async () => [
@@ -3315,7 +3570,9 @@ describe('orbit dto blockers', () => {
       ]),
     });
 
-    const colony = (await service.findOne(1, 1)) as { detailV2?: Record<string, unknown> };
+    const colony = (await service.findOne(1, 1)) as {
+      detailV2?: Record<string, unknown>;
+    };
     const detail = colony.detailV2 as {
       orbitBlockers?: Record<string, string>;
       orbitShips?: Array<Record<string, unknown>>;
@@ -3343,7 +3600,9 @@ describe('orbit dto blockers', () => {
         fleetId: null,
         station: null,
         actionBlockers: expect.objectContaining({
-          shuttleManagement: expect.stringContaining('No shuttle-specific SWU model exists'),
+          shuttleManagement: expect.stringContaining(
+            'No shuttle-specific SWU model exists',
+          ),
           station: expect.stringContaining('No station entity is linked'),
         }),
       }),

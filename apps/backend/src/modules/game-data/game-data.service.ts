@@ -652,10 +652,19 @@ export class GameDataService implements OnModuleInit {
     return Array.from(this.buildings.values());
   }
 
-  getBuildingsForFieldType(fieldType: number): BuildingDef[] {
+  getBuildingsForFieldTypes(fieldTypes: number[]): BuildingDef[] {
+    const candidates = fieldTypes.filter((fieldType, index) => {
+      return fieldType != null && fieldTypes.indexOf(fieldType) === index;
+    });
     return Array.from(this.buildings.values()).filter(
-      (b) => b.visible !== false && b.allowedFieldTypes.includes(fieldType),
+      (b) =>
+        b.visible !== false &&
+        candidates.some((fieldType) => b.allowedFieldTypes.includes(fieldType)),
     );
+  }
+
+  getBuildingsForFieldType(fieldType: number): BuildingDef[] {
+    return this.getBuildingsForFieldTypes([fieldType]);
   }
 
   getBuildingsByName(name: string): BuildingDef[] {
@@ -697,6 +706,17 @@ export class GameDataService implements OnModuleInit {
     return this.fieldBuildRules.find(
       (rule) => rule.buildingsId === buildingId && rule.type === fieldType,
     );
+  }
+
+  getFieldBuildRuleForFieldTypes(
+    buildingId: number,
+    fieldTypes: number[],
+  ): FieldBuildRuleDef | undefined {
+    for (const fieldType of fieldTypes) {
+      const rule = this.getFieldBuildRule(buildingId, fieldType);
+      if (rule) return rule;
+    }
+    return undefined;
   }
 
   getBuildingFunctions(buildingId: number): number[] {

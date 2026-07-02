@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 import { buildingImage, commodityImage } from '../../../lib/assets';
 import type { BuildingDef, ColonyField } from '../types';
 import { BMCOL_LABELS } from '../constants';
-import { canAfford, formatBuildTime, formatSignedAmount } from '../utils';
+import {
+  canAfford,
+  formatBuildTime,
+  formatSignedAmount,
+  getEffectiveBuildingForField,
+} from '../utils';
 import { FloatingPanel } from './FloatingPanel';
 
 export function PanelBuild({
@@ -11,6 +16,8 @@ export function PanelBuild({
   storage,
   commodityMap,
   selectedBuilding,
+  hoveredBuildField,
+  buildingMap,
   onSelectBuilding,
 }: any) {
   const buildingsByColumn = useMemo(() => {
@@ -28,6 +35,19 @@ export function PanelBuild({
     }
     return cols;
   }, [buildingDefs]);
+
+  const detailBuilding =
+    selectedBuilding && hoveredBuildField
+      ? getEffectiveBuildingForField(
+          selectedBuilding,
+          hoveredBuildField,
+          buildingMap,
+        )
+      : selectedBuilding;
+  const isBonusPreview =
+    !!selectedBuilding &&
+    !!detailBuilding &&
+    detailBuilding.id !== selectedBuilding.id;
 
   return (
     <div className="flex flex-col lg:flex-row gap-3">
@@ -90,26 +110,31 @@ export function PanelBuild({
       </div>
 
       {/* Building Detail - Floating */}
-      {selectedBuilding && (
+      {selectedBuilding && detailBuilding && (
         <FloatingPanel
-          title={selectedBuilding.name}
+          title={detailBuilding.name}
           startX={Math.round(window.innerWidth / 2 - 170)}
           startY={Math.round(window.innerHeight / 2 - 200)}
           onClose={() => onSelectBuilding(selectedBuilding)}
         >
           <div className="text-xs space-y-2">
             <div className="font-bold text-swu-accent">
-              {selectedBuilding.name}
+              {detailBuilding.name}
             </div>
-            {selectedBuilding.description && (
-              <div className="text-[10px] text-swu-muted">
-                {selectedBuilding.description}
+            {isBonusPreview && (
+              <div className="text-[10px] font-bold text-yellow-400">
+                Bonusfeld-Version von {selectedBuilding.name}
               </div>
             )}
-            {selectedBuilding.functions &&
-              selectedBuilding.functions.length > 0 && (
+            {detailBuilding.description && (
+              <div className="text-[10px] text-swu-muted">
+                {detailBuilding.description}
+              </div>
+            )}
+            {detailBuilding.functions &&
+              detailBuilding.functions.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {selectedBuilding.functions.map((functionId: number) => (
+                  {detailBuilding.functions.map((functionId: number) => (
                     <span
                       key={functionId}
                       className="px-1.5 py-0.5 rounded border border-swu-border/60 bg-swu-bg/50 text-[10px] text-swu-primary"
@@ -171,66 +196,66 @@ export function PanelBuild({
                   );
                 })}
             </div>
-            {((selectedBuilding.bevUse || 0) > 0 ||
-              (selectedBuilding.bevPro || 0) > 0 ||
-              selectedBuilding.bonuses.storage !== 0) && (
+            {((detailBuilding.bevUse || 0) > 0 ||
+              (detailBuilding.bevPro || 0) > 0 ||
+              detailBuilding.bonuses.storage !== 0) && (
               <div>
                 <div className="text-[10px] text-swu-muted uppercase font-bold mb-0.5">
                   Auswirkungen
                 </div>
-                {(selectedBuilding.bevUse || 0) > 0 && (
+                {(detailBuilding.bevUse || 0) > 0 && (
                   <div className="flex justify-between">
                     <span className="text-swu-muted">👤 Arbeiter</span>
                     <span className="text-red-400">
-                      -{selectedBuilding.bevUse}
+                      -{detailBuilding.bevUse}
                     </span>
                   </div>
                 )}
-                {(selectedBuilding.bevPro || 0) > 0 && (
+                {(detailBuilding.bevPro || 0) > 0 && (
                   <div className="flex justify-between">
                     <span className="text-swu-muted">🏠 Wohnraum</span>
                     <span className="text-green-400">
-                      +{selectedBuilding.bevPro}
+                      +{detailBuilding.bevPro}
                     </span>
                   </div>
                 )}
-                {selectedBuilding.bonuses.storage !== 0 && (
+                {detailBuilding.bonuses.storage !== 0 && (
                   <div className="flex justify-between">
                     <span className="text-swu-muted">📦 Lager</span>
                     <span
                       className={
-                        selectedBuilding.bonuses.storage > 0
+                        detailBuilding.bonuses.storage > 0
                           ? 'text-green-400'
                           : 'text-red-400'
                       }
                     >
-                      {formatSignedAmount(selectedBuilding.bonuses.storage)}
+                      {formatSignedAmount(detailBuilding.bonuses.storage)}
                     </span>
                   </div>
                 )}
               </div>
             )}
-            {((selectedBuilding.epsProc || 0) !== 0 ||
-              selectedBuilding.production.length > 0) && (
+            {((detailBuilding.epsProc || 0) !== 0 ||
+              detailBuilding.production.length > 0) && (
               <div>
                 <div className="text-[10px] text-swu-muted uppercase font-bold mb-0.5">
                   Produktion
                 </div>
-                {(selectedBuilding.epsProc || 0) !== 0 && (
+                {(detailBuilding.epsProc || 0) !== 0 && (
                   <div className="flex justify-between">
                     <span className="text-swu-muted">⚡ Energie</span>
                     <span
                       className={
-                        (selectedBuilding.epsProc || 0) < 0
+                        (detailBuilding.epsProc || 0) < 0
                           ? 'text-red-400'
                           : 'text-green-400'
                       }
                     >
-                      {formatSignedAmount(selectedBuilding.epsProc || 0)}/Tick
+                      {formatSignedAmount(detailBuilding.epsProc || 0)}/Tick
                     </span>
                   </div>
                 )}
-                {selectedBuilding.production.map((p: any) => {
+                {detailBuilding.production.map((p: any) => {
                   const commodity = commodityMap[p.commodityId];
                   return (
                     <div

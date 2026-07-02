@@ -16,6 +16,9 @@ export function FieldCell({
   isHighlighted,
   isBuildMode,
   isFieldActive,
+  buildPreviewTitle,
+  onMouseEnter,
+  onMouseLeave,
   onClick,
 }: {
   field: ColonyField;
@@ -25,6 +28,9 @@ export function FieldCell({
   isHighlighted: boolean;
   isBuildMode: boolean;
   isFieldActive: boolean;
+  buildPreviewTitle?: string;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   onClick: () => void;
 }) {
   const terrainTileId = field.terrainTileId ?? field.fieldType;
@@ -40,6 +46,8 @@ export function FieldCell({
   return (
     <button
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={`relative w-full aspect-square overflow-hidden text-xs flex items-center justify-center border border-gray-500
         ${isSelected ? 'ring-2 ring-swu-accent z-10' : ''}
         ${isHighlighted ? 'ring-2 ring-swu-accent/60 animate-pulse z-10' : ''}
@@ -51,7 +59,12 @@ export function FieldCell({
         ${field.isBuilding ? 'animate-pulse' : ''}
         ${isBuildMode && !isHighlighted && !field.buildingId ? 'opacity-30' : ''}
         ${isHighlighted ? 'cursor-crosshair' : ''}`}
-      title={`${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''} (${field.fieldIndex})`}
+      title={[
+        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''} (${field.fieldIndex})`,
+        buildPreviewTitle,
+      ]
+        .filter(Boolean)
+        .join('\n')}
     >
       <img
         src={colonyFieldTileImage(terrainTileId)}

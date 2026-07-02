@@ -3,7 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../services/api';
 import { commodityImage, planetImage } from '../../lib/assets';
 
-import { formatSignedAmount } from './utils';
+import {
+  formatSignedAmount,
+  getEffectiveBuildingForField,
+  getFieldTypeCandidates,
+} from './utils';
 import type {
   BuildingDef,
   Colony,
@@ -29,6 +33,11 @@ import { ColonyOverview } from './components/ColonyOverview';
 import { PanelBuildingManagement } from './components/PanelBuildingManagement';
 import { PanelSettings } from './components/PanelSettings';
 import { PanelOrbit } from './components/PanelOrbit';
+
+const buildingMatchesField = (building: BuildingDef, field: ColonyField) =>
+  getFieldTypeCandidates(field).some((fieldType) =>
+    building.allowedFieldTypes.includes(fieldType),
+  );
 
 // ─── Page ────────────────────────────────────────────────────
 
@@ -441,7 +450,7 @@ export function ColonyDetail({
     options: { fieldIndexes?: number[]; commodityId?: number },
   ) => Promise<any>;
 }) {
-  const buildingMap = useMemo(
+  const buildingMap = useMemo<Record<number, BuildingDef>>(
     () => Object.fromEntries(allBuildingDefs.map((b) => [b.id, b])),
     [allBuildingDefs],
   );
@@ -453,6 +462,8 @@ export function ColonyDetail({
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
     null,
   );
+  const [hoveredBuildField, setHoveredBuildField] =
+    useState<ColonyField | null>(null);
   const [modalField, setModalField] = useState<ColonyField | null>(null);
 
   const fields = colony.fields || [];
@@ -461,7 +472,9 @@ export function ColonyDetail({
 
   useEffect(() => {
     if (selectedField) {
-      const fresh = fields.find((f) => f.fieldIndex === selectedField.fieldIndex);
+      const fresh = fields.find(
+        (f) => f.fieldIndex === selectedField.fieldIndex,
+      );
       if (fresh) setSelectedField(fresh);
       else setSelectedField(null);
     }
@@ -475,16 +488,69 @@ export function ColonyDetail({
           (f) =>
             !f.buildingId &&
             !f.isBuilding &&
-            selectedBuilding.allowedFieldTypes.includes(f.fieldType),
+            buildingMatchesField(selectedBuilding, f),
         )
         .map((f) => f.fieldIndex),
     );
   }, [selectedBuilding, fields]);
 
+  const getBuildPreviewTitle = (field: ColonyField): string | undefined => {
+    if (!selectedBuilding) return undefined;
+
+    const isBuildTarget =
+      !field.buildingId &&
+      !field.isBuilding &&
+      highlightedFields.has(field.fieldIndex);
+    if (!isBuildTarget) return undefined;
+
+    const previewBuilding = getEffectiveBuildingForField(
+      selectedBuilding,
+      field,
+      buildingMap,
+    );
+    const effects: string[] = [];
+    const workerUsage = previewBuilding.bevUse || 0;
+    const housing = previewBuilding.bevPro || 0;
+    const energy = previewBuilding.epsProc || 0;
+
+    if (workerUsage > 0) {
+      effects.push(`👤 Arbeiter -${workerUsage}`);
+    }
+    if (housing > 0) {
+      effects.push(`🏠 Wohnraum +${housing}`);
+    }
+    if (previewBuilding.bonuses.storage !== 0) {
+      effects.push(
+        `📦 Lager ${formatSignedAmount(previewBuilding.bonuses.storage)}`,
+      );
+    }
+    if (energy !== 0) {
+      effects.push(`⚡ Energie ${formatSignedAmount(energy)}/Tick`);
+    }
+    for (const production of previewBuilding.production) {
+      const commodity = commodityMap[production.commodityId];
+      effects.push(
+        `${commodity?.nameShort || commodity?.name || `Ware #${production.commodityId}`} ${formatSignedAmount(production.amount)}/Tick`,
+      );
+    }
+
+    return [
+      `Bauen: ${previewBuilding.name}`,
+      previewBuilding.id !== selectedBuilding.id
+        ? `Bonusfeld-Version von ${selectedBuilding.name}`
+        : undefined,
+      effects.length ? 'Auswirkungen:' : undefined,
+      ...effects.map((effect) => `  ${effect}`),
+    ]
+      .filter(Boolean)
+      .join('\n');
+  };
+
   const handleFieldClick = (field: ColonyField) => {
     if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
       onBuild(field.fieldIndex, selectedBuilding.id);
       setSelectedBuilding(null);
+      setHoveredBuildField(null);
       setSelectedField(null);
     } else if (!selectedBuilding) {
       if (field.buildingId && !field.isBuilding) {
@@ -510,7 +576,11 @@ export function ColonyDetail({
     tabAccess?.[key]?.visible ?? fallback;
   const tabs: Array<{ key: DetailTab; label: string; show: boolean }> = [
     { key: 'info', label: 'Informationen', show: isTabVisible('info') },
-    { key: 'orbit', label: 'Orbit', show: (detail?.orbitShips.length ?? 0) > 0 },
+    {
+      key: 'orbit',
+      label: 'Orbit',
+      show: (detail?.orbitShips.length ?? 0) > 0,
+    },
     { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
     { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
     {
@@ -660,6 +730,9 @@ export function ColonyDetail({
                     isHighlighted={highlightedFields.has(f.fieldIndex)}
                     isBuildMode={!!selectedBuilding}
                     isFieldActive={f.isActive}
+                    buildPreviewTitle={getBuildPreviewTitle(f)}
+                    onMouseEnter={() => setHoveredBuildField(f)}
+                    onMouseLeave={() => setHoveredBuildField(null)}
                     onClick={() => handleFieldClick(f)}
                   />
                 ))}
@@ -686,6 +759,9 @@ export function ColonyDetail({
                   isHighlighted={highlightedFields.has(f.fieldIndex)}
                   isBuildMode={!!selectedBuilding}
                   isFieldActive={f.isActive}
+                  buildPreviewTitle={getBuildPreviewTitle(f)}
+                  onMouseEnter={() => setHoveredBuildField(f)}
+                  onMouseLeave={() => setHoveredBuildField(null)}
                   onClick={() => handleFieldClick(f)}
                 />
               ))}
@@ -712,6 +788,9 @@ export function ColonyDetail({
                     isHighlighted={highlightedFields.has(f.fieldIndex)}
                     isBuildMode={!!selectedBuilding}
                     isFieldActive={f.isActive}
+                    buildPreviewTitle={getBuildPreviewTitle(f)}
+                    onMouseEnter={() => setHoveredBuildField(f)}
+                    onMouseLeave={() => setHoveredBuildField(null)}
                     onClick={() => handleFieldClick(f)}
                   />
                 ))}
@@ -797,7 +876,15 @@ export function ColonyDetail({
               storage={storage}
               commodityMap={commodityMap}
               selectedBuilding={selectedBuilding}
+              hoveredBuildField={
+                hoveredBuildField &&
+                highlightedFields.has(hoveredBuildField.fieldIndex)
+                  ? hoveredBuildField
+                  : null
+              }
+              buildingMap={buildingMap}
               onSelectBuilding={(b: BuildingDef) => {
+                setHoveredBuildField(null);
                 if (selectedBuilding?.id === b.id) setSelectedBuilding(null);
                 else {
                   setSelectedBuilding(b);
