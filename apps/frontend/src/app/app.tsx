@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastProvider } from '../components/Toast';
 import { useAuthStore } from '../stores/auth.store';
 import { AppShell } from '../components/layout/app-shell';
 import { LoginPage } from '../pages/login';
@@ -48,6 +49,7 @@ function MapEditorRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         <Route
@@ -129,6 +131,7 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
 
