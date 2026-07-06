@@ -402,7 +402,7 @@ export class GameDataService implements OnModuleInit {
           isTradeOnly: type !== 1 || c.visible === false,
           isSaveable: type === 1 && c.visible !== false,
           isEffect: type !== 1,
-          isDeposit: c.id >= 1500 && c.id < 2000,
+          isDeposit: c.id >= 1500 && c.id < 1700,
         });
       }
       this.logger.log(`Loaded ${this.commodities.size} commodities`);
