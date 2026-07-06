@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { In, Repository } from 'typeorm';
@@ -91,6 +92,7 @@ export class ColonyService {
   private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21, 22]);
   private readonly airfieldFunctionId = 4;
   private readonly repairShipyardFunctionId = 22;
+  private readonly warehouseFunctionId = 23;
   private readonly repairSparePartCommodityId = 10001;
   private readonly repairSystemComponentCommodityId = 10002;
   private readonly headquartersBuildingIds = new Set([1, 82010100, 82010300]);
@@ -137,6 +139,7 @@ export class ColonyService {
     private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
     private readonly buildingManagementService: ColonyBuildingManagementService,
     private readonly colonySocialService: ColonySocialService,
+    private readonly config: ConfigService,
   ) {}
 
   async getEvents(
@@ -261,6 +264,7 @@ export class ColonyService {
 
       const base = this.toColonySummary(colony);
       delete (base as any).fields;
+      (base as any).energyMax = summary.effectiveState.energy.max;
       return Object.assign(base, {
         crewSummary: {
           assigned: crewAssigned,
@@ -506,6 +510,74 @@ export class ColonyService {
     colony.stats.colonyMessage = normalizedMessage;
     await this.statsRepo.save(colony.stats);
     return { colonyMessage: colony.stats.colonyMessage };
+  }
+
+  async discardStorage(
+    colonyId: number,
+    userId: number,
+    items: Array<{ commodityId: number; amount: number }>,
+  ): Promise<{
+    discarded: Array<{ commodityId: number; amount: number; name: string }>;
+  }> {
+    const colony = await this.findOne(colonyId, userId);
+    if (!this.hasCompletedBuildingFunction(colony, this.warehouseFunctionId)) {
+      throw new BadRequestException('Warehouse required');
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new BadRequestException('No commodities selected');
+    }
+
+    const requested = new Map<number, number>();
+    for (const item of items) {
+      const commodityId = Number(item?.commodityId);
+      const amount = Math.floor(Number(item?.amount));
+      if (!Number.isInteger(commodityId) || commodityId <= 0) continue;
+      if (!Number.isFinite(amount) || amount < 1) continue;
+      requested.set(commodityId, (requested.get(commodityId) ?? 0) + amount);
+    }
+    if (requested.size === 0) {
+      throw new BadRequestException('No valid commodity amounts selected');
+    }
+
+    const discarded: Array<{
+      commodityId: number;
+      amount: number;
+      name: string;
+    }> = [];
+    for (const [commodityId, requestedAmount] of requested.entries()) {
+      const storage = await this.storageRepo.findOne({
+        where: { colonyId: colony.id, commodityId },
+      });
+      if (!storage || storage.amount <= 0) continue;
+      const amount = Math.min(requestedAmount, storage.amount);
+      if (amount <= 0) continue;
+      storage.amount -= amount;
+      await this.storageRepo.save(storage);
+      const commodity = this.gameData.getCommodity(commodityId);
+      discarded.push({
+        commodityId,
+        amount,
+        name: commodity?.name ?? `Ware #${commodityId}`,
+      });
+    }
+
+    if (discarded.length === 0) {
+      throw new BadRequestException('No matching storage available');
+    }
+
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.WASTE_DISCARDED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Waren entsorgt',
+      message: `Es wurden ${discarded
+        .map((item) => `${item.amount} ${item.name}`)
+        .join(', ')} entsorgt.`,
+      payload: { discarded },
+    });
+
+    return { discarded };
   }
 
   private normalizeColonyName(name: string): string {
@@ -1091,8 +1163,8 @@ export class ColonyService {
     await this.deductBuildCosts(colony, terraforming.costs);
     colony.energy -= terraforming.energyCost;
     field.terraformingId = terraforming.id;
-    field.terraformingFinishesAt = new Date(
-      Date.now() + terraforming.duration * 1000,
+    field.terraformingFinishesAt = this.dateAfterScaledSeconds(
+      terraforming.duration,
     );
     await this.colonyRepo.save(colony);
     return this.fieldRepo.save(field);
@@ -1288,6 +1360,20 @@ export class ColonyService {
     return this.colonyEconomyService.hasActiveFunction(colony, functionId);
   }
 
+  private hasCompletedBuildingFunction(
+    colony: Colony,
+    functionId: number,
+  ): boolean {
+    return (colony.fields ?? []).some(
+      (field) =>
+        field.buildingId &&
+        !field.isBuilding &&
+        this.gameData
+          .getBuildingFunctions(field.buildingId)
+          .includes(functionId),
+    );
+  }
+
   private hasActiveAirfield(colony: Colony): boolean {
     return this.hasActiveBuildingFunction(colony, this.airfieldFunctionId);
   }
@@ -1466,7 +1552,7 @@ export class ColonyService {
       itemKey: normalizedItemKey,
       amount,
       buildingFunctionId,
-      finishesAt: new Date(Date.now() + item.durationSeconds * amount * 1000),
+      finishesAt: this.dateAfterScaledSeconds(item.durationSeconds * amount),
       status: ColonyFabricationQueueStatus.QUEUED,
     });
     return this.fabricationQueueRepo.save(queue);
@@ -1960,10 +2046,36 @@ export class ColonyService {
         colonyId,
         userId,
         spacecraftId,
-        status: ColonyShipBuildQueueStatus.QUEUED,
+        status: In([
+          ColonyShipBuildQueueStatus.QUEUED,
+          ColonyShipBuildQueueStatus.PAUSED,
+        ]),
       },
     });
     return !!queue;
+  }
+
+  private getActiveRepairSlotCount(colony: Colony): number {
+    const activeRepairBuildings = (colony.fields ?? []).filter(
+      (field) =>
+        field.buildingId &&
+        !field.isBuilding &&
+        field.isActive &&
+        this.gameData
+          .getBuildingFunctions(field.buildingId)
+          .includes(this.repairShipyardFunctionId),
+    ).length;
+    return activeRepairBuildings * 2;
+  }
+
+  private async getActiveRepairQueueCount(colonyId: number): Promise<number> {
+    return this.shipBuildQueueRepo.count({
+      where: {
+        colonyId,
+        mode: ColonyShipBuildQueueMode.REPAIR,
+        status: ColonyShipBuildQueueStatus.QUEUED,
+      },
+    });
   }
 
   async queueShipRepair(
@@ -1996,6 +2108,9 @@ export class ColonyService {
 
     const repairPlan = this.calculateShipRepairPlan(colony, ship, modules);
     await this.deductBuildCosts(colony, repairPlan.costs);
+    const activeRepairSlots = this.getActiveRepairSlotCount(colony);
+    const activeRepairJobs = await this.getActiveRepairQueueCount(colony.id);
+    const startsActive = activeRepairJobs < activeRepairSlots;
 
     const queue = this.shipBuildQueueRepo.create({
       colonyId: colony.id,
@@ -2023,8 +2138,11 @@ export class ColonyService {
         costs: repairPlan.costs,
       },
       retrofitSnapshot: null,
-      finishesAt: new Date(Date.now() + repairPlan.durationMinutes * 60_000),
-      status: ColonyShipBuildQueueStatus.QUEUED,
+      finishesAt: this.dateAfterScaledMinutes(repairPlan.durationMinutes),
+      stoppedAt: startsActive ? null : new Date(),
+      status: startsActive
+        ? ColonyShipBuildQueueStatus.QUEUED
+        : ColonyShipBuildQueueStatus.PAUSED,
     });
 
     return this.shipBuildQueueRepo.save(queue);
@@ -2130,7 +2248,7 @@ export class ColonyService {
         returnedModuleCommodityIds: [],
         consumedModuleCommodityIds,
       },
-      finishesAt: new Date(Date.now() + buildMinutes * 60_000),
+      finishesAt: this.dateAfterScaledMinutes(buildMinutes),
       status: ColonyShipBuildQueueStatus.QUEUED,
     });
 
@@ -2182,7 +2300,12 @@ export class ColonyService {
     if (!queue) {
       throw new NotFoundException('Ship build queue not found');
     }
-    if (queue.status !== ColonyShipBuildQueueStatus.QUEUED) {
+    if (
+      ![
+        ColonyShipBuildQueueStatus.QUEUED,
+        ColonyShipBuildQueueStatus.PAUSED,
+      ].includes(queue.status)
+    ) {
       throw new BadRequestException(
         'Only queued shipyard jobs can be cancelled',
       );
@@ -2219,6 +2342,63 @@ export class ColonyService {
     queueId: number,
   ): Promise<ColonyShipBuildQueue> {
     return this.cancelShipBuildQueue(colonyId, userId, queueId);
+  }
+
+  async reactivateShipyardQueue(
+    colonyId: number,
+    userId: number,
+    queueId: number,
+  ): Promise<ColonyShipBuildQueue> {
+    const colony = await this.findOne(colonyId, userId);
+    const queue = await this.shipBuildQueueRepo.findOne({
+      where: { id: queueId, colonyId: colony.id, userId },
+    });
+    if (!queue) throw new NotFoundException('Ship build queue not found');
+    if (queue.mode !== ColonyShipBuildQueueMode.REPAIR) {
+      throw new BadRequestException('Only repair jobs can be reactivated');
+    }
+    if (queue.status !== ColonyShipBuildQueueStatus.PAUSED) {
+      throw new BadRequestException(
+        'Only paused repair jobs can be reactivated',
+      );
+    }
+    if (colony.stats?.isBlockaded) {
+      throw new BadRequestException(
+        'Ship repair is blocked while colony is blockaded',
+      );
+    }
+    const activeRepairSlots = this.getActiveRepairSlotCount(colony);
+    if (activeRepairSlots <= 0) {
+      throw new BadRequestException('Active repair shipyard required');
+    }
+    const activeRepairJobs = await this.getActiveRepairQueueCount(colony.id);
+    if (activeRepairJobs >= activeRepairSlots) {
+      throw new BadRequestException('No active repair slot available');
+    }
+
+    const now = new Date();
+    if (queue.stoppedAt) {
+      const pauseMs = now.getTime() - queue.stoppedAt.getTime();
+      queue.finishesAt = new Date(
+        queue.finishesAt.getTime() + Math.max(0, pauseMs),
+      );
+    } else if (queue.finishesAt <= now) {
+      queue.finishesAt = this.dateAfterScaledMinutes(1);
+    }
+    queue.stoppedAt = null;
+    queue.status = ColonyShipBuildQueueStatus.QUEUED;
+
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.SHIP_REPAIR_REACTIVATED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Reparatur reaktiviert',
+      message: `${queue.name} wurde reaktiviert.`,
+      payload: { queueId: queue.id, spacecraftId: queue.spacecraftId },
+    });
+
+    return this.shipBuildQueueRepo.save(queue);
   }
 
   private createBuildplanSignature(
@@ -2379,7 +2559,7 @@ export class ColonyService {
       moduleCommodityIds: selectedModuleCommodityIds,
       crewAssigned: crewRequired,
       crewIds,
-      finishesAt: new Date(Date.now() + buildMinutes * 60_000),
+      finishesAt: this.dateAfterScaledMinutes(buildMinutes),
       mode: ColonyShipBuildQueueMode.BUILD,
       spacecraftId: null,
       repairSnapshot: null,
@@ -2730,7 +2910,7 @@ export class ColonyService {
   }
 
   private async processShipBuildQueue(colony: Colony): Promise<void> {
-    const finishedJobs = await this.shipBuildQueueRepo.find({
+    const queuedJobs = await this.shipBuildQueueRepo.find({
       where: {
         colonyId: colony.id,
         status: ColonyShipBuildQueueStatus.QUEUED,
@@ -2738,9 +2918,17 @@ export class ColonyService {
       relations: ['shipClass'],
     });
     const now = new Date();
-    for (const job of finishedJobs.filter(
-      (candidate) => candidate.finishesAt <= now,
-    )) {
+    const canProgressRepair =
+      !colony.stats?.isBlockaded && this.getActiveRepairSlotCount(colony) > 0;
+
+    for (const job of queuedJobs) {
+      if (job.mode === ColonyShipBuildQueueMode.REPAIR && !canProgressRepair) {
+        job.status = ColonyShipBuildQueueStatus.PAUSED;
+        job.stoppedAt = now;
+        await this.shipBuildQueueRepo.save(job);
+        continue;
+      }
+      if (job.finishesAt > now) continue;
       if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
         await this.finishShipRepairQueue(job);
         continue;
@@ -3116,7 +3304,13 @@ export class ColonyService {
       order: { commodityId: 'ASC' },
     });
     const shipBuildQueue = await this.shipBuildQueueRepo.find({
-      where: { colonyId: colony.id, status: ColonyShipBuildQueueStatus.QUEUED },
+      where: {
+        colonyId: colony.id,
+        status: In([
+          ColonyShipBuildQueueStatus.QUEUED,
+          ColonyShipBuildQueueStatus.PAUSED,
+        ]),
+      },
       order: { finishesAt: 'ASC' },
     });
     const buildplans = await this.shipBuildplanRepo.find({
@@ -3257,6 +3451,13 @@ export class ColonyService {
           current: effectiveState.storage.current,
           max: effectiveState.storage.max,
           delta: effectiveState.storage.delta,
+        },
+        waste: {
+          canDiscard: this.hasCompletedBuildingFunction(
+            colony,
+            this.warehouseFunctionId,
+          ),
+          requiredFunctionId: this.warehouseFunctionId,
         },
         population: {
           current: effectiveCurrentPopulation,
@@ -3536,6 +3737,7 @@ export class ColonyService {
             return item?.displayName ?? `Modul #${commodityId}`;
           }),
           finishesAt: job.finishesAt,
+          stoppedAt: job.stoppedAt,
           status: job.status,
         })),
         shipyardQueue: shipBuildQueue.map((job) => ({
@@ -3550,6 +3752,7 @@ export class ColonyService {
           repairSnapshot: job.repairSnapshot,
           retrofitSnapshot: job.retrofitSnapshot,
           finishesAt: job.finishesAt,
+          stoppedAt: job.stoppedAt,
           status: job.status,
         })),
         availableShipModules,
@@ -3745,6 +3948,21 @@ export class ColonyService {
     }
     if (!trainingFacility.active) return 0;
     return Math.min(globalTrainableNow, Math.max(0, 2 - inTraining));
+  }
+
+  private dateAfterScaledSeconds(seconds: number): Date {
+    return new Date(Date.now() + this.scaleBuildTimeSeconds(seconds) * 1000);
+  }
+
+  private dateAfterScaledMinutes(minutes: number): Date {
+    return this.dateAfterScaledSeconds(minutes * 60);
+  }
+
+  private scaleBuildTimeSeconds(seconds: number): number {
+    const configured = Number(this.config.get('GAME_BUILD_TIME_MULTIPLIER'));
+    const multiplier =
+      Number.isFinite(configured) && configured > 0 ? configured : 1;
+    return Math.max(1, Math.round(seconds * multiplier));
   }
 
   private calculatePopulationGrowth(
@@ -4053,7 +4271,7 @@ export class ColonyService {
         0,
         Math.min(
           colony.energy + summary.energyDelta,
-          colony.stats?.maxEnergy ?? colony.energyMax,
+          summary.effectiveState.energy.max,
         ),
       );
     }
