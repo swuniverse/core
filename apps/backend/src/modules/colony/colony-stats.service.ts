@@ -106,6 +106,7 @@ export class ColonyStatsService {
     let workersUsed = 0;
     let housingBonus = 0;
     let storageBonus = 0;
+    let energyBonus = 0;
     const activeFunctionBuildingIds = new Map<number, Set<number>>();
 
     for (const field of activeFields) {
@@ -126,6 +127,7 @@ export class ColonyStatsService {
       workersUsed += definition.bevUse || 0;
       housingBonus += definition.bevPro || 0;
       storageBonus += definition.lager || definition.bonuses.storage || 0;
+      energyBonus += definition.bonuses.energy || 0;
       for (const output of definition.production) {
         const commodity = this.gameData.getCommodity(output.commodityId);
         const targetDelta = commodity?.isDeposit
@@ -166,6 +168,8 @@ export class ColonyStatsService {
     );
     const freeHousing = Math.max(0, maxHousing - effectiveCurrentPopulation);
 
+    const effectiveEnergyMax =
+      (colony.stats?.maxEnergy ?? colony.energyMax) + energyBonus;
     const effectiveStorageMax =
       (colony.stats?.maxStorage ?? colony.storageMax) + storageBonus;
     const storageCurrent = colony.storageUsed ?? 0;
@@ -215,7 +219,7 @@ export class ColonyStatsService {
       },
       energy: {
         current: colony.energy ?? 0,
-        max: colony.stats?.maxEnergy ?? colony.energyMax,
+        max: effectiveEnergyMax,
         delta: energyDelta,
         production: energyProduction,
         consumption: energyConsumption,
