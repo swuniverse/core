@@ -26,6 +26,10 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
         .filter((item) => item.amount > 0),
     [discardAmounts],
   );
+  const selectedTotal = useMemo(
+    () => discardItems.reduce((sum, item) => sum + item.amount, 0),
+    [discardItems],
+  );
 
   const handleDiscard = async () => {
     if (discardItems.length === 0) return;
@@ -126,12 +130,22 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
                       min={0}
                       max={item.amount}
                       value={amount}
-                      onChange={(event) =>
-                        setDiscardAmounts((current) => ({
-                          ...current,
-                          [item.commodityId]: event.target.value,
-                        }))
-                      }
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setDiscardAmounts((current) => {
+                          if (next === '' || Number(next) <= 0) {
+                            const updated = { ...current };
+                            delete updated[item.commodityId];
+                            return updated;
+                          }
+                          return {
+                            ...current,
+                            [item.commodityId]: String(
+                              Math.min(item.amount, Math.max(0, Number(next))),
+                            ),
+                          };
+                        });
+                      }}
                       className="w-20 rounded border border-swu-border bg-swu-bg px-2 py-1 text-right font-mono text-swu-primary focus:outline-none focus:border-swu-accent"
                     />
                   </label>
@@ -139,7 +153,15 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
               })}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              +{' '}
+              <div className="text-[10px] text-swu-muted">
+                + Ausgewählt: +{' '}
+                <span className="font-mono text-swu-primary">
+                  + {selectedTotal}+{' '}
+                </span>
+                +{' '}
+              </div>
               <button
                 onClick={handleDiscard}
                 disabled={discarding || discardItems.length === 0}

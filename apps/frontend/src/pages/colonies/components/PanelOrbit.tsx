@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { commodityImage } from '../../../lib/assets';
+import { formatSignedAmount } from '../utils';
 import type { ColonyDetailV2, CommodityDef } from '../types';
 
 type PanelOrbitProps = {
@@ -291,6 +292,16 @@ export function PanelOrbit({
                       >
                         Shuttle-Management
                       </button>
+                      {ship.canManageShuttle && (
+                        <span className="px-2 py-1 rounded border border-cyan-500/30 bg-cyan-500/10 text-[10px] text-cyan-200">
+                          {Math.max(
+                            0,
+                            (ship.shuttleCapacity ?? 0) -
+                              (ship.shuttleStored ?? 0),
+                          )}{' '}
+                          freie Slots
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-swu-muted">
@@ -350,10 +361,16 @@ export function PanelOrbit({
                         <div className="grid gap-2 md:grid-cols-2">
                           {shuttleInventory.map((item) => {
                             const commodity = commodityMap[item.commodityId];
-                            const canLoad =
-                              (ship.shuttleStored ?? 0) <
-                              (ship.shuttleCapacity ?? 0);
+                            const freeSlots = Math.max(
+                              0,
+                              (ship.shuttleCapacity ?? 0) -
+                                (ship.shuttleStored ?? 0),
+                            );
+                            const canLoad = freeSlots > 0;
                             const canUnload = (ship.shuttleStored ?? 0) > 0;
+                            const shuttleLabel = commodity?.isWorkbee
+                              ? 'Workbee'
+                              : 'Shuttle';
                             return (
                               <div
                                 key={`${ship.id}-${item.commodityId}`}
@@ -370,7 +387,14 @@ export function PanelOrbit({
                                       {commodity?.name ?? item.name}
                                     </div>
                                     <div className="text-[10px] text-swu-muted">
-                                      Kolonie {item.amount}
+                                      {shuttleLabel} · Kolonie {item.amount}
+                                      {item.delta !== 0 && (
+                                        <span
+                                          className={`ml-1 ${item.delta > 0 ? 'text-green-400' : 'text-red-400'}`}
+                                        >
+                                          {formatSignedAmount(item.delta)}/Tick
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -396,9 +420,11 @@ export function PanelOrbit({
                                     }
                                     className={`${SHIP_ACTION_BASE} border-cyan-400/40 text-cyan-300 hover:border-cyan-400`}
                                     title={
-                                      !canLoad
-                                        ? 'Keine freien Shuttle-Slots'
-                                        : undefined
+                                      item.amount <= 0
+                                        ? 'Kein Bestand auf der Kolonie'
+                                        : !canLoad
+                                          ? 'Keine freien Shuttle-Slots'
+                                          : `Freie Slots: ${freeSlots}`
                                     }
                                   >
                                     +1
@@ -425,7 +451,7 @@ export function PanelOrbit({
                                     title={
                                       !canUnload
                                         ? 'Keine Shuttles im Schiff'
-                                        : undefined
+                                        : 'Zur Kolonie entladen'
                                     }
                                   >
                                     -1

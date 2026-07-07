@@ -93,8 +93,8 @@ export function PanelShipyard({
     RETROFIT: 'Umrüstung',
   };
   const queueStatusLabel: Record<string, string> = {
-    QUEUED: 'aktiv',
-    PAUSED: 'gestoppt',
+    QUEUED: 'läuft',
+    PAUSED: 'pausiert',
     COMPLETED: 'fertig',
     CANCELLED: 'abgebrochen',
   };
@@ -432,20 +432,25 @@ export function PanelShipyard({
           <div className="space-y-1 text-xs">
             {queue.map((job) => {
               const mode = job.mode ?? 'BUILD';
+              const isRepair = mode === 'REPAIR';
+              const isPaused = job.status === 'PAUSED';
+              const isActive = job.status === 'QUEUED';
               return (
                 <div
                   key={job.id}
-                  className="flex flex-col border-b border-swu-border/20 pb-1 last:border-0 last:pb-0"
+                  className={`flex flex-col rounded border px-2 py-2 last:mb-0 ${isPaused ? 'border-yellow-500/40 bg-yellow-500/5' : isRepair ? 'border-cyan-500/30 bg-cyan-500/5' : 'border-swu-border/20'}`}
                 >
                   <div className="flex justify-between gap-2">
                     <span className="text-swu-primary font-bold">
-                      <span className="text-swu-accent mr-1">
+                      <span
+                        className={`${isRepair ? 'text-cyan-300' : 'text-swu-accent'} mr-1`}
+                      >
                         {queueModeLabel[mode]}
                       </span>
                       {job.name}
                     </span>
                     <span className="text-swu-muted">
-                      {job.status === 'PAUSED' ? 'gestoppt' : 'bis'}{' '}
+                      {isPaused ? 'geplant bis' : 'fertig bis'}{' '}
                       {new Date(job.finishesAt).toLocaleString()}
                     </span>
                   </div>
@@ -453,17 +458,40 @@ export function PanelShipyard({
                     Status:{' '}
                     <span
                       className={
-                        job.status === 'PAUSED'
+                        isPaused
                           ? 'text-yellow-400'
-                          : 'text-green-400'
+                          : isActive
+                            ? 'text-green-400'
+                            : 'text-swu-primary'
                       }
                     >
                       {queueStatusLabel[job.status] ?? job.status}
                     </span>
+                    {isRepair && isActive && ' · aktiver Reparaturslot'}
                     {job.stoppedAt
-                      ? ` · seit ${new Date(job.stoppedAt).toLocaleString()}`
+                      ? ` · pausiert seit ${new Date(job.stoppedAt).toLocaleString()}`
                       : ''}
                   </div>
+                  {isRepair && (
+                    <div className="text-[10px] text-swu-muted space-y-0.5">
+                      <div>
+                        {isPaused
+                          ? 'Die Reparatur ist angehalten und wartet auf einen freien aktiven Reparaturslot.'
+                          : 'Die Reparatur läuft passiv über die aktive Reparaturwerft.'}
+                      </div>
+                      {isPaused ? (
+                        <div>
+                          Reaktivieren setzt die verbleibende Restzeit fort,
+                          sobald Werft und Slot verfügbar sind.
+                        </div>
+                      ) : (
+                        <div>
+                          Wird die Werft blockiert oder verliert ihren aktiven
+                          Status, pausiert der Job automatisch.
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {job.buildPlanName && (
                     <div className="text-[10px] text-swu-muted">
                       Plan: {job.buildPlanName}
@@ -485,15 +513,38 @@ export function PanelShipyard({
                       Module: {job.moduleTypes.join(', ')}
                     </div>
                   )}
+                  {isPaused && job.canReactivate && (
+                    <div className="text-[10px] text-green-300">
+                      Reaktivierung ist möglich: Werft aktiv, keine Blockade,
+                      mindestens ein Slot frei.
+                    </div>
+                  )}
+                  {isPaused &&
+                    job.reactivationBlockedReason &&
+                    !job.canReactivate && (
+                      <div className="text-[10px] text-yellow-300">
+                        Reaktivierung aktuell blockiert:{' '}
+                        {job.reactivationBlockedReason}
+                      </div>
+                    )}
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {job.mode === 'REPAIR' && job.status === 'PAUSED' && (
+                    {job.mode === 'REPAIR' && isPaused && (
                       <button
                         onClick={() =>
                           runShipyardAction(`reactivate-${job.id}`, () =>
                             onReactivateShipyardQueue(job.id),
                           )
                         }
-                        disabled={busyShipyardAction === `reactivate-${job.id}`}
+                        disabled={
+                          !job.canReactivate ||
+                          busyShipyardAction === `reactivate-${job.id}`
+                        }
+                        title={
+                          !job.canReactivate
+                            ? (job.reactivationBlockedReason ??
+                              'Reaktivierung nicht verfügbar')
+                            : undefined
+                        }
                         className="px-2 py-0.5 rounded border border-swu-accent/60 bg-swu-accent/15 text-[10px] text-swu-accent disabled:opacity-40"
                       >
                         Reaktivieren

@@ -276,6 +276,7 @@ export interface ShipClassYamlDef {
   epsBase: number;
   warpBase: number;
   batteryBase: number;
+  shuttleSlots?: number;
   starterAllowed: boolean;
   isNpc: boolean;
   isColonizer?: boolean;

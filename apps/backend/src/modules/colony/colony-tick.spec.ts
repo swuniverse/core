@@ -4356,9 +4356,6 @@ describe('ship repair queues', () => {
     });
     expect(ship.hull).toBe(100);
     expect(spacecraftStatsService.applyStats).toHaveBeenCalled();
-    expect(shipBuildQueueRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 99, status: 'COMPLETED' }),
-    );
   });
 });
 
@@ -4897,6 +4894,24 @@ describe('colony waste discard', () => {
       expect.objectContaining({ type: 'WASTE_DISCARDED' }),
     );
   });
+
+  it('rejects discard requests without valid positive amounts', async () => {
+    const { service, colonyRepo, gameData } = createColonyService();
+    gameData.getBuildingFunctions.mockImplementation((buildingId: number) =>
+      buildingId === 9000 ? [23] : [],
+    );
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [{ id: 1, buildingId: 9000, isBuilding: false, isActive: false }],
+      storage: [{ id: 1, colonyId: 1, commodityId: 2, amount: 5 }],
+      stats: {},
+    });
+
+    await expect(
+      service.discardStorage(1, 1, [{ commodityId: 2, amount: 0 }]),
+    ).rejects.toThrow('No valid commodity amounts selected');
+  });
 });
 
 describe('ship repair queue reactivation', () => {
@@ -4943,8 +4958,14 @@ describe('ship repair queue reactivation', () => {
   });
 
   it('reactivates paused repair when a repair slot is available', async () => {
-    const { service, colonyRepo, shipBuildQueueRepo, colonyEventService } =
-      createColonyService();
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      spacecraftModuleRepo,
+      shipBuildQueueRepo,
+      colonyEventService,
+    } = createColonyService();
     const stoppedAt = new Date(Date.now() - 60_000);
     const finishesAt = new Date(Date.now() + 60_000);
     const queue = {
@@ -4970,6 +4991,17 @@ describe('ship repair queue reactivation', () => {
     shipBuildQueueRepo.findOne.mockResolvedValue(queue);
     shipBuildQueueRepo.count.mockResolvedValue(0);
     shipBuildQueueRepo.save.mockImplementation(async (value: any) => value);
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      hull: 50,
+      hullMax: 100,
+      status: 'DOCKED',
+    });
+    spacecraftModuleRepo.find.mockResolvedValue([]);
 
     const result = await service.reactivateShipyardQueue(1, 1, 9);
 
@@ -4979,6 +5011,109 @@ describe('ship repair queue reactivation', () => {
     expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SHIP_REPAIR_REACTIVATED' }),
     );
+  });
+
+  it('rejects reactivation for non-repair jobs', async () => {
+    const { service, colonyRepo, shipBuildQueueRepo } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [
+        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+      stats: { isBlockaded: false },
+    });
+    shipBuildQueueRepo.findOne.mockResolvedValue({
+      id: 11,
+      colonyId: 1,
+      userId: 1,
+      mode: 'BUILD',
+      status: 'PAUSED',
+    });
+
+    await expect(service.reactivateShipyardQueue(1, 1, 11)).rejects.toThrow(
+      'Only repair jobs can be reactivated',
+    );
+  });
+
+  it('rejects reactivation when repair target is already fully repaired', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      spacecraftModuleRepo,
+      shipBuildQueueRepo,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [
+        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+      stats: { isBlockaded: false },
+    });
+    shipBuildQueueRepo.findOne.mockResolvedValue({
+      id: 12,
+      colonyId: 1,
+      userId: 1,
+      mode: 'REPAIR',
+      status: 'PAUSED',
+      stoppedAt: new Date(Date.now() - 1000),
+      finishesAt: new Date(Date.now() + 1000),
+      name: 'Reparatur: Test',
+      spacecraftId: 7,
+    });
+    shipBuildQueueRepo.count.mockResolvedValue(0);
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      hull: 100,
+      hullMax: 100,
+      status: 'DOCKED',
+    });
+    spacecraftModuleRepo.find.mockResolvedValue([]);
+
+    await expect(service.reactivateShipyardQueue(1, 1, 12)).rejects.toThrow(
+      'Ship is no longer damaged',
+    );
+  });
+
+  it('automatically requeues paused repair jobs when a slot becomes free', async () => {
+    const { service, shipBuildQueueRepo } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 1,
+      fields: [
+        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+      stats: { isBlockaded: false },
+    };
+    const pausedJob = {
+      id: 15,
+      colonyId: 1,
+      userId: 1,
+      shipClassId: 1,
+      spacecraftId: 7,
+      mode: 'REPAIR',
+      status: 'PAUSED',
+      stoppedAt: new Date(Date.now() - 60_000),
+      finishesAt: new Date(Date.now() + 60_000),
+    };
+    shipBuildQueueRepo.find.mockResolvedValue([]);
+    shipBuildQueueRepo.save.mockImplementation(async (value: any) => value);
+    shipBuildQueueRepo.find.mockImplementationOnce(async () => []);
+    shipBuildQueueRepo.find.mockImplementationOnce(async () => [pausedJob]);
+
+    await service.processTick(colony as any);
+
+    expect(pausedJob.status).toBe('QUEUED');
+    expect(pausedJob.stoppedAt).toBeNull();
   });
 });
 

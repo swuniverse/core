@@ -2465,6 +2465,19 @@ export class ColonyService {
     });
   }
 
+  private async getPausedRepairJobs(
+    colonyId: number,
+  ): Promise<ColonyShipBuildQueue[]> {
+    return this.shipBuildQueueRepo.find({
+      where: {
+        colonyId,
+        mode: ColonyShipBuildQueueMode.REPAIR,
+        status: ColonyShipBuildQueueStatus.PAUSED,
+      },
+      order: { stoppedAt: 'ASC', id: 'ASC' },
+    });
+  }
+
   async queueShipRepair(
     colonyId: number,
     userId: number,
@@ -2761,6 +2774,21 @@ export class ColonyService {
     const activeRepairJobs = await this.getActiveRepairQueueCount(colony.id);
     if (activeRepairJobs >= activeRepairSlots) {
       throw new BadRequestException('No active repair slot available');
+    }
+
+    const ship = queue.spacecraftId
+      ? await this.shipRepo.findOne({
+          where: { id: queue.spacecraftId, userId },
+        })
+      : null;
+    if (!ship) {
+      throw new BadRequestException('Repair target no longer exists');
+    }
+    const modules = await this.spacecraftModuleRepo.find({
+      where: { spacecraftId: ship.id },
+    });
+    if (!this.isShipRepairNeeded(ship, modules)) {
+      throw new BadRequestException('Ship is no longer damaged');
     }
 
     const now = new Date();
@@ -3303,17 +3331,23 @@ export class ColonyService {
         status: ColonyShipBuildQueueStatus.QUEUED,
       },
       relations: ['shipClass'],
+      order: { finishesAt: 'ASC', id: 'ASC' },
     });
     const now = new Date();
+    const activeRepairSlots = this.getActiveRepairSlotCount(colony);
     const canProgressRepair =
-      !colony.stats?.isBlockaded && this.getActiveRepairSlotCount(colony) > 0;
+      !colony.stats?.isBlockaded && activeRepairSlots > 0;
+    let remainingRepairSlots = activeRepairSlots;
 
     for (const job of queuedJobs) {
-      if (job.mode === ColonyShipBuildQueueMode.REPAIR && !canProgressRepair) {
-        job.status = ColonyShipBuildQueueStatus.PAUSED;
-        job.stoppedAt = now;
-        await this.shipBuildQueueRepo.save(job);
-        continue;
+      if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
+        if (!canProgressRepair || remainingRepairSlots <= 0) {
+          job.status = ColonyShipBuildQueueStatus.PAUSED;
+          job.stoppedAt = now;
+          await this.shipBuildQueueRepo.save(job);
+          continue;
+        }
+        remainingRepairSlots -= 1;
       }
       if (job.finishesAt > now) continue;
       if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
@@ -3325,6 +3359,21 @@ export class ColonyService {
         continue;
       }
       await this.finishShipBuildQueue(colony, job);
+    }
+
+    if (canProgressRepair && remainingRepairSlots > 0) {
+      const pausedJobs = await this.getPausedRepairJobs(colony.id);
+      for (const pausedJob of pausedJobs.slice(0, remainingRepairSlots)) {
+        if (pausedJob.stoppedAt) {
+          const pauseMs = now.getTime() - pausedJob.stoppedAt.getTime();
+          pausedJob.finishesAt = new Date(
+            pausedJob.finishesAt.getTime() + Math.max(0, pauseMs),
+          );
+        }
+        pausedJob.stoppedAt = null;
+        pausedJob.status = ColonyShipBuildQueueStatus.QUEUED;
+        await this.shipBuildQueueRepo.save(pausedJob);
+      }
     }
   }
 
@@ -4191,45 +4240,85 @@ export class ColonyService {
               frequency: colony.stats.shieldFrequency,
             }
           : null,
-        shipBuildQueue: shipBuildQueue.map((job) => ({
-          id: job.id,
-          shipClassId: job.shipClassId,
-          spacecraftId: job.spacecraftId,
-          mode: job.mode ?? ColonyShipBuildQueueMode.BUILD,
-          name: job.name,
-          buildPlanName: job.buildPlanName,
-          buildPlanId: job.buildPlanId,
-          buildPlanSignature: job.buildPlanSignature,
-          moduleTypes: job.moduleTypes,
-          moduleCommodityIds: job.moduleCommodityIds,
-          crewAssigned: job.crewAssigned,
-          crewIds: job.crewIds,
-          repairSnapshot: job.repairSnapshot,
-          retrofitSnapshot: job.retrofitSnapshot,
-          moduleNames: (job.moduleCommodityIds ?? []).map((commodityId) => {
-            const item =
-              this.gameData.getFabricationItemByOutputCommodity(commodityId);
-            return item?.displayName ?? `Modul #${commodityId}`;
-          }),
-          finishesAt: job.finishesAt,
-          stoppedAt: job.stoppedAt,
-          status: job.status,
-        })),
-        shipyardQueue: shipBuildQueue.map((job) => ({
-          id: job.id,
-          shipClassId: job.shipClassId,
-          spacecraftId: job.spacecraftId,
-          mode: job.mode ?? ColonyShipBuildQueueMode.BUILD,
-          name: job.name,
-          buildPlanName: job.buildPlanName,
-          moduleCommodityIds: job.moduleCommodityIds,
-          moduleTypes: job.moduleTypes,
-          repairSnapshot: job.repairSnapshot,
-          retrofitSnapshot: job.retrofitSnapshot,
-          finishesAt: job.finishesAt,
-          stoppedAt: job.stoppedAt,
-          status: job.status,
-        })),
+        shipBuildQueue: shipBuildQueue.map((job) => {
+          const mode = job.mode ?? ColonyShipBuildQueueMode.BUILD;
+          const canReactivate =
+            mode === ColonyShipBuildQueueMode.REPAIR &&
+            job.status === ColonyShipBuildQueueStatus.PAUSED &&
+            !colony.stats?.isBlockaded &&
+            this.getActiveRepairSlotCount(colony) > 0;
+          const reactivationBlockedReason =
+            mode !== ColonyShipBuildQueueMode.REPAIR
+              ? 'Nur Reparaturjobs können reaktiviert werden.'
+              : job.status !== ColonyShipBuildQueueStatus.PAUSED
+                ? 'Nur pausierte Reparaturjobs können reaktiviert werden.'
+                : colony.stats?.isBlockaded
+                  ? 'Reparaturen sind während einer Blockade gesperrt.'
+                  : this.getActiveRepairSlotCount(colony) <= 0
+                    ? 'Aktive Reparaturwerft erforderlich.'
+                    : null;
+          return {
+            id: job.id,
+            shipClassId: job.shipClassId,
+            spacecraftId: job.spacecraftId,
+            mode,
+            name: job.name,
+            canReactivate,
+            reactivationBlockedReason,
+            buildPlanName: job.buildPlanName,
+            buildPlanId: job.buildPlanId,
+            buildPlanSignature: job.buildPlanSignature,
+            moduleTypes: job.moduleTypes,
+            moduleCommodityIds: job.moduleCommodityIds,
+            crewAssigned: job.crewAssigned,
+            crewIds: job.crewIds,
+            repairSnapshot: job.repairSnapshot,
+            retrofitSnapshot: job.retrofitSnapshot,
+            moduleNames: (job.moduleCommodityIds ?? []).map((commodityId) => {
+              const item =
+                this.gameData.getFabricationItemByOutputCommodity(commodityId);
+              return item?.displayName ?? `Modul #${commodityId}`;
+            }),
+            finishesAt: job.finishesAt,
+            stoppedAt: job.stoppedAt,
+            status: job.status,
+          };
+        }),
+        shipyardQueue: shipBuildQueue.map((job) => {
+          const mode = job.mode ?? ColonyShipBuildQueueMode.BUILD;
+          const canReactivate =
+            mode === ColonyShipBuildQueueMode.REPAIR &&
+            job.status === ColonyShipBuildQueueStatus.PAUSED &&
+            !colony.stats?.isBlockaded &&
+            this.getActiveRepairSlotCount(colony) > 0;
+          const reactivationBlockedReason =
+            mode !== ColonyShipBuildQueueMode.REPAIR
+              ? 'Nur Reparaturjobs können reaktiviert werden.'
+              : job.status !== ColonyShipBuildQueueStatus.PAUSED
+                ? 'Nur pausierte Reparaturjobs können reaktiviert werden.'
+                : colony.stats?.isBlockaded
+                  ? 'Reparaturen sind während einer Blockade gesperrt.'
+                  : this.getActiveRepairSlotCount(colony) <= 0
+                    ? 'Aktive Reparaturwerft erforderlich.'
+                    : null;
+          return {
+            id: job.id,
+            shipClassId: job.shipClassId,
+            spacecraftId: job.spacecraftId,
+            mode,
+            name: job.name,
+            canReactivate,
+            reactivationBlockedReason,
+            buildPlanName: job.buildPlanName,
+            moduleCommodityIds: job.moduleCommodityIds,
+            moduleTypes: job.moduleTypes,
+            repairSnapshot: job.repairSnapshot,
+            retrofitSnapshot: job.retrofitSnapshot,
+            finishesAt: job.finishesAt,
+            stoppedAt: job.stoppedAt,
+            status: job.status,
+          };
+        }),
         availableShipModules,
         buildplans: buildplans.map((buildplan) => ({
           id: buildplan.id,

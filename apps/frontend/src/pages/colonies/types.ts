@@ -28,6 +28,8 @@ export type ShipyardQueueEntry = {
   spacecraftId?: number | null;
   mode?: ShipyardQueueMode;
   name: string;
+  canReactivate?: boolean;
+  reactivationBlockedReason?: string | null;
   buildPlanName: string | null;
   buildPlanId?: number | null;
   buildPlanSignature?: string | null;
