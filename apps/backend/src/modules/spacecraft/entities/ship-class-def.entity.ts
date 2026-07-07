@@ -60,6 +60,9 @@ export class ShipClassDef {
   @Column({ default: false })
   isColonizer: boolean;
 
+  @Column({ default: 0 })
+  shuttleSlots: number;
+
   @Column({ type: 'int', nullable: true })
   colonizerTier: number | null;
 

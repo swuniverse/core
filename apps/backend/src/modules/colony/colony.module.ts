@@ -23,6 +23,7 @@ import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
 import { ColonyFabricationQueue } from './entities/colony-fabrication-queue.entity';
 import { ColonyCrewTrainingQueue } from './entities/colony-crew-training-queue.entity';
 import { ColonyEvent } from './entities/colony-event.entity';
+import { ColonyOrbitAssignment } from './entities/colony-orbit-assignment.entity';
 import { Crew } from './entities/crew.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -51,6 +52,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
       ColonyFabricationQueue,
       ColonyCrewTrainingQueue,
       ColonyEvent,
+      ColonyOrbitAssignment,
       Crew,
       CrewAssignment,
       CelestialObject,

@@ -12,6 +12,7 @@ import { Spacecraft } from '../../spacecraft/entities/spacecraft.entity';
 
 export enum ColonyShipBuildQueueStatus {
   QUEUED = 'QUEUED',
+  PAUSED = 'PAUSED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
 }
@@ -103,6 +104,9 @@ export class ColonyShipBuildQueue {
 
   @Column({ type: 'timestamp' })
   finishesAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  stoppedAt: Date | null;
 
   @Column({ type: 'varchar', default: ColonyShipBuildQueueStatus.QUEUED })
   status: ColonyShipBuildQueueStatus;

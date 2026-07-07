@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ColonyService } from './colony.service';
+import { ColonyOrbitAssignmentMode } from './entities/colony-orbit-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
 
@@ -137,6 +138,15 @@ export class ColonyController {
     return this.colonyService.setColonyMessage(id, req.user.sub, message);
   }
 
+  @Post(':id/storage/discard')
+  discardStorage(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('items') items: Array<{ commodityId: number; amount: number }>,
+  ) {
+    return this.colonyService.discardStorage(id, req.user.sub, items);
+  }
+
   @Post(':id/build')
   build(
     @Param('id', ParseIntPipe) id: number,
@@ -233,6 +243,58 @@ export class ColonyController {
     return this.colonyService.landShip(id, req.user.sub, shipId);
   }
 
+  @Post(':id/orbit/ships/:shipId/defend')
+  defendOrbitShip(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('shipId', ParseIntPipe) shipId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.setOrbitAssignment(
+      id,
+      req.user.sub,
+      shipId,
+      ColonyOrbitAssignmentMode.DEFEND,
+    );
+  }
+
+  @Post(':id/orbit/ships/:shipId/blockade')
+  blockadeOrbitShip(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('shipId', ParseIntPipe) shipId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.setOrbitAssignment(
+      id,
+      req.user.sub,
+      shipId,
+      ColonyOrbitAssignmentMode.BLOCKADE,
+    );
+  }
+
+  @Delete(':id/orbit/ships/:shipId/order')
+  clearOrbitShipOrder(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('shipId', ParseIntPipe) shipId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.clearOrbitAssignment(id, req.user.sub, shipId);
+  }
+
+  @Post(':id/orbit/ships/:shipId/shuttles')
+  transferOrbitShipShuttles(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('shipId', ParseIntPipe) shipId: number,
+    @Request() req: { user: { sub: number } },
+    @Body('items') items: Array<{ commodityId: number; amount: number }>,
+  ) {
+    return this.colonyService.transferShuttles(
+      id,
+      req.user.sub,
+      shipId,
+      items ?? [],
+    );
+  }
+
   @Post(':id/ships/:shipId/disassemble')
   disassembleShip(
     @Param('id', ParseIntPipe) id: number,
@@ -314,6 +376,19 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.colonyService.cancelShipyardQueue(id, req.user.sub, queueId);
+  }
+
+  @Post(':id/shipyard-queue/:queueId/reactivate')
+  reactivateShipyardQueue(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('queueId', ParseIntPipe) queueId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.reactivateShipyardQueue(
+      id,
+      req.user.sub,
+      queueId,
+    );
   }
 
   @Get(':id/buildings/repair-preview')

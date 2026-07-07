@@ -50,6 +50,7 @@ export type ShipyardQueueEntry = {
     consumedModuleCommodityIds: number[];
   } | null;
   finishesAt: string;
+  stoppedAt?: string | null;
   status: string;
 };
 
@@ -260,6 +261,7 @@ export interface ColonyDetailV2 {
   };
   energy: { current: number; max: number; delta: number };
   storage: { current: number; max: number; delta: number };
+  waste?: { canDiscard: boolean; requiredFunctionId: number };
   options?: {
     name: string;
     colonyMessage: string | null;
@@ -336,6 +338,13 @@ export interface ColonyDetailV2 {
     canDefend?: boolean;
     canBlock?: boolean;
     canManageShuttle?: boolean;
+    shuttleCapacity?: number;
+    shuttleStored?: number;
+    orbitAssignment?: {
+      id: number;
+      mode: 'DEFEND' | 'BLOCKADE';
+      fleetId: number;
+    } | null;
     orbitGroup?: 'SINGLE' | 'FLEET';
     orbitGroupLabel?: string;
     fleetId?: number | null;
@@ -461,10 +470,17 @@ export interface ColonyDetailV2 {
     }>;
   };
   orbitBlockers?: {
-    shuttleManagement?: string;
+    shuttleManagement?: string | null;
     station?: string;
-    defense?: string;
+    defense?: string | null;
   };
+  orbitAssignments?: Array<{
+    id: number;
+    mode: 'DEFEND' | 'BLOCKADE';
+    fleetId: number;
+    spacecraftId: number;
+    createdAt: string;
+  }>;
   social?: {
     local: {
       primaryEffect: { commodityId: number; name: string; value: number };
@@ -623,6 +639,8 @@ export interface CommodityDef {
   id: number;
   name: string;
   nameShort: string;
+  isShuttle?: boolean;
+  isWorkbee?: boolean;
 }
 
 export interface TerraformingDef {
@@ -663,6 +681,7 @@ export type DetailTab =
   | 'shipyard'
   | 'fabrication'
   | 'defense'
+  | 'waste'
   | 'events'
   | 'settings'
   | 'crew'

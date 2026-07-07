@@ -1,6 +1,11 @@
 import { planetImage } from '../../../lib/assets';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from '../constants';
-import type { Colony, ColonyDetailV2, ColonyField, TerraformingDef } from '../types';
+import type {
+  Colony,
+  ColonyDetailV2,
+  ColonyField,
+  TerraformingDef,
+} from '../types';
 import { formatSignedAmount } from '../utils';
 
 function formatDuration(seconds: number): string {
@@ -20,10 +25,16 @@ type PanelInfoProps = {
   colony: Colony;
   detail?: ColonyDetailV2;
   selectedField: ColonyField | null;
-  buildingMap: Record<number, { name?: string; nameShort?: string } | undefined>;
+  buildingMap: Record<
+    number,
+    { name?: string; nameShort?: string } | undefined
+  >;
   commodityMap: Record<number, { name?: string } | undefined>;
   terraformingDefs: TerraformingDef[];
-  onTerraform: (fieldIndex: number, terraformingId: number) => Promise<void> | void;
+  onTerraform: (
+    fieldIndex: number,
+    terraformingId: number,
+  ) => Promise<void> | void;
 };
 
 export function PanelInfo({
@@ -48,7 +59,8 @@ export function PanelInfo({
               <div key={ship.id} className="flex justify-between gap-2">
                 <span className="text-swu-primary">{ship.name}</span>
                 <span className="text-swu-muted">
-                  {ship.shipClassName ?? `#${ship.shipClassId}`} · {ship.status} · Crew {ship.crew}/{ship.crewRequired}
+                  {ship.shipClassName ?? `#${ship.shipClassId}`} · {ship.status}{' '}
+                  · Crew {ship.crew}/{ship.crewRequired}
                 </span>
               </div>
             ))}
@@ -125,7 +137,9 @@ export function PanelInfo({
                   Fertigstellung:{' '}
                   {selectedField.terraformingFinishesAt
                     ? (() => {
-                        const d = new Date(selectedField.terraformingFinishesAt);
+                        const d = new Date(
+                          selectedField.terraformingFinishesAt,
+                        );
                         return `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
                       })()
                     : '?'}
@@ -158,7 +172,10 @@ export function PanelInfo({
                             Kosten:{' '}
                             {option.costs
                               .map(
-                                (cost: { commodityId: number; amount: number }) =>
+                                (cost: {
+                                  commodityId: number;
+                                  amount: number;
+                                }) =>
                                   `${cost.amount} ${commodityMap[cost.commodityId]?.name || cost.commodityId}`,
                               )
                               .join(', ')}

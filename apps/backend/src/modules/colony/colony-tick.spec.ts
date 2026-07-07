@@ -61,7 +61,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   };
   const cargoRepo = {
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
+    findOne: jest.fn(),
     save: jest.fn(async (value) => value),
+    create: jest.fn((value) => value),
     createQueryBuilder: jest.fn(() => ({
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -73,6 +75,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     create: jest.fn((value) => value),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
+    count: jest.fn(async () => 0),
     save: jest.fn(async (value) => value),
   };
   const shipBuildplanRepo = {
@@ -81,6 +84,14 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     findOne: jest.fn(),
     save: jest.fn(async (value) => ({ id: 1, ...value })),
     delete: jest.fn(async () => ({ affected: 1 })),
+  };
+  const orbitAssignmentRepo = {
+    create: jest.fn((value) => value),
+    find: jest.fn<Promise<any[]>, any[]>(async () => []),
+    findOne: jest.fn(),
+    count: jest.fn(async () => 0),
+    save: jest.fn(async (value) => ({ id: 1, ...value })),
+    remove: jest.fn(async (value) => value),
   };
   const spacecraftModuleRepo = {
     create: jest.fn((value) => value),
@@ -458,7 +469,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     })),
     getAllBuildingFunctions: jest.fn(() =>
       [
-        1, 2, 4, 5, 6, 7, 8, 9, 10, 13, 16, 20, 21, 22, 24, 25, 26, 27, 28, 29,
+        1, 2, 4, 5, 6, 7, 8, 9, 10, 13, 16, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+        29,
       ].map((id) => ({ id, key: `FUNCTION_${id}`, name: `Function ${id}` })),
     ),
     buildingHasFunction: jest.fn(
@@ -728,6 +740,12 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       { id: 81, name: 'Micro-Protonentorpedo', nameShort: 'MPT' },
       { id: 10001, name: 'Ersatzteil', nameShort: 'ERS' },
       { id: 10002, name: 'Systemkomponente', nameShort: 'SYS' },
+      {
+        id: 21601,
+        name: 'GR-75 Transportschiff Rumpf',
+        nameShort: 'GR75',
+        isShuttle: true,
+      },
     ]),
     getCommodity: jest.fn((id: number) => ({
       id,
@@ -736,6 +754,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       isEffect: id >= 1000,
       isSaveable: id < 1000,
       isDeposit: id === 1505,
+      isShuttle: id >= 21600 && id < 21700,
     })),
   };
 
@@ -756,9 +775,18 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   );
   const colonySocialService = new ColonySocialService(gameData as any);
   const colonyStorageService = new ColonyStorageService(storageRepo as any);
+  const config = {
+    get: jest.fn((key: string) => {
+      if (key === 'GAME_BUILD_TIME_MULTIPLIER') return undefined;
+      if (key === 'GAME_MAIN_TICK_SCHEDULE_HOURS') return undefined;
+      return undefined;
+    }),
+    ...(overrides.config as object | undefined),
+  };
   const buildingLifecycleService = new BuildingLifecycleService(
     fieldRepo as any,
     statsRepo as any,
+    config as any,
   );
   const colonyDefenseService = new ColonyDefenseService(
     colonyStorageService as any,
@@ -827,6 +855,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     {} as any,
     shipBuildQueueRepo as any,
     shipBuildplanRepo as any,
+    orbitAssignmentRepo as any,
     spacecraftModuleRepo as any,
     fabricationQueueRepo as any,
     crewTrainingQueueRepo as any,
@@ -844,6 +873,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     spacecraftTorpedoService as any,
     buildingManagementService as any,
     colonySocialService as any,
+    config as any,
   );
 
   return Object.assign(
@@ -858,6 +888,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       shipClassRepo,
       shipBuildQueueRepo,
       shipBuildplanRepo,
+      orbitAssignmentRepo,
       spacecraftModuleRepo,
       fabricationQueueRepo,
       crewTrainingQueueRepo,
@@ -875,6 +906,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       colonyCrewService,
       colonyDefenseService,
       colonyEventService,
+      config,
     },
     overrides,
   );
@@ -1413,6 +1445,52 @@ describe('colony tick calculations', () => {
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });
 
+  it('scales terraforming finish time with the configured alpha multiplier', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
+    try {
+      const { service, colonyRepo, storageRepo } = createColonyService({
+        config: {
+          get: jest.fn((key: string) =>
+            key === 'GAME_BUILD_TIME_MULTIPLIER' ? '0.5' : undefined,
+          ),
+        },
+      });
+      const field = {
+        id: 1,
+        fieldIndex: 5,
+        fieldType: 101,
+        terrainTileId: 101,
+        buildingId: null,
+        isBuilding: false,
+        isActive: true,
+      };
+      colonyRepo.findOne.mockResolvedValue({
+        id: 1,
+        userId: 1,
+        colonyClassId: 999,
+        energy: 50,
+        energyMax: 100,
+        storageMax: 100,
+        fields: [field],
+        storage: [],
+      });
+      storageRepo.findOne.mockResolvedValue({
+        colonyId: 1,
+        commodityId: 2,
+        amount: 10,
+      });
+
+      await service.terraformField(1, 1, 5, 101201);
+
+      expect(field).toMatchObject({
+        terraformingId: 101201,
+        terraformingFinishesAt: new Date('2026-07-03T10:00:30.000Z'),
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('upgrades a building into a new build job and preserves activation preference', async () => {
     const { service, colonyRepo, storageRepo, fieldRepo } =
       createColonyService();
@@ -1603,7 +1681,8 @@ describe('colony tick calculations', () => {
   });
 
   it('blocks orbit construction while colony is blockaded', async () => {
-    const { service, colonyRepo } = createColonyService();
+    const { service, colonyRepo, orbitAssignmentRepo } = createColonyService();
+    orbitAssignmentRepo.count.mockResolvedValue(1);
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
@@ -2643,6 +2722,44 @@ describe('fabrication queues', () => {
     });
   });
 
+  it('scales fabrication queue finish time with the configured alpha multiplier', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
+    try {
+      const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+        createColonyService({
+          config: {
+            get: jest.fn((key: string) =>
+              key === 'GAME_BUILD_TIME_MULTIPLIER' ? '0.5' : undefined,
+            ),
+          },
+        });
+      colonyRepo.findOne.mockResolvedValue(activeWeaponFabColony);
+      storageRepo.findOne.mockResolvedValue({
+        id: 1,
+        colonyId: 1,
+        commodityId: 2,
+        amount: 999,
+      });
+
+      await service.queueFabrication(
+        1,
+        1,
+        'MODULE' as any,
+        'module.weapon.turbolaser-k1',
+        2,
+        10,
+      );
+
+      expect(fabricationQueueRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          finishesAt: new Date('2026-07-03T10:01:00.000Z'),
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('rejects unknown fabrication items', async () => {
     const { service } = createColonyService();
     await expect(
@@ -2943,6 +3060,7 @@ describe('ship building compatibility', () => {
       batteryBase: 5,
     });
 
+    const beforeBuild = Date.now();
     const queue = await service.buildShip(
       1,
       1,
@@ -2968,6 +3086,74 @@ describe('ship building compatibility', () => {
       shipClassId: 1,
       buildPlanName: 'Starter Plan',
     });
+    expect(queue.finishesAt.getTime()).toBeGreaterThanOrEqual(
+      beforeBuild + 60_000,
+    );
+  });
+
+  it('scales ship build queue finish time with the configured alpha multiplier', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
+    try {
+      const {
+        service,
+        colonyRepo,
+        storageRepo,
+        shipClassRepo,
+        shipBuildQueueRepo,
+      } = createColonyService({
+        config: {
+          get: jest.fn((key: string) =>
+            key === 'GAME_BUILD_TIME_MULTIPLIER' ? '0.5' : undefined,
+          ),
+        },
+      });
+      colonyRepo.findOne.mockResolvedValue({
+        id: 1,
+        userId: 1,
+        starSystemId: 10,
+        celestialObjectId: 20,
+        currentLayerId: 1,
+        posX: 3,
+        posY: 4,
+        colonyClassId: 999,
+        fields: [
+          {
+            id: 1,
+            fieldIndex: 1,
+            buildingId: 85010100,
+            isBuilding: false,
+            isActive: true,
+          },
+        ],
+        storage: [],
+        starSystem: { layerId: 1 },
+      });
+      storageRepo.findOne.mockResolvedValue({ amount: 999 });
+      shipClassRepo.findOneBy.mockResolvedValue({
+        id: 1,
+        isNpc: false,
+        name: 'Test Fighter',
+        hullBase: 10,
+        shieldBase: 5,
+        epsBase: 20,
+        warpBase: 2,
+        crewMin: 1,
+        crewMax: 2,
+        cargoCapacity: 20,
+        batteryBase: 5,
+        buildTimeTicks: 4,
+      });
+
+      await service.buildShip(1, 1, 1, 'Red One', ['Laser Cannon']);
+
+      expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          finishesAt: new Date('2026-07-03T10:02:00.000Z'),
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('rejects ship classes that do not match the active shipyard function', async () => {
@@ -3576,14 +3762,14 @@ describe('orbit dto blockers', () => {
       detailV2?: Record<string, unknown>;
     };
     const detail = colony.detailV2 as {
-      orbitBlockers?: Record<string, string>;
+      orbitBlockers?: Record<string, string | null>;
       orbitShips?: Array<Record<string, unknown>>;
     };
 
     expect(detail?.orbitBlockers).toMatchObject({
-      shuttleManagement: expect.stringContaining('no dedicated shuttle entity'),
+      shuttleManagement: null,
       station: expect.stringContaining('no station entity attached'),
-      defense: expect.stringContaining('no orbit defend/block endpoints'),
+      defense: null,
     });
     expect(detail?.orbitShips).toEqual([
       expect.objectContaining({
@@ -3602,11 +3788,11 @@ describe('orbit dto blockers', () => {
         fleetId: null,
         station: null,
         actionBlockers: expect.objectContaining({
-          shuttleManagement: expect.stringContaining(
-            'No shuttle-specific SWU model exists',
-          ),
+          shuttleManagement: expect.stringContaining('keine Shuttle-Kapazität'),
           station: expect.stringContaining('No station entity is linked'),
         }),
+        shuttleCapacity: 0,
+        shuttleStored: 0,
       }),
     ]);
   });
@@ -3619,6 +3805,7 @@ describe('building lifecycle', () => {
     const service = new BuildingLifecycleService(
       fieldRepo as any,
       statsRepo as any,
+      { get: jest.fn(() => undefined) } as any,
     );
     const field = {
       buildingId: 400,
@@ -3639,12 +3826,35 @@ describe('building lifecycle', () => {
     });
   });
 
+  it('scales build job finish time with the configured alpha multiplier', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
+    try {
+      const fieldRepo = { save: jest.fn(async (value) => value) };
+      const statsRepo = { save: jest.fn(async (value) => value) };
+      const service = new BuildingLifecycleService(
+        fieldRepo as any,
+        statsRepo as any,
+        { get: jest.fn(() => '0.5') } as any,
+      );
+      const field = {} as any;
+
+      service.prepareBuildJob(field, 400, 60);
+
+      expect(field.buildFinishesAt).toEqual(
+        new Date('2026-07-03T10:00:30.000Z'),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('finishes a building and activates it when workers are available', async () => {
     const fieldRepo = { save: jest.fn(async (value) => value) };
     const statsRepo = { save: jest.fn(async (value) => value) };
     const service = new BuildingLifecycleService(
       fieldRepo as any,
       statsRepo as any,
+      { get: jest.fn(() => undefined) } as any,
     );
     const colony = {
       stats: { workers: 0, workless: 5 },
@@ -3781,6 +3991,79 @@ describe('research tick semantics', () => {
 });
 
 describe('main tick idempotency', () => {
+  const createTickService = (config: Record<string, string | undefined> = {}) =>
+    new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => []) } as any,
+      {
+        findOne: jest.fn(async () => null),
+        create: jest.fn((value) => value),
+        save: jest.fn(async (value) => value),
+      } as any,
+      {} as any,
+      { createTickEvents: jest.fn(async () => []) } as any,
+      {} as any,
+      { processTick: jest.fn(async () => undefined) } as any,
+      { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn((key: string) => config[key]) } as any,
+    );
+
+  it('calculates hourly tick slots when schedule is wildcard', () => {
+    const service = createTickService({ GAME_MAIN_TICK_SCHEDULE_HOURS: '*' });
+    const slot = new Date(2026, 6, 3, 13, 0, 0, 0).getTime();
+
+    expect(
+      (service as any).getMainTickNumber(new Date(2026, 6, 3, 13, 42, 12, 123)),
+    ).toBe(slot);
+  });
+
+  it('calculates configured tick slots for explicit hour lists', () => {
+    const service = createTickService({
+      GAME_MAIN_TICK_SCHEDULE_HOURS: '0,12,15,18,21',
+    });
+    const slot = new Date(2026, 6, 3, 12, 0, 0, 0).getTime();
+
+    expect(
+      (service as any).getMainTickNumber(new Date(2026, 6, 3, 14, 30)),
+    ).toBe(slot);
+  });
+
+  it('runs the scheduled wrapper only for active configured hours', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 6, 3, 13, 0, 0, 0));
+    try {
+      const service = createTickService({
+        GAME_MAIN_TICK_SCHEDULE_HOURS: '0,12,15,18,21',
+      });
+      const handleTick = jest
+        .spyOn(service, 'handleTick')
+        .mockResolvedValue({ tickNumber: 1, status: GameTickStatus.COMPLETED });
+
+      await service.handleScheduledMainTick();
+
+      expect(handleTick).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('runs the scheduled wrapper hourly for wildcard schedules', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 6, 3, 13, 0, 0, 0));
+    try {
+      const service = createTickService({ GAME_MAIN_TICK_SCHEDULE_HOURS: '*' });
+      const handleTick = jest
+        .spyOn(service, 'handleTick')
+        .mockResolvedValue({ tickNumber: 1, status: GameTickStatus.COMPLETED });
+
+      await service.handleScheduledMainTick();
+
+      expect(handleTick).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('does not process an already completed durable tick slot', async () => {
     const colonyRepo = { find: jest.fn() };
     const tickStateRepo = {
@@ -3802,6 +4085,7 @@ describe('main tick idempotency', () => {
       {} as any,
       {} as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn(() => undefined) } as any,
     );
 
     const result = await service.handleTick();
@@ -3828,6 +4112,7 @@ describe('main tick idempotency', () => {
       {} as any,
       { processTick: jest.fn(async () => undefined) } as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn(() => undefined) } as any,
     );
 
     const result = await service.triggerManualTick();
@@ -3876,6 +4161,7 @@ describe('main tick idempotency', () => {
       {} as any,
       researchService as any,
       gateway as any,
+      { get: jest.fn(() => undefined) } as any,
     );
 
     await service.handleTick();
@@ -4553,5 +4839,367 @@ describe('airfield hangar loop', () => {
       'Active airfield required',
     );
     await expect(service.disassembleShip(1, 1, 7)).resolves.toBeDefined();
+  });
+});
+
+describe('colony waste discard', () => {
+  it('requires warehouse function', async () => {
+    const { service, colonyRepo } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [],
+      storage: [{ id: 1, colonyId: 1, commodityId: 2, amount: 5 }],
+      stats: {},
+    });
+
+    await expect(
+      service.discardStorage(1, 1, [{ commodityId: 2, amount: 1 }]),
+    ).rejects.toThrow('Warehouse required');
+  });
+
+  it('clamps discarded amount to stored amount and creates event', async () => {
+    const { service, colonyRepo, storageRepo, colonyEventService, gameData } =
+      createColonyService();
+    gameData.getBuildingFunctions.mockImplementation((buildingId: number) =>
+      buildingId === 9000 ? [23] : [],
+    );
+    gameData.getCommodity.mockImplementation((id: number) => ({
+      id,
+      name: `Ware ${id}`,
+      isTradeOnly: false,
+      isEffect: false,
+      isSaveable: true,
+      isDeposit: false,
+      isShuttle: false,
+    }));
+    const storage = { id: 1, colonyId: 1, commodityId: 2, amount: 5 };
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [{ id: 1, buildingId: 9000, isBuilding: false, isActive: false }],
+      storage: [storage],
+      stats: {},
+    });
+    storageRepo.findOne.mockResolvedValue(storage);
+
+    const result = await service.discardStorage(1, 1, [
+      { commodityId: 2, amount: 99 },
+    ]);
+
+    expect(result.discarded).toEqual([
+      { commodityId: 2, amount: 5, name: 'Ware 2' },
+    ]);
+    expect(storageRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 0 }),
+    );
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'WASTE_DISCARDED' }),
+    );
+  });
+});
+
+describe('ship repair queue reactivation', () => {
+  it('queues repair as paused when active repair slots are occupied', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      spacecraftModuleRepo,
+      storageRepo,
+      shipBuildQueueRepo,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      fields: [
+        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+      stats: {},
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      hull: 50,
+      hullMax: 100,
+    });
+    spacecraftModuleRepo.find.mockResolvedValue([]);
+    storageRepo.findOne.mockResolvedValue({ amount: 999 });
+    shipBuildQueueRepo.findOne.mockResolvedValueOnce(null);
+    shipBuildQueueRepo.count.mockResolvedValue(2);
+    shipBuildQueueRepo.create.mockImplementation((value: any) => value);
+    shipBuildQueueRepo.save.mockImplementation(async (value: any) => value);
+
+    const queue = await service.queueShipRepair(1, 1, 7);
+
+    expect(queue.status).toBe('PAUSED');
+    expect(queue.stoppedAt).toBeInstanceOf(Date);
+  });
+
+  it('reactivates paused repair when a repair slot is available', async () => {
+    const { service, colonyRepo, shipBuildQueueRepo, colonyEventService } =
+      createColonyService();
+    const stoppedAt = new Date(Date.now() - 60_000);
+    const finishesAt = new Date(Date.now() + 60_000);
+    const queue = {
+      id: 9,
+      colonyId: 1,
+      userId: 1,
+      mode: 'REPAIR',
+      status: 'PAUSED',
+      stoppedAt,
+      finishesAt,
+      name: 'Reparatur: Test',
+      spacecraftId: 7,
+    };
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [
+        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+      stats: { isBlockaded: false },
+    });
+    shipBuildQueueRepo.findOne.mockResolvedValue(queue);
+    shipBuildQueueRepo.count.mockResolvedValue(0);
+    shipBuildQueueRepo.save.mockImplementation(async (value: any) => value);
+
+    const result = await service.reactivateShipyardQueue(1, 1, 9);
+
+    expect(result.status).toBe('QUEUED');
+    expect(result.stoppedAt).toBeNull();
+    expect(result.finishesAt.getTime()).toBeGreaterThan(finishesAt.getTime());
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SHIP_REPAIR_REACTIVATED' }),
+    );
+  });
+});
+
+describe('colony orbit assignments', () => {
+  it('starts a fleet-led colony defense order', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      orbitAssignmentRepo,
+      colonyEventService,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 2,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      fields: [],
+      stats: { isBlockaded: false },
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      fleetId: 99,
+      fleet: { id: 99, leaderId: 7 },
+      starSystemId: 10,
+      celestialObjectId: 20,
+      status: 'DOCKED',
+    });
+    orbitAssignmentRepo.find.mockResolvedValue([]);
+    orbitAssignmentRepo.findOne.mockResolvedValue(null);
+    orbitAssignmentRepo.count.mockResolvedValue(0);
+    orbitAssignmentRepo.create.mockImplementation((value: any) => value);
+    orbitAssignmentRepo.save.mockImplementation(async (value: any) => ({
+      id: 1,
+      ...value,
+    }));
+
+    const result = await service.setOrbitAssignment(1, 1, 7, 'DEFEND' as any);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        colonyId: 1,
+        spacecraftId: 7,
+        fleetId: 99,
+        mode: 'DEFEND',
+      }),
+    );
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ORBIT_DEFENSE_STARTED' }),
+    );
+  });
+
+  it('starts blockade and syncs colony blockade flag', async () => {
+    const { service, colonyRepo, shipRepo, orbitAssignmentRepo, statsRepo } =
+      createColonyService();
+    const stats = { isBlockaded: false };
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 2,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      fields: [],
+      stats,
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      fleetId: 99,
+      fleet: { id: 99, leaderId: 7 },
+      starSystemId: 10,
+      celestialObjectId: 20,
+      status: 'DOCKED',
+    });
+    orbitAssignmentRepo.find.mockResolvedValue([]);
+    orbitAssignmentRepo.findOne.mockResolvedValue(null);
+    orbitAssignmentRepo.count.mockResolvedValue(1);
+    orbitAssignmentRepo.create.mockImplementation((value: any) => value);
+    orbitAssignmentRepo.save.mockImplementation(async (value: any) => ({
+      id: 1,
+      ...value,
+    }));
+
+    await service.setOrbitAssignment(1, 1, 7, 'BLOCKADE' as any);
+
+    expect(stats.isBlockaded).toBe(true);
+    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+  });
+
+  it('clears fleet orbit order and syncs blockade flag', async () => {
+    const { service, colonyRepo, shipRepo, orbitAssignmentRepo, statsRepo } =
+      createColonyService();
+    const stats = { isBlockaded: true };
+    const assignment = {
+      id: 5,
+      colonyId: 1,
+      spacecraftId: 7,
+      fleetId: 99,
+      mode: 'BLOCKADE',
+    };
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 2,
+      stats,
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      fleetId: 99,
+      fleet: { id: 99, leaderId: 7 },
+    });
+    orbitAssignmentRepo.findOne.mockResolvedValue(assignment);
+    orbitAssignmentRepo.count.mockResolvedValue(0);
+
+    const result = await service.clearOrbitAssignment(1, 1, 7);
+
+    expect(result).toEqual({ cleared: true });
+    expect(orbitAssignmentRepo.remove).toHaveBeenCalledWith(assignment);
+    expect(stats.isBlockaded).toBe(false);
+    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+  });
+
+  it('transfers shuttles from colony storage to orbit ship cargo within shuttle capacity', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      storageRepo,
+      cargoRepo,
+      colonyEventService,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      colonyClassId: 999,
+      fields: [],
+      stats: { isBlockaded: false, maxStorage: 100 },
+      storage: [{ id: 1, colonyId: 1, commodityId: 21601, amount: 3 }],
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      cargoUsed: 0,
+      cargoMax: 20,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({ id: 1, shuttleSlots: 2 });
+    storageRepo.findOne.mockResolvedValue({
+      id: 1,
+      colonyId: 1,
+      commodityId: 21601,
+      amount: 3,
+    });
+    cargoRepo.find.mockResolvedValue([]);
+    cargoRepo.findOne.mockResolvedValue(null);
+    cargoRepo.create.mockImplementation((value: any) => value);
+    cargoRepo.save.mockImplementation(async (value: any) => ({
+      id: 9,
+      ...value,
+    }));
+
+    await service.transferShuttles(1, 1, 7, [
+      { commodityId: 21601, amount: 2 },
+    ]);
+
+    expect(cargoRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spacecraftId: 7,
+        commodityId: 21601,
+        amount: 2,
+      }),
+    );
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SHUTTLES_TRANSFERRED' }),
+    );
+  });
+
+  it('rejects shuttle transfer beyond ship shuttle capacity', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      storageRepo,
+      cargoRepo,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      colonyClassId: 999,
+      fields: [],
+      stats: { isBlockaded: false, maxStorage: 100 },
+      storage: [{ id: 1, colonyId: 1, commodityId: 21601, amount: 3 }],
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      cargoUsed: 0,
+      cargoMax: 20,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({ id: 1, shuttleSlots: 1 });
+    storageRepo.findOne.mockResolvedValue({
+      id: 1,
+      colonyId: 1,
+      commodityId: 21601,
+      amount: 3,
+    });
+    cargoRepo.find.mockResolvedValue([]);
+
+    await expect(
+      service.transferShuttles(1, 1, 7, [{ commodityId: 21601, amount: 2 }]),
+    ).rejects.toThrow('Shuttle capacity exceeded');
   });
 });

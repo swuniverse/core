@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ColonyService } from '../colony/colony.service';
 import { ColonyEventService } from '../colony/colony-event.service';
@@ -22,6 +23,10 @@ import {
 } from './entities/game-tick-state.entity';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
+type MainTickSchedule = '*' | number[];
+
+const DEFAULT_MAIN_TICK_SCHEDULE_HOURS = '0,12,15,18,21';
+const DEFAULT_MAIN_TICK_HOURS = [0, 12, 15, 18, 21];
 
 @Injectable()
 export class TickService {
@@ -43,9 +48,24 @@ export class TickService {
     private readonly spacecraftService: SpacecraftService,
     private readonly researchService: ResearchService,
     private readonly gateway: GameGateway,
+    private readonly config: ConfigService,
   ) {}
 
-  @Cron('0 0 0,12,15,18,21 * * *')
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleScheduledMainTick(): Promise<
+    { tickNumber: number; status: string } | undefined
+  > {
+    const now = new Date();
+    if (!this.isMainTickHourActive(now)) {
+      this.logger.debug(
+        `Main tick skipped at hour ${now.getHours()}; inactive schedule ${this.getMainTickScheduleDescription()}`,
+      );
+      return undefined;
+    }
+
+    return this.handleTick();
+  }
+
   async handleTick(
     manualTickNumber?: number,
   ): Promise<{ tickNumber: number; status: string }> {
@@ -243,23 +263,66 @@ export class TickService {
   }
 
   private getMainTickNumber(now: Date): number {
-    const scheduledHours = [0, 12, 15, 18, 21];
+    const schedule = this.getMainTickScheduleHours();
     const slot = new Date(now);
     slot.setMinutes(0, 0, 0);
 
+    if (schedule === '*') {
+      return slot.getTime();
+    }
+
     const currentHour = slot.getHours();
-    const hour = [...scheduledHours]
+    const hour = [...schedule]
       .reverse()
       .find((candidate) => candidate <= currentHour);
 
     if (hour == null) {
       slot.setDate(slot.getDate() - 1);
-      slot.setHours(21, 0, 0, 0);
+      slot.setHours(schedule[schedule.length - 1], 0, 0, 0);
     } else {
       slot.setHours(hour, 0, 0, 0);
     }
 
     return slot.getTime();
+  }
+
+  private isMainTickHourActive(now: Date): boolean {
+    const schedule = this.getMainTickScheduleHours();
+    return schedule === '*' || schedule.includes(now.getHours());
+  }
+
+  private getMainTickScheduleDescription(): string {
+    const schedule = this.getMainTickScheduleHours();
+    return schedule === '*' ? '*' : schedule.join(',');
+  }
+
+  private getMainTickScheduleHours(): MainTickSchedule {
+    const rawSchedule = this.config
+      .get<string>('GAME_MAIN_TICK_SCHEDULE_HOURS')
+      ?.trim();
+    if (rawSchedule === '*') return '*';
+
+    const parsed = this.parseMainTickScheduleHours(
+      rawSchedule || DEFAULT_MAIN_TICK_SCHEDULE_HOURS,
+    );
+    return parsed.length > 0 ? parsed : DEFAULT_MAIN_TICK_HOURS;
+  }
+
+  private parseMainTickScheduleHours(value: string): number[] {
+    return [
+      ...new Set(
+        value
+          .split(',')
+          .map((entry) => Number(entry.trim()))
+          .filter(
+            (hour) =>
+              Number.isInteger(hour) &&
+              Number.isFinite(hour) &&
+              hour >= 0 &&
+              hour <= 23,
+          ),
+      ),
+    ].sort((a, b) => a - b);
   }
 
   private async finishTick(

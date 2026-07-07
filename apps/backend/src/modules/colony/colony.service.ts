@@ -62,6 +62,10 @@ import {
   ColonyEventSeverity,
   ColonyEventType,
 } from './entities/colony-event.entity';
+import {
+  ColonyOrbitAssignment,
+  ColonyOrbitAssignmentMode,
+} from './entities/colony-orbit-assignment.entity';
 
 export interface ColonyTickEvent {
   type:
@@ -118,6 +122,8 @@ export class ColonyService {
     private readonly shipBuildQueueRepo: Repository<ColonyShipBuildQueue>,
     @InjectRepository(ColonyShipBuildplan)
     private readonly shipBuildplanRepo: Repository<ColonyShipBuildplan>,
+    @InjectRepository(ColonyOrbitAssignment)
+    private readonly orbitAssignmentRepo: Repository<ColonyOrbitAssignment>,
     @InjectRepository(SpacecraftModule)
     private readonly spacecraftModuleRepo: Repository<SpacecraftModule>,
     @InjectRepository(ColonyFabricationQueue)
@@ -1979,13 +1985,394 @@ export class ColonyService {
     return parseInt(result?.total || '0', 10);
   }
 
+  private async getShipCargoItem(
+    spacecraftId: number,
+    commodityId: number,
+  ): Promise<CargoItem | null> {
+    return this.cargoRepo.findOne({
+      where: { spacecraftId, commodityId },
+    });
+  }
+
+  private async getShuttleCargoUsed(shipId: number): Promise<number> {
+    const cargo = await this.cargoRepo.find({
+      where: { spacecraftId: shipId },
+    });
+    return cargo
+      .filter((item) => this.gameData.getCommodity(item.commodityId)?.isShuttle)
+      .reduce((sum, item) => sum + item.amount, 0);
+  }
+
+  private async getColonyStorageItem(
+    colonyId: number,
+    commodityId: number,
+  ): Promise<ColonyStorage | null> {
+    return this.storageRepo.findOne({
+      where: { colonyId, commodityId },
+    });
+  }
+
   private canManageOrbitShip(colony: Colony, ship: Spacecraft): boolean {
     return (
-      ship.userId === colony.userId &&
+      ship.userId === colony.userId && this.isShipInColonyOrbit(colony, ship)
+    );
+  }
+
+  private isShipInColonyOrbit(colony: Colony, ship: Spacecraft): boolean {
+    return (
       ship.starSystemId === colony.starSystemId &&
       (colony.celestialObjectId == null ||
         ship.celestialObjectId === colony.celestialObjectId)
     );
+  }
+
+  private async syncColonyBlockadeState(colonyId: number): Promise<void> {
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId },
+      relations: ['stats'],
+    });
+    if (!colony?.stats) return;
+    const blockadeCount = await this.orbitAssignmentRepo.count({
+      where: { colonyId, mode: ColonyOrbitAssignmentMode.BLOCKADE },
+    });
+    const nextBlocked = blockadeCount > 0;
+    if (Boolean(colony.stats.isBlockaded) !== nextBlocked) {
+      colony.stats.isBlockaded = nextBlocked;
+      await this.statsRepo.save(colony.stats);
+    }
+  }
+
+  private async cleanupInvalidOrbitAssignments(colony: Colony): Promise<void> {
+    const assignments = await this.orbitAssignmentRepo.find({
+      where: { colonyId: colony.id },
+      relations: ['spacecraft'],
+    });
+    for (const assignment of assignments) {
+      if (
+        !assignment.spacecraft ||
+        assignment.spacecraft.status === SpacecraftStatus.DESTROYED ||
+        !this.isShipInColonyOrbit(colony, assignment.spacecraft)
+      ) {
+        await this.orbitAssignmentRepo.remove(assignment);
+      }
+    }
+    await this.syncColonyBlockadeState(colony.id);
+  }
+
+  async setOrbitAssignment(
+    colonyId: number,
+    userId: number,
+    shipId: number,
+    mode: ColonyOrbitAssignmentMode,
+  ): Promise<ColonyOrbitAssignment> {
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId },
+      relations: ['fields', 'stats'],
+    });
+    if (!colony) throw new NotFoundException('Colony not found');
+    await this.cleanupInvalidOrbitAssignments(colony);
+
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['fleet'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!this.isShipInColonyOrbit(colony, ship)) {
+      throw new BadRequestException('Ship is not in colony orbit');
+    }
+    if (!ship.fleetId || !ship.fleet || ship.fleet.leaderId !== ship.id) {
+      throw new BadRequestException(
+        'Only fleet leaders can manage orbit orders',
+      );
+    }
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException(
+        'Destroyed ship cannot manage orbit orders',
+      );
+    }
+
+    const existingFleetAssignment = await this.orbitAssignmentRepo.findOne({
+      where: { fleetId: ship.fleetId },
+    });
+    if (existingFleetAssignment) {
+      throw new BadRequestException('Fleet already has an orbit order');
+    }
+    const existingShipAssignment = await this.orbitAssignmentRepo.findOne({
+      where: { spacecraftId: ship.id },
+    });
+    if (existingShipAssignment) {
+      throw new BadRequestException('Ship already has an orbit order');
+    }
+
+    const existingMode = await this.orbitAssignmentRepo.findOne({
+      where: {
+        colonyId: colony.id,
+        mode:
+          mode === ColonyOrbitAssignmentMode.DEFEND
+            ? ColonyOrbitAssignmentMode.BLOCKADE
+            : ColonyOrbitAssignmentMode.DEFEND,
+      },
+    });
+    if (existingMode) {
+      throw new BadRequestException(
+        mode === ColonyOrbitAssignmentMode.DEFEND
+          ? 'Colony is already blockaded'
+          : 'Colony is already defended',
+      );
+    }
+
+    if (mode === ColonyOrbitAssignmentMode.BLOCKADE) {
+      const functionIds = this.getActiveBuildingFunctionIds(colony);
+      if (
+        this.colonyDefenseService.hasEnergyPhalanx(functionIds) ||
+        this.colonyDefenseService.hasParticlePhalanx(functionIds) ||
+        this.colonyDefenseService.hasAntiParticle(functionIds)
+      ) {
+        throw new BadRequestException('Colony has active orbital defense');
+      }
+    }
+
+    const assignment = this.orbitAssignmentRepo.create({
+      colonyId: colony.id,
+      spacecraftId: ship.id,
+      fleetId: ship.fleetId,
+      mode,
+    });
+    const saved = await this.orbitAssignmentRepo.save(assignment);
+    await this.syncColonyBlockadeState(colony.id);
+
+    const startedBlockade = mode === ColonyOrbitAssignmentMode.BLOCKADE;
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId: colony.userId,
+      type: startedBlockade
+        ? ColonyEventType.ORBIT_BLOCKADE_STARTED
+        : ColonyEventType.ORBIT_DEFENSE_STARTED,
+      severity: startedBlockade
+        ? ColonyEventSeverity.WARNING
+        : ColonyEventSeverity.INFO,
+      title: startedBlockade ? 'Blockade begonnen' : 'Verteidigung begonnen',
+      message: `Flotte #${ship.fleetId} hat ${
+        startedBlockade ? 'die Blockade' : 'die Verteidigung'
+      } der Kolonie begonnen.`,
+      payload: { shipId: ship.id, fleetId: ship.fleetId, mode },
+    });
+
+    return saved;
+  }
+
+  async clearOrbitAssignment(
+    colonyId: number,
+    userId: number,
+    shipId: number,
+  ): Promise<{ cleared: boolean }> {
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId },
+      relations: ['stats'],
+    });
+    if (!colony) throw new NotFoundException('Colony not found');
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['fleet'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship.fleetId || !ship.fleet || ship.fleet.leaderId !== ship.id) {
+      throw new BadRequestException(
+        'Only fleet leaders can manage orbit orders',
+      );
+    }
+    const assignment = await this.orbitAssignmentRepo.findOne({
+      where: { colonyId: colony.id, fleetId: ship.fleetId },
+    });
+    if (!assignment) return { cleared: false };
+    await this.orbitAssignmentRepo.remove(assignment);
+    await this.syncColonyBlockadeState(colony.id);
+
+    const stoppedBlockade =
+      assignment.mode === ColonyOrbitAssignmentMode.BLOCKADE;
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId: colony.userId,
+      type: stoppedBlockade
+        ? ColonyEventType.ORBIT_BLOCKADE_STOPPED
+        : ColonyEventType.ORBIT_DEFENSE_STOPPED,
+      severity: ColonyEventSeverity.INFO,
+      title: stoppedBlockade ? 'Blockade beendet' : 'Verteidigung beendet',
+      message: `Flotte #${ship.fleetId} hat ${
+        stoppedBlockade ? 'die Blockade' : 'die Verteidigung'
+      } der Kolonie beendet.`,
+      payload: {
+        shipId: ship.id,
+        fleetId: ship.fleetId,
+        mode: assignment.mode,
+      },
+    });
+
+    return { cleared: true };
+  }
+
+  async transferShuttles(
+    colonyId: number,
+    userId: number,
+    shipId: number,
+    items: Array<{ commodityId: number; amount: number }>,
+  ): Promise<Colony> {
+    const colony = await this.findOne(colonyId, userId);
+    const ship = await this.shipRepo.findOne({ where: { id: shipId, userId } });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!this.canManageOrbitShip(colony, ship)) {
+      throw new BadRequestException('Ship is not in colony orbit');
+    }
+
+    const shipClass = await this.shipClassRepo.findOneBy({
+      id: ship.shipClassId,
+    });
+    if (!shipClass) throw new BadRequestException('Unknown ship class');
+    if (shipClass.shuttleSlots <= 0) {
+      throw new BadRequestException('Ship has no shuttle ramp capacity');
+    }
+
+    const normalized = new Map<number, number>();
+    for (const item of items ?? []) {
+      if (
+        !Number.isInteger(item?.commodityId) ||
+        !Number.isInteger(item?.amount)
+      ) {
+        continue;
+      }
+      if (item.amount === 0) continue;
+      const commodity = this.gameData.getCommodity(item.commodityId);
+      if (!commodity?.isShuttle) {
+        throw new BadRequestException(
+          `Commodity ${item.commodityId} is not a shuttle`,
+        );
+      }
+      normalized.set(
+        item.commodityId,
+        (normalized.get(item.commodityId) ?? 0) + item.amount,
+      );
+    }
+    if (normalized.size === 0) {
+      throw new BadRequestException('No shuttle transfers requested');
+    }
+
+    const shuttleCargoUsed = await this.getShuttleCargoUsed(ship.id);
+    const requestedDelta = Array.from(normalized.values()).reduce(
+      (sum, amount) => sum + amount,
+      0,
+    );
+    if (shuttleCargoUsed + requestedDelta > shipClass.shuttleSlots) {
+      throw new BadRequestException('Shuttle capacity exceeded');
+    }
+    if (shuttleCargoUsed + requestedDelta < 0) {
+      throw new BadRequestException(
+        'Cannot unload more shuttles than stored on ship',
+      );
+    }
+
+    const maxStorage =
+      this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
+    const freeStorage = await this.colonyStorageService.getFreeStorage(
+      colony,
+      maxStorage,
+    );
+    const unloadAmount = Array.from(normalized.values())
+      .filter((amount) => amount < 0)
+      .reduce((sum, amount) => sum + Math.abs(amount), 0);
+    if (unloadAmount > freeStorage) {
+      throw new BadRequestException('Not enough colony storage capacity');
+    }
+
+    for (const [commodityId, amount] of normalized.entries()) {
+      if (amount > 0) {
+        const colonyStorage = await this.getColonyStorageItem(
+          colony.id,
+          commodityId,
+        );
+        if ((colonyStorage?.amount ?? 0) < amount) {
+          throw new BadRequestException(
+            `Not enough shuttle stock on colony for commodity ${commodityId}`,
+          );
+        }
+      } else {
+        const cargoItem = await this.getShipCargoItem(ship.id, commodityId);
+        if ((cargoItem?.amount ?? 0) < Math.abs(amount)) {
+          throw new BadRequestException(
+            `Not enough shuttle stock on ship for commodity ${commodityId}`,
+          );
+        }
+      }
+    }
+
+    for (const [commodityId, amount] of normalized.entries()) {
+      if (amount > 0) {
+        const colonyStorage = await this.getColonyStorageItem(
+          colony.id,
+          commodityId,
+        );
+        if (!colonyStorage) {
+          throw new BadRequestException(
+            `Not enough shuttle stock on colony for commodity ${commodityId}`,
+          );
+        }
+        colonyStorage.amount -= amount;
+        await this.storageRepo.save(colonyStorage);
+
+        const cargoItem =
+          (await this.getShipCargoItem(ship.id, commodityId)) ??
+          this.cargoRepo.create({
+            spacecraftId: ship.id,
+            commodityId,
+            amount: 0,
+          });
+        cargoItem.amount += amount;
+        await this.cargoRepo.save(cargoItem);
+      } else {
+        const moveAmount = Math.abs(amount);
+        const cargoItem = await this.getShipCargoItem(ship.id, commodityId);
+        if (!cargoItem) {
+          throw new BadRequestException(
+            `Not enough shuttle stock on ship for commodity ${commodityId}`,
+          );
+        }
+        cargoItem.amount -= moveAmount;
+        await this.cargoRepo.save(cargoItem);
+
+        const colonyStorage =
+          (await this.getColonyStorageItem(colony.id, commodityId)) ??
+          this.storageRepo.create({
+            colonyId: colony.id,
+            commodityId,
+            amount: 0,
+          });
+        colonyStorage.amount += moveAmount;
+        await this.storageRepo.save(colonyStorage);
+      }
+    }
+
+    ship.cargoUsed = await this.getShipCargoUsed(ship.id);
+    await this.shipRepo.save(ship);
+
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId,
+      type: ColonyEventType.SHUTTLES_TRANSFERRED,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Shuttles transferiert',
+      message: `${ship.name}: Shuttle-Transfer zwischen Kolonie und Schiff durchgeführt.`,
+      payload: {
+        shipId: ship.id,
+        shipClassId: ship.shipClassId,
+        transfers: Array.from(normalized.entries()).map(
+          ([commodityId, delta]) => ({
+            commodityId,
+            delta,
+          }),
+        ),
+      },
+    });
+
+    return this.findOne(colonyId, userId);
   }
 
   private isShipRepairNeeded(
@@ -3259,6 +3646,26 @@ export class ColonyService {
       ...summary.depositDelta,
     ]);
 
+    await this.cleanupInvalidOrbitAssignments(colony);
+    const orbitAssignments = await this.orbitAssignmentRepo.find({
+      where: { colonyId: colony.id },
+      order: { id: 'ASC' },
+    });
+    const orbitAssignmentByFleetId = new Map(
+      orbitAssignments.map((assignment) => [assignment.fleetId, assignment]),
+    );
+    const defendingFleetIds = orbitAssignments
+      .filter(
+        (assignment) => assignment.mode === ColonyOrbitAssignmentMode.DEFEND,
+      )
+      .map((assignment) => assignment.fleetId);
+    const blockadingFleetIds = orbitAssignments
+      .filter(
+        (assignment) => assignment.mode === ColonyOrbitAssignmentMode.BLOCKADE,
+      )
+      .map((assignment) => assignment.fleetId);
+    const hasDefendingFleet = defendingFleetIds.length > 0;
+    const hasBlockadingFleet = blockadingFleetIds.length > 0;
     const orbitShips = colony.starSystemId
       ? await this.shipRepo.find({
           where: {
@@ -3268,6 +3675,7 @@ export class ColonyService {
               ? { celestialObjectId: colony.celestialObjectId }
               : {}),
           },
+          relations: ['fleet'],
           order: { id: 'ASC' },
         })
       : [];
@@ -3277,11 +3685,23 @@ export class ColonyService {
           order: { id: 'ASC' },
         })
       : [];
+    const orbitShipCargo = orbitShips.length
+      ? await this.cargoRepo.find({
+          where: { spacecraftId: In(orbitShips.map((ship) => ship.id)) },
+          order: { id: 'ASC' },
+        })
+      : [];
     const modulesByShipId = new Map<number, SpacecraftModule[]>();
     for (const module of orbitShipModules) {
       const modules = modulesByShipId.get(module.spacecraftId) ?? [];
       modules.push(module);
       modulesByShipId.set(module.spacecraftId, modules);
+    }
+    const cargoByShipId = new Map<number, CargoItem[]>();
+    for (const cargoItem of orbitShipCargo) {
+      const cargo = cargoByShipId.get(cargoItem.spacecraftId) ?? [];
+      cargo.push(cargoItem);
+      cargoByShipId.set(cargoItem.spacecraftId, cargo);
     }
     const orbitShipClassIds = [
       ...new Set(orbitShips.map((ship) => ship.shipClassId)),
@@ -3587,6 +4007,7 @@ export class ColonyService {
           const crewRequired = shipClass?.crewMin ?? 0;
           const canManage = this.canManageOrbitShip(colony, ship);
           const modules = modulesByShipId.get(ship.id) ?? [];
+          const cargo = cargoByShipId.get(ship.id) ?? [];
           const damagedModules = modules.filter(
             (module) => module.integrity < 100,
           );
@@ -3611,8 +4032,35 @@ export class ColonyService {
                 return false;
               }
             })();
-          const shuttleModelAvailable =
-            !!shipClass && !!this.getHangarDefForShipClass(shipClass);
+          const shuttleCapacity =
+            shipClass && 'shuttleSlots' in shipClass
+              ? Number(
+                  (shipClass as ShipClassDef & { shuttleSlots?: number })
+                    .shuttleSlots ?? 0,
+                )
+              : 0;
+          const shuttleModelAvailable = shuttleCapacity > 0;
+          const orbitAssignment = ship.fleetId
+            ? orbitAssignmentByFleetId.get(ship.fleetId)
+            : undefined;
+          const isFleetLeader = ship.fleet?.leaderId === ship.id;
+          const canDefend =
+            isFleetLeader &&
+            ship.fleetId != null &&
+            !orbitAssignment &&
+            !hasBlockadingFleet;
+          const canBlock =
+            isFleetLeader &&
+            ship.fleetId != null &&
+            !orbitAssignment &&
+            !hasDefendingFleet &&
+            !planetaryDefense.length;
+          const shuttleStored = cargo
+            .filter(
+              (item: CargoItem) =>
+                this.gameData.getCommodity(item.commodityId)?.isShuttle,
+            )
+            .reduce((sum: number, item: CargoItem) => sum + item.amount, 0);
           return {
             id: ship.id,
             name: ship.name,
@@ -3641,19 +4089,46 @@ export class ColonyService {
             canRepair,
             canRetrofit,
             canManage,
-            canDefend: false,
-            canBlock: false,
+            canDefend,
+            canBlock,
+            orbitAssignment: orbitAssignment
+              ? {
+                  id: orbitAssignment.id,
+                  mode: orbitAssignment.mode,
+                  fleetId: orbitAssignment.fleetId,
+                }
+              : null,
             canManageShuttle: shuttleModelAvailable,
+            shuttleCapacity,
+            shuttleStored,
             orbitGroup: ship.fleetId != null ? 'FLEET' : 'SINGLE',
             orbitGroupLabel:
               ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiff',
             fleetId: ship.fleetId,
             actionBlockers: {
-              defend: 'Orbit defense hooks are not implemented in SWU yet.',
-              block: 'Orbit blockade hooks are not implemented in SWU yet.',
+              defend: canDefend
+                ? null
+                : orbitAssignment?.mode === ColonyOrbitAssignmentMode.DEFEND
+                  ? 'Diese Flotte verteidigt die Kolonie bereits.'
+                  : hasBlockadingFleet
+                    ? 'Die Kolonie wird bereits blockiert.'
+                    : !isFleetLeader
+                      ? 'Nur Flottenführer können Kolonieverteidigung übernehmen.'
+                      : null,
+              block: canBlock
+                ? null
+                : orbitAssignment?.mode === ColonyOrbitAssignmentMode.BLOCKADE
+                  ? 'Diese Flotte blockiert die Kolonie bereits.'
+                  : hasDefendingFleet
+                    ? 'Die Kolonie wird bereits verteidigt.'
+                    : planetaryDefense.length
+                      ? 'Kolonie verfügt über aktive Orbitalverteidigung.'
+                      : !isFleetLeader
+                        ? 'Nur Flottenführer können Kolonien blockieren.'
+                        : null,
               shuttleManagement: shuttleModelAvailable
                 ? null
-                : 'No shuttle-specific SWU model exists beyond generic hangar launch/land flows.',
+                : 'Dieses Schiff hat keine Shuttle-Kapazität.',
               station:
                 'No station entity is linked to colony orbit in SWU yet.',
             },
@@ -3875,13 +4350,18 @@ export class ColonyService {
             })),
         },
         orbitBlockers: {
-          shuttleManagement:
-            'Blocked: SWU has no dedicated shuttle entity or shuttle-only management API beyond generic hangar launch/land loops.',
+          shuttleManagement: null,
           station:
             'Blocked: SWU has no station entity attached to colony orbit; only general station influence types exist.',
-          defense:
-            'Blocked: colony UI exposes planetary defense only; no orbit defend/block endpoints or hooks exist yet.',
+          defense: null,
         },
+        orbitAssignments: orbitAssignments.map((assignment) => ({
+          id: assignment.id,
+          mode: assignment.mode,
+          fleetId: assignment.fleetId,
+          spacecraftId: assignment.spacecraftId,
+          createdAt: assignment.createdAt,
+        })),
         shipyard: {
           unlocked: shipyardUnlocked,
           completed: hasCompletedShipyard,

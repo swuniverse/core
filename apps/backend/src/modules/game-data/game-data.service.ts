@@ -14,6 +14,8 @@ export interface Commodity {
   isSaveable: boolean;
   isEffect: boolean;
   isDeposit: boolean;
+  isShuttle?: boolean;
+  isWorkbee?: boolean;
 }
 
 export interface BuildingCosts {
@@ -403,6 +405,8 @@ export class GameDataService implements OnModuleInit {
           isSaveable: type === 1 && c.visible !== false,
           isEffect: type !== 1,
           isDeposit: c.id >= 1500 && c.id < 1700,
+          isShuttle: c.id >= 21600 && c.id < 21700,
+          isWorkbee: c.id >= 21650 && c.id < 21660,
         });
       }
       this.logger.log(`Loaded ${this.commodities.size} commodities`);

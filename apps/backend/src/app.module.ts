@@ -31,6 +31,7 @@ import { ColonyFabricationQueue } from './modules/colony/entities/colony-fabrica
 import { ColonyCrewTrainingQueue } from './modules/colony/entities/colony-crew-training-queue.entity';
 import { ColonyShipBuildplan } from './modules/colony/entities/colony-ship-buildplan.entity';
 import { ColonyEvent } from './modules/colony/entities/colony-event.entity';
+import { ColonyOrbitAssignment } from './modules/colony/entities/colony-orbit-assignment.entity';
 import { Crew } from './modules/colony/entities/crew.entity';
 import { CrewAssignment } from './modules/colony/entities/crew-assignment.entity';
 import { Layer } from './modules/starmap/entities/layer.entity';
@@ -52,6 +53,7 @@ import { FactionEntity } from './modules/faction/entities/faction.entity';
 import { FactionModifier } from './modules/faction/entities/faction-modifier.entity';
 import { OnboardingSelection } from './modules/onboarding/entities/onboarding-selection.entity';
 import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
+import { CargoItem } from './modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './modules/spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { Fleet } from './modules/spacecraft/entities/fleet.entity';
@@ -88,6 +90,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           ColonyCrewTrainingQueue,
           ColonyShipBuildplan,
           ColonyEvent,
+          ColonyOrbitAssignment,
           Crew,
           CrewAssignment,
           Layer,
@@ -109,6 +112,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           FactionModifier,
           OnboardingSelection,
           Spacecraft,
+          CargoItem,
           SpacecraftModuleEntity,
           SpacecraftTorpedoStorage,
           Fleet,

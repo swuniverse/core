@@ -22,6 +22,7 @@ export function PanelShipyard({
   onQueueShipRepair,
   onQueueShipRetrofit,
   onCancelShipyardQueue,
+  onReactivateShipyardQueue,
   onCreateBuildplan,
   onRenameBuildplan,
   onDeleteBuildplan,
@@ -50,6 +51,7 @@ export function PanelShipyard({
     buildPlanName?: string,
   ) => Promise<void> | void;
   onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
+  onReactivateShipyardQueue: (queueId: number) => Promise<void> | void;
   onCreateBuildplan: (
     shipClassId: number,
     name: string,
@@ -58,10 +60,7 @@ export function PanelShipyard({
   ) => Promise<void> | void;
   onRenameBuildplan: (planId: number, name: string) => Promise<void> | void;
   onDeleteBuildplan: (planId: number) => Promise<void> | void;
-  onBuildFromBuildplan: (
-    planId: number,
-    name: string,
-  ) => Promise<void> | void;
+  onBuildFromBuildplan: (planId: number, name: string) => Promise<void> | void;
 }) {
   const [selectedClass, setSelectedClass] = useState<ShipClassDef | null>(null);
   const [shipName, setShipName] = useState('');
@@ -92,6 +91,12 @@ export function PanelShipyard({
     BUILD: 'Bau',
     REPAIR: 'Reparatur',
     RETROFIT: 'Umrüstung',
+  };
+  const queueStatusLabel: Record<string, string> = {
+    QUEUED: 'aktiv',
+    PAUSED: 'gestoppt',
+    COMPLETED: 'fertig',
+    CANCELLED: 'abgebrochen',
   };
 
   const selectedSlotRule = selectedClass
@@ -235,8 +240,11 @@ export function PanelShipyard({
             Baupläne
           </div>
           {buildplans.map((plan) => {
-            const shipClass = shipClasses.find((sc) => sc.id === plan.shipClassId);
-            const defaultShipName = shipClass?.name ?? `Schiff #${plan.shipClassId}`;
+            const shipClass = shipClasses.find(
+              (sc) => sc.id === plan.shipClassId,
+            );
+            const defaultShipName =
+              shipClass?.name ?? `Schiff #${plan.shipClassId}`;
             const isRenaming = renamingBuildplanId === plan.id;
             return (
               <div
@@ -311,14 +319,17 @@ export function PanelShipyard({
                     />
                     <button
                       onClick={() =>
-                        runShipyardAction(`rename-plan-${plan.id}`, async () => {
-                          await onRenameBuildplan(
-                            plan.id,
-                            renameBuildplanName,
-                          );
-                          setRenamingBuildplanId(null);
-                          setRenameBuildplanName('');
-                        })
+                        runShipyardAction(
+                          `rename-plan-${plan.id}`,
+                          async () => {
+                            await onRenameBuildplan(
+                              plan.id,
+                              renameBuildplanName,
+                            );
+                            setRenamingBuildplanId(null);
+                            setRenameBuildplanName('');
+                          },
+                        )
                       }
                       disabled={
                         !renameBuildplanName.trim() ||
@@ -434,8 +445,24 @@ export function PanelShipyard({
                       {job.name}
                     </span>
                     <span className="text-swu-muted">
-                      bis {new Date(job.finishesAt).toLocaleString()}
+                      {job.status === 'PAUSED' ? 'gestoppt' : 'bis'}{' '}
+                      {new Date(job.finishesAt).toLocaleString()}
                     </span>
+                  </div>
+                  <div className="text-[10px] text-swu-muted">
+                    Status:{' '}
+                    <span
+                      className={
+                        job.status === 'PAUSED'
+                          ? 'text-yellow-400'
+                          : 'text-green-400'
+                      }
+                    >
+                      {queueStatusLabel[job.status] ?? job.status}
+                    </span>
+                    {job.stoppedAt
+                      ? ` · seit ${new Date(job.stoppedAt).toLocaleString()}`
+                      : ''}
                   </div>
                   {job.buildPlanName && (
                     <div className="text-[10px] text-swu-muted">
@@ -458,7 +485,20 @@ export function PanelShipyard({
                       Module: {job.moduleTypes.join(', ')}
                     </div>
                   )}
-                  <div className="pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {job.mode === 'REPAIR' && job.status === 'PAUSED' && (
+                      <button
+                        onClick={() =>
+                          runShipyardAction(`reactivate-${job.id}`, () =>
+                            onReactivateShipyardQueue(job.id),
+                          )
+                        }
+                        disabled={busyShipyardAction === `reactivate-${job.id}`}
+                        className="px-2 py-0.5 rounded border border-swu-accent/60 bg-swu-accent/15 text-[10px] text-swu-accent disabled:opacity-40"
+                      >
+                        Reaktivieren
+                      </button>
+                    )}
                     <button
                       onClick={() =>
                         runShipyardAction(`cancel-${job.id}`, () =>

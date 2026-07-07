@@ -92,7 +92,11 @@ export function ColoniesPage() {
 
   // ponytail: wraps async action, shows error toast on failure
   const act = async (fn: () => Promise<void>) => {
-    try { await fn(); } catch (e: any) { toast.error(e?.message ?? 'Aktion fehlgeschlagen'); }
+    try {
+      await fn();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Aktion fehlgeschlagen');
+    }
   };
 
   if (loading)
@@ -117,164 +121,327 @@ export function ColoniesPage() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       onBack={goBack}
-      onBuild={(fi, bi) => act(async () => {
-        await api.post(`/colonies/${selected.id}/build`, { fieldIndex: fi, buildingId: bi });
-        loadColonyDetail(selected.id);
-      })}
-      onDemolish={(fi) => act(async () => {
-        await api.delete(`/colonies/${selected.id}/fields/${fi}/building`);
-        loadColonyDetail(selected.id);
-      })}
-      onToggle={(fi) => act(async () => {
-        await api.post(`/colonies/${selected.id}/fields/${fi}/toggle`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onTerraform={(fi, ti) => act(async () => {
-        await api.post(`/colonies/${selected.id}/fields/${fi}/terraform`, { terraformingId: ti });
-        loadColonyDetail(selected.id);
-      })}
-      onBuildShip={(sci, name, moduleTypes, buildPlanName, moduleCommodityIds) => act(async () => {
-        await api.post(`/colonies/${selected.id}/build-ship`, { shipClassId: sci, name, moduleTypes, buildPlanName, moduleCommodityIds });
-        loadColonyDetail(selected.id);
-      })}
-      onStartFabrication={(itemKey, queueType, buildingFunctionId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/fabrication-queue`, { itemKey, queueType, amount: 1, buildingFunctionId });
-        loadColonyDetail(selected.id);
-      })}
-      onCancelFabrication={(queueId) => act(async () => {
-        await api.delete(`/colonies/${selected.id}/fabrication-queue/${queueId}`);
-        loadColonyDetail(selected.id);
-      })}
-      onQueueCrewTraining={(amount) => act(async () => {
-        await api.post(`/colonies/${selected.id}/crew-training`, { amount });
-        loadColonyDetail(selected.id);
-      })}
-      onAssignCrewToShip={(shipId, amount) => act(async () => {
-        await api.post(`/colonies/${selected.id}/ships/${shipId}/crew/assign`, { amount });
-        loadColonyDetail(selected.id);
-      })}
-      onUnassignCrewFromShip={(shipId, amount) => act(async () => {
-        await api.post(`/colonies/${selected.id}/ships/${shipId}/crew/unassign`, { amount });
-        loadColonyDetail(selected.id);
-      })}
-      onLandShip={(shipId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/ships/${shipId}/land`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onDisassembleShip={(shipId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/ships/${shipId}/disassemble`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onDefendOrbitShip={(shipId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/orbit/ships/${shipId}/defend`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onBlockadeOrbitShip={(shipId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/orbit/ships/${shipId}/blockade`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onClearOrbitOrder={(shipId) => act(async () => {
-        await api.delete(`/colonies/${selected.id}/orbit/ships/${shipId}/order`);
-        loadColonyDetail(selected.id);
-      })}
-      onQueueShipRepair={(shipId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/ships/${shipId}/repair-queue`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onQueueShipRetrofit={(shipId, moduleCommodityIds, buildPlanName) => act(async () => {
-        await api.post(`/colonies/${selected.id}/ships/${shipId}/retrofit-queue`, { moduleCommodityIds, buildPlanName });
-        loadColonyDetail(selected.id);
-      })}
-      onCancelShipyardQueue={(queueId) => act(async () => {
-        await api.delete(`/colonies/${selected.id}/shipyard-queue/${queueId}`);
-        loadColonyDetail(selected.id);
-      })}
-      onReactivateShipyardQueue={(queueId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/shipyard-queue/${queueId}/reactivate`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onCreateBuildplan={(shipClassId, name, moduleCommodityIds, moduleTypes) => act(async () => {
-        await api.post(`/colonies/${selected.id}/buildplans`, { shipClassId, name, moduleCommodityIds, moduleTypes });
-        loadColonyDetail(selected.id);
-      })}
-      onRenameBuildplan={(planId, name) => act(async () => {
-        await api.patch(`/colonies/${selected.id}/buildplans/${planId}`, { name });
-        loadColonyDetail(selected.id);
-      })}
-      onDeleteBuildplan={(planId) => act(async () => {
-        await api.delete(`/colonies/${selected.id}/buildplans/${planId}`);
-        loadColonyDetail(selected.id);
-      })}
-      onBuildFromBuildplan={(planId, name) => act(async () => {
-        await api.post(`/colonies/${selected.id}/buildplans/${planId}/build`, { name });
-        loadColonyDetail(selected.id);
-      })}
-      onBuildAirfieldRump={(shipClassId, amount) => act(async () => {
-        await api.post(`/colonies/${selected.id}/hangar/build-rump`, { shipClassId, amount });
-        loadColonyDetail(selected.id);
-      })}
-      onStartHangarShip={(shipClassId, name) => act(async () => {
-        await api.post(`/colonies/${selected.id}/hangar/start-ship`, { shipClassId, name });
-        loadColonyDetail(selected.id);
-      })}
-      onLoadColonyShields={(amount) => act(async () => {
-        await api.post(`/colonies/${selected.id}/shields/load`, { amount });
-        loadColonyDetail(selected.id);
-      })}
-      onSetShieldFrequency={(frequency) => act(async () => {
-        await api.post(`/colonies/${selected.id}/shields/frequency`, { frequency });
-        loadColonyDetail(selected.id);
-      })}
-      onSetDefenseTorpedoType={(torpedoTypeId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/defense/torpedo-type`, { torpedoTypeId });
-        loadColonyDetail(selected.id);
-      })}
+      onBuild={(fi, bi) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/build`, {
+            fieldIndex: fi,
+            buildingId: bi,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onDemolish={(fi) =>
+        act(async () => {
+          await api.delete(`/colonies/${selected.id}/fields/${fi}/building`);
+          loadColonyDetail(selected.id);
+        })
+      }
+      onToggle={(fi) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/fields/${fi}/toggle`, {});
+          loadColonyDetail(selected.id);
+        })
+      }
+      onTerraform={(fi, ti) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/fields/${fi}/terraform`, {
+            terraformingId: ti,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onBuildShip={(
+        sci,
+        name,
+        moduleTypes,
+        buildPlanName,
+        moduleCommodityIds,
+      ) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/build-ship`, {
+            shipClassId: sci,
+            name,
+            moduleTypes,
+            buildPlanName,
+            moduleCommodityIds,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onStartFabrication={(itemKey, queueType, buildingFunctionId) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/fabrication-queue`, {
+            itemKey,
+            queueType,
+            amount: 1,
+            buildingFunctionId,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onCancelFabrication={(queueId) =>
+        act(async () => {
+          await api.delete(
+            `/colonies/${selected.id}/fabrication-queue/${queueId}`,
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onQueueCrewTraining={(amount) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/crew-training`, { amount });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onAssignCrewToShip={(shipId, amount) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/ships/${shipId}/crew/assign`,
+            { amount },
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onUnassignCrewFromShip={(shipId, amount) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/ships/${shipId}/crew/unassign`,
+            { amount },
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onLandShip={(shipId) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/ships/${shipId}/land`, {});
+          loadColonyDetail(selected.id);
+        })
+      }
+      onDisassembleShip={(shipId) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/ships/${shipId}/disassemble`,
+            {},
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onDefendOrbitShip={(shipId) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/orbit/ships/${shipId}/defend`,
+            {},
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onBlockadeOrbitShip={(shipId) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/orbit/ships/${shipId}/blockade`,
+            {},
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onClearOrbitOrder={(shipId) =>
+        act(async () => {
+          await api.delete(
+            `/colonies/${selected.id}/orbit/ships/${shipId}/order`,
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onTransferOrbitShipShuttles={(shipId, items) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/orbit/ships/${shipId}/shuttles`,
+            { items },
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onQueueShipRepair={(shipId) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/ships/${shipId}/repair-queue`,
+            {},
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onQueueShipRetrofit={(shipId, moduleCommodityIds, buildPlanName) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/ships/${shipId}/retrofit-queue`,
+            { moduleCommodityIds, buildPlanName },
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onCancelShipyardQueue={(queueId) =>
+        act(async () => {
+          await api.delete(
+            `/colonies/${selected.id}/shipyard-queue/${queueId}`,
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onReactivateShipyardQueue={(queueId) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/shipyard-queue/${queueId}/reactivate`,
+            {},
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onCreateBuildplan={(shipClassId, name, moduleCommodityIds, moduleTypes) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/buildplans`, {
+            shipClassId,
+            name,
+            moduleCommodityIds,
+            moduleTypes,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onRenameBuildplan={(planId, name) =>
+        act(async () => {
+          await api.patch(`/colonies/${selected.id}/buildplans/${planId}`, {
+            name,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onDeleteBuildplan={(planId) =>
+        act(async () => {
+          await api.delete(`/colonies/${selected.id}/buildplans/${planId}`);
+          loadColonyDetail(selected.id);
+        })
+      }
+      onBuildFromBuildplan={(planId, name) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/buildplans/${planId}/build`,
+            { name },
+          );
+          loadColonyDetail(selected.id);
+        })
+      }
+      onBuildAirfieldRump={(shipClassId, amount) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/hangar/build-rump`, {
+            shipClassId,
+            amount,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onStartHangarShip={(shipClassId, name) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/hangar/start-ship`, {
+            shipClassId,
+            name,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onLoadColonyShields={(amount) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/shields/load`, { amount });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onSetShieldFrequency={(frequency) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/shields/frequency`, {
+            frequency,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onSetDefenseTorpedoType={(torpedoTypeId) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/defense/torpedo-type`, {
+            torpedoTypeId,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
       onLoadColonyEvents={async (unreadOnly = false) =>
         api.get<ColonyEventDto[]>(
           `/colonies/${selected.id}/events?limit=50&unreadOnly=${unreadOnly}`,
         )
       }
-      onMarkColonyEventRead={(eventId) => act(async () => {
-        await api.post(`/colonies/${selected.id}/events/${eventId}/read`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onMarkAllColonyEventsRead={() => act(async () => {
-        await api.post(`/colonies/${selected.id}/events/read-all`, {});
-        loadColonyDetail(selected.id);
-      })}
-      onRenameColony={(name) => act(async () => {
-        await api.put(`/colonies/${selected.id}`, { name });
-        loadColonyDetail(selected.id);
-      })}
-      onSetPopulationLimit={(limit) => act(async () => {
-        await api.post(`/colonies/${selected.id}/population-limit`, { limit });
-        loadColonyDetail(selected.id);
-      })}
-      onSetImmigration={(enabled) => act(async () => {
-        await api.post(`/colonies/${selected.id}/immigration`, { enabled });
-        loadColonyDetail(selected.id);
-      })}
-      onSetColonyMessage={(message) => act(async () => {
-        await api.post(`/colonies/${selected.id}/message`, { message });
-        loadColonyDetail(selected.id);
-      })}
-      onDiscardStorage={(items) => act(async () => {
-        await api.post(`/colonies/${selected.id}/storage/discard`, { items });
-        loadColonyDetail(selected.id);
-      })}
+      onMarkColonyEventRead={(eventId) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/events/${eventId}/read`, {});
+          loadColonyDetail(selected.id);
+        })
+      }
+      onMarkAllColonyEventsRead={() =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/events/read-all`, {});
+          loadColonyDetail(selected.id);
+        })
+      }
+      onRenameColony={(name) =>
+        act(async () => {
+          await api.put(`/colonies/${selected.id}`, { name });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onSetPopulationLimit={(limit) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/population-limit`, {
+            limit,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onSetImmigration={(enabled) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/immigration`, { enabled });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onSetColonyMessage={(message) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/message`, { message });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onDiscardStorage={(items) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/storage/discard`, { items });
+          loadColonyDetail(selected.id);
+        })
+      }
       onActivateBuildings={async (mode, options) => {
         try {
-          const result = await api.post<any, unknown>(`/colonies/${selected.id}/buildings/activate`, { mode, ...options });
+          const result = await api.post<any, unknown>(
+            `/colonies/${selected.id}/buildings/activate`,
+            { mode, ...options },
+          );
           loadColonyDetail(selected.id);
           return result;
-        } catch (e: any) { toast.error(e?.message ?? 'Aktion fehlgeschlagen'); }
+        } catch (e: any) {
+          toast.error(e?.message ?? 'Aktion fehlgeschlagen');
+        }
       }}
       onDeactivateBuildings={async (mode, options) => {
         try {
-          const result = await api.post<any, unknown>(`/colonies/${selected.id}/buildings/deactivate`, { mode, ...options });
+          const result = await api.post<any, unknown>(
+            `/colonies/${selected.id}/buildings/deactivate`,
+            { mode, ...options },
+          );
           loadColonyDetail(selected.id);
           return result;
-        } catch (e: any) { toast.error(e?.message ?? 'Aktion fehlgeschlagen'); }
+        } catch (e: any) {
+          toast.error(e?.message ?? 'Aktion fehlgeschlagen');
+        }
       }}
     />
   );
@@ -307,6 +474,7 @@ export function ColonyDetail({
   onDefendOrbitShip,
   onBlockadeOrbitShip,
   onClearOrbitOrder,
+  onTransferOrbitShipShuttles,
   onQueueShipRepair,
   onQueueShipRetrofit,
   onCancelShipyardQueue,
@@ -368,6 +536,10 @@ export function ColonyDetail({
   onDefendOrbitShip: (shipId: number) => Promise<void> | void;
   onBlockadeOrbitShip: (shipId: number) => Promise<void> | void;
   onClearOrbitOrder: (shipId: number) => Promise<void> | void;
+  onTransferOrbitShipShuttles: (
+    shipId: number,
+    items: Array<{ commodityId: number; amount: number }>,
+  ) => Promise<void> | void;
   onQueueShipRepair: (shipId: number) => Promise<void> | void;
   onQueueShipRetrofit: (
     shipId: number,
@@ -834,12 +1006,15 @@ export function ColonyDetail({
             <PanelOrbit
               orbitShips={detail.orbitShips}
               orbitBlockers={detail.orbitBlockers}
+              inventory={detail.inventory}
+              commodityMap={commodityMap}
               isBlockaded={colony.stats?.isBlockaded ?? false}
               onLandShip={onLandShip}
               onDisassembleShip={onDisassembleShip}
               onDefendShip={onDefendOrbitShip}
               onBlockadeShip={onBlockadeOrbitShip}
               onClearOrbitOrder={onClearOrbitOrder}
+              onTransferShuttles={onTransferOrbitShipShuttles}
             />
           )}
           {activeTab === 'build' && (

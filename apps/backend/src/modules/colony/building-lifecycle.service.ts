@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BuildingDef } from '../game-data/game-data.service';
@@ -13,6 +14,7 @@ export class BuildingLifecycleService {
     private readonly fieldRepo: Repository<ColonyField>,
     @InjectRepository(ColonyStats)
     private readonly statsRepo: Repository<ColonyStats>,
+    private readonly config: ConfigService,
   ) {}
 
   async finishBuilding(
@@ -110,8 +112,20 @@ export class BuildingLifecycleService {
     field.integrity = 0;
     field.maxIntegrity = 0;
     field.activateAfterBuild = true;
-    field.buildFinishesAt = new Date(Date.now() + buildTimeSeconds * 1000);
+    field.buildFinishesAt = new Date(
+      Date.now() + this.scaleBuildTimeSeconds(buildTimeSeconds) * 1000,
+    );
     return field;
+  }
+
+  private scaleBuildTimeSeconds(seconds: number): number {
+    const multiplier = this.getBuildTimeMultiplier();
+    return Math.max(1, Math.round(seconds * multiplier));
+  }
+
+  private getBuildTimeMultiplier(): number {
+    const configured = Number(this.config.get('GAME_BUILD_TIME_MULTIPLIER'));
+    return Number.isFinite(configured) && configured > 0 ? configured : 1;
   }
 
   repairBuilding(field: ColonyField): ColonyField {
