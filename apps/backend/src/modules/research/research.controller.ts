@@ -33,7 +33,10 @@ export class ResearchController {
   }
 
   @Post('cancel')
-  cancel(@Request() req: { user: { sub: number } }) {
-    return this.researchService.cancelResearch(req.user.sub);
+  cancel(
+    @Request() req: { user: { sub: number } },
+    @Body('techId') techId?: number,
+  ) {
+    return this.researchService.cancelResearch(req.user.sub, techId);
   }
 }

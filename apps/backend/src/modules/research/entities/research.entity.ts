@@ -13,6 +13,7 @@ export enum ResearchStatus {
   LOCKED = 'LOCKED',
   AVAILABLE = 'AVAILABLE',
   IN_PROGRESS = 'IN_PROGRESS',
+  QUEUED = 'QUEUED',
   COMPLETED = 'COMPLETED',
 }
 

@@ -87,8 +87,8 @@ export function ResearchPage() {
     load();
   };
 
-  const cancelResearch = async () => {
-    await api.post('/research/cancel', {});
+  const cancelResearch = async (techId?: number) => {
+    await api.post('/research/cancel', { techId });
     load();
   };
 
@@ -101,6 +101,7 @@ export function ResearchPage() {
     return <div className="p-4 text-swu-muted text-xs">Forschung wird geladen...</div>;
 
   const activeResearch = techs.find((tech) => tech.status === 'IN_PROGRESS');
+  const queuedResearch = techs.find((tech) => tech.status === 'QUEUED');
   const availableTechs = techs.filter((t) => t.status === 'AVAILABLE');
   const completedTechs = techs.filter((t) => t.status === 'COMPLETED');
 
@@ -147,10 +148,38 @@ export function ResearchPage() {
               )}
             </div>
             <button
-              onClick={(e) => { e.stopPropagation(); cancelResearch(); }}
+              onClick={(e) => { e.stopPropagation(); cancelResearch(activeResearch.id); }}
               className="px-2 py-1 text-[10px] font-bold border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors shrink-0"
             >
               Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Queued Research */}
+      {queuedResearch && (
+        <div
+          className="bg-swu-surface border border-swu-accent/30 rounded px-4 py-3 cursor-pointer hover:border-swu-accent/60 transition-colors"
+          onClick={() => setSelectedTech(queuedResearch)}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-swu-accent font-bold uppercase tracking-wider">Warteschlange</span>
+                <span className="text-sm font-bold text-swu-primary truncate">{queuedResearch.name}</span>
+              </div>
+              <div className="flex items-center gap-3 mt-1.5">
+                <span className="text-[11px] font-mono text-swu-muted">
+                  0/{queuedResearch.pointsRequired} {queuedResearch.commodity?.name ?? 'FP'}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); cancelResearch(queuedResearch.id); }}
+              className="px-2 py-1 text-[10px] font-bold border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors shrink-0"
+            >
+              Entfernen
             </button>
           </div>
         </div>
@@ -199,7 +228,8 @@ export function ResearchPage() {
         <TechDetailModal
           tech={selectedTech}
           techs={techs}
-          hasActiveResearch={!!activeResearch}
+          activeResearch={activeResearch ?? null}
+          queuedResearch={queuedResearch ?? null}
           onStart={() => startResearch(selectedTech.id)}
           onSelect={(t) => setSelectedTech(t)}
           onClose={() => setSelectedTech(null)}
@@ -236,14 +266,16 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
 function TechDetailModal({
   tech,
   techs,
-  hasActiveResearch,
+  activeResearch,
+  queuedResearch,
   onStart,
   onSelect,
   onClose,
 }: {
   tech: TechState;
   techs: TechState[];
-  hasActiveResearch: boolean;
+  activeResearch: TechState | null;
+  queuedResearch: TechState | null;
   onStart: () => void;
   onSelect: (t: TechState) => void;
   onClose: () => void;
@@ -257,9 +289,17 @@ function TechDetailModal({
     .filter((b) => !b.name?.startsWith('__'))
     .filter((b, i, arr) => arr.findIndex((x) => x.name === b.name) === i);
 
-  const canStart = tech.status === 'AVAILABLE' && !hasActiveResearch;
   const isCompleted = tech.status === 'COMPLETED';
   const isInProgress = tech.status === 'IN_PROGRESS';
+  const isQueued = tech.status === 'QUEUED';
+
+  const canStartDirect = tech.status === 'AVAILABLE' && !activeResearch;
+  const canQueue =
+    tech.status === 'AVAILABLE' &&
+    !!activeResearch &&
+    !queuedResearch &&
+    activeResearch.commodity?.id === tech.commodity?.id;
+  const canStart = canStartDirect || canQueue;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
@@ -326,6 +366,11 @@ function TechDetailModal({
               <span className="text-[11px] text-green-400 font-bold">✓ Erforscht</span>
             </div>
           )}
+          {isQueued && (
+            <div className="text-center">
+              <span className="text-[11px] text-swu-accent font-bold">In Warteschlange</span>
+            </div>
+          )}
 
           {/* Action button */}
           {canStart && (
@@ -334,7 +379,7 @@ function TechDetailModal({
                 onClick={onStart}
                 className="px-4 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-bold rounded hover:bg-swu-accent/30 transition-colors"
               >
-                Erforschen
+                {canQueue ? 'In Warteschlange' : 'Erforschen'}
               </button>
             </div>
           )}

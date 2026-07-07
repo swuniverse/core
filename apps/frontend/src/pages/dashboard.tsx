@@ -80,6 +80,9 @@ export function DashboardPage() {
   const [activeResearch, setActiveResearch] = useState<ActiveResearch | null>(
     null,
   );
+  const [queuedResearch, setQueuedResearch] = useState<ActiveResearch | null>(
+    null,
+  );
   const [buildJobs, setBuildJobs] = useState<DashboardBuildJob[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState<
     Array<{ id: number; username: string; faction: string }>
@@ -126,6 +129,8 @@ export function DashboardPage() {
         setObjective(objectiveData);
         const active = researchData.find((r) => r.status === 'IN_PROGRESS');
         setActiveResearch(active ?? null);
+        const queued = researchData.find((r) => r.status === 'QUEUED');
+        setQueuedResearch(queued ?? null);
         setHolonetPosts((holonetData?.data ?? []).slice(0, 5));
         if (colonizationData) setColonizationLimits(colonizationData);
         setOnlinePlayers(onlineData);
@@ -253,7 +258,7 @@ export function DashboardPage() {
           </div>
 
           {/* Active Jobs */}
-          {(activeResearch || buildJobs.length > 0) && (
+          {(activeResearch || queuedResearch || buildJobs.length > 0) && (
             <div className="bg-swu-surface border border-swu-border rounded">
               <div className="px-3 py-1.5 border-b border-swu-border/50">
                 <span className="text-xs font-bold text-swu-muted">
@@ -290,6 +295,21 @@ export function DashboardPage() {
                       </span>
                     )}
                   </div>
+                )}
+                {queuedResearch && (
+                  <div className="pl-7 pr-3 py-1 flex flex-wrap items-center gap-2 text-xs md:flex-nowrap">
+                    <span className="text-swu-accent">◇</span>
+                    <span className="text-swu-muted shrink-0 text-[10px]">Warteschlange:</span>
+                    <span className="text-swu-primary truncate">
+                      {queuedResearch.name}
+                    </span>
+                    <span className="text-[10px] font-mono text-swu-muted shrink-0">
+                      {queuedResearch.pointsRequired} {queuedResearch.commodity?.name ?? 'FP'}
+                    </span>
+                  </div>
+                )}
+                {buildJobs.length > 0 && (activeResearch || queuedResearch) && (
+                  <div className="border-t border-swu-border/50" />
                 )}
                 {buildJobs.map((job) => (
                   <div

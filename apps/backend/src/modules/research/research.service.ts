@@ -123,13 +123,6 @@ export class ResearchService {
       throw new BadRequestException('Root research cannot be started manually');
     }
 
-    const inProgress = await this.researchRepo.findOne({
-      where: { userId, status: ResearchStatus.IN_PROGRESS },
-    });
-    if (inProgress) {
-      throw new BadRequestException('Already researching something');
-    }
-
     const userResearch = await this.getUserResearch(userId);
     const completed = new Set(
       userResearch
@@ -144,14 +137,49 @@ export class ResearchService {
       throw new BadRequestException('Dependencies not met');
     }
 
+    const alreadyQueued = userResearch.find(
+      (r) =>
+        r.techId === techId &&
+        (r.status === ResearchStatus.IN_PROGRESS ||
+          r.status === ResearchStatus.QUEUED),
+    );
+    if (alreadyQueued) {
+      throw new BadRequestException('Already in research queue');
+    }
+
+    const inProgress = userResearch.find(
+      (r) => r.status === ResearchStatus.IN_PROGRESS,
+    );
+    const queued = userResearch.find(
+      (r) => r.status === ResearchStatus.QUEUED,
+    );
+
+    let targetStatus: ResearchStatus;
+    if (!inProgress) {
+      targetStatus = ResearchStatus.IN_PROGRESS;
+    } else if (!queued) {
+      const activeCommodityId = inProgress.sourceCommodityId;
+      const newCommodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
+      if (activeCommodityId !== newCommodityId) {
+        throw new BadRequestException(
+          'Queued research must use the same research point type as active research',
+        );
+      }
+      targetStatus = ResearchStatus.QUEUED;
+    } else {
+      throw new BadRequestException('Research queue is full');
+    }
+
     let research = userResearch.find((r) => r.techId === techId);
     if (research) {
-      research.status = ResearchStatus.IN_PROGRESS;
+      research.status = targetStatus;
+      research.remainingPoints =
+        research.remainingPoints ?? this.getPointsRequired(tech);
     } else {
       research = this.researchRepo.create({
         userId,
         techId,
-        status: ResearchStatus.IN_PROGRESS,
+        status: targetStatus,
         progress: 0,
         remainingPoints: this.getPointsRequired(tech),
         spentPoints: 0,
@@ -163,17 +191,46 @@ export class ResearchService {
     return this.researchRepo.save(research);
   }
 
-  async cancelResearch(userId: number): Promise<Research> {
-    const research = await this.researchRepo.findOne({
-      where: { userId, status: ResearchStatus.IN_PROGRESS },
-    });
+  async cancelResearch(userId: number, techId?: number): Promise<Research> {
+    let research: Research | null;
+
+    if (techId) {
+      research = await this.researchRepo.findOne({
+        where: [
+          { userId, techId, status: ResearchStatus.IN_PROGRESS },
+          { userId, techId, status: ResearchStatus.QUEUED },
+        ],
+      });
+    } else {
+      research = await this.researchRepo.findOne({
+        where: { userId, status: ResearchStatus.IN_PROGRESS },
+      });
+    }
+
     if (!research) {
       throw new BadRequestException('No active research to cancel');
     }
 
+    const wasActive = research.status === ResearchStatus.IN_PROGRESS;
     research.status = ResearchStatus.AVAILABLE;
     research.blockedReason = null;
-    return this.researchRepo.save(research);
+    await this.researchRepo.save(research);
+
+    if (wasActive) {
+      await this.promoteQueued(userId);
+    }
+
+    return research;
+  }
+
+  private async promoteQueued(userId: number): Promise<Research | null> {
+    const queued = await this.researchRepo.findOne({
+      where: { userId, status: ResearchStatus.QUEUED },
+    });
+    if (!queued) return null;
+    queued.status = ResearchStatus.IN_PROGRESS;
+    await this.researchRepo.save(queued);
+    return queued;
   }
 
   async processTick(
@@ -181,53 +238,66 @@ export class ResearchService {
     _producedResearchPoints = 0,
     commodityProduction: Map<number, number> = new Map(),
   ): Promise<void> {
-    const inProgress = await this.researchRepo.findOne({
+    let current = await this.researchRepo.findOne({
       where: { userId, status: ResearchStatus.IN_PROGRESS },
     });
-    if (!inProgress) return;
+    if (!current) return;
 
-    const tech = this.gameData.getTech(inProgress.techId);
+    const tech = this.gameData.getTech(current.techId);
     if (!tech) return;
 
-    const remaining =
-      inProgress.remainingPoints ?? this.getPointsRequired(tech);
-    if (remaining <= 0 || this.getPointsRequired(tech) <= 0) {
-      inProgress.status = ResearchStatus.COMPLETED;
-      inProgress.remainingPoints = 0;
-      inProgress.blockedReason = null;
-      inProgress.finishesAt = null;
-      await this.researchRepo.save(inProgress);
-      return;
-    }
-
     const commodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
-    const points =
+    const totalPoints =
       commodityId != null ? commodityProduction.get(commodityId) || 0 : 0;
 
-    if (points <= 0) {
-      inProgress.blockedReason =
+    if (totalPoints <= 0) {
+      current.blockedReason =
         tech.researchMode === 'commodity'
           ? 'NO_COMMODITY_PRODUCTION'
           : 'NO_RESEARCH_PRODUCTION';
-      await this.researchRepo.save(inProgress);
+      await this.researchRepo.save(current);
       return;
     }
 
-    const amount = Math.min(Math.max(0, points), remaining);
+    let leftover = totalPoints;
 
-    inProgress.spentPoints = (inProgress.spentPoints ?? 0) + amount;
-    inProgress.progress = inProgress.spentPoints;
-    inProgress.remainingPoints = remaining - amount;
-    inProgress.blockedReason = null;
-    inProgress.lastAdvancedAt = new Date();
+    while (leftover > 0 && current) {
+      const currentTech = this.gameData.getTech(current.techId);
+      if (!currentTech) break;
 
-    if (inProgress.remainingPoints <= 0) {
-      inProgress.status = ResearchStatus.COMPLETED;
-      inProgress.remainingPoints = 0;
-      inProgress.finishesAt = null;
+      const remaining =
+        current.remainingPoints ?? this.getPointsRequired(currentTech);
+
+      if (remaining <= 0) {
+        current.status = ResearchStatus.COMPLETED;
+        current.remainingPoints = 0;
+        current.finishesAt = null;
+        current.blockedReason = null;
+        await this.researchRepo.save(current);
+        current = await this.promoteQueued(userId);
+        continue;
+      }
+
+      const applied = Math.min(leftover, remaining);
+      leftover -= applied;
+
+      current.spentPoints = (current.spentPoints ?? 0) + applied;
+      current.progress = current.spentPoints;
+      current.remainingPoints = remaining - applied;
+      current.blockedReason = null;
+      current.lastAdvancedAt = new Date();
+
+      if (current.remainingPoints <= 0) {
+        current.status = ResearchStatus.COMPLETED;
+        current.remainingPoints = 0;
+        current.finishesAt = null;
+        await this.researchRepo.save(current);
+        current = leftover > 0 ? await this.promoteQueued(userId) : null;
+      } else {
+        await this.researchRepo.save(current);
+        current = null;
+      }
     }
-
-    await this.researchRepo.save(inProgress);
   }
 
   private getPointsRequired(tech: TechDef): number {
