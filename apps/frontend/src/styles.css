@@ -14,6 +14,8 @@
   --color-swu-text: #eeeeee;
   --color-swu-muted: #aaaaaa;
   --color-swu-header: #262323;
+  --color-swu-orbit: #818cf8;
+  --color-swu-underground: #a1a1aa;
 }
 
 :root {
@@ -37,6 +39,14 @@ body {
   :root {
     --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   }
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes slide-in-right {

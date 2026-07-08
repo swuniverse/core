@@ -43,7 +43,7 @@ export function AppShell() {
   });
 
   return (
-    <div className="min-h-screen bg-swu-bg">
+    <div className="min-h-svh bg-swu-bg">
       <Header />
       <Sidebar />
       <BottomNav />

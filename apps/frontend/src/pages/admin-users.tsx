@@ -37,7 +37,7 @@ export function AdminUsersPage() {
   if (loading) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-swu-primary">Benutzerrechte</h1>
+        <h1 className="text-2xl font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Benutzerrechte</h1>
         <p className="mt-4 text-swu-muted">Lade...</p>
       </div>
     );
@@ -45,7 +45,7 @@ export function AdminUsersPage() {
 
   return (
     <div className="p-6 max-w-4xl">
-      <h1 className="text-2xl font-bold text-swu-primary mb-4">Benutzerrechte</h1>
+      <h1 className="text-2xl font-bold text-swu-primary mb-4" style={{ fontFamily: 'var(--font-swu-display)' }}>Benutzerrechte</h1>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-swu-muted border-b border-swu-border">

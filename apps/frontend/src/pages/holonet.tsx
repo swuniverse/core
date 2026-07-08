@@ -192,7 +192,7 @@ export function HolonetPage() {
   return (
     <div className="p-3 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-swu-accent">HoloNet</h1>
+        <h1 className="text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>HoloNet</h1>
         <button
           onClick={() => setShowCompose(!showCompose)}
           className="px-3 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm rounded hover:bg-swu-accent/30 transition-colors"

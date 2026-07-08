@@ -30,7 +30,7 @@ export function StarmapAdminFullmapPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-60px)]">
+    <div className="flex flex-col h-[calc(100svh-60px)]">
       <div className="flex items-center gap-2 px-3 py-1 text-xs text-swu-muted border-b border-swu-border bg-swu-surface/50">
         <Link to="/admin" className="hover:text-swu-accent">Admin</Link>
         <span>/</span>

@@ -5,7 +5,7 @@ interface DatabaseOverview {
   settlers: number;
   colonies: number;
   ships: number;
-  completedResearch: number;
+  totalTechs: number;
   sections: Array<{ key: string; title: string; description: string }>;
 }
 
@@ -66,7 +66,7 @@ export function DatabasePage() {
         <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
           Galaktisches Archiv
         </p>
-        <h1 className="text-2xl font-bold text-swu-accent">Datenbank</h1>
+        <h1 className="text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>Datenbank</h1>
         <p className="text-sm text-swu-muted mt-2 max-w-3xl">
           Siedler und Ranglisten fuer die Closed Alpha. Das Archiv waechst
           spaeter um Waren, Entdeckungen, Sternensysteme, Planetentypen und
@@ -111,7 +111,7 @@ function Overview({ overview }: { overview: DatabaseOverview }) {
         <Metric label="Siedler" value={overview.settlers} />
         <Metric label="Kolonien" value={overview.colonies} />
         <Metric label="Schiffe" value={overview.ships} />
-        <Metric label="Forschungen" value={overview.completedResearch} />
+        <Metric label="Forschungen" value={overview.totalTechs} />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {overview.sections.map((section) => (

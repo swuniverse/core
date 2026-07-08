@@ -150,7 +150,7 @@ export function AdminShipsPage() {
             <span>/</span>
             <span>Ship Spawn</span>
           </div>
-          <h1 className="mt-2 text-2xl font-bold text-swu-accent">
+          <h1 className="mt-2 text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>
             Ship Spawn
           </h1>
           <p className="mt-1 text-sm text-swu-muted">

@@ -48,6 +48,7 @@ export function FieldCell({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      aria-label={`Feld ${field.fieldIndex}${buildingName ? ': ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ' (beschädigt)' : ''}`}
       className={`relative w-full aspect-square overflow-hidden text-xs flex items-center justify-center border border-gray-500
         ${isSelected ? 'ring-2 ring-swu-accent z-10' : ''}
         ${isHighlighted ? 'ring-2 ring-swu-accent/60 animate-pulse z-10' : ''}
@@ -57,10 +58,11 @@ export function FieldCell({
         ${!isSelected && !isHighlighted && !inactive && bonusUsed ? 'border-green-400/70' : ''}
         ${FIELD_TYPE_COLORS[field.fieldType] || 'bg-swu-bg'}
         ${field.isBuilding ? 'animate-pulse' : ''}
+        ${field.terraformingId ? 'border-2 border-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]' : ''}
         ${isBuildMode && !isHighlighted && !field.buildingId ? 'opacity-30' : ''}
         ${isHighlighted ? 'cursor-crosshair' : ''}`}
       title={[
-        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''} (${field.fieldIndex})`,
+        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ' ⟳ Terraform' : ''} (${field.fieldIndex})`,
         buildPreviewTitle,
       ]
         .filter(Boolean)
@@ -72,6 +74,11 @@ export function FieldCell({
         className="h-full w-full object-cover"
         loading="lazy"
       />
+      {field.terraformingId && (
+        <span className="absolute inset-0 bg-cyan-500/20 flex items-center justify-center">
+          <span className="text-cyan-300 text-[10px] font-bold drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]">⟳</span>
+        </span>
+      )}
       {buildingId && (
         <>
           <span

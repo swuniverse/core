@@ -40,20 +40,27 @@ export class DatabaseService {
   }
 
   async getOverview() {
-    const [settlers, colonies, ships, completedResearch] = await Promise.all([
+    const [settlers, colonies, ships] = await Promise.all([
       this.userRepo.count(),
       this.colonyRepo.count(),
       this.shipRepo.count(),
-      this.researchRepo.count({
-        where: { status: ResearchStatus.COMPLETED },
-      }),
     ]);
+
+    const totalTechs = Math.floor(this.gameData.getTechTree().length / 2);
+    const shipClasses = this.gameData.getShipClassDefs().length;
+    const planetTypes = this.gameData.getColonyClassCount();
+    const buildingTypes = new Set(
+      this.gameData.getAllBuildings().map((b) => b.name),
+    ).size;
 
     return {
       settlers,
       colonies,
       ships,
-      completedResearch,
+      totalTechs,
+      shipClasses,
+      planetTypes,
+      buildingTypes,
       sections: [
         {
           key: 'settlers',

@@ -781,7 +781,7 @@ export function ColonyDetail({
             className="w-6 h-6 object-contain"
           />
         )}
-        <span className="text-sm font-bold text-swu-primary">
+        <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>
           {colony.name}
         </span>
         <span className="text-[10px] text-swu-muted">
@@ -793,7 +793,7 @@ export function ColonyDetail({
       <div className="flex flex-wrap items-center gap-4 text-[10px] bg-swu-surface border border-swu-border rounded px-3 py-1.5">
         <span>
           Energie:{' '}
-          <span className="text-yellow-400 font-mono">
+          <span className="text-swu-warning font-mono">
             {detail?.energy.current ?? colony.energy}/
             {detail?.energy.max ?? colony.energyMax}
           </span>
@@ -833,18 +833,21 @@ export function ColonyDetail({
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-swu-border overflow-x-auto">
-        {tabs
-          .filter((t) => t.show)
-          .map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-1.5 text-xs whitespace-nowrap border-b-2 transition-colors ${activeTab === t.key ? 'border-swu-accent text-swu-accent' : 'border-transparent text-swu-muted hover:text-swu-primary'}`}
-            >
-              {t.label}
-            </button>
-          ))}
+      <div className="relative">
+        <div className="flex gap-0 border-b border-swu-border overflow-x-auto scrollbar-none">
+          {tabs
+            .filter((t) => t.show)
+            .map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`px-4 py-1.5 text-xs whitespace-nowrap border-b-2 transition-colors ${activeTab === t.key ? 'border-swu-accent text-swu-accent' : 'border-transparent text-swu-muted hover:text-swu-primary'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-swu-bg to-transparent pointer-events-none md:hidden" />
       </div>
 
       {/* Main: Left (Grid+Storage) + Right (Tab content) */}
@@ -853,7 +856,7 @@ export function ColonyDetail({
         <div className="lg:w-[440px] shrink-0 space-y-2 overflow-x-auto">
           {orbitFields.length > 0 && (
             <div>
-              <div className="text-[9px] text-indigo-400 font-bold uppercase mb-0.5">
+              <div className="text-[9px] text-swu-orbit font-bold uppercase mb-0.5">
                 Orbit
               </div>
               <div className="grid grid-cols-10 gap-0">
@@ -882,7 +885,7 @@ export function ColonyDetail({
             </div>
           )}
           <div>
-            <div className="text-[9px] text-green-400 font-bold uppercase mb-0.5">
+            <div className="text-[9px] text-swu-success font-bold uppercase mb-0.5">
               Oberfläche
             </div>
             <div className="grid grid-cols-10 gap-0">
@@ -911,7 +914,7 @@ export function ColonyDetail({
           </div>
           {undergroundFields.length > 0 && (
             <div>
-              <div className="text-[9px] text-zinc-400 font-bold uppercase mb-0.5">
+              <div className="text-[9px] text-swu-underground font-bold uppercase mb-0.5">
                 Untergrund
               </div>
               <div className="grid grid-cols-10 gap-0">
@@ -944,9 +947,9 @@ export function ColonyDetail({
           {storage.length > 0 && (
             <div className="bg-swu-surface border border-swu-border rounded">
               <div className="px-2 py-1 border-b border-swu-border/50 text-[10px] font-bold text-swu-muted uppercase">
-                Lager
+                Lager ({storage.length})
               </div>
-              <div className="divide-y divide-swu-border/20">
+              <div className="divide-y divide-swu-border/20 max-h-[400px] overflow-y-auto">
                 {storage
                   .sort((a, b) => b.amount - a.amount)
                   .map((item) => {

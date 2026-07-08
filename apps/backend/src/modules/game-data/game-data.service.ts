@@ -821,4 +821,8 @@ export class GameDataService implements OnModuleInit {
   getColonyClassDeposits(classId: number): ColonyClassDepositDef[] {
     return this.getColonyClass(classId)?.deposits ?? [];
   }
+
+  getColonyClassCount(): number {
+    return this.colonyClasses.size;
+  }
 }

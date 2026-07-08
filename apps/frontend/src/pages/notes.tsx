@@ -89,13 +89,16 @@ export function NotesPage() {
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-swu-muted">/ Notizen</div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Notizen</span>
+        <span className="text-[10px] text-swu-muted font-mono">/ Persönlich</span>
+      </div>
       <div className="bg-swu-surface border border-swu-border rounded p-3">
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Persoenliche Notizen..."
-          className="w-full h-[calc(100vh-200px)] min-h-[300px] bg-transparent text-xs text-swu-primary placeholder-swu-muted/50 resize-none focus:outline-none font-mono"
+          className="w-full h-[calc(100svh-200px)] min-h-[300px] bg-transparent text-xs text-swu-primary placeholder-swu-muted/50 resize-none focus:outline-none font-mono"
         />
       </div>
       <div className="text-[9px] text-swu-muted">{status}</div>

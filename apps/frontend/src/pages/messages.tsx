@@ -154,7 +154,7 @@ export function MessagesPage() {
 
   return (
     <div className="p-3 md:p-6">
-      <h1 className="text-2xl font-bold text-swu-accent mb-4">Nachrichten</h1>
+      <h1 className="text-2xl font-bold text-swu-accent mb-4" style={{ fontFamily: 'var(--font-swu-display)' }}>Nachrichten</h1>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {(['inbox', 'sent', 'system', 'compose'] as const).map((t) => (

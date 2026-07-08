@@ -49,7 +49,7 @@ export function SettingsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-swu-accent">Einstellungen</h1>
+      <h1 className="text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>Einstellungen</h1>
 
       <div className="flex gap-1 border-b border-swu-border">
         {TABS.map((tab) => (
@@ -448,7 +448,7 @@ function InvitesTab() {
 
       {newKey && (
         <Section title="Neuer Invite Key">
-          <p className="text-xs text-yellow-300 mb-2">
+          <p className="text-xs text-swu-warning mb-2">
             Dies ist die einzige vollstaendige Anzeige. Kopiere den Key jetzt.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -560,7 +560,7 @@ function DangerTab() {
           eine 7-Tage-Abklingzeit bevor erneute Aktivierung möglich ist.
         </p>
         {profile?.vacationMode && (
-          <p className="text-sm text-yellow-400 mb-2">
+          <p className="text-sm text-swu-warning mb-2">
             Kryoschlaf aktiv seit:{' '}
             {profile.vacationStartedAt
               ? new Date(profile.vacationStartedAt).toLocaleDateString('de-DE')
@@ -570,7 +570,7 @@ function DangerTab() {
         <button
           onClick={toggleVacation}
           disabled={vacationLoading}
-          className="px-4 py-2 bg-yellow-500/20 border border-yellow-500 text-yellow-400 text-sm font-semibold rounded hover:bg-yellow-500/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-swu-warning/20 border border-swu-warning text-swu-warning text-sm font-semibold rounded hover:bg-swu-warning/30 transition-colors disabled:opacity-50"
         >
           {profile?.vacationMode
             ? 'Kryoschlaf beenden'

@@ -26,9 +26,9 @@ interface Spacecraft {
 }
 
 const ALERT_COLORS: Record<string, string> = {
-  GREEN: 'bg-green-500',
-  YELLOW: 'bg-yellow-500',
-  RED: 'bg-red-500',
+  GREEN: 'bg-swu-success',
+  YELLOW: 'bg-swu-warning',
+  RED: 'bg-swu-danger',
 };
 
 export function SpacecraftPage() {
@@ -50,9 +50,10 @@ export function SpacecraftPage() {
 
   return (
     <div className="p-3 md:p-6">
-      <h1 className="text-lg font-bold text-swu-accent border-b border-swu-border pb-1 mb-4">
-        / Schiffe
-      </h1>
+      <div className="flex items-center gap-2 border-b border-swu-border pb-1 mb-4">
+        <h1 className="text-lg font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>Schiffe</h1>
+        <span className="text-[10px] text-swu-muted font-mono">/ Flotte</span>
+      </div>
 
       <div className="border border-swu-border rounded bg-swu-surface">
         <h2 className="text-xs font-bold text-swu-text px-3 py-2 border-b border-swu-border bg-swu-bg/50">
@@ -148,7 +149,7 @@ export function SpacecraftPage() {
 function StatValue({ current, max }: { current: number; max: number }) {
   const damaged = current < max;
   return (
-    <span className={damaged ? 'text-yellow-400' : 'text-swu-text'}>
+    <span className={damaged ? 'text-swu-warning' : 'text-swu-text'}>
       {current}/{max}
     </span>
   );

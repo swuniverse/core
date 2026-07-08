@@ -107,9 +107,12 @@ export function ResearchPage() {
 
   return (
     <div className="space-y-3">
-      {/* Breadcrumb + Admin */}
+      {/* Header + Admin */}
       <div className="flex items-center justify-between">
-        <div className="text-xs text-swu-muted">/ Forschung</div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Forschung</span>
+          <span className="text-[10px] text-swu-muted font-mono">/ Übersicht</span>
+        </div>
         {user?.isAdmin && (
           <button
             onClick={triggerTick}
@@ -133,11 +136,24 @@ export function ResearchPage() {
                 <span className="text-sm font-bold text-swu-primary truncate">{activeResearch.name}</span>
               </div>
               <div className="flex items-center gap-3 mt-1.5">
-                <div className="flex-1 h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
-                  <div
-                    className="h-full bg-swu-success transition-all"
-                    style={{ width: `${activeResearch.pointsRequired > 0 ? (activeResearch.progress / activeResearch.pointsRequired) * 100 : 0}%` }}
-                  />
+                <div
+                  className="flex gap-px w-24 shrink-0"
+                  role="progressbar"
+                  aria-valuenow={activeResearch.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={activeResearch.pointsRequired}
+                  aria-label={`Forschung ${activeResearch.name}`}
+                >
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const pct = activeResearch.pointsRequired > 0 ? (activeResearch.progress / activeResearch.pointsRequired) * 100 : 0;
+                    const filled = i < Math.round((pct / 100) * 10);
+                    return (
+                      <div
+                        key={i}
+                        className={`h-2 flex-1 ${filled ? 'bg-swu-success' : 'bg-swu-bg'} ${i === 0 ? 'rounded-l-sm' : ''} ${i === 9 ? 'rounded-r-sm' : ''} border border-swu-border/30`}
+                      />
+                    );
+                  })}
                 </div>
                 <span className="text-[11px] font-mono text-swu-muted shrink-0">
                   {activeResearch.progress}/{activeResearch.pointsRequired} {activeResearch.commodity?.name ?? 'FP'}
@@ -351,11 +367,23 @@ function TechDetailModal({
                 <span>Fortschritt</span>
                 <span className="font-mono">{tech.progress}/{tech.pointsRequired}</span>
               </div>
-              <div className="h-2 bg-swu-bg rounded-full overflow-hidden border border-swu-border/50">
-                <div
-                  className="h-full bg-swu-success transition-all"
-                  style={{ width: `${(tech.progress / tech.pointsRequired) * 100}%` }}
-                />
+              <div
+                className="flex gap-px"
+                role="progressbar"
+                aria-valuenow={tech.progress}
+                aria-valuemin={0}
+                aria-valuemax={tech.pointsRequired}
+                aria-label={`Forschung ${tech.name}`}
+              >
+                {Array.from({ length: 10 }, (_, i) => {
+                  const filled = i < Math.round(((tech.progress / tech.pointsRequired) * 100 / 100) * 10);
+                  return (
+                    <div
+                      key={i}
+                      className={`h-2 flex-1 ${filled ? 'bg-swu-success' : 'bg-swu-bg'} ${i === 0 ? 'rounded-l-sm' : ''} ${i === 9 ? 'rounded-r-sm' : ''} border border-swu-border/30`}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}

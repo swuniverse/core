@@ -95,7 +95,7 @@ export function AdminPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-swu-accent">Admin</h1>
+        <h1 className="text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>Admin</h1>
         <p className="mt-1 text-sm text-swu-muted">
           Interne Werkzeuge fuer Tests, Content-Pflege und Kartenbearbeitung.
         </p>

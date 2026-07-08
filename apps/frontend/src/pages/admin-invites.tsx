@@ -110,7 +110,7 @@ export function AdminInvitesPage() {
           </Link>{' '}
           / Einladungen
         </div>
-        <h1 className="mt-2 text-2xl font-bold text-swu-accent">
+        <h1 className="mt-2 text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>
           Invite-Verwaltung
         </h1>
         <p className="mt-1 text-sm text-swu-muted">
@@ -165,7 +165,7 @@ export function AdminInvitesPage() {
               <h2 className="text-lg font-semibold text-swu-accent">
                 Neu erzeugte Keys
               </h2>
-              <p className="mt-1 text-xs text-yellow-300">
+              <p className="mt-1 text-xs text-swu-warning">
                 Einmalige Klartext-Anzeige. Jetzt kopieren.
               </p>
             </div>

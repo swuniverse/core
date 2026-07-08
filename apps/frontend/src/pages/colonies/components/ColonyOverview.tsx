@@ -39,10 +39,13 @@ export function ColonyOverview({
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-swu-muted">/ Kolonien</div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Kolonien</span>
+        <span className="text-[10px] text-swu-muted font-mono">/ Übersicht</span>
+      </div>
 
       <div className="flex gap-3 flex-col lg:flex-row">
-        {/* Left: Colony table + build jobs */}
+        {/* Left: Colony table + build jobs + production (mobile) */}
         <div className="flex-1 min-w-0 space-y-3">
           <div className="bg-swu-surface border border-swu-border rounded overflow-x-auto">
             <table className="w-full text-xs">
@@ -90,7 +93,7 @@ export function ColonyOverview({
                         <>
                           {c.crewSummary.assigned}/{c.crewSummary.limit}
                           {c.crewSummary.inTraining > 0 && (
-                            <span className="text-yellow-400">
+                            <span className="text-swu-warning">
                               {' '}
                               ({c.crewSummary.inTraining})
                             </span>
@@ -103,7 +106,7 @@ export function ColonyOverview({
                     <td className="px-3 py-2 text-right font-mono text-swu-success">
                       {c.population}/{c.populationMax}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono text-yellow-400">
+                    <td className="px-3 py-2 text-right font-mono text-swu-warning">
                       {c.energy}/{c.energyMax}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-swu-primary">
@@ -130,13 +133,28 @@ export function ColonyOverview({
                     <span className="text-swu-primary font-medium">
                       {job.buildingName}
                     </span>
+                    {'progress' in job && typeof job.progress === 'number' && (
+                      <div
+                        className="flex gap-px w-14 shrink-0"
+                        role="progressbar"
+                        aria-valuenow={job.progress}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`Bau ${job.buildingName}`}
+                      >
+                        {Array.from({ length: 10 }, (_, si) => (
+                          <div
+                            key={si}
+                            className={`h-1.5 flex-1 ${si < Math.round(job.progress / 10) ? 'bg-swu-warning' : 'bg-swu-bg'} ${si === 0 ? 'rounded-l-sm' : ''} ${si === 9 ? 'rounded-r-sm' : ''} border border-swu-border/30`}
+                          />
+                        ))}
+                      </div>
+                    )}
                     {job.finishesAt && (
                       <span className="text-swu-muted">
-                        Fertigstellung:{' '}
                         {new Date(job.finishesAt).toLocaleString('de-DE', {
                           day: '2-digit',
                           month: '2-digit',
-                          year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
@@ -152,9 +170,9 @@ export function ColonyOverview({
           )}
         </div>
 
-        {/* Right: Total production */}
+        {/* Right: Total production (desktop sidebar, mobile below) */}
         {totalProduction.length > 0 && (
-          <div className="lg:w-[300px] shrink-0">
+          <div className="w-full lg:w-[300px] shrink-0">
             <div className="bg-swu-surface border border-swu-border rounded">
               <table className="w-full text-xs">
                 <thead>

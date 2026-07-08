@@ -97,14 +97,14 @@ export function StarmapPage() {
   if (loading) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-swu-primary">Starmap</h1>
+        <h1 className="text-2xl font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Starmap</h1>
         <p className="mt-4 text-swu-muted">Lade Karte...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-60px)] flex-col p-4 gap-3">
+    <div className="flex h-[calc(100svh-60px)] flex-col p-4 gap-3">
       {/* Header toolbar */}
       <div className="flex items-center gap-2 shrink-0">
         {layers.length > 1 ? (

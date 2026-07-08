@@ -305,7 +305,7 @@ function ColonizationPanel({
         </span>
       </div>
       {targetCheck?.reasons && targetCheck.reasons.length > 0 && (
-        <ul className="list-disc pl-5 text-[11px] text-amber-300">
+        <ul className="list-disc pl-5 text-[11px] text-swu-warning">
           {targetCheck.reasons.map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
@@ -471,7 +471,7 @@ function CargoPanel({
             </button>
             <button
               onClick={() => void handleUnload()}
-              className="flex-1 px-2 py-1 rounded border border-amber-500/60 bg-amber-500/10 text-[10px] font-bold text-amber-300 hover:bg-amber-500/20"
+              className="flex-1 px-2 py-1 rounded border border-swu-warning/60 bg-swu-warning/10 text-[10px] font-bold text-swu-warning hover:bg-swu-warning/20"
             >
               Entladen
             </button>

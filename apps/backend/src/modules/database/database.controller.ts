@@ -3,7 +3,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { DatabaseService } from './database.service';
 
 @Controller('database')
-@UseGuards(AuthGuard('jwt'))
 export class DatabaseController {
   constructor(private readonly databaseService: DatabaseService) {}
 
@@ -12,23 +11,26 @@ export class DatabaseController {
     return this.databaseService.getOverview();
   }
 
+  @Get('online')
+  getOnlinePlayers() {
+    return this.databaseService.getOnlinePlayers();
+  }
+
   @Get('settlers')
+  @UseGuards(AuthGuard('jwt'))
   getSettlers() {
     return this.databaseService.getSettlers();
   }
 
   @Get('commodities')
+  @UseGuards(AuthGuard('jwt'))
   getCommodities() {
     return this.databaseService.getCommodities();
   }
 
   @Get('rankings')
+  @UseGuards(AuthGuard('jwt'))
   getRankings() {
     return this.databaseService.getRankings();
-  }
-
-  @Get('online')
-  getOnlinePlayers() {
-    return this.databaseService.getOnlinePlayers();
   }
 }
