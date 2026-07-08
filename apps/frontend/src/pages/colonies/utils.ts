@@ -11,6 +11,22 @@ export function canAfford(
   );
 }
 
+export function maxAffordable(
+  building: BuildingDef,
+  storage: ColonyStorageItem[],
+): number {
+  const costs = building.resourceCosts || [];
+  if (costs.length === 0) return Infinity;
+  return Math.min(
+    ...costs.map((cost) => {
+      const avail =
+        storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
+        0;
+      return cost.amount > 0 ? Math.floor(avail / cost.amount) : Infinity;
+    }),
+  );
+}
+
 export function formatBuildTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) {

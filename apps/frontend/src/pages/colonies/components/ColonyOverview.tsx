@@ -142,12 +142,15 @@ export function ColonyOverview({
                         aria-valuemax={100}
                         aria-label={`Bau ${job.buildingName}`}
                       >
-                        {Array.from({ length: 10 }, (_, si) => (
-                          <div
-                            key={si}
-                            className={`h-1.5 flex-1 ${si < Math.round(job.progress / 10) ? 'bg-swu-warning' : 'bg-swu-bg'} ${si === 0 ? 'rounded-l-sm' : ''} ${si === 9 ? 'rounded-r-sm' : ''} border border-swu-border/30`}
-                          />
-                        ))}
+                        {Array.from({ length: 10 }, (_, si) => {
+                          const progress = job.progress as number;
+                          return (
+                            <div
+                              key={si}
+                              className={`h-1.5 flex-1 ${si < Math.round(progress / 10) ? 'bg-swu-warning' : 'bg-swu-bg'} ${si === 0 ? 'rounded-l-sm' : ''} ${si === 9 ? 'rounded-r-sm' : ''} border border-swu-border/30`}
+                            />
+                          );
+                        })}
                       </div>
                     )}
                     {job.finishesAt && (

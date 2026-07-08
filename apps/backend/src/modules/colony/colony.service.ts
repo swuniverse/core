@@ -674,8 +674,7 @@ export class ColonyService {
 
     await this.checkBuildingLimits(colony, userId, actualDef);
 
-    this.checkDepositAvailability(colony, actualDef);
-
+    // ponytail: deposit check removed — balanceAndProduce() deactivates if deposits insufficient
     this.deductBuildEnergy(colony, buildingDef);
     await this.deductBuildCosts(colony, buildingDef.resourceCosts ?? []);
     await this.colonyRepo.save(colony);
@@ -816,45 +815,6 @@ export class ColonyService {
       if (alt) return alt.alternateBuildingId;
     }
     return buildingDef.id;
-  }
-
-  private checkDepositAvailability(
-    colony: Colony,
-    buildingDef: BuildingDef,
-  ): void {
-    const deposits = (buildingDef.production || []).filter(
-      (p) => p.amount < 0 && p.commodityId >= 1500 && p.commodityId < 2000,
-    );
-    if (deposits.length === 0) return;
-
-    const colonyClass = this.gameData.getColonyClass(colony.colonyClassId);
-    const activeFields = (colony.fields ?? []).filter(
-      (f) => f.buildingId && !f.isBuilding && f.isActive,
-    );
-
-    for (const deposit of deposits) {
-      let available =
-        colonyClass?.baseProduction.find(
-          (bp) => bp.commodityId === deposit.commodityId,
-        )?.amount ?? 0;
-
-      for (const field of activeFields) {
-        const def = this.gameData.getBuilding(field.buildingId!);
-        if (!def) continue;
-        for (const p of def.production) {
-          if (p.commodityId === deposit.commodityId) {
-            available += p.amount;
-          }
-        }
-      }
-
-      if (available + deposit.amount < 0) {
-        const commodity = this.gameData.getCommodity(deposit.commodityId);
-        throw new BadRequestException(
-          `Nicht genug ${commodity?.name || 'Vorkommen'} verfügbar (${available} vorhanden)`,
-        );
-      }
-    }
   }
 
   private getDemolitionRefunds(

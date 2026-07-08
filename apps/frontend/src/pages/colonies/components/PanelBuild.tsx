@@ -7,6 +7,7 @@ import {
   formatBuildTime,
   formatSignedAmount,
   getEffectiveBuildingForField,
+  maxAffordable,
 } from '../utils';
 import { FloatingPanel } from './FloatingPanel';
 
@@ -144,9 +145,25 @@ export function PanelBuild({
                   ))}
                 </div>
               )}
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-swu-muted uppercase font-bold">
+                Baubar:
+              </span>
+              <span className="text-xs font-bold text-swu-accent">
+                {(() => {
+                  const count = maxAffordable(selectedBuilding, storage);
+                  return count === Infinity ? '∞' : count;
+                })()}
+              </span>
+            </div>
             <div>
-              <div className="text-[10px] text-swu-muted uppercase font-bold mb-0.5">
-                Baukosten
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px] text-swu-muted uppercase font-bold">
+                  Baukosten
+                </span>
+                <span className="text-[9px] text-swu-muted">
+                  Vorh. / Benöt.
+                </span>
               </div>
               {(selectedBuilding.epsCost || 0) > 0 && (
                 <div className="flex items-center justify-between gap-2">
@@ -182,15 +199,21 @@ export function PanelBuild({
                           {commodity?.nameShort || commodity?.name || '?'}
                         </span>
                       </span>
-                      <span
-                        className={
-                          avail >= c.amount
-                            ? 'text-swu-primary'
-                            : 'text-red-400'
-                        }
-                      >
-                        {c.amount}
-                        {avail < c.amount && ` (${avail})`}
+                      <span className="flex items-center gap-1">
+                        <span
+                          className={
+                            avail >= c.amount
+                              ? 'text-swu-primary'
+                              : 'text-red-400'
+                          }
+                        >
+                          {avail} / {c.amount}
+                        </span>
+                        {avail < c.amount && (
+                          <span className="text-red-400 bg-red-400/10 px-1 rounded text-[9px]">
+                            -{c.amount - avail}
+                          </span>
+                        )}
                       </span>
                     </div>
                   );
