@@ -97,7 +97,7 @@ export function LoginPage() {
   };
 
   useEffect(() => {
-    api.get<GalaxyStats>('/database/overview').then(setStats).catch(() => {});
+    api.get<GalaxyStats>('/database/overview').then(setStats).catch(() => undefined);
   }, []);
 
   useEffect(() => {

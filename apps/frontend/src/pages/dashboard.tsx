@@ -154,7 +154,7 @@ export function DashboardPage() {
     const shipsInFlight = spacecraftData.filter((s) => s.status === 'IN_FLIGHT');
 
     // Fetch colony details for build jobs, crew, warnings
-    let buildJobs: DashboardBuildJob[] = [];
+    const buildJobs: DashboardBuildJob[] = [];
     let crewInfo: CrewInfo | null = null;
     const warnings: ColonyWarning[] = [];
 
