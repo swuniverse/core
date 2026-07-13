@@ -57,6 +57,12 @@ export class Research {
   @Column({ type: 'timestamp', nullable: true })
   finishesAt: Date | null;
 
+  @Column({ type: 'int', nullable: true })
+  queuePosition: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  targetTechId: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

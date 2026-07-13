@@ -10,6 +10,7 @@ import { SpacecraftPage } from '../pages/spacecraft';
 import { SpacecraftDetailPage } from '../pages/spacecraft-detail';
 import { StarmapPage } from '../pages/starmap';
 import { ResearchPage } from '../pages/research';
+import { ResearchTreePage } from '../pages/research-tree';
 import { MessagesPage } from '../pages/messages';
 import { HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
@@ -121,6 +122,7 @@ export function App() {
             }
           />
           <Route path="/research" element={<ResearchPage />} />
+          <Route path="/research/tree" element={<ResearchTreePage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/holonet" element={<HolonetPage />} />
           <Route path="/database" element={<DatabasePage />} />

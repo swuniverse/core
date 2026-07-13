@@ -163,7 +163,7 @@ export interface TechDef {
   rawName?: string;
   name: string;
   description?: string;
-  category: string;
+  category?: string;
   tier?: number;
   sort?: number;
   duration?: number;
@@ -614,13 +614,14 @@ export class GameDataService implements OnModuleInit {
   }
 
   private loadTechTree() {
-    const data = this.loadYaml<{ technologies: TechDef[] }>(
-      'research/stu-research-tree.yaml',
-    );
-    if (data?.technologies?.length) {
-      this.techTree = data.technologies;
-      this.logger.log(`Loaded ${this.techTree.length} technologies`);
+    this.techTree = [];
+    for (const file of ['research/rebels.yaml', 'research/imperials.yaml']) {
+      const data = this.loadYaml<{ technologies: TechDef[] }>(file);
+      if (data?.technologies?.length) {
+        this.techTree.push(...data.technologies);
+      }
     }
+    this.logger.log(`Loaded ${this.techTree.length} technologies`);
   }
 
   private loadColonyClasses() {

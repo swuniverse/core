@@ -13,6 +13,15 @@ import { ColonyDamageService } from './colony-damage.service';
 import { ColonyBuildingManagementService } from './colony-building-management.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonySocialService } from './colony-social.service';
+import { ColonyOwnershipService } from './colony-ownership.service';
+import { ColonySettingsService } from './colony-settings.service';
+import { ColonyTimingService } from './colony-timing.service';
+import { ColonyFabricationService } from './colony-fabrication.service';
+import { ColonyOrbitService } from './colony-orbit.service';
+import { ColonyProjectionService } from './colony-projection.service';
+import { ColonyShipyardService } from './colony-shipyard.service';
+import { ColonyConstructionService } from './colony-construction.service';
+import { ColonyTickProcessorService } from './colony-tick-processor.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -81,6 +90,15 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyDamageService,
     ColonyEventService,
     ColonySocialService,
+    ColonyOwnershipService,
+    ColonySettingsService,
+    ColonyTimingService,
+    ColonyFabricationService,
+    ColonyOrbitService,
+    ColonyProjectionService,
+    ColonyShipyardService,
+    ColonyConstructionService,
+    ColonyTickProcessorService,
     SpacecraftStatsService,
     SpacecraftTorpedoService,
   ],
@@ -97,6 +115,15 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyDamageService,
     ColonyEventService,
     ColonySocialService,
+    ColonyOwnershipService,
+    ColonySettingsService,
+    ColonyTimingService,
+    ColonyFabricationService,
+    ColonyOrbitService,
+    ColonyProjectionService,
+    ColonyShipyardService,
+    ColonyConstructionService,
+    ColonyTickProcessorService,
     SpacecraftStatsService,
     SpacecraftTorpedoService,
   ],

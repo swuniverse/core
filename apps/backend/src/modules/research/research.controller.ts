@@ -2,11 +2,14 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Faction } from '@swuniverse/shared';
 import { ResearchService } from './research.service';
 
 @Controller('research')
@@ -20,8 +23,8 @@ export class ResearchController {
   }
 
   @Get()
-  getState(@Request() req: { user: { sub: number } }) {
-    return this.researchService.getResearchState(req.user.sub);
+  getState(@Request() req: { user: { sub: number; faction?: Faction } }) {
+    return this.researchService.getResearchState(req.user.sub, req.user.faction);
   }
 
   @Post('start')
@@ -38,5 +41,29 @@ export class ResearchController {
     @Body('techId') techId?: number,
   ) {
     return this.researchService.cancelResearch(req.user.sub, techId);
+  }
+
+  @Post('queue-target')
+  queueTarget(
+    @Request() req: { user: { sub: number } },
+    @Body('targetTechId') targetTechId: number,
+  ) {
+    return this.researchService.queueTarget(req.user.sub, targetTechId);
+  }
+
+  @Get('queue-preview')
+  queuePreview(
+    @Request() req: { user: { sub: number } },
+    @Query('targetTechId') targetTechId: string,
+  ) {
+    return this.researchService.getQueuePreviewForUser(
+      req.user.sub,
+      parseInt(targetTechId, 10),
+    );
+  }
+
+  @Delete('queue')
+  clearQueue(@Request() req: { user: { sub: number } }) {
+    return this.researchService.clearQueue(req.user.sub);
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -33,7 +33,7 @@ interface UnlockBuilding {
   bonuses?: { energy: number; population: number; storage: number };
 }
 
-interface TechState {
+export interface TechState {
   id: number;
   name: string;
   rawName?: string;
@@ -59,7 +59,8 @@ interface TechState {
 }
 
 export function ResearchPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const focusTechId = Number(searchParams.get('focus')) || null;
   const [techs, setTechs] = useState<TechState[]>([]);
@@ -81,9 +82,15 @@ export function ResearchPage() {
     }
   }, [focusTechId, techs]);
 
+  useEffect(() => {
+    if (!focusTechId && selectedTech) {
+      setSelectedTech(null);
+    }
+  }, [focusTechId, selectedTech]);
+
   const startResearch = async (techId: number) => {
     await api.post('/research/start', { techId });
-    setSelectedTech(null);
+    closeTechDetail();
     load();
   };
 
@@ -92,16 +99,37 @@ export function ResearchPage() {
     load();
   };
 
+  const queueTarget = async (targetTechId: number) => {
+    await api.post('/research/queue-target', { targetTechId });
+    closeTechDetail();
+    load();
+  };
+
+  const clearQueue = async () => {
+    await api.delete('/research/queue');
+    load();
+  };
+
   const triggerTick = async () => {
     await api.post('/admin/tick/trigger', {});
     load();
+  };
+
+  const openTechDetail = (tech: TechState) => {
+    setSelectedTech(tech);
+    setSearchParams({ focus: String(tech.id) });
+  };
+
+  const closeTechDetail = () => {
+    setSelectedTech(null);
+    setSearchParams({});
   };
 
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Forschung wird geladen...</div>;
 
   const activeResearch = techs.find((tech) => tech.status === 'IN_PROGRESS');
-  const queuedResearch = techs.find((tech) => tech.status === 'QUEUED');
+  const queuedResearch = techs.filter((tech) => tech.status === 'QUEUED');
   const availableTechs = techs.filter((t) => t.status === 'AVAILABLE');
   const completedTechs = techs.filter((t) => t.status === 'COMPLETED');
 
@@ -112,6 +140,12 @@ export function ResearchPage() {
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Forschung</span>
           <span className="text-[10px] text-swu-muted font-mono">/ Übersicht</span>
+          <button
+            onClick={() => navigate('/research/tree')}
+            className="px-2 py-0.5 text-[10px] font-bold border border-swu-border text-swu-muted rounded hover:text-swu-text transition-colors ml-2"
+          >
+            Baumansicht
+          </button>
         </div>
         {user?.isAdmin && (
           <button
@@ -127,7 +161,7 @@ export function ResearchPage() {
       {activeResearch && (
         <div
           className="bg-swu-surface border border-swu-success/30 rounded px-4 py-3 cursor-pointer hover:border-swu-success/60 transition-colors"
-          onClick={() => setSelectedTech(activeResearch)}
+          onClick={() => openTechDetail(activeResearch)}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -173,30 +207,38 @@ export function ResearchPage() {
         </div>
       )}
 
-      {/* Queued Research */}
-      {queuedResearch && (
-        <div
-          className="bg-swu-surface border border-swu-accent/30 rounded px-4 py-3 cursor-pointer hover:border-swu-accent/60 transition-colors"
-          onClick={() => setSelectedTech(queuedResearch)}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-swu-accent font-bold uppercase tracking-wider">Warteschlange</span>
-                <span className="text-sm font-bold text-swu-primary truncate">{queuedResearch.name}</span>
-              </div>
-              <div className="flex items-center gap-3 mt-1.5">
-                <span className="text-[11px] font-mono text-swu-muted">
-                  0/{queuedResearch.pointsRequired} {queuedResearch.commodity?.name ?? 'FP'}
-                </span>
-              </div>
-            </div>
+      {/* Research Queue */}
+      {queuedResearch.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between px-1 py-1.5">
+            <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">
+              Warteschlange ({queuedResearch.length})
+            </span>
             <button
-              onClick={(e) => { e.stopPropagation(); cancelResearch(queuedResearch.id); }}
-              className="px-2 py-1 text-[10px] font-bold border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors shrink-0"
+              onClick={clearQueue}
+              className="px-2 py-0.5 text-[10px] font-bold border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors"
             >
-              Entfernen
+              Queue leeren
             </button>
+          </div>
+          <div className="space-y-1">
+            {queuedResearch.map((tech, idx) => (
+              <div
+                key={tech.id}
+                className="bg-swu-surface border border-swu-accent/20 rounded px-3 py-2 cursor-pointer hover:border-swu-accent/50 transition-colors flex items-center gap-3"
+                onClick={() => openTechDetail(tech)}
+              >
+                <span className="text-[10px] font-mono text-swu-accent font-bold w-5 shrink-0">{idx + 1}</span>
+                <span className="text-xs text-swu-primary truncate flex-1">{tech.name}</span>
+                <span className="text-[10px] font-mono text-swu-muted shrink-0">{tech.pointsRequired} FP</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); cancelResearch(tech.id); }}
+                  className="text-[10px] text-red-400 hover:text-red-300 shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -209,7 +251,7 @@ export function ResearchPage() {
           </div>
           <div className="space-y-1.5">
             {availableTechs.map((tech) => (
-              <TechCard key={tech.id} tech={tech} onClick={() => setSelectedTech(tech)} />
+              <TechCard key={tech.id} tech={tech} onClick={() => openTechDetail(tech)} />
             ))}
           </div>
         </div>
@@ -225,7 +267,7 @@ export function ResearchPage() {
             {completedTechs.map((tech) => (
               <div
                 key={tech.id}
-                onClick={() => setSelectedTech(tech)}
+                onClick={() => openTechDetail(tech)}
                 className="bg-swu-surface/50 border border-swu-border/30 rounded px-4 py-2 flex items-center gap-3 cursor-pointer hover:border-swu-border/60 transition-colors"
               >
                 <span className="text-green-400 text-sm">✓</span>
@@ -245,10 +287,11 @@ export function ResearchPage() {
           tech={selectedTech}
           techs={techs}
           activeResearch={activeResearch ?? null}
-          queuedResearch={queuedResearch ?? null}
+          queuedCount={queuedResearch.length}
           onStart={() => startResearch(selectedTech.id)}
+          onQueueTarget={() => queueTarget(selectedTech.id)}
           onSelect={(t) => setSelectedTech(t)}
-          onClose={() => setSelectedTech(null)}
+          onClose={closeTechDetail}
         />
       )}
     </div>
@@ -279,23 +322,28 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
   );
 }
 
-function TechDetailModal({
+export function TechDetailModal({
   tech,
   techs,
   activeResearch,
-  queuedResearch,
+  queuedCount,
   onStart,
+  onQueueTarget,
   onSelect,
   onClose,
 }: {
   tech: TechState;
   techs: TechState[];
   activeResearch: TechState | null;
-  queuedResearch: TechState | null;
+  queuedCount: number;
   onStart: () => void;
+  onQueueTarget: () => void;
   onSelect: (t: TechState) => void;
   onClose: () => void;
 }) {
+  const [queuePreview, setQueuePreview] = useState<TechState[] | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
   const downstreamTechs = techs.filter((t) =>
     t.dependencies.some((d) => d.type === 'REQUIRE' && d.techIds.includes(tech.id))
   );
@@ -310,12 +358,16 @@ function TechDetailModal({
   const isQueued = tech.status === 'QUEUED';
 
   const canStartDirect = tech.status === 'AVAILABLE' && !activeResearch;
-  const canQueue =
-    tech.status === 'AVAILABLE' &&
-    !!activeResearch &&
-    !queuedResearch &&
-    activeResearch.commodity?.id === tech.commodity?.id;
+  const canQueue = tech.status === 'AVAILABLE' && !!activeResearch && queuedCount < 10;
   const canStart = canStartDirect || canQueue;
+  const canSetTarget = tech.status === 'LOCKED' && !isCompleted;
+
+  const loadPreview = async () => {
+    setLoadingPreview(true);
+    const preview = await api.get<TechState[]>(`/research/queue-preview?targetTechId=${tech.id}`);
+    setQueuePreview(preview);
+    setLoadingPreview(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
@@ -409,6 +461,47 @@ function TechDetailModal({
               >
                 {canQueue ? 'In Warteschlange' : 'Erforschen'}
               </button>
+            </div>
+          )}
+
+          {/* Queue Target button — for LOCKED techs */}
+          {canSetTarget && (
+            <div className="space-y-2 pt-1">
+              {!queuePreview && (
+                <div className="text-center">
+                  <button
+                    onClick={loadPreview}
+                    disabled={loadingPreview}
+                    className="px-4 py-1.5 bg-swu-primary/20 border border-swu-primary text-swu-primary text-xs font-bold rounded hover:bg-swu-primary/30 transition-colors disabled:opacity-50"
+                  >
+                    {loadingPreview ? 'Lade...' : 'Als Ziel setzen'}
+                  </button>
+                </div>
+              )}
+              {queuePreview && (
+                <div className="border border-swu-primary/30 rounded p-2 space-y-1.5">
+                  <div className="text-[10px] text-swu-muted font-bold uppercase tracking-wider text-center">
+                    Forschungspfad ({queuePreview.length} Schritte)
+                  </div>
+                  <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                    {queuePreview.map((t, i) => (
+                      <div key={t.id} className="flex items-center gap-2 text-[11px]">
+                        <span className="font-mono text-swu-accent w-4 shrink-0">{i + 1}</span>
+                        <span className="text-swu-text truncate">{t.name}</span>
+                        <span className="font-mono text-swu-muted ml-auto shrink-0">{t.pointsRequired ?? t.effort} FP</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-center pt-1">
+                    <button
+                      onClick={onQueueTarget}
+                      className="px-4 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-bold rounded hover:bg-swu-accent/30 transition-colors"
+                    >
+                      Pfad einreihen
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

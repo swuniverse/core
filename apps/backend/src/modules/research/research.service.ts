@@ -7,8 +7,25 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
+import { Faction } from '@swuniverse/shared';
 
 const ROOT_TECH_IDS = new Set([1001, 1003]);
+const MAX_QUEUE_SIZE = 10;
+
+// ponytail: faction check via ID last digit + name substring
+function isTechForFaction(
+  tech: { id: number; name?: string },
+  faction: Faction | null,
+): boolean {
+  if (!faction) return true;
+  const lastDigit = tech.id % 10;
+  const name = tech.name ?? '';
+  const isRebel = lastDigit === 1 || name.includes('(Rebellen)');
+  const isEmpire = lastDigit === 3 || name.includes('(Imperium)');
+  if (isRebel && faction === Faction.GALACTIC_EMPIRE) return false;
+  if (isEmpire && faction === Faction.REBEL_ALLIANCE) return false;
+  return true;
+}
 
 @Injectable()
 export class ResearchService {
@@ -29,7 +46,7 @@ export class ResearchService {
     });
   }
 
-  async getResearchState(userId: number) {
+  async getResearchState(userId: number, faction?: Faction | null) {
     const techTree = this.gameData.getTechTree();
     const userResearch = await this.getUserResearch(userId);
     const completed = new Set(
@@ -37,17 +54,25 @@ export class ResearchService {
         .filter((r) => r.status === ResearchStatus.COMPLETED)
         .map((r) => r.techId),
     );
-    return techTree
-      .filter((tech) => !tech.hidden && !tech.excludeFromNormalProgression)
-      .filter((tech) => {
-        if (!ROOT_TECH_IDS.has(tech.id)) return true;
-        return userResearch.some(
+    const visibleTechs = new Map<number, TechDef>();
+    for (const tech of techTree) {
+      if (tech.hidden || tech.excludeFromNormalProgression) continue;
+      if (!isTechForFaction(tech, faction ?? null)) continue;
+      if (
+        ROOT_TECH_IDS.has(tech.id) &&
+        !userResearch.some(
           (research) =>
             research.techId === tech.id &&
             research.status === ResearchStatus.COMPLETED,
-        );
-      })
-      .map((tech) => {
+        )
+      ) {
+        continue;
+      }
+      if (!visibleTechs.has(tech.id)) {
+        visibleTechs.set(tech.id, tech);
+      }
+    }
+    return [...visibleTechs.values()].map((tech) => {
         const existing = userResearch.find((r) => r.techId === tech.id);
         let status: ResearchStatus;
 
@@ -82,12 +107,18 @@ export class ResearchService {
           unlocks: {
             ...tech.unlocks,
             buildings: (tech.unlocks?.buildings ?? [])
-              .filter((b: any) => b.visible !== false)
-              .map((b: any) => {
-                const def = this.gameData.getBuilding(b.id);
+              .filter(
+                (
+                  b,
+                ): b is Exclude<NonNullable<TechDef['unlocks']>['buildings'], undefined>[number] =>
+                  typeof b === 'number' || b.visible !== false,
+              )
+              .map((b) => {
+                const buildingId = typeof b === 'number' ? b : b.id;
+                const def = this.gameData.getBuilding(buildingId);
                 return {
-                  id: b.id,
-                  name: b.name ?? def?.name,
+                  id: buildingId,
+                  name: typeof b === 'number' ? def?.name : b.name ?? def?.name,
                   buildTime: def?.costs?.buildTime ?? 0,
                   resourceCosts: (def?.resourceCosts ?? []).map((c) => ({
                     ...c,
@@ -150,22 +181,18 @@ export class ResearchService {
     const inProgress = userResearch.find(
       (r) => r.status === ResearchStatus.IN_PROGRESS,
     );
-    const queued = userResearch.find(
+    const queuedItems = userResearch.filter(
       (r) => r.status === ResearchStatus.QUEUED,
     );
 
     let targetStatus: ResearchStatus;
+    let queuePosition: number | null = null;
+
     if (!inProgress) {
       targetStatus = ResearchStatus.IN_PROGRESS;
-    } else if (!queued) {
-      const activeCommodityId = inProgress.sourceCommodityId;
-      const newCommodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
-      if (activeCommodityId !== newCommodityId) {
-        throw new BadRequestException(
-          'Queued research must use the same research point type as active research',
-        );
-      }
+    } else if (queuedItems.length < MAX_QUEUE_SIZE) {
       targetStatus = ResearchStatus.QUEUED;
+      queuePosition = this.getNextQueuePosition(queuedItems);
     } else {
       throw new BadRequestException('Research queue is full');
     }
@@ -173,6 +200,7 @@ export class ResearchService {
     let research = userResearch.find((r) => r.techId === techId);
     if (research) {
       research.status = targetStatus;
+      research.queuePosition = queuePosition;
       research.remainingPoints =
         research.remainingPoints ?? this.getPointsRequired(tech);
     } else {
@@ -185,10 +213,220 @@ export class ResearchService {
         spentPoints: 0,
         sourceCommodityId: tech.mappedCommodityId ?? tech.commodityId ?? null,
         blockedReason: null,
+        queuePosition,
+        targetTechId: null,
       });
     }
 
     return this.researchRepo.save(research);
+  }
+
+  async queueTarget(userId: number, targetTechId: number): Promise<Research[]> {
+    const tech = this.gameData.getTech(targetTechId);
+    if (!tech) throw new NotFoundException('Technology not found');
+    if (ROOT_TECH_IDS.has(targetTechId)) {
+      throw new BadRequestException('Cannot target root research');
+    }
+
+    const userResearch = await this.getUserResearch(userId);
+    const completed = new Set(
+      userResearch
+        .filter((r) => r.status === ResearchStatus.COMPLETED)
+        .map((r) => r.techId),
+    );
+
+    if (completed.has(targetTechId)) {
+      throw new BadRequestException('Already researched');
+    }
+
+    const path = this.resolvePrerequisitePath(targetTechId, completed);
+    if (path.length === 0) {
+      throw new BadRequestException('No prerequisites needed');
+    }
+
+    // Clear existing queue
+    await this.clearQueue(userId);
+
+    const inProgress = userResearch.find(
+      (r) => r.status === ResearchStatus.IN_PROGRESS,
+    );
+
+    const trimmedPath = path.slice(0, MAX_QUEUE_SIZE);
+    const results: Research[] = [];
+
+    for (let i = 0; i < trimmedPath.length; i++) {
+      const techId = trimmedPath[i];
+      const techDef = this.gameData.getTech(techId)!;
+      const isFirst = i === 0 && !inProgress;
+
+      let research = userResearch.find((r) => r.techId === techId);
+      if (research) {
+        research.status = isFirst
+          ? ResearchStatus.IN_PROGRESS
+          : ResearchStatus.QUEUED;
+        research.queuePosition = isFirst ? null : i;
+        research.targetTechId = targetTechId;
+        research.remainingPoints =
+          research.remainingPoints ?? this.getPointsRequired(techDef);
+      } else {
+        research = this.researchRepo.create({
+          userId,
+          techId,
+          status: isFirst
+            ? ResearchStatus.IN_PROGRESS
+            : ResearchStatus.QUEUED,
+          progress: 0,
+          remainingPoints: this.getPointsRequired(techDef),
+          spentPoints: 0,
+          sourceCommodityId:
+            techDef.mappedCommodityId ?? techDef.commodityId ?? null,
+          blockedReason: null,
+          queuePosition: isFirst ? null : i,
+          targetTechId,
+        });
+      }
+      results.push(await this.researchRepo.save(research));
+    }
+
+    return results;
+  }
+
+  getQueuePreview(userId: number, targetTechId: number): number[] {
+    const tech = this.gameData.getTech(targetTechId);
+    if (!tech) throw new NotFoundException('Technology not found');
+    // ponytail: sync method, no DB call needed — path resolution is pure game-data
+    return this.resolvePrerequisitePath(targetTechId, new Set());
+  }
+
+  async getQueuePreviewForUser(
+    userId: number,
+    targetTechId: number,
+  ): Promise<TechDef[]> {
+    const tech = this.gameData.getTech(targetTechId);
+    if (!tech) throw new NotFoundException('Technology not found');
+
+    const userResearch = await this.getUserResearch(userId);
+    const completed = new Set(
+      userResearch
+        .filter((r) => r.status === ResearchStatus.COMPLETED)
+        .map((r) => r.techId),
+    );
+
+    const path = this.resolvePrerequisitePath(targetTechId, completed);
+    return path
+      .map((id) => this.gameData.getTech(id))
+      .filter((t): t is TechDef => t != null);
+  }
+
+  async clearQueue(userId: number): Promise<void> {
+    const queued = await this.researchRepo.find({
+      where: { userId, status: ResearchStatus.QUEUED },
+    });
+    for (const r of queued) {
+      r.status = ResearchStatus.AVAILABLE;
+      r.queuePosition = null;
+      r.targetTechId = null;
+      r.blockedReason = null;
+    }
+    if (queued.length > 0) {
+      await this.researchRepo.save(queued);
+    }
+  }
+
+  private resolvePrerequisitePath(
+    targetId: number,
+    completed: Set<number>,
+  ): number[] {
+    const needed: number[] = [];
+    const visited = new Set<number>();
+    const stack = [targetId];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (visited.has(current) || completed.has(current)) continue;
+      if (ROOT_TECH_IDS.has(current)) continue;
+      visited.add(current);
+
+      const tech = this.gameData.getTech(current);
+      if (!tech) continue;
+
+      for (const dep of tech.dependencies) {
+        if (dep.type === 'REQUIRE') {
+          for (const id of dep.techIds) {
+            if (!completed.has(id) && !visited.has(id)) stack.push(id);
+          }
+        }
+        if (dep.type === 'REQUIRE_SOME') {
+          const alreadyDone = dep.techIds.find((id) => completed.has(id));
+          if (!alreadyDone) {
+            // Pick cheapest unresearched prerequisite
+            const cheapest = dep.techIds
+              .map((id) => ({ id, tech: this.gameData.getTech(id) }))
+              .filter((t) => t.tech && !completed.has(t.id))
+              .sort(
+                (a, b) =>
+                  this.getPointsRequired(a.tech!) -
+                  this.getPointsRequired(b.tech!),
+              )[0];
+            if (cheapest) stack.push(cheapest.id);
+          }
+        }
+      }
+
+      needed.push(current);
+    }
+
+    return this.topologicalSort(needed);
+  }
+
+  private topologicalSort(techIds: number[]): number[] {
+    const idSet = new Set(techIds);
+    const inDegree = new Map<number, number>();
+    const adjacency = new Map<number, number[]>();
+
+    for (const id of techIds) {
+      inDegree.set(id, 0);
+      adjacency.set(id, []);
+    }
+
+    for (const id of techIds) {
+      const tech = this.gameData.getTech(id);
+      if (!tech) continue;
+      for (const dep of tech.dependencies) {
+        if (dep.type === 'EXCLUDE') continue;
+        for (const depId of dep.techIds) {
+          if (idSet.has(depId)) {
+            adjacency.get(depId)!.push(id);
+            inDegree.set(id, (inDegree.get(id) ?? 0) + 1);
+          }
+        }
+      }
+    }
+
+    const queue: number[] = [];
+    for (const [id, deg] of inDegree) {
+      if (deg === 0) queue.push(id);
+    }
+
+    const sorted: number[] = [];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      sorted.push(current);
+      for (const next of adjacency.get(current) ?? []) {
+        const newDeg = (inDegree.get(next) ?? 1) - 1;
+        inDegree.set(next, newDeg);
+        if (newDeg === 0) queue.push(next);
+      }
+    }
+
+    return sorted;
+  }
+
+  private getNextQueuePosition(queuedItems: Research[]): number {
+    if (queuedItems.length === 0) return 1;
+    return (
+      Math.max(...queuedItems.map((r) => r.queuePosition ?? 0)) + 1
+    );
   }
 
   async cancelResearch(userId: number, techId?: number): Promise<Research> {
@@ -214,23 +452,43 @@ export class ResearchService {
     const wasActive = research.status === ResearchStatus.IN_PROGRESS;
     research.status = ResearchStatus.AVAILABLE;
     research.blockedReason = null;
+    research.queuePosition = null;
+    research.targetTechId = null;
     await this.researchRepo.save(research);
 
     if (wasActive) {
       await this.promoteQueued(userId);
     }
 
+    await this.reorderQueue(userId);
     return research;
   }
 
   private async promoteQueued(userId: number): Promise<Research | null> {
-    const queued = await this.researchRepo.findOne({
+    const queued = await this.researchRepo.find({
       where: { userId, status: ResearchStatus.QUEUED },
+      order: { queuePosition: 'ASC' },
+      take: 1,
     });
-    if (!queued) return null;
-    queued.status = ResearchStatus.IN_PROGRESS;
-    await this.researchRepo.save(queued);
-    return queued;
+    if (queued.length === 0) return null;
+    const next = queued[0];
+    next.status = ResearchStatus.IN_PROGRESS;
+    next.queuePosition = null;
+    await this.researchRepo.save(next);
+    return next;
+  }
+
+  private async reorderQueue(userId: number): Promise<void> {
+    const queued = await this.researchRepo.find({
+      where: { userId, status: ResearchStatus.QUEUED },
+      order: { queuePosition: 'ASC' },
+    });
+    for (let i = 0; i < queued.length; i++) {
+      queued[i].queuePosition = i + 1;
+    }
+    if (queued.length > 0) {
+      await this.researchRepo.save(queued);
+    }
   }
 
   async processTick(
@@ -241,7 +499,10 @@ export class ResearchService {
     let current = await this.researchRepo.findOne({
       where: { userId, status: ResearchStatus.IN_PROGRESS },
     });
-    if (!current) return;
+    if (!current) {
+      current = await this.promoteQueued(userId);
+      if (!current) return;
+    }
 
     const tech = this.gameData.getTech(current.techId);
     if (!tech) return;
@@ -292,7 +553,7 @@ export class ResearchService {
         current.remainingPoints = 0;
         current.finishesAt = null;
         await this.researchRepo.save(current);
-        current = leftover > 0 ? await this.promoteQueued(userId) : null;
+        current = await this.promoteQueued(userId);
       } else {
         await this.researchRepo.save(current);
         current = null;

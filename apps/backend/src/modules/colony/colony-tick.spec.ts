@@ -35,6 +35,14 @@ import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyBuildingManagementService } from './colony-building-management.service';
 import { ColonySocialService } from './colony-social.service';
 import { ColonyEconomyService } from './colony-economy.service';
+import { ColonySettingsService } from './colony-settings.service';
+import { ColonyTimingService } from './colony-timing.service';
+import { ColonyFabricationService } from './colony-fabrication.service';
+import { ColonyOrbitService } from './colony-orbit.service';
+import { ColonyProjectionService } from './colony-projection.service';
+import { ColonyShipyardService } from './colony-shipyard.service';
+import { ColonyConstructionService } from './colony-construction.service';
+import { ColonyTickProcessorService } from './colony-tick-processor.service';
 import { TickService } from '../tick/tick.service';
 import {
   GameTickStatus,
@@ -42,6 +50,7 @@ import {
 } from '../tick/entities/game-tick-state.entity';
 import { ResearchService } from '../research/research.service';
 import { ResearchStatus } from '../research/entities/research.entity';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { WsEventType } from '@swuniverse/shared';
 
 function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
@@ -844,15 +853,72 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     hasTechByName: jest.fn(async () => true),
     isShipClassUnlocked: jest.fn(async () => true),
   };
-  const service = new ColonyService(
+  const ownershipService = {
+    findOwnedColony: jest.fn(async (colonyId: number, userId: number) => {
+      const colony = await colonyRepo.findOne({
+        where: { id: colonyId, userId },
+        relations: [
+          'fields',
+          'storage',
+          'stats',
+          'starSystem',
+          'celestialObject',
+        ],
+      });
+      if (!colony) throw new NotFoundException('Colony not found');
+      return colony;
+    }),
+    findOwnedColonyWithStats: jest.fn(
+      async (colonyId: number, userId: number) => {
+        const colony = await colonyRepo.findOne({
+          where: { id: colonyId, userId },
+          relations: ['stats'],
+        });
+        if (!colony) throw new NotFoundException('Colony not found');
+        if (!colony.stats)
+          throw new BadRequestException('Colony stats missing');
+        return colony;
+      },
+    ),
+  };
+  const settingsService = new ColonySettingsService(
     colonyRepo as any,
-    fieldRepo as any,
-    storageRepo as any,
-    depositMiningRepo as any,
     statsRepo as any,
+    storageRepo as any,
+    ownershipService as any,
+    gameData as any,
+    colonyEventService as any,
+  );
+  const timingService = new ColonyTimingService(config as any);
+  const fabricationService = new ColonyFabricationService(
+    fabricationQueueRepo as any,
+    gameData as any,
+    statsService,
+    colonyStorageService,
+    timingService,
+    ownershipService as any,
+  );
+  const orbitService = new ColonyOrbitService(
+    colonyRepo as any,
+    statsRepo as any,
+    orbitAssignmentRepo as any,
     shipRepo as any,
     cargoRepo as any,
-    {} as any,
+    storageRepo as any,
+    shipClassRepo as any,
+    ownershipService as any,
+    gameData as any,
+    statsService,
+    colonyStorageService,
+    colonyDefenseService as any,
+    colonyEventService as any,
+  );
+  const projectionService = new ColonyProjectionService(
+    colonyRepo as any,
+    depositMiningRepo as any,
+    storageRepo as any,
+    shipRepo as any,
+    cargoRepo as any,
     shipBuildQueueRepo as any,
     shipBuildplanRepo as any,
     orbitAssignmentRepo as any,
@@ -862,18 +928,94 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     shipClassRepo as any,
     gameData as any,
     unlockResolver as any,
+    colonyEconomyService,
+    colonyCrewService as any,
+    colonyDefenseService as any,
+    colonyEventService as any,
+    colonySocialService as any,
+    orbitService as any,
+  );
+  const shipyardService = new ColonyShipyardService(
+    storageRepo as any,
+    shipRepo as any,
+    shipBuildQueueRepo as any,
+    shipBuildplanRepo as any,
+    spacecraftModuleRepo as any,
+    shipClassRepo as any,
+    gameData as any,
+    unlockResolver as any,
     statsService,
     colonyEconomyService,
     colonyStorageService,
+    spacecraftStatsService as any,
+    colonyCrewService as any,
+    colonyEventService as any,
+    orbitService as any,
+    ownershipService as any,
+    projectionService as any,
+    timingService,
+  );
+  const constructionService = new ColonyConstructionService(
+    colonyRepo as any,
+    fieldRepo as any,
+    storageRepo as any,
+    gameData as any,
+    unlockResolver as any,
+    statsService,
+    colonyStorageService,
     buildingLifecycleService,
+    buildingManagementService as any,
+    colonyEventService as any,
+    ownershipService as any,
+    projectionService as any,
+    timingService,
+  );
+
+  const tickProcessorService = new ColonyTickProcessorService(
+    colonyRepo as any,
+    statsRepo as any,
+    fieldRepo as any,
+    storageRepo as any,
+    depositMiningRepo as any,
+    crewTrainingQueueRepo as any,
+    gameData as any,
+    statsService,
+    colonyStorageService,
+    buildingLifecycleService,
+    colonyCrewService as any,
+    colonyDefenseService as any,
+    fabricationService as any,
+    shipyardService as any,
+  );
+
+  const service = new ColonyService(
+    colonyRepo as any,
+    storageRepo as any,
+    statsRepo as any,
+    shipRepo as any,
+    cargoRepo as any,
+    {} as any,
+    spacecraftModuleRepo as any,
+    crewTrainingQueueRepo as any,
+    shipClassRepo as any,
+    gameData as any,
+    unlockResolver as any,
+    statsService,
+    colonyEconomyService,
+    colonyStorageService,
     spacecraftStatsService as any,
     colonyCrewService as any,
     colonyDefenseService as any,
     colonyEventService as any,
     spacecraftTorpedoService as any,
-    buildingManagementService as any,
-    colonySocialService as any,
-    config as any,
+    ownershipService as any,
+    settingsService as any,
+    fabricationService as any,
+    orbitService as any,
+    projectionService as any,
+    shipyardService as any,
+    constructionService as any,
+    tickProcessorService as any,
   );
 
   return Object.assign(
@@ -906,6 +1048,15 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       colonyCrewService,
       colonyDefenseService,
       colonyEventService,
+      ownershipService,
+      settingsService,
+      timingService,
+      fabricationService,
+      orbitService,
+      projectionService,
+      shipyardService,
+      constructionService,
+      tickProcessorService,
       config,
     },
     overrides,
@@ -1974,7 +2125,7 @@ describe('colony tick calculations', () => {
   });
 
   it('enforces formalized per-colony building limits', async () => {
-    const { service, gameData } = createColonyService();
+    const { constructionService, gameData } = createColonyService();
     const colony = {
       id: 1,
       fields: [{ id: 1, buildingId: 300, isBuilding: false }],
@@ -1982,7 +2133,7 @@ describe('colony tick calculations', () => {
     const building = gameData.getBuilding(300);
 
     await expect(
-      (service as any).checkBuildingLimits(colony, 1, building),
+      (constructionService as any).checkBuildingLimits(colony, 1, building),
     ).rejects.toThrow('limited to 1 per colony');
   });
 
@@ -2806,9 +2957,7 @@ describe('fabrication queues', () => {
     const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
       createColonyService();
     colonyRepo.findOne.mockResolvedValue(activeWeaponFabColony);
-    fabricationQueueRepo.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: 99 }]);
+    fabricationQueueRepo.find.mockResolvedValueOnce([{ id: 99 }]);
     storageRepo.findOne.mockResolvedValue({ amount: 999 });
 
     await expect(
@@ -2898,13 +3047,17 @@ describe('fabrication queues', () => {
 
 describe('ship building compatibility', () => {
   it('creates deterministic buildplan signatures independent of module order', () => {
-    const { service } = createColonyService();
-    expect((service as any).createBuildplanSignature(1, [10701, 10201])).toBe(
-      (service as any).createBuildplanSignature(1, [10201, 10701]),
+    const { shipyardService } = createColonyService();
+    expect(
+      (shipyardService as any).createBuildplanSignature(1, [10701, 10201]),
+    ).toBe(
+      (shipyardService as any).createBuildplanSignature(1, [10201, 10701]),
     );
     expect(
-      (service as any).createBuildplanSignature(2, [10201, 10701]),
-    ).not.toBe((service as any).createBuildplanSignature(1, [10201, 10701]));
+      (shipyardService as any).createBuildplanSignature(2, [10201, 10701]),
+    ).not.toBe(
+      (shipyardService as any).createBuildplanSignature(1, [10201, 10701]),
+    );
   });
 
   it('finishes queued ship builds during colony tick', async () => {
