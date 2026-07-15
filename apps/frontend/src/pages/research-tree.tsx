@@ -10,6 +10,10 @@ import {
   type Node,
   type Edge,
   type NodeTypes,
+  type EdgeTypes,
+  type EdgeProps,
+  getBezierPath,
+  BaseEdge,
   Position,
 } from '@xyflow/react';
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js';
@@ -17,7 +21,12 @@ import '@xyflow/react/dist/style.css';
 import { api } from '../services/api';
 import { TechDetailModal, type TechState } from './research';
 
-type ResearchTreeNodeData = { tech: TechState; isHighlighted: boolean; onOpenDetails: () => void };
+type ResearchTreeNodeData = {
+  tech: TechState;
+  isHighlighted: boolean;
+  onOpenDetails: () => void;
+};
+type ResearchTreeEdgeData = { points?: Array<{ x: number; y: number }> };
 
 const NODE_WIDTH = 208;
 const NODE_HEIGHT = 64;
@@ -28,7 +37,10 @@ const DEFAULT_EDGE_STYLE = { stroke: '#38bdf8', strokeWidth: 1.25 };
 const HIGHLIGHT_EDGE_STYLE = { stroke: '#f59e0b', strokeWidth: 2.75 };
 const HIGHLIGHT_NODE_RING = '0 0 0 2px #f59e0b';
 
-function collectHighlightedPathIds(techs: TechState[], targetTechId: number): { nodeIds: Set<number>; edgeIds: Set<string> } {
+function collectHighlightedPathIds(
+  techs: TechState[],
+  targetTechId: number,
+): { nodeIds: Set<number>; edgeIds: Set<string> } {
   const techById = new Map(techs.map((tech) => [tech.id, tech]));
   const nodeIds = new Set<number>([targetTechId]);
   const edgeIds = new Set<string>();
@@ -44,18 +56,26 @@ function collectHighlightedPathIds(techs: TechState[], targetTechId: number): { 
     for (const dependency of tech.dependencies) {
       if (dependency.type === 'EXCLUDE') continue;
 
-      const candidateIds = dependency.type === 'REQUIRE'
-        ? dependency.techIds
-        : (() => {
-            const preferred = dependency.techIds.find((depId) => {
-              const depTech = techById.get(depId);
-              return depTech && ['COMPLETED', 'IN_PROGRESS', 'QUEUED', 'AVAILABLE'].includes(depTech.status);
-            });
-            if (preferred !== undefined) return [preferred];
+      const candidateIds =
+        dependency.type === 'REQUIRE'
+          ? dependency.techIds
+          : (() => {
+              const preferred = dependency.techIds.find((depId) => {
+                const depTech = techById.get(depId);
+                return (
+                  depTech &&
+                  ['COMPLETED', 'IN_PROGRESS', 'QUEUED', 'AVAILABLE'].includes(
+                    depTech.status,
+                  )
+                );
+              });
+              if (preferred !== undefined) return [preferred];
 
-            const fallback = dependency.techIds.find((depId) => techById.has(depId));
-            return fallback !== undefined ? [fallback] : [];
-          })();
+              const fallback = dependency.techIds.find((depId) =>
+                techById.has(depId),
+              );
+              return fallback !== undefined ? [fallback] : [];
+            })();
 
       for (const depId of candidateIds) {
         if (!techById.has(depId)) continue;
@@ -75,7 +95,10 @@ async function getLayoutedElements(
   techs: TechState[],
   focusedTechId: number | null,
   openTechDetail: (techId: number) => void,
-): Promise<{ nodes: Node<ResearchTreeNodeData>[]; edges: Edge[] }> {
+): Promise<{
+  nodes: Node<ResearchTreeNodeData>[];
+  edges: Edge<ResearchTreeEdgeData>[];
+}> {
   const techMap = new Map<number, TechState>();
   for (const t of techs) {
     if (!techMap.has(t.id)) techMap.set(t.id, t);
@@ -84,7 +107,7 @@ async function getLayoutedElements(
   const dedupedTechs = [...techMap.values()];
 
   const edgeSet = new Set<string>();
-  const edges: Edge[] = [];
+  const edges: Edge<ResearchTreeEdgeData>[] = [];
   for (const tech of dedupedTechs) {
     for (const dep of tech.dependencies) {
       if (dep.type === 'EXCLUDE') continue;
@@ -96,7 +119,7 @@ async function getLayoutedElements(
             id: edgeId,
             source: String(depId),
             target: String(tech.id),
-            type: 'smoothstep',
+            type: 'routed',
             style: DEFAULT_EDGE_STYLE,
             markerEnd: {
               type: MarkerType.ArrowClosed,
@@ -110,39 +133,10 @@ async function getLayoutedElements(
     }
   }
 
-  const adj = new Map<number, Set<number>>();
-  for (const tech of dedupedTechs) adj.set(tech.id, new Set());
-  for (const e of edges) {
-    const s = Number(e.source), t = Number(e.target);
-    adj.get(s)?.add(t);
-    adj.get(t)?.add(s);
-  }
-  const visited = new Set<number>();
-  const components: Set<number>[] = [];
-  for (const id of adj.keys()) {
-    if (visited.has(id)) continue;
-    const comp = new Set<number>();
-    const stack = [id];
-    while (stack.length) {
-      const n = stack.pop()!;
-      if (visited.has(n)) continue;
-      visited.add(n);
-      comp.add(n);
-      for (const nb of adj.get(n) ?? []) {
-        if (!visited.has(nb)) stack.push(nb);
-      }
-    }
-    components.push(comp);
-  }
-  const largest = components.reduce((a, b) => (a.size >= b.size ? a : b), new Set<number>());
-
-  const filteredTechs = dedupedTechs.filter((t) => largest.has(t.id));
-  const filteredEdges = edges.filter(
-    (e) => largest.has(Number(e.source)) && largest.has(Number(e.target)),
-  );
-  const { nodeIds: highlightedNodeIds, edgeIds: highlightedEdgeIds } = focusedTechId
-    ? collectHighlightedPathIds(filteredTechs, focusedTechId)
-    : { nodeIds: new Set<number>(), edgeIds: new Set<string>() };
+  const { nodeIds: highlightedNodeIds, edgeIds: highlightedEdgeIds } =
+    focusedTechId
+      ? collectHighlightedPathIds(dedupedTechs, focusedTechId)
+      : { nodeIds: new Set<number>(), edgeIds: new Set<string>() };
 
   const elkGraph: ElkNode = {
     id: 'root',
@@ -159,12 +153,19 @@ async function getLayoutedElements(
       'elk.layered.spacing.edgeEdgeBetweenLayers': '32',
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
     },
-    children: filteredTechs.map((t) => ({
-      id: String(t.id),
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
-    })),
-    edges: filteredEdges.map((e) => ({
+    children: dedupedTechs
+      .slice()
+      .sort((a, b) => {
+        const sortDelta = (a.sort ?? 0) - (b.sort ?? 0);
+        if (sortDelta !== 0) return sortDelta;
+        return a.id - b.id;
+      })
+      .map((t) => ({
+        id: String(t.id),
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
+      })),
+    edges: edges.map((e) => ({
       id: e.id,
       sources: [e.source],
       targets: [e.target],
@@ -172,26 +173,54 @@ async function getLayoutedElements(
   };
 
   const laid = await elk.layout(elkGraph);
+  const routePointsByEdgeId = new Map(
+    (
+      (laid.edges ?? []) as Array<{
+        id: string;
+        sections?: Array<{
+          startPoint?: { x: number; y: number };
+          bendPoints?: Array<{ x: number; y: number }>;
+          endPoint?: { x: number; y: number };
+        }>;
+      }>
+    ).flatMap((edge) => {
+      const section = edge.sections?.[0];
+      if (!section?.startPoint || !section.endPoint) return [];
+      const points: Array<{ x: number; y: number }> = [
+        section.startPoint,
+        ...(section.bendPoints ?? []),
+        section.endPoint,
+      ];
+      return [[edge.id, points] as const];
+    }),
+  );
 
-  const nodes: Node<ResearchTreeNodeData>[] = (laid.children ?? []).map((elkNode: ElkNode) => {
-    const tech = techMap.get(Number(elkNode.id));
-    if (!tech) {
-      throw new Error(`Missing tech for node ${elkNode.id}`);
-    }
-    return {
-      id: elkNode.id,
-      position: { x: elkNode.x!, y: elkNode.y! },
-      data: { tech, isHighlighted: highlightedNodeIds.has(tech.id), onOpenDetails: () => openTechDetail(tech.id) },
-      type: 'techNode',
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-    };
-  });
+  const nodes: Node<ResearchTreeNodeData>[] = (laid.children ?? []).map(
+    (elkNode: ElkNode) => {
+      const tech = techMap.get(Number(elkNode.id));
+      if (!tech) {
+        throw new Error(`Missing tech for node ${elkNode.id}`);
+      }
+      return {
+        id: elkNode.id,
+        position: { x: elkNode.x!, y: elkNode.y! },
+        data: {
+          tech,
+          isHighlighted: highlightedNodeIds.has(tech.id),
+          onOpenDetails: () => openTechDetail(tech.id),
+        },
+        type: 'techNode',
+        sourcePosition: Position.Bottom,
+        targetPosition: Position.Top,
+      };
+    },
+  );
 
-  const styledEdges = filteredEdges.map((edge) => {
+  const styledEdges = edges.map((edge) => {
     const isHighlighted = highlightedEdgeIds.has(edge.id);
     return {
       ...edge,
+      data: { points: routePointsByEdgeId.get(edge.id) },
       style: isHighlighted ? HIGHLIGHT_EDGE_STYLE : DEFAULT_EDGE_STYLE,
       animated: isHighlighted,
       markerEnd: {
@@ -206,7 +235,10 @@ async function getLayoutedElements(
   return { nodes, edges: styledEdges };
 }
 
-const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+const STATUS_COLORS: Record<
+  string,
+  { bg: string; border: string; text: string }
+> = {
   COMPLETED: { bg: '#4fc3f7', border: '#4fc3f7', text: '#0d121c' },
   IN_PROGRESS: { bg: '#c2b942', border: '#c2b942', text: '#0d121c' },
   QUEUED: { bg: '#c2b942', border: '#c2b94280', text: '#0d121c' },
@@ -234,8 +266,19 @@ function TechNodeComponent({ data }: { data: ResearchTreeNodeData }) {
         boxShadow: data.isHighlighted ? HIGHLIGHT_NODE_RING : undefined,
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ visibility: 'hidden' }} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ visibility: 'hidden' }}
+      />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 6,
+        }}
+      >
         <div
           style={{
             fontSize: 11,
@@ -280,16 +323,52 @@ function TechNodeComponent({ data }: { data: ResearchTreeNodeData }) {
         </button>
       </div>
       <div style={{ fontSize: 10, color: '#aaaaaa', marginTop: 2 }}>
-        {tech.status === 'COMPLETED'
-          ? '✓'
-          : `${tech.pointsRequired} FP`}
+        {tech.status === 'COMPLETED' ? '✓' : `${tech.pointsRequired} FP`}
       </div>
-      <Handle type="source" position={Position.Bottom} style={{ visibility: 'hidden' }} />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ visibility: 'hidden' }}
+      />
     </div>
   );
 }
 
+function RoutedEdgeComponent({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  markerEnd,
+  style,
+  data,
+}: EdgeProps<Edge<ResearchTreeEdgeData>>) {
+  const points = data?.points;
+  const path =
+    points && points.length >= 2
+      ? points
+          .map(
+            (point, index) =>
+              `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`,
+          )
+          .join(' ')
+      : getBezierPath({
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+        })[0];
+
+  return <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />;
+}
+
 const nodeTypes: NodeTypes = { techNode: TechNodeComponent };
+const edgeTypes: EdgeTypes = { routed: RoutedEdgeComponent };
 
 export function ResearchTreePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -299,7 +378,10 @@ export function ResearchTreePage() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedTech, setSelectedTech] = useState<TechState | null>(null);
   const navigate = useNavigate();
-  const focusTechId = Number(searchParams.get('focus')) || Number(searchParams.get('highlight')) || null;
+  const focusTechId =
+    Number(searchParams.get('focus')) ||
+    Number(searchParams.get('highlight')) ||
+    null;
 
   useEffect(() => {
     api.get<TechState[]>('/research').then((data) => {
@@ -307,13 +389,19 @@ export function ResearchTreePage() {
     });
   }, []);
 
-  const highlightTech = useCallback((techId: number) => {
-    setSearchParams({ highlight: String(techId) });
-  }, [setSearchParams]);
+  const highlightTech = useCallback(
+    (techId: number) => {
+      setSearchParams({ highlight: String(techId) });
+    },
+    [setSearchParams],
+  );
 
-  const openTechDetail = useCallback((techId: number) => {
-    setSearchParams({ highlight: String(techId), focus: String(techId) });
-  }, [setSearchParams]);
+  const openTechDetail = useCallback(
+    (techId: number) => {
+      setSearchParams({ highlight: String(techId), focus: String(techId) });
+    },
+    [setSearchParams],
+  );
 
   const closeTechDetail = useCallback(() => {
     setSearchParams({});
@@ -333,7 +421,9 @@ export function ResearchTreePage() {
         setLoading(false);
       }
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [techs, focusTechId, openTechDetail]);
 
   useEffect(() => {
@@ -362,7 +452,11 @@ export function ResearchTreePage() {
   };
 
   if (loading) {
-    return <div className="p-4 text-swu-muted text-xs">Tech-Tree wird geladen...</div>;
+    return (
+      <div className="p-4 text-swu-muted text-xs">
+        Tech-Tree wird geladen...
+      </div>
+    );
   }
 
   return (
@@ -390,6 +484,7 @@ export function ResearchTreePage() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodeClick={(_, node) => highlightTech(Number(node.id))}
         onPaneClick={clearHighlight}
         fitView
@@ -420,7 +515,9 @@ export function ResearchTreePage() {
         <TechDetailModal
           tech={selectedTech}
           techs={techs}
-          activeResearch={techs.find((tech) => tech.status === 'IN_PROGRESS') ?? null}
+          activeResearch={
+            techs.find((tech) => tech.status === 'IN_PROGRESS') ?? null
+          }
           queuedCount={techs.filter((tech) => tech.status === 'QUEUED').length}
           onStart={() => startResearch(selectedTech.id)}
           onQueueTarget={() => queueTarget(selectedTech.id)}

@@ -24,15 +24,22 @@ export class ResearchController {
 
   @Get()
   getState(@Request() req: { user: { sub: number; faction?: Faction } }) {
-    return this.researchService.getResearchState(req.user.sub, req.user.faction);
+    return this.researchService.getResearchState(
+      req.user.sub,
+      req.user.faction,
+    );
   }
 
   @Post('start')
   start(
-    @Request() req: { user: { sub: number } },
+    @Request() req: { user: { sub: number; faction?: Faction } },
     @Body('techId') techId: number,
   ) {
-    return this.researchService.startResearch(req.user.sub, techId);
+    return this.researchService.startResearch(
+      req.user.sub,
+      techId,
+      req.user.faction,
+    );
   }
 
   @Post('cancel')
@@ -45,20 +52,25 @@ export class ResearchController {
 
   @Post('queue-target')
   queueTarget(
-    @Request() req: { user: { sub: number } },
+    @Request() req: { user: { sub: number; faction?: Faction } },
     @Body('targetTechId') targetTechId: number,
   ) {
-    return this.researchService.queueTarget(req.user.sub, targetTechId);
+    return this.researchService.queueTarget(
+      req.user.sub,
+      targetTechId,
+      req.user.faction,
+    );
   }
 
   @Get('queue-preview')
   queuePreview(
-    @Request() req: { user: { sub: number } },
+    @Request() req: { user: { sub: number; faction?: Faction } },
     @Query('targetTechId') targetTechId: string,
   ) {
     return this.researchService.getQueuePreviewForUser(
       req.user.sub,
       parseInt(targetTechId, 10),
+      req.user.faction,
     );
   }
 

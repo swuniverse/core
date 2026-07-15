@@ -10,6 +10,7 @@ jest.mock('./entities/research.entity', () => ({
 }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 
+import { Faction } from '@swuniverse/shared';
 import { ResearchService } from './research.service';
 import { TechDef } from '../game-data/game-data.service';
 
@@ -17,6 +18,7 @@ function makeTech(
   id: number,
   effort: number,
   deps: { type: string; techIds: number[] }[] = [],
+  faction?: Faction,
 ): TechDef {
   return {
     id,
@@ -24,18 +26,19 @@ function makeTech(
     category: 'stu',
     effort,
     dependencies: deps,
+    faction,
   } as unknown as TechDef;
 }
 
 describe('ResearchService – path resolution', () => {
   let service: ResearchService;
-  let techs: Map<number, TechDef>;
+  let techs: TechDef[];
 
   beforeEach(() => {
-    techs = new Map();
+    techs = [];
     const mockGameData = {
-      getTechTree: () => [...techs.values()],
-      getTech: (id: number) => techs.get(id) ?? null,
+      getTechTree: () => techs,
+      getTech: (id: number) => techs.find((tech) => tech.id === id) ?? null,
       getCommodity: () => null,
       getBuilding: () => null,
     };
@@ -44,8 +47,7 @@ describe('ResearchService – path resolution', () => {
   });
 
   function setTechs(...defs: TechDef[]) {
-    techs.clear();
-    for (const t of defs) techs.set(t.id, t);
+    techs = defs;
   }
 
   it('resolves linear chain', () => {
@@ -64,10 +66,7 @@ describe('ResearchService – path resolution', () => {
       makeTech(20, 10, [{ type: 'REQUIRE', techIds: [10] }]),
       makeTech(30, 15, [{ type: 'REQUIRE', techIds: [20] }]),
     );
-    const path = (service as any).resolvePrerequisitePath(
-      30,
-      new Set([10]),
-    );
+    const path = (service as any).resolvePrerequisitePath(30, new Set([10]));
     expect(path).toEqual([20, 30]);
   });
 
@@ -109,10 +108,7 @@ describe('ResearchService – path resolution', () => {
 
   it('returns empty for already-completed target', () => {
     setTechs(makeTech(10, 5));
-    const path = (service as any).resolvePrerequisitePath(
-      10,
-      new Set([10]),
-    );
+    const path = (service as any).resolvePrerequisitePath(10, new Set([10]));
     expect(path).toEqual([]);
   });
 });
@@ -135,22 +131,112 @@ describe('ResearchService – state deduplication', () => {
     };
     service = new ResearchService(
       mockRepo as unknown as ConstructorParameters<typeof ResearchService>[0],
-      mockGameData as unknown as ConstructorParameters<typeof ResearchService>[1],
+      mockGameData as unknown as ConstructorParameters<
+        typeof ResearchService
+      >[1],
     );
   });
 
   it('deduplicates repeated tech definitions by id in research state', async () => {
     techs = [
-      makeTech(290001, 10),
-      makeTech(290001, 10),
-      makeTech(290004, 20),
-      makeTech(290004, 20),
-      makeTech(290007, 30),
+      makeTech(910001, 10),
+      makeTech(910001, 10),
+      makeTech(910004, 20),
+      makeTech(910004, 20),
+      makeTech(910007, 30),
     ];
 
     const state = await service.getResearchState(42, null);
 
-    expect(state.map((tech) => tech.id)).toEqual([290001, 290004, 290007]);
+    expect(state.map((tech) => tech.id)).toEqual([910001, 910004, 910007]);
     expect(mockRepo.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the imperial-exclusive Tarnfeld-Generator from rebel research state', async () => {
+    techs = [
+      makeTech(200501, 60, [], Faction.REBEL_ALLIANCE),
+      makeTech(200503, 60, [], Faction.GALACTIC_EMPIRE),
+      makeTech(
+        60100,
+        50,
+        [{ type: 'REQUIRE', techIds: [200503] }],
+        Faction.GALACTIC_EMPIRE,
+      ),
+    ];
+
+    const rebelState = await service.getResearchState(
+      42,
+      Faction.REBEL_ALLIANCE,
+    );
+    const empireState = await service.getResearchState(
+      42,
+      Faction.GALACTIC_EMPIRE,
+    );
+
+    expect(rebelState.map((tech) => tech.id)).toEqual([200501]);
+    expect(rebelState.map((tech) => tech.id)).not.toContain(60100);
+
+    const empireCloakingGenerator = empireState.find(
+      (tech) => tech.id === 60100,
+    );
+    expect(empireState.map((tech) => tech.id)).toEqual([200503, 60100]);
+    expect(empireCloakingGenerator?.dependencies).toEqual([
+      { type: 'REQUIRE', techIds: [200503] },
+    ]);
+  });
+
+  it('uses faction-specific duplicate tech definitions for imperial module dependencies', async () => {
+    techs = [
+      makeTech(200101, 12, [], Faction.REBEL_ALLIANCE),
+      makeTech(200103, 12, [], Faction.GALACTIC_EMPIRE),
+      makeTech(200501, 60, [], Faction.REBEL_ALLIANCE),
+      makeTech(200503, 60, [], Faction.GALACTIC_EMPIRE),
+      makeTech(
+        290001,
+        40,
+        [{ type: 'REQUIRE', techIds: [200101] }],
+        Faction.REBEL_ALLIANCE,
+      ),
+      makeTech(
+        290001,
+        40,
+        [{ type: 'REQUIRE', techIds: [200103] }],
+        Faction.GALACTIC_EMPIRE,
+      ),
+      makeTech(
+        290004,
+        180,
+        [{ type: 'REQUIRE', techIds: [200501, 290001] }],
+        Faction.REBEL_ALLIANCE,
+      ),
+      makeTech(
+        290004,
+        180,
+        [{ type: 'REQUIRE', techIds: [200503, 290001] }],
+        Faction.GALACTIC_EMPIRE,
+      ),
+    ];
+
+    const rebelState = await service.getResearchState(
+      42,
+      Faction.REBEL_ALLIANCE,
+    );
+    const empireState = await service.getResearchState(
+      42,
+      Faction.GALACTIC_EMPIRE,
+    );
+
+    expect(rebelState.find((tech) => tech.id === 290001)?.dependencies).toEqual(
+      [{ type: 'REQUIRE', techIds: [200101] }],
+    );
+    expect(rebelState.find((tech) => tech.id === 290004)?.dependencies).toEqual(
+      [{ type: 'REQUIRE', techIds: [200501, 290001] }],
+    );
+    expect(
+      empireState.find((tech) => tech.id === 290001)?.dependencies,
+    ).toEqual([{ type: 'REQUIRE', techIds: [200103] }]);
+    expect(
+      empireState.find((tech) => tech.id === 290004)?.dependencies,
+    ).toEqual([{ type: 'REQUIRE', techIds: [200503, 290001] }]);
   });
 });

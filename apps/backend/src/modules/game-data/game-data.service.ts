@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Faction } from '@swuniverse/shared';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -171,6 +172,7 @@ export interface TechDef {
   commodityId?: number;
   mappedCommodityId?: number | null;
   researchMode?: 'commodity' | 'points';
+  faction?: Faction;
   hidden?: boolean;
   adminOnly?: boolean;
   excludeFromNormalProgression?: boolean;
@@ -615,10 +617,16 @@ export class GameDataService implements OnModuleInit {
 
   private loadTechTree() {
     this.techTree = [];
-    for (const file of ['research/rebels.yaml', 'research/imperials.yaml']) {
+    const files: Array<{ file: string; faction: Faction }> = [
+      { file: 'research/rebels.yaml', faction: Faction.REBEL_ALLIANCE },
+      { file: 'research/imperials.yaml', faction: Faction.GALACTIC_EMPIRE },
+    ];
+    for (const { file, faction } of files) {
       const data = this.loadYaml<{ technologies: TechDef[] }>(file);
       if (data?.technologies?.length) {
-        this.techTree.push(...data.technologies);
+        this.techTree.push(
+          ...data.technologies.map((tech) => ({ ...tech, faction })),
+        );
       }
     }
     this.logger.log(`Loaded ${this.techTree.length} technologies`);
@@ -813,6 +821,14 @@ export class GameDataService implements OnModuleInit {
 
   getTech(id: number): TechDef | undefined {
     return this.techTree.find((t) => t.id === id);
+  }
+
+  getTechForFaction(id: number, faction?: Faction | null): TechDef | undefined {
+    if (!faction) return this.getTech(id);
+    return (
+      this.techTree.find((t) => t.id === id && t.faction === faction) ??
+      this.getTech(id)
+    );
   }
 
   getColonyClass(classId: number): ColonyClassDef | undefined {

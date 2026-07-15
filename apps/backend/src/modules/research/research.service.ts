@@ -11,13 +11,19 @@ import { Faction } from '@swuniverse/shared';
 
 const ROOT_TECH_IDS = new Set([1001, 1003]);
 const MAX_QUEUE_SIZE = 10;
+const EXCLUSIVE_TECH_FACTIONS = new Map<number, Faction>([
+  [60100, Faction.GALACTIC_EMPIRE],
+]);
 
 // ponytail: faction check via ID last digit + name substring
 function isTechForFaction(
-  tech: { id: number; name?: string },
+  tech: { id: number; name?: string; faction?: Faction },
   faction: Faction | null,
 ): boolean {
   if (!faction) return true;
+  if (tech.faction) return tech.faction === faction;
+  const exclusiveFaction = EXCLUSIVE_TECH_FACTIONS.get(tech.id);
+  if (exclusiveFaction) return faction === exclusiveFaction;
   const lastDigit = tech.id % 10;
   const name = tech.name ?? '';
   const isRebel = lastDigit === 1 || name.includes('(Rebellen)');
@@ -37,6 +43,16 @@ export class ResearchService {
 
   getTechTree(): TechDef[] {
     return this.gameData.getTechTree();
+  }
+
+  private getTechForFaction(
+    techId: number,
+    faction?: Faction | null,
+  ): TechDef | undefined {
+    if (!faction) return this.gameData.getTech(techId);
+    return this.gameData
+      .getTechTree()
+      .find((tech) => tech.id === techId && isTechForFaction(tech, faction));
   }
 
   async getUserResearch(userId: number): Promise<Research[]> {
@@ -73,82 +89,88 @@ export class ResearchService {
       }
     }
     return [...visibleTechs.values()].map((tech) => {
-        const existing = userResearch.find((r) => r.techId === tech.id);
-        let status: ResearchStatus;
+      const existing = userResearch.find((r) => r.techId === tech.id);
+      let status: ResearchStatus;
 
-        if (existing) {
-          status = existing.status;
-        } else if (this.areDependenciesMet(tech, completed)) {
-          status = ResearchStatus.AVAILABLE;
-        } else {
-          status = ResearchStatus.LOCKED;
-        }
+      if (existing) {
+        status = existing.status;
+      } else if (this.areDependenciesMet(tech, completed)) {
+        status = ResearchStatus.AVAILABLE;
+      } else {
+        status = ResearchStatus.LOCKED;
+      }
 
-        const effort = this.getPointsRequired(tech);
-        const spentPoints = existing?.spentPoints ?? existing?.progress ?? 0;
-        const remainingPoints =
-          existing?.remainingPoints ?? Math.max(0, effort - spentPoints);
-        const commodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
-        return {
-          ...tech,
-          status,
-          effort,
-          progress: spentPoints,
-          spentPoints,
-          remainingPoints,
-          pointsRequired: effort,
-          commodity: commodityId
-            ? (this.gameData.getCommodity(commodityId) ?? {
-                id: commodityId,
-                name: `Ware #${commodityId}`,
-              })
-            : null,
-          blockedReason: existing?.blockedReason ?? null,
-          unlocks: {
-            ...tech.unlocks,
-            buildings: (tech.unlocks?.buildings ?? [])
-              .filter(
-                (
-                  b,
-                ): b is Exclude<NonNullable<TechDef['unlocks']>['buildings'], undefined>[number] =>
-                  typeof b === 'number' || b.visible !== false,
-              )
-              .map((b) => {
-                const buildingId = typeof b === 'number' ? b : b.id;
-                const def = this.gameData.getBuilding(buildingId);
-                return {
-                  id: buildingId,
-                  name: typeof b === 'number' ? def?.name : b.name ?? def?.name,
-                  buildTime: def?.costs?.buildTime ?? 0,
-                  resourceCosts: (def?.resourceCosts ?? []).map((c) => ({
-                    ...c,
-                    name:
-                      this.gameData.getCommodity(c.commodityId)?.name ??
-                      `#${c.commodityId}`,
-                  })),
-                  production: (def?.production ?? []).map((p) => ({
-                    ...p,
-                    name:
-                      this.gameData.getCommodity(p.commodityId)?.name ??
-                      `#${p.commodityId}`,
-                  })),
-                  epsProc: def?.epsProc ?? 0,
-                  bevPro: def?.bevPro ?? 0,
-                  bonuses: def?.bonuses ?? {
-                    energy: 0,
-                    population: 0,
-                    storage: 0,
-                  },
-                };
-              }),
-          },
-          finishesAt: existing?.finishesAt || null,
-        };
-      });
+      const effort = this.getPointsRequired(tech);
+      const spentPoints = existing?.spentPoints ?? existing?.progress ?? 0;
+      const remainingPoints =
+        existing?.remainingPoints ?? Math.max(0, effort - spentPoints);
+      const commodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
+      return {
+        ...tech,
+        status,
+        effort,
+        progress: spentPoints,
+        spentPoints,
+        remainingPoints,
+        pointsRequired: effort,
+        commodity: commodityId
+          ? (this.gameData.getCommodity(commodityId) ?? {
+              id: commodityId,
+              name: `Ware #${commodityId}`,
+            })
+          : null,
+        blockedReason: existing?.blockedReason ?? null,
+        unlocks: {
+          ...tech.unlocks,
+          buildings: (tech.unlocks?.buildings ?? [])
+            .filter(
+              (
+                b,
+              ): b is Exclude<
+                NonNullable<TechDef['unlocks']>['buildings'],
+                undefined
+              >[number] => typeof b === 'number' || b.visible !== false,
+            )
+            .map((b) => {
+              const buildingId = typeof b === 'number' ? b : b.id;
+              const def = this.gameData.getBuilding(buildingId);
+              return {
+                id: buildingId,
+                name: typeof b === 'number' ? def?.name : (b.name ?? def?.name),
+                buildTime: def?.costs?.buildTime ?? 0,
+                resourceCosts: (def?.resourceCosts ?? []).map((c) => ({
+                  ...c,
+                  name:
+                    this.gameData.getCommodity(c.commodityId)?.name ??
+                    `#${c.commodityId}`,
+                })),
+                production: (def?.production ?? []).map((p) => ({
+                  ...p,
+                  name:
+                    this.gameData.getCommodity(p.commodityId)?.name ??
+                    `#${p.commodityId}`,
+                })),
+                epsProc: def?.epsProc ?? 0,
+                bevPro: def?.bevPro ?? 0,
+                bonuses: def?.bonuses ?? {
+                  energy: 0,
+                  population: 0,
+                  storage: 0,
+                },
+              };
+            }),
+        },
+        finishesAt: existing?.finishesAt || null,
+      };
+    });
   }
 
-  async startResearch(userId: number, techId: number): Promise<Research> {
-    const tech = this.gameData.getTech(techId);
+  async startResearch(
+    userId: number,
+    techId: number,
+    faction?: Faction | null,
+  ): Promise<Research> {
+    const tech = this.getTechForFaction(techId, faction ?? null);
     if (!tech) throw new NotFoundException('Technology not found');
     if (ROOT_TECH_IDS.has(techId)) {
       throw new BadRequestException('Root research cannot be started manually');
@@ -221,8 +243,12 @@ export class ResearchService {
     return this.researchRepo.save(research);
   }
 
-  async queueTarget(userId: number, targetTechId: number): Promise<Research[]> {
-    const tech = this.gameData.getTech(targetTechId);
+  async queueTarget(
+    userId: number,
+    targetTechId: number,
+    faction?: Faction | null,
+  ): Promise<Research[]> {
+    const tech = this.getTechForFaction(targetTechId, faction ?? null);
     if (!tech) throw new NotFoundException('Technology not found');
     if (ROOT_TECH_IDS.has(targetTechId)) {
       throw new BadRequestException('Cannot target root research');
@@ -239,7 +265,11 @@ export class ResearchService {
       throw new BadRequestException('Already researched');
     }
 
-    const path = this.resolvePrerequisitePath(targetTechId, completed);
+    const path = this.resolvePrerequisitePath(
+      targetTechId,
+      completed,
+      faction ?? null,
+    );
     if (path.length === 0) {
       throw new BadRequestException('No prerequisites needed');
     }
@@ -256,7 +286,7 @@ export class ResearchService {
 
     for (let i = 0; i < trimmedPath.length; i++) {
       const techId = trimmedPath[i];
-      const techDef = this.gameData.getTech(techId)!;
+      const techDef = this.getTechForFaction(techId, faction ?? null)!;
       const isFirst = i === 0 && !inProgress;
 
       let research = userResearch.find((r) => r.techId === techId);
@@ -272,9 +302,7 @@ export class ResearchService {
         research = this.researchRepo.create({
           userId,
           techId,
-          status: isFirst
-            ? ResearchStatus.IN_PROGRESS
-            : ResearchStatus.QUEUED,
+          status: isFirst ? ResearchStatus.IN_PROGRESS : ResearchStatus.QUEUED,
           progress: 0,
           remainingPoints: this.getPointsRequired(techDef),
           spentPoints: 0,
@@ -291,18 +319,27 @@ export class ResearchService {
     return results;
   }
 
-  getQueuePreview(userId: number, targetTechId: number): number[] {
-    const tech = this.gameData.getTech(targetTechId);
+  getQueuePreview(
+    _userId: number,
+    targetTechId: number,
+    faction?: Faction | null,
+  ): number[] {
+    const tech = this.getTechForFaction(targetTechId, faction ?? null);
     if (!tech) throw new NotFoundException('Technology not found');
     // ponytail: sync method, no DB call needed — path resolution is pure game-data
-    return this.resolvePrerequisitePath(targetTechId, new Set());
+    return this.resolvePrerequisitePath(
+      targetTechId,
+      new Set(),
+      faction ?? null,
+    );
   }
 
   async getQueuePreviewForUser(
     userId: number,
     targetTechId: number,
+    faction?: Faction | null,
   ): Promise<TechDef[]> {
-    const tech = this.gameData.getTech(targetTechId);
+    const tech = this.getTechForFaction(targetTechId, faction ?? null);
     if (!tech) throw new NotFoundException('Technology not found');
 
     const userResearch = await this.getUserResearch(userId);
@@ -312,9 +349,13 @@ export class ResearchService {
         .map((r) => r.techId),
     );
 
-    const path = this.resolvePrerequisitePath(targetTechId, completed);
+    const path = this.resolvePrerequisitePath(
+      targetTechId,
+      completed,
+      faction ?? null,
+    );
     return path
-      .map((id) => this.gameData.getTech(id))
+      .map((id) => this.getTechForFaction(id, faction ?? null))
       .filter((t): t is TechDef => t != null);
   }
 
@@ -336,6 +377,7 @@ export class ResearchService {
   private resolvePrerequisitePath(
     targetId: number,
     completed: Set<number>,
+    faction?: Faction | null,
   ): number[] {
     const needed: number[] = [];
     const visited = new Set<number>();
@@ -347,13 +389,19 @@ export class ResearchService {
       if (ROOT_TECH_IDS.has(current)) continue;
       visited.add(current);
 
-      const tech = this.gameData.getTech(current);
+      const tech = this.getTechForFaction(current, faction ?? null);
       if (!tech) continue;
 
       for (const dep of tech.dependencies) {
         if (dep.type === 'REQUIRE') {
           for (const id of dep.techIds) {
-            if (!completed.has(id) && !visited.has(id)) stack.push(id);
+            if (
+              this.getTechForFaction(id, faction ?? null) &&
+              !completed.has(id) &&
+              !visited.has(id)
+            ) {
+              stack.push(id);
+            }
           }
         }
         if (dep.type === 'REQUIRE_SOME') {
@@ -361,7 +409,10 @@ export class ResearchService {
           if (!alreadyDone) {
             // Pick cheapest unresearched prerequisite
             const cheapest = dep.techIds
-              .map((id) => ({ id, tech: this.gameData.getTech(id) }))
+              .map((id) => ({
+                id,
+                tech: this.getTechForFaction(id, faction ?? null),
+              }))
               .filter((t) => t.tech && !completed.has(t.id))
               .sort(
                 (a, b) =>
@@ -376,10 +427,13 @@ export class ResearchService {
       needed.push(current);
     }
 
-    return this.topologicalSort(needed);
+    return this.topologicalSort(needed, faction ?? null);
   }
 
-  private topologicalSort(techIds: number[]): number[] {
+  private topologicalSort(
+    techIds: number[],
+    faction?: Faction | null,
+  ): number[] {
     const idSet = new Set(techIds);
     const inDegree = new Map<number, number>();
     const adjacency = new Map<number, number[]>();
@@ -390,7 +444,7 @@ export class ResearchService {
     }
 
     for (const id of techIds) {
-      const tech = this.gameData.getTech(id);
+      const tech = this.getTechForFaction(id, faction ?? null);
       if (!tech) continue;
       for (const dep of tech.dependencies) {
         if (dep.type === 'EXCLUDE') continue;
@@ -424,9 +478,7 @@ export class ResearchService {
 
   private getNextQueuePosition(queuedItems: Research[]): number {
     if (queuedItems.length === 0) return 1;
-    return (
-      Math.max(...queuedItems.map((r) => r.queuePosition ?? 0)) + 1
-    );
+    return Math.max(...queuedItems.map((r) => r.queuePosition ?? 0)) + 1;
   }
 
   async cancelResearch(userId: number, techId?: number): Promise<Research> {

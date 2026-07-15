@@ -43,13 +43,18 @@ export interface TechState {
   tier: number;
   duration: number;
   dependencies: TechDependency[];
-  unlocks?: { buildings?: UnlockBuilding[]; shipClasses?: number[]; modules?: string[] };
+  unlocks?: {
+    buildings?: UnlockBuilding[];
+    shipClasses?: number[];
+    modules?: string[];
+  };
   researchMode?: 'commodity' | 'points';
   status: string;
   progress: number;
   pointsRequired: number;
   finishesAt: string | null;
   effort?: number;
+  sort?: number;
   spentPoints?: number;
   remainingPoints?: number;
   pointsPerTick?: number;
@@ -73,7 +78,9 @@ export function ResearchPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   useEffect(() => {
     if (focusTechId && techs.length > 0) {
@@ -126,7 +133,11 @@ export function ResearchPage() {
   };
 
   if (loading)
-    return <div className="p-4 text-swu-muted text-xs">Forschung wird geladen...</div>;
+    return (
+      <div className="p-4 text-swu-muted text-xs">
+        Forschung wird geladen...
+      </div>
+    );
 
   const activeResearch = techs.find((tech) => tech.status === 'IN_PROGRESS');
   const queuedResearch = techs.filter((tech) => tech.status === 'QUEUED');
@@ -138,8 +149,15 @@ export function ResearchPage() {
       {/* Header + Admin */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Forschung</span>
-          <span className="text-[10px] text-swu-muted font-mono">/ Übersicht</span>
+          <span
+            className="text-sm font-bold text-swu-primary"
+            style={{ fontFamily: 'var(--font-swu-display)' }}
+          >
+            Forschung
+          </span>
+          <span className="text-[10px] text-swu-muted font-mono">
+            / Übersicht
+          </span>
           <button
             onClick={() => navigate('/research/tree')}
             className="px-2 py-0.5 text-[10px] font-bold border border-swu-border text-swu-muted rounded hover:text-swu-text transition-colors ml-2"
@@ -166,8 +184,12 @@ export function ResearchPage() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-swu-success font-bold uppercase tracking-wider">Aktiv</span>
-                <span className="text-sm font-bold text-swu-primary truncate">{activeResearch.name}</span>
+                <span className="text-[10px] text-swu-success font-bold uppercase tracking-wider">
+                  Aktiv
+                </span>
+                <span className="text-sm font-bold text-swu-primary truncate">
+                  {activeResearch.name}
+                </span>
               </div>
               <div className="flex items-center gap-3 mt-1.5">
                 <div
@@ -179,7 +201,12 @@ export function ResearchPage() {
                   aria-label={`Forschung ${activeResearch.name}`}
                 >
                   {Array.from({ length: 10 }, (_, i) => {
-                    const pct = activeResearch.pointsRequired > 0 ? (activeResearch.progress / activeResearch.pointsRequired) * 100 : 0;
+                    const pct =
+                      activeResearch.pointsRequired > 0
+                        ? (activeResearch.progress /
+                            activeResearch.pointsRequired) *
+                          100
+                        : 0;
                     const filled = i < Math.round((pct / 100) * 10);
                     return (
                       <div
@@ -190,15 +217,21 @@ export function ResearchPage() {
                   })}
                 </div>
                 <span className="text-[11px] font-mono text-swu-muted shrink-0">
-                  {activeResearch.progress}/{activeResearch.pointsRequired} {activeResearch.commodity?.name ?? 'FP'}
+                  {activeResearch.progress}/{activeResearch.pointsRequired}{' '}
+                  {activeResearch.commodity?.name ?? 'FP'}
                 </span>
               </div>
               {activeResearch.blockedReason && (
-                <span className="text-[10px] text-red-400 font-bold mt-1 block">Blockiert: Keine Produktion</span>
+                <span className="text-[10px] text-red-400 font-bold mt-1 block">
+                  Blockiert: Keine Produktion
+                </span>
               )}
             </div>
             <button
-              onClick={(e) => { e.stopPropagation(); cancelResearch(activeResearch.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelResearch(activeResearch.id);
+              }}
               className="px-2 py-1 text-[10px] font-bold border border-red-500/50 text-red-400 rounded hover:bg-red-500/20 transition-colors shrink-0"
             >
               Abbrechen
@@ -228,11 +261,20 @@ export function ResearchPage() {
                 className="bg-swu-surface border border-swu-accent/20 rounded px-3 py-2 cursor-pointer hover:border-swu-accent/50 transition-colors flex items-center gap-3"
                 onClick={() => openTechDetail(tech)}
               >
-                <span className="text-[10px] font-mono text-swu-accent font-bold w-5 shrink-0">{idx + 1}</span>
-                <span className="text-xs text-swu-primary truncate flex-1">{tech.name}</span>
-                <span className="text-[10px] font-mono text-swu-muted shrink-0">{tech.pointsRequired} FP</span>
+                <span className="text-[10px] font-mono text-swu-accent font-bold w-5 shrink-0">
+                  {idx + 1}
+                </span>
+                <span className="text-xs text-swu-primary truncate flex-1">
+                  {tech.name}
+                </span>
+                <span className="text-[10px] font-mono text-swu-muted shrink-0">
+                  {tech.pointsRequired} FP
+                </span>
                 <button
-                  onClick={(e) => { e.stopPropagation(); cancelResearch(tech.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelResearch(tech.id);
+                  }}
                   className="text-[10px] text-red-400 hover:text-red-300 shrink-0"
                 >
                   ✕
@@ -247,11 +289,17 @@ export function ResearchPage() {
       {availableTechs.length > 0 && (
         <div>
           <div className="px-1 py-1.5">
-            <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">Verfuegbare Forschungen</span>
+            <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">
+              Verfuegbare Forschungen
+            </span>
           </div>
           <div className="space-y-1.5">
             {availableTechs.map((tech) => (
-              <TechCard key={tech.id} tech={tech} onClick={() => openTechDetail(tech)} />
+              <TechCard
+                key={tech.id}
+                tech={tech}
+                onClick={() => openTechDetail(tech)}
+              />
             ))}
           </div>
         </div>
@@ -261,7 +309,9 @@ export function ResearchPage() {
       {completedTechs.length > 0 && (
         <div>
           <div className="px-1 py-1.5">
-            <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">Abgeschlossen ({completedTechs.length})</span>
+            <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">
+              Abgeschlossen ({completedTechs.length})
+            </span>
           </div>
           <div className="space-y-1">
             {completedTechs.map((tech) => (
@@ -273,7 +323,9 @@ export function ResearchPage() {
                 <span className="text-green-400 text-sm">✓</span>
                 <span className="text-xs text-swu-primary">{tech.name}</span>
                 {tech.commodity && (
-                  <span className="text-[10px] text-swu-muted ml-auto">{tech.commodity.name}</span>
+                  <span className="text-[10px] text-swu-muted ml-auto">
+                    {tech.commodity.name}
+                  </span>
                 )}
               </div>
             ))}
@@ -308,14 +360,27 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-swu-primary">{tech.name}</div>
           {tech.description && (
-            <div className="text-[11px] text-swu-muted mt-0.5 line-clamp-1">{tech.description}</div>
+            <div className="text-[11px] text-swu-muted mt-0.5 line-clamp-1">
+              {tech.description}
+            </div>
           )}
         </div>
         <div className="text-[11px] text-swu-muted shrink-0 text-right">
-          {tech.commodity
-            ? <><span className="text-swu-accent font-bold">{tech.pointsRequired}</span> {tech.commodity.name}</>
-            : <><span className="text-swu-accent font-bold">{tech.pointsRequired}</span> FP</>
-          }
+          {tech.commodity ? (
+            <>
+              <span className="text-swu-accent font-bold">
+                {tech.pointsRequired}
+              </span>{' '}
+              {tech.commodity.name}
+            </>
+          ) : (
+            <>
+              <span className="text-swu-accent font-bold">
+                {tech.pointsRequired}
+              </span>{' '}
+              FP
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -345,7 +410,9 @@ export function TechDetailModal({
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const downstreamTechs = techs.filter((t) =>
-    t.dependencies.some((d) => d.type === 'REQUIRE' && d.techIds.includes(tech.id))
+    t.dependencies.some(
+      (d) => d.type === 'REQUIRE' && d.techIds.includes(tech.id),
+    ),
   );
 
   const unlockBuildings = (tech.unlocks?.buildings ?? [])
@@ -358,26 +425,34 @@ export function TechDetailModal({
   const isQueued = tech.status === 'QUEUED';
 
   const canStartDirect = tech.status === 'AVAILABLE' && !activeResearch;
-  const canQueue = tech.status === 'AVAILABLE' && !!activeResearch && queuedCount < 10;
+  const canQueue =
+    tech.status === 'AVAILABLE' && !!activeResearch && queuedCount < 10;
   const canStart = canStartDirect || canQueue;
   const canSetTarget = tech.status === 'LOCKED' && !isCompleted;
 
   const loadPreview = async () => {
     setLoadingPreview(true);
-    const preview = await api.get<TechState[]>(`/research/queue-preview?targetTechId=${tech.id}`);
+    const preview = await api.get<TechState[]>(
+      `/research/queue-preview?targetTechId=${tech.id}`,
+    );
     setQueuePreview(preview);
     setLoadingPreview(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
       <div
         className="bg-[#0d121c] border border-swu-border rounded-lg w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-swu-border bg-swu-surface/50">
-          <span className="text-sm font-bold text-swu-primary">Forschung: {tech.name}</span>
+          <span className="text-sm font-bold text-swu-primary">
+            Forschung: {tech.name}
+          </span>
           <button
             onClick={onClose}
             className="w-6 h-6 flex items-center justify-center text-swu-muted hover:text-swu-text border border-swu-border/50 rounded text-xs"
@@ -390,13 +465,17 @@ export function TechDetailModal({
         <div className="px-4 py-3 space-y-3">
           {/* Description */}
           {tech.description && (
-            <p className="text-[11px] text-swu-text leading-relaxed">{tech.description}</p>
+            <p className="text-[11px] text-swu-text leading-relaxed">
+              {tech.description}
+            </p>
           )}
 
           {/* Info Table */}
           <div className="border border-swu-border/50 rounded overflow-hidden">
             <div className="grid grid-cols-2 text-[10px] font-bold text-swu-muted uppercase tracking-wider bg-swu-surface/50">
-              <div className="px-3 py-1.5 border-r border-swu-border/50">Punkte</div>
+              <div className="px-3 py-1.5 border-r border-swu-border/50">
+                Punkte
+              </div>
               <div className="px-3 py-1.5">Benoetigte Ware / Effekt</div>
             </div>
             <div className="grid grid-cols-2 text-xs">
@@ -406,7 +485,9 @@ export function TechDetailModal({
               <div className="px-3 py-2 text-swu-text">
                 {tech.commodity?.name ?? 'Forschungspunkte'}
                 {tech.researchMode === 'commodity' && (
-                  <span className="text-[9px] text-swu-muted ml-1">(Produktion)</span>
+                  <span className="text-[9px] text-swu-muted ml-1">
+                    (Produktion)
+                  </span>
                 )}
               </div>
             </div>
@@ -417,7 +498,9 @@ export function TechDetailModal({
             <div className="space-y-1">
               <div className="flex justify-between text-[10px] text-swu-muted">
                 <span>Fortschritt</span>
-                <span className="font-mono">{tech.progress}/{tech.pointsRequired}</span>
+                <span className="font-mono">
+                  {tech.progress}/{tech.pointsRequired}
+                </span>
               </div>
               <div
                 className="flex gap-px"
@@ -428,7 +511,12 @@ export function TechDetailModal({
                 aria-label={`Forschung ${tech.name}`}
               >
                 {Array.from({ length: 10 }, (_, i) => {
-                  const filled = i < Math.round(((tech.progress / tech.pointsRequired) * 100 / 100) * 10);
+                  const filled =
+                    i <
+                    Math.round(
+                      (((tech.progress / tech.pointsRequired) * 100) / 100) *
+                        10,
+                    );
                   return (
                     <div
                       key={i}
@@ -443,12 +531,16 @@ export function TechDetailModal({
           {/* Status badge */}
           {isCompleted && (
             <div className="text-center">
-              <span className="text-[11px] text-green-400 font-bold">✓ Erforscht</span>
+              <span className="text-[11px] text-green-400 font-bold">
+                ✓ Erforscht
+              </span>
             </div>
           )}
           {isQueued && (
             <div className="text-center">
-              <span className="text-[11px] text-swu-accent font-bold">In Warteschlange</span>
+              <span className="text-[11px] text-swu-accent font-bold">
+                In Warteschlange
+              </span>
             </div>
           )}
 
@@ -485,10 +577,17 @@ export function TechDetailModal({
                   </div>
                   <div className="space-y-0.5 max-h-32 overflow-y-auto">
                     {queuePreview.map((t, i) => (
-                      <div key={t.id} className="flex items-center gap-2 text-[11px]">
-                        <span className="font-mono text-swu-accent w-4 shrink-0">{i + 1}</span>
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-2 text-[11px]"
+                      >
+                        <span className="font-mono text-swu-accent w-4 shrink-0">
+                          {i + 1}
+                        </span>
                         <span className="text-swu-text truncate">{t.name}</span>
-                        <span className="font-mono text-swu-muted ml-auto shrink-0">{t.pointsRequired ?? t.effort} FP</span>
+                        <span className="font-mono text-swu-muted ml-auto shrink-0">
+                          {t.pointsRequired ?? t.effort} FP
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -567,24 +666,34 @@ function BuildingCard({ building }: { building: UnlockBuilding }) {
 
   return (
     <div className="bg-swu-bg/50 border border-swu-border/40 rounded px-3 py-2">
-      <div className="text-xs font-bold text-cyan-400 mb-1.5">{building.name}</div>
+      <div className="text-xs font-bold text-cyan-400 mb-1.5">
+        {building.name}
+      </div>
       <div className="grid grid-cols-3 gap-2 text-[10px]">
         {/* Baukosten */}
         <div>
           <div className="text-swu-muted font-bold mb-0.5">Baukosten</div>
           {costs.map((c) => (
-            <div key={c.commodityId} className="text-swu-text">{c.amount} {c.name}</div>
+            <div key={c.commodityId} className="text-swu-text">
+              {c.amount} {c.name}
+            </div>
           ))}
           {buildTime > 0 && (
-            <div className="text-swu-muted mt-0.5">⏱ {formatDuration(buildTime)}</div>
+            <div className="text-swu-muted mt-0.5">
+              ⏱ {formatDuration(buildTime)}
+            </div>
           )}
         </div>
         {/* Produktion */}
         <div>
           <div className="text-swu-muted font-bold mb-0.5">Produktion</div>
           {production.map((p) => (
-            <div key={p.commodityId} className={p.amount >= 0 ? 'text-green-400' : 'text-red-400'}>
-              {p.amount > 0 ? '+' : ''}{p.amount} {p.name}
+            <div
+              key={p.commodityId}
+              className={p.amount >= 0 ? 'text-green-400' : 'text-red-400'}
+            >
+              {p.amount > 0 ? '+' : ''}
+              {p.amount} {p.name}
             </div>
           ))}
           {production.length === 0 && <div className="text-swu-muted">—</div>}
@@ -592,10 +701,15 @@ function BuildingCard({ building }: { building: UnlockBuilding }) {
         {/* Auswirkungen */}
         <div>
           <div className="text-swu-muted font-bold mb-0.5">Auswirkungen</div>
-          {effects.length > 0
-            ? effects.map((e, i) => <div key={i} className="text-swu-text">{e}</div>)
-            : <div className="text-swu-muted">—</div>
-          }
+          {effects.length > 0 ? (
+            effects.map((e, i) => (
+              <div key={i} className="text-swu-text">
+                {e}
+              </div>
+            ))
+          ) : (
+            <div className="text-swu-muted">—</div>
+          )}
         </div>
       </div>
     </div>
