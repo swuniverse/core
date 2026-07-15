@@ -232,6 +232,7 @@ export class ColonyService {
       const base = this.colonyProjectionService.toColonySummary(colony);
       delete (base as any).fields;
       (base as any).energyMax = summary.effectiveState.energy.max;
+      (base as any).storageMax = summary.effectiveStorageMax;
       return Object.assign(base, {
         crewSummary: {
           assigned: crewAssigned,
