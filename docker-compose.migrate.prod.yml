@@ -1,0 +1,18 @@
+services:
+  migrate:
+    image: ghcr.io/swuniverse/core/backend:latest
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://swuniverse:${DB_PASSWORD:-devpassword}@db:5432/swuniverse
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./apps/backend/src/database:/app/apps/backend/src/database:ro
+      - ./packages:/app/packages:ro
+      - ./tsconfig.base.json:/app/tsconfig.base.json:ro
+      - ./apps/backend/tsconfig.json:/app/apps/backend/tsconfig.json:ro
+    command: >-
+      sh -c "node --require ts-node/register --require tsconfig-paths/register
+      ./node_modules/typeorm/cli.js migration:run
+      -d apps/backend/src/database/typeorm-migration.config.ts"

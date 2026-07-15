@@ -52,7 +52,7 @@ done
 echo ""
 
 echo -e "${BLUE}[5/6] Migrationen ausfuehren${NC}"
-docker compose -f docker-compose.prod.yml --env-file .env.production -f docker-compose.migrate.yml run --rm migrate || echo -e "${YELLOW}Migration fehlgeschlagen (manuell pruefen)${NC}"
+docker compose -f docker-compose.prod.yml --env-file .env.production -f docker-compose.migrate.prod.yml run --rm migrate || echo -e "${YELLOW}Migration fehlgeschlagen (manuell pruefen)${NC}"
 echo ""
 
 echo -e "${BLUE}[6/6] Alte Images aufraeumen${NC}"
