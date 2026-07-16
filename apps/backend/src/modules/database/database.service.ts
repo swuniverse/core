@@ -99,6 +99,9 @@ export class DatabaseService {
         return {
           id: user.id,
           username: user.username,
+          displayName: user.displayName,
+          avatar: user.avatar,
+          description: user.description,
           faction: user.faction,
           factionName: faction?.name ?? user.faction ?? 'Unbekannt',
           prestige: user.prestige,

@@ -81,21 +81,29 @@ export function SettingsPage() {
 
 function ProfileTab() {
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    api.get<{ description: string | null }>('/auth/me').then((p) => {
+    api.get<{ description: string | null; displayName: string | null; avatar: string | null }>('/auth/me').then((p) => {
       setDescription(p.description ?? '');
+      setDisplayName(p.displayName ?? '');
+      setAvatar(p.avatar ?? null);
     });
   }, []);
 
-  const save = async () => {
+  const saveProfile = async () => {
     setSaving(true);
     setMsg('');
     try {
-      await api.patch('/user/profile', { description });
+      const result = await api.patch<{ description: string | null; displayName: string | null }>('/user/profile', { description, displayName });
+      if (user) {
+        setUser({ ...user, displayName: result.displayName });
+      }
       setMsg('Gespeichert');
     } catch (e: any) {
       setMsg(e.message || 'Fehler');
@@ -103,10 +111,71 @@ function ProfileTab() {
     setSaving(false);
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setMsg('Nur Bilddateien erlaubt');
+      return;
+    }
+    if (file.size > 200_000) {
+      setMsg('Max. 200 KB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      try {
+        await api.patch('/user/avatar', { avatar: dataUrl });
+        setAvatar(dataUrl);
+        if (user) setUser({ ...user, avatar: dataUrl });
+        setMsg('Avatar gespeichert');
+      } catch (err: any) {
+        setMsg(err.message || 'Fehler beim Avatar-Upload');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAvatar = async () => {
+    try {
+      await api.patch('/user/avatar', { avatar: null });
+      setAvatar(null);
+      if (user) setUser({ ...user, avatar: null });
+      setMsg('Avatar entfernt');
+    } catch (err: any) {
+      setMsg(err.message || 'Fehler');
+    }
+  };
+
   return (
     <div className="space-y-4 max-w-lg">
+      <Section title="Avatar">
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden">
+            {avatar ? (
+              <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl text-swu-muted">{(displayName || user?.username || '?')[0].toUpperCase()}</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="px-3 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-semibold rounded hover:bg-swu-accent/30 transition-colors cursor-pointer">
+              Bild hochladen
+              <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+            </label>
+            {avatar && (
+              <button onClick={removeAvatar} className="text-xs text-swu-muted hover:text-red-400 transition-colors">
+                Entfernen
+              </button>
+            )}
+            <p className="text-[10px] text-swu-muted">PNG/JPG, max 200 KB</p>
+          </div>
+        </div>
+      </Section>
+
       <Section title="Commander-Info">
-        <InfoRow label="Benutzername" value={user?.username ?? ''} />
+        <InfoRow label="Login-Name" value={user?.username ?? ''} />
         <InfoRow
           label="Fraktion"
           value={
@@ -128,23 +197,37 @@ function ProfileTab() {
         />
       </Section>
 
+      <Section title="Anzeigename">
+        <p className="text-xs text-swu-muted mb-2">
+          Dein oeffentlicher Name in der Siedlerliste. Leer = Login-Name wird verwendet.
+        </p>
+        <Input
+          type="text"
+          placeholder="Anzeigename (3-60 Zeichen)"
+          value={displayName}
+          onChange={setDisplayName}
+        />
+      </Section>
+
       <Section title="Beschreibung">
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
+          maxLength={2000}
           className="w-full bg-swu-bg border border-swu-border rounded p-2 text-sm text-swu-primary resize-none"
           placeholder="Commander-Beschreibung..."
         />
-        <button
-          onClick={save}
-          disabled={saving}
-          className="mt-2 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"
-        >
-          {saving ? 'Speichern...' : 'Speichern'}
-        </button>
-        {msg && <p className="text-xs text-swu-muted mt-1">{msg}</p>}
       </Section>
+
+      <button
+        onClick={saveProfile}
+        disabled={saving}
+        className="px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"
+      >
+        {saving ? 'Speichern...' : 'Profil speichern'}
+      </button>
+      {msg && <p className="text-xs text-swu-muted mt-1">{msg}</p>}
     </div>
   );
 }

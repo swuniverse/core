@@ -58,6 +58,12 @@ export class User {
   @Column({ default: 0 })
   prestige: number;
 
+  @Column({ length: 60, nullable: true })
+  displayName: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  avatar: string | null;
+
   @Column({ type: 'text', nullable: true })
   description: string | null;
 

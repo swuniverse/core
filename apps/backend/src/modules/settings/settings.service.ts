@@ -120,8 +120,44 @@ export class SettingsService {
     await this.userRepo.save(user);
   }
 
-  async updateProfile(userId: number, description: string): Promise<void> {
-    await this.userRepo.update(userId, { description });
+  async updateProfile(
+    userId: number,
+    data: { description?: string; displayName?: string },
+  ): Promise<{ description: string | null; displayName: string | null }> {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException();
+
+    if (data.description !== undefined) {
+      if (data.description.length > 2000) {
+        throw new BadRequestException('Description too long (max 2000)');
+      }
+      user.description = data.description || null;
+    }
+
+    if (data.displayName !== undefined) {
+      const name = data.displayName.trim();
+      if (name.length > 0 && name.length < 3) {
+        throw new BadRequestException('Display name must be at least 3 characters');
+      }
+      if (name.length > 60) {
+        throw new BadRequestException('Display name too long (max 60)');
+      }
+      user.displayName = name || null;
+    }
+
+    await this.userRepo.save(user);
+    return { description: user.description, displayName: user.displayName };
+  }
+
+  async updateAvatar(userId: number, avatar: string | null): Promise<{ avatar: string | null }> {
+    if (avatar && avatar.length > 350_000) {
+      throw new BadRequestException('Avatar too large (max ~250KB)');
+    }
+    if (avatar && !avatar.startsWith('data:image/')) {
+      throw new BadRequestException('Avatar must be a data URL image');
+    }
+    await this.userRepo.update(userId, { avatar });
+    return { avatar };
   }
 
   async activateVacation(userId: number): Promise<void> {

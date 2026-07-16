@@ -64,7 +64,8 @@ async function request<T>(
     throw new ApiError(res.status, body.message || res.statusText);
   }
 
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as T);
 }
 
 export class ApiError extends Error {
