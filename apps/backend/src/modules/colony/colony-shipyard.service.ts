@@ -105,14 +105,13 @@ export class ColonyShipyardService {
       }
     }
 
-    for (const [commodityId, required] of costMap) {
-      if (required <= 0) continue;
-      await this.colonyStorageService.lowerStorage(
-        colony,
-        commodityId,
-        required,
-      );
-    }
+    await Promise.all(
+      costMap
+        .filter(([, required]) => required > 0)
+        .map(([commodityId, required]) =>
+          this.colonyStorageService.lowerStorage(colony, commodityId, required),
+        ),
+    );
   }
 
   private hasActiveBuildingFunction(
@@ -325,6 +324,7 @@ export class ColonyShipyardService {
 
     const selectedModuleCommodityIds =
       this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
     this.assertModuleSlotCompatibility(shipClass, selectedModuleCommodityIds);
     const selectedModuleTypes = selectedModuleCommodityIds.map(
       (commodityId) =>
@@ -370,9 +370,11 @@ export class ColonyShipyardService {
       selectedModuleTypes,
     );
 
-    for (const commodityId of consumedModuleCommodityIds) {
-      await this.colonyStorageService.lowerStorage(colony, commodityId, 1);
-    }
+    await Promise.all(
+      consumedModuleCommodityIds.map((commodityId) =>
+        this.colonyStorageService.lowerStorage(colony, commodityId, 1),
+      ),
+    );
 
     const buildMinutes = Math.max(1, shipClass.buildTimeTicks || 1);
     const queue = this.shipBuildQueueRepo.create({
@@ -470,15 +472,17 @@ export class ColonyShipyardService {
     if (queue.mode === ColonyShipBuildQueueMode.RETROFIT) {
       const maxStorage =
         this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
-      for (const commodityId of queue.retrofitSnapshot
-        ?.consumedModuleCommodityIds ?? []) {
-        await this.colonyStorageService.upperStorage(
-          colony,
-          commodityId,
-          1,
-          maxStorage,
-        );
-      }
+      await Promise.all(
+        (queue.retrofitSnapshot?.consumedModuleCommodityIds ?? []).map(
+          (commodityId) =>
+            this.colonyStorageService.upperStorage(
+              colony,
+              commodityId,
+              1,
+              maxStorage,
+            ),
+        ),
+      );
     }
 
     queue.status = ColonyShipBuildQueueStatus.CANCELLED;
@@ -656,6 +660,7 @@ export class ColonyShipyardService {
 
     const selectedModuleCommodityIds =
       this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
     const selectedModuleTypes =
       selectedModuleCommodityIds.length > 0
         ? selectedModuleCommodityIds.map(
@@ -699,9 +704,11 @@ export class ColonyShipyardService {
 
     const costs = this.calculateShipBuildCosts(shipClass);
     await this.deductBuildCosts(colony, costs);
-    for (const commodityId of selectedModuleCommodityIds) {
-      await this.colonyStorageService.lowerStorage(colony, commodityId, 1);
-    }
+    await Promise.all(
+      selectedModuleCommodityIds.map((commodityId) =>
+        this.colonyStorageService.lowerStorage(colony, commodityId, 1),
+      ),
+    );
     const crewIds = await this.colonyCrewService.reserveCrewForShipBuild(
       colony,
       crewRequired,
@@ -860,6 +867,7 @@ export class ColonyShipyardService {
 
     const selectedModuleCommodityIds =
       this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
     const selectedModuleTypes =
       selectedModuleCommodityIds.length > 0
         ? selectedModuleCommodityIds.map(
@@ -1019,6 +1027,26 @@ export class ColonyShipyardService {
     return selected;
   }
 
+  private async assertModuleResearchUnlocked(
+    userId: number,
+    moduleCommodityIds: number[],
+  ): Promise<void> {
+    for (const commodityId of moduleCommodityIds) {
+      const item =
+        this.gameData.getFabricationItemByOutputCommodity(commodityId);
+      if (item?.researchId == null) continue;
+      const hasResearch = await this.unlockResolver.hasTech(
+        userId,
+        item.researchId,
+      );
+      if (!hasResearch) {
+        throw new BadRequestException(
+          `Research required: ${item.researchRequired || item.researchId}`,
+        );
+      }
+    }
+  }
+
   private validateShipBuildModules(moduleTypes: string[]): string[] {
     if (!Array.isArray(moduleTypes) || moduleTypes.length === 0) return [];
     const allModules = this.gameData.getAllModules();
@@ -1048,27 +1076,29 @@ export class ColonyShipyardService {
       !colony.stats?.isBlockaded && activeRepairSlots > 0;
     let remainingRepairSlots = activeRepairSlots;
 
+    const queueTasks: Array<Promise<void | ColonyShipBuildQueue>> = [];
     for (const job of queuedJobs) {
       if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
         if (!canProgressRepair || remainingRepairSlots <= 0) {
           job.status = ColonyShipBuildQueueStatus.PAUSED;
           job.stoppedAt = now;
-          await this.shipBuildQueueRepo.save(job);
+          queueTasks.push(this.shipBuildQueueRepo.save(job));
           continue;
         }
         remainingRepairSlots -= 1;
       }
       if (job.finishesAt > now) continue;
       if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
-        await this.finishShipRepairQueue(job);
+        queueTasks.push(this.finishShipRepairQueue(job));
         continue;
       }
       if (job.mode === ColonyShipBuildQueueMode.RETROFIT) {
-        await this.finishShipRetrofitQueue(colony, job);
+        queueTasks.push(this.finishShipRetrofitQueue(colony, job));
         continue;
       }
-      await this.finishShipBuildQueue(colony, job);
+      queueTasks.push(this.finishShipBuildQueue(colony, job));
     }
+    await Promise.all(queueTasks);
 
     if (canProgressRepair && remainingRepairSlots > 0) {
       const pausedJobs = await this.getPausedRepairJobs(colony.id);
@@ -1081,8 +1111,12 @@ export class ColonyShipyardService {
         }
         pausedJob.stoppedAt = null;
         pausedJob.status = ColonyShipBuildQueueStatus.QUEUED;
-        await this.shipBuildQueueRepo.save(pausedJob);
       }
+      await Promise.all(
+        pausedJobs
+          .slice(0, remainingRepairSlots)
+          .map((pausedJob) => this.shipBuildQueueRepo.save(pausedJob)),
+      );
     }
   }
 

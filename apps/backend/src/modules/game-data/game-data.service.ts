@@ -238,6 +238,8 @@ export interface FabricationItemDef {
   moduleType?: string;
   moduleCategory?: string;
   moduleLevel?: number;
+  researchId?: number | null;
+  researchRequired?: string | null;
   buildingFunctionIds: number[];
   durationSeconds: number;
   costs: FabricationCostDef[];

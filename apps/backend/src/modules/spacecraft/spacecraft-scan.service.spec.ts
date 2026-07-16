@@ -11,6 +11,9 @@ jest.mock('../starmap/entities/celestial-object.entity', () => ({
 jest.mock('../colony/entities/colony.entity', () => ({
   Colony: class Colony {},
 }));
+jest.mock('./entities/colony-scan.entity', () => ({
+  ColonyScan: class ColonyScan {},
+}));
 jest.mock('../starmap/generator/planet-generator.service', () => ({
   PlanetGeneratorService: class PlanetGeneratorService {},
 }));
@@ -38,6 +41,13 @@ function createService() {
   const moduleRepo = { find: jest.fn() };
   const objectRepo = { findOneBy: jest.fn() };
   const colonyRepo = { findOne: jest.fn() };
+  const colonyScanRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(() => ({})),
+    save: jest.fn(async (value) => ({ id: 99, ...value })),
+    remove: jest.fn(async (value) => value),
+  };
   const planetGenerator = { generateAndPersist: jest.fn() };
   const gameData = {
     getAllModules: jest.fn().mockReturnValue([
@@ -57,6 +67,7 @@ function createService() {
     moduleRepo as any,
     objectRepo as any,
     colonyRepo as any,
+    colonyScanRepo as any,
     planetGenerator as any,
     gameData as any,
     spacecraftCrewService as any,
@@ -67,6 +78,7 @@ function createService() {
     moduleRepo,
     objectRepo,
     colonyRepo,
+    colonyScanRepo,
     planetGenerator,
     gameData,
     spacecraftCrewService,
@@ -75,7 +87,7 @@ function createService() {
 
 describe('SpacecraftScanService colonyScan', () => {
   it('returns redacted foreign colony surface intel without storage, defense, or production', async () => {
-    const { service, shipRepo, colonyRepo } = createService();
+    const { service, shipRepo, colonyRepo, colonyScanRepo } = createService();
     shipRepo.findOne.mockResolvedValue({
       id: 10,
       userId: 1,
@@ -122,7 +134,17 @@ describe('SpacecraftScanService colonyScan', () => {
 
     const result = await service.colonyScan(10, 1, 20);
 
+    expect(colonyScanRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        colonyId: 20,
+        userId: 1,
+        colonyOwnerId: 2,
+        colonyName: 'Fremdwelt',
+        colonyOwnerUsername: 'Leia',
+      }),
+    );
     expect(result).toEqual({
+      scanId: 99,
       colony: {
         id: 20,
         name: 'Fremdwelt',
@@ -218,5 +240,62 @@ describe('SpacecraftScanService colonyScan', () => {
       where: { id: 20 },
       relations: ['fields', 'user', 'celestialObject'],
     });
+  });
+
+  it('lists latest colony scans per colony for a user', async () => {
+    const { service, colonyScanRepo } = createService();
+    colonyScanRepo.find.mockResolvedValue([
+      {
+        id: 7,
+        colonyId: 20,
+        colonyOwnerId: 2,
+        colonyName: 'Neu',
+        colonyOwnerUsername: 'Leia',
+        starSystemId: 7,
+        celestialObjectId: 30,
+        colonyClassId: 3,
+        surfaceWidth: 4,
+        surfaceHeight: 3,
+        createdAt: new Date('2026-07-16T09:00:00.000Z'),
+        colony: { id: 20, userId: 2 },
+      },
+      {
+        id: 6,
+        colonyId: 20,
+        colonyOwnerId: 2,
+        colonyName: 'Alt',
+        colonyOwnerUsername: 'Leia',
+        starSystemId: 7,
+        celestialObjectId: 30,
+        colonyClassId: 3,
+        surfaceWidth: 4,
+        surfaceHeight: 3,
+        createdAt: new Date('2026-07-15T09:00:00.000Z'),
+        colony: { id: 20, userId: 2 },
+      },
+    ]);
+
+    await expect(service.listColonyScans(1)).resolves.toEqual([
+      expect.objectContaining({
+        id: 7,
+        colonyId: 20,
+        abandoned: false,
+        history: expect.arrayContaining([
+          expect.objectContaining({ id: 7 }),
+          expect.objectContaining({ id: 6 }),
+        ]),
+      }),
+    ]);
+  });
+
+  it('deletes own colony scans', async () => {
+    const { service, colonyScanRepo } = createService();
+    colonyScanRepo.findOne.mockResolvedValue({ id: 7, userId: 1 });
+
+    await expect(service.deleteColonyScan(7, 1)).resolves.toEqual({
+      deleted: true,
+      id: 7,
+    });
+    expect(colonyScanRepo.remove).toHaveBeenCalledWith({ id: 7, userId: 1 });
   });
 });

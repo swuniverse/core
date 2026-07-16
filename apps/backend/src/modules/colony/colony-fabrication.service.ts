@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameDataService } from '../game-data/game-data.service';
+import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ColonyStatsService } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
@@ -27,6 +28,7 @@ export class ColonyFabricationService {
     private readonly colonyStorageService: ColonyStorageService,
     private readonly timing: ColonyTimingService,
     private readonly ownership: ColonyOwnershipService,
+    private readonly unlockResolver: UnlockResolverService,
   ) {}
 
   async queueFabrication(
@@ -52,6 +54,17 @@ export class ColonyFabricationService {
     }
     if (!Number.isInteger(amount) || amount <= 0) {
       throw new BadRequestException('Amount must be positive');
+    }
+    if (item.researchId != null) {
+      const hasResearch = await this.unlockResolver.hasTech(
+        userId,
+        item.researchId,
+      );
+      if (!hasResearch) {
+        throw new BadRequestException(
+          `Research required: ${item.researchRequired || item.researchId}`,
+        );
+      }
     }
 
     const colony = await this.ownership.findOwnedColony(colonyId, userId);

@@ -12,6 +12,7 @@ import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.gene
 import { GameDataService } from '../game-data/game-data.service';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { ColonyScan } from './entities/colony-scan.entity';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 
 @Injectable()
@@ -25,6 +26,8 @@ export class SpacecraftScanService {
     private readonly objectRepo: Repository<CelestialObject>,
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
+    @InjectRepository(ColonyScan)
+    private readonly colonyScanRepo: Repository<ColonyScan>,
     private readonly planetGenerator: PlanetGeneratorService,
     private readonly gameData: GameDataService,
     private readonly spacecraftCrewService: SpacecraftCrewService,
@@ -88,6 +91,7 @@ export class SpacecraftScanService {
     userId: number,
     colonyId: number,
   ): Promise<{
+    scanId: number;
     colony: {
       id: number;
       name: string;
@@ -165,7 +169,42 @@ export class SpacecraftScanService {
       (a, b) => a.fieldIndex - b.fieldIndex,
     );
 
+    const surfaceFields = fields.map((field) => {
+      const building = field.buildingId
+        ? this.gameData.getBuilding(field.buildingId)
+        : undefined;
+      return {
+        fieldIndex: field.fieldIndex,
+        fieldType: field.fieldType,
+        terrainTileId: field.terrainTileId,
+        buildingId: field.buildingId,
+        buildingName: building?.name ?? null,
+        hasBuilding: field.buildingId != null,
+        isConstruction: field.isBuilding,
+        isActive: field.isActive,
+        integrityPercent:
+          field.maxIntegrity > 0
+            ? Math.round((field.integrity / field.maxIntegrity) * 100)
+            : null,
+      };
+    });
+
+    const scan = this.colonyScanRepo.create();
+    scan.colonyId = colony.id;
+    scan.userId = userId;
+    scan.colonyOwnerId = colony.userId;
+    scan.colonyName = colony.name;
+    scan.colonyOwnerUsername = colony.user?.username ?? 'Unknown';
+    scan.starSystemId = colony.starSystemId;
+    scan.celestialObjectId = colony.celestialObjectId;
+    scan.colonyClassId = colony.colonyClassId;
+    scan.surfaceWidth = colony.celestialObject?.surfaceWidth ?? null;
+    scan.surfaceHeight = colony.celestialObject?.surfaceHeight ?? null;
+    scan.surfaceFields = surfaceFields;
+    const savedScan = await this.colonyScanRepo.save(scan);
+
     return {
+      scanId: savedScan.id,
       colony: {
         id: colony.id,
         name: colony.name,
@@ -185,25 +224,7 @@ export class SpacecraftScanService {
       surface: {
         width: colony.celestialObject?.surfaceWidth ?? null,
         height: colony.celestialObject?.surfaceHeight ?? null,
-        fields: fields.map((field) => {
-          const building = field.buildingId
-            ? this.gameData.getBuilding(field.buildingId)
-            : undefined;
-          return {
-            fieldIndex: field.fieldIndex,
-            fieldType: field.fieldType,
-            terrainTileId: field.terrainTileId,
-            buildingId: field.buildingId,
-            buildingName: building?.name ?? null,
-            hasBuilding: field.buildingId != null,
-            isConstruction: field.isBuilding,
-            isActive: field.isActive,
-            integrityPercent:
-              field.maxIntegrity > 0
-                ? Math.round((field.integrity / field.maxIntegrity) * 100)
-                : null,
-          };
-        }),
+        fields: surfaceFields,
       },
       intelligence: {
         level: 'SURFACE_SCAN',
@@ -231,6 +252,72 @@ export class SpacecraftScanService {
         (def.public as Record<string, unknown>)?.canSurfaceScan === true,
       );
     });
+  }
+
+  async listColonyScans(userId: number) {
+    const scans = await this.colonyScanRepo.find({
+      where: { userId },
+      relations: ['colony'],
+      order: { createdAt: 'DESC' },
+    });
+    const latestByColony = new Map<number, (typeof scans)[number]>();
+    for (const scan of scans) {
+      if (!latestByColony.has(scan.colonyId)) {
+        latestByColony.set(scan.colonyId, scan);
+      }
+    }
+    const toListItem = (scan: ColonyScan) => ({
+      id: scan.id,
+      colonyId: scan.colonyId,
+      colonyOwnerId: scan.colonyOwnerId,
+      colonyName: scan.colonyName,
+      colonyOwnerUsername: scan.colonyOwnerUsername,
+      starSystemId: scan.starSystemId,
+      celestialObjectId: scan.celestialObjectId,
+      colonyClassId: scan.colonyClassId,
+      surfaceWidth: scan.surfaceWidth,
+      surfaceHeight: scan.surfaceHeight,
+      createdAt: scan.createdAt,
+      abandoned: !!scan.colony && scan.colony.userId !== scan.colonyOwnerId,
+    });
+    return Array.from(latestByColony.values()).map((scan) => ({
+      ...toListItem(scan),
+      history: scans
+        .filter((candidate) => candidate.colonyId === scan.colonyId)
+        .map(toListItem),
+    }));
+  }
+
+  async getColonyScan(scanId: number, userId: number) {
+    const scan = await this.colonyScanRepo.findOne({
+      where: { id: scanId, userId },
+      relations: ['colony'],
+    });
+    if (!scan) throw new NotFoundException('Colony scan not found');
+    return {
+      id: scan.id,
+      colonyId: scan.colonyId,
+      colonyOwnerId: scan.colonyOwnerId,
+      colonyName: scan.colonyName,
+      colonyOwnerUsername: scan.colonyOwnerUsername,
+      starSystemId: scan.starSystemId,
+      celestialObjectId: scan.celestialObjectId,
+      colonyClassId: scan.colonyClassId,
+      surfaceWidth: scan.surfaceWidth,
+      surfaceHeight: scan.surfaceHeight,
+      surface: scan.surfaceFields,
+      createdAt: scan.createdAt,
+      abandoned: !!scan.colony && scan.colony.userId !== scan.colonyOwnerId,
+    };
+  }
+
+  async deleteColonyScan(scanId: number, userId: number) {
+    const scan = await this.colonyScanRepo.findOne({
+      where: { id: scanId, userId },
+    });
+    if (!scan) throw new NotFoundException('Colony scan not found');
+    await this.colonyScanRepo.remove(scan);
+    return { deleted: true, id: scanId };
   }
 
   private async getSensorRange(ship: Spacecraft): Promise<number> {

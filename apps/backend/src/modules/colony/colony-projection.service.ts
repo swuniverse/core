@@ -254,6 +254,9 @@ export class ColonyProjectionService {
     );
     const hasAirfield =
       featureAccess.functions.groups.airfield.activeFunctionIds.length > 0;
+    const completedTechIds = new Set(
+      (await this.unlockResolver.getCompletedTechIds(userId)).values(),
+    );
 
     const planetaryDefense = fields
       .filter(
@@ -766,10 +769,13 @@ export class ColonyProjectionService {
         }),
         fabricationCatalog: this.gameData
           .getAllFabricationItems()
-          .filter((item) =>
-            item.buildingFunctionIds.some((functionId) =>
-              presentFabricationFunctionIdSet.has(functionId),
-            ),
+          .filter(
+            (item) =>
+              (item.researchId == null ||
+                completedTechIds.has(item.researchId)) &&
+              item.buildingFunctionIds.some((functionId) =>
+                presentFabricationFunctionIdSet.has(functionId),
+              ),
           )
           .map((item) => ({
             ...item,

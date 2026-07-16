@@ -5,6 +5,7 @@ import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './entities/spacecraft-module.entity';
+import { ColonyScan } from './entities/colony-scan.entity';
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { CargoItem } from './entities/cargo-item.entity';
@@ -35,6 +36,7 @@ import { ColonizationModule } from '../colonization/colonization.module';
     TypeOrmModule.forFeature([
       Spacecraft,
       SpacecraftModuleEntity,
+      ColonyScan,
       Fleet,
       ShipClassDef,
       CargoItem,

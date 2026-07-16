@@ -517,6 +517,26 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           }
         : undefined,
     ),
+    getAllTerraforming: jest.fn(() => [
+      {
+        id: 101201,
+        fromFieldType: 101,
+        toFieldType: 201,
+        energyCost: 5,
+        duration: 60,
+        researchId: null,
+        costs: [{ commodityId: 2, amount: 4 }],
+      },
+      {
+        id: 201231,
+        fromFieldType: 201,
+        toFieldType: 231,
+        energyCost: 50,
+        duration: 9000,
+        researchId: 101300,
+        costs: [{ commodityId: 2, amount: 30 }],
+      },
+    ]),
     getBuildingUpgrade: jest.fn((id: number) =>
       id === 100101
         ? {
@@ -851,6 +871,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     isBuildingUnlocked: jest.fn(async () => true),
     hasTech: jest.fn(async () => true),
     hasTechByName: jest.fn(async () => true),
+    getCompletedTechIds: jest.fn(async () => new Set<number>()),
     isShipClassUnlocked: jest.fn(async () => true),
   };
   const ownershipService = {
@@ -897,6 +918,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyStorageService,
     timingService,
     ownershipService as any,
+    unlockResolver as any,
   );
   const orbitService = new ColonyOrbitService(
     colonyRepo as any,
@@ -1503,6 +1525,23 @@ describe('colony tick calculations', () => {
 
     expect(storage.amount).toBe(100);
     expect(colony.storageUsed).toBe(100);
+  });
+
+  it('filters terraforming catalog by completed research', async () => {
+    const { service, unlockResolver } = createColonyService();
+
+    unlockResolver.getCompletedTechIds.mockResolvedValueOnce(new Set());
+    await expect(service.getAvailableTerraforming(1)).resolves.toEqual([
+      expect.objectContaining({ id: 101201 }),
+    ]);
+
+    unlockResolver.getCompletedTechIds.mockResolvedValueOnce(new Set([101300]));
+    await expect(service.getAvailableTerraforming(1)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 101201 }),
+        expect.objectContaining({ id: 201231 }),
+      ]),
+    );
   });
 
   it('rejects terraforming occupied fields and invalid options', async () => {
@@ -2932,6 +2971,26 @@ describe('fabrication queues', () => {
     ).rejects.toThrow('cannot be produced');
   });
 
+  it('requires fabrication item research when configured', async () => {
+    const { service, gameData, unlockResolver } = createColonyService();
+    gameData.getFabricationItem.mockReturnValueOnce({
+      itemKey: 'torpedo.proton',
+      queueType: 'TORPEDO',
+      outputCommodityId: 83,
+      outputAmount: 1,
+      researchId: 500300,
+      researchRequired: 'Protonentorpedo',
+      buildingFunctionIds: [9],
+      durationSeconds: 60,
+      costs: [],
+    });
+    unlockResolver.hasTech.mockResolvedValueOnce(false);
+
+    await expect(
+      service.queueFabrication(1, 1, 'TORPEDO' as any, 'torpedo.proton', 1, 9),
+    ).rejects.toThrow('Research required: Protonentorpedo');
+  });
+
   it('requires an active matching fabrication building', async () => {
     const { service, colonyRepo } = createColonyService();
     colonyRepo.findOne.mockResolvedValue({
@@ -3462,6 +3521,40 @@ describe('ship building compatibility', () => {
         buildPlanName: 'Module Plan',
       }),
     );
+  });
+
+  it('rejects module commodities without completed research', async () => {
+    const { service, colonyRepo, shipClassRepo, gameData, unlockResolver } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      fields: [
+        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      isNpc: false,
+      name: 'Test Corvette',
+      category: 'CORVETTE',
+      crewMin: 0,
+    });
+    gameData.getFabricationItemByOutputCommodity.mockReturnValue({
+      itemKey: 'module.weapon.locked',
+      queueType: 'MODULE',
+      outputCommodityId: 10701,
+      moduleType: 'Laser Cannon',
+      researchId: 700100,
+      researchRequired: 'Lasertechnik',
+    });
+    unlockResolver.hasTech.mockResolvedValueOnce(false);
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Locked Module', [], 'Plan', [10701]),
+    ).rejects.toThrow('Research required: Lasertechnik');
   });
 
   it('validates colony ownership before creating buildplans', async () => {
@@ -4594,6 +4687,40 @@ describe('ship retrofit queues', () => {
       }),
     );
     expect(queue.mode).toBe('RETROFIT');
+  });
+
+  it('rejects retrofit module commodities without completed research', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      gameData,
+      unlockResolver,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue(retrofitColony());
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      name: 'Corvette',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue(shipClass);
+    gameData.getFabricationItemByOutputCommodity.mockReturnValue({
+      itemKey: 'module.weapon.locked',
+      queueType: 'MODULE',
+      outputCommodityId: 10701,
+      moduleType: 'Laser Cannon',
+      researchId: 700100,
+      researchRequired: 'Lasertechnik',
+    });
+    unlockResolver.hasTech.mockResolvedValueOnce(false);
+
+    await expect(service.queueShipRetrofit(1, 1, 7, [10701])).rejects.toThrow(
+      'Research required: Lasertechnik',
+    );
   });
 
   it('rejects unchanged retrofit selection', async () => {

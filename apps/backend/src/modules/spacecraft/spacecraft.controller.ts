@@ -99,6 +99,27 @@ export class SpacecraftController {
     return this.spacecraftService.findAllByUser(req.user.sub);
   }
 
+  @Get('colony-scans')
+  getColonyScans(@Request() req: { user: { sub: number } }) {
+    return this.scanService.listColonyScans(req.user.sub);
+  }
+
+  @Get('colony-scans/:scanId')
+  getColonyScan(
+    @Param('scanId', ParseIntPipe) scanId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.scanService.getColonyScan(scanId, req.user.sub);
+  }
+
+  @Delete('colony-scans/:scanId')
+  deleteColonyScan(
+    @Param('scanId', ParseIntPipe) scanId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.scanService.deleteColonyScan(scanId, req.user.sub);
+  }
+
   @Get(':id/local-map')
   getLocalMap(
     @Param('id', ParseIntPipe) id: number,

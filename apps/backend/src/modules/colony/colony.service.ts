@@ -181,6 +181,17 @@ export class ColonyService {
     );
   }
 
+  async getAvailableTerraforming(userId: number) {
+    const completedTechIds =
+      await this.unlockResolver.getCompletedTechIds(userId);
+    return this.gameData
+      .getAllTerraforming()
+      .filter(
+        (option) =>
+          option.researchId == null || completedTechIds.has(option.researchId),
+      );
+  }
+
   async findAllByUser(userId: number) {
     const colonies = await this.colonyRepo.find({
       where: { userId },

@@ -22,6 +22,7 @@ import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
+import { ColonyScansPage } from '../pages/colony-scans';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -51,88 +52,89 @@ function MapEditorRoute({ children }: { children: React.ReactNode }) {
 export function App() {
   return (
     <ToastProvider>
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            <PublicOnlyRoute>
-              <LoginPage />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <PublicOnlyRoute>
-              <RegisterPage />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/colonies" element={<ColoniesPage />} />
-          <Route path="/spacecraft" element={<SpacecraftPage />} />
-          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
-          <Route path="/starmap" element={<StarmapPage />} />
+      <BrowserRouter>
+        <Routes>
           <Route
-            path="/admin"
+            path="/login"
             element={
-              <AdminRoute>
-                <AdminPage />
-              </AdminRoute>
+              <PublicOnlyRoute>
+                <LoginPage />
+              </PublicOnlyRoute>
             }
           />
           <Route
-            path="/admin/ships"
+            path="/register"
             element={
-              <AdminRoute>
-                <AdminShipsPage />
-              </AdminRoute>
+              <PublicOnlyRoute>
+                <RegisterPage />
+              </PublicOnlyRoute>
             }
           />
           <Route
-            path="/admin/starmap"
             element={
-              <MapEditorRoute>
-                <StarmapAdminFullmapPage />
-              </MapEditorRoute>
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
             }
-          />
-          <Route
-            path="/admin/invites"
-            element={
-              <AdminRoute>
-                <AdminInvitesPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <AdminRoute>
-                <AdminUsersPage />
-              </AdminRoute>
-            }
-          />
-          <Route path="/research" element={<ResearchPage />} />
-          <Route path="/research/tree" element={<ResearchTreePage />} />
-          <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/holonet" element={<HolonetPage />} />
-          <Route path="/database" element={<DatabasePage />} />
-          <Route path="/claim-colony" element={<OnboardingPage />} />
-          <Route path="/notes" element={<NotesPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          >
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/colonies" element={<ColoniesPage />} />
+            <Route path="/spacecraft" element={<SpacecraftPage />} />
+            <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+            <Route path="/starmap" element={<StarmapPage />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/ships"
+              element={
+                <AdminRoute>
+                  <AdminShipsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/starmap"
+              element={
+                <MapEditorRoute>
+                  <StarmapAdminFullmapPage />
+                </MapEditorRoute>
+              }
+            />
+            <Route
+              path="/admin/invites"
+              element={
+                <AdminRoute>
+                  <AdminInvitesPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <AdminUsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route path="/research" element={<ResearchPage />} />
+            <Route path="/research/tree" element={<ResearchTreePage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/holonet" element={<HolonetPage />} />
+            <Route path="/database" element={<DatabasePage />} />
+            <Route path="/claim-colony" element={<OnboardingPage />} />
+            <Route path="/notes" element={<NotesPage />} />
+            <Route path="/colony-scans" element={<ColonyScansPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </ToastProvider>
   );
 }

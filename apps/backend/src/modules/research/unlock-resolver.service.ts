@@ -76,6 +76,13 @@ export class UnlockResolverService {
     return !!research;
   }
 
+  async getCompletedTechIds(userId: number): Promise<Set<number>> {
+    const completed = await this.researchRepo.find({
+      where: { userId, status: ResearchStatus.COMPLETED },
+    });
+    return new Set(completed.map((research) => research.techId));
+  }
+
   async getCompletedTechNames(userId: number): Promise<Set<string>> {
     const completed = await this.researchRepo.find({
       where: { userId, status: ResearchStatus.COMPLETED },

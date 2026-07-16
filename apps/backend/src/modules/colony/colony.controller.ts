@@ -43,8 +43,8 @@ export class ColonyController {
   }
 
   @Get('terraforming/all')
-  getTerraforming() {
-    return this.gameData.getAllTerraforming();
+  getTerraforming(@Request() req: { user: { sub: number } }) {
+    return this.colonyService.getAvailableTerraforming(req.user.sub);
   }
 
   @Get('commodities/all')
