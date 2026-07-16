@@ -20,6 +20,8 @@ export interface AuthResponse {
 export interface UserProfile {
   id: number;
   username: string;
+  displayName?: string | null;
+  avatar?: string | null;
   email: string;
   faction?: Faction | null;
   prestige: number;

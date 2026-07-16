@@ -69,9 +69,17 @@ export class SettingsController {
   @Patch('profile')
   updateProfile(
     @Request() req: { user: { sub: number } },
-    @Body() body: { description: string },
+    @Body() body: { description?: string; displayName?: string },
   ) {
-    return this.settingsService.updateProfile(req.user.sub, body.description);
+    return this.settingsService.updateProfile(req.user.sub, body);
+  }
+
+  @Patch('avatar')
+  updateAvatar(
+    @Request() req: { user: { sub: number } },
+    @Body() body: { avatar: string | null },
+  ) {
+    return this.settingsService.updateAvatar(req.user.sub, body.avatar);
   }
 
   @Post('vacation/activate')

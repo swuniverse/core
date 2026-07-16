@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { api } from '../services/api';
 
 interface DatabaseOverview {
@@ -12,6 +12,9 @@ interface DatabaseOverview {
 interface SettlerEntry {
   id: number;
   username: string;
+  displayName: string | null;
+  avatar: string | null;
+  description: string | null;
   factionName: string;
   prestige: number;
   colonies: number;
@@ -140,6 +143,8 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 function SettlersTable({ settlers }: { settlers: SettlerEntry[] }) {
+  const [expanded, setExpanded] = useState<number | null>(null);
+
   return (
     <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface">
       <table className="w-full text-sm">
@@ -156,34 +161,75 @@ function SettlersTable({ settlers }: { settlers: SettlerEntry[] }) {
         </thead>
         <tbody>
           {settlers.map((settler) => (
-            <tr key={settler.id} className="border-t border-swu-border/60">
-              <td className="px-3 py-2 font-bold text-swu-primary">
-                {settler.username}
-                {settler.isAdmin && (
-                  <span className="ml-2 text-[10px] text-swu-accent">
-                    ADMIN
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-swu-muted">
-                {settler.factionName}
-              </td>
-              <td className="px-3 py-2 text-right text-swu-text">
-                {settler.prestige}
-              </td>
-              <td className="px-3 py-2 text-right text-swu-text">
-                {settler.colonies}
-              </td>
-              <td className="px-3 py-2 text-right text-swu-text">
-                {settler.ships}
-              </td>
-              <td className="px-3 py-2 text-right text-swu-text">
-                {settler.completedResearch}
-              </td>
-              <td className="px-3 py-2 text-swu-muted">
-                {settler.onboardingCompleted ? 'aktiv' : 'im Aufbau'}
-              </td>
-            </tr>
+            <Fragment key={settler.id}>
+              <tr
+                className="border-t border-swu-border/60 cursor-pointer hover:bg-swu-bg/30"
+                onClick={() => setExpanded(expanded === settler.id ? null : settler.id)}
+              >
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden shrink-0">
+                      {settler.avatar ? (
+                        <img src={settler.avatar} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs text-swu-muted">
+                          {(settler.displayName || settler.username)[0].toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-bold text-swu-primary">
+                      {settler.displayName || settler.username}
+                    </span>
+                    {settler.isAdmin && (
+                      <span className="text-[10px] text-swu-accent">ADMIN</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-swu-muted">
+                  {settler.factionName}
+                </td>
+                <td className="px-3 py-2 text-right text-swu-text">
+                  {settler.prestige}
+                </td>
+                <td className="px-3 py-2 text-right text-swu-text">
+                  {settler.colonies}
+                </td>
+                <td className="px-3 py-2 text-right text-swu-text">
+                  {settler.ships}
+                </td>
+                <td className="px-3 py-2 text-right text-swu-text">
+                  {settler.completedResearch}
+                </td>
+                <td className="px-3 py-2 text-swu-muted">
+                  {settler.onboardingCompleted ? 'aktiv' : 'im Aufbau'}
+                </td>
+              </tr>
+              {expanded === settler.id && (
+                <tr className="bg-swu-bg/20">
+                  <td colSpan={7} className="px-4 py-3">
+                    <div className="flex gap-4 items-start">
+                      <div className="w-16 h-16 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden shrink-0">
+                        {settler.avatar ? (
+                          <img src={settler.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xl text-swu-muted">
+                            {(settler.displayName || settler.username)[0].toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        {settler.displayName && settler.displayName !== settler.username && (
+                          <p className="text-xs text-swu-muted">Login: {settler.username}</p>
+                        )}
+                        <p className="text-sm text-swu-primary">
+                          {settler.description || <span className="text-swu-muted italic">Keine Beschreibung</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>
