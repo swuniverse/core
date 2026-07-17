@@ -4,6 +4,7 @@ services:
     working_dir: /app
     environment:
       DATABASE_URL: postgresql://swuniverse:${DB_PASSWORD:-devpassword}@db:5432/swuniverse
+      TS_NODE_PROJECT: apps/backend/tsconfig.app.json
     depends_on:
       db:
         condition: service_healthy
@@ -13,6 +14,7 @@ services:
       - ./packages:/app/packages:ro
       - ./tsconfig.base.json:/app/tsconfig.base.json:ro
       - ./apps/backend/tsconfig.json:/app/apps/backend/tsconfig.json:ro
+      - ./apps/backend/tsconfig.app.json:/app/apps/backend/tsconfig.app.json:ro
     command: >-
       sh -c "node --require ts-node/register --require tsconfig-paths/register
       ./node_modules/typeorm/cli.js migration:run
