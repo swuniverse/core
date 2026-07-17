@@ -881,6 +881,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     getAssignedToColonyCount: jest.fn(async () => 0),
     getLocalCrewLimit: jest.fn(() => 10),
     getGlobalCrewLimit: jest.fn(async () => 100),
+    getCrewCountsByColonyIds: jest.fn(async () => new Map<number, number>()),
   };
   const unlockResolver = {
     isBuildingUnlocked: jest.fn(async () => true),
@@ -1669,6 +1670,53 @@ describe('colony tick calculations', () => {
 
     expect(storage.amount).toBe(100);
     expect(colony.storageUsed).toBe(100);
+  });
+
+  it('returns effective population in colony overview summaries', async () => {
+    const { service, colonyRepo, colonyCrewService } = createColonyService();
+    colonyRepo.find.mockResolvedValue([
+      {
+        id: 1,
+        userId: 1,
+        name: 'Home',
+        colonyClassId: 201,
+        population: 84,
+        populationMax: 100,
+        energy: 50,
+        energyMax: 100,
+        storageUsed: 25,
+        storageMax: 3000,
+        stats: {
+          workers: 24,
+          workless: 252,
+          maxPopulation: 312,
+          maxEnergy: 100,
+          maxStorage: 3000,
+        },
+        fields: [],
+        starSystem: { name: 'Kelaris VI' },
+        celestialObject: null,
+      } as any,
+    ]);
+    (colonyCrewService.getCrewCountsByColonyIds as jest.Mock).mockResolvedValue(
+      new Map([[1, 0]]),
+    );
+
+    const result = await service.findAllByUser(1);
+
+    expect(colonyRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: ['starSystem', 'celestialObject', 'fields', 'stats'],
+      }),
+    );
+    expect(result[0]).toMatchObject({
+      population: 276,
+      populationMax: 312,
+      energyMax: 100,
+      storageMax: 3000,
+      locationLabel: 'Kelaris VI',
+    });
+    expect(result[0].fields).toBeUndefined();
   });
 
   it('filters terraforming catalog by completed research', async () => {

@@ -205,7 +205,7 @@ export class ColonyService {
   async findAllByUser(userId: number) {
     const colonies = await this.colonyRepo.find({
       where: { userId, isAbandoned: false },
-      relations: ['starSystem', 'celestialObject', 'fields'],
+      relations: ['starSystem', 'celestialObject', 'fields', 'stats'],
       order: { id: 'ASC' },
     });
     const colonyIds = colonies.map((c) => c.id);
@@ -252,6 +252,8 @@ export class ColonyService {
 
       const base = this.colonyProjectionService.toColonySummary(colony);
       delete (base as any).fields;
+      (base as any).population = summary.effectiveState.population.current;
+      (base as any).populationMax = summary.effectivePopulationMax;
       (base as any).energyMax = summary.effectiveState.energy.max;
       (base as any).storageMax = summary.effectiveStorageMax;
       return Object.assign(base, {
