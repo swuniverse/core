@@ -9,6 +9,7 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/backend/src/database:/app/apps/backend/src/database:ro
+      - ./apps/backend/src/modules:/app/apps/backend/src/modules:ro
       - ./packages:/app/packages:ro
       - ./tsconfig.base.json:/app/tsconfig.base.json:ro
       - ./apps/backend/tsconfig.json:/app/apps/backend/tsconfig.json:ro
