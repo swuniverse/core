@@ -38,6 +38,22 @@ describe('GameDataService commodity semantics', () => {
       isDeposit: true,
     });
   });
+
+  it('removes obsolete research lab capacity consumers from research centers', () => {
+    for (const building of service.getAllBuildings()) {
+      const producesResearchPoints = building.production.some(
+        (entry) => entry.commodityId >= 1701 && entry.commodityId <= 1722,
+      );
+      if (!producesResearchPoints) continue;
+
+      expect(building.production).not.toContainEqual(
+        expect.objectContaining({
+          commodityId: 1700,
+          amount: expect.any(Number),
+        }),
+      );
+    }
+  });
 });
 
 describe('GameDataService colony class deposits', () => {

@@ -426,10 +426,23 @@ export class GameDataService implements OnModuleInit {
       for (const b of data.buildings) {
         b.globalLimit = b.blimit ?? 0;
         b.colonyLimit = b.bclimit ?? (b.isUnique ? 1 : 0);
+        b.production = this.normalizeBuildingProduction(b);
         this.buildings.set(b.id, b);
       }
       this.logger.log(`Loaded ${this.buildings.size} buildings`);
     }
+  }
+
+  private normalizeBuildingProduction(building: BuildingDef) {
+    const production = building.production ?? [];
+    const producesResearchPoints = production.some(
+      (entry) => entry.commodityId >= 1701 && entry.commodityId <= 1722,
+    );
+    if (!producesResearchPoints) return production;
+
+    return production.filter(
+      (entry) => !(entry.commodityId === 1700 && entry.amount < 0),
+    );
   }
 
   private loadFieldBuildRules() {
