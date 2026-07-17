@@ -33,6 +33,60 @@ const adminCards = [
   },
 ];
 
+function CompleteAllBuilds() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ completed: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const trigger = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await api.post<{ completed: string }>(
+        '/admin/colony/complete-all-builds',
+        {},
+      );
+      setResult(res);
+    } catch (e: any) {
+      setError(e.message || 'Fehlgeschlagen');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-swu-border bg-swu-surface p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-lg font-semibold text-swu-text">Alle Bauten abschliessen</div>
+          <p className="mt-1 text-sm text-swu-muted">
+            Schliesst sofort alle laufenden Gebaeude-, Fabrication-, Schiffbau- und Crew-Queues ab.
+          </p>
+        </div>
+        <span className="rounded border border-swu-accent/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-swu-accent">
+          Engine
+        </span>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          onClick={trigger}
+          disabled={loading}
+          className="rounded border border-swu-accent bg-swu-accent/10 px-4 py-2 text-sm font-semibold text-swu-accent transition hover:bg-swu-accent/20 disabled:opacity-50"
+        >
+          {loading ? 'Wird verarbeitet...' : 'Alle Bauten abschliessen'}
+        </button>
+        {result && (
+          <span className="text-sm text-swu-success">
+            Abgeschlossen — {result.completed}
+          </span>
+        )}
+        {error && <span className="text-sm text-red-400">{error}</span>}
+      </div>
+    </div>
+  );
+}
+
 function TickTrigger() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -107,6 +161,7 @@ export function AdminPage() {
         </h2>
         <div className="grid gap-4 md:grid-cols-2">
           <TickTrigger />
+          <CompleteAllBuilds />
         </div>
       </section>
 

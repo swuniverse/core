@@ -35,6 +35,7 @@ import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyBuildingManagementService } from './colony-building-management.service';
 import { ColonySocialService } from './colony-social.service';
 import { ColonyEconomyService } from './colony-economy.service';
+import { ColonyAbandonmentService } from './colony-abandonment.service';
 import { ColonySettingsService } from './colony-settings.service';
 import { ColonyTimingService } from './colony-timing.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
@@ -61,6 +62,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   };
   const fieldRepo = { save: jest.fn(async (value) => value) };
   const statsRepo = { save: jest.fn(async (value) => value) };
+  const userRepo = {
+    findOneBy: jest.fn(),
+  };
   const shipRepo = {
     find: jest.fn(async () => []),
     findOne: jest.fn(),
@@ -86,6 +90,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     findOne: jest.fn(),
     count: jest.fn(async () => 0),
     save: jest.fn(async (value) => value),
+    delete: jest.fn(async () => ({ affected: 1 })),
   };
   const shipBuildplanRepo = {
     create: jest.fn((value) => value),
@@ -101,6 +106,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     count: jest.fn(async () => 0),
     save: jest.fn(async (value) => ({ id: 1, ...value })),
     remove: jest.fn(async (value) => value),
+    delete: jest.fn(async () => ({ affected: 1 })),
   };
   const spacecraftModuleRepo = {
     create: jest.fn((value) => value),
@@ -108,16 +114,25 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     save: jest.fn(async (value) => value),
     remove: jest.fn(async (value) => value),
   };
+  const crewAssignmentRepo = {
+    find: jest.fn<Promise<any[]>, any[]>(async () => []),
+    delete: jest.fn(async () => ({ affected: 1 })),
+  };
+  const crewRepo = {
+    delete: jest.fn(async () => ({ affected: 1 })),
+  };
   const fabricationQueueRepo = {
     create: jest.fn((value) => value),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
     save: jest.fn(async (value) => value),
+    delete: jest.fn(async () => ({ affected: 1 })),
   };
   const crewTrainingQueueRepo = {
     create: jest.fn((value) => value),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     save: jest.fn(async (value) => value),
+    delete: jest.fn(async () => ({ affected: 1 })),
   };
   const depositMiningRepo = {
     find: jest.fn(async () => []),
@@ -902,6 +917,19 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       },
     ),
   };
+  const abandonmentService = new ColonyAbandonmentService(
+    colonyRepo as any,
+    fieldRepo as any,
+    statsRepo as any,
+    fabricationQueueRepo as any,
+    crewTrainingQueueRepo as any,
+    shipBuildQueueRepo as any,
+    orbitAssignmentRepo as any,
+    crewAssignmentRepo as any,
+    crewRepo as any,
+    userRepo as any,
+    colonyEventService as any,
+  );
   const settingsService = new ColonySettingsService(
     colonyRepo as any,
     statsRepo as any,
@@ -1031,6 +1059,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyEventService as any,
     spacecraftTorpedoService as any,
     ownershipService as any,
+    abandonmentService as any,
     settingsService as any,
     fabricationService as any,
     orbitService as any,
@@ -1047,6 +1076,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       fieldRepo,
       storageRepo,
       statsRepo,
+      userRepo,
       shipRepo,
       cargoRepo,
       shipClassRepo,
@@ -1054,6 +1084,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       shipBuildplanRepo,
       orbitAssignmentRepo,
       spacecraftModuleRepo,
+      crewAssignmentRepo,
+      crewRepo,
       fabricationQueueRepo,
       crewTrainingQueueRepo,
       depositMiningRepo,
@@ -1071,6 +1103,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       colonyDefenseService,
       colonyEventService,
       ownershipService,
+      abandonmentService,
       settingsService,
       timingService,
       fabricationService,
@@ -1084,6 +1117,117 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     overrides,
   );
 }
+
+describe('colony give up', () => {
+  it('abandons a non-starter colony while keeping storage and deactivating buildings', async () => {
+    const {
+      service,
+      colonyRepo,
+      fieldRepo,
+      statsRepo,
+      fabricationQueueRepo,
+      crewTrainingQueueRepo,
+      shipBuildQueueRepo,
+      orbitAssignmentRepo,
+      crewAssignmentRepo,
+      crewRepo,
+      userRepo,
+      colonyEventService,
+    } = createColonyService();
+    const field = {
+      id: 1,
+      buildingId: 82010100,
+      isBuilding: false,
+      isActive: true,
+      activateAfterBuild: true,
+      terraformingId: 101300,
+      terraformingFinishesAt: new Date(),
+    };
+    const stats = {
+      colonyId: 1,
+      workers: 10,
+      trainedCrew: 5,
+      isBlockaded: true,
+      shields: 50,
+      shieldFrequency: 123,
+      torpedoTypeId: 81,
+      immigrationEnabled: true,
+    };
+    const colony = {
+      id: 1,
+      name: 'Ruinenwelt',
+      userId: 1,
+      isAbandoned: false,
+      fields: [field],
+      stats,
+      storage: [{ commodityId: 2, amount: 500 }],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    userRepo.findOneBy.mockResolvedValue({ id: 1, starterColonyId: 99 });
+    crewAssignmentRepo.find.mockResolvedValue([{ crewId: 7, colonyId: 1 }]);
+
+    await expect(service.giveUpColony(1, 1, 'Ruinenwelt')).resolves.toEqual({
+      abandoned: true,
+      colonyId: 1,
+    });
+
+    expect(fabricationQueueRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
+    expect(crewTrainingQueueRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
+    expect(shipBuildQueueRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
+    expect(orbitAssignmentRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
+    expect(crewAssignmentRepo.delete).toHaveBeenCalledWith([{ crewId: 7 }]);
+    expect(crewRepo.delete).toHaveBeenCalledWith([{ id: 7 }]);
+    expect(fieldRepo.save).toHaveBeenCalledWith([
+      expect.objectContaining({
+        isActive: false,
+        terraformingId: null,
+        terraformingFinishesAt: null,
+      }),
+    ]);
+    expect(statsRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workers: 0,
+        trainedCrew: 0,
+        isBlockaded: false,
+        shields: 0,
+        torpedoTypeId: null,
+        immigrationEnabled: false,
+      }),
+    );
+    expect(colonyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 1,
+        previousUserId: 1,
+        isAbandoned: true,
+        abandonedAt: expect.any(Date),
+      }),
+    );
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'COLONY_ABANDONED' }),
+    );
+  });
+
+  it('blocks starter colony give up and wrong confirmation', async () => {
+    const { service, colonyRepo, userRepo } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      name: 'Home',
+      userId: 1,
+      isAbandoned: false,
+      fields: [],
+      stats: null,
+    });
+    userRepo.findOneBy.mockResolvedValueOnce({ id: 1, starterColonyId: 1 });
+    await expect(service.giveUpColony(1, 1, 'Home')).rejects.toThrow(
+      'Starter colony cannot be abandoned',
+    );
+
+    userRepo.findOneBy.mockResolvedValueOnce({ id: 1, starterColonyId: 99 });
+    await expect(service.giveUpColony(1, 1, 'Wrong')).rejects.toThrow(
+      'Confirmation does not match colony name',
+    );
+  });
+});
 
 describe('colony tick calculations', () => {
   it('uses one summary for active building and colony-class production', () => {

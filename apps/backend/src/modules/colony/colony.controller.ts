@@ -111,6 +111,15 @@ export class ColonyController {
     return this.colonyService.rename(id, req.user.sub, name);
   }
 
+  @Post(':id/give-up')
+  giveUp(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('confirmation') confirmation: string,
+  ) {
+    return this.colonyService.giveUpColony(id, req.user.sub, confirmation);
+  }
+
   @Post(':id/population-limit')
   setPopulationLimit(
     @Param('id', ParseIntPipe) id: number,

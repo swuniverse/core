@@ -58,7 +58,7 @@ export class User {
   @Column({ default: 0 })
   prestige: number;
 
-  @Column({ length: 60, nullable: true })
+  @Column({ type: 'varchar', length: 60, nullable: true })
   displayName: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -70,7 +70,7 @@ export class User {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   vacationMode: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -82,8 +82,8 @@ export class User {
   @Column({ type: 'int', default: 0 })
   deletionMark: number;
 
-  @Column({ nullable: true })
-  refreshToken: string;
+  @Column({ type: 'text', nullable: true })
+  refreshToken: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
+import { assertOwnedColony } from './colony-owner.util';
 import { ColonyStats } from './entities/colony-stats.entity';
 import {
   ColonyCrewTrainingQueue,
@@ -109,6 +110,7 @@ export class ColonyCrewService {
     colony: Colony,
     amount: number,
   ): Promise<CrewAssignment[]> {
+    assertOwnedColony(colony);
     const created: CrewAssignment[] = [];
     for (let i = 0; i < amount; i++) {
       const crew = await this.crewRepo.save(
@@ -203,6 +205,7 @@ export class ColonyCrewService {
     ship: Spacecraft,
     amount: number,
   ): Promise<void> {
+    assertOwnedColony(colony);
     this.assertSameOwnerAndLocation(colony, ship);
     if (!Number.isInteger(amount) || amount <= 0) {
       throw new BadRequestException('Amount must be positive');
@@ -245,6 +248,7 @@ export class ColonyCrewService {
   }
 
   async returnCrewToColony(colony: Colony, crewIds: number[]): Promise<void> {
+    assertOwnedColony(colony);
     if (crewIds.length === 0) return;
     const assignments = await this.crewAssignmentRepo.find({
       where: { userId: colony.userId, crewId: In(crewIds) },

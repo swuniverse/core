@@ -152,6 +152,9 @@ export class CombatService {
       relations: ['fields', 'stats'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
+    if (colony.userId == null || colony.isAbandoned) {
+      throw new BadRequestException('Cannot attack abandoned colony');
+    }
     if (colony.userId === attacker.userId) {
       throw new BadRequestException('Cannot attack own colony');
     }

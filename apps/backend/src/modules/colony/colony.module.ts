@@ -14,6 +14,7 @@ import { ColonyBuildingManagementService } from './colony-building-management.se
 import { ColonyEventService } from './colony-event.service';
 import { ColonySocialService } from './colony-social.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
+import { ColonyAbandonmentService } from './colony-abandonment.service';
 import { ColonySettingsService } from './colony-settings.service';
 import { ColonyTimingService } from './colony-timing.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
@@ -47,6 +48,7 @@ import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { ResearchModule } from '../research/research.module';
 import { Research } from '../research/entities/research.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
+import { User } from '../auth/user.entity';
 
 @Module({
   imports: [
@@ -72,6 +74,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
       CargoItem,
       Research,
       ShipClassDef,
+      User,
     ]),
     ResearchModule,
     StarmapModule,
@@ -91,6 +94,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyEventService,
     ColonySocialService,
     ColonyOwnershipService,
+    ColonyAbandonmentService,
     ColonySettingsService,
     ColonyTimingService,
     ColonyFabricationService,
@@ -116,6 +120,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
     ColonyEventService,
     ColonySocialService,
     ColonyOwnershipService,
+    ColonyAbandonmentService,
     ColonySettingsService,
     ColonyTimingService,
     ColonyFabricationService,

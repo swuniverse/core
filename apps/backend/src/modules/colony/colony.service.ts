@@ -39,6 +39,7 @@ import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEventService } from './colony-event.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
+import { ColonyAbandonmentService } from './colony-abandonment.service';
 import { ColonySettingsService } from './colony-settings.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
 import { ColonyOrbitService } from './colony-orbit.service';
@@ -114,6 +115,7 @@ export class ColonyService {
     private readonly colonyEventService: ColonyEventService,
     private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
     private readonly colonyOwnershipService: ColonyOwnershipService,
+    private readonly colonyAbandonmentService: ColonyAbandonmentService,
     private readonly colonySettingsService: ColonySettingsService,
     private readonly colonyFabricationService: ColonyFabricationService,
     private readonly colonyOrbitService: ColonyOrbitService,
@@ -122,6 +124,14 @@ export class ColonyService {
     private readonly colonyConstructionService: ColonyConstructionService,
     private readonly colonyTickProcessorService: ColonyTickProcessorService,
   ) {}
+
+  giveUpColony(colonyId: number, userId: number, confirmation: string) {
+    return this.colonyAbandonmentService.giveUpColony(
+      colonyId,
+      userId,
+      confirmation,
+    );
+  }
 
   async getEvents(
     colonyId: number,
@@ -194,7 +204,7 @@ export class ColonyService {
 
   async findAllByUser(userId: number) {
     const colonies = await this.colonyRepo.find({
-      where: { userId },
+      where: { userId, isAbandoned: false },
       relations: ['starSystem', 'celestialObject', 'fields'],
       order: { id: 'ASC' },
     });
@@ -266,7 +276,7 @@ export class ColonyService {
 
   async getCurrentObjective(userId: number) {
     const colonies = await this.colonyRepo.find({
-      where: { userId },
+      where: { userId, isAbandoned: false },
       relations: ['fields'],
       order: { id: 'ASC' },
     });
@@ -514,14 +524,13 @@ export class ColonyService {
       }
     }
 
-    for (const [commodityId, required] of costMap) {
-      if (required <= 0) continue;
-      await this.colonyStorageService.lowerStorage(
-        colony,
-        commodityId,
-        required,
-      );
-    }
+    await Promise.all(
+      costMap
+        .filter(([, required]) => required > 0)
+        .map(([commodityId, required]) =>
+          this.colonyStorageService.lowerStorage(colony, commodityId, required),
+        ),
+    );
   }
 
   async demolish(
@@ -833,16 +842,18 @@ export class ColonyService {
       throw new BadRequestException('Not enough colony storage capacity');
     }
 
-    for (const item of cargo) {
-      await this.colonyStorageService.upperStorage(
-        colony,
-        item.commodityId,
-        item.amount,
-        maxStorage,
-      );
-      item.amount = 0;
-      await this.cargoRepo.save(item);
-    }
+    await Promise.all(
+      cargo.map(async (item) => {
+        await this.colonyStorageService.upperStorage(
+          colony,
+          item.commodityId,
+          item.amount,
+          maxStorage,
+        );
+        item.amount = 0;
+        return this.cargoRepo.save(item);
+      }),
+    );
     await this.colonyStorageService.upperStorage(
       colony,
       hangarDef.hangarCommodityId,
@@ -1150,16 +1161,18 @@ export class ColonyService {
     const cargo = await this.cargoRepo.find({
       where: { spacecraftId: ship.id },
     });
-    for (const item of cargo) {
-      const stored = await this.colonyStorageService.upperStorage(
-        colony,
-        item.commodityId,
-        item.amount,
-        maxStorage,
-      );
-      item.amount = Math.max(0, item.amount - stored);
-      await this.cargoRepo.save(item);
-    }
+    await Promise.all(
+      cargo.map(async (item) => {
+        const stored = await this.colonyStorageService.upperStorage(
+          colony,
+          item.commodityId,
+          item.amount,
+          maxStorage,
+        );
+        item.amount = Math.max(0, item.amount - stored);
+        return this.cargoRepo.save(item);
+      }),
+    );
     ship.cargoUsed = await this.getShipCargoUsed(ship.id);
     await this.shipRepo.save(ship);
   }

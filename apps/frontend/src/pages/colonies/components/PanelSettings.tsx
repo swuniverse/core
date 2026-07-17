@@ -9,6 +9,7 @@ type PanelSettingsProps = {
   onSetPopulationLimit: (limit: number) => Promise<void> | void;
   onSetImmigration: (enabled: boolean) => Promise<void> | void;
   onSetColonyMessage: (message: string | null) => Promise<void> | void;
+  onGiveUpColony?: (confirmation: string) => Promise<void> | void;
 };
 
 export function PanelSettings({
@@ -19,6 +20,7 @@ export function PanelSettings({
   onSetPopulationLimit,
   onSetImmigration,
   onSetColonyMessage,
+  onGiveUpColony,
 }: PanelSettingsProps) {
   const [name, setName] = useState(options?.name ?? colonyName);
   const [populationLimit, setPopulationLimit] = useState(
@@ -29,6 +31,7 @@ export function PanelSettings({
   );
   const [message, setMessage] = useState(options?.colonyMessage ?? '');
   const [status, setStatus] = useState<string | null>(null);
+  const [giveUpConfirmation, setGiveUpConfirmation] = useState('');
 
   useEffect(() => {
     setName(options?.name ?? colonyName);
@@ -201,6 +204,48 @@ export function PanelSettings({
           </div>
         )}
       </div>
+
+      {onGiveUpColony && (
+        <div className="bg-red-950/20 border border-red-500/40 rounded overflow-hidden">
+          <div className="px-3 py-1.5 text-center text-[10px] font-bold text-red-300 uppercase border-b border-red-500/30">
+            Danger Zone · Kolonie aufgeben
+          </div>
+          <div className="p-3 space-y-2">
+            <p className="text-red-200">
+              Diese Kolonie wird herrenlos. Gebäude und Storage bleiben zurück,
+              alle Gebäude werden deaktiviert, laufende Aufträge abgebrochen und
+              Crew flüchtet. Andere Spieler können die Kolonie später
+              übernehmen.
+            </p>
+            <p className="text-swu-muted">
+              Starterkolonien können nicht aufgegeben werden. Gib zur
+              Bestätigung exakt den Kolonienamen ein:
+              <span className="ml-1 font-mono text-swu-primary">
+                {colonyName}
+              </span>
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                value={giveUpConfirmation}
+                onChange={(event) => setGiveUpConfirmation(event.target.value)}
+                placeholder={colonyName}
+                className="min-w-0 flex-1 px-2 py-1 bg-swu-bg border border-red-500/40 rounded text-xs text-red-100"
+              />
+              <button
+                disabled={giveUpConfirmation !== colonyName}
+                onClick={() =>
+                  runOptionAction('Kolonie aufgeben', () =>
+                    onGiveUpColony(giveUpConfirmation),
+                  )
+                }
+                className="px-3 py-1 rounded border border-red-500/60 text-red-300 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Kolonie aufgeben
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

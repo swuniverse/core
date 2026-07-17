@@ -55,11 +55,32 @@ export class User {
   @Column({ default: 0 })
   prestige: number;
 
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  displayName: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  avatar: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  vacationMode: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  vacationStartedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  vacationEndedAt: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  deletionMark: number;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  @Column({ nullable: true })
-  refreshToken: string;
+  @Column({ type: 'text', nullable: true })
+  refreshToken: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

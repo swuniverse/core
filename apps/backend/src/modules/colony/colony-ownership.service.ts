@@ -16,7 +16,7 @@ export class ColonyOwnershipService {
 
   async findOwnedColony(colonyId: number, userId: number): Promise<Colony> {
     const colony = await this.colonyRepo.findOne({
-      where: { id: colonyId, userId },
+      where: { id: colonyId, userId, isAbandoned: false },
       relations: [
         'fields',
         'storage',
@@ -34,7 +34,7 @@ export class ColonyOwnershipService {
     userId: number,
   ): Promise<Colony> {
     const colony = await this.colonyRepo.findOne({
-      where: { id: colonyId, userId },
+      where: { id: colonyId, userId, isAbandoned: false },
       relations: ['stats'],
     });
     if (!colony) throw new NotFoundException('Colony not found');

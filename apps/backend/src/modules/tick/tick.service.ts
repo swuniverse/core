@@ -91,15 +91,17 @@ export class TickService {
         relations: ['fields', 'stats'],
       });
       for (const colony of colonies) {
+        if (colony.userId == null || colony.isAbandoned) continue;
+        const colonyUserId = colony.userId;
         const tickResult = await this.colonyService.processTick(colony);
         researchByUser.set(
-          colony.userId,
-          (researchByUser.get(colony.userId) || 0) + tickResult.researchPoints,
+          colonyUserId,
+          (researchByUser.get(colonyUserId) || 0) + tickResult.researchPoints,
         );
-        if (!commodityProductionByUser.has(colony.userId)) {
-          commodityProductionByUser.set(colony.userId, new Map());
+        if (!commodityProductionByUser.has(colonyUserId)) {
+          commodityProductionByUser.set(colonyUserId, new Map());
         }
-        const userProd = commodityProductionByUser.get(colony.userId)!;
+        const userProd = commodityProductionByUser.get(colonyUserId)!;
         for (const [commodityId, amount] of tickResult.productionDelta) {
           if (amount > 0) {
             userProd.set(
@@ -108,18 +110,18 @@ export class TickService {
             );
           }
         }
-        this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
+        this.gateway.emitToUser(colonyUserId, WsEventType.COLONY_UPDATED, {
           colonyId: colony.id,
         });
         if (tickResult.events.length > 0) {
           await this.colonyEventService.createTickEvents(
             colony.id,
-            colony.userId,
+            colonyUserId,
             tickResult.events,
             tickNumber,
           );
           this.gateway.emitToUser(
-            colony.userId,
+            colonyUserId,
             WsEventType.COLONY_TICK_REPORT,
             {
               colonyId: colony.id,
@@ -210,6 +212,38 @@ export class TickService {
     const manualTickNumber = Date.now();
     this.logger.log(`Manual tick triggered by admin (#${manualTickNumber})`);
     return this.handleTick(manualTickNumber);
+  }
+
+  async completeAllBuilds(): Promise<{ completed: string }> {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const mgr = this.fieldRepo.manager;
+
+    await mgr.query(
+      `UPDATE colony_fields SET "buildFinishesAt" = $1 WHERE "isBuilding" = true`,
+      [past],
+    );
+    await mgr.query(
+      `UPDATE colony_fields SET "terraformingFinishesAt" = $1 WHERE "terraformingId" IS NOT NULL`,
+      [past],
+    );
+    await mgr.query(
+      `UPDATE colony_fabrication_queue SET "finishesAt" = $1 WHERE status = 'QUEUED'`,
+      [past],
+    );
+    await mgr.query(
+      `UPDATE colony_ship_build_queue SET "finishesAt" = $1 WHERE status = 'QUEUED'`,
+      [past],
+    );
+    await mgr.query(
+      `UPDATE colony_crew_training_queue SET "finishesAt" = $1 WHERE "finishesAt" IS NOT NULL AND "finishesAt" > NOW()`,
+      [past],
+    );
+
+    await this.checkBuildingCompletions();
+    const tickResult = await this.triggerManualTick();
+
+    this.logger.log('Admin: all builds force-completed');
+    return { completed: `tick #${tickResult.tickNumber}` };
   }
 
   @Cron(CronExpression.EVERY_MINUTE)

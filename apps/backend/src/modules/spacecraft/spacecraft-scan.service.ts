@@ -95,7 +95,7 @@ export class SpacecraftScanService {
     colony: {
       id: number;
       name: string;
-      owner: { id: number; username: string | null };
+      owner: { id: number | null; username: string | null };
       colonyClassId: number;
       starSystemId: number | null;
       celestialObject: {
@@ -194,7 +194,7 @@ export class SpacecraftScanService {
     scan.userId = userId;
     scan.colonyOwnerId = colony.userId;
     scan.colonyName = colony.name;
-    scan.colonyOwnerUsername = colony.user?.username ?? 'Unknown';
+    scan.colonyOwnerUsername = colony.user?.username ?? null;
     scan.starSystemId = colony.starSystemId;
     scan.celestialObjectId = colony.celestialObjectId;
     scan.colonyClassId = colony.colonyClassId;

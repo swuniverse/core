@@ -156,7 +156,9 @@ export class ColonizationService {
     const existing = await this.colonyRepo.findOne({
       where: { celestialObjectId: target.id },
     });
-    if (existing) reasons.push('Ziel ist bereits kolonisiert');
+    if (existing && !existing.isAbandoned) {
+      reasons.push('Ziel ist bereits kolonisiert');
+    }
 
     if (limitType) {
       const limitStatus = status.limits[limitType];
@@ -239,31 +241,64 @@ export class ColonizationService {
       throw new BadRequestException('Schiff kann keine Kolonie gründen');
     }
 
-    const colony = await this.colonySeedService.createFollowUpColony({
-      userId,
-      username: user.username,
-      celestialObjectId,
-      buildingId: shipClass.colonizationBuildingId,
+    const abandonedColony = await this.colonyRepo.findOne({
+      where: { celestialObjectId, isAbandoned: true },
+      relations: ['stats'],
     });
+    const colony = abandonedColony
+      ? await this.reclaimAbandonedColony(abandonedColony, userId)
+      : await this.colonySeedService.createFollowUpColony({
+          userId,
+          username: user.username,
+          celestialObjectId,
+          buildingId: shipClass.colonizationBuildingId,
+        });
 
     await this.shipRepo.delete({ id: ship.id, userId });
     await this.colonyEventService.createActionEvent({
       colonyId: colony.id,
       userId,
-      type: ColonyEventType.COLONY_FOUNDED,
+      type: abandonedColony
+        ? ColonyEventType.COLONY_RECLAIMED
+        : ColonyEventType.COLONY_FOUNDED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Kolonie gegründet',
-      message: `${colony.name} wurde gegründet. Das Kolonieschiff ${ship.name} wurde verbraucht.`,
+      title: abandonedColony ? 'Kolonie übernommen' : 'Kolonie gegründet',
+      message: abandonedColony
+        ? `${colony.name} wurde übernommen. Das Kolonieschiff ${ship.name} wurde verbraucht.`
+        : `${colony.name} wurde gegründet. Das Kolonieschiff ${ship.name} wurde verbraucht.`,
       payload: {
         celestialObjectId,
         consumedShipId: ship.id,
         shipClassId: ship.shipClassId,
         colonizerTier: shipClass.colonizerTier,
         initialBuildingId: shipClass.colonizationBuildingId,
+        reclaimed: !!abandonedColony,
       },
     });
 
     return { success: true, colonyId: colony.id, consumedShipId: ship.id };
+  }
+
+  private async reclaimAbandonedColony(
+    colony: Colony,
+    userId: number,
+  ): Promise<Colony> {
+    colony.userId = userId;
+    colony.isAbandoned = false;
+    colony.abandonedAt = null;
+    colony.previousUserId = null;
+    colony.population = Math.max(1, colony.population);
+    colony.energy = Math.max(0, colony.energy);
+    if (colony.stats) {
+      colony.stats.immigrationEnabled = true;
+      colony.stats.isBlockaded = false;
+      colony.stats.shields = 0;
+      colony.stats.shieldFrequency = null;
+      colony.stats.torpedoTypeId = null;
+      colony.stats.trainedCrew = 0;
+      await this.colonyRepo.manager.save(colony.stats);
+    }
+    return this.colonyRepo.save(colony);
   }
 
   private async calculateLimit(
@@ -289,7 +324,7 @@ export class ColonizationService {
     userId: number,
   ): Promise<Record<ColonizationLimitType, number>> {
     const colonies = await this.colonyRepo.find({
-      where: { userId },
+      where: { userId, isAbandoned: false },
       relations: ['celestialObject'],
     });
     const counts: Record<ColonizationLimitType, number> = {

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
+import { assertOwnedColony, OwnedColony } from './colony-owner.util';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
@@ -102,6 +103,7 @@ export class ColonySeedService {
 
     await this.generateFields(colony, { factionId });
     await this.createInitialStats(colony);
+    assertOwnedColony(colony);
     await this.createInitialDepositMining(colony);
     await this.grantStartingResources(colony, STARTING_COMMODITIES);
 
@@ -140,6 +142,7 @@ export class ColonySeedService {
       initialBuildingId: options.buildingId,
     });
     await this.createInitialStats(colony);
+    assertOwnedColony(colony);
     await this.createInitialDepositMining(colony);
     await this.grantStartingResources(
       colony,
@@ -264,7 +267,7 @@ export class ColonySeedService {
     );
   }
 
-  private async createInitialDepositMining(colony: Colony): Promise<void> {
+  private async createInitialDepositMining(colony: OwnedColony): Promise<void> {
     const deposits = this.gameData.getColonyClassDeposits(colony.colonyClassId);
     if (deposits.length === 0) return;
     await this.depositMiningRepo.save(

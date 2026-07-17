@@ -413,6 +413,15 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
+      onGiveUpColony={(confirmation) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/give-up`, { confirmation });
+          const data = await api.get<Colony[]>('/colonies');
+          setColonies(data);
+          setSelected(null);
+          setSearchParams({}, { replace: true });
+        })
+      }
       onDiscardStorage={(items) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/storage/discard`, { items });
@@ -495,6 +504,7 @@ export function ColonyDetail({
   onSetPopulationLimit,
   onSetImmigration,
   onSetColonyMessage,
+  onGiveUpColony,
   onDiscardStorage,
   onActivateBuildings,
   onDeactivateBuildings,
@@ -575,6 +585,7 @@ export function ColonyDetail({
   onSetPopulationLimit: (limit: number) => Promise<void> | void;
   onSetImmigration: (enabled: boolean) => Promise<void> | void;
   onSetColonyMessage: (message: string | null) => Promise<void> | void;
+  onGiveUpColony: (confirmation: string) => Promise<void> | void;
   onDiscardStorage: (
     items: Array<{ commodityId: number; amount: number }>,
   ) => Promise<void> | void;
@@ -781,7 +792,10 @@ export function ColonyDetail({
             className="w-6 h-6 object-contain"
           />
         )}
-        <span className="text-sm font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>
+        <span
+          className="text-sm font-bold text-swu-primary"
+          style={{ fontFamily: 'var(--font-swu-display)' }}
+        >
           {colony.name}
         </span>
         <span className="text-[10px] text-swu-muted">
@@ -1129,6 +1143,7 @@ export function ColonyDetail({
               onSetPopulationLimit={onSetPopulationLimit}
               onSetImmigration={onSetImmigration}
               onSetColonyMessage={onSetColonyMessage}
+              onGiveUpColony={onGiveUpColony}
             />
           )}
           {activeTab === 'crew' &&

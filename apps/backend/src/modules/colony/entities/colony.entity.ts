@@ -26,12 +26,12 @@ export class Colony {
   @Column({ length: 255 })
   name: string;
 
-  @Column()
-  userId: number;
+  @Column({ type: 'int', nullable: true })
+  userId: number | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user: User | null;
 
   @Column({ type: 'int', nullable: true })
   starSystemId: number | null;
@@ -55,6 +55,15 @@ export class Colony {
 
   @Column()
   colonyClassId: number;
+
+  @Column({ default: false })
+  isAbandoned: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  abandonedAt: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  previousUserId: number | null;
 
   @Column({ default: 0 })
   energy: number;

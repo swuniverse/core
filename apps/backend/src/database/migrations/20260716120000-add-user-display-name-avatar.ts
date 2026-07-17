@@ -5,15 +5,19 @@ export class AddUserDisplayNameAvatar1752667200000
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "users" ADD COLUMN "displayName" varchar(60)`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "displayName" varchar(60)`,
     );
     await queryRunner.query(
-      `ALTER TABLE "users" ADD COLUMN "avatar" text`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar" text`,
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "avatar"`);
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "displayName"`);
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "avatar"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP COLUMN IF EXISTS "displayName"`,
+    );
   }
 }

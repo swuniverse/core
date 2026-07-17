@@ -28,6 +28,7 @@ import {
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
+import { assertOwnedColony } from './colony-owner.util';
 
 @Injectable()
 export class ColonyOrbitService {
@@ -98,6 +99,7 @@ export class ColonyOrbitService {
       relations: ['fields', 'stats'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
+    assertOwnedColony(colony);
     await this.cleanupInvalidOrbitAssignments(colony);
 
     const ship = await this.shipRepo.findOne({
@@ -199,6 +201,7 @@ export class ColonyOrbitService {
       relations: ['stats'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
+    assertOwnedColony(colony);
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
       relations: ['fleet'],

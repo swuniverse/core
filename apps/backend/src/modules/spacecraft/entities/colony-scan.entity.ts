@@ -31,14 +31,14 @@ export class ColonyScan {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'int' })
-  colonyOwnerId: number;
+  @Column({ type: 'int', nullable: true })
+  colonyOwnerId: number | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   colonyName: string | null;
 
-  @Column({ type: 'varchar', length: 64 })
-  colonyOwnerUsername: string;
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  colonyOwnerUsername: string | null;
 
   @Column({ type: 'int', nullable: true })
   starSystemId: number | null;

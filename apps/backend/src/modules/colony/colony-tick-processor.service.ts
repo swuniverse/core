@@ -22,6 +22,7 @@ import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
+import { assertOwnedColony } from './colony-owner.util';
 import type { ColonyTickEvent, ColonyTickResult } from './colony.service';
 
 @Injectable()
@@ -431,6 +432,7 @@ export class ColonyTickProcessorService {
     colony: Colony,
     commodityId: number,
   ): Promise<ColonyDepositMining | null> {
+    assertOwnedColony(colony);
     const existing = await this.depositMiningRepo.findOne({
       where: { colonyId: colony.id, userId: colony.userId, commodityId },
     });
