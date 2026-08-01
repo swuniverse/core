@@ -9,8 +9,12 @@ import { ColonyBuildingManagementService } from './colony-building-management.se
 import { BuildingMassActionMode } from './colony-building-management.types';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
-import { ColonyProjectionService } from './colony-projection.service';
-import { ColonyStatsService, ColonyInternalSummary } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  ColonyInternalSummary,
+  getColonyChangeable,
+  syncLegacyColonySnapshot,
+} from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
 import { ColonyEventSeverity, ColonyEventType } from './entities/colony-event.entity';
@@ -37,14 +41,12 @@ export class ColonyConstructionService {
     private readonly buildingManagementService: ColonyBuildingManagementService,
     private readonly colonyEventService: ColonyEventService,
     private readonly ownership: ColonyOwnershipService,
-    private readonly projection: ColonyProjectionService,
     private readonly timing: ColonyTimingService,
     private readonly buildingEffectsService?: ColonyBuildingEffectsService,
   ) {}
 
   private async findOne(colonyId: number, userId: number): Promise<Colony> {
-    const colony = await this.ownership.findOwnedColony(colonyId, userId);
-    return this.projection.toColonyDetail(colony, userId);
+    return this.ownership.findOwnedColony(colonyId, userId);
   }
 
   async getAvailableBuildings(userId: number, fieldType?: number) {
@@ -214,12 +216,14 @@ export class ColonyConstructionService {
   private deductBuildEnergy(colony: Colony, buildingDef: BuildingDef): void {
     const epsCost = buildingDef.epsCost || 0;
     if (epsCost <= 0) return;
-    if (colony.energy < epsCost) {
+    const changeable = getColonyChangeable(colony);
+    if (changeable.energy < epsCost) {
       throw new BadRequestException(
-        `Not enough energy: need ${epsCost}, have ${colony.energy}`,
+        `Not enough energy: need ${epsCost}, have ${changeable.energy}`,
       );
     }
-    colony.energy -= epsCost;
+    changeable.energy -= epsCost;
+    syncLegacyColonySnapshot(colony);
   }
 
   private async deductBuildCosts(

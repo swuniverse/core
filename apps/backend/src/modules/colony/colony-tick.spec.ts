@@ -946,6 +946,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         ],
       },
     ]),
+    isShipyardModuleAllowedForShipClass: jest.fn(() => true),
     getAllFabricationItems: jest.fn(() => [
       {
         itemKey: 'module.weapon.turbolaser-k1',
@@ -1245,7 +1246,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     buildingManagementService as any,
     colonyEventService as any,
     ownershipService as any,
-    projectionService as any,
     timingService,
   );
 
@@ -2356,6 +2356,71 @@ describe('colony tick calculations', () => {
     expect(field.isBuilding).toBe(true);
     expect(field.isActive).toBe(false);
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
+  });
+
+  it('updates changeable energy when starting a building job', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo, gameData } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [field],
+      storage: [],
+      changeable: {
+        colonyId: 1,
+        energy: 50,
+        maxEnergy: 100,
+        workers: 0,
+        workless: 10,
+        maxPopulation: 100,
+        maxStorage: 100,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        shields: 0,
+        maxShields: 0,
+        shieldFrequency: null,
+        torpedoTypeId: null,
+        colonyMessage: null,
+        isBlockaded: false,
+        trainedCrew: 0,
+      },
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 10 };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+    const building = { ...gameData.getBuilding(100), epsCost: 5 };
+    gameData.getBuilding.mockImplementation((id: number) =>
+      id === 100 ? building : undefined,
+    );
+
+    await service.build(1, 1, 5, 100);
+
+    expect(colony.changeable.energy).toBe(45);
+    expect(colony.energy).toBe(45);
+    expect(storage.amount).toBe(5);
+    expect(field.buildingId).toBe(100);
+    expect(field.isBuilding).toBe(true);
+    expect(fieldRepo.save).toHaveBeenCalledWith(field);
+
+    const detail = (await service.findOne(1, 1)) as {
+      detailV2?: { energy?: { current: number; max: number } };
+    };
+    expect(detail.detailV2?.energy?.current).toBe(45);
+    expect(detail.detailV2?.energy?.max).toBe(100);
   });
 
   it('allows bonus-field buildings and prefers exact bonus alternatives', async () => {
