@@ -595,7 +595,7 @@ export const StarmapCanvas = forwardRef<
   const loadSystemTiles = useCallback(async (container: Container) => {
     const grid = systemGridRef.current;
     if (!grid) return;
-    const { system: sys, fields: sysFields, celestialObjects } = grid;
+    const { system: sys, fields: sysFields, celestialObjects, colonyShields } = grid;
     const objects = new Map((celestialObjects ?? []).map((o) => [o.id, o]));
 
     const starConfig = getStarTileConfig(sys.systemTypeId);
@@ -724,6 +724,28 @@ export const StarmapCanvas = forwardRef<
     });
 
     await Promise.all(loadPromises);
+
+    for (const shield of colonyShields ?? []) {
+      if (!shield.shielded) continue;
+      const cellX = (shield.posX - 1) * SYSTEM_CELL_SIZE;
+      const cellY = (shield.posY - 1) * SYSTEM_CELL_SIZE;
+      const overlay = new Graphics();
+      overlay
+        .circle(
+          cellX + SYSTEM_CELL_SIZE / 2,
+          cellY + SYSTEM_CELL_SIZE / 2,
+          SYSTEM_CELL_SIZE * 0.48,
+        )
+        .stroke({ color: 0x22d3ee, width: 2, alpha: 0.85 });
+      overlay
+        .circle(
+          cellX + SYSTEM_CELL_SIZE / 2,
+          cellY + SYSTEM_CELL_SIZE / 2,
+          SYSTEM_CELL_SIZE * 0.36,
+        )
+        .stroke({ color: 0x67e8f9, width: 1, alpha: 0.45 });
+      iconLayer.addChild(overlay);
+    }
 
     // Grid lines
     const gridGfx = new Graphics();

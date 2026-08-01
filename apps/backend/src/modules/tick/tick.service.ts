@@ -88,7 +88,7 @@ export class TickService {
       const researchByUser = new Map<number, number>();
       const commodityProductionByUser = new Map<number, Map<number, number>>();
       const colonies = await this.colonyRepo.find({
-        relations: ['fields', 'stats'],
+        relations: ['fields', 'stats', 'changeable'],
       });
       for (const colony of colonies) {
         if (colony.userId == null || colony.isAbandoned) continue;
@@ -188,7 +188,7 @@ export class TickService {
       const colonyIds = [...new Set(activeBuilds.map((f) => f.colonyId))];
       const colonies = await this.colonyRepo.find({
         where: colonyIds.map((id) => ({ id })),
-        relations: ['fields', 'stats'],
+        relations: ['fields', 'stats', 'changeable'],
       });
 
       for (const colony of colonies) {

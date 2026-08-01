@@ -364,6 +364,11 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
               {tech.description}
             </div>
           )}
+          {tech.dependencies.some((dep) => dep.type === 'EXCLUDE') && (
+            <div className="text-[10px] text-yellow-400/90 mt-1">
+              Schließt alternative Forschung aus
+            </div>
+          )}
         </div>
         <div className="text-[11px] text-swu-muted shrink-0 text-right">
           {tech.commodity ? (
@@ -386,6 +391,16 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
     </div>
   );
 }
+
+function uniqueTechsById(techs: TechState[]): TechState[] {
+  const seen = new Set<number>();
+  return techs.filter((tech) => {
+    if (seen.has(tech.id)) return false;
+    seen.add(tech.id);
+    return true;
+  });
+}
+
 
 export function TechDetailModal({
   tech,
@@ -414,6 +429,29 @@ export function TechDetailModal({
       (d) => d.type === 'REQUIRE' && d.techIds.includes(tech.id),
     ),
   );
+  const excludedTechIds = tech.dependencies
+    .filter((dep) => dep.type === 'EXCLUDE')
+    .flatMap((dep) => dep.techIds);
+  const excludedTechs = uniqueTechsById(
+    excludedTechIds
+      .map((id) => techs.find((candidate) => candidate.id === id))
+      .filter((candidate): candidate is TechState => !!candidate),
+  );
+  const completedTechs = techs.filter((candidate) =>
+    candidate.status === 'COMPLETED',
+  );
+  const blockingExcluders = uniqueTechsById([
+    ...tech.dependencies
+      .filter((dep) => dep.type === 'EXCLUDE')
+      .flatMap((dep) => dep.techIds)
+      .map((id) => completedTechs.find((candidate) => candidate.id === id))
+      .filter((candidate): candidate is TechState => !!candidate),
+    ...completedTechs.filter((candidate) =>
+      candidate.dependencies.some(
+        (dep) => dep.type === 'EXCLUDE' && dep.techIds.includes(tech.id),
+      ),
+    ),
+  ]);
 
   const unlockBuildings = (tech.unlocks?.buildings ?? [])
     .filter((b): b is UnlockBuilding & { name: string } => !!b.name)
@@ -601,6 +639,45 @@ export function TechDetailModal({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Exclusion info */}
+          {excludedTechs.length > 0 && (
+            <div className="border-t border-swu-border/30 pt-3">
+              <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider mb-2 text-center">
+                Folgende Forschungen sind nach dieser Forschung nicht mehr möglich
+              </div>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {excludedTechs.map((excluded) => (
+                  <button
+                    key={excluded.id}
+                    onClick={() => onSelect(excluded)}
+                    className="px-2 py-1 text-[10px] bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 rounded hover:bg-yellow-500/20 transition-colors"
+                  >
+                    {excluded.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {blockingExcluders.length > 0 && tech.status === 'LOCKED' && (
+            <div className="border-t border-swu-border/30 pt-3">
+              <div className="text-[10px] text-red-400 font-bold uppercase tracking-wider mb-2 text-center">
+                Nicht mehr möglich wegen abgeschlossener Alternative
+              </div>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {blockingExcluders.map((blocker) => (
+                  <button
+                    key={blocker.id}
+                    onClick={() => onSelect(blocker)}
+                    className="px-2 py-1 text-[10px] bg-red-500/10 border border-red-500/40 text-red-300 rounded hover:bg-red-500/20 transition-colors"
+                  >
+                    {blocker.name}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

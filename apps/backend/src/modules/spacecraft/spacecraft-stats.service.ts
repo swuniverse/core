@@ -12,6 +12,10 @@ export interface CalculatedSpacecraftStats {
   crewMax: number;
   cargoMax: number;
   batteryMax: number;
+  epsMax: number;
+  reactorOutput: number;
+  warpdriveMax: number;
+  evadeChance: number;
 }
 
 @Injectable()
@@ -30,6 +34,10 @@ export class SpacecraftStatsService {
       crewMax: shipClass.crewMax,
       cargoMax: shipClass.cargoCapacity,
       batteryMax: shipClass.batteryBase,
+      epsMax: shipClass.epsBase,
+      reactorOutput: 0,
+      warpdriveMax: shipClass.warpBase,
+      evadeChance: 0,
     };
 
     for (const module of modules) {
@@ -55,6 +63,11 @@ export class SpacecraftStatsService {
     ship.crewMax = stats.crewMax;
     ship.cargoMax = stats.cargoMax;
     ship.batteryMax = stats.batteryMax;
+    ship.epsMax = stats.epsMax;
+    ship.reactorOutput = stats.reactorOutput;
+    ship.warpdriveMax = stats.warpdriveMax;
+    ship.evadeChance = stats.evadeChance;
+
 
     ship.hull = Math.min(ship.hull, ship.hullMax);
     ship.shields = Math.min(ship.shields, ship.shieldsMax);
@@ -91,19 +104,29 @@ export class SpacecraftStatsService {
           scaled(publicStats.baseShieldPoints) ||
           scaled(secretStats.baseShieldStrength);
         break;
-      case 'SPECIAL':
-        stats.energyMax += scaled(publicStats.baseEnergyOutput);
-        break;
-      case 'SUBLIGHT_ENGINE':
-        stats.warpSpeed += scaled(publicStats.baseSpeed);
-        break;
-      case 'HYPERDRIVE': {
-        const rating = publicStats.hyperdriveRating;
-        if (typeof rating === 'number') {
-          stats.warpSpeed += Math.max(0, Math.round((4 - rating) * levelScale));
+      case 'SPECIAL': {
+        const epsCapacity = scaled(publicStats.baseEpsCapacity);
+        if (epsCapacity > 0) {
+          stats.epsMax += epsCapacity;
+          stats.energyMax = stats.epsMax;
+          stats.batteryMax += Math.round(epsCapacity / 3);
+          break;
         }
+        const reactorOutput = scaled(publicStats.baseReactorOutput);
+        if (reactorOutput > 0) {
+          stats.reactorOutput += reactorOutput;
+          break;
+        }
+        stats.energyMax += scaled(publicStats.baseEnergyOutput);
+        stats.epsMax = stats.energyMax;
         break;
       }
+      case 'SUBLIGHT_ENGINE':
+        stats.evadeChance += scaled(publicStats.baseEvadeChance);
+        break;
+      case 'HYPERDRIVE':
+        stats.warpdriveMax += scaled(publicStats.baseWarpdriveCapacity);
+        break;
       case 'CARGO':
         stats.cargoMax += scaled(publicStats.baseCargoCapacity);
         break;

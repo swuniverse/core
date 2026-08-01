@@ -1,8 +1,19 @@
+export interface ColonyFieldUpgrade {
+  id: number;
+  fromBuildingId: number;
+  toBuildingId: number;
+  researchId: number | null;
+  description: string;
+  energyCost: number;
+  costs: Array<{ commodityId: number; amount: number }>;
+}
+
 export interface ColonyField {
   id: number;
   fieldIndex: number;
   fieldType: number;
   terrainTileId: number | null;
+  layer?: 'ORBIT' | 'SURFACE' | 'UNDERGROUND' | null;
   buildingId: number | null;
   isBuilding: boolean;
   isActive: boolean;
@@ -12,6 +23,7 @@ export interface ColonyField {
   buildFinishesAt: string | null;
   terraformingId?: number | null;
   terraformingFinishesAt?: string | null;
+  availableUpgrades?: ColonyFieldUpgrade[];
 }
 
 export interface ColonyStorageItem {
@@ -20,7 +32,26 @@ export interface ColonyStorageItem {
   amount: number;
 }
 
+export interface StarterColonizationOptions {
+  mode: 'required' | 'not-required';
+  reservedStarterColonyId: number | null;
+  starterShipId: number | null;
+  targets: Array<{
+    id: number;
+    systemId: number;
+    posX: number;
+    posY: number;
+    classId: number | null;
+    name: string | null;
+  }>;
+}
+
 export type ShipyardQueueMode = 'BUILD' | 'REPAIR' | 'RETROFIT';
+export type ShipModuleSelection = {
+  slotId: string;
+  commodityId: number;
+};
+
 
 export type ShipyardQueueEntry = {
   id: number;
@@ -33,6 +64,7 @@ export type ShipyardQueueEntry = {
   buildPlanName: string | null;
   buildPlanId?: number | null;
   buildPlanSignature?: string | null;
+  moduleSelections: ShipModuleSelection[];
   moduleTypes: string[];
   moduleCommodityIds?: number[];
   moduleNames?: string[];
@@ -45,8 +77,8 @@ export type ShipyardQueueEntry = {
     costs: Array<{ commodityId: number; amount: number }>;
   } | null;
   retrofitSnapshot?: {
-    oldModuleCommodityIds: number[];
-    newModuleCommodityIds: number[];
+    oldModuleSelections: ShipModuleSelection[];
+    newModuleSelections: ShipModuleSelection[];
     newModuleTypes: string[];
     returnedModuleCommodityIds: number[];
     consumedModuleCommodityIds: number[];
@@ -70,6 +102,13 @@ export interface ColonyEventDto {
   createdAt: string;
 }
 
+export type TorpedoDamageTypeDto =
+  | 'PROTON'
+  | 'QUANTUM'
+  | 'HEAVY_QUANTUM'
+  | 'PLASMA'
+  | 'HEAVY_PLASMA';
+
 export interface TorpedoTypeDto {
   id: number;
   commodityId: number;
@@ -81,6 +120,7 @@ export interface TorpedoTypeDto {
   hullDamageFactor: number;
   shieldDamageFactor: number;
   variance: number;
+  damageType?: TorpedoDamageTypeDto;
   energyCost: number;
   productionAmount: number;
   researchId: number | null;
@@ -232,11 +272,35 @@ export interface ColonyEffectiveState {
   }>;
 }
 
+export type ShipyardGroup =
+  | 'CORE_SYSTEMS'
+  | 'DEFENSE_SYSTEMS'
+  | 'OFFENSE_SYSTEMS';
+
+export type ShipyardType =
+  | 'HULL'
+  | 'SHIELDS'
+  | 'COMPUTER'
+  | 'SUBLIGHT_DRIVE'
+  | 'SENSORS'
+  | 'HYPERDRIVE'
+  | 'REACTOR'
+  | 'EPS'
+  | 'ENERGY_WEAPON'
+  | 'TORPEDO_BANK'
+  | 'SPECIAL';
+
 export interface ColonyDetailV2 {
   featureAccess?: ColonyFeatureAccess;
   eventSummary?: { unreadCount: number; latest: ColonyEventDto[] };
   activeFunctions?: ColonyEffectiveFunction[];
   effectiveState?: ColonyEffectiveState;
+  surface?: {
+    width: number;
+    rotationFactor: number | null;
+    layers: Array<'ORBIT' | 'SURFACE' | 'UNDERGROUND'>;
+    hasUnderground: boolean;
+  };
   buildingManagement?: {
     counts: {
       active: number;
@@ -246,6 +310,7 @@ export interface ColonyDetailV2 {
     };
     fields: Array<{
       fieldIndex: number;
+      layer?: 'ORBIT' | 'SURFACE' | 'UNDERGROUND' | null;
       buildingId: number | null;
       buildingName: string;
       isActive: boolean;
@@ -370,6 +435,7 @@ export interface ColonyDetailV2 {
       integrity: number;
       isActive: boolean;
       commodityId: number | null;
+      slotId?: string | null;
     }>;
     cargoUsed?: number;
     cargoMax?: number;
@@ -390,14 +456,31 @@ export interface ColonyDetailV2 {
     amount: number;
     moduleType: string;
     moduleCategory: string;
+    shipyardGroup: ShipyardGroup;
+    shipyardType: ShipyardType;
     moduleLevel: number;
+    moduleClass: number;
+    researchRequired: string | null;
+    faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null;
     displayName: string;
+    crewRequired: number;
+    effects: string[];
+    shipyardModuleStats: {
+      level: number;
+      upgradeFactor: number;
+      downgradeFactor: number;
+      crew: number;
+      energyCost: number;
+      defaultFactor: number;
+    } | null;
+    compatibleShipClassIds?: number[];
   }>;
   buildplans?: Array<{
     id: number;
     shipClassId: number;
     name: string;
     signature: string;
+    moduleSelections: ShipModuleSelection[];
     moduleCommodityIds: number[];
     moduleTypes: string[];
   }>;
@@ -420,8 +503,26 @@ export interface ColonyDetailV2 {
     displayName: string;
     outputCommodityId: number;
     outputAmount: number;
+    moduleType?: string;
+    moduleCategory?: string;
+    fabricationCategory?: string;
+    moduleLevel?: number;
+    shipyardGroup?: ShipyardGroup;
+    shipyardType?: ShipyardType;
+    moduleClass?: number;
+    moduleTier?: number;
+    researchId?: number | null;
+    researchRequired?: string | null;
+    faction?: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE';
     buildingFunctionIds: number[];
     durationSeconds: number;
+    source?: string;
+    costSource?: string;
+    durationSource?: string;
+    stuModuleId?: number;
+    stuSourceCommodityId?: number;
+    stuSourceTechId?: number | null;
+    stuRawName?: string;
     costs: Array<{ commodityId: number; amount: number }>;
     available: boolean;
   }>;
@@ -453,6 +554,8 @@ export interface ColonyDetailV2 {
       buildEnergyCost: number;
       startEnergyCost: number;
       buildCosts: Array<{ commodityId: number; amount: number }>;
+      defaultModules: Array<{ commodityId: number; name: string }>;
+      maxBuildable: number;
       crewRequired: number;
     }>;
     startable: Array<{
@@ -464,6 +567,7 @@ export interface ColonyDetailV2 {
       amount: number;
       startEnergyCost: number;
       crewRequired: number;
+      defaultModules: Array<{ commodityId: number; name: string }>;
     }>;
     landableOrbitShips: Array<{
       id: number;
@@ -570,6 +674,48 @@ export interface ColonyDetailV2 {
       category: string;
       allowedBuildingFunctionIds: number[];
       moduleSlots: Record<string, number>;
+      layoutKey: string;
+      imageKey: string;
+      slots: Array<{
+        slotId: string;
+        moduleCategory: ShipyardType;
+        label: string;
+        anchorX: number;
+        anchorY: number;
+        calloutSide: 'left' | 'right' | 'top' | 'bottom';
+        order: number;
+        required?: boolean;
+      }>;
+    }>;
+    shipClassLayouts?: Array<{
+      shipClassId: number;
+      imageKey: string;
+      layoutKey: string;
+      fixedModuleCommodityIds?: number[] | null;
+      fixedBuildCosts?: Array<{ commodityId: number; amount: number }> | null;
+      stuRumpId?: number | null;
+      baseStats: {
+        moduleLevel: number;
+        baseCrew: number;
+        baseEvadeChance: number;
+        baseHull: number;
+        baseShield: number;
+        baseDamage: number;
+        baseSensorRange: number;
+        baseWarpdrive: number;
+        baseEps: number;
+        baseReactor: number;
+      } | null;
+      slots: Array<{
+        slotId: string;
+        moduleCategory: ShipyardType;
+        label: string;
+        anchorX: number;
+        anchorY: number;
+        calloutSide: 'left' | 'right' | 'top' | 'bottom';
+        order: number;
+        required?: boolean;
+      }>;
     }>;
   };
 }
@@ -672,7 +818,8 @@ export interface ShipClassDef {
   unlockTechId?: number | null;
   unlocked?: boolean;
   requirementLabel?: string | null;
-  buildCosts?: Record<string, number>;
+  buildCosts?: Array<{ commodityId: number; amount: number; name: string }>;
+  allowedBuildingFunctionIds?: number[] | null;
 }
 
 export type DetailTab =

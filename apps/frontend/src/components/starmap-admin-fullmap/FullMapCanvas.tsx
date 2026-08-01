@@ -252,8 +252,7 @@ export function FullMapCanvas() {
         const cx = (field.cx - 1) * CELL;
         const cy = (field.cy - 1) * CELL;
 
-        // Use field type tile image; fall back to procedural background for basic space (id=1)
-        const tileUrl = field.fieldTypeId > 1 && !field.systemTypeId
+        const tileUrl = field.fieldTypeId > 1
           ? starTileImage(field.fieldTypeId)
           : spaceBackgroundTile(field.cx, field.cy);
         try {
@@ -285,7 +284,7 @@ export function FullMapCanvas() {
             const iconUrl = systemTypeImage(field.systemTypeId);
             const texture = await Assets.load(iconUrl);
             const sprite = new Sprite(texture);
-            const s = CELL * 0.8;
+            const s = CELL * 1.4;
             sprite.width = s;
             sprite.height = s;
             sprite.position.set(cx + (CELL - s) / 2, cy + (CELL - s) / 2);

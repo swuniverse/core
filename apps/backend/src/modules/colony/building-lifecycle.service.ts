@@ -5,15 +5,16 @@ import { Repository } from 'typeorm';
 import { BuildingDef } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
-import { ColonyStats } from './entities/colony-stats.entity';
+import { ColonyChangeable } from './entities/colony-changeable.entity';
+import { getColonyChangeable, syncLegacyColonySnapshot } from './colony-stats.service';
 
 @Injectable()
 export class BuildingLifecycleService {
   constructor(
     @InjectRepository(ColonyField)
     private readonly fieldRepo: Repository<ColonyField>,
-    @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
+    @InjectRepository(ColonyChangeable)
+    private readonly changeableRepo: Repository<ColonyChangeable>,
     private readonly config: ConfigService,
   ) {}
 
@@ -32,7 +33,8 @@ export class BuildingLifecycleService {
 
     if (activateAfterBuild && definition.isActivateable !== false) {
       const workerAmount = definition.bevUse || 0;
-      const hasWorkers = !colony.stats || colony.stats.workless >= workerAmount;
+      const hasWorkers =
+        getColonyChangeable(colony).workless >= workerAmount;
       if (hasWorkers) {
         await this.activateBuildingStats(colony, definition);
         field.isActive = true;
@@ -74,30 +76,32 @@ export class BuildingLifecycleService {
     colony: Colony,
     definition: BuildingDef,
   ): Promise<void> {
-    if (!colony.stats) return;
+    const changeable = getColonyChangeable(colony);
     const workerAmount = definition.bevUse || 0;
     const housingAmount = definition.bevPro || 0;
-    colony.stats.workless = Math.max(0, colony.stats.workless - workerAmount);
-    colony.stats.workers += workerAmount;
-    colony.stats.maxPopulation =
-      (colony.stats.maxPopulation ?? colony.populationMax ?? 0) + housingAmount;
-    await this.statsRepo.save(colony.stats);
+    changeable.workless = Math.max(0, changeable.workless - workerAmount);
+    changeable.workers += workerAmount;
+    changeable.maxPopulation =
+      (changeable.maxPopulation ?? colony.populationMax ?? 0) + housingAmount;
+    syncLegacyColonySnapshot(colony);
+    await this.changeableRepo.save(changeable);
   }
 
   async deactivateBuildingStats(
     colony: Colony,
     definition: BuildingDef,
   ): Promise<void> {
-    if (!colony.stats) return;
+    const changeable = getColonyChangeable(colony);
     const workerAmount = definition.bevUse || 0;
     const housingAmount = definition.bevPro || 0;
-    colony.stats.workers = Math.max(0, colony.stats.workers - workerAmount);
-    colony.stats.workless += workerAmount;
-    colony.stats.maxPopulation = Math.max(
+    changeable.workers = Math.max(0, changeable.workers - workerAmount);
+    changeable.workless += workerAmount;
+    changeable.maxPopulation = Math.max(
       0,
-      (colony.stats.maxPopulation ?? colony.populationMax ?? 0) - housingAmount,
+      (changeable.maxPopulation ?? colony.populationMax ?? 0) - housingAmount,
     );
-    await this.statsRepo.save(colony.stats);
+    syncLegacyColonySnapshot(colony);
+    await this.changeableRepo.save(changeable);
   }
 
   prepareBuildJob(

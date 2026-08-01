@@ -25,6 +25,7 @@ import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from './modules/colony/entities/colony-storage.entity';
 import { ColonyStats } from './modules/colony/entities/colony-stats.entity';
+import { ColonyChangeable } from './modules/colony/entities/colony-changeable.entity';
 import { ColonyDepositMining } from './modules/colony/entities/colony-deposit-mining.entity';
 import { ColonyShipBuildQueue } from './modules/colony/entities/colony-ship-build-queue.entity';
 import { ColonyFabricationQueue } from './modules/colony/entities/colony-fabrication-queue.entity';
@@ -56,6 +57,7 @@ import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
 import { CargoItem } from './modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './modules/spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
+import { ColonyScan } from './modules/spacecraft/entities/colony-scan.entity';
 import { Fleet } from './modules/spacecraft/entities/fleet.entity';
 import { ShipClassDef } from './modules/spacecraft/entities/ship-class-def.entity';
 import { Research } from './modules/research/entities/research.entity';
@@ -84,6 +86,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           ColonyField,
           ColonyStorage,
           ColonyStats,
+          ColonyChangeable,
           ColonyDepositMining,
           ColonyShipBuildQueue,
           ColonyFabricationQueue,
@@ -115,6 +118,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           CargoItem,
           SpacecraftModuleEntity,
           SpacecraftTorpedoStorage,
+          ColonyScan,
           Fleet,
           ShipClassDef,
           Research,

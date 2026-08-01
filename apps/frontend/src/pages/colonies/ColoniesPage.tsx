@@ -1,41 +1,52 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../../services/api';
 import { useToast } from '../../components/Toast';
-import { commodityImage, planetImage } from '../../lib/assets';
-
+import { colonyApi } from './api';
+import { api } from '../../services/api';
+import {
+  BuildingMassActionMode,
+  BuildingRepairActionMode,
+} from './constants';
+import type {
+  BuildingDef,
+  BuildingMassActionResult,
+  BuildingRepairPreview,
+  BuildingRepairResult,
+  Colony,
+  ColonyDetailV2,
+  ColonyEventDto,
+  ColonyField,
+  ColonyFieldUpgrade,
+  CommodityDef,
+  DetailTab,
+  ShipClassDef,
+  ShipModuleSelection,
+  TerraformingDef,
+} from './types';
+import { planetImage, commodityImage } from '../../lib/assets';
+import { FieldCell } from './components/FieldCell';
+import { FieldInfoModal } from './components/FieldInfoModal';
+import { ColonyOverview } from './components/ColonyOverview';
+import { PanelInfo } from './components/PanelInfo';
+import { PanelBuild } from './components/PanelBuild';
+import { PanelShipyard } from './components/PanelShipyard';
+import { PanelOrbit } from './components/PanelOrbit';
+import { PanelDefense } from './components/PanelDefense';
+import { PanelEvents } from './components/PanelEvents';
+import { PanelSettings } from './components/PanelSettings';
+import { PanelBuildingManagement } from './components/PanelBuildingManagement';
+import { PanelFabrication } from './components/PanelFabrication';
+import { PanelCrew } from './components/PanelCrew';
+import { PanelHangar } from './components/PanelHangar';
+import { PanelWaste } from './components/PanelWaste';
 import {
   formatSignedAmount,
   getEffectiveBuildingForField,
   getFieldTypeCandidates,
 } from './utils';
-import type {
-  BuildingDef,
-  Colony,
-  ColonyEventDto,
-  ColonyField,
-  CommodityDef,
-  DetailTab,
-  ShipClassDef,
-  TerraformingDef,
-} from './types';
 
-import { PanelEvents } from './components/PanelEvents';
-import { PanelDefense } from './components/PanelDefense';
-import { PanelHangar } from './components/PanelHangar';
-import { PanelCrew } from './components/PanelCrew';
-import { PanelFabrication } from './components/PanelFabrication';
-import { PanelShipyard } from './components/PanelShipyard';
-import { FieldCell } from './components/FieldCell';
-import { FieldInfoModal } from './components/FieldInfoModal';
-import { PanelInfo } from './components/PanelInfo';
-import { PanelBuild } from './components/PanelBuild';
-import { ColonyOverview } from './components/ColonyOverview';
-import { PanelBuildingManagement } from './components/PanelBuildingManagement';
-import { PanelSettings } from './components/PanelSettings';
-import { PanelOrbit } from './components/PanelOrbit';
-import { PanelWaste } from './components/PanelWaste';
-
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : 'Aktion fehlgeschlagen';
 const buildingMatchesField = (building: BuildingDef, field: ColonyField) =>
   getFieldTypeCandidates(field).some((fieldType) =>
     building.allowedFieldTypes.includes(fieldType),
@@ -55,18 +66,36 @@ export function ColoniesPage() {
   const [terraformingDefs, setTerraformingDefs] = useState<TerraformingDef[]>(
     [],
   );
+  const [starterOptions, setStarterOptions] =
+    useState<StarterColonizationOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>('info');
 
   useEffect(() => {
-    Promise.all([
-      api.get<Colony[]>('/colonies'),
-      api.get<CommodityDef[]>('/colonies/commodities/all'),
-      api.get<BuildingDef[]>('/colonies/buildings/available'),
-      api.get<BuildingDef[]>('/colonies/buildings/all'),
-      api.get<TerraformingDef[]>('/colonies/terraforming/all'),
-      api.get<ShipClassDef[]>('/spacecraft/classes'),
-    ]).then(([data, comms, buildings, allBuildings, terraforming, classes]) => {
+    void loadInitial();
+  }, []);
+
+  const loadInitial = async () => {
+    setLoading(true);
+    try {
+      const starter = await colonyApi.fetchStarterColonizationOptions();
+      setStarterOptions(starter);
+      if (starter.mode === 'required') {
+        setSelected(null);
+        setColonies([]);
+        setLoading(false);
+        return;
+      }
+
+      const [data, comms, buildings, allBuildings, terraforming, classes] =
+        await Promise.all([
+          colonyApi.fetchColonies(),
+          colonyApi.fetchCommodities(),
+          colonyApi.fetchAvailableBuildings(),
+          colonyApi.fetchAllBuildings(),
+          colonyApi.fetchTerraforming(),
+          colonyApi.fetchShipClasses(),
+        ]);
       setColonies(data);
       setCommodities(comms);
       setBuildingDefs(buildings);
@@ -74,13 +103,16 @@ export function ColoniesPage() {
       setTerraformingDefs(terraforming);
       setShipClasses(classes);
       const reqId = Number(searchParams.get('selected'));
-      if (reqId) loadColonyDetail(reqId);
+      if (reqId) await loadColonyDetail(reqId);
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
+    } finally {
       setLoading(false);
-    });
-  }, []);
+    }
+  };
 
   const loadColonyDetail = async (id: number) => {
-    const detail = await api.get<Colony>(`/colonies/${id}`);
+    const detail = await colonyApi.fetchColonyDetail(id);
     setSelected(detail);
     setSearchParams({ selected: String(id) }, { replace: true });
   };
@@ -94,13 +126,37 @@ export function ColoniesPage() {
   const act = async (fn: () => Promise<void>) => {
     try {
       await fn();
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Aktion fehlgeschlagen');
+    } catch (error: unknown) {
+      toast.error(errorMessage(error));
     }
+  };
+
+  const handleStarterFound = async (celestialObjectId: number) => {
+    await act(async () => {
+      const result = await colonyApi.foundStarterColony(celestialObjectId);
+      const detail = await colonyApi.fetchColonyDetail(result.colonyId);
+      setStarterOptions({
+        mode: 'not-required',
+        reservedStarterColonyId: result.colonyId,
+        starterShipId: null,
+        targets: [],
+      });
+      setSelected(detail);
+      setSearchParams({ selected: String(result.colonyId) }, { replace: true });
+    });
   };
 
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
+
+  if (starterOptions?.mode === 'required') {
+    return (
+      <StarterColonizationGate
+        options={starterOptions}
+        onFound={handleStarterFound}
+      />
+    );
+  }
   if (!selected)
     return (
       <ColonyOverview
@@ -130,6 +186,14 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
+      onUpgradeBuilding={(fi, ui) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/fields/${fi}/upgrade`, {
+            upgradeId: ui,
+          });
+          loadColonyDetail(selected.id);
+        })
+      }
       onDemolish={(fi) =>
         act(async () => {
           await api.delete(`/colonies/${selected.id}/fields/${fi}/building`);
@@ -150,20 +214,13 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onBuildShip={(
-        sci,
-        name,
-        moduleTypes,
-        buildPlanName,
-        moduleCommodityIds,
-      ) =>
+      onBuildShip={(sci, name, moduleSelections, buildPlanName) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/build-ship`, {
             shipClassId: sci,
             name,
-            moduleTypes,
+            moduleSelections,
             buildPlanName,
-            moduleCommodityIds,
           });
           loadColonyDetail(selected.id);
         })
@@ -270,11 +327,11 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onQueueShipRetrofit={(shipId, moduleCommodityIds, buildPlanName) =>
+      onQueueShipRetrofit={(shipId, moduleSelections, buildPlanName) =>
         act(async () => {
           await api.post(
             `/colonies/${selected.id}/ships/${shipId}/retrofit-queue`,
-            { moduleCommodityIds, buildPlanName },
+            { moduleSelections, buildPlanName },
           );
           loadColonyDetail(selected.id);
         })
@@ -296,13 +353,12 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onCreateBuildplan={(shipClassId, name, moduleCommodityIds, moduleTypes) =>
+      onCreateBuildplan={(shipClassId, name, moduleSelections) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/buildplans`, {
             shipClassId,
             name,
-            moduleCommodityIds,
-            moduleTypes,
+            moduleSelections,
           });
           loadColonyDetail(selected.id);
         })
@@ -430,29 +486,99 @@ export function ColoniesPage() {
       }
       onActivateBuildings={async (mode, options) => {
         try {
-          const result = await api.post<any, unknown>(
-            `/colonies/${selected.id}/buildings/activate`,
-            { mode, ...options },
+          const result = await colonyApi.activateBuildings(
+            selected.id,
+            mode,
+            options,
           );
           loadColonyDetail(selected.id);
           return result;
-        } catch (e: any) {
-          toast.error(e?.message ?? 'Aktion fehlgeschlagen');
+        } catch (error: unknown) {
+          toast.error(errorMessage(error));
+          throw error;
         }
       }}
       onDeactivateBuildings={async (mode, options) => {
         try {
-          const result = await api.post<any, unknown>(
-            `/colonies/${selected.id}/buildings/deactivate`,
-            { mode, ...options },
+          const result = await colonyApi.deactivateBuildings(
+            selected.id,
+            mode,
+            options,
           );
           loadColonyDetail(selected.id);
           return result;
-        } catch (e: any) {
-          toast.error(e?.message ?? 'Aktion fehlgeschlagen');
+        } catch (error: unknown) {
+          toast.error(errorMessage(error));
+          throw error;
         }
       }}
     />
+  );
+}
+
+function StarterColonizationGate({
+  options,
+  onFound,
+}: {
+  options: StarterColonizationOptions;
+  onFound: (celestialObjectId: number) => Promise<void> | void;
+}) {
+  const [busyTargetId, setBusyTargetId] = useState<number | null>(null);
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="rounded border border-swu-accent/40 bg-swu-surface px-4 py-3">
+        <div className="text-sm font-semibold text-swu-primary">
+          Starterkolonisierung erforderlich
+        </div>
+        <div className="mt-1 text-xs text-swu-muted">
+          Wähle einen freien Startplaneten. Die normale Kolonieübersicht ist
+          erst nach der Gründung verfügbar.
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {options.targets.map((target) => (
+          <div
+            key={target.id}
+            className="rounded border border-swu-border bg-swu-surface px-4 py-3 space-y-3"
+          >
+            <div className="flex items-center gap-3">
+              {target.classId ? (
+                <img
+                  src={planetImage(target.classId)}
+                  alt={target.name ?? 'Starterplanet'}
+                  className="h-12 w-12 rounded border border-swu-border/60 object-cover"
+                />
+              ) : null}
+              <div>
+                <div className="text-sm font-semibold text-swu-primary">
+                  {target.name ?? `Planet ${target.id}`}
+                </div>
+                <div className="text-[11px] text-swu-muted">
+                  System {target.systemId} · Feld {target.posX}/{target.posY}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setBusyTargetId(target.id);
+                try {
+                  await onFound(target.id);
+                } finally {
+                  setBusyTargetId(null);
+                }
+              }}
+              disabled={busyTargetId === target.id}
+              className="w-full rounded border border-swu-accent bg-swu-accent/15 px-3 py-2 text-xs font-semibold text-swu-accent disabled:opacity-40"
+            >
+              {busyTargetId === target.id
+                ? 'Gründe…'
+                : 'Starterkolonie gründen'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -469,6 +595,7 @@ export function ColonyDetail({
   setActiveTab,
   onBack,
   onBuild,
+  onUpgradeBuilding,
   onDemolish,
   onToggle,
   onTerraform,
@@ -519,15 +646,15 @@ export function ColonyDetail({
   setActiveTab: (t: DetailTab) => void;
   onBack: () => void;
   onBuild: (fi: number, bi: number) => void;
+  onUpgradeBuilding: (fi: number, ui: number) => void;
   onDemolish: (fi: number) => void;
   onToggle: (fi: number) => void;
   onTerraform: (fi: number, ti: number) => Promise<void> | void;
   onBuildShip: (
     sci: number,
     name: string,
-    moduleTypes?: string[],
+    moduleSelections?: ShipModuleSelection[],
     buildPlanName?: string,
-    moduleCommodityIds?: number[],
   ) => Promise<void> | void;
   onStartFabrication: (
     itemKey: string,
@@ -553,7 +680,7 @@ export function ColonyDetail({
   onQueueShipRepair: (shipId: number) => Promise<void> | void;
   onQueueShipRetrofit: (
     shipId: number,
-    moduleCommodityIds: number[],
+    moduleSelections: ShipModuleSelection[],
     buildPlanName?: string,
   ) => Promise<void> | void;
   onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
@@ -561,8 +688,7 @@ export function ColonyDetail({
   onCreateBuildplan: (
     shipClassId: number,
     name: string,
-    moduleCommodityIds?: number[],
-    moduleTypes?: string[],
+    moduleSelections?: ShipModuleSelection[],
   ) => Promise<void> | void;
   onRenameBuildplan: (planId: number, name: string) => Promise<void> | void;
   onDeleteBuildplan: (planId: number) => Promise<void> | void;
@@ -592,11 +718,11 @@ export function ColonyDetail({
   onActivateBuildings: (
     mode: number,
     options: { fieldIndexes?: number[]; commodityId?: number },
-  ) => Promise<any>;
+  ) => Promise<BuildingMassActionResult>;
   onDeactivateBuildings: (
     mode: number,
     options: { fieldIndexes?: number[]; commodityId?: number },
-  ) => Promise<any>;
+  ) => Promise<BuildingMassActionResult>;
 }) {
   const buildingMap = useMemo<Record<number, BuildingDef>>(
     () => Object.fromEntries(allBuildingDefs.map((b) => [b.id, b])),
@@ -613,10 +739,31 @@ export function ColonyDetail({
   const [hoveredBuildField, setHoveredBuildField] =
     useState<ColonyField | null>(null);
   const [modalField, setModalField] = useState<ColonyField | null>(null);
+  const [surfaceLayer, setSurfaceLayer] = useState<
+    'ALL' | 'ORBIT' | 'SURFACE' | 'UNDERGROUND'
+  >('ALL');
 
-  const fields = colony.fields || [];
-  const storage = colony.storage || [];
   const detail = colony.detailV2;
+  const fieldUpgradeMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (detail?.buildingManagement?.fields ?? []).map((field) => [
+          field.fieldIndex,
+          field.availableUpgrades ?? [],
+        ]),
+      ) as Record<number, ColonyFieldUpgrade[]>,
+    [detail?.buildingManagement?.fields],
+  );
+  const fields = useMemo(
+    () =>
+      (colony.fields || []).map((field) => ({
+        ...field,
+        availableUpgrades:
+          field.availableUpgrades ?? fieldUpgradeMap[field.fieldIndex] ?? [],
+      })),
+    [colony.fields, fieldUpgradeMap],
+  );
+  const storage = (colony.storage || []).filter((item) => item.amount > 0);
 
   useEffect(() => {
     if (selectedField) {
@@ -627,6 +774,14 @@ export function ColonyDetail({
       else setSelectedField(null);
     }
   }, [fields]);
+
+  useEffect(() => {
+    if (modalField) {
+      const fresh = fields.find((f) => f.fieldIndex === modalField.fieldIndex);
+      if (fresh) setModalField(fresh);
+      else setModalField(null);
+    }
+  }, [fields, modalField]);
 
   const highlightedFields = useMemo(() => {
     if (!selectedBuilding) return new Set<number>();
@@ -697,7 +852,6 @@ export function ColonyDetail({
   const handleFieldClick = (field: ColonyField) => {
     if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
       onBuild(field.fieldIndex, selectedBuilding.id);
-      setSelectedBuilding(null);
       setHoveredBuildField(null);
       setSelectedField(null);
     } else if (!selectedBuilding) {
@@ -709,14 +863,22 @@ export function ColonyDetail({
     }
   };
 
-  const orbitFields = fields
-    .filter((f) => f.fieldType >= 900)
+  const visibleFields =
+    surfaceLayer === 'ALL'
+      ? fields
+      : fields.filter((field) => field.layer === surfaceLayer);
+  const orbitFields = visibleFields
+    .filter((f) => f.layer === 'ORBIT' || (!f.layer && f.fieldType >= 900))
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
-  const undergroundFields = fields
-    .filter((f) => f.fieldType >= 800 && f.fieldType < 900)
+  const undergroundFields = visibleFields
+    .filter(
+      (f) =>
+        f.layer === 'UNDERGROUND' ||
+        (!f.layer && f.fieldType >= 800 && f.fieldType < 900),
+    )
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
-  const surfaceFields = fields
-    .filter((f) => f.fieldType < 800)
+  const surfaceFields = visibleFields
+    .filter((f) => f.layer === 'SURFACE' || (!f.layer && f.fieldType < 800))
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
 
   const tabAccess = detail?.featureAccess?.tabs;
@@ -864,6 +1026,25 @@ export function ColonyDetail({
         <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-swu-bg to-transparent pointer-events-none md:hidden" />
       </div>
 
+      {detail?.surface?.hasUnderground && (
+        <div className="flex flex-wrap gap-1 text-[10px]">
+          {(['ALL', ...detail.surface.layers] as const).map((layer) => (
+            <button
+              key={layer}
+              onClick={() => setSurfaceLayer(layer)}
+              className={`rounded border px-2 py-1 ${surfaceLayer === layer ? 'border-swu-accent text-swu-accent' : 'border-swu-border text-swu-muted'}`}
+            >
+              {layer === 'ALL'
+                ? 'Alle Layer'
+                : layer === 'SURFACE'
+                  ? 'Oberfläche'
+                  : layer === 'UNDERGROUND'
+                    ? 'Untergrund'
+                    : 'Orbit'}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Main: Left (Grid+Storage) + Right (Tab content) */}
       <div className="flex gap-3 flex-col lg:flex-row">
         {/* LEFT: Grid + Storage (always visible) */}
@@ -1061,8 +1242,8 @@ export function ColonyDetail({
           {activeTab === 'buildingManagement' && detail?.buildingManagement && (
             <PanelBuildingManagement
               management={detail.buildingManagement}
-              onActivate={onActivateBuildings as any}
-              onDeactivate={onDeactivateBuildings as any}
+              onActivate={onActivateBuildings}
+              onDeactivate={onDeactivateBuildings}
             />
           )}
           {activeTab === 'shipyard' && (
@@ -1077,6 +1258,7 @@ export function ColonyDetail({
               orbitShips={detail?.orbitShips ?? []}
               buildplans={detail?.buildplans ?? []}
               onBuildShip={onBuildShip}
+              onDisassembleShip={onDisassembleShip}
               onQueueShipRepair={onQueueShipRepair}
               onQueueShipRetrofit={onQueueShipRetrofit}
               onCancelShipyardQueue={onCancelShipyardQueue}
@@ -1169,10 +1351,15 @@ export function ColonyDetail({
       {/* Field Info Modal */}
       {modalField && modalField.buildingId && (
         <FieldInfoModal
+          buildingMap={buildingMap}
           field={modalField}
           building={buildingMap[modalField.buildingId]}
           commodityMap={commodityMap}
           onClose={() => setModalField(null)}
+          onUpgrade={(upgradeId) => {
+            onUpgradeBuilding(modalField.fieldIndex, upgradeId);
+            setModalField(null);
+          }}
           onDemolish={() => {
             onDemolish(modalField.fieldIndex);
             setModalField(null);

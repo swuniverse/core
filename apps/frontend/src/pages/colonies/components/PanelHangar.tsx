@@ -97,7 +97,7 @@ export function PanelHangar({
                     {item.startEnergyCost} · Crew {item.crewRequired}
                   </div>
                   <div className="text-[10px] text-swu-muted">
-                    Kosten:{' '}
+                    Kosten/Module:{' '}
                     {item.buildCosts
                       .map(
                         (cost) =>
@@ -105,6 +105,17 @@ export function PanelHangar({
                       )
                       .join(', ')}
                   </div>
+                  <div className="text-[10px] text-swu-muted">
+                    Defaultmodule:{' '}
+                    {item.defaultModules.length
+                      ? item.defaultModules.map((module) => module.name).join(', ')
+                      : 'keine'}
+                  </div>
+                  {item.maxBuildable <= 0 && (
+                    <div className="text-[10px] text-red-400">
+                      Nicht baubar: Energie oder benötigte Module fehlen.
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <input
@@ -123,6 +134,9 @@ export function PanelHangar({
                     }
                     className="w-16 px-2 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary"
                   />
+                  <div className="text-[10px] text-swu-muted font-mono">
+                    max. baubar: {item.maxBuildable}
+                  </div>
                   <button
                     onClick={() =>
                       run(`build-${item.shipClassId}`, () =>
@@ -131,6 +145,7 @@ export function PanelHangar({
                     }
                     disabled={
                       !hangar.hasAirfield ||
+                      amount > item.maxBuildable ||
                       busy === `build-${item.shipClassId}`
                     }
                     className="px-2 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-[10px] rounded disabled:opacity-40"
@@ -165,6 +180,12 @@ export function PanelHangar({
                   <div className="text-[10px] text-swu-muted">
                     Startenergie {item.startEnergyCost} · Crew{' '}
                     {item.crewRequired}
+                  </div>
+                  <div className="text-[10px] text-swu-muted">
+                    Startet mit:{' '}
+                    {item.defaultModules.length
+                      ? item.defaultModules.map((module) => module.name).join(', ')
+                      : 'keinen Defaultmodulen'}
                   </div>
                 </div>
                 <input

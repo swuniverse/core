@@ -17,6 +17,7 @@ import { ColonyService } from './colony.service';
 import { ColonyOrbitAssignmentMode } from './entities/colony-orbit-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
+import { ShipModuleSelection } from './entities/colony-ship-buildplan.entity';
 
 @Controller('colonies')
 @UseGuards(AuthGuard('jwt'))
@@ -357,14 +358,14 @@ export class ColonyController {
     @Param('id', ParseIntPipe) id: number,
     @Param('shipId', ParseIntPipe) shipId: number,
     @Request() req: { user: { sub: number } },
-    @Body('moduleCommodityIds') moduleCommodityIds: number[],
+    @Body('moduleSelections') moduleSelections: ShipModuleSelection[],
     @Body('buildPlanName') buildPlanName?: string,
   ) {
     return this.colonyService.queueShipRetrofit(
       id,
       req.user.sub,
       shipId,
-      moduleCommodityIds ?? [],
+      moduleSelections ?? [],
       buildPlanName,
     );
   }
@@ -496,18 +497,16 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
     @Body('shipClassId') shipClassId: number,
     @Body('name') name: string,
-    @Body('moduleTypes') moduleTypes?: string[],
+    @Body('moduleSelections') moduleSelections?: ShipModuleSelection[],
     @Body('buildPlanName') buildPlanName?: string,
-    @Body('moduleCommodityIds') moduleCommodityIds?: number[],
   ) {
     return this.colonyService.buildShip(
       id,
       req.user.sub,
       shipClassId,
       name,
-      moduleTypes,
+      moduleSelections,
       buildPlanName,
-      moduleCommodityIds,
     );
   }
 
@@ -517,16 +516,14 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
     @Body('shipClassId') shipClassId: number,
     @Body('name') name: string,
-    @Body('moduleCommodityIds') moduleCommodityIds?: number[],
-    @Body('moduleTypes') moduleTypes?: string[],
+    @Body('moduleSelections') moduleSelections?: ShipModuleSelection[],
   ) {
     return this.colonyService.createShipBuildplan(
       id,
       req.user.sub,
       shipClassId,
       name,
-      moduleCommodityIds ?? [],
-      moduleTypes ?? [],
+      moduleSelections ?? [],
     );
   }
 

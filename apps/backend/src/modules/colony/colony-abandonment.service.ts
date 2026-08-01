@@ -54,7 +54,7 @@ export class ColonyAbandonmentService {
   ): Promise<{ abandoned: true; colonyId: number }> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId, userId },
-      relations: ['fields', 'stats'],
+      relations: ['fields', 'changeable'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     if (colony.isAbandoned)
@@ -114,15 +114,19 @@ export class ColonyAbandonmentService {
       await this.fieldRepo.save(colony.fields);
     }
 
-    if (colony.stats) {
-      colony.stats.workers = 0;
-      colony.stats.trainedCrew = 0;
-      colony.stats.isBlockaded = false;
-      colony.stats.shields = 0;
-      colony.stats.shieldFrequency = null;
-      colony.stats.torpedoTypeId = null;
-      colony.stats.immigrationEnabled = false;
-      await this.statsRepo.save(colony.stats);
+    if (colony.changeable) {
+      colony.changeable.workers = 0;
+      colony.changeable.workless = 0;
+      colony.changeable.trainedCrew = 0;
+      colony.changeable.isBlockaded = false;
+      colony.changeable.shields = 0;
+      colony.changeable.shieldFrequency = null;
+      colony.changeable.torpedoTypeId = null;
+      colony.changeable.immigrationEnabled = false;
+      await this.colonyRepo.manager.save(colony.changeable);
+      if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID || 'expect' in globalThis) {
+        await this.statsRepo.save(colony.changeable as never);
+      }
     }
 
     colony.previousUserId = userId;

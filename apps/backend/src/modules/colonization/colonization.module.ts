@@ -4,6 +4,7 @@ import { ColonizationController } from './colonization.controller';
 import { ColonizationService } from './colonization.service';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { ColonyEvent } from '../colony/entities/colony-event.entity';
 import { ColonyModule } from '../colony/colony.module';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -16,6 +17,7 @@ import { ResearchModule } from '../research/research.module';
     TypeOrmModule.forFeature([
       User,
       Colony,
+      ColonyChangeable,
       ColonyEvent,
       CelestialObject,
       Spacecraft,

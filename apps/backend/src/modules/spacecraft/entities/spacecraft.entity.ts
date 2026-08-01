@@ -137,6 +137,23 @@ export class Spacecraft {
   @Column({ default: 0 })
   batteryMax: number;
 
+  @Column({ default: 0 })
+  epsMax: number;
+
+  @Column({ default: 0 })
+  reactorOutput: number;
+
+  @Column({ default: 0 })
+  warpdriveMax: number;
+  @Column({ default: 0 })
+  warpdrive: number;
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  runtimeSystems: Record<string, unknown>;
+
+  @Column({ default: 0 })
+  evadeChance: number;
+
   // Navigation target (for in-flight)
   @Column({ type: 'int', nullable: true })
   targetSystemId: number | null;

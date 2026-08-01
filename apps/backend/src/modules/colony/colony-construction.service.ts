@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
+import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import { ColonyBuildingManagementService } from './colony-building-management.service';
 import { BuildingMassActionMode } from './colony-building-management.types';
 import { ColonyEventService } from './colony-event.service';
@@ -38,6 +39,7 @@ export class ColonyConstructionService {
     private readonly ownership: ColonyOwnershipService,
     private readonly projection: ColonyProjectionService,
     private readonly timing: ColonyTimingService,
+    private readonly buildingEffectsService?: ColonyBuildingEffectsService,
   ) {}
 
   private async findOne(colonyId: number, userId: number): Promise<Colony> {
@@ -331,27 +333,33 @@ export class ColonyConstructionService {
   private assertCanActivateBuilding(
     colony: Colony,
     field: ColonyField,
-    definition: BuildingDef,
+    _definition: BuildingDef,
   ): void {
+    const result = this.buildingEffectsService?.canActivateField(colony, field);
+    if (result && !result.ok) {
+      throw new BadRequestException(result.reason ?? 'Aktivierung fehlgeschlagen');
+    }
+    if (result?.ok) return;
+
     const summaryWithoutField = this.colonyStatsService.calculateSummary(
       colony,
       new Set([field.id]),
     );
     const availableWorkers =
       summaryWithoutField.effectiveState.population.available;
-    if ((definition.bevUse || 0) > availableWorkers) {
+    if ((_definition.bevUse || 0) > availableWorkers) {
       throw new BadRequestException('Nicht genug freie Arbeiter');
     }
 
     const energyAfter =
-      summaryWithoutField.energyDelta + (definition.epsProc || 0);
+      summaryWithoutField.energyDelta + (_definition.epsProc || 0);
     if (energyAfter < 0 && colony.energy + energyAfter < 0) {
       throw new BadRequestException('Nicht genug Energie');
     }
 
     const missingEffectCommodity = this.getUnavailableEffectCommodity(
       summaryWithoutField,
-      definition,
+      _definition,
     );
     if (missingEffectCommodity) {
       const commodity = this.gameData.getCommodity(

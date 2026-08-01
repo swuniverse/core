@@ -1,9 +1,12 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '50mb';
+  app.useBodyParser('json', { limit: jsonBodyLimit });
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(

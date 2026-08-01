@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
@@ -6,16 +6,18 @@ import { assertOwnedColony, OwnedColony } from './colony-owner.util';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
+import { ColonyChangeable } from './entities/colony-changeable.entity';
 import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
-import { CelestialObject } from '../starmap/entities/celestial-object.entity';
-import { PlanetField } from '../starmap/entities/planet-field.entity';
-import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
+import {
+  CelestialObject,
+  CelestialObjectType,
+} from '../starmap/entities/celestial-object.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import {
   STU_DEFAULT_COLONY_CLASS_ID,
   stuColonySurfaceGenerator,
+  type StuColonyFieldData,
 } from './stu-colony-surface.generator';
-
 const FIELD_TYPES = {
   PLAINS: 101,
 };
@@ -61,13 +63,12 @@ export class ColonySeedService {
     private readonly storageRepo: Repository<ColonyStorage>,
     @InjectRepository(ColonyStats)
     private readonly statsRepo: Repository<ColonyStats>,
+    @InjectRepository(ColonyChangeable)
+    private readonly changeableRepo: Repository<ColonyChangeable>,
     @InjectRepository(ColonyDepositMining)
     private readonly depositMiningRepo: Repository<ColonyDepositMining>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
-    @InjectRepository(PlanetField)
-    private readonly planetFieldRepo: Repository<PlanetField>,
-    private readonly planetGenerator: PlanetGeneratorService,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -77,21 +78,31 @@ export class ColonySeedService {
     preferredCelestialObjectId?: number,
     factionId?: number | null,
   ): Promise<Colony> {
+    const starterTargets = await this.findStarterTargets();
     const planet = preferredCelestialObjectId
-      ? await this.objectRepo.findOneBy({
-          id: preferredCelestialObjectId,
-          isColonizable: true,
-        })
-      : await this.findAvailablePlanet();
+      ? starterTargets.find((target) => target.id === preferredCelestialObjectId) ??
+        null
+      : starterTargets[0] ?? null;
 
+    if (!planet) {
+      throw new BadRequestException('Starterplanet ist nicht verfügbar');
+    }
+    const surface = this.generateSurfaceSnapshot(
+      planet.classId || STU_DEFAULT_COLONY_CLASS_ID,
+      `starter-${userId}-${planet.id}`,
+      planet.starSystem?.bonusFields ?? 2,
+    );
     const colony = this.colonyRepo.create({
       name: `${username}'s Homeworld`,
       userId,
-      starSystemId: planet?.systemId || null,
-      celestialObjectId: planet?.id || null,
-      posX: planet?.posX || 10,
-      posY: planet?.posY || 10,
-      colonyClassId: planet?.classId || STU_DEFAULT_COLONY_CLASS_ID,
+      starSystemId: planet.systemId,
+      celestialObjectId: planet.id,
+      posX: planet.posX,
+      posY: planet.posY,
+      colonyClassId: planet.classId || STU_DEFAULT_COLONY_CLASS_ID,
+      surfaceMask: surface.mask,
+      surfaceWidth: surface.width,
+      rotationFactor: surface.rotationFactor,
       energy: 50,
       energyMax: 100,
       population: 20,
@@ -101,8 +112,9 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
-    await this.generateFields(colony, { factionId });
+    await this.generateFields(colony, { factionId, fields: surface.fields });
     await this.createInitialStats(colony);
+    await this.createInitialChangeable(colony);
     assertOwnedColony(colony);
     await this.createInitialDepositMining(colony);
     await this.grantStartingResources(colony, STARTING_COMMODITIES);
@@ -116,10 +128,16 @@ export class ColonySeedService {
   async createFollowUpColony(
     options: CreateFollowUpColonyOptions,
   ): Promise<Colony> {
-    const object = await this.objectRepo.findOneBy({
-      id: options.celestialObjectId,
-      isColonizable: true,
+    const object = await this.objectRepo.findOne({
+      where: { id: options.celestialObjectId, isColonizable: true },
+      relations: ['starSystem'],
     });
+    const classId = object?.classId || STU_DEFAULT_COLONY_CLASS_ID;
+    const surface = this.generateSurfaceSnapshot(
+      classId,
+      `colony-${options.userId}-${options.celestialObjectId}`,
+      object?.starSystem?.bonusFields ?? 2,
+    );
 
     const colony = this.colonyRepo.create({
       name: options.name?.trim() || `${options.username}'s Kolonie`,
@@ -128,7 +146,10 @@ export class ColonySeedService {
       celestialObjectId: object?.id || null,
       posX: object?.posX || 10,
       posY: object?.posY || 10,
-      colonyClassId: object?.classId || STU_DEFAULT_COLONY_CLASS_ID,
+      colonyClassId: classId,
+      surfaceMask: surface.mask,
+      surfaceWidth: surface.width,
+      rotationFactor: surface.rotationFactor,
       energy: 25,
       energyMax: 100,
       population: 10,
@@ -140,8 +161,10 @@ export class ColonySeedService {
 
     await this.generateFields(colony, {
       initialBuildingId: options.buildingId,
+      fields: surface.fields,
     });
     await this.createInitialStats(colony);
+    await this.createInitialChangeable(colony);
     assertOwnedColony(colony);
     await this.createInitialDepositMining(colony);
     await this.grantStartingResources(
@@ -155,66 +178,81 @@ export class ColonySeedService {
     return colony;
   }
 
-  private async findAvailablePlanet(): Promise<CelestialObject | null> {
-    // Find a colonizable planet not yet claimed
-    const claimed = await this.colonyRepo
-      .createQueryBuilder('c')
-      .select('c.celestialObjectId')
-      .where('c.celestialObjectId IS NOT NULL')
-      .getMany();
-
-    const claimedIds = claimed
-      .map((c) => c.celestialObjectId)
-      .filter((id): id is number => id !== null);
-
-    const query = this.objectRepo
+  private async findStarterTargets(): Promise<CelestialObject[]> {
+    return this.objectRepo
       .createQueryBuilder('obj')
+      .leftJoin(
+        Colony,
+        'colony',
+        'colony.celestialObjectId = obj.id AND colony.isAbandoned = false',
+      )
       .where('obj.isColonizable = true')
-      .andWhere('obj.objectType = 1');
+      .andWhere('obj.objectType = :objectType', {
+        objectType: CelestialObjectType.PLANET,
+      })
+      .andWhere('obj.classId IS NOT NULL')
+      .andWhere('colony.id IS NULL')
+      .orderBy('obj.id', 'ASC')
+      .getMany();
+  }
 
-    if (claimedIds.length > 0) {
-      query.andWhere('obj.id NOT IN (:...ids)', { ids: claimedIds });
-    }
-
-    return query.orderBy('RANDOM()').getOne();
+  generateSurfaceSnapshot(
+    classId: number,
+    seed: string,
+    bonusFields: number,
+  ): {
+    mask: string;
+    width: number;
+    rotationFactor: number;
+    fields: StuColonyFieldData[];
+  } {
+    const generated = stuColonySurfaceGenerator.generate(
+      classId,
+      seed,
+      bonusFields,
+    );
+    const mask = Buffer.from(
+      JSON.stringify(
+        generated.fields.map((field) => ({
+          fieldIndex: field.fieldIndex,
+          fieldType: field.fieldType,
+          terrainTileId: field.terrainTileId,
+          layer: field.layer,
+        })),
+      ),
+    ).toString('base64');
+    return {
+      mask,
+      width: generated.width,
+      rotationFactor: 1,
+      fields: generated.fields,
+    };
   }
 
   private async generateFields(
     colony: Colony,
-    options: { factionId?: number | null; initialBuildingId?: number } = {},
+    options: {
+      factionId?: number | null;
+      initialBuildingId?: number;
+      fields: StuColonyFieldData[];
+    },
   ): Promise<void> {
-    const planetFields = colony.celestialObjectId
-      ? await this.getOrCreatePlanetFields(colony.celestialObjectId)
-      : [];
-
-    const fields: ColonyField[] =
-      planetFields.length > 0
-        ? planetFields.map((field, index) =>
-            this.fieldRepo.create({
-              colonyId: colony.id,
-              fieldIndex: index,
-              fieldType: field.fieldType,
-              terrainTileId: field.terrainTileId,
-              buildingId: null,
-              isBuilding: false,
-            }),
-          )
-        : stuColonySurfaceGenerator
-            .generate(colony.colonyClassId, `colony-${colony.id}`, 2)
-            .fields.map((field) =>
-              this.fieldRepo.create({
-                colonyId: colony.id,
-                fieldIndex: field.fieldIndex,
-                fieldType: field.fieldType,
-                terrainTileId: field.terrainTileId,
-                buildingId: null,
-                isBuilding: false,
-              }),
-            );
+    const fields = options.fields.map((field) =>
+      this.fieldRepo.create({
+        colonyId: colony.id,
+        fieldIndex: field.fieldIndex,
+        fieldType: field.fieldType,
+        terrainTileId: field.terrainTileId,
+        layer: field.layer,
+        buildingId: null,
+        isBuilding: false,
+      }),
+    );
 
     const hqField = this.findHeadquartersField(fields);
     hqField.fieldType = FIELD_TYPES.PLAINS;
     hqField.terrainTileId = FIELD_TYPES.PLAINS;
+    hqField.layer = 'SURFACE';
     hqField.buildingId =
       options.initialBuildingId ??
       STU_STARTER_BUILDINGS_BY_FACTION_ID[options.factionId ?? 1] ??
@@ -223,16 +261,6 @@ export class ColonySeedService {
     hqField.isActive = true;
 
     await this.fieldRepo.save(fields);
-  }
-
-  private async getOrCreatePlanetFields(
-    celestialObjectId: number,
-  ): Promise<PlanetField[]> {
-    await this.planetGenerator.ensureGenerated(celestialObjectId);
-    return this.planetFieldRepo.find({
-      where: { celestialObjectId },
-      order: { fieldLayer: 'ASC', py: 'ASC', px: 'ASC' },
-    });
   }
 
   private async createInitialStats(colony: Colony): Promise<void> {
@@ -263,6 +291,39 @@ export class ColonySeedService {
         torpedoTypeId: null,
         trainedCrew: 0,
         isBlockaded: false,
+      }),
+    );
+  }
+
+  private async createInitialChangeable(colony: Colony): Promise<void> {
+    const activeFields = await this.fieldRepo.find({
+      where: { colonyId: colony.id, isBuilding: false, isActive: true },
+    });
+    const activeHousing = activeFields.reduce((sum, field) => {
+      const building = field.buildingId
+        ? this.gameData.getBuilding(field.buildingId)
+        : undefined;
+      return sum + (building?.bevPro ?? 0);
+    }, 0);
+
+    await this.changeableRepo.save(
+      this.changeableRepo.create({
+        colonyId: colony.id,
+        workers: 0,
+        workless: colony.population,
+        maxPopulation: activeHousing || colony.populationMax,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        energy: colony.energy,
+        maxEnergy: colony.energyMax,
+        maxStorage: colony.storageMax,
+        shields: 0,
+        maxShields: 0,
+        shieldFrequency: null,
+        torpedoTypeId: null,
+        colonyMessage: null,
+        isBlockaded: false,
+        trainedCrew: 0,
       }),
     );
   }

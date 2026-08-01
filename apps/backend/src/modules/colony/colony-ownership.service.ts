@@ -21,6 +21,7 @@ export class ColonyOwnershipService {
         'fields',
         'storage',
         'stats',
+        'changeable',
         'starSystem',
         'celestialObject',
       ],
@@ -29,16 +30,18 @@ export class ColonyOwnershipService {
     return colony;
   }
 
-  async findOwnedColonyWithStats(
+  async findOwnedColonyWithChangeable(
     colonyId: number,
     userId: number,
   ): Promise<Colony> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId, userId, isAbandoned: false },
-      relations: ['stats'],
+      relations: ['changeable', 'stats'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
-    if (!colony.stats) throw new BadRequestException('Colony stats missing');
+    if (!colony.changeable) {
+      throw new BadRequestException('Colony changeable state missing');
+    }
     return colony;
   }
 }

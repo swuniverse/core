@@ -229,6 +229,82 @@ export interface FabricationCostDef {
   amount: number;
 }
 
+export type ShipyardGroup =
+  | 'CORE_SYSTEMS'
+  | 'OFFENSE_SYSTEMS'
+  | 'DEFENSE_SYSTEMS';
+
+export type ShipyardType =
+  | 'HULL'
+  | 'SHIELDS'
+  | 'COMPUTER'
+  | 'SUBLIGHT_DRIVE'
+  | 'SENSORS'
+  | 'HYPERDRIVE'
+  | 'REACTOR'
+  | 'EPS'
+  | 'ENERGY_WEAPON'
+  | 'TORPEDO_BANK'
+  | 'SPECIAL';
+
+const SHIPYARD_TYPE_TO_GROUP: Record<ShipyardType, ShipyardGroup> = {
+  HULL: 'DEFENSE_SYSTEMS',
+  COMPUTER: 'CORE_SYSTEMS',
+  SUBLIGHT_DRIVE: 'CORE_SYSTEMS',
+  SENSORS: 'CORE_SYSTEMS',
+  HYPERDRIVE: 'CORE_SYSTEMS',
+  REACTOR: 'CORE_SYSTEMS',
+  EPS: 'CORE_SYSTEMS',
+  SPECIAL: 'CORE_SYSTEMS',
+  SHIELDS: 'DEFENSE_SYSTEMS',
+  ENERGY_WEAPON: 'OFFENSE_SYSTEMS',
+  TORPEDO_BANK: 'OFFENSE_SYSTEMS',
+};
+
+export interface ShipyardModuleStatsDef {
+  outputCommodityId: number;
+  stuModuleId: number;
+  stuName: string;
+  level: number;
+  upgradeFactor: number;
+  downgradeFactor: number;
+  crew: number;
+  type: number;
+  energyCost: number;
+  defaultFactor: number;
+  factionId: number | null;
+  systemType: number | null;
+}
+
+export interface ShipyardRumpStatsDef {
+  stuRumpId: number;
+  stuName: string;
+  moduleLevel: number;
+  baseCrew: number;
+  baseEps: number;
+  baseReactor: number;
+  baseHull: number;
+  baseShield: number;
+  baseDamage: number;
+  baseSensorRange: number;
+  baseEvadeChance: number;
+  baseHitChance: number;
+  baseWarpdrive: number;
+  specialSlots: number;
+}
+
+export interface ShipyardRumpModuleRuleDef {
+  level: number;
+  mandatory: number;
+  min: number;
+  max: number;
+}
+
+export interface ShipyardRumpModuleRulesDef {
+  stuRumpId: number;
+  moduleRules: Partial<Record<ShipyardType, ShipyardRumpModuleRuleDef>>;
+}
+
 export interface FabricationItemDef {
   itemKey: string;
   queueType: 'MODULE' | 'TORPEDO';
@@ -237,18 +313,46 @@ export interface FabricationItemDef {
   outputAmount: number;
   moduleType?: string;
   moduleCategory?: string;
+  fabricationCategory?: string;
+  shipyardGroup?: ShipyardGroup;
+  shipyardType?: ShipyardType;
+  shipyardModuleStats?: ShipyardModuleStatsDef;
   moduleLevel?: number;
+  moduleClass?: number;
+  moduleTier?: number;
   researchId?: number | null;
   researchRequired?: string | null;
+  faction?: Faction;
   buildingFunctionIds: number[];
   durationSeconds: number;
+  source?: string;
+  costSource?: string;
+  durationSource?: string;
+  stuModuleId?: number;
+  stuSourceCommodityId?: number;
+  stuSourceTechId?: number | null;
+  stuRawName?: string;
   costs: FabricationCostDef[];
+}
+
+export interface ShipClassLayoutSlotDef {
+  slotId: string;
+  moduleCategory: ShipyardType;
+  label: string;
+  anchorX: number;
+  anchorY: number;
+  calloutSide: 'left' | 'right' | 'top' | 'bottom';
+  order: number;
+  required?: boolean;
 }
 
 export interface ShipClassSlotRuleDef {
   category: string;
   allowedBuildingFunctionIds: number[];
-  moduleSlots: Record<string, number>;
+  moduleSlots: Record<ShipyardType, number>;
+  layoutKey: string;
+  imageKey: string;
+  slots: ShipClassLayoutSlotDef[];
 }
 
 export interface HangarShipDef {
@@ -269,7 +373,8 @@ export interface ShipClassYamlDef {
   name: string;
   category: string;
   role: string;
-  factionKey: string;
+  factionKey?: string | null;
+  allowedBuildingFunctionIds?: number[];
   unlockTechId: number | null;
   buildTimeTicks: number;
   cargoCapacity: number;
@@ -286,6 +391,8 @@ export interface ShipClassYamlDef {
   isColonizer?: boolean;
   colonizerTier?: number | null;
   colonizationBuildingId?: number | null;
+  stuRumpId?: number;
+  buildCosts?: FabricationCostDef[];
 }
 
 export interface SocialEffectsDef {
@@ -300,6 +407,13 @@ export interface SocialEffectsDef {
   >;
 }
 
+export type TorpedoDamageType =
+  | 'PROTON'
+  | 'QUANTUM'
+  | 'HEAVY_QUANTUM'
+  | 'PLASMA'
+  | 'HEAVY_PLASMA';
+
 export interface TorpedoTypeDef {
   id: number;
   commodityId: number;
@@ -311,6 +425,7 @@ export interface TorpedoTypeDef {
   hullDamageFactor: number;
   shieldDamageFactor: number;
   variance: number;
+  damageType?: TorpedoDamageType;
   energyCost: number;
   productionAmount: number;
   researchId: number | null;
@@ -344,6 +459,13 @@ export class GameDataService implements OnModuleInit {
   private hangarShipDefsByClassKey: Map<string, HangarShipDef> = new Map();
   private hangarShipDefsByCommodity: Map<number, HangarShipDef> = new Map();
   private shipClassDefs: ShipClassYamlDef[] = [];
+  private moduleStatsByOutputCommodity: Map<number, ShipyardModuleStatsDef> =
+    new Map();
+  private rumpStatsByStuRumpId: Map<number, ShipyardRumpStatsDef> = new Map();
+  private rumpModuleRulesByStuRumpId: Map<number, ShipyardRumpModuleRulesDef> =
+    new Map();
+
+
 
   onModuleInit() {
     this.dataPath =
@@ -364,12 +486,16 @@ export class GameDataService implements OnModuleInit {
     this.loadTerraforming();
     this.loadCombatFormulas();
     this.loadModules();
+    this.loadShipyardModuleStats();
+    this.loadShipyardRumpStats();
+    this.loadShipyardRumpModuleRules();
     this.loadFabricationItems();
+
     this.loadShipClassSlotRules();
     this.loadSocialEffects();
     this.loadTorpedoTypes();
-    this.loadHangarShipDefs();
     this.loadShipClasses();
+    this.loadHangarShipDefs();
     this.loadTechTree();
     this.loadColonyClasses();
   }
@@ -529,6 +655,7 @@ export class GameDataService implements OnModuleInit {
       'engines',
       'hull',
       'sensors',
+      'computer',
       'cargo',
       'life-support',
       'tractor-beam',
@@ -552,11 +679,54 @@ export class GameDataService implements OnModuleInit {
     );
   }
 
+  private loadShipyardModuleStats() {
+    const data = this.loadYaml<{ moduleStats: ShipyardModuleStatsDef[] }>(
+      'fabrication/stu-module-stats.yaml',
+    );
+    for (const stats of data?.moduleStats ?? []) {
+      this.moduleStatsByOutputCommodity.set(stats.outputCommodityId, stats);
+    }
+    if (this.moduleStatsByOutputCommodity.size > 0) {
+      this.logger.log(
+        `Loaded ${this.moduleStatsByOutputCommodity.size} shipyard module stat rows`,
+      );
+    }
+  }
+
+  private loadShipyardRumpStats() {
+    const data = this.loadYaml<{ rumpStats: ShipyardRumpStatsDef[] }>(
+      'ship-building/stu-rump-stats.yaml',
+    );
+    for (const stats of data?.rumpStats ?? []) {
+      this.rumpStatsByStuRumpId.set(stats.stuRumpId, stats);
+    }
+    if (this.rumpStatsByStuRumpId.size > 0) {
+      this.logger.log(
+        `Loaded ${this.rumpStatsByStuRumpId.size} shipyard rump stat rows`,
+      );
+    }
+  }
+
+  private loadShipyardRumpModuleRules() {
+    const data = this.loadYaml<{
+      rumpModuleRules: ShipyardRumpModuleRulesDef[];
+    }>('ship-building/stu-rump-module-rules.yaml');
+    for (const rules of data?.rumpModuleRules ?? []) {
+      this.rumpModuleRulesByStuRumpId.set(rules.stuRumpId, rules);
+    }
+    if (this.rumpModuleRulesByStuRumpId.size > 0) {
+      this.logger.log(
+        `Loaded ${this.rumpModuleRulesByStuRumpId.size} shipyard rump module rule rows`,
+      );
+    }
+  }
+
   private loadFabricationItems() {
     const data = this.loadYaml<{ fabricationItems: FabricationItemDef[] }>(
       'fabrication/stu-fabrication.yaml',
     );
-    for (const item of data?.fabricationItems ?? []) {
+    for (const rawItem of data?.fabricationItems ?? []) {
+      const item = this.applyShipyardClassification(rawItem);
       this.fabricationItems.set(item.itemKey, item);
     }
     if (this.fabricationItems.size > 0) {
@@ -564,11 +734,82 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private classifyShipyardType(
+    item: Pick<
+      FabricationItemDef,
+      'displayName' | 'moduleType' | 'moduleCategory' | 'fabricationCategory'
+    >,
+  ): ShipyardType | null {
+    const displayName = item.displayName ?? '';
+    const moduleType = item.moduleType ?? '';
+    const moduleCategory = item.moduleCategory ?? '';
+    const fabricationCategory = item.fabricationCategory ?? moduleCategory;
+    const haystack = `${displayName} ${moduleType}`;
+
+    if (fabricationCategory === 'WEAPONS') {
+      if (
+        haystack.includes('Torpedorampe') ||
+        haystack.includes('Torpedo-Werfer') ||
+        haystack.includes('Protonenraketen-System')
+      ) {
+        return 'TORPEDO_BANK';
+      }
+      return 'ENERGY_WEAPON';
+    }
+
+    if (fabricationCategory === 'SHIELDS') return 'SHIELDS';
+
+    if (fabricationCategory === 'DRIVE') {
+      if (haystack.includes('Hypermaterie-Reaktor')) return 'REACTOR';
+      if (haystack.includes('Hyperantrieb')) return 'HYPERDRIVE';
+      if (haystack.includes('Sublight-Antrieb')) return 'SUBLIGHT_DRIVE';
+      return null;
+    }
+
+    if (moduleCategory === 'HULL' || haystack.includes('Panzerung')) {
+      return 'HULL';
+    }
+    if (moduleCategory === 'SENSORS' || haystack.includes('Sensor')) {
+      return 'SENSORS';
+    }
+    if (moduleCategory === 'COMPUTER' || haystack.includes('Zielcomputer')) {
+      return 'COMPUTER';
+    }
+    if (haystack.includes('Energieverteiler')) return 'EPS';
+    if (moduleCategory === 'SPECIAL') return 'SPECIAL';
+
+    return null;
+  }
+
+  private applyShipyardClassification(item: FabricationItemDef): FabricationItemDef {
+    const shipyardType = this.classifyShipyardType(item);
+    const shipyardModuleStats = this.moduleStatsByOutputCommodity.get(
+      item.outputCommodityId,
+    );
+    return {
+      ...item,
+      shipyardType: shipyardType ?? undefined,
+      shipyardGroup: shipyardType
+        ? SHIPYARD_TYPE_TO_GROUP[shipyardType]
+        : undefined,
+      shipyardModuleStats,
+    };
+
+  }
+
+
   private loadShipClassSlotRules() {
     const data = this.loadYaml<{
       shipClassSlotRules: ShipClassSlotRuleDef[];
     }>('ship-building/ship-class-slots.yaml');
     for (const rule of data?.shipClassSlotRules ?? []) {
+      rule.moduleSlots ??= this.buildModuleSlotCounts(rule.slots ?? []);
+      rule.slots = (rule.slots ?? []).map((slot, index) => ({
+        ...slot,
+        order: slot.order ?? index,
+      }));
+      rule.layoutKey ??= `${rule.category.toLowerCase()}-layout`;
+      rule.imageKey ??= rule.layoutKey;
       this.shipClassSlotRules.set(rule.category, rule);
     }
     if (this.shipClassSlotRules.size > 0) {
@@ -576,6 +817,15 @@ export class GameDataService implements OnModuleInit {
         `Loaded ${this.shipClassSlotRules.size} ship class slot rules`,
       );
     }
+  }
+
+  private buildModuleSlotCounts(
+    slots: ShipClassLayoutSlotDef[],
+  ): Record<ShipyardType, number> {
+    return slots.reduce<Record<ShipyardType, number>>((counts, slot) => {
+      counts[slot.moduleCategory] = (counts[slot.moduleCategory] ?? 0) + 1;
+      return counts;
+    }, {} as Record<ShipyardType, number>);
   }
 
   private loadSocialEffects() {
@@ -605,7 +855,12 @@ export class GameDataService implements OnModuleInit {
       'ship-building/ship-class-hangar.yaml',
     );
     for (const def of data?.hangarShips ?? []) {
-      def.defaultModuleCommodityIds ??= [];
+      const shipClass = this.getShipClassDefByKey(def.shipClassKey);
+      const sourceCosts = shipClass?.buildCosts ?? [];
+      def.buildCosts = sourceCosts.filter((cost) => cost.commodityId < 10_000);
+      def.defaultModuleCommodityIds = sourceCosts
+        .filter((cost) => cost.commodityId >= 10_000)
+        .flatMap((cost) => Array.from({ length: cost.amount }, () => cost.commodityId));
       def.defaultTorpedoCommodityId ??= null;
       def.defaultTorpedoAmount ??= 0;
       this.hangarShipDefsByClassKey.set(def.shipClassKey, def);
@@ -794,6 +1049,89 @@ export class GameDataService implements OnModuleInit {
     return this.shipClassSlotRules.get(category);
   }
 
+  getShipClassSlotRuleForShipClass(shipClass: {
+    category: string;
+    key?: string;
+  }): ShipClassSlotRuleDef | undefined {
+    const rule = this.getShipClassSlotRule(shipClass.category);
+    if (!rule) return undefined;
+    const definition = shipClass.key
+      ? this.getShipClassDefByKey(shipClass.key)
+      : undefined;
+    const specialSlots = this.getShipyardRumpStats(
+      definition?.stuRumpId,
+    )?.specialSlots;
+    if (specialSlots == null) return rule;
+
+    const slots = [
+      ...rule.slots.filter((slot) => slot.moduleCategory !== 'SPECIAL'),
+      ...rule.slots
+        .filter((slot) => slot.moduleCategory === 'SPECIAL')
+        .slice(0, specialSlots),
+    ].map((slot, index) => ({ ...slot, order: index }));
+
+    return {
+      ...rule,
+      moduleSlots: {
+        ...rule.moduleSlots,
+        SPECIAL: specialSlots,
+      },
+      slots,
+    };
+  }
+
+  getShipyardRumpModuleRules(
+    stuRumpId?: number | null,
+  ): ShipyardRumpModuleRulesDef | undefined {
+    return stuRumpId == null
+      ? undefined
+      : this.rumpModuleRulesByStuRumpId.get(stuRumpId);
+  }
+
+  isShipyardModuleAllowedForShipClass(
+    item: FabricationItemDef,
+    shipClass: { key?: string; category: string },
+  ): boolean {
+    if (!item.shipyardType) return false;
+    const definition = shipClass.key
+      ? this.getShipClassDefByKey(shipClass.key)
+      : undefined;
+    const stuRumpId = definition?.stuRumpId;
+    const moduleRules = this.getShipyardRumpModuleRules(stuRumpId)?.moduleRules;
+    const rule = moduleRules?.[item.shipyardType];
+    if (item.shipyardType === 'SPECIAL') {
+      const specialSlots = this.getShipyardRumpStats(stuRumpId)?.specialSlots ?? 0;
+      if (specialSlots <= 0) return false;
+      return this.isStuSpecialModuleAllowedForRump(
+        item.outputCommodityId,
+        stuRumpId,
+      );
+    }
+    if (!rule || rule.level <= 0) return false;
+    const level = item.shipyardModuleStats?.level ?? item.moduleLevel ?? 0;
+    return level >= rule.min && level <= rule.max;
+  }
+
+  private isStuSpecialModuleAllowedForRump(
+    commodityId: number,
+    stuRumpId?: number | null,
+  ): boolean {
+    if (stuRumpId == null) return false;
+
+    const scoutRumps = [3401, 3403, 3491, 5401, 5403, 5491];
+
+    const byCommodity: Record<number, number[]> = {
+      19005: [6501, 6503],
+      19009: [6501, 6503, 6601, 6603, 6701, 6703],
+      19010: [6501, 6503, 6601, 6603, 6701, 6703, 1401, 1403, 1491],
+      19006: scoutRumps,
+      19008: scoutRumps,
+      19007: scoutRumps,
+    };
+
+    return (byCommodity[commodityId] ?? []).includes(stuRumpId);
+  }
+
   getAllShipClassSlotRules(): ShipClassSlotRuleDef[] {
     return Array.from(this.shipClassSlotRules.values());
   }
@@ -828,6 +1166,20 @@ export class GameDataService implements OnModuleInit {
 
   getShipClassDefs(): ShipClassYamlDef[] {
     return this.shipClassDefs;
+  }
+
+  getShipClassDefByKey(key: string): ShipClassYamlDef | undefined {
+    return this.shipClassDefs.find((definition) => definition.key === key);
+  }
+
+  getShipyardRumpStats(stuRumpId?: number | null): ShipyardRumpStatsDef | undefined {
+    return stuRumpId == null ? undefined : this.rumpStatsByStuRumpId.get(stuRumpId);
+  }
+
+  getShipyardModuleStats(
+    outputCommodityId: number,
+  ): ShipyardModuleStatsDef | undefined {
+    return this.moduleStatsByOutputCommodity.get(outputCommodityId);
   }
 
   getTechTree(): TechDef[] {

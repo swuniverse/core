@@ -11,6 +11,7 @@ import { SystemField } from './entities/system-field.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
+import { Colony } from '../colony/entities/colony.entity';
 import type { ExplorationService } from './exploration.service';
 import { ExplorationLevel } from './entities/exploration-state.entity';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
@@ -42,6 +43,8 @@ export class StarmapQueryService {
     private readonly hyperspaceRouteRepo: Repository<HyperspaceRoute>,
     @InjectRepository(HyperspaceRouteSegment)
     private readonly hyperspaceRouteSegmentRepo: Repository<HyperspaceRouteSegment>,
+    @InjectRepository(Colony)
+    private readonly colonyRepo: Repository<Colony>,
   ) {}
 
   async getGalaxySectors(layerId: number): Promise<StarmapSectorDto[]> {
@@ -259,6 +262,8 @@ export class StarmapQueryService {
       throw new NotFoundException('System not found');
     }
 
+    const colonyShields = await this.getColonyShields(systemId);
+
     return {
       system: this.toSystemListItemDTO(system),
       fields: fields.map((field) => this.toSystemFieldDTO(field)),
@@ -272,7 +277,25 @@ export class StarmapQueryService {
             items.findIndex((entry) => entry.id === object.id) === index,
         )
         .map((object) => this.toCelestialObjectDTO(object)),
+      colonyShields,
     };
+  }
+
+  private async getColonyShields(systemId: number) {
+    const colonies = await this.colonyRepo.find({
+      where: { starSystemId: systemId, isAbandoned: false },
+      relations: ['changeable'],
+      order: { id: 'ASC' },
+    });
+    return colonies
+      .filter((colony) => (colony.changeable?.shields ?? 0) > 0)
+      .map((colony) => ({
+        colonyId: colony.id,
+        systemId,
+        posX: colony.posX,
+        posY: colony.posY,
+        shielded: true,
+      }));
   }
 
   async getExploredLayerFields(

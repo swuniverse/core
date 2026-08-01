@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { User } from '../auth/user.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ColonyStatsService } from './colony-stats.service';
@@ -23,6 +24,8 @@ export class ColonyFabricationService {
   constructor(
     @InjectRepository(ColonyFabricationQueue)
     private readonly fabricationQueueRepo: Repository<ColonyFabricationQueue>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly gameData: GameDataService,
     private readonly colonyStatsService: ColonyStatsService,
     private readonly colonyStorageService: ColonyStorageService,
@@ -54,6 +57,12 @@ export class ColonyFabricationService {
     }
     if (!Number.isInteger(amount) || amount <= 0) {
       throw new BadRequestException('Amount must be positive');
+    }
+    if (item.faction != null) {
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (user?.faction !== item.faction) {
+        throw new BadRequestException('Fabrication item is faction-locked');
+      }
     }
     if (item.researchId != null) {
       const hasResearch = await this.unlockResolver.hasTech(

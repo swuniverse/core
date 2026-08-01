@@ -25,6 +25,8 @@ import { SpacecraftScanService } from './spacecraft-scan.service';
 import { SpacecraftStatsService } from './spacecraft-stats.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
+import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
@@ -66,6 +68,8 @@ import { ColonizationModule } from '../colonization/colonization.module';
     SpacecraftStatsService,
     SpacecraftCrewService,
     SpacecraftTorpedoService,
+    SpacecraftRuntimeStateService,
+    SpacecraftResourceFlowService,
     ColonyStorageService,
   ],
   exports: [
@@ -76,6 +80,8 @@ import { ColonizationModule } from '../colonization/colonization.module';
     SpacecraftStatsService,
     SpacecraftCrewService,
     SpacecraftTorpedoService,
+    SpacecraftRuntimeStateService,
+    SpacecraftResourceFlowService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

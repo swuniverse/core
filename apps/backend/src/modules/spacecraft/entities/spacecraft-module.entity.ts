@@ -26,6 +26,8 @@ export class SpacecraftModule {
 
   @Column({ length: 50 })
   category: string;
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  slotId: string | null;
 
   @Column({ default: 1 })
   level: number;

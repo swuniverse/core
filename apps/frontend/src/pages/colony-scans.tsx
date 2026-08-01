@@ -128,7 +128,7 @@ export function ColonyScansPage() {
           );
           return history.length > 0 ? { ...history[0], history } : null;
         })
-        .filter((scan): scan is ColonyScanListItem => scan !== null);
+        .filter((scan): scan is NonNullable<typeof scan> => scan !== null);
       setScans(next);
       if (selected?.id === scanId) {
         if (next[0]) await openScan(next[0].id);

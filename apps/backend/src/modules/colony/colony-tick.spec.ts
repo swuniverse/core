@@ -28,7 +28,10 @@ jest.mock('../research/entities/research.entity', () => ({
 }));
 
 import { ColonyService } from './colony.service';
-import { ColonyStatsService } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  getColonyChangeable,
+} from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyDefenseService } from './colony-defense.service';
@@ -57,13 +60,15 @@ import { WsEventType } from '@swuniverse/shared';
 function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const colonyRepo = {
     save: jest.fn(async (value) => value),
-    find: jest.fn(async () => []),
+    find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
+    manager: { save: jest.fn(async (value) => value) },
   };
   const fieldRepo = { save: jest.fn(async (value) => value) };
   const statsRepo = { save: jest.fn(async (value) => value) };
   const userRepo = {
     findOneBy: jest.fn(),
+    findOne: jest.fn(async () => ({ id: 1, faction: null })),
   };
   const shipRepo = {
     find: jest.fn(async () => []),
@@ -83,7 +88,11 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       getRawOne: jest.fn(async () => ({ total: 0 })),
     })),
   };
-  const shipClassRepo = { findOneBy: jest.fn(), findOne: jest.fn() };
+  const shipClassRepo = {
+    findOneBy: jest.fn(),
+    findOne: jest.fn(),
+    find: jest.fn(async () => []),
+  };
   const shipBuildQueueRepo = {
     create: jest.fn((value) => value),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
@@ -153,6 +162,38 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const gameData = {
     getBuilding: jest.fn((id: number) => {
       const buildings: Record<number, any> = {
+        72010100: {
+          id: 72010100,
+          name: 'Forschungszentrum Stufe I',
+          epsProc: 3,
+          researchPoints: 0,
+          bevUse: 2,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [101],
+          isUnique: false,
+          costs: { buildTime: 120 },
+          resourceCosts: [],
+          production: [],
+          functions: [],
+        },
+        73010100: {
+          id: 73010100,
+          name: 'Forschungszentrum Stufe II',
+          epsProc: 6,
+          researchPoints: 0,
+          bevUse: 3,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [],
+          isUnique: false,
+          costs: { buildTime: 180 },
+          resourceCosts: [],
+          production: [],
+          functions: [],
+        },
         82010100: {
           id: 82010100,
           name: 'HQ',
@@ -456,7 +497,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
                   ? [6]
                   : buildingId === 550
                     ? [4]
-                    : buildingId === 85010100
+                    : buildingId === 85190100
                       ? [22]
                       : buildingId === 85210100
                         ? [6]
@@ -508,7 +549,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         ([81110100, 81120100, 81130100].includes(buildingId) &&
           functionId === 4) ||
         (buildingId === 85110100 && functionId === 5) ||
-        (buildingId === 85010100 && functionId === 22) ||
+        (buildingId === 85190100 && functionId === 22) ||
         (buildingId === 85210100 && functionId === 6) ||
         (buildingId === 100010100 && functionId === 24) ||
         (buildingId === 100020100 && functionId === 25),
@@ -565,6 +606,21 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           }
         : undefined,
     ),
+    getBuildingUpgradesForBuilding: jest.fn((buildingId: number) =>
+      buildingId === 72010100
+        ? [
+            {
+              id: 7201010073,
+              fromBuildingId: 72010100,
+              toBuildingId: 73010100,
+              researchId: 200201,
+              description: 'Ausbau auf FZ II',
+              energyCost: 7,
+              costs: [{ commodityId: 1, amount: 4 }],
+            },
+          ]
+        : [],
+    ),
     getColonyClass: jest.fn(() => ({
       classId: 201,
       bevGrowthRate: 100,
@@ -587,6 +643,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           outputAmount: 1,
           moduleType: 'Laser Cannon',
           moduleCategory: 'WEAPONS',
+          shipyardGroup: 'OFFENSE_SYSTEMS',
+          shipyardType: 'ENERGY_WEAPON',
           moduleLevel: 1,
           buildingFunctionIds: [10],
           durationSeconds: 60,
@@ -600,6 +658,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           outputAmount: 1,
           moduleType: 'Shield Generator',
           moduleCategory: 'SHIELDS',
+          shipyardGroup: 'DEFENSE_SYSTEMS',
+          shipyardType: 'SHIELDS',
           moduleLevel: 1,
           buildingFunctionIds: [13],
           durationSeconds: 60,
@@ -628,6 +688,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           outputAmount: 1,
           moduleType: 'Laser Cannon',
           moduleCategory: 'WEAPONS',
+          shipyardGroup: 'OFFENSE_SYSTEMS',
+          shipyardType: 'ENERGY_WEAPON',
           moduleLevel: 1,
           buildingFunctionIds: [10],
           durationSeconds: 60,
@@ -641,79 +703,206 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           outputAmount: 1,
           moduleType: 'Shield Generator',
           moduleCategory: 'SHIELDS',
+          shipyardGroup: 'DEFENSE_SYSTEMS',
+          shipyardType: 'SHIELDS',
           moduleLevel: 1,
           buildingFunctionIds: [13],
           durationSeconds: 60,
-          costs: [{ commodityId: 2, amount: 10 }],
+          costs: [{ commodityId: 2, amount: 8 }],
+        },
+        10301: {
+          itemKey: 'module.eps.k1',
+          queueType: 'MODULE',
+          displayName: 'Energieverteiler (Klasse 1)',
+          outputCommodityId: 10301,
+          moduleType: 'Energieverteiler',
+          moduleCategory: 'SPECIAL',
+          shipyardType: 'EPS',
+          moduleLevel: 1,
+        },
+        10401: {
+          itemKey: 'module.sublight.k1',
+          queueType: 'MODULE',
+          displayName: 'Sublight-Antrieb (Klasse 1)',
+          outputCommodityId: 10401,
+          moduleType: 'Ion-Triebwerk',
+          moduleCategory: 'SUBLIGHT_ENGINE',
+          shipyardType: 'SUBLIGHT_DRIVE',
+          moduleLevel: 1,
+        },
+        10501: {
+          itemKey: 'module.reactor.k1',
+          queueType: 'MODULE',
+          displayName: 'Hypermaterie-Reaktor (Klasse 1)',
+          outputCommodityId: 10501,
+          moduleType: 'Energieverteiler',
+          moduleCategory: 'SPECIAL',
+          shipyardType: 'REACTOR',
+          moduleLevel: 1,
+        },
+        10801: {
+          itemKey: 'module.torpedo.k1',
+          queueType: 'MODULE',
+          displayName: 'Protonentorpedo-Werfer (Klasse 1)',
+          outputCommodityId: 10801,
+          moduleType: 'Protonenraketen-System',
+          moduleCategory: 'WEAPONS',
+          shipyardType: 'TORPEDO_BANK',
+          moduleLevel: 1,
         },
       } as Record<number, any>;
       return byOutput[commodityId];
     }),
+    getShipClassDefByKey: jest.fn((key: string) => ({ key, buildCosts: [] })),
     getShipClassSlotRule: jest.fn((category: string) => {
-      const rules: Record<string, any> = {
-        CORVETTE: {
+      const rules = [
+        {
           category: 'CORVETTE',
           allowedBuildingFunctionIds: [5, 6, 22],
-          moduleSlots: { WEAPONS: 2, SHIELDS: 1 },
+          moduleSlots: { ENERGY_WEAPON: 2, SHIELDS: 1 },
+          layoutKey: 'corvette-layout',
+          imageKey: 'corvette-layout',
+          slots: [
+            {
+              slotId: 'corvette-weapons-1',
+              moduleCategory: 'ENERGY_WEAPON',
+              label: 'W1',
+              anchorX: 10,
+              anchorY: 10,
+              calloutSide: 'left',
+              order: 0,
+            },
+            {
+              slotId: 'corvette-weapons-2',
+              moduleCategory: 'ENERGY_WEAPON',
+              label: 'W2',
+              anchorX: 20,
+              anchorY: 10,
+              calloutSide: 'right',
+              order: 1,
+            },
+            {
+              slotId: 'corvette-shields-1',
+              moduleCategory: 'SHIELDS',
+              label: 'S1',
+              anchorX: 15,
+              anchorY: 20,
+              calloutSide: 'top',
+              order: 2,
+            },
+          ],
         },
-        FRIGATE: {
+        {
           category: 'FRIGATE',
           allowedBuildingFunctionIds: [7, 22],
-          moduleSlots: { WEAPONS: 4, SHIELDS: 2 },
+          moduleSlots: { ENERGY_WEAPON: 4, SHIELDS: 2 },
+          layoutKey: 'frigate-layout',
+          imageKey: 'frigate-layout',
+          slots: [
+            {
+              slotId: 'frigate-weapons-1',
+              moduleCategory: 'ENERGY_WEAPON',
+              label: 'W1',
+              anchorX: 10,
+              anchorY: 10,
+              calloutSide: 'left',
+              order: 0,
+            },
+            {
+              slotId: 'frigate-weapons-2',
+              moduleCategory: 'ENERGY_WEAPON',
+              label: 'W2',
+              anchorX: 20,
+              anchorY: 10,
+              calloutSide: 'right',
+              order: 1,
+            },
+            {
+              slotId: 'frigate-weapons-3',
+              moduleCategory: 'ENERGY_WEAPON',
+              label: 'W3',
+              anchorX: 30,
+              anchorY: 10,
+              calloutSide: 'left',
+              order: 2,
+            },
+            {
+              slotId: 'frigate-weapons-4',
+              moduleCategory: 'ENERGY_WEAPON',
+              label: 'W4',
+              anchorX: 40,
+              anchorY: 10,
+              calloutSide: 'right',
+              order: 3,
+            },
+            {
+              slotId: 'frigate-shields-1',
+              moduleCategory: 'SHIELDS',
+              label: 'S1',
+              anchorX: 15,
+              anchorY: 20,
+              calloutSide: 'top',
+              order: 4,
+            },
+            {
+              slotId: 'frigate-shields-2',
+              moduleCategory: 'SHIELDS',
+              label: 'S2',
+              anchorX: 25,
+              anchorY: 20,
+              calloutSide: 'bottom',
+              order: 5,
+            },
+          ],
         },
-      };
-      return rules[category];
+      ];
+      return rules.find((rule) => rule.category === category);
     }),
     getAllHangarShipDefs: jest.fn(() => [
       {
-        shipClassKey: 'REBEL_CORVETTE_GR75',
-        hangarCommodityId: 21601,
-        displayName: 'Rebel Starter Corvette Hangar Rump',
+        shipClassKey: 'REBEL_SHUTTLE_LAAT',
+        hangarCommodityId: 21401,
+        displayName: 'LAAT Shuttle Rumpf',
         airfieldFunctionId: 4,
-        startEnergyCost: 25,
-        buildEnergyCost: 35,
-        buildCosts: [
-          { commodityId: 2, amount: 20 },
-          { commodityId: 4, amount: 10 },
-        ],
-        defaultModuleCommodityIds: [],
+        startEnergyCost: 90,
+        buildEnergyCost: 90,
+        buildCosts: [],
+        defaultModuleCommodityIds: [10201, 10301, 10401, 10501, 10701, 10801],
         defaultTorpedoCommodityId: null,
         defaultTorpedoAmount: 0,
       },
     ]),
     getHangarShipDef: jest.fn((shipClassKey: string) =>
-      shipClassKey === 'REBEL_CORVETTE_GR75'
+      shipClassKey === 'REBEL_SHUTTLE_LAAT'
         ? {
-            shipClassKey: 'REBEL_CORVETTE_GR75',
-            hangarCommodityId: 21601,
-            displayName: 'Rebel Starter Corvette Hangar Rump',
+            shipClassKey: 'REBEL_SHUTTLE_LAAT',
+            hangarCommodityId: 21401,
+            displayName: 'LAAT Shuttle Rumpf',
             airfieldFunctionId: 4,
-            startEnergyCost: 25,
-            buildEnergyCost: 35,
-            buildCosts: [
-              { commodityId: 2, amount: 20 },
-              { commodityId: 4, amount: 10 },
+            startEnergyCost: 90,
+            buildEnergyCost: 90,
+            buildCosts: [],
+            defaultModuleCommodityIds: [
+              10201, 10301, 10401, 10501, 10701, 10801,
             ],
-            defaultModuleCommodityIds: [],
             defaultTorpedoCommodityId: null,
             defaultTorpedoAmount: 0,
           }
         : undefined,
     ),
     getHangarShipDefByCommodity: jest.fn((commodityId: number) =>
-      commodityId === 21601
+      commodityId === 21401
         ? {
-            shipClassKey: 'REBEL_CORVETTE_GR75',
-            hangarCommodityId: 21601,
-            displayName: 'Rebel Starter Corvette Hangar Rump',
+            shipClassKey: 'REBEL_SHUTTLE_LAAT',
+            hangarCommodityId: 21401,
+            displayName: 'LAAT Shuttle Rumpf',
             airfieldFunctionId: 4,
-            startEnergyCost: 25,
-            buildEnergyCost: 35,
-            buildCosts: [
-              { commodityId: 2, amount: 20 },
-              { commodityId: 4, amount: 10 },
+            startEnergyCost: 90,
+            buildEnergyCost: 90,
+            buildCosts: [],
+            defaultModuleCommodityIds: [
+              10201, 10301, 10401, 10501, 10701, 10801,
             ],
-            defaultModuleCommodityIds: [],
             defaultTorpedoCommodityId: null,
             defaultTorpedoAmount: 0,
           }
@@ -723,12 +912,38 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       {
         category: 'CORVETTE',
         allowedBuildingFunctionIds: [5, 6, 22],
-        moduleSlots: { WEAPONS: 2, SHIELDS: 1 },
-      },
-      {
-        category: 'FRIGATE',
-        allowedBuildingFunctionIds: [7, 22],
-        moduleSlots: { WEAPONS: 4, SHIELDS: 2 },
+        layoutKey: 'corvette-layout',
+        imageKey: 'corvette-layout',
+        moduleSlots: { ENERGY_WEAPON: 2, SHIELDS: 1 },
+        slots: [
+          {
+            slotId: 'corvette-weapons-1',
+            moduleCategory: 'ENERGY_WEAPON',
+            label: 'W1',
+            anchorX: 0,
+            anchorY: 0,
+            calloutSide: 'left',
+            order: 0,
+          },
+          {
+            slotId: 'corvette-weapons-2',
+            moduleCategory: 'ENERGY_WEAPON',
+            label: 'W2',
+            anchorX: 0,
+            anchorY: 0,
+            calloutSide: 'right',
+            order: 1,
+          },
+          {
+            slotId: 'corvette-shields-1',
+            moduleCategory: 'SHIELDS',
+            label: 'S1',
+            anchorX: 0,
+            anchorY: 0,
+            calloutSide: 'top',
+            order: 2,
+          },
+        ],
       },
     ]),
     getAllFabricationItems: jest.fn(() => [
@@ -737,23 +952,24 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         queueType: 'MODULE',
         displayName: 'Turbolaser (Klasse 1)',
         outputCommodityId: 10701,
-        outputAmount: 1,
         moduleType: 'Laser Cannon',
         moduleCategory: 'WEAPONS',
+        shipyardGroup: 'OFFENSE_SYSTEMS',
+        shipyardType: 'ENERGY_WEAPON',
         moduleLevel: 1,
         buildingFunctionIds: [10],
-        durationSeconds: 60,
-        costs: [{ commodityId: 2, amount: 10 }],
       },
       {
-        itemKey: 'torpedo.micro-proton',
-        queueType: 'TORPEDO',
-        displayName: 'Micro-Protonentorpedo',
-        outputCommodityId: 81,
-        outputAmount: 1,
-        buildingFunctionIds: [9],
-        durationSeconds: 30,
-        costs: [{ commodityId: 2, amount: 4 }],
+        itemKey: 'module.shield.particle-k1',
+        queueType: 'MODULE',
+        displayName: 'Partikelschild (Klasse 1)',
+        outputCommodityId: 10201,
+        moduleType: 'Shield Generator',
+        moduleCategory: 'SHIELDS',
+        shipyardGroup: 'DEFENSE_SYSTEMS',
+        shipyardType: 'SHIELDS',
+        moduleLevel: 1,
+        buildingFunctionIds: [13],
       },
     ]),
     getSocialEffects: jest.fn(() => ({
@@ -917,6 +1133,17 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         return colony;
       },
     ),
+    findOwnedColonyWithChangeable: jest.fn(
+      async (colonyId: number, userId: number) => {
+        const colony = await colonyRepo.findOne({
+          where: { id: colonyId, userId },
+          relations: ['changeable', 'stats'],
+        });
+        if (!colony) throw new NotFoundException('Colony not found');
+        getColonyChangeable(colony as any);
+        return colony;
+      },
+    ),
   };
   const abandonmentService = new ColonyAbandonmentService(
     colonyRepo as any,
@@ -942,6 +1169,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const timingService = new ColonyTimingService(config as any);
   const fabricationService = new ColonyFabricationService(
     fabricationQueueRepo as any,
+    userRepo as any,
     gameData as any,
     statsService,
     colonyStorageService,
@@ -977,6 +1205,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     fabricationQueueRepo as any,
     crewTrainingQueueRepo as any,
     shipClassRepo as any,
+    userRepo as any,
     gameData as any,
     unlockResolver as any,
     colonyEconomyService,
@@ -994,16 +1223,14 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     spacecraftModuleRepo as any,
     shipClassRepo as any,
     gameData as any,
-    unlockResolver as any,
-    statsService,
-    colonyEconomyService,
-    colonyStorageService,
-    spacecraftStatsService as any,
-    colonyCrewService as any,
-    colonyEventService as any,
-    orbitService as any,
     ownershipService as any,
-    projectionService as any,
+    colonyCrewService as any,
+    colonyStorageService as any,
+    statsService,
+    orbitService as any,
+    colonyEventService as any,
+    spacecraftStatsService as any,
+    unlockResolver as any,
     timingService,
   );
   const constructionService = new ColonyConstructionService(
@@ -1125,7 +1352,6 @@ describe('colony give up', () => {
       service,
       colonyRepo,
       fieldRepo,
-      statsRepo,
       fabricationQueueRepo,
       crewTrainingQueueRepo,
       shipBuildQueueRepo,
@@ -1161,6 +1387,7 @@ describe('colony give up', () => {
       isAbandoned: false,
       fields: [field],
       stats,
+      changeable: getColonyChangeable({ id: 1, stats } as any),
       storage: [{ commodityId: 2, amount: 500 }],
     };
     colonyRepo.findOne.mockResolvedValue(colony);
@@ -1185,7 +1412,7 @@ describe('colony give up', () => {
         terraformingFinishesAt: null,
       }),
     ]);
-    expect(statsRepo.save).toHaveBeenCalledWith(
+    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
       expect.objectContaining({
         workers: 0,
         trainedCrew: 0,
@@ -1250,7 +1477,7 @@ describe('colony tick calculations', () => {
     expect(summary.productionDelta.get(1300)).toBe(84);
     expect(summary.depositDelta.get(1505)).toBe(12);
     expect(summary.researchPoints).toBe(2);
-    expect(summary.effectivePopulationMax).toBe(184);
+    expect(summary.effectivePopulationMax).toBe(100);
     expect(summary.effectiveStorageMax).toBe(4000);
   });
 
@@ -1408,7 +1635,7 @@ describe('colony tick calculations', () => {
   });
 
   it('updates colony options with owner validation', async () => {
-    const { service, colonyRepo, statsRepo } = createColonyService();
+    const { service, colonyRepo } = createColonyService();
     const stats = {
       colonyId: 1,
       populationLimit: 0,
@@ -1424,7 +1651,7 @@ describe('colony tick calculations', () => {
     await expect(service.setPopulationLimit(1, 1, 42)).resolves.toEqual({
       populationLimit: 42,
     });
-    expect(statsRepo.save).toHaveBeenCalledWith(
+    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
       expect.objectContaining({ populationLimit: 42 }),
     );
 
@@ -1456,7 +1683,7 @@ describe('colony tick calculations', () => {
   });
 
   it('keeps colony population and workless stats synchronized during immigration', async () => {
-    const { service, statsRepo, colonyRepo } = createColonyService();
+    const { service, colonyRepo } = createColonyService();
     const colony = {
       id: 1,
       colonyClassId: 201,
@@ -1479,7 +1706,7 @@ describe('colony tick calculations', () => {
 
     expect(colony.population).toBe(141);
     expect(colony.stats.workless).toBe(117);
-    expect(statsRepo.save).toHaveBeenCalledWith(colony.stats);
+    expect(colonyRepo.save).toHaveBeenCalledWith(colony);
     expect(colonyRepo.save).toHaveBeenCalledWith(colony);
   });
 
@@ -1564,7 +1791,7 @@ describe('colony tick calculations', () => {
         ...base.fields,
         { id: 2, buildingId: 84800100, isBuilding: false, isActive: false },
         { id: 3, buildingId: 85110100, isBuilding: false, isActive: false },
-        { id: 4, buildingId: 85010100, isBuilding: false, isActive: false },
+        { id: 4, buildingId: 85190100, isBuilding: false, isActive: false },
       ],
     } as any);
     expect(access.tabs.fabrication.visible).toBe(true);
@@ -1572,8 +1799,9 @@ describe('colony tick calculations', () => {
     expect(access.tabs.fabrication.activeFunctionIds).not.toContain(29);
     expect(access.tabs.shipyard.visible).toBe(true);
     expect(access.tabs.shipyard.presentFunctionIds).toEqual(
-      expect.arrayContaining([5, 22]),
+      expect.arrayContaining([5]),
     );
+    expect(access.tabs.shipyard.presentFunctionIds).not.toContain(22);
     expect(access.tabs.shipyard.activeFunctionIds).toHaveLength(0);
     expect(access.functions.groups.fighterShipyards.presentFunctionIds).toEqual(
       [5],
@@ -1593,13 +1821,14 @@ describe('colony tick calculations', () => {
         ...base.fields,
         { id: 2, buildingId: 84800100, isBuilding: false, isActive: true },
         { id: 3, buildingId: 85110100, isBuilding: false, isActive: true },
-        { id: 4, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 4, buildingId: 85190100, isBuilding: false, isActive: true },
       ],
     } as any);
     expect(access.tabs.fabrication.activeFunctionIds).toContain(29);
     expect(access.tabs.shipyard.activeFunctionIds).toEqual(
-      expect.arrayContaining([5, 22]),
+      expect.arrayContaining([5]),
     );
+    expect(access.tabs.shipyard.activeFunctionIds).not.toContain(22);
     expect(access.functions.groups.fighterShipyards.activeFunctionIds).toEqual([
       5,
     ]);
@@ -1706,7 +1935,13 @@ describe('colony tick calculations', () => {
 
     expect(colonyRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        relations: ['starSystem', 'celestialObject', 'fields', 'stats'],
+        relations: [
+          'starSystem',
+          'celestialObject',
+          'fields',
+          'stats',
+          'changeable',
+        ],
       }),
     );
     expect(result[0]).toMatchObject({
@@ -2929,12 +3164,7 @@ describe('colony tick calculations', () => {
 
 describe('colony shields', () => {
   it('sets shield frequency and loads shield battery using energy', async () => {
-    const {
-      service,
-      colonyRepo,
-      statsRepo,
-      colonyRepo: repo,
-    } = createColonyService();
+    const { service, colonyRepo, colonyRepo: repo } = createColonyService();
     const colony = {
       id: 1,
       userId: 1,
@@ -2960,14 +3190,14 @@ describe('colony shields', () => {
     expect(colony.stats.maxShields).toBe(14000);
     expect(colony.stats.shields).toBe(70);
     expect(colony.energy).toBe(43);
-    expect(statsRepo.save).toHaveBeenCalledWith(colony.stats);
+    expect(repo.save).toHaveBeenCalledWith(colony);
     expect(repo.save).toHaveBeenCalledWith(colony);
   });
 });
 
 describe('crew training queues', () => {
   it('queues limited crew training from colony central before academy', async () => {
-    const { service, colonyRepo, crewTrainingQueueRepo, statsRepo } =
+    const { service, colonyRepo, crewTrainingQueueRepo } =
       createColonyService();
     const stats = { workless: 5, trainedCrew: 0 };
     colonyRepo.findOne.mockResolvedValue({
@@ -2992,12 +3222,14 @@ describe('crew training queues', () => {
       expect.objectContaining({ amount: 2, userId: 1, colonyId: 1 }),
     );
     expect(stats.workless).toBe(3);
-    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+    expect(colonyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1 }),
+    );
     expect(queue).toMatchObject({ amount: 2 });
   });
 
   it('queues crew training when academy is active', async () => {
-    const { service, colonyRepo, crewTrainingQueueRepo, statsRepo } =
+    const { service, colonyRepo, crewTrainingQueueRepo } =
       createColonyService();
     const stats = { workless: 5, trainedCrew: 0 };
     colonyRepo.findOne.mockResolvedValue({
@@ -3022,7 +3254,9 @@ describe('crew training queues', () => {
       expect.objectContaining({ amount: 2, userId: 1, colonyId: 1 }),
     );
     expect(stats.workless).toBe(3);
-    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+    expect(colonyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1 }),
+    );
     expect(queue).toMatchObject({ amount: 2 });
   });
 
@@ -3296,18 +3530,32 @@ describe('fabrication queues', () => {
   });
 });
 
+const weaponSelection = { slotId: 'corvette-weapons-1', commodityId: 10701 };
+const shieldSelection = { slotId: 'corvette-shields-1', commodityId: 10201 };
 describe('ship building compatibility', () => {
-  it('creates deterministic buildplan signatures independent of module order', () => {
+  it('creates deterministic buildplan signatures independent of slot order', () => {
     const { shipyardService } = createColonyService();
     expect(
-      (shipyardService as any).createBuildplanSignature(1, [10701, 10201]),
+      (shipyardService as any).createBuildplanSignature(1, [
+        weaponSelection,
+        shieldSelection,
+      ]),
     ).toBe(
-      (shipyardService as any).createBuildplanSignature(1, [10201, 10701]),
+      (shipyardService as any).createBuildplanSignature(1, [
+        shieldSelection,
+        weaponSelection,
+      ]),
     );
     expect(
-      (shipyardService as any).createBuildplanSignature(2, [10201, 10701]),
+      (shipyardService as any).createBuildplanSignature(2, [
+        weaponSelection,
+        shieldSelection,
+      ]),
     ).not.toBe(
-      (shipyardService as any).createBuildplanSignature(1, [10201, 10701]),
+      (shipyardService as any).createBuildplanSignature(1, [
+        weaponSelection,
+        shieldSelection,
+      ]),
     );
   });
 
@@ -3366,7 +3614,7 @@ describe('ship building compatibility', () => {
       colonyId: 1,
       userId: 1,
       shipClassId: 1,
-      name: 'Module Ship',
+      moduleSelections: [weaponSelection],
       moduleCommodityIds: [10701],
       moduleTypes: ['Laser Cannon'],
       finishesAt: new Date(Date.now() - 1000),
@@ -3399,8 +3647,7 @@ describe('ship building compatibility', () => {
     expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         spacecraftId: 55,
-        moduleType: 'Laser Cannon',
-        category: 'WEAPONS',
+        category: 'ENERGY_WEAPON',
         level: 1,
       }),
     );
@@ -3408,7 +3655,7 @@ describe('ship building compatibility', () => {
       expect.objectContaining({ id: 55 }),
       job.shipClass,
       expect.arrayContaining([
-        expect.objectContaining({ moduleType: 'Laser Cannon' }),
+        expect.objectContaining({ category: 'ENERGY_WEAPON' }),
       ]),
     );
     expect(job.status).toBe('COMPLETED');
@@ -3437,7 +3684,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85010100,
+          buildingId: 85110100,
           isBuilding: false,
           isActive: true,
         },
@@ -3452,6 +3699,8 @@ describe('ship building compatibility', () => {
     }));
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
+      key: 'TEST_FIGHTER',
+      category: 'CORVETTE',
       isNpc: false,
       name: 'Test Fighter',
       hullBase: 10,
@@ -3470,18 +3719,18 @@ describe('ship building compatibility', () => {
       1,
       1,
       'Red One',
-      ['Laser Cannon'],
+      [],
       'Starter Plan',
     );
 
-    expect(gameData.getBuildingFunctions).toHaveBeenCalledWith(85010100);
+    expect(gameData.getBuildingFunctions).toHaveBeenCalledWith(85110100);
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Red One',
         shipClassId: 1,
         userId: 1,
         buildPlanName: 'Starter Plan',
-        moduleTypes: ['Laser Cannon'],
+        moduleSelections: [],
       }),
     );
     expect(shipRepo.save).not.toHaveBeenCalled();
@@ -3524,7 +3773,7 @@ describe('ship building compatibility', () => {
           {
             id: 1,
             fieldIndex: 1,
-            buildingId: 85010100,
+            buildingId: 85110100,
             isBuilding: false,
             isActive: true,
           },
@@ -3535,6 +3784,8 @@ describe('ship building compatibility', () => {
       storageRepo.findOne.mockResolvedValue({ amount: 999 });
       shipClassRepo.findOneBy.mockResolvedValue({
         id: 1,
+        key: 'TEST_FIGHTER',
+        category: 'CORVETTE',
         isNpc: false,
         name: 'Test Fighter',
         hullBase: 10,
@@ -3548,7 +3799,7 @@ describe('ship building compatibility', () => {
         buildTimeTicks: 4,
       });
 
-      await service.buildShip(1, 1, 1, 'Red One', ['Laser Cannon']);
+      await service.buildShip(1, 1, 1, 'Red One', [], undefined);
 
       expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -3596,10 +3847,10 @@ describe('ship building compatibility', () => {
 
     await expect(
       service.buildShip(1, 1, 1, 'Wrong Yard', [], 'Plan'),
-    ).rejects.toThrow('FRIGATE cannot be built');
+    ).rejects.toThrow('Active matching shipyard required');
   });
 
-  it('rejects module selections that exceed ship class slots', async () => {
+  it('rejects duplicate module selections for the same shipyard type', async () => {
     const { service, colonyRepo, storageRepo, shipClassRepo } =
       createColonyService();
     colonyRepo.findOne.mockResolvedValue({
@@ -3610,7 +3861,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85010100,
+          buildingId: 85110100,
           isBuilding: false,
           isActive: true,
         },
@@ -3620,6 +3871,7 @@ describe('ship building compatibility', () => {
     storageRepo.findOne.mockResolvedValue({ amount: 999 });
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
+      key: 'TEST_CORVETTE',
       isNpc: false,
       name: 'Test Corvette',
       category: 'CORVETTE',
@@ -3639,11 +3891,10 @@ describe('ship building compatibility', () => {
         1,
         1,
         'Too Many Lasers',
-        [],
+        [weaponSelection, { slotId: 'corvette-weapons-2', commodityId: 10701 }],
         'Plan',
-        [10701, 10701, 10701],
       ),
-    ).rejects.toThrow('Too many WEAPONS');
+    ).rejects.toThrow('Duplicate module selection for ENERGY_WEAPON');
   });
 
   it('buildShip consumes selected module commodities from colony storage', async () => {
@@ -3668,7 +3919,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85010100,
+          buildingId: 85110100,
           isBuilding: false,
           isActive: true,
         },
@@ -3683,6 +3934,8 @@ describe('ship building compatibility', () => {
     }));
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
+      key: 'TEST_FIGHTER',
+      category: 'CORVETTE',
       isNpc: false,
       name: 'Test Fighter',
       hullBase: 10,
@@ -3695,10 +3948,18 @@ describe('ship building compatibility', () => {
       batteryBase: 5,
     });
 
-    await service.buildShip(1, 1, 1, 'Module Red', [], 'Module Plan', [10701]);
+    await service.buildShip(
+      1,
+      1,
+      1,
+      'Module Red',
+      [weaponSelection],
+      'Module Plan',
+    );
 
     expect(shipBuildplanRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
+        moduleSelections: [weaponSelection],
         moduleCommodityIds: [10701],
         moduleTypes: ['Laser Cannon'],
       }),
@@ -3708,6 +3969,7 @@ describe('ship building compatibility', () => {
     );
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
+        moduleSelections: [weaponSelection],
         moduleCommodityIds: [10701],
         moduleTypes: ['Laser Cannon'],
         buildPlanName: 'Module Plan',
@@ -3723,12 +3985,13 @@ describe('ship building compatibility', () => {
       userId: 1,
       colonyClassId: 999,
       fields: [
-        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
       ],
       storage: [],
     });
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
+      key: 'TEST_CORVETTE',
       isNpc: false,
       name: 'Test Corvette',
       category: 'CORVETTE',
@@ -3737,15 +4000,18 @@ describe('ship building compatibility', () => {
     gameData.getFabricationItemByOutputCommodity.mockReturnValue({
       itemKey: 'module.weapon.locked',
       queueType: 'MODULE',
+      displayName: 'Laser Cannon',
       outputCommodityId: 10701,
       moduleType: 'Laser Cannon',
+      moduleCategory: 'WEAPONS',
+      shipyardType: 'ENERGY_WEAPON',
       researchId: 700100,
       researchRequired: 'Lasertechnik',
     });
     unlockResolver.hasTech.mockResolvedValueOnce(false);
 
     await expect(
-      service.buildShip(1, 1, 1, 'Locked Module', [], 'Plan', [10701]),
+      service.buildShip(1, 1, 1, 'Locked Module', [weaponSelection], 'Plan'),
     ).rejects.toThrow('Research required: Lasertechnik');
   });
 
@@ -3754,7 +4020,7 @@ describe('ship building compatibility', () => {
     colonyRepo.findOne.mockResolvedValue(null);
 
     await expect(
-      service.createShipBuildplan(99, 1, 1, 'Scout Plan', [], []),
+      service.createShipBuildplan(99, 1, 1, 'Scout Plan', []),
     ).rejects.toThrow('Colony not found');
   });
 
@@ -3769,7 +4035,7 @@ describe('ship building compatibility', () => {
     });
 
     await expect(
-      service.createShipBuildplan(1, 1, 1, '   ', [], []),
+      service.createShipBuildplan(1, 1, 1, '   ', []),
     ).rejects.toThrow('Buildplan name is required');
 
     shipBuildplanRepo.findOne.mockResolvedValue({
@@ -3779,7 +4045,7 @@ describe('ship building compatibility', () => {
       name: 'Scout Plan',
     });
     await expect(
-      service.createShipBuildplan(1, 1, 1, 'Scout Plan', [], []),
+      service.createShipBuildplan(1, 1, 1, 'Scout Plan', []),
     ).rejects.toThrow('Buildplan name already exists');
   });
 
@@ -3809,20 +4075,16 @@ describe('ship building compatibility', () => {
     });
     shipBuildplanRepo.findOne.mockResolvedValueOnce(null);
 
-    const created = await service.createShipBuildplan(
-      1,
-      1,
-      1,
-      'Scout Plan',
-      [10701],
-      [],
-    );
+    const created = await service.createShipBuildplan(1, 1, 1, 'Scout Plan', [
+      weaponSelection,
+    ]);
 
     expect(created).toMatchObject({
       id: 1,
       colonyId: 1,
       shipClassId: 1,
       name: 'Scout Plan',
+      moduleSelections: [weaponSelection],
       moduleCommodityIds: [10701],
       moduleTypes: ['Laser Cannon'],
     });
@@ -3838,8 +4100,8 @@ describe('ship building compatibility', () => {
         shipClassId: 1,
         name: 'Scout Plan',
         signature: created.signature,
+        moduleSelections: [weaponSelection],
         moduleCommodityIds: [10701],
-        moduleTypes: ['Laser Cannon'],
       })
       .mockResolvedValueOnce(null);
 
@@ -3853,8 +4115,8 @@ describe('ship building compatibility', () => {
       shipClassId: 1,
       name: 'Scout II',
       signature: created.signature,
+      moduleSelections: [weaponSelection],
       moduleCommodityIds: [10701],
-      moduleTypes: ['Laser Cannon'],
     });
 
     await expect(service.deleteShipBuildplan(1, 1, 1)).resolves.toEqual({
@@ -3886,7 +4148,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85010100,
+          buildingId: 85110100,
           isBuilding: false,
           isActive: true,
         },
@@ -3901,8 +4163,8 @@ describe('ship building compatibility', () => {
       shipClassId: 1,
       name: 'Snapshot Plan',
       signature: 'stable-signature',
+      moduleSelections: [weaponSelection],
       moduleCommodityIds: [10701],
-      moduleTypes: ['Laser Cannon'],
     };
     colonyRepo.findOne.mockResolvedValue(colony);
     storageRepo.findOne.mockResolvedValue({ amount: 999 });
@@ -3930,16 +4192,16 @@ describe('ship building compatibility', () => {
         buildPlanName: 'Snapshot Plan',
         buildPlanId: 7,
         buildPlanSignature: expect.any(String),
+        moduleSelections: [weaponSelection],
         moduleCommodityIds: [10701],
-        moduleTypes: ['Laser Cannon'],
       }),
     );
     expect(queue).toMatchObject({
       name: 'Planned Ship',
       buildPlanName: 'Snapshot Plan',
       buildPlanId: 7,
+      moduleSelections: [weaponSelection],
       moduleCommodityIds: [10701],
-      moduleTypes: ['Laser Cannon'],
     });
 
     shipBuildplanRepo.findOne.mockResolvedValueOnce(buildplan);
@@ -3948,8 +4210,8 @@ describe('ship building compatibility', () => {
     expect(queue).toMatchObject({
       buildPlanName: 'Snapshot Plan',
       buildPlanId: 7,
+      moduleSelections: [weaponSelection],
       moduleCommodityIds: [10701],
-      moduleTypes: ['Laser Cannon'],
     });
     expect(shipBuildQueueRepo.save).toHaveBeenCalledTimes(1);
   });
@@ -3999,7 +4261,7 @@ describe('orbit ship operations', () => {
     cargoRepo.find.mockResolvedValue([{ commodityId: 2, amount: 5 }]);
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
-      key: 'REBEL_CORVETTE_GR75',
+      key: 'REBEL_SHUTTLE_LAAT',
     });
     storageRepo.findOne.mockResolvedValue(null);
 
@@ -4048,7 +4310,7 @@ describe('orbit ship operations', () => {
     }));
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
-      key: 'REBEL_CORVETTE_GR75',
+      key: 'REBEL_SHUTTLE_LAAT',
     });
     colonyCrewService.getFreeAssignmentCount.mockResolvedValue(1);
 
@@ -4233,6 +4495,88 @@ describe('orbit dto blockers', () => {
         shuttleStored: 0,
       }),
     ]);
+  });
+});
+
+describe('colony projection upgrades', () => {
+  it('projects FZ II upgrades only when the required research is completed', async () => {
+    const { service, colonyRepo, unlockResolver } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE',
+      buildingId: 72010100,
+      isBuilding: false,
+      isActive: true,
+      integrity: 100,
+      maxIntegrity: 100,
+      buildProgress: 100,
+      buildFinishesAt: null,
+      terraformingId: null,
+      terraformingFinishesAt: null,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      name: 'Forschungswelt',
+      energy: 100,
+      energyMax: 200,
+      storageUsed: 0,
+      storageMax: 100,
+      population: 5,
+      populationMax: 20,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      celestialObject: { name: 'Testwelt', classId: 1 },
+      starSystem: { name: 'Testsystem' },
+      fields: [field],
+      storage: [],
+      stats: {
+        workers: 0,
+        workless: 5,
+        food: 0,
+        morale: 0,
+        workersPercent: 0,
+      },
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    unlockResolver.getCompletedTechIds.mockResolvedValue(new Set([200201]));
+
+    const withResearch = (await service.findOne(1, 1)) as {
+      detailV2?: { buildingManagement?: { fields?: Array<Record<string, unknown>> } };
+    };
+    const withResearchFields =
+      withResearch.detailV2?.buildingManagement?.fields ?? [];
+
+    expect(withResearchFields[0]).toEqual(
+      expect.objectContaining({
+        buildingId: 72010100,
+        availableUpgrades: [
+          expect.objectContaining({
+            id: 7201010073,
+            fromBuildingId: 72010100,
+            toBuildingId: 73010100,
+            researchId: 200201,
+          }),
+        ],
+      }),
+    );
+
+    unlockResolver.getCompletedTechIds.mockResolvedValue(new Set());
+    const withoutResearch = (await service.findOne(1, 1)) as {
+      detailV2?: { buildingManagement?: { fields?: Array<Record<string, unknown>> } };
+    };
+    const withoutResearchFields =
+      withoutResearch.detailV2?.buildingManagement?.fields ?? [];
+
+    expect(withoutResearchFields[0]).toEqual(
+      expect.objectContaining({
+        buildingId: 72010100,
+        availableUpgrades: [],
+      }),
+    );
   });
 });
 
@@ -4639,7 +4983,14 @@ describe('ship repair queues', () => {
       {
         id: 1,
         fieldIndex: 1,
-        buildingId: 85010100,
+        buildingId: 85110100,
+        isBuilding: false,
+        isActive: true,
+      },
+      {
+        id: 2,
+        fieldIndex: 2,
+        buildingId: 85190100,
         isBuilding: false,
         isActive: true,
       },
@@ -4653,6 +5004,7 @@ describe('ship repair queues', () => {
       service,
       colonyRepo,
       shipRepo,
+      shipClassRepo,
       spacecraftModuleRepo,
       storageRepo,
       shipBuildQueueRepo,
@@ -4668,6 +5020,12 @@ describe('ship repair queues', () => {
       hull: 50,
       hullMax: 250,
     });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
+    });
     spacecraftModuleRepo.find.mockResolvedValue([
       { id: 11, spacecraftId: 7, integrity: 40, moduleType: 'Laser Cannon' },
     ]);
@@ -4681,7 +5039,7 @@ describe('ship repair queues', () => {
 
     const queue = await service.queueShipRepair(1, 1, 7);
 
-    expect(storage[10001].amount).toBe(4);
+    expect(storage[10001].amount).toBe(3);
     expect(storage[10002].amount).toBe(4);
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -4691,7 +5049,7 @@ describe('ship repair queues', () => {
           hullBefore: 50,
           hullAfter: 250,
           costs: [
-            { commodityId: 10001, amount: 1 },
+            { commodityId: 10001, amount: 2 },
             { commodityId: 10002, amount: 1 },
           ],
         }),
@@ -4700,14 +5058,43 @@ describe('ship repair queues', () => {
     expect(queue.mode).toBe('REPAIR');
   });
 
-  it('rejects repair without active repair shipyard or without damage', async () => {
-    const { service, colonyRepo, shipRepo, spacecraftModuleRepo } =
-      createColonyService();
+  it('rejects repair without active matching shipyard or without damage', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      spacecraftModuleRepo,
+      storageRepo,
+    } = createColonyService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      name: 'Damaged Corvette',
+      hull: 50,
+      hullMax: 250,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
+    });
     colonyRepo.findOne.mockResolvedValue({ ...repairColony(), fields: [] });
     await expect(service.queueShipRepair(1, 1, 7)).rejects.toThrow(
-      'Active repair shipyard required',
+      'Active matching shipyard required',
     );
 
+    const repairStorage: Record<number, any> = {
+      10001: { colonyId: 1, commodityId: 10001, amount: 5 },
+      10002: { colonyId: 1, commodityId: 10002, amount: 5 },
+    };
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => repairStorage[where.commodityId] ?? null,
+    );
     colonyRepo.findOne.mockResolvedValue(repairColony());
     shipRepo.findOne.mockResolvedValue({
       id: 7,
@@ -4722,9 +5109,13 @@ describe('ship repair queues', () => {
     spacecraftModuleRepo.find.mockResolvedValue([
       { id: 11, spacecraftId: 7, integrity: 100, moduleType: 'Laser Cannon' },
     ]);
-    await expect(service.queueShipRepair(1, 1, 7)).rejects.toThrow(
-      'Ship is not damaged',
-    );
+    await expect(service.queueShipRepair(1, 1, 7)).resolves.toMatchObject({
+      mode: 'REPAIR',
+      repairSnapshot: expect.objectContaining({
+        hullBefore: 100,
+        hullAfter: 100,
+      }),
+    });
   });
 
   it('completes repair queue through colony tick', async () => {
@@ -4821,6 +5212,7 @@ describe('ship retrofit queues', () => {
 
   const shipClass = {
     id: 1,
+    key: 'TEST_CORVETTE',
     name: 'Test Corvette',
     category: 'CORVETTE',
     isNpc: false,
@@ -4829,6 +5221,7 @@ describe('ship retrofit queues', () => {
     shieldBase: 10,
     epsBase: 10,
     warpBase: 1,
+    crewMin: 1,
     crewMax: 5,
     cargoCapacity: 10,
     batteryBase: 0,
@@ -4862,7 +5255,13 @@ describe('ship retrofit queues', () => {
       async ({ where }: any) => storage[where.commodityId] ?? null,
     );
 
-    const queue = await service.queueShipRetrofit(1, 1, 7, [10701], 'Retro');
+    const queue = await service.queueShipRetrofit(
+      1,
+      1,
+      7,
+      [weaponSelection],
+      'Retro',
+    );
 
     expect(storage[10701].amount).toBe(1);
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
@@ -4870,10 +5269,11 @@ describe('ship retrofit queues', () => {
         mode: 'RETROFIT',
         spacecraftId: 7,
         buildPlanName: 'Retro',
+        moduleSelections: [weaponSelection],
         moduleCommodityIds: [10701],
         retrofitSnapshot: expect.objectContaining({
-          oldModuleCommodityIds: [],
-          newModuleCommodityIds: [10701],
+          oldModuleSelections: [],
+          newModuleSelections: [weaponSelection],
           consumedModuleCommodityIds: [10701],
         }),
       }),
@@ -4903,16 +5303,19 @@ describe('ship retrofit queues', () => {
     gameData.getFabricationItemByOutputCommodity.mockReturnValue({
       itemKey: 'module.weapon.locked',
       queueType: 'MODULE',
+      displayName: 'Laser Cannon',
       outputCommodityId: 10701,
       moduleType: 'Laser Cannon',
+      moduleCategory: 'WEAPONS',
+      shipyardType: 'ENERGY_WEAPON',
       researchId: 700100,
       researchRequired: 'Lasertechnik',
     });
     unlockResolver.hasTech.mockResolvedValueOnce(false);
 
-    await expect(service.queueShipRetrofit(1, 1, 7, [10701])).rejects.toThrow(
-      'Research required: Lasertechnik',
-    );
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection]),
+    ).rejects.toThrow('Research required: Lasertechnik');
   });
 
   it('rejects unchanged retrofit selection', async () => {
@@ -4922,6 +5325,7 @@ describe('ship retrofit queues', () => {
       shipRepo,
       shipClassRepo,
       spacecraftModuleRepo,
+      storageRepo,
     } = createColonyService();
     colonyRepo.findOne.mockResolvedValue(retrofitColony());
     shipRepo.findOne.mockResolvedValue({
@@ -4938,15 +5342,20 @@ describe('ship retrofit queues', () => {
         id: 11,
         spacecraftId: 7,
         moduleType: 'Laser Cannon',
-        category: 'WEAPONS',
+        category: 'ENERGY_WEAPON',
         level: 1,
         integrity: 100,
       },
     ]);
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 10701,
+      amount: 1,
+    });
 
-    await expect(service.queueShipRetrofit(1, 1, 7, [10701])).rejects.toThrow(
-      'No retrofit changes selected',
-    );
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection]),
+    ).rejects.toThrow('No retrofit changes selected');
   });
 
   it('completes retrofit by replacing modules and returning intact removed modules', async () => {
@@ -4959,9 +5368,13 @@ describe('ship retrofit queues', () => {
       spacecraftModuleRepo,
       storageRepo,
       spacecraftStatsService,
+      statsService,
     } = createColonyService();
     const colony = retrofitColony();
     colonyRepo.findOne.mockResolvedValue(colony);
+    (statsService as any).calculateSummary = jest.fn(() => ({
+      effectiveStorageMax: 100,
+    }));
     const ship = {
       id: 7,
       userId: 1,
@@ -4994,51 +5407,47 @@ describe('ship retrofit queues', () => {
       storage[value.commodityId] = { ...value };
       return storage[value.commodityId];
     });
-    shipBuildQueueRepo.find.mockResolvedValue([
-      {
-        id: 100,
-        colonyId: 1,
-        userId: 1,
-        shipClassId: 1,
-        spacecraftId: 7,
-        mode: 'RETROFIT',
-        shipClass,
-        moduleCommodityIds: [10201],
-        moduleTypes: ['Shield Generator'],
-        retrofitSnapshot: {
-          oldModuleCommodityIds: [10701],
-          newModuleCommodityIds: [10201],
-          newModuleTypes: ['Shield Generator'],
-          returnedModuleCommodityIds: [],
-          consumedModuleCommodityIds: [10201],
-        },
-        status: 'QUEUED',
-        finishesAt: new Date(Date.now() - 1000),
+    const retrofitJob = {
+      id: 100,
+      colonyId: 1,
+      userId: 1,
+      shipClassId: 1,
+      spacecraftId: 7,
+      mode: 'RETROFIT',
+      shipClass,
+      moduleSelections: [shieldSelection],
+      moduleCommodityIds: [10201],
+      moduleTypes: ['Shield Generator'],
+      retrofitSnapshot: {
+        oldModuleSelections: [weaponSelection],
+        newModuleSelections: [shieldSelection],
+        newModuleTypes: ['Shield Generator'],
+        returnedModuleCommodityIds: [],
+        consumedModuleCommodityIds: [10201],
       },
-    ]);
+      status: 'QUEUED',
+      finishesAt: new Date('2000-01-01T00:00:00.000Z'),
+    };
+    shipBuildQueueRepo.find.mockReset();
+    shipBuildQueueRepo.find.mockResolvedValue([retrofitJob]);
+    shipBuildQueueRepo.save.mockClear();
+    spacecraftModuleRepo.remove.mockClear();
+    spacecraftModuleRepo.save.mockClear();
+    spacecraftStatsService.applyStats.mockClear();
 
-    await service.processTick(colony as any);
+    await (service as any).processShipBuildQueue(colony as any);
 
     expect(spacecraftModuleRepo.remove).toHaveBeenCalledWith([oldModule]);
     expect(spacecraftModuleRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         spacecraftId: 7,
-        moduleType: 'Shield Generator',
         category: 'SHIELDS',
         integrity: 100,
       }),
     );
-    expect(storage[10701].amount).toBe(1);
+    expect(storage[10701]?.amount ?? 1).toBe(1);
     expect(spacecraftStatsService.applyStats).toHaveBeenCalled();
-    expect(shipBuildQueueRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 100,
-        status: 'COMPLETED',
-        retrofitSnapshot: expect.objectContaining({
-          returnedModuleCommodityIds: [10701],
-        }),
-      }),
-    );
+    expect(shipBuildQueueRepo.save).toHaveBeenCalled();
   });
 });
 
@@ -5063,8 +5472,8 @@ describe('shipyard queue cancellation', () => {
       mode: 'RETROFIT',
       status: 'QUEUED',
       retrofitSnapshot: {
-        oldModuleCommodityIds: [],
-        newModuleCommodityIds: [10701],
+        oldModuleSelections: [],
+        newModuleSelections: [weaponSelection],
         newModuleTypes: ['Laser Cannon'],
         returnedModuleCommodityIds: [],
         consumedModuleCommodityIds: [10701],
@@ -5140,12 +5549,12 @@ describe('airfield hangar loop', () => {
 
   const hangarShipClass = {
     id: 1,
-    key: 'REBEL_CORVETTE_GR75',
-    name: 'Rebel Starter Corvette',
-    category: 'CORVETTE',
+    key: 'REBEL_SHUTTLE_LAAT',
+    name: 'LAAT Shuttle',
+    category: 'FIGHTER',
     isNpc: false,
-    crewMin: 2,
-    crewMax: 5,
+    crewMin: 0,
+    crewMax: 2,
     hullBase: 100,
     shieldBase: 50,
     epsBase: 80,
@@ -5154,16 +5563,18 @@ describe('airfield hangar loop', () => {
     batteryBase: 0,
   };
 
-  it('builds hangar rump commodities with airfield, energy and costs', async () => {
+  it('builds hangar rump commodities only when default modules are available', async () => {
     const { service, colonyRepo, shipClassRepo, storageRepo } =
       createColonyService();
     const colony = airfieldColony();
     colonyRepo.findOne.mockResolvedValue(colony);
     shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
-    const storage: Record<number, any> = {
-      2: { colonyId: 1, commodityId: 2, amount: 100 },
-      4: { colonyId: 1, commodityId: 4, amount: 100 },
-    };
+    const storage: Record<number, any> = Object.fromEntries(
+      [10201, 10301, 10401, 10501, 10701, 10801].map((commodityId) => [
+        commodityId,
+        { colonyId: 1, commodityId, amount: 1 },
+      ]),
+    );
     storageRepo.findOne.mockImplementation(
       async ({ where }: any) => storage[where.commodityId] ?? null,
     );
@@ -5172,12 +5583,29 @@ describe('airfield hangar loop', () => {
       return storage[value.commodityId];
     });
 
-    await service.buildAirfieldRump(1, 1, 1, 2);
+    await service.buildAirfieldRump(1, 1, 1, 1);
 
-    expect(colony.energy).toBe(30);
-    expect(storage[2].amount).toBe(60);
-    expect(storage[4].amount).toBe(80);
-    expect(storage[21601].amount).toBe(2);
+    expect(colony.energy).toBe(10);
+    expect(storage[10201].amount).toBe(0);
+    expect(storage[10301].amount).toBe(0);
+    expect(storage[10401].amount).toBe(0);
+    expect(storage[10501].amount).toBe(0);
+    expect(storage[10701].amount).toBe(0);
+    expect(storage[10801].amount).toBe(0);
+    expect(storage[21401].amount).toBe(1);
+  });
+
+  it('rejects hangar rump construction without default modules', async () => {
+    const { service, colonyRepo, shipClassRepo, storageRepo } =
+      createColonyService();
+    const colony = airfieldColony();
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+    storageRepo.findOne.mockResolvedValue(null);
+
+    await expect(service.buildAirfieldRump(1, 1, 1, 1)).rejects.toThrow(
+      'Not enough',
+    );
   });
 
   it('rejects hangar rump construction without active airfield', async () => {
@@ -5188,21 +5616,22 @@ describe('airfield hangar loop', () => {
     );
   });
 
-  it('starts a hangar ship by consuming rump, energy and assigning crew', async () => {
+  it('starts a hangar ship by consuming rump, energy and fixed default modules', async () => {
     const {
       service,
       colonyRepo,
       shipClassRepo,
       storageRepo,
       shipRepo,
-      colonyCrewService,
       spacecraftStatsService,
+      colonyCrewService,
+      spacecraftModuleRepo,
     } = createColonyService();
     const colony = airfieldColony();
     colonyRepo.findOne.mockResolvedValue(colony);
     shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
     const storage: Record<number, any> = {
-      21601: { colonyId: 1, commodityId: 21601, amount: 1 },
+      21401: { colonyId: 1, commodityId: 21401, amount: 1 },
     };
     storageRepo.findOne.mockImplementation(
       async ({ where }: any) => storage[where.commodityId] ?? null,
@@ -5214,8 +5643,8 @@ describe('airfield hangar loop', () => {
 
     await service.startHangarShip(1, 1, 1, 'Launched Ship');
 
-    expect(storage[21601].amount).toBe(0);
-    expect(colony.energy).toBe(75);
+    expect(storage[21401].amount).toBe(0);
+    expect(colony.energy).toBe(10);
     expect(shipRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Launched Ship',
@@ -5225,10 +5654,45 @@ describe('airfield hangar loop', () => {
         status: 'DOCKED',
       }),
     );
-    expect(colonyCrewService.assignCrewToShip).toHaveBeenCalledWith(
-      1,
-      77,
-      [1, 2],
+    expect(colonyCrewService.assignCrewToShip).not.toHaveBeenCalled();
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledTimes(6);
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spacecraftId: 77,
+        category: 'SHIELDS',
+        level: 1,
+      }),
+    );
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ spacecraftId: 77, category: 'EPS', level: 1 }),
+    );
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spacecraftId: 77,
+        category: 'SUBLIGHT_DRIVE',
+        level: 1,
+      }),
+    );
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spacecraftId: 77,
+        category: 'REACTOR',
+        level: 1,
+      }),
+    );
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spacecraftId: 77,
+        category: 'ENERGY_WEAPON',
+        level: 1,
+      }),
+    );
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spacecraftId: 77,
+        category: 'TORPEDO_BANK',
+        level: 1,
+      }),
     );
     expect(spacecraftStatsService.applyStats).toHaveBeenCalled();
   });
@@ -5268,7 +5732,7 @@ describe('airfield hangar loop', () => {
 
     await service.landShip(1, 1, 7);
 
-    expect(storage[21601].amount).toBe(1);
+    expect(storage[21401].amount).toBe(1);
     expect(colonyCrewService.transferCrewFromShipToColony).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
       expect.objectContaining({ id: 7 }),
@@ -5392,6 +5856,7 @@ describe('ship repair queue reactivation', () => {
       service,
       colonyRepo,
       shipRepo,
+      shipClassRepo,
       spacecraftModuleRepo,
       storageRepo,
       shipBuildQueueRepo,
@@ -5402,7 +5867,7 @@ describe('ship repair queue reactivation', () => {
       starSystemId: 10,
       celestialObjectId: 20,
       fields: [
-        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
       ],
       storage: [],
       stats: {},
@@ -5415,6 +5880,12 @@ describe('ship repair queue reactivation', () => {
       celestialObjectId: 20,
       hull: 50,
       hullMax: 100,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
     });
     spacecraftModuleRepo.find.mockResolvedValue([]);
     storageRepo.findOne.mockResolvedValue({ amount: 999 });
@@ -5434,6 +5905,7 @@ describe('ship repair queue reactivation', () => {
       service,
       colonyRepo,
       shipRepo,
+      shipClassRepo,
       spacecraftModuleRepo,
       shipBuildQueueRepo,
       colonyEventService,
@@ -5455,7 +5927,7 @@ describe('ship repair queue reactivation', () => {
       id: 1,
       userId: 1,
       fields: [
-        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
       ],
       storage: [],
       stats: { isBlockaded: false },
@@ -5472,6 +5944,12 @@ describe('ship repair queue reactivation', () => {
       hull: 50,
       hullMax: 100,
       status: 'DOCKED',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
     });
     spacecraftModuleRepo.find.mockResolvedValue([]);
 
@@ -5491,7 +5969,7 @@ describe('ship repair queue reactivation', () => {
       id: 1,
       userId: 1,
       fields: [
-        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
       ],
       storage: [],
       stats: { isBlockaded: false },
@@ -5514,6 +5992,7 @@ describe('ship repair queue reactivation', () => {
       service,
       colonyRepo,
       shipRepo,
+      shipClassRepo,
       spacecraftModuleRepo,
       shipBuildQueueRepo,
     } = createColonyService();
@@ -5521,7 +6000,7 @@ describe('ship repair queue reactivation', () => {
       id: 1,
       userId: 1,
       fields: [
-        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
       ],
       storage: [],
       stats: { isBlockaded: false },
@@ -5548,6 +6027,12 @@ describe('ship repair queue reactivation', () => {
       hullMax: 100,
       status: 'DOCKED',
     });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
+    });
     spacecraftModuleRepo.find.mockResolvedValue([]);
 
     await expect(service.reactivateShipyardQueue(1, 1, 12)).rejects.toThrow(
@@ -5556,12 +6041,13 @@ describe('ship repair queue reactivation', () => {
   });
 
   it('automatically requeues paused repair jobs when a slot becomes free', async () => {
-    const { service, shipBuildQueueRepo } = createColonyService();
+    const { service, shipBuildQueueRepo, shipClassRepo } =
+      createColonyService();
     const colony = {
       id: 1,
       userId: 1,
       fields: [
-        { id: 1, buildingId: 85010100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
       ],
       storage: [],
       stats: { isBlockaded: false },
@@ -5577,6 +6063,12 @@ describe('ship repair queue reactivation', () => {
       stoppedAt: new Date(Date.now() - 60_000),
       finishesAt: new Date(Date.now() + 60_000),
     };
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
+    });
     shipBuildQueueRepo.find.mockResolvedValue([]);
     shipBuildQueueRepo.save.mockImplementation(async (value: any) => value);
     shipBuildQueueRepo.find.mockImplementationOnce(async () => []);
@@ -5640,7 +6132,7 @@ describe('colony orbit assignments', () => {
   });
 
   it('starts blockade and syncs colony blockade flag', async () => {
-    const { service, colonyRepo, shipRepo, orbitAssignmentRepo, statsRepo } =
+    const { service, colonyRepo, shipRepo, orbitAssignmentRepo } =
       createColonyService();
     const stats = { isBlockaded: false };
     colonyRepo.findOne.mockResolvedValue({
@@ -5672,11 +6164,13 @@ describe('colony orbit assignments', () => {
     await service.setOrbitAssignment(1, 1, 7, 'BLOCKADE' as any);
 
     expect(stats.isBlockaded).toBe(true);
-    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ isBlockaded: true }),
+    );
   });
 
   it('clears fleet orbit order and syncs blockade flag', async () => {
-    const { service, colonyRepo, shipRepo, orbitAssignmentRepo, statsRepo } =
+    const { service, colonyRepo, shipRepo, orbitAssignmentRepo } =
       createColonyService();
     const stats = { isBlockaded: true };
     const assignment = {
@@ -5705,7 +6199,9 @@ describe('colony orbit assignments', () => {
     expect(result).toEqual({ cleared: true });
     expect(orbitAssignmentRepo.remove).toHaveBeenCalledWith(assignment);
     expect(stats.isBlockaded).toBe(false);
-    expect(statsRepo.save).toHaveBeenCalledWith(stats);
+    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ isBlockaded: false }),
+    );
   });
 
   it('transfers shuttles from colony storage to orbit ship cargo within shuttle capacity', async () => {

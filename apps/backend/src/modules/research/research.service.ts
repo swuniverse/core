@@ -70,9 +70,32 @@ export class ResearchService {
         .filter((r) => r.status === ResearchStatus.COMPLETED)
         .map((r) => r.techId),
     );
+    const exclusionSources = new Set(
+      userResearch
+        .filter((r) =>
+          [
+            ResearchStatus.IN_PROGRESS,
+            ResearchStatus.QUEUED,
+            ResearchStatus.COMPLETED,
+          ].includes(r.status),
+        )
+        .map((r) => r.techId),
+    );
+    const excludedByStartedResearch = new Set<number>();
+    for (const sourceTechId of exclusionSources) {
+      const sourceTech = this.getTechForFaction(sourceTechId, faction ?? null);
+      if (!sourceTech) continue;
+      for (const dep of sourceTech.dependencies) {
+        if (dep.type !== 'EXCLUDE') continue;
+        for (const techId of dep.techIds) {
+          excludedByStartedResearch.add(techId);
+        }
+      }
+    }
     const visibleTechs = new Map<number, TechDef>();
     for (const tech of techTree) {
       if (tech.hidden || tech.excludeFromNormalProgression) continue;
+      if (excludedByStartedResearch.has(tech.id)) continue;
       if (!isTechForFaction(tech, faction ?? null)) continue;
       if (
         ROOT_TECH_IDS.has(tech.id) &&

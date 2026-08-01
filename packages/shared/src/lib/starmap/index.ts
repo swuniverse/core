@@ -107,10 +107,19 @@ export interface StarmapSystemFieldDto {
   celestialObject?: StarmapCelestialObjectDto | null;
 }
 
+export interface StarmapColonyShieldDto {
+  colonyId: number;
+  systemId: number;
+  posX: number;
+  posY: number;
+  shielded: boolean;
+}
+
 export interface StarmapSystemGridDto {
   system: StarmapSystemListItemDto;
   fields: StarmapSystemFieldDto[];
   celestialObjects?: StarmapCelestialObjectDto[];
+  colonyShields?: StarmapColonyShieldDto[];
 }
 
 export interface StarmapCelestialObjectDto {

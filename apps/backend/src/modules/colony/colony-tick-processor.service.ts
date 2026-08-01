@@ -10,7 +10,9 @@ import { ColonyShipyardService } from './colony-shipyard.service';
 import {
   ColonyStatsService,
   ColonyInternalSummary,
+  getColonyChangeable,
   getEffectiveCurrentPopulation,
+  syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import {
@@ -33,7 +35,7 @@ export class ColonyTickProcessorService {
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
     @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
+    _statsRepo: Repository<ColonyStats>,
     @InjectRepository(ColonyField)
     private readonly fieldRepo: Repository<ColonyField>,
     @InjectRepository(ColonyStorage)
@@ -168,7 +170,6 @@ export class ColonyTickProcessorService {
   }
 
   private syncDefenseStats(colony: Colony): void {
-    if (!colony.stats) return;
     this.colonyDefenseService.syncShieldCapacity(
       colony,
       this.getMaxShields(colony),
@@ -475,9 +476,10 @@ export class ColonyTickProcessorService {
     const summary = this.colonyStatsService.calculateSummary(colony);
     const currentPopulation = getEffectiveCurrentPopulation(colony);
     const growth = this.calculatePopulationGrowth(colony, summary);
+    const changeable = getColonyChangeable(colony);
     if (growth <= 0) {
-      if (colony.stats && colony.population !== currentPopulation) {
-        colony.population = currentPopulation;
+      if (colony.population !== currentPopulation) {
+        syncLegacyColonySnapshot(colony);
         await this.colonyRepo.save(colony);
       }
       return;
@@ -489,11 +491,10 @@ export class ColonyTickProcessorService {
     );
     const actualGrowth = nextPopulation - currentPopulation;
 
-    if (actualGrowth > 0 && colony.stats) {
-      colony.stats.workless += actualGrowth;
-      await this.statsRepo.save(colony.stats);
+    if (actualGrowth > 0) {
+      changeable.workless += actualGrowth;
     }
-    colony.population = getEffectiveCurrentPopulation(colony);
+    syncLegacyColonySnapshot(colony);
     await this.colonyRepo.save(colony);
   }
 }

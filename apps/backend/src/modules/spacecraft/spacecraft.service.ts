@@ -29,6 +29,8 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { SpacecraftStatsService } from './spacecraft-stats.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
+import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
+import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { Colony } from '../colony/entities/colony.entity';
 
 @Injectable()
@@ -62,6 +64,8 @@ export class SpacecraftService {
     private readonly spacecraftStatsService: SpacecraftStatsService,
     private readonly spacecraftCrewService: SpacecraftCrewService,
     private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
+    private readonly spacecraftResourceFlowService: SpacecraftResourceFlowService,
+    private readonly spacecraftRuntimeStateService: SpacecraftRuntimeStateService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -295,7 +299,7 @@ export class SpacecraftService {
     Array<
       ShipClassDef & {
         unlocked?: boolean;
-        buildCosts?: Record<string, number>;
+        buildCosts?: Array<{ commodityId: number; amount: number; name: string }>;
         requirementLabel?: string | null;
       }
     >
@@ -311,16 +315,66 @@ export class SpacecraftService {
           userId,
           shipClass.id,
         );
+        const yamlDef = this.gameData.getShipClassDefByKey(shipClass.key);
+        const allowedBuildingFunctionIds =
+          yamlDef &&
+          'allowedBuildingFunctionIds' in yamlDef &&
+          Array.isArray(yamlDef.allowedBuildingFunctionIds)
+            ? yamlDef.allowedBuildingFunctionIds
+            : null;
         return Object.assign(shipClass, {
           unlocked,
-          buildCosts: this.calculateBuildCosts(shipClass),
+          buildCosts: this.getShipClassBuildCosts(shipClass),
           requirementLabel: shipClass.unlockTechId
             ? (this.gameData.getTech(shipClass.unlockTechId)?.name ??
               `Tech #${shipClass.unlockTechId}`)
             : null,
+          allowedBuildingFunctionIds,
         });
       }),
     );
+  }
+
+
+  private getShipClassBuildCosts(
+    shipClass: ShipClassDef,
+  ): Array<{ commodityId: number; amount: number; name: string }> {
+    const definition = this.gameData.getShipClassDefByKey(shipClass.key);
+    return (definition?.buildCosts ?? this.calculateShipBuildCosts(shipClass))
+      .filter((cost) => cost.amount > 0)
+      .map((cost) => ({
+        ...cost,
+        name:
+          this.gameData.getCommodity(cost.commodityId)?.name ??
+          `Ware #${cost.commodityId}`,
+      }));
+  }
+
+  private calculateShipBuildCosts(
+    shipClass: ShipClassDef,
+  ): Array<{ commodityId: number; amount: number }> {
+    return [
+      {
+        commodityId: 2,
+        amount: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
+      },
+      {
+        commodityId: 3,
+        amount: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
+      },
+      {
+        commodityId: 4,
+        amount: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
+      },
+      {
+        commodityId: 6,
+        amount: Math.max(20, Math.round(shipClass.cargoCapacity * 0.25)),
+      },
+      {
+        commodityId: 7,
+        amount: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
+      },
+    ];
   }
 
   calculateBuildCosts(shipClass: ShipClassDef): Record<string, number> {
@@ -550,19 +604,16 @@ export class SpacecraftService {
     }
 
     const energyCost = distance * 5;
-    if (ship.energy < energyCost) {
-      throw new BadRequestException(
-        `Not enough energy: need ${energyCost} EPS, have ${ship.energy}`,
-      );
-    }
+    this.consumeEps(ship, energyCost, 'navigation');
 
-    ship.energy -= energyCost;
     ship.currentSystemFieldX = targetX;
     ship.currentSystemFieldY = targetY;
     ship.targetX = null;
     ship.targetY = null;
     ship.arrivalAt = null;
     ship.status = SpacecraftStatus.DOCKED;
+
+    this.spacecraftRuntimeStateService.initialize(ship);
 
     await this.shipRepo.save(ship);
 
@@ -628,14 +679,9 @@ export class SpacecraftService {
       throw new BadRequestException('Already at target position');
     }
 
-    const energyCost = distance * 5;
-    if (ship.energy < energyCost) {
-      throw new BadRequestException(
-        `Not enough energy: need ${energyCost} EPS, have ${ship.energy}`,
-      );
-    }
+    const warpdriveCost = distance;
+    this.consumeWarpdrive(ship, warpdriveCost, 'galaxy flight');
 
-    ship.energy -= energyCost;
     ship.posX = targetX;
     ship.posY = targetY;
     ship.targetX = null;
@@ -643,6 +689,8 @@ export class SpacecraftService {
     ship.targetSystemId = null;
     ship.arrivalAt = null;
     ship.status = SpacecraftStatus.DOCKED;
+
+    this.spacecraftRuntimeStateService.initialize(ship);
 
     await this.shipRepo.save(ship);
 
@@ -789,14 +837,9 @@ export class SpacecraftService {
         )
       : 1;
 
-    const warpEnergyCost = galaxyDistance * ship.warpSpeed;
-    if (ship.energy < warpEnergyCost) {
-      throw new BadRequestException(
-        `Not enough energy for warp: need ${warpEnergyCost}, have ${ship.energy}`,
-      );
-    }
+    const warpdriveCost = Math.max(1, galaxyDistance);
+    this.consumeWarpdrive(ship, warpdriveCost, 'warp');
 
-    ship.energy -= warpEnergyCost;
     const warpTimeMs = galaxyDistance * 60_000;
 
     ship.status = SpacecraftStatus.IN_FLIGHT;
@@ -804,7 +847,27 @@ export class SpacecraftService {
     ship.arrivalAt = new Date(Date.now() + warpTimeMs);
     ship.warpCooldown = 3;
 
+    this.spacecraftRuntimeStateService.initialize(ship);
+
     return this.shipRepo.save(ship);
+  }
+
+  private consumeEps(ship: Spacecraft, amount: number, action: string): void {
+    if (ship.energy < amount) {
+      throw new BadRequestException(
+        `Not enough EPS for ${action}: need ${amount}, have ${ship.energy}`,
+      );
+    }
+    ship.energy -= amount;
+  }
+
+  private consumeWarpdrive(ship: Spacecraft, amount: number, action: string): void {
+    if (ship.warpdrive < amount) {
+      throw new BadRequestException(
+        `Not enough warpdrive for ${action}: need ${amount}, have ${ship.warpdrive}`,
+      );
+    }
+    ship.warpdrive -= amount;
   }
 
   // Fleet management
@@ -1260,9 +1323,7 @@ export class SpacecraftService {
   async processTick(ship: Spacecraft): Promise<void> {
     await this.processMovement(ship);
 
-    if (ship.energy < ship.energyMax) {
-      ship.energy = Math.min(ship.energy + 5, ship.energyMax);
-    }
+    this.spacecraftResourceFlowService.recharge(ship);
 
     if (ship.shields < ship.shieldsMax && ship.energy > 10) {
       const formulas = this.gameData.getCombatFormulas();
@@ -1290,6 +1351,8 @@ export class SpacecraftService {
         await this.moduleRepo.save(mod);
       }
     }
+
+    this.spacecraftRuntimeStateService.initialize(ship);
 
     await this.shipRepo.save(ship);
   }

@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Colony } from './entities/colony.entity';
 import { ColonyStorageService } from './colony-storage.service';
+import { getColonyChangeable, syncLegacyColonySnapshot } from './colony-stats.service';
 import { GameDataService } from '../game-data/game-data.service';
-
 export interface ColonyDefenseConstants {
   shield: {
     generatorCapacity: number;
@@ -67,24 +67,22 @@ export class ColonyDefenseService {
   }
 
   syncShieldCapacity(colony: Colony, maxShields: number): void {
-    if (!colony.stats) throw new BadRequestException('Colony stats missing');
-    colony.stats.maxShields = Math.max(0, maxShields);
-    colony.stats.shields = Math.min(
-      colony.stats.shields ?? 0,
-      colony.stats.maxShields,
-    );
-    if (colony.stats.maxShields <= 0) {
-      colony.stats.shields = 0;
-      colony.stats.shieldFrequency = null;
+    const changeable = getColonyChangeable(colony);
+    changeable.maxShields = Math.max(0, maxShields);
+    changeable.shields = Math.min(changeable.shields ?? 0, changeable.maxShields);
+    if (changeable.maxShields <= 0) {
+      changeable.shields = 0;
+      changeable.shieldFrequency = null;
     }
+    syncLegacyColonySnapshot(colony);
   }
 
   loadShields(colony: Colony, amount: number, maxShields: number): number {
-    if (!colony.stats) throw new BadRequestException('Colony stats missing');
+    const changeable = getColonyChangeable(colony);
     if (amount <= 0) throw new BadRequestException('Amount must be positive');
     if (maxShields <= 0)
       throw new BadRequestException('Active shield generator required');
-    const current = colony.stats.shields ?? 0;
+    const current = changeable.shields ?? 0;
     const capacity = Math.max(0, maxShields - current);
     const loadAmount = Math.min(
       amount,
@@ -97,9 +95,10 @@ export class ColonyDefenseService {
     const energyCost = Math.ceil(
       loadAmount / this.constants.shield.loadPerEnergy,
     );
-    colony.energy -= energyCost;
-    colony.stats.maxShields = maxShields;
-    colony.stats.shields = current + loadAmount;
+    changeable.energy = Math.max(0, colony.energy - energyCost);
+    changeable.maxShields = maxShields;
+    changeable.shields = current + loadAmount;
+    syncLegacyColonySnapshot(colony);
     return loadAmount;
   }
 
@@ -116,15 +115,13 @@ export class ColonyDefenseService {
   }
 
   setTorpedoType(colony: Colony, commodityId: number | null): void {
-    if (!colony.stats) throw new BadRequestException('Colony stats missing');
-    colony.stats.torpedoTypeId = commodityId;
+    getColonyChangeable(colony).torpedoTypeId = commodityId;
   }
 
   async consumeParticlePhalanxTorpedo(colony: Colony): Promise<boolean> {
-    if (!colony.stats?.torpedoTypeId) return false;
-    const torpedoType = this.gameData.getTorpedoType(
-      colony.stats.torpedoTypeId,
-    );
+    const torpedoTypeId = getColonyChangeable(colony).torpedoTypeId;
+    if (!torpedoTypeId) return false;
+    const torpedoType = this.gameData.getTorpedoType(torpedoTypeId);
     if (!torpedoType) return false;
     try {
       await this.storageService.lowerStorage(

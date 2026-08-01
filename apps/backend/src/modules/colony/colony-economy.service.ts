@@ -5,6 +5,7 @@ import {
 } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyStatsService } from './colony-stats.service';
+import { ColonyFunctionManagerService } from './colony-function-manager.service';
 
 export interface ColonyFeatureTabAccess {
   visible: boolean;
@@ -31,8 +32,10 @@ export class ColonyEconomyService {
   private readonly airfieldFunctionIds = [4];
   private readonly fighterShipyardFunctionIds = [5];
   private readonly shipyardFunctionIds = [6, 7, 8, 21];
-  private readonly repairShipyardFunctionIds = [22];
-  private readonly fabricationFunctionIds = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  private readonly repairStationFunctionId = 22;
+  private readonly fabricationFunctionIds = [
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+  ];
   private readonly fabricationSupportFunctionIds = [29, 30];
   private readonly defenseFunctionIds = [24, 25, 26, 27, 28];
   private readonly academyFunctionIds = [20];
@@ -41,6 +44,7 @@ export class ColonyEconomyService {
   constructor(
     private readonly statsService: ColonyStatsService,
     private readonly gameData: GameDataService,
+    private readonly functionManager?: ColonyFunctionManagerService,
   ) {}
 
   calculateSummary(colony: Colony, excludedFieldIds: Set<number> = new Set()) {
@@ -76,14 +80,20 @@ export class ColonyEconomyService {
     colony: Colony,
     excludedFieldIds: Set<number> = new Set(),
   ): number[] {
-    return this.collectFunctionIds(colony, excludedFieldIds, true);
+    return (
+      this.functionManager?.getActiveFunctionIds(colony, excludedFieldIds) ??
+      this.collectFunctionIds(colony, excludedFieldIds, true)
+    );
   }
 
   getPresentFunctionIds(
     colony: Colony,
-    excludedFieldIds: Set<number> = new Set(),
+    _excludedFieldIds: Set<number> = new Set(),
   ): number[] {
-    return this.collectFunctionIds(colony, excludedFieldIds, false);
+    return (
+      this.functionManager?.getPresentFunctionIds(colony) ??
+      this.collectFunctionIds(colony, new Set(), false)
+    );
   }
 
   hasActiveFunction(
@@ -91,8 +101,15 @@ export class ColonyEconomyService {
     functionId: number,
     excludedFieldIds: Set<number> = new Set(),
   ): boolean {
-    return this.getActiveFunctionIds(colony, excludedFieldIds).includes(
-      functionId,
+    return (
+      this.functionManager?.hasActiveFunction(
+        colony,
+        functionId,
+        excludedFieldIds,
+      ) ??
+      this.collectFunctionIds(colony, excludedFieldIds, true).includes(
+        functionId,
+      )
     );
   }
 
@@ -109,7 +126,6 @@ export class ColonyEconomyService {
     const shipyardIds = [
       ...this.fighterShipyardFunctionIds,
       ...this.shipyardFunctionIds,
-      ...this.repairShipyardFunctionIds,
     ];
     const fabricationIds = [
       ...this.fabricationFunctionIds,
@@ -131,7 +147,7 @@ export class ColonyEconomyService {
         crew: coreVisible,
         shipyard: {
           visible: hasPresent(shipyardIds),
-          reason: 'Benötigt eine gebaute Werft oder Reparaturwerft',
+          reason: 'Benötigt eine gebaute Werft',
           requiredFunctionIds: shipyardIds,
           presentFunctionIds: shipyardGroup.presentFunctionIds,
           activeFunctionIds: shipyardGroup.activeFunctionIds,
@@ -165,7 +181,7 @@ export class ColonyEconomyService {
         groups: {
           fighterShipyards: group(this.fighterShipyardFunctionIds),
           shipyards: group(this.shipyardFunctionIds),
-          repairShipyards: group(this.repairShipyardFunctionIds),
+          repairShipyards: group([this.repairStationFunctionId]),
           fabrication: group(this.fabricationFunctionIds),
           fabricationSupport: group(this.fabricationSupportFunctionIds),
           defense: group(this.defenseFunctionIds),
@@ -249,23 +265,10 @@ export class ColonyEconomyService {
         continue;
       }
       if (activeOnly && !field.isActive) continue;
-      const directFunctionIds = this.gameData.getBuildingFunctions(
+      for (const functionId of this.gameData.getBuildingFunctions(
         field.buildingId,
-      );
-      for (const functionId of directFunctionIds) {
+      )) {
         ids.add(functionId);
-      }
-      if (
-        directFunctionIds.length === 0 &&
-        typeof this.gameData.getAllBuildingFunctions === 'function'
-      ) {
-        for (const definition of this.gameData.getAllBuildingFunctions()) {
-          if (
-            this.gameData.buildingHasFunction(field.buildingId, definition.id)
-          ) {
-            ids.add(definition.id);
-          }
-        }
       }
     }
     return Array.from(ids).sort((a, b) => a - b);

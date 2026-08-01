@@ -6,6 +6,9 @@ jest.mock('../starmap/entities/celestial-object.entity', () => ({
   CelestialObject: class CelestialObject {},
   CelestialObjectType: { PLANET: 1, MOON: 2, ASTEROID: 3 },
 }));
+jest.mock('../starmap/entities/layer.entity', () => ({
+  Layer: class Layer {},
+}));
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
@@ -28,7 +31,9 @@ function repo(overrides: Partial<Record<string, unknown>> = {}) {
     findOne: jest.fn(),
     findOneBy: jest.fn(),
     find: jest.fn(),
+    save: jest.fn(),
     delete: jest.fn(),
+    createQueryBuilder: jest.fn(),
     ...overrides,
   } as any;
 }
@@ -38,11 +43,14 @@ describe('ColonizationService', () => {
     const userRepo = repo();
     const colonyRepo = repo();
     const objectRepo = repo();
-    const shipRepo = repo();
+    const shipRepo = repo({ save: jest.fn(), create: jest.fn() });
     const shipClassRepo = repo();
-    const unlockResolver = { hasTech: jest.fn() } as any;
-    const colonySeedService = { createFollowUpColony: jest.fn() } as any;
-    const colonyEventService = { createActionEvent: jest.fn() } as any;
+    const unlockResolver = { hasTech: jest.fn() };
+    const colonySeedService = {
+      createFollowUpColony: jest.fn(),
+      createStarterColony: jest.fn(),
+    };
+    const colonyEventService = { createActionEvent: jest.fn() };
 
     const service = new ColonizationService(
       userRepo,
@@ -50,9 +58,9 @@ describe('ColonizationService', () => {
       objectRepo,
       shipRepo,
       shipClassRepo,
-      unlockResolver,
-      colonySeedService,
-      colonyEventService,
+      unlockResolver as never,
+      colonySeedService as never,
+      colonyEventService as never,
     );
 
     return {
@@ -75,6 +83,46 @@ describe('ColonizationService', () => {
     factionRef: { key: 'REBEL_ALLIANCE' },
   };
 
+  interface StarterTarget {
+    id: number;
+    systemId: number;
+    posX: number;
+    posY: number;
+    classId: number;
+    name: string;
+  }
+
+  function starterTarget(id: number): StarterTarget {
+    return {
+      id,
+      systemId: 55,
+      posX: 7,
+      posY: 9,
+      classId: 401,
+      name: `Planet ${id}`,
+    };
+  }
+
+  function starterTargetQuery(targets: StarterTarget[]) {
+    return {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(targets),
+    };
+  }
+
+  function colonyLayerCountQuery(count: number) {
+    return {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(count),
+    };
+  }
+
   it('calculates moon limit from colonizer and moon techs', async () => {
     const { service, userRepo, colonyRepo, unlockResolver } = createService();
     userRepo.findOne.mockResolvedValue(rebelUser);
@@ -94,10 +142,15 @@ describe('ColonizationService', () => {
   it('rejects colonization when target already has a colony', async () => {
     const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
       createService();
-    userRepo.findOne.mockResolvedValue(rebelUser);
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
     colonyRepo.find.mockResolvedValue([]);
     colonyRepo.findOne.mockResolvedValue({ id: 99, celestialObjectId: 5 });
-    objectRepo.findOneBy.mockResolvedValue({
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
       id: 5,
       objectType: 2,
       isColonizable: true,
@@ -105,6 +158,7 @@ describe('ColonizationService', () => {
       systemId: 44,
       posX: 3,
       posY: 7,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
     });
     unlockResolver.hasTech.mockResolvedValue(true);
 
@@ -124,10 +178,15 @@ describe('ColonizationService', () => {
       shipClassRepo,
       unlockResolver,
     } = createService();
-    userRepo.findOne.mockResolvedValue(rebelUser);
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
     colonyRepo.find.mockResolvedValue([]);
     colonyRepo.findOne.mockResolvedValue(null);
-    objectRepo.findOneBy.mockResolvedValue({
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
       id: 6,
       objectType: 2,
       isColonizable: true,
@@ -135,6 +194,7 @@ describe('ColonizationService', () => {
       systemId: 44,
       posX: 8,
       posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
     });
     shipRepo.findOne.mockResolvedValue({
       id: 12,
@@ -175,10 +235,15 @@ describe('ColonizationService', () => {
       colonySeedService,
       colonyEventService,
     } = createService();
-    userRepo.findOne.mockResolvedValue(rebelUser);
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
     colonyRepo.find.mockResolvedValue([{ celestialObject: { objectType: 1 } }]);
     colonyRepo.findOne.mockResolvedValue(null);
-    objectRepo.findOneBy.mockResolvedValue({
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
       id: 7,
       objectType: 2,
       isColonizable: true,
@@ -186,6 +251,7 @@ describe('ColonizationService', () => {
       systemId: 44,
       posX: 8,
       posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
     });
     shipRepo.findOne.mockResolvedValue({
       id: 15,
@@ -232,6 +298,187 @@ describe('ColonizationService', () => {
     });
   });
 
+  it('returns required starter options with available targets', async () => {
+    const { service, userRepo, colonyRepo, objectRepo } = createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      onboardingCompleted: false,
+      starterColonyId: null,
+      starterShipId: null,
+      factionId: 1,
+    });
+    colonyRepo.findOne.mockResolvedValue(null);
+    objectRepo.createQueryBuilder.mockReturnValue(
+      starterTargetQuery([starterTarget(101), starterTarget(102)]),
+    );
+
+    const result = await service.getStarterColonizationOptions(1);
+
+    expect(result.mode).toBe('required');
+    expect(result.targets).toHaveLength(2);
+    expect(result.targets[0]).toMatchObject({ id: 101, systemId: 55 });
+  });
+
+  it('creates starter colony and completes onboarding once', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      objectRepo,
+      colonySeedService,
+    } = createService();
+    const user = {
+      ...rebelUser,
+      onboardingCompleted: false,
+      starterColonyId: null,
+      starterShipId: null,
+      factionId: 1,
+    };
+    userRepo.findOne.mockResolvedValue(user);
+    colonyRepo.findOne.mockResolvedValue(null);
+    objectRepo.createQueryBuilder.mockReturnValue(
+      starterTargetQuery([starterTarget(777)]),
+    );
+    colonySeedService.createStarterColony.mockResolvedValue({ id: 7777 });
+
+    const result = await service.foundStarterColony(1, 777);
+
+    expect(result).toEqual({ success: true, colonyId: 7777 });
+    expect(colonySeedService.createStarterColony).toHaveBeenCalledWith(
+      1,
+      'Luke',
+      777,
+      1,
+    );
+    expect(user.onboardingCompleted).toBe(true);
+    expect(user.starterColonyId).toBe(7777);
+
+    await expect(service.foundStarterColony(1, 777)).rejects.toThrow(
+      'Starterkolonisierung bereits abgeschlossen',
+    );
+  });
+
+  it('marks starter mode not required when active colony already exists', async () => {
+    const { service, userRepo, colonyRepo } = createService();
+    const user = {
+      ...rebelUser,
+      onboardingCompleted: false,
+      starterColonyId: null,
+      starterShipId: null,
+      factionId: 1,
+    };
+    userRepo.findOne.mockResolvedValue(user);
+    colonyRepo.findOne.mockResolvedValue({ id: 9001 });
+
+    const result = await service.getStarterColonizationOptions(1);
+
+    expect(result.mode).toBe('not-required');
+    expect(result.targets).toEqual([]);
+    expect(user.onboardingCompleted).toBe(true);
+  });
+
+  it('blocks old accounts in noobzone targets', async () => {
+    const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
+      createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(0),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
+      id: 88,
+      objectType: 1,
+      isColonizable: true,
+      classId: 401,
+      systemId: 44,
+      posX: 1,
+      posY: 1,
+      starSystem: { layer: { id: 4, name: 'Noob', isNoobzone: true } },
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    const result = await service.explainTarget(1, 88);
+
+    expect(result.canColonize).toBe(false);
+    expect(result.reasons).toContain(
+      'Kolonisierung in der Noobzone nur für neue Accounts erlaubt',
+    );
+    expect(result.target?.starterZone).toMatchObject({
+      layerId: 4,
+      isNoobzone: true,
+      accountAgeAllowed: false,
+    });
+  });
+
+  it('blocks new accounts with four colonies in same noobzone layer', async () => {
+    const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
+      createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(4));
+    objectRepo.findOne.mockResolvedValue({
+      id: 89,
+      objectType: 1,
+      isColonizable: true,
+      classId: 401,
+      systemId: 44,
+      posX: 1,
+      posY: 1,
+      starSystem: { layer: { id: 4, name: 'Noob', isNoobzone: true } },
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    const result = await service.explainTarget(1, 89);
+
+    expect(result.canColonize).toBe(false);
+    expect(result.reasons).toContain(
+      'Kolonielimit in dieser Noobzone erreicht (4/4)',
+    );
+    expect(result.target?.starterZone?.currentColoniesInLayer).toBe(4);
+  });
+
+  it('allows new accounts below noobzone colony limit', async () => {
+    const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
+      createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(3));
+    objectRepo.findOne.mockResolvedValue({
+      id: 90,
+      objectType: 1,
+      isColonizable: true,
+      classId: 401,
+      systemId: 44,
+      posX: 1,
+      posY: 1,
+      starSystem: { layer: { id: 4, name: 'Noob', isNoobzone: true } },
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    const result = await service.explainTarget(1, 90);
+
+    expect(result.reasons).not.toContain(
+      'Kolonielimit in dieser Noobzone erreicht (4/4)',
+    );
+    expect(result.target?.starterZone).toMatchObject({
+      currentColoniesInLayer: 3,
+      accountAgeAllowed: true,
+    });
+  });
+
   it('throws when user is missing', async () => {
     const { service, userRepo } = createService();
     userRepo.findOne.mockResolvedValue(null);
@@ -243,10 +490,15 @@ describe('ColonizationService', () => {
   it('throws bad request when colonization check fails', async () => {
     const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
       createService();
-    userRepo.findOne.mockResolvedValue(rebelUser);
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
     colonyRepo.find.mockResolvedValue([]);
     colonyRepo.findOne.mockResolvedValue({ id: 1 });
-    objectRepo.findOneBy.mockResolvedValue({
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
       id: 8,
       objectType: 2,
       isColonizable: true,
@@ -254,6 +506,7 @@ describe('ColonizationService', () => {
       systemId: 44,
       posX: 1,
       posY: 1,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
     });
     unlockResolver.hasTech.mockResolvedValue(true);
 

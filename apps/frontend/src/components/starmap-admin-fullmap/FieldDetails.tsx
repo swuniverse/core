@@ -3,6 +3,7 @@ import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 export function FieldDetails() {
   const selectedField = useFullmapEditorStore((s) => s.selectedField);
   const systemTypes = useFullmapEditorStore((s) => s.systemTypes);
+  const openSystemView = useFullmapEditorStore((s) => s.openSystemView);
 
   if (!selectedField) {
     return (
@@ -29,6 +30,14 @@ export function FieldDetails() {
         <div>Grenze: {f.borderTypeId ?? 'Keine'}</div>
         <div>Effekte: {f.effects?.length ? f.effects.join(', ') : 'Keine'}</div>
       </div>
+      {f.starSystem && (
+        <button
+          onClick={() => openSystemView(f.starSystem!.id)}
+          className="mt-2 w-full rounded border border-swu-accent/60 bg-swu-accent/10 px-2 py-1 text-xs text-swu-accent hover:bg-swu-accent/20 transition-colors"
+        >
+          Systemansicht
+        </button>
+      )}
     </section>
   );
 }

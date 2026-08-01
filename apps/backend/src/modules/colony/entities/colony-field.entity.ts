@@ -30,6 +30,9 @@ export class ColonyField {
   @Column({ type: 'int', nullable: true })
   terrainTileId: number | null;
 
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  layer: 'ORBIT' | 'SURFACE' | 'UNDERGROUND' | null;
+
   @Column({ type: 'int', nullable: true })
   buildingId: number | null;
 

@@ -17,13 +17,37 @@ function createService() {
     {
       name: 'Energieverteiler',
       category: 'SPECIAL',
-      public: { baseEnergyOutput: 10, baseCrewCapacity: 0 },
+      public: { baseEpsCapacity: 10, baseBatteryCapacity: 3, baseCrewCapacity: 0 },
+      secret: {},
+    },
+    {
+      name: 'Hypermaterie-Reaktor',
+      category: 'SPECIAL',
+      public: { baseReactorOutput: 20, baseCrewCapacity: 1 },
       secret: {},
     },
     {
       name: 'Ion-Triebwerk',
       category: 'SUBLIGHT_ENGINE',
-      public: { baseSpeed: 3, baseCrewCapacity: 1 },
+      public: { baseEvadeChance: 0, baseCrewCapacity: 1 },
+      secret: {},
+    },
+    {
+      name: 'Imperialer Ionenantrieb',
+      category: 'SUBLIGHT_ENGINE',
+      public: { baseEvadeChance: 10, baseCrewCapacity: 1 },
+      secret: {},
+    },
+    {
+      name: 'Standard-Hyperantrieb',
+      category: 'HYPERDRIVE',
+      public: { baseWarpdriveCapacity: 20, hyperdriveRating: 3, baseCrewCapacity: 1 },
+      secret: {},
+    },
+    {
+      name: 'Allianz-Hyperantrieb',
+      category: 'HYPERDRIVE',
+      public: { baseWarpdriveCapacity: 30, hyperdriveRating: 2, baseCrewCapacity: 2 },
       secret: {},
     },
     {
@@ -70,7 +94,19 @@ describe('SpacecraftStatsService', () => {
         isActive: true,
       },
       {
-        moduleType: 'Ion-Triebwerk',
+        moduleType: 'Hypermaterie-Reaktor',
+        level: 1,
+        integrity: 100,
+        isActive: true,
+      },
+      {
+        moduleType: 'Imperialer Ionenantrieb',
+        level: 1,
+        integrity: 100,
+        isActive: true,
+      },
+      {
+        moduleType: 'Allianz-Hyperantrieb',
         level: 1,
         integrity: 100,
         isActive: true,
@@ -87,10 +123,64 @@ describe('SpacecraftStatsService', () => {
       hullMax: 125,
       shieldsMax: 74,
       energyMax: 90,
-      warpSpeed: 5,
-      crewMax: 12,
+      epsMax: 90,
+      reactorOutput: 20,
+      warpdriveMax: 32,
+      evadeChance: 10,
+      warpSpeed: 2,
+      crewMax: 15,
       cargoMax: 90,
-      batteryMax: 5,
+      batteryMax: 8,
+    });
+
+  });
+
+  it('keeps drive families separate from legacy warp speed and projects custom fields', () => {
+    const service = createService();
+    const ship = {
+      hull: 200,
+      shields: 200,
+      energy: 200,
+      crew: 50,
+      cargoUsed: 999,
+      battery: 999,
+    } as any;
+
+    service.applyStats(ship, shipClass, [
+      {
+        moduleType: 'Energieverteiler',
+        level: 2,
+        integrity: 100,
+        isActive: true,
+      },
+      {
+        moduleType: 'Hypermaterie-Reaktor',
+        level: 2,
+        integrity: 100,
+        isActive: true,
+      },
+      {
+        moduleType: 'Imperialer Ionenantrieb',
+        level: 2,
+        integrity: 100,
+        isActive: true,
+      },
+      {
+        moduleType: 'Allianz-Hyperantrieb',
+        level: 2,
+        integrity: 100,
+        isActive: true,
+      },
+    ] as any);
+
+    expect(ship).toMatchObject({
+      energyMax: 92,
+      warpSpeed: 2,
+      batteryMax: 9,
+      epsMax: 92,
+      reactorOutput: 24,
+      warpdriveMax: 38,
+      evadeChance: 12,
     });
   });
 

@@ -6,6 +6,7 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyStatsService } from './colony-stats.service';
+import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import {
   BuildingMassActionKind,
   BuildingMassActionMode,
@@ -28,8 +29,8 @@ export class ColonyBuildingManagementService {
     private readonly lifecycleService: BuildingLifecycleService,
     private readonly statsService: ColonyStatsService,
     private readonly storageService: ColonyStorageService,
+    private readonly buildingEffectsService?: ColonyBuildingEffectsService,
   ) {}
-
   async activateBuildings(
     colony: Colony,
     mode: BuildingMassActionMode,
@@ -337,6 +338,12 @@ export class ColonyBuildingManagementService {
   }
 
   private validateActivation(colony: Colony, field: ColonyField): void {
+    const result = this.buildingEffectsService?.canActivateField(colony, field);
+    if (result) {
+      if (!result.ok) throw new BadRequestException(result.reason);
+      return;
+    }
+
     const definition = this.gameData.getBuilding(field.buildingId!);
     if (!definition) throw new BadRequestException('Unknown building');
     if (field.maxIntegrity > 0 && field.integrity < field.maxIntegrity * 0.5) {

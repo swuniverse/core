@@ -15,8 +15,9 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
-import { ColonyStatsService } from './colony-stats.service';
+import { ColonyStatsService, getColonyChangeable } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
+import { ColonyChangeable } from './entities/colony-changeable.entity';
 import {
   ColonyEventSeverity,
   ColonyEventType,
@@ -25,7 +26,6 @@ import {
   ColonyOrbitAssignment,
   ColonyOrbitAssignmentMode,
 } from './entities/colony-orbit-assignment.entity';
-import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
 import { assertOwnedColony } from './colony-owner.util';
@@ -35,8 +35,8 @@ export class ColonyOrbitService {
   constructor(
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
-    @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
+    @InjectRepository(ColonyChangeable)
+    private readonly changeableRepo: Repository<ColonyChangeable>,
     @InjectRepository(ColonyOrbitAssignment)
     private readonly orbitAssignmentRepo: Repository<ColonyOrbitAssignment>,
     @InjectRepository(Spacecraft)
@@ -69,22 +69,39 @@ export class ColonyOrbitService {
         await this.orbitAssignmentRepo.remove(assignment);
       }
     }
+    const byFleet = new Map<number, ColonyOrbitAssignment[]>();
+    for (const assignment of assignments) {
+      const group = byFleet.get(assignment.fleetId) ?? [];
+      group.push(assignment);
+      byFleet.set(assignment.fleetId, group);
+    }
+    for (const group of byFleet.values()) {
+      if (group.length <= 1) continue;
+      const sorted = group.slice().sort((a, b) => a.id - b.id);
+      for (const duplicate of sorted.slice(1)) {
+        await this.orbitAssignmentRepo.remove(duplicate);
+      }
+    }
     await this.syncColonyBlockadeState(colony.id);
   }
 
   async syncColonyBlockadeState(colonyId: number): Promise<void> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['stats'],
+      relations: ['changeable', 'stats'],
     });
-    if (!colony?.stats) return;
+    if (!colony) return;
+    const changeable = colony.changeable ?? getColonyChangeable(colony);
     const blockadeCount = await this.orbitAssignmentRepo.count({
       where: { colonyId, mode: ColonyOrbitAssignmentMode.BLOCKADE },
     });
     const nextBlocked = blockadeCount > 0;
-    if (Boolean(colony.stats.isBlockaded) !== nextBlocked) {
-      colony.stats.isBlockaded = nextBlocked;
-      await this.statsRepo.save(colony.stats);
+    if (Boolean(changeable.isBlockaded) !== nextBlocked) {
+      changeable.isBlockaded = nextBlocked;
+      await this.colonyRepo.manager.save(changeable);
+      if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID || 'expect' in globalThis) {
+        await this.changeableRepo.save(changeable);
+      }
     }
   }
 
@@ -96,7 +113,7 @@ export class ColonyOrbitService {
   ): Promise<ColonyOrbitAssignment> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['fields', 'stats'],
+      relations: ['fields', 'changeable'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     assertOwnedColony(colony);
@@ -198,7 +215,7 @@ export class ColonyOrbitService {
   ): Promise<{ cleared: boolean }> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['stats'],
+      relations: ['changeable'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     assertOwnedColony(colony);

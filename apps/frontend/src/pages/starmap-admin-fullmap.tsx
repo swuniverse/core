@@ -5,11 +5,13 @@ import { useFullmapEditorStore } from '../stores/fullmap-editor.store';
 import { FullMapToolbar } from '../components/starmap-admin-fullmap/FullMapToolbar';
 import { FullMapCanvas } from '../components/starmap-admin-fullmap/FullMapCanvas';
 import { FullMapPanel } from '../components/starmap-admin-fullmap/FullMapPanel';
+import { SystemViewDialog } from '../components/starmap-admin-fullmap/SystemViewDialog';
 
 export function StarmapAdminFullmapPage() {
   const user = useAuthStore((s) => s.user);
   const hasAccess = user?.isAdmin || user?.permissions?.includes('MAP_EDITOR');
   const { loading, error, bootstrap } = useFullmapEditorStore();
+  const systemViewId = useFullmapEditorStore((s) => s.systemViewId);
 
   useEffect(() => {
     if (hasAccess) void bootstrap();
@@ -49,6 +51,8 @@ export function StarmapAdminFullmapPage() {
         <FullMapCanvas />
         <FullMapPanel />
       </div>
+
+      {systemViewId && <SystemViewDialog />}
     </div>
   );
 }

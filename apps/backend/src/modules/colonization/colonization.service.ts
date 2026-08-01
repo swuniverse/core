@@ -28,12 +28,26 @@ import {
   CelestialObjectType,
 } from '../starmap/entities/celestial-object.entity';
 import {
+  AlertState,
   Spacecraft,
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 
+export interface StarterColonizationOptionsDto {
+  mode: 'required' | 'not-required';
+  reservedStarterColonyId: number | null;
+  starterShipId: number | null;
+  targets: Array<{
+    id: number;
+    systemId: number;
+    posX: number;
+    posY: number;
+    classId: number | null;
+    name: string | null;
+  }>;
+}
 export interface ColonizationLimitStatus {
   type: ColonizationLimitType;
   count: number;
@@ -43,6 +57,15 @@ export interface ColonizationLimitStatus {
 
 export interface ColonizationStatusDto {
   limits: Record<ColonizationLimitType, ColonizationLimitStatus>;
+}
+
+export interface StarterZoneStatusDto {
+  layerId: number;
+  layerName: string;
+  isNoobzone: boolean;
+  accountAgeAllowed: boolean;
+  currentColoniesInLayer: number;
+  maxColoniesInLayer: number;
 }
 
 export interface ColonizationTargetCheckDto {
@@ -57,6 +80,7 @@ export interface ColonizationTargetCheckDto {
     posY: number;
     limitType: ColonizationLimitType | null;
     classGate: string | null;
+    starterZone?: StarterZoneStatusDto;
   } | null;
   status: ColonizationStatusDto;
   ship?: {
@@ -67,6 +91,12 @@ export interface ColonizationTargetCheckDto {
     colonizationBuildingId: number | null;
   } | null;
 }
+export interface StarterColonizationRequestDto {
+  celestialObjectId: number;
+}
+
+const STARTER_NOOBZONE_MAX_ACCOUNT_AGE_MS = 12_960_000 * 1000;
+const STARTER_NOOBZONE_MAX_COLONIES_PER_LAYER = 4;
 
 @Injectable()
 export class ColonizationService {
@@ -119,6 +149,155 @@ export class ColonizationService {
     };
   }
 
+  async getStarterColonizationOptions(
+    userId: number,
+  ): Promise<StarterColonizationOptionsDto> {
+    const user = await this.getUser(userId);
+    const activeColony = await this.colonyRepo.findOne({
+      where: { userId, isAbandoned: false },
+      select: ['id'],
+    });
+
+    if (activeColony) {
+      if (!user.onboardingCompleted) {
+        user.onboardingCompleted = true;
+        await this.userRepo.save(user);
+      }
+      return {
+        mode: 'not-required',
+        reservedStarterColonyId: user.starterColonyId,
+        starterShipId: user.starterShipId,
+        targets: [],
+      };
+    }
+
+    if (user.onboardingCompleted) {
+      return {
+        mode: 'not-required',
+        reservedStarterColonyId: user.starterColonyId,
+        starterShipId: user.starterShipId,
+        targets: [],
+      };
+    }
+
+    const targets = await this.findStarterTargetsForUser(user);
+    return {
+      mode: 'required',
+      reservedStarterColonyId: user.starterColonyId,
+      starterShipId: user.starterShipId,
+      targets: targets.map((target) => ({
+        id: target.id,
+        systemId: target.systemId,
+        posX: target.posX,
+        posY: target.posY,
+        classId: target.classId,
+        name: target.name,
+      })),
+    };
+  }
+
+  async createStarterColonizationShip(
+    userId: number,
+  ): Promise<{ success: true; shipId: number }> {
+    const user = await this.getUser(userId);
+    await this.assertStarterFlowOpen(user);
+
+    if (user.starterShipId) {
+      const existingShip = await this.shipRepo.findOne({
+        where: { id: user.starterShipId, userId },
+        select: ['id'],
+      });
+      if (existingShip) {
+        return { success: true, shipId: existingShip.id };
+      }
+    }
+
+    const shipClass = user.factionId
+      ? await this.shipClassRepo.findOne({
+          where: {
+            starterAllowed: true,
+            factionId: user.factionId,
+            isColonizer: true,
+          },
+          order: { id: 'ASC' },
+        })
+      : null;
+    if (!shipClass) {
+      throw new BadRequestException(
+        'Keine Starter-Kolonisierungsklasse konfiguriert',
+      );
+    }
+
+    const ship = await this.shipRepo.save(
+      this.shipRepo.create({
+        name: `${user.username} Starterkolonieschiff`,
+        shipClassId: shipClass.id,
+        userId,
+        starSystemId: null,
+        currentLayerId: null,
+        celestialObjectId: null,
+        inSystem: false,
+        currentSystemFieldX: null,
+        currentSystemFieldY: null,
+        posX: 0,
+        posY: 0,
+        status: SpacecraftStatus.DOCKED,
+        alertState: AlertState.GREEN,
+        hull: shipClass.hullBase,
+        hullMax: shipClass.hullBase,
+        shields: shipClass.shieldBase,
+        shieldsMax: shipClass.shieldBase,
+        energy: shipClass.epsBase,
+        energyMax: shipClass.epsBase,
+        warpSpeed: shipClass.warpBase,
+        crew: shipClass.crewMin,
+        crewMax: shipClass.crewMax,
+        cargoUsed: 0,
+        cargoMax: shipClass.cargoCapacity,
+        battery: shipClass.batteryBase,
+        batteryMax: shipClass.batteryBase,
+        epsMax: shipClass.epsBase,
+        reactorOutput: 0,
+        warpdriveMax: shipClass.warpBase,
+        evadeChance: 0,
+        fleetId: null,
+      }),
+    );
+
+    user.starterShipId = ship.id;
+    await this.userRepo.save(user);
+
+    return { success: true, shipId: ship.id };
+  }
+
+  async foundStarterColony(
+    userId: number,
+    celestialObjectId: number,
+  ): Promise<{ success: true; colonyId: number }> {
+    const user = await this.getUser(userId);
+    await this.assertStarterFlowOpen(user);
+
+    const starterTargets = await this.findStarterTargetsForUser(user);
+    const isAllowedTarget = starterTargets.some(
+      (target) => target.id === celestialObjectId,
+    );
+    if (!isAllowedTarget) {
+      throw new BadRequestException('Starterplanet ist nicht verfügbar');
+    }
+
+    const colony = await this.colonySeedService.createStarterColony(
+      user.id,
+      user.username,
+      celestialObjectId,
+      user.factionId,
+    );
+    user.starterColonyId = colony.id;
+    user.onboardingCompleted = true;
+    await this.userRepo.save(user);
+
+    return { success: true, colonyId: colony.id };
+  }
+
   async explainTarget(
     userId: number,
     celestialObjectId: number,
@@ -128,7 +307,10 @@ export class ColonizationService {
     const factionKey = this.getFactionKey(user);
     const status = await this.getColonizationStatus(userId);
     const reasons: string[] = [];
-    const target = await this.objectRepo.findOneBy({ id: celestialObjectId });
+    const target = await this.objectRepo.findOne({
+      where: { id: celestialObjectId },
+      relations: ['starSystem', 'starSystem.layer'],
+    });
     const ship = shipId
       ? await this.shipRepo.findOne({ where: { id: shipId, userId } })
       : null;
@@ -182,6 +364,7 @@ export class ColonizationService {
         }
       }
     }
+    await this.collectStarterZoneReasons(user, target, reasons);
 
     if (shipId) {
       if (!ship) {
@@ -205,6 +388,7 @@ export class ColonizationService {
         posY: target.posY,
         limitType,
         classGate,
+        starterZone: await this.buildStarterZoneStatus(user, target),
       },
       status,
       ship: ship
@@ -243,7 +427,7 @@ export class ColonizationService {
 
     const abandonedColony = await this.colonyRepo.findOne({
       where: { celestialObjectId, isAbandoned: true },
-      relations: ['stats'],
+      relations: ['changeable'],
     });
     const colony = abandonedColony
       ? await this.reclaimAbandonedColony(abandonedColony, userId)
@@ -287,16 +471,18 @@ export class ColonizationService {
     colony.isAbandoned = false;
     colony.abandonedAt = null;
     colony.previousUserId = null;
-    colony.population = Math.max(1, colony.population);
-    colony.energy = Math.max(0, colony.energy);
-    if (colony.stats) {
-      colony.stats.immigrationEnabled = true;
-      colony.stats.isBlockaded = false;
-      colony.stats.shields = 0;
-      colony.stats.shieldFrequency = null;
-      colony.stats.torpedoTypeId = null;
-      colony.stats.trainedCrew = 0;
-      await this.colonyRepo.manager.save(colony.stats);
+    const changeable = colony.changeable;
+    if (changeable) {
+      changeable.energy = Math.max(0, colony.energy);
+      changeable.immigrationEnabled = true;
+      changeable.isBlockaded = false;
+      changeable.shields = 0;
+      changeable.shieldFrequency = null;
+      changeable.torpedoTypeId = null;
+      changeable.trainedCrew = 0;
+      changeable.workless = Math.max(1, changeable.workers + changeable.workless);
+      changeable.workers = 0;
+      await this.colonyRepo.manager.save(changeable);
     }
     return this.colonyRepo.save(colony);
   }
@@ -371,6 +557,101 @@ export class ColonizationService {
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  private async collectStarterZoneReasons(
+    user: User,
+    target: CelestialObject,
+    reasons: string[],
+  ): Promise<void> {
+    const starterZone = await this.buildStarterZoneStatus(user, target);
+    if (!starterZone?.isNoobzone) {
+      return;
+    }
+
+    if (!starterZone.accountAgeAllowed) {
+      reasons.push('Kolonisierung in der Noobzone nur für neue Accounts erlaubt');
+    }
+    if (
+      starterZone.currentColoniesInLayer >= starterZone.maxColoniesInLayer
+    ) {
+      reasons.push(
+        `Kolonielimit in dieser Noobzone erreicht (${starterZone.currentColoniesInLayer}/${starterZone.maxColoniesInLayer})`,
+      );
+    }
+  }
+
+  private async countUserColoniesInLayer(
+    userId: number,
+    layerId: number,
+  ): Promise<number> {
+    return this.colonyRepo
+      .createQueryBuilder('colony')
+      .innerJoin('colony.starSystem', 'starSystem')
+      .where('colony.userId = :userId', { userId })
+      .andWhere('colony.isAbandoned = false')
+      .andWhere('starSystem.layerId = :layerId', { layerId })
+      .getCount();
+  }
+
+  private async buildStarterZoneStatus(
+    user: User,
+    target: CelestialObject,
+  ): Promise<StarterZoneStatusDto | undefined> {
+    const layer = target.starSystem?.layer;
+    if (!layer) {
+      return undefined;
+    }
+
+    const accountAgeAllowed =
+      Date.now() - user.createdAt.getTime() <= STARTER_NOOBZONE_MAX_ACCOUNT_AGE_MS;
+    const currentColoniesInLayer = await this.countUserColoniesInLayer(
+      user.id,
+      layer.id,
+    );
+
+    return {
+      layerId: layer.id,
+      layerName: layer.name,
+      isNoobzone: layer.isNoobzone,
+      accountAgeAllowed,
+      currentColoniesInLayer,
+      maxColoniesInLayer: STARTER_NOOBZONE_MAX_COLONIES_PER_LAYER,
+    };
+  }
+
+  private async assertStarterFlowOpen(user: User): Promise<void> {
+    if (user.onboardingCompleted) {
+      throw new BadRequestException(
+        'Starterkolonisierung bereits abgeschlossen',
+      );
+    }
+  }
+
+  private async findStarterTargetsForUser(
+    user: User,
+  ): Promise<CelestialObject[]> {
+    if (!user.factionId) {
+      return [];
+    }
+
+    return this.objectRepo
+      .createQueryBuilder('target')
+      .innerJoinAndSelect('target.starSystem', 'starSystem')
+      .leftJoin(
+        Colony,
+        'colony',
+        'colony.celestialObjectId = target.id AND colony.isAbandoned = false',
+      )
+      .where('target.isColonizable = true')
+      .andWhere('target.objectType = :objectType', {
+        objectType: CelestialObjectType.PLANET,
+      })
+      .andWhere('target.classId IS NOT NULL')
+      .andWhere('colony.id IS NULL')
+      .andWhere('starSystem.layerId = :layerId', { layerId: user.factionId })
+      .orderBy('target.id', 'ASC')
+      .getMany();
   }
 
   private getFactionKey(user: User): string | null {

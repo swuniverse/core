@@ -31,7 +31,11 @@ import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { GameDataService, HangarShipDef } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
-import { ColonyStatsService } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  getColonyChangeable,
+  syncLegacyColonySnapshot,
+} from './colony-stats.service';
 import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyCrewService } from './colony-crew.service';
@@ -45,6 +49,7 @@ import { ColonyFabricationService } from './colony-fabrication.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyProjectionService } from './colony-projection.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
+import { ShipModuleSelection } from './entities/colony-ship-buildplan.entity';
 import { ColonyConstructionService } from './colony-construction.service';
 import { ColonyTickProcessorService } from './colony-tick-processor.service';
 import { BuildingMassActionMode } from './colony-building-management.types';
@@ -83,7 +88,7 @@ export class ColonyService {
   private readonly legacyShipyardBuildingIds = new Set([
     11, 85010100, 85010300,
   ]);
-  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21, 22]);
+  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21]);
   private readonly airfieldFunctionId = 4;
   constructor(
     @InjectRepository(Colony)
@@ -91,7 +96,7 @@ export class ColonyService {
     @InjectRepository(ColonyStorage)
     readonly storageRepo: Repository<ColonyStorage>,
     @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
+    _statsRepo: Repository<ColonyStats>,
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(CargoItem)
@@ -205,7 +210,13 @@ export class ColonyService {
   async findAllByUser(userId: number) {
     const colonies = await this.colonyRepo.find({
       where: { userId, isAbandoned: false },
-      relations: ['starSystem', 'celestialObject', 'fields', 'stats'],
+      relations: [
+        'starSystem',
+        'celestialObject',
+        'fields',
+        'stats',
+        'changeable',
+      ],
       order: { id: 'ASC' },
     });
     const colonyIds = colonies.map((c) => c.id);
@@ -629,14 +640,14 @@ export class ColonyService {
     frequency: number,
   ): Promise<Colony> {
     const colony = await this.findOne(colonyId, userId);
-    if (!colony.stats) throw new BadRequestException('Colony stats missing');
+    const changeable = getColonyChangeable(colony);
     const maxShields = this.getMaxShields(colony);
     if (maxShields <= 0 || !this.hasActiveBuildingFunction(colony, 24)) {
       throw new BadRequestException('Active shield generator required');
     }
     this.colonyDefenseService.syncShieldCapacity(colony, maxShields);
-    colony.stats.shieldFrequency = frequency;
-    await this.statsRepo.save(colony.stats);
+    changeable.shieldFrequency = frequency;
+    await this.colonyRepo.save(colony);
     return colony;
   }
 
@@ -653,7 +664,7 @@ export class ColonyService {
       throw new BadRequestException('Unknown torpedo type');
     }
     this.colonyDefenseService.setTorpedoType(colony, torpedoTypeId);
-    if (colony.stats) await this.statsRepo.save(colony.stats);
+    await this.colonyRepo.save(colony);
     return colony;
   }
 
@@ -663,7 +674,7 @@ export class ColonyService {
     amount: number,
   ): Promise<Colony> {
     const colony = await this.findOne(colonyId, userId);
-    if (!colony.stats) throw new BadRequestException('Colony stats missing');
+    const changeable = getColonyChangeable(colony);
     const maxShields = this.getMaxShields(colony);
     if (maxShields <= 0 || !this.hasActiveBuildingFunction(colony, 24)) {
       throw new BadRequestException('Active shield generator required');
@@ -682,11 +693,10 @@ export class ColonyService {
       message: `Kolonieschilde wurden um ${loaded} Punkte geladen.`,
       payload: {
         amount: loaded,
-        current: colony.stats.shields,
+        current: changeable.shields,
         max: maxShields,
       },
     });
-    await this.statsRepo.save(colony.stats);
     await this.colonyRepo.save(colony);
     return colony;
   }
@@ -735,9 +745,7 @@ export class ColonyService {
     if (!Number.isInteger(amount) || amount <= 0) {
       throw new BadRequestException('Amount must be positive');
     }
-    if (!colony.stats) {
-      throw new BadRequestException('Colony stats missing');
-    }
+    const changeable = getColonyChangeable(colony);
 
     const [remainingGlobal, trainableGlobal, inTraining, freeLocal] =
       await Promise.all([
@@ -756,14 +764,15 @@ export class ColonyService {
       remainingGlobal,
       trainableNow,
       freeLocal,
-      colony.stats.workless,
+      changeable.workless,
     );
     if (finalAmount <= 0) {
       throw new BadRequestException('No crew can currently be trained');
     }
 
-    colony.stats.workless -= finalAmount;
-    await this.statsRepo.save(colony.stats);
+    changeable.workless -= finalAmount;
+    syncLegacyColonySnapshot(colony);
+    await this.colonyRepo.save(colony);
 
     const queue = this.crewTrainingQueueRepo.create({
       colonyId: colony.id,
@@ -884,6 +893,26 @@ export class ColonyService {
     return this.findOne(colonyId, userId);
   }
 
+  private getHangarBuildCosts(
+    hangarDef: HangarShipDef,
+    amount: number,
+  ): Array<{ commodityId: number; amount: number }> {
+    const totals = new Map<number, number>();
+    for (const cost of hangarDef.buildCosts ?? []) {
+      totals.set(
+        cost.commodityId,
+        (totals.get(cost.commodityId) ?? 0) + cost.amount * amount,
+      );
+    }
+    for (const commodityId of hangarDef.defaultModuleCommodityIds ?? []) {
+      totals.set(commodityId, (totals.get(commodityId) ?? 0) + amount);
+    }
+    return Array.from(totals, ([commodityId, required]) => ({
+      commodityId,
+      amount: required,
+    }));
+  }
+
   async buildAirfieldRump(
     colonyId: number,
     userId: number,
@@ -916,11 +945,10 @@ export class ColonyService {
         `Not enough energy: need ${totalEnergy}, have ${colony.energy}`,
       );
     }
-    const totalCosts = hangarDef.buildCosts.map((cost) => ({
-      commodityId: cost.commodityId,
-      amount: cost.amount * amount,
-    }));
-    await this.deductBuildCosts(colony, totalCosts);
+    await this.deductBuildCosts(
+      colony,
+      this.getHangarBuildCosts(hangarDef, amount),
+    );
     colony.energy -= totalEnergy;
     await this.colonyRepo.save(colony);
 
@@ -1056,7 +1084,7 @@ export class ColonyService {
           this.spacecraftModuleRepo.create({
             spacecraftId,
             moduleType: item.moduleType,
-            category: item.moduleCategory ?? 'UNKNOWN',
+            category: item.shipyardType ?? item.moduleCategory ?? 'UNKNOWN',
             level: item.moduleLevel ?? 1,
             integrity: 100,
             cooldown: 0,
@@ -1098,6 +1126,13 @@ export class ColonyService {
     const shipClass = await this.shipClassRepo.findOneBy({
       id: ship.shipClassId,
     });
+    if (!shipClass || shipClass.isNpc) {
+      throw new BadRequestException('Unknown ship class');
+    }
+    this.assertShipyardCompatibility(
+      shipClass,
+      this.getActiveShipyardFunctionIds(colony),
+    );
     if (shipClass) {
       const maxStorage =
         this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
@@ -1255,14 +1290,14 @@ export class ColonyService {
     colonyId: number,
     userId: number,
     shipId: number,
-    moduleCommodityIds: number[] = [],
+    moduleSelections: ShipModuleSelection[] = [],
     buildPlanName?: string,
   ): Promise<ColonyShipBuildQueue> {
     return this.colonyShipyardService.queueShipRetrofit(
       colonyId,
       userId,
       shipId,
-      moduleCommodityIds,
+      moduleSelections,
       buildPlanName,
     );
   }
@@ -1308,9 +1343,8 @@ export class ColonyService {
     userId: number,
     shipClassId: number,
     name: string,
-    moduleTypes: string[] = [],
+    moduleSelections: ShipModuleSelection[] = [],
     buildPlanName?: string,
-    moduleCommodityIds: number[] = [],
     sourceBuildplan?: ColonyShipBuildplan,
   ): Promise<ColonyShipBuildQueue> {
     return this.colonyShipyardService.buildShip(
@@ -1318,9 +1352,8 @@ export class ColonyService {
       userId,
       shipClassId,
       name,
-      moduleTypes,
+      moduleSelections,
       buildPlanName,
-      moduleCommodityIds,
       sourceBuildplan,
     );
   }
@@ -1330,16 +1363,14 @@ export class ColonyService {
     userId: number,
     shipClassId: number,
     name: string,
-    moduleCommodityIds: number[] = [],
-    moduleTypes: string[] = [],
+    moduleSelections: ShipModuleSelection[] = [],
   ) {
     return this.colonyShipyardService.createShipBuildplan(
       colonyId,
       userId,
       shipClassId,
       name,
-      moduleCommodityIds,
-      moduleTypes,
+      moduleSelections,
     );
   }
 
@@ -1412,6 +1443,10 @@ export class ColonyService {
       cargoMax: shipClass.cargoCapacity,
       battery: shipClass.batteryBase,
       batteryMax: shipClass.batteryBase,
+      epsMax: shipClass.epsBase,
+      reactorOutput: 0,
+      warpdriveMax: shipClass.warpBase,
+      evadeChance: 0,
     });
   }
 
@@ -1519,6 +1554,41 @@ export class ColonyService {
       colony,
       events,
     );
+  }
+
+  private getActiveShipyardFunctionIds(colony: Colony): number[] {
+    return [
+      ...new Set(
+        (colony.fields ?? [])
+          .filter(
+            (field) => this.isShipyardField(field, false) && field.isActive,
+          )
+          .flatMap((field) =>
+            this.gameData.getBuildingFunctions(field.buildingId!),
+          )
+          .filter((functionId) => this.shipyardFunctionIds.has(functionId)),
+      ),
+    ];
+  }
+
+  private assertShipyardCompatibility(
+    shipClass: ShipClassDef,
+    activeShipyardFunctionIds: number[],
+  ): void {
+    const classOverride = this.gameData.getShipClassDefByKey(shipClass.key);
+    const rule = this.gameData.getShipClassSlotRule(shipClass.category);
+    const allowedIds =
+      classOverride?.allowedBuildingFunctionIds ??
+      rule?.allowedBuildingFunctionIds;
+    if (!allowedIds) return;
+    const hasCompatibleShipyard = allowedIds.some((functionId) =>
+      activeShipyardFunctionIds.includes(functionId),
+    );
+    if (!hasCompatibleShipyard) {
+      throw new BadRequestException(
+        `${shipClass.category} cannot be handled by the active shipyard`,
+      );
+    }
   }
 
   private isShipyardField(field: ColonyField, inProgress?: boolean): boolean {

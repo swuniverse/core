@@ -9,6 +9,11 @@ import {
 } from 'typeorm';
 import { Colony } from './colony.entity';
 
+export interface ShipModuleSelection {
+  slotId: string;
+  commodityId: number;
+}
+
 @Entity('colony_ship_buildplans')
 @Index(['colonyId', 'name'], { unique: true })
 @Index(['colonyId', 'signature'])
@@ -37,10 +42,13 @@ export class ColonyShipBuildplan {
   signature!: string;
 
   @Column({ type: 'jsonb', default: () => "'[]'" })
-  moduleCommodityIds!: number[];
+  moduleSelections!: ShipModuleSelection[];
 
   @Column({ type: 'jsonb', default: () => "'[]'" })
   moduleTypes!: string[];
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  moduleCommodityIds!: number[];
 
   @CreateDateColumn()
   createdAt!: Date;

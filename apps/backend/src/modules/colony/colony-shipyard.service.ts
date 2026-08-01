@@ -5,8 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { In, Repository } from 'typeorm';
-import { GameDataService } from '../game-data/game-data.service';
+import { Repository } from 'typeorm';
+import {
+  GameDataService,
+  HangarShipDef,
+  ShipyardType,
+} from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
@@ -17,12 +21,13 @@ import {
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { ColonyCrewService } from './colony-crew.service';
-import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
-import { ColonyProjectionService } from './colony-projection.service';
-import { ColonyStatsService } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  getColonyChangeable,
+} from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
 import {
@@ -31,7 +36,10 @@ import {
 } from './entities/colony-event.entity';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
 import { ColonyField } from './entities/colony-field.entity';
-import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
+import {
+  ColonyShipBuildplan,
+  ShipModuleSelection,
+} from './entities/colony-ship-buildplan.entity';
 import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueMode,
@@ -45,8 +53,8 @@ export class ColonyShipyardService {
   private readonly legacyShipyardBuildingIds = new Set([
     11, 85010100, 85010300,
   ]);
-  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21, 22]);
-  private readonly repairShipyardFunctionId = 22;
+  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21]);
+  private readonly repairStationFunctionId = 22;
   private readonly repairSparePartCommodityId = 10001;
   private readonly repairSystemComponentCommodityId = 10002;
 
@@ -64,33 +72,104 @@ export class ColonyShipyardService {
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
     private readonly gameData: GameDataService,
-    private readonly unlockResolver: UnlockResolverService,
-    private readonly colonyStatsService: ColonyStatsService,
-    private readonly colonyEconomyService: ColonyEconomyService,
-    private readonly colonyStorageService: ColonyStorageService,
-    private readonly spacecraftStatsService: SpacecraftStatsService,
+    private readonly colonyOwnershipService: ColonyOwnershipService,
     private readonly colonyCrewService: ColonyCrewService,
-    private readonly colonyEventService: ColonyEventService,
+    private readonly colonyStorageService: ColonyStorageService,
+    private readonly colonyStatsService: ColonyStatsService,
     private readonly colonyOrbitService: ColonyOrbitService,
-    private readonly ownership: ColonyOwnershipService,
-    private readonly projection: ColonyProjectionService,
+    private readonly colonyEventService: ColonyEventService,
+    private readonly spacecraftStatsService: SpacecraftStatsService,
+    private readonly unlockResolver: UnlockResolverService,
     private readonly timing: ColonyTimingService,
   ) {}
 
-  private async findOne(colonyId: number, userId: number): Promise<Colony> {
-    const colony = await this.ownership.findOwnedColony(colonyId, userId);
-    return this.projection.toColonyDetail(colony, userId);
+  async findOne(colonyId: number, userId: number): Promise<Colony> {
+    const colony = await this.colonyOwnershipService.findOwnedColony(
+      colonyId,
+      userId,
+    );
+    if (!colony) throw new NotFoundException('Colony not found');
+    return colony;
+  }
+
+  private hasActiveBuildingFunction(
+    colony: Colony,
+    functionId: number,
+  ): boolean {
+    return (colony.fields ?? []).some(
+      (field) =>
+        field.buildingId != null &&
+        !field.isBuilding &&
+        field.isActive &&
+        this.gameData
+          .getBuildingFunctions(field.buildingId)
+          .includes(functionId),
+    );
+  }
+
+  private calculateShipRepairPlan(
+    colony: Colony,
+    ship: Spacecraft,
+    modules: SpacecraftModule[],
+  ): {
+    costs: Array<{ commodityId: number; amount: number }>;
+    durationMinutes: number;
+    hasRepairStationBonus: boolean;
+  } {
+    const hasRepairStationBonus = this.hasActiveBuildingFunction(
+      colony,
+      this.repairStationFunctionId,
+    );
+    const hullDamage = Math.max(0, ship.hullMax - ship.hull);
+    const hullChunks = Math.ceil(hullDamage / 100);
+    const damagedModules = modules.filter((module) => module.integrity < 100);
+    const sparePartsAmount = Math.max(1, hullChunks + damagedModules.length);
+    const systemComponentsAmount = Math.max(
+      0,
+      Math.ceil(damagedModules.length / 2),
+    );
+    const applyBonus = (amount: number) =>
+      hasRepairStationBonus ? Math.ceil(amount / 2) : amount;
+    const costs = [
+      {
+        commodityId: this.repairSparePartCommodityId,
+        amount: applyBonus(sparePartsAmount),
+      },
+      {
+        commodityId: this.repairSystemComponentCommodityId,
+        amount: applyBonus(systemComponentsAmount),
+      },
+    ].filter((cost) => cost.amount > 0);
+    const durationUnits = hullChunks + damagedModules.length;
+    const durationMinutes = Math.max(1, applyBonus(Math.max(1, durationUnits)));
+
+    return { costs, durationMinutes, hasRepairStationBonus };
+  }
+
+  private async hasActiveShipyardQueueForShip(
+    colonyId: number,
+    userId: number,
+    spacecraftId: number,
+  ): Promise<boolean> {
+    const active = await this.shipBuildQueueRepo.findOne({
+      where: {
+        colonyId,
+        userId,
+        spacecraftId,
+        status: ColonyShipBuildQueueStatus.QUEUED,
+      },
+    });
+    return !!active;
   }
 
   private async deductBuildCosts(
     colony: Colony,
-    resourceCosts: Array<{ commodityId: number; amount: number }>,
+    costs: Array<{ commodityId: number; amount: number }>,
   ): Promise<void> {
-    const costMap: [number, number][] = resourceCosts.map((cost) => [
+    const costMap: [number, number][] = costs.map((cost) => [
       cost.commodityId,
       cost.amount,
     ]);
-
     for (const [commodityId, required] of costMap) {
       if (required <= 0) continue;
       const storage = await this.storageRepo.findOne({
@@ -104,7 +183,6 @@ export class ColonyShipyardService {
         );
       }
     }
-
     await Promise.all(
       costMap
         .filter(([, required]) => required > 0)
@@ -114,94 +192,7 @@ export class ColonyShipyardService {
     );
   }
 
-  private hasActiveBuildingFunction(
-    colony: Colony,
-    functionId: number,
-  ): boolean {
-    return this.colonyEconomyService.hasActiveFunction(colony, functionId);
-  }
-
-  private isShipRepairNeeded(
-    ship: Spacecraft,
-    modules: SpacecraftModule[] = [],
-  ): boolean {
-    return (
-      ship.hull < ship.hullMax ||
-      modules.some((module) => module.integrity < 100)
-    );
-  }
-
-  private calculateShipRepairPlan(
-    colony: Colony,
-    ship: Spacecraft,
-    modules: SpacecraftModule[] = [],
-  ): {
-    costs: Array<{ commodityId: number; amount: number }>;
-    durationMinutes: number;
-    hasRepairShipyardBonus: boolean;
-  } {
-    const hasRepairShipyardBonus = this.hasActiveBuildingFunction(
-      colony,
-      this.repairShipyardFunctionId,
-    );
-    const hullDamage = Math.max(0, ship.hullMax - ship.hull);
-    const hullChunks = Math.ceil(hullDamage / 100);
-    const damagedModules = modules.filter((module) => module.integrity < 100);
-    const systemComponentChunks = damagedModules.reduce(
-      (sum, module) => sum + Math.ceil((100 - module.integrity) / 100),
-      0,
-    );
-    const applyBonus = (amount: number) =>
-      hasRepairShipyardBonus ? Math.ceil(amount / 2) : amount;
-    const costs = [
-      {
-        commodityId: this.repairSparePartCommodityId,
-        amount: applyBonus(hullChunks),
-      },
-      {
-        commodityId: this.repairSystemComponentCommodityId,
-        amount: applyBonus(systemComponentChunks),
-      },
-    ].filter((cost) => cost.amount > 0);
-    const durationUnits = hullChunks + damagedModules.length;
-    const durationMinutes = Math.max(1, applyBonus(Math.max(1, durationUnits)));
-
-    return { costs, durationMinutes, hasRepairShipyardBonus };
-  }
-
-  private async hasActiveShipyardQueueForShip(
-    colonyId: number,
-    userId: number,
-    spacecraftId: number,
-  ): Promise<boolean> {
-    const queue = await this.shipBuildQueueRepo.findOne({
-      where: {
-        colonyId,
-        userId,
-        spacecraftId,
-        status: In([
-          ColonyShipBuildQueueStatus.QUEUED,
-          ColonyShipBuildQueueStatus.PAUSED,
-        ]),
-      },
-    });
-    return !!queue;
-  }
-
-  private getActiveRepairSlotCount(colony: Colony): number {
-    const activeRepairBuildings = (colony.fields ?? []).filter(
-      (field) =>
-        field.buildingId &&
-        !field.isBuilding &&
-        field.isActive &&
-        this.gameData
-          .getBuildingFunctions(field.buildingId)
-          .includes(this.repairShipyardFunctionId),
-    ).length;
-    return activeRepairBuildings * 2;
-  }
-
-  private async getActiveRepairQueueCount(colonyId: number): Promise<number> {
+  private getActiveRepairQueueCount(colonyId: number): Promise<number> {
     return this.shipBuildQueueRepo.count({
       where: {
         colonyId,
@@ -220,8 +211,277 @@ export class ColonyShipyardService {
         mode: ColonyShipBuildQueueMode.REPAIR,
         status: ColonyShipBuildQueueStatus.PAUSED,
       },
+      relations: ['shipClass'],
       order: { stoppedAt: 'ASC', id: 'ASC' },
     });
+  }
+
+  private getActiveRepairStationCount(colony: Colony): number {
+    return (colony.fields ?? []).filter(
+      (field) =>
+        field.buildingId != null &&
+        !field.isBuilding &&
+        field.isActive &&
+        this.gameData
+          .getBuildingFunctions(field.buildingId)
+          .includes(this.repairStationFunctionId),
+    ).length;
+  }
+
+  private getActiveRepairSlotCount(colony: Colony): number {
+    const activeShipyardCount = (colony.fields ?? []).filter(
+      (field) => this.isShipyardField(field, false) && field.isActive,
+    ).length;
+    if (activeShipyardCount <= 0) return 0;
+    return activeShipyardCount + this.getActiveRepairStationCount(colony) * 2;
+  }
+
+  private getShipLayout(shipClass: ShipClassDef) {
+    const layout =
+      this.gameData.getShipClassSlotRuleForShipClass?.(shipClass) ??
+      this.gameData.getShipClassSlotRule(shipClass.category);
+    if (!layout) {
+      throw new BadRequestException(
+        `Missing ship layout for ${shipClass.category}`,
+      );
+    }
+    return layout;
+  }
+
+  private validateModuleSelections(
+    shipClass: ShipClassDef,
+    moduleSelections: ShipModuleSelection[],
+  ): ShipModuleSelection[] {
+    if (!Array.isArray(moduleSelections) || moduleSelections.length === 0) {
+      return [];
+    }
+
+    const layout = this.getShipLayout(shipClass);
+    const slotsById = new Map(layout.slots.map((slot) => [slot.slotId, slot]));
+    const seenTypes = new Set<string>();
+
+    return moduleSelections.map((selection) => {
+      if (!selection || typeof selection !== 'object') {
+        throw new BadRequestException('Invalid module selection');
+      }
+      const slotId = String(selection.slotId ?? '').trim();
+      const commodityId = Number(selection.commodityId);
+      if (!slotId) {
+        throw new BadRequestException('Module selection requires slotId');
+      }
+      if (!Number.isInteger(commodityId)) {
+        throw new BadRequestException('Invalid module commodity id');
+      }
+      const slot = slotsById.get(slotId);
+      if (!slot) {
+        throw new BadRequestException(`Unknown ship slot: ${slotId}`);
+      }
+      if (
+        slot.moduleCategory !== 'SPECIAL' &&
+        seenTypes.has(slot.moduleCategory)
+      ) {
+        throw new BadRequestException(
+          `Duplicate module selection for ${slot.moduleCategory}`,
+        );
+      }
+      const item =
+        this.gameData.getFabricationItemByOutputCommodity(commodityId);
+      if (!item || item.queueType !== ColonyFabricationQueueType.MODULE) {
+        throw new BadRequestException(
+          `Commodity #${commodityId} is not a ship module`,
+        );
+      }
+      const moduleName = item.displayName ?? `Module #${commodityId}`;
+      if ((item.shipyardType ?? 'UNKNOWN') !== slot.moduleCategory) {
+        throw new BadRequestException(
+          `${moduleName} does not fit ${slot.label}`,
+        );
+      }
+      if (!this.gameData.isShipyardModuleAllowedForShipClass(item, shipClass)) {
+        throw new BadRequestException(
+          `${moduleName} is not allowed for ${shipClass.name}`,
+        );
+      }
+      seenTypes.add(slot.moduleCategory);
+      return { slotId, commodityId };
+    });
+  }
+
+  private normalizeFixedHangarModuleSelections(
+    shipClass: ShipClassDef,
+    moduleSelections: ShipModuleSelection[],
+  ): ShipModuleSelection[] {
+    const hangarDef = this.gameData.getHangarShipDef(shipClass.key);
+    if (!hangarDef) return moduleSelections;
+
+    const defaultSelections = this.createDefaultHangarModuleSelections(
+      shipClass,
+      hangarDef,
+    );
+    if (!Array.isArray(moduleSelections) || moduleSelections.length === 0) {
+      return defaultSelections;
+    }
+
+    const requestedSignature = this.createBuildplanSignature(
+      shipClass.id,
+      this.validateModuleSelections(shipClass, moduleSelections),
+    );
+    const defaultSignature = this.createBuildplanSignature(
+      shipClass.id,
+      defaultSelections,
+    );
+    if (requestedSignature !== defaultSignature) {
+      throw new BadRequestException(
+        `${shipClass.name} uses a fixed module layout and cannot be customized`,
+      );
+    }
+    return defaultSelections;
+  }
+
+  private createDefaultHangarModuleSelections(
+    shipClass: ShipClassDef,
+    hangarDef: HangarShipDef,
+  ): ShipModuleSelection[] {
+    const layout = this.getShipLayout(shipClass);
+    const freeSlotsByType = new Map<ShipyardType, string[]>();
+    for (const slot of layout.slots) {
+      const slots = freeSlotsByType.get(slot.moduleCategory) ?? [];
+      slots.push(slot.slotId);
+      freeSlotsByType.set(slot.moduleCategory, slots);
+    }
+
+    return (hangarDef.defaultModuleCommodityIds ?? []).map((commodityId) => {
+      const item = this.gameData.getFabricationItemByOutputCommodity(commodityId);
+      if (!item?.shipyardType) {
+        throw new BadRequestException(
+          `Default module commodity #${commodityId} has no shipyard type`,
+        );
+      }
+      const slots = freeSlotsByType.get(item.shipyardType) ?? [];
+      const slotId = slots.shift();
+      if (!slotId) {
+        throw new BadRequestException(
+          `${shipClass.name} has no free ${item.shipyardType} slot for ${item.displayName ?? `Module #${commodityId}`}`,
+        );
+      }
+      return { slotId, commodityId };
+    });
+  }
+
+  private moduleSelectionsToCommodityIds(
+    moduleSelections: ShipModuleSelection[],
+  ): number[] {
+    return moduleSelections.map((selection) => selection.commodityId);
+  }
+
+  private moduleSelectionsToModuleTypes(
+    moduleSelections: ShipModuleSelection[],
+  ): string[] {
+    return moduleSelections.map((selection) => {
+      const item = this.gameData.getFabricationItemByOutputCommodity(
+        selection.commodityId,
+      );
+      if (!item?.moduleType) {
+        throw new BadRequestException(
+          `Module commodity #${selection.commodityId} has no valid module type`,
+        );
+      }
+      return item.moduleType;
+    });
+  }
+
+  private calculateCrewRequired(
+    shipClass: ShipClassDef,
+    moduleSelections: ShipModuleSelection[],
+  ): number {
+    const moduleCrew = moduleSelections.reduce((sum, selection) => {
+      const item = this.gameData.getFabricationItemByOutputCommodity(
+        selection.commodityId,
+      );
+      return sum + (item?.shipyardModuleStats?.crew ?? 0);
+    }, 0);
+    return Math.max(0, (shipClass.crewMin || 0) + moduleCrew);
+  }
+
+  private normalizeInstalledModuleSelections(
+    shipClass: ShipClassDef,
+    modules: SpacecraftModule[],
+  ): ShipModuleSelection[] {
+    const layout = this.getShipLayout(shipClass);
+    const slotsById = new Map(layout.slots.map((slot) => [slot.slotId, slot]));
+    const freeSlotIdsByCategory = new Map<string, string[]>();
+    for (const slot of layout.slots) {
+      if (!freeSlotIdsByCategory.has(slot.moduleCategory)) {
+        freeSlotIdsByCategory.set(slot.moduleCategory, []);
+      }
+      freeSlotIdsByCategory.get(slot.moduleCategory)!.push(slot.slotId);
+    }
+
+    const orderedModules = [...modules].sort((a, b) => a.id - b.id);
+    const selections: ShipModuleSelection[] = [];
+    for (const module of orderedModules) {
+      const commodityId = this.resolveModuleCommodityId(module);
+      if (commodityId == null) continue;
+
+      let slotId = module.slotId ?? null;
+      if (!slotId || !slotsById.has(slotId)) {
+        const freeSlotIds = freeSlotIdsByCategory.get(module.category) ?? [];
+        slotId = freeSlotIds.shift() ?? null;
+      } else {
+        const freeSlotIds = freeSlotIdsByCategory.get(module.category) ?? [];
+        const index = freeSlotIds.indexOf(slotId);
+        if (index >= 0) freeSlotIds.splice(index, 1);
+      }
+      if (!slotId) continue;
+      selections.push({ slotId, commodityId });
+    }
+
+    return selections.sort((a, b) => {
+      const orderA = slotsById.get(a.slotId)?.order ?? Number.MAX_SAFE_INTEGER;
+      const orderB = slotsById.get(b.slotId)?.order ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+  }
+
+  private diffSelectedCommodities(
+    desired: ShipModuleSelection[],
+    existing: ShipModuleSelection[],
+  ): number[] {
+    const existingBySlot = new Map(
+      existing.map((selection) => [selection.slotId, selection.commodityId]),
+    );
+    return desired
+      .filter(
+        (selection) =>
+          existingBySlot.get(selection.slotId) !== selection.commodityId,
+      )
+      .map((selection) => selection.commodityId);
+  }
+
+  private createBuildplanSignature(
+    shipClassId: number,
+    moduleSelections: ShipModuleSelection[],
+  ): string {
+    const canonical = JSON.stringify({
+      shipClassId,
+      moduleSelections: [...moduleSelections].sort((a, b) =>
+        a.slotId.localeCompare(b.slotId),
+      ),
+    });
+    return createHash('sha256').update(canonical).digest('hex');
+  }
+
+  private resolveModuleCommodityId(module: SpacecraftModule): number | null {
+    const item = this.gameData
+      .getAllFabricationItems()
+      .find(
+        (candidate) =>
+          candidate.queueType === ColonyFabricationQueueType.MODULE &&
+          candidate.moduleType === module.moduleType &&
+          (candidate.shipyardType ?? module.category) === module.category &&
+          (candidate.moduleLevel ?? module.level) === module.level,
+      );
+    return item?.outputCommodityId ?? null;
   }
 
   async queueShipRepair(
@@ -230,12 +490,6 @@ export class ColonyShipyardService {
     shipId: number,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
-    if (
-      !this.hasActiveBuildingFunction(colony, this.repairShipyardFunctionId)
-    ) {
-      throw new BadRequestException('Active repair shipyard required');
-    }
-
     const ship = await this.shipRepo.findOne({ where: { id: shipId, userId } });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     if (!this.colonyOrbitService.canManageOrbitShip(colony, ship)) {
@@ -244,6 +498,15 @@ export class ColonyShipyardService {
     if (await this.hasActiveShipyardQueueForShip(colony.id, userId, ship.id)) {
       throw new BadRequestException('Ship already has an active shipyard job');
     }
+
+    const shipClass = await this.shipClassRepo.findOneBy({
+      id: ship.shipClassId,
+    });
+    if (!shipClass || shipClass.isNpc) {
+      throw new BadRequestException('Unknown ship class');
+    }
+    const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
+    this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
 
     const modules = await this.spacecraftModuleRepo.find({
       where: { spacecraftId: ship.id },
@@ -268,6 +531,7 @@ export class ColonyShipyardService {
       buildPlanName: null,
       buildPlanId: null,
       buildPlanSignature: null,
+      moduleSelections: [],
       moduleTypes: [],
       moduleCommodityIds: [],
       crewAssigned: 0,
@@ -300,7 +564,7 @@ export class ColonyShipyardService {
     colonyId: number,
     userId: number,
     shipId: number,
-    moduleCommodityIds: number[] = [],
+    moduleSelections: ShipModuleSelection[] = [],
     buildPlanName?: string,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
@@ -322,34 +586,36 @@ export class ColonyShipyardService {
     const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
     this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
 
-    const selectedModuleCommodityIds =
-      this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    const selectedModuleSelections = this.validateModuleSelections(
+      shipClass,
+      this.normalizeFixedHangarModuleSelections(shipClass, moduleSelections),
+    );
+    const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
+      selectedModuleSelections,
+    );
     await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
-    this.assertModuleSlotCompatibility(shipClass, selectedModuleCommodityIds);
-    const selectedModuleTypes = selectedModuleCommodityIds.map(
-      (commodityId) =>
-        this.gameData.getFabricationItemByOutputCommodity(commodityId)!
-          .moduleType!,
+    const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
+      selectedModuleSelections,
     );
 
     const installedModules = await this.spacecraftModuleRepo.find({
       where: { spacecraftId: ship.id },
+      order: { id: 'ASC' },
     });
-    const oldModuleCommodityIds =
-      this.resolveModuleCommodityIds(installedModules);
+    const oldModuleSelections = this.normalizeInstalledModuleSelections(
+      shipClass,
+      installedModules,
+    );
     if (
-      this.createBuildplanSignature(ship.shipClassId, oldModuleCommodityIds) ===
-      this.createBuildplanSignature(
-        ship.shipClassId,
-        selectedModuleCommodityIds,
-      )
+      this.createBuildplanSignature(ship.shipClassId, oldModuleSelections) ===
+      this.createBuildplanSignature(ship.shipClassId, selectedModuleSelections)
     ) {
       throw new BadRequestException('No retrofit changes selected');
     }
 
-    const consumedModuleCommodityIds = this.diffCommodityIds(
-      selectedModuleCommodityIds,
-      oldModuleCommodityIds,
+    const consumedModuleCommodityIds = this.diffSelectedCommodities(
+      selectedModuleSelections,
+      oldModuleSelections,
     );
     await this.assertModuleCommoditiesAvailable(
       colony,
@@ -358,7 +624,7 @@ export class ColonyShipyardService {
 
     const buildPlanSignature = this.createBuildplanSignature(
       ship.shipClassId,
-      selectedModuleCommodityIds,
+      selectedModuleSelections,
     );
     const buildPlan = await this.getOrCreateBuildplan(
       colony.id,
@@ -366,8 +632,9 @@ export class ColonyShipyardService {
       ship.shipClassId,
       buildPlanName?.trim() || `${shipClass.name} Retrofit`,
       buildPlanSignature,
-      selectedModuleCommodityIds,
+      selectedModuleSelections,
       selectedModuleTypes,
+      selectedModuleCommodityIds,
     );
 
     await Promise.all(
@@ -387,14 +654,15 @@ export class ColonyShipyardService {
       buildPlanName: buildPlan.name,
       buildPlanId: buildPlan.id,
       buildPlanSignature,
+      moduleSelections: selectedModuleSelections,
       moduleTypes: selectedModuleTypes,
       moduleCommodityIds: selectedModuleCommodityIds,
       crewAssigned: 0,
       crewIds: [],
       repairSnapshot: null,
       retrofitSnapshot: {
-        oldModuleCommodityIds,
-        newModuleCommodityIds: selectedModuleCommodityIds,
+        oldModuleSelections,
+        newModuleSelections: selectedModuleSelections,
         newModuleTypes: selectedModuleTypes,
         returnedModuleCommodityIds: [],
         consumedModuleCommodityIds,
@@ -404,39 +672,6 @@ export class ColonyShipyardService {
     });
 
     return this.shipBuildQueueRepo.save(queue);
-  }
-
-  private resolveModuleCommodityIds(modules: SpacecraftModule[]): number[] {
-    return modules
-      .map((module) => this.resolveModuleCommodityId(module))
-      .filter((commodityId): commodityId is number => commodityId != null);
-  }
-
-  private resolveModuleCommodityId(module: SpacecraftModule): number | null {
-    const item = this.gameData
-      .getAllFabricationItems()
-      .find(
-        (candidate) =>
-          candidate.queueType === ColonyFabricationQueueType.MODULE &&
-          candidate.moduleType === module.moduleType &&
-          (candidate.moduleCategory ?? module.category) === module.category &&
-          (candidate.moduleLevel ?? module.level) === module.level,
-      );
-    return item?.outputCommodityId ?? null;
-  }
-
-  private diffCommodityIds(desired: number[], existing: number[]): number[] {
-    const remainingExisting = [...existing];
-    const diff: number[] = [];
-    for (const commodityId of desired) {
-      const existingIndex = remainingExisting.indexOf(commodityId);
-      if (existingIndex >= 0) {
-        remainingExisting.splice(existingIndex, 1);
-      } else {
-        diff.push(commodityId);
-      }
-    }
-    return diff;
   }
 
   async cancelShipBuildQueue(
@@ -520,15 +755,6 @@ export class ColonyShipyardService {
         'Ship repair is blocked while colony is blockaded',
       );
     }
-    const activeRepairSlots = this.getActiveRepairSlotCount(colony);
-    if (activeRepairSlots <= 0) {
-      throw new BadRequestException('Active repair shipyard required');
-    }
-    const activeRepairJobs = await this.getActiveRepairQueueCount(colony.id);
-    if (activeRepairJobs >= activeRepairSlots) {
-      throw new BadRequestException('No active repair slot available');
-    }
-
     const ship = queue.spacecraftId
       ? await this.shipRepo.findOne({
           where: { id: queue.spacecraftId, userId },
@@ -537,6 +763,25 @@ export class ColonyShipyardService {
     if (!ship) {
       throw new BadRequestException('Repair target no longer exists');
     }
+    const shipClass = await this.shipClassRepo.findOneBy({
+      id: ship.shipClassId,
+    });
+    if (!shipClass || shipClass.isNpc) {
+      throw new BadRequestException('Unknown ship class');
+    }
+    this.assertShipyardCompatibility(
+      shipClass,
+      this.getActiveShipyardFunctionIds(colony),
+    );
+    const activeRepairSlots = this.getActiveRepairSlotCount(colony);
+    if (activeRepairSlots <= 0) {
+      throw new BadRequestException('Active matching shipyard required');
+    }
+    const activeRepairJobs = await this.getActiveRepairQueueCount(colony.id);
+    if (activeRepairJobs >= activeRepairSlots) {
+      throw new BadRequestException('No active repair slot available');
+    }
+
     const modules = await this.spacecraftModuleRepo.find({
       where: { spacecraftId: ship.id },
     });
@@ -567,17 +812,6 @@ export class ColonyShipyardService {
     });
 
     return this.shipBuildQueueRepo.save(queue);
-  }
-
-  private createBuildplanSignature(
-    shipClassId: number,
-    moduleCommodityIds: number[],
-  ): string {
-    const canonical = JSON.stringify({
-      shipClassId,
-      moduleCommodityIds: [...moduleCommodityIds].sort((a, b) => a - b),
-    });
-    return createHash('sha256').update(canonical).digest('hex');
   }
 
   private async assertSingleColonizerAvailability(
@@ -623,9 +857,8 @@ export class ColonyShipyardService {
     userId: number,
     shipClassId: number,
     name: string,
-    moduleTypes: string[] = [],
+    moduleSelections: ShipModuleSelection[] = [],
     buildPlanName?: string,
-    moduleCommodityIds: number[] = [],
     sourceBuildplan?: ColonyShipBuildplan,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
@@ -658,20 +891,22 @@ export class ColonyShipyardService {
     await this.assertSingleColonizerAvailability(userId, shipClass);
     this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
 
-    const selectedModuleCommodityIds =
-      this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    const selectedModuleSelections = this.validateModuleSelections(
+      shipClass,
+      this.normalizeFixedHangarModuleSelections(shipClass, moduleSelections),
+    );
+    const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
+      selectedModuleSelections,
+    );
     await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
-    const selectedModuleTypes =
-      selectedModuleCommodityIds.length > 0
-        ? selectedModuleCommodityIds.map(
-            (commodityId) =>
-              this.gameData.getFabricationItemByOutputCommodity(commodityId)!
-                .moduleType!,
-          )
-        : this.validateShipBuildModules(moduleTypes);
-    this.assertModuleSlotCompatibility(shipClass, selectedModuleCommodityIds);
+    const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
+      selectedModuleSelections,
+    );
 
-    const crewRequired = Math.max(0, shipClass.crewMin || 0);
+    const crewRequired = this.calculateCrewRequired(
+      shipClass,
+      selectedModuleSelections,
+    );
     const availableCrew = await this.colonyCrewService.getAvailableColonyCrew(
       colony.id,
     );
@@ -688,7 +923,7 @@ export class ColonyShipyardService {
 
     const buildPlanSignature = this.createBuildplanSignature(
       shipClassId,
-      selectedModuleCommodityIds,
+      selectedModuleSelections,
     );
     const buildPlan =
       sourceBuildplan ??
@@ -698,12 +933,17 @@ export class ColonyShipyardService {
         shipClassId,
         buildPlanName?.trim() || `${shipClass.name} Buildplan`,
         buildPlanSignature,
-        selectedModuleCommodityIds,
+        selectedModuleSelections,
         selectedModuleTypes,
+        selectedModuleCommodityIds,
       ));
 
     const costs = this.calculateShipBuildCosts(shipClass);
-    await this.deductBuildCosts(colony, costs);
+    const selectedModuleCommodityIdSet = new Set(selectedModuleCommodityIds);
+    const materialCosts = costs.filter(
+      (cost) => !selectedModuleCommodityIdSet.has(cost.commodityId),
+    );
+    await this.deductBuildCosts(colony, materialCosts);
     await Promise.all(
       selectedModuleCommodityIds.map((commodityId) =>
         this.colonyStorageService.lowerStorage(colony, commodityId, 1),
@@ -726,6 +966,7 @@ export class ColonyShipyardService {
       buildPlanName: buildPlan.name,
       buildPlanId: buildPlan.id,
       buildPlanSignature,
+      moduleSelections: selectedModuleSelections,
       moduleTypes: selectedModuleTypes,
       moduleCommodityIds: selectedModuleCommodityIds,
       crewAssigned: crewRequired,
@@ -745,7 +986,9 @@ export class ColonyShipyardService {
     return [
       ...new Set(
         (colony.fields ?? [])
-          .filter((field) => this.isShipyardField(field, false))
+          .filter(
+            (field) => this.isShipyardField(field, false) && field.isActive,
+          )
           .flatMap((field) =>
             this.gameData.getBuildingFunctions(field.buildingId!),
           )
@@ -772,46 +1015,17 @@ export class ColonyShipyardService {
     shipClass: ShipClassDef,
     activeShipyardFunctionIds: number[],
   ): void {
+    const classOverride = this.gameData.getShipClassDefByKey(shipClass.key);
     const rule = this.gameData.getShipClassSlotRule(shipClass.category);
-    if (!rule) return;
-    const hasCompatibleShipyard = rule.allowedBuildingFunctionIds.some(
-      (functionId) => activeShipyardFunctionIds.includes(functionId),
+    const allowedIds =
+      classOverride?.allowedBuildingFunctionIds ??
+      rule?.allowedBuildingFunctionIds;
+    if (!allowedIds) return;
+    const hasCompatibleShipyard = allowedIds.some((functionId) =>
+      activeShipyardFunctionIds.includes(functionId),
     );
     if (!hasCompatibleShipyard) {
-      throw new BadRequestException(
-        `${shipClass.category} cannot be built by the active shipyard`,
-      );
-    }
-  }
-
-  private assertModuleSlotCompatibility(
-    shipClass: ShipClassDef,
-    moduleCommodityIds: number[],
-  ): void {
-    if (moduleCommodityIds.length === 0) return;
-    const rule = this.gameData.getShipClassSlotRule(shipClass.category);
-    if (!rule) return;
-
-    const counts = new Map<string, number>();
-    for (const commodityId of moduleCommodityIds) {
-      const item =
-        this.gameData.getFabricationItemByOutputCommodity(commodityId);
-      const category = item?.moduleCategory;
-      if (!category || rule.moduleSlots[category] == null) {
-        throw new BadRequestException(
-          `${item?.displayName ?? `Module #${commodityId}`} is not allowed on ${shipClass.category}`,
-        );
-      }
-      counts.set(category, (counts.get(category) ?? 0) + 1);
-    }
-
-    for (const [category, count] of counts) {
-      const max = rule.moduleSlots[category] ?? 0;
-      if (count > max) {
-        throw new BadRequestException(
-          `Too many ${category} modules for ${shipClass.category}: ${count}/${max}`,
-        );
-      }
+      throw new BadRequestException('Active matching shipyard required');
     }
   }
 
@@ -843,6 +1057,7 @@ export class ColonyShipyardService {
       shipClassId: buildplan.shipClassId,
       name: buildplan.name,
       signature: buildplan.signature,
+      moduleSelections: buildplan.moduleSelections,
       moduleCommodityIds: buildplan.moduleCommodityIds,
       moduleTypes: buildplan.moduleTypes,
     };
@@ -853,8 +1068,7 @@ export class ColonyShipyardService {
     userId: number,
     shipClassId: number,
     name: string,
-    moduleCommodityIds: number[] = [],
-    moduleTypes: string[] = [],
+    moduleSelections: ShipModuleSelection[] = [],
   ) {
     const colony = await this.findOne(colonyId, userId);
     const trimmedName = this.validateBuildplanName(name);
@@ -865,18 +1079,17 @@ export class ColonyShipyardService {
       throw new BadRequestException('Unknown ship class');
     }
 
-    const selectedModuleCommodityIds =
-      this.validateShipBuildModuleCommodities(moduleCommodityIds);
+    const selectedModuleSelections = this.validateModuleSelections(
+      shipClass,
+      this.normalizeFixedHangarModuleSelections(shipClass, moduleSelections),
+    );
+    const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
+      selectedModuleSelections,
+    );
     await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
-    const selectedModuleTypes =
-      selectedModuleCommodityIds.length > 0
-        ? selectedModuleCommodityIds.map(
-            (commodityId) =>
-              this.gameData.getFabricationItemByOutputCommodity(commodityId)!
-                .moduleType!,
-          )
-        : this.validateShipBuildModules(moduleTypes);
-    this.assertModuleSlotCompatibility(shipClass, selectedModuleCommodityIds);
+    const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
+      selectedModuleSelections,
+    );
 
     const buildplan = this.shipBuildplanRepo.create({
       colonyId: colony.id,
@@ -885,8 +1098,9 @@ export class ColonyShipyardService {
       name: trimmedName,
       signature: this.createBuildplanSignature(
         shipClassId,
-        selectedModuleCommodityIds,
+        selectedModuleSelections,
       ),
+      moduleSelections: selectedModuleSelections,
       moduleCommodityIds: selectedModuleCommodityIds,
       moduleTypes: selectedModuleTypes,
     });
@@ -941,9 +1155,8 @@ export class ColonyShipyardService {
       userId,
       buildplan.shipClassId,
       name,
-      buildplan.moduleTypes,
+      buildplan.moduleSelections,
       buildplan.name,
-      buildplan.moduleCommodityIds,
       buildplan,
     );
   }
@@ -954,8 +1167,9 @@ export class ColonyShipyardService {
     shipClassId: number,
     name: string,
     signature: string,
-    moduleCommodityIds: number[],
+    moduleSelections: ShipModuleSelection[],
     moduleTypes: string[],
+    moduleCommodityIds: number[],
   ): Promise<ColonyShipBuildplan> {
     const existing = await this.shipBuildplanRepo.findOne({
       where: { colonyId, signature },
@@ -970,6 +1184,7 @@ export class ColonyShipyardService {
       shipClassId,
       name: trimmedName,
       signature,
+      moduleSelections,
       moduleCommodityIds,
       moduleTypes,
     });
@@ -997,36 +1212,6 @@ export class ColonyShipyardService {
     }
   }
 
-  private validateShipBuildModuleCommodities(
-    moduleCommodityIds: number[],
-  ): number[] {
-    if (!Array.isArray(moduleCommodityIds) || moduleCommodityIds.length === 0)
-      return [];
-
-    const allModules = this.gameData.getAllModules();
-    const validModuleNames = new Set(allModules.map((module) => module.name));
-    const selected = moduleCommodityIds.map(Number);
-    if (selected.some((commodityId) => !Number.isInteger(commodityId))) {
-      throw new BadRequestException('Invalid module commodity id');
-    }
-
-    for (const commodityId of selected) {
-      const item =
-        this.gameData.getFabricationItemByOutputCommodity(commodityId);
-      if (!item || item.queueType !== ColonyFabricationQueueType.MODULE) {
-        throw new BadRequestException(
-          `Commodity #${commodityId} is not a ship module`,
-        );
-      }
-      if (!item.moduleType || !validModuleNames.has(item.moduleType)) {
-        throw new BadRequestException(
-          `Module commodity #${commodityId} has no valid module type`,
-        );
-      }
-    }
-    return selected;
-  }
-
   private async assertModuleResearchUnlocked(
     userId: number,
     moduleCommodityIds: number[],
@@ -1047,20 +1232,6 @@ export class ColonyShipyardService {
     }
   }
 
-  private validateShipBuildModules(moduleTypes: string[]): string[] {
-    if (!Array.isArray(moduleTypes) || moduleTypes.length === 0) return [];
-    const allModules = this.gameData.getAllModules();
-    const validNames = new Set(allModules.map((module) => module.name));
-    const selected = [
-      ...new Set(moduleTypes.map((module) => module.trim())),
-    ].filter(Boolean);
-    const unknown = selected.find((module) => !validNames.has(module));
-    if (unknown) {
-      throw new BadRequestException(`Unknown module type: ${unknown}`);
-    }
-    return selected;
-  }
-
   async processShipBuildQueue(colony: Colony): Promise<void> {
     const queuedJobs = await this.shipBuildQueueRepo.find({
       where: {
@@ -1072,14 +1243,34 @@ export class ColonyShipyardService {
     });
     const now = new Date();
     const activeRepairSlots = this.getActiveRepairSlotCount(colony);
+    const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
     const canProgressRepair =
-      !colony.stats?.isBlockaded && activeRepairSlots > 0;
+      !getColonyChangeable(colony).isBlockaded && activeRepairSlots > 0;
     let remainingRepairSlots = activeRepairSlots;
 
     const queueTasks: Array<Promise<void | ColonyShipBuildQueue>> = [];
     for (const job of queuedJobs) {
       if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
-        if (!canProgressRepair || remainingRepairSlots <= 0) {
+        const shipClass =
+          job.shipClass ??
+          (await this.shipClassRepo.findOneBy({ id: job.shipClassId }));
+        let hasMatchingShipyard = false;
+        if (shipClass) {
+          try {
+            this.assertShipyardCompatibility(
+              shipClass,
+              activeShipyardFunctionIds,
+            );
+            hasMatchingShipyard = true;
+          } catch {
+            hasMatchingShipyard = false;
+          }
+        }
+        if (
+          !canProgressRepair ||
+          !hasMatchingShipyard ||
+          remainingRepairSlots <= 0
+        ) {
           job.status = ColonyShipBuildQueueStatus.PAUSED;
           job.stoppedAt = now;
           queueTasks.push(this.shipBuildQueueRepo.save(job));
@@ -1102,7 +1293,20 @@ export class ColonyShipyardService {
 
     if (canProgressRepair && remainingRepairSlots > 0) {
       const pausedJobs = await this.getPausedRepairJobs(colony.id);
-      for (const pausedJob of pausedJobs.slice(0, remainingRepairSlots)) {
+      const reactivatedJobs: ColonyShipBuildQueue[] = [];
+      for (const pausedJob of pausedJobs) {
+        const shipClass =
+          pausedJob.shipClass ??
+          (await this.shipClassRepo.findOneBy({ id: pausedJob.shipClassId }));
+        if (!shipClass) continue;
+        try {
+          this.assertShipyardCompatibility(
+            shipClass,
+            activeShipyardFunctionIds,
+          );
+        } catch {
+          continue;
+        }
         if (pausedJob.stoppedAt) {
           const pauseMs = now.getTime() - pausedJob.stoppedAt.getTime();
           pausedJob.finishesAt = new Date(
@@ -1111,11 +1315,13 @@ export class ColonyShipyardService {
         }
         pausedJob.stoppedAt = null;
         pausedJob.status = ColonyShipBuildQueueStatus.QUEUED;
+        reactivatedJobs.push(pausedJob);
+        if (reactivatedJobs.length >= remainingRepairSlots) break;
       }
       await Promise.all(
-        pausedJobs
-          .slice(0, remainingRepairSlots)
-          .map((pausedJob) => this.shipBuildQueueRepo.save(pausedJob)),
+        reactivatedJobs.map((pausedJob) =>
+          this.shipBuildQueueRepo.save(pausedJob),
+        ),
       );
     }
   }
@@ -1210,15 +1416,25 @@ export class ColonyShipyardService {
 
     const [shipClass, installedModules] = await Promise.all([
       this.shipClassRepo.findOneBy({ id: ship.shipClassId }),
-      this.spacecraftModuleRepo.find({ where: { spacecraftId: ship.id } }),
+      this.spacecraftModuleRepo.find({
+        where: { spacecraftId: ship.id },
+        order: { id: 'ASC' },
+      }),
     ]);
     if (!shipClass) return;
 
-    const desiredCommodityIds =
-      job.retrofitSnapshot?.newModuleCommodityIds ??
-      job.moduleCommodityIds ??
-      [];
-    const desiredRemaining = [...desiredCommodityIds];
+    const desiredSelections =
+      job.retrofitSnapshot?.newModuleSelections ?? job.moduleSelections ?? [];
+    const desiredBySlot = new Map(
+      desiredSelections.map((selection) => [selection.slotId, selection]),
+    );
+    const existingSelections = this.normalizeInstalledModuleSelections(
+      shipClass,
+      installedModules,
+    );
+    const existingBySlot = new Map(
+      existingSelections.map((selection) => [selection.slotId, selection]),
+    );
     const modulesToKeep: SpacecraftModule[] = [];
     const modulesToRemove: Array<{
       module: SpacecraftModule;
@@ -1227,10 +1443,8 @@ export class ColonyShipyardService {
 
     for (const module of installedModules) {
       const commodityId = this.resolveModuleCommodityId(module);
-      const desiredIndex =
-        commodityId == null ? -1 : desiredRemaining.indexOf(commodityId);
-      if (desiredIndex >= 0) {
-        desiredRemaining.splice(desiredIndex, 1);
+      const slotId = module.slotId ?? null;
+      if (slotId && desiredBySlot.get(slotId)?.commodityId === commodityId) {
         modulesToKeep.push(module);
       } else {
         modulesToRemove.push({ module, commodityId });
@@ -1262,15 +1476,23 @@ export class ColonyShipyardService {
     }
 
     const createdModules: SpacecraftModule[] = [];
-    for (const commodityId of desiredRemaining) {
-      const item =
-        this.gameData.getFabricationItemByOutputCommodity(commodityId);
+    for (const selection of desiredSelections) {
+      if (
+        existingBySlot.get(selection.slotId)?.commodityId ===
+        selection.commodityId
+      ) {
+        continue;
+      }
+      const item = this.gameData.getFabricationItemByOutputCommodity(
+        selection.commodityId,
+      );
       if (!item?.moduleType) continue;
       const savedModule = await this.spacecraftModuleRepo.save(
         this.spacecraftModuleRepo.create({
           spacecraftId: ship.id,
+          slotId: selection.slotId,
           moduleType: item.moduleType,
-          category: item.moduleCategory ?? 'UNKNOWN',
+          category: item.shipyardType ?? 'UNKNOWN',
           level: item.moduleLevel ?? 1,
           integrity: 100,
           cooldown: 0,
@@ -1284,8 +1506,8 @@ export class ColonyShipyardService {
     this.spacecraftStatsService.applyStats(ship, shipClass, finalModules);
     await this.shipRepo.save(ship);
     job.retrofitSnapshot = {
-      oldModuleCommodityIds: job.retrofitSnapshot?.oldModuleCommodityIds ?? [],
-      newModuleCommodityIds: desiredCommodityIds,
+      oldModuleSelections: job.retrofitSnapshot?.oldModuleSelections ?? [],
+      newModuleSelections: desiredSelections,
       newModuleTypes:
         job.retrofitSnapshot?.newModuleTypes ?? job.moduleTypes ?? [],
       returnedModuleCommodityIds,
@@ -1301,38 +1523,18 @@ export class ColonyShipyardService {
     job: ColonyShipBuildQueue,
   ): Promise<SpacecraftModule[]> {
     const createdModules: SpacecraftModule[] = [];
-    if (job.moduleCommodityIds?.length) {
-      for (const commodityId of job.moduleCommodityIds) {
-        const item =
-          this.gameData.getFabricationItemByOutputCommodity(commodityId);
-        if (!item?.moduleType) continue;
-        const savedModule = await this.spacecraftModuleRepo.save(
-          this.spacecraftModuleRepo.create({
-            spacecraftId,
-            moduleType: item.moduleType,
-            category: item.moduleCategory ?? 'UNKNOWN',
-            level: item.moduleLevel ?? 1,
-            integrity: 100,
-            cooldown: 0,
-            isActive: true,
-          }),
-        );
-        createdModules.push(savedModule);
-      }
-      return createdModules;
-    }
-
-    for (const moduleType of job.moduleTypes ?? []) {
-      const moduleDef = this.gameData
-        .getAllModules()
-        .find((candidate) => candidate.name === moduleType);
-      if (!moduleDef) continue;
+    for (const selection of job.moduleSelections ?? []) {
+      const item = this.gameData.getFabricationItemByOutputCommodity(
+        selection.commodityId,
+      );
+      if (!item?.moduleType) continue;
       const savedModule = await this.spacecraftModuleRepo.save(
         this.spacecraftModuleRepo.create({
           spacecraftId,
-          moduleType,
-          category: moduleDef.category,
-          level: 1,
+          slotId: selection.slotId,
+          moduleType: item.moduleType,
+          category: item.shipyardType ?? 'UNKNOWN',
+          level: item.moduleLevel ?? 1,
           integrity: 100,
           cooldown: 0,
           isActive: true,
@@ -1376,37 +1578,30 @@ export class ColonyShipyardService {
       cargoMax: shipClass.cargoCapacity,
       battery: shipClass.batteryBase,
       batteryMax: shipClass.batteryBase,
+      epsMax: shipClass.epsBase,
+      reactorOutput: 0,
+      warpdriveMax: shipClass.warpBase,
+      evadeChance: 0,
     });
   }
 
   private calculateShipBuildCosts(
     shipClass: ShipClassDef,
   ): Array<{ commodityId: number; amount: number }> {
-    return [
-      {
-        commodityId: 1,
-        amount: Math.max(100, Math.round(shipClass.hullBase * 4)),
-      },
-      {
-        commodityId: 2,
-        amount: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
-      },
-      {
-        commodityId: 3,
-        amount: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
-      },
-      {
-        commodityId: 4,
-        amount: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
-      },
-      {
-        commodityId: 6,
-        amount: Math.max(20, Math.round(shipClass.cargoCapacity * 0.25)),
-      },
-      {
-        commodityId: 7,
-        amount: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
-      },
-    ].filter((c) => c.amount > 0);
+    const definition = this.gameData.getShipClassDefByKey(shipClass.key);
+    return (definition?.buildCosts ?? []).filter((cost) => cost.amount > 0);
+  }
+
+  private isShipRepairNeeded(
+    ship: Spacecraft,
+    modules: SpacecraftModule[] = [],
+  ): boolean {
+    return (
+      ship.hull < ship.hullMax ||
+      modules.some(
+        (module) =>
+          module.integrity < 100 || !module.isActive || module.cooldown !== 0,
+      )
+    );
   }
 }

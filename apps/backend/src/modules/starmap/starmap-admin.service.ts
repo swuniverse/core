@@ -1436,9 +1436,7 @@ export class StarmapAdminService {
       if (savedObject) objectByKey.set(object.key, savedObject);
     });
 
-    const fieldTypeById = new Map(
-      fieldTypes.map((ft) => [ft.id, ft]),
-    );
+    const fieldTypeById = new Map(fieldTypes.map((ft) => [ft.id, ft]));
 
     const rows = layout.fields.map((field) => {
       const fieldType = field.fieldTypeId
@@ -1961,6 +1959,65 @@ export class StarmapAdminService {
     return 3;
   }
 
+  private async getLayerColonyBindings(layerId: number): Promise<any[]> {
+    return this.entityManager.query(
+      `
+        SELECT
+          c."id" AS "colonyId",
+          c."name" AS "colonyName",
+          c."userId" AS "userId",
+          c."starSystemId" AS "sourceSystemId",
+          c."celestialObjectId" AS "sourceCelestialObjectId",
+          COALESCE(s."name", os."name") AS "systemName",
+          COALESCE(s."cx", os."cx") AS "systemCx",
+          COALESCE(s."cy", os."cy") AS "systemCy",
+          co."objectType" AS "objectType",
+          co."name" AS "objectName",
+          co."posX" AS "objectPosX",
+          co."posY" AS "objectPosY",
+          co."classId" AS "objectClassId"
+        FROM "colonies" c
+        LEFT JOIN "star_systems" s ON s."id" = c."starSystemId"
+        LEFT JOIN "celestial_objects" co ON co."id" = c."celestialObjectId"
+        LEFT JOIN "star_systems" os ON os."id" = co."systemId"
+        WHERE s."layerId" = $1 OR os."layerId" = $1
+      `,
+      [layerId],
+    );
+  }
+
+  private systemImportIdentity(input: {
+    name?: string | null;
+    cx?: number | string | null;
+    cy?: number | string | null;
+  }): string | null {
+    if (input.cx == null || input.cy == null) return null;
+    return `${Number(input.cx)}:${Number(input.cy)}:${input.name ?? ''}`;
+  }
+
+  private objectImportIdentity(
+    systemIdentity: string | null,
+    input: {
+      objectType?: number | string | null;
+      name?: string | null;
+      objectName?: string | null;
+      posX?: number | string | null;
+      posY?: number | string | null;
+      objectPosX?: number | string | null;
+      objectPosY?: number | string | null;
+      classId?: number | string | null;
+      objectClassId?: number | string | null;
+    },
+  ): string | null {
+    if (!systemIdentity) return null;
+    const posX = input.posX ?? input.objectPosX;
+    const posY = input.posY ?? input.objectPosY;
+    if (input.objectType == null || posX == null || posY == null) return null;
+    const name = input.name ?? input.objectName ?? '';
+    const classId = input.classId ?? input.objectClassId ?? '';
+    return `${systemIdentity}:${Number(input.objectType)}:${Number(posX)}:${Number(posY)}:${name}:${classId}`;
+  }
+
   async exportLayer(layerId: number) {
     const layer = await this.layerRepo.findOneOrFail({
       where: { id: layerId },
@@ -1995,6 +2052,7 @@ export class StarmapAdminService {
       `SELECT * FROM "wormholes" WHERE "entryLayerId" = $1 OR "exitLayerId" = $1`,
       [layerId],
     );
+    const colonyBindings = await this.getLayerColonyBindings(layerId);
 
     const fieldTypeMap = new Map(fieldTypes.map((ft) => [ft.id, ft.key]));
     const systemFieldsBySystem = new Map<number, typeof systemFields>();
@@ -2008,6 +2066,12 @@ export class StarmapAdminService {
       const arr = segmentsByRoute.get(seg.routeId) ?? [];
       arr.push(seg);
       segmentsByRoute.set(seg.routeId, arr);
+    }
+    const objectIndexById = new Map<number, number>();
+    for (const system of systems) {
+      (system.celestialObjects ?? []).forEach((object, index) => {
+        objectIndexById.set(object.id, index);
+      });
     }
 
     return {
@@ -2050,6 +2114,8 @@ export class StarmapAdminService {
         systemTypeId: f.systemTypeId,
       })),
       systems: systems.map((s) => ({
+        sourceId: s.id,
+        importIdentity: this.systemImportIdentity(s),
         name: s.name,
         cx: s.cx,
         cy: s.cy,
@@ -2061,12 +2127,20 @@ export class StarmapAdminService {
         landmarkCategory: s.landmarkCategory,
         bonusFields: s.bonusFields,
         celestialObjects: (s.celestialObjects ?? []).map((o) => ({
+          sourceId: o.id,
+          importIdentity: this.objectImportIdentity(
+            this.systemImportIdentity(s),
+            o,
+          ),
           objectType: o.objectType,
           name: o.name,
           posX: o.posX,
           posY: o.posY,
           classId: o.classId,
           isColonizable: o.isColonizable,
+          surfaceWidth: o.surfaceWidth,
+          surfaceHeight: o.surfaceHeight,
+          terrainSeed: o.terrainSeed,
         })),
         fields: (systemFieldsBySystem.get(s.id) ?? []).map((sf) => ({
           sx: sf.sx,
@@ -2079,6 +2153,14 @@ export class StarmapAdminService {
           energyCost: sf.energyCost,
           damage: sf.damage,
           effects: sf.effects,
+          celestialObjectIndex:
+            sf.celestialObjectId == null
+              ? null
+              : (objectIndexById.get(sf.celestialObjectId) ?? null),
+          regionKey: sf.regionKey,
+          adminRegionKey: sf.adminRegionKey,
+          influenceAreaId: sf.influenceAreaId,
+          borderMask: sf.borderMask,
         })),
       })),
       hyperspaceRoutes: routes.map((r) => ({
@@ -2092,6 +2174,32 @@ export class StarmapAdminService {
           sortOrder: seg.sortOrder,
           controlPoints: seg.controlPointJson,
         })),
+      })),
+      colonyBindings: colonyBindings.map((binding) => ({
+        colonyId: Number(binding.colonyId),
+        colonyName: binding.colonyName,
+        userId: binding.userId == null ? null : Number(binding.userId),
+        sourceSystemId:
+          binding.sourceSystemId == null
+            ? null
+            : Number(binding.sourceSystemId),
+        sourceCelestialObjectId:
+          binding.sourceCelestialObjectId == null
+            ? null
+            : Number(binding.sourceCelestialObjectId),
+        systemIdentity: this.systemImportIdentity({
+          name: binding.systemName,
+          cx: binding.systemCx,
+          cy: binding.systemCy,
+        }),
+        objectIdentity: this.objectImportIdentity(
+          this.systemImportIdentity({
+            name: binding.systemName,
+            cx: binding.systemCx,
+            cy: binding.systemCy,
+          }),
+          binding,
+        ),
       })),
       wormholes: wormholes.map((w) => ({
         entryCx: w.entryCx,
@@ -2116,6 +2224,7 @@ export class StarmapAdminService {
       systems: sysData,
       hyperspaceRoutes: routeData,
       wormholes: whData,
+      colonyBindings: colonyBindingData,
     } = data;
 
     // 1. Ensure field types
@@ -2153,6 +2262,8 @@ export class StarmapAdminService {
       );
     }
     const layerId = layer.id;
+
+    const existingColonyBindings = await this.getLayerColonyBindings(layerId);
 
     // 4. Clear existing data for layer
     await this.entityManager.query(
@@ -2193,6 +2304,11 @@ export class StarmapAdminService {
       regionMap.set(r.name, saved.id);
     }
 
+    const importedSystemBindings = new Map<number, number>();
+    const importedObjectBindings = new Map<number, number>();
+    const systemByIdentity = new Map<string, number>();
+    const objectByIdentity = new Map<string, number>();
+
     // 6. Create systems
     const systemMap = new Map<string, number>();
     for (const s of sysData ?? []) {
@@ -2212,6 +2328,14 @@ export class StarmapAdminService {
         }),
       );
       systemMap.set(s.name, sys.id);
+      if (s.sourceId != null) {
+        importedSystemBindings.set(Number(s.sourceId), sys.id);
+      }
+      const sysIdentity =
+        typeof s.importIdentity === 'string'
+          ? s.importIdentity
+          : this.systemImportIdentity(s);
+      if (sysIdentity) systemByIdentity.set(sysIdentity, sys.id);
 
       // Celestial objects
       const objMap = new Map<number, number>();
@@ -2226,9 +2350,20 @@ export class StarmapAdminService {
             posY: o.posY,
             classId: o.classId,
             isColonizable: o.isColonizable,
+            surfaceWidth: o.surfaceWidth,
+            surfaceHeight: o.surfaceHeight,
+            terrainSeed: o.terrainSeed,
           }),
         );
         objMap.set(i, obj.id);
+        if (o.sourceId != null) {
+          importedObjectBindings.set(Number(o.sourceId), obj.id);
+        }
+        const objIdentity =
+          typeof o.importIdentity === 'string'
+            ? o.importIdentity
+            : this.objectImportIdentity(sysIdentity, o);
+        if (objIdentity) objectByIdentity.set(objIdentity, obj.id);
       }
 
       // System fields
@@ -2243,6 +2378,14 @@ export class StarmapAdminService {
           energyCost: f.energyCost ?? 1,
           damage: f.damage ?? 0,
           effects: f.effects,
+          celestialObjectId:
+            f.celestialObjectIndex == null
+              ? null
+              : (objMap.get(Number(f.celestialObjectIndex)) ?? null),
+          regionKey: f.regionKey,
+          adminRegionKey: f.adminRegionKey,
+          influenceAreaId: f.influenceAreaId,
+          borderMask: f.borderMask,
         }),
       );
       if (sysFields.length)
@@ -2301,6 +2444,71 @@ export class StarmapAdminService {
       }
     }
 
+    const importedColonyBindings = Array.isArray(colonyBindingData)
+      ? colonyBindingData
+      : [];
+    const colonyBindingsToRestore =
+      importedColonyBindings.length > 0
+        ? importedColonyBindings
+        : existingColonyBindings.map((binding) => ({
+            colonyId: Number(binding.colonyId),
+            sourceSystemId:
+              binding.sourceSystemId == null
+                ? null
+                : Number(binding.sourceSystemId),
+            sourceCelestialObjectId:
+              binding.sourceCelestialObjectId == null
+                ? null
+                : Number(binding.sourceCelestialObjectId),
+            systemIdentity: this.systemImportIdentity({
+              name: binding.systemName,
+              cx: binding.systemCx,
+              cy: binding.systemCy,
+            }),
+            objectIdentity: this.objectImportIdentity(
+              this.systemImportIdentity({
+                name: binding.systemName,
+                cx: binding.systemCx,
+                cy: binding.systemCy,
+              }),
+              binding,
+            ),
+          }));
+    const restoredColonyIds: number[] = [];
+    for (const binding of colonyBindingsToRestore) {
+      const colonyId = Number(binding.colonyId);
+      if (!Number.isFinite(colonyId)) continue;
+      const restoredSystemId =
+        (binding.sourceSystemId == null
+          ? null
+          : (importedSystemBindings.get(Number(binding.sourceSystemId)) ??
+            null)) ??
+        (typeof binding.systemIdentity === 'string'
+          ? (systemByIdentity.get(binding.systemIdentity) ?? null)
+          : null);
+      const restoredObjectId =
+        (binding.sourceCelestialObjectId == null
+          ? null
+          : (importedObjectBindings.get(
+              Number(binding.sourceCelestialObjectId),
+            ) ?? null)) ??
+        (typeof binding.objectIdentity === 'string'
+          ? (objectByIdentity.get(binding.objectIdentity) ?? null)
+          : null);
+      if (restoredSystemId || restoredObjectId) {
+        await this.entityManager
+          .createQueryBuilder()
+          .update('colonies')
+          .set({
+            starSystemId: restoredSystemId,
+            celestialObjectId: restoredObjectId,
+          })
+          .where('id = :colonyId', { colonyId })
+          .execute();
+        restoredColonyIds.push(colonyId);
+      }
+    }
+
     // 9. Wormholes
     for (const w of whData ?? []) {
       await this.entityManager.query(
@@ -2320,6 +2528,10 @@ export class StarmapAdminService {
       );
     }
 
-    return { layerId, imported: true };
+    return {
+      layerId,
+      imported: true,
+      restoredColonyBindings: restoredColonyIds.length,
+    };
   }
 }

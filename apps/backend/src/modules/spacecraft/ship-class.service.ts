@@ -1,14 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { GameDataService } from '../game-data/game-data.service';
-import {
-  COLONIZATION_BUILDING_IDS,
-  COLONIZATION_TECH_IDS,
-  COLONIZER_SHIP_CLASS_KEYS,
-} from '@swuniverse/shared';
 
 @Injectable()
 export class ShipClassService {
@@ -24,17 +19,21 @@ export class ShipClassService {
     const factions = await this.factionRepo.find();
     const factionMap = new Map(factions.map((f) => [f.key, f.id]));
 
-    const yamlDefs = [
-      ...this.gameData.getShipClassDefs(),
-      ...this.getColonizerShipClassDefs(),
-    ];
+    const yamlDefs = this.gameData.getShipClassDefs();
+    const activeKeys = yamlDefs.map((def) => def.key);
+    if (activeKeys.length > 0) {
+      await this.shipClassRepo.update(
+        { key: Not(In(activeKeys)) },
+        { isNpc: true, starterAllowed: false },
+      );
+    }
     for (const def of yamlDefs) {
       const definition = {
         key: def.key,
         name: def.name,
         category: def.category,
         role: def.role,
-        factionId: factionMap.get(def.factionKey) ?? null,
+        factionId: def.factionKey ? (factionMap.get(def.factionKey) ?? null) : null,
         unlockTechId: def.unlockTechId,
         buildTimeTicks: def.buildTimeTicks,
         cargoCapacity: def.cargoCapacity,
@@ -66,59 +65,12 @@ export class ShipClassService {
     }
   }
 
-  private getColonizerShipClassDefs() {
-    return [
-      {
-        key: COLONIZER_SHIP_CLASS_KEYS.REBEL_TIER_2,
-        name: 'CR90 Kolonieschiff',
-        category: 'CORVETTE',
-        role: 'COLONIZER',
-        factionKey: 'REBEL_ALLIANCE',
-        unlockTechId: COLONIZATION_TECH_IDS.REBEL_TIER_2_COLONIZER,
-        buildTimeTicks: 0,
-        cargoCapacity: 220,
-        crewMin: 0,
-        crewMax: 24,
-        hullBase: 180,
-        shieldBase: 100,
-        epsBase: 140,
-        warpBase: 4,
-        batteryBase: 60,
-        shuttleSlots: 4,
-        starterAllowed: false,
-        isNpc: false,
-        isColonizer: true,
-        colonizerTier: 2,
-        colonizationBuildingId: COLONIZATION_BUILDING_IDS.REBEL_COLONY_CENTRAL,
-      },
-      {
-        key: COLONIZER_SHIP_CLASS_KEYS.EMPIRE_TIER_2,
-        name: 'Lambda-Klasse Siedlungsschiff',
-        category: 'ESCORT',
-        role: 'COLONIZER',
-        factionKey: 'GALACTIC_EMPIRE',
-        unlockTechId: COLONIZATION_TECH_IDS.EMPIRE_TIER_2_COLONIZER,
-        buildTimeTicks: 0,
-        cargoCapacity: 180,
-        crewMin: 0,
-        crewMax: 18,
-        hullBase: 155,
-        shieldBase: 90,
-        epsBase: 130,
-        warpBase: 4,
-        batteryBase: 55,
-        shuttleSlots: 4,
-        starterAllowed: false,
-        isNpc: false,
-        isColonizer: true,
-        colonizerTier: 2,
-        colonizationBuildingId: COLONIZATION_BUILDING_IDS.EMPIRE_COLONY_CENTRAL,
-      },
-    ];
-  }
 
   findAll(): Promise<ShipClassDef[]> {
-    return this.shipClassRepo.find({ order: { id: 'ASC' } });
+    return this.shipClassRepo.find({
+      where: { isNpc: false },
+      order: { id: 'ASC' },
+    });
   }
 
   findById(id: number): Promise<ShipClassDef | null> {

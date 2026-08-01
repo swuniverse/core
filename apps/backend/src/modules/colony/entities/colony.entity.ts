@@ -15,6 +15,7 @@ import { CelestialObject } from '../../starmap/entities/celestial-object.entity'
 import { ColonyField } from './colony-field.entity';
 import { ColonyStorage } from './colony-storage.entity';
 import { ColonyStats } from './colony-stats.entity';
+import { ColonyChangeable } from './colony-changeable.entity';
 
 @Entity('colonies')
 @Index(['userId'])
@@ -56,6 +57,15 @@ export class Colony {
   @Column()
   colonyClassId: number;
 
+  @Column({ type: 'text', nullable: true })
+  surfaceMask: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  surfaceWidth: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  rotationFactor: number | null;
+
   @Column({ default: false })
   isAbandoned: boolean;
 
@@ -93,6 +103,11 @@ export class Colony {
 
   @OneToOne(() => ColonyStats, (stats) => stats.colony, { cascade: true })
   stats: ColonyStats;
+
+  @OneToOne(() => ColonyChangeable, (changeable) => changeable.colony, {
+    cascade: true,
+  })
+  changeable: ColonyChangeable;
 
   @CreateDateColumn()
   createdAt: Date;

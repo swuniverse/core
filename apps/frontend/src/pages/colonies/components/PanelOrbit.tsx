@@ -226,11 +226,13 @@ export function PanelOrbit({
                       <button
                         disabled={!ship.canRepair}
                         title={
-                          !ship.canRepair ? 'Reparatur im Werft-Tab' : undefined
+                          !ship.canRepair
+                            ? 'Passende aktive Werft erforderlich'
+                            : undefined
                         }
                         className={`${SHIP_ACTION_BASE} border-swu-border text-swu-muted`}
                       >
-                        Reparatur via Werft
+                        In passender Werft reparieren
                       </button>
                       <button
                         disabled={!ship.canRetrofit}

@@ -7,7 +7,7 @@ const FUNCTIONS = {
   ANTI_PARTICLE: 28,
   AIRFIELD: 4,
   FIGHTER_SHIPYARD: 5,
-  REPAIR_SHIPYARD: 22,
+  REPAIR_STATION: 22,
   WAREHOUSE: 23,
   TORPEDO_FAB: 9,
   MODULEFAB_TYPE1_LVL1: 10,
@@ -150,15 +150,26 @@ describe('GameDataService torpedo types', () => {
     service.onModuleInit();
   });
 
-  it('loads representative STU-like torpedo types', () => {
-    expect(service.getTorpedoType(81)).toMatchObject({
-      commodityId: 81,
-      name: 'Micro-Protonentorpedo',
-      baseDamage: expect.any(Number),
-      energyCost: expect.any(Number),
+  it('loads all torpedo specialization paths', () => {
+    expect(
+      service
+        .getAllTorpedoTypes()
+        .map((torpedo) => [torpedo.id, torpedo.damageType]),
+    ).toEqual([
+      [81, 'PROTON'],
+      [82, 'PROTON'],
+      [83, 'PROTON'],
+      [84, 'QUANTUM'],
+      [85, 'HEAVY_QUANTUM'],
+      [86, 'PLASMA'],
+      [87, 'HEAVY_PLASMA'],
+    ]);
+    expect(service.getTorpedoTypeByCommodity(86)).toMatchObject({
+      id: 86,
+      name: 'Plasmatorpedo',
+      damageType: 'PLASMA',
+      shieldDamageFactor: 140,
     });
-    expect(service.getTorpedoTypeByCommodity(82)).toMatchObject({ id: 82 });
-    expect(service.getAllTorpedoTypes().length).toBeGreaterThanOrEqual(3);
   });
 
   it('references existing commodities and fabrication outputs', () => {
@@ -203,6 +214,110 @@ describe('GameDataService fabrication items', () => {
     expect(service.getAllFabricationItems().length).toBeGreaterThanOrEqual(7);
   });
 
+  it('loads the reduced three-tier shield catalog', () => {
+    const shieldItems = service
+      .getAllFabricationItems()
+      .filter(
+        (item) =>
+          item.queueType === 'MODULE' && item.shipyardType === 'SHIELDS',
+      );
+
+    expect(
+      shieldItems.map((item) => item.outputCommodityId).sort((a, b) => a - b),
+    ).toEqual([
+      10201, 10202, 10203, 10204, 10205, 10206, 10211, 10212, 10213, 10214,
+      10215, 10216, 10221, 10222, 10223, 10224, 10225, 10226,
+    ]);
+    expect(
+      [...new Set(shieldItems.map((item) => item.moduleType))].sort(),
+    ).toEqual([
+      'Militär-Deflektorschild',
+      'Standard-Deflektorschild',
+      'Verstärkter Deflektorschild',
+    ]);
+    expect(
+      shieldItems.some((item) => /Polarschild/.test(item.displayName)),
+    ).toBe(false);
+    expect(
+      shieldItems.every((item) =>
+        /^(Standard-Deflektorschild|Verstärkter Deflektorschild|Militär-Deflektorschild) \(Klasse [1-6]\)$/.test(
+          item.displayName,
+        ),
+      ),
+    ).toBe(true);
+    expect(service.getFabricationItemByOutputCommodity(10221)?.moduleType).toBe(
+      'Militär-Deflektorschild',
+    );
+    expect(service.getFabricationItemByOutputCommodity(10211)?.moduleType).toBe(
+      'Verstärkter Deflektorschild',
+    );
+  });
+
+  it('loads the six-family hull armor catalog', () => {
+    const hullItems = service
+      .getAllFabricationItems()
+      .filter(
+        (item) => item.queueType === 'MODULE' && item.shipyardType === 'HULL',
+      );
+
+    expect(
+      hullItems.map((item) => item.outputCommodityId).sort((a, b) => a - b),
+    ).toEqual([
+      10101, 10102, 10103, 10104, 10105, 10106, 10111, 10112, 10113, 10114,
+      10115, 10116, 10121, 10122, 10123, 10124, 10125, 10126, 11101, 11102,
+      11103, 11104, 11105, 11106, 11111, 11112, 11113, 11114, 11115, 11116,
+      11121, 11122, 11123, 11124, 11125, 11126,
+    ]);
+    expect(
+      [...new Set(hullItems.map((item) => item.moduleType))].sort(),
+    ).toEqual([
+      'Ablative Beskar-Panzerung',
+      'Ablative Durastahl-Panzerung',
+      'Ablative Matrix-Panzerung',
+      'Beskar-Panzerung',
+      'Durastahl-Panzerung',
+      'Matrix-Panzerung',
+    ]);
+    expect(
+      service
+        .getAllModules()
+        .find((module) => module.name === 'Ablative Durastahl-Panzerung')
+        ?.secret.projectileResistances,
+    ).toMatchObject({ QUANTUM: 30, HEAVY_QUANTUM: 25 });
+  });
+
+  it('maps heavy energy weapons and torpedo launchers to runtime module types', () => {
+    for (const commodityId of [
+      11701, 11702, 11703, 11704, 11705, 11706, 11731, 11732, 11733, 11734,
+      11735, 11736,
+    ]) {
+      expect(
+        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
+      ).toBe('Schwerer Turbolaser');
+    }
+    for (const commodityId of [10801, 10802, 10803, 10804, 10805, 10806]) {
+      expect(
+        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
+      ).toBe('Protonentorpedo-Werfer');
+    }
+    for (const commodityId of [10831, 10832, 10833, 10834, 10835, 10836]) {
+      expect(
+        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
+      ).toBe('Imperiale Torpedorampe');
+    }
+    for (const commodityId of [11801, 11802, 11803, 11804, 11805, 11806]) {
+      expect(
+        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
+      ).toBe('Mehrfach-Torpedorampe');
+    }
+    expect(
+      service
+        .getAllModules()
+        .find((module) => module.name === 'Mehrfach-Torpedorampe')?.secret
+        .projectileDamageMultiplier,
+    ).toBe(1.5);
+  });
+
   it('references existing output commodities, cost commodities and building functions', () => {
     for (const item of service.getAllFabricationItems()) {
       expect(service.getCommodity(item.outputCommodityId)).toBeDefined();
@@ -237,17 +352,23 @@ describe('GameDataService hangar ship definitions', () => {
     service.onModuleInit();
   });
 
-  it('loads curated airfield hangar definitions', () => {
-    expect(service.getHangarShipDef('REBEL_CORVETTE_GR75')).toMatchObject({
-      hangarCommodityId: 21601,
+  it('loads current airfield hangar definitions', () => {
+    expect(service.getHangarShipDef('REBEL_SHUTTLE_LAAT')).toMatchObject({
+      hangarCommodityId: 21401,
       airfieldFunctionId: FUNCTIONS.AIRFIELD,
-      startEnergyCost: expect.any(Number),
-      buildCosts: expect.any(Array),
+      startEnergyCost: 90,
+      buildEnergyCost: 90,
+      defaultModuleCommodityIds: [10201, 10301, 10401, 10501, 10701, 10801],
     });
-    expect(service.getHangarShipDefByCommodity(21601)).toMatchObject({
-      shipClassKey: 'REBEL_CORVETTE_GR75',
+    expect(service.getHangarShipDefByCommodity(21401)).toMatchObject({
+      shipClassKey: 'REBEL_SHUTTLE_LAAT',
     });
-    expect(service.getAllHangarShipDefs().length).toBeGreaterThanOrEqual(2);
+    expect(service.getAllHangarShipDefs()).toHaveLength(11);
+
+    expect(service.getHangarShipDef('REBEL_FIGHTER_X_WING')).toMatchObject({
+      hangarCommodityId: 21201,
+      defaultModuleCommodityIds: [10201, 10301, 10401, 10501, 11701, 10801],
+    });
   });
 
   it('references existing commodities and the airfield function', () => {
@@ -277,14 +398,32 @@ describe('GameDataService ship class slot rules', () => {
     expect(service.getShipClassSlotRule('CORVETTE')).toMatchObject({
       category: 'CORVETTE',
       allowedBuildingFunctionIds: [5, 6, 22],
-      moduleSlots: expect.objectContaining({ HULL: 1, WEAPONS: 2 }),
+      moduleSlots: expect.objectContaining({
+        HULL: 1,
+        ENERGY_WEAPON: 1,
+        TORPEDO_BANK: 1,
+      }),
     });
     expect(service.getShipClassSlotRule('FRIGATE')).toMatchObject({
       allowedBuildingFunctionIds: [7, 22],
-      moduleSlots: expect.objectContaining({ HULL: 2, WEAPONS: 4 }),
+      moduleSlots: expect.objectContaining({
+        HULL: 1,
+        ENERGY_WEAPON: 1,
+        TORPEDO_BANK: 1,
+      }),
     });
     expect(service.getAllShipClassSlotRules().length).toBeGreaterThanOrEqual(6);
   });
+
+  it('uses documented shipyard overrides for Rebel freight hulls', () => {
+    expect(service.getShipClassDefByKey('REBEL_FREIGHTER_YT')).toMatchObject({
+      allowedBuildingFunctionIds: [5, 22],
+    });
+    expect(service.getShipClassDefByKey('REBEL_FREIGHTER_GR75')).toMatchObject({
+      allowedBuildingFunctionIds: [6, 7, 22],
+    });
+  });
+
 });
 
 describe('GameDataService building function mapping', () => {
@@ -315,8 +454,17 @@ describe('GameDataService building function mapping', () => {
       true,
     );
     expect(
-      service.buildingHasFunction(85010100, FUNCTIONS.REPAIR_SHIPYARD),
+      service.buildingHasFunction(85010100, FUNCTIONS.REPAIR_STATION),
+    ).toBe(false);
+    expect(
+      service.buildingHasFunction(85190100, FUNCTIONS.REPAIR_STATION),
     ).toBe(true);
+    expect(service.getBuildingFunction(FUNCTIONS.REPAIR_STATION)).toMatchObject(
+      {
+        key: 'REPAIR_STATION',
+        name: 'Reparaturstation',
+      },
+    );
     expect(service.getBuilding(81130100)).toMatchObject({
       name: 'Raumhafen',
       epsCost: 240,

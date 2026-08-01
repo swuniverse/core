@@ -20,7 +20,7 @@ export class ColonySettingsService {
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
     @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
+    _statsRepo: Repository<ColonyStats>,
     @InjectRepository(ColonyStorage)
     private readonly storageRepo: Repository<ColonyStorage>,
     private readonly ownership: ColonyOwnershipService,
@@ -47,13 +47,13 @@ export class ColonySettingsService {
     if (!Number.isInteger(limit) || limit < 0) {
       throw new BadRequestException('Population limit must be zero or higher');
     }
-    const colony = await this.ownership.findOwnedColonyWithStats(
+    const colony = await this.ownership.findOwnedColonyWithChangeable(
       colonyId,
       userId,
     );
-    colony.stats.populationLimit = limit;
-    await this.statsRepo.save(colony.stats);
-    return { populationLimit: colony.stats.populationLimit };
+    colony.changeable.populationLimit = limit;
+    await this.colonyRepo.manager.save(colony.changeable);
+    return { populationLimit: colony.changeable.populationLimit };
   }
 
   async setImmigration(
@@ -64,13 +64,13 @@ export class ColonySettingsService {
     if (typeof enabled !== 'boolean') {
       throw new BadRequestException('Immigration flag must be boolean');
     }
-    const colony = await this.ownership.findOwnedColonyWithStats(
+    const colony = await this.ownership.findOwnedColonyWithChangeable(
       colonyId,
       userId,
     );
-    colony.stats.immigrationEnabled = enabled;
-    await this.statsRepo.save(colony.stats);
-    return { immigrationEnabled: colony.stats.immigrationEnabled };
+    colony.changeable.immigrationEnabled = enabled;
+    await this.colonyRepo.manager.save(colony.changeable);
+    return { immigrationEnabled: colony.changeable.immigrationEnabled };
   }
 
   async setColonyMessage(
@@ -85,13 +85,13 @@ export class ColonySettingsService {
     if (normalizedMessage && normalizedMessage.length > 2000) {
       throw new BadRequestException('Colony message is too long');
     }
-    const colony = await this.ownership.findOwnedColonyWithStats(
+    const colony = await this.ownership.findOwnedColonyWithChangeable(
       colonyId,
       userId,
     );
-    colony.stats.colonyMessage = normalizedMessage;
-    await this.statsRepo.save(colony.stats);
-    return { colonyMessage: colony.stats.colonyMessage };
+    colony.changeable.colonyMessage = normalizedMessage;
+    await this.colonyRepo.manager.save(colony.changeable);
+    return { colonyMessage: colony.changeable.colonyMessage };
   }
 
   async discardStorage(

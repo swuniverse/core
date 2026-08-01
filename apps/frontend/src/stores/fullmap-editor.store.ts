@@ -7,9 +7,12 @@ import type {
   StarmapBorderTypeDto,
   StarmapSystemTypeOptionDto,
   StarmapUpdateGalaxyFieldDto,
+  StarmapUpdateSystemFieldDto,
   StarmapBulkEditFieldsDto,
   StarmapCreateLayerDto,
   StarmapOperationResultDto,
+  StarmapSystemGridDto,
+  StarmapSystemFieldDto,
   DefaultStarWarsGalaxySeedResultDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
@@ -64,6 +67,11 @@ interface FullmapEditorState {
   // Overlays
   overlays: OverlayFlags;
 
+  // System view
+  systemViewId: number | null;
+  systemGrid: StarmapSystemGridDto | null;
+  selectedSystemField: StarmapSystemFieldDto | null;
+
   // UI
   loading: boolean;
   status: string;
@@ -101,11 +109,16 @@ interface FullmapEditorState {
   initializeLayerGrid: (fieldTypeId: number) => Promise<void>;
   generateSystemsForLayer: () => Promise<void>;
 
+  // System view
+  openSystemView: (systemId: number) => Promise<void>;
+  closeSystemView: () => void;
+  selectSystemField: (field: StarmapSystemFieldDto | null) => void;
+  updateSystemField: (fieldId: number, patch: StarmapUpdateSystemFieldDto) => Promise<void>;
+
   // Export/Import
   exportLayer: () => Promise<void>;
   importLayer: (json: string) => Promise<void>;
 }
-
 export const useFullmapEditorStore = create<FullmapEditorState>((set, get) => ({
   layers: [],
   fieldTypes: [],
@@ -136,6 +149,9 @@ export const useFullmapEditorStore = create<FullmapEditorState>((set, get) => ({
     borders: true,
     effects: true,
   },
+  systemViewId: null,
+  systemGrid: null,
+  selectedSystemField: null,
   loading: false,
   status: '',
   error: null,
@@ -349,6 +365,33 @@ export const useFullmapEditorStore = create<FullmapEditorState>((set, get) => ({
       await api.post('/starmap/admin/layers/import', data);
       set({ status: 'Import abgeschlossen' });
       await get().bootstrap();
+    } catch (err) {
+      set({ error: readError(err) });
+    }
+  },
+
+  openSystemView: async (systemId) => {
+    set({ systemViewId: systemId, systemGrid: null, selectedSystemField: null, error: null });
+    try {
+      const grid = await api.get<StarmapSystemGridDto>(`/starmap/systems/${systemId}/grid`);
+      set({ systemGrid: grid });
+    } catch (err) {
+      set({ error: readError(err), systemViewId: null });
+    }
+  },
+
+  closeSystemView: () => set({ systemViewId: null, systemGrid: null, selectedSystemField: null }),
+
+  selectSystemField: (field) => set({ selectedSystemField: field }),
+
+  updateSystemField: async (fieldId, patch) => {
+    const { systemViewId } = get();
+    try {
+      await api.patch(`/starmap/admin/system-fields/${fieldId}`, patch);
+      if (systemViewId) {
+        const grid = await api.get<StarmapSystemGridDto>(`/starmap/systems/${systemViewId}/grid`);
+        set({ systemGrid: grid, selectedSystemField: grid.fields.find((f) => f.id === fieldId) ?? null });
+      }
     } catch (err) {
       set({ error: readError(err) });
     }

@@ -9,6 +9,7 @@ import {
 import { Colony } from './colony.entity';
 import { ShipClassDef } from '../../spacecraft/entities/ship-class-def.entity';
 import { Spacecraft } from '../../spacecraft/entities/spacecraft.entity';
+import { ShipModuleSelection } from './colony-ship-buildplan.entity';
 
 export enum ColonyShipBuildQueueStatus {
   QUEUED = 'QUEUED',
@@ -30,9 +31,10 @@ export interface ColonyShipRepairSnapshot {
   costs: Array<{ commodityId: number; amount: number }>;
 }
 
+
 export interface ColonyShipRetrofitSnapshot {
-  oldModuleCommodityIds: number[];
-  newModuleCommodityIds: number[];
+  oldModuleSelections: ShipModuleSelection[];
+  newModuleSelections: ShipModuleSelection[];
   newModuleTypes: string[];
   returnedModuleCommodityIds: number[];
   consumedModuleCommodityIds: number[];
@@ -83,6 +85,9 @@ export class ColonyShipBuildQueue {
 
   @Column({ type: 'varchar', length: 128, nullable: true })
   buildPlanSignature: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  moduleSelections: ShipModuleSelection[];
 
   @Column({ type: 'jsonb', default: () => "'[]'" })
   moduleTypes: string[];

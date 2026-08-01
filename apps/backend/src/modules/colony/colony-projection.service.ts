@@ -5,7 +5,12 @@ import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
-import { GameDataService, HangarShipDef } from '../game-data/game-data.service';
+import {
+  GameDataService,
+  HangarShipDef,
+  ModuleDef,
+} from '../game-data/game-data.service';
+import { User } from '../auth/user.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
@@ -15,7 +20,9 @@ import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonySocialService } from './colony-social.service';
 import {
   ColonyInternalSummary,
+  getColonyChangeable,
   getEffectiveCurrentPopulation,
+  syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import {
   ColonyCrewTrainingQueue,
@@ -33,6 +40,7 @@ import {
   ColonyOrbitAssignmentMode,
 } from './entities/colony-orbit-assignment.entity';
 import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
+import { ShipModuleSelection } from './entities/colony-ship-buildplan.entity';
 import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueMode,
@@ -46,9 +54,118 @@ export class ColonyProjectionService {
   private readonly legacyShipyardBuildingIds = new Set([
     11, 85010100, 85010300,
   ]);
-  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21, 22]);
-  private readonly repairShipyardFunctionId = 22;
+  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21]);
+  private readonly repairStationFunctionId = 22;
   private readonly warehouseFunctionId = 23;
+
+  private normalizeInstalledModuleSelections(
+    shipClass: ShipClassDef | undefined,
+    modules: SpacecraftModule[],
+  ): ShipModuleSelection[] {
+    if (!shipClass) return [];
+    const layout =
+      this.gameData.getShipClassSlotRuleForShipClass?.(shipClass) ??
+      this.gameData.getShipClassSlotRule(shipClass.category);
+    if (!layout) return [];
+
+    const slotsById = new Map(layout.slots.map((slot) => [slot.slotId, slot]));
+    const freeSlotIdsByCategory = new Map<string, string[]>();
+    for (const slot of layout.slots) {
+      if (!freeSlotIdsByCategory.has(slot.moduleCategory)) {
+        freeSlotIdsByCategory.set(slot.moduleCategory, []);
+      }
+      freeSlotIdsByCategory.get(slot.moduleCategory)!.push(slot.slotId);
+    }
+
+    const selections: ShipModuleSelection[] = [];
+    for (const module of [...modules].sort((a, b) => a.id - b.id)) {
+      const commodityId = this.resolveModuleCommodityId(module);
+      if (commodityId == null) continue;
+
+      let slotId = module.slotId ?? null;
+      if (!slotId || !slotsById.has(slotId)) {
+        const freeSlotIds = freeSlotIdsByCategory.get(module.category) ?? [];
+        slotId = freeSlotIds.shift() ?? null;
+      } else {
+        const freeSlotIds = freeSlotIdsByCategory.get(module.category) ?? [];
+        const index = freeSlotIds.indexOf(slotId);
+        if (index >= 0) freeSlotIds.splice(index, 1);
+      }
+      if (!slotId) continue;
+      selections.push({ slotId, commodityId });
+    }
+
+    return selections.sort((a, b) => {
+      const orderA = slotsById.get(a.slotId)?.order ?? Number.MAX_SAFE_INTEGER;
+      const orderB = slotsById.get(b.slotId)?.order ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+  }
+
+  private moduleSelectionNames(
+    moduleSelections: ShipModuleSelection[],
+  ): string[] {
+    return moduleSelections.map((selection) => {
+      const item = this.gameData.getFabricationItemByOutputCommodity(
+        selection.commodityId,
+      );
+      return item?.displayName ?? `Modul #${selection.commodityId}`;
+    });
+  }
+
+  private defaultModuleSummaries(hangarDef: HangarShipDef): Array<{
+    commodityId: number;
+    name: string;
+  }> {
+    return (hangarDef.defaultModuleCommodityIds ?? []).map((commodityId) => {
+      const item =
+        this.gameData.getFabricationItemByOutputCommodity(commodityId);
+      return {
+        commodityId,
+        name: item?.displayName ?? `Modul #${commodityId}`,
+      };
+    });
+  }
+
+  private getHangarBuildCosts(
+    hangarDef: HangarShipDef,
+    amount: number,
+  ): Array<{ commodityId: number; amount: number }> {
+    const totals = new Map<number, number>();
+    for (const cost of hangarDef.buildCosts ?? []) {
+      totals.set(
+        cost.commodityId,
+        (totals.get(cost.commodityId) ?? 0) + cost.amount * amount,
+      );
+    }
+    for (const commodityId of hangarDef.defaultModuleCommodityIds ?? []) {
+      totals.set(commodityId, (totals.get(commodityId) ?? 0) + amount);
+    }
+    return Array.from(totals, ([commodityId, required]) => ({
+      commodityId,
+      amount: required,
+    }));
+  }
+
+  private maxBuildableHangarAmount(
+    colony: Colony,
+    hangarDef: HangarShipDef,
+  ): number {
+    const limits = [50];
+    if (hangarDef.buildEnergyCost > 0) {
+      limits.push(Math.floor((colony.energy ?? 0) / hangarDef.buildEnergyCost));
+    }
+    const storage = new Map(
+      (colony.storage ?? []).map((row) => [row.commodityId, row.amount]),
+    );
+    for (const cost of this.getHangarBuildCosts(hangarDef, 1)) {
+      if (cost.amount <= 0) continue;
+      limits.push(
+        Math.floor((storage.get(cost.commodityId) ?? 0) / cost.amount),
+      );
+    }
+    return Math.max(0, Math.min(...limits));
+  }
 
   constructor(
     @InjectRepository(Colony)
@@ -75,6 +192,8 @@ export class ColonyProjectionService {
     private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly gameData: GameDataService,
     private readonly unlockResolver: UnlockResolverService,
     private readonly colonyEconomyService: ColonyEconomyService,
@@ -89,6 +208,22 @@ export class ColonyProjectionService {
     return Object.assign(colony, {
       locationLabel:
         colony.celestialObject?.name || colony.starSystem?.name || 'Unknown',
+      fields: (colony.fields ?? []).map((field) => ({
+        id: field.id,
+        fieldIndex: field.fieldIndex,
+        fieldType: field.fieldType,
+        terrainTileId: field.terrainTileId ?? null,
+        layer: field.layer,
+        buildingId: field.buildingId,
+        isBuilding: field.isBuilding,
+        isActive: field.isActive,
+        integrity: field.integrity,
+        maxIntegrity: field.maxIntegrity,
+        buildProgress: field.buildProgress,
+        buildFinishesAt: field.buildFinishesAt?.toISOString() ?? null,
+        terraformingId: field.terraformingId,
+        terraformingFinishesAt: field.terraformingFinishesAt?.toISOString() ?? null,
+      })),
     });
   }
 
@@ -97,10 +232,11 @@ export class ColonyProjectionService {
     const storage = colony.storage ?? [];
     const summary = this.colonyEconomyService.calculateSummary(colony);
     const effectiveState = summary.effectiveState;
+    const changeable = getColonyChangeable(colony);
     const activeFunctionIds = effectiveState.functions.activeIds;
     const effectiveCurrentPopulation = effectiveState.population.current;
-    if (colony.stats && colony.population !== effectiveCurrentPopulation) {
-      colony.population = effectiveCurrentPopulation;
+    if (colony.population !== effectiveCurrentPopulation) {
+      syncLegacyColonySnapshot(colony);
       await this.colonyRepo.save(colony);
     }
     const workers = effectiveState.population.workers;
@@ -176,6 +312,14 @@ export class ColonyProjectionService {
     const orbitShipClassMap = new Map(
       orbitShipClasses.map((shipClass) => [shipClass.id, shipClass]),
     );
+    const shipyardShipClasses = await this.shipClassRepo.find({
+      where: { isNpc: false },
+      order: { id: 'ASC' },
+    });
+    const shipyardShipClassMap = new Map(
+      shipyardShipClasses.map((shipClass) => [shipClass.id, shipClass]),
+    );
+    const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
     const shipyardBuilding = this.getPrimaryShipyardBuilding();
     const shipyardUnlocked = shipyardBuilding
       ? await this.unlockResolver.isBuildingUnlocked(
@@ -232,6 +376,8 @@ export class ColonyProjectionService {
       this.colonyCrewService.getInTrainingCount(userId),
       this.colonyCrewService.getAssignedCount(userId),
     ]);
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const userFaction = user?.faction ?? null;
     const featureAccess = this.colonyEconomyService.buildFeatureAccess(colony);
     const presentFabricationFunctionIds =
       featureAccess.functions.groups.fabrication.presentFunctionIds;
@@ -257,6 +403,45 @@ export class ColonyProjectionService {
     const completedTechIds = new Set(
       (await this.unlockResolver.getCompletedTechIds(userId)).values(),
     );
+    const availableUpgradesByFieldIndex = new Map<number, Array<{
+      id: number;
+      fromBuildingId: number;
+      toBuildingId: number;
+      researchId: number | null;
+      description: string;
+      energyCost: number;
+      costs: Array<{ commodityId: number; amount: number }>;
+    }>>();
+    for (const field of fields) {
+      if (!field.buildingId || field.isBuilding) {
+        availableUpgradesByFieldIndex.set(field.fieldIndex, []);
+        continue;
+      }
+      const upgrades = this.gameData
+        .getBuildingUpgradesForBuilding(field.buildingId)
+        .filter(
+          (upgrade) =>
+            upgrade.fromBuildingId === field.buildingId &&
+            (upgrade.researchId == null ||
+              completedTechIds.has(upgrade.researchId)),
+        )
+        .flatMap((upgrade) => {
+          const targetBuilding = this.gameData.getBuilding(upgrade.toBuildingId);
+          if (!targetBuilding) return [];
+          return [
+            {
+              id: upgrade.id,
+              fromBuildingId: upgrade.fromBuildingId,
+              toBuildingId: upgrade.toBuildingId,
+              researchId: upgrade.researchId,
+              description: upgrade.description,
+              energyCost: upgrade.energyCost,
+              costs: upgrade.costs,
+            },
+          ];
+        });
+      availableUpgradesByFieldIndex.set(field.fieldIndex, upgrades);
+    }
 
     const planetaryDefense = fields
       .filter(
@@ -278,21 +463,47 @@ export class ColonyProjectionService {
         }));
       });
 
-    const availableShipModules = storage
-      .map((storageItem) => {
-        const item = this.gameData.getFabricationItemByOutputCommodity(
-          storageItem.commodityId,
-        );
-        if (!item?.moduleType) return null;
-        const commodity = this.gameData.getCommodity(storageItem.commodityId);
+    const storageAmountByCommodity = new Map(
+      storage.map((storageItem) => [
+        storageItem.commodityId,
+        storageItem.amount,
+      ]),
+    );
+    const availableShipModules = this.gameData
+      .getAllFabricationItems()
+      .filter(
+        (item) =>
+          item.queueType === ColonyFabricationQueueType.MODULE &&
+          !!item.moduleType &&
+          !!item.shipyardType &&
+          (item.researchId == null || completedTechIds.has(item.researchId)),
+      )
+      .map((item) => {
+        const compatibleShipClassIds = shipyardShipClasses
+          .filter((shipClass) =>
+            this.gameData.isShipyardModuleAllowedForShipClass(item, shipClass),
+          )
+          .map((shipClass) => shipClass.id);
+        if (compatibleShipClassIds.length === 0) return null;
+        const commodity = this.gameData.getCommodity(item.outputCommodityId);
+        const stats = item.shipyardModuleStats;
         return {
-          commodityId: storageItem.commodityId,
-          commodityName: commodity?.name ?? `Ware #${storageItem.commodityId}`,
-          amount: storageItem.amount,
-          moduleType: item.moduleType,
+          commodityId: item.outputCommodityId,
+          commodityName: commodity?.name ?? `Ware #${item.outputCommodityId}`,
+          amount: storageAmountByCommodity.get(item.outputCommodityId) ?? 0,
+          moduleType: item.moduleType!,
           moduleCategory: item.moduleCategory ?? 'UNKNOWN',
+          shipyardGroup: item.shipyardGroup ?? 'CORE_SYSTEMS',
+          shipyardType: item.shipyardType ?? 'SPECIAL',
           moduleLevel: item.moduleLevel ?? 1,
+          moduleClass: item.moduleClass ?? 1,
+          researchRequired: item.researchRequired ?? null,
+          faction: item.faction ?? null,
           displayName: item.displayName,
+          crewRequired: stats?.crew ?? 0,
+          effects: this.describeShipyardModuleEffects(item, undefined),
+          shipyardModuleStats: stats ?? null,
+          compatibleShipClassIds,
         };
       })
       .filter(Boolean);
@@ -323,11 +534,12 @@ export class ColonyProjectionService {
         },
         activeFunctions: effectiveState.functions.active,
         effectiveState,
+        surface: this.buildSurfaceInfo(colony, fields),
         options: {
           name: colony.name,
-          colonyMessage: colony.stats?.colonyMessage ?? null,
-          populationLimit: colony.stats?.populationLimit ?? 0,
-          immigrationEnabled: colony.stats?.immigrationEnabled ?? true,
+          colonyMessage: changeable.colonyMessage ?? null,
+          populationLimit: changeable.populationLimit ?? 0,
+          immigrationEnabled: changeable.immigrationEnabled ?? true,
         },
         energy: {
           current: effectiveState.energy.current,
@@ -356,20 +568,22 @@ export class ColonyProjectionService {
           housingFree: summary.freeHousing,
           housingMax: summary.maxHousing,
           housingBonus: summary.housingBonus,
-          populationLimit: colony.stats?.populationLimit ?? 0,
-          immigrationEnabled: colony.stats?.immigrationEnabled ?? true,
+          populationLimit: changeable.populationLimit ?? 0,
+          immigrationEnabled: changeable.immigrationEnabled ?? true,
         },
-        inventory: storage.map((item) => {
-          const commodity = this.gameData.getCommodity(item.commodityId);
-          return {
-            id: item.id,
-            commodityId: item.commodityId,
-            name: commodity?.name ?? `Ware #${item.commodityId}`,
-            nameShort: commodity?.nameShort ?? String(item.commodityId),
-            amount: item.amount,
-            delta: productionDelta.get(item.commodityId) ?? 0,
-          };
-        }),
+        inventory: storage
+          .filter((item) => item.amount > 0)
+          .map((item) => {
+            const commodity = this.gameData.getCommodity(item.commodityId);
+            return {
+              id: item.id,
+              commodityId: item.commodityId,
+              name: commodity?.name ?? `Ware #${item.commodityId}`,
+              nameShort: commodity?.nameShort ?? String(item.commodityId),
+              amount: item.amount,
+              delta: productionDelta.get(item.commodityId) ?? 0,
+            };
+          }),
         deposits: depositMining.map((deposit) => {
           const commodity = this.gameData.getCommodity(deposit.commodityId);
           const delta = summary.depositDelta.get(deposit.commodityId) ?? 0;
@@ -421,13 +635,26 @@ export class ColonyProjectionService {
                 ? this.gameData.getBuilding(field.buildingId)
                 : undefined;
               return {
+                ...(colony.fields ?? []).find(
+                  (colonyField) => colonyField.fieldIndex === field.fieldIndex,
+                ),
                 fieldIndex: field.fieldIndex,
+                fieldType: field.fieldType,
+                terrainTileId: field.terrainTileId ?? null,
+                layer: field.layer,
                 buildingId: field.buildingId,
                 buildingName: building?.name ?? `Gebäude #${field.buildingId}`,
                 isActive: field.isActive,
                 isBuilding: field.isBuilding,
                 integrity: field.integrity,
                 maxIntegrity: field.maxIntegrity,
+                buildProgress: field.buildProgress,
+                buildFinishesAt: field.buildFinishesAt?.toISOString() ?? null,
+                terraformingId: field.terraformingId,
+                terraformingFinishesAt:
+                  field.terraformingFinishesAt?.toISOString() ?? null,
+                availableUpgrades:
+                  availableUpgradesByFieldIndex.get(field.fieldIndex) ?? [],
                 epsProc: building?.epsProc ?? 0,
                 bevUse: building?.bevUse ?? 0,
                 bevPro: building?.bevPro ?? 0,
@@ -478,15 +705,24 @@ export class ColonyProjectionService {
           );
           const modules = modulesByShipId.get(ship.id) ?? [];
           const cargo = cargoByShipId.get(ship.id) ?? [];
-          const damagedModules = modules.filter(
-            (module) => module.integrity < 100,
-          );
+          const normalizedModuleSelections =
+            this.normalizeInstalledModuleSelections(shipClass, modules);
+          const hasMatchingRepairShipyard =
+            !!shipClass &&
+            (() => {
+              try {
+                this.assertShipyardCompatibility(
+                  shipClass,
+                  activeShipyardFunctionIds,
+                );
+                return true;
+              } catch {
+                return false;
+              }
+            })();
           const canRepair =
             canManage &&
-            this.hasActiveBuildingFunction(
-              colony,
-              this.repairShipyardFunctionId,
-            ) &&
+            hasMatchingRepairShipyard &&
             this.isShipRepairNeeded(ship, modules);
           const canRetrofit =
             canManage &&
@@ -495,7 +731,7 @@ export class ColonyProjectionService {
               try {
                 this.assertShipyardCompatibility(
                   shipClass,
-                  this.getActiveShipyardFunctionIds(colony),
+                  activeShipyardFunctionIds,
                 );
                 return true;
               } catch {
@@ -555,7 +791,8 @@ export class ColonyProjectionService {
               hasAirfield &&
               !!shipClass &&
               !!this.getHangarDefForShipClass(shipClass),
-            canDisassemble: canManage && colony.energy >= 20,
+            canDisassemble:
+              canManage && colony.energy >= 20 && hasMatchingRepairShipyard,
             canRepair,
             canRetrofit,
             canManage,
@@ -603,19 +840,23 @@ export class ColonyProjectionService {
                 'No station entity is linked to colony orbit in SWU yet.',
             },
             station: null,
-            damageSummary: {
-              hullDamage: Math.max(0, ship.hullMax - ship.hull),
-              damagedModules: damagedModules.length,
-            },
-            modules: modules.map((module) => ({
-              id: module.id,
-              moduleType: module.moduleType,
-              category: module.category,
-              level: module.level,
-              integrity: module.integrity,
-              isActive: module.isActive,
-              commodityId: this.resolveModuleCommodityId(module),
-            })),
+            modules: modules.map((module) => {
+              const fallbackSelection = normalizedModuleSelections.find(
+                (selection) =>
+                  selection.commodityId ===
+                  this.resolveModuleCommodityId(module),
+              );
+              return {
+                id: module.id,
+                moduleType: module.moduleType,
+                category: module.category,
+                level: module.level,
+                integrity: module.integrity,
+                isActive: module.isActive,
+                commodityId: this.resolveModuleCommodityId(module),
+                slotId: module.slotId ?? fallbackSelection?.slotId ?? null,
+              };
+            }),
             cargoUsed: ship.cargoUsed,
             cargoMax: ship.cargoMax,
             status: ship.status,
@@ -625,59 +866,73 @@ export class ColonyProjectionService {
           pointsPerTick: summary.researchPoints,
         },
         planetaryDefense,
-        defense: colony.stats
-          ? {
-              shields: {
-                current: colony.stats.shields ?? 0,
-                max: this.getMaxShields(colony),
-                frequency: colony.stats.shieldFrequency,
-              },
-              activeFunctionIds,
-              energyPhalanx:
-                this.colonyDefenseService.hasEnergyPhalanx(activeFunctionIds),
-              particlePhalanx:
-                this.colonyDefenseService.hasParticlePhalanx(activeFunctionIds),
-              antiParticle:
-                this.colonyDefenseService.hasAntiParticle(activeFunctionIds),
-              torpedoTypeId: colony.stats.torpedoTypeId,
-              selectedTorpedoType: colony.stats.torpedoTypeId
-                ? this.gameData.getTorpedoType(colony.stats.torpedoTypeId)
-                : null,
-              availableTorpedoTypes: this.gameData
-                .getAllTorpedoTypes()
-                .map((torpedo) => {
-                  const inventoryItem = storage.find(
-                    (item) => item.commodityId === torpedo.commodityId,
-                  );
-                  return { ...torpedo, amount: inventoryItem?.amount ?? 0 };
-                })
-                .filter((torpedo) => torpedo.amount > 0),
-            }
-          : null,
-        shields: colony.stats
-          ? {
-              current: colony.stats.shields ?? 0,
-              max: this.getMaxShields(colony),
-              frequency: colony.stats.shieldFrequency,
-            }
-          : null,
+        defense: {
+          shields: {
+            current: changeable.shields ?? 0,
+            max: this.getMaxShields(colony),
+            frequency: changeable.shieldFrequency,
+          },
+          activeFunctionIds,
+          energyPhalanx:
+            this.colonyDefenseService.hasEnergyPhalanx(activeFunctionIds),
+          particlePhalanx:
+            this.colonyDefenseService.hasParticlePhalanx(activeFunctionIds),
+          antiParticle:
+            this.colonyDefenseService.hasAntiParticle(activeFunctionIds),
+          torpedoTypeId: changeable.torpedoTypeId,
+          selectedTorpedoType: changeable.torpedoTypeId
+            ? this.gameData.getTorpedoType(changeable.torpedoTypeId)
+            : null,
+          availableTorpedoTypes: this.gameData
+            .getAllTorpedoTypes()
+            .map((torpedo) => {
+              const inventoryItem = storage.find(
+                (item) => item.commodityId === torpedo.commodityId,
+              );
+              return { ...torpedo, amount: inventoryItem?.amount ?? 0 };
+            })
+            .filter((torpedo) => torpedo.amount > 0),
+        },
+        shields: {
+          current: changeable.shields ?? 0,
+          max: this.getMaxShields(colony),
+          frequency: changeable.shieldFrequency,
+        },
         shipBuildQueue: shipBuildQueue.map((job) => {
           const mode = job.mode ?? ColonyShipBuildQueueMode.BUILD;
+          const shipClass = shipyardShipClassMap.get(job.shipClassId);
+          const hasMatchingRepairShipyard =
+            mode !== ColonyShipBuildQueueMode.REPAIR ||
+            (!!shipClass &&
+              (() => {
+                try {
+                  this.assertShipyardCompatibility(
+                    shipClass,
+                    activeShipyardFunctionIds,
+                  );
+                  return true;
+                } catch {
+                  return false;
+                }
+              })());
           const canReactivate =
             mode === ColonyShipBuildQueueMode.REPAIR &&
             job.status === ColonyShipBuildQueueStatus.PAUSED &&
-            !colony.stats?.isBlockaded &&
+            !changeable.isBlockaded &&
+            hasMatchingRepairShipyard &&
             this.getActiveRepairSlotCount(colony) > 0;
           const reactivationBlockedReason =
             mode !== ColonyShipBuildQueueMode.REPAIR
               ? 'Nur Reparaturjobs können reaktiviert werden.'
               : job.status !== ColonyShipBuildQueueStatus.PAUSED
                 ? 'Nur pausierte Reparaturjobs können reaktiviert werden.'
-                : colony.stats?.isBlockaded
+                : changeable.isBlockaded
                   ? 'Reparaturen sind während einer Blockade gesperrt.'
-                  : this.getActiveRepairSlotCount(colony) <= 0
-                    ? 'Aktive Reparaturwerft erforderlich.'
-                    : null;
+                  : !hasMatchingRepairShipyard
+                    ? 'Aktive passende Werft erforderlich.'
+                    : this.getActiveRepairSlotCount(colony) <= 0
+                      ? 'Aktive passende Werft erforderlich.'
+                      : null;
           return {
             id: job.id,
             shipClassId: job.shipClassId,
@@ -689,17 +944,14 @@ export class ColonyProjectionService {
             buildPlanName: job.buildPlanName,
             buildPlanId: job.buildPlanId,
             buildPlanSignature: job.buildPlanSignature,
+            moduleSelections: job.moduleSelections,
             moduleTypes: job.moduleTypes,
             moduleCommodityIds: job.moduleCommodityIds,
             crewAssigned: job.crewAssigned,
             crewIds: job.crewIds,
             repairSnapshot: job.repairSnapshot,
             retrofitSnapshot: job.retrofitSnapshot,
-            moduleNames: (job.moduleCommodityIds ?? []).map((commodityId) => {
-              const item =
-                this.gameData.getFabricationItemByOutputCommodity(commodityId);
-              return item?.displayName ?? `Modul #${commodityId}`;
-            }),
+            moduleNames: this.moduleSelectionNames(job.moduleSelections ?? []),
             finishesAt: job.finishesAt,
             stoppedAt: job.stoppedAt,
             status: job.status,
@@ -707,21 +959,39 @@ export class ColonyProjectionService {
         }),
         shipyardQueue: shipBuildQueue.map((job) => {
           const mode = job.mode ?? ColonyShipBuildQueueMode.BUILD;
+          const shipClass = shipyardShipClassMap.get(job.shipClassId);
+          const hasMatchingRepairShipyard =
+            mode !== ColonyShipBuildQueueMode.REPAIR ||
+            (!!shipClass &&
+              (() => {
+                try {
+                  this.assertShipyardCompatibility(
+                    shipClass,
+                    activeShipyardFunctionIds,
+                  );
+                  return true;
+                } catch {
+                  return false;
+                }
+              })());
           const canReactivate =
             mode === ColonyShipBuildQueueMode.REPAIR &&
             job.status === ColonyShipBuildQueueStatus.PAUSED &&
-            !colony.stats?.isBlockaded &&
+            !changeable.isBlockaded &&
+            hasMatchingRepairShipyard &&
             this.getActiveRepairSlotCount(colony) > 0;
           const reactivationBlockedReason =
             mode !== ColonyShipBuildQueueMode.REPAIR
               ? 'Nur Reparaturjobs können reaktiviert werden.'
               : job.status !== ColonyShipBuildQueueStatus.PAUSED
                 ? 'Nur pausierte Reparaturjobs können reaktiviert werden.'
-                : colony.stats?.isBlockaded
+                : changeable.isBlockaded
                   ? 'Reparaturen sind während einer Blockade gesperrt.'
-                  : this.getActiveRepairSlotCount(colony) <= 0
-                    ? 'Aktive Reparaturwerft erforderlich.'
-                    : null;
+                  : !hasMatchingRepairShipyard
+                    ? 'Aktive passende Werft erforderlich.'
+                    : this.getActiveRepairSlotCount(colony) <= 0
+                      ? 'Aktive passende Werft erforderlich.'
+                      : null;
           return {
             id: job.id,
             shipClassId: job.shipClassId,
@@ -731,10 +1001,14 @@ export class ColonyProjectionService {
             canReactivate,
             reactivationBlockedReason,
             buildPlanName: job.buildPlanName,
+            buildPlanId: job.buildPlanId,
+            buildPlanSignature: job.buildPlanSignature,
+            moduleSelections: job.moduleSelections,
             moduleCommodityIds: job.moduleCommodityIds,
             moduleTypes: job.moduleTypes,
             repairSnapshot: job.repairSnapshot,
             retrofitSnapshot: job.retrofitSnapshot,
+            moduleNames: this.moduleSelectionNames(job.moduleSelections ?? []),
             finishesAt: job.finishesAt,
             stoppedAt: job.stoppedAt,
             status: job.status,
@@ -746,6 +1020,7 @@ export class ColonyProjectionService {
           shipClassId: buildplan.shipClassId,
           name: buildplan.name,
           signature: buildplan.signature,
+          moduleSelections: buildplan.moduleSelections,
           moduleCommodityIds: buildplan.moduleCommodityIds,
           moduleTypes: buildplan.moduleTypes,
         })),
@@ -771,6 +1046,7 @@ export class ColonyProjectionService {
           .getAllFabricationItems()
           .filter(
             (item) =>
+              (item.faction == null || item.faction === userFaction) &&
               (item.researchId == null ||
                 completedTechIds.has(item.researchId)) &&
               item.buildingFunctionIds.some((functionId) =>
@@ -831,7 +1107,9 @@ export class ColonyProjectionService {
             displayName: hangarDef.displayName,
             buildEnergyCost: hangarDef.buildEnergyCost,
             startEnergyCost: hangarDef.startEnergyCost,
-            buildCosts: hangarDef.buildCosts,
+            buildCosts: this.getHangarBuildCosts(hangarDef, 1),
+            defaultModules: this.defaultModuleSummaries(hangarDef),
+            maxBuildable: this.maxBuildableHangarAmount(colony, hangarDef),
             crewRequired: shipClass.crewMin,
           })),
           startable: startableHangarShips.map(
@@ -843,6 +1121,7 @@ export class ColonyProjectionService {
               displayName: hangarDef.displayName,
               amount,
               startEnergyCost: hangarDef.startEnergyCost,
+              defaultModules: this.defaultModuleSummaries(hangarDef),
               crewRequired: shipClass.crewMin,
             }),
           ),
@@ -923,11 +1202,57 @@ export class ColonyProjectionService {
           repairActiveFunctionIds:
             featureAccess.functions.groups.repairShipyards.activeFunctionIds,
           slotRules: this.gameData.getAllShipClassSlotRules(),
+          shipClassLayouts: shipyardShipClasses
+            .map((shipClass) => {
+              const hangarDef = this.getHangarDefForShipClass(shipClass);
+              const layout =
+                this.gameData.getShipClassSlotRuleForShipClass?.(shipClass) ??
+                this.gameData.getShipClassSlotRule(shipClass.category);
+              return layout
+                ? {
+                    shipClassId: shipClass.id,
+                    imageKey: layout.imageKey,
+                    layoutKey: layout.layoutKey,
+                    slots: layout.slots,
+                    fixedModuleCommodityIds:
+                      hangarDef?.defaultModuleCommodityIds ?? null,
+                    fixedBuildCosts: hangarDef
+                      ? this.getHangarBuildCosts(hangarDef, 1)
+                      : null,
+                    stuRumpId:
+                      this.gameData.getShipClassDefByKey(shipClass.key)
+                        ?.stuRumpId ?? null,
+                    baseStats:
+                      this.gameData.getShipyardRumpStats(
+                        this.gameData.getShipClassDefByKey(shipClass.key)
+                          ?.stuRumpId,
+                      ) ?? null,
+                  }
+                : null;
+            })
+            .filter((layout): layout is NonNullable<typeof layout> => !!layout),
         },
       },
     });
   }
 
+  private buildSurfaceInfo(colony: Colony, fields: ColonyField[]) {
+    const layers = Array.from(
+      new Set(
+        fields
+          .map((field) => field.layer)
+          .filter((layer): layer is 'ORBIT' | 'SURFACE' | 'UNDERGROUND' =>
+            Boolean(layer),
+          ),
+      ),
+    );
+    return {
+      width: colony.surfaceWidth ?? 10,
+      rotationFactor: colony.rotationFactor ?? null,
+      layers,
+      hasUnderground: layers.includes('UNDERGROUND'),
+    };
+  }
   private getColonyTrainableCrewNow(
     colony: Colony,
     trainableGlobal: number,
@@ -947,7 +1272,7 @@ export class ColonyProjectionService {
     colony: Colony,
     summary: ColonyInternalSummary,
   ): number {
-    if (colony.stats?.immigrationEnabled === false) {
+    if (getColonyChangeable(colony).immigrationEnabled === false) {
       return 0;
     }
 
@@ -977,7 +1302,7 @@ export class ColonyProjectionService {
       immigration = summary.maxHousing - currentPopulation;
     }
 
-    const populationLimit = colony.stats?.populationLimit ?? 0;
+    const populationLimit = getColonyChangeable(colony).populationLimit ?? 0;
     if (
       populationLimit > 0 &&
       currentPopulation + immigration > populationLimit
@@ -1041,13 +1366,6 @@ export class ColonyProjectionService {
     return this.colonyDefenseService.calculateMaxShieldsByFunctions(
       this.getActiveBuildingFunctionIds(colony),
     );
-  }
-
-  private hasActiveBuildingFunction(
-    colony: Colony,
-    functionId: number,
-  ): boolean {
-    return this.colonyEconomyService.hasActiveFunction(colony, functionId);
   }
 
   private hasCompletedBuildingFunction(
@@ -1132,17 +1450,306 @@ export class ColonyProjectionService {
     );
   }
 
-  private getActiveRepairSlotCount(colony: Colony): number {
-    const activeRepairBuildings = (colony.fields ?? []).filter(
+  private describeShipyardModuleEffects(
+    item: {
+      moduleType?: string;
+      moduleLevel?: number;
+      shipyardType?: string;
+      shipyardModuleStats?: {
+        crew?: number;
+        level?: number;
+        defaultFactor: number;
+        energyCost: number;
+      };
+    },
+    baseStats?: { baseEvadeChance: number } | null,
+  ): string[] {
+    const stats = item.shipyardModuleStats;
+    if (!stats) return [];
+
+    const effects: string[] = [];
+    const definition = this.findModuleDefinition(item.moduleType);
+    const level = item.moduleLevel ?? stats.level ?? 1;
+
+    if (definition) {
+      const runtimeEffect = this.describeRuntimeModuleEffect(
+        item.shipyardType,
+        definition,
+        level,
+      );
+      if (runtimeEffect) effects.push(runtimeEffect);
+      if (definition.name === 'Ionenkanone') effects.push('Ioneneffekt');
+    }
+
+    if (effects.length === 0) {
+      const modifier = this.formatSignedPercent(stats.defaultFactor);
+      switch (item.shipyardType) {
+        case 'SUBLIGHT_DRIVE': {
+          const baseEvadeChance = baseStats?.baseEvadeChance ?? 0;
+          const value =
+            (1 - baseEvadeChance / 100) / (1 + stats.defaultFactor / 100);
+          const evadeChance = Math.round((1 - value) * 100);
+          effects.push(`Ausweichchance: ${evadeChance}%`);
+          break;
+        }
+        case 'HULL':
+          effects.push(`Hüllenstärke: ${modifier}`);
+          break;
+        case 'SHIELDS':
+          effects.push(`Schildkapazität: ${modifier}`);
+          break;
+        case 'SENSORS':
+          effects.push(
+            `Sensorreichweite: ${stats.defaultFactor >= 0 ? '+' : ''}${stats.defaultFactor}`,
+          );
+          break;
+        case 'HYPERDRIVE':
+          effects.push(`Warp/Hyperdrive: ${modifier}`);
+          break;
+        case 'REACTOR':
+          effects.push(`Reaktorleistung: ${modifier}`);
+          break;
+        case 'EPS':
+          effects.push(`EPS-Leistung: ${modifier}`);
+          break;
+        case 'ENERGY_WEAPON':
+          effects.push(`Energiewaffenschaden: ${modifier}`);
+          break;
+        case 'TORPEDO_BANK':
+          effects.push(`Torpedoleistung: ${modifier}`);
+          break;
+      }
+    }
+
+    if ((stats.crew ?? 0) > 0) effects.push(`Crew: +${stats.crew}`);
+    if (stats.energyCost > 0)
+      effects.push(`Energiekosten: ${stats.energyCost}`);
+    return effects;
+  }
+
+  private describeRuntimeModuleEffect(
+    shipyardType: string | undefined,
+    definition: ModuleDef,
+    level: number,
+  ): string | null {
+    switch (shipyardType) {
+      case 'SHIELDS':
+        return this.describeScaledRuntimeValue(
+          'Schildkapazität',
+          definition,
+          'secret',
+          'baseShieldStrength',
+          level,
+          'Standard-Deflektorschild',
+          'Standard',
+        );
+      case 'ENERGY_WEAPON':
+        return this.describeWeaponRuntimeEffect(definition, level);
+      case 'SENSORS':
+        return this.describeScaledRuntimeValue(
+          'Sensorreichweite',
+          definition,
+          'public',
+          'baseSensorRange',
+          level,
+          'Standard-Scanner',
+          'Standard',
+        );
+      case 'SUBLIGHT_DRIVE':
+        return this.describeScaledRuntimeValue(
+          'Ausweichchance',
+          definition,
+          'public',
+          'baseEvadeChance',
+          level,
+          'Ion-Triebwerk',
+          'Basis',
+        );
+      case 'HYPERDRIVE':
+        return this.describeScaledRuntimeValue(
+          'Warpdrive',
+          definition,
+          'public',
+          'baseWarpdriveCapacity',
+          level,
+          'Standard-Hyperantrieb',
+          'Standard',
+        );
+      case 'REACTOR':
+        return this.describeScaledRuntimeValue(
+          'Reaktorleistung',
+          definition,
+          'public',
+          'baseReactorOutput',
+          level,
+          'Hypermaterie-Reaktor',
+          'Standard',
+        );
+      case 'EPS':
+        return this.describeEpsRuntimeEffect(definition, level);
+      case 'HULL':
+        return this.describeHullRuntimeEffect(definition, level);
+      default:
+        return null;
+    }
+  }
+
+  private describeWeaponRuntimeEffect(
+    definition: ModuleDef,
+    level: number,
+  ): string | null {
+    const effects: string[] = [];
+    const damageEffect = this.describeScaledRuntimeValue(
+      'Waffenschaden',
+      definition,
+      'secret',
+      'baseDamage',
+      level,
+      'Leichter Turbolaser',
+      'Leicht',
+    );
+    if (damageEffect) effects.push(damageEffect);
+
+    const multiplier = definition.secret.projectileDamageMultiplier;
+    if (typeof multiplier === 'number' && Number.isFinite(multiplier)) {
+      const percent = Math.round((multiplier - 1) * 100);
+      effects.push(`Torpedoleistung: ${this.formatSignedPercent(percent)}`);
+    }
+
+    return effects.length > 0 ? effects.join('; ') : null;
+  }
+
+  private describeEpsRuntimeEffect(
+    definition: ModuleDef,
+    level: number,
+  ): string | null {
+    const effects: string[] = [];
+    const epsCapacity = this.describeScaledRuntimeValue(
+      'EPS-Speicher',
+      definition,
+      'public',
+      'baseEpsCapacity',
+      level,
+      'Energieverteiler',
+      'Standard',
+    );
+    if (epsCapacity) effects.push(epsCapacity);
+
+    const batteryCapacity = this.scaledModuleStat(
+      definition.public.baseBatteryCapacity,
+      level,
+    );
+    if (batteryCapacity != null) {
+      effects.push(`Ersatzbatterie: +${batteryCapacity}`);
+    }
+
+    return effects.length > 0 ? effects.join('; ') : null;
+  }
+
+  private describeHullRuntimeEffect(
+    definition: ModuleDef,
+    level: number,
+  ): string | null {
+    const effects: string[] = [];
+    const hullEffect = this.describeScaledRuntimeValue(
+      'Hüllenstärke',
+      definition,
+      'public',
+      'baseHullPoints',
+      level,
+      'Durastahl-Panzerung',
+      'Durastahl',
+    );
+    if (hullEffect) effects.push(hullEffect);
+
+    const projectileResistances = definition.secret.projectileResistances;
+    if (projectileResistances && typeof projectileResistances === 'object') {
+      const labels: Record<string, string> = {
+        PROTON: 'Proton',
+        QUANTUM: 'Quantum',
+        HEAVY_QUANTUM: 'Schweres Quantum',
+        PLASMA: 'Plasma',
+        HEAVY_PLASMA: 'Schweres Plasma',
+      };
+      const parts = Object.entries(labels).flatMap(([type, label]) => {
+        const value = (projectileResistances as Record<string, unknown>)[type];
+        return typeof value === 'number' &&
+          Number.isFinite(value) &&
+          value > 0 &&
+          value <= 100
+          ? [`${label} -${value}%`]
+          : [];
+      });
+      if (parts.length > 0) {
+        effects.push(`Torpedoschutz: ${parts.join(', ')}`);
+      }
+    }
+
+    return effects.length > 0 ? effects.join('; ') : null;
+  }
+
+  private describeScaledRuntimeValue(
+    label: string,
+    definition: ModuleDef,
+    statVisibility: 'public' | 'secret',
+    statKey: string,
+    level: number,
+    baselineModuleName: string,
+    baselineLabel: string,
+  ): string | null {
+    const value = this.scaledModuleStat(
+      definition[statVisibility][statKey],
+      level,
+    );
+    if (value == null) return null;
+
+    const baseline = this.findModuleDefinition(baselineModuleName);
+    const baselineValue = baseline
+      ? this.scaledModuleStat(baseline[statVisibility][statKey], level)
+      : null;
+    if (!baselineValue) return `${label}: ${value}`;
+
+    const deltaPercent = Math.round((value / baselineValue - 1) * 100);
+    return `${label}: ${value} (${this.formatSignedPercent(deltaPercent)} ggü. ${baselineLabel})`;
+  }
+
+  private scaledModuleStat(value: unknown, level: number): number | null {
+    if (typeof value !== 'number') return null;
+    const levelScale = 1 + (Math.max(1, level) - 1) * 0.2;
+    return Math.round(value * levelScale);
+  }
+
+  private formatSignedPercent(value: number): string {
+    return value >= 0 ? `+${value}%` : `${value}%`;
+  }
+
+  private findModuleDefinition(
+    moduleType: string | undefined,
+  ): ModuleDef | undefined {
+    if (!moduleType) return undefined;
+    return this.gameData
+      .getAllModules()
+      .find((definition) => definition.name === moduleType);
+  }
+
+  private getActiveRepairStationCount(colony: Colony): number {
+    return (colony.fields ?? []).filter(
       (field) =>
         field.buildingId &&
         !field.isBuilding &&
         field.isActive &&
         this.gameData
           .getBuildingFunctions(field.buildingId)
-          .includes(this.repairShipyardFunctionId),
+          .includes(this.repairStationFunctionId),
     ).length;
-    return activeRepairBuildings * 2;
+  }
+
+  private getActiveRepairSlotCount(colony: Colony): number {
+    const activeShipyardCount = (colony.fields ?? []).filter(
+      (field) => this.isShipyardField(field, false) && field.isActive,
+    ).length;
+    if (activeShipyardCount <= 0) return 0;
+    return activeShipyardCount + this.getActiveRepairStationCount(colony) * 2;
   }
 
   private resolveModuleCommodityId(module: SpacecraftModule): number | null {
@@ -1152,7 +1759,7 @@ export class ColonyProjectionService {
         (candidate) =>
           candidate.queueType === ColonyFabricationQueueType.MODULE &&
           candidate.moduleType === module.moduleType &&
-          (candidate.moduleCategory ?? module.category) === module.category &&
+          (candidate.shipyardType ?? module.category) === module.category &&
           (candidate.moduleLevel ?? module.level) === module.level,
       );
     return item?.outputCommodityId ?? null;
@@ -1162,7 +1769,7 @@ export class ColonyProjectionService {
     return [
       ...new Set(
         (colony.fields ?? [])
-          .filter((field) => this.isShipyardField(field, false))
+          .filter((field) => this.isShipyardField(field, false) && field.isActive)
           .flatMap((field) =>
             this.gameData.getBuildingFunctions(field.buildingId!),
           )
@@ -1175,9 +1782,13 @@ export class ColonyProjectionService {
     shipClass: ShipClassDef,
     activeShipyardFunctionIds: number[],
   ): void {
+    const classOverride = this.gameData.getShipClassDefByKey(shipClass.key);
     const rule = this.gameData.getShipClassSlotRule(shipClass.category);
-    if (!rule) return;
-    const hasCompatibleShipyard = rule.allowedBuildingFunctionIds.some(
+    const allowedIds =
+      classOverride?.allowedBuildingFunctionIds ??
+      rule?.allowedBuildingFunctionIds;
+    if (!allowedIds) return;
+    const hasCompatibleShipyard = allowedIds.some(
       (functionId) => activeShipyardFunctionIds.includes(functionId),
     );
     if (!hasCompatibleShipyard) {

@@ -1,5 +1,11 @@
+import type { ReactNode } from 'react';
 import { buildingImage, commodityImage } from '../../../lib/assets';
-import type { BuildingDef, ColonyField, CommodityDef } from '../types';
+import type {
+  BuildingDef,
+  ColonyField,
+  ColonyFieldUpgrade,
+  CommodityDef,
+} from '../types';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from '../constants';
 import { formatSignedAmount } from '../utils';
 import { FloatingPanel } from './FloatingPanel';
@@ -9,17 +15,21 @@ import { FloatingPanel } from './FloatingPanel';
 export function FieldInfoModal({
   field,
   building,
+  buildingMap,
   commodityMap,
   onClose,
   onDemolish,
   onToggle,
+  onUpgrade,
 }: {
   field: ColonyField;
   building: BuildingDef | undefined;
+  buildingMap: Record<number, BuildingDef>;
   commodityMap: Record<number, CommodityDef>;
   onClose: () => void;
   onDemolish: () => void;
   onToggle: () => void;
+  onUpgrade: (upgradeId: number) => void;
 }) {
   if (!building) return null;
   const terrainName =
@@ -34,6 +44,49 @@ export function FieldInfoModal({
     integrityMax > 0
       ? Math.round((integrityCurrent / integrityMax) * 100)
       : 100;
+  const availableUpgrades = field.availableUpgrades ?? [];
+  const renderUpgradeCosts = (upgrade: ColonyFieldUpgrade) => {
+    const rows: ReactNode[] = [];
+    if (upgrade.energyCost > 0) {
+      rows.push(
+        <div
+          key={`energy-${upgrade.id}`}
+          className="flex items-center justify-between gap-2 text-[10px]"
+        >
+          <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
+            <span>⚡</span>
+            <span className="truncate">Energie</span>
+          </span>
+          <span className="text-swu-primary">{upgrade.energyCost}</span>
+        </div>,
+      );
+    }
+    upgrade.costs
+      .filter((cost) => cost.amount > 0)
+      .forEach((cost) => {
+        const commodity = commodityMap[cost.commodityId];
+        rows.push(
+          <div
+            key={`${upgrade.id}-${cost.commodityId}`}
+            className="flex items-center justify-between gap-2 text-[10px]"
+          >
+            <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
+              <img
+                src={commodityImage(cost.commodityId, commodity?.name)}
+                alt=""
+                className="h-4 w-4 object-contain"
+                loading="lazy"
+              />
+              <span className="truncate">
+                {commodity?.nameShort || commodity?.name || `Ware #${cost.commodityId}`}
+              </span>
+            </span>
+            <span className="text-swu-primary">{cost.amount}</span>
+          </div>,
+        );
+      });
+    return rows;
+  };
 
   return (
     <FloatingPanel
@@ -178,23 +231,53 @@ export function FieldInfoModal({
         )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-1 border-t border-swu-border/50">
-          {!isHQ && (
-            <button
-              onClick={onToggle}
-              className={`px-3 py-1 text-[10px] font-bold rounded border transition-colors ${field.isActive ? 'bg-yellow-900/20 border-yellow-500/50 text-yellow-400 hover:bg-yellow-900/40' : 'bg-green-900/20 border-green-500/50 text-green-400 hover:bg-green-900/40'}`}
-            >
-              {field.isActive ? 'Deaktivieren' : 'Aktivieren'}
-            </button>
-          )}
-          {!isHQ && (
-            <button
-              onClick={onDemolish}
-              className="px-3 py-1 bg-red-900/20 border border-red-500/50 text-red-400 text-[10px] font-bold rounded hover:bg-red-900/40 transition-colors"
-            >
-              Demontieren
-            </button>
-          )}
+        <div className="space-y-2 pt-1 border-t border-swu-border/50">
+          {availableUpgrades.map((upgrade) => {
+            const targetBuilding = buildingMap[upgrade.toBuildingId];
+            if (!targetBuilding) return null;
+            return (
+              <div
+                key={upgrade.id}
+                className="rounded border border-swu-border/50 bg-swu-bg/30 p-2 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-swu-accent">
+                    {targetBuilding.name}
+                  </span>
+                  <button
+                    onClick={() => onUpgrade(upgrade.id)}
+                    className="px-3 py-1 bg-swu-accent/15 border border-swu-accent/40 text-swu-accent text-[10px] font-bold rounded hover:bg-swu-accent/25 transition-colors"
+                  >
+                    {`Upgrade auf ${targetBuilding.name}`}
+                  </button>
+                </div>
+                {upgrade.description && (
+                  <div className="text-[10px] text-swu-muted">
+                    {upgrade.description}
+                  </div>
+                )}
+                <div className="space-y-1">{renderUpgradeCosts(upgrade)}</div>
+              </div>
+            );
+          })}
+          <div className="flex gap-2">
+            {!isHQ && (
+              <button
+                onClick={onToggle}
+                className={`px-3 py-1 text-[10px] font-bold rounded border transition-colors ${field.isActive ? 'bg-yellow-900/20 border-yellow-500/50 text-yellow-400 hover:bg-yellow-900/40' : 'bg-green-900/20 border-green-500/50 text-green-400 hover:bg-green-900/40'}`}
+              >
+                {field.isActive ? 'Deaktivieren' : 'Aktivieren'}
+              </button>
+            )}
+            {!isHQ && (
+              <button
+                onClick={onDemolish}
+                className="px-3 py-1 bg-red-900/20 border border-red-500/50 text-red-400 text-[10px] font-bold rounded hover:bg-red-900/40 transition-colors"
+              >
+                Demontieren
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </FloatingPanel>

@@ -9,6 +9,7 @@ import {
   GameDataService,
   CombatFormulas,
   TorpedoTypeDef,
+  TorpedoDamageType,
 } from '../game-data/game-data.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 
@@ -25,6 +26,7 @@ export enum CombatAction {
   CRITICAL_HIT = 'CRITICAL_HIT',
   ESCAPED = 'ESCAPED',
   DESTROYED = 'DESTROYED',
+  ARMOR_ABSORB = 'ARMOR_ABSORB',
 }
 
 export interface CombatLogEntry {
@@ -241,20 +243,31 @@ export class CombatEngine {
 
       const levelScale = 1 + (weapon.level - 1) * formulas.damage.level_scaling;
       const classModifier = this.getClassModifier(shooter.shipClass, formulas);
-      const variance =
-        formulas.damage.variance_min +
-        Math.random() *
-          (formulas.damage.variance_max - formulas.damage.variance_min);
+      const variance = torpedo
+        ? 1 -
+          Math.max(0, torpedo.variance) / 100 +
+          Math.random() * (Math.max(0, torpedo.variance) / 100) * 2
+        : formulas.damage.variance_min +
+          Math.random() *
+            (formulas.damage.variance_max - formulas.damage.variance_min);
+      const projectileDamageMultiplier =
+        torpedo && typeof weaponDef.secret.projectileDamageMultiplier === 'number'
+          ? weaponDef.secret.projectileDamageMultiplier
+          : 1;
 
       let damage = Math.round(
         baseDamage *
           levelScale *
           classModifier.damage *
           variance *
+          projectileDamageMultiplier *
           formulas.damage.base_multiplier,
       );
 
-      const isCrit = Math.random() < formulas.damage.crit_chance;
+      const critChance = torpedo
+        ? Math.max(0, torpedo.criticalChance) / 100
+        : formulas.damage.crit_chance;
+      const isCrit = Math.random() < critChance;
       if (isCrit) {
         damage = Math.round(damage * formulas.damage.crit_multiplier);
         log.push({
@@ -275,7 +288,7 @@ export class CombatEngine {
         detail: weapon.moduleType,
       });
 
-      this.applyDamage(target, damage, formulas, log, shooter, isCrit);
+      this.applyDamage(target, damage, formulas, log, shooter, isCrit, torpedo);
 
       // Ion weapon system disable
       const isIon = weapon.moduleType.toLowerCase().includes('ion');
@@ -294,10 +307,24 @@ export class CombatEngine {
     log: CombatLogEntry[],
     shooter: Combatant,
     isCrit: boolean,
+    torpedo?: TorpedoTypeDef | null,
   ): void {
+    const isProjectile = !!torpedo;
+    const shieldFactor =
+      isProjectile &&
+      typeof torpedo.shieldDamageFactor === 'number' &&
+      Number.isFinite(torpedo.shieldDamageFactor)
+        ? torpedo.shieldDamageFactor / 100
+        : 1;
+    const hullFactor =
+      isProjectile &&
+      typeof torpedo.hullDamageFactor === 'number' &&
+      Number.isFinite(torpedo.hullDamageFactor)
+        ? torpedo.hullDamageFactor / 100
+        : 1;
     const bleedthrough = Math.round(damage * formulas.shields.bleedthrough);
-    const shieldDamage = damage - bleedthrough;
-    let hullDamage = bleedthrough;
+    const shieldDamage = Math.round((damage - bleedthrough) * shieldFactor);
+    let hullDamage = Math.round(bleedthrough * hullFactor);
 
     if (target.ship.shields > 0) {
       const absorbed = Math.round(
@@ -312,12 +339,30 @@ export class CombatEngine {
       });
 
       if (target.ship.shields <= 0) {
-        hullDamage += shieldDamage - absorbed;
+        hullDamage += Math.round((shieldDamage - absorbed) * hullFactor);
       }
     } else {
-      hullDamage = damage;
+      hullDamage = Math.round(damage * hullFactor);
     }
 
+    const resistance = isProjectile
+      ? this.getProjectileResistance(target, torpedo.damageType)
+      : null;
+    if (resistance && hullDamage > 0) {
+      const mitigatedHullDamage = Math.round(
+        hullDamage * (1 - resistance.percent / 100),
+      );
+      const absorbed = hullDamage - mitigatedHullDamage;
+      if (absorbed > 0) {
+        hullDamage = mitigatedHullDamage;
+        log.push({
+          action: CombatAction.ARMOR_ABSORB,
+          source: target.role,
+          value: absorbed,
+          detail: `${resistance.damageType} by ${resistance.moduleType}`,
+        });
+      }
+    }
     if (hullDamage > 0) {
       target.ship.hull = Math.max(0, target.ship.hull - hullDamage);
       log.push({
@@ -348,6 +393,56 @@ export class CombatEngine {
         log.push({ action: CombatAction.DESTROYED, source: target.role });
       }
     }
+  }
+
+  private getProjectileResistance(
+    target: Combatant,
+    damageType: TorpedoDamageType | undefined,
+  ): {
+    damageType: TorpedoDamageType;
+    moduleType: string;
+    percent: number;
+  } | null {
+    if (!damageType) return null;
+
+    let strongest: {
+      damageType: TorpedoDamageType;
+      moduleType: string;
+      percent: number;
+    } | null = null;
+
+    for (const module of target.modules) {
+      if (
+        module.category !== 'HULL' ||
+        !module.isActive ||
+        module.integrity <= 0
+      ) {
+        continue;
+      }
+
+      const definition = this.gameData
+        .getAllModules()
+        .find((moduleDef) => moduleDef.name === module.moduleType);
+      const resistances = definition?.secret.projectileResistances;
+      if (!resistances || typeof resistances !== 'object') continue;
+
+      const percent = (resistances as Partial<Record<TorpedoDamageType, unknown>>)[
+        damageType
+      ];
+      if (
+        typeof percent !== 'number' ||
+        !Number.isFinite(percent) ||
+        percent <= 0 ||
+        percent > 100
+      ) {
+        continue;
+      }
+      if (!strongest || percent > strongest.percent) {
+        strongest = { damageType, moduleType: module.moduleType, percent };
+      }
+    }
+
+    return strongest;
   }
 
   private calculateHitChance(

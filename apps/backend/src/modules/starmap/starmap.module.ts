@@ -21,6 +21,8 @@ import { InfluenceArea } from './entities/influence-area.entity';
 import { Wormhole } from './entities/wormhole.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
+import { Colony } from '../colony/entities/colony.entity';
+import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { StarmapSystemGeneratorService } from './generator/starmap-system-generator.service';
 import { PlanetGeneratorService } from './generator/planet-generator.service';
 import { InfluenceService } from './influence.service';
@@ -44,6 +46,8 @@ import { WormholeService } from './wormhole.service';
       Wormhole,
       HyperspaceRoute,
       HyperspaceRouteSegment,
+      Colony,
+      ColonyChangeable,
     ]),
   ],
   controllers: [StarmapController, PlanetSurfacesController],

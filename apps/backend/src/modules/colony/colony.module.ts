@@ -5,6 +5,8 @@ import { ColonyService } from './colony.service';
 import { ColonySeedService } from './colony-seed.service';
 import { ColonyStatsService } from './colony-stats.service';
 import { ColonyEconomyService } from './colony-economy.service';
+import { ColonyFunctionManagerService } from './colony-function-manager.service';
+import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyCrewService } from './colony-crew.service';
@@ -27,6 +29,7 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
+import { ColonyChangeable } from './entities/colony-changeable.entity';
 import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
 import { ColonyShipBuildQueue } from './entities/colony-ship-build-queue.entity';
 import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
@@ -57,6 +60,7 @@ import { User } from '../auth/user.entity';
       ColonyField,
       ColonyStorage,
       ColonyStats,
+      ColonyChangeable,
       ColonyDepositMining,
       ColonyShipBuildQueue,
       ColonyShipBuildplan,
@@ -85,6 +89,8 @@ import { User } from '../auth/user.entity';
     ColonySeedService,
     ColonyStatsService,
     ColonyEconomyService,
+    ColonyFunctionManagerService,
+    ColonyBuildingEffectsService,
     ColonyStorageService,
     BuildingLifecycleService,
     ColonyBuildingManagementService,
@@ -111,6 +117,8 @@ import { User } from '../auth/user.entity';
     ColonySeedService,
     ColonyStatsService,
     ColonyEconomyService,
+    ColonyFunctionManagerService,
+    ColonyBuildingEffectsService,
     ColonyStorageService,
     BuildingLifecycleService,
     ColonyBuildingManagementService,

@@ -1,26 +1,26 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { Colony } from './entities/colony.entity';
-import { assertOwnedColony } from './colony-owner.util';
-import { ColonyStats } from './entities/colony-stats.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { ColonySocialService } from './colony-social.service';
+import { ColonyStatsService, getColonyChangeable } from './colony-stats.service';
 import {
   ColonyCrewTrainingQueue,
   ColonyCrewTrainingQueueStatus,
 } from './entities/colony-crew-training-queue.entity';
+import { Colony } from './entities/colony.entity';
 import { Crew, CrewGender, CrewType } from './entities/crew.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
-import { ColonyStatsService } from './colony-stats.service';
-import { ColonySocialService } from './colony-social.service';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { ColonyChangeable } from './entities/colony-changeable.entity';
+import { assertOwnedColony } from './colony-owner.util';
 
 @Injectable()
 export class ColonyCrewService {
   constructor(
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
-    @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
+    @InjectRepository(ColonyChangeable)
+    private readonly changeableRepo: Repository<ColonyChangeable>,
     @InjectRepository(ColonyCrewTrainingQueue)
     private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
     @InjectRepository(Crew)
@@ -41,7 +41,7 @@ export class ColonyCrewService {
   async getGlobalCrewLimit(userId: number): Promise<number> {
     const colonies = await this.colonyRepo.find({
       where: { userId },
-      relations: ['fields', 'stats'],
+      relations: ['fields', 'changeable'],
     });
     return colonies.reduce(
       (sum, colony) => sum + this.getLocalCrewLimit(colony),
@@ -95,7 +95,7 @@ export class ColonyCrewService {
         .where('ca.colonyId IN (:...ids)', { ids: colonyIds })
         .groupBy('ca.colonyId')
         .getRawMany();
-    return new Map(rows.map((r) => [r.colonyId, Number(r.cnt)]));
+    return new Map(rows.map((row) => [row.colonyId, Number(row.cnt)]));
   }
 
   async getAvailableColonyCrew(colonyId: number): Promise<CrewAssignment[]> {
@@ -112,13 +112,13 @@ export class ColonyCrewService {
   ): Promise<CrewAssignment[]> {
     assertOwnedColony(colony);
     const created: CrewAssignment[] = [];
-    for (let i = 0; i < amount; i++) {
+    for (let index = 0; index < amount; index += 1) {
       const crew = await this.crewRepo.save(
         this.crewRepo.create({
           userId: colony.userId,
           type: CrewType.CREWMAN,
           gender: CrewGender.DIVERSE,
-          name: `Crew ${Date.now()}-${i + 1}`,
+          name: `Crew ${Date.now()}-${index + 1}`,
         }),
       );
       const assignment = await this.crewAssignmentRepo.save(
@@ -274,9 +274,7 @@ export class ColonyCrewService {
       order: { crewId: 'ASC' },
     });
     const removedCrewIds: number[] = [];
-    for (const assignment of colonyAssignments.filter(
-      (entry) => entry.colonyId,
-    )) {
+    for (const assignment of colonyAssignments.filter((entry) => entry.colonyId)) {
       if (excess === 0) break;
       removedCrewIds.push(assignment.crewId);
       await this.crewAssignmentRepo.delete({ crewId: assignment.crewId });
@@ -316,8 +314,8 @@ export class ColonyCrewService {
   }
 
   async refreshColonyCrewCache(colony: Colony): Promise<void> {
-    if (!colony.stats) return;
-    colony.stats.trainedCrew = await this.getAssignedToColonyCount(colony.id);
-    await this.statsRepo.save(colony.stats);
+    const changeable = getColonyChangeable(colony);
+    changeable.trainedCrew = await this.getAssignedToColonyCount(colony.id);
+    await this.changeableRepo.save(changeable);
   }
 }

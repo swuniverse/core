@@ -12,15 +12,12 @@ interface FactionOption {
   colorPrimary: string;
 }
 
-function CinematicBackdrop() {
+function CinematicBg() {
   return (
-    <div className="swu-backdrop" aria-hidden="true">
-      <div className="swu-backdrop__stars swu-backdrop__stars--near" />
-      <div className="swu-backdrop__stars swu-backdrop__stars--far" />
-      <div className="swu-backdrop__nebula" />
-      <div className="swu-backdrop__planet" />
-      <div className="swu-backdrop__rays" />
-      <div className="swu-backdrop__flare" />
+    <div className="swu-bg" aria-hidden="true">
+      <div className="swu-bg__nebula" />
+      <div className="swu-bg__planet" />
+      <div className="swu-bg__flare" />
     </div>
   );
 }
@@ -69,7 +66,7 @@ export function RegisterPage() {
   return (
     <main className="swu-page swu-page--register">
       <StarField />
-      <CinematicBackdrop />
+      <CinematicBg />
 
       <nav className="swu-nav" aria-label="Navigation">
         <Link className="swu-nav__brand" to="/login" aria-label="Star Wars Universe Start">
