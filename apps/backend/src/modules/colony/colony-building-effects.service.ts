@@ -3,7 +3,7 @@ import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyFunctionManagerService } from './colony-function-manager.service';
-import { ColonyStatsService } from './colony-stats.service';
+import { ColonyStatsService, getColonyChangeable } from './colony-stats.service';
 
 export interface FieldContribution {
   epsProc: number;
@@ -93,7 +93,7 @@ export class ColonyBuildingEffectsService {
       return { ok: false, reason: 'Nicht genug freie Arbeiter' };
     }
     const energyAfter = summaryWithoutField.energyDelta + (building.epsProc || 0);
-    if (energyAfter < 0 && colony.energy + energyAfter < 0) {
+    if (energyAfter < 0 && getColonyChangeable(colony).energy + energyAfter < 0) {
       return { ok: false, reason: 'Nicht genug Energie' };
     }
     const missing = this.getUnavailableEffectCommodity(summaryWithoutField, building);

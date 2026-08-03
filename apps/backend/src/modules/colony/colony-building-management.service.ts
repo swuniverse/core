@@ -5,7 +5,11 @@ import { GameDataService } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { BuildingLifecycleService } from './building-lifecycle.service';
-import { ColonyStatsService } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  getColonyChangeable,
+  syncLegacyColonySnapshot,
+} from './colony-stats.service';
 import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import {
   BuildingMassActionKind,
@@ -145,14 +149,15 @@ export class ColonyBuildingManagementService {
       }))
       .filter((cost) => cost.amount > 0);
 
-    if (energyCost > colony.energy) {
+    const changeable = getColonyChangeable(colony);
+    if (energyCost > changeable.energy) {
       return {
         ...base,
         buildingName,
         damageRatio,
         energyCost,
         costs,
-        reason: `Nicht genug Energie: benötigt ${energyCost}, vorhanden ${colony.energy}`,
+        reason: `Nicht genug Energie: benötigt ${energyCost}, vorhanden ${changeable.energy}`,
       };
     }
 
@@ -237,7 +242,8 @@ export class ColonyBuildingManagementService {
             cost.amount,
           );
         }
-        colony.energy -= plan.energyCost;
+        getColonyChangeable(colony).energy -= plan.energyCost;
+        syncLegacyColonySnapshot(colony);
         this.lifecycleService.repairBuilding(field);
         await this.fieldRepo.save(field);
         result.repaired.push(this.changed(field));
@@ -369,7 +375,7 @@ export class ColonyBuildingManagementService {
     const energyAfter =
       (summaryWithoutField.effectiveState?.energy.delta ??
         summaryWithoutField.energyDelta) + (definition.epsProc || 0);
-    if (energyAfter < 0 && colony.energy + energyAfter < 0) {
+    if (energyAfter < 0 && getColonyChangeable(colony).energy + energyAfter < 0) {
       throw new BadRequestException({
         code: 'NOT_ENOUGH_ENERGY',
         message: 'Nicht genug Energie',

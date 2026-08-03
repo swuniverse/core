@@ -87,7 +87,7 @@ export class ColonyDefenseService {
     const loadAmount = Math.min(
       amount,
       capacity,
-      colony.energy * this.constants.shield.loadPerEnergy,
+      changeable.energy * this.constants.shield.loadPerEnergy,
     );
     if (loadAmount <= 0) {
       throw new BadRequestException('No shield capacity or energy available');
@@ -95,7 +95,7 @@ export class ColonyDefenseService {
     const energyCost = Math.ceil(
       loadAmount / this.constants.shield.loadPerEnergy,
     );
-    changeable.energy = Math.max(0, colony.energy - energyCost);
+    changeable.energy = Math.max(0, changeable.energy - energyCost);
     changeable.maxShields = maxShields;
     changeable.shields = current + loadAmount;
     syncLegacyColonySnapshot(colony);

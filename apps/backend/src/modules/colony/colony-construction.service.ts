@@ -357,7 +357,7 @@ export class ColonyConstructionService {
 
     const energyAfter =
       summaryWithoutField.energyDelta + (_definition.epsProc || 0);
-    if (energyAfter < 0 && colony.energy + energyAfter < 0) {
+    if (energyAfter < 0 && getColonyChangeable(colony).energy + energyAfter < 0) {
       throw new BadRequestException('Nicht genug Energie');
     }
 
@@ -525,9 +525,11 @@ export class ColonyConstructionService {
         repairPlan.reason ?? 'Building is not repairable',
       );
     }
+    const changeable = getColonyChangeable(colony);
     await this.deductBuildCosts(colony, repairPlan.costs);
 
-    colony.energy -= repairPlan.energyCost;
+    changeable.energy -= repairPlan.energyCost;
+    syncLegacyColonySnapshot(colony);
     await this.colonyRepo.save(colony);
 
     this.buildingLifecycleService.repairBuilding(field);
@@ -613,14 +615,16 @@ export class ColonyConstructionService {
         );
       }
     }
-    if (terraforming.energyCost > colony.energy) {
+    const changeable = getColonyChangeable(colony);
+    if (terraforming.energyCost > changeable.energy) {
       throw new BadRequestException(
-        `Not enough energy: need ${terraforming.energyCost}, have ${colony.energy}`,
+        `Not enough energy: need ${terraforming.energyCost}, have ${changeable.energy}`,
       );
     }
 
     await this.deductBuildCosts(colony, terraforming.costs);
-    colony.energy -= terraforming.energyCost;
+    changeable.energy -= terraforming.energyCost;
+    syncLegacyColonySnapshot(colony);
     field.terraformingId = terraforming.id;
     field.terraformingFinishesAt = this.timing.dateAfterScaledSeconds(
       terraforming.duration,
@@ -665,14 +669,16 @@ export class ColonyConstructionService {
     if (!currentDefinition || !targetDefinition) {
       throw new BadRequestException('Unknown building upgrade target');
     }
-    if (upgrade.energyCost > colony.energy) {
+    const changeable = getColonyChangeable(colony);
+    if (upgrade.energyCost > changeable.energy) {
       throw new BadRequestException(
-        `Not enough energy: need ${upgrade.energyCost}, have ${colony.energy}`,
+        `Not enough energy: need ${upgrade.energyCost}, have ${changeable.energy}`,
       );
     }
 
     await this.deductBuildCosts(colony, upgrade.costs);
-    colony.energy -= upgrade.energyCost;
+    changeable.energy -= upgrade.energyCost;
+    syncLegacyColonySnapshot(colony);
 
     const wasActive = field.isActive;
     if (wasActive) {

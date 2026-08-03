@@ -940,16 +940,18 @@ export class ColonyService {
     if (!unlocked) throw new BadRequestException('Ship class is not unlocked');
 
     const totalEnergy = hangarDef.buildEnergyCost * amount;
-    if (colony.energy < totalEnergy) {
+    const changeable = getColonyChangeable(colony);
+    if (changeable.energy < totalEnergy) {
       throw new BadRequestException(
-        `Not enough energy: need ${totalEnergy}, have ${colony.energy}`,
+        `Not enough energy: need ${totalEnergy}, have ${changeable.energy}`,
       );
     }
     await this.deductBuildCosts(
       colony,
       this.getHangarBuildCosts(hangarDef, amount),
     );
-    colony.energy -= totalEnergy;
+    changeable.energy -= totalEnergy;
+    syncLegacyColonySnapshot(colony);
     await this.colonyRepo.save(colony);
 
     const maxStorage =
@@ -983,9 +985,10 @@ export class ColonyService {
     const hangarDef = this.getHangarDefForShipClass(shipClass);
     if (!hangarDef)
       throw new BadRequestException('Ship class is not startable from hangar');
-    if (colony.energy < hangarDef.startEnergyCost) {
+    const changeable = getColonyChangeable(colony);
+    if (changeable.energy < hangarDef.startEnergyCost) {
       throw new BadRequestException(
-        `Not enough energy: need ${hangarDef.startEnergyCost}, have ${colony.energy}`,
+        `Not enough energy: need ${hangarDef.startEnergyCost}, have ${changeable.energy}`,
       );
     }
     const availableCrew = await this.colonyCrewService.getAvailableColonyCrew(
@@ -1003,7 +1006,8 @@ export class ColonyService {
       hangarDef.hangarCommodityId,
       1,
     );
-    colony.energy -= hangarDef.startEnergyCost;
+    changeable.energy -= hangarDef.startEnergyCost;
+    syncLegacyColonySnapshot(colony);
     await this.colonyRepo.save(colony);
     const crewIds = await this.colonyCrewService.reserveCrewForShipBuild(
       colony,
@@ -1107,7 +1111,8 @@ export class ColonyService {
     if (!this.canManageOrbitShip(colony, ship)) {
       throw new BadRequestException('Ship is not in colony orbit');
     }
-    if (colony.energy < 20) {
+    const changeable = getColonyChangeable(colony);
+    if (changeable.energy < 20) {
       throw new BadRequestException('20 energy required to disassemble ship');
     }
     const freeAssignmentCount =
@@ -1149,7 +1154,8 @@ export class ColonyService {
       }
     }
 
-    colony.energy -= 20;
+    changeable.energy -= 20;
+    syncLegacyColonySnapshot(colony);
     await this.colonyRepo.save(colony);
     await this.shipRepo.remove(ship);
     return this.findOne(colonyId, userId);

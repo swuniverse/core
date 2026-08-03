@@ -2151,6 +2151,73 @@ describe('colony tick calculations', () => {
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });
 
+  it('updates changeable energy when starting an upgrade job', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: 100,
+      isBuilding: false,
+      isActive: true,
+      integrity: 1000,
+      maxIntegrity: 1000,
+      activateAfterBuild: true,
+      reactivateAfterUpgrade: null as number | null,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [field],
+      storage: [],
+      changeable: {
+        colonyId: 1,
+        energy: 50,
+        maxEnergy: 100,
+        workers: 0,
+        workless: 10,
+        maxPopulation: 100,
+        maxStorage: 100,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        shields: 0,
+        maxShields: 0,
+        shieldFrequency: null,
+        torpedoTypeId: null,
+        colonyMessage: null,
+        isBlockaded: false,
+        trainedCrew: 0,
+      },
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 10 };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+
+    await service.upgradeBuilding(1, 1, 5, 100101);
+
+    expect(colony.changeable.energy).toBe(45);
+    expect(colony.energy).toBe(45);
+    expect(storage.amount).toBe(6);
+    expect(field.buildingId).toBe(101);
+    expect(field.isBuilding).toBe(true);
+    expect(field.activateAfterBuild).toBe(true);
+    expect(field.reactivateAfterUpgrade).toBe(1);
+    expect(fieldRepo.save).toHaveBeenCalledWith(field);
+
+    const detail = (await service.findOne(1, 1)) as {
+      detailV2?: { energy?: { current: number; max: number } };
+    };
+    expect(detail.detailV2?.energy?.current).toBe(45);
+    expect(detail.detailV2?.energy?.max).toBe(100);
+  });
+
   it('repairs a damaged building with proportional costs', async () => {
     const { service, colonyRepo, storageRepo, fieldRepo } =
       createColonyService();

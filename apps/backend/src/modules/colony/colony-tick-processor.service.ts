@@ -240,7 +240,7 @@ export class ColonyTickProcessorService {
       const activeFields = summary.activeFields;
       let rewind = false;
 
-      if (summary.energyDelta < 0 && colony.energy + summary.energyDelta < 0) {
+      if (summary.energyDelta < 0 && getColonyChangeable(colony).energy + summary.energyDelta < 0) {
         const victim = activeFields.find((field) => {
           if (this.isHeadquartersField(field)) return false;
           const definition = this.gameData.getBuilding(field.buildingId!);
@@ -362,13 +362,15 @@ export class ColonyTickProcessorService {
     );
 
     if (summary.energyDelta !== 0) {
-      colony.energy = Math.max(
+      const changeable = getColonyChangeable(colony);
+      changeable.energy = Math.max(
         0,
         Math.min(
-          colony.energy + summary.energyDelta,
+          changeable.energy + summary.energyDelta,
           summary.effectiveState.energy.max,
         ),
       );
+      syncLegacyColonySnapshot(colony);
     }
 
     if (finalProduction.size > 0) {

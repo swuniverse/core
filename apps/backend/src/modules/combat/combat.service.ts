@@ -28,6 +28,10 @@ import {
   ColonyEventSeverity,
   ColonyEventType,
 } from '../colony/entities/colony-event.entity';
+import {
+  getColonyChangeable,
+  syncLegacyColonySnapshot,
+} from '../colony/colony-stats.service';
 
 @Injectable()
 export class CombatService {
@@ -149,7 +153,7 @@ export class CombatService {
     if (!attacker) throw new NotFoundException('Attacker not found');
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['fields', 'stats'],
+      relations: ['fields', 'stats', 'changeable'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     if (colony.userId == null || colony.isAbandoned) {
@@ -177,6 +181,7 @@ export class CombatService {
     const maxShields =
       this.colonyDefenseService.calculateMaxShieldsByFunctions(functionIds);
     this.colonyDefenseService.syncShieldCapacity(colony, maxShields);
+    const changeable = getColonyChangeable(colony);
 
     const attackerModules = await this.moduleRepo.find({
       where: { spacecraftId: attacker.id },
@@ -218,11 +223,12 @@ export class CombatService {
 
     if (
       this.colonyDefenseService.hasEnergyPhalanx(functionIds) &&
-      colony.energy >=
+      changeable.energy >=
         this.colonyDefenseService.constants.phalanx.energy.energyCost
     ) {
-      colony.energy -=
+      changeable.energy -=
         this.colonyDefenseService.constants.phalanx.energy.energyCost;
+      syncLegacyColonySnapshot(colony);
       attacker.hull = Math.max(
         0,
         attacker.hull -
@@ -244,11 +250,12 @@ export class CombatService {
       if (
         torpedoType &&
         consumed &&
-        colony.energy >=
+        changeable.energy >=
           this.colonyDefenseService.constants.phalanx.particle.energyCost
       ) {
-        colony.energy -=
+        changeable.energy -=
           this.colonyDefenseService.constants.phalanx.particle.energyCost;
+        syncLegacyColonySnapshot(colony);
         const damage = torpedoType.baseDamage;
         attacker.hull = Math.max(0, attacker.hull - damage);
         log.push({

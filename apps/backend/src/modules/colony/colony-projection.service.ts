@@ -153,7 +153,7 @@ export class ColonyProjectionService {
   ): number {
     const limits = [50];
     if (hangarDef.buildEnergyCost > 0) {
-      limits.push(Math.floor((colony.energy ?? 0) / hangarDef.buildEnergyCost));
+      limits.push(Math.floor((getColonyChangeable(colony).energy ?? 0) / hangarDef.buildEnergyCost));
     }
     const storage = new Map(
       (colony.storage ?? []).map((row) => [row.commodityId, row.amount]),
@@ -792,7 +792,7 @@ export class ColonyProjectionService {
               !!shipClass &&
               !!this.getHangarDefForShipClass(shipClass),
             canDisassemble:
-              canManage && colony.energy >= 20 && hasMatchingRepairShipyard,
+              canManage && getColonyChangeable(colony).energy >= 20 && hasMatchingRepairShipyard,
             canRepair,
             canRetrofit,
             canManage,
