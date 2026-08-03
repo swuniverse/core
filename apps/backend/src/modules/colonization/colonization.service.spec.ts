@@ -90,6 +90,7 @@ describe('ColonizationService', () => {
     posY: number;
     classId: number;
     name: string;
+    starSystem?: { id: number; layerId: number };
   }
 
   function starterTarget(id: number): StarterTarget {
@@ -106,6 +107,7 @@ describe('ColonizationService', () => {
   function starterTargetQuery(targets: StarterTarget[]) {
     return {
       innerJoinAndSelect: jest.fn().mockReturnThis(),
+      innerJoin: jest.fn().mockReturnThis(),
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -317,6 +319,41 @@ describe('ColonizationService', () => {
     expect(result.mode).toBe('required');
     expect(result.targets).toHaveLength(2);
     expect(result.targets[0]).toMatchObject({ id: 101, systemId: 55 });
+  });
+
+  it('queries starter targets by faction zone and starter classes', async () => {
+    const { service, userRepo, colonyRepo, objectRepo } = createService();
+    const query = starterTargetQuery([starterTarget(201)]);
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      onboardingCompleted: false,
+      starterColonyId: null,
+      starterShipId: null,
+      factionId: 1,
+      factionRef: { homeZone: 'REBEL' },
+    });
+    colonyRepo.findOne.mockResolvedValue(null);
+    objectRepo.createQueryBuilder.mockReturnValue(query);
+
+    await service.getStarterColonizationOptions(1);
+
+    expect(query.innerJoin).toHaveBeenCalledWith(
+      expect.any(Function),
+      'galaxyField',
+      'galaxyField.starSystemId = starSystem.id',
+    );
+    expect(query.andWhere).toHaveBeenCalledWith(
+      'target.classId IN (:...starterClassIds)',
+      { starterClassIds: [201, 203, 205] },
+    );
+    expect(query.andWhere).toHaveBeenCalledWith(
+      'galaxyField.factionZone IN (:...starterZones)',
+      { starterZones: ['REBEL'] },
+    );
+    expect(query.andWhere).not.toHaveBeenCalledWith(
+      'starSystem.layerId = :layerId',
+      expect.anything(),
+    );
   });
 
   it('creates starter colony and completes onboarding once', async () => {

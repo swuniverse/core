@@ -9,6 +9,7 @@ import {
   COLONIZATION_CLASS_GATE_RULES,
   COLONIZATION_LIMIT_RULES,
   COLONIZATION_MAX_LIMITS,
+  STU_STARTER_PLANET_CLASS_IDS,
   type ColonizationLimitType,
   getClassGateRequiredTechPair,
   getColonizationClassGate,
@@ -27,6 +28,10 @@ import {
   CelestialObject,
   CelestialObjectType,
 } from '../starmap/entities/celestial-object.entity';
+import {
+  FactionZone,
+  GalaxyField,
+} from '../starmap/entities/galaxy-field.entity';
 import {
   AlertState,
   Spacecraft,
@@ -631,13 +636,27 @@ export class ColonizationService {
   private async findStarterTargetsForUser(
     user: User,
   ): Promise<CelestialObject[]> {
-    if (!user.factionId) {
+    const homeZone = user.factionRef?.homeZone;
+    const starterZones =
+      homeZone === FactionZone.REBEL || homeZone === FactionZone.EMPIRE
+        ? [homeZone]
+        : user.factionId === 1
+          ? [FactionZone.REBEL]
+          : user.factionId === 2
+            ? [FactionZone.EMPIRE]
+            : [];
+    if (starterZones.length === 0) {
       return [];
     }
 
     return this.objectRepo
       .createQueryBuilder('target')
       .innerJoinAndSelect('target.starSystem', 'starSystem')
+      .innerJoin(
+        GalaxyField,
+        'galaxyField',
+        'galaxyField.starSystemId = starSystem.id',
+      )
       .leftJoin(
         Colony,
         'colony',
@@ -647,9 +666,13 @@ export class ColonizationService {
       .andWhere('target.objectType = :objectType', {
         objectType: CelestialObjectType.PLANET,
       })
-      .andWhere('target.classId IS NOT NULL')
+      .andWhere('target.classId IN (:...starterClassIds)', {
+        starterClassIds: STU_STARTER_PLANET_CLASS_IDS,
+      })
       .andWhere('colony.id IS NULL')
-      .andWhere('starSystem.layerId = :layerId', { layerId: user.factionId })
+      .andWhere('galaxyField.factionZone IN (:...starterZones)', {
+        starterZones,
+      })
       .orderBy('target.id', 'ASC')
       .getMany();
   }
