@@ -38,6 +38,7 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
+import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 
 export interface StarterColonizationOptionsDto {
@@ -116,6 +117,8 @@ export class ColonizationService {
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
+    @InjectRepository(Research)
+    private readonly researchRepo: Repository<Research>,
     private readonly unlockResolver: UnlockResolverService,
     private readonly colonySeedService: ColonySeedService,
     private readonly colonyEventService: ColonyEventService,
@@ -164,6 +167,7 @@ export class ColonizationService {
     });
 
     if (activeColony) {
+      await this.ensureBaseResearchCompleted(user.id, user.factionId);
       if (!user.onboardingCompleted) {
         user.onboardingCompleted = true;
         await this.userRepo.save(user);
@@ -177,6 +181,7 @@ export class ColonizationService {
     }
 
     if (user.onboardingCompleted) {
+      await this.ensureBaseResearchCompleted(user.id, user.factionId);
       return {
         mode: 'not-required',
         reservedStarterColonyId: user.starterColonyId,
@@ -299,8 +304,39 @@ export class ColonizationService {
     user.starterColonyId = colony.id;
     user.onboardingCompleted = true;
     await this.userRepo.save(user);
+    await this.ensureBaseResearchCompleted(user.id, user.factionId);
 
     return { success: true, colonyId: colony.id };
+  }
+
+  private async ensureBaseResearchCompleted(
+    userId: number,
+    factionId: number | null,
+  ): Promise<void> {
+    const baseResearchId = factionId === 2 ? 1003 : 1001;
+    const existing = await this.researchRepo.findOne({
+      where: { userId, techId: baseResearchId },
+    });
+    if (existing) {
+      existing.status = ResearchStatus.COMPLETED;
+      existing.progress = 0;
+      existing.remainingPoints = 0;
+      existing.spentPoints = 0;
+      existing.blockedReason = null;
+      await this.researchRepo.save(existing);
+      return;
+    }
+
+    await this.researchRepo.save({
+      userId,
+      techId: baseResearchId,
+      status: ResearchStatus.COMPLETED,
+      progress: 0,
+      remainingPoints: 0,
+      spentPoints: 0,
+      sourceCommodityId: 1701,
+      blockedReason: null,
+    });
   }
 
   async explainTarget(
@@ -485,7 +521,10 @@ export class ColonizationService {
       changeable.shieldFrequency = null;
       changeable.torpedoTypeId = null;
       changeable.trainedCrew = 0;
-      changeable.workless = Math.max(1, changeable.workers + changeable.workless);
+      changeable.workless = Math.max(
+        1,
+        changeable.workers + changeable.workless,
+      );
       changeable.workers = 0;
       await this.colonyRepo.manager.save(changeable);
     }
@@ -575,11 +614,11 @@ export class ColonizationService {
     }
 
     if (!starterZone.accountAgeAllowed) {
-      reasons.push('Kolonisierung in der Noobzone nur für neue Accounts erlaubt');
+      reasons.push(
+        'Kolonisierung in der Noobzone nur für neue Accounts erlaubt',
+      );
     }
-    if (
-      starterZone.currentColoniesInLayer >= starterZone.maxColoniesInLayer
-    ) {
+    if (starterZone.currentColoniesInLayer >= starterZone.maxColoniesInLayer) {
       reasons.push(
         `Kolonielimit in dieser Noobzone erreicht (${starterZone.currentColoniesInLayer}/${starterZone.maxColoniesInLayer})`,
       );
@@ -609,7 +648,8 @@ export class ColonizationService {
     }
 
     const accountAgeAllowed =
-      Date.now() - user.createdAt.getTime() <= STARTER_NOOBZONE_MAX_ACCOUNT_AGE_MS;
+      Date.now() - user.createdAt.getTime() <=
+      STARTER_NOOBZONE_MAX_ACCOUNT_AGE_MS;
     const currentColoniesInLayer = await this.countUserColoniesInLayer(
       user.id,
       layer.id,

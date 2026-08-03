@@ -10,6 +10,7 @@ import { ColonyModule } from '../colony/colony.module';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
+import { Research } from '../research/entities/research.entity';
 import { ResearchModule } from '../research/research.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { ResearchModule } from '../research/research.module';
       CelestialObject,
       Spacecraft,
       ShipClassDef,
+      Research,
     ]),
     ResearchModule,
     forwardRef(() => ColonyModule),
