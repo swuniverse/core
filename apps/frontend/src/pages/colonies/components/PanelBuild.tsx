@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { buildingImage, commodityImage } from '../../../lib/assets';
-import type { BuildingDef, ColonyField } from '../types';
+import type { BuildingDef, ColonyField, CommodityDef } from '../types';
 import { BMCOL_LABELS } from '../constants';
 import {
   canAfford,
@@ -10,6 +10,13 @@ import {
   maxAffordable,
 } from '../utils';
 import { FloatingPanel } from './FloatingPanel';
+const getCommodityLabel = (
+  commodityMap: Record<number, CommodityDef>,
+  commodityId: number,
+) =>
+  commodityMap[commodityId]?.name ||
+  commodityMap[commodityId]?.nameShort ||
+  `Ware #${commodityId}`;
 
 export function PanelBuild({
   buildingDefs,
@@ -56,7 +63,6 @@ export function PanelBuild({
       <div className="flex-1 min-w-0 space-y-2">
         {[1, 2, 3, 4].map((col) => {
           const colBuildings = buildingsByColumn[col] || [];
-          if (colBuildings.length === 0) return null;
           return (
             <div
               key={col}
@@ -67,44 +73,52 @@ export function PanelBuild({
                   {BMCOL_LABELS[col]}
                 </span>
               </div>
-              <div className="divide-y divide-swu-border/20">
-                {colBuildings.map((b: BuildingDef) => {
-                  const affordable = canAfford(b, storage);
-                  const isSelected = selectedBuilding?.id === b.id;
-                  const alreadyBuilt =
-                    b.isUnique &&
-                    fields.some(
-                      (f: ColonyField) =>
-                        f.buildingId === b.id && !f.isBuilding,
-                    );
-                  return (
-                    <button
-                      key={b.id}
-                      onClick={() => onSelectBuilding(b)}
-                      disabled={alreadyBuilt}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs transition-all ${isSelected ? 'bg-swu-accent/15 text-swu-accent' : alreadyBuilt ? 'opacity-40 cursor-not-allowed' : affordable ? 'hover:bg-swu-primary/5' : 'opacity-60'}`}
-                    >
-                      <img
-                        src={buildingImage(b.id)}
-                        alt=""
-                        className="h-7 w-7 shrink-0 object-contain"
-                        loading="lazy"
-                      />
-                      <span className="text-swu-primary truncate flex-1">
-                        {b.name}
-                      </span>
-                      {!affordable && !alreadyBuilt && (
-                        <span className="text-[9px] text-red-400">✕</span>
-                      )}
-                      {alreadyBuilt && (
-                        <span className="text-[9px] text-swu-muted">
-                          gebaut
+              {colBuildings.length === 0 ? (
+                <div className="px-3 py-2 text-[10px] text-swu-muted">
+                  Keine Gebäude verfügbar.
+                </div>
+              ) : (
+                <div className="divide-y divide-swu-border/20">
+                  {colBuildings.map((b: BuildingDef) => {
+                    const affordable = canAfford(b, storage);
+                    const isSelected = selectedBuilding?.id === b.id;
+                    const alreadyBuilt =
+                      b.isUnique &&
+                      fields.some(
+                        (f: ColonyField) =>
+                          f.buildingId === b.id && !f.isBuilding,
+                      );
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => onSelectBuilding(b)}
+                        disabled={alreadyBuilt}
+                        title={b.name}
+                        aria-label={b.name}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs transition-all ${isSelected ? 'bg-swu-accent/15 text-swu-accent' : alreadyBuilt ? 'opacity-40 cursor-not-allowed' : affordable ? 'hover:bg-swu-primary/5' : 'opacity-60'}`}
+                      >
+                        <img
+                          src={buildingImage(b.id)}
+                          alt=""
+                          className="h-7 w-7 shrink-0 object-contain"
+                          loading="lazy"
+                        />
+                        <span className="text-swu-primary truncate flex-1">
+                          {b.name}
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                        {!affordable && !alreadyBuilt && (
+                          <span className="text-[9px] text-red-400">✕</span>
+                        )}
+                        {alreadyBuilt && (
+                          <span className="text-[9px] text-swu-muted">
+                            gebaut
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -196,7 +210,7 @@ export function PanelBuild({
                           loading="lazy"
                         />
                         <span className="truncate">
-                          {commodity?.nameShort || commodity?.name || '?'}
+                          {getCommodityLabel(commodityMap, c.commodityId)}
                         </span>
                       </span>
                       <span className="flex items-center gap-1">
@@ -293,7 +307,7 @@ export function PanelBuild({
                           loading="lazy"
                         />
                         <span className="truncate">
-                          {commodity?.name || '?'}
+                          {getCommodityLabel(commodityMap, p.commodityId)}
                         </span>
                       </span>
                       <span

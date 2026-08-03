@@ -3,24 +3,19 @@ import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { colonyApi } from './api';
 import { api } from '../../services/api';
-import {
-  BuildingMassActionMode,
-  BuildingRepairActionMode,
-} from './constants';
 import type {
   BuildingDef,
   BuildingMassActionResult,
-  BuildingRepairPreview,
-  BuildingRepairResult,
   Colony,
-  ColonyDetailV2,
   ColonyEventDto,
   ColonyField,
   ColonyFieldUpgrade,
+  ColonyStorageItem,
   CommodityDef,
   DetailTab,
   ShipClassDef,
   ShipModuleSelection,
+  StarterColonizationOptions,
   TerraformingDef,
 } from './types';
 import { planetImage, commodityImage } from '../../lib/assets';
@@ -47,6 +42,48 @@ import {
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Aktion fehlgeschlagen';
+
+const getStorageCommodityLabel = (
+  commodityMap: Record<number, CommodityDef>,
+  detail: Colony['detailV2'],
+  commodityId: number,
+) =>
+  commodityMap[commodityId]?.name ||
+  commodityMap[commodityId]?.nameShort ||
+  detail?.inventory.find((item) => item.commodityId === commodityId)?.name ||
+  detail?.productionDeltas.find((item) => item.commodityId === commodityId)
+    ?.name ||
+  `Ware #${commodityId}`;
+
+const buildStorageRows = (
+  colony: Colony,
+  commodityMap: Record<number, CommodityDef>,
+) => {
+  const rows = new Map<number, ColonyStorageItem>();
+  for (const item of colony.storage ?? []) {
+    if (item.amount > 0) rows.set(item.commodityId, item);
+  }
+  for (const item of colony.detailV2?.inventory ?? []) {
+    if (item.amount <= 0 || rows.has(item.commodityId)) continue;
+    rows.set(item.commodityId, {
+      id: item.id,
+      commodityId: item.commodityId,
+      amount: item.amount,
+    });
+  }
+  return Array.from(rows.values()).sort((a, b) => {
+    if (b.amount !== a.amount) return b.amount - a.amount;
+    return getStorageCommodityLabel(
+      commodityMap,
+      colony.detailV2,
+      a.commodityId,
+    ).localeCompare(
+      getStorageCommodityLabel(commodityMap, colony.detailV2, b.commodityId),
+      'de',
+    );
+  });
+};
+
 const buildingMatchesField = (building: BuildingDef, field: ColonyField) =>
   getFieldTypeCandidates(field).some((fieldType) =>
     building.allowedFieldTypes.includes(fieldType),
@@ -79,6 +116,19 @@ export function ColoniesPage() {
     setLoading(true);
     try {
       const starter = await colonyApi.fetchStarterColonizationOptions();
+      const [comms, buildings, allBuildings, terraforming, classes] =
+        await Promise.all([
+          colonyApi.fetchCommodities(),
+          colonyApi.fetchAvailableBuildings(),
+          colonyApi.fetchAllBuildings(),
+          colonyApi.fetchTerraforming(),
+          colonyApi.fetchShipClasses(),
+        ]);
+      setCommodities(comms);
+      setBuildingDefs(buildings);
+      setAllBuildingDefs(allBuildings);
+      setTerraformingDefs(terraforming);
+      setShipClasses(classes);
       setStarterOptions(starter);
       if (starter.mode === 'required') {
         setSelected(null);
@@ -87,21 +137,8 @@ export function ColoniesPage() {
         return;
       }
 
-      const [data, comms, buildings, allBuildings, terraforming, classes] =
-        await Promise.all([
-          colonyApi.fetchColonies(),
-          colonyApi.fetchCommodities(),
-          colonyApi.fetchAvailableBuildings(),
-          colonyApi.fetchAllBuildings(),
-          colonyApi.fetchTerraforming(),
-          colonyApi.fetchShipClasses(),
-        ]);
+      const data = await colonyApi.fetchColonies();
       setColonies(data);
-      setCommodities(comms);
-      setBuildingDefs(buildings);
-      setAllBuildingDefs(allBuildings);
-      setTerraformingDefs(terraforming);
-      setShipClasses(classes);
       const reqId = Number(searchParams.get('selected'));
       if (reqId) await loadColonyDetail(reqId);
     } catch (error: unknown) {
@@ -749,7 +786,9 @@ export function ColonyDetail({
       Object.fromEntries(
         (detail?.buildingManagement?.fields ?? []).map((field) => [
           field.fieldIndex,
-          field.availableUpgrades ?? [],
+          'availableUpgrades' in field
+            ? (field.availableUpgrades as ColonyFieldUpgrade[])
+            : [],
         ]),
       ) as Record<number, ColonyFieldUpgrade[]>,
     [detail?.buildingManagement?.fields],
@@ -763,7 +802,10 @@ export function ColonyDetail({
       })),
     [colony.fields, fieldUpgradeMap],
   );
-  const storage = (colony.storage || []).filter((item) => item.amount > 0);
+  const storage = useMemo(
+    () => buildStorageRows(colony, commodityMap),
+    [colony, commodityMap],
+  );
 
   useEffect(() => {
     if (selectedField) {
@@ -1145,43 +1187,45 @@ export function ColonyDetail({
                 Lager ({storage.length})
               </div>
               <div className="divide-y divide-swu-border/20 max-h-[400px] overflow-y-auto">
-                {storage
-                  .sort((a, b) => b.amount - a.amount)
-                  .map((item) => {
-                    const delta = detail?.productionDeltas.find(
-                      (d) => d.commodityId === item.commodityId,
-                    )?.amount;
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-2 px-2 py-0.5 text-[10px]"
-                      >
-                        <img
-                          src={commodityImage(
-                            item.commodityId,
-                            commodityMap[item.commodityId]?.name,
-                          )}
-                          alt=""
-                          className="h-5 w-5 object-contain"
-                          loading="lazy"
-                        />
-                        <span className="text-swu-muted truncate flex-1">
-                          {commodityMap[item.commodityId]?.name ||
-                            `#${item.commodityId}`}
+                {storage.map((item) => {
+                  const commodity = commodityMap[item.commodityId];
+                  const label = getStorageCommodityLabel(
+                    commodityMap,
+                    detail,
+                    item.commodityId,
+                  );
+                  const delta = detail?.productionDeltas.find(
+                    (d) => d.commodityId === item.commodityId,
+                  )?.amount;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 px-2 py-0.5 text-[10px]"
+                      title={label}
+                    >
+                      <img
+                        src={commodityImage(item.commodityId, commodity?.name)}
+                        alt={label}
+                        title={label}
+                        className="h-5 w-5 object-contain"
+                        loading="lazy"
+                      />
+                      <span className="text-swu-muted truncate flex-1">
+                        {label}
+                      </span>
+                      <span className="font-mono text-swu-primary">
+                        {item.amount}
+                      </span>
+                      {delta != null && (
+                        <span
+                          className={`font-mono ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                        >
+                          {formatSignedAmount(delta)}
                         </span>
-                        <span className="font-mono text-swu-primary">
-                          {item.amount}
-                        </span>
-                        {delta != null && (
-                          <span
-                            className={`font-mono ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
-                          >
-                            {formatSignedAmount(delta)}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

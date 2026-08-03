@@ -504,9 +504,7 @@ describe('ColonyDetail', () => {
       onUpgradeBuilding,
     });
 
-    expect(
-      screen.queryByRole('button', { name: fz2Building.name }),
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: fz2Building.name })).toBeNull();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -522,6 +520,42 @@ describe('ColonyDetail', () => {
     fireEvent.click(upgradeButton);
 
     expect(onUpgradeBuilding).toHaveBeenCalledWith(5, 7201010073);
+  });
+
+  it('renders build menu placeholders and building hover titles', () => {
+    const detail = createDetail();
+
+    renderColonyDetail(detail, {
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [mineBuilding],
+      activeTab: 'build',
+    });
+
+    expect(screen.getByTitle(mineBuilding.name)).toBeTruthy();
+    expect(screen.getAllByText('Keine Gebäude verfügbar.')).toHaveLength(3);
+  });
+
+  it('uses detail inventory names when storage definitions are missing', () => {
+    const detail = createDetail();
+    detail.inventory = [
+      {
+        id: 5,
+        commodityId: 5,
+        name: 'Deuterium-Vorrat',
+        nameShort: 'DEU',
+        amount: 100,
+        delta: 0,
+      },
+    ];
+
+    renderColonyDetail(detail, {
+      colony: createColony(detail),
+      commodities: [],
+    });
+
+    expect(screen.getByText('Lager (1)')).toBeTruthy();
+    expect(screen.getByText('Deuterium-Vorrat')).toBeTruthy();
+    expect(screen.getAllByTitle('Deuterium-Vorrat')).toHaveLength(2);
   });
 
   it('hides zero-amount storage rows', () => {
@@ -554,7 +588,12 @@ describe('ColonyDetail', () => {
       {
         category: 'FRIGATE',
         allowedBuildingFunctionIds: [7],
-        moduleSlots: { ENERGY_WEAPON: 1, SHIELDS: 1, TORPEDO_BANK: 1, SPECIAL: 2 },
+        moduleSlots: {
+          ENERGY_WEAPON: 1,
+          SHIELDS: 1,
+          TORPEDO_BANK: 1,
+          SPECIAL: 2,
+        },
         layoutKey: 'frigate-layout',
         imageKey: 'frigate-layout',
         slots: layout.slots,
