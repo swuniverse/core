@@ -9,6 +9,7 @@ import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
+import { ColonyStorageService } from '../colony/colony-storage.service';
 
 @Injectable()
 export class TransferService {
@@ -21,6 +22,7 @@ export class TransferService {
     private readonly colonyRepo: Repository<Colony>,
     @InjectRepository(ColonyStorage)
     private readonly storageRepo: Repository<ColonyStorage>,
+    private readonly colonyStorageService: ColonyStorageService,
   ) {}
 
   async loadCargo(
@@ -59,8 +61,7 @@ export class TransferService {
     if (currentCargo + amount > ship.cargoMax)
       throw new BadRequestException('Not enough cargo space');
 
-    storage.amount -= amount;
-    await this.storageRepo.save(storage);
+    await this.colonyStorageService.lowerStorage(colony, commodityId, amount);
 
     let cargoItem = await this.cargoRepo.findOne({
       where: { spacecraftId: shipId, commodityId },
@@ -121,15 +122,19 @@ export class TransferService {
       await this.cargoRepo.save(cargoItem);
     }
 
-    let storage = await this.storageRepo.findOne({
-      where: { colonyId, commodityId },
-    });
-    if (storage) {
-      storage.amount += amount;
-    } else {
-      storage = this.storageRepo.create({ colonyId, commodityId, amount });
+    const freeStorage = await this.colonyStorageService.getFreeStorage(
+      colony,
+      colony.storageMax,
+    );
+    if (freeStorage < amount) {
+      throw new BadRequestException('Not enough colony storage capacity');
     }
-    await this.storageRepo.save(storage);
+    await this.colonyStorageService.upperStorage(
+      colony,
+      commodityId,
+      amount,
+      colony.storageMax,
+    );
 
     ship.cargoUsed = await this.getCargoUsed(shipId);
     await this.shipRepo.save(ship);

@@ -1166,6 +1166,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     ownershipService as any,
     gameData as any,
     colonyEventService as any,
+    colonyStorageService,
   );
   const timingService = new ColonyTimingService(config as any);
   const fabricationService = new ColonyFabricationService(

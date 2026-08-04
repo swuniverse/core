@@ -52,6 +52,7 @@ export class ColonyStorageService {
       });
     }
     await this.storageRepo.save(storage);
+    await this.syncColonyStorageState(colony, storage, storedAmount);
     return storedAmount;
   }
 
@@ -69,6 +70,27 @@ export class ColonyStorageService {
     }
     storage.amount -= amount;
     await this.storageRepo.save(storage);
+    await this.syncColonyStorageState(colony, storage, -amount);
     return amount;
+  }
+
+  private async syncColonyStorageState(
+    colony: Colony,
+    storage: ColonyStorage,
+    _delta: number,
+  ): Promise<void> {
+    const loadedStorage = colony.storage?.find(
+      (item) => item.commodityId === storage.commodityId,
+    );
+    if (loadedStorage) {
+      loadedStorage.amount = storage.amount;
+    } else if (colony.storage && storage.amount > 0) {
+      colony.storage.push(storage);
+    }
+
+    colony.storageUsed = await this.getStorageUsed(colony.id);
+    await this.storageRepo.manager
+      ?.getRepository(Colony)
+      .update({ id: colony.id }, { storageUsed: colony.storageUsed });
   }
 }

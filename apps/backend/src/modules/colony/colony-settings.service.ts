@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
+import { ColonyStorageService } from './colony-storage.service';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { Colony } from './entities/colony.entity';
@@ -26,6 +27,7 @@ export class ColonySettingsService {
     private readonly ownership: ColonyOwnershipService,
     private readonly gameData: GameDataService,
     private readonly colonyEventService: ColonyEventService,
+    private readonly colonyStorageService: ColonyStorageService,
   ) {}
 
   async rename(
@@ -133,8 +135,7 @@ export class ColonySettingsService {
       if (!storage || storage.amount <= 0) continue;
       const amount = Math.min(requestedAmount, storage.amount);
       if (amount <= 0) continue;
-      storage.amount -= amount;
-      await this.storageRepo.save(storage);
+      await this.colonyStorageService.lowerStorage(colony, commodityId, amount);
       const commodity = this.gameData.getCommodity(commodityId);
       discarded.push({
         commodityId,

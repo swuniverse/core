@@ -354,17 +354,7 @@ export class ColonyOrbitService {
 
     for (const [commodityId, amount] of normalized.entries()) {
       if (amount > 0) {
-        const colonyStorage = await this.getColonyStorageItem(
-          colony.id,
-          commodityId,
-        );
-        if (!colonyStorage) {
-          throw new BadRequestException(
-            `Not enough shuttle stock on colony for commodity ${commodityId}`,
-          );
-        }
-        colonyStorage.amount -= amount;
-        await this.storageRepo.save(colonyStorage);
+        await this.colonyStorageService.lowerStorage(colony, commodityId, amount);
 
         const cargoItem =
           (await this.getShipCargoItem(ship.id, commodityId)) ??
@@ -386,15 +376,12 @@ export class ColonyOrbitService {
         cargoItem.amount -= moveAmount;
         await this.cargoRepo.save(cargoItem);
 
-        const colonyStorage =
-          (await this.getColonyStorageItem(colony.id, commodityId)) ??
-          this.storageRepo.create({
-            colonyId: colony.id,
-            commodityId,
-            amount: 0,
-          });
-        colonyStorage.amount += moveAmount;
-        await this.storageRepo.save(colonyStorage);
+        await this.colonyStorageService.upperStorage(
+          colony,
+          commodityId,
+          moveAmount,
+          maxStorage,
+        );
       }
     }
 
