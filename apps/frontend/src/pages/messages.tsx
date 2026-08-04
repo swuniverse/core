@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 
 interface MessageSummary {
@@ -319,9 +320,7 @@ export function MessagesPage() {
                 {selected.sender?.username || 'System'} ·{' '}
                 {timeAgo(selected.createdAt)}
               </p>
-              <div className="text-sm text-swu-muted whitespace-pre-wrap mb-4">
-                {selected.body}
-              </div>
+              <BbCodeText text={selected.body} className="text-sm text-swu-muted whitespace-pre-wrap mb-4" />
               {!selected.isSystem && tab !== 'sent' && (
                 <button
                   onClick={replyTo}

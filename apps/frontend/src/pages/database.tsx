@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 
 interface DatabaseOverview {
@@ -221,9 +222,13 @@ function SettlersTable({ settlers }: { settlers: SettlerEntry[] }) {
                         {settler.displayName && settler.displayName !== settler.username && (
                           <p className="text-xs text-swu-muted">Login: {settler.username}</p>
                         )}
-                        <p className="text-sm text-swu-primary">
-                          {settler.description || <span className="text-swu-muted italic">Keine Beschreibung</span>}
-                        </p>
+                        {settler.description ? (
+                          <BbCodeText text={settler.description} className="text-sm text-swu-primary whitespace-pre-wrap" />
+                        ) : (
+                          <p className="text-sm text-swu-primary">
+                            <span className="text-swu-muted italic">Keine Beschreibung</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </td>

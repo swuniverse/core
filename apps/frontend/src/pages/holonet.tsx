@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -431,9 +432,7 @@ export function HolonetPage() {
                   {selected.author.username} ·{' '}
                   {new Date(selected.createdAt).toLocaleString('de-DE')}
                 </p>
-                <div className="text-sm text-swu-muted whitespace-pre-wrap mb-4">
-                  {selected.body}
-                </div>
+                <BbCodeText text={selected.body} className="text-sm text-swu-muted whitespace-pre-wrap mb-4" />
               </>
             )}
 
@@ -507,7 +506,7 @@ export function HolonetPage() {
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-swu-muted">{c.body}</p>
+                    <BbCodeText text={c.body} className="text-xs text-swu-muted whitespace-pre-wrap" />
                   </div>
                 ))
               )}

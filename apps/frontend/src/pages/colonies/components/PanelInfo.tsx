@@ -1,3 +1,4 @@
+import { BbCodeText } from '../../../components/BbCodeText';
 import { planetImage } from '../../../lib/assets';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from '../constants';
 import type {
@@ -94,6 +95,12 @@ export function PanelInfo({
                 )}
               </div>
             </div>
+            {colony.celestialObject.description && (
+              <BbCodeText text={colony.celestialObject.description} className="mt-2 text-xs text-swu-muted whitespace-pre-wrap" />
+            )}
+            {detail?.options?.colonyMessage && (
+              <BbCodeText text={detail.options.colonyMessage} className="mt-2 rounded border border-swu-border/40 bg-swu-bg/50 px-2 py-1 text-xs text-swu-muted whitespace-pre-wrap" />
+            )}
           </div>
         )}
         {colony.starSystem && (

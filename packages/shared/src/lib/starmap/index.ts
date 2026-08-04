@@ -126,6 +126,7 @@ export interface StarmapCelestialObjectDto {
   id: number;
   objectType: number;
   name: string | null;
+  description: string | null;
   posX: number;
   posY: number;
   classId: number | null;
@@ -276,6 +277,11 @@ export interface StarmapUpdateSystemFieldDto {
   adminRegionKey?: string | null;
   influenceAreaId?: number | null;
   borderMask?: string | null;
+}
+
+export interface StarmapUpdateCelestialObjectDto {
+  name?: string | null;
+  description?: string | null;
 }
 
 export interface StarmapGenerateSystemsDto {

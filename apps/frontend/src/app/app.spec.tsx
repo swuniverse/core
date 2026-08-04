@@ -134,7 +134,7 @@ function createColony(detail: ColonyDetailV2): Colony {
     storage: [],
     locationLabel: 'Testsystem',
     detailV2: detail,
-    celestialObject: { name: 'Testwelt', classId: 1 },
+    celestialObject: { name: 'Testwelt', description: null, classId: 1 },
   };
 }
 
@@ -748,6 +748,9 @@ describe('ColonyDetail', () => {
         category: 'FREIGHTER',
         allowedBuildingFunctionIds: [5, 6, 7, 22],
         moduleSlots: {},
+        layoutKey: 'freighter-layout',
+        imageKey: 'freighter-layout',
+        slots: [],
       },
     ];
 

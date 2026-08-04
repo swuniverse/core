@@ -166,7 +166,7 @@ export function PanelSettings({
               onChange={(event) => setMessage(event.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="Plain-Text-Botschaft für diese Kolonie"
+              placeholder="BBCode-Botschaft für diese Kolonie"
               className="w-full px-2 py-1 bg-swu-bg border border-swu-border rounded text-xs text-swu-primary resize-y"
             />
             <div className="flex items-center justify-between gap-2">

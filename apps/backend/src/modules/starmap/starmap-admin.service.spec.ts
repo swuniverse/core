@@ -31,7 +31,18 @@ jest.mock('./entities/hyperspace-route-segment.entity', () => ({
 
 import { StarmapAdminService } from './starmap-admin.service';
 
-function repo(overrides: Partial<Record<string, unknown>> = {}) {
+type MockRepo = {
+  find: jest.Mock;
+  findOne: jest.Mock;
+  findOneBy: jest.Mock;
+  findOneOrFail: jest.Mock;
+  create: jest.Mock;
+  save: jest.Mock;
+  delete: jest.Mock;
+  createQueryBuilder: jest.Mock;
+};
+
+function repo(overrides: Partial<MockRepo> = {}): MockRepo {
   return {
     find: jest.fn(async () => []),
     findOne: jest.fn(async () => null),
@@ -46,7 +57,28 @@ function repo(overrides: Partial<Record<string, unknown>> = {}) {
       execute: jest.fn(async () => ({ affected: 0 })),
     })),
     ...overrides,
-  } as never;
+  };
+}
+
+function createService(overrides: { objectRepo?: MockRepo } = {}) {
+  const objectRepo = overrides.objectRepo ?? repo();
+  return {
+    objectRepo,
+    service: new StarmapAdminService(
+      repo() as never,
+      repo() as never,
+      repo() as never,
+      repo() as never,
+      repo() as never,
+      objectRepo as never,
+      repo() as never,
+      repo() as never,
+      repo() as never,
+      repo() as never,
+      {} as never,
+      {} as never,
+    ),
+  };
 }
 
 describe('StarmapAdminService importLayer colony bindings', () => {
@@ -107,16 +139,16 @@ describe('StarmapAdminService importLayer colony bindings', () => {
     } as never;
 
     const service = new StarmapAdminService(
-      layerRepo,
-      galaxyFieldRepo,
-      fieldTypeRepo,
-      systemRepo,
-      systemFieldRepo,
-      objectRepo,
-      regionRepo,
-      borderTypeRepo,
-      hyperspaceRouteRepo,
-      hyperspaceRouteSegmentRepo,
+      layerRepo as never,
+      galaxyFieldRepo as never,
+      fieldTypeRepo as never,
+      systemRepo as never,
+      systemFieldRepo as never,
+      objectRepo as never,
+      regionRepo as never,
+      borderTypeRepo as never,
+      hyperspaceRouteRepo as never,
+      hyperspaceRouteSegmentRepo as never,
       {} as never,
       entityManager,
     );
@@ -162,6 +194,98 @@ describe('StarmapAdminService importLayer colony bindings', () => {
       layerId: 1,
       imported: true,
       restoredColonyBindings: 1,
+    });
+  });
+});
+
+describe('StarmapAdminService updateCelestialObject', () => {
+  it('trims empty name and description to null', async () => {
+    const object = {
+      id: 7,
+      objectType: 1,
+      name: 'Alderaan',
+      description: 'Peaceful core world',
+      posX: 3,
+      posY: 4,
+      classId: 101,
+      isColonizable: true,
+    };
+    const { service, objectRepo } = createService({
+      objectRepo: repo({ findOneBy: jest.fn(async () => object) }),
+    });
+
+    const result = await service.updateCelestialObject(7, {
+      name: '   ',
+      description: '   ',
+    });
+
+    expect(objectRepo.save).toHaveBeenCalledWith({
+      ...object,
+      name: null,
+      description: null,
+    });
+    expect(result).toEqual({
+      id: 7,
+      objectType: 1,
+      name: null,
+      description: null,
+      posX: 3,
+      posY: 4,
+      classId: 101,
+      isColonizable: true,
+    });
+  });
+
+  it('rejects descriptions above 2000 characters', async () => {
+    const object = {
+      id: 7,
+      objectType: 1,
+      name: 'Alderaan',
+      description: null,
+      posX: 3,
+      posY: 4,
+      classId: 101,
+      isColonizable: true,
+    };
+    const { service, objectRepo } = createService({
+      objectRepo: repo({ findOneBy: jest.fn(async () => object) }),
+    });
+
+    await expect(
+      service.updateCelestialObject(7, { description: 'x'.repeat(2001) }),
+    ).rejects.toThrow('Celestial object description is too long');
+    expect(objectRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('returns a DTO with description after saving', async () => {
+    const object = {
+      id: 7,
+      objectType: 1,
+      name: 'Alderaan',
+      description: null,
+      posX: 3,
+      posY: 4,
+      classId: 101,
+      isColonizable: true,
+    };
+    const { service } = createService({
+      objectRepo: repo({ findOneBy: jest.fn(async () => object) }),
+    });
+
+    const result = await service.updateCelestialObject(7, {
+      name: ' Alderaan Prime ',
+      description: ' [quote]Outer Rim[/quote] ',
+    });
+
+    expect(result).toEqual({
+      id: 7,
+      objectType: 1,
+      name: 'Alderaan Prime',
+      description: '[quote]Outer Rim[/quote]',
+      posX: 3,
+      posY: 4,
+      classId: 101,
+      isColonizable: true,
     });
   });
 });

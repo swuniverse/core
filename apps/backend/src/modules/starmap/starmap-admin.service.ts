@@ -37,6 +37,7 @@ import type {
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCelestialObjectDto,
+  StarmapUpdateCelestialObjectDto,
   StarmapCreateBorderTypeDto,
   StarmapCreateLayerDto,
   StarmapCreateMapRegionDto,
@@ -1388,6 +1389,27 @@ export class StarmapAdminService {
     return this.toSystemFieldDto(hydratedField);
   }
 
+  async updateCelestialObject(
+    objectId: number,
+    patch: StarmapUpdateCelestialObjectDto,
+  ): Promise<StarmapCelestialObjectDto> {
+    const object = await this.objectRepo.findOneBy({ id: objectId });
+    if (!object) throw new NotFoundException('Celestial object not found');
+
+    if (patch.name !== undefined) {
+      object.name = patch.name?.trim() || null;
+    }
+    if (patch.description !== undefined) {
+      if (patch.description && patch.description.length > 2000) {
+        throw new BadRequestException('Celestial object description is too long');
+      }
+      object.description = patch.description?.trim() || null;
+    }
+
+    const updatedObject = await this.objectRepo.save(object);
+    return this.toCelestialObjectDto(updatedObject);
+  }
+
   private async generateSystemContent(
     system: StarSystem,
     systemType: StarmapSystemTypeOption,
@@ -1924,6 +1946,7 @@ export class StarmapAdminService {
       id: object.id,
       objectType: object.objectType,
       name: object.name,
+      description: object.description,
       posX: object.posX,
       posY: object.posY,
       classId: object.classId,
@@ -2134,6 +2157,7 @@ export class StarmapAdminService {
           ),
           objectType: o.objectType,
           name: o.name,
+          description: o.description,
           posX: o.posX,
           posY: o.posY,
           classId: o.classId,
@@ -2346,6 +2370,7 @@ export class StarmapAdminService {
             systemId: sys.id,
             objectType: o.objectType,
             name: o.name,
+            description: typeof o.description === 'string' && o.description.trim() ? o.description : null,
             posX: o.posX,
             posY: o.posY,
             classId: o.classId,

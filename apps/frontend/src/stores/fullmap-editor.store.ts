@@ -8,6 +8,7 @@ import type {
   StarmapSystemTypeOptionDto,
   StarmapUpdateGalaxyFieldDto,
   StarmapUpdateSystemFieldDto,
+  StarmapUpdateCelestialObjectDto,
   StarmapBulkEditFieldsDto,
   StarmapCreateLayerDto,
   StarmapOperationResultDto,
@@ -114,6 +115,7 @@ interface FullmapEditorState {
   closeSystemView: () => void;
   selectSystemField: (field: StarmapSystemFieldDto | null) => void;
   updateSystemField: (fieldId: number, patch: StarmapUpdateSystemFieldDto) => Promise<void>;
+  updateCelestialObject: (objectId: number, patch: StarmapUpdateCelestialObjectDto) => Promise<void>;
 
   // Export/Import
   exportLayer: () => Promise<void>;
@@ -391,6 +393,24 @@ export const useFullmapEditorStore = create<FullmapEditorState>((set, get) => ({
       if (systemViewId) {
         const grid = await api.get<StarmapSystemGridDto>(`/starmap/systems/${systemViewId}/grid`);
         set({ systemGrid: grid, selectedSystemField: grid.fields.find((f) => f.id === fieldId) ?? null });
+      }
+    } catch (err) {
+      set({ error: readError(err) });
+    }
+  },
+
+  updateCelestialObject: async (objectId, patch) => {
+    const { systemViewId, selectedSystemField } = get();
+    try {
+      await api.patch(`/starmap/admin/celestial-objects/${objectId}`, patch);
+      if (systemViewId) {
+        const grid = await api.get<StarmapSystemGridDto>(`/starmap/systems/${systemViewId}/grid`);
+        set({
+          systemGrid: grid,
+          selectedSystemField: selectedSystemField
+            ? grid.fields.find((f) => f.id === selectedSystemField.id) ?? null
+            : null,
+        });
       }
     } catch (err) {
       set({ error: readError(err) });

@@ -1,6 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Application, Container, Sprite, Graphics, Assets } from 'pixi.js';
-import type { StarmapSystemFieldDto } from '@swuniverse/shared';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { spaceBackgroundTile, starTileImage } from '../../lib/assets';
 import {
@@ -23,16 +22,24 @@ export function SystemViewDialog() {
   const selectedSystemField = useFullmapEditorStore((s) => s.selectedSystemField);
   const selectSystemField = useFullmapEditorStore((s) => s.selectSystemField);
   const updateSystemField = useFullmapEditorStore((s) => s.updateSystemField);
+  const updateCelestialObject = useFullmapEditorStore((s) => s.updateCelestialObject);
   const fieldTypes = useFullmapEditorStore((s) => s.fieldTypes);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
+  const [objectNameDraft, setObjectNameDraft] = useState('');
+  const [objectDescriptionDraft, setObjectDescriptionDraft] = useState('');
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') closeSystemView(); }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [closeSystemView]);
+
+  useEffect(() => {
+    setObjectNameDraft(selectedSystemField?.celestialObject?.name ?? '');
+    setObjectDescriptionDraft(selectedSystemField?.celestialObject?.description ?? '');
+  }, [selectedSystemField?.celestialObject]);
 
   useEffect(() => {
     if (!canvasRef.current || !systemGrid) return;
@@ -303,6 +310,43 @@ export function SystemViewDialog() {
                   ))}
                 </select>
               </div>
+
+              {selectedSystemField.celestialObject && (
+                <div className="space-y-2 rounded border border-swu-border/60 bg-swu-surface/70 p-2">
+                  <div className="text-[10px] font-bold uppercase text-swu-muted">Objekt bearbeiten</div>
+                  <label className="block space-y-1">
+                    <span className="text-xs text-swu-muted">Name</span>
+                    <input
+                      className="w-full rounded border border-swu-border bg-swu-bg px-2 py-1 text-xs text-swu-text"
+                      value={objectNameDraft}
+                      onChange={(e) => setObjectNameDraft(e.target.value)}
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs text-swu-muted">Beschreibung</span>
+                    <textarea
+                      className="w-full rounded border border-swu-border bg-swu-bg px-2 py-1 text-xs text-swu-text resize-y"
+                      maxLength={2000}
+                      rows={4}
+                      value={objectDescriptionDraft}
+                      onChange={(e) => setObjectDescriptionDraft(e.target.value)}
+                    />
+                  </label>
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-swu-muted">
+                    <span>{objectDescriptionDraft.length}/2000</span>
+                    <span>BBCode wird in Spieleransichten gerendert</span>
+                  </div>
+                  <button
+                    className="w-full rounded border border-swu-accent bg-swu-accent/20 px-2 py-1 text-xs text-swu-accent hover:bg-swu-accent/30"
+                    onClick={() => updateCelestialObject(selectedSystemField.celestialObject!.id, {
+                      name: objectNameDraft,
+                      description: objectDescriptionDraft,
+                    })}
+                  >
+                    Objekt speichern
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-xs text-swu-muted">Feld im System anklicken zum Bearbeiten</div>

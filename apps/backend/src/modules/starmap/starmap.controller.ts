@@ -50,6 +50,7 @@ import type {
   StarmapSectorDto,
   StarmapSystemDetailDto,
   StarmapSystemFieldDto,
+  StarmapCelestialObjectDto,
   StarmapSystemGridDto,
   StarmapSystemListItemDto,
   StarmapSystemTypeOptionDto,
@@ -57,6 +58,7 @@ import type {
   StarmapUpdateGalaxyFieldDto,
   StarmapUpdateMapRegionDto,
   StarmapUpdateSystemFieldDto,
+  StarmapUpdateCelestialObjectDto,
   StarmapWormholeDto,
 } from '@swuniverse/shared';
 
@@ -396,6 +398,16 @@ export class StarmapController {
     body: StarmapUpdateSystemFieldDto,
   ): Promise<StarmapSystemFieldDto> {
     return this.starmapAdminService.updateSystemField(id, body);
+  }
+
+  @Patch('admin/celestial-objects/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
+  updateCelestialObject(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapUpdateCelestialObjectDto,
+  ): Promise<StarmapCelestialObjectDto> {
+    return this.starmapAdminService.updateCelestialObject(id, body);
   }
 
   // --- Bulk Edit ---

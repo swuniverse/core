@@ -41,6 +41,7 @@ export class PlanetSurfacesController {
         id: obj.id,
         objectType: obj.objectType,
         name: obj.name,
+        description: obj.description,
         posX: obj.posX,
         posY: obj.posY,
         classId: obj.classId,

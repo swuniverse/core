@@ -33,6 +33,9 @@ export class CelestialObject {
   @Column({ type: 'varchar', length: 255, nullable: true })
   name: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
   @Column()
   posX: number;
 

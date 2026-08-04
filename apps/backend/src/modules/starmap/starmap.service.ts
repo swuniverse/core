@@ -196,6 +196,7 @@ export class StarmapService {
       id: object.id,
       objectType: object.objectType,
       name: object.name,
+      description: object.description,
       posX: object.posX,
       posY: object.posY,
       classId: object.classId,

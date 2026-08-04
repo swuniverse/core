@@ -582,6 +582,7 @@ export class StarmapQueryService {
     id: number;
     objectType: number;
     name: string | null;
+    description: string | null;
     posX: number;
     posY: number;
     classId: number | null;
@@ -591,6 +592,7 @@ export class StarmapQueryService {
       id: object.id,
       objectType: object.objectType,
       name: object.name,
+      description: object.description,
       posX: object.posX,
       posY: object.posY,
       classId: object.classId,

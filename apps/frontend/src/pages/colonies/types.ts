@@ -735,7 +735,7 @@ export interface Colony {
   posX?: number;
   posY?: number;
   starSystem?: { name: string; cx?: number; cy?: number; layerId?: number };
-  celestialObject?: { name: string | null; classId: number | null };
+  celestialObject?: { name: string | null; description: string | null; classId: number | null };
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
   detailV2?: ColonyDetailV2;
