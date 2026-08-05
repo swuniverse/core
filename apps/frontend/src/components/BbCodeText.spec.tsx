@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import { BbCodeText } from './BbCodeText';
 
@@ -12,6 +12,26 @@ describe('BbCodeText', () => {
     expect(container.querySelector('blockquote')?.textContent).toBe('Zitat');
     expect(container.textContent).not.toContain('[b]');
     expect(container.textContent).not.toContain('[quote]');
+  });
+
+  it('renders STU heading and underline tags', () => {
+    const { container } = render(<BbCodeText text="[h2]Titel[/h2][h3]Untertitel[/h3][u]Wichtig[/u]" />);
+
+    expect(container.querySelector('h2')?.textContent).toBe('Titel');
+    expect(container.querySelector('h3')?.textContent).toBe('Untertitel');
+    expect(container.querySelector('.underline')?.textContent).toBe('Wichtig');
+  });
+
+  it('toggles translate text on click', () => {
+    render(
+      <BbCodeText text="[translate]yab'QI[translation]psychischen Schäden[/translate]" />,
+    );
+
+    const translation = screen.getByRole('button', { name: "yab'QI" });
+    fireEvent.click(translation);
+    expect(screen.getByRole('button', { name: 'psychischen Schäden' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'psychischen Schäden' }));
+    expect(screen.getByRole('button', { name: "yab'QI" })).toBeTruthy();
   });
 
   it('renders nested allowed tags', () => {

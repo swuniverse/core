@@ -12,7 +12,7 @@ import { StarmapPage } from '../pages/starmap';
 import { ResearchPage } from '../pages/research';
 import { ResearchTreePage } from '../pages/research-tree';
 import { MessagesPage } from '../pages/messages';
-import { HolonetPage } from '../pages/holonet';
+import { HolonetComposePage, HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
 import { DatabasePage } from '../pages/database';
@@ -126,6 +126,8 @@ export function App() {
             <Route path="/research/tree" element={<ResearchTreePage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/holonet" element={<HolonetPage />} />
+            <Route path="/holonet/new" element={<HolonetComposePage />} />
+            <Route path="/holonet/:id" element={<HolonetPage />} />
             <Route path="/database" element={<DatabasePage />} />
             <Route path="/claim-colony" element={<OnboardingPage />} />
             <Route path="/notes" element={<NotesPage />} />

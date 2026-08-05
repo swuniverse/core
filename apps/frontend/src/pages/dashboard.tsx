@@ -39,10 +39,12 @@ interface ColonySummary {
 interface HolonetPost {
   id: number;
   title: string;
-  authorName: string;
   createdAt: string;
   category: string;
   commentCount: number;
+  isUnread?: boolean;
+  author?: { username: string };
+  authorName?: string;
 }
 
 interface ColonizationLimit {
@@ -226,7 +228,9 @@ export function DashboardPage() {
       activeResearch,
       queuedResearch,
       buildJobs,
-      holonetPosts: (holonetData?.data ?? []).slice(0, 5),
+      holonetPosts: (holonetData?.data ?? [])
+        .filter((post) => post.isUnread)
+        .slice(0, 5),
       colonizationLimits: colonizationData,
       crewInfo,
       onlinePlayers: onlineData,
@@ -430,25 +434,25 @@ export function DashboardPage() {
               </div>
             )}
 
-            {/* Holonet Posts */}
+            {/* HoloNet Posts */}
             <div className="flex-1 min-w-0 bg-swu-surface border border-swu-border rounded">
               <div className="px-3 py-1.5 border-b border-swu-border/50 flex items-center justify-between">
                 <span
                   className="text-xs font-bold text-swu-muted"
                   style={{ fontFamily: 'var(--font-swu-display)' }}
                 >
-                  HoloNet
+                  HoloNet · Neue vom Lesezeichen
                 </span>
                 <Link
                   to="/holonet"
                   className="text-[10px] text-swu-accent hover:underline"
                 >
-                  Alle →
+                  Archiv →
                 </Link>
               </div>
               {data.holonetPosts.length === 0 ? (
                 <div className="px-3 py-2 text-[10px] text-swu-muted">
-                  Keine Beiträge.
+                  Keine neuen Beiträge seit dem gesetzten Lesezeichen.
                 </div>
               ) : (
                 <div className="divide-y divide-swu-border/20">
@@ -465,7 +469,7 @@ export function DashboardPage() {
                         {post.title}
                       </span>
                       <span className="text-[10px] text-swu-muted shrink-0">
-                        {post.authorName}
+                        {post.author?.username ?? post.authorName ?? 'Unbekannt'}
                       </span>
                       {post.commentCount > 0 && (
                         <span className="text-[10px] text-swu-muted shrink-0">

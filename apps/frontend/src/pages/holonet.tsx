@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -8,7 +9,7 @@ interface HolonetPost {
   title: string;
   body: string;
   category: string;
-  isPinned: boolean;
+  isUnread?: boolean;
   commentCount: number;
   rating: number;
   createdAt: string;
@@ -29,6 +30,8 @@ interface PostsResponse {
   total: number;
   page: number;
   limit: number;
+  unreadCount?: number;
+  lastReadPostId?: number;
 }
 
 interface CommentsResponse {
@@ -41,503 +44,692 @@ interface CommentsResponse {
 const CATEGORIES = ['NEWS', 'ROLEPLAY', 'TRADE', 'RECRUITMENT'] as const;
 
 const CATEGORY_STYLES: Record<string, string> = {
-  NEWS: 'bg-blue-900/30 text-blue-300',
-  ROLEPLAY: 'bg-purple-900/30 text-purple-300',
-  TRADE: 'bg-green-900/30 text-green-300',
-  RECRUITMENT: 'bg-orange-900/30 text-orange-300',
+  NEWS: 'border-blue-500/40 bg-blue-950/30 text-blue-200',
+  ROLEPLAY: 'border-purple-500/40 bg-purple-950/30 text-purple-200',
+  TRADE: 'border-green-500/40 bg-green-950/30 text-green-200',
+  RECRUITMENT: 'border-orange-500/40 bg-orange-950/30 text-orange-200',
+};
+
+const categoryLabel: Record<string, string> = {
+  NEWS: 'News',
+  ROLEPLAY: 'Roleplay',
+  TRADE: 'Handel',
+  RECRUITMENT: 'Rekrutierung',
 };
 
 export function HolonetPage() {
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const { id: routePostId } = useParams<{ id: string }>();
   const [posts, setPosts] = useState<HolonetPost[]>([]);
   const [filter, setFilter] = useState<string>('');
-  const [selected, setSelected] = useState<HolonetPost | null>(null);
-  const [showCompose, setShowCompose] = useState(false);
+  const [openPostIds, setOpenPostIds] = useState<Set<number>>(() => new Set());
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lastReadPostId, setLastReadPostId] = useState(0);
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, Comment[]>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [commentsLoading, setCommentsLoading] = useState<Record<number, boolean>>({});
+  const [ratingsByPost, setRatingsByPost] = useState<Record<number, number>>({});
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [textSearch, setTextSearch] = useState('');
+  const [authorSearch, setAuthorSearch] = useState('');
+  const [postSearch, setPostSearch] = useState('');
+  const limit = 20;
+
+  const selectedPostId = routePostId ? Number(routePostId) : null;
+
+  const loadComments = useCallback(async (postId: number) => {
+    setCommentsLoading((prev) => ({ ...prev, [postId]: true }));
+    const res = await api.get<CommentsResponse>(`/holonet/${postId}/comments`);
+    setCommentsByPost((prev) => ({ ...prev, [postId]: res.data }));
+    setCommentsLoading((prev) => ({ ...prev, [postId]: false }));
+  }, []);
+
+  const loadMyRating = useCallback(async (postId: number) => {
+    const val = await api.get<number>(`/holonet/${postId}/my-rating`);
+    setRatingsByPost((prev) => ({ ...prev, [postId]: val }));
+  }, []);
+
+  const openPost = useCallback(
+    (post: HolonetPost) => {
+      setOpenPostIds((prev) => new Set(prev).add(post.id));
+      void loadComments(post.id);
+      void loadMyRating(post.id);
+    },
+    [loadComments, loadMyRating],
+  );
+
+  const load = useCallback(
+    async (p = page, postId = selectedPostId) => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filter) params.set('category', filter);
+      const trimmedTextSearch = textSearch.trim();
+      const trimmedAuthorSearch = authorSearch.trim();
+      const trimmedPostSearch = postSearch.trim();
+      if (trimmedTextSearch) params.set('text', trimmedTextSearch);
+      if (trimmedAuthorSearch) params.set('authorId', trimmedAuthorSearch);
+      if (trimmedPostSearch) params.set('postId', trimmedPostSearch);
+      params.set('page', String(p));
+      const res = await api.get<PostsResponse>(`/holonet?${params.toString()}`);
+      const filteredPosts = filter
+        ? res.data.filter((post) => post.category === filter)
+        : res.data;
+      setPosts(filteredPosts);
+      setTotal(res.total);
+      setUnreadCount(
+        res.unreadCount ?? res.data.filter((post) => post.isUnread).length,
+      );
+      setLastReadPostId(res.lastReadPostId ?? 0);
+      setLoading(false);
+
+      if (postId === null || !Number.isFinite(postId)) return;
+
+      const foundPost = filteredPosts.find((post) => post.id === postId);
+      if (foundPost) {
+        openPost(foundPost);
+        return;
+      }
+
+      if (filter) return;
+
+      try {
+        const fetchedPost = await api.get<HolonetPost>(`/holonet/${postId}`);
+        setPosts((prev) => [fetchedPost, ...prev]);
+        openPost(fetchedPost);
+      } catch {
+        setOpenPostIds((prev) => {
+          const next = new Set(prev);
+          next.delete(postId);
+          return next;
+        });
+      }
+    },
+    [authorSearch, filter, openPost, page, postSearch, selectedPostId, textSearch],
+  );
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const togglePost = (post: HolonetPost) => {
+    if (openPostIds.has(post.id)) {
+      setOpenPostIds((prev) => {
+        const next = new Set(prev);
+        next.delete(post.id);
+        return next;
+      });
+      return;
+    }
+
+    navigate(`/holonet/${post.id}`);
+    openPost(post);
+  };
+
+  const setBookmark = async (post: HolonetPost) => {
+    await api.post('/holonet/checkpoint', { postId: post.id });
+    setLastReadPostId(post.id);
+    setUnreadCount(posts.filter((item) => item.id > post.id).length);
+    setPosts((prev) =>
+      prev.map((item) => ({ ...item, isUnread: item.id > post.id })),
+    );
+  };
+
+  const submitComment = async (post: HolonetPost) => {
+    const body = commentDrafts[post.id]?.trim();
+    if (!body) return;
+    await api.post(`/holonet/${post.id}/comments`, { body });
+    setCommentDrafts((prev) => ({ ...prev, [post.id]: '' }));
+    await loadComments(post.id);
+    setPosts((prev) =>
+      prev.map((item) =>
+        item.id === post.id
+          ? { ...item, commentCount: item.commentCount + 1 }
+          : item,
+      ),
+    );
+  };
+
+  const deleteComment = async (post: HolonetPost, commentId: number) => {
+    await api.delete(`/holonet/comments/${commentId}`);
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [post.id]: (prev[post.id] ?? []).filter((comment) => comment.id !== commentId),
+    }));
+    setPosts((prev) =>
+      prev.map((item) =>
+        item.id === post.id
+          ? { ...item, commentCount: Math.max(0, item.commentCount - 1) }
+          : item,
+      ),
+    );
+  };
+
+  const rate = async (post: HolonetPost, value: number) => {
+    const res = await api.post<{ rating: number }>(`/holonet/${post.id}/rate`, {
+      value,
+    });
+    setPosts((prev) =>
+      prev.map((item) =>
+        item.id === post.id ? { ...item, rating: res.rating } : item,
+      ),
+    );
+    setRatingsByPost((prev) => ({
+      ...prev,
+      [post.id]: value,
+    }));
+  };
+
+  const startEdit = (post: HolonetPost) => {
+    setEditingPostId(post.id);
+    setEditTitle(post.title);
+    setEditBody(post.body);
+  };
+
+  const saveEdit = async (post: HolonetPost) => {
+    const updated = await api.patch<HolonetPost>(`/holonet/${post.id}`, {
+      title: editTitle,
+      body: editBody,
+    });
+    setPosts((prev) =>
+      prev.map((item) =>
+        item.id === post.id
+          ? { ...item, title: updated.title, body: updated.body }
+          : item,
+      ),
+    );
+    setEditingPostId(null);
+  };
+
+
+
+  const totalPages = Math.ceil(total / limit);
+
+  return (
+    <div className="p-2 text-swu-muted md:p-4">
+      <div className="border border-swu-border bg-black/40">
+        <div className="border-b border-swu-border bg-swu-surface/70 px-3 py-1 text-xs font-bold text-swu-primary">
+          / HoloNet / Archiv
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 border-b border-swu-border/70 bg-swu-bg/70 px-3 py-2 text-[11px]">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="border border-swu-border px-2 py-0.5 text-swu-muted hover:text-swu-primary disabled:opacity-30"
+          >
+            &lt;
+          </button>
+          <span className="border border-swu-border px-2 py-0.5 text-swu-primary">
+            Seite {page}{totalPages > 0 ? ` / ${totalPages}` : ''}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages || 1, p + 1))}
+            disabled={page >= totalPages}
+            className="border border-swu-border px-2 py-0.5 text-swu-muted hover:text-swu-primary disabled:opacity-30"
+          >
+            &gt;
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3 p-2 md:flex-row md:items-start">
+          <main className="min-w-0 flex-1 space-y-2">
+            {loading ? (
+              <div className="border border-swu-border bg-swu-surface/40 p-4 text-sm">
+                Archivdaten werden geladen...
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="border border-swu-border bg-swu-surface/40 p-4 text-sm">
+                Keine Beitraege.
+              </div>
+            ) : (
+              posts.map((post) => {
+                const isOpen = openPostIds.has(post.id);
+                const comments = commentsByPost[post.id] ?? [];
+                const myRating = ratingsByPost[post.id] ?? 0;
+                const commentDraft = commentDrafts[post.id] ?? '';
+                return (
+                  <article
+                    key={post.id}
+                    className="border border-swu-border bg-swu-surface/70"
+                  >
+                    <button
+                      onClick={() => togglePost(post)}
+                      className="w-full px-3 py-2 text-left transition-colors hover:bg-swu-bg/50"
+                    >
+                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          {lastReadPostId === post.id && (
+                            <span className="border border-swu-accent/50 bg-swu-accent/10 px-1.5 py-0.5 text-[10px] text-swu-accent">
+                              LESEZEICHEN
+                            </span>
+                          )}
+                          <span
+                            className={`border px-1.5 py-0.5 text-[10px] ${CATEGORY_STYLES[post.category] || 'border-swu-border text-swu-muted'}`}
+                          >
+                            {post.category}
+                          </span>
+                          <h2 className="truncate text-sm font-bold text-swu-primary">
+                            {post.title}
+                          </h2>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 text-[10px] text-swu-muted">
+                          <span>{post.author.username}</span>
+                          <span className="text-red-400">
+                            {new Date(post.createdAt).toLocaleDateString('de-DE')}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-3 text-[10px] text-swu-muted">
+                        <span>Beitrag #{post.id}</span>
+                        <span>{post.commentCount} Kommentare</span>
+                        <span>
+                          Bewertung {post.rating > 0 ? '+' : ''}
+                          {post.rating}
+                        </span>
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="border-t border-swu-border/70 md:grid md:grid-cols-[minmax(0,1fr)_132px]">
+                        <div className="min-w-0 p-3">
+                          {editingPostId === post.id ? (
+                            <div className="space-y-2">
+                              <input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
+                              />
+                              <textarea
+                                value={editBody}
+                                onChange={(e) => setEditBody(e.target.value)}
+                                rows={6}
+                                className="w-full resize-y border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
+                              />
+                              <div className="flex gap-2 text-xs">
+                                <button
+                                  onClick={() => saveEdit(post)}
+                                  className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent"
+                                >
+                                  Speichern
+                                </button>
+                                <button
+                                  onClick={() => setEditingPostId(null)}
+                                  className="border border-swu-border px-3 py-1 text-swu-muted hover:text-swu-primary"
+                                >
+                                  Abbrechen
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="mb-3 flex items-start justify-between gap-3">
+                                <div>
+                                  <h3 className="text-base font-bold text-swu-primary">
+                                    {post.title}
+                                  </h3>
+                                  <p className="text-[10px] text-swu-muted">
+                                    Gesendet über HoloNet-Kanal {post.category}
+                                  </p>
+                                </div>
+                                {post.authorId === user?.id && (
+                                  <button
+                                    onClick={() => startEdit(post)}
+                                    className="text-[10px] text-swu-muted hover:text-swu-accent"
+                                  >
+                                    Bearbeiten
+                                  </button>
+                                )}
+                              </div>
+                              <BbCodeText
+                                text={post.body}
+                                className="whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
+                              />
+                            </>
+                          )}
+
+                          {post.authorId === user?.id ? (
+                            <div className="mt-4 border-y border-swu-border/50 py-2 text-xs text-swu-muted">
+                              Eigene Beiträge können nicht bewertet werden.
+                            </div>
+                          ) : (
+                            <div className="mt-4 flex flex-wrap items-center gap-2 border-y border-swu-border/50 py-2 text-xs">
+                              <button
+                                onClick={() => rate(post, -1)}
+                                disabled={myRating !== 0}
+                                className={`border px-2 py-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  myRating === -1
+                                    ? 'border-red-400 bg-red-500/20 text-red-300'
+                                    : 'border-red-500/50 text-red-400 hover:bg-red-500/10 disabled:hover:bg-transparent'
+                                }`}
+                              >
+                                -
+                              </button>
+                              <span
+                                className={`min-w-8 text-center font-bold ${
+                                  post.rating > 0
+                                    ? 'text-green-400'
+                                    : post.rating < 0
+                                      ? 'text-red-400'
+                                      : 'text-swu-muted'
+                                }`}
+                              >
+                                {post.rating > 0 ? '+' : ''}
+                                {post.rating}
+                              </span>
+                              <button
+                                onClick={() => rate(post, 1)}
+                                disabled={myRating !== 0}
+                                className={`border px-2 py-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  myRating === 1
+                                    ? 'border-green-400 bg-green-500/20 text-green-300'
+                                    : 'border-green-500/50 text-green-400 hover:bg-green-500/10 disabled:hover:bg-transparent'
+                                }`}
+                              >
+                                +
+                              </button>
+                              <span className="ml-auto text-[10px] text-swu-muted">
+                                {post.commentCount} Kommentare
+                              </span>
+                            </div>
+                          )}
+
+                          <section className="mt-3 space-y-2">
+                            <h4 className="text-xs font-bold text-swu-primary">
+                              Kommentare ({post.commentCount})
+                            </h4>
+                            {commentsLoading[post.id] ? (
+                              <p className="text-xs text-swu-muted">Laden...</p>
+                            ) : comments.length === 0 ? (
+                              <p className="text-xs text-swu-muted">Noch keine Kommentare.</p>
+                            ) : (
+                              comments.map((comment) => (
+                                <div
+                                  key={comment.id}
+                                  className="border border-swu-border/40 bg-swu-bg/50 p-2"
+                                >
+                                  <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
+                                    <span className="font-bold text-swu-primary">
+                                      {comment.author.username}
+                                    </span>
+                                    <div className="flex items-center gap-2 text-swu-muted">
+                                      <span>
+                                        {new Date(comment.createdAt).toLocaleDateString(
+                                          'de-DE',
+                                        )}
+                                      </span>
+                                      {comment.authorId === user?.id && (
+                                        <button
+                                          onClick={() => deleteComment(post, comment.id)}
+                                          className="text-red-400 hover:text-red-300"
+                                        >
+                                          X
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <BbCodeText
+                                    text={comment.body}
+                                    className="whitespace-pre-wrap text-xs text-swu-muted"
+                                  />
+                                </div>
+                              ))
+                            )}
+
+                            <div className="relative">
+                              <textarea
+                                value={commentDraft}
+                                onChange={(e) =>
+                                  setCommentDrafts((prev) => ({
+                                    ...prev,
+                                    [post.id]: e.target.value.slice(0, 250),
+                                  }))
+                                }
+                                rows={2}
+                                placeholder="Kommentar (max 250 Zeichen)..."
+                                className="w-full resize-none border border-swu-border bg-swu-bg px-2 py-1.5 pr-12 text-xs text-swu-primary"
+                              />
+                              <span className="absolute bottom-2 right-2 text-[9px] text-swu-muted">
+                                {commentDraft.length}/250
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => submitComment(post)}
+                              disabled={!commentDraft.trim()}
+                              className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-xs text-swu-accent hover:bg-swu-accent/20 disabled:opacity-40"
+                            >
+                              Kommentieren
+                            </button>
+                          </section>
+                        </div>
+
+                        <aside className="border-t border-swu-border/70 bg-black/30 p-3 text-center md:border-l md:border-t-0">
+                          <p className="mb-3 text-[11px] font-bold text-red-400">
+                            {new Date(post.createdAt).toLocaleString('de-DE')}
+                          </p>
+                          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center border border-swu-border bg-swu-bg text-lg font-bold text-swu-primary">
+                            {post.author.username.slice(0, 2).toUpperCase()}
+                          </div>
+                          <p className="text-xs text-swu-primary">{post.author.username}</p>
+                          <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
+                          <div className="mt-3 flex justify-center gap-1">
+                            <button
+                              onClick={() => navigate('/messages')}
+                              className="border border-swu-border px-1.5 py-0.5 text-xs text-swu-primary hover:border-swu-accent hover:text-swu-accent"
+                              title="Nachricht schreiben"
+                            >
+                              ✉
+                            </button>
+                            <button
+                              disabled
+                              className="border border-swu-border px-1.5 py-0.5 text-xs text-swu-muted opacity-60"
+                              title="Siedlerprofil vorbereitet"
+                            >
+                              ?
+                            </button>
+                            <button
+                              onClick={() => setBookmark(post)}
+                              className="border border-swu-accent/60 px-1.5 py-0.5 text-[10px] text-swu-accent hover:bg-swu-accent/10"
+                            >
+                              Lesezeichen
+                            </button>
+                          </div>
+                        </aside>
+                      </div>
+                    )}
+                  </article>
+                );
+              })
+            )}
+          </main>
+
+          <aside className="w-full shrink-0 space-y-3 md:w-72">
+            <section className="border border-swu-border bg-black/40">
+              <h3 className="border-b border-swu-border bg-swu-surface/80 px-3 py-1 text-center text-xs font-bold text-swu-primary">
+                Holo-Netzwerk
+              </h3>
+              <div className="space-y-3 p-3 text-xs">
+                <button
+                  onClick={() => navigate('/holonet/new')}
+                  className="w-full border border-swu-accent/70 bg-swu-accent/10 px-2 py-1 text-left text-swu-accent hover:bg-swu-accent/20"
+                >
+                  ▣ Beitrag schreiben
+                </button>
+                <div>
+                  <h4 className="mb-1 font-bold text-swu-primary">Übersicht</h4>
+                  <p>&gt; Neue Beiträge ab Lesezeichen: {unreadCount}</p>
+                  <p>&gt; Alle Beiträge: {total}</p>
+                  <p className="text-[10px] text-swu-muted">
+                    &gt; Lesezeichen: {lastReadPostId > 0 ? `#${lastReadPostId}` : 'nicht gesetzt'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="mb-1 font-bold text-swu-primary">Kategorien</h4>
+                  <button
+                    onClick={() => {
+                      setFilter('');
+                      setPage(1);
+                    }}
+                    className={`block text-left ${!filter ? 'text-swu-accent' : 'hover:text-swu-primary'}`}
+                  >
+                    &gt; Alle
+                  </button>
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => {
+                        setFilter(cat);
+                        setPage(1);
+                      }}
+                      className={`block text-left ${filter === cat ? 'text-swu-accent' : 'hover:text-swu-primary'}`}
+                    >
+                      &gt; {categoryLabel[cat]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="border border-swu-border bg-black/40">
+              <h3 className="border-b border-swu-border bg-swu-surface/80 px-3 py-1 text-center text-xs font-bold text-swu-primary">
+                Suche
+              </h3>
+              <div className="space-y-1 p-3 text-xs">
+                <input
+                  value={textSearch}
+                  onChange={(e) => {
+                    setTextSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="nach Text suchen"
+                  className="w-full border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary placeholder:text-swu-muted"
+                />
+                <input
+                  value={authorSearch}
+                  onChange={(e) => {
+                    setAuthorSearch(e.target.value.replace(/\D/g, ''));
+                    setPage(1);
+                  }}
+                  placeholder="nach Spieler-ID suchen"
+                  inputMode="numeric"
+                  className="w-full border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary placeholder:text-swu-muted"
+                />
+                <input
+                  value={postSearch}
+                  onChange={(e) => {
+                    setPostSearch(e.target.value.replace(/\D/g, ''));
+                    setPage(1);
+                  }}
+                  placeholder="nach Beitrag-ID suchen"
+                  inputMode="numeric"
+                  className="w-full border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary placeholder:text-swu-muted"
+                />
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function HolonetComposePage() {
+  const navigate = useNavigate();
   const [compose, setCompose] = useState({
     title: '',
     body: '',
     category: 'NEWS',
   });
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [newCount, setNewCount] = useState(0);
-  const limit = 20;
-
-  // Comments state
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentBody, setCommentBody] = useState('');
-  const [commentsLoading, setCommentsLoading] = useState(false);
-
-  // Rating state
-  const [myRating, setMyRating] = useState(0);
-
-  // Edit state
-  const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editBody, setEditBody] = useState('');
-
-  const load = async (p = page) => {
-    const params = new URLSearchParams();
-    if (filter) params.set('category', filter);
-    params.set('page', String(p));
-    const q = params.toString();
-    const res = await api.get<PostsResponse>(`/holonet?${q}`);
-    setPosts(res.data);
-    setTotal(res.total);
-    setLoading(false);
-  };
-
-  const loadNewCount = async () => {
-    const count = await api.get<number>('/holonet/new-count');
-    setNewCount(count);
-  };
-
-  useEffect(() => {
-    load();
-    loadNewCount();
-  }, [filter, page]);
-
-  const loadComments = async (postId: number) => {
-    setCommentsLoading(true);
-    const res = await api.get<CommentsResponse>(`/holonet/${postId}/comments`);
-    setComments(res.data);
-    setCommentsLoading(false);
-  };
-
-  const loadMyRating = async (postId: number) => {
-    const val = await api.get<number>(`/holonet/${postId}/my-rating`);
-    setMyRating(val);
-  };
-
-  const selectPost = async (post: HolonetPost) => {
-    setSelected(post);
-    setEditing(false);
-    loadComments(post.id);
-    loadMyRating(post.id);
-  };
 
   const createPost = async () => {
-    await api.post('/holonet', compose);
-    setCompose({ title: '', body: '', category: 'NEWS' });
-    setShowCompose(false);
-    load();
+    const post = await api.post<HolonetPost>('/holonet', compose);
+    navigate(`/holonet/${post.id}`);
   };
-
-  const submitComment = async () => {
-    if (!selected || !commentBody.trim()) return;
-    await api.post(`/holonet/${selected.id}/comments`, { body: commentBody });
-    setCommentBody('');
-    loadComments(selected.id);
-    setSelected({ ...selected, commentCount: selected.commentCount + 1 });
-  };
-
-  const deleteComment = async (commentId: number) => {
-    if (!selected) return;
-    await api.delete(`/holonet/comments/${commentId}`);
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
-    setSelected({ ...selected, commentCount: selected.commentCount - 1 });
-  };
-
-  const rate = async (value: number) => {
-    if (!selected) return;
-    const res = await api.post<{ rating: number }>(
-      `/holonet/${selected.id}/rate`,
-      { value },
-    );
-    setSelected({ ...selected, rating: res.rating });
-    setMyRating((prev) => (prev === value ? 0 : value));
-  };
-
-  const markAsRead = async () => {
-    await api.post('/holonet/checkpoint', {});
-    setNewCount(0);
-  };
-
-  const startEdit = () => {
-    if (!selected) return;
-    setEditTitle(selected.title);
-    setEditBody(selected.body);
-    setEditing(true);
-  };
-
-  const saveEdit = async () => {
-    if (!selected) return;
-    const updated = await api.patch<HolonetPost>(`/holonet/${selected.id}`, {
-      title: editTitle,
-      body: editBody,
-    });
-    setSelected({ ...selected, title: editTitle, body: editBody });
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === selected.id ? { ...p, title: editTitle, body: editBody } : p,
-      ),
-    );
-    setEditing(false);
-  };
-
-  const togglePin = async (postId: number) => {
-    const updated = await api.patch<HolonetPost>(`/holonet/${postId}/pin`, {});
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, isPinned: updated.isPinned } : p,
-      ),
-    );
-    if (selected?.id === postId) {
-      setSelected({ ...selected, isPinned: updated.isPinned });
-    }
-  };
-
-  const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="p-3 md:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>HoloNet</h1>
-        <button
-          onClick={() => setShowCompose(!showCompose)}
-          className="px-3 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm rounded hover:bg-swu-accent/30 transition-colors"
-        >
-          {showCompose ? 'Abbrechen' : 'Neuer Beitrag'}
-        </button>
-      </div>
-
-      {newCount > 0 && (
-        <button
-          onClick={markAsRead}
-          className="w-full mb-4 py-2 bg-swu-accent/10 border border-swu-accent/30 rounded text-sm text-swu-accent hover:bg-swu-accent/20 transition-colors"
-        >
-          {newCount} neue{newCount === 1 ? 'r' : ''} Beitr
-          {newCount === 1 ? 'ag' : 'aege'} seit letztem Besuch — als gelesen
-          markieren
-        </button>
-      )}
-
-      {/* Category Filter */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => {
-            setFilter('');
-            setPage(1);
-          }}
-          className={`px-2 py-1 text-xs rounded border transition-colors ${
-            !filter
-              ? 'border-swu-accent text-swu-accent'
-              : 'border-swu-border text-swu-muted hover:border-swu-primary'
-          }`}
-        >
-          Alle
-        </button>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => {
-              setFilter(cat);
-              setPage(1);
-            }}
-            className={`px-2 py-1 text-xs rounded border transition-colors ${
-              filter === cat
-                ? 'border-swu-accent text-swu-accent'
-                : 'border-swu-border text-swu-muted hover:border-swu-primary'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Compose */}
-      {showCompose && (
-        <div className="bg-swu-surface border border-swu-border rounded-lg p-4 mb-4 max-w-lg space-y-3">
-          <input
-            value={compose.title}
-            onChange={(e) => setCompose({ ...compose, title: e.target.value })}
-            placeholder="Titel"
-            className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary"
-          />
-          <select
-            value={compose.category}
-            onChange={(e) =>
-              setCompose({ ...compose, category: e.target.value })
-            }
-            className="bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary"
-          >
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-          <textarea
-            value={compose.body}
-            onChange={(e) => setCompose({ ...compose, body: e.target.value })}
-            rows={4}
-            placeholder="Beitrag schreiben..."
-            className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary resize-none"
-          />
-          <button
-            onClick={createPost}
-            disabled={!compose.title || !compose.body}
-            className="px-4 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"
-          >
-            Veroeffentlichen
-          </button>
+    <div className="p-2 text-swu-muted md:p-4">
+      <div className="border border-swu-border bg-black/40">
+        <div className="border-b border-swu-border bg-swu-surface/70 px-3 py-1 text-xs font-bold text-swu-primary">
+          / HoloNet / Beitrag schreiben
         </div>
-      )}
+        <div className="space-y-4 p-3">
+          <label className="block text-xs font-bold text-swu-primary">
+            Titel
+            <input
+              value={compose.title}
+              maxLength={80}
+              onChange={(e) => setCompose({ ...compose, title: e.target.value })}
+              className="mt-1 w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm font-normal text-swu-primary"
+            />
+          </label>
 
-      {/* Posts */}
-      <div className="flex flex-col gap-4 md:flex-row">
-        <div className="flex-1 space-y-2">
-          {loading ? (
-            <p className="text-swu-muted text-sm">Laden...</p>
-          ) : posts.length === 0 ? (
-            <p className="text-swu-muted text-sm">Keine Beitraege.</p>
-          ) : (
-            posts.map((post) => (
-              <button
-                key={post.id}
-                onClick={() => selectPost(post)}
-                className={`w-full text-left bg-swu-surface border rounded-lg p-3 transition-colors hover:border-swu-primary ${
-                  selected?.id === post.id
-                    ? 'border-swu-accent'
-                    : 'border-swu-border'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  {post.isPinned && (
-                    <span className="text-xs" title="Angepinnt">
-                      📌
-                    </span>
-                  )}
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_STYLES[post.category] || ''}`}
-                  >
-                    {post.category}
-                  </span>
-                  <span className="text-sm font-bold text-swu-primary flex-1">
-                    {post.title}
-                  </span>
-                  <span className="text-[10px] text-swu-muted">
-                    {post.rating !== 0 && (
-                      <span
-                        className={
-                          post.rating > 0 ? 'text-green-400' : 'text-red-400'
-                        }
-                      >
-                        {post.rating > 0 ? '+' : ''}
-                        {post.rating}
-                      </span>
-                    )}
-                    {post.commentCount > 0 && (
-                      <span className="ml-2">💬{post.commentCount}</span>
-                    )}
-                  </span>
-                </div>
-                <p className="text-[10px] text-swu-muted">
-                  {post.author.username} ·{' '}
-                  {new Date(post.createdAt).toLocaleDateString('de-DE')}
-                </p>
-              </button>
-            ))
-          )}
+          <label className="block max-w-xs text-xs font-bold text-swu-primary">
+            Kategorie
+            <select
+              value={compose.category}
+              onChange={(e) => setCompose({ ...compose, category: e.target.value })}
+              className="mt-1 w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm font-normal text-swu-primary"
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {categoryLabel[cat]}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="text-xs text-swu-muted hover:text-swu-primary disabled:opacity-30"
-              >
-                Zurueck
-              </button>
-              <span className="text-xs text-swu-muted">
-                Seite {page} von {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="text-xs text-swu-muted hover:text-swu-primary disabled:opacity-30"
-              >
-                Weiter
-              </button>
+          <label className="block text-xs font-bold text-swu-primary">
+            Text
+            <textarea
+              value={compose.body}
+              onChange={(e) => setCompose({ ...compose, body: e.target.value })}
+              rows={14}
+              className="mt-1 w-full resize-y border border-swu-border bg-swu-bg px-2 py-1 text-sm font-normal text-swu-primary"
+            />
+          </label>
+
+          <section className="border border-swu-border/60 bg-swu-bg/50 p-3 text-xs text-swu-muted">
+            <h3 className="mb-2 font-bold text-swu-primary">BB-Code Hilfe</h3>
+            <div className="grid gap-1 md:grid-cols-2">
+              <code>[b]fett[/b]</code>
+              <code>[i]kursiv[/i]</code>
+              <code>[u]unterstrichen[/u]</code>
+              <code>[h2]Überschrift[/h2]</code>
+              <code>[h3]Unterüberschrift[/h3]</code>
+              <code>[quote]Zitat[/quote]</code>
+              <code className="md:col-span-2">
+                [translate]Hello World[translation]Hallo Welt[/translate]
+              </code>
             </div>
-          )}
-        </div>
+            <p className="mt-2 text-[10px]">
+              Übersetzungen erscheinen unterstrichen und wechseln per Klick zwischen Original und Übersetzung.
+            </p>
+          </section>
 
-        {/* Detail Panel */}
-        {selected && (
-          <div className="w-full bg-swu-surface border border-swu-border rounded-lg p-4 md:w-[420px] max-h-[calc(100svh-200px)] overflow-y-auto">
-            <div className="flex items-center gap-2 mb-2">
-              {selected.isPinned && <span title="Angepinnt">📌</span>}
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_STYLES[selected.category] || ''}`}
-              >
-                {selected.category}
-              </span>
-              {user?.isAdmin && (
-                <button
-                  onClick={() => togglePin(selected.id)}
-                  className="ml-auto text-[10px] text-swu-muted hover:text-swu-accent"
-                >
-                  {selected.isPinned ? 'Loslösen' : 'Anheften'}
-                </button>
-              )}
-            </div>
-
-            {editing ? (
-              <div className="space-y-2 mb-4">
-                <input
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full bg-swu-bg border border-swu-border rounded px-2 py-1 text-sm text-swu-primary"
-                />
-                <textarea
-                  value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
-                  rows={4}
-                  className="w-full bg-swu-bg border border-swu-border rounded px-2 py-1 text-sm text-swu-primary resize-none"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={saveEdit}
-                    className="px-3 py-1 text-xs bg-swu-accent/20 border border-swu-accent text-swu-accent rounded"
-                  >
-                    Speichern
-                  </button>
-                  <button
-                    onClick={() => setEditing(false)}
-                    className="px-3 py-1 text-xs border border-swu-border text-swu-muted rounded"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-start justify-between">
-                  <h2 className="text-lg font-bold text-swu-primary mb-1">
-                    {selected.title}
-                  </h2>
-                  {selected.authorId === user?.id && (
-                    <button
-                      onClick={startEdit}
-                      className="text-xs text-swu-muted hover:text-swu-accent"
-                    >
-                      Bearbeiten
-                    </button>
-                  )}
-                </div>
-                <p className="text-[10px] text-swu-muted mb-3">
-                  {selected.author.username} ·{' '}
-                  {new Date(selected.createdAt).toLocaleString('de-DE')}
-                </p>
-                <BbCodeText text={selected.body} className="text-sm text-swu-muted whitespace-pre-wrap mb-4" />
-              </>
-            )}
-
-            {/* Rating */}
-            <div className="flex items-center gap-3 mb-4 py-2 border-t border-b border-swu-border/50">
-              <button
-                onClick={() => rate(1)}
-                className={`text-sm px-2 py-1 rounded transition-colors ${
-                  myRating === 1
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-swu-muted hover:text-green-400'
-                }`}
-              >
-                👍
-              </button>
-              <span
-                className={`text-sm font-bold ${
-                  selected.rating > 0
-                    ? 'text-green-400'
-                    : selected.rating < 0
-                      ? 'text-red-400'
-                      : 'text-swu-muted'
-                }`}
-              >
-                {selected.rating > 0 ? '+' : ''}
-                {selected.rating}
-              </span>
-              <button
-                onClick={() => rate(-1)}
-                className={`text-sm px-2 py-1 rounded transition-colors ${
-                  myRating === -1
-                    ? 'bg-red-500/20 text-red-400'
-                    : 'text-swu-muted hover:text-red-400'
-                }`}
-              >
-                👎
-              </button>
-            </div>
-
-            {/* Comments */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-swu-muted">
-                Kommentare ({selected.commentCount})
-              </h4>
-
-              {commentsLoading ? (
-                <p className="text-xs text-swu-muted">Laden...</p>
-              ) : comments.length === 0 ? (
-                <p className="text-xs text-swu-muted">Noch keine Kommentare.</p>
-              ) : (
-                comments.map((c) => (
-                  <div
-                    key={c.id}
-                    className="bg-swu-bg/50 border border-swu-border/30 rounded p-2"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold text-swu-primary">
-                        {c.author.username}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-swu-muted">
-                          {new Date(c.createdAt).toLocaleDateString('de-DE')}
-                        </span>
-                        {c.authorId === user?.id && (
-                          <button
-                            onClick={() => deleteComment(c.id)}
-                            className="text-[9px] text-red-400 hover:text-red-300"
-                          >
-                            X
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <BbCodeText text={c.body} className="text-xs text-swu-muted whitespace-pre-wrap" />
-                  </div>
-                ))
-              )}
-
-              {/* Comment Form */}
-              <div className="pt-2">
-                <div className="relative">
-                  <textarea
-                    value={commentBody}
-                    onChange={(e) =>
-                      setCommentBody(e.target.value.slice(0, 250))
-                    }
-                    rows={2}
-                    placeholder="Kommentar (max 250 Zeichen)..."
-                    className="w-full bg-swu-bg border border-swu-border rounded px-2 py-1.5 text-xs text-swu-primary resize-none"
-                  />
-                  <span className="absolute bottom-2 right-2 text-[9px] text-swu-muted">
-                    {commentBody.length}/250
-                  </span>
-                </div>
-                <button
-                  onClick={submitComment}
-                  disabled={!commentBody.trim()}
-                  className="mt-1 px-3 py-1 text-xs bg-swu-accent/20 border border-swu-accent text-swu-accent rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"
-                >
-                  Kommentieren
-                </button>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-swu-border pt-3 text-xs">
+            <button
+              onClick={createPost}
+              disabled={!compose.title.trim() || !compose.body.trim()}
+              className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent hover:bg-swu-accent/20 disabled:opacity-40"
+            >
+              Hinzufügen
+            </button>
+            <button
+              onClick={() => navigate('/holonet')}
+              className="border border-swu-border px-3 py-1 text-swu-muted hover:text-swu-primary"
+            >
+              Abbrechen
+            </button>
+            <span className="ml-auto text-[10px] text-swu-muted">
+              Lesezeichen werden im Archiv manuell gesetzt.
+            </span>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

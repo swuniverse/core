@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 export type BbCodeTextProps = {
   text: string | null | undefined;
@@ -6,7 +6,17 @@ export type BbCodeTextProps = {
   as?: 'div' | 'p' | 'span';
 };
 
-type Tag = 'b' | 'i' | 'u' | 's' | 'quote' | 'code' | 'url';
+type Tag =
+  | 'b'
+  | 'i'
+  | 'u'
+  | 's'
+  | 'h2'
+  | 'h3'
+  | 'quote'
+  | 'code'
+  | 'url'
+  | 'translate';
 
 type Part = {
   literal: string;
@@ -18,9 +28,12 @@ type Frame = {
   attr: string | undefined;
   startLiteral: string;
   children: Part[];
+  translationChildren?: Part[];
+  inTranslation?: boolean;
 };
 
-const TAG_PATTERN = /\[(\/?)(b|i|u|s|quote|code|url)(?:=([^\]]+))?\]/gi;
+const TAG_PATTERN =
+  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|translate|translation)(?:=([^\]]+))?\]/gi;
 
 function textPart(text: string): Part {
   return { literal: text, node: text };
@@ -45,13 +58,45 @@ function isSafeUrl(value: string): boolean {
   }
 }
 
+function frameChildren(frame: Frame): Part[] {
+  if (frame.tag === 'translate' && frame.inTranslation) {
+    frame.translationChildren ??= [];
+    return frame.translationChildren;
+  }
+  return frame.children;
+}
+
 function appendPart(stack: Frame[], root: Part[], part: Part) {
-  const parent = stack.at(-1)?.children ?? root;
+  const frame = stack.at(-1);
+  const parent = frame ? frameChildren(frame) : root;
   parent.push(part);
 }
 
+function TranslationText({
+  primary,
+  translated,
+}: {
+  primary: ReactNode[];
+  translated: ReactNode[];
+}) {
+  const [showTranslation, setShowTranslation] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => setShowTranslation((value) => !value)}
+      className="inline cursor-pointer border-0 bg-transparent p-0 text-inherit underline decoration-swu-primary/70 underline-offset-2 hover:text-swu-primary"
+      title="Übersetzung anzeigen"
+    >
+      {showTranslation ? translated : primary}
+    </button>
+  );
+}
+
 function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): Part {
-  const literal = `${frame.startLiteral}${partsLiteral(frame.children)}${endLiteral}`;
+  const translationLiteral = frame.translationChildren
+    ? `[translation]${partsLiteral(frame.translationChildren)}`
+    : '';
+  const literal = `${frame.startLiteral}${partsLiteral(frame.children)}${translationLiteral}${endLiteral}`;
   const children = partsNodes(frame.children);
 
   switch (frame.tag) {
@@ -60,18 +105,64 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
     case 'i':
       return { literal, node: <em key={nextKey()}>{children}</em> };
     case 'u':
-      return { literal, node: <span key={nextKey()} className="underline">{children}</span> };
+      return {
+        literal,
+        node: (
+          <span key={nextKey()} className="underline">
+            {children}
+          </span>
+        ),
+      };
     case 's':
-      return { literal, node: <span key={nextKey()} className="line-through">{children}</span> };
+      return {
+        literal,
+        node: (
+          <span key={nextKey()} className="line-through">
+            {children}
+          </span>
+        ),
+      };
+    case 'h2':
+      return {
+        literal,
+        node: (
+          <h2 key={nextKey()} className="my-3 text-lg font-bold text-swu-primary">
+            {children}
+          </h2>
+        ),
+      };
+    case 'h3':
+      return {
+        literal,
+        node: (
+          <h3 key={nextKey()} className="my-2 text-base font-bold text-swu-primary">
+            {children}
+          </h3>
+        ),
+      };
     case 'quote':
       return {
         literal,
-        node: <blockquote key={nextKey()} className="border-l-2 border-swu-border/70 pl-3 my-2 text-swu-muted/90">{children}</blockquote>,
+        node: (
+          <blockquote
+            key={nextKey()}
+            className="my-2 border-l-2 border-swu-border/70 pl-3 text-swu-muted/90"
+          >
+            {children}
+          </blockquote>
+        ),
       };
     case 'code':
       return {
         literal,
-        node: <code key={nextKey()} className="block whitespace-pre-wrap rounded border border-swu-border/60 bg-swu-bg/70 px-2 py-1 font-mono text-[0.95em] text-swu-primary">{partsLiteral(frame.children)}</code>,
+        node: (
+          <code
+            key={nextKey()}
+            className="block whitespace-pre-wrap rounded border border-swu-border/60 bg-swu-bg/70 px-2 py-1 font-mono text-[0.95em] text-swu-primary"
+          >
+            {partsLiteral(frame.children)}
+          </code>
+        ),
       };
     case 'url': {
       const href = frame.attr ?? partsLiteral(frame.children).trim();
@@ -79,7 +170,31 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
 
       return {
         literal,
-        node: <a key={nextKey()} href={href} target="_blank" rel="noreferrer" className="text-swu-accent underline hover:text-swu-primary">{children}</a>,
+        node: (
+          <a
+            key={nextKey()}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-swu-accent underline hover:text-swu-primary"
+          >
+            {children}
+          </a>
+        ),
+      };
+    }
+    case 'translate': {
+      const translated = frame.translationChildren;
+      if (!translated || translated.length === 0) return textPart(literal);
+      return {
+        literal,
+        node: (
+          <TranslationText
+            key={nextKey()}
+            primary={children}
+            translated={partsNodes(translated)}
+          />
+        ),
       };
     }
   }
@@ -98,22 +213,36 @@ function parseBbCode(text: string): ReactNode[] {
     const [token, closingSlash, rawTag, attr] = match;
     const tokenIndex = match.index;
 
-    if (tokenIndex > lastIndex) appendPart(stack, root, textPart(text.slice(lastIndex, tokenIndex)));
+    if (tokenIndex > lastIndex) {
+      appendPart(stack, root, textPart(text.slice(lastIndex, tokenIndex)));
+    }
 
-    const tag = rawTag.toLowerCase() as Tag;
+    const rawLowerTag = rawTag.toLowerCase();
     const top = stack.at(-1);
 
-    if (top?.tag === 'code' && !(closingSlash && tag === 'code')) {
+    if (top?.tag === 'code' && !(closingSlash && rawLowerTag === 'code')) {
       appendPart(stack, root, textPart(token));
-    } else if (closingSlash) {
-      if (top?.tag === tag) {
-        const frame = stack.pop()!;
-        appendPart(stack, root, renderFrame(frame, token, nextKey));
+    } else if (!closingSlash && rawLowerTag === 'translation') {
+      if (top?.tag === 'translate') {
+        top.inTranslation = true;
+        top.translationChildren ??= [];
       } else {
         appendPart(stack, root, textPart(token));
       }
+    } else if (rawLowerTag === 'translation') {
+      appendPart(stack, root, textPart(token));
     } else {
-      stack.push({ tag, attr, startLiteral: token, children: [] });
+      const tag = rawLowerTag as Tag;
+      if (closingSlash) {
+        if (top?.tag === tag) {
+          const frame = stack.pop()!;
+          appendPart(stack, root, renderFrame(frame, token, nextKey));
+        } else {
+          appendPart(stack, root, textPart(token));
+        }
+      } else {
+        stack.push({ tag, attr, startLiteral: token, children: [] });
+      }
     }
 
     lastIndex = TAG_PATTERN.lastIndex;
@@ -123,7 +252,14 @@ function parseBbCode(text: string): ReactNode[] {
 
   while (stack.length > 0) {
     const frame = stack.pop()!;
-    appendPart(stack, root, textPart(`${frame.startLiteral}${partsLiteral(frame.children)}`));
+    const translationLiteral = frame.translationChildren
+      ? `[translation]${partsLiteral(frame.translationChildren)}`
+      : '';
+    appendPart(
+      stack,
+      root,
+      textPart(`${frame.startLiteral}${partsLiteral(frame.children)}${translationLiteral}`),
+    );
   }
 
   return partsNodes(root);

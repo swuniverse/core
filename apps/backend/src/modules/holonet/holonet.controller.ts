@@ -23,10 +23,30 @@ export class HolonetController {
 
   @Get()
   findAll(
+    @Request() req: { user: { sub: number } },
     @Query('category') category?: PostCategory,
     @Query('page') page?: string,
+    @Query('text') text?: string,
+    @Query('authorId') authorId?: string,
+    @Query('postId') postId?: string,
   ) {
-    return this.holonetService.findAll(category, Number(page) || 1);
+    return this.holonetService.findAll(
+      req.user.sub,
+      category,
+      Number(page) || 1,
+      20,
+      {
+        text: text?.trim() || undefined,
+        authorId:
+          authorId && Number.isFinite(Number(authorId))
+            ? Number(authorId)
+            : undefined,
+        postId:
+          postId && Number.isFinite(Number(postId))
+            ? Number(postId)
+            : undefined,
+      },
+    );
   }
 
   @Get('new-count')
@@ -35,13 +55,19 @@ export class HolonetController {
   }
 
   @Post('checkpoint')
-  updateCheckpoint(@Request() req: { user: { sub: number } }) {
-    return this.holonetService.updateCheckpoint(req.user.sub);
+  updateCheckpoint(
+    @Request() req: { user: { sub: number } },
+    @Body('postId') postId?: number,
+  ) {
+    return this.holonetService.updateCheckpoint(req.user.sub, postId);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.holonetService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.holonetService.findOne(id, req.user.sub);
   }
 
   @Post()

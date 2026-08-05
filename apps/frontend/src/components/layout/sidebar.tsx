@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { label: 'Kolonien', path: '/colonies', icon: NavIconColonies },
   { label: 'Schiffe', path: '/spacecraft', icon: NavIconShips },
   { label: 'Scans', path: '/colony-scans', icon: NavIconScans },
-  { label: 'KommNet', path: '/holonet', icon: NavIconHolonet },
+  { label: 'HoloNet', path: '/holonet', icon: NavIconHolonet },
   { label: 'Nachrichten', path: '/messages', icon: NavIconMessages },
   { label: 'Forschung', path: '/research', icon: NavIconResearch },
   { label: 'Datenbank', path: '/database', icon: NavIconDatabase },
