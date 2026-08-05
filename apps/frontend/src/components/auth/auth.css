@@ -62,9 +62,21 @@ html:has(.swu-page--landing) {
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(ellipse at 68% 18%, rgba(79, 130, 247, 0.22), transparent 38%),
-    radial-gradient(ellipse at 18% 55%, rgba(124, 58, 237, 0.18), transparent 36%),
-    radial-gradient(ellipse at 50% 90%, rgba(240, 192, 80, 0.08), transparent 30%);
+    radial-gradient(
+      ellipse at 68% 18%,
+      rgba(79, 130, 247, 0.22),
+      transparent 38%
+    ),
+    radial-gradient(
+      ellipse at 18% 55%,
+      rgba(124, 58, 237, 0.18),
+      transparent 36%
+    ),
+    radial-gradient(
+      ellipse at 50% 90%,
+      rgba(240, 192, 80, 0.08),
+      transparent 30%
+    );
   filter: blur(32px);
   animation: swu-nebula-breathe 20s ease-in-out infinite alternate;
 }
@@ -78,9 +90,19 @@ html:has(.swu-page--landing) {
   right: -12vw;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.12), transparent 14%),
+    radial-gradient(
+      circle at 34% 28%,
+      rgba(255, 255, 255, 0.12),
+      transparent 14%
+    ),
     radial-gradient(circle at 42% 56%, rgba(0, 0, 0, 0.28), transparent 20%),
-    radial-gradient(circle at 50% 50%, rgba(180, 120, 255, 0.07), rgba(14, 16, 36, 0.55) 50%, rgba(4, 4, 10, 0.96) 74%, transparent 76%);
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(180, 120, 255, 0.07),
+      rgba(14, 16, 36, 0.55) 50%,
+      rgba(4, 4, 10, 0.96) 74%,
+      transparent 76%
+    );
   box-shadow:
     inset 30px -38px 90px rgba(0, 0, 0, 0.8),
     inset -12px 20px 60px rgba(79, 130, 247, 0.14),
@@ -95,8 +117,16 @@ html:has(.swu-page--landing) {
   left: 8vw;
   width: 38vw;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(240, 192, 80, 0.75), rgba(255, 255, 255, 0.5), transparent);
-  box-shadow: 0 0 28px rgba(240, 192, 80, 0.65), 0 0 80px rgba(79, 130, 247, 0.3);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(240, 192, 80, 0.75),
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
+  box-shadow:
+    0 0 28px rgba(240, 192, 80, 0.65),
+    0 0 80px rgba(79, 130, 247, 0.3);
   transform: rotate(-10deg);
   animation: swu-flare 11s ease-in-out infinite;
 }
@@ -124,7 +154,11 @@ html:has(.swu-page--landing) {
   padding: 10px 12px 10px 16px;
   border: 1px solid var(--swu-border);
   border-radius: 999px;
-  background: linear-gradient(120deg, rgba(13, 14, 29, 0.78), rgba(24, 16, 52, 0.52));
+  background: linear-gradient(
+    120deg,
+    rgba(13, 14, 29, 0.78),
+    rgba(24, 16, 52, 0.52)
+  );
   box-shadow:
     0 16px 60px rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(240, 192, 80, 0.06);
@@ -149,7 +183,13 @@ html:has(.swu-page--landing) {
   border-radius: 50%;
   background:
     radial-gradient(circle, var(--swu-gold) 0 20%, transparent 22%),
-    conic-gradient(from 0deg, rgba(240,192,80,0), rgba(240,192,80,0.9), rgba(79,130,247,0.2), rgba(240,192,80,0));
+    conic-gradient(
+      from 0deg,
+      rgba(240, 192, 80, 0),
+      rgba(240, 192, 80, 0.9),
+      rgba(79, 130, 247, 0.2),
+      rgba(240, 192, 80, 0)
+    );
   box-shadow: 0 0 24px rgba(240, 192, 80, 0.52);
 }
 
@@ -174,7 +214,9 @@ html:has(.swu-page--landing) {
   text-decoration: none;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  transition: color var(--motion-fast) var(--ease-std), background var(--motion-fast) var(--ease-std);
+  transition:
+    color var(--motion-fast) var(--ease-std),
+    background var(--motion-fast) var(--ease-std);
 }
 
 .swu-nav__links button:hover,
@@ -198,7 +240,11 @@ html:has(.swu-page--landing) {
 
 .swu-nav__discord {
   color: #16110a !important;
-  background: linear-gradient(135deg, var(--swu-gold), var(--swu-gold-dim)) !important;
+  background: linear-gradient(
+    135deg,
+    var(--swu-gold),
+    var(--swu-gold-dim)
+  ) !important;
   box-shadow: 0 0 20px rgba(240, 192, 80, 0.32);
   font-weight: 800 !important;
 }
@@ -253,7 +299,9 @@ html:has(.swu-page--landing) {
   line-height: 0.9;
   letter-spacing: 0.04em;
   color: var(--swu-cream);
-  text-shadow: 0 0 40px rgba(255, 255, 255, 0.1), 0 0 100px rgba(240, 192, 80, 0.14);
+  text-shadow:
+    0 0 40px rgba(255, 255, 255, 0.1),
+    0 0 100px rgba(240, 192, 80, 0.14);
   animation: swu-title-reveal 1.2s var(--ease-out) 200ms both;
 }
 
@@ -317,13 +365,22 @@ html:has(.swu-page--landing) {
 .swu-btn--primary {
   border-color: rgba(240, 192, 80, 0.65);
   color: #130f02;
-  background: radial-gradient(circle at 50% 0%, #fff4c4, var(--swu-gold) 48%, var(--swu-gold-dim));
-  box-shadow: 0 0 24px rgba(240, 192, 80, 0.32), 0 12px 40px rgba(200, 150, 42, 0.2);
+  background: radial-gradient(
+    circle at 50% 0%,
+    #fff4c4,
+    var(--swu-gold) 48%,
+    var(--swu-gold-dim)
+  );
+  box-shadow:
+    0 0 24px rgba(240, 192, 80, 0.32),
+    0 12px 40px rgba(200, 150, 42, 0.2);
   animation: swu-cta-pulse 3.5s ease-in-out infinite;
 }
 
 .swu-btn--primary:hover:not(:disabled) {
-  box-shadow: 0 0 38px rgba(240, 192, 80, 0.52), 0 14px 52px rgba(200, 150, 42, 0.28);
+  box-shadow:
+    0 0 38px rgba(240, 192, 80, 0.52),
+    0 14px 52px rgba(200, 150, 42, 0.28);
 }
 
 .swu-btn--ghost {
@@ -393,8 +450,14 @@ html:has(.swu-page--landing) {
   padding: 32px;
   border: 1px solid var(--swu-border);
   border-radius: 24px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(13, 14, 29, 0.6));
-  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(13, 14, 29, 0.6)
+  );
+  box-shadow:
+    0 20px 80px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
   transition:
     transform var(--motion-base) var(--ease-out),
@@ -405,7 +468,9 @@ html:has(.swu-page--landing) {
 .swu-bento__cell:hover {
   transform: translateY(-6px);
   border-color: rgba(240, 192, 80, 0.34);
-  box-shadow: 0 28px 96px rgba(0, 0, 0, 0.38), 0 0 48px rgba(240, 192, 80, 0.1);
+  box-shadow:
+    0 28px 96px rgba(0, 0, 0, 0.38),
+    0 0 48px rgba(240, 192, 80, 0.1);
 }
 
 /* Primary cell — spans full height on left */
@@ -419,7 +484,11 @@ html:has(.swu-page--landing) {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 60% 0%, rgba(79, 130, 247, 0.14), transparent 50%);
+  background: radial-gradient(
+    ellipse at 60% 0%,
+    rgba(79, 130, 247, 0.14),
+    transparent 50%
+  );
   pointer-events: none;
 }
 
@@ -616,8 +685,11 @@ html:has(.swu-page--landing) {
   padding: clamp(44px, 8vw, 88px) clamp(28px, 6vw, 72px);
   border: 1px solid var(--swu-border);
   border-radius: 36px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(13, 14, 29, 0.6));
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(13, 14, 29, 0.6)
+  );
   box-shadow: 0 24px 96px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(20px);
   text-align: center;
@@ -628,7 +700,11 @@ html:has(.swu-page--landing) {
   content: '';
   position: absolute;
   inset: -80px;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0 1px, transparent 1.5px);
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.4) 0 1px,
+    transparent 1.5px
+  );
   background-size: 80px 80px;
   opacity: 0.15;
   animation: swu-star-drift 50s linear infinite;
@@ -746,8 +822,11 @@ html:has(.swu-page--landing) {
   padding: 88px 28px 28px;
   border-left: 1px solid var(--swu-border);
   border-radius: 28px 0 0 28px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(13, 14, 29, 0.6));
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.09),
+    rgba(13, 14, 29, 0.6)
+  );
   backdrop-filter: blur(22px) saturate(1.3);
   box-shadow: -24px 0 80px rgba(0, 0, 0, 0.5);
   transform: translateX(105%);
@@ -773,7 +852,9 @@ html:has(.swu-page--landing) {
   line-height: 1;
   display: grid;
   place-items: center;
-  transition: background var(--motion-fast) var(--ease-std), border-color var(--motion-fast) var(--ease-std);
+  transition:
+    background var(--motion-fast) var(--ease-std),
+    border-color var(--motion-fast) var(--ease-std);
 }
 
 .swu-login__close:hover {
@@ -856,6 +937,60 @@ html:has(.swu-page--landing) {
   color: rgba(245, 240, 232, 0.28);
 }
 
+.swu-password-field {
+  position: relative;
+}
+
+.swu-password-field input {
+  padding-right: 104px;
+}
+
+.swu-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(245, 240, 232, 0.72);
+  font: 700 11px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 8px;
+  min-width: 76px;
+  min-height: 36px;
+  transition: color var(--motion-fast) var(--ease-std);
+}
+
+.swu-password-toggle:hover {
+  color: var(--swu-gold);
+}
+
+.swu-password-toggle:focus-visible {
+  outline: 2px solid rgba(240, 192, 80, 0.55);
+  outline-offset: 2px;
+}
+
+.swu-password-toggle[aria-pressed='true'] {
+  color: var(--swu-gold);
+}
+
+.swu-password-field::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  right: 84px;
+  width: 1px;
+  background: rgba(245, 240, 232, 0.1);
+}
+
+.swu-password-field:focus-within::after {
+  background: rgba(240, 192, 80, 0.35);
+}
+
 /* === Register Page === */
 
 .swu-page--register {
@@ -876,7 +1011,11 @@ html:has(.swu-page--landing) {
   padding: clamp(24px, 5vw, 42px);
   border: 1px solid var(--swu-border);
   border-radius: 32px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(13, 14, 29, 0.6));
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.09),
+    rgba(13, 14, 29, 0.6)
+  );
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(20px) saturate(1.3);
 }
@@ -894,7 +1033,13 @@ html:has(.swu-page--landing) {
   right: 0;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--swu-gold-dim), rgba(79, 130, 247, 0.5), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--swu-gold-dim),
+    rgba(79, 130, 247, 0.5),
+    transparent
+  );
   box-shadow: 0 0 18px rgba(240, 192, 80, 0.28);
 }
 
@@ -993,7 +1138,9 @@ html:has(.swu-page--landing) {
 .swu-faction--selected {
   border-color: rgba(240, 192, 80, 0.68);
   color: var(--swu-cream);
-  box-shadow: 0 0 0 1px rgba(240, 192, 80, 0.18), 0 0 28px rgba(240, 192, 80, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(240, 192, 80, 0.18),
+    0 0 28px rgba(240, 192, 80, 0.18);
 }
 
 .swu-faction__mark {
@@ -1019,33 +1166,74 @@ html:has(.swu-page--landing) {
 /* === Keyframes === */
 
 @keyframes swu-nebula-breathe {
-  from { transform: translate3d(-1%, 0, 0) scale(1); opacity: 0.75; }
-  to   { transform: translate3d(1%, -1%, 0) scale(1.06); opacity: 1; }
+  from {
+    transform: translate3d(-1%, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  to {
+    transform: translate3d(1%, -1%, 0) scale(1.06);
+    opacity: 1;
+  }
 }
 
 @keyframes swu-flare {
-  0%, 100% { opacity: 0.15; transform: rotate(-10deg) scaleX(0.68); }
-  40%, 65%  { opacity: 0.82; transform: rotate(-10deg) scaleX(1); }
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: rotate(-10deg) scaleX(0.68);
+  }
+  40%,
+  65% {
+    opacity: 0.82;
+    transform: rotate(-10deg) scaleX(1);
+  }
 }
 
 @keyframes swu-star-drift {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(-80px, 70px, 0); }
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-80px, 70px, 0);
+  }
 }
 
 @keyframes swu-rise {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes swu-title-reveal {
-  from { opacity: 0; transform: translateY(28px) scale(0.97); filter: blur(4px); }
-  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 @keyframes swu-cta-pulse {
-  0%, 100% { box-shadow: 0 0 24px rgba(240, 192, 80, 0.3), 0 12px 40px rgba(200, 150, 42, 0.18); }
-  50%       { box-shadow: 0 0 38px rgba(240, 192, 80, 0.5), 0 14px 52px rgba(200, 150, 42, 0.26); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(240, 192, 80, 0.3),
+      0 12px 40px rgba(200, 150, 42, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 38px rgba(240, 192, 80, 0.5),
+      0 14px 52px rgba(200, 150, 42, 0.26);
+  }
 }
 
 /* === Reduced Motion === */
@@ -1226,7 +1414,12 @@ html:has(.swu-page--landing) {
   min-height: 44px;
   border: 1px solid rgba(240, 192, 80, 0.58);
   border-radius: 999px;
-  background: radial-gradient(circle at 50% 0%, #fff4c4, var(--swu-gold) 48%, var(--swu-gold-dim));
+  background: radial-gradient(
+    circle at 50% 0%,
+    #fff4c4,
+    var(--swu-gold) 48%,
+    var(--swu-gold-dim)
+  );
   color: #130f02;
   font: 800 12px/1 var(--font-mono);
   letter-spacing: 0.1em;

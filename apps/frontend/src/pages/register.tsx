@@ -26,6 +26,8 @@ export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [inviteKey, setInviteKey] = useState('');
   const [factionId, setFactionId] = useState<number | null>(null);
   const [factions, setFactions] = useState<FactionOption[]>([]);
@@ -44,6 +46,10 @@ export function RegisterPage() {
       setError('Wähle eine Fraktion');
       return;
     }
+    if (password !== confirmPassword) {
+      setError('Passwörter stimmen nicht überein');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -57,7 +63,9 @@ export function RegisterPage() {
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen');
+      setError(
+        err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen',
+      );
     } finally {
       setLoading(false);
     }
@@ -69,14 +77,31 @@ export function RegisterPage() {
       <CinematicBg />
 
       <nav className="swu-nav" aria-label="Navigation">
-        <Link className="swu-nav__brand" to="/login" aria-label="Star Wars Universe Start">
+        <Link
+          className="swu-nav__brand"
+          to="/login"
+          aria-label="Star Wars Universe Start"
+        >
           <span className="swu-nav__sigil" aria-hidden="true" />
           <span>SWU</span>
         </Link>
         <div className="swu-nav__links">
           <Link to="/login">Zur Landing Page</Link>
-          <a href="https://github.com/swuniverse" rel="noopener noreferrer" target="_blank">GitHub</a>
-          <a className="swu-nav__discord" href="https://discord.com/invite/vvUwR6UZbB" target="_blank" rel="noopener noreferrer">Discord</a>
+          <a
+            href="https://github.com/swuniverse"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            GitHub
+          </a>
+          <a
+            className="swu-nav__discord"
+            href="https://discord.com/invite/vvUwR6UZbB"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Discord
+          </a>
         </div>
       </nav>
 
@@ -85,7 +110,10 @@ export function RegisterPage() {
           <div className="swu-register-card__header">
             <p className="swu-eyebrow">Closed Alpha Zugang</p>
             <h1 id="register-title">Commander registrieren</h1>
-            <p>Wähle dein Rufzeichen, sichere deinen Invite Key und betrete die erste Testwelle von Star Wars Universe.</p>
+            <p>
+              Wähle dein Rufzeichen, sichere deinen Invite Key und betrete die
+              erste Testwelle von Star Wars Universe.
+            </p>
           </div>
 
           {error && <div className="auth-error">{error}</div>}
@@ -118,13 +146,39 @@ export function RegisterPage() {
             </label>
             <label className="swu-field">
               <span>Passwort</span>
+              <div className="swu-password-field">
+                <input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="Mindestens 8 Zeichen"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
+                <button
+                  className="swu-password-toggle"
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={
+                    showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'
+                  }
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? 'Verbergen' : 'Anzeigen'}
+                </button>
+              </div>
+            </label>
+            <label className="swu-field">
+              <span>Passwort bestätigen</span>
               <input
-                name="password"
-                type="password"
+                name="confirm-password"
+                type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
-                placeholder="Mindestens 8 Zeichen"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Passwort wiederholen"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
               />
@@ -153,14 +207,22 @@ export function RegisterPage() {
                   onClick={() => setFactionId(f.id)}
                   style={{ color: f.colorPrimary }}
                 >
-                  <span className="swu-faction__mark" style={{ backgroundColor: f.colorPrimary }} aria-hidden="true" />
+                  <span
+                    className="swu-faction__mark"
+                    style={{ backgroundColor: f.colorPrimary }}
+                    aria-hidden="true"
+                  />
                   <span>{f.name}</span>
                 </button>
               ))}
             </div>
           </fieldset>
 
-          <button className="swu-btn swu-btn--primary swu-btn--wide" type="submit" disabled={loading || !factionId}>
+          <button
+            className="swu-btn swu-btn--primary swu-btn--wide"
+            type="submit"
+            disabled={loading || !factionId}
+          >
             {loading ? 'Registriere...' : 'Alpha-Zugang sichern'}
           </button>
 
