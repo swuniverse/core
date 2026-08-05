@@ -35,9 +35,9 @@ export class SpacecraftStatsService {
       cargoMax: shipClass.cargoCapacity,
       batteryMax: shipClass.batteryBase,
       epsMax: shipClass.epsBase,
-      reactorOutput: 0,
-      warpdriveMax: shipClass.warpBase,
-      evadeChance: 0,
+      reactorOutput: shipClass.reactorBase ?? 0,
+      warpdriveMax: shipClass.warpdriveBase ?? shipClass.warpBase,
+      evadeChance: shipClass.evadeBase ?? 0,
     };
 
     for (const module of modules) {

@@ -385,6 +385,11 @@ export interface ShipClassYamlDef {
   epsBase: number;
   warpBase: number;
   batteryBase: number;
+  reactorBase?: number;
+  warpdriveBase?: number;
+  evadeBase?: number;
+  hitChanceBase?: number;
+  sensorRangeBase?: number;
   shuttleSlots?: number;
   starterAllowed: boolean;
   isNpc: boolean;

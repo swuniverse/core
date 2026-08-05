@@ -199,6 +199,10 @@ export class CombatEngine {
     weaponCategory: string,
     log: CombatLogEntry[],
   ): Promise<void> {
+    const runtimeSystems = shooter.ship.runtimeSystems as Record<string, { active: boolean }> | null;
+    if (weaponCategory === 'WEAPONS' && runtimeSystems?.WEAPONS?.active === false) return;
+    if (weaponCategory === 'PROJECTILE' && runtimeSystems?.TORPEDO_BANK?.active === false) return;
+
     const weapons = shooter.modules.filter(
       (m) =>
         m.category === weaponCategory &&
@@ -219,6 +223,12 @@ export class CombatEngine {
           : null;
       if (weaponCategory === 'PROJECTILE' && !torpedo) {
         continue;
+      }
+
+      if (weaponCategory === 'WEAPONS') {
+        const epsCost = (weaponDef.secret as Record<string, number>).epsCost ?? 5;
+        if (shooter.ship.energy < epsCost) continue;
+        shooter.ship.energy -= epsCost;
       }
 
       const baseDamage =
@@ -295,8 +305,6 @@ export class CombatEngine {
       if (isIon && Math.random() < formulas.ion_effects.disable_chance) {
         this.disableRandomSystem(target, formulas, log);
       }
-
-      shooter.ship.energy = Math.max(0, shooter.ship.energy - 5);
     }
   }
 
@@ -460,8 +468,9 @@ export class CombatEngine {
       : formulas.hit_chance.base +
         speedDiff * formulas.hit_chance.speed_modifier;
 
-    // Evasion reduces hit chance
-    hitChance -= (classModTarget.evasion - 1.0) * 0.15;
+    // STU formula: hitChance * (100 - evadeChance) / 100
+    const evadeChance = (target.ship.evadeChance ?? 0) / 100;
+    hitChance = hitChance * (1 - evadeChance);
 
     return Math.max(
       formulas.hit_chance.min,
@@ -500,6 +509,9 @@ export class CombatEngine {
     formulas: CombatFormulas,
     log: CombatLogEntry[],
   ): void {
+    const runtimeSystems = combatant.ship.runtimeSystems as Record<string, { active: boolean }> | null;
+    if (runtimeSystems?.SHIELDS?.active === false) return;
+
     if (combatant.ship.shields < combatant.ship.shieldsMax) {
       const activeShieldMods = combatant.modules.filter(
         (m) => m.category === 'SHIELDS' && m.isActive && m.integrity > 0,

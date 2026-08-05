@@ -267,3 +267,129 @@ describe('CombatEngine projectile specialization', () => {
     );
   });
 });
+
+describe('CombatEngine runtimeSystems integration', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function makeEngine() {
+    const gameData = {
+      getCombatFormulas: jest.fn(() => combatFormulas()),
+      getAllModules: jest.fn(() => [
+        { name: 'Turbolaser', category: 'WEAPONS', public: {}, secret: { baseDamage: 50 } },
+        { name: 'Torpedorampe', category: 'PROJECTILE', public: {}, secret: { baseDamage: 50 } },
+      ]),
+    };
+    const torpedoService = { consumeForAttack: jest.fn(async () => null) };
+    return new CombatEngine(
+      gameData as unknown as ConstructorParameters<typeof CombatEngine>[0],
+      torpedoService as unknown as ConstructorParameters<typeof CombatEngine>[1],
+    );
+  }
+
+  function makeShip(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 1, shipClassId: 3,
+      hull: 1000, hullMax: 1000,
+      shields: 500, shieldsMax: 500,
+      energy: 100,
+      evadeChance: 0,
+      runtimeSystems: null,
+      status: 'DOCKED', alertState: 'GREEN',
+      ...overrides,
+    };
+  }
+
+  const weaponModule = (cat: string) => ({
+    spacecraftId: 1,
+    moduleType: cat === 'WEAPONS' ? 'Turbolaser' : 'Torpedorampe',
+    category: cat,
+    level: 1, integrity: 100, cooldown: 0, isActive: true,
+  });
+
+  it('disabled WEAPONS system prevents energy weapons from firing', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.1); // always hit
+    const engine = makeEngine();
+    const attacker = makeShip({ runtimeSystems: { WEAPONS: { active: false } } });
+    const defender = makeShip();
+
+    const result = await engine.resolveCombat(
+      attacker as any, defender as any,
+      [weaponModule('WEAPONS')] as any, [] as any,
+    );
+
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_HIT)).toHaveLength(0);
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.HULL_DAMAGE)).toHaveLength(0);
+  });
+
+  it('disabled TORPEDO_BANK system prevents projectile weapons from firing', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.1); // always hit
+    const engine = makeEngine();
+    const attacker = makeShip({ runtimeSystems: { TORPEDO_BANK: { active: false } } });
+    const defender = makeShip();
+
+    const result = await engine.resolveCombat(
+      attacker as any, defender as any,
+      [weaponModule('PROJECTILE')] as any, [] as any,
+    );
+
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.PROJECTILE_HIT)).toHaveLength(0);
+  });
+
+  it('disabled SHIELDS system prevents shield regeneration', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.99); // always miss
+    const engine = makeEngine();
+    const attacker = makeShip();
+    const defender = makeShip({
+      shields: 0, shieldsMax: 500,
+      runtimeSystems: { SHIELDS: { active: false } },
+    });
+    const formulas = combatFormulas();
+    (engine as any).gameData.getCombatFormulas.mockReturnValue({
+      ...formulas,
+      shields: { ...formulas.shields, recharge_rate: 0.1 },
+    });
+
+    const result = await engine.resolveCombat(
+      attacker as any, defender as any,
+      [] as any,
+      [{ spacecraftId: 2, moduleType: 'Shields', category: 'SHIELDS', level: 1, integrity: 100, cooldown: 0, isActive: true }] as any,
+    );
+
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.SHIELD_REGEN)).toHaveLength(0);
+    expect(defender.shields).toBe(0);
+  });
+
+  it('evadeChance > 0 reduces hit chance (STU multiplicative formula)', async () => {
+    // With evadeChance=50 and base hit=0.7: effective = 0.7 * 0.5 = 0.35
+    // random() = 0.4 > 0.35 → miss
+    jest.spyOn(Math, 'random').mockReturnValue(0.4);
+    const engine = makeEngine();
+    const attacker = makeShip({ energy: 1000 });
+    const defender = makeShip({ evadeChance: 50 });
+
+    const result = await engine.resolveCombat(
+      attacker as any, defender as any,
+      [weaponModule('WEAPONS')] as any, [] as any,
+    );
+
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_HIT)).toHaveLength(0);
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_MISS)).toHaveLength(1);
+  });
+
+  it('energy weapon does not fire when EPS is insufficient', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.1); // would hit
+    const engine = makeEngine();
+    const attacker = makeShip({ energy: 0 }); // no EPS
+    const defender = makeShip();
+
+    const result = await engine.resolveCombat(
+      attacker as any, defender as any,
+      [weaponModule('WEAPONS')] as any, [] as any,
+    );
+
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_HIT)).toHaveLength(0);
+    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_MISS)).toHaveLength(0);
+  });
+});

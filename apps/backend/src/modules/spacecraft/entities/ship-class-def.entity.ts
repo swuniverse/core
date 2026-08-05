@@ -51,6 +51,21 @@ export class ShipClassDef {
   @Column({ default: 0 })
   batteryBase: number;
 
+  @Column({ default: 0 })
+  reactorBase: number;
+
+  @Column({ default: 0 })
+  warpdriveBase: number;
+
+  @Column({ default: 0 })
+  evadeBase: number;
+
+  @Column({ default: 75 })
+  hitChanceBase: number;
+
+  @Column({ default: 2 })
+  sensorRangeBase: number;
+
   @Column({ default: false })
   starterAllowed: boolean;
 
