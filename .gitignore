@@ -64,11 +64,21 @@ vitest.config.*.timestamp*
 # AI/Tool artifacts
 .pi-lens/
 .pi/
+.pi-subagents/
 .codegraph/
 .nanocoder/
 .playwright-mcp/
 .claude/
 *.tsbuildinfo
+
+# Local dev environment
+.devenv.flake.nix
+.devenv/
+.envrc
+nebula-demo.html
+
+# Local hooks
+.github/hooks/workmux-status/
 
 # Plans & progress (local only)
 plans/
