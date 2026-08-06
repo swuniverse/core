@@ -420,6 +420,12 @@ export type TorpedoDamageType =
   | 'PLASMA'
   | 'HEAVY_PLASMA';
 
+export interface WeaponShieldModifierDef {
+  weaponFamily: string;
+  shieldFamily: string;
+  modifier: number; // percent, 100 = neutral
+}
+
 export interface TorpedoTypeDef {
   id: number;
   commodityId: number;
@@ -470,8 +476,7 @@ export class GameDataService implements OnModuleInit {
   private rumpStatsByStuRumpId: Map<number, ShipyardRumpStatsDef> = new Map();
   private rumpModuleRulesByStuRumpId: Map<number, ShipyardRumpModuleRulesDef> =
     new Map();
-
-
+  private weaponShieldModifiers: WeaponShieldModifierDef[] = [];
 
   onModuleInit() {
     this.dataPath =
@@ -504,6 +509,7 @@ export class GameDataService implements OnModuleInit {
     this.loadHangarShipDefs();
     this.loadTechTree();
     this.loadColonyClasses();
+    this.loadWeaponShieldModifiers();
   }
 
   private loadYaml<T>(relativePath: string): T | null {
@@ -926,6 +932,18 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadWeaponShieldModifiers() {
+    const data = this.loadYaml<{ modifiers: WeaponShieldModifierDef[] }>(
+      'combat/weapon-shield-modifiers.yaml',
+    );
+    this.weaponShieldModifiers = data?.modifiers ?? [];
+    if (this.weaponShieldModifiers.length > 0) {
+      this.logger.log(
+        `Loaded ${this.weaponShieldModifiers.length} weapon-shield modifiers`,
+      );
+    }
+  }
+
   getCommodity(id: number): Commodity | undefined {
     return this.commodities.get(id);
   }
@@ -1214,5 +1232,12 @@ export class GameDataService implements OnModuleInit {
 
   getColonyClassCount(): number {
     return this.colonyClasses.size;
+  }
+
+  getWeaponShieldModifier(weaponFamily: string, shieldFamily: string): number {
+    const entry = this.weaponShieldModifiers.find(
+      (m) => m.weaponFamily === weaponFamily && m.shieldFamily === shieldFamily,
+    );
+    return entry?.modifier ?? 100;
   }
 }
