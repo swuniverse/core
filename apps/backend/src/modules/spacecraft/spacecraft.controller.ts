@@ -258,6 +258,27 @@ export class SpacecraftController {
     return this.spacecraftService.warp(id, req.user.sub, targetSystemId);
   }
 
+  @Patch(':id/reactor-distribution')
+  setReactorDistribution(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('warpSplit') warpSplit: number,
+  ) {
+    return this.spacecraftService.setReactorDistribution(
+      id,
+      req.user.sub,
+      warpSplit,
+    );
+  }
+
+  @Post(':id/recharge')
+  manualRecharge(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.manualRecharge(id, req.user.sub);
+  }
+
   @Patch(':id/systems/:systemKey')
   toggleSystem(
     @Param('id', ParseIntPipe) id: number,

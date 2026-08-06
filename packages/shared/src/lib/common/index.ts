@@ -23,4 +23,11 @@ export enum WsEventType {
   SHIP_MOVED = 'SHIP_MOVED',
   COMBAT_STARTED = 'COMBAT_STARTED',
   RESOURCE_UPDATED = 'RESOURCE_UPDATED',
+  SPACECRAFT_EVENT = 'SPACECRAFT_EVENT',
+}
+
+export interface SpacecraftEventPayload {
+  shipId: number;
+  type: 'SYSTEM_TOGGLED' | 'RECHARGE' | 'REACTOR_ADJUSTED' | 'BROWNOUT' | 'NAVIGATION';
+  detail: string;
 }

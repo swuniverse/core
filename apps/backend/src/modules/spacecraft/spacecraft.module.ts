@@ -32,6 +32,7 @@ import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
 import { GameDataModule } from '../game-data/game-data.module';
 import { ColonizationModule } from '../colonization/colonization.module';
+import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { ColonizationModule } from '../colonization/colonization.module';
     ResearchModule,
     GameDataModule,
     ColonizationModule,
+    WebsocketModule,
   ],
   controllers: [SpacecraftController],
   providers: [

@@ -154,6 +154,9 @@ export class Spacecraft {
   @Column({ default: 0 })
   evadeChance: number;
 
+  @Column({ default: 100 })
+  reactorWarpSplit: number;
+
   // Navigation target (for in-flight)
   @Column({ type: 'int', nullable: true })
   targetSystemId: number | null;

@@ -34,6 +34,8 @@ import {
   SpacecraftRuntimeStateService,
   SpacecraftRuntimeSystemKey,
 } from './spacecraft-runtime-state.service';
+import { GameGateway } from '../websocket/game.gateway';
+import { WsEventType } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 
 @Injectable()
@@ -69,6 +71,7 @@ export class SpacecraftService {
     private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
     private readonly spacecraftResourceFlowService: SpacecraftResourceFlowService,
     private readonly spacecraftRuntimeStateService: SpacecraftRuntimeStateService,
+    private readonly gameGateway: GameGateway,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -185,7 +188,46 @@ export class SpacecraftService {
     systems[systemKey] = { ...system, active };
     ship.runtimeSystems = systems;
     await this.shipRepo.save(ship);
+    this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
+      shipId: ship.id,
+      type: 'SYSTEM_TOGGLED',
+      detail: `${systemKey} ${active ? 'aktiviert' : 'deaktiviert'}`,
+    });
     return { systems };
+  }
+
+  async setReactorDistribution(
+    shipId: number,
+    userId: number,
+    warpSplit: number,
+  ): Promise<{ reactorWarpSplit: number }> {
+    if (warpSplit < 0 || warpSplit > 100) {
+      throw new BadRequestException('warpSplit must be 0-100');
+    }
+    const ship = await this.findOne(shipId, userId);
+    ship.reactorWarpSplit = Math.round(warpSplit);
+    await this.shipRepo.save(ship);
+    this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
+      shipId: ship.id,
+      type: 'REACTOR_ADJUSTED',
+      detail: `Verteilung: EPS ${100 - ship.reactorWarpSplit}% / Warp ${ship.reactorWarpSplit}%`,
+    });
+    return { reactorWarpSplit: ship.reactorWarpSplit };
+  }
+
+  async manualRecharge(
+    shipId: number,
+    userId: number,
+  ): Promise<{ energy: number; warpdrive: number; battery: number }> {
+    const ship = await this.findOne(shipId, userId);
+    this.spacecraftResourceFlowService.recharge(ship);
+    await this.shipRepo.save(ship);
+    this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
+      shipId: ship.id,
+      type: 'RECHARGE',
+      detail: `EPS ${ship.energy}, Warp ${ship.warpdrive}, Bat ${ship.battery}`,
+    });
+    return { energy: ship.energy, warpdrive: ship.warpdrive, battery: ship.battery };
   }
 
   private assertCrewForActivation(
