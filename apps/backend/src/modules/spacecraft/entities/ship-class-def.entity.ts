@@ -45,9 +45,6 @@ export class ShipClassDef {
   @Column({ default: 100 })
   epsBase: number;
 
-  @Column({ default: 2 })
-  warpBase: number;
-
   @Column({ default: 0 })
   batteryBase: number;
 
@@ -65,6 +62,12 @@ export class ShipClassDef {
 
   @Column({ default: 2 })
   sensorRangeBase: number;
+
+  @Column({ default: 0 })
+  torpedoStorageBase: number;
+
+  @Column({ default: 1 })
+  flightEnergyCost: number;
 
   @Column({ default: false })
   starterAllowed: boolean;

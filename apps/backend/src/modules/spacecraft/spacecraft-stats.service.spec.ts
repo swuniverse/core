@@ -66,10 +66,16 @@ describe('SpacecraftStatsService', () => {
     hullBase: 100,
     shieldBase: 50,
     epsBase: 80,
-    warpBase: 2,
+    warpdriveBase: 2,
     crewMax: 10,
     cargoCapacity: 40,
     batteryBase: 5,
+    reactorBase: 0,
+    evadeBase: 0,
+    hitChanceBase: 75,
+    sensorRangeBase: 2,
+    torpedoStorageBase: 0,
+    flightEnergyCost: 1,
   } as any;
 
   it('calculates stats from class base values and active modules', () => {

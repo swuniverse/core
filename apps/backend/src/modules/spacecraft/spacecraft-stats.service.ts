@@ -30,14 +30,14 @@ export class SpacecraftStatsService {
       hullMax: shipClass.hullBase,
       shieldsMax: shipClass.shieldBase,
       energyMax: shipClass.epsBase,
-      warpSpeed: shipClass.warpBase,
+      warpSpeed: shipClass.warpdriveBase,
       crewMax: shipClass.crewMax,
       cargoMax: shipClass.cargoCapacity,
       batteryMax: shipClass.batteryBase,
       epsMax: shipClass.epsBase,
-      reactorOutput: shipClass.reactorBase ?? 0,
-      warpdriveMax: shipClass.warpdriveBase ?? shipClass.warpBase,
-      evadeChance: shipClass.evadeBase ?? 0,
+      reactorOutput: shipClass.reactorBase,
+      warpdriveMax: shipClass.warpdriveBase,
+      evadeChance: shipClass.evadeBase,
     };
 
     for (const module of modules) {
