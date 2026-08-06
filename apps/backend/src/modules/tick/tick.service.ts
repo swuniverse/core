@@ -92,7 +92,6 @@ export class TickService {
       currentTickIndex,
       totalTicks: scheduleHours.length,
     };
-
   }
 
   async handleTick(
@@ -210,7 +209,6 @@ export class TickService {
     return { tickNumber, status: GameTickStatus.COMPLETED };
   }
 
-
   @Cron(CronExpression.EVERY_MINUTE)
   async checkBuildingCompletions() {
     const tickNumber = Date.now();
@@ -238,9 +236,10 @@ export class TickService {
       });
 
       for (const colony of colonies) {
+        if (colony.userId == null || colony.isAbandoned) continue;
         const events: ColonyTickEvent[] = [];
         await this.colonyService.checkBuildingCompletions(colony, events);
-        if (events.length === 0 || colony.userId == null) continue;
+        if (events.length === 0) continue;
 
         await this.colonyEventService.createTickEvents(
           colony.id,
@@ -248,16 +247,14 @@ export class TickService {
           events,
           tickNumber,
         );
-        this.gateway.emitToUser(
-          colony.userId,
-          WsEventType.COLONY_UPDATED,
-          { colonyId: colony.id },
-        );
-        this.gateway.emitToUser(
-          colony.userId,
-          WsEventType.COLONY_TICK_REPORT,
-          { colonyId: colony.id, tick: tickNumber, events },
-        );
+        this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
+          colonyId: colony.id,
+        });
+        this.gateway.emitToUser(colony.userId, WsEventType.COLONY_TICK_REPORT, {
+          colonyId: colony.id,
+          tick: tickNumber,
+          events,
+        });
       }
 
       await this.finishTick(tickState, GameTickStatus.COMPLETED);

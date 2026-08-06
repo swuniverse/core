@@ -34,7 +34,7 @@ export class BuildingLifecycleService {
     field.integrity = field.maxIntegrity;
     field.isActive = false;
 
-    if (activateAfterBuild && definition.isActivateable !== false) {
+    if (activateAfterBuild) {
       const workerAmount = definition.bevUse || 0;
       const hasWorkers = getColonyChangeable(colony).workless >= workerAmount;
       if (hasWorkers) {
@@ -94,9 +94,9 @@ export class BuildingLifecycleService {
     definition: BuildingDef,
   ): Promise<void> {
     const changeable = getColonyChangeable(colony);
-    const workerAmount = definition.bevUse || 0;
+    const workerAmount = Math.min(changeable.workers, definition.bevUse || 0);
     const housingAmount = definition.bevPro || 0;
-    changeable.workers = Math.max(0, changeable.workers - workerAmount);
+    changeable.workers -= workerAmount;
     changeable.workless += workerAmount;
     changeable.maxPopulation = Math.max(
       0,

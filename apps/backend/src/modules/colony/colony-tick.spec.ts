@@ -1810,6 +1810,42 @@ describe('colony tick calculations', () => {
     });
   });
 
+  it('auto-activates completed passive buildings when workers are available', async () => {
+    const { service, gameData } = createColonyService();
+    const definition = gameData.getBuilding(400);
+    definition.isActivateable = false;
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      buildingId: 400,
+      isBuilding: true,
+      isActive: false,
+      activateAfterBuild: true,
+      buildProgress: 0,
+      buildFinishesAt: new Date(Date.now() - 1),
+      integrity: 0,
+      maxIntegrity: 0,
+    };
+    const colony = {
+      stats: { workers: 0, workless: 4 },
+      changeable: { workers: 0, workless: 4, maxPopulation: 10 },
+      fields: [field],
+    };
+    const events: ColonyTickEvent[] = [];
+
+    await service.checkBuildingCompletions(colony as never, events);
+
+    expect(field.isActive).toBe(true);
+    expect(colony.changeable).toMatchObject({ workers: 4, workless: 0 });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'BUILDING_FINISHED',
+        fieldIndex: 5,
+        activated: true,
+      }),
+    );
+  });
+
   it('updates colony options with owner validation', async () => {
     const { service, colonyRepo } = createColonyService();
     const stats = {
@@ -2575,6 +2611,7 @@ describe('colony tick calculations', () => {
       buildingId: null,
       isBuilding: false,
       isActive: true,
+      activateAfterBuild: true,
     };
     const colony = {
       id: 1,
@@ -3432,6 +3469,7 @@ describe('colony tick calculations', () => {
 
     expect(workerField.isActive).toBe(false);
     expect(fieldRepo.save).toHaveBeenCalledWith(workerField);
+    expect(colony.stats).toMatchObject({ workers: 0, workless: 5 });
   });
 
   it('deactivates a non-HQ building when EPS would go below zero', async () => {
@@ -3979,7 +4017,9 @@ describe('ship building compatibility', () => {
       shipBuildQueueRepo,
       shipRepo,
       gameData,
+      unlockResolver,
     } = createColonyService();
+    unlockResolver.hasTechByName.mockResolvedValue(false);
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
@@ -5045,6 +5085,49 @@ describe('research tick semantics', () => {
     expect(research.blockedReason).toBeNull();
   });
 
+  it('does not apply research overflow to a queued tech with another commodity', async () => {
+    const current = {
+      userId: 1,
+      techId: 1,
+      status: ResearchStatus.IN_PROGRESS,
+      remainingPoints: 2,
+      spentPoints: 0,
+      progress: 0,
+      blockedReason: null,
+    };
+    const queued = {
+      userId: 1,
+      techId: 2,
+      status: ResearchStatus.QUEUED,
+      queuePosition: 1,
+      remainingPoints: 10,
+      spentPoints: 0,
+      progress: 0,
+      blockedReason: null,
+    };
+    const researchRepo = {
+      findOne: jest.fn(async () => current),
+      find: jest.fn(async () => [queued]),
+      save: jest.fn(async (value) => value),
+    };
+    const gameData = {
+      getTech: jest.fn((techId) => ({
+        id: techId,
+        effort: 10,
+        commodityId: techId === 1 ? 1701 : 1702,
+        mappedCommodityId: techId === 1 ? 1701 : 1702,
+        dependencies: [],
+      })),
+    };
+    const service = new ResearchService(researchRepo as any, gameData as any);
+
+    await service.processTick(1, 0, new Map([[1701, 3]]));
+
+    expect(current.status).toBe(ResearchStatus.COMPLETED);
+    expect(queued.status).toBe(ResearchStatus.IN_PROGRESS);
+    expect(queued.spentPoints).toBe(0);
+  });
+
   it('advances commodity research only from matching produced commodity', async () => {
     const research = {
       userId: 1,
@@ -5466,7 +5549,7 @@ describe('main tick idempotency', () => {
   it('persists and emits minute completion events only for the owning colony with a real completion', async () => {
     const colonies = [
       { id: 1, userId: 7 },
-      { id: 2, userId: 8 },
+      { id: 2, userId: 8, isAbandoned: true },
       { id: 3, userId: null },
     ];
     const colonyRepo = {
@@ -5529,14 +5612,10 @@ describe('main tick idempotency', () => {
     resolvePersistenceGate();
     await handling;
 
-    expect(colonyService.checkBuildingCompletions).toHaveBeenCalledTimes(3);
+    expect(colonyService.checkBuildingCompletions).toHaveBeenCalledTimes(1);
     expect(
       colonyService.checkBuildingCompletions.mock.calls.map((call) => call[0]),
-    ).toEqual([
-      expect.objectContaining({ id: 1, userId: 7 }),
-      expect.objectContaining({ id: 2, userId: 8 }),
-      expect.objectContaining({ id: 3, userId: null }),
-    ]);
+    ).toEqual([expect.objectContaining({ id: 1, userId: 7 })]);
     expect(colonyEventService.createTickEvents).toHaveBeenCalledTimes(1);
     expect(colonyEventService.createTickEvents).toHaveBeenCalledWith(
       1,

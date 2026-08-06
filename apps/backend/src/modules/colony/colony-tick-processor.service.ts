@@ -222,9 +222,7 @@ export class ColonyTickProcessorService {
           ? undefined
           : !field.activateAfterBuild
             ? 'Automatische Aktivierung deaktiviert'
-            : definition.isActivateable === false
-              ? 'Gebäude kann nicht aktiviert werden'
-              : 'Nicht genug freie Arbeiter';
+            : 'Nicht genug freie Arbeiter';
         events.push({
           type: 'BUILDING_FINISHED',
           fieldIndex: field.fieldIndex,
@@ -243,13 +241,12 @@ export class ColonyTickProcessorService {
   ): Promise<void> {
     const deactivatedFieldIds = new Set<number>();
 
-    for (let round = 0; round < 100; round++) {
+    balancing: for (let round = 0; round < 100; round++) {
       const summary = this.colonyStatsService.calculateSummary(
         colony,
         deactivatedFieldIds,
       );
       const activeFields = summary.activeFields;
-      let rewind = false;
 
       if (
         summary.energyDelta < 0 &&
@@ -261,17 +258,21 @@ export class ColonyTickProcessorService {
           return definition && (definition.epsProc || 0) < 0;
         });
         if (victim) {
-          victim.isActive = false;
+          const definition = this.gameData.getBuilding(victim.buildingId!)!;
+          await this.buildingLifecycleService.deactivateBuilding(
+            colony,
+            victim,
+            definition,
+          );
           deactivatedFieldIds.add(victim.id);
-          await this.fieldRepo.save(victim);
           events.push({
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: victim.fieldIndex,
             buildingId: victim.buildingId,
-            buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
+            buildingName: definition.name,
             reason: 'Energie',
           });
-          rewind = true;
+          continue balancing;
         }
       }
 
@@ -282,17 +283,21 @@ export class ColonyTickProcessorService {
           return definition && (definition.bevUse || 0) > 0;
         });
         if (victim) {
-          victim.isActive = false;
+          const definition = this.gameData.getBuilding(victim.buildingId!)!;
+          await this.buildingLifecycleService.deactivateBuilding(
+            colony,
+            victim,
+            definition,
+          );
           deactivatedFieldIds.add(victim.id);
-          await this.fieldRepo.save(victim);
           events.push({
             type: 'BUILDING_DEACTIVATED',
             fieldIndex: victim.fieldIndex,
             buildingId: victim.buildingId,
-            buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
+            buildingName: definition.name,
             reason: 'Arbeiter',
           });
-          rewind = true;
+          continue balancing;
         }
       }
 
@@ -311,18 +316,22 @@ export class ColonyTickProcessorService {
             );
           });
           if (victim) {
-            victim.isActive = false;
+            const definition = this.gameData.getBuilding(victim.buildingId!)!;
+            await this.buildingLifecycleService.deactivateBuilding(
+              colony,
+              victim,
+              definition,
+            );
             deactivatedFieldIds.add(victim.id);
-            await this.fieldRepo.save(victim);
             events.push({
               type: 'BUILDING_DEACTIVATED',
               fieldIndex: victim.fieldIndex,
               buildingId: victim.buildingId,
-              buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
+              buildingName: definition.name,
               commodityId,
               reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
             });
-            rewind = true;
+            continue balancing;
           }
         }
       }
@@ -345,23 +354,27 @@ export class ColonyTickProcessorService {
             );
           });
           if (victim) {
-            victim.isActive = false;
+            const definition = this.gameData.getBuilding(victim.buildingId!)!;
+            await this.buildingLifecycleService.deactivateBuilding(
+              colony,
+              victim,
+              definition,
+            );
             deactivatedFieldIds.add(victim.id);
-            await this.fieldRepo.save(victim);
             events.push({
               type: 'BUILDING_DEACTIVATED',
               fieldIndex: victim.fieldIndex,
               buildingId: victim.buildingId,
-              buildingName: this.gameData.getBuilding(victim.buildingId!)?.name,
+              buildingName: definition.name,
               commodityId,
               reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
             });
-            rewind = true;
+            continue balancing;
           }
         }
       }
 
-      if (!rewind) break;
+      break;
     }
 
     const summary = this.colonyStatsService.calculateSummary(

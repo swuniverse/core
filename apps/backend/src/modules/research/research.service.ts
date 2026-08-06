@@ -611,6 +611,14 @@ export class ResearchService {
         current.blockedReason = null;
         await this.researchRepo.save(current);
         current = await this.promoteQueued(userId);
+        if (
+          current &&
+          (this.gameData.getTech(current.techId)?.mappedCommodityId ??
+            this.gameData.getTech(current.techId)?.commodityId ??
+            null) !== commodityId
+        ) {
+          break;
+        }
         continue;
       }
 
@@ -629,6 +637,14 @@ export class ResearchService {
         current.finishesAt = null;
         await this.researchRepo.save(current);
         current = await this.promoteQueued(userId);
+        if (
+          current &&
+          (this.gameData.getTech(current.techId)?.mappedCommodityId ??
+            this.gameData.getTech(current.techId)?.commodityId ??
+            null) !== commodityId
+        ) {
+          break;
+        }
       } else {
         await this.researchRepo.save(current);
         current = null;
