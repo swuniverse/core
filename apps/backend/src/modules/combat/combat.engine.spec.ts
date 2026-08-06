@@ -268,6 +268,107 @@ describe('CombatEngine projectile specialization', () => {
   });
 });
 
+describe('CombatEngine weapon-vs-shield modifier', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('PHASER vs PHASIC shield (modifier 120) increases shield damage', async () => {
+    // variance fixed to 1, no crit
+    jest.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.1)   // hit
+      .mockReturnValueOnce(0.5)   // variance midpoint → 1.0 (min=1, max=1)
+      .mockReturnValueOnce(0.99); // no crit
+
+    const gameData = {
+      getCombatFormulas: jest.fn(() => combatFormulas()),
+      getAllModules: jest.fn(() => [
+        {
+          name: 'Leichter Turbolaser',
+          category: 'WEAPONS',
+          public: {},
+          secret: { baseDamage: 15, tibannaConsumption: 8, weaponFamily: 'PHASER' },
+        },
+        {
+          name: 'Verstärkter Deflektorschild',
+          category: 'SHIELDS',
+          public: {},
+          secret: { baseShieldStrength: 35, tibannaConsumption: 8, shieldFamily: 'PHASIC' },
+        },
+      ]),
+      getWeaponShieldModifier: jest.fn((wf: string, sf: string) => {
+        if (wf === 'PHASER' && sf === 'PHASIC') return 120;
+        return 100;
+      }),
+    };
+    const torpedoService = { consumeForAttack: jest.fn(async () => null) };
+    const engine = new CombatEngine(
+      gameData as unknown as ConstructorParameters<typeof CombatEngine>[0],
+      torpedoService as unknown as ConstructorParameters<typeof CombatEngine>[1],
+    );
+
+    const attacker = {
+      id: 1, shipClassId: 3,
+      hull: 1000, hullMax: 1000,
+      shields: 0, shieldsMax: 0,
+      energy: 100,
+      status: 'DOCKED', alertState: 'GREEN',
+    };
+    // Defender has shields so modifier applies
+    const defender = {
+      id: 2, shipClassId: 3,
+      hull: 1000, hullMax: 1000,
+      shields: 500, shieldsMax: 500,
+      energy: 100,
+      status: 'DOCKED', alertState: 'GREEN',
+    };
+
+    const result = await engine.resolveCombat(
+      attacker as unknown as Parameters<CombatEngine['resolveCombat']>[0],
+      defender as unknown as Parameters<CombatEngine['resolveCombat']>[1],
+      [
+        {
+          spacecraftId: 1,
+          moduleType: 'Leichter Turbolaser',
+          category: 'WEAPONS',
+          level: 1,
+          integrity: 100,
+          cooldown: 0,
+          isActive: true,
+        },
+      ] as unknown as Parameters<CombatEngine['resolveCombat']>[2],
+      [
+        {
+          spacecraftId: 2,
+          moduleType: 'Verstärkter Deflektorschild',
+          category: 'SHIELDS',
+          level: 1,
+          integrity: 100,
+          cooldown: 0,
+          isActive: true,
+        },
+      ] as unknown as Parameters<CombatEngine['resolveCombat']>[3],
+    );
+
+    // baseDamage=15, level=1 → levelScale=1, classModifier=1, variance=1, base_multiplier=1 → damage=15
+    // modifier=120 → damage = round(15 * 1.2) = 18
+    // bleedthrough = round(18 * 0.1) = 2 → hullDamage starts at 2
+    // shieldDamage = round((18-2) * 1) = 16
+    // shields absorbed: min(500,16)=16, shields become 484
+    // hull receives bleedthrough=2
+    expect(defender.shields).toBe(484);
+    expect(defender.hull).toBe(998);
+
+    expect(result.rounds[0].log).toContainEqual(
+      expect.objectContaining({
+        action: CombatAction.WEAPON_SHIELD_MOD,
+        value: 120,
+        detail: 'PHASER vs PHASIC',
+      }),
+    );
+  });
+});
+
 describe('CombatEngine runtimeSystems integration', () => {
   afterEach(() => {
     jest.restoreAllMocks();

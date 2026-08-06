@@ -10,6 +10,7 @@ import {
   CombatFormulas,
   TorpedoTypeDef,
   TorpedoDamageType,
+  ModuleDef,
 } from '../game-data/game-data.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 
@@ -27,6 +28,7 @@ export enum CombatAction {
   ESCAPED = 'ESCAPED',
   DESTROYED = 'DESTROYED',
   ARMOR_ABSORB = 'ARMOR_ABSORB',
+  WEAPON_SHIELD_MOD = 'WEAPON_SHIELD_MOD',
 }
 
 export interface CombatLogEntry {
@@ -287,6 +289,30 @@ export class CombatEngine {
         });
       }
 
+      // weapon-vs-shield modifier (only while target has shields)
+      if (target.ship.shields > 0) {
+        const weaponFamily =
+          weaponCategory === 'PROJECTILE'
+            ? 'TORPEDO'
+            : (weaponDef.secret.weaponFamily as string | undefined);
+        const shieldFamily = this.getActiveShieldFamily(target);
+        if (weaponFamily && shieldFamily) {
+          const modifier = this.gameData.getWeaponShieldModifier(
+            weaponFamily,
+            shieldFamily,
+          );
+          if (modifier !== 100) {
+            damage = Math.round(damage * (modifier / 100));
+            log.push({
+              action: CombatAction.WEAPON_SHIELD_MOD,
+              source: shooter.role,
+              value: modifier,
+              detail: `${weaponFamily} vs ${shieldFamily}`,
+            });
+          }
+        }
+      }
+
       const action =
         weaponCategory === 'WEAPONS'
           ? CombatAction.ENERGY_HIT
@@ -516,7 +542,7 @@ export class CombatEngine {
       const activeShieldMods = combatant.modules.filter(
         (m) => m.category === 'SHIELDS' && m.isActive && m.integrity > 0,
       );
-      if (activeShieldMods.length > 0) {
+      if (activeShieldMods.length > 0 && formulas.shields.recharge_rate > 0) {
         const regen = Math.max(
           1,
           Math.round(
@@ -583,6 +609,21 @@ export class CombatEngine {
         evasion: 1,
       }
     );
+  }
+
+  private getActiveShieldFamily(target: Combatant): string | undefined {
+    const allModuleDefs = this.gameData.getAllModules();
+    for (const mod of target.modules) {
+      if (mod.category !== 'SHIELDS' || !mod.isActive || mod.integrity <= 0) {
+        continue;
+      }
+      const def = allModuleDefs.find(
+        (d: ModuleDef) => d.name === mod.moduleType,
+      );
+      const family = def?.secret?.shieldFamily;
+      if (typeof family === 'string') return family;
+    }
+    return undefined;
   }
 
   private getShipClass(shipClassId: number): string {
