@@ -110,11 +110,13 @@ export class ColonyTickProcessorService {
     colony: Colony,
     summary: ColonyInternalSummary,
   ): number {
-    if (colony.stats?.immigrationEnabled === false) {
+    const changeable = getColonyChangeable(colony);
+    if (changeable.immigrationEnabled === false) {
       return 0;
     }
 
-    const currentPopulation = getEffectiveCurrentPopulation(colony);
+    const currentPopulation =
+      (changeable.workers ?? 0) + (changeable.workless ?? 0);
     const freeHousing = summary.maxHousing - currentPopulation;
     if (freeHousing <= 0) {
       return 0;
@@ -140,7 +142,7 @@ export class ColonyTickProcessorService {
       immigration = summary.maxHousing - currentPopulation;
     }
 
-    const populationLimit = colony.stats?.populationLimit ?? 0;
+    const populationLimit = changeable.populationLimit ?? 0;
     if (
       populationLimit > 0 &&
       currentPopulation + immigration > populationLimit

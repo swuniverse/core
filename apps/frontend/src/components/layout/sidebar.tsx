@@ -92,6 +92,8 @@ export function Sidebar() {
           msToNext={tick.msToNext}
           tickIndex={tick.currentTickIndex}
           totalTicks={tick.totalTicks}
+          progress={tick.progress}
+          loaded={tick.loaded}
         />
       </div>
     </aside>
@@ -313,18 +315,19 @@ function NavIconAdmin() {
   );
 }
 
-const TICK_INTERVAL_MS = 3 * 60 * 60 * 1000;
-
 function TickRing({
   msToNext,
   tickIndex,
   totalTicks,
+  progress,
+  loaded,
 }: {
   msToNext: number;
   tickIndex: number;
   totalTicks: number;
+  progress: number;
+  loaded: boolean;
 }) {
-  const progress = 1 - Math.min(msToNext / TICK_INTERVAL_MS, 1);
   const radius = 22;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
@@ -356,10 +359,10 @@ function TickRing({
       </svg>
       <div className="text-center z-10">
         <div className="text-[10px] font-mono font-bold text-swu-accent leading-none">
-          {formatTickCountdown(msToNext)}
+          {loaded ? formatTickCountdown(msToNext) : '--'}
         </div>
         <div className="text-[8px] text-swu-muted leading-none mt-0.5">
-          {tickIndex + 1}/{totalTicks}
+          {loaded ? `${tickIndex + 1}/${totalTicks}` : '--'}
         </div>
       </div>
     </div>

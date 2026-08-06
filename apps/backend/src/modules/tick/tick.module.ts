@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TickService } from './tick.service';
 import { TickController } from './tick.controller';
+import { TickStatusController } from './tick-status.controller';
 import { ColonyModule } from '../colony/colony.module';
 import { SpacecraftModule } from '../spacecraft/spacecraft.module';
 import { ResearchModule } from '../research/research.module';
@@ -28,7 +29,7 @@ import { GameTickState } from './entities/game-tick-state.entity';
     ResearchModule,
     WebsocketModule,
   ],
-  controllers: [TickController],
+  controllers: [TickController, TickStatusController],
   providers: [TickService],
 })
 export class TickModule {}

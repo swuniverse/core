@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { ColonyService } from '../colony/colony.service';
+import { ColonyService, type ColonyTickEvent } from '../colony/colony.service';
 import { ColonyEventService } from '../colony/colony-event.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
@@ -66,6 +66,35 @@ export class TickService {
     return this.handleTick();
   }
 
+  getTickStatus(now = new Date()): {
+    serverTime: string;
+    previousTickAt: string;
+    nextTickAt: string;
+    currentTickIndex: number;
+    totalTicks: number;
+  } {
+    const scheduleHours = this.expandMainTickScheduleHours();
+    const serverTime = new Date(now);
+    const previousTick = this.getPreviousMainTickAt(serverTime);
+    const nextTick = new Date(previousTick);
+    const currentTickIndex = scheduleHours.indexOf(previousTick.getHours());
+    const nextTickIndex = (currentTickIndex + 1) % scheduleHours.length;
+
+    if (nextTickIndex === 0) {
+      nextTick.setDate(nextTick.getDate() + 1);
+    }
+    nextTick.setHours(scheduleHours[nextTickIndex], 0, 0, 0);
+
+    return {
+      serverTime: serverTime.toISOString(),
+      previousTickAt: previousTick.toISOString(),
+      nextTickAt: nextTick.toISOString(),
+      currentTickIndex,
+      totalTicks: scheduleHours.length,
+    };
+
+  }
+
   async handleTick(
     manualTickNumber?: number,
   ): Promise<{ tickNumber: number; status: string }> {
@@ -82,6 +111,10 @@ export class TickService {
       return { tickNumber, status: tickState.status };
     }
 
+    let processedColonyCount = 0;
+    let processedShipCount = 0;
+    let processedUserCount = 0;
+
     try {
       this.logger.log(`Tick #${tickNumber} started`);
 
@@ -90,6 +123,7 @@ export class TickService {
       const colonies = await this.colonyRepo.find({
         relations: ['fields', 'stats', 'changeable'],
       });
+      processedColonyCount = colonies.length;
       for (const colony of colonies) {
         if (colony.userId == null || colony.isAbandoned) continue;
         const colonyUserId = colony.userId;
@@ -133,6 +167,7 @@ export class TickService {
       }
 
       const ships = await this.shipRepo.find();
+      processedShipCount = ships.length;
       for (const ship of ships) {
         await this.spacecraftService.processTick(ship);
         this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
@@ -141,6 +176,7 @@ export class TickService {
       }
 
       const users = await this.userRepo.find({ select: ['id'] });
+      processedUserCount = users.length;
       for (const user of users) {
         await this.researchService.processTick(
           user.id,
@@ -149,12 +185,7 @@ export class TickService {
         );
       }
 
-      this.gateway.emitToAll(WsEventType.TICK, { tick: tickNumber });
-      this.logger.log(
-        `Tick #${tickNumber} completed — ${colonies.length} colonies, ${ships.length} ships, ${users.length} users processed`,
-      );
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
-      return { tickNumber, status: GameTickStatus.COMPLETED };
     } catch (error) {
       await this.finishTick(
         tickState,
@@ -163,7 +194,22 @@ export class TickService {
       );
       throw error;
     }
+
+    try {
+      this.gateway.emitToAll(WsEventType.TICK, { tick: tickNumber });
+    } catch (error) {
+      this.logger.error(
+        `Failed to broadcast completed tick #${tickNumber}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    this.logger.log(
+      `Tick #${tickNumber} completed — ${processedColonyCount} colonies, ${processedShipCount} ships, ${processedUserCount} users processed`,
+    );
+    return { tickNumber, status: GameTickStatus.COMPLETED };
   }
+
 
   @Cron(CronExpression.EVERY_MINUTE)
   async checkBuildingCompletions() {
@@ -192,7 +238,26 @@ export class TickService {
       });
 
       for (const colony of colonies) {
-        await this.colonyService.checkBuildingCompletions(colony);
+        const events: ColonyTickEvent[] = [];
+        await this.colonyService.checkBuildingCompletions(colony, events);
+        if (events.length === 0 || colony.userId == null) continue;
+
+        await this.colonyEventService.createTickEvents(
+          colony.id,
+          colony.userId,
+          events,
+          tickNumber,
+        );
+        this.gateway.emitToUser(
+          colony.userId,
+          WsEventType.COLONY_UPDATED,
+          { colonyId: colony.id },
+        );
+        this.gateway.emitToUser(
+          colony.userId,
+          WsEventType.COLONY_TICK_REPORT,
+          { colonyId: colony.id, tick: tickNumber, events },
+        );
       }
 
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
@@ -297,27 +362,8 @@ export class TickService {
   }
 
   private getMainTickNumber(now: Date): number {
-    const schedule = this.getMainTickScheduleHours();
-    const slot = new Date(now);
-    slot.setMinutes(0, 0, 0);
-
-    if (schedule === '*') {
-      return slot.getTime();
-    }
-
-    const currentHour = slot.getHours();
-    const hour = [...schedule]
-      .reverse()
-      .find((candidate) => candidate <= currentHour);
-
-    if (hour == null) {
-      slot.setDate(slot.getDate() - 1);
-      slot.setHours(schedule[schedule.length - 1], 0, 0, 0);
-    } else {
-      slot.setHours(hour, 0, 0, 0);
-    }
-
-    return slot.getTime();
+    const previousTick = this.getPreviousMainTickAt(now);
+    return previousTick.getTime();
   }
 
   private isMainTickHourActive(now: Date): boolean {
@@ -328,6 +374,33 @@ export class TickService {
   private getMainTickScheduleDescription(): string {
     const schedule = this.getMainTickScheduleHours();
     return schedule === '*' ? '*' : schedule.join(',');
+  }
+
+  private getPreviousMainTickAt(now: Date): Date {
+    const scheduleHours = this.expandMainTickScheduleHours();
+    const previousTick = new Date(now);
+    previousTick.setMinutes(0, 0, 0);
+
+    const currentHour = previousTick.getHours();
+    const previousTickHour = [...scheduleHours]
+      .reverse()
+      .find((hour) => hour <= currentHour);
+
+    if (previousTickHour == null) {
+      previousTick.setDate(previousTick.getDate() - 1);
+      previousTick.setHours(scheduleHours[scheduleHours.length - 1], 0, 0, 0);
+      return previousTick;
+    }
+
+    previousTick.setHours(previousTickHour, 0, 0, 0);
+    return previousTick;
+  }
+
+  private expandMainTickScheduleHours(): number[] {
+    const schedule = this.getMainTickScheduleHours();
+    return schedule === '*'
+      ? Array.from({ length: 24 }, (_, hour) => hour)
+      : schedule;
   }
 
   private getMainTickScheduleHours(): MainTickSchedule {

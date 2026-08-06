@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
+import { useSocket } from '../hooks/use-socket';
 
 interface TechDependency {
   type: 'REQUIRE' | 'REQUIRE_SOME' | 'EXCLUDE';
@@ -72,15 +73,19 @@ export function ResearchPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTech, setSelectedTech] = useState<TechState | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const data = await api.get<TechState[]>('/research');
     setTechs(data);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+  }, [load]);
+
+  useSocket('TICK', () => {
+    void load();
+  });
 
   useEffect(() => {
     if (focusTechId && techs.length > 0) {

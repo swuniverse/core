@@ -8,6 +8,9 @@ import type { ReactNode } from 'react';
 import { ResearchPage } from './research';
 import { ResearchTreePage } from './research-tree';
 import { useAuthStore } from '../stores/auth.store';
+const socketHandlers = vi.hoisted(
+  () => new Map<string, Array<(payload: unknown) => void>>(),
+);
 
 const techs = [
   {
@@ -110,6 +113,16 @@ vi.mock('../services/api', () => ({
   api: apiMocks,
 }));
 
+vi.mock('../hooks/use-socket', () => ({
+  useSocket: (event?: string, handler?: (payload: unknown) => void) => {
+    if (!event || !handler) return;
+    const handlers = socketHandlers.get(event) ?? [];
+    if (!handlers.includes(handler)) {
+      handlers.push(handler);
+      socketHandlers.set(event, handlers);
+    }
+  },
+}));
 vi.mock('@xyflow/react', () => ({
   ReactFlow: ({
     children,
@@ -244,6 +257,11 @@ function LocationProbe() {
       {location.search}
     </div>
   );
+}
+function emitSocket(event: string, payload: unknown) {
+  for (const handler of socketHandlers.get(event) ?? []) {
+    handler(payload);
+  }
 }
 
 const consolidatedTreeTechs = [
@@ -572,6 +590,7 @@ const imperialsModuleTreeTechs = [
 
 describe('ResearchPage routing', () => {
   beforeEach(() => {
+    socketHandlers.clear();
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.delete.mockReset();
@@ -815,6 +834,51 @@ describe('ResearchPage routing', () => {
     );
     expect(screen.getAllByText('Schildmodule Stufe I').length).toBeGreaterThan(
       0,
+    );
+  });
+
+  it('refreshes research progress on TICK without changing focus query', async () => {
+    apiMocks.get
+      .mockResolvedValueOnce(techs)
+      .mockResolvedValueOnce([
+        techs[0],
+        techs[1],
+        {
+          ...techs[2],
+          status: 'IN_PROGRESS',
+          progress: 30,
+          pointsRequired: 120,
+        },
+        techs[3],
+      ]);
+
+    render(
+      <MemoryRouter initialEntries={['/research?focus=211301']}>
+        <Routes>
+          <Route
+            path="/research"
+            element={
+              <>
+                <LocationProbe />
+                <ResearchPage />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('Forschung: Hyperantrieb Theorie'),
+    ).toBeTruthy();
+
+    emitSocket('TICK', { tick: 9 });
+
+    await waitFor(() => {
+      expect(apiMocks.get.mock.calls.length).toBeGreaterThan(1);
+    });
+    expect(screen.getByTestId('location').textContent).toBe(
+      '/research?focus=211301',
     );
   });
 

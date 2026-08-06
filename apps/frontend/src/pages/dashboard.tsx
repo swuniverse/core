@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
+import { useSocket } from '../hooks/use-socket';
 
 interface ActiveResearch {
   name: string;
@@ -114,11 +115,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     const [
       colonies,
       researchData,
@@ -165,7 +162,6 @@ export function DashboardPage() {
       (s) => s.status === 'IN_FLIGHT',
     );
 
-    // Fetch colony details for build jobs, crew, warnings
     const buildJobs: DashboardBuildJob[] = [];
     let crewInfo: CrewInfo | null = null;
     const warnings: ColonyWarning[] = [];
@@ -200,7 +196,6 @@ export function DashboardPage() {
             globalLimit: detail.crew.globalLimit,
           };
         }
-        // Warnings
         if (
           detail.detailV2?.energy.delta != null &&
           detail.detailV2.energy.delta < 0 &&
@@ -243,7 +238,15 @@ export function DashboardPage() {
       warnings,
     });
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  useSocket('TICK', () => {
+    void loadDashboard();
+  });
 
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;

@@ -20,6 +20,7 @@ import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js';
 import '@xyflow/react/dist/style.css';
 import { api } from '../services/api';
 import { TechDetailModal, type TechState } from './research';
+import { useSocket } from '../hooks/use-socket';
 
 type ResearchTreeNodeData = {
   tech: TechState;
@@ -383,11 +384,18 @@ export function ResearchTreePage() {
     Number(searchParams.get('highlight')) ||
     null;
 
-  useEffect(() => {
-    api.get<TechState[]>('/research').then((data) => {
-      setTechs(data);
-    });
+  const loadTechs = useCallback(async () => {
+    const data = await api.get<TechState[]>('/research');
+    setTechs(data);
   }, []);
+
+  useEffect(() => {
+    void loadTechs();
+  }, [loadTechs]);
+
+  useSocket('TICK', () => {
+    void loadTechs();
+  });
 
   const highlightTech = useCallback(
     (techId: number) => {
@@ -440,15 +448,13 @@ export function ResearchTreePage() {
   const startResearch = async (techId: number) => {
     await api.post('/research/start', { techId });
     closeTechDetail();
-    const data = await api.get<TechState[]>('/research');
-    setTechs(data);
+    await loadTechs();
   };
 
   const queueTarget = async (targetTechId: number) => {
     await api.post('/research/queue-target', { targetTechId });
     closeTechDetail();
-    const data = await api.get<TechState[]>('/research');
-    setTechs(data);
+    await loadTechs();
   };
 
   if (loading) {

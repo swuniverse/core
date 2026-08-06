@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { colonyApi } from './api';
@@ -39,6 +39,7 @@ import {
   getEffectiveBuildingForField,
   getFieldTypeCandidates,
 } from './utils';
+import { useSocket } from '../../hooks/use-socket';
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Aktion fehlgeschlagen';
@@ -108,11 +109,31 @@ export function ColoniesPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>('info');
 
-  useEffect(() => {
-    void loadInitial();
+  const detailRequestSequenceRef = useRef(0);
+  const initialSelectedIdRef = useRef(Number(searchParams.get('selected')));
+
+  const loadColonyOverview = useCallback(async () => {
+    const data = await colonyApi.fetchColonies();
+    setColonies(data);
   }, []);
 
-  const loadInitial = async () => {
+  const loadColonyDetail = useCallback(
+    async (id: number) => {
+      const requestSequence = ++detailRequestSequenceRef.current;
+      const detail = await colonyApi.fetchColonyDetail(id);
+      if (requestSequence !== detailRequestSequenceRef.current) return;
+      setSelected(detail);
+      setSearchParams({ selected: String(id) }, { replace: true });
+    },
+    [setSearchParams],
+  );
+
+  const loadAvailableBuildings = useCallback(async () => {
+    const buildings = await colonyApi.fetchAvailableBuildings();
+    setBuildingDefs(buildings);
+  }, []);
+
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
       const starter = await colonyApi.fetchStarterColonizationOptions();
@@ -137,22 +158,35 @@ export function ColoniesPage() {
         return;
       }
 
-      const data = await colonyApi.fetchColonies();
-      setColonies(data);
-      const reqId = Number(searchParams.get('selected'));
+      await loadColonyOverview();
+      const reqId = initialSelectedIdRef.current;
       if (reqId) await loadColonyDetail(reqId);
     } catch (error: unknown) {
       toast.error(errorMessage(error));
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadColonyDetail, loadColonyOverview, toast]);
 
-  const loadColonyDetail = async (id: number) => {
-    const detail = await colonyApi.fetchColonyDetail(id);
-    setSelected(detail);
-    setSearchParams({ selected: String(id) }, { replace: true });
-  };
+  useEffect(() => {
+    void loadInitial();
+  }, [loadInitial]);
+
+  useSocket('COLONY_UPDATED', (payload) => {
+    void loadColonyOverview();
+
+    let colonyId: unknown;
+    if (payload && typeof payload === 'object' && 'colonyId' in payload) {
+      colonyId = payload.colonyId;
+    }
+
+    if (typeof colonyId !== 'number' || colonyId !== selected?.id) return;
+    void loadColonyDetail(colonyId);
+  });
+
+  useSocket('TICK', () => {
+    void loadAvailableBuildings();
+  });
 
   const goBack = () => {
     setSelected(null);

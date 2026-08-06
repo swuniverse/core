@@ -27,7 +27,7 @@ jest.mock('../research/entities/research.entity', () => ({
   },
 }));
 
-import { ColonyService } from './colony.service';
+import { ColonyService, type ColonyTickEvent } from './colony.service';
 import {
   ColonyStatsService,
   getColonyChangeable,
@@ -1633,6 +1633,146 @@ describe('colony tick calculations', () => {
         statsService.calculateSummary(colony as any),
       ),
     ).toBe(16);
+  });
+
+  it('uses authoritative changeable state to disable immigration', () => {
+    const { service, statsService } = createColonyService();
+    const colony = {
+      id: 1,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 168,
+      storageMax: 3000,
+      stats: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      changeable: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        populationLimit: 0,
+        immigrationEnabled: false,
+        maxEnergy: 100,
+        maxStorage: 3000,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+
+    expect(
+      service.calculatePopulationGrowth(
+        colony as never,
+        statsService.calculateSummary(colony as never),
+      ),
+    ).toBe(0);
+  });
+
+  it('uses the authoritative changeable population limit to cap immigration', () => {
+    const { service, statsService } = createColonyService();
+    const colony = {
+      id: 1,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 168,
+      storageMax: 3000,
+      stats: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      changeable: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        populationLimit: 100,
+        immigrationEnabled: true,
+        maxEnergy: 100,
+        maxStorage: 3000,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+
+    expect(
+      service.calculatePopulationGrowth(
+        colony as never,
+        statsService.calculateSummary(colony as never),
+      ),
+    ).toBe(16);
+  });
+
+  it('admits population after due housing completes in the same main tick', async () => {
+    const { service, fieldRepo } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 4,
+      buildingId: 82010100,
+      isBuilding: true,
+      isActive: false,
+      activateAfterBuild: true,
+      buildProgress: 0,
+      buildFinishesAt: new Date(Date.now() - 1),
+      integrity: 0,
+      maxIntegrity: 0,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 84,
+      energy: 0,
+      energyMax: 100,
+      storageMax: 3000,
+      storageUsed: 0,
+      stats: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 84,
+        populationLimit: 84,
+        immigrationEnabled: false,
+      },
+      changeable: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 84,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        energy: 0,
+        maxEnergy: 100,
+        maxStorage: 3000,
+      },
+      fields: [field],
+      storage: [],
+    };
+
+    const result = await service.processTick(colony as never);
+
+    expect(field).toMatchObject({
+      isBuilding: false,
+      isActive: true,
+      buildProgress: 100,
+      buildFinishesAt: null,
+    });
+    expect(fieldRepo.save).toHaveBeenCalledWith(field);
+    expect(colony.changeable.maxPopulation).toBe(168);
+    expect(colony.changeable.workless).toBe(117);
+    expect(colony.population).toBe(141);
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: 'BUILDING_FINISHED',
+        fieldIndex: 4,
+        buildingId: 82010100,
+      }),
+    );
   });
 
   it('updates colony options with owner validation', async () => {
@@ -4979,6 +5119,87 @@ describe('main tick idempotency', () => {
     }
   });
 
+  it('returns previous and next configured boundaries around a midday interval', () => {
+    const service = createTickService({
+      GAME_MAIN_TICK_SCHEDULE_HOURS: '0,12,15,18,21',
+    });
+    const now = new Date(2026, 6, 3, 14, 30, 15, 250);
+
+    expect(service.getTickStatus(now)).toEqual({
+      serverTime: now.toISOString(),
+      previousTickAt: new Date(2026, 6, 3, 12, 0, 0, 0).toISOString(),
+      nextTickAt: new Date(2026, 6, 3, 15, 0, 0, 0).toISOString(),
+      currentTickIndex: 1,
+      totalTicks: 5,
+    });
+  });
+
+  it('sorts explicit schedules before computing previous, next, and index', () => {
+    const service = createTickService({
+      GAME_MAIN_TICK_SCHEDULE_HOURS: '21,0,15,12,18',
+    });
+    const now = new Date(2026, 6, 3, 14, 30, 15, 250);
+
+    expect(service.getTickStatus(now)).toEqual({
+      serverTime: now.toISOString(),
+      previousTickAt: new Date(2026, 6, 3, 12, 0, 0, 0).toISOString(),
+      nextTickAt: new Date(2026, 6, 3, 15, 0, 0, 0).toISOString(),
+      currentTickIndex: 1,
+      totalTicks: 5,
+    });
+  });
+
+  it('crosses from the 21:00 slot to next-day 00:00 for configured schedules', () => {
+    const service = createTickService({
+      GAME_MAIN_TICK_SCHEDULE_HOURS: '0,12,15,18,21',
+    });
+    const now = new Date(2026, 6, 3, 21, 0, 0, 0);
+
+    expect(service.getTickStatus(now)).toEqual({
+      serverTime: now.toISOString(),
+      previousTickAt: new Date(2026, 6, 3, 21, 0, 0, 0).toISOString(),
+      nextTickAt: new Date(2026, 6, 4, 0, 0, 0, 0).toISOString(),
+      currentTickIndex: 4,
+      totalTicks: 5,
+    });
+  });
+
+  it('expands wildcard schedules to hourly previous and next boundaries', () => {
+    const service = createTickService({ GAME_MAIN_TICK_SCHEDULE_HOURS: '*' });
+    const now = new Date(2026, 6, 3, 13, 42, 12, 123);
+
+    expect(service.getTickStatus(now)).toEqual({
+      serverTime: now.toISOString(),
+      previousTickAt: new Date(2026, 6, 3, 13, 0, 0, 0).toISOString(),
+      nextTickAt: new Date(2026, 6, 3, 14, 0, 0, 0).toISOString(),
+      currentTickIndex: 13,
+      totalTicks: 24,
+    });
+  });
+
+  it('returns the documented tick status response shape with iso strings', () => {
+    const service = createTickService({
+      GAME_MAIN_TICK_SCHEDULE_HOURS: '0,12,15,18,21',
+    });
+    const now = new Date(2026, 6, 3, 0, 5, 6, 789);
+    const status = service.getTickStatus(now);
+
+    expect(status).toStrictEqual({
+      serverTime: now.toISOString(),
+      previousTickAt: new Date(2026, 6, 3, 0, 0, 0, 0).toISOString(),
+      nextTickAt: new Date(2026, 6, 3, 12, 0, 0, 0).toISOString(),
+      currentTickIndex: 0,
+      totalTicks: 5,
+    });
+    expect(Object.keys(status)).toEqual([
+      'serverTime',
+      'previousTickAt',
+      'nextTickAt',
+      'currentTickIndex',
+      'totalTicks',
+    ]);
+  });
+
   it('does not process an already completed durable tick slot', async () => {
     const colonyRepo = { find: jest.fn() };
     const tickStateRepo = {
@@ -5039,7 +5260,7 @@ describe('main tick idempotency', () => {
     expect(colonyRepo.find).toHaveBeenCalled();
   });
 
-  it('emits a colony tick report when a shortage creates events', async () => {
+  it('always emits colony updates after processing even without report events', async () => {
     const colony = { id: 1, userId: 7 };
     const colonyRepo = { find: jest.fn(async () => [colony]) };
     const shipRepo = { find: jest.fn(async () => []) };
@@ -5049,21 +5270,26 @@ describe('main tick idempotency', () => {
       create: jest.fn((value) => value),
       save: jest.fn(async (value) => value),
     };
+    let signalProcessingStarted!: () => void;
+    const processingStarted = new Promise<void>((resolve) => {
+      signalProcessingStarted = resolve;
+    });
+    let resolveProcessing!: () => void;
+    const processing = new Promise<void>((resolve) => {
+      resolveProcessing = resolve;
+    });
     const colonyService = {
-      processTick: jest.fn(async () => ({
-        researchPoints: 1,
-        productionDelta: new Map(),
-        events: [
-          {
-            type: 'BUILDING_DEACTIVATED',
-            fieldIndex: 7,
-            reason: 'Energie',
-          },
-        ],
-      })),
+      processTick: jest.fn(() => {
+        signalProcessingStarted();
+        return processing.then(() => ({
+          researchPoints: 1,
+          productionDelta: new Map<number, number>(),
+          events: [],
+        }));
+      }),
     };
+    const colonyEventService = { createTickEvents: jest.fn() };
     const researchService = { processTick: jest.fn(async () => undefined) };
-    const colonyEventService = { createTickEvents: jest.fn(async () => []) };
     const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
     const service = new TickService(
       colonyRepo as any,
@@ -5079,27 +5305,440 @@ describe('main tick idempotency', () => {
       { get: jest.fn(() => undefined) } as any,
     );
 
-    await service.handleTick();
+    const handling = service.handleTick();
+    await processingStarted;
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
 
+    resolveProcessing();
+    await handling;
+
+    expect(gateway.emitToUser).toHaveBeenCalledTimes(1);
+    expect(gateway.emitToUser).toHaveBeenCalledWith(
+      7,
+      WsEventType.COLONY_UPDATED,
+      { colonyId: 1 },
+    );
+    expect(colonyEventService.createTickEvents).not.toHaveBeenCalled();
+  });
+
+  it('waits for colony processing and event persistence before emitting reports', async () => {
+    const colony = { id: 1, userId: 7 };
+    const colonyRepo = { find: jest.fn(async () => [colony]) };
+    const shipRepo = { find: jest.fn(async () => []) };
+    const userRepo = { find: jest.fn(async () => [{ id: 7 }]) };
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    const tickEvent = {
+      type: 'BUILDING_DEACTIVATED' as const,
+      fieldIndex: 7,
+      reason: 'Energie',
+    };
+    const tickResult = {
+      researchPoints: 1,
+      productionDelta: new Map<number, number>(),
+      events: [tickEvent],
+    };
+    let signalProcessingStarted!: () => void;
+    const processingStarted = new Promise<void>((resolve) => {
+      signalProcessingStarted = resolve;
+    });
+    let resolveProcessing!: (result: typeof tickResult) => void;
+    const processing = new Promise<typeof tickResult>((resolve) => {
+      resolveProcessing = resolve;
+    });
+    const colonyService = {
+      processTick: jest.fn(() => {
+        signalProcessingStarted();
+        return processing;
+      }),
+    };
+    let signalEventPersistenceStarted!: () => void;
+    const eventPersistenceStarted = new Promise<void>((resolve) => {
+      signalEventPersistenceStarted = resolve;
+    });
+    let resolveEventPersistence!: () => void;
+    const eventPersistence = new Promise<void>((resolve) => {
+      resolveEventPersistence = resolve;
+    });
+    const colonyEventService = {
+      createTickEvents: jest.fn(() => {
+        signalEventPersistenceStarted();
+        return eventPersistence;
+      }),
+    };
+    const researchService = { processTick: jest.fn(async () => undefined) };
+    const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
+    const service = new TickService(
+      colonyRepo as any,
+      {} as any,
+      shipRepo as any,
+      userRepo as any,
+      tickStateRepo as any,
+      colonyService as any,
+      colonyEventService as any,
+      {} as any,
+      researchService as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    const handling = service.handleTick();
+    await processingStarted;
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
+
+    resolveProcessing(tickResult);
+    await eventPersistenceStarted;
+    expect(gateway.emitToUser).toHaveBeenCalledTimes(1);
+    expect(gateway.emitToUser).toHaveBeenCalledWith(
+      7,
+      WsEventType.COLONY_UPDATED,
+      { colonyId: 1 },
+    );
     expect(colonyEventService.createTickEvents).toHaveBeenCalledWith(
       1,
       7,
-      expect.any(Array),
+      tickResult.events,
       expect.any(Number),
     );
-    expect(gateway.emitToUser).toHaveBeenCalledWith(
+    expect(gateway.emitToUser).not.toHaveBeenCalledWith(
       7,
       WsEventType.COLONY_TICK_REPORT,
-      expect.objectContaining({
+      expect.anything(),
+    );
+
+    resolveEventPersistence();
+    await handling;
+    expect(gateway.emitToUser).toHaveBeenNthCalledWith(
+      2,
+      7,
+      WsEventType.COLONY_TICK_REPORT,
+      {
         colonyId: 1,
-        events: [
-          expect.objectContaining({
-            type: 'BUILDING_DEACTIVATED',
-            reason: 'Energie',
-          }),
-        ],
+        tick: expect.any(Number),
+        events: tickResult.events,
+      },
+    );
+  });
+
+  it('persists and emits minute completion events only for the owning colony with a real completion', async () => {
+    const colonies = [
+      { id: 1, userId: 7 },
+      { id: 2, userId: 8 },
+      { id: 3, userId: null },
+    ];
+    const colonyRepo = {
+      find: jest.fn(async () => colonies),
+    };
+    const fieldRepo = {
+      find: jest.fn(async () =>
+        colonies.map((colony) => ({ colonyId: colony.id, colony })),
+      ),
+    };
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    const completionEvent = {
+      type: 'BUILDING_FINISHED' as const,
+      fieldIndex: 4,
+      buildingId: 101,
+      buildingName: 'Habitat',
+    };
+    const colonyService = {
+      checkBuildingCompletions: jest.fn(
+        async (colony: { id: number }, events: ColonyTickEvent[]) => {
+          if (colony.id !== 2) events.push(completionEvent);
+        },
+      ),
+    };
+    let resolvePersistenceGate!: () => void;
+    const persistenceGate = new Promise<void>((resolve) => {
+      resolvePersistenceGate = resolve;
+    });
+    let resolvePersistenceStarted!: () => void;
+    const persistenceStarted = new Promise<void>((resolve) => {
+      resolvePersistenceStarted = resolve;
+    });
+    const colonyEventService = {
+      createTickEvents: jest.fn(() => {
+        resolvePersistenceStarted();
+        return persistenceGate;
+      }),
+    };
+    const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
+    const service = new TickService(
+      colonyRepo as any,
+      fieldRepo as any,
+      {} as any,
+      {} as any,
+      tickStateRepo as any,
+      colonyService as any,
+      colonyEventService as any,
+      {} as any,
+      {} as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    const handling = service.checkBuildingCompletions();
+    await persistenceStarted;
+    resolvePersistenceGate();
+    await handling;
+
+    expect(colonyService.checkBuildingCompletions).toHaveBeenCalledTimes(3);
+    expect(
+      colonyService.checkBuildingCompletions.mock.calls.map((call) => call[0]),
+    ).toEqual([
+      expect.objectContaining({ id: 1, userId: 7 }),
+      expect.objectContaining({ id: 2, userId: 8 }),
+      expect.objectContaining({ id: 3, userId: null }),
+    ]);
+    expect(colonyEventService.createTickEvents).toHaveBeenCalledTimes(1);
+    expect(colonyEventService.createTickEvents).toHaveBeenCalledWith(
+      1,
+      7,
+      [completionEvent],
+      expect.any(Number),
+    );
+    expect(gateway.emitToUser).toHaveBeenCalledTimes(2);
+    expect(gateway.emitToUser).toHaveBeenNthCalledWith(
+      1,
+      7,
+      WsEventType.COLONY_UPDATED,
+      { colonyId: 1 },
+    );
+    expect(gateway.emitToUser).toHaveBeenNthCalledWith(
+      2,
+      7,
+      WsEventType.COLONY_TICK_REPORT,
+      {
+        colonyId: 1,
+        tick: expect.any(Number),
+        events: [completionEvent],
+      },
+    );
+  });
+  it('emits no minute completion events when the scan is a no-op', async () => {
+    const colonyRepo = { find: jest.fn(async () => [{ id: 1, userId: 7 }]) };
+    const fieldRepo = {
+      find: jest.fn(async () => [{ colonyId: 1 }]),
+    };
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    const colonyService = {
+      checkBuildingCompletions: jest.fn(async () => undefined),
+    };
+    const colonyEventService = { createTickEvents: jest.fn() };
+    const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
+    const service = new TickService(
+      colonyRepo as any,
+      fieldRepo as any,
+      {} as any,
+      {} as any,
+      tickStateRepo as any,
+      colonyService as any,
+      colonyEventService as any,
+      {} as any,
+      {} as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    await service.checkBuildingCompletions();
+
+    expect(colonyService.checkBuildingCompletions).toHaveBeenCalledTimes(1);
+    expect(colonyEventService.createTickEvents).not.toHaveBeenCalled();
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
+  });
+
+  it('waits for research and completed persistence before broadcasting TICK', async () => {
+    let signalResearchStarted!: () => void;
+    const researchStarted = new Promise<void>((resolve) => {
+      signalResearchStarted = resolve;
+    });
+    let resolveResearch!: () => void;
+    const research = new Promise<void>((resolve) => {
+      resolveResearch = resolve;
+    });
+    let signalCompletionSaveStarted!: () => void;
+    const completionSaveStarted = new Promise<void>((resolve) => {
+      signalCompletionSaveStarted = resolve;
+    });
+    let resolveCompletionSave!: () => void;
+    const completionSave = new Promise<void>((resolve) => {
+      resolveCompletionSave = resolve;
+    });
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn((value) => {
+        if (value.status === GameTickStatus.COMPLETED) {
+          signalCompletionSaveStarted();
+          return completionSave.then(() => value);
+        }
+        return Promise.resolve(value);
+      }),
+    };
+    const researchService = {
+      processTick: jest.fn(() => {
+        signalResearchStarted();
+        return research;
+      }),
+    };
+    const gateway = { emitToUser: jest.fn(), emitToAll: jest.fn() };
+    const service = new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => [{ id: 7 }]) } as any,
+      tickStateRepo as any,
+      {} as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      researchService as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    const handling = service.handleTick();
+    await researchStarted;
+    expect(gateway.emitToAll).not.toHaveBeenCalled();
+
+    resolveResearch();
+    await completionSaveStarted;
+    expect(gateway.emitToAll).not.toHaveBeenCalled();
+
+    resolveCompletionSave();
+    await handling;
+    expect(gateway.emitToAll).toHaveBeenCalledWith(WsEventType.TICK, {
+      tick: expect.any(Number),
+    });
+  });
+
+  it('does not broadcast TICK when COMPLETED persistence fails', async () => {
+    const completionError = new Error('completion save failed');
+    const savedStatuses: GameTickStatus[] = [];
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => {
+        savedStatuses.push(value.status);
+        if (value.status === GameTickStatus.COMPLETED) throw completionError;
+        return value;
+      }),
+    };
+    const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
+    const service = new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => []) } as any,
+      tickStateRepo as any,
+      {} as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    await expect(service.handleTick()).rejects.toBe(completionError);
+
+    expect(gateway.emitToAll).not.toHaveBeenCalled();
+    expect(savedStatuses).toEqual([
+      GameTickStatus.STARTED,
+      GameTickStatus.COMPLETED,
+      GameTickStatus.FAILED,
+    ]);
+    expect(tickStateRepo.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        status: GameTickStatus.FAILED,
+        error: 'completion save failed',
       }),
     );
+  });
+
+  it('does not broadcast TICK when main tick processing fails', async () => {
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
+    const service = new TickService(
+      { find: jest.fn(async () => [{ id: 1, userId: 7 }]) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      tickStateRepo as any,
+      {
+        processTick: jest.fn(async () => {
+          throw new Error('tick failed');
+        }),
+      } as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    await expect(service.handleTick()).rejects.toThrow('tick failed');
+
+    expect(gateway.emitToAll).not.toHaveBeenCalled();
+    expect(tickStateRepo.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        status: GameTickStatus.FAILED,
+        error: 'tick failed',
+      }),
+    );
+  });
+
+  it('does not downgrade a completed tick when TICK broadcasting throws', async () => {
+    const savedStatuses: GameTickStatus[] = [];
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => {
+        savedStatuses.push(value.status);
+        return value;
+      }),
+    };
+    const gateway = {
+      emitToUser: jest.fn(),
+      emitToAll: jest.fn(() => {
+        throw new Error('socket failed');
+      }),
+    };
+    const service = new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => []) } as any,
+      tickStateRepo as any,
+      {} as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+    );
+
+    await expect(service.handleTick()).resolves.toEqual({
+      tickNumber: expect.any(Number),
+      status: GameTickStatus.COMPLETED,
+    });
+    expect(savedStatuses).toEqual([
+      GameTickStatus.STARTED,
+      GameTickStatus.COMPLETED,
+    ]);
   });
 });
 
