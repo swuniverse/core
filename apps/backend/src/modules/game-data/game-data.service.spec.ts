@@ -358,16 +358,16 @@ describe('GameDataService hangar ship definitions', () => {
       airfieldFunctionId: FUNCTIONS.AIRFIELD,
       startEnergyCost: 90,
       buildEnergyCost: 90,
-      defaultModuleCommodityIds: [10201, 10301, 10401, 10501, 10701, 10801],
+      defaultModuleCommodityIds: [10101, 10201, 10301, 10401, 10501, 10601, 10701, 10801],
     });
     expect(service.getHangarShipDefByCommodity(21401)).toMatchObject({
       shipClassKey: 'REBEL_SHUTTLE_LAAT',
     });
-    expect(service.getAllHangarShipDefs()).toHaveLength(11);
+    expect(service.getAllHangarShipDefs()).toHaveLength(13);
 
     expect(service.getHangarShipDef('REBEL_FIGHTER_X_WING')).toMatchObject({
       hangarCommodityId: 21201,
-      defaultModuleCommodityIds: [10201, 10301, 10401, 10501, 11701, 10801],
+      defaultModuleCommodityIds: [10101, 10201, 10301, 10401, 10501, 10601, 11701, 10801],
     });
   });
 
@@ -397,7 +397,7 @@ describe('GameDataService ship class slot rules', () => {
   it('loads shipyard compatibility and module slot rules', () => {
     expect(service.getShipClassSlotRule('CORVETTE')).toMatchObject({
       category: 'CORVETTE',
-      allowedBuildingFunctionIds: [5, 6, 22],
+      allowedBuildingFunctionIds: [6],
       moduleSlots: expect.objectContaining({
         HULL: 1,
         ENERGY_WEAPON: 1,
@@ -405,7 +405,7 @@ describe('GameDataService ship class slot rules', () => {
       }),
     });
     expect(service.getShipClassSlotRule('FRIGATE')).toMatchObject({
-      allowedBuildingFunctionIds: [7, 22],
+      allowedBuildingFunctionIds: [7],
       moduleSlots: expect.objectContaining({
         HULL: 1,
         ENERGY_WEAPON: 1,
@@ -417,10 +417,10 @@ describe('GameDataService ship class slot rules', () => {
 
   it('uses documented shipyard overrides for Rebel freight hulls', () => {
     expect(service.getShipClassDefByKey('REBEL_FREIGHTER_YT')).toMatchObject({
-      allowedBuildingFunctionIds: [5, 22],
+      allowedBuildingFunctionIds: [4, 5],
     });
     expect(service.getShipClassDefByKey('REBEL_FREIGHTER_GR75')).toMatchObject({
-      allowedBuildingFunctionIds: [6, 7, 22],
+      allowedBuildingFunctionIds: [6, 7],
     });
   });
 
