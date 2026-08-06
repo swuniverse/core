@@ -225,7 +225,9 @@ describe('ColoniesPage socket refresh', () => {
       starterOptions,
     );
     colonyApiMocks.fetchCommodities.mockResolvedValue(commodities);
-    colonyApiMocks.fetchAvailableBuildings.mockResolvedValue(availableBuildings);
+    colonyApiMocks.fetchAvailableBuildings.mockResolvedValue(
+      availableBuildings,
+    );
     colonyApiMocks.fetchAllBuildings.mockResolvedValue(allBuildings);
     colonyApiMocks.fetchTerraforming.mockResolvedValue(terraformingDefs);
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
@@ -291,9 +293,37 @@ describe('ColoniesPage socket refresh', () => {
     expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
   });
 
+  it('shows zero stock commodities with nonzero production', async () => {
+    const colony = createColony(1, 'Alpha', 5, 10);
+    colony.detailV2!.productionDeltas = [
+      { commodityId: 1, name: 'Erz', nameShort: 'ERZ', amount: 15 },
+    ];
+    colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Lager (1)')).toBeTruthy();
+    const storageRow = screen
+      .getAllByTitle('Erz')
+      .find((element) => element.tagName === 'DIV');
+    expect(storageRow?.textContent).toContain('0');
+    expect(storageRow?.textContent).toContain('+15');
+  });
+
   it('reloads available buildings on TICK only', async () => {
-    colonyApiMocks.fetchColonies.mockResolvedValue([createColony(1, 'Alpha', 5, 10)]);
-    colonyApiMocks.fetchColonyDetail.mockResolvedValue(createColony(1, 'Alpha', 5, 10));
+    colonyApiMocks.fetchColonies.mockResolvedValue([
+      createColony(1, 'Alpha', 5, 10),
+    ]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(
+      createColony(1, 'Alpha', 5, 10),
+    );
 
     render(
       <MemoryRouter initialEntries={['/colonies']}>
@@ -304,14 +334,15 @@ describe('ColoniesPage socket refresh', () => {
     );
 
     expect(await screen.findByText('Alpha')).toBeTruthy();
-    const initialBuildingCalls = colonyApiMocks.fetchAvailableBuildings.mock.calls.length;
+    const initialBuildingCalls =
+      colonyApiMocks.fetchAvailableBuildings.mock.calls.length;
 
     emitSocket('TICK', { tick: 42 });
 
     await waitFor(() => {
-      expect(colonyApiMocks.fetchAvailableBuildings.mock.calls.length).toBeGreaterThan(
-        initialBuildingCalls,
-      );
+      expect(
+        colonyApiMocks.fetchAvailableBuildings.mock.calls.length,
+      ).toBeGreaterThan(initialBuildingCalls);
     });
     expect(colonyApiMocks.fetchColonyDetail).not.toHaveBeenCalled();
   });

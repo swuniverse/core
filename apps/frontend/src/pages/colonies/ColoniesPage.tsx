@@ -72,6 +72,14 @@ const buildStorageRows = (
       amount: item.amount,
     });
   }
+  for (const item of colony.detailV2?.productionDeltas ?? []) {
+    if (item.amount === 0 || rows.has(item.commodityId)) continue;
+    rows.set(item.commodityId, {
+      id: -item.commodityId,
+      commodityId: item.commodityId,
+      amount: 0,
+    });
+  }
   return Array.from(rows.values()).sort((a, b) => {
     if (b.amount !== a.amount) return b.amount - a.amount;
     return getStorageCommodityLabel(
@@ -1235,7 +1243,7 @@ export function ColonyDetail({
                   )?.amount;
                   return (
                     <div
-                      key={item.id}
+                      key={item.commodityId}
                       className="flex items-center gap-2 px-2 py-0.5 text-[10px]"
                       title={label}
                     >
