@@ -351,7 +351,8 @@ export class ColonyShipyardService {
     }
 
     return (hangarDef.defaultModuleCommodityIds ?? []).map((commodityId) => {
-      const item = this.gameData.getFabricationItemByOutputCommodity(commodityId);
+      const item =
+        this.gameData.getFabricationItemByOutputCommodity(commodityId);
       if (!item?.shipyardType) {
         throw new BadRequestException(
           `Default module commodity #${commodityId} has no shipyard type`,
@@ -866,14 +867,6 @@ export class ColonyShipyardService {
     const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
     if (activeShipyardFunctionIds.length === 0) {
       throw new BadRequestException('Colony needs a completed Shipyard');
-    }
-
-    const hasShipyardOperations = await this.unlockResolver.hasTechByName(
-      userId,
-      'Werftbetrieb',
-    );
-    if (!hasShipyardOperations) {
-      throw new BadRequestException('Research required: Werftbetrieb');
     }
 
     const shipClass = await this.shipClassRepo.findOneBy({ id: shipClassId });
@@ -1571,7 +1564,7 @@ export class ColonyShipyardService {
       shieldsMax: shipClass.shieldBase,
       energy: shipClass.epsBase,
       energyMax: shipClass.epsBase,
-      warpSpeed: shipClass.warpBase,
+      warpSpeed: shipClass.warpdriveBase,
       crew: shipClass.crewMin,
       crewMax: shipClass.crewMax,
       cargoUsed: 0,
@@ -1580,7 +1573,7 @@ export class ColonyShipyardService {
       batteryMax: shipClass.batteryBase,
       epsMax: shipClass.epsBase,
       reactorOutput: 0,
-      warpdriveMax: shipClass.warpBase,
+      warpdriveMax: shipClass.warpdriveBase,
       evadeChance: 0,
     });
   }
