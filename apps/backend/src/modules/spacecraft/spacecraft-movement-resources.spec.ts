@@ -83,7 +83,10 @@ function createService() {
   const crewService = { hasEnoughCrew: jest.fn(async () => true) };
   const torpedoService = { getStorage: jest.fn() };
   const resourceFlow = { recharge: jest.fn() };
-  const runtimeState = { initialize: jest.fn() };
+  const runtimeState = {
+    initialize: jest.fn(),
+    getSystems: jest.fn(() => ({})),
+  };
 
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
@@ -210,5 +213,71 @@ describe('SpacecraftService movement resources', () => {
 
     expect(ship.warpdrive).toBe(0);
     expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
+  });
+
+  it('blocks in-system navigation when SUBLIGHT_DRIVE is offline', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo, runtimeState } =
+      createService();
+    runtimeState.getSystems.mockReturnValue({
+      SUBLIGHT_DRIVE: { active: false, cooldown: 0, integrity: 100 },
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.DOCKED,
+      inSystem: true,
+      starSystemId: 3,
+      currentSystemFieldX: 1,
+      currentSystemFieldY: 1,
+      energy: 50,
+      modules: [],
+    });
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+
+    await expect(service.navigate(7, 1, 1, 3)).rejects.toThrow('Sublight drive offline');
+  });
+
+  it('blocks warp when WARPDRIVE system is offline', async () => {
+    const { service, shipRepo, systemRepo, runtimeState } = createService();
+    runtimeState.getSystems.mockReturnValue({
+      WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.DOCKED,
+      inSystem: true,
+      starSystemId: 11,
+      warpCooldown: 0,
+      modules: [],
+      warpdrive: 10,
+    });
+    systemRepo.findOne
+      .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
+      .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
+
+    await expect(service.warp(7, 1, 12)).rejects.toThrow('Warp drive offline');
+  });
+
+  it('blocks galaxy flight when COMPUTER is offline', async () => {
+    const { service, shipRepo, galaxyFieldRepo, runtimeState } = createService();
+    runtimeState.getSystems.mockReturnValue({
+      COMPUTER: { active: false, cooldown: 0, integrity: 100 },
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.DOCKED,
+      inSystem: false,
+      currentLayerId: 1,
+      posX: 1,
+      posY: 1,
+      warpdrive: 10,
+      modules: [],
+    });
+    galaxyFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+
+    await expect(service.flyGalaxy(7, 1, 4, 1)).rejects.toThrow('Navigation computer offline');
   });
 });

@@ -582,6 +582,7 @@ export class SpacecraftService {
       throw new BadRequestException('Ship has no current system');
     }
     await this.assertEnoughCrew(ship);
+    this.assertSystemsForFlight(ship, 'sublight');
 
     const system = await this.systemRepo.findOne({
       where: { id: ship.starSystemId },
@@ -675,6 +676,7 @@ export class SpacecraftService {
       throw new BadRequestException('Ship has no current layer');
     }
     await this.assertEnoughCrew(ship);
+    this.assertSystemsForFlight(ship, 'warp');
 
     const targetField = await this.galaxyFieldRepo.findOne({
       where: { layerId: ship.currentLayerId, cx: targetX, cy: targetY },
@@ -843,6 +845,7 @@ export class SpacecraftService {
       throw new BadRequestException('Ship has no current system');
     }
     await this.assertEnoughCrew(ship);
+    this.assertSystemsForFlight(ship, 'warp');
 
     const currentSystem = await this.systemRepo.findOne({
       where: { id: ship.starSystemId },
@@ -872,6 +875,36 @@ export class SpacecraftService {
     this.spacecraftRuntimeStateService.initialize(ship);
 
     return this.shipRepo.save(ship);
+  }
+
+  private assertSystemsForFlight(
+    ship: Spacecraft,
+    mode: 'sublight' | 'warp',
+  ): void {
+    const systems = this.spacecraftRuntimeStateService.getSystems(ship);
+    const errors: string[] = [];
+
+    if (mode === 'sublight') {
+      if (systems.SUBLIGHT_DRIVE?.active === false) {
+        errors.push('Sublight drive offline');
+      }
+      if (systems.COMPUTER?.active === false) {
+        errors.push('Navigation computer offline');
+      }
+    }
+
+    if (mode === 'warp') {
+      if (systems.WARPDRIVE?.active === false) {
+        errors.push('Warp drive offline');
+      }
+      if (systems.COMPUTER?.active === false) {
+        errors.push('Navigation computer offline');
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join('; '));
+    }
   }
 
   private consumeEps(ship: Spacecraft, amount: number, action: string): void {
