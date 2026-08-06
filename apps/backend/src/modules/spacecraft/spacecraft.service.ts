@@ -30,7 +30,10 @@ import { SpacecraftStatsService } from './spacecraft-stats.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
-import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import {
+  SpacecraftRuntimeStateService,
+  SpacecraftRuntimeSystemKey,
+} from './spacecraft-runtime-state.service';
 import { Colony } from '../colony/entities/colony.entity';
 
 @Injectable()
@@ -161,6 +164,25 @@ export class SpacecraftService {
     const ship = await this.findOne(shipId, userId);
     ship.name = name;
     return this.shipRepo.save(ship);
+  }
+
+  async toggleSystem(
+    shipId: number,
+    userId: number,
+    systemKey: SpacecraftRuntimeSystemKey,
+    active: boolean,
+  ): Promise<{ systems: unknown }> {
+    const ship = await this.findOne(shipId, userId);
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    const system = systems[systemKey];
+    if (!system) throw new BadRequestException(`Unknown system: ${systemKey}`);
+    if (system.cooldown > 0) {
+      throw new BadRequestException(`System ${systemKey} is on cooldown`);
+    }
+    systems[systemKey] = { ...system, active };
+    ship.runtimeSystems = systems;
+    await this.shipRepo.save(ship);
+    return { systems };
   }
 
   async installModule(

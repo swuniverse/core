@@ -4,6 +4,7 @@ import {
   Put,
   Post,
   Delete,
+  Patch,
   Param,
   Body,
   UseGuards,
@@ -255,6 +256,21 @@ export class SpacecraftController {
     @Body('targetSystemId') targetSystemId: number,
   ) {
     return this.spacecraftService.warp(id, req.user.sub, targetSystemId);
+  }
+
+  @Patch(':id/systems/:systemKey')
+  toggleSystem(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('systemKey') systemKey: string,
+    @Request() req: { user: { sub: number } },
+    @Body('active') active: boolean,
+  ) {
+    return this.spacecraftService.toggleSystem(
+      id,
+      req.user.sub,
+      systemKey as any,
+      active,
+    );
   }
 
   @Post(':id/leave-fleet')

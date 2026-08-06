@@ -2,8 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { Spacecraft } from './entities/spacecraft.entity';
 import {
   SpacecraftRuntimeStateService,
+  SpacecraftRuntimeSystemKey,
   SpacecraftRuntimeSystems,
 } from './spacecraft-runtime-state.service';
+
+// EPS upkeep per tick per system when active
+const SYSTEM_UPKEEP: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
+  SHIELDS: 2,
+  SENSORS: 1,
+  COMPUTER: 1,
+  WEAPONS: 1,
+};
 
 @Injectable()
 export class SpacecraftResourceFlowService {
@@ -13,39 +22,37 @@ export class SpacecraftResourceFlowService {
     const systems = this.runtimeState.initialize(ship);
     let reactorBudget = Math.max(0, ship.reactorOutput);
 
-    reactorBudget = this.paySystemUpkeep(ship, reactorBudget, systems);
+    for (const [key, cost] of Object.entries(SYSTEM_UPKEEP) as [SpacecraftRuntimeSystemKey, number][]) {
+      reactorBudget = this.payUpkeep(ship, systems, key, cost, reactorBudget);
+    }
+
     reactorBudget = this.chargeEps(ship, reactorBudget);
     reactorBudget = this.chargeWarpdrive(ship, reactorBudget);
     this.chargeBattery(ship, reactorBudget);
     this.runtimeState.initialize(ship);
   }
 
-  private paySystemUpkeep(
+  private payUpkeep(
     ship: Spacecraft,
-    reactorBudget: number,
     systems: SpacecraftRuntimeSystems,
+    key: SpacecraftRuntimeSystemKey,
+    cost: number,
+    reactorBudget: number,
   ): number {
-    const shieldUpkeep = ship.shields > 0 ? 2 : 0;
-    if (shieldUpkeep <= 0 || systems.SHIELDS?.active === false) {
-      return reactorBudget;
-    }
+    const system = systems[key];
+    if (!system || system.active === false) return reactorBudget;
+    if (key === 'SHIELDS' && ship.shields <= 0) return reactorBudget;
 
-    const remaining = this.consumeOperationalEnergy(ship, reactorBudget, shieldUpkeep);
+    const remaining = this.consumeEnergy(ship, reactorBudget, cost);
     if (remaining == null) {
-      systems.SHIELDS = {
-        active: false,
-        cooldown: systems.SHIELDS?.cooldown ?? 0,
-        integrity: systems.SHIELDS?.integrity ?? 100,
-        current: ship.shields,
-        max: ship.shieldsMax,
-      };
+      systems[key] = { ...system, active: false };
       ship.runtimeSystems = systems;
       return reactorBudget;
     }
     return remaining;
   }
 
-  private consumeOperationalEnergy(
+  private consumeEnergy(
     ship: Spacecraft,
     reactorBudget: number,
     amount: number,
