@@ -1771,8 +1771,43 @@ describe('colony tick calculations', () => {
         type: 'BUILDING_FINISHED',
         fieldIndex: 4,
         buildingId: 82010100,
+        activated: true,
       }),
     );
+  });
+
+  it('reports why a completed building could not be activated', async () => {
+    const { service } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      buildingId: 400,
+      isBuilding: true,
+      isActive: false,
+      activateAfterBuild: true,
+      buildProgress: 0,
+      buildFinishesAt: new Date(Date.now() - 1),
+      integrity: 0,
+      maxIntegrity: 0,
+    };
+    const colony = {
+      stats: { workers: 10, workless: 0 },
+      changeable: { workers: 10, workless: 0, maxPopulation: 10 },
+      fields: [field],
+    };
+    const events: ColonyTickEvent[] = [];
+
+    await service.checkBuildingCompletions(colony as never, events);
+
+    expect(field.isActive).toBe(false);
+    expect(events).toContainEqual({
+      type: 'BUILDING_FINISHED',
+      fieldIndex: 5,
+      buildingId: 400,
+      buildingName: 'Worker Building',
+      activated: false,
+      reason: 'Nicht genug freie Arbeiter',
+    });
   });
 
   it('updates colony options with owner validation', async () => {
@@ -2557,12 +2592,13 @@ describe('colony tick calculations', () => {
     colonyRepo.findOne.mockResolvedValue(colony);
     storageRepo.findOne.mockResolvedValue(storage);
 
-    await service.build(1, 1, 5, 100);
+    await service.build(1, 1, 5, 100, false);
 
     expect(storage.amount).toBe(5);
     expect(field.buildingId).toBe(100);
     expect(field.isBuilding).toBe(true);
     expect(field.isActive).toBe(false);
+    expect(field.activateAfterBuild).toBe(false);
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });
 
@@ -4818,7 +4854,9 @@ describe('colony projection upgrades', () => {
     unlockResolver.getCompletedTechIds.mockResolvedValue(new Set([200201]));
 
     const withResearch = (await service.findOne(1, 1)) as {
-      detailV2?: { buildingManagement?: { fields?: Array<Record<string, unknown>> } };
+      detailV2?: {
+        buildingManagement?: { fields?: Array<Record<string, unknown>> };
+      };
     };
     const withResearchFields =
       withResearch.detailV2?.buildingManagement?.fields ?? [];
@@ -4839,7 +4877,9 @@ describe('colony projection upgrades', () => {
 
     unlockResolver.getCompletedTechIds.mockResolvedValue(new Set());
     const withoutResearch = (await service.findOne(1, 1)) as {
-      detailV2?: { buildingManagement?: { fields?: Array<Record<string, unknown>> } };
+      detailV2?: {
+        buildingManagement?: { fields?: Array<Record<string, unknown>> };
+      };
     };
     const withoutResearchFields =
       withoutResearch.detailV2?.buildingManagement?.fields ?? [];

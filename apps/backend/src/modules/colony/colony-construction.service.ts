@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
@@ -17,7 +21,10 @@ import {
 } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
-import { ColonyEventSeverity, ColonyEventType } from './entities/colony-event.entity';
+import {
+  ColonyEventSeverity,
+  ColonyEventType,
+} from './entities/colony-event.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
@@ -103,6 +110,7 @@ export class ColonyConstructionService {
     userId: number,
     fieldIndex: number,
     buildingId: number,
+    activateAfterBuild = true,
   ): Promise<ColonyField> {
     const colony = await this.findOne(colonyId, userId);
     const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
@@ -168,6 +176,7 @@ export class ColonyConstructionService {
       field,
       actualBuildingId,
       buildingDef.costs.buildTime,
+      activateAfterBuild,
     );
 
     return this.fieldRepo.save(field);
@@ -341,7 +350,9 @@ export class ColonyConstructionService {
   ): void {
     const result = this.buildingEffectsService?.canActivateField(colony, field);
     if (result && !result.ok) {
-      throw new BadRequestException(result.reason ?? 'Aktivierung fehlgeschlagen');
+      throw new BadRequestException(
+        result.reason ?? 'Aktivierung fehlgeschlagen',
+      );
     }
     if (result?.ok) return;
 
@@ -357,7 +368,10 @@ export class ColonyConstructionService {
 
     const energyAfter =
       summaryWithoutField.energyDelta + (_definition.epsProc || 0);
-    if (energyAfter < 0 && getColonyChangeable(colony).energy + energyAfter < 0) {
+    if (
+      energyAfter < 0 &&
+      getColonyChangeable(colony).energy + energyAfter < 0
+    ) {
       throw new BadRequestException('Nicht genug Energie');
     }
 

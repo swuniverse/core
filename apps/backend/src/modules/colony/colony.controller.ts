@@ -163,8 +163,15 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
     @Body('fieldIndex') fieldIndex: number,
     @Body('buildingId') buildingId: number,
+    @Body('activateAfterBuild') activateAfterBuild?: boolean,
   ) {
-    return this.colonyService.build(id, req.user.sub, fieldIndex, buildingId);
+    return this.colonyService.build(
+      id,
+      req.user.sub,
+      fieldIndex,
+      buildingId,
+      activateAfterBuild ?? true,
+    );
   }
 
   @Delete(':id/fields/:fieldIndex/building')

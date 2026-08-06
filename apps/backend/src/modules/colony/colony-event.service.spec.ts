@@ -102,6 +102,29 @@ describe('ColonyEventService', () => {
     });
   });
 
+  it('includes the activation result in building completion messages', async () => {
+    const { service } = createService();
+
+    const events = await service.createTickEvents(1, 2, [
+      {
+        type: 'BUILDING_FINISHED',
+        buildingName: 'Kraftwerk',
+        activated: true,
+      },
+      {
+        type: 'BUILDING_FINISHED',
+        buildingName: 'Kollektor',
+        activated: false,
+        reason: 'Nicht genug freie Arbeiter',
+      },
+    ]);
+
+    expect(events.map((event) => event.message)).toEqual([
+      'Kraftwerk wurde fertiggestellt und aktiviert.',
+      'Kollektor wurde fertiggestellt, aber nicht aktiviert (Nicht genug freie Arbeiter).',
+    ]);
+  });
+
   it('marks events read and all read', async () => {
     const { service } = createService();
     const event = await service.createEvent({

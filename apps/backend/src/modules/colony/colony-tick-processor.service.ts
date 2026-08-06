@@ -218,11 +218,20 @@ export class ColonyTickProcessorService {
           definition,
           field.activateAfterBuild,
         );
+        const activationReason = field.isActive
+          ? undefined
+          : !field.activateAfterBuild
+            ? 'Automatische Aktivierung deaktiviert'
+            : definition.isActivateable === false
+              ? 'Gebäude kann nicht aktiviert werden'
+              : 'Nicht genug freie Arbeiter';
         events.push({
           type: 'BUILDING_FINISHED',
           fieldIndex: field.fieldIndex,
           buildingId: field.buildingId,
           buildingName: definition.name,
+          activated: field.isActive,
+          reason: activationReason,
         });
       }
     }
@@ -242,7 +251,10 @@ export class ColonyTickProcessorService {
       const activeFields = summary.activeFields;
       let rewind = false;
 
-      if (summary.energyDelta < 0 && getColonyChangeable(colony).energy + summary.energyDelta < 0) {
+      if (
+        summary.energyDelta < 0 &&
+        getColonyChangeable(colony).energy + summary.energyDelta < 0
+      ) {
         const victim = activeFields.find((field) => {
           if (this.isHeadquartersField(field)) return false;
           const definition = this.gameData.getBuilding(field.buildingId!);

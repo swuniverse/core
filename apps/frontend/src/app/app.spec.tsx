@@ -443,16 +443,29 @@ describe('ColonyDetail', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
+    expect(screen.queryByText(mineBuilding.description)).toBeNull();
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Nach Fertigstellung deaktivieren',
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Feld 1' }));
 
-    expect(onBuild).toHaveBeenNthCalledWith(1, 1, mineBuilding.id);
+    expect(onBuild).toHaveBeenNthCalledWith(1, 1, mineBuilding.id, true);
     expect(
       screen.getByText('← Feld im Grid klicken zum Platzieren'),
     ).toBeTruthy();
 
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Nach Fertigstellung deaktivieren',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Feld 2' }));
 
-    expect(onBuild).toHaveBeenNthCalledWith(2, 2, mineBuilding.id);
+    expect(onBuild).toHaveBeenNthCalledWith(2, 2, mineBuilding.id, false);
   });
 
   it('renders field upgrades and keeps FZ II out of the build menu', () => {

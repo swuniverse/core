@@ -6,7 +6,10 @@ import { BuildingDef } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
-import { getColonyChangeable, syncLegacyColonySnapshot } from './colony-stats.service';
+import {
+  getColonyChangeable,
+  syncLegacyColonySnapshot,
+} from './colony-stats.service';
 
 @Injectable()
 export class BuildingLifecycleService {
@@ -33,8 +36,7 @@ export class BuildingLifecycleService {
 
     if (activateAfterBuild && definition.isActivateable !== false) {
       const workerAmount = definition.bevUse || 0;
-      const hasWorkers =
-        getColonyChangeable(colony).workless >= workerAmount;
+      const hasWorkers = getColonyChangeable(colony).workless >= workerAmount;
       if (hasWorkers) {
         await this.activateBuildingStats(colony, definition);
         field.isActive = true;
@@ -108,6 +110,7 @@ export class BuildingLifecycleService {
     field: ColonyField,
     buildingId: number,
     buildTimeSeconds: number,
+    activateAfterBuild = true,
   ): ColonyField {
     field.buildingId = buildingId;
     field.isBuilding = true;
@@ -115,7 +118,7 @@ export class BuildingLifecycleService {
     field.buildProgress = 0;
     field.integrity = 0;
     field.maxIntegrity = 0;
-    field.activateAfterBuild = true;
+    field.activateAfterBuild = activateAfterBuild;
     field.buildFinishesAt = new Date(
       Date.now() + this.scaleBuildTimeSeconds(buildTimeSeconds) * 1000,
     );

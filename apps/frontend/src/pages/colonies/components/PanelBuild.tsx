@@ -24,6 +24,8 @@ export function PanelBuild({
   storage,
   commodityMap,
   selectedBuilding,
+  deactivateAfterBuild,
+  onDeactivateAfterBuildChange,
   hoveredBuildField,
   buildingMap,
   onSelectBuilding,
@@ -139,11 +141,6 @@ export function PanelBuild({
             {isBonusPreview && (
               <div className="text-[10px] font-bold text-yellow-400">
                 Bonusfeld-Version von {selectedBuilding.name}
-              </div>
-            )}
-            {detailBuilding.description && (
-              <div className="text-[10px] text-swu-muted">
-                {detailBuilding.description}
               </div>
             )}
             {detailBuilding.functions &&
@@ -322,6 +319,25 @@ export function PanelBuild({
                 })}
               </div>
             )}
+            <label className="flex cursor-pointer items-start gap-2 border-t border-swu-border/40 pt-2 text-[10px] text-swu-primary">
+              <input
+                type="checkbox"
+                aria-label="Nach Fertigstellung deaktivieren"
+                checked={deactivateAfterBuild}
+                onChange={(event) =>
+                  onDeactivateAfterBuildChange(event.target.checked)
+                }
+                className="mt-0.5 h-3.5 w-3.5 accent-swu-accent"
+              />
+              <span>
+                <span className="block font-bold">
+                  Nach Fertigstellung deaktivieren
+                </span>
+                <span className="text-swu-muted">
+                  Auswählen, damit das Gebäude nicht automatisch aktiviert wird.
+                </span>
+              </span>
+            </label>
             <div className="text-[10px] text-swu-muted">
               Bauzeit: {formatBuildTime(selectedBuilding.costs.buildTime || 0)}
             </div>

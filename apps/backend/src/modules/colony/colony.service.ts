@@ -74,6 +74,7 @@ export interface ColonyTickEvent {
   buildingName?: string;
   commodityId?: number;
   reason?: string;
+  activated?: boolean;
   amount?: number;
 }
 
@@ -505,12 +506,14 @@ export class ColonyService {
     userId: number,
     fieldIndex: number,
     buildingId: number,
+    activateAfterBuild = true,
   ): Promise<ColonyField> {
     return this.colonyConstructionService.build(
       colonyId,
       userId,
       fieldIndex,
       buildingId,
+      activateAfterBuild,
     );
   }
 

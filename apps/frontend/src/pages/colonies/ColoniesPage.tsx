@@ -248,11 +248,12 @@ export function ColoniesPage() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       onBack={goBack}
-      onBuild={(fi, bi) =>
+      onBuild={(fi, bi, activateAfterBuild) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/build`, {
             fieldIndex: fi,
             buildingId: bi,
+            activateAfterBuild,
           });
           loadColonyDetail(selected.id);
         })
@@ -716,7 +717,7 @@ export function ColonyDetail({
   activeTab: DetailTab;
   setActiveTab: (t: DetailTab) => void;
   onBack: () => void;
-  onBuild: (fi: number, bi: number) => void;
+  onBuild: (fi: number, bi: number, activateAfterBuild: boolean) => void;
   onUpgradeBuilding: (fi: number, ui: number) => void;
   onDemolish: (fi: number) => void;
   onToggle: (fi: number) => void;
@@ -807,6 +808,7 @@ export function ColonyDetail({
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
     null,
   );
+  const [deactivateAfterBuild, setDeactivateAfterBuild] = useState(false);
   const [hoveredBuildField, setHoveredBuildField] =
     useState<ColonyField | null>(null);
   const [modalField, setModalField] = useState<ColonyField | null>(null);
@@ -927,7 +929,7 @@ export function ColonyDetail({
 
   const handleFieldClick = (field: ColonyField) => {
     if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
-      onBuild(field.fieldIndex, selectedBuilding.id);
+      onBuild(field.fieldIndex, selectedBuilding.id, !deactivateAfterBuild);
       setHoveredBuildField(null);
       setSelectedField(null);
     } else if (!selectedBuilding) {
@@ -1300,6 +1302,8 @@ export function ColonyDetail({
               storage={storage}
               commodityMap={commodityMap}
               selectedBuilding={selectedBuilding}
+              deactivateAfterBuild={deactivateAfterBuild}
+              onDeactivateAfterBuildChange={setDeactivateAfterBuild}
               hoveredBuildField={
                 hoveredBuildField &&
                 highlightedFields.has(hoveredBuildField.fieldIndex)
@@ -1312,6 +1316,7 @@ export function ColonyDetail({
                 if (selectedBuilding?.id === b.id) setSelectedBuilding(null);
                 else {
                   setSelectedBuilding(b);
+                  setDeactivateAfterBuild(false);
                   setSelectedField(null);
                 }
               }}

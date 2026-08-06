@@ -149,7 +149,9 @@ export class ColonyEventService {
           type: ColonyEventType.BUILDING_FINISHED,
           severity: ColonyEventSeverity.INFO,
           title: 'Gebäude fertiggestellt',
-          message: `${event.buildingName ?? 'Gebäude'} wurde fertiggestellt.`,
+          message: event.activated
+            ? `${event.buildingName ?? 'Gebäude'} wurde fertiggestellt und aktiviert.`
+            : `${event.buildingName ?? 'Gebäude'} wurde fertiggestellt, aber nicht aktiviert (${event.reason ?? 'Grund unbekannt'}).`,
           payload: { ...event },
         };
       case 'TERRAFORMING_FINISHED':

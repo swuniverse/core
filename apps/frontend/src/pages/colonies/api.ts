@@ -33,10 +33,10 @@ export const colonyApi = {
       {},
     ),
   foundStarterColony: (celestialObjectId: number) =>
-    api.post<{ success: true; colonyId: number }, { celestialObjectId: number }>(
-      '/colonization/starter/found',
-      { celestialObjectId },
-    ),
+    api.post<
+      { success: true; colonyId: number },
+      { celestialObjectId: number }
+    >('/colonization/starter/found', { celestialObjectId }),
 
   renameColony: (colonyId: number, name: string) =>
     api.put(`/colonies/${colonyId}`, { name }),
@@ -84,8 +84,17 @@ export const colonyApi = {
       `/colonies/${colonyId}/buildings/repair-damaged`,
       { fieldIndexes },
     ),
-  buildBuilding: (colonyId: number, fieldIndex: number, buildingId: number) =>
-    api.post(`/colonies/${colonyId}/build`, { fieldIndex, buildingId }),
+  buildBuilding: (
+    colonyId: number,
+    fieldIndex: number,
+    buildingId: number,
+    activateAfterBuild = true,
+  ) =>
+    api.post(`/colonies/${colonyId}/build`, {
+      fieldIndex,
+      buildingId,
+      activateAfterBuild,
+    }),
   demolishBuilding: (colonyId: number, fieldIndex: number) =>
     api.delete(`/colonies/${colonyId}/fields/${fieldIndex}/building`),
   toggleBuilding: (colonyId: number, fieldIndex: number) =>
