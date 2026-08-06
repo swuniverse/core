@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
-import { ShipInformationPanel } from '../components/spacecraft/ShipInformationPanel';
-import { SystemStatusPanel } from '../components/spacecraft/SystemStatusPanel';
+import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
+import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
+import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessageBar';
 import type { LocalMapResponse } from '../components/spacecraft/LssMap';
 import { ApiError } from '../services/api';
 
@@ -41,6 +42,7 @@ interface Spacecraft {
   crewMax: number;
   cargoUsed?: number;
   cargoMax?: number;
+  reactorWarpSplit: number;
   runtimeSystems?: Record<string, { active: boolean; cooldown: number; integrity: number; current?: number; max?: number }>;
   moduleCount?: number;
   fleetName?: string | null;
@@ -52,18 +54,6 @@ interface Spacecraft {
   arrivalAt: string | null;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  DOCKED: 'Angedockt',
-  IN_FLIGHT: 'Im Flug',
-  IN_COMBAT: 'Im Kampf',
-  DESTROYED: 'Zerstört',
-};
-
-const ALERT_LABELS: Record<string, string> = {
-  GREEN: 'Grün',
-  YELLOW: 'Gelb',
-  RED: 'Rot',
-};
 
 export function SpacecraftDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -114,65 +104,39 @@ export function SpacecraftDetailPage() {
         ← Schiffsliste
       </Link>
 
+      <SpacecraftMessageBar shipId={ship.id} />
       <ShipHeaderTable ship={ship} />
 
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,2fr)_360px]">
+      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)_minmax(260px,1fr)]">
         <NavigationPanel
           ship={ship}
           onShipUpdate={fetchShip}
           onLocalMapChange={setLocalMap}
         />
-        <div className="space-y-3">
-          <SystemStatusPanel
-            shipId={ship.id}
-            systems={ship.runtimeSystems}
-            onUpdate={fetchShip}
-          />
-          <ShipInformationPanel localMap={localMap} />
-        </div>
+        <ShipControlCenter
+          shipId={ship.id}
+          status={ship.status}
+          alertState={ship.alertState}
+          shields={ship.shields}
+          shieldsMax={ship.shieldsMax}
+          systems={ship.runtimeSystems}
+          localMap={localMap}
+          onUpdate={fetchShip}
+        />
+        <ReactorPanel
+          shipId={ship.id}
+          energy={ship.energy}
+          energyMax={ship.energyMax}
+          reactorOutput={ship.reactorOutput}
+          warpdrive={ship.warpdrive}
+          warpdriveMax={ship.warpdriveMax}
+          battery={ship.battery}
+          batteryMax={ship.batteryMax}
+          reactorWarpSplit={ship.reactorWarpSplit}
+          onUpdate={fetchShip}
+        />
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
-        <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
-          <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-            Schiffskontrolle
-          </h3>
-          <StatRow
-            label="Alarm"
-            value={ALERT_LABELS[ship.alertState] ?? ship.alertState}
-          />
-          <StatRow
-            label="Status"
-            value={STATUS_LABELS[ship.status] ?? ship.status}
-          />
-          <StatRow
-            label="Schilde"
-            value={`${ship.shields}/${ship.shieldsMax}`}
-          />
-        </div>
-        <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
-          <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-            Reaktor + Antrieb
-          </h3>
-          <StatRow label="EPS" value={`${ship.energy}/${ship.energyMax}`} />
-          <StatRow label="Warp" value={`${ship.warpSpeed}`} />
-          <StatRow
-            label="Cooldown"
-            value={ship.warpCooldown > 0 ? `${ship.warpCooldown}T` : '—'}
-          />
-        </div>
-        <div className="bg-swu-surface border border-swu-border rounded-lg p-3 space-y-1.5">
-          <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-            Kapazität
-          </h3>
-          <StatRow label="Crew" value={`${ship.crew}/${ship.crewMax}`} />
-          <StatRow
-            label="Cargo"
-            value={`${ship.cargoUsed ?? 0}/${ship.cargoMax ?? 0}`}
-          />
-          <StatRow label="Flotte" value={ship.fleetName || '—'} />
-        </div>
-      </div>
 
       {ship.isColonizer && (
         <ColonizationPanel
@@ -328,15 +292,6 @@ function ColonizationPanel({
         </ul>
       )}
       {message && <div className="text-[11px] text-swu-accent">{message}</div>}
-    </div>
-  );
-}
-
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between text-[11px]">
-      <span className="text-swu-muted">{label}</span>
-      <span className="text-swu-primary font-mono">{value}</span>
     </div>
   );
 }
