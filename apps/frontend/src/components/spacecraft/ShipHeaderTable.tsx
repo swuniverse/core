@@ -15,6 +15,11 @@ interface ShipHeaderTableProps {
     shieldsMax: number;
     energy: number;
     energyMax: number;
+    reactorOutput: number;
+    warpdrive: number;
+    warpdriveMax: number;
+    battery: number;
+    batteryMax: number;
     warpSpeed: number;
     warpCooldown: number;
     crew: number;
@@ -41,8 +46,10 @@ export function ShipHeaderTable({ ship }: ShipHeaderTableProps) {
             <th className="border border-swu-border px-2 py-1">Koordinaten</th>
             <th className="border border-swu-border px-2 py-1">Hülle</th>
             <th className="border border-swu-border px-2 py-1">Schilde</th>
-            <th className="border border-swu-border px-2 py-1">Warpdrive</th>
-            <th className="border border-swu-border px-2 py-1">Energie</th>
+            <th className="border border-swu-border px-2 py-1">EPS</th>
+            <th className="border border-swu-border px-2 py-1">Reaktor</th>
+            <th className="border border-swu-border px-2 py-1">Warp</th>
+            <th className="border border-swu-border px-2 py-1">Batterie</th>
             <th className="border border-swu-border px-2 py-1">Crew</th>
             <th className="border border-swu-border px-2 py-1">Name</th>
           </tr>
@@ -71,11 +78,17 @@ export function ShipHeaderTable({ ship }: ShipHeaderTableProps) {
               {ship.shields}/{ship.shieldsMax}
             </td>
             <td className="border border-swu-border px-2 py-2">
-              {ship.warpSpeed}
+              {ship.energy}/{ship.energyMax}
+            </td>
+            <td className="border border-swu-border px-2 py-2">
+              {ship.reactorOutput}
+            </td>
+            <td className="border border-swu-border px-2 py-2">
+              {ship.warpdrive}/{ship.warpdriveMax}
               {ship.warpCooldown > 0 ? ` (${ship.warpCooldown})` : ''}
             </td>
             <td className="border border-swu-border px-2 py-2">
-              {ship.energy}/{ship.energyMax}
+              {ship.battery}/{ship.batteryMax}
             </td>
             <td className="border border-swu-border px-2 py-2">
               {ship.crew}/{ship.crewMax}

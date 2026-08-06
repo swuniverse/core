@@ -179,10 +179,81 @@ export class SpacecraftService {
     if (system.cooldown > 0) {
       throw new BadRequestException(`System ${systemKey} is on cooldown`);
     }
+    if (active) {
+      this.assertCrewForActivation(ship, systemKey);
+    }
     systems[systemKey] = { ...system, active };
     ship.runtimeSystems = systems;
     await this.shipRepo.save(ship);
     return { systems };
+  }
+
+  private assertCrewForActivation(
+    ship: Spacecraft,
+    systemKey: SpacecraftRuntimeSystemKey,
+  ): void {
+    const modules = ship.modules ?? [];
+    const category = this.systemKeyToCategory(systemKey);
+    if (!category) return;
+
+    const modulesForSystem = modules.filter(
+      (m) => m.category === category && m.isActive && m.integrity > 0,
+    );
+    if (modulesForSystem.length === 0) return;
+
+    const crewNeeded = this.getActiveCrewDemand(modules, systemKey);
+    if (crewNeeded > ship.crew) {
+      throw new BadRequestException(
+        `Not enough crew to activate ${systemKey}: need ${crewNeeded}, have ${ship.crew}`,
+      );
+    }
+  }
+
+  private getActiveCrewDemand(
+    modules: SpacecraftModule[],
+    activatingKey: SpacecraftRuntimeSystemKey,
+  ): number {
+    let total = 0;
+    for (const mod of modules) {
+      if (!mod.isActive || mod.integrity <= 0) continue;
+      const def = this.gameData
+        .getAllModules()
+        .find((d) => d.name === mod.moduleType);
+      const crew =
+        (def?.public as Record<string, number>)?.baseCrewCapacity ?? 0;
+      total += crew;
+    }
+    const activatingCategory = this.systemKeyToCategory(activatingKey);
+    if (activatingCategory) {
+      for (const mod of modules) {
+        if (mod.category !== activatingCategory) continue;
+        if (mod.isActive || mod.integrity <= 0) continue;
+        const def = this.gameData
+          .getAllModules()
+          .find((d) => d.name === mod.moduleType);
+        const crew =
+          (def?.public as Record<string, number>)?.baseCrewCapacity ?? 0;
+        total += crew;
+      }
+    }
+    return total;
+  }
+
+  private systemKeyToCategory(
+    key: SpacecraftRuntimeSystemKey,
+  ): string | null {
+    const map: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
+      SHIELDS: 'SHIELDS',
+      WEAPONS: 'WEAPONS',
+      TORPEDO_BANK: 'PROJECTILE',
+      SENSORS: 'SENSORS',
+      COMPUTER: 'COMPUTER',
+      SUBLIGHT_DRIVE: 'SUBLIGHT_ENGINE',
+      WARPDRIVE: 'HYPERDRIVE',
+      REACTOR: 'SPECIAL',
+      EPS: 'SPECIAL',
+    };
+    return map[key] ?? null;
   }
 
   async installModule(

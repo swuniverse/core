@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
 import { ShipInformationPanel } from '../components/spacecraft/ShipInformationPanel';
+import { SystemStatusPanel } from '../components/spacecraft/SystemStatusPanel';
 import type { LocalMapResponse } from '../components/spacecraft/LssMap';
 import { ApiError } from '../services/api';
 
@@ -27,12 +28,20 @@ interface Spacecraft {
   shieldsMax: number;
   energy: number;
   energyMax: number;
+  epsMax: number;
+  reactorOutput: number;
+  warpdrive: number;
+  warpdriveMax: number;
   warpSpeed: number;
   warpCooldown: number;
+  battery: number;
+  batteryMax: number;
+  evadeChance: number;
   crew: number;
   crewMax: number;
   cargoUsed?: number;
   cargoMax?: number;
+  runtimeSystems?: Record<string, { active: boolean; cooldown: number; integrity: number; current?: number; max?: number }>;
   moduleCount?: number;
   fleetName?: string | null;
   locationLabel?: string;
@@ -113,7 +122,14 @@ export function SpacecraftDetailPage() {
           onShipUpdate={fetchShip}
           onLocalMapChange={setLocalMap}
         />
-        <ShipInformationPanel localMap={localMap} />
+        <div className="space-y-3">
+          <SystemStatusPanel
+            shipId={ship.id}
+            systems={ship.runtimeSystems}
+            onUpdate={fetchShip}
+          />
+          <ShipInformationPanel localMap={localMap} />
+        </div>
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-3">
