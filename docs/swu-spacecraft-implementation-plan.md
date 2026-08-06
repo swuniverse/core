@@ -3,13 +3,13 @@
 Source of truth:
 - `docs/swu-spacecraft-target-model.md`
 - STU codebase at `/Users/TMUNDIN/git/github.com/st-universe/core`
-- STU dump findings for rumps/modules/torpedo hulls
+- STU dump at `/Users/TMUNDIN/git/github.com/st-universe/core/dist/db/stu.dump`
 
 This document translates the target model into a concrete phased implementation plan for SWU and tracks the current implementation status.
 
 ---
 
-## Current status snapshot
+## Current status snapshot (2026-08-06)
 
 ### Completed foundations
 
@@ -19,165 +19,23 @@ This document translates the target model into a concrete phased implementation 
 
 #### Module data separation
 Implemented module family splits for:
-- shields: Standard / Verstärkt / Militär
+- shields: Standard (ELECTROMAGNETIC) / Verstärkt (PHASIC) / Militär (POLAR)
 - hull: Matrix / Durastahl / Beskar / ablative variants
 - torpedoes: Proton / Quantum / Plasma specializations
 - projectile launchers: Standard / Mehrfach / Imperial
-- heavy energy weapons: mapped to `Schwerer Turbolaser`
+- heavy energy weapons: Leichter Turbolaser / Schwerer Turbolaser / Ionenkanone
 - drive families:
-  - EPS: `Energieverteiler` `10301-10306`
+  - EPS: `Energieverteiler`
   - Sublicht: `Ion-Triebwerk`, `Imperialer Ionenantrieb`
   - Reaktor: `Hypermaterie-Reaktor`, `Allianz-Hypermaterie-Reaktor`
-  - Hyperdrive: `Standard-Hyperantrieb`, `Allianz-Hyperantrieb`
+  - Hyperdrive: `Standard-Hyperantrieb`, `Allianz-Hyperantrieb`, `Militär-Hyperantrieb`
+- special modules: `Tarnvorrichtung`, `Astrometrie-Labor`, `Crewtransport-Modul`, `Torpedotransportmodul`, `Shuttlerampe`, `Hyperraumfeldscanner`
+- weapon families: PHASER, DISRUPTOR, TORPEDO (in `weaponFamily` secret field)
+- shield families: ELECTROMAGNETIC, PHASIC, POLAR (in `shieldFamily` secret field)
 
-#### Runtime stat separation
-Runtime fields now exist on `Spacecraft`:
-- `epsMax`
-- `reactorOutput`
-- `warpdriveMax`
-- `warpdrive`
-- `evadeChance`
-- `runtimeSystems`
-
-Compatibility fields still exist:
-- `energy`
-- `energyMax`
-- `warpSpeed`
-- `battery`
-- `batteryMax`
-
-Current compatibility behavior:
-- `energy` acts as EPS current value.
-- `energyMax` mirrors `epsMax`.
-- `warpSpeed` remains legacy compatibility and should not be treated as the future warpdrive resource.
-
-#### Runtime systems foundation
-Added `SpacecraftRuntimeStateService`.
-
-Current runtime system keys:
-- `SHIELDS`
-- `REACTOR`
-- `EPS`
-- `WARPDRIVE`
-- `SUBLIGHT_DRIVE`
-- `SENSORS`
-- `COMPUTER`
-- `WEAPONS`
-- `TORPEDO_BANK`
-- `SPECIAL`
-
-Current system state shape:
-- `active`
-- `cooldown`
-- `integrity`
-- optional `current`
-- optional `max`
-
-#### Resource flow foundation
-Added `SpacecraftResourceFlowService`.
-
-Current resource-flow behavior:
-1. Reactor output pays basic shield upkeep first.
-2. If reactor is insufficient, EPS pays.
-3. If EPS is insufficient, battery pays.
-4. If all are insufficient, shields are marked inactive.
-5. Remaining reactor output recharges EPS.
-6. Remaining output recharges warpdrive.
-7. Remaining output recharges battery.
-8. Runtime systems are resynchronized.
-
-Current upkeep modeled:
-- Shields cost `2` EPS per tick when shields are above zero and the SHIELDS system is active.
-
-#### Movement resource split
-Current movement behavior:
-- In-system navigation consumes EPS (`energy`).
-- Galaxy flight consumes `warpdrive`.
-- Inter-system warp consumes `warpdrive`.
-- Movement syncs `runtimeSystems` after resource changes.
-
-#### Combat data foundations
-Implemented:
-- torpedo `damageType`
-- torpedo `hullDamageFactor` / `shieldDamageFactor` usage
-- hull projectile resistance by torpedo type
-- launcher projectile damage multipliers
-- armor absorb combat log
-
----
-
-## Current verification status
-
-Verified recently:
-- focused spacecraft resource-flow and movement tests pass
-- focused spacecraft stats tests pass
-- focused game-data tests pass
-- backend build passes
-- TypeScript workspace diagnostics are clean
-
-Known note:
-- Some Nx test invocations have previously been flagged flaky by Nx, but reruns passed.
-
----
-
-## Known gaps remaining
-
-### Runtime system model is only partially used
-`runtimeSystems` exists, but most gameplay systems still read legacy fields or module flags directly.
-
-Still needed:
-- system-specific activation / deactivation commands
-- system state persistence policies
-- system state exposure in API/DTO/UI
-- system-specific cooldown semantics
-
-### Resource flow only models shields
-Currently only shield upkeep is modeled.
-
-Still needed:
-- sensors EPS upkeep
-- weapons EPS upkeep / fire cost
-- torpedo launcher EPS upkeep or fire prep cost if desired
-- special systems EPS upkeep
-- life support once modeled
-- configurable system priority for brownouts
-
-### Battery fallback is basic
-Battery currently acts as a fallback pool for shield upkeep only.
-
-Still needed:
-- generalized reserve behavior for all EPS consumers
-- clear UI state for battery discharge
-- optional recharge priority tuning
-
-### Movement is only partially STU-aligned
-Implemented:
-- local movement uses EPS
-- galaxy/warp movement uses warpdrive
-
-Still needed:
-- richer pre-flight failure aggregation
-- tractor movement cost modifiers
-- local vs warp route distinction beyond current methods
-- post-flight consequences
-- anomaly/environment effects
-- system activation requirements for movement
-
-### Combat is not yet fully system-driven
-Implemented:
-- torpedo specialization
-- hull resistance
-- launcher multipliers
-
-Still needed:
-- disabled WEAPONS/TORPEDO_BANK runtime systems should prevent firing
-- disabled SHIELDS runtime system should prevent shield regeneration / possibly shield use
-- `evadeChance` should affect hit chance directly
-- energy weapons should consume EPS
-- weapon-vs-shield specialization from STU `stu_weapon_shield`
-
-### Ship class baseline still incomplete
-Current model still lacks first-class class fields for:
+#### Ship class baselines (Phase 1 — COMPLETE)
+All 42 ship classes populated from STU `stu_rumps` dump:
+- `epsBase`
 - `reactorBase`
 - `warpdriveBase`
 - `evadeBase`
@@ -185,283 +43,160 @@ Current model still lacks first-class class fields for:
 - `sensorRangeBase`
 - `torpedoStorageBase`
 - `flightEnergyCost`
+- `batteryBase`
 
-Some values are represented via existing fields or compatibility fields, but the model is not fully STU-shaped yet.
+Legacy `warpBase` field removed entirely.
 
-### UI still simplified
-Frontend still largely shows:
-- Energy
-- Warpdrive / legacy warp-related values
-- Battery
+#### Runtime stat separation (Phase 2 — COMPLETE)
+Runtime fields on `Spacecraft` entity:
+- `epsMax`
+- `reactorOutput`
+- `warpdriveMax`
+- `warpdrive`
+- `evadeChance`
+- `battery` / `batteryMax`
+- `runtimeSystems` (JSONB)
 
-Still needed:
-- explicit reactor output
-- EPS storage vs battery vs warpdrive separation
-- runtime system active/inactive indicators
-- resource shortage / brownout messages
+Compatibility fields retained:
+- `energy` = EPS current value
+- `energyMax` = mirrors `epsMax`
+- `warpSpeed` = legacy, maps to `warpdriveBase` (frontend still reads this in NavigationPanel)
+
+Frontend now exposes:
+- EPS, Reactor, Warpdrive, Battery as separate columns in ShipHeaderTable
+- SystemStatusPanel with toggle buttons for all runtime systems
+
+#### Runtime systems (Phase 3 — COMPLETE)
+- `SpacecraftRuntimeStateService`: initialization, getSystems
+- `PATCH /spacecraft/:id/systems/:systemKey` endpoint for player toggle
+- Cooldown guard prevents toggling systems on cooldown
+- Default system initialization for all 10 system keys
+
+#### Resource flow (Phase 4 — COMPLETE for core loop)
+`SpacecraftResourceFlowService` handles per-tick recharge:
+1. Pay upkeep for active systems: SHIELDS(2), SENSORS(1), COMPUTER(1), WEAPONS(1)
+2. Fallback chain: Reactor → EPS → Battery → Deactivation
+3. Charge EPS from remaining reactor
+4. Charge Warpdrive from remaining reactor
+5. Charge Battery from remaining reactor
+6. Re-sync runtime systems
+
+#### Movement (Phase 5 — COMPLETE for core loop)
+- In-system navigation: requires SUBLIGHT_DRIVE + COMPUTER active, consumes EPS
+- Galaxy flight: requires WARPDRIVE + COMPUTER active, consumes warpdrive
+- Inter-system warp: requires WARPDRIVE + COMPUTER active, consumes warpdrive
+- Pre-flight system checks with aggregated error messages
+- Runtime systems synced after all movement
+
+#### Combat (Phase 6 — COMPLETE)
+- Runtime systems affect combat:
+  - WEAPONS inactive → no energy weapon fire
+  - TORPEDO_BANK inactive → no projectile fire
+  - SHIELDS inactive → no shield regeneration
+- `evadeChance` affects hit chance (STU formula)
+- Energy weapons consume EPS (`epsCost` per weapon, default 5)
+- Weapon-vs-shield modifier table (15 entries: 3 weapon families × 5 shield families)
+  - Source: STU `stu_weapon_shield`
+  - Loaded from `game-data/data/combat/weapon-shield-modifiers.yaml`
+- Torpedo specialization: damageType, hullDamageFactor, shieldDamageFactor
+- Hull projectile resistance by damage type
+- Launcher projectile damage multipliers
+- Ion weapon system disable mechanic
+
+#### Crew constraints (Phase 7 — BASIC)
+- `toggleSystem` checks crew demand before activation
+- Crew demand = sum of `baseCrewCapacity` for all active modules
+- Insufficient crew → system activation rejected with error message
+
+---
+
+## Verification status
+
+All tests pass (2026-08-06):
+- `spacecraft-stats.service.spec.ts` — 4 tests
+- `spacecraft-resource-flow.service.spec.ts` — 3 tests
+- `spacecraft-movement-resources.spec.ts` — 6 tests
+- `combat.engine.spec.ts` — 8 tests
+- `game-data.service.spec.ts` — 22 tests
+- Backend builds cleanly
+- Frontend builds cleanly
+
+---
+
+## Known gaps remaining
+
+### Phase 4 — Resource flow polish
+- Configurable upkeep priorities (player chooses which system dies first on brownout)
+- Shortage event messages / UI notifications on auto-deactivation
+- Life support system upkeep once modeled
+
+### Phase 5 — Movement polish
+- Tractor movement extra costs
+- Post-flight consequences (damage, cooldowns)
+- Anomaly and environmental effects on movement
+- `flightEnergyCost` from ship class not yet used (currently hardcoded `distance * 5`)
+
+### Phase 7 — Crew polish
+- Automatic system deactivation on crew loss (boarding, casualties)
+- Technical crew affects repair speed
+- Boarding / foreign crew states affect operation
+- Escape pod / destruction crew outcomes
+
+### UI / Frontend polish
+- `warpSpeed` legacy field still used in NavigationPanel — should show warpdrive instead
+- Brownout / shortage warning messages in UI
+- System integrity display (currently toggle only shows active/inactive)
+- `runtimeSystems` can be null on ships never ticked — handle gracefully
+
+### Data model cleanup
+- Consider removing `warpSpeed` column entirely once frontend fully migrated
+- `eps` as explicit field alias for `energy` — currently same column
+- `reactorLoad` / fuel concept if desired later
 
 ---
 
 ## Target implementation architecture
 
-## Layer 1 — Static ship class baseline
-Extend ship class baseline model so each ship class represents STU rump semantics more closely.
+### Layer 1 — Static ship class baseline ✅
+Each ship class carries STU rump-equivalent baselines. Source: `ship-classes.yaml` with `stuRumpId` reference.
 
-### Add or derive baseline fields
-- `epsBase`
-- `reactorBase`
-- `warpdriveBase`
-- `batteryBase`
-- `evadeBase`
-- later:
-  - `hitChanceBase`
-  - `sensorRangeBase`
-  - `torpedoStorageBase`
-  - `flightEnergyCost`
+### Layer 2 — Derived ship stats ✅
+`SpacecraftStatsService` produces: hullMax, shieldsMax, epsMax, reactorOutput, warpdriveMax, batteryMax, evadeChance from class base + module modifiers.
 
-### Source
-- Existing `ship-classes.yaml` / `ShipClassDef`
-- Regenerate / enrich from STU `stu_rumps` once ready
+### Layer 3 — Runtime spacecraft systems ✅
+Per-ship `runtimeSystems` JSONB. Shape per system: `{active, cooldown, integrity, current?, max?}`.
+Future table split possible once shape stabilizes.
+
+### Layer 4 — Resource flow engine ✅
+`SpacecraftResourceFlowService` owns recharge/upkeep. Reactor distributes → EPS/Warpdrive/Battery. Active systems consume upkeep.
 
 ---
 
-## Layer 2 — Derived ship stats
-`SpacecraftStatsService` should remain a baseline + module modifier service, not a runtime state machine.
+## Recommended next work
 
-It should produce values such as:
-- `hullMax`
-- `shieldsMax`
-- `epsMax`
-- `reactorOutput`
-- `warpdriveMax`
-- `batteryMax`
-- `evadeChance`
-- later `sensorRange`, `hitChance`, `torpedoStorage`
+Priority order:
 
-It should not own:
-- system activation
-- recharge loops
-- flight consumption
-- combat state updates
-
-Those belong to the runtime systems layer.
+1. **Use `flightEnergyCost` from ship class** — replace hardcoded `distance * 5` in navigate() with `shipClass.flightEnergyCost * distance`
+2. **Remove `warpSpeed` from frontend** — NavigationPanel should use warpdrive/warpdriveMax
+3. **Brownout UI notifications** — when resource-flow deactivates a system, surface that to the player
+4. **Crew-loss cascade** — when crew drops below demand, auto-deactivate lowest-priority system
 
 ---
 
-## Layer 3 — Runtime spacecraft systems
-Per-ship runtime systems are stored in `runtimeSystems` JSONB for now.
-
-This is intentionally transitional. It avoids an immediate table explosion while allowing STU-like system states.
-
-Future table split remains possible once the shape stabilizes.
-
----
-
-## Layer 4 — Resource flow engine
-`SpacecraftResourceFlowService` owns recharge/upkeep logic.
-
-It should continue evolving toward:
-1. Reactor output distribution
-2. EPS recharge
-3. Warpdrive recharge
-4. Battery recharge/discharge
-5. system upkeep consumption
-6. low-energy fallback behavior
-
----
-
-## Phased implementation plan
-
-## Phase 1 — Finish structural stat separation
-
-### Status
-Partially complete.
-
-### Completed
-- Drive/reactor/EPS module families separated.
-- Runtime fields introduced:
-  - `epsMax`
-  - `reactorOutput`
-  - `warpdriveMax`
-  - `warpdrive`
-  - `evadeChance`
-- Compatibility retained:
-  - `energyMax` mirrors EPS capacity behavior
-  - `warpSpeed` remains legacy
-
-### Remaining
-- add full ship class baseline fields:
-  - `reactorBase`
-  - `warpdriveBase`
-  - `evadeBase`
-  - `hitChanceBase`
-  - `sensorRangeBase`
-  - `torpedoStorageBase`
-  - `flightEnergyCost`
-- regenerate/enrich ship class YAML from STU rump data
-
----
-
-## Phase 2 — Runtime resource fields
-
-### Status
-Partially complete.
-
-### Completed
-- added DB/runtime fields:
-  - `epsMax`
-  - `reactorOutput`
-  - `warpdriveMax`
-  - `warpdrive`
-  - `evadeChance`
-  - `runtimeSystems`
-- migrations added for these fields
-- ship creation initializes most new values
-
-### Remaining
-- add `reactorLoad` / `reactorCapacity` if modeling loaded reactor fuel like STU
-- decide whether to introduce `eps` as explicit alias separate from legacy `energy`
-- expose new fields cleanly in frontend DTOs/UI
-
----
-
-## Phase 3 — Runtime system state model
-
-### Status
-Foundation complete.
-
-### Completed
-- `SpacecraftRuntimeStateService`
-- default system state initialization
-- EPS/WARPDRIVE/REACTOR/SHIELDS current and max synchronization
-
-### Remaining
-- system activation/deactivation endpoints
-- system-specific state handlers
-- expose state in ship detail API
-- frontend system-state indicators
-
----
-
-## Phase 4 — Resource flow and recharge loop
-
-### Status
-Started.
-
-### Completed
-- reactor output distribution foundation
-- EPS recharge
-- warpdrive recharge
-- battery recharge
-- shield upkeep
-- battery fallback for shield upkeep
-- shield runtime deactivation on shortage
-
-### Remaining
-- generalize upkeep beyond shields
-- add configurable priorities
-- add shortage event messages
-- add system-specific brownout behavior
-- integrate with UI notifications
-
----
-
-## Phase 5 — Movement refactor
-
-### Status
-Started.
-
-### Completed
-- in-system movement consumes EPS
-- galaxy flight consumes warpdrive
-- inter-system warp consumes warpdrive
-- runtime systems sync after movement
-
-### Remaining
-- pre-flight condition aggregation
-- tractor movement extra costs
-- route-level local/warp distinction
-- post-flight consequences
-- anomaly and environmental effects
-- movement UI error messaging
-
----
-
-## Phase 6 — Combat refactor
-
-### Status
-Started before this document update.
-
-### Completed
-- torpedo damage types
-- hull projectile resistance
-- launcher multipliers
-
-### Remaining
-- runtime systems affect combat:
-  - disabled WEAPONS => no energy weapons
-  - disabled TORPEDO_BANK => no projectile fire
-  - disabled SHIELDS => no shield regeneration / possibly no shield use
-- energy weapons consume EPS
-- `evadeChance` affects hit chance
-- weapon-vs-shield specialization from STU `stu_weapon_shield`
-
----
-
-## Phase 7 — Crew and operational constraints
-
-### Status
-Not started.
-
-### Remaining
-- active systems require crew where appropriate
-- insufficient crew can deactivate systems
-- technical crew affects repair/maintenance
-- boarding/foreign crew states affect operation
-- escape pod/destruction outcomes
-
----
-
-## Recommended next sprint
-
-The next sprint should be:
-
-### Combat-system integration with runtimeSystems
-
-Scope:
-1. CombatEngine reads `runtimeSystems`.
-2. If `WEAPONS.active === false`, energy weapons do not fire.
-3. If `TORPEDO_BANK.active === false`, projectile weapons do not fire.
-4. If `SHIELDS.active === false`, shield regeneration is skipped.
-5. `evadeChance` contributes to hit chance.
-6. Add tests for each behavior.
-
-Why this next:
-- Runtime systems now exist.
-- Resource flow can deactivate shields.
-- Combat currently ignores that state.
-- This closes the first major gameplay loop between energy shortage and actual combat behavior.
-
----
-
-## Verification checklist for next sprint
-
-Run at minimum:
+## Verification checklist
 
 ```bash
-GAME_DATA_PATH=/Users/TMUNDIN/git/github.com/swuniverse/core/game-data/data npx nx test backend --runTestsByPath \
-  src/modules/combat/combat.engine.spec.ts \
-  src/modules/spacecraft/spacecraft-resource-flow.service.spec.ts \
-  src/modules/spacecraft/spacecraft-movement-resources.spec.ts
+GAME_DATA_PATH=/Users/TMUNDIN/git/github.com/swuniverse/core/game-data/data npx nx test backend --skip-nx-cache
 ```
 
 Then:
 
 ```bash
-npx nx run backend:build
+GAME_DATA_PATH=/Users/TMUNDIN/git/github.com/swuniverse/core/game-data/data npx nx run backend:build
+npx nx run frontend:build
 ```
 
 Expected:
-- tests pass
+- all tests pass
 - backend builds
-- no TypeScript diagnostics
+- frontend builds
