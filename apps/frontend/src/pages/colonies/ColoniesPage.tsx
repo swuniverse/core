@@ -73,7 +73,12 @@ const buildStorageRows = (
     });
   }
   for (const item of colony.detailV2?.productionDeltas ?? []) {
-    if (item.amount === 0 || rows.has(item.commodityId)) continue;
+    if (
+      item.amount === 0 ||
+      rows.has(item.commodityId) ||
+      !commodityMap[item.commodityId]?.isSaveable
+    )
+      continue;
     rows.set(item.commodityId, {
       id: -item.commodityId,
       commodityId: item.commodityId,

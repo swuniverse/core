@@ -55,7 +55,8 @@ const starterOptions: StarterColonizationOptions = {
 };
 
 const commodities = [
-  { id: 1, name: 'Erz', nameShort: 'ERZ' },
+  { id: 1, name: 'Erz', nameShort: 'ERZ', isSaveable: true },
+  { id: 1001, name: 'Ausbildungsgrad', nameShort: 'AUS', isSaveable: false },
 ] as CommodityDef[];
 const availableBuildings = [
   {
@@ -293,10 +294,16 @@ describe('ColoniesPage socket refresh', () => {
     expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
   });
 
-  it('shows zero stock commodities with nonzero production', async () => {
+  it('shows zero-stock production resources but not effects', async () => {
     const colony = createColony(1, 'Alpha', 5, 10);
     colony.detailV2!.productionDeltas = [
       { commodityId: 1, name: 'Erz', nameShort: 'ERZ', amount: 15 },
+      {
+        commodityId: 1001,
+        name: 'Ausbildungsgrad',
+        nameShort: 'AUS',
+        amount: 1,
+      },
     ];
     colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
     colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
@@ -315,6 +322,7 @@ describe('ColoniesPage socket refresh', () => {
       .find((element) => element.tagName === 'DIV');
     expect(storageRow?.textContent).toContain('0');
     expect(storageRow?.textContent).toContain('+15');
+    expect(screen.queryByTitle('Ausbildungsgrad')).toBeNull();
   });
 
   it('reloads available buildings on TICK only', async () => {

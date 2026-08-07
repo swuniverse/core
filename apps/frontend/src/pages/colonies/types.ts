@@ -787,6 +787,9 @@ export interface CommodityDef {
   id: number;
   name: string;
   nameShort: string;
+  isSaveable?: boolean;
+  isEffect?: boolean;
+  isDeposit?: boolean;
   isShuttle?: boolean;
   isWorkbee?: boolean;
 }
