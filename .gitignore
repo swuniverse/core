@@ -19,9 +19,6 @@ node_modules
 
 # IDE - VSCode
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
 !.vscode/extensions.json
 
 # misc
@@ -69,6 +66,8 @@ vitest.config.*.timestamp*
 .nanocoder/
 .playwright-mcp/
 .claude/
+.codex/
+.interface-design/
 *.tsbuildinfo
 
 # Local dev environment
@@ -82,8 +81,13 @@ nebula-demo.html
 
 # Plans & progress (local only)
 plans/
+docs/
+tools/
 PLAN.md
 progress.md
+
+# Local artifacts
+*.sqlite
 
 # Screenshots
 *.png
