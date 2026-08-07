@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap');
 @import 'tailwindcss';
+@import 'react-grid-layout/css/styles.css';
+@import 'react-resizable/css/styles.css';
 @import './components/auth/auth.css';
 
 @theme {
@@ -55,4 +57,24 @@ body {
 }
 .animate-slide-in-right {
   animation: slide-in-right 0.2s ease-out;
+}
+
+/* react-grid-layout theme overrides */
+.react-resizable-handle {
+  background-image: none;
+  border-right: 2px solid var(--color-swu-accent);
+  border-bottom: 2px solid var(--color-swu-accent);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.react-resizable-handle:hover {
+  opacity: 1;
+}
+.react-grid-item.react-grid-placeholder {
+  background: var(--color-swu-accent);
+  opacity: 0.1;
+  border-radius: 4px;
+}
+.react-grid-item > .react-resizable-handle::after {
+  display: none;
 }

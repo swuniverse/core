@@ -3,14 +3,15 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 
 const primaryTabs = [
-  { label: 'Maindesk', path: '/', icon: '◫' },
   { label: 'Kolonien', path: '/colonies', icon: '◉' },
-  { label: 'Karte', path: '/starmap', icon: '✦' },
-  { label: 'Forschung', path: '/research', icon: '⚗' },
+  { label: 'Schiffe', path: '/spacecraft', icon: '△' },
+  { label: 'Maindesk', path: '/', icon: '◫' },
+  { label: 'Scans', path: '/colony-scans', icon: '◎' },
 ];
 
 const moreItems = [
-  { label: 'Schiffe', path: '/spacecraft', icon: '△' },
+  { label: 'Karte', path: '/starmap', icon: '✦' },
+  { label: 'Forschung', path: '/research', icon: '⚗' },
   { label: 'Nachrichten', path: '/messages', icon: '✉' },
   { label: 'HoloNet', path: '/holonet', icon: '▣' },
   { label: 'Datenbank', path: '/database', icon: '▤' },

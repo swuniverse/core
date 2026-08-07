@@ -82,6 +82,19 @@ export class SettingsController {
     return this.settingsService.updateAvatar(req.user.sub, body.avatar);
   }
 
+  @Get('dashboard-layout')
+  getDashboardLayout(@Request() req: { user: { sub: number } }) {
+    return this.settingsService.getDashboardLayout(req.user.sub);
+  }
+
+  @Patch('dashboard-layout')
+  updateDashboardLayout(
+    @Request() req: { user: { sub: number } },
+    @Body() body: { layout: string },
+  ) {
+    return this.settingsService.updateDashboardLayout(req.user.sub, body.layout);
+  }
+
   @Post('vacation/activate')
   activateVacation(@Request() req: { user: { sub: number } }) {
     return this.settingsService.activateVacation(req.user.sub);

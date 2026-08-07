@@ -217,6 +217,26 @@ export class SettingsService {
     await this.userRepo.save(user);
   }
 
+  async getDashboardLayout(userId: number): Promise<{ layout: string | null }> {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException();
+    return { layout: user.dashboardLayout ?? null };
+  }
+
+  async updateDashboardLayout(
+    userId: number,
+    layout: string,
+  ): Promise<{ layout: string }> {
+    if (typeof layout !== 'string') {
+      throw new BadRequestException('Layout must be a string');
+    }
+    if (layout.length > 100_000) {
+      throw new BadRequestException('Layout too large');
+    }
+    await this.userRepo.update(userId, { dashboardLayout: layout });
+    return { layout };
+  }
+
   async searchUsers(
     query: string,
   ): Promise<{ id: number; username: string }[]> {

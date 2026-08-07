@@ -30,12 +30,13 @@ export class DatabaseService {
     if (onlineUserIds.length === 0) return [];
     const users = await this.userRepo.find({
       where: { id: In(onlineUserIds) },
-      select: ['id', 'username', 'faction'],
+      select: ['id', 'username', 'faction', 'avatar'],
     });
     return users.map((u) => ({
       id: u.id,
       username: u.username,
       faction: u.faction,
+      avatar: u.avatar,
     }));
   }
 

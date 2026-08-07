@@ -70,6 +70,9 @@ export class User {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  dashboardLayout: string | null;
+
   @Column({ type: 'boolean', default: false })
   vacationMode: boolean;
 
