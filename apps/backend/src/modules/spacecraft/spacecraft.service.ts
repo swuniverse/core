@@ -628,7 +628,7 @@ export class SpacecraftService {
         shieldsMax: shipClass.shieldBase,
         energy: shipClass.epsBase,
         energyMax: shipClass.epsBase,
-        warpSpeed: shipClass.warpBase,
+        warpSpeed: shipClass.warpdriveBase,
         crew: shipClass.crewMin,
         crewMax: shipClass.crewMax,
         cargoUsed: 0,

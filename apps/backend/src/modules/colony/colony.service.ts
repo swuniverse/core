@@ -1445,7 +1445,7 @@ export class ColonyService {
       shieldsMax: shipClass.shieldBase,
       energy: shipClass.epsBase,
       energyMax: shipClass.epsBase,
-      warpSpeed: shipClass.warpBase,
+      warpSpeed: shipClass.warpdriveBase,
       crew: shipClass.crewMin,
       crewMax: shipClass.crewMax,
       cargoUsed: 0,
@@ -1454,7 +1454,7 @@ export class ColonyService {
       batteryMax: shipClass.batteryBase,
       epsMax: shipClass.epsBase,
       reactorOutput: 0,
-      warpdriveMax: shipClass.warpBase,
+      warpdriveMax: shipClass.warpdriveBase,
       evadeChance: 0,
     });
   }
