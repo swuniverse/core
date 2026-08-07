@@ -384,6 +384,14 @@ describe('GameDataService hangar ship definitions', () => {
       }
     }
   });
+
+  it('uses the hangar display name for every hull commodity', () => {
+    for (const def of service.getAllHangarShipDefs()) {
+      expect(service.getCommodity(def.hangarCommodityId)?.name).toBe(
+        def.displayName,
+      );
+    }
+  });
 });
 
 describe('GameDataService ship class slot rules', () => {
