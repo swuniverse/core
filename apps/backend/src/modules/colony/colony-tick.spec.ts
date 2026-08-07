@@ -68,7 +68,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const statsRepo = { save: jest.fn(async (value) => value) };
   const userRepo = {
     findOneBy: jest.fn(),
-    findOne: jest.fn(async () => ({ id: 1, faction: null })),
+    findOne: jest.fn(async () => ({ id: 1, faction: 'REBEL_ALLIANCE' })),
   };
   const shipRepo = {
     find: jest.fn(async () => []),
@@ -92,6 +92,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     findOneBy: jest.fn(),
     findOne: jest.fn(),
     find: jest.fn(async () => []),
+    findBy: jest.fn(async () => []),
   };
   const shipBuildQueueRepo = {
     create: jest.fn((value) => value),
@@ -688,7 +689,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           outputAmount: 1,
           moduleType: 'Laser Cannon',
           moduleCategory: 'WEAPONS',
-          shipyardGroup: 'OFFENSE_SYSTEMS',
+          faction: 'REBEL_ALLIANCE',
           shipyardType: 'ENERGY_WEAPON',
           moduleLevel: 1,
           buildingFunctionIds: [10],
@@ -754,6 +755,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       return byOutput[commodityId];
     }),
     getShipClassDefByKey: jest.fn((key: string) => ({ key, buildCosts: [] })),
+    getShipyardRumpStats: jest.fn(() => null),
     getShipClassSlotRule: jest.fn((category: string) => {
       const rules = [
         {
@@ -956,7 +958,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
         moduleType: 'Laser Cannon',
         moduleCategory: 'WEAPONS',
         shipyardGroup: 'OFFENSE_SYSTEMS',
-        shipyardType: 'ENERGY_WEAPON',
+        faction: 'REBEL_ALLIANCE',
         moduleLevel: 1,
         buildingFunctionIds: [10],
       },
@@ -1234,6 +1236,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     spacecraftStatsService as any,
     unlockResolver as any,
     timingService,
+    userRepo as never,
   );
   const constructionService = new ColonyConstructionService(
     colonyRepo as any,
@@ -3906,6 +3909,87 @@ describe('ship building compatibility', () => {
     );
   });
 
+  it('rejects opposing faction modules for builds, retrofits, and buildplans', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      gameData,
+    } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      colonyClassId: 999,
+      fields: [
+        {
+          id: 1,
+          fieldIndex: 1,
+          buildingId: 85110100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+      storage: [],
+    };
+    const shipClass = {
+      id: 1,
+      key: 'TEST_CORVETTE',
+      name: 'Test Corvette',
+      category: 'CORVETTE',
+      isNpc: false,
+      crewMin: 0,
+    };
+    const imperialSelection = {
+      slotId: 'corvette-weapons-1',
+      commodityId: 10731,
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      name: 'Corvette',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue(shipClass);
+    gameData.getFabricationItemByOutputCommodity.mockReturnValue({
+      itemKey: 'module.weapons.turbolaser-k1',
+      queueType: 'MODULE',
+      displayName: 'Turbolaser (Klasse 1)',
+      outputCommodityId: 10731,
+      moduleType: 'Laser Cannon',
+      shipyardType: 'ENERGY_WEAPON',
+      faction: 'GALACTIC_EMPIRE',
+    });
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Imperial Build', [imperialSelection]),
+    ).rejects.toThrow('Ship module is faction-locked');
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, [imperialSelection]),
+    ).rejects.toThrow('Ship module is faction-locked');
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Imperial Plan', [imperialSelection]),
+    ).rejects.toThrow('Ship module is faction-locked');
+    gameData.getFabricationItemByOutputCommodity.mockReturnValue({
+      itemKey: 'module.neutral.eps-k1',
+      queueType: 'MODULE',
+      displayName: 'Neutral System',
+      outputCommodityId: 10301,
+      moduleType: 'Neutral System',
+      shipyardType: 'ENERGY_WEAPON',
+    });
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Neutral Plan', [
+        { slotId: 'corvette-weapons-1', commodityId: 10301 },
+      ]),
+    ).resolves.toEqual(expect.objectContaining({ moduleCommodityIds: [10301] }));
+  });
+
   it('finishes queued ship builds during colony tick', async () => {
     const { service, shipBuildQueueRepo, shipRepo } = createColonyService();
     const job = {
@@ -4717,6 +4801,64 @@ describe('orbit ship operations', () => {
     expect(colonyCrewService.transferCrewFromShipToColony).toHaveBeenCalled();
     expect(shipRepo.remove).toHaveBeenCalledWith(
       expect.objectContaining({ id: 8 }),
+    );
+  });
+});
+
+describe('faction shipyard visibility', () => {
+  it('excludes opposing faction modules while retaining neutral modules', async () => {
+    const { service, colonyRepo, shipClassRepo, gameData, userRepo } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      name: 'Faction Test',
+      energy: 100,
+      energyMax: 100,
+      population: 5,
+      populationMax: 10,
+      storageMax: 100,
+      colonyClassId: 999,
+      fields: [],
+      storage: [],
+      stats: { workless: 5, trainedCrew: 0, maxStorage: 100 },
+    });
+    userRepo.findOne.mockResolvedValue({ id: 1, faction: 'REBEL_ALLIANCE' });
+    shipClassRepo.find.mockResolvedValue([
+      { id: 1, category: 'CORVETTE', isNpc: false },
+    ]);
+    gameData.getAllFabricationItems.mockReturnValue([
+      {
+        queueType: 'MODULE',
+        moduleType: 'Blasterkanone',
+        outputCommodityId: 10701,
+        shipyardType: 'ENERGY_WEAPON',
+        buildingFunctionIds: [10],
+        faction: 'REBEL_ALLIANCE',
+      },
+      {
+        queueType: 'MODULE',
+        moduleType: 'Turbolaser',
+        outputCommodityId: 10731,
+        shipyardType: 'ENERGY_WEAPON',
+        buildingFunctionIds: [10],
+        faction: 'GALACTIC_EMPIRE',
+      },
+      {
+        queueType: 'MODULE',
+        moduleType: 'Neutral System',
+        outputCommodityId: 10301,
+        shipyardType: 'EPS',
+        buildingFunctionIds: [10],
+      },
+    ]);
+
+    const detail = (await service.findOne(1, 1)) as {
+      detailV2?: { availableShipModules?: Array<{ commodityId: number }> };
+    };
+
+    expect(detail.detailV2?.availableShipModules?.map((item) => item.commodityId)).toEqual(
+      [10701, 10301],
     );
   });
 });

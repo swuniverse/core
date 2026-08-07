@@ -686,6 +686,40 @@ describe('ColonyDetail', () => {
           defaultFactor: 0,
         },
       },
+      {
+        commodityId: 9004,
+        commodityName: 'Spezialmodul Alpha',
+        amount: 1,
+        moduleType: 'Special Alpha',
+        moduleCategory: 'SPECIAL',
+        shipyardGroup: 'CORE_SYSTEMS',
+        shipyardType: 'SPECIAL',
+        moduleLevel: 1,
+        moduleClass: 1,
+        researchRequired: null,
+        faction: null,
+        displayName: 'Spezialmodul Alpha',
+        crewRequired: 0,
+        effects: ['Alpha-Effekt'],
+        shipyardModuleStats: null,
+      },
+      {
+        commodityId: 9005,
+        commodityName: 'Spezialmodul Beta',
+        amount: 1,
+        moduleType: 'Special Beta',
+        moduleCategory: 'SPECIAL',
+        shipyardGroup: 'CORE_SYSTEMS',
+        shipyardType: 'SPECIAL',
+        moduleLevel: 1,
+        moduleClass: 1,
+        researchRequired: null,
+        faction: null,
+        displayName: 'Spezialmodul Beta',
+        crewRequired: 0,
+        effects: ['Beta-Effekt'],
+        shipyardModuleStats: null,
+      },
     ];
     detail.crew = {
       available: 8,
@@ -737,15 +771,25 @@ describe('ColonyDetail', () => {
     fireEvent.click(screen.getByText(/Particle Shield Mk II/));
     expect(screen.getByText(/benötigt 7 \/ maximal 8/)).toBeTruthy();
 
+    fireEvent.click(screen.getByText('Spezialslot I'));
+    expect(screen.getByText(/Spezialmodul Alpha/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Spezialmodul Alpha/));
+    fireEvent.click(screen.getByRole('button', { name: /Spezialslot II/ }));
+    expect(screen.getByText(/Spezialmodul Beta/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Spezialmodul Beta/));
+
     fireEvent.change(screen.getByDisplayValue('Nebulon-B'), {
       target: { value: 'Nebulon-B Test' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Schiff bauen' }));
-
     expect(onBuildShip).toHaveBeenCalledWith(
       101,
       'Nebulon-B Test',
-      expect.arrayContaining(createShipyardSelections()),
+      expect.arrayContaining([
+        ...createShipyardSelections(),
+        { slotId: 'frigate-special-1', commodityId: 9004 },
+        { slotId: 'frigate-special-2', commodityId: 9005 },
+      ]),
       'Nebulon-B Buildplan',
     );
   });

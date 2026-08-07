@@ -296,19 +296,37 @@ describe('GameDataService fabrication items', () => {
       ).toBe('Schwerer Turbolaser');
     }
     for (const commodityId of [10801, 10802, 10803, 10804, 10805, 10806]) {
-      expect(
-        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
-      ).toBe('Protonentorpedo-Werfer');
+      const item = service.getFabricationItemByOutputCommodity(commodityId);
+      expect(item?.moduleType).toBe('Protonentorpedo-Werfer');
+      expect(item).toMatchObject({
+        shipyardType: 'TORPEDO_BANK',
+        shipyardGroup: 'OFFENSE_SYSTEMS',
+      });
     }
     for (const commodityId of [10831, 10832, 10833, 10834, 10835, 10836]) {
-      expect(
-        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
-      ).toBe('Imperiale Torpedorampe');
+      const item = service.getFabricationItemByOutputCommodity(commodityId);
+      expect(item?.moduleType).toBe('Imperiale Torpedorampe');
+      expect(item).toMatchObject({
+        shipyardType: 'TORPEDO_BANK',
+        shipyardGroup: 'OFFENSE_SYSTEMS',
+      });
     }
     for (const commodityId of [11801, 11802, 11803, 11804, 11805, 11806]) {
+      const item = service.getFabricationItemByOutputCommodity(commodityId);
+      expect(item?.moduleType).toBe('Mehrfach-Torpedorampe');
+      expect(item).toMatchObject({
+        shipyardType: 'TORPEDO_BANK',
+        shipyardGroup: 'OFFENSE_SYSTEMS',
+      });
+    }
+    for (const commodityId of [
+      10701, 10702, 10703, 10704, 10705, 10706, 10731, 10732, 10733, 10734,
+      10735, 10736, 11701, 11702, 11703, 11704, 11705, 11706, 11731, 11732,
+      11733, 11734, 11735, 11736,
+    ]) {
       expect(
-        service.getFabricationItemByOutputCommodity(commodityId)?.moduleType,
-      ).toBe('Mehrfach-Torpedorampe');
+        service.getFabricationItemByOutputCommodity(commodityId)?.shipyardType,
+      ).toBe('ENERGY_WEAPON');
     }
     expect(
       service
@@ -318,9 +336,80 @@ describe('GameDataService fabrication items', () => {
     ).toBe(1.5);
   });
 
-  it('references existing output commodities, cost commodities and building functions', () => {
+  it('loads faction weapon family names from their output commodities', () => {
+    const families = [
+      {
+        faction: 'REBEL_ALLIANCE',
+        commodityIds: [10701, 10702, 10703, 10704, 10705, 10706],
+        name: 'Blasterkanone',
+      },
+      {
+        faction: 'REBEL_ALLIANCE',
+        commodityIds: [11701, 11702, 11703, 11704, 11705, 11706],
+        name: 'Schwere Blasterkanone',
+      },
+      {
+        faction: 'GALACTIC_EMPIRE',
+        commodityIds: [10731, 10732, 10733, 10734, 10735, 10736],
+        name: 'Turbolaser',
+      },
+      {
+        faction: 'GALACTIC_EMPIRE',
+        commodityIds: [11731, 11732, 11733, 11734, 11735, 11736],
+        name: 'Schwerer Turbolaser',
+      },
+    ];
+
+    for (const { faction, commodityIds, name } of families) {
+      for (const commodityId of commodityIds) {
+        const item = service.getFabricationItemByOutputCommodity(commodityId);
+        expect(item).toMatchObject({
+          faction,
+          displayName: `${name} (Klasse ${commodityId % 10})`,
+        });
+        expect(item?.displayName).toBe(service.getCommodity(commodityId)?.name);
+      }
+    }
+  });
+
+  it('gates special module fabrication by research and compatible hulls', () => {
+    const specialModules = [
+      ['module.special.crewtransport-modul', 60500],
+      ['module.special.astrometrie-labor', 60600],
+      ['module.special.hyperraumfeldscanner', 60700],
+      ['module.special.matrixsensoren', 60800],
+      ['module.special.torpedotransportmodul', 60900],
+      ['module.special.shuttlerampe', 61000],
+    ] as const;
+
+    for (const [itemKey, researchId] of specialModules) {
+      expect(service.getFabricationItem(itemKey)).toMatchObject({
+        queueType: 'MODULE',
+        shipyardType: 'SPECIAL',
+        researchId,
+      });
+    }
+
+    expect(
+      service.isShipyardModuleAllowedForShipClass(
+        service.getFabricationItem('module.special.astrometrie-labor')!,
+        { key: 'REBEL_FRIGATE_CONSULAR', category: 'FRIGATE' },
+      ),
+    ).toBe(true);
+    expect(
+      service.isShipyardModuleAllowedForShipClass(
+        service.getFabricationItem('module.special.matrixsensoren')!,
+        { key: 'REBEL_SCOUT_HWK_290', category: 'ESCORT' },
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps fabrication catalog references, names and classifications consistent', () => {
     for (const item of service.getAllFabricationItems()) {
-      expect(service.getCommodity(item.outputCommodityId)).toBeDefined();
+      const outputCommodity = service.getCommodity(item.outputCommodityId);
+
+      expect(outputCommodity).toBeDefined();
+      expect(item.displayName).toBe(outputCommodity?.name);
       expect(item.costs.length).toBeGreaterThan(0);
       for (const cost of item.costs) {
         expect(service.getCommodity(cost.commodityId)).toBeDefined();
@@ -331,6 +420,8 @@ describe('GameDataService fabrication items', () => {
       }
       if (item.queueType === 'MODULE') {
         expect(item.moduleType).toBeTruthy();
+        expect(item.shipyardType).toBeDefined();
+        expect(item.shipyardGroup).toBeDefined();
         expect(
           service
             .getAllModules()
@@ -340,7 +431,19 @@ describe('GameDataService fabrication items', () => {
           service.getFabricationItemByOutputCommodity(item.outputCommodityId),
         ).toEqual(item);
       }
+      if (item.queueType === 'TORPEDO') {
+        expect(item.displayName).toBe(
+          service.getTorpedoTypeByCommodity(item.outputCommodityId)?.name,
+        );
+      }
     }
+
+    const lightProton = service.getFabricationItem('torpedo.light-proton');
+    expect(lightProton).toMatchObject({
+      itemKey: 'torpedo.light-proton',
+      displayName: 'Leichter Protonentorpedo',
+    });
+    expect(lightProton?.buildingFunctionIds).toEqual([FUNCTIONS.TORPEDO_FAB]);
   });
 });
 

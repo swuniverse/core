@@ -772,6 +772,8 @@ export class GameDataService implements OnModuleInit {
     if (fabricationCategory === 'SHIELDS') return 'SHIELDS';
 
     if (fabricationCategory === 'DRIVE') {
+      if (moduleCategory === 'HYPERDRIVE') return 'HYPERDRIVE';
+      if (moduleCategory === 'SUBLIGHT_ENGINE') return 'SUBLIGHT_DRIVE';
       if (haystack.includes('Hypermaterie-Reaktor')) return 'REACTOR';
       if (haystack.includes('Hyperantrieb')) return 'HYPERDRIVE';
       if (haystack.includes('Sublight-Antrieb')) return 'SUBLIGHT_DRIVE';
@@ -794,16 +796,16 @@ export class GameDataService implements OnModuleInit {
   }
 
   private applyShipyardClassification(item: FabricationItemDef): FabricationItemDef {
-    const shipyardType = this.classifyShipyardType(item);
+    const shipyardType = item.shipyardType ?? this.classifyShipyardType(item);
     const shipyardModuleStats = this.moduleStatsByOutputCommodity.get(
       item.outputCommodityId,
     );
     return {
       ...item,
       shipyardType: shipyardType ?? undefined,
-      shipyardGroup: shipyardType
-        ? SHIPYARD_TYPE_TO_GROUP[shipyardType]
-        : undefined,
+      shipyardGroup:
+        item.shipyardGroup ??
+        (shipyardType ? SHIPYARD_TYPE_TO_GROUP[shipyardType] : undefined),
       shipyardModuleStats,
     };
 
@@ -1125,35 +1127,11 @@ export class GameDataService implements OnModuleInit {
     const rule = moduleRules?.[item.shipyardType];
     if (item.shipyardType === 'SPECIAL') {
       const specialSlots = this.getShipyardRumpStats(stuRumpId)?.specialSlots ?? 0;
-      if (specialSlots <= 0) return false;
-      return this.isStuSpecialModuleAllowedForRump(
-        item.outputCommodityId,
-        stuRumpId,
-      );
+      return specialSlots > 0;
     }
     if (!rule || rule.level <= 0) return false;
     const level = item.shipyardModuleStats?.level ?? item.moduleLevel ?? 0;
     return level >= rule.min && level <= rule.max;
-  }
-
-  private isStuSpecialModuleAllowedForRump(
-    commodityId: number,
-    stuRumpId?: number | null,
-  ): boolean {
-    if (stuRumpId == null) return false;
-
-    const scoutRumps = [3401, 3403, 3491, 5401, 5403, 5491];
-
-    const byCommodity: Record<number, number[]> = {
-      19005: [6501, 6503],
-      19009: [6501, 6503, 6601, 6603, 6701, 6703],
-      19010: [6501, 6503, 6601, 6603, 6701, 6703, 1401, 1403, 1491],
-      19006: scoutRumps,
-      19008: scoutRumps,
-      19007: scoutRumps,
-    };
-
-    return (byCommodity[commodityId] ?? []).includes(stuRumpId);
   }
 
   getAllShipClassSlotRules(): ShipClassSlotRuleDef[] {

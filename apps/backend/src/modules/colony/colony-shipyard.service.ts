@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
+import { User } from '../auth/user.entity';
 import {
   GameDataService,
   HangarShipDef,
@@ -81,6 +82,8 @@ export class ColonyShipyardService {
     private readonly spacecraftStatsService: SpacecraftStatsService,
     private readonly unlockResolver: UnlockResolverService,
     private readonly timing: ColonyTimingService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   async findOne(colonyId: number, userId: number): Promise<Colony> {
@@ -248,9 +251,15 @@ export class ColonyShipyardService {
     return layout;
   }
 
+  private async getUserFaction(userId: number) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    return user?.faction ?? null;
+  }
+
   private validateModuleSelections(
     shipClass: ShipClassDef,
     moduleSelections: ShipModuleSelection[],
+    userFaction: User['faction'],
   ): ShipModuleSelection[] {
     if (!Array.isArray(moduleSelections) || moduleSelections.length === 0) {
       return [];
@@ -292,6 +301,9 @@ export class ColonyShipyardService {
         );
       }
       const moduleName = item.displayName ?? `Module #${commodityId}`;
+      if (item.faction != null && item.faction !== userFaction) {
+        throw new BadRequestException('Ship module is faction-locked');
+      }
       if ((item.shipyardType ?? 'UNKNOWN') !== slot.moduleCategory) {
         throw new BadRequestException(
           `${moduleName} does not fit ${slot.label}`,
@@ -310,6 +322,7 @@ export class ColonyShipyardService {
   private normalizeFixedHangarModuleSelections(
     shipClass: ShipClassDef,
     moduleSelections: ShipModuleSelection[],
+    userFaction: User['faction'],
   ): ShipModuleSelection[] {
     const hangarDef = this.gameData.getHangarShipDef(shipClass.key);
     if (!hangarDef) return moduleSelections;
@@ -324,7 +337,7 @@ export class ColonyShipyardService {
 
     const requestedSignature = this.createBuildplanSignature(
       shipClass.id,
-      this.validateModuleSelections(shipClass, moduleSelections),
+      this.validateModuleSelections(shipClass, moduleSelections, userFaction),
     );
     const defaultSignature = this.createBuildplanSignature(
       shipClass.id,
@@ -587,9 +600,15 @@ export class ColonyShipyardService {
     const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
     this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
 
+    const userFaction = await this.getUserFaction(userId);
     const selectedModuleSelections = this.validateModuleSelections(
       shipClass,
-      this.normalizeFixedHangarModuleSelections(shipClass, moduleSelections),
+      this.normalizeFixedHangarModuleSelections(
+        shipClass,
+        moduleSelections,
+        userFaction,
+      ),
+      userFaction,
     );
     const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
       selectedModuleSelections,
@@ -884,9 +903,15 @@ export class ColonyShipyardService {
     await this.assertSingleColonizerAvailability(userId, shipClass);
     this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
 
+    const userFaction = await this.getUserFaction(userId);
     const selectedModuleSelections = this.validateModuleSelections(
       shipClass,
-      this.normalizeFixedHangarModuleSelections(shipClass, moduleSelections),
+      this.normalizeFixedHangarModuleSelections(
+        shipClass,
+        moduleSelections,
+        userFaction,
+      ),
+      userFaction,
     );
     const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
       selectedModuleSelections,
@@ -1072,9 +1097,15 @@ export class ColonyShipyardService {
       throw new BadRequestException('Unknown ship class');
     }
 
+    const userFaction = await this.getUserFaction(userId);
     const selectedModuleSelections = this.validateModuleSelections(
       shipClass,
-      this.normalizeFixedHangarModuleSelections(shipClass, moduleSelections),
+      this.normalizeFixedHangarModuleSelections(
+        shipClass,
+        moduleSelections,
+        userFaction,
+      ),
+      userFaction,
     );
     const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
       selectedModuleSelections,

@@ -402,18 +402,6 @@ function getSelectedModuleEffects(
   });
 }
 
-function getSelectionForType(
-  slots: LayoutSlot[],
-  moduleSelections: ShipModuleSelection[],
-  type: ShipyardTypeKey,
-) {
-  const slotIds = new Set(
-    slots
-      .filter((slot) => slot.moduleCategory === type)
-      .map((slot) => slot.slotId),
-  );
-  return moduleSelections.find((selection) => slotIds.has(selection.slotId));
-}
 
 function ShipHullDesigner({
   layout,
@@ -430,7 +418,7 @@ function ShipHullDesigner({
   maxCrew: number;
   onChange: (next: ShipModuleSelection[]) => void;
 }) {
-  const [activeType, setActiveType] = useState<ShipyardTypeKey | null>(null);
+  const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
   const classModules = useMemo(
     () =>
       availableModules.filter(
@@ -450,11 +438,12 @@ function ShipHullDesigner({
   );
   const activeSlot = useMemo(
     () =>
-      activeType
-        ? layout.slots.find((slot) => slot.moduleCategory === activeType)
+      activeSlotId
+        ? layout.slots.find((slot) => slot.slotId === activeSlotId)
         : undefined,
-    [activeType, layout.slots],
+    [activeSlotId, layout.slots],
   );
+  const activeType = activeSlot?.moduleCategory as ShipyardTypeKey | undefined;
   const activeModules = useMemo(
     () =>
       activeType
@@ -465,7 +454,7 @@ function ShipHullDesigner({
     [activeType, classModules],
   );
   const activeSelection = activeSlot
-    ? getSelectionForType(layout.slots, moduleSelections, activeType!)
+    ? moduleSelections.find((selection) => selection.slotId === activeSlot.slotId)
     : undefined;
   const activeSelectedModule = classModules.find(
     (module) => module.commodityId === activeSelection?.commodityId,
@@ -478,21 +467,16 @@ function ShipHullDesigner({
     moduleSelections,
   );
 
-  const updateTypeSelection = (commodityId: number | null) => {
-    if (!activeSlot || !activeType) return;
-    const activeSlotIds = new Set(
-      layout.slots
-        .filter((slot) => slot.moduleCategory === activeType)
-        .map((slot) => slot.slotId),
-    );
-    const withoutType = moduleSelections.filter(
-      (selection) => !activeSlotIds.has(selection.slotId),
+  const updateSlotSelection = (commodityId: number | null) => {
+    if (!activeSlot) return;
+    const withoutSlot = moduleSelections.filter(
+      (selection) => selection.slotId !== activeSlot.slotId,
     );
     if (commodityId == null) {
-      onChange(withoutType);
+      onChange(withoutSlot);
       return;
     }
-    onChange([...withoutType, { slotId: activeSlot.slotId, commodityId }]);
+    onChange([...withoutSlot, { slotId: activeSlot.slotId, commodityId }]);
   };
 
   const filledCount = layout.slots.filter((slot) =>
@@ -546,18 +530,12 @@ function ShipHullDesigner({
                     (m) => m.commodityId === selection.commodityId,
                   )
                 : undefined;
-              const isActive = activeType === slot.moduleCategory;
+              const isActive = activeSlotId === slot.slotId;
               const elements = [
                 <button
                   key={slot.slotId}
                   type="button"
-                  onClick={() =>
-                    setActiveType(
-                      isActive
-                        ? null
-                        : (slot.moduleCategory as ShipyardTypeKey),
-                    )
-                  }
+                  onClick={() => setActiveSlotId(isActive ? null : slot.slotId)}
                   className={`text-left rounded border px-2.5 py-2 transition-colors ${
                     isActive
                       ? 'border-swu-accent bg-swu-accent/10'
@@ -585,7 +563,7 @@ function ShipHullDesigner({
                     <div className="max-h-[14rem] overflow-y-auto divide-y divide-swu-border/20">
                       <button
                         type="button"
-                        onClick={() => updateTypeSelection(null)}
+                        onClick={() => updateSlotSelection(null)}
                         className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
                           !activeSelection
                             ? 'bg-swu-accent/10 text-swu-accent'
@@ -616,7 +594,7 @@ function ShipHullDesigner({
                             key={module.commodityId}
                             type="button"
                             onClick={() =>
-                              updateTypeSelection(module.commodityId)
+                              updateSlotSelection(module.commodityId)
                             }
                             className={`w-full text-left px-3 py-2 transition-colors ${
                               isSelected

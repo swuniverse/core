@@ -476,6 +476,7 @@ export class ColonyProjectionService {
           item.queueType === ColonyFabricationQueueType.MODULE &&
           !!item.moduleType &&
           !!item.shipyardType &&
+          (item.faction == null || item.faction === userFaction) &&
           (item.researchId == null || completedTechIds.has(item.researchId)),
       )
       .map((item) => {
