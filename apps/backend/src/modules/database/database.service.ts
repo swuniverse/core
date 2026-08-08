@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { User } from '../auth/user.entity';
@@ -87,34 +87,56 @@ export class DatabaseService {
     );
 
     return Promise.all(
-      users.map(async (user) => {
-        const [colonies, ships, completedResearch] = await Promise.all([
-          this.colonyRepo.count({ where: { userId: user.id } }),
-          this.shipRepo.count({ where: { userId: user.id } }),
-          this.researchRepo.count({
-            where: { userId: user.id, status: ResearchStatus.COMPLETED },
-          }),
-        ]);
-
-        const faction = user.factionId ? factionById.get(user.factionId) : null;
-        return {
-          id: user.id,
-          username: user.username,
-          displayName: user.displayName,
-          avatar: user.avatar,
-          description: user.description,
-          faction: user.faction,
-          factionName: faction?.name ?? user.faction ?? 'Unbekannt',
-          prestige: user.prestige,
-          colonies,
-          ships,
-          completedResearch,
-          onboardingCompleted: user.onboardingCompleted,
-          isAdmin: user.isAdmin,
-          createdAt: user.createdAt,
-        };
-      }),
+      users.map((user) => this.toSettlerEntry(user, factionById)),
     );
+  }
+
+  async getSettler(id: number) {
+    const [user, factions] = await Promise.all([
+      this.userRepo.findOne({ where: { id } }),
+      this.factionService.findAll(),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException('Settler not found');
+    }
+
+    const factionById = new Map(
+      factions.map((faction) => [faction.id, faction]),
+    );
+
+    return this.toSettlerEntry(user, factionById);
+  }
+
+  private async toSettlerEntry(
+    user: User,
+    factionById: Map<number, { name: string }>,
+  ) {
+    const [colonies, ships, completedResearch] = await Promise.all([
+      this.colonyRepo.count({ where: { userId: user.id } }),
+      this.shipRepo.count({ where: { userId: user.id } }),
+      this.researchRepo.count({
+        where: { userId: user.id, status: ResearchStatus.COMPLETED },
+      }),
+    ]);
+
+    const faction = user.factionId ? factionById.get(user.factionId) : null;
+    return {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      avatar: user.avatar,
+      description: user.description,
+      faction: user.faction,
+      factionName: faction?.name ?? user.faction ?? 'Unbekannt',
+      prestige: user.prestige,
+      colonies,
+      ships,
+      completedResearch,
+      onboardingCompleted: user.onboardingCompleted,
+      isAdmin: user.isAdmin,
+      createdAt: user.createdAt,
+    };
   }
 
   getCommodities() {

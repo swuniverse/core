@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { DashboardData } from '../types';
 
 export function WidgetOnlinePlayers({ data }: { data: DashboardData }) {
@@ -11,14 +12,25 @@ export function WidgetOnlinePlayers({ data }: { data: DashboardData }) {
         Spieler Online ({players.length})
       </div>
       {players.length === 0 ? (
-        <div className="text-[10px] text-swu-muted text-center">Niemand online.</div>
+        <div className="text-[10px] text-swu-muted text-center">
+          Niemand online.
+        </div>
       ) : (
         <div className="flex flex-wrap gap-2 justify-center">
           {players.map((p) => (
-            <div key={p.id} className="relative group" title={p.username}>
-              <div className="w-10 h-10 rounded border border-swu-border/60 overflow-hidden bg-swu-bg">
+            <Link
+              key={p.id}
+              to={`/players/${p.id}`}
+              className="relative group block focus:outline-none focus:ring-1 focus:ring-swu-accent/70"
+              title={`${p.username} ansehen`}
+            >
+              <div className="w-10 h-10 rounded border border-swu-border/60 overflow-hidden bg-swu-bg transition-colors group-hover:border-swu-accent/70">
                 {p.avatar ? (
-                  <img src={p.avatar} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={p.avatar}
+                    alt={`${p.username} Profilbild`}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-swu-muted text-sm font-bold">
                     {p.username.charAt(0).toUpperCase()}
@@ -26,7 +38,7 @@ export function WidgetOnlinePlayers({ data }: { data: DashboardData }) {
                 )}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border border-swu-surface" />
-            </div>
+            </Link>
           ))}
         </div>
       )}

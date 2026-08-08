@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from 'react';
-import { BbCodeText } from '../components/BbCodeText';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 
 interface DatabaseOverview {
@@ -70,7 +70,12 @@ export function DatabasePage() {
         <p className="text-xs uppercase tracking-[0.25em] text-swu-muted mb-2">
           Galaktisches Archiv
         </p>
-        <h1 className="text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>Datenbank</h1>
+        <h1
+          className="text-2xl font-bold text-swu-accent"
+          style={{ fontFamily: 'var(--font-swu-display)' }}
+        >
+          Datenbank
+        </h1>
         <p className="text-sm text-swu-muted mt-2 max-w-3xl">
           Siedler und Ranglisten fuer die Closed Alpha. Das Archiv waechst
           spaeter um Waren, Entdeckungen, Sternensysteme, Planetentypen und
@@ -144,8 +149,6 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 function SettlersTable({ settlers }: { settlers: SettlerEntry[] }) {
-  const [expanded, setExpanded] = useState<number | null>(null);
-
   return (
     <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface">
       <table className="w-full text-sm">
@@ -161,30 +164,45 @@ function SettlersTable({ settlers }: { settlers: SettlerEntry[] }) {
           </tr>
         </thead>
         <tbody>
-          {settlers.map((settler) => (
-            <Fragment key={settler.id}>
+          {settlers.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-3 py-6 text-center text-swu-muted">
+                Keine Siedler gefunden.
+              </td>
+            </tr>
+          ) : (
+            settlers.map((settler) => (
               <tr
-                className="border-t border-swu-border/60 cursor-pointer hover:bg-swu-bg/30"
-                onClick={() => setExpanded(expanded === settler.id ? null : settler.id)}
+                key={settler.id}
+                className="border-t border-swu-border/60 hover:bg-swu-bg/30 transition-colors"
               >
                 <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden shrink-0">
+                  <Link
+                    to={`/players/${settler.id}`}
+                    className="group flex items-center gap-2 rounded-sm focus:outline-none focus:ring-1 focus:ring-swu-accent/70"
+                    aria-label={settler.displayName || settler.username}
+                  >
+                    <div className="w-7 h-7 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden shrink-0 transition-colors group-hover:border-swu-accent/70">
                       {settler.avatar ? (
-                        <img src={settler.avatar} alt="" className="w-full h-full object-cover" />
+                        <img
+                          src={settler.avatar}
+                          alt={`${settler.displayName || settler.username} Profilbild`}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <span className="text-xs text-swu-muted">
-                          {(settler.displayName || settler.username)[0].toUpperCase()}
+                          {(settler.displayName ||
+                            settler.username)[0].toUpperCase()}
                         </span>
                       )}
                     </div>
-                    <span className="font-bold text-swu-primary">
+                    <span className="font-bold text-swu-primary group-hover:text-swu-accent">
                       {settler.displayName || settler.username}
                     </span>
                     {settler.isAdmin && (
                       <span className="text-[10px] text-swu-accent">ADMIN</span>
                     )}
-                  </div>
+                  </Link>
                 </td>
                 <td className="px-3 py-2 text-swu-muted">
                   {settler.factionName}
@@ -205,37 +223,8 @@ function SettlersTable({ settlers }: { settlers: SettlerEntry[] }) {
                   {settler.onboardingCompleted ? 'aktiv' : 'im Aufbau'}
                 </td>
               </tr>
-              {expanded === settler.id && (
-                <tr className="bg-swu-bg/20">
-                  <td colSpan={7} className="px-4 py-3">
-                    <div className="flex gap-4 items-start">
-                      <div className="w-16 h-16 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden shrink-0">
-                        {settler.avatar ? (
-                          <img src={settler.avatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xl text-swu-muted">
-                            {(settler.displayName || settler.username)[0].toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        {settler.displayName && settler.displayName !== settler.username && (
-                          <p className="text-xs text-swu-muted">Login: {settler.username}</p>
-                        )}
-                        {settler.description ? (
-                          <BbCodeText text={settler.description} className="text-sm text-swu-primary whitespace-pre-wrap" />
-                        ) : (
-                          <p className="text-sm text-swu-primary">
-                            <span className="text-swu-muted italic">Keine Beschreibung</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}
+            ))
+          )}
         </tbody>
       </table>
     </div>

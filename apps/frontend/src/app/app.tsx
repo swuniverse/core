@@ -16,6 +16,7 @@ import { HolonetComposePage, HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
 import { DatabasePage } from '../pages/database';
+import { PlayerProfilePage } from '../pages/player-profile';
 import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
@@ -129,6 +130,7 @@ export function App() {
             <Route path="/holonet/new" element={<HolonetComposePage />} />
             <Route path="/holonet/:id" element={<HolonetPage />} />
             <Route path="/database" element={<DatabasePage />} />
+            <Route path="/players/:id" element={<PlayerProfilePage />} />
             <Route path="/claim-colony" element={<OnboardingPage />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/colony-scans" element={<ColonyScansPage />} />

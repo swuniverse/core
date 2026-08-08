@@ -13,11 +13,12 @@ jest.mock('../faction/faction.service', () => ({
   FactionService: class FactionService {},
 }));
 
+import { NotFoundException } from '@nestjs/common';
 import { DatabaseService } from './database.service';
 import { ResearchStatus } from '../research/entities/research.entity';
 
 function createService() {
-  const userRepo = { find: jest.fn(), count: jest.fn() };
+  const userRepo = { find: jest.fn(), findOne: jest.fn(), count: jest.fn() };
   const colonyRepo = { count: jest.fn(), createQueryBuilder: jest.fn() };
   const shipRepo = { count: jest.fn() };
   const researchRepo = { count: jest.fn(), createQueryBuilder: jest.fn() };
@@ -33,7 +34,14 @@ function createService() {
     gameData as any,
     gameGateway as any,
   );
-  return { service, userRepo, colonyRepo, researchRepo };
+  return {
+    service,
+    userRepo,
+    colonyRepo,
+    shipRepo,
+    researchRepo,
+    factionService,
+  };
 }
 
 function rankingBuilder(result: unknown[]) {
@@ -124,5 +132,71 @@ describe('DatabaseService rankings', () => {
       'colony.name',
       'ASC',
     );
+  });
+});
+
+describe('DatabaseService settlers', () => {
+  it('returns a single settler profile with public counts', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      shipRepo,
+      researchRepo,
+      factionService,
+    } = createService();
+    const createdAt = new Date('2026-01-02T03:04:05.000Z');
+    userRepo.findOne.mockResolvedValue({
+      id: 1,
+      username: 'vader',
+      displayName: 'Vader',
+      avatar: '/vader.png',
+      description: '[b]Böse[/b]',
+      factionId: 10,
+      faction: 'IMPERIUM',
+      prestige: 10,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt,
+      passwordHash: 'secret',
+      refreshToken: 'token',
+      email: 'vader@example.test',
+      notes: 'private',
+    });
+    factionService.findAll.mockResolvedValue([{ id: 10, name: 'Imperium' }]);
+    colonyRepo.count.mockResolvedValue(1);
+    shipRepo.count.mockResolvedValue(2);
+    researchRepo.count.mockResolvedValue(3);
+
+    const result = await service.getSettler(1);
+
+    expect(result).toEqual({
+      id: 1,
+      username: 'vader',
+      displayName: 'Vader',
+      avatar: '/vader.png',
+      description: '[b]Böse[/b]',
+      faction: 'IMPERIUM',
+      factionName: 'Imperium',
+      prestige: 10,
+      colonies: 1,
+      ships: 2,
+      completedResearch: 3,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt,
+    });
+    expect(JSON.stringify(result)).not.toContain('passwordHash');
+    expect(JSON.stringify(result)).not.toContain('refreshToken');
+    expect(JSON.stringify(result)).not.toContain('email');
+    expect(JSON.stringify(result)).not.toContain('notes');
+  });
+
+  it('throws NotFoundException for missing settler profile', async () => {
+    const { service, userRepo, factionService } = createService();
+    userRepo.findOne.mockResolvedValue(null);
+    factionService.findAll.mockResolvedValue([]);
+
+    await expect(service.getSettler(404)).rejects.toThrow(NotFoundException);
   });
 });

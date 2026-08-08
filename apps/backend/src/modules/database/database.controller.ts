@@ -1,4 +1,10 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DatabaseService } from './database.service';
 
@@ -20,6 +26,12 @@ export class DatabaseController {
   @UseGuards(AuthGuard('jwt'))
   getSettlers() {
     return this.databaseService.getSettlers();
+  }
+
+  @Get('settlers/:id')
+  @UseGuards(AuthGuard('jwt'))
+  getSettler(@Param('id', ParseIntPipe) id: number) {
+    return this.databaseService.getSettler(id);
   }
 
   @Get('commodities')

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 import { DatabasePage } from './database';
-
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -50,17 +50,19 @@ describe('DatabasePage', () => {
     });
   });
 
-  it('renders settler descriptions through BBCode', async () => {
-    const { container } = render(<DatabasePage />);
+  it('links settlers to their profile pages', async () => {
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Siedlerliste' }));
-    fireEvent.click(await screen.findByText('Vader'));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Siedlerliste' }),
+    );
 
-    await waitFor(() => {
-      expect(container.querySelector('strong')?.textContent).toBe('Böse');
-      expect(container.querySelector('blockquote')?.textContent).toBe('Drohung');
-    });
-    expect(container.textContent).not.toContain('[b]');
-    expect(container.textContent).not.toContain('[quote]');
+    const link = await screen.findByRole('link', { name: 'Vader' });
+    expect(link.getAttribute('href')).toBe('/players/1');
+    expect(screen.getByText('Vader')).toBeTruthy();
   });
 });
