@@ -117,7 +117,7 @@ export class FactionService {
       .createQueryBuilder('u')
       .select('u.factionId', 'factionId')
       .addSelect('COUNT(*)', 'count')
-      .where('u.factionId IS NOT NULL')
+      .where('u.factionId IS NOT NULL AND u.isAdmin = false')
       .groupBy('u.factionId')
       .getRawMany();
     const countMap = Object.fromEntries(counts.map((r) => [r.factionId, +r.count]));
