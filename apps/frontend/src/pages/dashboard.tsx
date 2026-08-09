@@ -303,22 +303,23 @@ export function DashboardPage() {
       .map((s) => s.id),
   );
 
-  const toGridItems = (slots: typeof layouts.lg) =>
+  const toGridItems = (slots: typeof layouts.lg, bp: Breakpoint) =>
     slots
       .filter((slot) => enabledWidgetIds.has(slot.id))
       .map((slot) => ({
         i: slot.id,
-        x: slot.x,
+        x: bp === 'sm' ? 0 : slot.x,
         y: slot.y,
-        w: slot.w,
+        w: bp === 'sm' ? 1 : slot.w,
         h: slot.h,
-        minW: WIDGET_MAP.get(slot.id)?.defaultLayout.minW ?? 1,
+        minW: bp === 'sm' ? 1 : (WIDGET_MAP.get(slot.id)?.defaultLayout.minW ?? 1),
+        maxW: bp === 'sm' ? 1 : undefined,
         minH: WIDGET_MAP.get(slot.id)?.defaultLayout.minH ?? 2,
       }));
 
   const gridLayouts = {
-    lg: toGridItems(layouts.lg),
-    sm: toGridItems(layouts.sm),
+    lg: toGridItems(layouts.lg, 'lg'),
+    sm: toGridItems(layouts.sm, 'sm'),
   };
 
   const handleLayoutChange = (_layout: readonly LayoutItem[], allLayouts: Record<string, LayoutItem[]>) => {
@@ -360,7 +361,7 @@ export function DashboardPage() {
         className="layout"
         layouts={gridLayouts}
         breakpoints={{ lg: 1200, sm: 0 }}
-        cols={{ lg: 12, sm: 2 }}
+        cols={{ lg: 12, sm: 1 }}
         rowHeight={30}
         isDraggable={editMode}
         isResizable={editMode}

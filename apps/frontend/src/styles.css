@@ -70,6 +70,13 @@ body {
 .react-resizable-handle:hover {
   opacity: 1;
 }
+@media (max-width: 767px) {
+  .react-resizable-handle {
+    width: 44px;
+    height: 44px;
+    opacity: 0.8;
+  }
+}
 .react-grid-item.react-grid-placeholder {
   background: var(--color-swu-accent);
   opacity: 0.1;

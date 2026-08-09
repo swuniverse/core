@@ -51,22 +51,22 @@ export const DEFAULT_LAYOUT_LG: WidgetSlot[] = [
 ];
 
 export const DEFAULT_LAYOUT_SM: WidgetSlot[] = [
-  { id: 'commander-greeting', enabled: true, x: 0, y: 0, w: 2, h: 2 },
+  { id: 'commander-greeting', enabled: true, x: 0, y: 0, w: 1, h: 2 },
   { id: 'stat-colonies', enabled: true, x: 0, y: 2, w: 1, h: 3 },
-  { id: 'stat-fleet', enabled: true, x: 1, y: 2, w: 1, h: 3 },
-  { id: 'stat-research', enabled: true, x: 0, y: 5, w: 1, h: 3 },
-  { id: 'stat-prestige', enabled: true, x: 1, y: 5, w: 1, h: 3 },
-  { id: 'baustellen', enabled: true, x: 0, y: 8, w: 2, h: 5 },
-  { id: 'active-jobs', enabled: true, x: 0, y: 13, w: 2, h: 8 },
-  { id: 'holonet', enabled: true, x: 0, y: 21, w: 2, h: 6 },
-  { id: 'colonization-limits', enabled: true, x: 0, y: 27, w: 2, h: 4 },
-  { id: 'crew-limit', enabled: true, x: 0, y: 31, w: 1, h: 3 },
-  { id: 'online-players', enabled: true, x: 1, y: 31, w: 1, h: 3 },
-  { id: 'tick-countdown', enabled: false, x: 0, y: 34, w: 2, h: 3 },
-  { id: 'colony-events', enabled: false, x: 0, y: 37, w: 2, h: 6 },
-  { id: 'messages', enabled: false, x: 0, y: 43, w: 2, h: 6 },
-  { id: 'server-stats', enabled: false, x: 0, y: 49, w: 2, h: 3 },
-  { id: 'admin-tick', enabled: false, x: 0, y: 52, w: 2, h: 2 },
+  { id: 'stat-fleet', enabled: true, x: 0, y: 5, w: 1, h: 3 },
+  { id: 'stat-research', enabled: true, x: 0, y: 8, w: 1, h: 3 },
+  { id: 'stat-prestige', enabled: true, x: 0, y: 11, w: 1, h: 3 },
+  { id: 'baustellen', enabled: true, x: 0, y: 14, w: 1, h: 5 },
+  { id: 'active-jobs', enabled: true, x: 0, y: 19, w: 1, h: 8 },
+  { id: 'holonet', enabled: true, x: 0, y: 27, w: 1, h: 6 },
+  { id: 'colonization-limits', enabled: true, x: 0, y: 33, w: 1, h: 4 },
+  { id: 'crew-limit', enabled: true, x: 0, y: 37, w: 1, h: 3 },
+  { id: 'online-players', enabled: true, x: 0, y: 40, w: 1, h: 3 },
+  { id: 'tick-countdown', enabled: false, x: 0, y: 43, w: 1, h: 3 },
+  { id: 'colony-events', enabled: false, x: 0, y: 46, w: 1, h: 6 },
+  { id: 'messages', enabled: false, x: 0, y: 52, w: 1, h: 6 },
+  { id: 'server-stats', enabled: false, x: 0, y: 58, w: 1, h: 3 },
+  { id: 'admin-tick', enabled: false, x: 0, y: 61, w: 1, h: 2 },
 ];
 
 // Keep backward-compat export for DashboardCustomizer
