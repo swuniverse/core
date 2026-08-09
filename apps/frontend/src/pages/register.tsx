@@ -5,11 +5,40 @@ import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
 import type { AuthResponse } from '@swuniverse/shared';
 
+interface FactionModifiers {
+  hullMultiplier: number;
+  shieldMultiplier: number;
+  cargoMultiplier: number;
+  researchMultiplier: number;
+  colonyGrowthMultiplier: number;
+  tradeModifier: number;
+}
+
+const MODIFIER_LABELS: Record<keyof FactionModifiers, string> = {
+  hullMultiplier: 'Hülle',
+  shieldMultiplier: 'Schilde',
+  cargoMultiplier: 'Fracht',
+  researchMultiplier: 'Forschung',
+  colonyGrowthMultiplier: 'Koloniewachstum',
+  tradeModifier: 'Handel',
+};
+
+function getBonuses(m: FactionModifiers): { label: string; value: string }[] {
+  return (Object.keys(MODIFIER_LABELS) as (keyof FactionModifiers)[])
+    .filter((k) => m[k] !== 1)
+    .map((k) => ({
+      label: MODIFIER_LABELS[k],
+      value: `+${Math.round((m[k] - 1) * 100)}%`,
+    }));
+}
+
 interface FactionOption {
   id: number;
   key: string;
   name: string;
   colorPrimary: string;
+  playerCount: number;
+  modifiers: FactionModifiers[];
 }
 
 function CinematicBg() {
@@ -28,6 +57,16 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  function passwordStrength(pw: string): number {
+    if (pw.length === 0) return 0;
+    if (pw.length < 8) return 1;
+    const hasDigit = /\d/.test(pw);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
+    if (hasDigit && hasSpecial) return 4;
+    if (hasDigit || hasSpecial) return 3;
+    return 2;
+  }
   const [inviteKey, setInviteKey] = useState('');
   const [factionId, setFactionId] = useState<number | null>(null);
   const [factions, setFactions] = useState<FactionOption[]>([]);
@@ -170,6 +209,18 @@ export function RegisterPage() {
                 </button>
               </div>
             </label>
+            {password.length > 0 && (
+              <div
+                className="swu-password-strength"
+                data-level={passwordStrength(password)}
+                aria-hidden="true"
+              >
+                <span className="swu-password-strength__seg" />
+                <span className="swu-password-strength__seg" />
+                <span className="swu-password-strength__seg" />
+                <span className="swu-password-strength__seg" />
+              </div>
+            )}
             <label className="swu-field">
               <span>Passwort bestätigen</span>
               <input
@@ -213,6 +264,17 @@ export function RegisterPage() {
                     aria-hidden="true"
                   />
                   <span>{f.name}</span>
+                  <span className="swu-faction__count">{f.playerCount} Siedler</span>
+                  {f.modifiers?.[0] && (
+                    <span className="swu-faction__bonuses">
+                      {getBonuses(f.modifiers[0]).map((b) => (
+                        <span key={b.label} className="swu-faction__bonus-chip">
+                          <span className="swu-faction__bonus-value" style={{ color: f.colorPrimary }}>{b.value}</span>
+                          {' '}{b.label}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

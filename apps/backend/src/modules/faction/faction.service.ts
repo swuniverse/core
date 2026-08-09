@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Faction } from '@swuniverse/shared';
 import { FactionEntity } from './entities/faction.entity';
 import { FactionModifier } from './entities/faction-modifier.entity';
+import { User } from '../auth/user.entity';
 
 const DEFAULT_FACTIONS: Array<{
   key: Faction;
@@ -33,9 +34,9 @@ const DEFAULT_FACTIONS: Array<{
     starterProfileKey: 'rebel-starter',
     modifiers: {
       hullMultiplier: 1,
-      shieldMultiplier: 1.05,
+      shieldMultiplier: 1.1,
       cargoMultiplier: 1,
-      researchMultiplier: 1.05,
+      researchMultiplier: 1.1,
       colonyGrowthMultiplier: 1,
       tradeModifier: 1,
     },
@@ -49,11 +50,11 @@ const DEFAULT_FACTIONS: Array<{
     starterShipClassId: 2001,
     starterProfileKey: 'empire-starter',
     modifiers: {
-      hullMultiplier: 1.05,
+      hullMultiplier: 1.1,
       shieldMultiplier: 1,
       cargoMultiplier: 1,
       researchMultiplier: 1,
-      colonyGrowthMultiplier: 1,
+      colonyGrowthMultiplier: 1.1,
       tradeModifier: 1,
     },
   },
@@ -66,6 +67,8 @@ export class FactionService {
     private readonly factionRepo: Repository<FactionEntity>,
     @InjectRepository(FactionModifier)
     private readonly factionModifierRepo: Repository<FactionModifier>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   async seedDefaults(): Promise<void> {
@@ -100,8 +103,25 @@ export class FactionService {
     // ponytail: legacy stub, remove when starterShipClassId column dropped
   }
 
-  findAll(): Promise<FactionEntity[]> {
-    return this.factionRepo.find({ relations: { modifiers: true } });
+  async syncModifiers(): Promise<void> {
+    for (const definition of DEFAULT_FACTIONS) {
+      const faction = await this.factionRepo.findOne({ where: { key: definition.key } });
+      if (!faction) continue;
+      await this.factionModifierRepo.update({ factionId: faction.id }, definition.modifiers);
+    }
+  }
+
+  async findAll(): Promise<(FactionEntity & { playerCount: number })[]> {
+    const factions = await this.factionRepo.find({ relations: { modifiers: true } });
+    const counts: { factionId: number; count: string }[] = await this.userRepo
+      .createQueryBuilder('u')
+      .select('u.factionId', 'factionId')
+      .addSelect('COUNT(*)', 'count')
+      .where('u.factionId IS NOT NULL')
+      .groupBy('u.factionId')
+      .getRawMany();
+    const countMap = Object.fromEntries(counts.map((r) => [r.factionId, +r.count]));
+    return factions.map((f) => Object.assign(f, { playerCount: countMap[f.id] ?? 0 }));
   }
 
   findByKey(key: Faction | string): Promise<FactionEntity | null> {

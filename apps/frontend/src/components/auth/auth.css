@@ -1113,8 +1113,8 @@ html:has(.swu-page--landing) {
 .swu-faction {
   display: grid;
   place-items: center;
-  gap: 8px;
-  min-height: 88px;
+  gap: 6px;
+  min-height: 108px;
   border: 1px solid var(--swu-border);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.04);
@@ -1149,6 +1149,87 @@ html:has(.swu-page--landing) {
   border-radius: 50%;
   background: currentColor;
   box-shadow: 0 0 16px currentColor;
+}
+
+.swu-faction__count {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--swu-muted);
+  text-transform: uppercase;
+}
+
+.swu-faction--selected .swu-faction__count {
+  color: var(--swu-cream);
+}
+
+.swu-faction__bonuses {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.swu-faction__bonus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--swu-muted);
+  white-space: nowrap;
+  transition: border-color var(--motion-fast) var(--ease-std);
+}
+
+.swu-faction--selected .swu-faction__bonus-chip {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--swu-cream);
+}
+
+.swu-faction__bonus-value {
+  font-weight: 800;
+}
+
+/* === Password Strength === */
+
+.swu-password-strength {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.swu-password-strength__seg {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background var(--motion-fast) var(--ease-std);
+}
+
+.swu-password-strength[data-level='1'] .swu-password-strength__seg:nth-child(1) {
+  background: var(--swu-danger);
+}
+
+.swu-password-strength[data-level='2'] .swu-password-strength__seg:nth-child(-n+2) {
+  background: #f59e0b;
+}
+
+.swu-password-strength[data-level='3'] .swu-password-strength__seg:nth-child(-n+3) {
+  background: var(--swu-gold);
+}
+
+.swu-password-strength[data-level='4'] .swu-password-strength__seg {
+  background: #22c55e;
 }
 
 /* === Error === */
