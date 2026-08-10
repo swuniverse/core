@@ -30,6 +30,7 @@ services:
   backend:
     image: ghcr.io/swuniverse/core/backend:latest
     environment:
+      TZ: Europe/Berlin
       NODE_ENV: production
       DATABASE_URL: postgresql://swuniverse:${DB_PASSWORD}@db:5432/swuniverse
       REDIS_URL: redis://redis:6379
