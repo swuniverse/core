@@ -4,6 +4,7 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyFunctionManagerService } from './colony-function-manager.service';
 import { ColonyStatsService, getColonyChangeable } from './colony-stats.service';
+import { COLONY_FUNCTION_GROUPS } from './colony.constants';
 
 export interface FieldContribution {
   epsProc: number;
@@ -16,7 +17,9 @@ export interface FieldContribution {
 @Injectable()
 export class ColonyBuildingEffectsService {
   private readonly orbitalMaintenanceCommodityId = 1801;
-  private readonly undergroundLogisticsFunctionIds = [31];
+  private readonly undergroundLogisticsFunctionIds: number[] = [
+    ...COLONY_FUNCTION_GROUPS.UNDERGROUND_LOGISTICS,
+  ];
 
   constructor(
     private readonly gameData: GameDataService,

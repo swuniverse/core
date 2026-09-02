@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
+import { getErrorMessage } from '../lib/errors';
+import { formatDate, formatInviteStatus, type InviteStatus } from '../lib/format';
 
 type Tab =
   | 'profile'
@@ -9,8 +11,6 @@ type Tab =
   | 'gameplay'
   | 'invites'
   | 'danger';
-
-type InviteStatus = 'available' | 'used' | 'revoked';
 
 interface InviteKeyView {
   id: number;
@@ -105,8 +105,8 @@ function ProfileTab() {
         setUser({ ...user, displayName: result.displayName });
       }
       setMsg('Gespeichert');
-    } catch (e: any) {
-      setMsg(e.message || 'Fehler');
+    } catch (error: unknown) {
+      setMsg(getErrorMessage(error, 'Fehler'));
     }
     setSaving(false);
   };
@@ -130,8 +130,8 @@ function ProfileTab() {
         setAvatar(dataUrl);
         if (user) setUser({ ...user, avatar: dataUrl });
         setMsg('Avatar gespeichert');
-      } catch (err: any) {
-        setMsg(err.message || 'Fehler beim Avatar-Upload');
+      } catch (error: unknown) {
+        setMsg(getErrorMessage(error, 'Fehler beim Avatar-Upload'));
       }
     };
     reader.readAsDataURL(file);
@@ -143,8 +143,8 @@ function ProfileTab() {
       setAvatar(null);
       if (user) setUser({ ...user, avatar: null });
       setMsg('Avatar entfernt');
-    } catch (err: any) {
-      setMsg(err.message || 'Fehler');
+    } catch (error: unknown) {
+      setMsg(getErrorMessage(error, 'Fehler'));
     }
   };
 
@@ -257,8 +257,8 @@ function SecurityTab() {
       setOldPw('');
       setNewPw('');
       setNewPw2('');
-    } catch (e: any) {
-      setPwMsg(e.message || 'Fehler');
+    } catch (error: unknown) {
+      setPwMsg(getErrorMessage(error, 'Fehler'));
     }
   };
 
@@ -269,8 +269,8 @@ function SecurityTab() {
       setEmailMsg('E-Mail geaendert');
       setEmailPw('');
       setNewEmail('');
-    } catch (e: any) {
-      setEmailMsg(e.message || 'Fehler');
+    } catch (error: unknown) {
+      setEmailMsg(getErrorMessage(error, 'Fehler'));
     }
   };
 
@@ -456,8 +456,8 @@ function InvitesTab() {
     setError('');
     try {
       setData(await api.get<MyInvitesResponse>('/auth/invites'));
-    } catch (e: any) {
-      setError(e.message || 'Einladungen konnten nicht geladen werden.');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Einladungen konnten nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
@@ -479,8 +479,8 @@ function InvitesTab() {
         quota: created.quota,
         keys: [created.inviteKey, ...(current?.keys ?? [])],
       }));
-    } catch (e: any) {
-      setError(e.message || 'Invite Key konnte nicht erstellt werden.');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Invite Key konnte nicht erstellt werden.'));
     } finally {
       setCreating(false);
     }
@@ -618,8 +618,8 @@ function DangerTab() {
       }
       const updated = await api.get('/auth/me');
       setProfile(updated);
-    } catch (e: any) {
-      setVacationMsg(e.message || 'Fehler');
+    } catch (error: unknown) {
+      setVacationMsg(getErrorMessage(error, 'Fehler'));
     }
     setVacationLoading(false);
   };
@@ -630,8 +630,8 @@ function DangerTab() {
       await api.post('/user/delete', { password: deletePw });
       setDeleteMsg('Löschung beantragt. Du wirst ausgeloggt.');
       setTimeout(() => logout(), 2000);
-    } catch (e: any) {
-      setDeleteMsg(e.message || 'Fehler');
+    } catch (error: unknown) {
+      setDeleteMsg(getErrorMessage(error, 'Fehler'));
     }
   };
 
@@ -704,23 +704,6 @@ function DangerTab() {
       </Section>
     </div>
   );
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('de-DE');
-}
-
-function formatInviteStatus(status: InviteStatus): string {
-  switch (status) {
-    case 'available':
-      return 'Verfuegbar';
-    case 'used':
-      return 'Verwendet';
-    case 'revoked':
-      return 'Widerrufen';
-    default:
-      return status;
-  }
 }
 
 function Section({

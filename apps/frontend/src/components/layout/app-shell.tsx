@@ -1,15 +1,10 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import type { ColonyTickReportPayload } from '@swuniverse/shared';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
 import { BottomNav } from './bottom-nav';
 import { useSocket } from '../../hooks/use-socket';
-
-interface ColonyTickReportPayload {
-  colonyId: number;
-  tick: number;
-  events: Array<{ type: string; reason?: string; fieldIndex?: number }>;
-}
 
 function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   const first = payload.events[0];

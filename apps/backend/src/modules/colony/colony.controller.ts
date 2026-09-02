@@ -13,11 +13,126 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { ColonyService } from './colony.service';
 import { ColonyOrbitAssignmentMode } from './entities/colony-orbit-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
-import { ShipModuleSelection } from './entities/colony-ship-buildplan.entity';
+import type { ShipModuleSelection } from '@swuniverse/shared';
+
+class BuildBuildingDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  fieldIndex: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  buildingId: number;
+
+  @IsOptional()
+  @IsBoolean()
+  activateAfterBuild?: boolean;
+}
+
+class QueueCrewTrainingDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+}
+
+class QueueFabricationDto {
+  @IsEnum(ColonyFabricationQueueType)
+  queueType: ColonyFabricationQueueType;
+
+  @IsString()
+  itemKey: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  buildingFunctionId: number;
+}
+
+class ShipModuleSelectionDto implements ShipModuleSelection {
+  @IsString()
+  slotId: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  commodityId: number;
+}
+
+class BuildShipDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  shipClassId: number;
+
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShipModuleSelectionDto)
+  moduleSelections?: ShipModuleSelectionDto[];
+
+  @IsOptional()
+  @IsString()
+  buildPlanName?: string;
+}
+
+class CreateBuildplanDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  shipClassId: number;
+
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShipModuleSelectionDto)
+  moduleSelections?: ShipModuleSelectionDto[];
+}
+
+class RenameBuildplanDto {
+  @IsString()
+  name: string;
+}
+
+class BuildFromBuildplanDto {
+  @IsString()
+  name: string;
+}
+
+class TerraformFieldDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  terraformingId: number;
+}
 
 @Controller('colonies')
 @UseGuards(AuthGuard('jwt'))
@@ -161,16 +276,14 @@ export class ColonyController {
   build(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('fieldIndex') fieldIndex: number,
-    @Body('buildingId') buildingId: number,
-    @Body('activateAfterBuild') activateAfterBuild?: boolean,
+    @Body() dto: BuildBuildingDto,
   ) {
     return this.colonyService.build(
       id,
       req.user.sub,
-      fieldIndex,
-      buildingId,
-      activateAfterBuild ?? true,
+      dto.fieldIndex,
+      dto.buildingId,
+      dto.activateAfterBuild ?? true,
     );
   }
 
@@ -218,27 +331,24 @@ export class ColonyController {
   queueCrewTraining(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('amount') amount: number,
+    @Body() dto: QueueCrewTrainingDto,
   ) {
-    return this.colonyService.queueCrewTraining(id, req.user.sub, amount);
+    return this.colonyService.queueCrewTraining(id, req.user.sub, dto.amount);
   }
 
   @Post(':id/fabrication-queue')
   queueFabrication(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('queueType') queueType: ColonyFabricationQueueType,
-    @Body('itemKey') itemKey: string,
-    @Body('amount') amount: number,
-    @Body('buildingFunctionId') buildingFunctionId: number,
+    @Body() dto: QueueFabricationDto,
   ) {
     return this.colonyService.queueFabrication(
       id,
       req.user.sub,
-      queueType,
-      itemKey,
-      amount,
-      buildingFunctionId,
+      dto.queueType,
+      dto.itemKey,
+      dto.amount,
+      dto.buildingFunctionId,
     );
   }
 
@@ -502,18 +612,15 @@ export class ColonyController {
   buildShip(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('shipClassId') shipClassId: number,
-    @Body('name') name: string,
-    @Body('moduleSelections') moduleSelections?: ShipModuleSelection[],
-    @Body('buildPlanName') buildPlanName?: string,
+    @Body() dto: BuildShipDto,
   ) {
     return this.colonyService.buildShip(
       id,
       req.user.sub,
-      shipClassId,
-      name,
-      moduleSelections,
-      buildPlanName,
+      dto.shipClassId,
+      dto.name,
+      dto.moduleSelections,
+      dto.buildPlanName,
     );
   }
 
@@ -521,16 +628,14 @@ export class ColonyController {
   createBuildplan(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('shipClassId') shipClassId: number,
-    @Body('name') name: string,
-    @Body('moduleSelections') moduleSelections?: ShipModuleSelection[],
+    @Body() dto: CreateBuildplanDto,
   ) {
     return this.colonyService.createShipBuildplan(
       id,
       req.user.sub,
-      shipClassId,
-      name,
-      moduleSelections ?? [],
+      dto.shipClassId,
+      dto.name,
+      dto.moduleSelections ?? [],
     );
   }
 
@@ -539,13 +644,13 @@ export class ColonyController {
     @Param('id', ParseIntPipe) id: number,
     @Param('planId', ParseIntPipe) planId: number,
     @Request() req: { user: { sub: number } },
-    @Body('name') name: string,
+    @Body() dto: RenameBuildplanDto,
   ) {
     return this.colonyService.renameShipBuildplan(
       id,
       req.user.sub,
       planId,
-      name,
+      dto.name,
     );
   }
 
@@ -563,13 +668,13 @@ export class ColonyController {
     @Param('id', ParseIntPipe) id: number,
     @Param('planId', ParseIntPipe) planId: number,
     @Request() req: { user: { sub: number } },
-    @Body('name') name: string,
+    @Body() dto: BuildFromBuildplanDto,
   ) {
     return this.colonyService.buildShipFromBuildplan(
       id,
       req.user.sub,
       planId,
-      name,
+      dto.name,
     );
   }
 
@@ -578,13 +683,13 @@ export class ColonyController {
     @Param('id', ParseIntPipe) id: number,
     @Param('fieldIndex', ParseIntPipe) fieldIndex: number,
     @Request() req: { user: { sub: number } },
-    @Body('terraformingId') terraformingId: number,
+    @Body() dto: TerraformFieldDto,
   ) {
     return this.colonyService.terraformField(
       id,
       req.user.sub,
       fieldIndex,
-      terraformingId,
+      dto.terraformingId,
     );
   }
 

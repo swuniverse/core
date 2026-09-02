@@ -7,8 +7,9 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import {
+  adjustColonyPopulationParts,
   getColonyChangeable,
-  syncLegacyColonySnapshot,
+  setColonyMaxPopulation,
 } from './colony-stats.service';
 
 @Injectable()
@@ -81,11 +82,11 @@ export class BuildingLifecycleService {
     const changeable = getColonyChangeable(colony);
     const workerAmount = definition.bevUse || 0;
     const housingAmount = definition.bevPro || 0;
-    changeable.workless = Math.max(0, changeable.workless - workerAmount);
-    changeable.workers += workerAmount;
-    changeable.maxPopulation =
-      (changeable.maxPopulation ?? colony.populationMax ?? 0) + housingAmount;
-    syncLegacyColonySnapshot(colony);
+    adjustColonyPopulationParts(colony, workerAmount, -workerAmount);
+    setColonyMaxPopulation(
+      colony,
+      (changeable.maxPopulation ?? colony.populationMax ?? 0) + housingAmount,
+    );
     await this.changeableRepo.save(changeable);
   }
 
@@ -96,13 +97,11 @@ export class BuildingLifecycleService {
     const changeable = getColonyChangeable(colony);
     const workerAmount = Math.min(changeable.workers, definition.bevUse || 0);
     const housingAmount = definition.bevPro || 0;
-    changeable.workers -= workerAmount;
-    changeable.workless += workerAmount;
-    changeable.maxPopulation = Math.max(
-      0,
+    adjustColonyPopulationParts(colony, -workerAmount, workerAmount);
+    setColonyMaxPopulation(
+      colony,
       (changeable.maxPopulation ?? colony.populationMax ?? 0) - housingAmount,
     );
-    syncLegacyColonySnapshot(colony);
     await this.changeableRepo.save(changeable);
   }
 

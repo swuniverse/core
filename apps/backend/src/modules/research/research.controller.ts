@@ -9,8 +9,39 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, Min } from 'class-validator';
 import { Faction } from '@swuniverse/shared';
 import { ResearchService } from './research.service';
+
+class StartResearchDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  techId: number;
+}
+
+class CancelResearchDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  techId?: number;
+}
+
+class QueueTargetDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  targetTechId: number;
+}
+
+class QueuePreviewQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  targetTechId: number;
+}
 
 @Controller('research')
 @UseGuards(AuthGuard('jwt'))
@@ -33,11 +64,11 @@ export class ResearchController {
   @Post('start')
   start(
     @Request() req: { user: { sub: number; faction?: Faction } },
-    @Body('techId') techId: number,
+    @Body() dto: StartResearchDto,
   ) {
     return this.researchService.startResearch(
       req.user.sub,
-      techId,
+      dto.techId,
       req.user.faction,
     );
   }
@@ -45,19 +76,19 @@ export class ResearchController {
   @Post('cancel')
   cancel(
     @Request() req: { user: { sub: number } },
-    @Body('techId') techId?: number,
+    @Body() dto: CancelResearchDto,
   ) {
-    return this.researchService.cancelResearch(req.user.sub, techId);
+    return this.researchService.cancelResearch(req.user.sub, dto.techId);
   }
 
   @Post('queue-target')
   queueTarget(
     @Request() req: { user: { sub: number; faction?: Faction } },
-    @Body('targetTechId') targetTechId: number,
+    @Body() dto: QueueTargetDto,
   ) {
     return this.researchService.queueTarget(
       req.user.sub,
-      targetTechId,
+      dto.targetTechId,
       req.user.faction,
     );
   }
@@ -65,11 +96,11 @@ export class ResearchController {
   @Get('queue-preview')
   queuePreview(
     @Request() req: { user: { sub: number; faction?: Faction } },
-    @Query('targetTechId') targetTechId: string,
+    @Query() query: QueuePreviewQueryDto,
   ) {
     return this.researchService.getQueuePreviewForUser(
       req.user.sub,
-      parseInt(targetTechId, 10),
+      query.targetTechId,
       req.user.faction,
     );
   }

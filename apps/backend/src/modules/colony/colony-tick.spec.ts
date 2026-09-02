@@ -4825,33 +4825,48 @@ describe('faction shipyard visibility', () => {
     });
     userRepo.findOne.mockResolvedValue({ id: 1, faction: 'REBEL_ALLIANCE' });
     shipClassRepo.find.mockResolvedValue([
-      { id: 1, category: 'CORVETTE', isNpc: false },
+      { id: 1, category: 'CORVETTE', isNpc: false } as never,
     ]);
     gameData.getAllFabricationItems.mockReturnValue([
       {
+        itemKey: 'module.rebel-blaster',
         queueType: 'MODULE',
+        displayName: 'Blasterkanone',
         moduleType: 'Blasterkanone',
+        moduleCategory: 'WEAPONS',
+        shipyardGroup: 'WEAPONS',
+        moduleLevel: 1,
         outputCommodityId: 10701,
         shipyardType: 'ENERGY_WEAPON',
         buildingFunctionIds: [10],
         faction: 'REBEL_ALLIANCE',
       },
       {
+        itemKey: 'module.empire-turbolaser',
         queueType: 'MODULE',
+        displayName: 'Turbolaser',
         moduleType: 'Turbolaser',
+        moduleCategory: 'WEAPONS',
+        shipyardGroup: 'WEAPONS',
+        moduleLevel: 1,
         outputCommodityId: 10731,
         shipyardType: 'ENERGY_WEAPON',
         buildingFunctionIds: [10],
         faction: 'GALACTIC_EMPIRE',
       },
       {
+        itemKey: 'module.neutral-system',
         queueType: 'MODULE',
+        displayName: 'Neutral System',
         moduleType: 'Neutral System',
+        moduleCategory: 'SPECIAL',
+        shipyardGroup: 'UTILITY',
+        moduleLevel: 1,
         outputCommodityId: 10301,
         shipyardType: 'EPS',
         buildingFunctionIds: [10],
       },
-    ]);
+    ] as never);
 
     const detail = (await service.findOne(1, 1)) as {
       detailV2?: { availableShipModules?: Array<{ commodityId: number }> };

@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { ColonyService, type ColonyTickEvent } from '../colony/colony.service';
+import type { ColonyTickEvent } from '@swuniverse/shared';
+import { ColonyService } from '../colony/colony.service';
 import { ColonyEventService } from '../colony/colony-event.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';

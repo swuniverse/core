@@ -1,3 +1,7 @@
+import type { ColonyEventDto, ShipModuleSelection } from '@swuniverse/shared';
+
+export type { ColonyEventDto, ShipModuleSelection };
+
 export interface ColonyFieldUpgrade {
   id: number;
   fromBuildingId: number;
@@ -47,12 +51,6 @@ export interface StarterColonizationOptions {
 }
 
 export type ShipyardQueueMode = 'BUILD' | 'REPAIR' | 'RETROFIT';
-export type ShipModuleSelection = {
-  slotId: string;
-  commodityId: number;
-};
-
-
 export type ShipyardQueueEntry = {
   id: number;
   shipClassId: number;
@@ -87,20 +85,6 @@ export type ShipyardQueueEntry = {
   stoppedAt?: string | null;
   status: string;
 };
-
-export interface ColonyEventDto {
-  id: number;
-  colonyId?: number;
-  userId?: number;
-  type: string;
-  severity: 'INFO' | 'WARNING' | 'CRITICAL';
-  title: string;
-  message: string;
-  payload?: Record<string, unknown>;
-  tickId?: number | null;
-  readAt?: string | null;
-  createdAt: string;
-}
 
 export type TorpedoDamageTypeDto =
   | 'PROTON'

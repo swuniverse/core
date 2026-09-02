@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ColonyEventDto } from '../types';
+import type { ColonyEventDto } from '@swuniverse/shared';
 
 // ─── Panel: Ereignisse ───────────────────────────────────────
 
@@ -148,4 +148,3 @@ export function PanelEvents({
     </div>
   );
 }
-

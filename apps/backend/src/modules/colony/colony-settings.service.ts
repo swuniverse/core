@@ -12,10 +12,11 @@ import {
   ColonyEventSeverity,
   ColonyEventType,
 } from './entities/colony-event.entity';
+import { COLONY_FUNCTION_IDS } from './colony.constants';
 
 @Injectable()
 export class ColonySettingsService {
-  private readonly warehouseFunctionId = 23;
+  private readonly warehouseFunctionId = COLONY_FUNCTION_IDS.WAREHOUSE;
 
   constructor(
     @InjectRepository(Colony)

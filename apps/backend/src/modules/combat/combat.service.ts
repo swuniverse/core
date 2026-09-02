@@ -29,8 +29,8 @@ import {
   ColonyEventType,
 } from '../colony/entities/colony-event.entity';
 import {
+  deductColonyEnergy,
   getColonyChangeable,
-  syncLegacyColonySnapshot,
 } from '../colony/colony-stats.service';
 
 @Injectable()
@@ -226,9 +226,10 @@ export class CombatService {
       changeable.energy >=
         this.colonyDefenseService.constants.phalanx.energy.energyCost
     ) {
-      changeable.energy -=
-        this.colonyDefenseService.constants.phalanx.energy.energyCost;
-      syncLegacyColonySnapshot(colony);
+      deductColonyEnergy(
+        colony,
+        this.colonyDefenseService.constants.phalanx.energy.energyCost,
+      );
       attacker.hull = Math.max(
         0,
         attacker.hull -
@@ -253,9 +254,10 @@ export class CombatService {
         changeable.energy >=
           this.colonyDefenseService.constants.phalanx.particle.energyCost
       ) {
-        changeable.energy -=
-          this.colonyDefenseService.constants.phalanx.particle.energyCost;
-        syncLegacyColonySnapshot(colony);
+        deductColonyEnergy(
+          colony,
+          this.colonyDefenseService.constants.phalanx.particle.energyCost,
+        );
         const damage = torpedoType.baseDamage;
         attacker.hull = Math.max(0, attacker.hull - damage);
         log.push({

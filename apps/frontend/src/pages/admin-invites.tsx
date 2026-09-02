@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
-
-type InviteStatus = 'available' | 'used' | 'revoked';
+import { getErrorMessage } from '../lib/errors';
+import { formatDate, formatInviteStatus, type InviteStatus } from '../lib/format';
 
 interface InviteUserSummary {
   id: number;
@@ -59,8 +59,8 @@ export function AdminInvitesPage() {
     setError('');
     try {
       setData(await api.get<AdminInvitesResponse>('/auth/admin/invites'));
-    } catch (e: any) {
-      setError(e.message || 'Invite-Daten konnten nicht geladen werden.');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Invite-Daten konnten nicht geladen werden.'));
     } finally {
       setLoading(false);
     }
@@ -86,8 +86,8 @@ export function AdminInvitesPage() {
       );
       setCreatedKeys(response.plainKeys);
       await load();
-    } catch (e: any) {
-      setError(e.message || 'Invite Keys konnten nicht erstellt werden.');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Invite Keys konnten nicht erstellt werden.'));
     } finally {
       setCreating(false);
     }
@@ -295,21 +295,4 @@ function Input({
       />
     </label>
   );
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('de-DE');
-}
-
-function formatInviteStatus(status: InviteStatus): string {
-  switch (status) {
-    case 'available':
-      return 'Verfuegbar';
-    case 'used':
-      return 'Verwendet';
-    case 'revoked':
-      return 'Widerrufen';
-    default:
-      return status;
-  }
 }

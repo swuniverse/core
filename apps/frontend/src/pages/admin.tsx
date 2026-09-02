@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { getErrorMessage } from '../lib/errors';
 
 const adminCards = [
   {
@@ -48,8 +49,8 @@ function CompleteAllBuilds() {
         {},
       );
       setResult(res);
-    } catch (e: any) {
-      setError(e.message || 'Fehlgeschlagen');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Fehlgeschlagen'));
     } finally {
       setLoading(false);
     }
@@ -105,8 +106,8 @@ function TickTrigger() {
         {},
       );
       setResult(res);
-    } catch (e: any) {
-      setError(e.message || 'Tick fehlgeschlagen');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, 'Tick fehlgeschlagen'));
     } finally {
       setLoading(false);
     }

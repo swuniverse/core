@@ -7,8 +7,8 @@ import { ColonyField } from './entities/colony-field.entity';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import {
   ColonyStatsService,
+  deductColonyEnergy,
   getColonyChangeable,
-  syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import {
@@ -21,10 +21,11 @@ import {
   toMassActionSummary,
 } from './colony-building-management.types';
 import { ColonyStorageService } from './colony-storage.service';
+import { COLONY_BUILDING_ID_SETS } from './colony.constants';
 
 @Injectable()
 export class ColonyBuildingManagementService {
-  private readonly headquartersBuildingIds = new Set([1, 82010100, 82010300]);
+  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(
     @InjectRepository(ColonyField)
@@ -242,8 +243,7 @@ export class ColonyBuildingManagementService {
             cost.amount,
           );
         }
-        getColonyChangeable(colony).energy -= plan.energyCost;
-        syncLegacyColonySnapshot(colony);
+        deductColonyEnergy(colony, plan.energyCost);
         this.lifecycleService.repairBuilding(field);
         await this.fieldRepo.save(field);
         result.repaired.push(this.changed(field));

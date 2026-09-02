@@ -13,12 +13,119 @@ import {
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonizationService } from '../colonization/colonization.service';
+
+class CreateFleetDto {
+  @IsString()
+  name: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  leaderId: number;
+}
+
+class JoinFleetDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  shipId: number;
+}
+
+class CelestialObjectActionDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  celestialObjectId: number;
+}
+
+class ColonyScanDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  colonyId: number;
+}
+
+class MoveToCoordinatesDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  targetX: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  targetY: number;
+}
+
+class WarpDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  targetSystemId: number;
+}
+
+class ReactorDistributionDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  warpSplit: number;
+}
+
+class TorpedoLoadDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  colonyId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  torpedoTypeId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+}
+
+class TorpedoUnloadDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  colonyId: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount?: number;
+}
+
+class CargoTransferDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  colonyId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  commodityId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+}
 
 @Controller('spacecraft')
 @UseGuards(AuthGuard('jwt'))
@@ -53,10 +160,13 @@ export class SpacecraftController {
   @Post('fleets/create')
   createFleet(
     @Request() req: { user: { sub: number } },
-    @Body('name') name: string,
-    @Body('leaderId') leaderId: number,
+    @Body() dto: CreateFleetDto,
   ) {
-    return this.spacecraftService.createFleet(req.user.sub, name, leaderId);
+    return this.spacecraftService.createFleet(
+      req.user.sub,
+      dto.name,
+      dto.leaderId,
+    );
   }
 
   @Post('admin/spawn')
@@ -89,9 +199,9 @@ export class SpacecraftController {
   joinFleet(
     @Param('fleetId', ParseIntPipe) fleetId: number,
     @Request() req: { user: { sub: number } },
-    @Body('shipId') shipId: number,
+    @Body() dto: JoinFleetDto,
   ) {
-    return this.spacecraftService.joinFleet(req.user.sub, fleetId, shipId);
+    return this.spacecraftService.joinFleet(req.user.sub, fleetId, dto.shipId);
   }
 
   // Collection routes
@@ -186,21 +296,25 @@ export class SpacecraftController {
   surfaceScan(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('celestialObjectId') celestialObjectId: number,
+    @Body() dto: CelestialObjectActionDto,
   ) {
-    return this.scanService.surfaceScan(id, req.user.sub, celestialObjectId);
+    return this.scanService.surfaceScan(
+      id,
+      req.user.sub,
+      dto.celestialObjectId,
+    );
   }
 
   @Post(':id/colonize')
   colonize(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('celestialObjectId') celestialObjectId: number,
+    @Body() dto: CelestialObjectActionDto,
   ) {
     return this.colonizationService.colonize(
       req.user.sub,
       id,
-      celestialObjectId,
+      dto.celestialObjectId,
     );
   }
 
@@ -208,29 +322,37 @@ export class SpacecraftController {
   colonyScan(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('colonyId') colonyId: number,
+    @Body() dto: ColonyScanDto,
   ) {
-    return this.scanService.colonyScan(id, req.user.sub, colonyId);
+    return this.scanService.colonyScan(id, req.user.sub, dto.colonyId);
   }
 
   @Post(':id/navigate')
   navigate(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('targetX') targetX: number,
-    @Body('targetY') targetY: number,
+    @Body() dto: MoveToCoordinatesDto,
   ) {
-    return this.spacecraftService.navigate(id, req.user.sub, targetX, targetY);
+    return this.spacecraftService.navigate(
+      id,
+      req.user.sub,
+      dto.targetX,
+      dto.targetY,
+    );
   }
 
   @Post(':id/fly')
   flyGalaxy(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('targetX') targetX: number,
-    @Body('targetY') targetY: number,
+    @Body() dto: MoveToCoordinatesDto,
   ) {
-    return this.spacecraftService.flyGalaxy(id, req.user.sub, targetX, targetY);
+    return this.spacecraftService.flyGalaxy(
+      id,
+      req.user.sub,
+      dto.targetX,
+      dto.targetY,
+    );
   }
 
   @Post(':id/enter-system')
@@ -253,21 +375,21 @@ export class SpacecraftController {
   warp(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('targetSystemId') targetSystemId: number,
+    @Body() dto: WarpDto,
   ) {
-    return this.spacecraftService.warp(id, req.user.sub, targetSystemId);
+    return this.spacecraftService.warp(id, req.user.sub, dto.targetSystemId);
   }
 
   @Patch(':id/reactor-distribution')
   setReactorDistribution(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('warpSplit') warpSplit: number,
+    @Body() dto: ReactorDistributionDto,
   ) {
     return this.spacecraftService.setReactorDistribution(
       id,
       req.user.sub,
-      warpSplit,
+      dto.warpSplit,
     );
   }
 
@@ -314,16 +436,14 @@ export class SpacecraftController {
   loadTorpedoes(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('colonyId') colonyId: number,
-    @Body('torpedoTypeId') torpedoTypeId: number,
-    @Body('amount') amount: number,
+    @Body() dto: TorpedoLoadDto,
   ) {
     return this.spacecraftService.loadTorpedoes(
       id,
       req.user.sub,
-      colonyId,
-      torpedoTypeId,
-      amount,
+      dto.colonyId,
+      dto.torpedoTypeId,
+      dto.amount,
     );
   }
 
@@ -331,14 +451,13 @@ export class SpacecraftController {
   unloadTorpedoes(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('colonyId') colonyId: number,
-    @Body('amount') amount?: number,
+    @Body() dto: TorpedoUnloadDto,
   ) {
     return this.spacecraftService.unloadTorpedoes(
       id,
       req.user.sub,
-      colonyId,
-      amount,
+      dto.colonyId,
+      dto.amount,
     );
   }
 
@@ -354,16 +473,14 @@ export class SpacecraftController {
   loadCargo(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('colonyId') colonyId: number,
-    @Body('commodityId') commodityId: number,
-    @Body('amount') amount: number,
+    @Body() dto: CargoTransferDto,
   ) {
     return this.transferService.loadCargo(
       id,
       req.user.sub,
-      colonyId,
-      commodityId,
-      amount,
+      dto.colonyId,
+      dto.commodityId,
+      dto.amount,
     );
   }
 
@@ -371,16 +488,14 @@ export class SpacecraftController {
   unloadCargo(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body('colonyId') colonyId: number,
-    @Body('commodityId') commodityId: number,
-    @Body('amount') amount: number,
+    @Body() dto: CargoTransferDto,
   ) {
     return this.transferService.unloadCargo(
       id,
       req.user.sub,
-      colonyId,
-      commodityId,
-      amount,
+      dto.colonyId,
+      dto.commodityId,
+      dto.amount,
     );
   }
 }

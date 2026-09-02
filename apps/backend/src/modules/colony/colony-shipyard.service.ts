@@ -32,15 +32,18 @@ import {
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
 import {
+  COLONY_BUILDING_ID_SETS,
+  COLONY_FUNCTION_ID_SETS,
+  COLONY_FUNCTION_IDS,
+} from './colony.constants';
+import {
   ColonyEventSeverity,
   ColonyEventType,
 } from './entities/colony-event.entity';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
 import { ColonyField } from './entities/colony-field.entity';
-import {
-  ColonyShipBuildplan,
-  ShipModuleSelection,
-} from './entities/colony-ship-buildplan.entity';
+import type { ShipModuleSelection } from '@swuniverse/shared';
+import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
 import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueMode,
@@ -51,11 +54,10 @@ import { Colony } from './entities/colony.entity';
 
 @Injectable()
 export class ColonyShipyardService {
-  private readonly legacyShipyardBuildingIds = new Set([
-    11, 85010100, 85010300,
-  ]);
-  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21]);
-  private readonly repairStationFunctionId = 22;
+  private readonly legacyShipyardBuildingIds =
+    COLONY_BUILDING_ID_SETS.LEGACY_SHIPYARD;
+  private readonly shipyardFunctionIds = COLONY_FUNCTION_ID_SETS.SHIPYARD;
+  private readonly repairStationFunctionId = COLONY_FUNCTION_IDS.REPAIR_STATION;
   private readonly repairSparePartCommodityId = 10001;
   private readonly repairSystemComponentCommodityId = 10002;
 

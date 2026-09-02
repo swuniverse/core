@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { ColonyTickEvent } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { Colony } from './entities/colony.entity';
@@ -32,9 +33,11 @@ import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { GameDataService, HangarShipDef } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import {
+  ColonyInternalSummary,
   ColonyStatsService,
+  adjustColonyPopulationParts,
+  deductColonyEnergy,
   getColonyChangeable,
-  syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyStorageService } from './colony-storage.service';
@@ -49,7 +52,7 @@ import { ColonyFabricationService } from './colony-fabrication.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyProjectionService } from './colony-projection.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
-import { ShipModuleSelection } from './entities/colony-ship-buildplan.entity';
+import type { ShipModuleSelection } from '@swuniverse/shared';
 import { ColonyConstructionService } from './colony-construction.service';
 import { ColonyTickProcessorService } from './colony-tick-processor.service';
 import { BuildingMassActionMode } from './colony-building-management.types';
@@ -61,22 +64,13 @@ import {
   ColonyOrbitAssignment,
   ColonyOrbitAssignmentMode,
 } from './entities/colony-orbit-assignment.entity';
+import {
+  COLONY_BUILDING_ID_SETS,
+  COLONY_FUNCTION_ID_SETS,
+  COLONY_FUNCTION_IDS,
+} from './colony.constants';
 
-export interface ColonyTickEvent {
-  type:
-    | 'BUILDING_DEACTIVATED'
-    | 'STORAGE_FULL'
-    | 'BUILDING_FINISHED'
-    | 'TERRAFORMING_FINISHED'
-    | 'CREW_LIMIT_EXCEEDED';
-  fieldIndex?: number;
-  buildingId?: number | null;
-  buildingName?: string;
-  commodityId?: number;
-  reason?: string;
-  activated?: boolean;
-  amount?: number;
-}
+export type { ColonyTickEvent };
 
 export interface ColonyTickResult {
   researchPoints: number;
@@ -86,11 +80,10 @@ export interface ColonyTickResult {
 
 @Injectable()
 export class ColonyService {
-  private readonly legacyShipyardBuildingIds = new Set([
-    11, 85010100, 85010300,
-  ]);
-  private readonly shipyardFunctionIds = new Set([5, 6, 7, 8, 21]);
-  private readonly airfieldFunctionId = 4;
+  private readonly legacyShipyardBuildingIds =
+    COLONY_BUILDING_ID_SETS.LEGACY_SHIPYARD;
+  private readonly shipyardFunctionIds = COLONY_FUNCTION_ID_SETS.SHIPYARD;
+  private readonly airfieldFunctionId = COLONY_FUNCTION_IDS.AIRFIELD;
   constructor(
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
@@ -773,8 +766,7 @@ export class ColonyService {
       throw new BadRequestException('No crew can currently be trained');
     }
 
-    changeable.workless -= finalAmount;
-    syncLegacyColonySnapshot(colony);
+    adjustColonyPopulationParts(colony, 0, -finalAmount);
     await this.colonyRepo.save(colony);
 
     const queue = this.crewTrainingQueueRepo.create({
@@ -953,8 +945,7 @@ export class ColonyService {
       colony,
       this.getHangarBuildCosts(hangarDef, amount),
     );
-    changeable.energy -= totalEnergy;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(colony, totalEnergy);
     await this.colonyRepo.save(colony);
 
     const maxStorage =
@@ -1009,8 +1000,7 @@ export class ColonyService {
       hangarDef.hangarCommodityId,
       1,
     );
-    changeable.energy -= hangarDef.startEnergyCost;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(colony, hangarDef.startEnergyCost);
     await this.colonyRepo.save(colony);
     const crewIds = await this.colonyCrewService.reserveCrewForShipBuild(
       colony,
@@ -1157,8 +1147,7 @@ export class ColonyService {
       }
     }
 
-    changeable.energy -= 20;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(colony, 20);
     await this.colonyRepo.save(colony);
     await this.shipRepo.remove(ship);
     return this.findOne(colonyId, userId);
@@ -1505,42 +1494,29 @@ export class ColonyService {
     return Math.min(globalTrainableNow, Math.max(0, 2 - inTraining));
   }
 
-  calculatePopulationGrowth(colony: Colony, summary: unknown): number {
-    return (
-      this.colonyTickProcessorService as unknown as {
-        calculatePopulationGrowth: (colony: Colony, summary: unknown) => number;
-      }
-    ).calculatePopulationGrowth(colony, summary);
+  calculatePopulationGrowth(
+    colony: Colony,
+    summary: ColonyInternalSummary,
+  ): number {
+    return this.colonyTickProcessorService.calculatePopulationGrowth(
+      colony,
+      summary,
+    );
   }
 
   async growPopulation(colony: Colony): Promise<void> {
-    return (
-      this.colonyTickProcessorService as unknown as {
-        growPopulation: (colony: Colony) => Promise<void>;
-      }
-    ).growPopulation(colony);
+    return this.colonyTickProcessorService.growPopulation(colony);
   }
 
   async balanceAndProduce(
     colony: Colony,
     events: ColonyTickEvent[] = [],
   ): Promise<void> {
-    return (
-      this.colonyTickProcessorService as unknown as {
-        balanceAndProduce: (
-          colony: Colony,
-          events?: ColonyTickEvent[],
-        ) => Promise<void>;
-      }
-    ).balanceAndProduce(colony, events);
+    return this.colonyTickProcessorService.balanceAndProduce(colony, events);
   }
 
   async processCrewTrainingQueue(colony: Colony): Promise<void> {
-    return (
-      this.colonyTickProcessorService as unknown as {
-        processCrewTrainingQueue: (colony: Colony) => Promise<void>;
-      }
-    ).processCrewTrainingQueue(colony);
+    return this.colonyTickProcessorService.processCrewTrainingQueue(colony);
   }
 
   async processFabricationQueue(colony: Colony): Promise<void> {

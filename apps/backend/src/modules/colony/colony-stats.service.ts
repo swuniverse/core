@@ -101,6 +101,68 @@ export function syncLegacyColonySnapshot(colony: Colony): void {
   colony.storageMax = changeable.maxStorage;
 }
 
+export function setColonyEnergy(colony: Colony, energy: number): number {
+  const changeable = getColonyChangeable(colony);
+  changeable.energy = Number(energy ?? 0);
+  syncLegacyColonySnapshot(colony);
+  return changeable.energy;
+}
+
+export function adjustColonyEnergy(colony: Colony, delta: number): number {
+  const changeable = getColonyChangeable(colony);
+  return setColonyEnergy(colony, changeable.energy + delta);
+}
+
+export function deductColonyEnergy(
+  colony: Colony,
+  amount: number,
+  message?: string,
+): number {
+  if (amount <= 0) return getColonyChangeable(colony).energy;
+  const current = getColonyChangeable(colony).energy;
+  if (current < amount) {
+    throw new BadRequestException(
+      message ?? `Not enough energy: need ${amount}, have ${current}`,
+    );
+  }
+  return setColonyEnergy(colony, current - amount);
+}
+
+export function setColonyPopulationParts(
+  colony: Colony,
+  workers: number,
+  workless: number,
+): { workers: number; workless: number } {
+  const changeable = getColonyChangeable(colony);
+  changeable.workers = Math.max(0, workers);
+  changeable.workless = Math.max(0, workless);
+  syncLegacyColonySnapshot(colony);
+  return { workers: changeable.workers, workless: changeable.workless };
+}
+
+export function adjustColonyPopulationParts(
+  colony: Colony,
+  workerDelta: number,
+  worklessDelta: number,
+): { workers: number; workless: number } {
+  const changeable = getColonyChangeable(colony);
+  return setColonyPopulationParts(
+    colony,
+    changeable.workers + workerDelta,
+    changeable.workless + worklessDelta,
+  );
+}
+
+export function setColonyMaxPopulation(
+  colony: Colony,
+  maxPopulation: number,
+): number {
+  const changeable = getColonyChangeable(colony);
+  changeable.maxPopulation = Math.max(0, maxPopulation);
+  syncLegacyColonySnapshot(colony);
+  return changeable.maxPopulation;
+}
+
 export interface ColonyEffectiveFunction extends BuildingFunctionDef {
   buildingIds: number[];
 }

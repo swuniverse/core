@@ -9,7 +9,7 @@ import {
 import { Colony } from './colony.entity';
 import { ShipClassDef } from '../../spacecraft/entities/ship-class-def.entity';
 import { Spacecraft } from '../../spacecraft/entities/spacecraft.entity';
-import { ShipModuleSelection } from './colony-ship-buildplan.entity';
+import type { ShipModuleSelection } from '@swuniverse/shared';
 
 export enum ColonyShipBuildQueueStatus {
   QUEUED = 'QUEUED',

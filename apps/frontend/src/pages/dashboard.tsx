@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
-import type { LayoutItem } from 'react-grid-layout/legacy';
+import type { Layout } from 'react-grid-layout/legacy';
 import { useAuthStore } from '../stores/auth.store';
 import { useDashboardLayoutStore } from '../stores/dashboard-layout.store';
 import type { Breakpoint } from '../stores/dashboard-layout.store';
@@ -322,7 +322,7 @@ export function DashboardPage() {
     sm: toGridItems(layouts.sm, 'sm'),
   };
 
-  const handleLayoutChange = (_layout: readonly LayoutItem[], allLayouts: Record<string, LayoutItem[]>) => {
+  const handleLayoutChange = (_layout: Layout, allLayouts: Partial<Record<string, Layout>>) => {
     const bp = activeBreakpointRef.current;
     const bpLayout = allLayouts[bp];
     if (!bpLayout) return;

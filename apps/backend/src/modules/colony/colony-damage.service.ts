@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { GameDataService } from '../game-data/game-data.service';
+import {
+  COLONY_BUILDING_ID_SETS,
+  COLONY_FUNCTION_ID_SETS,
+} from './colony.constants';
 
 export type ColonyDamageStatus = 'DAMAGED' | 'DISABLED_BY_DAMAGE' | 'DESTROYED';
 
@@ -16,8 +20,8 @@ export interface DamagedColonyFieldResult {
 
 @Injectable()
 export class ColonyDamageService {
-  private readonly defenseFunctionIds = new Set([24, 25, 26, 27, 28]);
-  private readonly headquartersBuildingIds = new Set([1, 82010100, 82010300]);
+  private readonly defenseFunctionIds = COLONY_FUNCTION_ID_SETS.DEFENSE;
+  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(private readonly gameData: GameDataService) {}
 

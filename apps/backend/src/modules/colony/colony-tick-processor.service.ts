@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { ColonyTickEvent } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
-import { GameDataService } from '../game-data/game-data.service';
+import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
@@ -10,11 +11,14 @@ import { ColonyShipyardService } from './colony-shipyard.service';
 import {
   ColonyStatsService,
   ColonyInternalSummary,
+  adjustColonyPopulationParts,
   getColonyChangeable,
   getEffectiveCurrentPopulation,
+  setColonyEnergy,
   syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
+import { COLONY_BUILDING_ID_SETS } from './colony.constants';
 import {
   ColonyCrewTrainingQueue,
   ColonyCrewTrainingQueueStatus,
@@ -25,11 +29,11 @@ import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
 import { assertOwnedColony } from './colony-owner.util';
-import type { ColonyTickEvent, ColonyTickResult } from './colony.service';
+import type { ColonyTickResult } from './colony.service';
 
 @Injectable()
 export class ColonyTickProcessorService {
-  private readonly headquartersBuildingIds = new Set([1, 82010100, 82010300]);
+  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(
     @InjectRepository(Colony)
@@ -54,7 +58,7 @@ export class ColonyTickProcessorService {
     private readonly colonyShipyardService: ColonyShipyardService,
   ) {}
 
-  private async processCrewTrainingQueue(colony: Colony): Promise<void> {
+  async processCrewTrainingQueue(colony: Colony): Promise<void> {
     const jobs = await this.crewTrainingQueueRepo.find({
       where: {
         colonyId: colony.id,
@@ -106,7 +110,7 @@ export class ColonyTickProcessorService {
       );
   }
 
-  private calculatePopulationGrowth(
+  calculatePopulationGrowth(
     colony: Colony,
     summary: ColonyInternalSummary,
   ): number {
@@ -235,7 +239,7 @@ export class ColonyTickProcessorService {
     }
   }
 
-  private async balanceAndProduce(
+  async balanceAndProduce(
     colony: Colony,
     events: ColonyTickEvent[] = [],
   ): Promise<void> {
@@ -252,51 +256,31 @@ export class ColonyTickProcessorService {
         summary.energyDelta < 0 &&
         getColonyChangeable(colony).energy + summary.energyDelta < 0
       ) {
-        const victim = activeFields.find((field) => {
-          if (this.isHeadquartersField(field)) return false;
-          const definition = this.gameData.getBuilding(field.buildingId!);
-          return definition && (definition.epsProc || 0) < 0;
-        });
-        if (victim) {
-          const definition = this.gameData.getBuilding(victim.buildingId!)!;
-          await this.buildingLifecycleService.deactivateBuilding(
+        if (
+          await this.deactivateFirstMatchingField(
             colony,
-            victim,
-            definition,
-          );
-          deactivatedFieldIds.add(victim.id);
-          events.push({
-            type: 'BUILDING_DEACTIVATED',
-            fieldIndex: victim.fieldIndex,
-            buildingId: victim.buildingId,
-            buildingName: definition.name,
-            reason: 'Energie',
-          });
+            activeFields,
+            deactivatedFieldIds,
+            events,
+            'Energie',
+            (definition) => (definition.epsProc || 0) < 0,
+          )
+        ) {
           continue balancing;
         }
       }
 
       if (summary.workersUsed > getEffectiveCurrentPopulation(colony)) {
-        const victim = activeFields.find((field) => {
-          if (this.isHeadquartersField(field)) return false;
-          const definition = this.gameData.getBuilding(field.buildingId!);
-          return definition && (definition.bevUse || 0) > 0;
-        });
-        if (victim) {
-          const definition = this.gameData.getBuilding(victim.buildingId!)!;
-          await this.buildingLifecycleService.deactivateBuilding(
+        if (
+          await this.deactivateFirstMatchingField(
             colony,
-            victim,
-            definition,
-          );
-          deactivatedFieldIds.add(victim.id);
-          events.push({
-            type: 'BUILDING_DEACTIVATED',
-            fieldIndex: victim.fieldIndex,
-            buildingId: victim.buildingId,
-            buildingName: definition.name,
-            reason: 'Arbeiter',
-          });
+            activeFields,
+            deactivatedFieldIds,
+            events,
+            'Arbeiter',
+            (definition) => (definition.bevUse || 0) > 0,
+          )
+        ) {
           continue balancing;
         }
       }
@@ -307,30 +291,20 @@ export class ColonyTickProcessorService {
         const shortfall = Math.abs(netDelta);
         const mining = await this.ensureDepositMining(colony, commodityId);
         if (!mining || mining.amountLeft < shortfall) {
-          const victim = activeFields.find((field) => {
-            if (this.isHeadquartersField(field)) return false;
-            const definition = this.gameData.getBuilding(field.buildingId!);
-            if (!definition) return false;
-            return definition.production.some(
-              (p) => p.commodityId === commodityId && p.amount < 0,
-            );
-          });
-          if (victim) {
-            const definition = this.gameData.getBuilding(victim.buildingId!)!;
-            await this.buildingLifecycleService.deactivateBuilding(
+          if (
+            await this.deactivateFirstMatchingField(
               colony,
-              victim,
-              definition,
-            );
-            deactivatedFieldIds.add(victim.id);
-            events.push({
-              type: 'BUILDING_DEACTIVATED',
-              fieldIndex: victim.fieldIndex,
-              buildingId: victim.buildingId,
-              buildingName: definition.name,
-              commodityId,
-              reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
-            });
+              activeFields,
+              deactivatedFieldIds,
+              events,
+              `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
+              (definition) =>
+                definition.production.some(
+                  (p) => p.commodityId === commodityId && p.amount < 0,
+                ),
+              { commodityId },
+            )
+          ) {
             continue balancing;
           }
         }
@@ -345,30 +319,20 @@ export class ColonyTickProcessorService {
         });
         const available = storage?.amount || 0;
         if (available + amount < 0) {
-          const victim = activeFields.find((field) => {
-            if (this.isHeadquartersField(field)) return false;
-            const definition = this.gameData.getBuilding(field.buildingId!);
-            if (!definition) return false;
-            return definition.production.some(
-              (p) => p.commodityId === commodityId && p.amount < 0,
-            );
-          });
-          if (victim) {
-            const definition = this.gameData.getBuilding(victim.buildingId!)!;
-            await this.buildingLifecycleService.deactivateBuilding(
+          if (
+            await this.deactivateFirstMatchingField(
               colony,
-              victim,
-              definition,
-            );
-            deactivatedFieldIds.add(victim.id);
-            events.push({
-              type: 'BUILDING_DEACTIVATED',
-              fieldIndex: victim.fieldIndex,
-              buildingId: victim.buildingId,
-              buildingName: definition.name,
-              commodityId,
-              reason: `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
-            });
+              activeFields,
+              deactivatedFieldIds,
+              events,
+              `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
+              (definition) =>
+                definition.production.some(
+                  (p) => p.commodityId === commodityId && p.amount < 0,
+                ),
+              { commodityId },
+            )
+          ) {
             continue balancing;
           }
         }
@@ -390,14 +354,16 @@ export class ColonyTickProcessorService {
 
     if (summary.energyDelta !== 0) {
       const changeable = getColonyChangeable(colony);
-      changeable.energy = Math.max(
-        0,
-        Math.min(
-          changeable.energy + summary.energyDelta,
-          summary.effectiveState.energy.max,
+      setColonyEnergy(
+        colony,
+        Math.max(
+          0,
+          Math.min(
+            changeable.energy + summary.energyDelta,
+            summary.effectiveState.energy.max,
+          ),
         ),
       );
-      syncLegacyColonySnapshot(colony);
     }
 
     if (finalProduction.size > 0) {
@@ -458,6 +424,39 @@ export class ColonyTickProcessorService {
     }
   }
 
+  private async deactivateFirstMatchingField(
+    colony: Colony,
+    activeFields: ColonyField[],
+    deactivatedFieldIds: Set<number>,
+    events: ColonyTickEvent[],
+    reason: string,
+    matches: (definition: BuildingDef) => boolean,
+    eventExtra: Partial<ColonyTickEvent> = {},
+  ): Promise<boolean> {
+    for (const field of activeFields) {
+      if (this.isHeadquartersField(field)) continue;
+      const definition = this.gameData.getBuilding(field.buildingId!);
+      if (!definition || !matches(definition)) continue;
+
+      await this.buildingLifecycleService.deactivateBuilding(
+        colony,
+        field,
+        definition,
+      );
+      deactivatedFieldIds.add(field.id);
+      events.push({
+        type: 'BUILDING_DEACTIVATED',
+        fieldIndex: field.fieldIndex,
+        buildingId: field.buildingId,
+        buildingName: definition.name,
+        reason,
+        ...eventExtra,
+      });
+      return true;
+    }
+    return false;
+  }
+
   private async ensureDepositMining(
     colony: Colony,
     commodityId: number,
@@ -501,11 +500,10 @@ export class ColonyTickProcessorService {
     );
   }
 
-  private async growPopulation(colony: Colony): Promise<void> {
+  async growPopulation(colony: Colony): Promise<void> {
     const summary = this.colonyStatsService.calculateSummary(colony);
     const currentPopulation = getEffectiveCurrentPopulation(colony);
     const growth = this.calculatePopulationGrowth(colony, summary);
-    const changeable = getColonyChangeable(colony);
     if (growth <= 0) {
       if (colony.population !== currentPopulation) {
         syncLegacyColonySnapshot(colony);
@@ -521,9 +519,10 @@ export class ColonyTickProcessorService {
     const actualGrowth = nextPopulation - currentPopulation;
 
     if (actualGrowth > 0) {
-      changeable.workless += actualGrowth;
+      adjustColonyPopulationParts(colony, 0, actualGrowth);
+    } else {
+      syncLegacyColonySnapshot(colony);
     }
-    syncLegacyColonySnapshot(colony);
     await this.colonyRepo.save(colony);
   }
 }

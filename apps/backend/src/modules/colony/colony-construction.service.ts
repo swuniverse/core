@@ -16,11 +16,12 @@ import { ColonyOwnershipService } from './colony-ownership.service';
 import {
   ColonyStatsService,
   ColonyInternalSummary,
+  deductColonyEnergy,
   getColonyChangeable,
-  syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
+import { COLONY_BUILDING_ID_SETS } from './colony.constants';
 import {
   ColonyEventSeverity,
   ColonyEventType,
@@ -31,7 +32,7 @@ import { Colony } from './entities/colony.entity';
 
 @Injectable()
 export class ColonyConstructionService {
-  private readonly headquartersBuildingIds = new Set([1, 82010100, 82010300]);
+  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(
     @InjectRepository(Colony)
@@ -226,13 +227,11 @@ export class ColonyConstructionService {
     const epsCost = buildingDef.epsCost || 0;
     if (epsCost <= 0) return;
     const changeable = getColonyChangeable(colony);
-    if (changeable.energy < epsCost) {
-      throw new BadRequestException(
-        `Not enough energy: need ${epsCost}, have ${changeable.energy}`,
-      );
-    }
-    changeable.energy -= epsCost;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(
+      colony,
+      epsCost,
+      `Not enough energy: need ${epsCost}, have ${changeable.energy}`,
+    );
   }
 
   private async deductBuildCosts(
@@ -539,11 +538,9 @@ export class ColonyConstructionService {
         repairPlan.reason ?? 'Building is not repairable',
       );
     }
-    const changeable = getColonyChangeable(colony);
     await this.deductBuildCosts(colony, repairPlan.costs);
 
-    changeable.energy -= repairPlan.energyCost;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(colony, repairPlan.energyCost);
     await this.colonyRepo.save(colony);
 
     this.buildingLifecycleService.repairBuilding(field);
@@ -637,8 +634,7 @@ export class ColonyConstructionService {
     }
 
     await this.deductBuildCosts(colony, terraforming.costs);
-    changeable.energy -= terraforming.energyCost;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(colony, terraforming.energyCost);
     field.terraformingId = terraforming.id;
     field.terraformingFinishesAt = this.timing.dateAfterScaledSeconds(
       terraforming.duration,
@@ -691,8 +687,7 @@ export class ColonyConstructionService {
     }
 
     await this.deductBuildCosts(colony, upgrade.costs);
-    changeable.energy -= upgrade.energyCost;
-    syncLegacyColonySnapshot(colony);
+    deductColonyEnergy(colony, upgrade.energyCost);
 
     const wasActive = field.isActive;
     if (wasActive) {

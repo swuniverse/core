@@ -28,7 +28,7 @@ export function ReactorPanel({
 }: ReactorPanelProps) {
   const [split, setSplit] = useState(reactorWarpSplit);
   const [recharging, setRecharging] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const epsUsage = 4; // ponytail: hardcoded for now, matches backend SYSTEM_EPS_USAGE sum
   const flightCost = 1; // ponytail: from shipClass, hardcode until passed

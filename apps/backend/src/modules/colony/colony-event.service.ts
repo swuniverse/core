@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { ColonyTickEvent } from '@swuniverse/shared';
 import { IsNull, Repository } from 'typeorm';
-import type { ColonyTickEvent } from './colony.service';
 import {
   ColonyEvent,
   ColonyEventSeverity,

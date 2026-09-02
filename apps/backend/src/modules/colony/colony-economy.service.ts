@@ -6,6 +6,7 @@ import {
 import { Colony } from './entities/colony.entity';
 import { ColonyStatsService } from './colony-stats.service';
 import { ColonyFunctionManagerService } from './colony-function-manager.service';
+import { COLONY_FUNCTION_GROUPS, COLONY_FUNCTION_IDS } from './colony.constants';
 
 export interface ColonyFeatureTabAccess {
   visible: boolean;
@@ -29,17 +30,28 @@ export interface ColonyFeatureAccess {
 
 @Injectable()
 export class ColonyEconomyService {
-  private readonly airfieldFunctionIds = [4];
-  private readonly fighterShipyardFunctionIds = [5];
-  private readonly shipyardFunctionIds = [6, 7, 8, 21];
-  private readonly repairStationFunctionId = 22;
-  private readonly fabricationFunctionIds = [
-    9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+  private readonly airfieldFunctionIds: number[] = [...COLONY_FUNCTION_GROUPS.AIRFIELD];
+  private readonly fighterShipyardFunctionIds: number[] = [
+    ...COLONY_FUNCTION_GROUPS.FIGHTER_SHIPYARD,
   ];
-  private readonly fabricationSupportFunctionIds = [29, 30];
-  private readonly defenseFunctionIds = [24, 25, 26, 27, 28];
-  private readonly academyFunctionIds = [20];
-  private readonly centralCrewTrainingFunctionIds = [1, 2];
+  private readonly shipyardFunctionIds: number[] = [
+    COLONY_FUNCTION_IDS.SHIPYARD_SMALL,
+    COLONY_FUNCTION_IDS.SHIPYARD_MEDIUM,
+    COLONY_FUNCTION_IDS.SHIPYARD_LARGE,
+    COLONY_FUNCTION_IDS.SHIPYARD_XL,
+  ];
+  private readonly repairStationFunctionId = COLONY_FUNCTION_IDS.REPAIR_STATION;
+  private readonly fabricationFunctionIds: number[] = [
+    ...COLONY_FUNCTION_GROUPS.FABRICATION,
+  ];
+  private readonly fabricationSupportFunctionIds: number[] = [
+    ...COLONY_FUNCTION_GROUPS.FABRICATION_SUPPORT,
+  ];
+  private readonly defenseFunctionIds: number[] = [...COLONY_FUNCTION_GROUPS.DEFENSE];
+  private readonly academyFunctionIds: number[] = [...COLONY_FUNCTION_GROUPS.ACADEMY];
+  private readonly centralCrewTrainingFunctionIds: number[] = [
+    ...COLONY_FUNCTION_GROUPS.CENTRAL_CREW_TRAINING,
+  ];
 
   constructor(
     private readonly statsService: ColonyStatsService,

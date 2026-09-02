@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Colony } from './entities/colony.entity';
 import { ColonyStorageService } from './colony-storage.service';
-import { getColonyChangeable, syncLegacyColonySnapshot } from './colony-stats.service';
+import {
+  deductColonyEnergy,
+  getColonyChangeable,
+  syncLegacyColonySnapshot,
+} from './colony-stats.service';
 import { GameDataService } from '../game-data/game-data.service';
 export interface ColonyDefenseConstants {
   shield: {
@@ -95,7 +99,7 @@ export class ColonyDefenseService {
     const energyCost = Math.ceil(
       loadAmount / this.constants.shield.loadPerEnergy,
     );
-    changeable.energy = Math.max(0, changeable.energy - energyCost);
+    deductColonyEnergy(colony, energyCost);
     changeable.maxShields = maxShields;
     changeable.shields = current + loadAmount;
     syncLegacyColonySnapshot(colony);

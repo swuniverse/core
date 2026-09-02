@@ -7,12 +7,10 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import type { ShipModuleSelection } from '@swuniverse/shared';
 import { Colony } from './colony.entity';
 
-export interface ShipModuleSelection {
-  slotId: string;
-  commodityId: number;
-}
+export type { ShipModuleSelection };
 
 @Entity('colony_ship_buildplans')
 @Index(['colonyId', 'name'], { unique: true })

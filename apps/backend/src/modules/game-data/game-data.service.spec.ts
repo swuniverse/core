@@ -1,4 +1,10 @@
+import path from 'node:path';
 import { GameDataService } from './game-data.service';
+
+process.env.GAME_DATA_PATH = path.resolve(
+  process.cwd(),
+  process.cwd().endsWith('apps/backend') ? '../../game-data/data' : 'game-data/data',
+);
 
 const FUNCTIONS = {
   COLONY_CENTRAL: 1,

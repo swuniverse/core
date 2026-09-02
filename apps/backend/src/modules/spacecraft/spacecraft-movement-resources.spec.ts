@@ -87,6 +87,7 @@ function createService() {
     initialize: jest.fn(),
     getSystems: jest.fn(() => ({})),
   };
+  const gameGateway = { emitToUser: jest.fn() };
 
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
@@ -109,6 +110,7 @@ function createService() {
     torpedoService as unknown as ConstructorParameters<typeof SpacecraftService>[17],
     resourceFlow as unknown as ConstructorParameters<typeof SpacecraftService>[18],
     runtimeState as unknown as ConstructorParameters<typeof SpacecraftService>[19],
+    gameGateway as unknown as ConstructorParameters<typeof SpacecraftService>[20],
   );
 
   return {
