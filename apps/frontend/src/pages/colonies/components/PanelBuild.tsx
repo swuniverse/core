@@ -1,22 +1,92 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { buildingImage, commodityImage } from '../../../lib/assets';
-import type { BuildingDef, ColonyField, CommodityDef } from '../types';
+import type {
+  BuildingDef,
+  ColonyField,
+  ColonyStorageItem,
+  CommodityDef,
+} from '../types';
 import { BMCOL_LABELS } from '../constants';
-import {
-  canAfford,
-  formatBuildTime,
-  formatSignedAmount,
-  getEffectiveBuildingForField,
-  maxAffordable,
-} from '../utils';
-import { FloatingPanel } from './FloatingPanel';
-const getCommodityLabel = (
+import { canAfford, formatSignedAmount } from '../utils';
+
+const BUILDING_COLUMNS = [1, 2, 3, 4] as const;
+
+type CategoryKey = 'all' | (typeof BUILDING_COLUMNS)[number];
+
+type PanelBuildProps = {
+  buildingDefs: BuildingDef[];
+  fields: ColonyField[];
+  storage: ColonyStorageItem[];
+  commodityMap: Record<number, CommodityDef>;
+  selectedBuilding: BuildingDef | null;
+  onSelectBuilding: (building: BuildingDef) => void;
+};
+
+function getPrimaryEffect(
+  building: BuildingDef,
   commodityMap: Record<number, CommodityDef>,
-  commodityId: number,
-) =>
-  commodityMap[commodityId]?.name ||
-  commodityMap[commodityId]?.nameShort ||
-  `Ware #${commodityId}`;
+): { label: string; tone: string } | null {
+  const energy = building.epsProc || 0;
+  if (energy !== 0) {
+    return {
+      label: `⚡ ${formatSignedAmount(energy)}/Tick`,
+      tone: energy > 0 ? 'text-green-400' : 'text-red-400',
+    };
+  }
+  if ((building.bevPro || 0) > 0) {
+    return { label: `🏠 +${building.bevPro}`, tone: 'text-green-400' };
+  }
+  if ((building.bevUse || 0) > 0) {
+    return { label: `👤 -${building.bevUse}`, tone: 'text-red-400' };
+  }
+  if (building.bonuses.storage !== 0) {
+    return {
+      label: `📦 ${formatSignedAmount(building.bonuses.storage)}`,
+      tone: building.bonuses.storage > 0 ? 'text-green-400' : 'text-red-400',
+    };
+  }
+  const production = building.production.find((entry) => entry.amount !== 0);
+  if (production) {
+    const name =
+      commodityMap[production.commodityId]?.nameShort ||
+      commodityMap[production.commodityId]?.name ||
+      `Ware #${production.commodityId}`;
+    return {
+      label: `${name} ${formatSignedAmount(production.amount)}/Tick`,
+      tone: production.amount > 0 ? 'text-green-400' : 'text-red-400',
+    };
+  }
+  return null;
+}
+
+function getMissingCostLabel(
+  building: BuildingDef,
+  storage: ColonyStorageItem[],
+  commodityMap: Record<number, CommodityDef>,
+): string | null {
+  const missing = (building.resourceCosts || [])
+    .filter((cost) => cost.amount > 0)
+    .map((cost) => {
+      const available =
+        storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
+        0;
+      return {
+        commodityId: cost.commodityId,
+        amount: Math.max(0, cost.amount - available),
+      };
+    })
+    .filter((entry) => entry.amount > 0);
+
+  if (missing.length === 0) return null;
+  const first = missing[0];
+  const name =
+    commodityMap[first.commodityId]?.nameShort ||
+    commodityMap[first.commodityId]?.name ||
+    `Ware #${first.commodityId}`;
+  return missing.length > 1
+    ? `Fehlt ${first.amount} ${name} +${missing.length - 1}`
+    : `Fehlt ${first.amount} ${name}`;
+}
 
 export function PanelBuild({
   buildingDefs,
@@ -24,328 +94,163 @@ export function PanelBuild({
   storage,
   commodityMap,
   selectedBuilding,
-  deactivateAfterBuild,
-  onDeactivateAfterBuildChange,
-  hoveredBuildField,
-  buildingMap,
   onSelectBuilding,
-}: any) {
+}: PanelBuildProps) {
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
+
   const buildingsByColumn = useMemo(() => {
     const cols: Record<number, BuildingDef[]> = {};
-    for (const b of buildingDefs) {
-      if (b.id === 1) continue;
-      const col = b.bmCol ?? 0;
+    for (const building of buildingDefs) {
+      if (building.id === 1) continue;
+      const col = building.bmCol ?? 0;
       if (!cols[col]) cols[col] = [];
-      cols[col].push(b);
+      cols[col].push(building);
     }
     for (const col of Object.keys(cols)) {
-      cols[Number(col)].sort((a: BuildingDef, b: BuildingDef) =>
-        a.name.localeCompare(b.name),
-      );
+      cols[Number(col)].sort((a, b) => {
+        const aAffordable = canAfford(a, storage) ? 0 : 1;
+        const bAffordable = canAfford(b, storage) ? 0 : 1;
+        if (aAffordable !== bAffordable) return aAffordable - bAffordable;
+        return a.name.localeCompare(b.name, 'de');
+      });
     }
     return cols;
-  }, [buildingDefs]);
+  }, [buildingDefs, storage]);
 
-  const detailBuilding =
-    selectedBuilding && hoveredBuildField
-      ? getEffectiveBuildingForField(
-          selectedBuilding,
-          hoveredBuildField,
-          buildingMap,
-        )
-      : selectedBuilding;
-  const isBonusPreview =
-    !!selectedBuilding &&
-    !!detailBuilding &&
-    detailBuilding.id !== selectedBuilding.id;
+  const visibleBuildings = useMemo(() => {
+    if (activeCategory === 'all') {
+      return BUILDING_COLUMNS.flatMap(
+        (column) => buildingsByColumn[column] || [],
+      );
+    }
+    return buildingsByColumn[activeCategory] || [];
+  }, [activeCategory, buildingsByColumn]);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-3">
-      {/* Building List */}
-      <div className="flex-1 min-w-0 space-y-2">
-        {[1, 2, 3, 4].map((col) => {
-          const colBuildings = buildingsByColumn[col] || [];
+    <div className="rounded border border-swu-border bg-swu-surface p-3">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-swu-muted">
+            Baumenü
+          </div>
+          <div className="text-sm text-swu-primary">
+            Gebäude auswählen und auf der Karte platzieren
+          </div>
+        </div>
+        {selectedBuilding && (
+          <div className="rounded border border-swu-accent/40 bg-swu-accent/10 px-2 py-1 text-[10px] font-bold text-swu-accent">
+            {selectedBuilding.name}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-1">
+        <button
+          onClick={() => setActiveCategory('all')}
+          className={`rounded border px-2 py-1 text-[10px] transition-colors ${
+            activeCategory === 'all'
+              ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
+              : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
+          }`}
+        >
+          Alle {visibleBuildings.length}
+        </button>
+        {BUILDING_COLUMNS.map((column) => {
+          const count = buildingsByColumn[column]?.length ?? 0;
           return (
-            <div
-              key={col}
-              className="bg-swu-surface border border-swu-border rounded"
+            <button
+              key={column}
+              onClick={() => setActiveCategory(column)}
+              className={`rounded border px-2 py-1 text-[10px] transition-colors ${
+                activeCategory === column
+                  ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
+                  : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
+              }`}
             >
-              <div className="px-3 py-1 border-b border-swu-border/50">
-                <span className="text-[10px] font-bold text-swu-muted uppercase">
-                  {BMCOL_LABELS[col]}
-                </span>
-              </div>
-              {colBuildings.length === 0 ? (
-                <div className="px-3 py-2 text-[10px] text-swu-muted">
-                  Keine Gebäude verfügbar.
-                </div>
-              ) : (
-                <div className="divide-y divide-swu-border/20">
-                  {colBuildings.map((b: BuildingDef) => {
-                    const affordable = canAfford(b, storage);
-                    const isSelected = selectedBuilding?.id === b.id;
-                    const alreadyBuilt =
-                      b.isUnique &&
-                      fields.some(
-                        (f: ColonyField) =>
-                          f.buildingId === b.id && !f.isBuilding,
-                      );
-                    return (
-                      <button
-                        key={b.id}
-                        onClick={() => onSelectBuilding(b)}
-                        disabled={alreadyBuilt}
-                        title={b.name}
-                        aria-label={b.name}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs transition-all ${isSelected ? 'bg-swu-accent/15 text-swu-accent' : alreadyBuilt ? 'opacity-40 cursor-not-allowed' : affordable ? 'hover:bg-swu-primary/5' : 'opacity-60'}`}
-                      >
-                        <img
-                          src={buildingImage(b.id)}
-                          alt=""
-                          className="h-7 w-7 shrink-0 object-contain"
-                          loading="lazy"
-                        />
-                        <span className="text-swu-primary truncate flex-1">
-                          {b.name}
-                        </span>
-                        {!affordable && !alreadyBuilt && (
-                          <span className="text-[9px] text-red-400">✕</span>
-                        )}
-                        {alreadyBuilt && (
-                          <span className="text-[9px] text-swu-muted">
-                            gebaut
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              {BMCOL_LABELS[column]} {count}
+            </button>
           );
         })}
       </div>
 
-      {/* Building Detail - Floating */}
-      {selectedBuilding && detailBuilding && (
-        <FloatingPanel
-          title={detailBuilding.name}
-          startX={Math.round(window.innerWidth / 2 - 170)}
-          startY={Math.round(window.innerHeight / 2 - 200)}
-          onClose={() => onSelectBuilding(selectedBuilding)}
-        >
-          <div className="text-xs space-y-2">
-            <div className="font-bold text-swu-accent">
-              {detailBuilding.name}
-            </div>
-            {isBonusPreview && (
-              <div className="text-[10px] font-bold text-yellow-400">
-                Bonusfeld-Version von {selectedBuilding.name}
-              </div>
-            )}
-            {detailBuilding.functions &&
-              detailBuilding.functions.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {detailBuilding.functions.map((functionId: number) => (
-                    <span
-                      key={functionId}
-                      className="px-1.5 py-0.5 rounded border border-swu-border/60 bg-swu-bg/50 text-[10px] text-swu-primary"
-                    >
-                      Funktion #{functionId}
-                    </span>
-                  ))}
-                </div>
-              )}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-swu-muted uppercase font-bold">
-                Baubar:
-              </span>
-              <span className="text-xs font-bold text-swu-accent">
-                {(() => {
-                  const count = maxAffordable(selectedBuilding, storage);
-                  return count === Infinity ? '∞' : count;
-                })()}
-              </span>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[10px] text-swu-muted uppercase font-bold">
-                  Baukosten
-                </span>
-                <span className="text-[9px] text-swu-muted">
-                  Vorh. / Benöt.
-                </span>
-              </div>
-              {(selectedBuilding.epsCost || 0) > 0 && (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
-                    <span>⚡</span>
-                    <span className="truncate">Energie</span>
-                  </span>
-                  <span className="text-swu-primary">
-                    {selectedBuilding.epsCost}
-                  </span>
-                </div>
-              )}
-              {(selectedBuilding.resourceCosts || [])
-                .filter((c: any) => c.amount > 0)
-                .map((c: any) => {
-                  const avail =
-                    storage.find((s: any) => s.commodityId === c.commodityId)
-                      ?.amount || 0;
-                  const commodity = commodityMap[c.commodityId];
-                  return (
-                    <div
-                      key={c.commodityId}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
-                        <img
-                          src={commodityImage(c.commodityId, commodity?.name)}
-                          alt=""
-                          className="h-4 w-4 object-contain"
-                          loading="lazy"
-                        />
-                        <span className="truncate">
-                          {getCommodityLabel(commodityMap, c.commodityId)}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span
-                          className={
-                            avail >= c.amount
-                              ? 'text-swu-primary'
-                              : 'text-red-400'
-                          }
-                        >
-                          {avail} / {c.amount}
-                        </span>
-                        {avail < c.amount && (
-                          <span className="text-red-400 bg-red-400/10 px-1 rounded text-[9px]">
-                            -{c.amount - avail}
-                          </span>
-                        )}
-                      </span>
+      {visibleBuildings.length === 0 ? (
+        <div className="rounded border border-swu-border/40 bg-swu-bg/30 px-3 py-2 text-xs text-swu-muted">
+          Keine Gebäude verfügbar.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {visibleBuildings.map((building) => {
+            const affordable = canAfford(building, storage);
+            const isSelected = selectedBuilding?.id === building.id;
+            const alreadyBuilt =
+              building.isUnique &&
+              fields.some(
+                (field) =>
+                  field.buildingId === building.id && !field.isBuilding,
+              );
+            const effect = getPrimaryEffect(building, commodityMap);
+            const missingLabel = getMissingCostLabel(
+              building,
+              storage,
+              commodityMap,
+            );
+
+            return (
+              <button
+                key={building.id}
+                onClick={() => onSelectBuilding(building)}
+                disabled={alreadyBuilt}
+                title={building.name}
+                aria-label={building.name}
+                className={`min-h-[104px] rounded border p-2 text-left transition-all ${
+                  isSelected
+                    ? 'border-swu-accent bg-swu-accent/12 shadow-[0_0_0_1px_rgba(194,185,66,0.2)]'
+                    : alreadyBuilt
+                      ? 'border-swu-border/40 bg-swu-bg/20 opacity-45 cursor-not-allowed'
+                      : affordable
+                        ? 'border-swu-border/60 bg-swu-bg/30 hover:border-swu-accent/60 hover:bg-swu-primary/5'
+                        : 'border-red-500/30 bg-red-950/10 opacity-75 hover:border-red-400/50'
+                }`}
+              >
+                <div className="flex gap-3">
+                  <img
+                    src={buildingImage(building.id)}
+                    alt=""
+                    className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14"
+                    loading="lazy"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="line-clamp-2 text-sm font-bold text-swu-primary">
+                      {building.name}
                     </div>
-                  );
-                })}
-            </div>
-            {((detailBuilding.bevUse || 0) > 0 ||
-              (detailBuilding.bevPro || 0) > 0 ||
-              detailBuilding.bonuses.storage !== 0) && (
-              <div>
-                <div className="text-[10px] text-swu-muted uppercase font-bold mb-0.5">
-                  Auswirkungen
-                </div>
-                {(detailBuilding.bevUse || 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-swu-muted">👤 Arbeiter</span>
-                    <span className="text-red-400">
-                      -{detailBuilding.bevUse}
-                    </span>
-                  </div>
-                )}
-                {(detailBuilding.bevPro || 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-swu-muted">🏠 Wohnraum</span>
-                    <span className="text-green-400">
-                      +{detailBuilding.bevPro}
-                    </span>
-                  </div>
-                )}
-                {detailBuilding.bonuses.storage !== 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-swu-muted">📦 Lager</span>
-                    <span
-                      className={
-                        detailBuilding.bonuses.storage > 0
-                          ? 'text-green-400'
-                          : 'text-red-400'
-                      }
-                    >
-                      {formatSignedAmount(detailBuilding.bonuses.storage)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-            {((detailBuilding.epsProc || 0) !== 0 ||
-              detailBuilding.production.length > 0) && (
-              <div>
-                <div className="text-[10px] text-swu-muted uppercase font-bold mb-0.5">
-                  Produktion
-                </div>
-                {(detailBuilding.epsProc || 0) !== 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-swu-muted">⚡ Energie</span>
-                    <span
-                      className={
-                        (detailBuilding.epsProc || 0) < 0
-                          ? 'text-red-400'
-                          : 'text-green-400'
-                      }
-                    >
-                      {formatSignedAmount(detailBuilding.epsProc || 0)}/Tick
-                    </span>
-                  </div>
-                )}
-                {detailBuilding.production.map((p: any) => {
-                  const commodity = commodityMap[p.commodityId];
-                  return (
-                    <div
-                      key={p.commodityId}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
-                        <img
-                          src={commodityImage(p.commodityId, commodity?.name)}
-                          alt=""
-                          className="h-4 w-4 object-contain"
-                          loading="lazy"
-                        />
-                        <span className="truncate">
-                          {getCommodityLabel(commodityMap, p.commodityId)}
-                        </span>
-                      </span>
-                      <span
-                        className={
-                          p.amount < 0 ? 'text-red-400' : 'text-green-400'
-                        }
+                    {effect && (
+                      <div
+                        className={`mt-1 truncate text-xs font-mono ${effect.tone}`}
                       >
-                        {formatSignedAmount(p.amount)}/Tick
-                      </span>
+                        {effect.label}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {alreadyBuilt ? (
+                        <span className="rounded border border-swu-border/50 px-1.5 py-0.5 text-[10px] text-swu-muted">
+                          Einzigartig gebaut
+                        </span>
+                      ) : affordable ? (
+                        <span className="rounded border border-green-400/30 bg-green-900/20 px-1.5 py-0.5 text-[10px] text-green-400">
+                          Baubar
+                        </span>
+                      ) : (
+                        <span className="rounded border border-red-400/30 bg-red-900/20 px-1.5 py-0.5 text-[10px] text-red-400">
+                          {missingLabel ?? 'Nicht baubar'}
+                        </span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-            <label className="flex cursor-pointer items-start gap-2 border-t border-swu-border/40 pt-2 text-[10px] text-swu-primary">
-              <input
-                type="checkbox"
-                aria-label="Nach Fertigstellung deaktivieren"
-                checked={deactivateAfterBuild}
-                onChange={(event) =>
-                  onDeactivateAfterBuildChange(event.target.checked)
-                }
-                className="mt-0.5 h-3.5 w-3.5 accent-swu-accent"
-              />
-              <span>
-                <span className="block font-bold">
-                  Nach Fertigstellung deaktivieren
-                </span>
-                <span className="text-swu-muted">
-                  Auswählen, damit das Gebäude nicht automatisch aktiviert wird.
-                </span>
-              </span>
-            </label>
-            <div className="text-[10px] text-swu-muted">
-              Bauzeit: {formatBuildTime(selectedBuilding.costs.buildTime || 0)}
-            </div>
-            <div className="text-[10px] text-swu-accent font-bold">
-              ← Feld im Grid klicken zum Platzieren
-            </div>
-          </div>
-        </FloatingPanel>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

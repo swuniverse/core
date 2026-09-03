@@ -383,23 +383,21 @@ describe('ColonyDetail', () => {
     const detail = createDetail();
     renderColonyDetail(detail);
 
-    const infoButton = screen.getByRole('button', { name: 'Informationen' });
-    const tabLabels = within(infoButton.closest('div') as HTMLElement)
+    const overviewButton = screen.getByRole('button', { name: 'Übersicht' });
+    const modeLabels = within(overviewButton.closest('div') as HTMLElement)
       .getAllByRole('button')
       .map((button) => button.textContent);
 
-    expect(tabLabels).toEqual([
-      'Informationen',
-      'Baumenü',
-      'Crew',
-      'Gebäudemanagement',
-      'Werft',
-      'Hangar',
-      'Ereignisse',
-      'Einstellungen',
-    ]);
-    expect(screen.queryByRole('button', { name: 'Fabrikation' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Verteidigung' })).toBeNull();
+    expect(modeLabels).toEqual(['Übersicht', 'Bauen', 'Flotte', 'Verwaltung']);
+
+    const infoButton = screen.getByRole('button', { name: 'Informationen' });
+    const subTabLabels = within(infoButton.closest('div') as HTMLElement)
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+
+    expect(subTabLabels).toEqual(['Informationen', 'Ereignisse']);
+    expect(screen.queryByRole('button', { name: 'Produktion' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sicherheit' })).toBeNull();
   });
 
   it('keeps the selected building active for consecutive placements', () => {
@@ -455,7 +453,9 @@ describe('ColonyDetail', () => {
 
     expect(onBuild).toHaveBeenNthCalledWith(1, 1, mineBuilding.id, true);
     expect(
-      screen.getByText('← Feld im Grid klicken zum Platzieren'),
+      screen.getByText(
+        '← Markiertes Feld auf der Karte klicken zum Platzieren',
+      ),
     ).toBeTruthy();
 
     fireEvent.click(
@@ -545,7 +545,12 @@ describe('ColonyDetail', () => {
     });
 
     expect(screen.getByTitle(mineBuilding.name)).toBeTruthy();
-    expect(screen.getAllByText('Keine Gebäude verfügbar.')).toHaveLength(3);
+    expect(screen.getByRole('button', { name: 'Soziales 1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Industrie 0' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Infrastruktur 0' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Energie 0' })).toBeTruthy();
   });
 
   it('uses detail inventory names when storage definitions are missing', () => {
@@ -566,9 +571,9 @@ describe('ColonyDetail', () => {
       commodities: [],
     });
 
-    expect(screen.getByText('Lager (1)')).toBeTruthy();
+    expect(screen.getByText('Versorgung / Lager')).toBeTruthy();
     expect(screen.getByText('Deuterium-Vorrat')).toBeTruthy();
-    expect(screen.getAllByTitle('Deuterium-Vorrat')).toHaveLength(2);
+    expect(screen.getAllByTitle('Deuterium-Vorrat')).toHaveLength(1);
   });
 
   it('hides zero-amount storage rows', () => {
@@ -589,7 +594,7 @@ describe('ColonyDetail', () => {
       ],
     });
 
-    expect(screen.getByText('Lager (1)')).toBeTruthy();
+    expect(screen.getByText('Versorgung / Lager')).toBeTruthy();
     expect(screen.getByText('Visible Ore')).toBeTruthy();
     expect(screen.queryByText('Empty Rump')).toBeNull();
   });
