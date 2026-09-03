@@ -1,93 +1,135 @@
 # Star Wars Universe
 
-A tick-based strategy browser game set in the Star Wars universe, inspired by [Star Trek Universe](https://stuniverse.de).
+Star Wars Universe ist ein tickbasiertes Browser-Strategiespiel im Star-Wars-Setting, inspiriert von [Star Trek Universe](https://stuniverse.de). Dieses Repository enthält den aktuellen Nx-Monorepo-Stand für API, Web-Client und gemeinsame Typen.
 
-## Tech Stack
+## Aktueller Stand
 
-- **Frontend:** React + Vite + Tailwind CSS + Zustand
-- **Backend:** NestJS + TypeORM + PostgreSQL + Redis
-- **Realtime:** Socket.io WebSockets
-- **Monorepo:** NX
-- **Deploy:** Docker Compose + Caddy
+Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberflächen ab:
 
-## Features
+- **Authentifizierung & Einladungen** — Registrierung, Login, Token-Refresh, Profilabruf sowie Spieler- und Admin-Invite-Flows
+- **Onboarding & Fraktionswahl** — Fraktion wählen, Startsektoren/Systeme/Planeten durchsuchen und Heimatwelt beanspruchen
+- **Kolonien** — 7x7-Felder, Gebäude, Terraforming, Aktivierung/Deaktivierung, Lager, Crew, Fabrication, Reparaturen, Bau-/Retrofit-Warteschlangen und Orbit-Befehle
+- **Kolonisierung** — Kolonieschiffe prüfen Ziele und gründen neue Kolonien direkt aus der Schiffsansicht
+- **Raumfahrzeuge** — Flotten, Navigation im System und auf der Galaxiekarte, Warp, Reaktorverteilung, Laufzeitsysteme, Module, Torpedos und Frachttransfer
+- **Scans & Karten** — Sternenkarte, lokale Schiffskarte, Oberflächen- und Koloniescans sowie Admin-Fullmap-Editor
+- **Kampf & Verteidigung** — Kampfsystem, Schilde, Orbit-Verteidigung/Blockade und torpedobasierte Kolonieverteidigung
+- **Forschung & Freischaltungen** — Forschungsübersicht, Forschungsbaum und Unlock-abhängige Inhalte
+- **Community & Spielerprofile** — Nachrichten, HoloNet, öffentliche Datenbank, Rankings, Spielerprofile, persönliche Notizen und Kontoeinstellungen
+- **Administration** — Admin-Dashboard, Benutzerrechte, Invite-Verwaltung und Schiffs-Spawn-Werkzeuge
 
-- **Colony Management** — 7x7 field grid, buildings, resource production, population growth
-- **Starmap** — Procedurally generated galaxy with star systems, planets, moons, asteroids
-- **Spacecraft** — Fleet management, in-system navigation, inter-system warp
-- **Combat** — Round-based engine with shields, hull damage, accuracy, criticals
-- **Research** — 12-tech tree across 5 categories with prerequisites
-- **Messaging** — Player-to-player messages with inbox/sent/compose
-- **HoloNet** — Forum with News, Roleplay, Trade, Recruitment categories
-- **Tick System** — 5 ticks/day for resource production + real-time building completions
-- **WebSocket** — Real-time updates on tick events and combat
-- **Factions** — Rebel Alliance & Galactic Empire
+## Laufzeitarchitektur
 
-## Quick Start
+- **Monorepo:** Nx Workspace mit `apps/*` und `packages/*`
+- **Frontend:** React 19 + Vite + React Router + Zustand + Tailwind CSS
+- **Backend:** NestJS 11 + TypeORM
+- **Datenhaltung:** PostgreSQL 16
+- **Caching/Queues/State:** Redis 7
+- **Realtime:** Socket.io Gateway (`/game`) für Tick-, Kampf- und Spielstatus-Updates
+- **Gemeinsame Typen:** `packages/shared`
 
-### Prerequisites
+## Lokales Setup
+
+### Voraussetzungen
 
 - Node.js 22+
 - Docker & Docker Compose
-- (Optional) Nix for reproducible dev environment
+- Git
+- optional: Nix (`nix develop`) für reproduzierbare Dev-Shells
 
-### Development
+### Repository klonen
+
+Das Repository verwendet ein `game-data`-Submodule.
 
 ```bash
-# Start database & Redis
-docker compose up db redis -d
+git clone --recurse-submodules https://github.com/swuniverse/core.git
+cd core
+```
 
-# Install dependencies
+Wenn das Repository schon ohne Submodule geklont wurde:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Entwicklungsumgebung starten
+
+```bash
 npm install
-
-# Start backend + frontend
+cp .env.example .env
+docker compose -f docker-compose.dev.yml up -d
+npm run typeorm:migrate
 npm run dev
 ```
 
-Backend: http://localhost:3001/api
-Frontend: http://localhost:5173
+- Frontend: <http://localhost:5173>
+- Backend API: <http://localhost:3001>
+- PostgreSQL: `127.0.0.1:5490`
+- Redis: `127.0.0.1:6379`
 
-### Using Nix
+### Alternative mit Nix
 
 ```bash
 nix develop
-docker compose up db redis -d
+npm install
+cp .env.example .env
+docker compose -f docker-compose.dev.yml up -d
+npm run typeorm:migrate
 npm run dev
 ```
 
-### Environment
+## Umgebungsvariablen
 
-Copy `.env.example` to `.env` and adjust values:
+Ausgangspunkt ist `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
-Important for database schema handling:
+Wichtige Variablen:
 
-- `TYPEORM_SYNCHRONIZE=false` is recommended
-- use TypeORM migrations for schema changes
-- local Docker Compose migration run uses dedicated `migrate` service:
+- `DATABASE_URL` — lokale PostgreSQL-Verbindung
+- `REDIS_URL` — Redis-Verbindung
+- `JWT_SECRET` — Signaturschlüssel für Auth/JWT
+- `GAME_DATA_PATH` — Pfad zum `game-data`-Submodul
+- `TYPEORM_SYNCHRONIZE=false` — empfohlen; Schemaänderungen per Migration
+- `GAME_MAIN_TICK_SCHEDULE_HOURS` / `GAME_BUILD_TIME_MULTIPLIER` — optionale Test-/Tick-Anpassungen
+- SMTP-Variablen — optional für Mailversand
+
+Für migrationsbasierte Schemaänderungen stehen u. a. diese Befehle bereit:
 
 ```bash
+npm run typeorm:migrate
+npm run typeorm:migrate:revert
+npm run typeorm:migration:generate
 npm run docker:typeorm:migrate
 ```
 
-## Project Structure
+## Qualitätschecks
 
+```bash
+npm run build      # alle Apps/Packages bauen
+npm run lint       # Linting im gesamten Workspace
+npm run test       # Jest/Vitest-Suites ausführen
+npm run typecheck  # TypeScript-Prüfung ohne Emit
 ```
+
+## Projektstruktur
+
+```text
 apps/
-  backend/       NestJS API server
-  frontend/      React SPA
+  backend/       NestJS API inkl. Tick- und WebSocket-Server
+  frontend/      React/Vite SPA mit Spiel-, Admin- und Datenbankseiten
 packages/
-  shared/        Shared types, DTOs, constants
-game-data/       Game balancing data (Git submodule, private)
+  shared/        Gemeinsame TypeScript-Typen, DTOs und Konstanten
+game-data/       Spiel- und Balancingdaten (Git-Submodule)
+docs/            Projektdokumentation
+infra/           Lokale Persistenzdaten und Infrastrukturdateien
 ```
 
-## Contributing
+## Mitwirken
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Weitere Konventionen und Workflows stehen in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## License
+## Lizenz
 
 MIT
