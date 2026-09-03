@@ -18,9 +18,8 @@ import type {
   StarterColonizationOptions,
   TerraformingDef,
 } from './types';
-import { planetImage, commodityImage } from '../../lib/assets';
-import { FieldCell } from './components/FieldCell';
-import { FieldInfoModal } from './components/FieldInfoModal';
+import { planetImage } from '../../lib/assets';
+import { FieldInspector } from './components/FieldInspector';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelInfo } from './components/PanelInfo';
 import { PanelBuild } from './components/PanelBuild';
@@ -34,6 +33,12 @@ import { PanelFabrication } from './components/PanelFabrication';
 import { PanelCrew } from './components/PanelCrew';
 import { PanelHangar } from './components/PanelHangar';
 import { PanelWaste } from './components/PanelWaste';
+import { ColonyCommandBar } from './components/ColonyCommandBar';
+import { ColonyStatusBar } from './components/ColonyStatusBar';
+import { ColonyMap } from './components/ColonyMap';
+import { SupplyDock } from './components/SupplyDock';
+import { WorkModeNav } from './components/WorkModeNav';
+import { BuildInspector } from './components/BuildInspector';
 import {
   formatSignedAmount,
   getEffectiveBuildingForField,
@@ -824,10 +829,6 @@ export function ColonyDetail({
   const [deactivateAfterBuild, setDeactivateAfterBuild] = useState(false);
   const [hoveredBuildField, setHoveredBuildField] =
     useState<ColonyField | null>(null);
-  const [modalField, setModalField] = useState<ColonyField | null>(null);
-  const [surfaceLayer, setSurfaceLayer] = useState<
-    'ALL' | 'ORBIT' | 'SURFACE' | 'UNDERGROUND'
-  >('ALL');
 
   const detail = colony.detailV2;
   const fieldUpgradeMap = useMemo(
@@ -857,22 +858,13 @@ export function ColonyDetail({
   );
 
   useEffect(() => {
-    if (selectedField) {
-      const fresh = fields.find(
-        (f) => f.fieldIndex === selectedField.fieldIndex,
+    setSelectedField((current) => {
+      if (!current) return current;
+      return (
+        fields.find((field) => field.fieldIndex === current.fieldIndex) ?? null
       );
-      if (fresh) setSelectedField(fresh);
-      else setSelectedField(null);
-    }
+    });
   }, [fields]);
-
-  useEffect(() => {
-    if (modalField) {
-      const fresh = fields.find((f) => f.fieldIndex === modalField.fieldIndex);
-      if (fresh) setModalField(fresh);
-      else setModalField(null);
-    }
-  }, [fields, modalField]);
 
   const highlightedFields = useMemo(() => {
     if (!selectedBuilding) return new Set<number>();
@@ -945,82 +937,85 @@ export function ColonyDetail({
       onBuild(field.fieldIndex, selectedBuilding.id, !deactivateAfterBuild);
       setHoveredBuildField(null);
       setSelectedField(null);
-    } else if (!selectedBuilding) {
-      if (field.buildingId && !field.isBuilding) {
-        setModalField(field);
-      } else {
-        setSelectedField(field);
-      }
+      return;
     }
+
+    setSelectedField(field);
   };
 
-  const visibleFields =
-    surfaceLayer === 'ALL'
-      ? fields
-      : fields.filter((field) => field.layer === surfaceLayer);
-  const orbitFields = visibleFields
+  const orbitFields = fields
     .filter((f) => f.layer === 'ORBIT' || (!f.layer && f.fieldType >= 900))
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
-  const undergroundFields = visibleFields
+  const undergroundFields = fields
     .filter(
       (f) =>
         f.layer === 'UNDERGROUND' ||
         (!f.layer && f.fieldType >= 800 && f.fieldType < 900),
     )
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
-  const surfaceFields = visibleFields
+  const surfaceFields = fields
     .filter((f) => f.layer === 'SURFACE' || (!f.layer && f.fieldType < 800))
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
 
   const tabAccess = detail?.featureAccess?.tabs;
-  const isTabVisible = (key: DetailTab, fallback = true) =>
-    tabAccess?.[key]?.visible ?? fallback;
-  const tabs: Array<{ key: DetailTab; label: string; show: boolean }> = [
-    { key: 'info', label: 'Informationen', show: isTabVisible('info') },
-    {
-      key: 'orbit',
-      label: 'Orbit',
-      show: (detail?.orbitShips.length ?? 0) > 0,
-    },
-    { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
-    { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
-    {
-      key: 'buildingManagement',
-      label: 'Gebäudemanagement',
-      show: isTabVisible('buildingManagement'),
-    },
-    {
-      key: 'shipyard',
-      label: 'Werft',
-      show: isTabVisible('shipyard', false),
-    },
-    {
-      key: 'fabrication',
-      label: 'Fabrikation',
-      show: isTabVisible('fabrication', false),
-    },
-    {
-      key: 'defense',
-      label: 'Verteidigung',
-      show: isTabVisible('defense', false),
-    },
-    { key: 'hangar', label: 'Hangar', show: isTabVisible('hangar', false) },
-    {
-      key: 'waste',
-      label: 'Entsorgung',
-      show: Boolean(detail?.waste?.canDiscard),
-    },
-    {
-      key: 'events',
-      label: `Ereignisse${detail?.eventSummary?.unreadCount ? ` (${detail.eventSummary.unreadCount})` : ''}`,
-      show: isTabVisible('events'),
-    },
-    {
-      key: 'settings',
-      label: 'Einstellungen',
-      show: isTabVisible('settings'),
-    },
-  ];
+  const tabs = useMemo<
+    Array<{ key: DetailTab; label: string; show: boolean }>
+  >(() => {
+    const isTabVisible = (key: DetailTab, fallback = true) =>
+      tabAccess?.[key]?.visible ?? fallback;
+
+    return [
+      { key: 'info', label: 'Informationen', show: isTabVisible('info') },
+      {
+        key: 'orbit',
+        label: 'Orbit',
+        show: (detail?.orbitShips.length ?? 0) > 0,
+      },
+      { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
+      { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
+      {
+        key: 'buildingManagement',
+        label: 'Gebäudemanagement',
+        show: isTabVisible('buildingManagement'),
+      },
+      {
+        key: 'shipyard',
+        label: 'Werft',
+        show: isTabVisible('shipyard', false),
+      },
+      {
+        key: 'fabrication',
+        label: 'Fabrikation',
+        show: isTabVisible('fabrication', false),
+      },
+      {
+        key: 'defense',
+        label: 'Verteidigung',
+        show: isTabVisible('defense', false),
+      },
+      { key: 'hangar', label: 'Hangar', show: isTabVisible('hangar', false) },
+      {
+        key: 'waste',
+        label: 'Entsorgung',
+        show: Boolean(detail?.waste?.canDiscard),
+      },
+      {
+        key: 'events',
+        label: `Ereignisse${detail?.eventSummary?.unreadCount ? ` (${detail.eventSummary.unreadCount})` : ''}`,
+        show: isTabVisible('events'),
+      },
+      {
+        key: 'settings',
+        label: 'Einstellungen',
+        show: isTabVisible('settings'),
+      },
+    ];
+  }, [
+    detail?.orbitShips.length,
+    detail?.eventSummary?.unreadCount,
+    detail?.waste?.canDiscard,
+    tabAccess,
+  ]);
 
   useEffect(() => {
     if (!tabs.some((tab) => tab.key === activeTab && tab.show)) {
@@ -1030,268 +1025,78 @@ export function ColonyDetail({
 
   return (
     <div className="space-y-2">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="text-xs text-swu-muted hover:text-swu-accent"
-        >
-          ← Kolonien
-        </button>
-        {colony.celestialObject?.classId && (
-          <img
-            src={planetImage(colony.celestialObject.classId)}
-            alt=""
-            className="w-6 h-6 object-contain"
-          />
-        )}
-        <span
-          className="text-sm font-bold text-swu-primary"
-          style={{ fontFamily: 'var(--font-swu-display)' }}
-        >
-          {colony.name}
-        </span>
-        <span className="text-[10px] text-swu-muted">
-          {colony.locationLabel || ''}
-        </span>
-      </div>
+      <ColonyCommandBar colony={colony} onBack={onBack} />
 
-      {/* Resource bar */}
-      <div className="flex flex-wrap items-center gap-4 text-[10px] bg-swu-surface border border-swu-border rounded px-3 py-1.5">
-        <span>
-          Energie:{' '}
-          <span className="text-swu-warning font-mono">
-            {detail?.energy.current ?? colony.energy}/
-            {detail?.energy.max ?? colony.energyMax}
-          </span>
-          {detail?.energy.delta != null && (
-            <span
-              className={
-                detail.energy.delta >= 0 ? 'text-green-400' : 'text-red-400'
-              }
-            >
-              {' '}
-              ({formatSignedAmount(detail.energy.delta)})
-            </span>
-          )}
-        </span>
-        <span>
-          Bevölkerung:{' '}
-          <span className="text-swu-success font-mono">
-            {detail?.population.current ?? colony.population}/
-            {detail?.population.max ?? colony.populationMax}
-          </span>
-        </span>
-        <span>
-          Lager:{' '}
-          <span className="text-swu-primary font-mono">
-            {detail?.storage.current ?? colony.storageUsed}/
-            {detail?.storage.max ?? colony.storageMax}
-          </span>
-        </span>
-        {detail && (
-          <span>
-            Orbit:{' '}
-            <span className="text-swu-muted font-mono">
-              {detail.orbitShips.length} Schiffe
-            </span>
-          </span>
-        )}
-      </div>
+      <ColonyStatusBar colony={colony} detail={detail} />
 
-      {/* Tabs */}
-      <div className="relative">
-        <div className="flex gap-0 border-b border-swu-border overflow-x-auto scrollbar-none">
-          {tabs
-            .filter((t) => t.show)
-            .map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={`px-4 py-1.5 text-xs whitespace-nowrap border-b-2 transition-colors ${activeTab === t.key ? 'border-swu-accent text-swu-accent' : 'border-transparent text-swu-muted hover:text-swu-primary'}`}
-              >
-                {t.label}
-              </button>
-            ))}
-        </div>
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-swu-bg to-transparent pointer-events-none md:hidden" />
-      </div>
+      <WorkModeNav
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
-      {detail?.surface?.hasUnderground && (
-        <div className="flex flex-wrap gap-1 text-[10px]">
-          {(['ALL', ...detail.surface.layers] as const).map((layer) => (
-            <button
-              key={layer}
-              onClick={() => setSurfaceLayer(layer)}
-              className={`rounded border px-2 py-1 ${surfaceLayer === layer ? 'border-swu-accent text-swu-accent' : 'border-swu-border text-swu-muted'}`}
-            >
-              {layer === 'ALL'
-                ? 'Alle Layer'
-                : layer === 'SURFACE'
-                  ? 'Oberfläche'
-                  : layer === 'UNDERGROUND'
-                    ? 'Untergrund'
-                    : 'Orbit'}
-            </button>
-          ))}
-        </div>
-      )}
-      {/* Main: Left (Grid+Storage) + Right (Tab content) */}
-      <div className="flex gap-3 flex-col lg:flex-row">
-        {/* LEFT: Grid + Storage (always visible) */}
-        <div className="lg:w-[440px] shrink-0 space-y-2 overflow-x-auto">
-          {orbitFields.length > 0 && (
+      {/* Main: Map-first Leitstand */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(560px,720px)_minmax(360px,1fr)]">
+        <ColonyMap
+          orbitFields={orbitFields}
+          surfaceFields={surfaceFields}
+          undergroundFields={undergroundFields}
+          selectedField={selectedField}
+          highlightedFields={highlightedFields}
+          isBuildMode={!!selectedBuilding}
+          buildingMap={buildingMap}
+          getBuildPreviewTitle={getBuildPreviewTitle}
+          onFieldClick={handleFieldClick}
+          onFieldMouseEnter={setHoveredBuildField}
+          onFieldMouseLeave={() => setHoveredBuildField(null)}
+        />
+
+        <div className="min-w-0 space-y-3">
+          {(activeTab === 'info' || activeTab === 'build') && (
             <div>
-              <div className="text-[9px] text-swu-orbit font-bold uppercase mb-0.5">
-                Orbit
-              </div>
-              <div className="grid grid-cols-10 gap-0">
-                {orbitFields.map((f) => (
-                  <FieldCell
-                    key={f.fieldIndex}
-                    field={f}
-                    buildingId={f.buildingId ?? undefined}
-                    buildingName={
-                      f.buildingId
-                        ? buildingMap[f.buildingId]?.nameShort ||
-                          buildingMap[f.buildingId]?.name
-                        : undefined
-                    }
-                    isSelected={selectedField?.fieldIndex === f.fieldIndex}
-                    isHighlighted={highlightedFields.has(f.fieldIndex)}
-                    isBuildMode={!!selectedBuilding}
-                    isFieldActive={f.isActive}
-                    buildPreviewTitle={getBuildPreviewTitle(f)}
-                    onMouseEnter={() => setHoveredBuildField(f)}
-                    onMouseLeave={() => setHoveredBuildField(null)}
-                    onClick={() => handleFieldClick(f)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-          <div>
-            <div className="text-[9px] text-swu-success font-bold uppercase mb-0.5">
-              Oberfläche
-            </div>
-            <div className="grid grid-cols-10 gap-0">
-              {surfaceFields.map((f) => (
-                <FieldCell
-                  key={f.fieldIndex}
-                  field={f}
-                  buildingId={f.buildingId ?? undefined}
-                  buildingName={
-                    f.buildingId
-                      ? buildingMap[f.buildingId]?.nameShort ||
-                        buildingMap[f.buildingId]?.name
+              {activeTab === 'build' && selectedBuilding ? (
+                <BuildInspector
+                  selectedBuilding={selectedBuilding}
+                  hoveredBuildField={
+                    hoveredBuildField &&
+                    highlightedFields.has(hoveredBuildField.fieldIndex)
+                      ? hoveredBuildField
+                      : null
+                  }
+                  buildingMap={buildingMap}
+                  commodityMap={commodityMap}
+                  storage={storage}
+                  deactivateAfterBuild={deactivateAfterBuild}
+                  onDeactivateAfterBuildChange={setDeactivateAfterBuild}
+                  onClearSelection={() => {
+                    setSelectedBuilding(null);
+                    setHoveredBuildField(null);
+                  }}
+                />
+              ) : (
+                <FieldInspector
+                  field={selectedField}
+                  building={
+                    selectedField?.buildingId
+                      ? buildingMap[selectedField.buildingId]
                       : undefined
                   }
-                  isSelected={selectedField?.fieldIndex === f.fieldIndex}
-                  isHighlighted={highlightedFields.has(f.fieldIndex)}
-                  isBuildMode={!!selectedBuilding}
-                  isFieldActive={f.isActive}
-                  buildPreviewTitle={getBuildPreviewTitle(f)}
-                  onMouseEnter={() => setHoveredBuildField(f)}
-                  onMouseLeave={() => setHoveredBuildField(null)}
-                  onClick={() => handleFieldClick(f)}
+                  buildingMap={buildingMap}
+                  commodityMap={commodityMap}
+                  terraformingDefs={terraformingDefs}
+                  selectedBuilding={selectedBuilding}
+                  onClearSelection={() => setSelectedField(null)}
+                  onTerraform={onTerraform}
+                  onUpgrade={onUpgradeBuilding}
+                  onDemolish={onDemolish}
+                  onToggle={onToggle}
                 />
-              ))}
-            </div>
-          </div>
-          {undergroundFields.length > 0 && (
-            <div>
-              <div className="text-[9px] text-swu-underground font-bold uppercase mb-0.5">
-                Untergrund
-              </div>
-              <div className="grid grid-cols-10 gap-0">
-                {undergroundFields.map((f) => (
-                  <FieldCell
-                    key={f.fieldIndex}
-                    field={f}
-                    buildingId={f.buildingId ?? undefined}
-                    buildingName={
-                      f.buildingId
-                        ? buildingMap[f.buildingId]?.nameShort ||
-                          buildingMap[f.buildingId]?.name
-                        : undefined
-                    }
-                    isSelected={selectedField?.fieldIndex === f.fieldIndex}
-                    isHighlighted={highlightedFields.has(f.fieldIndex)}
-                    isBuildMode={!!selectedBuilding}
-                    isFieldActive={f.isActive}
-                    buildPreviewTitle={getBuildPreviewTitle(f)}
-                    onMouseEnter={() => setHoveredBuildField(f)}
-                    onMouseLeave={() => setHoveredBuildField(null)}
-                    onClick={() => handleFieldClick(f)}
-                  />
-                ))}
-              </div>
+              )}
             </div>
           )}
 
-          {/* Storage table */}
-          {storage.length > 0 && (
-            <div className="bg-swu-surface border border-swu-border rounded">
-              <div className="px-2 py-1 border-b border-swu-border/50 text-[10px] font-bold text-swu-muted uppercase">
-                Lager ({storage.length})
-              </div>
-              <div className="divide-y divide-swu-border/20 max-h-[400px] overflow-y-auto">
-                {storage.map((item) => {
-                  const commodity = commodityMap[item.commodityId];
-                  const label = getStorageCommodityLabel(
-                    commodityMap,
-                    detail,
-                    item.commodityId,
-                  );
-                  const delta = detail?.productionDeltas.find(
-                    (d) => d.commodityId === item.commodityId,
-                  )?.amount;
-                  return (
-                    <div
-                      key={item.commodityId}
-                      className="flex items-center gap-2 px-2 py-0.5 text-[10px]"
-                      title={label}
-                    >
-                      <img
-                        src={commodityImage(item.commodityId, commodity?.name)}
-                        alt={label}
-                        title={label}
-                        className="h-5 w-5 object-contain"
-                        loading="lazy"
-                      />
-                      <span className="text-swu-muted truncate flex-1">
-                        {label}
-                      </span>
-                      <span className="font-mono text-swu-primary">
-                        {item.amount}
-                      </span>
-                      {delta != null && (
-                        <span
-                          className={`font-mono ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
-                        >
-                          {formatSignedAmount(delta)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT: Tab content */}
-        <div className="flex-1 min-w-0">
           {activeTab === 'info' && (
-            <PanelInfo
-              colony={colony}
-              detail={detail}
-              selectedField={selectedField}
-              buildingMap={buildingMap}
-              commodityMap={commodityMap}
-              terraformingDefs={terraformingDefs}
-              onTerraform={onTerraform}
-            />
+            <PanelInfo colony={colony} detail={detail} />
           )}
           {activeTab === 'orbit' && detail && (
             <PanelOrbit
@@ -1315,15 +1120,6 @@ export function ColonyDetail({
               storage={storage}
               commodityMap={commodityMap}
               selectedBuilding={selectedBuilding}
-              deactivateAfterBuild={deactivateAfterBuild}
-              onDeactivateAfterBuildChange={setDeactivateAfterBuild}
-              hoveredBuildField={
-                hoveredBuildField &&
-                highlightedFields.has(hoveredBuildField.fieldIndex)
-                  ? hoveredBuildField
-                  : null
-              }
-              buildingMap={buildingMap}
               onSelectBuilding={(b: BuildingDef) => {
                 setHoveredBuildField(null);
                 if (selectedBuilding?.id === b.id) setSelectedBuilding(null);
@@ -1441,31 +1237,16 @@ export function ColonyDetail({
                 Keine Crewdaten verfügbar. Bitte Backend/Seite neu laden.
               </div>
             ))}
+
+          {activeTab === 'info' && (
+            <SupplyDock
+              storage={storage}
+              detail={detail}
+              commodityMap={commodityMap}
+            />
+          )}
         </div>
       </div>
-
-      {/* Field Info Modal */}
-      {modalField && modalField.buildingId && (
-        <FieldInfoModal
-          buildingMap={buildingMap}
-          field={modalField}
-          building={buildingMap[modalField.buildingId]}
-          commodityMap={commodityMap}
-          onClose={() => setModalField(null)}
-          onUpgrade={(upgradeId) => {
-            onUpgradeBuilding(modalField.fieldIndex, upgradeId);
-            setModalField(null);
-          }}
-          onDemolish={() => {
-            onDemolish(modalField.fieldIndex);
-            setModalField(null);
-          }}
-          onToggle={() => {
-            onToggle(modalField.fieldIndex);
-            setModalField(null);
-          }}
-        />
-      )}
     </div>
   );
 }

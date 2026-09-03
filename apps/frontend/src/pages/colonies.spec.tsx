@@ -250,7 +250,7 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Energie:')).toBeTruthy();
+    expect(await screen.findByText('Energie')).toBeTruthy();
     expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
 
     emitSocket('COLONY_UPDATED', { colonyId: 1 });
@@ -283,7 +283,7 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Energie:')).toBeTruthy();
+    expect(await screen.findByText('Energie')).toBeTruthy();
     expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
 
     emitSocket('COLONY_UPDATED', { colonyId: 2 });
@@ -316,12 +316,12 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Lager (1)')).toBeTruthy();
-    const storageRow = screen
+    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
+    const storageCard = screen
       .getAllByTitle('Erz')
       .find((element) => element.tagName === 'DIV');
-    expect(storageRow?.textContent).toContain('0');
-    expect(storageRow?.textContent).toContain('+15');
+    expect(storageCard?.textContent).toContain('0');
+    expect(storageCard?.textContent).toContain('+15');
     expect(screen.queryByTitle('Ausbildungsgrad')).toBeNull();
   });
 
