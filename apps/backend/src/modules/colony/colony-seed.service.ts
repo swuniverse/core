@@ -29,10 +29,10 @@ const STU_STARTER_BUILDINGS_BY_FACTION_ID: Record<number, number> = {
 };
 
 const STARTING_COMMODITIES = [
-  { commodityId: 2, amount: 300 }, // Baumaterial
-  { commodityId: 4, amount: 150 }, // Transparistahl
-  { commodityId: 5, amount: 100 }, // Deuterium
-  { commodityId: 21, amount: 150 }, // Durastahl
+  { commodityId: 2, amount: 180 }, // Baumaterial
+  { commodityId: 4, amount: 50 }, // Transparistahl
+  { commodityId: 5, amount: 50 }, // Deuterium
+  { commodityId: 21, amount: 50 }, // Durastahl
 ];
 
 const FOLLOW_UP_STARTING_COMMODITIES = [
@@ -104,8 +104,8 @@ export class ColonySeedService {
       surfaceMask: surface.mask,
       surfaceWidth: surface.width,
       rotationFactor: surface.rotationFactor,
-      energy: 50,
-      energyMax: 100,
+      energy: 150,
+      energyMax: 150,
       population: 20,
       populationMax: 100,
       storageUsed: 0,
