@@ -289,6 +289,36 @@ export interface StarmapGenerateSystemsDto {
   limit?: number;
 }
 
+export interface StarmapGenerateTacticalGalaxyDto {
+  /** Deterministic placement seed. */
+  seed?: string;
+  /** Target number of systems; defaults to the 56-system tactical season. */
+  systemCount?: number;
+}
+
+export interface StarmapGenerateTacticalGalaxyResultDto
+  extends StarmapOperationResultDto {
+  seed: string;
+  systems: number;
+  routes: number;
+  wormholes: number;
+  reachableSystems: number;
+  nebulaFields: number;
+  regions: number;
+}
+
+export interface StarmapWorldResetTacticalDto {
+  seed: string;
+}
+
+export interface StarmapWorldResetTacticalResultDto {
+  layerId: number;
+  systems: number;
+  routes: number;
+  wormholes: number;
+  seed: string;
+}
+
 export interface StarmapRegenerateSystemDto {
   systemTypeId?: number;
   seed?: string;

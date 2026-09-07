@@ -8,6 +8,7 @@ import { ColonyStorage } from './entities/colony-storage.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
+import { AsteroidResourceDeposit } from './entities/asteroid-resource-deposit.entity';
 import {
   CelestialObject,
   CelestialObjectType,
@@ -112,11 +113,9 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
-    await this.generateFields(colony, { factionId, fields: surface.fields });
-    await this.createInitialStats(colony);
     await this.createInitialChangeable(colony);
     assertOwnedColony(colony);
-    await this.createInitialDepositMining(colony);
+    await this.createInitialDepositMining(colony, planet);
     await this.grantStartingResources(colony, STARTING_COMMODITIES);
 
     this.logger.log(
@@ -166,7 +165,7 @@ export class ColonySeedService {
     await this.createInitialStats(colony);
     await this.createInitialChangeable(colony);
     assertOwnedColony(colony);
-    await this.createInitialDepositMining(colony);
+    await this.createInitialDepositMining(colony, object);
     await this.grantStartingResources(
       colony,
       options.resources ?? FOLLOW_UP_STARTING_COMMODITIES,
@@ -328,7 +327,42 @@ export class ColonySeedService {
     );
   }
 
-  private async createInitialDepositMining(colony: OwnedColony): Promise<void> {
+  async ensureAsteroidDepositMining(
+    userId: number,
+    celestialObject: CelestialObject,
+  ): Promise<void> {
+    if (celestialObject.objectType !== CelestialObjectType.ASTEROID) return;
+    const asteroidDepositRepo = this.objectRepo.manager.getRepository(
+      AsteroidResourceDeposit,
+    );
+    const existing = await asteroidDepositRepo.count({
+      where: { userId, celestialObjectId: celestialObject.id },
+    });
+    if (existing > 0) return;
+    const deposits = this.gameData.getColonyClassDeposits(
+      celestialObject.classId ?? 0,
+    );
+    if (deposits.length === 0) return;
+    await asteroidDepositRepo.save(
+      deposits.map((deposit) =>
+        asteroidDepositRepo.create({
+          userId,
+          celestialObjectId: celestialObject.id,
+          commodityId: deposit.commodityId,
+          amountLeft: deposit.maxAmount,
+        }),
+      ),
+    );
+  }
+
+  private async createInitialDepositMining(
+    colony: OwnedColony,
+    celestialObject?: CelestialObject | null,
+  ): Promise<void> {
+    if (celestialObject?.objectType === CelestialObjectType.ASTEROID) {
+      await this.ensureAsteroidDepositMining(colony.userId, celestialObject);
+      return;
+    }
     const deposits = this.gameData.getColonyClassDeposits(colony.colonyClassId);
     if (deposits.length === 0) return;
     await this.depositMiningRepo.save(

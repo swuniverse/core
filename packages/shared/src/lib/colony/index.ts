@@ -1,3 +1,5 @@
+export * from './asteroid.js';
+
 export type ColonyTickEventType =
   | 'BUILDING_DEACTIVATED'
   | 'STORAGE_FULL'

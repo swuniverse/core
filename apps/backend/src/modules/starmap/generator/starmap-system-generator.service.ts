@@ -347,7 +347,7 @@ export class StarmapSystemGeneratorService {
           posX: asx,
           posY: asy,
           classId: asteroidClassId,
-          isColonizable: isHabitableByClass(asteroidClassId),
+          isColonizable: true,
         });
       }
     }

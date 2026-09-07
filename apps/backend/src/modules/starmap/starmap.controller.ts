@@ -40,6 +40,10 @@ import type {
   StarmapFillSectorDto,
   StarmapGalaxyFieldDto,
   StarmapGenerateSystemsDto,
+  StarmapGenerateTacticalGalaxyDto,
+  StarmapGenerateTacticalGalaxyResultDto,
+  StarmapWorldResetTacticalDto,
+  StarmapWorldResetTacticalResultDto,
   StarmapInfluenceAreaDto,
   StarmapInitializeGridDto,
   StarmapLayerDto,
@@ -154,6 +158,13 @@ export class StarmapController {
       this.explorationService,
     );
     return explored.fields;
+  }
+
+  @Get('layers/:id/wormholes')
+  listLayerWormholes(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapWormholeDto[]> {
+    return this.wormholeService.listForLayer(id);
   }
 
   @Get('systems/:id/grid')
@@ -301,6 +312,14 @@ export class StarmapController {
     return this.starmapAdminService.initializeDefaultStarWarsGalaxy();
   }
 
+  @Post('admin/world-reset/tactical')
+  @UseGuards(AdminGuard)
+  worldResetTactical(
+    @Body() body: StarmapWorldResetTacticalDto,
+  ): Promise<StarmapWorldResetTacticalResultDto> {
+    return this.starmapAdminService.worldResetTactical(body);
+  }
+
   @Delete('admin/layers/:id')
   @UseGuards(AdminGuard)
   deleteLayer(
@@ -327,6 +346,15 @@ export class StarmapController {
     @Body() body: ApplyStarWarsPresetOptionsDto = {},
   ): Promise<ApplyStarWarsPresetResultDto> {
     return this.starmapAdminService.applyStarWarsPreset(id, body);
+  }
+
+  @Post('admin/layers/:id/generate-tactical-galaxy')
+  @UseGuards(AdminGuard)
+  generateTacticalGalaxy(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapGenerateTacticalGalaxyDto = {},
+  ): Promise<StarmapGenerateTacticalGalaxyResultDto> {
+    return this.starmapAdminService.generateTacticalGalaxy(id, body);
   }
 
   @Post('admin/layers/:id/generate-systems')

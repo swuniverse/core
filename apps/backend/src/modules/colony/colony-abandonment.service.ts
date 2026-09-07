@@ -17,9 +17,11 @@ import { ColonyShipBuildQueue } from './entities/colony-ship-build-queue.entity'
 import { ColonyOrbitAssignment } from './entities/colony-orbit-assignment.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
+import { ColonyStorage } from './entities/colony-storage.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { Crew } from './entities/crew.entity';
 import { Colony } from './entities/colony.entity';
+import { CelestialObjectType } from '../starmap/entities/celestial-object.entity';
 
 @Injectable()
 export class ColonyAbandonmentService {
@@ -54,7 +56,7 @@ export class ColonyAbandonmentService {
   ): Promise<{ abandoned: true; colonyId: number }> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId, userId },
-      relations: ['fields', 'changeable'],
+      relations: ['fields', 'changeable', 'celestialObject'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     if (colony.isAbandoned)
@@ -69,13 +71,16 @@ export class ColonyAbandonmentService {
       throw new BadRequestException('Confirmation does not match colony name');
     }
 
+    const asteroid = colony.celestialObject?.objectType === CelestialObjectType.ASTEROID;
     await this.colonyEventService.createActionEvent({
       colonyId: colony.id,
       userId,
       type: ColonyEventType.COLONY_ABANDONED,
       severity: ColonyEventSeverity.WARNING,
       title: 'Kolonie aufgegeben',
-      message: `${colony.name} wurde aufgegeben. Gebäude und Storage bleiben zurück.`,
+      message: asteroid
+        ? `${colony.name} wurde aufgegeben. Der Asteroid bleibt für diesen Account erschöpft.`
+        : `${colony.name} wurde aufgegeben. Gebäude und Storage bleiben zurück.`,
       payload: { previousUserId: userId },
     });
 
@@ -84,6 +89,9 @@ export class ColonyAbandonmentService {
       this.crewTrainingQueueRepo.delete({ colonyId: colony.id }),
       this.shipBuildQueueRepo.delete({ colonyId: colony.id }),
       this.orbitAssignmentRepo.delete({ colonyId: colony.id }),
+      ...(asteroid
+        ? [this.colonyRepo.manager.getRepository(ColonyStorage).delete({ colonyId: colony.id })]
+        : []),
     ]);
 
     const crewAssignments = await this.crewAssignmentRepo.find({

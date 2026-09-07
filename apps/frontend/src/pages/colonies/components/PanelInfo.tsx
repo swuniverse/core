@@ -159,10 +159,20 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
         </div>
       )}
 
+      {detail?.asteroidExhausted && (
+        <div className="border border-amber-500/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-200">
+          Dieser Asteroid ist für deinen Account vollständig erschöpft. Weitere
+          Abbaugebäude bleiben deaktiviert; eine spätere Neubesiedlung liefert
+          keine Rohstoffe.
+        </div>
+      )}
+
       {detail?.deposits && detail.deposits.length > 0 && (
         <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
           <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-            Vorkommen
+            {colony.celestialObject?.objectType === 3
+              ? 'Asteroidenlagerstätten · accountgebunden'
+              : 'Vorkommen'}
           </div>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
             {detail.deposits.map(

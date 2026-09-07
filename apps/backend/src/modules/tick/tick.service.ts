@@ -121,7 +121,7 @@ export class TickService {
       const researchByUser = new Map<number, number>();
       const commodityProductionByUser = new Map<number, Map<number, number>>();
       const colonies = await this.colonyRepo.find({
-        relations: ['fields', 'stats', 'changeable'],
+        relations: ['fields', 'stats', 'changeable', 'celestialObject'],
       });
       processedColonyCount = colonies.length;
       for (const colony of colonies) {
@@ -233,7 +233,7 @@ export class TickService {
       const colonyIds = [...new Set(activeBuilds.map((f) => f.colonyId))];
       const colonies = await this.colonyRepo.find({
         where: colonyIds.map((id) => ({ id })),
-        relations: ['fields', 'stats', 'changeable'],
+        relations: ['fields', 'stats', 'changeable', 'celestialObject'],
       });
 
       for (const colony of colonies) {

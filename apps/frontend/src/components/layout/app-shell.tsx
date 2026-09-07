@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { ColonyTickReportPayload } from '@swuniverse/shared';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
 import { BottomNav } from './bottom-nav';
 import { useSocket } from '../../hooks/use-socket';
+import type { UserProfile } from '@swuniverse/shared';
+import { api } from '../../services/api';
+import { useAuthStore } from '../../stores/auth.store';
 
 function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   const first = payload.events[0];
@@ -28,6 +31,19 @@ function formatColonyTickReport(payload: ColonyTickReportPayload): string {
 
 export function AppShell() {
   const [tickReports, setTickReports] = useState<string[]>([]);
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    void api.get<UserProfile>('/auth/me').then(setUser).catch(() => undefined);
+  }, [setUser]);
+
+  useEffect(() => {
+    if (!user || user.onboardingCompleted || location.pathname === '/claim-colony') return;
+    navigate('/claim-colony', { replace: true });
+  }, [location.pathname, navigate, user]);
   useSocket();
   useSocket('COLONY_TICK_REPORT', (payload) => {
     const message = formatColonyTickReport(payload as ColonyTickReportPayload);

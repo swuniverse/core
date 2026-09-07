@@ -354,6 +354,7 @@ export interface ColonyDetailV2 {
     delta: number;
     depleted: boolean;
   }>;
+  asteroidExhausted?: boolean;
   activeBuildJobs: Array<{
     fieldIndex: number;
     buildingId: number;
@@ -718,8 +719,13 @@ export interface Colony {
   storageItemCount?: number;
   posX?: number;
   posY?: number;
+  celestialObject?: {
+    name: string | null;
+    description: string | null;
+    classId: number | null;
+    objectType?: number;
+  };
   starSystem?: { name: string; cx?: number; cy?: number; layerId?: number };
-  celestialObject?: { name: string | null; description: string | null; classId: number | null };
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
   detailV2?: ColonyDetailV2;
