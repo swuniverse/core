@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 
-type Severity = 'error' | 'warning';
+type Severity = 'error' | 'warning' | 'info';
 
 interface Toast {
   id: number;
@@ -11,6 +11,7 @@ interface Toast {
 interface ToastContextValue {
   error: (message: string) => void;
   warning: (message: string) => void;
+  info: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -39,6 +40,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const value: ToastContextValue = {
     error: useCallback((msg: string) => add(msg, 'error'), [add]),
     warning: useCallback((msg: string) => add(msg, 'warning'), [add]),
+    info: useCallback((msg: string) => add(msg, 'info'), [add]),
   };
 
   return (
@@ -49,10 +51,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
-            className={`pointer-events-auto cursor-pointer px-4 py-2 rounded border text-xs max-w-sm shadow-lg animate-slide-in-right ${
+            className={`pointer-events-auto cursor-pointer rounded border px-4 py-2 text-xs max-w-sm shadow-lg animate-slide-in-right ${
               t.severity === 'error'
                 ? 'bg-red-900/90 border-red-500/60 text-red-200'
-                : 'bg-yellow-900/90 border-yellow-500/60 text-yellow-200'
+                : t.severity === 'warning'
+                  ? 'bg-yellow-900/90 border-yellow-500/60 text-yellow-200'
+                  : 'bg-swu-surface/95 border-swu-accent/60 text-swu-accent'
             }`}
           >
             {t.message}

@@ -96,10 +96,10 @@ export function SpacecraftDetailPage() {
     );
 
   return (
-    <div className="p-3 md:p-6">
+    <div className="p-2 pb-[calc(56px+env(safe-area-inset-bottom,0px)+8px)] md:p-4 md:pb-4">
       <Link
         to="/spacecraft"
-        className="text-xs text-swu-muted hover:text-swu-accent mb-3 inline-block"
+        className="mb-2 inline-block text-xs text-swu-muted hover:text-swu-accent"
       >
         ← Schiffsliste
       </Link>
@@ -107,7 +107,7 @@ export function SpacecraftDetailPage() {
       <SpacecraftMessageBar shipId={ship.id} />
       <ShipHeaderTable ship={ship} />
 
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)_minmax(260px,1fr)]">
+      <div className="mt-2 grid gap-2 xl:grid-cols-[minmax(360px,0.9fr)_minmax(360px,1.35fr)_minmax(250px,0.75fr)] xl:items-start">
         <NavigationPanel
           ship={ship}
           onShipUpdate={fetchShip}
@@ -137,7 +137,6 @@ export function SpacecraftDetailPage() {
         />
       </div>
 
-
       {ship.isColonizer && (
         <ColonizationPanel
           ship={ship}
@@ -148,7 +147,7 @@ export function SpacecraftDetailPage() {
         />
       )}
 
-      <div className="mt-3">
+      <div className="mt-2">
         <CargoPanel
           shipId={ship.id}
           cargoMax={ship.cargoMax ?? 0}
