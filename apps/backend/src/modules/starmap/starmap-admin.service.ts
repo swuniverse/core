@@ -24,6 +24,7 @@ import { MapRegion } from './entities/map-region.entity';
 import { BorderType } from './entities/border-type.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
+import { Wormhole } from './entities/wormhole.entity';
 import {
   STAR_WARS_HYPERSPACE_ROUTES,
   STAR_WARS_LANDMARKS,
@@ -50,6 +51,10 @@ import type {
   StarmapLayerOverviewDto,
   StarmapMapRegionDto,
   StarmapOperationResultDto,
+  StarmapGenerateTacticalGalaxyDto,
+  StarmapGenerateTacticalGalaxyResultDto,
+  StarmapWorldResetTacticalDto,
+  StarmapWorldResetTacticalResultDto,
   StarmapRegenerateSystemDto,
   StarmapSectorOverviewEntry,
   StarmapSystemFieldDto,
@@ -179,7 +184,7 @@ export class StarmapAdminService {
     const defaults = [
       {
         key: 'EMPTY_SPACE',
-        name: 'Empty Space',
+        name: 'Weltraum',
         passable: true,
         energyCost: 1,
         damage: 0,
@@ -190,7 +195,7 @@ export class StarmapAdminService {
       },
       {
         key: 'STAR_SYSTEM',
-        name: 'Star System',
+        name: 'Sternensystem',
         passable: true,
         energyCost: 1,
         damage: 0,
@@ -201,7 +206,7 @@ export class StarmapAdminService {
       },
       {
         key: 'STAR_CORE',
-        name: 'Star Core',
+        name: 'Sternkern',
         passable: false,
         energyCost: 99,
         damage: 5,
@@ -212,7 +217,7 @@ export class StarmapAdminService {
       },
       {
         key: 'PLANET_ORBIT',
-        name: 'Planet Orbit',
+        name: 'Planetenorbit',
         passable: true,
         energyCost: 1,
         damage: 0,
@@ -223,7 +228,7 @@ export class StarmapAdminService {
       },
       {
         key: 'MOON_ORBIT',
-        name: 'Moon Orbit',
+        name: 'Mondorbit',
         passable: true,
         energyCost: 1,
         damage: 0,
@@ -234,7 +239,7 @@ export class StarmapAdminService {
       },
       {
         key: 'ASTEROID_CLUSTER',
-        name: 'Asteroid Cluster',
+        name: 'Asteroidencluster',
         passable: true,
         energyCost: 2,
         damage: 1,
@@ -245,7 +250,7 @@ export class StarmapAdminService {
       },
       {
         key: 'DEEP_SPACE',
-        name: 'Deep Space',
+        name: 'Tiefer Weltraum',
         passable: true,
         energyCost: 1,
         damage: 0,
@@ -256,7 +261,7 @@ export class StarmapAdminService {
       },
       {
         key: 'NEBULA',
-        name: 'Nebula',
+        name: 'Nebel',
         passable: true,
         energyCost: 3,
         damage: 0,
@@ -267,7 +272,7 @@ export class StarmapAdminService {
       },
       {
         key: 'ASTEROID_FIELD',
-        name: 'Asteroid Field',
+        name: 'Asteroidenfeld',
         passable: true,
         energyCost: 2,
         damage: 1,
@@ -278,7 +283,7 @@ export class StarmapAdminService {
       },
       {
         key: 'BLOCKED',
-        name: 'Blocked',
+        name: 'Blockiert',
         passable: false,
         energyCost: 99,
         damage: 0,
@@ -289,11 +294,18 @@ export class StarmapAdminService {
       },
     ];
 
-    const missing = defaults.filter((d) => !existingKeys.has(d.key));
+    const missing = defaults.filter((entry) => !existingKeys.has(entry.key));
     if (missing.length > 0) {
       await this.fieldTypeRepo.save(
         missing.map((entry) => this.fieldTypeRepo.create(entry)),
       );
+    }
+    for (const entry of defaults) {
+      const fieldType = existing.find((candidate) => candidate.key === entry.key);
+      if (fieldType && fieldType.name !== entry.name) {
+        fieldType.name = entry.name;
+        await this.fieldTypeRepo.save(fieldType);
+      }
     }
     return this.listFieldTypes();
   }
@@ -411,6 +423,89 @@ export class StarmapAdminService {
       generated: generatedPlayableSystems,
     };
   }
+
+  async worldResetTactical(
+    input: StarmapWorldResetTacticalDto,
+  ): Promise<StarmapWorldResetTacticalResultDto> {
+    const seed = input.seed?.trim();
+    if (!seed) throw new BadRequestException('Tactical reset requires a seed');
+    await this.ensureDefaultFieldTypes();
+    return this.entityManager.transaction(async (manager) => {
+      await this.deleteWorldState(manager);
+      const layerRepo = manager.getRepository(Layer);
+      const fieldRepo = manager.getRepository(GalaxyField);
+      await layerRepo
+        .createQueryBuilder()
+        .update(Layer)
+        .set({ isDefault: false })
+        .execute();
+      const layer = await layerRepo.save(layerRepo.create({
+        name: 'Tactical Season 1', width: 48, height: 48, sectorSize: 12,
+        isDefault: true, isFinished: true, isHidden: false,
+      }));
+      const empty = await manager.getRepository(GalaxyFieldType).findOneBy({ key: 'EMPTY_SPACE' });
+      if (!empty) throw new NotFoundException('EMPTY_SPACE field type not found');
+      const fields: GalaxyField[] = [];
+      for (let cy = 1; cy <= 48; cy++) {
+        for (let cx = 1; cx <= 48; cx++) {
+          fields.push(fieldRepo.create({
+            layerId: layer.id, cx, cy, fieldTypeId: empty.id, systemTypeId: null,
+            factionZone: FactionZone.UNKNOWN, starSystemId: null, isPassable: empty.passable,
+            energyCost: empty.energyCost, damage: empty.damage, effectFlags: empty.effects,
+            adminRegionKey: null,
+          }));
+        }
+      }
+      await fieldRepo.save(fields, { chunk: 500 });
+      const generated = await this.generateTacticalGalaxyInTransaction(manager, layer.id, {
+        seed, systemCount: 56,
+      });
+      return {
+        layerId: layer.id, systems: generated.systems, routes: generated.routes,
+        wormholes: generated.wormholes, seed,
+      };
+    });
+  }
+
+  private async deleteWorldState(manager: EntityManager): Promise<void> {
+    await manager.query('DELETE FROM "colony_orbit_assignments"');
+    await manager.query('DELETE FROM "crew_assignments"');
+    await manager.query('DELETE FROM "spacecraft_torpedo_storage"');
+    await manager.query('DELETE FROM "spacecraft_modules"');
+    await manager.query('DELETE FROM "cargo_items"');
+    await manager.query('DELETE FROM "colony_scans"');
+    await manager.query('DELETE FROM "colony_ship_build_queue"');
+    await manager.query('DELETE FROM "colony_fabrication_queue"');
+    await manager.query('DELETE FROM "colony_crew_training_queue"');
+    await manager.query('DELETE FROM "colony_ship_buildplans"');
+    await manager.query('DELETE FROM "colony_deposit_mining"');
+    await manager.query('DELETE FROM "colony_events"');
+    await manager.query('DELETE FROM "colony_changeable"');
+    await manager.query('DELETE FROM "colony_stats"');
+    await manager.query('DELETE FROM "colony_storage"');
+    await manager.query('DELETE FROM "asteroid_resource_deposits"');
+    await manager.query('DELETE FROM "colony_fields"');
+    await manager.query('DELETE FROM "research"');
+    await manager.query('DELETE FROM "exploration_states"');
+    await manager.query('DELETE FROM "system_explorations"');
+    await manager.query('DELETE FROM "influence_areas"');
+    await manager.query('DELETE FROM "onboarding_selections"');
+    await manager.query(
+      'UPDATE "users" SET "onboardingCompleted" = false, "starterColonyId" = NULL, "starterShipId" = NULL',
+    );
+    await manager.query('DELETE FROM "colonies"');
+    await manager.query('DELETE FROM "hyperspace_route_segments"');
+    await manager.query('DELETE FROM "hyperspace_routes"');
+    await manager.query('DELETE FROM "wormholes"');
+    await manager.query('DELETE FROM "planet_fields"');
+    await manager.query('DELETE FROM "system_fields"');
+    await manager.query('DELETE FROM "celestial_objects"');
+    await manager.query('DELETE FROM "galaxy_fields"');
+    await manager.query('DELETE FROM "map_regions"');
+    await manager.query('DELETE FROM "star_systems"');
+    await manager.query('DELETE FROM "layers"');
+  }
+
 
   async deleteLayer(layerId: number): Promise<StarmapOperationResultDto> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
@@ -823,7 +918,6 @@ export class StarmapAdminService {
     const maxX = Math.min((input.sectorX + 1) * layer.sectorSize, layer.width);
     const minY = input.sectorY * layer.sectorSize + 1;
     const maxY = Math.min((input.sectorY + 1) * layer.sectorSize, layer.height);
-
     const fields = await this.galaxyFieldRepo
       .createQueryBuilder('field')
       .where('field.layerId = :layerId', { layerId: input.layerId })
@@ -836,7 +930,6 @@ export class StarmapAdminService {
       fieldType = await this.fieldTypeRepo.findOneBy({ id: input.fieldTypeId });
       if (!fieldType) throw new NotFoundException('Field type not found');
     }
-
     for (const field of fields) {
       if (fieldType) {
         field.fieldTypeId = fieldType.id;
@@ -845,15 +938,10 @@ export class StarmapAdminService {
         field.damage = fieldType.damage;
         field.effectFlags = fieldType.effects;
       }
-      if (input.systemTypeId !== undefined) {
-        field.systemTypeId = input.systemTypeId;
-      }
-      if (input.factionZone !== undefined)
-        field.factionZone = input.factionZone as FactionZone;
-      if (input.adminRegionKey !== undefined)
-        field.adminRegionKey = input.adminRegionKey;
+      if (input.systemTypeId !== undefined) field.systemTypeId = input.systemTypeId;
+      if (input.factionZone !== undefined) field.factionZone = input.factionZone as FactionZone;
+      if (input.adminRegionKey !== undefined) field.adminRegionKey = input.adminRegionKey;
     }
-
     await this.galaxyFieldRepo.save(fields, { chunk: 500 });
     return { updated: fields.length };
   }
@@ -892,6 +980,363 @@ export class StarmapAdminService {
 
     return this.toSystemListItemDto(system);
   }
+  async generateTacticalGalaxy(
+    layerId: number,
+    options: StarmapGenerateTacticalGalaxyDto = {},
+  ): Promise<StarmapGenerateTacticalGalaxyResultDto> {
+    return this.entityManager.transaction((manager) =>
+      this.generateTacticalGalaxyInTransaction(manager, layerId, options),
+    );
+  }
+
+  private async generateTacticalGalaxyInTransaction(
+    manager: EntityManager,
+    layerId: number,
+    options: StarmapGenerateTacticalGalaxyDto,
+  ): Promise<StarmapGenerateTacticalGalaxyResultDto> {
+    const layerRepo = manager.getRepository(Layer);
+    const fieldRepo = manager.getRepository(GalaxyField);
+    const systemRepo = manager.getRepository(StarSystem);
+    const layer = await layerRepo.findOneBy({ id: layerId });
+    if (!layer) throw new NotFoundException('Layer not found');
+    if (layer.width !== 48 || layer.height !== 48 || layer.sectorSize !== 12) {
+      throw new BadRequestException(
+        'Tactical generation requires a 48x48 layer with sector size 12',
+      );
+    }
+    if (await systemRepo.count({ where: { layerId } })) {
+      throw new BadRequestException(
+        'Tactical generation requires an empty layer without star systems',
+      );
+    }
+
+    await this.ensureDefaultFieldTypes();
+    const fieldTypes = await manager.getRepository(GalaxyFieldType).find();
+    const typeByKey = new Map(fieldTypes.map((type) => [type.key, type]));
+    const empty = typeByKey.get('EMPTY_SPACE');
+    if (!empty) {
+      throw new NotFoundException('EMPTY_SPACE field type not found');
+    }
+
+    const fields = await fieldRepo.find({
+      where: { layerId },
+      order: { cy: 'ASC', cx: 'ASC' },
+    });
+    if (fields.length !== 48 * 48) {
+      throw new BadRequestException('Initialize the layer grid before generating');
+    }
+
+    const seed = options.seed?.trim() || `tactical-${layer.id}`;
+    const systemCount = Math.max(24, Math.min(options.systemCount ?? 56, 64));
+    const positions = this.createTacticalSystemPositions(48, 48, systemCount, seed);
+    const byCoordinate = new Map(fields.map((field) => [`${field.cx},${field.cy}`, field]));
+    for (const field of fields) {
+      field.fieldTypeId = empty.id;
+      field.systemTypeId = null;
+      field.starSystemId = null;
+      field.isPassable = empty.passable;
+      field.energyCost = empty.energyCost;
+      field.damage = empty.damage;
+      field.effectFlags = null;
+      field.effects = null;
+      field.passableOverride = null;
+      field.adminRegionKey = this.tacticalRegionFor(field.cx, field.cy, 48, 48);
+      field.factionZone = this.tacticalFactionZoneFor(field.cx, field.cy, 48, 48);
+    }
+    const roles = this.tacticalSystemRoles(positions.length);
+    for (let index = 0; index < positions.length; index++) {
+      const field = byCoordinate.get(`${positions[index].x},${positions[index].y}`);
+      if (!field) continue;
+      field.fieldTypeId = empty.id;
+      field.systemTypeId = this.tacticalSystemTypeFor(roles[index], seed, index);
+      field.isPassable = empty.passable;
+      field.energyCost = empty.energyCost;
+      field.damage = empty.damage;
+    }
+    await fieldRepo.save(fields, { chunk: 500 });
+
+    const systems: StarSystem[] = [];
+    for (let index = 0; index < positions.length; index++) {
+      const position = positions[index];
+      const systemTypeId = this.tacticalSystemTypeFor(roles[index], seed, index);
+      const name = `Tactical-${index + 1}`;
+      const layout = this.systemGenerator.createLayout(
+        name,
+        systemTypeId,
+        `${seed}:${index}`,
+      );
+      const system = await systemRepo.save(systemRepo.create({
+        name, layerId, cx: position.x, cy: position.y, systemTypeId,
+        maxX: layout.width, maxY: layout.height, bonusFields: this.rollBonusFieldAmount(),
+      }));
+      const field = byCoordinate.get(`${position.x},${position.y}`);
+      if (!field) throw new BadRequestException('Tactical system position is outside the layer');
+      field.starSystemId = system.id;
+      field.adminRegionKey = `TACTICAL_${roles[index]}`;
+      systems.push(system);
+      await this.persistGeneratedLayoutInTransaction(manager, system, layout);
+    }
+    await fieldRepo.save(fields, { chunk: 500 });
+    await this.createTacticalRoutes(manager, layerId, systems, roles, seed);
+    const reachableSystems = this.validateTacticalReachability(fields, systems, roles);
+    return {
+      generated: systems.length, seed, systems: systems.length, routes: 3,
+      wormholes: 1, reachableSystems, nebulaFields: 0,
+      regions: 5,
+    };
+  }
+
+  private async createTacticalRoutes(
+    manager: EntityManager,
+    layerId: number,
+    systems: StarSystem[],
+    roles: string[],
+    seed: string,
+  ): Promise<void> {
+    const routeRepo = manager.getRepository(HyperspaceRoute);
+    const segmentRepo = manager.getRepository(HyperspaceRouteSegment);
+    const wormholeRepo = manager.getRepository(Wormhole);
+    const systemsForRole = (role: string) =>
+      systems.filter((_, index) => roles[index] === role);
+    const distance = (a: StarSystem, b: StarSystem) =>
+      Math.abs(a.cx - b.cx) + Math.abs(a.cy - b.cy);
+    const closest = (from: StarSystem, candidates: StarSystem[]) =>
+      [...candidates].sort(
+        (a, b) => distance(from, a) - distance(from, b) || a.id - b.id,
+      )[0];
+    const chain = (initial: StarSystem, remaining: StarSystem[]) => {
+      const ordered = [initial];
+      const candidates = [...remaining];
+      while (candidates.length) {
+        const next = closest(ordered[ordered.length - 1], candidates);
+        ordered.push(next);
+        candidates.splice(candidates.indexOf(next), 1);
+      }
+      return ordered;
+    };
+    const expansion = systemsForRole('EXPANSION');
+    const startExpansion = [...systemsForRole('START'), ...expansion];
+    const trade = systemsForRole('TRADE');
+    const border = systemsForRole('BORDER');
+    const anomaly = systemsForRole('ANOMALY');
+    if (
+      trade.length < 8 ||
+      expansion.length < 15 ||
+      border.length < 5 ||
+      anomaly.length < 2 ||
+      !startExpansion.length
+    ) {
+      throw new BadRequestException(
+        'Tactical topology requires all tactical roles',
+      );
+    }
+    const leftExpansion = [...expansion].sort(
+      (a, b) => a.cx - b.cx || a.id - b.id,
+    )[0];
+    const rightExpansion = [...expansion].sort(
+      (a, b) => b.cx - a.cx || a.id - b.id,
+    )[0];
+    const rimBorder = closest(leftExpansion, border);
+    const frontierSystems = border.filter((system) => system.id !== rimBorder.id);
+    const routeSpecs = [
+      {
+        key: 'corellian-trade-spine',
+        name: 'Corellian Trade Spine',
+        color: '#facc15',
+        systems: chain(closest(trade[0], startExpansion), trade),
+      },
+      {
+        key: 'rimward-passage',
+        name: 'Rimward Passage',
+        color: '#60a5fa',
+        systems: [leftExpansion, rimBorder, rightExpansion],
+      },
+      {
+        key: 'frontier-run',
+        name: 'Frontier Run',
+        color: '#a78bfa',
+        systems: chain(frontierSystems[0], [...frontierSystems.slice(1), ...anomaly]),
+      },
+    ];
+    for (let routeIndex = 0; routeIndex < routeSpecs.length; routeIndex++) {
+      const spec = routeSpecs[routeIndex];
+      const route = await routeRepo.save(
+        routeRepo.create({
+          layerId,
+          key: spec.key,
+          name: spec.name,
+          color: spec.color,
+          sortOrder: routeIndex,
+        }),
+      );
+      await segmentRepo.save(
+        spec.systems.slice(1).map((to, index) =>
+          segmentRepo.create({
+            routeId: route.id,
+            fromSystemId: spec.systems[index].id,
+            toSystemId: to.id,
+            sortOrder: index,
+            controlPointJson: [],
+          }),
+        ),
+      );
+    }
+    await wormholeRepo.save(
+      wormholeRepo.create({
+        entryLayerId: layerId,
+        entryCx: anomaly[0].cx,
+        entryCy: anomaly[0].cy,
+        exitLayerId: layerId,
+        exitCx: anomaly[1].cx,
+        exitCy: anomaly[1].cy,
+        isBidirectional: true,
+        isRandomExit: false,
+        name: `Tactical Anomaly ${seed}`,
+        isActive: true,
+      }),
+    );
+  }
+
+  private validateTacticalReachability(fields: GalaxyField[], systems: StarSystem[], roles: string[]): number {
+    const passable = new Set(fields.filter((field) => field.isPassable).map((field) => `${field.cx},${field.cy}`));
+    const start = systems[roles.indexOf('START')];
+    if (!start) throw new BadRequestException('Tactical topology requires a start system');
+    const seen = new Set([`${start.cx},${start.cy}`]);
+    const pending = [{ x: start.cx, y: start.cy }];
+    while (pending.length) {
+      const current = pending.shift()!;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const key = `${current.x + dx},${current.y + dy}`;
+        if (passable.has(key) && !seen.has(key)) {
+          seen.add(key);
+          pending.push({ x: current.x + dx, y: current.y + dy });
+        }
+      }
+    }
+    const reachable = systems.filter((system) => seen.has(`${system.cx},${system.cy}`)).length;
+    if (reachable !== systems.length) throw new BadRequestException('Tactical topology has unreachable systems');
+    return reachable;
+  }
+
+  private async persistGeneratedLayoutInTransaction(
+    manager: EntityManager,
+    system: StarSystem,
+    layout: ReturnType<StarmapSystemGeneratorService['createLayout']>,
+  ): Promise<void> {
+    const fieldTypeRepo = manager.getRepository(GalaxyFieldType);
+    const objectRepo = manager.getRepository(CelestialObject);
+    const systemFieldRepo = manager.getRepository(SystemField);
+    const fieldTypes = await fieldTypeRepo.find();
+    const fieldTypeByKey = new Map(fieldTypes.map((fieldType) => [fieldType.key, fieldType]));
+    const fieldTypeById = new Map(fieldTypes.map((fieldType) => [fieldType.id, fieldType]));
+    const objects = await objectRepo.save(layout.objects.map((object) => objectRepo.create({
+      systemId: system.id, objectType: object.objectType, name: object.name,
+      posX: object.posX, posY: object.posY, classId: object.classId,
+      isColonizable: object.isColonizable,
+    })));
+    const objectByKey = new Map<string, CelestialObject>();
+    layout.objects.forEach((object, index) => {
+      const savedObject = objects[index];
+      if (savedObject) objectByKey.set(object.key, savedObject);
+    });
+    const rows = layout.fields.map((field) => {
+      const fieldType = field.fieldTypeId
+        ? fieldTypeById.get(field.fieldTypeId)
+        : (fieldTypeByKey.get(field.fieldTypeKey) ?? fieldTypeByKey.get('EMPTY_SPACE'));
+      if (!fieldType) throw new NotFoundException(`Field type ${field.fieldTypeId ?? field.fieldTypeKey} not found`);
+      const celestialObject = field.objectKey ? (objectByKey.get(field.objectKey) ?? null) : null;
+      return systemFieldRepo.create({
+        starSystemId: system.id, sx: field.sx, sy: field.sy, fieldTypeId: fieldType.id,
+        celestialObjectId: celestialObject?.id ?? null, isPassable: fieldType.passable,
+        energyCost: fieldType.energyCost, damage: fieldType.damage, effects: fieldType.effects,
+        regionKey: field.regionKey ?? null, adminRegionKey: field.adminRegionKey ?? null,
+        influenceAreaId: field.influenceAreaId ?? null, borderMask: field.borderMask ?? null,
+      });
+    });
+    await systemFieldRepo.save(rows, { chunk: 500 });
+  }
+
+  private createTacticalSystemPositions(
+    width: number,
+    height: number,
+    target: number,
+    seed: string,
+  ): Array<{ x: number; y: number }> {
+    const clusters = [
+      { x: 0.30, y: 0.34, weight: 8 },
+      { x: 0.67, y: 0.35, weight: 8 },
+      { x: 0.46, y: 0.62, weight: 8 },
+      { x: 0.22, y: 0.74, weight: 5 },
+      { x: 0.78, y: 0.72, weight: 5 },
+    ];
+    const result: Array<{ x: number; y: number }> = [];
+    const hash = (value: string) => this.hashString(`${seed}:${value}`);
+    const addCandidate = (x: number, y: number) => {
+      const clamped = {
+        x: Math.max(2, Math.min(width - 1, x)),
+        y: Math.max(2, Math.min(height - 1, y)),
+      };
+      if (
+        result.some(
+          (existing) =>
+            Math.abs(existing.x - clamped.x) + Math.abs(existing.y - clamped.y) < 3,
+        )
+      ) return;
+      result.push(clamped);
+    };
+
+    for (let index = 0; result.length < target && index < target * 30; index++) {
+      const cluster = clusters[index % clusters.length];
+      const h1 = hash(`system:${index}:x`);
+      const h2 = hash(`system:${index}:y`);
+      const spread = result.length < 18 ? 7 : 11;
+      const x = Math.round(cluster.x * width + ((h1 % (spread * 2 + 1)) - spread));
+      const y = Math.round(cluster.y * height + ((h2 % (spread * 2 + 1)) - spread));
+      addCandidate(x, y);
+    }
+    return result;
+  }
+
+
+  private tacticalRegionFor(x: number, y: number, width: number, height: number): string {
+    const nx = x / width;
+    const ny = y / height;
+    if (nx < 0.1 || nx > 0.9 || ny < 0.1 || ny > 0.9) return 'WILD_SPACE';
+    if (nx < 0.2 || nx > 0.8 || ny < 0.18 || ny > 0.82) return 'OUTER_RIM';
+    if (nx > 0.4 && nx < 0.6 && ny > 0.35 && ny < 0.65) return 'CORE';
+    return 'MID_RIM';
+  }
+
+  private tacticalFactionZoneFor(x: number, y: number, width: number, height: number): FactionZone {
+    if (x < width * 0.35 && y < height * 0.55) return FactionZone.REBEL;
+    if (x > width * 0.65 && y > height * 0.55) return FactionZone.EMPIRE;
+    if (x > width * 0.35 && x < width * 0.65) return FactionZone.CONTESTED;
+    return FactionZone.NEUTRAL;
+  }
+
+  private tacticalSystemRoles(count: number): string[] {
+    const roles = [
+      ...Array(12).fill('START'),
+      ...Array(count >= 56 ? 20 : 15).fill('EXPANSION'),
+      ...Array(count >= 56 ? 12 : 8).fill('TRADE'),
+      ...Array(count >= 56 ? 8 : 5).fill('BORDER'),
+      ...Array(count >= 56 ? 4 : 2).fill('ANOMALY'),
+    ];
+    return roles.slice(0, count);
+  }
+
+  private tacticalSystemTypeFor(role: string, seed: string, index: number): number {
+    const picks: Record<string, number[]> = {
+      START: [1057, 1058, 1059, 1060],
+      EXPANSION: [1049, 1050, 1051, 1052, 1031, 1032, 1033],
+      TRADE: [1050, 1051, 1023, 1024, 1025],
+      BORDER: [1069, 1070, 1041, 1042, 1043],
+      ANOMALY: [1061, 1062, 1063, 1067, 1071, 1072],
+    };
+    const candidates = picks[role] ?? picks.EXPANSION;
+    return candidates[this.hashString(`${seed}:${role}:${index}`) % candidates.length];
+  }
+
 
   async generateSystemsForLayer(
     layerId: number,

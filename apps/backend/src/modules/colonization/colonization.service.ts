@@ -18,6 +18,7 @@ import {
 } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-deposit.entity';
 import { ColonySeedService } from '../colony/colony-seed.service';
 import { ColonyEventService } from '../colony/colony-event.service';
 import {
@@ -382,6 +383,19 @@ export class ColonizationService {
     if (existing && !existing.isAbandoned) {
       reasons.push('Ziel ist bereits kolonisiert');
     }
+    if (target.objectType === CelestialObjectType.ASTEROID) {
+      const deposits = await this.objectRepo.manager
+        .getRepository(AsteroidResourceDeposit)
+        .find({
+          where: { userId, celestialObjectId: target.id },
+        });
+      if (
+        deposits.length > 0 &&
+        deposits.every((deposit) => deposit.amountLeft <= 0)
+      ) {
+        reasons.push('Dieser Asteroid ist für dich erschöpft');
+      }
+    }
 
     if (limitType) {
       const limitStatus = status.limits[limitType];
@@ -453,19 +467,19 @@ export class ColonizationService {
     if (!check.canColonize) {
       throw new BadRequestException(check.reasons.join('; '));
     }
-
-    const [user, ship] = await Promise.all([
+    const [user, ship, target] = await Promise.all([
       this.getUser(userId),
       this.shipRepo.findOne({ where: { id: shipId, userId } }),
+      this.objectRepo.findOneBy({ id: celestialObjectId }),
     ]);
     if (!ship) throw new NotFoundException('Kolonieschiff nicht gefunden');
+    if (!target) throw new NotFoundException('Ziel nicht gefunden');
     const shipClass = await this.shipClassRepo.findOneBy({
       id: ship.shipClassId,
     });
     if (!shipClass?.colonizationBuildingId) {
       throw new BadRequestException('Schiff kann keine Kolonie gründen');
     }
-
     const abandonedColony = await this.colonyRepo.findOne({
       where: { celestialObjectId, isAbandoned: true },
       relations: ['changeable'],
@@ -478,6 +492,9 @@ export class ColonizationService {
           celestialObjectId,
           buildingId: shipClass.colonizationBuildingId,
         });
+    if (target.objectType === CelestialObjectType.ASTEROID) {
+      await this.colonySeedService.ensureAsteroidDepositMining(userId, target);
+    }
 
     await this.shipRepo.delete({ id: ship.id, userId });
     await this.colonyEventService.createActionEvent({

@@ -6,6 +6,7 @@ import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { ColonyEvent } from '../colony/entities/colony-event.entity';
+import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-deposit.entity';
 import { ColonyModule } from '../colony/colony.module';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
@@ -20,6 +21,7 @@ import { ResearchModule } from '../research/research.module';
       Colony,
       ColonyChangeable,
       ColonyEvent,
+      AsteroidResourceDeposit,
       CelestialObject,
       Spacecraft,
       ShipClassDef,

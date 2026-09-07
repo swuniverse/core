@@ -29,6 +29,7 @@ import {
   ColonyCrewTrainingQueueStatus,
 } from './entities/colony-crew-training-queue.entity';
 import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
+import { AsteroidResourceDeposit } from './entities/asteroid-resource-deposit.entity';
 import {
   ColonyFabricationQueue,
   ColonyFabricationQueueStatus,
@@ -331,10 +332,17 @@ export class ColonyProjectionService {
           shipyardBuilding.id,
         )
       : false;
-    const depositMining = await this.depositMiningRepo.find({
-      where: { colonyId: colony.id, userId },
-      order: { commodityId: 'ASC' },
-    });
+    const depositMining = colony.celestialObject?.objectType === 3
+      ? await this.depositMiningRepo.manager
+          .getRepository(AsteroidResourceDeposit)
+          .find({
+          where: { celestialObjectId: colony.celestialObject.id, userId },
+          order: { commodityId: 'ASC' },
+        })
+      : await this.depositMiningRepo.find({
+          where: { colonyId: colony.id, userId },
+          order: { commodityId: 'ASC' },
+        });
     const shipBuildQueue = await this.shipBuildQueueRepo.find({
       where: {
         colonyId: colony.id,
@@ -601,6 +609,10 @@ export class ColonyProjectionService {
             depleted: deposit.amountLeft <= 0,
           };
         }),
+        asteroidExhausted:
+          colony.celestialObject?.objectType === 3 &&
+          depositMining.length > 0 &&
+          depositMining.every((deposit) => deposit.amountLeft <= 0),
         productionDeltas: Array.from(productionDelta.entries())
           .sort((a, b) => a[0] - b[0])
           .map(([commodityId, amount]) => {

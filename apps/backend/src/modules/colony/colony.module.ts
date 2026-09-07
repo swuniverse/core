@@ -31,6 +31,7 @@ import { ColonyStorage } from './entities/colony-storage.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
+import { AsteroidResourceDeposit } from './entities/asteroid-resource-deposit.entity';
 import { ColonyShipBuildQueue } from './entities/colony-ship-build-queue.entity';
 import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
 import { ColonyFabricationQueue } from './entities/colony-fabrication-queue.entity';
@@ -62,6 +63,7 @@ import { User } from '../auth/user.entity';
       ColonyStats,
       ColonyChangeable,
       ColonyDepositMining,
+      AsteroidResourceDeposit,
       ColonyShipBuildQueue,
       ColonyShipBuildplan,
       ColonyFabricationQueue,

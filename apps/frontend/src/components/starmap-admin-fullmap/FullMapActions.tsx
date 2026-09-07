@@ -8,6 +8,7 @@ export function FullMapActions() {
   const initStarWars = useFullmapEditorStore((s) => s.initializeDefaultStarWarsGalaxy);
   const initGrid = useFullmapEditorStore((s) => s.initializeLayerGrid);
   const generateSystems = useFullmapEditorStore((s) => s.generateSystemsForLayer);
+  const worldResetTactical = useFullmapEditorStore((s) => s.worldResetTactical);
   const exportLayer = useFullmapEditorStore((s) => s.exportLayer);
   const importLayer = useFullmapEditorStore((s) => s.importLayer);
 
@@ -60,6 +61,24 @@ export function FullMapActions() {
               setOpen(false);
             }}
           />
+          <div className="border-t border-swu-danger/40" />
+          <ActionBtn
+            label="Tactical Season 1 vollständig zurücksetzen"
+            danger
+            onClick={async () => {
+              if (
+                window.confirm(
+                  'ACHTUNG: Löscht alle Kolonien, Schiffe, Fortschritte und die aktuelle Welt. Konten, Rollen, Einstellungen, Nachrichten, Notizen und die gewählte Fraktion bleiben. Tactical Season 1 wird anschließend mit 56 Systemen neu erstellt.',
+                ) &&
+                window.confirm(
+                  'Weltreset jetzt endgültig ausführen?',
+                )
+              ) {
+                await worldResetTactical();
+              }
+              setOpen(false);
+            }}
+          />
           <div className="border-t border-swu-border/50" />
           <ActionBtn
             label="Layer exportieren"
@@ -83,11 +102,19 @@ export function FullMapActions() {
   );
 }
 
-function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
+function ActionBtn({
+  label,
+  onClick,
+  danger = false,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
-      className="block w-full text-left px-3 py-2 text-xs text-swu-text hover:bg-swu-surface/80"
+      className={`block w-full text-left px-3 py-2 text-xs hover:bg-swu-surface ${danger ? 'text-red-300 hover:bg-red-950/30' : 'text-swu-text'}`}
     >
       {label}
     </button>

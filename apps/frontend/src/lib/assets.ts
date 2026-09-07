@@ -405,6 +405,10 @@ export function spaceBackgroundTile(cx: number, cy: number): string {
   return `${ASSET_BASE}/map/starmap/${row}${col}.png`;
 }
 
+export function galaxyMapBackground(): string {
+  return `${ASSET_BASE}/map/galactic-star-map-background-stronger-spirals.png`;
+}
+
 const STAR_WARS_MARKER_CLASS_BY_KEY: Record<string, number> = {
   // Icon class IDs use STU celestial classes: M=201, L=203, O=205,
   // H desert=213, P ice=215, X volcanic=217, G swamp/tundra=219,

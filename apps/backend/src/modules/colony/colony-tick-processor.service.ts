@@ -24,6 +24,7 @@ import {
   ColonyCrewTrainingQueueStatus,
 } from './entities/colony-crew-training-queue.entity';
 import { ColonyDepositMining } from './entities/colony-deposit-mining.entity';
+import { AsteroidResourceDeposit } from './entities/asteroid-resource-deposit.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -460,14 +461,29 @@ export class ColonyTickProcessorService {
   private async ensureDepositMining(
     colony: Colony,
     commodityId: number,
-  ): Promise<ColonyDepositMining | null> {
+  ): Promise<ColonyDepositMining | AsteroidResourceDeposit | null> {
     assertOwnedColony(colony);
+    if (colony.celestialObject?.objectType === 3) {
+      const asteroidDepositRepo = this.depositMiningRepo.manager.getRepository(
+        AsteroidResourceDeposit,
+      );
+      const existing = await asteroidDepositRepo.findOne({
+        where: {
+          userId: colony.userId,
+          celestialObjectId: colony.celestialObject.id,
+          commodityId,
+        },
+      });
+      if (existing) return existing;
+      return null;
+    }
     const existing = await this.depositMiningRepo.findOne({
       where: { colonyId: colony.id, userId: colony.userId, commodityId },
     });
     if (existing) return existing;
-    const deposits = this.gameData.getColonyClassDeposits(colony.colonyClassId);
-    const def = deposits.find((d) => d.commodityId === commodityId);
+    const def = this.gameData
+      .getColonyClassDeposits(colony.colonyClassId)
+      .find((deposit) => deposit.commodityId === commodityId);
     if (!def) return null;
     const mining = this.depositMiningRepo.create({
       userId: colony.userId,
@@ -490,7 +506,13 @@ export class ColonyTickProcessorService {
       const mining = await this.ensureDepositMining(colony, commodityId);
       if (!mining) continue;
       mining.amountLeft = Math.max(0, mining.amountLeft + netDelta);
-      await this.depositMiningRepo.save(mining);
+      if ('celestialObjectId' in mining) {
+        await this.depositMiningRepo.manager
+          .getRepository(AsteroidResourceDeposit)
+          .save(mining);
+      } else {
+        await this.depositMiningRepo.save(mining);
+      }
     }
   }
 

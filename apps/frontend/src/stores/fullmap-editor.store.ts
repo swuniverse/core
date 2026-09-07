@@ -13,8 +13,9 @@ import type {
   StarmapCreateLayerDto,
   StarmapOperationResultDto,
   StarmapSystemGridDto,
-  StarmapSystemFieldDto,
   DefaultStarWarsGalaxySeedResultDto,
+  StarmapWorldResetTacticalResultDto,
+  StarmapSystemFieldDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
 
@@ -109,6 +110,7 @@ interface FullmapEditorState {
   initializeDefaultStarWarsGalaxy: () => Promise<void>;
   initializeLayerGrid: (fieldTypeId: number) => Promise<void>;
   generateSystemsForLayer: () => Promise<void>;
+  worldResetTactical: () => Promise<void>;
 
   // System view
   openSystemView: (systemId: number) => Promise<void>;
@@ -338,6 +340,24 @@ export const useFullmapEditorStore = create<FullmapEditorState>((set, get) => ({
       await get().loadFields();
     } catch (err) {
       set({ error: readError(err) });
+    }
+  },
+
+
+  worldResetTactical: async () => {
+    set({ status: 'Tactical Season 1 wird zurückgesetzt...', error: null });
+    try {
+      const result = await api.post<StarmapWorldResetTacticalResultDto>(
+        '/starmap/admin/world-reset/tactical',
+        { seed: 'season-1-tactical' },
+      );
+      set({
+        status: `Tactical Season 1 aktiv (${result.systems} Systeme, ${result.routes} Routen, ${result.wormholes} Wurmloch)`,
+      });
+      await get().bootstrap();
+      await get().selectLayer(result.layerId);
+    } catch (err) {
+      set({ error: readError(err), status: '' });
     }
   },
 

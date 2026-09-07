@@ -5,6 +5,7 @@ import {
   type StarmapLayerDto,
   type StarmapSystemGridDto,
   type StarmapSystemListItemDto,
+  type StarmapWormholeDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
 import { StarmapCanvas, type StarmapCanvasHandle } from '../components/starmap/StarmapCanvas';
@@ -27,6 +28,7 @@ export function StarmapPage() {
   const [hiddenRouteIds, setHiddenRouteIds] = useState<number[]>([]);
   const [selectedSystem, setSelectedSystem] = useState<StarSystem | null>(null);
   const [systemGrid, setSystemGrid] = useState<SystemGrid | null>(null);
+  const [wormholes, setWormholes] = useState<StarmapWormholeDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedField, setSelectedField] = useState<GalaxyField | null>(null);
   const [selectedSector, setSelectedSector] = useState<{ x: number; y: number } | null>(null);
@@ -38,12 +40,14 @@ export function StarmapPage() {
       setLayers(data);
       if (data.length > 0) {
         setSelectedLayer(data[0]);
-        const [loadedFields, loadedRoutes] = await Promise.all([
+        const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
           api.get<GalaxyField[]>(`/starmap/layers/${data[0].id}/fields`),
           api.get<HyperspaceRoute[]>(`/starmap/layers/${data[0].id}/hyperspace-routes`),
+          api.get<StarmapWormholeDto[]>(`/starmap/layers/${data[0].id}/wormholes`),
         ]);
         setFields(loadedFields);
         setHyperspaceRoutes(loadedRoutes);
+        setWormholes(loadedWormholes);
       }
       setLoading(false);
     });
@@ -54,34 +58,38 @@ export function StarmapPage() {
     setSelectedSystem(null);
     setSystemGrid(null);
     setLoading(true);
-    const [loadedFields, loadedRoutes] = await Promise.all([
+    const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
       api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`),
       api.get<HyperspaceRoute[]>(`/starmap/layers/${layer.id}/hyperspace-routes`),
+      api.get<StarmapWormholeDto[]>(`/starmap/layers/${layer.id}/wormholes`),
     ]);
     setFields(loadedFields);
     setHyperspaceRoutes(loadedRoutes);
-    setLoading(false);
+    setWormholes(loadedWormholes);
   }
 
   function selectSystem(system: StarSystem) {
     setSelectedSystem(system);
   }
 
-  async function enterSystemView() {
-    if (!selectedSystem) return;
-    const grid = await api.get<SystemGrid>(`/starmap/systems/${selectedSystem.id}/grid`);
+  async function loadSystem(system: StarSystem): Promise<SystemGrid> {
+    setSelectedSystem(system);
+    const grid = await api.get<SystemGrid>(`/starmap/systems/${system.id}/grid`);
     setSystemGrid(grid);
-    canvasRef.current?.enterSystem();
+    return grid;
   }
+
 
   async function refreshData() {
     if (!selectedLayer) return;
-    const [loadedFields, loadedRoutes] = await Promise.all([
+    const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
       api.get<GalaxyField[]>(`/starmap/layers/${selectedLayer.id}/fields`),
       api.get<HyperspaceRoute[]>(`/starmap/layers/${selectedLayer.id}/hyperspace-routes`),
+      api.get<StarmapWormholeDto[]>(`/starmap/layers/${selectedLayer.id}/wormholes`),
     ]);
     setFields(loadedFields);
     setHyperspaceRoutes(loadedRoutes);
+    setWormholes(loadedWormholes);
   }
 
   function exitSystem() {
@@ -156,7 +164,9 @@ export function StarmapPage() {
               routes={visibleHyperspaceRoutes}
               selectedSystem={selectedSystem}
               systemGrid={systemGrid}
-              onSelectSystem={(system) => void selectSystem(system)}
+              onSelectSystem={selectSystem}
+              onEnterSystem={loadSystem}
+              wormholes={wormholes}
               onExitSystem={exitSystem}
               onFieldClick={setSelectedField}
               selectedField={selectedField}
@@ -179,7 +189,7 @@ export function StarmapPage() {
               onZoomOut={() => canvasRef.current?.zoomOut()}
               selectedField={selectedField}
               selectedSystem={selectedSystem}
-              onEnterSystem={() => void enterSystemView()}
+              onEnterSystem={() => canvasRef.current?.enterSystem()}
               inSystemMode={!!systemGrid}
             />
           )}

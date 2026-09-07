@@ -19,6 +19,7 @@ import type {
   StarmapSystemGridDto,
   HyperspaceRouteDto,
   StarmapLayerDto,
+  StarmapWormholeDto,
 } from '@swuniverse/shared';
 import {
   spaceBackgroundTile,
@@ -26,6 +27,7 @@ import {
   starWarsMarkerImage,
   planetThumbnail,
   starTileImage,
+  galaxyMapBackground,
 } from '../../lib/assets';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
@@ -60,8 +62,10 @@ interface StarmapCanvasProps {
   routes: HyperspaceRouteDto[];
   selectedSystem: StarmapSystemListItemDto | null;
   systemGrid: StarmapSystemGridDto | null;
+  wormholes: StarmapWormholeDto[];
   onSelectSystem: (system: StarmapSystemListItemDto) => void;
   onExitSystem: () => void;
+  onEnterSystem: (system: StarmapSystemListItemDto) => Promise<StarmapSystemGridDto>;
   onFieldHover?: (field: StarmapGalaxyFieldDto | null) => void;
   onFieldClick?: (field: StarmapGalaxyFieldDto | null) => void;
   selectedField?: StarmapGalaxyFieldDto | null;
@@ -75,10 +79,23 @@ const FIELD_TYPE_COLORS: Record<string, number> = {
   EMPTY_SPACE: 0x0a0a1a,
   DEEP_SPACE: 0x0f0f2a,
   NEBULA: 0x1a2e1a,
-  ASTEROID_FIELD: 0x1a1a14,
   BLOCKED: 0x2a0a0a,
 };
 
+
+function minimumZoomScale(
+  app: Application,
+  layer: StarmapCanvasProps['layer'],
+  mode: MapMode,
+): number {
+  if (mode === 'system') return 0.5;
+  const viewW = app.screen.width - AXIS_SIZE;
+  const viewH = app.screen.height - AXIS_SIZE;
+  return Math.max(
+    MIN_SCALE,
+    Math.min(viewW / (layer.width * CELL_SIZE), viewH / (layer.height * CELL_SIZE)),
+  );
+}
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -93,7 +110,9 @@ export const StarmapCanvas = forwardRef<
     routes,
     selectedSystem,
     systemGrid,
+    wormholes,
     onSelectSystem,
+    onEnterSystem,
     onExitSystem,
     onFieldHover,
     onFieldClick,
@@ -136,6 +155,11 @@ export const StarmapCanvas = forwardRef<
   const gridRef = useRef<Graphics | null>(null);
   const selectionRef = useRef<Graphics | null>(null);
   const routeGraphicsRef = useRef<Graphics | null>(null);
+  const galaxyBackgroundRef = useRef<Sprite | null>(null);
+  const galaxyFieldLayerRef = useRef<Container | null>(null);
+  const galaxyIconLayerRef = useRef<Container | null>(null);
+  const galaxyOverlayLayerRef = useRef<Container | null>(null);
+  const onSelectSystemRef = useRef(onSelectSystem);
   const sectorGridRef = useRef<Graphics | null>(null);
   const fieldMapRef = useRef<Map<string, StarmapGalaxyFieldDto>>(new Map());
   const systemGridRef = useRef<StarmapSystemGridDto | null>(null);
@@ -160,6 +184,10 @@ export const StarmapCanvas = forwardRef<
   useEffect(() => {
     showGridRef.current = showGrid;
   }, [showGrid]);
+
+  useEffect(() => {
+    onSelectSystemRef.current = onSelectSystem;
+  }, [onSelectSystem]);
 
   useEffect(() => {
     onFieldHoverRef.current = onFieldHover;
@@ -406,12 +434,26 @@ export const StarmapCanvas = forwardRef<
     );
     container.scale.set(state.scale);
 
+    const fieldOpacity = clamp((state.scale - 0.3) / 0.7, 0, 1);
+    if (galaxyBackgroundRef.current && state.mode === 'galaxy') {
+      galaxyBackgroundRef.current.alpha = 0.22 * (1 - fieldOpacity * 0.55);
+    }
+    if (galaxyFieldLayerRef.current && state.mode === 'galaxy') {
+      galaxyFieldLayerRef.current.alpha = 0.1 + fieldOpacity * 0.9;
+    }
+    if (galaxyIconLayerRef.current && state.mode === 'galaxy') {
+      galaxyIconLayerRef.current.alpha = 0.72 + fieldOpacity * 0.28;
+    }
+    if (galaxyOverlayLayerRef.current && state.mode === 'galaxy') {
+      galaxyOverlayLayerRef.current.alpha = 0.35 + fieldOpacity * 0.65;
+    }
     if (gridRef.current) {
       gridRef.current.visible =
-        showGridRef.current && state.scale * CELL_SIZE >= 5;
+        showGridRef.current && state.scale * CELL_SIZE >= 14;
     }
     if (sectorGridRef.current) {
-      sectorGridRef.current.visible = showGridRef.current;
+      sectorGridRef.current.visible =
+        showGridRef.current && state.scale * CELL_SIZE >= 7;
     }
 
     drawOverlay();
@@ -445,7 +487,6 @@ export const StarmapCanvas = forwardRef<
     const g = routeGraphicsRef.current;
     if (!g) return;
     g.clear();
-
     for (const route of routes) {
       const color = parseInt(route.color.replace('#', ''), 16) || 0xfacc15;
       for (const segment of route.segments) {
@@ -458,24 +499,24 @@ export const StarmapCanvas = forwardRef<
           (points[0].x - 0.5) * CELL_SIZE,
           (points[0].y - 0.5) * CELL_SIZE,
         );
-        for (let i = 1; i < points.length; i++) {
+        for (let index = 1; index < points.length; index++) {
           g.lineTo(
-            (points[i].x - 0.5) * CELL_SIZE,
-            (points[i].y - 0.5) * CELL_SIZE,
+            (points[index].x - 0.5) * CELL_SIZE,
+            (points[index].y - 0.5) * CELL_SIZE,
           );
         }
-        g.stroke({ color, width: 5, alpha: 0.15 });
+        g.stroke({ color, width: 4, alpha: 0.08 });
         g.moveTo(
           (points[0].x - 0.5) * CELL_SIZE,
           (points[0].y - 0.5) * CELL_SIZE,
         );
-        for (let i = 1; i < points.length; i++) {
+        for (let index = 1; index < points.length; index++) {
           g.lineTo(
-            (points[i].x - 0.5) * CELL_SIZE,
-            (points[i].y - 0.5) * CELL_SIZE,
+            (points[index].x - 0.5) * CELL_SIZE,
+            (points[index].y - 0.5) * CELL_SIZE,
           );
         }
-        g.stroke({ color, width: 1.8, alpha: 0.8 });
+        g.stroke({ color, width: 1.2, alpha: 0.5 });
       }
     }
   }, [routes]);
@@ -556,6 +597,23 @@ export const StarmapCanvas = forwardRef<
     state.viewY = 0;
     updateView();
   }, [updateView]);
+
+  const enterFocusedSystem = useCallback(
+    async (system: StarmapSystemListItemDto) => {
+      const state = stateRef.current;
+      if (state.mode !== 'galaxy') return;
+      state.mode = 'transitioning';
+      try {
+        const grid = await onEnterSystem(system);
+        systemGridRef.current = grid;
+        state.mode = 'galaxy';
+        transitionToSystem(system);
+      } catch {
+        state.mode = 'galaxy';
+      }
+    },
+    [onEnterSystem, transitionToSystem],
+  );
 
   // --- Transition back to galaxy ---
   const transitionBackToGalaxy = useCallback(() => {
@@ -759,7 +817,7 @@ export const StarmapCanvas = forwardRef<
         .moveTo(0, y * SYSTEM_CELL_SIZE)
         .lineTo(sys.maxX * SYSTEM_CELL_SIZE, y * SYSTEM_CELL_SIZE);
     }
-    gridGfx.stroke({ color: 0xffffff, width: 0.5, alpha: 0.25 });
+    gridGfx.stroke({ color: 0x94a3b8, width: 0.5, alpha: 0.08 });
     container.addChild(gridGfx);
   }, []);
 
@@ -863,25 +921,39 @@ export const StarmapCanvas = forwardRef<
   const loadGalaxyTiles = useCallback(
     async (mapContainer: Container) => {
       const bgLayer = new Container();
+      const fieldLayer = new Container();
       const iconLayer = new Container();
       const overlayLayer = new Container();
+      galaxyFieldLayerRef.current = fieldLayer;
+      galaxyIconLayerRef.current = iconLayer;
+      galaxyOverlayLayerRef.current = overlayLayer;
       mapContainer.addChildAt(bgLayer, 0);
-      mapContainer.addChildAt(iconLayer, 1);
-      mapContainer.addChildAt(overlayLayer, 2);
+      mapContainer.addChildAt(fieldLayer, 1);
+      mapContainer.addChildAt(iconLayer, 2);
+      mapContainer.addChildAt(overlayLayer, 3);
 
       const bg = new Graphics();
       bg.rect(0, 0, layer.width * CELL_SIZE, layer.height * CELL_SIZE).fill({
         color: 0x000000,
       });
       bgLayer.addChild(bg);
+      try {
+        const texture = await Assets.load(galaxyMapBackground());
+        const galaxyBackground = new Sprite(texture);
+        galaxyBackground.width = layer.width * CELL_SIZE;
+        galaxyBackground.height = layer.height * CELL_SIZE;
+        galaxyBackground.alpha = 0.22;
+        galaxyBackgroundRef.current = galaxyBackground;
+        bgLayer.addChild(galaxyBackground);
+      } catch {
+        // The procedural field background remains usable without the optional image.
+      }
 
       const loadPromises = fields
-        .filter((f) => f.fieldType.key !== 'UNKNOWN')
+        .filter((field) => field.fieldType.key !== 'UNKNOWN')
         .map(async (field) => {
           const cellX = (field.cx - 1) * CELL_SIZE;
           const cellY = (field.cy - 1) * CELL_SIZE;
-
-          // Use field type tile for non-space fields; procedural bg for basic space
           const tileUrl =
             field.fieldTypeId > 1 && !field.systemTypeId
               ? starTileImage(field.fieldTypeId)
@@ -892,79 +964,88 @@ export const StarmapCanvas = forwardRef<
             sprite.position.set(cellX, cellY);
             sprite.width = CELL_SIZE;
             sprite.height = CELL_SIZE;
-            bgLayer.addChild(sprite);
+            fieldLayer.addChild(sprite);
           } catch {
-            try {
-              const bgUrl = spaceBackgroundTile(field.cx, field.cy);
-              const texture = await Assets.load(bgUrl);
-              const sprite = new Sprite(texture);
-              sprite.position.set(cellX, cellY);
-              sprite.width = CELL_SIZE;
-              sprite.height = CELL_SIZE;
-              bgLayer.addChild(sprite);
-            } catch {
-              const g = new Graphics();
-              g.rect(cellX, cellY, CELL_SIZE, CELL_SIZE).fill({
-                color: FIELD_TYPE_COLORS[field.fieldType.key] ?? 0x0a0a1a,
-              });
-              bgLayer.addChild(g);
-            }
+            const g = new Graphics();
+            g.rect(cellX, cellY, CELL_SIZE, CELL_SIZE).fill({
+              color: FIELD_TYPE_COLORS[field.fieldType.key] ?? 0x0a0a1a,
+            });
+            fieldLayer.addChild(g);
           }
 
           if (field.systemTypeId) {
             try {
-              const iconUrl = field.starSystem?.isMapOnly
-                ? starWarsMarkerImage(
-                    field.starSystem.landmarkKey,
-                    field.systemTypeId,
-                  )
-                : systemTypeImage(field.systemTypeId);
-              const img = new Image();
-              img.crossOrigin = 'anonymous';
-              await new Promise<void>((resolve, reject) => {
-                img.onload = () => resolve();
-                img.onerror = () => reject();
-                img.src = iconUrl;
-              });
-              const texture = Texture.from(img);
-              const iconSprite = new Sprite(texture);
-              const iconSize = field.starSystem?.isMapOnly
-                ? CELL_SIZE * 0.5
-                : CELL_SIZE * 0.8;
-              iconSprite.width = iconSize;
-              iconSprite.height = iconSize;
-              iconSprite.position.set(
-                cellX + (CELL_SIZE - iconSize) / 2,
-                cellY + (CELL_SIZE - iconSize) / 2,
+              const texture = await Assets.load(
+                field.starSystem?.isMapOnly
+                  ? starWarsMarkerImage(
+                      field.starSystem.landmarkKey,
+                      field.systemTypeId,
+                    )
+                  : systemTypeImage(field.systemTypeId),
               );
-              iconSprite.alpha = field.starSystem?.isMapOnly ? 0.85 : 1;
-              iconLayer.addChild(iconSprite);
+              const icon = new Sprite(texture);
+              const size = field.starSystem?.isMapOnly
+                ? CELL_SIZE * 0.6
+                : CELL_SIZE * 1.15;
+              icon.width = size;
+              icon.height = size;
+              icon.position.set(
+                cellX + (CELL_SIZE - size) / 2,
+                cellY + (CELL_SIZE - size) / 2,
+              );
+              icon.alpha = field.starSystem?.isMapOnly ? 0.85 : 1;
+              iconLayer.addChild(icon);
             } catch {
-              /* skip */
+              // System assets are optional; terrain remains interactive.
             }
           }
 
-          if (field.fieldType.key === 'NEBULA') {
-            const g = new Graphics();
-            g.rect(cellX, cellY, CELL_SIZE, CELL_SIZE).fill({
-              color: 0x10b981,
-              alpha: 0.15,
-            });
-            overlayLayer.addChild(g);
-          } else if (
-            field.fieldType.key === 'ASTEROID_FIELD' ||
-            field.fieldType.key === 'ASTEROID_CLUSTER'
-          ) {
-            const g = new Graphics();
-            g.rect(cellX, cellY, CELL_SIZE, CELL_SIZE).fill({
-              color: 0x78716c,
-              alpha: 0.12,
-            });
-            overlayLayer.addChild(g);
+
+          if (field.fieldType.key === 'ASTEROID_CLUSTER') {
+            const debris = new Graphics();
+            debris.circle(
+              cellX + CELL_SIZE / 2,
+              cellY + CELL_SIZE / 2,
+              CELL_SIZE * 0.3,
+            ).fill({ color: 0x94a3b8, alpha: 0.22 });
+            overlayLayer.addChild(debris);
           }
         });
-
       await Promise.all(loadPromises);
+      for (const wormhole of wormholes) {
+        const endpoints = [
+          { cx: wormhole.entryCx, cy: wormhole.entryCy, assetId: 12 },
+          { cx: wormhole.exitCx, cy: wormhole.exitCy, assetId: 14 },
+        ];
+        for (const endpoint of endpoints) {
+          const glow = new Graphics();
+          glow.circle(
+            (endpoint.cx - 0.5) * CELL_SIZE,
+            (endpoint.cy - 0.5) * CELL_SIZE,
+            CELL_SIZE * 0.78,
+          ).stroke({
+            color: endpoint.assetId === 12 ? 0xd946ef : 0x22d3ee,
+            width: 1.2,
+            alpha: 0.45,
+          });
+          overlayLayer.addChild(glow);
+          try {
+            const texture = await Assets.load(starTileImage(endpoint.assetId));
+            const marker = new Sprite(texture);
+            const size = CELL_SIZE * 1.45;
+            marker.width = size;
+            marker.height = size;
+            marker.position.set(
+              (endpoint.cx - 0.5) * CELL_SIZE - size / 2,
+              (endpoint.cy - 0.5) * CELL_SIZE - size / 2,
+            );
+            marker.alpha = 0.92;
+            iconLayer.addChild(marker);
+          } catch {
+            // The map remains usable without an optional wormhole marker asset.
+          }
+        }
+      }
 
       const grid = new Graphics();
       gridRef.current = grid;
@@ -978,10 +1059,10 @@ export const StarmapCanvas = forwardRef<
           .moveTo(0, y * CELL_SIZE)
           .lineTo(layer.width * CELL_SIZE, y * CELL_SIZE);
       }
-      grid.stroke({ color: 0xffffff, width: 0.5, alpha: 0.25 });
+      grid.stroke({ color: 0x94a3b8, width: 0.5, alpha: 0.08 });
       mapContainer.addChild(grid);
     },
-    [fields, layer],
+    [fields, layer, wormholes],
   );
 
   const fitViewFn = useCallback(
@@ -997,7 +1078,7 @@ export const StarmapCanvas = forwardRef<
       const mapH = isSystem
         ? grid.system.maxY * SYSTEM_CELL_SIZE
         : layer.height * CELL_SIZE;
-      const minScale = isSystem ? 0.5 : MIN_SCALE;
+      const minScale = minimumZoomScale(app, layer, state.mode);
       state.scale = clamp(
         Math.min(viewW / mapW, viewH / mapH),
         minScale,
@@ -1021,7 +1102,11 @@ export const StarmapCanvas = forwardRef<
         const viewH = app.screen.height - AXIS_SIZE;
         const centerX = state.viewX + viewW / (2 * state.scale);
         const centerY = state.viewY + viewH / (2 * state.scale);
-        state.scale = clamp(state.scale * 1.3, MIN_SCALE, MAX_SCALE);
+        state.scale = clamp(
+          state.scale * 1.3,
+          minimumZoomScale(app, layer, state.mode),
+          MAX_SCALE,
+        );
         state.viewX = centerX - viewW / (2 * state.scale);
         state.viewY = centerY - viewH / (2 * state.scale);
         updateView();
@@ -1034,7 +1119,11 @@ export const StarmapCanvas = forwardRef<
         const viewH = app.screen.height - AXIS_SIZE;
         const centerX = state.viewX + viewW / (2 * state.scale);
         const centerY = state.viewY + viewH / (2 * state.scale);
-        state.scale = clamp(state.scale / 1.3, MIN_SCALE, MAX_SCALE);
+        state.scale = clamp(
+          state.scale / 1.3,
+          minimumZoomScale(app, layer, state.mode),
+          MAX_SCALE,
+        );
         state.viewX = centerX - viewW / (2 * state.scale);
         state.viewY = centerY - viewH / (2 * state.scale);
         updateView();
@@ -1045,11 +1134,11 @@ export const StarmapCanvas = forwardRef<
       },
       enterSystem: () => {
         if (selectedSystem && stateRef.current.mode === 'galaxy') {
-          transitionToSystem(selectedSystem);
+          void enterFocusedSystem(selectedSystem);
         }
       },
     }),
-    [updateView, fitViewFn, selectedSystem, transitionToSystem],
+    [updateView, fitViewFn, selectedSystem, enterFocusedSystem],
   );
 
   const setupInteraction = useCallback(
@@ -1068,9 +1157,23 @@ export const StarmapCanvas = forwardRef<
           const worldX = state.viewX + mouseX / state.scale;
           const worldY = state.viewY + mouseY / state.scale;
           const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-          state.scale = clamp(state.scale * factor, MIN_SCALE, MAX_SCALE);
+          state.scale = clamp(
+            state.scale * factor,
+            minimumZoomScale(app, layer, state.mode),
+            MAX_SCALE,
+          );
           state.viewX = worldX - mouseX / state.scale;
-          state.viewY = worldY - mouseY / state.scale;
+          if (state.mode === 'system' && e.deltaY > 0 && state.scale <= 0.55) {
+            onExitSystem();
+            return;
+          }
+          if (state.mode === 'galaxy' && e.deltaY < 0 && state.scale >= 2.4) {
+            const focusedField = getFieldAt(worldX, worldY);
+            if (focusedField?.starSystem && !focusedField.starSystem.isMapOnly) {
+              void enterFocusedSystem(focusedField.starSystem);
+              return;
+            }
+          }
           updateView();
         },
         { passive: false, signal },
@@ -1172,14 +1275,13 @@ export const StarmapCanvas = forwardRef<
         'touchmove',
         (e) => {
           if (e.touches.length === 2 && state.pinching) {
-            e.preventDefault();
             const dist = Math.hypot(
               e.touches[1].clientX - e.touches[0].clientX,
               e.touches[1].clientY - e.touches[0].clientY,
             );
             state.scale = clamp(
               state.pinchScale * (dist / state.pinchDist),
-              MIN_SCALE,
+              minimumZoomScale(app, layer, state.mode),
               MAX_SCALE,
             );
             updateView();
@@ -1196,7 +1298,7 @@ export const StarmapCanvas = forwardRef<
         { signal },
       );
     },
-    [updateView, updateTooltip, getFieldAt],
+    [updateView, updateTooltip, getFieldAt, enterFocusedSystem, onExitSystem],
   );
 
   const handleClick = useCallback(
@@ -1209,16 +1311,18 @@ export const StarmapCanvas = forwardRef<
       const mouseY = e.clientY - rect.top - AXIS_SIZE;
       const worldX = state.viewX + mouseX / state.scale;
       const worldY = state.viewY + mouseY / state.scale;
+      if (state.mode !== 'galaxy') return;
 
-      if (state.mode === 'galaxy') {
-        const field = getFieldAt(worldX, worldY);
-        onFieldClickRef.current?.(field);
-        if (field?.starSystem && !field.starSystem.isMapOnly) {
-          onSelectSystem(field.starSystem);
-        }
+      const field = getFieldAt(worldX, worldY);
+      onFieldClickRef.current?.(field);
+      if (!field?.starSystem || field.starSystem.isMapOnly) return;
+      if (field.starSystem.id === selectedSystem?.id && state.scale >= 3) {
+        void enterFocusedSystem(selectedSystem);
+        return;
       }
+      onSelectSystemRef.current?.(field.starSystem);
     },
-    [getFieldAt, onSelectSystem],
+    [getFieldAt, selectedSystem, enterFocusedSystem],
   );
 
   return (
