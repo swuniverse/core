@@ -52,6 +52,7 @@ export function NavigationPanel({
     null,
   );
   const [navMessage, setNavMessage] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [stepSize, setStepSize] = useState(1);
   const [loading, setLoading] = useState(true);
   const [combatResult, setCombatResult] = useState<CombatResult | null>(null);
@@ -60,12 +61,15 @@ export function NavigationPanel({
 
   const fetchLocalMap = useCallback(async () => {
     try {
+      setMapError(null);
       const data = await api.get<LocalMapResponse>(
         `/spacecraft/${ship.id}/local-map`,
       );
       setLocalMap(data);
       onLocalMapChange?.(data);
-    } catch {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Sensordaten konnten nicht geladen werden';
+      setMapError(message);
       setLocalMap(null);
       onLocalMapChange?.(null);
     }
@@ -181,10 +185,9 @@ export function NavigationPanel({
 
   if (!localMap) {
     return (
-      <div className="bg-swu-surface border border-swu-border rounded-lg p-4">
-        <span className="text-xs text-swu-muted">
-          Keine Kartendaten verfügbar.
-        </span>
+      <div className="rounded border border-red-500/40 bg-red-500/5 p-3">
+        <p className="text-xs text-red-300">Keine Kartendaten verfügbar.</p>
+        {mapError && <p className="mt-1 text-[11px] text-red-200/80">{mapError}</p>}
       </div>
     );
   }
@@ -193,41 +196,27 @@ export function NavigationPanel({
   const isFlying = ship.status === 'IN_FLIGHT';
 
   return (
-    <div className="bg-swu-surface border border-swu-border rounded-lg p-4 space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-bold text-swu-muted">
-          LSS · {localMap.mode === 'system' ? localMap.systemName : 'Galaxie'} ·
-          Reichweite {localMap.sensorRange}
+    <section className="rounded border border-swu-border bg-swu-surface/80 p-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-swu-border/60 pb-1">
+        <h3 className="text-xs font-bold tracking-wide text-swu-primary">
+          LSS · {localMap.mode === 'system' ? localMap.systemName : 'Galaxie'} · R{localMap.sensorRange}
         </h3>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-swu-muted">
-            Pos: [{localMap.shipX},{localMap.shipY}]
-          </span>
-          <span className="text-swu-muted">
-            E: {ship.energy}/{ship.energyMax}
-          </span>
-          {isFlying && (
-            <span className="text-amber-400 animate-pulse">
-              Im Flug...
-              {ship.arrivalAt && (
-                <> · ETA {new Date(ship.arrivalAt).toLocaleTimeString()}</>
-              )}
-            </span>
-          )}
+        <div className="flex items-center gap-2 font-mono text-[11px] text-swu-muted">
+          <span>POS [{localMap.shipX},{localMap.shipY}]</span>
+          <span>E {ship.energy}/{ship.energyMax}</span>
+          {isFlying && <span className="text-amber-400">IM FLUG</span>}
           {navMessage && <span className="text-emerald-400">{navMessage}</span>}
         </div>
       </div>
 
-      {/* Main: LSS Map (left) + Controls (right) — STU layout */}
-      <div className="flex items-start gap-4">
+      <div className="flex flex-wrap items-start gap-3">
         <LssMap
           localMap={localMap}
           navTarget={navTarget}
           onFieldClick={handleFieldClick}
         />
 
-        <div className="flex flex-col items-center gap-3 pt-6">
+        <div className="flex min-w-[150px] flex-col items-center gap-2 pt-4">
           <DirectionalControls
             onMove={handleDirectionalMove}
             stepSize={stepSize}
@@ -235,7 +224,7 @@ export function NavigationPanel({
             disabled={!isDocked}
           />
 
-          <div className="space-y-1.5 w-full mt-2">
+          <div className="w-full space-y-1.5">
             {localMap.canEnterSystem && (
               <button
                 onClick={() => void handleEnterSystem()}
@@ -372,6 +361,6 @@ export function NavigationPanel({
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

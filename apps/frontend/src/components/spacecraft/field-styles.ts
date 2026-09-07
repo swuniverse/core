@@ -20,11 +20,21 @@ export const SYSTEM_FIELD_STYLES: Record<string, string> = {
   NEBULA: 'bg-fuchsia-900/60 border-fuchsia-500 text-fuchsia-100',
 };
 
+const GALAXY_FIELD_MARKERS: Record<string, string> = {
+  NEBULA: '◌',
+  ASTEROID_FIELD: '⋰',
+  BLOCKED: '×',
+};
+
 export function getGalaxyFieldStyle(key: string | undefined): string {
   return (
     GALAXY_FIELD_STYLES[key ?? ''] ||
     'bg-[radial-gradient(circle_at_center,_rgba(80,90,140,0.12),_rgba(0,0,0,0.95)_72%)] border-slate-900'
   );
+}
+
+export function getGalaxyFieldMarker(key: string | undefined): string {
+  return GALAXY_FIELD_MARKERS[key ?? ''] ?? '';
 }
 
 export function getSystemFieldStyle(key: string | undefined): string {

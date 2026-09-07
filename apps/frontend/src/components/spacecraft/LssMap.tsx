@@ -1,5 +1,10 @@
-import { getGalaxyFieldStyle, getSystemFieldStyle } from './field-styles';
-import { planetThumbnail } from '../../lib/assets';
+import {
+  getGalaxyFieldMarker,
+  getGalaxyFieldStyle,
+  getSystemFieldStyle,
+} from './field-styles';
+import { planetThumbnail, spaceBackgroundTile, starTileImage } from '../../lib/assets';
+import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
 interface FieldType {
   id: number;
@@ -72,7 +77,6 @@ export interface LocalMapGalaxy {
   canLeaveSystem: boolean;
   context?: LocalMapContext;
 }
-
 export interface LocalMapSystem {
   mode: 'system';
   shipX: number;
@@ -80,7 +84,13 @@ export interface LocalMapSystem {
   sensorRange: number;
   systemId: number;
   systemName: string | null;
+  systemTypeId?: number;
   fields: SystemLocalField[];
+  stars?: Array<{
+    centerX: number;
+    centerY: number;
+    role: 'primary' | 'secondary';
+  }>;
   ships?: NearbyShip[];
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
@@ -108,18 +118,18 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
   const minY = shipY - sensorRange;
 
   const shipsByPos = new Map<string, NearbyShip[]>();
-  for (const s of localMap.ships ?? []) {
-    const key = `${s.posX},${s.posY}`;
-    if (!shipsByPos.has(key)) shipsByPos.set(key, []);
-    shipsByPos.get(key)!.push(s);
+  for (const ship of localMap.ships ?? []) {
+    const key = `${ship.posX},${ship.posY}`;
+    const shipsAtPosition = shipsByPos.get(key);
+    if (shipsAtPosition) shipsAtPosition.push(ship);
+    else shipsByPos.set(key, [ship]);
   }
 
   const cellSize = sensorRange <= 3 ? 28 : sensorRange <= 5 ? 24 : 20;
 
   return (
     <div className="overflow-auto">
-      <div
-        className="grid gap-px min-w-max"
+      <div className="grid min-w-max"
         style={{
           gridTemplateColumns: `32px repeat(${gridSize}, ${cellSize}px)`,
         }}
@@ -164,6 +174,10 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                       />
                     );
                   }
+                  const fieldTileImage =
+                    field.fieldType.key === 'EMPTY_SPACE'
+                      ? spaceBackgroundTile(x, y)
+                      : starTileImage(field.fieldType.id);
                   return (
                     <button
                       key={field.id}
@@ -180,15 +194,21 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                       ].join(' ')}
                       title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}`}
                     >
+                      <img
+                        src={fieldTileImage}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover opacity-90"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
                       {isShip
-                        ? '🚀'
+                        ? '▲'
                         : shipsByPos.has(`${x},${y}`)
-                          ? '⚔'
+                          ? '◆'
                           : field.starSystemId
-                            ? '★'
-                            : field.fieldType.key === 'NEBULA'
-                              ? '·'
-                              : ''}
+                            ? '✦'
+                            : getGalaxyFieldMarker(field.fieldType.key)}
                     </button>
                   );
                 }
@@ -205,7 +225,46 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     />
                   );
                 }
+                const starConfig =
+                  localMap.systemTypeId != null
+                    ? getStarTileConfig(localMap.systemTypeId) ?? null
+                    : null;
+                const matchedStar = starConfig
+                  ? localMap.stars?.find((star) => {
+                      const config =
+                        star.role === 'secondary'
+                          ? starConfig.secondary
+                          : starConfig.primary;
+                      return (
+                        config != null &&
+                        getStarTileIdAt(
+                          config,
+                          x,
+                          y,
+                          star.centerX,
+                          star.centerY,
+                        ) != null
+                      );
+                    })
+                  : undefined;
+                const starTileId =
+                  matchedStar && starConfig
+                    ? getStarTileIdAt(
+                        matchedStar.role === 'secondary'
+                          ? (starConfig.secondary ?? starConfig.primary)
+                          : starConfig.primary,
+                        x,
+                        y,
+                        matchedStar.centerX,
+                        matchedStar.centerY,
+                      )
+                    : null;
                 const obj = field.celestialObject;
+                const fieldTileImage =
+                  field.fieldType.key === 'EMPTY_SPACE' ||
+                  field.fieldType.key === 'DEEP_SPACE'
+                    ? spaceBackgroundTile(x, y)
+                    : starTileImage(field.fieldType.id);
                 const hasImage = obj?.classId != null;
                 const fallbackLabel = obj
                   ? OBJECT_TYPE_EMOJI[obj.objectType] || '●'
@@ -221,30 +280,49 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     onClick={() => onFieldClick(x, y)}
                     style={{ width: cellSize, height: cellSize }}
                     className={[
-                      'relative border rounded-sm text-[10px] flex items-center justify-center transition-all overflow-hidden',
-                      getSystemFieldStyle(field.fieldType.key),
-                      field.fieldType.key === 'STAR_CORE'
+                      starTileId != null
+                        ? 'relative flex items-center justify-center overflow-hidden border-0 rounded-none'
+                        : 'relative border rounded-sm text-[10px] flex items-center justify-center transition-all overflow-hidden',
+                      getSystemFieldStyle(
+                        starTileId != null ? 'EMPTY_SPACE' : field.fieldType.key,
+                      ),
+                      field.fieldType.key === 'STAR_CORE' && starTileId == null
                         ? 'shadow-[0_0_14px_rgba(255,210,80,0.5)]'
                         : '',
                       isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                       isTarget ? 'ring-2 ring-swu-accent z-10' : '',
                     ].join(' ')}
-                    title={`[${x},${y}] ${field.fieldType.name}${obj ? ` · ${obj.name || 'Object'}${obj.isColonizable ? ' · kolonisierbar' : ''}` : ''}`}
                   >
+                    {starTileId == null && !hasImage && (
+                      <img
+                        src={fieldTileImage}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover opacity-90"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
                     {obj?.isColonizable && !isShip && (
                       <span className="absolute right-0.5 top-0.5 z-10 rounded bg-emerald-500/80 px-0.5 text-[7px] leading-none text-black">
                         K
                       </span>
                     )}
                     {isShip ? (
-                      '🚀'
+                      '▲'
                     ) : shipsByPos.has(`${x},${y}`) ? (
-                      '⚔'
+                      '◆'
+                    ) : starTileId != null ? (
+                      <img
+                        src={starTileImage(starTileId)}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                     ) : hasImage ? (
                       <img
                         src={planetThumbnail(obj!.classId!)}
                         alt=""
-                        className="w-full h-full object-contain"
+                        className="h-full w-full object-contain"
                       />
                     ) : (
                       fallbackLabel

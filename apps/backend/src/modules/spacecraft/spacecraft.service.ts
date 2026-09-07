@@ -1240,7 +1240,7 @@ export class SpacecraftService {
       const shipX = ship.currentSystemFieldX ?? 1;
       const shipY = ship.currentSystemFieldY ?? 1;
 
-      const [fields, nearbyShips] = await Promise.all([
+      const [fields, nearbyShips, starObjects] = await Promise.all([
         this.systemFieldRepo
           .createQueryBuilder('sf')
           .leftJoinAndSelect('sf.fieldType', 'ft')
@@ -1274,6 +1274,17 @@ export class SpacecraftService {
             maxY: shipY + sensorRange,
           })
           .getMany(),
+        this.objectRepo
+          .createQueryBuilder('object')
+          .where('object.systemId = :systemId', {
+            systemId: ship.starSystemId,
+          })
+          .andWhere('object.classId IN (:...starClassIds)', {
+            starClassIds: [9001, 9002],
+          })
+          .orderBy('object.classId', 'ASC')
+          .addOrderBy('object.id', 'ASC')
+          .getMany(),
       ]);
 
       return {
@@ -1283,6 +1294,12 @@ export class SpacecraftService {
         sensorRange,
         systemId: ship.starSystemId,
         systemName: ship.starSystem?.name ?? null,
+        systemTypeId: ship.starSystem?.systemTypeId ?? null,
+        stars: starObjects.map((star) => ({
+          centerX: star.posX,
+          centerY: star.posY,
+          role: star.classId === 9002 ? 'secondary' : 'primary',
+        })),
         fields: fields.map((f) => ({
           id: f.id,
           sx: f.sx,
