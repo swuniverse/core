@@ -113,6 +113,8 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
+    await this.generateFields(colony, { factionId, fields: surface.fields });
+    await this.createInitialStats(colony);
     await this.createInitialChangeable(colony);
     assertOwnedColony(colony);
     await this.createInitialDepositMining(colony, planet);
