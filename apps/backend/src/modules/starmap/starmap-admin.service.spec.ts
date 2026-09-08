@@ -289,3 +289,21 @@ describe('StarmapAdminService updateCelestialObject', () => {
     });
   });
 });
+
+describe('StarmapAdminService tactical world reset', () => {
+  it('removes world state while preserving research progress', async () => {
+    const { service } = createService();
+    const manager = { query: jest.fn(async () => undefined) };
+
+    const deleteWorldState = Reflect.get(service, 'deleteWorldState');
+    if (typeof deleteWorldState !== 'function') {
+      throw new Error('deleteWorldState is unavailable');
+    }
+    await deleteWorldState.call(service, manager);
+
+    const queries = manager.query.mock.calls.map(([query]) => query);
+    expect(queries).toContain('DELETE FROM "colonies"');
+    expect(queries).toContain('DELETE FROM "galaxy_fields"');
+    expect(queries).not.toContain('DELETE FROM "research"');
+  });
+});

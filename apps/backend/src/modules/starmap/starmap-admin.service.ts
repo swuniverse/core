@@ -301,7 +301,9 @@ export class StarmapAdminService {
       );
     }
     for (const entry of defaults) {
-      const fieldType = existing.find((candidate) => candidate.key === entry.key);
+      const fieldType = existing.find(
+        (candidate) => candidate.key === entry.key,
+      );
       if (fieldType && fieldType.name !== entry.name) {
         fieldType.name = entry.name;
         await this.fieldTypeRepo.save(fieldType);
@@ -439,30 +441,58 @@ export class StarmapAdminService {
         .update(Layer)
         .set({ isDefault: false })
         .execute();
-      const layer = await layerRepo.save(layerRepo.create({
-        name: 'Tactical Season 1', width: 48, height: 48, sectorSize: 12,
-        isDefault: true, isFinished: true, isHidden: false,
-      }));
-      const empty = await manager.getRepository(GalaxyFieldType).findOneBy({ key: 'EMPTY_SPACE' });
-      if (!empty) throw new NotFoundException('EMPTY_SPACE field type not found');
+      const layer = await layerRepo.save(
+        layerRepo.create({
+          name: 'Tactical Season 1',
+          width: 48,
+          height: 48,
+          sectorSize: 12,
+          isDefault: true,
+          isFinished: true,
+          isHidden: false,
+        }),
+      );
+      const empty = await manager
+        .getRepository(GalaxyFieldType)
+        .findOneBy({ key: 'EMPTY_SPACE' });
+      if (!empty)
+        throw new NotFoundException('EMPTY_SPACE field type not found');
       const fields: GalaxyField[] = [];
       for (let cy = 1; cy <= 48; cy++) {
         for (let cx = 1; cx <= 48; cx++) {
-          fields.push(fieldRepo.create({
-            layerId: layer.id, cx, cy, fieldTypeId: empty.id, systemTypeId: null,
-            factionZone: FactionZone.UNKNOWN, starSystemId: null, isPassable: empty.passable,
-            energyCost: empty.energyCost, damage: empty.damage, effectFlags: empty.effects,
-            adminRegionKey: null,
-          }));
+          fields.push(
+            fieldRepo.create({
+              layerId: layer.id,
+              cx,
+              cy,
+              fieldTypeId: empty.id,
+              systemTypeId: null,
+              factionZone: FactionZone.UNKNOWN,
+              starSystemId: null,
+              isPassable: empty.passable,
+              energyCost: empty.energyCost,
+              damage: empty.damage,
+              effectFlags: empty.effects,
+              adminRegionKey: null,
+            }),
+          );
         }
       }
       await fieldRepo.save(fields, { chunk: 500 });
-      const generated = await this.generateTacticalGalaxyInTransaction(manager, layer.id, {
-        seed, systemCount: 56,
-      });
+      const generated = await this.generateTacticalGalaxyInTransaction(
+        manager,
+        layer.id,
+        {
+          seed,
+          systemCount: 56,
+        },
+      );
       return {
-        layerId: layer.id, systems: generated.systems, routes: generated.routes,
-        wormholes: generated.wormholes, seed,
+        layerId: layer.id,
+        systems: generated.systems,
+        routes: generated.routes,
+        wormholes: generated.wormholes,
+        seed,
       };
     });
   }
@@ -485,7 +515,6 @@ export class StarmapAdminService {
     await manager.query('DELETE FROM "colony_storage"');
     await manager.query('DELETE FROM "asteroid_resource_deposits"');
     await manager.query('DELETE FROM "colony_fields"');
-    await manager.query('DELETE FROM "research"');
     await manager.query('DELETE FROM "exploration_states"');
     await manager.query('DELETE FROM "system_explorations"');
     await manager.query('DELETE FROM "influence_areas"');
@@ -505,7 +534,6 @@ export class StarmapAdminService {
     await manager.query('DELETE FROM "star_systems"');
     await manager.query('DELETE FROM "layers"');
   }
-
 
   async deleteLayer(layerId: number): Promise<StarmapOperationResultDto> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
@@ -938,9 +966,12 @@ export class StarmapAdminService {
         field.damage = fieldType.damage;
         field.effectFlags = fieldType.effects;
       }
-      if (input.systemTypeId !== undefined) field.systemTypeId = input.systemTypeId;
-      if (input.factionZone !== undefined) field.factionZone = input.factionZone as FactionZone;
-      if (input.adminRegionKey !== undefined) field.adminRegionKey = input.adminRegionKey;
+      if (input.systemTypeId !== undefined)
+        field.systemTypeId = input.systemTypeId;
+      if (input.factionZone !== undefined)
+        field.factionZone = input.factionZone as FactionZone;
+      if (input.adminRegionKey !== undefined)
+        field.adminRegionKey = input.adminRegionKey;
     }
     await this.galaxyFieldRepo.save(fields, { chunk: 500 });
     return { updated: fields.length };
@@ -1023,13 +1054,22 @@ export class StarmapAdminService {
       order: { cy: 'ASC', cx: 'ASC' },
     });
     if (fields.length !== 48 * 48) {
-      throw new BadRequestException('Initialize the layer grid before generating');
+      throw new BadRequestException(
+        'Initialize the layer grid before generating',
+      );
     }
 
     const seed = options.seed?.trim() || `tactical-${layer.id}`;
     const systemCount = Math.max(24, Math.min(options.systemCount ?? 56, 64));
-    const positions = this.createTacticalSystemPositions(48, 48, systemCount, seed);
-    const byCoordinate = new Map(fields.map((field) => [`${field.cx},${field.cy}`, field]));
+    const positions = this.createTacticalSystemPositions(
+      48,
+      48,
+      systemCount,
+      seed,
+    );
+    const byCoordinate = new Map(
+      fields.map((field) => [`${field.cx},${field.cy}`, field]),
+    );
     for (const field of fields) {
       field.fieldTypeId = empty.id;
       field.systemTypeId = null;
@@ -1041,14 +1081,25 @@ export class StarmapAdminService {
       field.effects = null;
       field.passableOverride = null;
       field.adminRegionKey = this.tacticalRegionFor(field.cx, field.cy, 48, 48);
-      field.factionZone = this.tacticalFactionZoneFor(field.cx, field.cy, 48, 48);
+      field.factionZone = this.tacticalFactionZoneFor(
+        field.cx,
+        field.cy,
+        48,
+        48,
+      );
     }
     const roles = this.tacticalSystemRoles(positions.length);
     for (let index = 0; index < positions.length; index++) {
-      const field = byCoordinate.get(`${positions[index].x},${positions[index].y}`);
+      const field = byCoordinate.get(
+        `${positions[index].x},${positions[index].y}`,
+      );
       if (!field) continue;
       field.fieldTypeId = empty.id;
-      field.systemTypeId = this.tacticalSystemTypeFor(roles[index], seed, index);
+      field.systemTypeId = this.tacticalSystemTypeFor(
+        roles[index],
+        seed,
+        index,
+      );
       field.isPassable = empty.passable;
       field.energyCost = empty.energyCost;
       field.damage = empty.damage;
@@ -1058,19 +1109,34 @@ export class StarmapAdminService {
     const systems: StarSystem[] = [];
     for (let index = 0; index < positions.length; index++) {
       const position = positions[index];
-      const systemTypeId = this.tacticalSystemTypeFor(roles[index], seed, index);
+      const systemTypeId = this.tacticalSystemTypeFor(
+        roles[index],
+        seed,
+        index,
+      );
       const name = `Tactical-${index + 1}`;
       const layout = this.systemGenerator.createLayout(
         name,
         systemTypeId,
         `${seed}:${index}`,
       );
-      const system = await systemRepo.save(systemRepo.create({
-        name, layerId, cx: position.x, cy: position.y, systemTypeId,
-        maxX: layout.width, maxY: layout.height, bonusFields: this.rollBonusFieldAmount(),
-      }));
+      const system = await systemRepo.save(
+        systemRepo.create({
+          name,
+          layerId,
+          cx: position.x,
+          cy: position.y,
+          systemTypeId,
+          maxX: layout.width,
+          maxY: layout.height,
+          bonusFields: this.rollBonusFieldAmount(),
+        }),
+      );
       const field = byCoordinate.get(`${position.x},${position.y}`);
-      if (!field) throw new BadRequestException('Tactical system position is outside the layer');
+      if (!field)
+        throw new BadRequestException(
+          'Tactical system position is outside the layer',
+        );
       field.starSystemId = system.id;
       field.adminRegionKey = `TACTICAL_${roles[index]}`;
       systems.push(system);
@@ -1078,10 +1144,19 @@ export class StarmapAdminService {
     }
     await fieldRepo.save(fields, { chunk: 500 });
     await this.createTacticalRoutes(manager, layerId, systems, roles, seed);
-    const reachableSystems = this.validateTacticalReachability(fields, systems, roles);
+    const reachableSystems = this.validateTacticalReachability(
+      fields,
+      systems,
+      roles,
+    );
     return {
-      generated: systems.length, seed, systems: systems.length, routes: 3,
-      wormholes: 1, reachableSystems, nebulaFields: 0,
+      generated: systems.length,
+      seed,
+      systems: systems.length,
+      routes: 3,
+      wormholes: 1,
+      reachableSystems,
+      nebulaFields: 0,
       regions: 5,
     };
   }
@@ -1137,7 +1212,9 @@ export class StarmapAdminService {
       (a, b) => b.cx - a.cx || a.id - b.id,
     )[0];
     const rimBorder = closest(leftExpansion, border);
-    const frontierSystems = border.filter((system) => system.id !== rimBorder.id);
+    const frontierSystems = border.filter(
+      (system) => system.id !== rimBorder.id,
+    );
     const routeSpecs = [
       {
         key: 'corellian-trade-spine',
@@ -1155,7 +1232,10 @@ export class StarmapAdminService {
         key: 'frontier-run',
         name: 'Frontier Run',
         color: '#a78bfa',
-        systems: chain(frontierSystems[0], [...frontierSystems.slice(1), ...anomaly]),
+        systems: chain(frontierSystems[0], [
+          ...frontierSystems.slice(1),
+          ...anomaly,
+        ]),
       },
     ];
     for (let routeIndex = 0; routeIndex < routeSpecs.length; routeIndex++) {
@@ -1197,15 +1277,31 @@ export class StarmapAdminService {
     );
   }
 
-  private validateTacticalReachability(fields: GalaxyField[], systems: StarSystem[], roles: string[]): number {
-    const passable = new Set(fields.filter((field) => field.isPassable).map((field) => `${field.cx},${field.cy}`));
+  private validateTacticalReachability(
+    fields: GalaxyField[],
+    systems: StarSystem[],
+    roles: string[],
+  ): number {
+    const passable = new Set(
+      fields
+        .filter((field) => field.isPassable)
+        .map((field) => `${field.cx},${field.cy}`),
+    );
     const start = systems[roles.indexOf('START')];
-    if (!start) throw new BadRequestException('Tactical topology requires a start system');
+    if (!start)
+      throw new BadRequestException(
+        'Tactical topology requires a start system',
+      );
     const seen = new Set([`${start.cx},${start.cy}`]);
     const pending = [{ x: start.cx, y: start.cy }];
     while (pending.length) {
       const current = pending.shift()!;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
         const key = `${current.x + dx},${current.y + dy}`;
         if (passable.has(key) && !seen.has(key)) {
           seen.add(key);
@@ -1213,8 +1309,13 @@ export class StarmapAdminService {
         }
       }
     }
-    const reachable = systems.filter((system) => seen.has(`${system.cx},${system.cy}`)).length;
-    if (reachable !== systems.length) throw new BadRequestException('Tactical topology has unreachable systems');
+    const reachable = systems.filter((system) =>
+      seen.has(`${system.cx},${system.cy}`),
+    ).length;
+    if (reachable !== systems.length)
+      throw new BadRequestException(
+        'Tactical topology has unreachable systems',
+      );
     return reachable;
   }
 
@@ -1227,13 +1328,25 @@ export class StarmapAdminService {
     const objectRepo = manager.getRepository(CelestialObject);
     const systemFieldRepo = manager.getRepository(SystemField);
     const fieldTypes = await fieldTypeRepo.find();
-    const fieldTypeByKey = new Map(fieldTypes.map((fieldType) => [fieldType.key, fieldType]));
-    const fieldTypeById = new Map(fieldTypes.map((fieldType) => [fieldType.id, fieldType]));
-    const objects = await objectRepo.save(layout.objects.map((object) => objectRepo.create({
-      systemId: system.id, objectType: object.objectType, name: object.name,
-      posX: object.posX, posY: object.posY, classId: object.classId,
-      isColonizable: object.isColonizable,
-    })));
+    const fieldTypeByKey = new Map(
+      fieldTypes.map((fieldType) => [fieldType.key, fieldType]),
+    );
+    const fieldTypeById = new Map(
+      fieldTypes.map((fieldType) => [fieldType.id, fieldType]),
+    );
+    const objects = await objectRepo.save(
+      layout.objects.map((object) =>
+        objectRepo.create({
+          systemId: system.id,
+          objectType: object.objectType,
+          name: object.name,
+          posX: object.posX,
+          posY: object.posY,
+          classId: object.classId,
+          isColonizable: object.isColonizable,
+        }),
+      ),
+    );
     const objectByKey = new Map<string, CelestialObject>();
     layout.objects.forEach((object, index) => {
       const savedObject = objects[index];
@@ -1242,15 +1355,29 @@ export class StarmapAdminService {
     const rows = layout.fields.map((field) => {
       const fieldType = field.fieldTypeId
         ? fieldTypeById.get(field.fieldTypeId)
-        : (fieldTypeByKey.get(field.fieldTypeKey) ?? fieldTypeByKey.get('EMPTY_SPACE'));
-      if (!fieldType) throw new NotFoundException(`Field type ${field.fieldTypeId ?? field.fieldTypeKey} not found`);
-      const celestialObject = field.objectKey ? (objectByKey.get(field.objectKey) ?? null) : null;
+        : (fieldTypeByKey.get(field.fieldTypeKey) ??
+          fieldTypeByKey.get('EMPTY_SPACE'));
+      if (!fieldType)
+        throw new NotFoundException(
+          `Field type ${field.fieldTypeId ?? field.fieldTypeKey} not found`,
+        );
+      const celestialObject = field.objectKey
+        ? (objectByKey.get(field.objectKey) ?? null)
+        : null;
       return systemFieldRepo.create({
-        starSystemId: system.id, sx: field.sx, sy: field.sy, fieldTypeId: fieldType.id,
-        celestialObjectId: celestialObject?.id ?? null, isPassable: fieldType.passable,
-        energyCost: fieldType.energyCost, damage: fieldType.damage, effects: fieldType.effects,
-        regionKey: field.regionKey ?? null, adminRegionKey: field.adminRegionKey ?? null,
-        influenceAreaId: field.influenceAreaId ?? null, borderMask: field.borderMask ?? null,
+        starSystemId: system.id,
+        sx: field.sx,
+        sy: field.sy,
+        fieldTypeId: fieldType.id,
+        celestialObjectId: celestialObject?.id ?? null,
+        isPassable: fieldType.passable,
+        energyCost: fieldType.energyCost,
+        damage: fieldType.damage,
+        effects: fieldType.effects,
+        regionKey: field.regionKey ?? null,
+        adminRegionKey: field.adminRegionKey ?? null,
+        influenceAreaId: field.influenceAreaId ?? null,
+        borderMask: field.borderMask ?? null,
       });
     });
     await systemFieldRepo.save(rows, { chunk: 500 });
@@ -1263,7 +1390,7 @@ export class StarmapAdminService {
     seed: string,
   ): Array<{ x: number; y: number }> {
     const clusters = [
-      { x: 0.30, y: 0.34, weight: 8 },
+      { x: 0.3, y: 0.34, weight: 8 },
       { x: 0.67, y: 0.35, weight: 8 },
       { x: 0.46, y: 0.62, weight: 8 },
       { x: 0.22, y: 0.74, weight: 5 },
@@ -1279,26 +1406,41 @@ export class StarmapAdminService {
       if (
         result.some(
           (existing) =>
-            Math.abs(existing.x - clamped.x) + Math.abs(existing.y - clamped.y) < 3,
+            Math.abs(existing.x - clamped.x) +
+              Math.abs(existing.y - clamped.y) <
+            3,
         )
-      ) return;
+      )
+        return;
       result.push(clamped);
     };
 
-    for (let index = 0; result.length < target && index < target * 30; index++) {
+    for (
+      let index = 0;
+      result.length < target && index < target * 30;
+      index++
+    ) {
       const cluster = clusters[index % clusters.length];
       const h1 = hash(`system:${index}:x`);
       const h2 = hash(`system:${index}:y`);
       const spread = result.length < 18 ? 7 : 11;
-      const x = Math.round(cluster.x * width + ((h1 % (spread * 2 + 1)) - spread));
-      const y = Math.round(cluster.y * height + ((h2 % (spread * 2 + 1)) - spread));
+      const x = Math.round(
+        cluster.x * width + ((h1 % (spread * 2 + 1)) - spread),
+      );
+      const y = Math.round(
+        cluster.y * height + ((h2 % (spread * 2 + 1)) - spread),
+      );
       addCandidate(x, y);
     }
     return result;
   }
 
-
-  private tacticalRegionFor(x: number, y: number, width: number, height: number): string {
+  private tacticalRegionFor(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): string {
     const nx = x / width;
     const ny = y / height;
     if (nx < 0.1 || nx > 0.9 || ny < 0.1 || ny > 0.9) return 'WILD_SPACE';
@@ -1307,7 +1449,12 @@ export class StarmapAdminService {
     return 'MID_RIM';
   }
 
-  private tacticalFactionZoneFor(x: number, y: number, width: number, height: number): FactionZone {
+  private tacticalFactionZoneFor(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): FactionZone {
     if (x < width * 0.35 && y < height * 0.55) return FactionZone.REBEL;
     if (x > width * 0.65 && y > height * 0.55) return FactionZone.EMPIRE;
     if (x > width * 0.35 && x < width * 0.65) return FactionZone.CONTESTED;
@@ -1325,7 +1472,11 @@ export class StarmapAdminService {
     return roles.slice(0, count);
   }
 
-  private tacticalSystemTypeFor(role: string, seed: string, index: number): number {
+  private tacticalSystemTypeFor(
+    role: string,
+    seed: string,
+    index: number,
+  ): number {
     const picks: Record<string, number[]> = {
       START: [1057, 1058, 1059, 1060],
       EXPANSION: [1049, 1050, 1051, 1052, 1031, 1032, 1033],
@@ -1334,9 +1485,10 @@ export class StarmapAdminService {
       ANOMALY: [1061, 1062, 1063, 1067, 1071, 1072],
     };
     const candidates = picks[role] ?? picks.EXPANSION;
-    return candidates[this.hashString(`${seed}:${role}:${index}`) % candidates.length];
+    return candidates[
+      this.hashString(`${seed}:${role}:${index}`) % candidates.length
+    ];
   }
-
 
   async generateSystemsForLayer(
     layerId: number,
@@ -1846,7 +1998,9 @@ export class StarmapAdminService {
     }
     if (patch.description !== undefined) {
       if (patch.description && patch.description.length > 2000) {
-        throw new BadRequestException('Celestial object description is too long');
+        throw new BadRequestException(
+          'Celestial object description is too long',
+        );
       }
       object.description = patch.description?.trim() || null;
     }
@@ -2815,7 +2969,10 @@ export class StarmapAdminService {
             systemId: sys.id,
             objectType: o.objectType,
             name: o.name,
-            description: typeof o.description === 'string' && o.description.trim() ? o.description : null,
+            description:
+              typeof o.description === 'string' && o.description.trim()
+                ? o.description
+                : null,
             posX: o.posX,
             posY: o.posY,
             classId: o.classId,

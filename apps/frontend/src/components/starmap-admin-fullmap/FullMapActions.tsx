@@ -5,9 +5,13 @@ export function FullMapActions() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const initStarWars = useFullmapEditorStore((s) => s.initializeDefaultStarWarsGalaxy);
+  const initStarWars = useFullmapEditorStore(
+    (s) => s.initializeDefaultStarWarsGalaxy,
+  );
   const initGrid = useFullmapEditorStore((s) => s.initializeLayerGrid);
-  const generateSystems = useFullmapEditorStore((s) => s.generateSystemsForLayer);
+  const generateSystems = useFullmapEditorStore(
+    (s) => s.generateSystemsForLayer,
+  );
   const worldResetTactical = useFullmapEditorStore((s) => s.worldResetTactical);
   const exportLayer = useFullmapEditorStore((s) => s.exportLayer);
   const importLayer = useFullmapEditorStore((s) => s.importLayer);
@@ -41,7 +45,11 @@ export function FullMapActions() {
           <ActionBtn
             label="Star Wars Galaxie initialisieren"
             onClick={async () => {
-              if (window.confirm('Neue Star Wars Galaxie erstellen? (überschreibt bestehenden Default-Layer)')) {
+              if (
+                window.confirm(
+                  'Neue Star Wars Galaxie erstellen? (überschreibt bestehenden Default-Layer)',
+                )
+              ) {
                 await initStarWars();
               }
               setOpen(false);
@@ -68,11 +76,9 @@ export function FullMapActions() {
             onClick={async () => {
               if (
                 window.confirm(
-                  'ACHTUNG: Löscht alle Kolonien, Schiffe, Fortschritte und die aktuelle Welt. Konten, Rollen, Einstellungen, Nachrichten, Notizen und die gewählte Fraktion bleiben. Tactical Season 1 wird anschließend mit 56 Systemen neu erstellt.',
+                  'ACHTUNG: Löscht alle Kolonien, Schiffe und die aktuelle Welt. Forschungsfortschritt, Konten, Rollen, Einstellungen, Nachrichten, Notizen und die gewählte Fraktion bleiben. Tactical Season 1 wird anschließend mit 56 Systemen neu erstellt.',
                 ) &&
-                window.confirm(
-                  'Weltreset jetzt endgültig ausführen?',
-                )
+                window.confirm('Weltreset jetzt endgültig ausführen?')
               ) {
                 await worldResetTactical();
               }
