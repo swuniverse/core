@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type HyperspaceRouteDto,
   type StarmapGalaxyFieldDto,
@@ -10,6 +10,7 @@ import {
 import { api } from '../services/api';
 import { StarmapCanvas, type StarmapCanvasHandle } from '../components/starmap/StarmapCanvas';
 import { StarmapControlPanel } from '../components/starmap/StarmapControlPanel';
+import { canLoadInlineSystem } from '../lib/starmap-render';
 
 type Layer = Pick<
   StarmapLayerDto,
@@ -27,13 +28,17 @@ export function StarmapPage() {
   const [hyperspaceRoutes, setHyperspaceRoutes] = useState<HyperspaceRoute[]>([]);
   const [hiddenRouteIds, setHiddenRouteIds] = useState<number[]>([]);
   const [selectedSystem, setSelectedSystem] = useState<StarSystem | null>(null);
-  const [systemGrid, setSystemGrid] = useState<SystemGrid | null>(null);
+  const [systemGrids, setSystemGrids] = useState<Map<number, SystemGrid>>(() => new Map());
+  const [openedSystemIds, setOpenedSystemIds] = useState<number[]>([]);
   const [wormholes, setWormholes] = useState<StarmapWormholeDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedField, setSelectedField] = useState<GalaxyField | null>(null);
   const [selectedSector, setSelectedSector] = useState<{ x: number; y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const canvasRef = useRef<StarmapCanvasHandle>(null);
+  const systemGridsRef = useRef<Map<number, SystemGrid>>(new Map());
+  const openingSystemsRef = useRef<Map<number, Promise<SystemGrid>>>(new Map());
+  const openedSystemIdsRef = useRef<number[]>([]);
 
   useEffect(() => {
     api.get<Layer[]>('/starmap/layers').then(async (data) => {
@@ -56,7 +61,11 @@ export function StarmapPage() {
   async function selectLayer(layer: Layer) {
     setSelectedLayer(layer);
     setSelectedSystem(null);
-    setSystemGrid(null);
+    systemGridsRef.current = new Map();
+    openingSystemsRef.current.clear();
+    setSystemGrids(new Map());
+    openedSystemIdsRef.current = [];
+    setOpenedSystemIds([]);
     setLoading(true);
     const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
       api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`),
@@ -72,12 +81,61 @@ export function StarmapPage() {
     setSelectedSystem(system);
   }
 
-  async function loadSystem(system: StarSystem): Promise<SystemGrid> {
+  const openSystem = useCallback(async (system: StarSystem): Promise<SystemGrid | null> => {
+    if (!canLoadInlineSystem(system)) return null;
     setSelectedSystem(system);
-    const grid = await api.get<SystemGrid>(`/starmap/systems/${system.id}/grid`);
-    setSystemGrid(grid);
-    return grid;
-  }
+    const cached = systemGridsRef.current.get(system.id);
+    if (cached) return cached;
+    const pending = openingSystemsRef.current.get(system.id);
+    if (pending) return pending;
+    const request = api.get<SystemGrid>(`/starmap/systems/${system.id}/grid`);
+    openingSystemsRef.current.set(system.id, request);
+    try {
+      const grid = await request;
+      const grids = new Map(systemGridsRef.current).set(system.id, grid);
+      systemGridsRef.current = grids;
+      setSystemGrids(grids);
+      const openedIds = openedSystemIdsRef.current.includes(system.id)
+        ? openedSystemIdsRef.current
+        : [...openedSystemIdsRef.current, system.id];
+      openedSystemIdsRef.current = openedIds;
+      setOpenedSystemIds(openedIds);
+      return grid;
+    } finally {
+      openingSystemsRef.current.delete(system.id);
+    }
+  }, []);
+
+  useEffect(() => {
+    const systems = Array.from(
+      new Map(
+        fields
+          .map((field) => field.starSystem)
+          .filter((system): system is StarSystem => !!system && canLoadInlineSystem(system))
+          .map((system) => [system.id, system]),
+      ).values(),
+    );
+    if (systems.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      systems.map(async (system) => {
+        const cached = systemGridsRef.current.get(system.id);
+        if (cached) return [system.id, cached] as const;
+        return [system.id, await api.get<SystemGrid>(`/starmap/systems/${system.id}/grid`)] as const;
+      }),
+    ).then((loadedGrids) => {
+      if (cancelled) return;
+      const grids = new Map(loadedGrids);
+      systemGridsRef.current = grids;
+      setSystemGrids(grids);
+      const ids = systems.map((system) => system.id);
+      openedSystemIdsRef.current = ids;
+      setOpenedSystemIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fields]);
 
 
   async function refreshData() {
@@ -92,10 +150,6 @@ export function StarmapPage() {
     setWormholes(loadedWormholes);
   }
 
-  function exitSystem() {
-    setSelectedSystem(null);
-    setSystemGrid(null);
-  }
 
   const visibleHyperspaceRoutes = useMemo(
     () => hyperspaceRoutes.filter((route) => !hiddenRouteIds.includes(route.id)),
@@ -143,14 +197,6 @@ export function StarmapPage() {
         >
           Einpassen
         </button>
-        {systemGrid && (
-          <button
-            className="text-xs text-swu-accent border border-swu-border rounded px-2 py-1 hover:bg-swu-accent/10"
-            onClick={exitSystem}
-          >
-            ← Zur Karte
-          </button>
-        )}
       </div>
 
       {/* Main */}
@@ -163,11 +209,11 @@ export function StarmapPage() {
               fields={fields}
               routes={visibleHyperspaceRoutes}
               selectedSystem={selectedSystem}
-              systemGrid={systemGrid}
+              openedSystemIds={openedSystemIds}
+              systemGrids={systemGrids}
               onSelectSystem={selectSystem}
-              onEnterSystem={loadSystem}
+              onOpenSystem={openSystem}
               wormholes={wormholes}
-              onExitSystem={exitSystem}
               onFieldClick={setSelectedField}
               selectedField={selectedField}
               selectedSector={selectedSector}
@@ -189,12 +235,11 @@ export function StarmapPage() {
               onZoomOut={() => canvasRef.current?.zoomOut()}
               selectedField={selectedField}
               selectedSystem={selectedSystem}
-              onEnterSystem={() => canvasRef.current?.enterSystem()}
-              inSystemMode={!!systemGrid}
+              onOpenSystem={() => selectedSystem && void openSystem(selectedSystem)}
             />
           )}
           {/* Hyperspace routes */}
-          {!systemGrid && hyperspaceRoutes.length > 0 && (
+          {hyperspaceRoutes.length > 0 && (
             <div className="rounded-lg border border-swu-border bg-swu-surface p-3">
               <h4 className="text-xs font-bold text-swu-muted mb-2">Hyperrouten</h4>
               <div className="space-y-1">

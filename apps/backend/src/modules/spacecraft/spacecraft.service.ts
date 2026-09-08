@@ -1404,6 +1404,7 @@ export class SpacecraftService {
           name: f.fieldType.name,
         },
         starSystemId: f.starSystemId,
+        systemTypeId: f.starSystem?.systemTypeId ?? null,
         starSystem: f.starSystem
           ? { id: f.starSystem.id, name: f.starSystem.name }
           : null,

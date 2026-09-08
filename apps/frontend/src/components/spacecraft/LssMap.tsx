@@ -3,7 +3,7 @@ import {
   getGalaxyFieldStyle,
   getSystemFieldStyle,
 } from './field-styles';
-import { planetThumbnail, spaceBackgroundTile, starTileImage } from '../../lib/assets';
+import { planetThumbnail, spaceBackgroundTile, starTileImage, systemTypeImage } from '../../lib/assets';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
 interface FieldType {
@@ -18,6 +18,7 @@ interface GalaxyLocalField {
   cy: number;
   fieldType: FieldType;
   starSystemId: number | null;
+  systemTypeId?: number | null;
   starSystem: { id: number; name: string } | null;
   isPassable?: boolean;
 }
@@ -178,6 +179,9 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     field.fieldType.key === 'EMPTY_SPACE'
                       ? spaceBackgroundTile(x, y)
                       : starTileImage(field.fieldType.id);
+                  const systemAsset = field.systemTypeId
+                    ? systemTypeImage(field.systemTypeId)
+                    : null;
                   return (
                     <button
                       key={field.id}
@@ -194,14 +198,25 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                       ].join(' ')}
                       title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}`}
                     >
-                      <img
-                        src={fieldTileImage}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover opacity-90"
-                        onError={(event) => {
-                          event.currentTarget.style.display = 'none';
-                        }}
-                      />
+                      {systemAsset ? (
+                        <img
+                          src={systemAsset}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-contain"
+                          onError={(event) => {
+                            event.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={fieldTileImage}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover opacity-90"
+                          onError={(event) => {
+                            event.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      )}
                       {isShip
                         ? '▲'
                         : shipsByPos.has(`${x},${y}`)
