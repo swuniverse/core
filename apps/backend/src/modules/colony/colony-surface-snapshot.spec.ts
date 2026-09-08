@@ -20,7 +20,7 @@ jest.mock('./entities/colony-orbit-assignment.entity', () => ({
 }));
 jest.mock('../starmap/entities/celestial-object.entity', () => ({
   CelestialObject: class CelestialObject {},
-  CelestialObjectType: { PLANET: 1 },
+  CelestialObjectType: { PLANET: 1, ASTEROID: 3 },
 }));
 jest.mock('../spacecraft/entities/cargo-item.entity', () => ({
   CargoItem: class CargoItem {},
@@ -110,9 +110,9 @@ describe('Colony surface snapshots', () => {
         layer: expect.stringMatching(/^(ORBIT|SURFACE|UNDERGROUND)$/),
       }),
     );
-    expect(mask.some((field: { layer: string }) => field.layer === 'UNDERGROUND')).toBe(
-      true,
-    );
+    expect(
+      mask.some((field: { layer: string }) => field.layer === 'UNDERGROUND'),
+    ).toBe(true);
   });
 
   it('seeds starter colonies from the generated surface snapshot', async () => {
@@ -130,6 +130,7 @@ describe('Colony surface snapshots', () => {
           posY: 5,
           classId: 201,
           starSystem: { bonusFields: 2 },
+          objectType: 1,
         },
       ]),
     });
@@ -149,9 +150,11 @@ describe('Colony surface snapshots', () => {
       }),
     );
     expect(savedFields).toHaveLength(decodedMask.length);
-    expect(savedFields.some((field: { layer: string }) => field.layer === 'UNDERGROUND')).toBe(
-      true,
-    );
+    expect(
+      savedFields.some(
+        (field: { layer: string }) => field.layer === 'UNDERGROUND',
+      ),
+    ).toBe(true);
   });
 
   it('projects surface metadata from colony fields', () => {
@@ -164,11 +167,7 @@ describe('Colony surface snapshots', () => {
 
     const surface = projection.buildSurfaceInfo(
       { surfaceWidth: 10, rotationFactor: 1 },
-      [
-        { layer: 'ORBIT' },
-        { layer: 'SURFACE' },
-        { layer: 'UNDERGROUND' },
-      ],
+      [{ layer: 'ORBIT' }, { layer: 'SURFACE' }, { layer: 'UNDERGROUND' }],
     );
 
     expect(surface).toEqual({

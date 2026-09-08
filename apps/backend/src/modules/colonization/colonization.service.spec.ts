@@ -268,6 +268,15 @@ describe('ColonizationService', () => {
       posY: 9,
       starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
     });
+    objectRepo.findOneBy.mockResolvedValue({
+      id: 7,
+      objectType: 2,
+      isColonizable: true,
+      classId: 401,
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+    });
     shipRepo.findOne.mockResolvedValue({
       id: 15,
       userId: 1,
