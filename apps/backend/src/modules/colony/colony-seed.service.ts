@@ -81,9 +81,10 @@ export class ColonySeedService {
   ): Promise<Colony> {
     const starterTargets = await this.findStarterTargets();
     const planet = preferredCelestialObjectId
-      ? starterTargets.find((target) => target.id === preferredCelestialObjectId) ??
-        null
-      : starterTargets[0] ?? null;
+      ? (starterTargets.find(
+          (target) => target.id === preferredCelestialObjectId,
+        ) ?? null)
+      : (starterTargets[0] ?? null);
 
     if (!planet) {
       throw new BadRequestException('Starterplanet ist nicht verfügbar');

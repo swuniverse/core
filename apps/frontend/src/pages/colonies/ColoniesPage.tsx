@@ -34,7 +34,6 @@ import { PanelCrew } from './components/PanelCrew';
 import { PanelHangar } from './components/PanelHangar';
 import { PanelWaste } from './components/PanelWaste';
 import { ColonyCommandBar } from './components/ColonyCommandBar';
-import { ColonyStatusBar } from './components/ColonyStatusBar';
 import { ColonyMap } from './components/ColonyMap';
 import { SupplyDock } from './components/SupplyDock';
 import { WorkModeNav } from './components/WorkModeNav';
@@ -1027,7 +1026,6 @@ export function ColonyDetail({
     <div className="space-y-2">
       <ColonyCommandBar colony={colony} onBack={onBack} />
 
-      <ColonyStatusBar colony={colony} detail={detail} />
 
       <WorkModeNav
         tabs={tabs}
@@ -1046,6 +1044,11 @@ export function ColonyDetail({
           isBuildMode={!!selectedBuilding}
           buildingMap={buildingMap}
           getBuildPreviewTitle={getBuildPreviewTitle}
+          energy={{
+            current: detail?.energy.current ?? colony.energy,
+            max: detail?.energy.max ?? colony.energyMax,
+            delta: detail?.energy.delta,
+          }}
           onFieldClick={handleFieldClick}
           onFieldMouseEnter={setHoveredBuildField}
           onFieldMouseLeave={() => setHoveredBuildField(null)}

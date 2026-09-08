@@ -11,14 +11,13 @@ type PanelInfoProps = {
 export function PanelInfo({ colony, detail }: PanelInfoProps) {
   return (
     <div className="space-y-2">
-      {/* Orbit Ships */}
-      {(detail?.orbitShips?.length ?? 0) > 0 && (
-        <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-          <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-            Schiffe im Orbit
-          </div>
+      <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
+        <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
+          Orbit
+        </div>
+        {(detail?.orbitShips.length ?? 0) > 0 ? (
           <div className="space-y-1 text-sm">
-            {detail?.orbitShips?.map((ship) => (
+            {detail?.orbitShips.map((ship) => (
               <div key={ship.id} className="flex justify-between gap-2">
                 <span className="text-swu-primary">{ship.name}</span>
                 <span className="text-swu-muted">
@@ -28,8 +27,10 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-sm text-swu-muted">Keine Schiffe im Orbit.</div>
+        )}
+      </div>
 
       {/* Planet + System */}
       <div className="flex gap-2">
@@ -129,6 +130,26 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
           </div>
         </div>
       )}
+      {detail?.defense?.shields && (
+        <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
+          <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
+            Schilde
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-mono text-swu-accent">
+              {detail.defense.shields.current}/{detail.defense.shields.max}
+            </div>
+            <div className="h-2 flex-1 overflow-hidden rounded border border-swu-border/60 bg-swu-bg">
+              <div
+                className="h-full bg-swu-accent transition-[width]"
+                style={{
+                  width: `${detail.defense.shields.max > 0 ? Math.min(100, Math.max(0, (detail.defense.shields.current / detail.defense.shields.max) * 100)) : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {detail?.planetaryDefense && detail.planetaryDefense.length > 0 && (
         <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
@@ -188,14 +209,13 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
                   >
                     {deposit.name}
                   </span>
-                  <span className="font-mono text-swu-primary">
-                    {deposit.amountLeft}
+                  <span className="font-mono">
                     {deposit.delta !== 0 && (
                       <span
                         className={
                           deposit.delta < 0
-                            ? 'text-red-400 ml-1'
-                            : 'text-green-400 ml-1'
+                            ? 'text-red-400'
+                            : 'text-green-400'
                         }
                       >
                         {formatSignedAmount(deposit.delta)}

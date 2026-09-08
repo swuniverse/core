@@ -1,3 +1,4 @@
+import { formatSignedAmount } from '../utils';
 import type { BuildingDef, ColonyField } from '../types';
 import { FieldCell } from './FieldCell';
 
@@ -13,6 +14,7 @@ type ColonyMapProps = {
   onFieldClick: (field: ColonyField) => void;
   onFieldMouseEnter: (field: ColonyField) => void;
   onFieldMouseLeave: () => void;
+  energy: { current: number; max: number; delta?: number };
 };
 
 function ColonyMapSection({
@@ -49,6 +51,7 @@ export function ColonyMap({
   orbitFields,
   surfaceFields,
   undergroundFields,
+  energy,
   selectedField,
   highlightedFields,
   isBuildMode,
@@ -82,6 +85,33 @@ export function ColonyMap({
 
   return (
     <div className="rounded border border-swu-border bg-swu-surface p-2 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+      <div className="mb-2 border-b border-swu-border/60 pb-2">
+        <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
+          <span className="font-bold uppercase tracking-wide text-swu-muted">
+            Energie
+          </span>
+          <span className="font-mono text-swu-warning">
+            {energy.current}/{energy.max}
+            {energy.delta != null && (
+              <span
+                className={
+                  energy.delta >= 0 ? 'ml-1 text-green-400' : 'ml-1 text-red-400'
+                }
+              >
+                {formatSignedAmount(energy.delta)}
+              </span>
+            )}
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg">
+          <div
+            className="h-full bg-swu-warning transition-[width]"
+            style={{
+              width: `${energy.max > 0 ? Math.min(100, Math.max(0, (energy.current / energy.max) * 100)) : 0}%`,
+            }}
+          />
+        </div>
+      </div>
       {isBuildMode && (
         <div className="mb-2 flex justify-end border-b border-swu-border/40 pb-2">
           <div className="rounded border border-swu-accent/40 bg-swu-accent/10 px-2 py-1 text-[10px] font-bold text-swu-accent">
