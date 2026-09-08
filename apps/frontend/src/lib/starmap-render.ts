@@ -145,21 +145,35 @@ export function buildStarTileLayers(
   const secondaryObject =
     starObjects.find((o) => o.classId === 9002) ??
     starObjects.find((o) => o.id !== primaryObject?.id);
-
+  const binaryPrimaryCenter = primaryObject
+    ? primaryCenter
+    : fallbackBinaryCenters.primary;
+  const secondaryCenter = secondaryObject
+    ? { x: secondaryObject.posX, y: secondaryObject.posY }
+    : fallbackBinaryCenters.secondary;
+  const primaryStartX =
+    binaryPrimaryCenter.x - Math.floor(config.primary.gridSize / 2);
+  const primaryStartY =
+    binaryPrimaryCenter.y - Math.floor(config.primary.gridSize / 2);
+  const secondaryStartX =
+    secondaryCenter.x - Math.floor(config.secondary.gridSize / 2);
+  const secondaryStartY =
+    secondaryCenter.y - Math.floor(config.secondary.gridSize / 2);
+  const starsOverlap =
+    primaryStartX <= secondaryStartX + config.secondary.gridSize - 1 &&
+    secondaryStartX <= primaryStartX + config.primary.gridSize - 1 &&
+    primaryStartY <= secondaryStartY + config.secondary.gridSize - 1 &&
+    secondaryStartY <= primaryStartY + config.primary.gridSize - 1;
   return [
     {
       key: 'primary',
       config: config.primary,
-      center: primaryObject
-        ? { x: primaryObject.posX, y: primaryObject.posY }
-        : fallbackBinaryCenters.primary,
+      center: starsOverlap ? fallbackBinaryCenters.primary : binaryPrimaryCenter,
     },
     {
       key: 'secondary',
       config: config.secondary,
-      center: secondaryObject
-        ? { x: secondaryObject.posX, y: secondaryObject.posY }
-        : fallbackBinaryCenters.secondary,
+      center: starsOverlap ? fallbackBinaryCenters.secondary : secondaryCenter,
     },
   ];
 }

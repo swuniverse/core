@@ -29,7 +29,7 @@ import {
   starTileImage,
   galaxyMapBackground,
 } from '../../lib/assets';
-import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
+import { buildStarTileLayers, getStarTileIdAt } from '../../lib/starmap-render';
 
 const CELL_SIZE = 30;
 const MIN_SCALE = 0.08;
@@ -655,22 +655,8 @@ export const StarmapCanvas = forwardRef<
     if (!grid) return;
     const { system: sys, fields: sysFields, celestialObjects, colonyShields } = grid;
     const objects = new Map((celestialObjects ?? []).map((o) => [o.id, o]));
+    const starTileLayers = buildStarTileLayers(grid);
 
-    const starConfig = getStarTileConfig(sys.systemTypeId);
-    const starObjects = (celestialObjects ?? []).filter(
-      (o) => o.classId != null && o.classId >= 9001 && o.classId <= 9005,
-    );
-    const primaryStar =
-      starObjects.find((o) => o.classId === 9001) ?? starObjects[0];
-    const secondaryStar =
-      starObjects.find((o) => o.classId === 9002) ??
-      starObjects.find((o) => o.id !== primaryStar?.id);
-    const primaryCenter = primaryStar
-      ? { x: primaryStar.posX, y: primaryStar.posY }
-      : { x: Math.ceil(sys.maxX / 2), y: Math.ceil(sys.maxY / 2) };
-    const secondaryCenter = secondaryStar
-      ? { x: secondaryStar.posX, y: secondaryStar.posY }
-      : { x: Math.ceil(sys.maxX / 2) + 3, y: Math.ceil(sys.maxY / 2) + 3 };
 
     // Background
     const bg = new Graphics();
@@ -710,24 +696,17 @@ export const StarmapCanvas = forwardRef<
 
       // Star tiles
       let rendered = false;
-      if (starConfig) {
-        const tileId =
+      const tileId = starTileLayers
+        .map((star) =>
           getStarTileIdAt(
-            starConfig.primary,
+            star.config,
             field.sx,
             field.sy,
-            primaryCenter.x,
-            primaryCenter.y,
-          ) ??
-          (starConfig.secondary
-            ? getStarTileIdAt(
-                starConfig.secondary,
-                field.sx,
-                field.sy,
-                secondaryCenter.x,
-                secondaryCenter.y,
-              )
-            : null);
+            star.center.x,
+            star.center.y,
+          ),
+        )
+        .find((id) => id !== null) ?? null;
         if (tileId !== null) {
           try {
             const img = new Image();
@@ -748,7 +727,6 @@ export const StarmapCanvas = forwardRef<
             /* skip */
           }
         }
-      }
 
       // Planet/object icons
       if (!rendered && field.celestialObjectId) {
