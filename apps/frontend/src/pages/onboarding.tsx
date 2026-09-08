@@ -275,7 +275,9 @@ export function OnboardingPage() {
       setSelectedPlanetId(null);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Fraktion konnte nicht gewählt werden',
+        err instanceof ApiError
+          ? err.message
+          : 'Fraktion konnte nicht gewählt werden',
       );
     } finally {
       setSaving(false);
@@ -465,38 +467,48 @@ export function OnboardingPage() {
             </div>
           )}
 
-          <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">1. Fraktion</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {factions.map((faction) => {
-                const active = selectedFaction === faction.key;
-                return (
-                  <button
-                    key={faction.id}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void selectFaction(faction.key)}
-                    className={`rounded border p-4 text-left transition ${
-                      active
-                        ? 'border-swu-accent bg-swu-accent/10'
-                        : 'border-swu-border hover:border-swu-primary'
-                    }`}
-                  >
-                    <span
-                      className="mb-2 block h-1 w-12 rounded"
-                      style={{ backgroundColor: faction.colorPrimary }}
-                    />
-                    <span className="font-bold text-swu-primary">
-                      {faction.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          {!selectedFaction && (
+            <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
+              <h2 className="text-lg font-bold mb-4">1. Fraktion</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {factions.map((faction) => {
+                  return (
+                    <button
+                      key={faction.id}
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void selectFaction(faction.key)}
+                      className="rounded border border-swu-border p-4 text-left transition hover:border-swu-primary"
+                    >
+                      <span
+                        className="mb-2 block h-1 w-12 rounded"
+                        style={{ backgroundColor: faction.colorPrimary }}
+                      />
+                      <span className="font-bold text-swu-primary">
+                        {faction.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {selectedFaction && (
+            <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
+              <h2 className="text-lg font-bold mb-2">Fraktion</h2>
+              <p className="text-swu-primary font-bold">
+                {selectedFactionOption?.name ?? selectedFaction}
+              </p>
+              <p className="text-sm text-swu-muted mt-1">
+                Deine Fraktion bleibt beim Weltreset erhalten.
+              </p>
+            </section>
+          )}
 
           <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
-            <h2 className="text-lg font-bold mb-4">2. Sektor</h2>
+            <h2 className="text-lg font-bold mb-4">
+              {selectedFaction ? '1. Sektor' : '2. Sektor'}
+            </h2>
             <div className="flex items-center gap-3 mb-4">
               <label className="text-sm text-swu-muted">Layer</label>
               <select
@@ -592,7 +604,9 @@ export function OnboardingPage() {
 
           <section className="grid lg:grid-cols-2 gap-6">
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-4">3. System</h2>
+              <h2 className="text-lg font-bold mb-4">
+                {selectedFaction ? '2. System' : '3. System'}
+              </h2>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {systems.length === 0 && (
                   <p className="text-swu-muted text-sm">Choose sector first.</p>
@@ -625,7 +639,9 @@ export function OnboardingPage() {
             </div>
 
             <div className="bg-swu-surface border border-swu-border rounded-lg p-6">
-              <h2 className="text-lg font-bold mb-2">4. Planet</h2>
+              <h2 className="text-lg font-bold mb-2">
+                {selectedFaction ? '3. Planet' : '4. Planet'}
+              </h2>
               <p className="text-xs text-swu-muted mb-4">
                 Nur kolonialisierbare M-, L- und O-Klasse-Planeten koennen als
                 Heimatwelt gewaehlt werden.

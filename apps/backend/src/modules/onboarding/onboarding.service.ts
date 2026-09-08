@@ -67,6 +67,14 @@ export class OnboardingService {
     userId: number,
     factionKey: Faction,
   ): Promise<OnboardingSelection> {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.factionId) {
+      throw new BadRequestException('Faction is already selected');
+    }
+
     const faction = await this.factionService.findByKey(factionKey);
     if (!faction) {
       throw new NotFoundException('Faction not found');
