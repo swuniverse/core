@@ -12,6 +12,10 @@ swuniverse.net {
 	}
 }
 
+wiki.swuniverse.net {
+	reverse_proxy wiki:3000
+}
+
 mail.swuniverse.net, autodiscover.swuniverse.net, autoconfig.swuniverse.net {
 	reverse_proxy nginx-mailcow:8080
 }
