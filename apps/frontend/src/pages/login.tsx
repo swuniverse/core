@@ -199,7 +199,7 @@ export function LoginPage() {
           </p>
           <div className="swu-hero__actions">
             <Link className="swu-btn swu-btn--primary" to="/register">
-              Jetzt beitreten
+              Registrieren
             </Link>
             <button className="swu-btn swu-btn--ghost" type="button" onClick={() => setLoginOpen(true)}>
               Login
