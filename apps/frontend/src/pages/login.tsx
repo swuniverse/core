@@ -175,6 +175,13 @@ export function LoginPage() {
             Login
           </button>
           <a
+            href="https://wiki.swuniverse.net"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Wiki
+          </a>
+          <a
             className="swu-nav__discord"
             href="https://discord.com/invite/vvUwR6UZbB"
             target="_blank"
@@ -199,7 +206,7 @@ export function LoginPage() {
           </p>
           <div className="swu-hero__actions">
             <Link className="swu-btn swu-btn--primary" to="/register">
-              Jetzt beitreten
+              Registrieren
             </Link>
             <button className="swu-btn swu-btn--ghost" type="button" onClick={() => setLoginOpen(true)}>
               Login
@@ -310,6 +317,14 @@ export function LoginPage() {
               rel="noopener noreferrer"
             >
               Discord beitreten
+            </a>
+            <a
+              className="swu-btn swu-btn--ghost"
+              href="https://wiki.swuniverse.net"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Wiki
             </a>
             <Link className="swu-btn swu-btn--ghost" to="/register">
               Key eingeben
