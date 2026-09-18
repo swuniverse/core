@@ -7,6 +7,7 @@ import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
 import { ExplorationService } from './exploration.service';
 import { SystemTypeDiscoveryService } from './system-type-discovery.service';
+import { CelestialClassDiscoveryService } from './celestial-class-discovery.service';
 import { Layer } from './entities/layer.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { CelestialObject } from './entities/celestial-object.entity';
@@ -18,6 +19,7 @@ import { BorderType } from './entities/border-type.entity';
 import { ExplorationState } from './entities/exploration-state.entity';
 import { SystemExploration } from './entities/system-exploration.entity';
 import { SystemTypeDiscovery } from './entities/system-type-discovery.entity';
+import { CelestialClassDiscovery } from './entities/celestial-class-discovery.entity';
 import { PlanetField } from './entities/planet-field.entity';
 import { InfluenceArea } from './entities/influence-area.entity';
 import { Wormhole } from './entities/wormhole.entity';
@@ -29,6 +31,7 @@ import { StarmapSystemGeneratorService } from './generator/starmap-system-genera
 import { PlanetGeneratorService } from './generator/planet-generator.service';
 import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
+import { PrestigeModule } from '../prestige/prestige.module';
 
 @Module({
   imports: [
@@ -44,6 +47,7 @@ import { WormholeService } from './wormhole.service';
       ExplorationState,
       SystemExploration,
       SystemTypeDiscovery,
+      CelestialClassDiscovery,
       PlanetField,
       InfluenceArea,
       Wormhole,
@@ -52,6 +56,7 @@ import { WormholeService } from './wormhole.service';
       Colony,
       ColonyChangeable,
     ]),
+    PrestigeModule,
   ],
   controllers: [StarmapController, PlanetSurfacesController],
   providers: [
@@ -60,6 +65,7 @@ import { WormholeService } from './wormhole.service';
     StarmapQueryService,
     ExplorationService,
     SystemTypeDiscoveryService,
+    CelestialClassDiscoveryService,
     StarmapSystemGeneratorService,
     PlanetGeneratorService,
     InfluenceService,
@@ -71,6 +77,7 @@ import { WormholeService } from './wormhole.service';
     StarmapQueryService,
     ExplorationService,
     SystemTypeDiscoveryService,
+    CelestialClassDiscoveryService,
     StarmapSystemGeneratorService,
     PlanetGeneratorService,
     InfluenceService,

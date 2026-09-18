@@ -12,6 +12,9 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { FactionModule } from '../faction/faction.module';
 import { GameDataModule } from '../game-data/game-data.module';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
+import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 
 @Module({
   imports: [
@@ -23,6 +26,9 @@ import { WebsocketModule } from '../websocket/websocket.module';
       SystemTypeDiscovery,
       ShipClassDiscovery,
       ShipClassDef,
+      PrestigeHistoryEntry,
+      CelestialClassDiscovery,
+      CrewAssignment,
     ]),
     FactionModule,
     GameDataModule,

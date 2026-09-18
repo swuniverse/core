@@ -25,11 +25,18 @@ function createService() {
   const factionService = { findAll: jest.fn() };
   const gameData = { getAllCommodities: jest.fn() };
   const gameGateway = { onlineUserIds: [] as number[] };
+  const prestigeHistoryRepo = { find: jest.fn() };
   const service = new DatabaseService(
     userRepo as any,
     colonyRepo as any,
     shipRepo as any,
     researchRepo as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    prestigeHistoryRepo as any,
+    {} as any,
+    {} as any,
     factionService as any,
     gameData as any,
     gameGateway as any,
@@ -41,6 +48,7 @@ function createService() {
     shipRepo,
     researchRepo,
     factionService,
+    prestigeHistoryRepo,
   };
 }
 

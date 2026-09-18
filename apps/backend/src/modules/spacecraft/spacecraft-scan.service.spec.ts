@@ -25,6 +25,12 @@ jest.mock('../starmap/entities/system-field.entity', () => ({
 jest.mock('../starmap/entities/galaxy-field.entity', () => ({
   GalaxyField: class GalaxyField {},
 }));
+jest.mock('../starmap/system-type-discovery.service', () => ({
+  SystemTypeDiscoveryService: class SystemTypeDiscoveryService {},
+}));
+jest.mock('../starmap/celestial-class-discovery.service', () => ({
+  CelestialClassDiscoveryService: class CelestialClassDiscoveryService {},
+}));
 jest.mock('../starmap/exploration.service', () => ({
   ExplorationService: class ExplorationService {},
 }));
@@ -94,6 +100,8 @@ function createService() {
     discoverArea: jest.fn(),
     discoverSystem: jest.fn(),
   };
+  const systemTypeDiscoveryService = { discover: jest.fn() };
+  const celestialClassDiscoveryService = { discover: jest.fn() };
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,
@@ -108,6 +116,8 @@ function createService() {
     spacecraftCrewService as any,
     runtimeState as any,
     explorationService as any,
+    systemTypeDiscoveryService as any,
+    celestialClassDiscoveryService as any,
   );
   return {
     service,
@@ -119,6 +129,7 @@ function createService() {
     planetGenerator,
     gameData,
     spacecraftCrewService,
+    celestialClassDiscoveryService,
   };
 }
 

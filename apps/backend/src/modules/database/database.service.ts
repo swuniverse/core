@@ -12,6 +12,30 @@ import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.e
 import { SYSTEM_TYPE_DEFINITIONS } from '../starmap/starmap-system-types';
 import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
+import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
+import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
+import { STU_CELESTIAL_CLASSES } from '@swuniverse/shared';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+
+type RankingKey =
+  | 'discoveries'
+  | 'research'
+  | 'prestige'
+  | 'crew-training'
+  | 'colony-worth'
+  | 'colony-production';
+type RankingEntry = {
+  userId: number;
+  username: string;
+  score: number;
+  colonyId?: number;
+  colonyName?: string;
+};
+type RankingResult = {
+  title: string;
+  metricLabel: string;
+  entries: RankingEntry[];
+};
 
 @Injectable()
 export class DatabaseService {
@@ -30,6 +54,12 @@ export class DatabaseService {
     private readonly shipClassDiscoveryRepo: Repository<ShipClassDiscovery>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
+    @InjectRepository(PrestigeHistoryEntry)
+    private readonly prestigeHistoryRepo: Repository<PrestigeHistoryEntry>,
+    @InjectRepository(CelestialClassDiscovery)
+    private readonly celestialClassDiscoveryRepo: Repository<CelestialClassDiscovery>,
+    @InjectRepository(CrewAssignment)
+    private readonly crewAssignmentRepo: Repository<CrewAssignment>,
     private readonly factionService: FactionService,
     private readonly gameData: GameDataService,
     private readonly gameGateway: GameGateway,
@@ -248,6 +278,147 @@ export class DatabaseService {
     }));
   }
 
+  async getPlanetTypes(userId: number) {
+    const discoveries = await this.celestialClassDiscoveryRepo.find({
+      where: { userId },
+    });
+    const discoveredByClass = new Map(
+      discoveries.map((entry) => [entry.classId, entry]),
+    );
+    const definitions = STU_CELESTIAL_CLASSES.filter(
+      (definition) => definition.colonization !== 'UNUSED',
+    );
+    return {
+      discovered: discoveries.length,
+      total: definitions.length,
+      entries: definitions.map((definition) => {
+        const discovery = discoveredByClass.get(definition.id);
+        return discovery
+          ? {
+              classId: definition.id,
+              discovered: true,
+              name: definition.name,
+              description: definition.description,
+              objectType:
+                definition.celestialObjectType === 1
+                  ? 'Planet'
+                  : definition.celestialObjectType === 2
+                    ? 'Mond'
+                    : 'Asteroidenfeld',
+              discoveredAt: discovery.discoveredAt.toISOString(),
+            }
+          : {
+              classId: definition.id,
+              discovered: false,
+              name: null,
+              description: null,
+              objectType: null,
+              discoveredAt: null,
+            };
+      }),
+    };
+  }
+
+  async getPrestigeHistory(userId: number, limit = 50) {
+    const user = await this.userRepo.findOneByOrFail({ id: userId });
+    const entries = await this.prestigeHistoryRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC', id: 'DESC' },
+      take: Math.min(Math.max(limit, 1), 200),
+    });
+    return { prestige: user.prestige, entries };
+  }
+
+  async getRanking(userId: number, key: RankingKey) {
+    const ranking = await this.rankingFor(key, false);
+    const rankedEntries = ranking.entries.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }));
+    const own = rankedEntries.find((entry) => entry.userId === userId) ?? null;
+    return { ...ranking, entries: rankedEntries.slice(0, 10), currentUser: own };
+  }
+
+  private async rankingFor(
+    key: RankingKey,
+    topOnly = true,
+  ): Promise<RankingResult> {
+    switch (key) {
+      case 'discoveries':
+        return {
+          title: 'Die 10 besten Entdecker',
+          metricLabel: 'Entdeckungen',
+          entries: await this.getDiscoveryRanking(topOnly),
+        };
+      case 'research':
+        return {
+          title: 'Die 10 besten Forscher',
+          metricLabel: 'Abgeschlossene Forschungen',
+          entries: await this.getResearchRanking(topOnly),
+        };
+      case 'prestige':
+        return {
+          title: 'Höchstes Prestige',
+          metricLabel: 'Prestige',
+          entries: await this.getPrestigeRanking(topOnly),
+        };
+      case 'crew-training':
+        return {
+          title: 'Die 10 besten Ausbilder',
+          metricLabel: 'Crew auf Schiffen',
+          entries: await this.getCrewTrainingRanking(topOnly),
+        };
+      case 'colony-worth':
+        return {
+          title: 'Die Top 10 der Architekten',
+          metricLabel: 'Fertige Gebäude',
+          entries: await this.getColonyWorthRanking(topOnly),
+        };
+      case 'colony-production':
+        return {
+          title: 'Die Top 10 der Produzenten',
+          metricLabel: 'Aktive Produktionsanlagen',
+          entries: await this.getColonyProductionWorthRanking(topOnly),
+        };
+    }
+  }
+
+  private async getDiscoveryRanking(topOnly = true) {
+    const users = await this.userRepo.find({
+      select: { id: true, username: true },
+      order: { username: 'ASC' },
+    });
+    const [systems, ships, planets] = await Promise.all([
+      this.systemTypeDiscoveryRepo.find(),
+      this.shipClassDiscoveryRepo.find(),
+      this.celestialClassDiscoveryRepo.find(),
+    ]);
+    const scores = new Map<number, number>();
+    for (const entry of [...systems, ...ships, ...planets]) {
+      scores.set(entry.userId, (scores.get(entry.userId) ?? 0) + 1);
+    }
+    return users
+      .map((user) => ({ userId: user.id, username: user.username, score: scores.get(user.id) ?? 0 }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username))
+      .slice(0, topOnly ? 10 : undefined);
+  }
+
+  private async getCrewTrainingRanking(topOnly = true) {
+    const query = this.crewAssignmentRepo
+      .createQueryBuilder('assignment')
+      .innerJoin(User, 'user', 'user.id = assignment.userId')
+      .select('user.id', 'userId')
+      .addSelect('user.username', 'username')
+      .addSelect('COUNT(assignment.crewId)', 'score')
+      .where('assignment.spacecraftId IS NOT NULL')
+      .groupBy('user.id')
+      .addGroupBy('user.username')
+      .orderBy('COUNT(assignment.crewId)', 'DESC')
+      .addOrderBy('user.username', 'ASC');
+    return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
+  }
+
   async getRankings() {
     const [research, prestige, colonies, colonyWorth, colonyProductionWorth] =
       await Promise.all([
@@ -261,8 +432,8 @@ export class DatabaseService {
     return { research, prestige, colonies, colonyWorth, colonyProductionWorth };
   }
 
-  private async getResearchRanking() {
-    return this.researchRepo
+  private async getResearchRanking(topOnly = true) {
+    const query = this.researchRepo
       .createQueryBuilder('research')
       .innerJoin(User, 'user', 'user.id = research.userId')
       .select('user.id', 'userId')
@@ -272,15 +443,14 @@ export class DatabaseService {
       .groupBy('user.id')
       .addGroupBy('user.username')
       .orderBy('COUNT(research.id)', 'DESC')
-      .addOrderBy('user.username', 'ASC')
-      .limit(10)
-      .getRawMany();
+      .addOrderBy('user.username', 'ASC');
+    return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
   }
 
-  private async getPrestigeRanking() {
+  private async getPrestigeRanking(topOnly = true) {
     const users = await this.userRepo.find({
       order: { prestige: 'DESC', username: 'ASC' },
-      take: 10,
+      ...(topOnly ? { take: 10 } : {}),
     });
 
     return users.map((user) => ({
@@ -305,8 +475,8 @@ export class DatabaseService {
       .getRawMany();
   }
 
-  private async getColonyWorthRanking() {
-    return this.colonyRepo
+  private async getColonyWorthRanking(topOnly = true) {
+    const query = this.colonyRepo
       .createQueryBuilder('colony')
       .innerJoin(User, 'user', 'user.id = colony.userId')
       .leftJoin('colony.fields', 'field')
@@ -314,22 +484,18 @@ export class DatabaseService {
       .addSelect('colony.name', 'colonyName')
       .addSelect('user.id', 'userId')
       .addSelect('user.username', 'username')
-      .addSelect(
-        `SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false THEN 1 ELSE 0 END)`,
-        'score',
-      )
+      .addSelect(`SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false THEN 1 ELSE 0 END)`, 'score')
       .groupBy('colony.id')
       .addGroupBy('colony.name')
       .addGroupBy('user.id')
       .addGroupBy('user.username')
       .orderBy('score', 'DESC')
-      .addOrderBy('colony.name', 'ASC')
-      .limit(10)
-      .getRawMany();
+      .addOrderBy('colony.name', 'ASC');
+    return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
   }
 
-  private async getColonyProductionWorthRanking() {
-    return this.colonyRepo
+  private async getColonyProductionWorthRanking(topOnly = true) {
+    const query = this.colonyRepo
       .createQueryBuilder('colony')
       .innerJoin(User, 'user', 'user.id = colony.userId')
       .leftJoin('colony.fields', 'field')
@@ -337,17 +503,13 @@ export class DatabaseService {
       .addSelect('colony.name', 'colonyName')
       .addSelect('user.id', 'userId')
       .addSelect('user.username', 'username')
-      .addSelect(
-        `SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false AND field.isActive = true THEN 1 ELSE 0 END)`,
-        'score',
-      )
+      .addSelect(`SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false AND field.isActive = true THEN 1 ELSE 0 END)`, 'score')
       .groupBy('colony.id')
       .addGroupBy('colony.name')
       .addGroupBy('user.id')
       .addGroupBy('user.username')
       .orderBy('score', 'DESC')
-      .addOrderBy('colony.name', 'ASC')
-      .limit(10)
-      .getRawMany();
+      .addOrderBy('colony.name', 'ASC');
+    return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
   }
 }

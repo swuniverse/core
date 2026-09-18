@@ -57,6 +57,7 @@ describe('HolonetService edit window', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
   });
 

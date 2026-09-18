@@ -8,6 +8,7 @@ import { HolonetRating } from './entities/holonet-rating.entity';
 import { HolonetCheckpoint } from './entities/holonet-checkpoint.entity';
 import { User } from '../auth/user.entity';
 import { MessagingModule } from '../messaging/messaging.module';
+import { PrestigeModule } from '../prestige/prestige.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MessagingModule } from '../messaging/messaging.module';
       User,
     ]),
     MessagingModule,
+    PrestigeModule,
   ],
   controllers: [HolonetController],
   providers: [HolonetService],

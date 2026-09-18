@@ -2,7 +2,9 @@ import {
   Controller,
   Get,
   Param,
+  NotFoundException,
   ParseIntPipe,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -47,6 +49,12 @@ export class DatabaseController {
     return this.databaseService.getShipClasses(req.user.sub);
   }
 
+  @Get('planet-types')
+  @UseGuards(AuthGuard('jwt'))
+  getPlanetTypes(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getPlanetTypes(req.user.sub);
+  }
+
   @Get('ship-classes/:key')
   @UseGuards(AuthGuard('jwt'))
   getShipClassDetail(
@@ -66,6 +74,38 @@ export class DatabaseController {
   @UseGuards(AuthGuard('jwt'))
   getCommodities() {
     return this.databaseService.getCommodities();
+  }
+
+  @Get('prestige-history')
+  @UseGuards(AuthGuard('jwt'))
+  getPrestigeHistory(
+    @Request() req: { user: { sub: number } },
+    @Query('limit') limit?: string,
+  ) {
+    return this.databaseService.getPrestigeHistory(req.user.sub, Number(limit) || 50);
+  }
+
+  @Get('rankings/:key')
+  @UseGuards(AuthGuard('jwt'))
+  getRanking(
+    @Request() req: { user: { sub: number } },
+    @Param('key') key: string,
+  ) {
+    const keys = [
+      'discoveries',
+      'research',
+      'prestige',
+      'crew-training',
+      'colony-worth',
+      'colony-production',
+    ] as const;
+    if (!keys.includes(key as (typeof keys)[number])) {
+      throw new NotFoundException('Rangliste nicht gefunden');
+    }
+    return this.databaseService.getRanking(
+      req.user.sub,
+      key as (typeof keys)[number],
+    );
   }
 
   @Get('rankings')

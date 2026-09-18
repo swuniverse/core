@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { User } from '../auth/user.entity';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import { SystemTypeDiscovery } from './entities/system-type-discovery.entity';
+import { PrestigeService } from '../prestige/prestige.service';
 
 @Injectable()
 export class SystemTypeDiscoveryService {
@@ -12,6 +12,7 @@ export class SystemTypeDiscoveryService {
     private readonly dataSource: DataSource,
     @InjectRepository(SystemTypeDiscovery)
     private readonly discoveryRepo: Repository<SystemTypeDiscovery>,
+    private readonly prestigeService: PrestigeService,
   ) {}
 
   async discover(input: {
@@ -43,11 +44,11 @@ export class SystemTypeDiscoveryService {
       if (!result.identifiers.length) {
         return { discovered: false, prestigeAwarded: 0, name: definition.name };
       }
-      await manager.increment(
-        User,
-        { id: input.userId },
-        'prestige',
+      await this.prestigeService.change(
+        input.userId,
         STU_PRESTIGE.DISCOVER_SYSTEM_TYPE,
+        `${STU_PRESTIGE.DISCOVER_SYSTEM_TYPE} Prestige erhalten für die Entdeckung des Sternensystemtyps „${definition.name}“`,
+        manager,
       );
       return {
         discovered: true,

@@ -37,9 +37,9 @@ describe('HolonetService prestige ratings', () => {
     remove: jest.Mock;
   };
   let userRepo: {
-    increment: jest.Mock;
     decrement: jest.Mock;
   };
+  let prestigeService: { change: jest.Mock };
   let service: HolonetService;
 
   beforeEach(() => {
@@ -54,10 +54,8 @@ describe('HolonetService prestige ratings', () => {
       save: jest.fn().mockImplementation(async (value) => value),
       remove: jest.fn().mockResolvedValue(undefined),
     };
-    userRepo = {
-      increment: jest.fn().mockResolvedValue(undefined),
-      decrement: jest.fn().mockResolvedValue(undefined),
-    };
+    userRepo = { decrement: jest.fn().mockResolvedValue(undefined) };
+    prestigeService = { change: jest.fn().mockResolvedValue(undefined) };
     service = new HolonetService(
       postRepo as never,
       {} as never,
@@ -65,6 +63,7 @@ describe('HolonetService prestige ratings', () => {
       {} as never,
       userRepo as never,
       {} as never,
+      prestigeService as never,
     );
   });
 
@@ -77,10 +76,10 @@ describe('HolonetService prestige ratings', () => {
       userId: voterId,
       value: 1,
     });
-    expect(userRepo.increment).toHaveBeenCalledWith(
-      { id: authorId },
-      'prestige',
+    expect(prestigeService.change).toHaveBeenCalledWith(
+      authorId,
       STU_PRESTIGE.HOLONET_POSITIVE_RATING,
+      `${STU_PRESTIGE.HOLONET_POSITIVE_RATING} Prestige erhalten für eine positive Holonet-Bewertung`,
     );
     expect(userRepo.decrement).not.toHaveBeenCalled();
   });
@@ -94,7 +93,7 @@ describe('HolonetService prestige ratings', () => {
       userId: voterId,
       value: -1,
     });
-    expect(userRepo.increment).not.toHaveBeenCalled();
+    expect(prestigeService.change).not.toHaveBeenCalled();
     expect(userRepo.decrement).not.toHaveBeenCalled();
   });
 
@@ -112,7 +111,7 @@ describe('HolonetService prestige ratings', () => {
     expect(post.rating).toBe(0);
     expect(ratingRepo.save).not.toHaveBeenCalled();
     expect(postRepo.save).not.toHaveBeenCalled();
-    expect(userRepo.increment).not.toHaveBeenCalled();
+    expect(prestigeService.change).not.toHaveBeenCalled();
     expect(userRepo.decrement).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { User } from '../auth/user.entity';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { ShipClassDiscovery } from './entities/ship-class-discovery.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
+import { PrestigeService } from '../prestige/prestige.service';
 
 @Injectable()
 export class ShipClassDiscoveryService {
@@ -12,6 +12,7 @@ export class ShipClassDiscoveryService {
     private readonly dataSource: DataSource,
     @InjectRepository(ShipClassDiscovery)
     private readonly discoveryRepo: Repository<ShipClassDiscovery>,
+    private readonly prestigeService: PrestigeService,
   ) {}
 
   async discover(input: {
@@ -37,11 +38,11 @@ export class ShipClassDiscoveryService {
         .values({ ...input, source: 'TARGET_SCAN' })
         .orIgnore()
         .execute();
-      await manager.increment(
-        User,
-        { id: input.userId },
-        'prestige',
+      await this.prestigeService.change(
+        input.userId,
         STU_PRESTIGE.SCAN_SHIP_HULL,
+        `${STU_PRESTIGE.SCAN_SHIP_HULL} Prestige erhalten für die Entdeckung des Schiffsrumpfs „${shipClass.name}“`,
+        manager,
       );
       return {
         discovered: true,

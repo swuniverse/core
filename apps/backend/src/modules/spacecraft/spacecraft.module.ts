@@ -50,6 +50,7 @@ import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
+import { PrestigeModule } from '../prestige/prestige.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { SpacecraftAlertService } from './spacecraft-alert.service';
     WebsocketModule,
     MessagingModule,
     EventsModule,
+    PrestigeModule,
   ],
   controllers: [SpacecraftController],
   providers: [

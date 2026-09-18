@@ -12,6 +12,7 @@ import { HolonetCheckpoint } from './entities/holonet-checkpoint.entity';
 import { User } from '../auth/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
+import { PrestigeService } from '../prestige/prestige.service';
 
 interface HolonetSearchFilters {
   text?: string;
@@ -35,6 +36,7 @@ export class HolonetService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly messagingService: MessagingService,
+    private readonly prestigeService: PrestigeService,
   ) {}
 
   async findAll(
@@ -222,10 +224,10 @@ export class HolonetService {
     post.rating += value;
     await this.postRepo.save(post);
     if (value === 1) {
-      await this.userRepo.increment(
-        { id: post.authorId },
-        'prestige',
+      await this.prestigeService.change(
+        post.authorId,
         STU_PRESTIGE.HOLONET_POSITIVE_RATING,
+        `${STU_PRESTIGE.HOLONET_POSITIVE_RATING} Prestige erhalten für eine positive Holonet-Bewertung`,
       );
     }
 

@@ -48,6 +48,7 @@ import { BorderType } from './modules/starmap/entities/border-type.entity';
 import { ExplorationState } from './modules/starmap/entities/exploration-state.entity';
 import { SystemExploration } from './modules/starmap/entities/system-exploration.entity';
 import { SystemTypeDiscovery } from './modules/starmap/entities/system-type-discovery.entity';
+import { CelestialClassDiscovery } from './modules/starmap/entities/celestial-class-discovery.entity';
 import { PlanetField } from './modules/starmap/entities/planet-field.entity';
 import { InfluenceArea } from './modules/starmap/entities/influence-area.entity';
 import { Wormhole } from './modules/starmap/entities/wormhole.entity';
@@ -78,6 +79,8 @@ import { HolonetCheckpoint } from './modules/holonet/entities/holonet-checkpoint
 import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
 import { UserSetting } from './modules/settings/entities/user-setting.entity';
 import { GameEvent } from './modules/events/entities/game-event.entity';
+import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-history-entry.entity';
+import { PrestigeModule } from './modules/prestige/prestige.module';
 
 @Module({
   imports: [
@@ -118,6 +121,7 @@ import { GameEvent } from './modules/events/entities/game-event.entity';
           ExplorationState,
           SystemExploration,
           SystemTypeDiscovery,
+          CelestialClassDiscovery,
           PlanetField,
           InfluenceArea,
           Wormhole,
@@ -148,6 +152,7 @@ import { GameEvent } from './modules/events/entities/game-event.entity';
           GameTickState,
           UserSetting,
           GameEvent,
+          PrestigeHistoryEntry,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -169,6 +174,7 @@ import { GameEvent } from './modules/events/entities/game-event.entity';
     DatabaseModule,
     MailModule,
     EventsModule,
+    PrestigeModule,
     TickModule,
     WebsocketModule,
   ],

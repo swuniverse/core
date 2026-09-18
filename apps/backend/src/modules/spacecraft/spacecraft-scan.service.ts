@@ -21,6 +21,7 @@ import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
 import { ExplorationService } from '../starmap/exploration.service';
 import { SystemTypeDiscoveryService } from '../starmap/system-type-discovery.service';
+import { CelestialClassDiscoveryService } from '../starmap/celestial-class-discovery.service';
 import { SYSTEM_TYPE_BY_ID } from '../starmap/starmap-system-types';
 import { ExplorationLevel } from '../starmap/entities/exploration-state.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
@@ -56,6 +57,7 @@ export class SpacecraftScanService {
     private readonly runtimeState: SpacecraftRuntimeStateService,
     private readonly explorationService: ExplorationService,
     private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
+    private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
   ) {}
 
   async sectorScan(
@@ -97,6 +99,14 @@ export class SpacecraftScanService {
       });
     }
     const object = 'celestialObject' in field ? field.celestialObject : null;
+    const celestialDiscovery = object
+      ? await this.celestialClassDiscoveryService.discover({
+          userId,
+          classId: object.classId,
+          celestialObjectId: object.id,
+          spacecraftId: ship.id,
+        })
+      : null;
     const systemTypeId =
       !ship.inSystem && 'systemTypeId' in field ? field.systemTypeId : null;
     const discovery =
@@ -146,7 +156,8 @@ export class SpacecraftScanService {
               }
             : null,
       },
-      discovery,
+      discovery: discovery ?? celestialDiscovery,
+      celestialDiscovery,
       signatures: [],
       fadedSignatures: { uncloaked: 0, cloaked: 0 },
       buoys: [],
