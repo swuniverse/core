@@ -1,6 +1,7 @@
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
-  SpacecraftStatus: { DOCKED: 'DOCKED', DESTROYED: 'DESTROYED' },
+  SpacecraftOperatingMode: { NORMAL: 'NORMAL', STANDBY: 'STANDBY' },
+  SpacecraftStatus: { IDLE: 'IDLE', DESTROYED: 'DESTROYED' },
 }));
 jest.mock('./entities/spacecraft-module.entity', () => ({
   SpacecraftModule: class SpacecraftModule {},
@@ -13,6 +14,19 @@ jest.mock('../colony/entities/colony.entity', () => ({
 }));
 jest.mock('./entities/colony-scan.entity', () => ({
   ColonyScan: class ColonyScan {},
+}));
+jest.mock('./entities/spacecraft-scan-result.entity', () => ({
+  SpacecraftScanType: { SECTOR: 'SECTOR', SYSTEM_FIELD: 'SYSTEM_FIELD' },
+  SpacecraftScanResult: class SpacecraftScanResult {},
+}));
+jest.mock('../starmap/entities/system-field.entity', () => ({
+  SystemField: class SystemField {},
+}));
+jest.mock('../starmap/entities/galaxy-field.entity', () => ({
+  GalaxyField: class GalaxyField {},
+}));
+jest.mock('../starmap/exploration.service', () => ({
+  ExplorationService: class ExplorationService {},
 }));
 jest.mock('../starmap/generator/planet-generator.service', () => ({
   PlanetGeneratorService: class PlanetGeneratorService {},
@@ -48,6 +62,17 @@ function createService() {
     save: jest.fn(async (value) => ({ id: 99, ...value })),
     remove: jest.fn(async (value) => value),
   };
+  const scanResultRepo = {
+    findAndCount: jest.fn().mockResolvedValue([[], 0]),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({
+      id: 100,
+      createdAt: new Date(),
+      ...value,
+    })),
+  };
+  const systemFieldRepo = { find: jest.fn(), findOne: jest.fn() };
+  const galaxyFieldRepo = { find: jest.fn() };
   const planetGenerator = { generateAndPersist: jest.fn() };
   const gameData = {
     getAllModules: jest.fn().mockReturnValue([
@@ -62,15 +87,27 @@ function createService() {
   const spacecraftCrewService = {
     hasEnoughCrew: jest.fn().mockResolvedValue(true),
   };
+  const runtimeState = {
+    initialize: jest.fn((ship) => ship.runtimeSystems ?? {}),
+  };
+  const explorationService = {
+    discoverArea: jest.fn(),
+    discoverSystem: jest.fn(),
+  };
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,
     objectRepo as any,
     colonyRepo as any,
     colonyScanRepo as any,
+    scanResultRepo as any,
+    systemFieldRepo as any,
+    galaxyFieldRepo as any,
     planetGenerator as any,
     gameData as any,
     spacecraftCrewService as any,
+    runtimeState as any,
+    explorationService as any,
   );
   return {
     service,
@@ -95,7 +132,7 @@ describe('SpacecraftScanService colonyScan', () => {
       starSystemId: 7,
       currentSystemFieldX: 5,
       currentSystemFieldY: 5,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       modules: [activeScanner],
     });
     colonyRepo.findOne.mockResolvedValue({
@@ -202,7 +239,7 @@ describe('SpacecraftScanService colonyScan', () => {
       starSystemId: 7,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       modules: [activeScanner],
     });
     colonyRepo.findOne.mockResolvedValue({
@@ -228,7 +265,7 @@ describe('SpacecraftScanService colonyScan', () => {
       starSystemId: 7,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       modules: [activeScanner],
     });
     colonyRepo.findOne.mockResolvedValue(null);

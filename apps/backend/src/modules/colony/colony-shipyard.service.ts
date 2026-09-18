@@ -1058,12 +1058,12 @@ export class ColonyShipyardService {
   }
 
   private async assertBuildplanNameAvailable(
-    colonyId: number,
+    userId: number,
     name: string,
     exceptId?: number,
   ): Promise<void> {
     const existing = await this.shipBuildplanRepo.findOne({
-      where: { colonyId, name },
+      where: { userId, name },
     });
     if (existing && existing.id !== exceptId) {
       throw new BadRequestException('Buildplan name already exists');
@@ -1073,7 +1073,6 @@ export class ColonyShipyardService {
   private toBuildplanDto(buildplan: ColonyShipBuildplan) {
     return {
       id: buildplan.id,
-      colonyId: buildplan.colonyId,
       shipClassId: buildplan.shipClassId,
       name: buildplan.name,
       signature: buildplan.signature,
@@ -1083,6 +1082,29 @@ export class ColonyShipyardService {
     };
   }
 
+  async listUserBuildplans(userId: number) {
+    return (
+      await this.shipBuildplanRepo.find({
+        where: { userId },
+        order: { name: 'ASC' },
+      })
+    ).map((plan) => this.toBuildplanDto(plan));
+  }
+
+  async createAdminBuildplan(
+    userId: number,
+    shipClassId: number,
+    name: string,
+    moduleSelections: ShipModuleSelection[] = [],
+  ) {
+    return this.createValidatedBuildplan(
+      userId,
+      shipClassId,
+      name,
+      moduleSelections,
+    );
+  }
+
   async createShipBuildplan(
     colonyId: number,
     userId: number,
@@ -1090,9 +1112,23 @@ export class ColonyShipyardService {
     name: string,
     moduleSelections: ShipModuleSelection[] = [],
   ) {
-    const colony = await this.findOne(colonyId, userId);
+    await this.findOne(colonyId, userId);
+    return this.createValidatedBuildplan(
+      userId,
+      shipClassId,
+      name,
+      moduleSelections,
+    );
+  }
+
+  private async createValidatedBuildplan(
+    userId: number,
+    shipClassId: number,
+    name: string,
+    moduleSelections: ShipModuleSelection[],
+  ) {
     const trimmedName = this.validateBuildplanName(name);
-    await this.assertBuildplanNameAvailable(colony.id, trimmedName);
+    await this.assertBuildplanNameAvailable(userId, trimmedName);
 
     const shipClass = await this.shipClassRepo.findOneBy({ id: shipClassId });
     if (!shipClass || shipClass.isNpc) {
@@ -1118,7 +1154,6 @@ export class ColonyShipyardService {
     );
 
     const buildplan = this.shipBuildplanRepo.create({
-      colonyId: colony.id,
       userId,
       shipClassId,
       name: trimmedName,
@@ -1139,26 +1174,22 @@ export class ColonyShipyardService {
     planId: number,
     name: string,
   ) {
-    const colony = await this.findOne(colonyId, userId);
+    await this.findOne(colonyId, userId);
     const buildplan = await this.shipBuildplanRepo.findOne({
-      where: { id: planId, colonyId: colony.id, userId },
+      where: { id: planId, userId },
     });
     if (!buildplan) throw new NotFoundException('Buildplan not found');
 
     const trimmedName = this.validateBuildplanName(name);
-    await this.assertBuildplanNameAvailable(
-      colony.id,
-      trimmedName,
-      buildplan.id,
-    );
+    await this.assertBuildplanNameAvailable(userId, trimmedName, buildplan.id);
     buildplan.name = trimmedName;
     return this.toBuildplanDto(await this.shipBuildplanRepo.save(buildplan));
   }
 
   async deleteShipBuildplan(colonyId: number, userId: number, planId: number) {
-    const colony = await this.findOne(colonyId, userId);
+    await this.findOne(colonyId, userId);
     const buildplan = await this.shipBuildplanRepo.findOne({
-      where: { id: planId, colonyId: colony.id, userId },
+      where: { id: planId, userId },
     });
     if (!buildplan) throw new NotFoundException('Buildplan not found');
     await this.shipBuildplanRepo.delete({ id: buildplan.id });
@@ -1173,7 +1204,7 @@ export class ColonyShipyardService {
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
     const buildplan = await this.shipBuildplanRepo.findOne({
-      where: { id: planId, colonyId: colony.id, userId },
+      where: { id: planId, userId },
     });
     if (!buildplan) throw new NotFoundException('Buildplan not found');
     return this.buildShip(
@@ -1188,7 +1219,7 @@ export class ColonyShipyardService {
   }
 
   private async getOrCreateBuildplan(
-    colonyId: number,
+    _colonyId: number,
     userId: number,
     shipClassId: number,
     name: string,
@@ -1198,14 +1229,13 @@ export class ColonyShipyardService {
     moduleCommodityIds: number[],
   ): Promise<ColonyShipBuildplan> {
     const existing = await this.shipBuildplanRepo.findOne({
-      where: { colonyId, signature },
+      where: { userId, signature },
     });
     if (existing) return existing;
 
     const trimmedName = this.validateBuildplanName(name);
-    await this.assertBuildplanNameAvailable(colonyId, trimmedName);
+    await this.assertBuildplanNameAvailable(userId, trimmedName);
     const buildplan = this.shipBuildplanRepo.create({
-      colonyId,
       userId,
       shipClassId,
       name: trimmedName,
@@ -1589,7 +1619,7 @@ export class ColonyShipyardService {
       currentSystemFieldY: colony.posY,
       posX: colony.posX,
       posY: colony.posY,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       alertState: AlertState.GREEN,
       hull: shipClass.hullBase,
       hullMax: shipClass.hullBase,

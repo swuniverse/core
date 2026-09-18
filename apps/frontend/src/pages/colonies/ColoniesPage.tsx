@@ -201,6 +201,10 @@ export function ColoniesPage() {
     void loadColonyDetail(colonyId);
   });
 
+  useSocket('SPACECRAFT_EVENT', () => {
+    if (selected) void loadColonyDetail(selected.id);
+  });
+
   useSocket('TICK', () => {
     void loadAvailableBuildings();
   });
@@ -965,10 +969,12 @@ export function ColonyDetail({
 
     return [
       { key: 'info', label: 'Informationen', show: isTabVisible('info') },
+      // STU places the compact orbit selector below the field inspector.
+      // Fleet → Orbit remains the dedicated management view.
       {
         key: 'orbit',
-        label: 'Orbit',
-        show: (detail?.orbitShips.length ?? 0) > 0,
+        label: 'Orbitalmanagement',
+        show: tabAccess?.hangar?.visible === true,
       },
       { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
       { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
@@ -1026,7 +1032,6 @@ export function ColonyDetail({
     <div className="space-y-2">
       <ColonyCommandBar colony={colony} onBack={onBack} />
 
-
       <WorkModeNav
         tabs={tabs}
         activeTab={activeTab}
@@ -1077,23 +1082,40 @@ export function ColonyDetail({
                   }}
                 />
               ) : (
-                <FieldInspector
-                  field={selectedField}
-                  building={
-                    selectedField?.buildingId
-                      ? buildingMap[selectedField.buildingId]
-                      : undefined
-                  }
-                  buildingMap={buildingMap}
-                  commodityMap={commodityMap}
-                  terraformingDefs={terraformingDefs}
-                  selectedBuilding={selectedBuilding}
-                  onClearSelection={() => setSelectedField(null)}
-                  onTerraform={onTerraform}
-                  onUpgrade={onUpgradeBuilding}
-                  onDemolish={onDemolish}
-                  onToggle={onToggle}
-                />
+                <>
+                  <FieldInspector
+                    field={selectedField}
+                    building={
+                      selectedField?.buildingId
+                        ? buildingMap[selectedField.buildingId]
+                        : undefined
+                    }
+                    buildingMap={buildingMap}
+                    commodityMap={commodityMap}
+                    terraformingDefs={terraformingDefs}
+                    selectedBuilding={selectedBuilding}
+                    onClearSelection={() => setSelectedField(null)}
+                    onTerraform={onTerraform}
+                    onUpgrade={onUpgradeBuilding}
+                    onDemolish={onDemolish}
+                    onToggle={onToggle}
+                  />
+                  {detail && (
+                    <PanelOrbit
+                      colonyId={colony.id}
+                      orbitShips={detail.orbitShips}
+                      commodityMap={commodityMap}
+                      onLandShip={onLandShip}
+                      onDisassembleShip={onDisassembleShip}
+                      onDefendShip={onDefendOrbitShip}
+                      onBlockadeShip={onBlockadeOrbitShip}
+                      onClearOrbitOrder={onClearOrbitOrder}
+                      onTransferShuttles={onTransferOrbitShipShuttles}
+                      compact
+                      onOpenManagement={() => setActiveTab('orbit')}
+                    />
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1103,6 +1125,7 @@ export function ColonyDetail({
           )}
           {activeTab === 'orbit' && detail && (
             <PanelOrbit
+              colonyId={colony.id}
               orbitShips={detail.orbitShips}
               orbitBlockers={detail.orbitBlockers}
               inventory={detail.inventory}

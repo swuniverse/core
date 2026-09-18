@@ -30,6 +30,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
+import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 import { GameDataService, HangarShipDef } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import {
@@ -207,6 +208,7 @@ export class ColonyService {
       relations: [
         'starSystem',
         'celestialObject',
+        'storage',
         'fields',
         'stats',
         'changeable',
@@ -269,6 +271,10 @@ export class ColonyService {
         },
         productionDeltas,
         activeBuildJobs,
+        storage: (colony.storage ?? []).map((item) => ({
+          commodityId: item.commodityId,
+          amount: item.amount,
+        })),
       });
     });
   }
@@ -1228,11 +1234,27 @@ export class ColonyService {
   }
 
   private isShipInColonyOrbit(colony: Colony, ship: Spacecraft): boolean {
-    return (
-      ship.starSystemId === colony.starSystemId &&
-      (colony.celestialObjectId == null ||
-        ship.celestialObjectId === colony.celestialObjectId)
-    );
+    return matchesColonyOrbit(ship, colony);
+  }
+
+  async getOrbitalManagement(colonyId: number, userId: number) {
+    return this.colonyOrbitService.getManagement(colonyId, userId);
+  }
+
+  async executeOrbitalManagement(
+    colonyId: number,
+    userId: number,
+    ships: Array<{
+      shipId: number;
+      crewToShip?: number;
+      crewToColony?: number;
+      batteryCharge?: number;
+      reactorLoad?: number;
+      torpedoTypeId?: number;
+      torpedoLoad?: number;
+    }>,
+  ) {
+    return this.colonyOrbitService.executeManagement(colonyId, userId, ships);
   }
 
   async setOrbitAssignment(
@@ -1356,6 +1378,24 @@ export class ColonyService {
     );
   }
 
+  listUserBuildplans(userId: number) {
+    return this.colonyShipyardService.listUserBuildplans(userId);
+  }
+
+  createAdminBuildplan(
+    userId: number,
+    shipClassId: number,
+    name: string,
+    moduleSelections: ShipModuleSelection[] = [],
+  ) {
+    return this.colonyShipyardService.createAdminBuildplan(
+      userId,
+      shipClassId,
+      name,
+      moduleSelections,
+    );
+  }
+
   async createShipBuildplan(
     colonyId: number,
     userId: number,
@@ -1426,7 +1466,7 @@ export class ColonyService {
       currentSystemFieldY: colony.posY,
       posX: colony.posX,
       posY: colony.posY,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       alertState: AlertState.GREEN,
       hull: shipClass.hullBase,
       hullMax: shipClass.hullBase,

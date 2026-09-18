@@ -16,6 +16,11 @@ export class RepairColonyPopulationStats20260625100000 implements MigrationInter
   name = 'RepairColonyPopulationStats20260625100000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      ALTER TABLE "colony_fields"
+      ADD COLUMN IF NOT EXISTS "isActive" boolean NOT NULL DEFAULT true
+    `);
+
     const seedPath = join(
       process.cwd(),
       'game-data/data/buildings/stu-buildings.yaml',

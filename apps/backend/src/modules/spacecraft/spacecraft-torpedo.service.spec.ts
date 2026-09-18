@@ -3,6 +3,7 @@ jest.mock('./entities/spacecraft-torpedo-storage.entity', () => ({
 }));
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
+  SpacecraftStatus: { DESTROYED: 'DESTROYED' },
 }));
 jest.mock('./entities/ship-class-def.entity', () => ({
   ShipClassDef: class ShipClassDef {},

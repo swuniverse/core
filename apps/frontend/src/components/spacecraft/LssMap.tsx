@@ -1,9 +1,15 @@
+import { Fragment } from 'react';
 import {
   getGalaxyFieldMarker,
   getGalaxyFieldStyle,
   getSystemFieldStyle,
 } from './field-styles';
-import { planetThumbnail, spaceBackgroundTile, starTileImage, systemTypeImage } from '../../lib/assets';
+import {
+  planetThumbnail,
+  spaceBackgroundTile,
+  starTileImage,
+  systemTypeImage,
+} from '../../lib/assets';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
 interface FieldType {
@@ -37,19 +43,15 @@ interface SystemLocalField {
     posX: number;
     posY: number;
     isColonizable?: boolean;
+    colonyId?: number | null;
+    colonyName?: string | null;
   } | null;
 }
 
-export interface NearbyShip {
-  id: number;
-  name: string;
-  userId: number;
-  username: string | null;
-  shipClassId: number;
-  posX: number;
-  posY: number;
-  status: string;
-  onSameField: boolean;
+export interface FieldSignatureOverlay {
+  x: number;
+  y: number;
+  visibleCount: number;
 }
 
 export interface LocalMapContext {
@@ -65,6 +67,14 @@ export interface LocalMapContext {
   systemName: string | null;
   nearestSystem: { id: number; name: string; cx: number; cy: number } | null;
   nearbyRouteNames: string[];
+  lssMode?: 'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
+  cartography?: {
+    systemId: number | null;
+    explored: boolean;
+    progress: number;
+    surveyedFields: number;
+    totalFields: number;
+  };
 }
 
 export interface LocalMapGalaxy {
@@ -72,8 +82,17 @@ export interface LocalMapGalaxy {
   shipX: number;
   shipY: number;
   sensorRange: number;
+  bounds?: { minX: number; maxX: number; minY: number; maxY: number };
   fields: GalaxyLocalField[];
-  ships?: NearbyShip[];
+  overlays?: { signatures: FieldSignatureOverlay[] };
+  entrySystem?: { id: number; name: string; x: number; y: number } | null;
+  wrecks?: Array<{
+    id: number;
+    x: number;
+    y: number;
+    hull: number;
+    cargo?: Array<{ commodityId: number; amount: number }>;
+  }>;
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
   context?: LocalMapContext;
@@ -83,6 +102,7 @@ export interface LocalMapSystem {
   shipX: number;
   shipY: number;
   sensorRange: number;
+  bounds?: { minX: number; maxX: number; minY: number; maxY: number };
   systemId: number;
   systemName: string | null;
   systemTypeId?: number;
@@ -92,7 +112,15 @@ export interface LocalMapSystem {
     centerY: number;
     role: 'primary' | 'secondary';
   }>;
-  ships?: NearbyShip[];
+  overlays?: { signatures: FieldSignatureOverlay[] };
+  wrecks?: Array<{
+    id: number;
+    x: number;
+    y: number;
+    hull: number;
+    cargo?: Array<{ commodityId: number; amount: number }>;
+  }>;
+  entrySystem?: { id: number; name: string; x: number; y: number } | null;
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
   context?: LocalMapContext;
@@ -114,53 +142,70 @@ const OBJECT_TYPE_EMOJI: Record<number, string> = {
 
 export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
   const { shipX, shipY, sensorRange } = localMap;
-  const gridSize = 2 * sensorRange + 1;
-  const minX = shipX - sensorRange;
-  const minY = shipY - sensorRange;
+  const bounds = localMap.bounds ?? {
+    minX: Math.max(1, shipX - sensorRange),
+    maxX: shipX + sensorRange,
+    minY: Math.max(1, shipY - sensorRange),
+    maxY: shipY + sensorRange,
+  };
+  const xValues = Array.from(
+    { length: bounds.maxX - bounds.minX + 1 },
+    (_, index) => bounds.minX + index,
+  );
+  const yValues = Array.from(
+    { length: bounds.maxY - bounds.minY + 1 },
+    (_, index) => bounds.minY + index,
+  );
 
-  const shipsByPos = new Map<string, NearbyShip[]>();
-  for (const ship of localMap.ships ?? []) {
-    const key = `${ship.posX},${ship.posY}`;
-    const shipsAtPosition = shipsByPos.get(key);
-    if (shipsAtPosition) shipsAtPosition.push(ship);
-    else shipsByPos.set(key, [ship]);
-  }
+  const signaturesByPosition = new Map<string, number>(
+    (localMap.overlays?.signatures ?? []).map(
+      (signature: FieldSignatureOverlay) => [
+        `${signature.x},${signature.y}`,
+        signature.visibleCount,
+      ],
+    ),
+  );
 
-  const cellSize = sensorRange <= 3 ? 28 : sensorRange <= 5 ? 24 : 20;
+  // STU's LSS tiles are large enough to inspect and target individually.
+  // Keep the map scrollable instead of shrinking tiles as sensor range grows.
+  const cellSize = 40;
 
   return (
     <div className="overflow-auto">
-      <div className="grid min-w-max"
+      <div
+        className="grid min-w-max"
         style={{
-          gridTemplateColumns: `32px repeat(${gridSize}, ${cellSize}px)`,
+          gridTemplateColumns: `40px repeat(${xValues.length}, ${cellSize}px)`,
         }}
       >
-        <div className="bg-swu-bg/50 text-[9px] text-swu-muted flex items-center justify-center">
+        <div className="bg-swu-bg/50 text-sm font-bold text-swu-muted flex items-center justify-center">
           x|y
         </div>
-        {Array.from({ length: gridSize }, (_, i) => (
+        {xValues.map((x) => (
           <div
-            key={`hx-${i}`}
-            className="bg-swu-bg/50 text-[9px] text-swu-muted flex items-center justify-center"
+            key={`hx-${x}`}
+            className="bg-swu-bg/50 text-sm font-bold text-swu-muted flex items-center justify-center"
           >
-            {minX + i}
+            {x}
           </div>
         ))}
 
-        {Array.from({ length: gridSize }, (_, row) => {
-          const y = minY + row;
+        {yValues.map((y) => {
           return (
-            <>
-              <div
-                key={`hy-${y}`}
-                className="bg-swu-bg/50 text-[9px] text-swu-muted flex items-center justify-center"
-              >
+            <Fragment key={`row-${y}`}>
+              <div className="bg-swu-bg/50 text-sm font-bold text-swu-muted flex items-center justify-center">
                 {y}
               </div>
-              {Array.from({ length: gridSize }, (_, col) => {
-                const x = minX + col;
+              {xValues.map((x) => {
                 const isShip = x === shipX && y === shipY;
                 const isTarget = navTarget?.x === x && navTarget?.y === y;
+                const wreck = localMap.wrecks?.find(
+                  (entry) => entry.x === x && entry.y === y,
+                );
+                const signatureCount = signaturesByPosition.get(`${x},${y}`);
+                const signatureLabel = signatureCount
+                  ? `, ${signatureCount} sichtbare ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
+                  : '';
 
                 if (localMap.mode === 'galaxy') {
                   const field = localMap.fields.find(
@@ -185,8 +230,10 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                   return (
                     <button
                       key={field.id}
+                      type="button"
                       onClick={() => onFieldClick(x, y)}
                       style={{ width: cellSize, height: cellSize }}
+                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}`}
                       className={[
                         'relative border text-[10px] flex items-center justify-center transition-all',
                         getGalaxyFieldStyle(field.fieldType.key),
@@ -196,7 +243,7 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                           ? 'shadow-[0_0_8px_rgba(255,220,120,0.3)]'
                           : '',
                       ].join(' ')}
-                      title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}`}
+                      title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${signatureLabel}`}
                     >
                       {systemAsset ? (
                         <img
@@ -217,13 +264,16 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                           }}
                         />
                       )}
-                      {isShip
-                        ? '▲'
-                        : shipsByPos.has(`${x},${y}`)
-                          ? '◆'
-                          : field.starSystemId
-                            ? '✦'
-                            : getGalaxyFieldMarker(field.fieldType.key)}
+                      {wreck
+                        ? '✹'
+                        : field.starSystemId
+                          ? '✦'
+                          : getGalaxyFieldMarker(field.fieldType.key)}
+                      {signatureCount != null && (
+                        <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
+                          {signatureCount}
+                        </span>
+                      )}
                     </button>
                   );
                 }
@@ -242,7 +292,7 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                 }
                 const starConfig =
                   localMap.systemTypeId != null
-                    ? getStarTileConfig(localMap.systemTypeId) ?? null
+                    ? (getStarTileConfig(localMap.systemTypeId) ?? null)
                     : null;
                 const matchedStar = starConfig
                   ? localMap.stars?.find((star) => {
@@ -292,14 +342,18 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                 return (
                   <button
                     key={field.id}
+                    type="button"
                     onClick={() => onFieldClick(x, y)}
                     style={{ width: cellSize, height: cellSize }}
+                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}`}
                     className={[
                       starTileId != null
                         ? 'relative flex items-center justify-center overflow-hidden border-0 rounded-none'
                         : 'relative border rounded-sm text-[10px] flex items-center justify-center transition-all overflow-hidden',
                       getSystemFieldStyle(
-                        starTileId != null ? 'EMPTY_SPACE' : field.fieldType.key,
+                        starTileId != null
+                          ? 'EMPTY_SPACE'
+                          : field.fieldType.key,
                       ),
                       field.fieldType.key === 'STAR_CORE' && starTileId == null
                         ? 'shadow-[0_0_14px_rgba(255,210,80,0.5)]'
@@ -323,10 +377,8 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                         K
                       </span>
                     )}
-                    {isShip ? (
-                      '▲'
-                    ) : shipsByPos.has(`${x},${y}`) ? (
-                      '◆'
+                    {wreck ? (
+                      <span className="text-amber-300">✹</span>
                     ) : starTileId != null ? (
                       <img
                         src={starTileImage(starTileId)}
@@ -342,10 +394,15 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     ) : (
                       fallbackLabel
                     )}
+                    {signatureCount != null && (
+                      <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
+                        {signatureCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
-            </>
+            </Fragment>
           );
         })}
       </div>

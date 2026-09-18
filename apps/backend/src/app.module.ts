@@ -18,6 +18,7 @@ import { ColonizationModule } from './modules/colonization/colonization.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { MailModule } from './modules/mail/mail.module';
+import { EventsModule } from './modules/events/events.module';
 import { User } from './modules/auth/user.entity';
 import { InviteKey } from './modules/auth/invite-key.entity';
 import { InviteQuota } from './modules/auth/invite-quota.entity';
@@ -46,6 +47,7 @@ import { MapRegion } from './modules/starmap/entities/map-region.entity';
 import { BorderType } from './modules/starmap/entities/border-type.entity';
 import { ExplorationState } from './modules/starmap/entities/exploration-state.entity';
 import { SystemExploration } from './modules/starmap/entities/system-exploration.entity';
+import { SystemTypeDiscovery } from './modules/starmap/entities/system-type-discovery.entity';
 import { PlanetField } from './modules/starmap/entities/planet-field.entity';
 import { InfluenceArea } from './modules/starmap/entities/influence-area.entity';
 import { Wormhole } from './modules/starmap/entities/wormhole.entity';
@@ -58,9 +60,15 @@ import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
 import { CargoItem } from './modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './modules/spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
+import { SpacecraftWreck } from './modules/spacecraft/entities/spacecraft-wreck.entity';
 import { ColonyScan } from './modules/spacecraft/entities/colony-scan.entity';
+import { SpacecraftScanResult } from './modules/spacecraft/entities/spacecraft-scan-result.entity';
+import { ShipLogEntry } from './modules/spacecraft/entities/ship-log-entry.entity';
+import { ShipDistressSignal } from './modules/spacecraft/entities/ship-distress-signal.entity';
 import { Fleet } from './modules/spacecraft/entities/fleet.entity';
 import { ShipClassDef } from './modules/spacecraft/entities/ship-class-def.entity';
+import { ShipClassDiscovery } from './modules/spacecraft/entities/ship-class-discovery.entity';
+import { AdminShipBuildplan } from './modules/spacecraft/entities/admin-ship-buildplan.entity';
 import { Research } from './modules/research/entities/research.entity';
 import { Message } from './modules/messaging/entities/message.entity';
 import { HolonetPost } from './modules/holonet/entities/holonet-post.entity';
@@ -69,6 +77,7 @@ import { HolonetRating } from './modules/holonet/entities/holonet-rating.entity'
 import { HolonetCheckpoint } from './modules/holonet/entities/holonet-checkpoint.entity';
 import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
 import { UserSetting } from './modules/settings/entities/user-setting.entity';
+import { GameEvent } from './modules/events/entities/game-event.entity';
 
 @Module({
   imports: [
@@ -108,6 +117,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           BorderType,
           ExplorationState,
           SystemExploration,
+          SystemTypeDiscovery,
           PlanetField,
           InfluenceArea,
           Wormhole,
@@ -120,9 +130,15 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           CargoItem,
           SpacecraftModuleEntity,
           SpacecraftTorpedoStorage,
+          SpacecraftWreck,
           ColonyScan,
+          SpacecraftScanResult,
+          ShipLogEntry,
+          ShipDistressSignal,
           Fleet,
           ShipClassDef,
+          ShipClassDiscovery,
+          AdminShipBuildplan,
           Research,
           Message,
           HolonetPost,
@@ -131,6 +147,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
           HolonetCheckpoint,
           GameTickState,
           UserSetting,
+          GameEvent,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -151,6 +168,7 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
     SettingsModule,
     DatabaseModule,
     MailModule,
+    EventsModule,
     TickModule,
     WebsocketModule,
   ],

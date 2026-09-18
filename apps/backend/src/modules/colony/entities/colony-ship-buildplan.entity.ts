@@ -4,17 +4,14 @@ import {
   Column,
   CreateDateColumn,
   Index,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 import type { ShipModuleSelection } from '@swuniverse/shared';
-import { Colony } from './colony.entity';
 
 export type { ShipModuleSelection };
 
 @Entity('colony_ship_buildplans')
-@Index(['colonyId', 'name'], { unique: true })
-@Index(['colonyId', 'signature'])
+@Index(['userId', 'name'], { unique: true })
+@Index(['userId', 'signature'], { unique: true })
 @Index(['userId', 'shipClassId'])
 export class ColonyShipBuildplan {
   @PrimaryGeneratedColumn()
@@ -22,13 +19,6 @@ export class ColonyShipBuildplan {
 
   @Column()
   userId!: number;
-
-  @Column()
-  colonyId!: number;
-
-  @ManyToOne(() => Colony, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'colonyId' })
-  colony!: Colony;
 
   @Column()
   shipClassId!: number;

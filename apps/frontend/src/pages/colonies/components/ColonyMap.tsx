@@ -95,7 +95,9 @@ export function ColonyMap({
             {energy.delta != null && (
               <span
                 className={
-                  energy.delta >= 0 ? 'ml-1 text-green-400' : 'ml-1 text-red-400'
+                  energy.delta >= 0
+                    ? 'ml-1 text-green-400'
+                    : 'ml-1 text-red-400'
                 }
               >
                 {formatSignedAmount(energy.delta)}

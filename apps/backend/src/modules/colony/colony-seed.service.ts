@@ -49,6 +49,7 @@ export interface CreateFollowUpColonyOptions {
   buildingId: number;
   resources?: Array<{ commodityId: number; amount: number }>;
   name?: string;
+  initialFieldIndex?: number;
 }
 
 @Injectable()
@@ -163,6 +164,7 @@ export class ColonySeedService {
 
     await this.generateFields(colony, {
       initialBuildingId: options.buildingId,
+      initialFieldIndex: options.initialFieldIndex,
       fields: surface.fields,
     });
     await this.createInitialStats(colony);
@@ -236,6 +238,7 @@ export class ColonySeedService {
     options: {
       factionId?: number | null;
       initialBuildingId?: number;
+      initialFieldIndex?: number;
       fields: StuColonyFieldData[];
     },
   ): Promise<void> {
@@ -251,7 +254,9 @@ export class ColonySeedService {
       }),
     );
 
-    const hqField = this.findHeadquartersField(fields);
+    const hqField =
+      fields.find((field) => field.fieldIndex === options.initialFieldIndex) ??
+      this.findHeadquartersField(fields);
     hqField.fieldType = FIELD_TYPES.PLAINS;
     hqField.terrainTileId = FIELD_TYPES.PLAINS;
     hqField.layer = 'SURFACE';

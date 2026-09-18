@@ -8,6 +8,10 @@ import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { FactionService } from '../faction/faction.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { GameGateway } from '../websocket/game.gateway';
+import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.entity';
+import { SYSTEM_TYPE_DEFINITIONS } from '../starmap/starmap-system-types';
+import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
+import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 
 @Injectable()
 export class DatabaseService {
@@ -20,6 +24,12 @@ export class DatabaseService {
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
+    @InjectRepository(SystemTypeDiscovery)
+    private readonly systemTypeDiscoveryRepo: Repository<SystemTypeDiscovery>,
+    @InjectRepository(ShipClassDiscovery)
+    private readonly shipClassDiscoveryRepo: Repository<ShipClassDiscovery>,
+    @InjectRepository(ShipClassDef)
+    private readonly shipClassRepo: Repository<ShipClassDef>,
     private readonly factionService: FactionService,
     private readonly gameData: GameDataService,
     private readonly gameGateway: GameGateway,
@@ -137,6 +147,94 @@ export class DatabaseService {
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
     };
+  }
+
+  async getSystemTypes(userId: number) {
+    const discoveries = await this.systemTypeDiscoveryRepo.find({
+      where: { userId },
+    });
+    const discoveredByType = new Map(
+      discoveries.map((entry) => [entry.systemTypeId, entry]),
+    );
+    return {
+      discovered: discoveries.length,
+      total: SYSTEM_TYPE_DEFINITIONS.length,
+      entries: SYSTEM_TYPE_DEFINITIONS.map((definition) => {
+        const discovery = discoveredByType.get(definition.id);
+        return discovery
+          ? {
+              systemTypeId: definition.id,
+              discovered: true,
+              name: definition.name,
+              rarity: definition.rarity,
+              discoveredAt: discovery.discoveredAt.toISOString(),
+            }
+          : {
+              systemTypeId: definition.id,
+              discovered: false,
+              name: null,
+              rarity: null,
+              discoveredAt: null,
+            };
+      }),
+    };
+  }
+
+  async getShipClasses(userId: number) {
+    const [definitions, discoveries] = await Promise.all([
+      this.shipClassRepo.find({
+        where: { isNpc: false },
+        order: { id: 'ASC' },
+      }),
+      this.shipClassDiscoveryRepo.find({ where: { userId } }),
+    ]);
+    const discoveredByClass = new Map(
+      discoveries.map((entry) => [entry.shipClassId, entry]),
+    );
+    return {
+      discovered: discoveries.length,
+      total: definitions.length,
+      entries: definitions.map((definition) => {
+        const discovery = discoveredByClass.get(definition.id);
+        return discovery
+          ? {
+              key: definition.key,
+              discovered: true,
+              name: definition.name,
+              discoveredAt: discovery.discoveredAt.toISOString(),
+            }
+          : {
+              key: definition.key,
+              discovered: false,
+              name: null,
+              discoveredAt: null,
+            };
+      }),
+    };
+  }
+
+  async getShipClassDetail(userId: number, key: string) {
+    const definition = await this.shipClassRepo.findOne({
+      where: { key, isNpc: false },
+    });
+    if (
+      !definition ||
+      !(await this.shipClassDiscoveryRepo.exists({
+        where: { userId, shipClassId: definition.id },
+      }))
+    ) {
+      throw new NotFoundException('Schiffsrumpf nicht katalogisiert');
+    }
+    return definition;
+  }
+
+  getModules() {
+    return this.gameData.getAllModules().map((module) => ({
+      name: module.name,
+      category: module.category,
+      description: module.description,
+      maxLevel: module.maxLevel,
+    }));
   }
 
   getCommodities() {

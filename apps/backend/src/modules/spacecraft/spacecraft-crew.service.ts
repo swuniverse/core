@@ -19,6 +19,20 @@ export class SpacecraftCrewService {
     return this.crewAssignmentRepo.count({ where: { spacecraftId } });
   }
 
+  async getAssignedCrew(spacecraftId: number) {
+    const assignments = await this.crewAssignmentRepo.find({
+      where: { spacecraftId },
+      relations: ['crew'],
+      order: { crewId: 'ASC' },
+    });
+    return assignments.map((assignment) => ({
+      id: assignment.crewId,
+      name: assignment.crew?.name ?? `Crew ${assignment.crewId}`,
+      position: assignment.slot ?? assignment.crew?.type ?? 'CREWMAN',
+      rank: assignment.crew?.type ?? 'CREWMAN',
+    }));
+  }
+
   async getRequiredCrew(ship: Spacecraft): Promise<number> {
     const shipClass = await this.shipClassService.findById(ship.shipClassId);
     return Math.max(0, shipClass?.crewMin ?? 0);

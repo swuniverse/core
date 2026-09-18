@@ -16,7 +16,7 @@ import { SpacecraftModule } from './spacecraft-module.entity';
 import { Fleet } from './fleet.entity';
 
 export enum SpacecraftStatus {
-  DOCKED = 'DOCKED',
+  IDLE = 'IDLE',
   IN_FLIGHT = 'IN_FLIGHT',
   IN_COMBAT = 'IN_COMBAT',
   DESTROYED = 'DESTROYED',
@@ -26,6 +26,18 @@ export enum AlertState {
   GREEN = 'GREEN',
   YELLOW = 'YELLOW',
   RED = 'RED',
+}
+
+export enum SpacecraftOperatingMode {
+  NORMAL = 'NORMAL',
+  STANDBY = 'STANDBY',
+}
+
+export enum SpacecraftLssMode {
+  DISABLED = 'DISABLED',
+  TERRITORY = 'TERRITORY',
+  IMPASSABLE = 'IMPASSABLE',
+  CARTOGRAPHY = 'CARTOGRAPHY',
 }
 
 @Entity('spacecraft')
@@ -84,11 +96,17 @@ export class Spacecraft {
   @Column({ default: 10 })
   posY: number;
 
-  @Column({ type: 'varchar', default: SpacecraftStatus.DOCKED })
+  @Column({ type: 'varchar', default: SpacecraftStatus.IDLE })
   status: SpacecraftStatus;
 
   @Column({ type: 'varchar', default: AlertState.GREEN })
   alertState: AlertState;
+
+  @Column({ type: 'varchar', default: SpacecraftOperatingMode.NORMAL })
+  operatingMode: SpacecraftOperatingMode;
+
+  @Column({ type: 'varchar', default: SpacecraftLssMode.DISABLED })
+  lssMode: SpacecraftLssMode;
 
   // Hull
   @Column({ default: 100 })
@@ -143,6 +161,13 @@ export class Spacecraft {
   @Column({ default: 0 })
   reactorOutput: number;
 
+  /** Deuterium reserve consumed by explicit reactor loading; commodity id 5. */
+  @Column({ default: 0 })
+  reactorFuel: number;
+
+  @Column({ default: 0 })
+  reactorFuelMax: number;
+
   @Column({ default: 0 })
   warpdriveMax: number;
   @Column({ default: 0 })
@@ -150,6 +175,9 @@ export class Spacecraft {
 
   @Column({ type: 'jsonb', default: () => "'{}'" })
   runtimeSystems: Record<string, unknown>;
+
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  lastGalaxyFlightDirection: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT' | null;
 
   @Column({ default: 0 })
   evadeChance: number;
@@ -169,6 +197,12 @@ export class Spacecraft {
 
   @Column({ type: 'timestamp', nullable: true })
   arrivalAt: Date | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  flightOrigin:
+    | { scope: 'SYSTEM'; systemId: number; x: number; y: number }
+    | { scope: 'GALAXY'; layerId: number; x: number; y: number }
+    | null;
 
   @Column({ type: 'int', nullable: true })
   fleetId: number | null;

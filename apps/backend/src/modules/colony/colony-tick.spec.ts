@@ -8,7 +8,7 @@ jest.mock('./entities/colony-storage.entity', () => ({
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   AlertState: { GREEN: 'GREEN' },
   Spacecraft: class Spacecraft {},
-  SpacecraftStatus: { DOCKED: 'DOCKED', IN_FLIGHT: 'IN_FLIGHT' },
+  SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT' },
 }));
 jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
   ShipClassDef: class ShipClassDef {},
@@ -1051,9 +1051,13 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     statsRepo as any,
     config as any,
   );
-  const colonyDefenseService = new ColonyDefenseService(
-    colonyStorageService as any,
-    gameData as any,
+  const colonyDefenseService = Object.assign(
+    new ColonyDefenseService(colonyStorageService as any, gameData as any),
+    {
+      hasEnergyPhalanx: jest.fn(() => false),
+      hasParticlePhalanx: jest.fn(() => false),
+      hasAntiParticle: jest.fn(() => false),
+    },
   );
   const colonyEventService = {
     createActionEvent: jest.fn(async (value) => value),
@@ -1187,6 +1191,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     orbitAssignmentRepo as any,
     shipRepo as any,
     cargoRepo as any,
+    crewAssignmentRepo as any,
     storageRepo as any,
     shipClassRepo as any,
     ownershipService as any,
@@ -1195,6 +1200,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyStorageService,
     colonyDefenseService as any,
     colonyEventService as any,
+    spacecraftTorpedoService as any,
   );
   const projectionService = new ColonyProjectionService(
     colonyRepo as any,
@@ -1411,6 +1417,8 @@ describe('colony give up', () => {
     expect(crewRepo.delete).toHaveBeenCalledWith([{ id: 7 }]);
     expect(fieldRepo.save).toHaveBeenCalledWith([
       expect.objectContaining({
+        buildingId: 82010100,
+        isBuilding: false,
         isActive: false,
         terraformingId: null,
         terraformingFinishesAt: null,
@@ -2153,6 +2161,7 @@ describe('colony tick calculations', () => {
         relations: [
           'starSystem',
           'celestialObject',
+          'storage',
           'fields',
           'stats',
           'changeable',
@@ -3910,13 +3919,8 @@ describe('ship building compatibility', () => {
   });
 
   it('rejects opposing faction modules for builds, retrofits, and buildplans', async () => {
-    const {
-      service,
-      colonyRepo,
-      shipRepo,
-      shipClassRepo,
-      gameData,
-    } = createColonyService();
+    const { service, colonyRepo, shipRepo, shipClassRepo, gameData } =
+      createColonyService();
     const colony = {
       id: 1,
       userId: 1,
@@ -3973,7 +3977,9 @@ describe('ship building compatibility', () => {
       service.queueShipRetrofit(1, 1, 7, [imperialSelection]),
     ).rejects.toThrow('Ship module is faction-locked');
     await expect(
-      service.createShipBuildplan(1, 1, 1, 'Imperial Plan', [imperialSelection]),
+      service.createShipBuildplan(1, 1, 1, 'Imperial Plan', [
+        imperialSelection,
+      ]),
     ).rejects.toThrow('Ship module is faction-locked');
     gameData.getFabricationItemByOutputCommodity.mockReturnValue({
       itemKey: 'module.neutral.eps-k1',
@@ -3987,7 +3993,9 @@ describe('ship building compatibility', () => {
       service.createShipBuildplan(1, 1, 1, 'Neutral Plan', [
         { slotId: 'corvette-weapons-1', commodityId: 10301 },
       ]),
-    ).resolves.toEqual(expect.objectContaining({ moduleCommodityIds: [10301] }));
+    ).resolves.toEqual(
+      expect.objectContaining({ moduleCommodityIds: [10301] }),
+    );
   });
 
   it('finishes queued ship builds during colony tick', async () => {
@@ -4514,7 +4522,6 @@ describe('ship building compatibility', () => {
 
     expect(created).toMatchObject({
       id: 1,
-      colonyId: 1,
       shipClassId: 1,
       name: 'Scout Plan',
       moduleSelections: [weaponSelection],
@@ -4522,7 +4529,7 @@ describe('ship building compatibility', () => {
       moduleTypes: ['Laser Cannon'],
     });
     expect(shipBuildplanRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ colonyId: 1, userId: 1, name: 'Scout Plan' }),
+      expect.objectContaining({ userId: 1, name: 'Scout Plan' }),
     );
 
     shipBuildplanRepo.findOne
@@ -4872,9 +4879,9 @@ describe('faction shipyard visibility', () => {
       detailV2?: { availableShipModules?: Array<{ commodityId: number }> };
     };
 
-    expect(detail.detailV2?.availableShipModules?.map((item) => item.commodityId)).toEqual(
-      [10701, 10301],
-    );
+    expect(
+      detail.detailV2?.availableShipModules?.map((item) => item.commodityId),
+    ).toEqual([10701, 10301]);
   });
 });
 
@@ -4946,7 +4953,7 @@ describe('orbit dto blockers', () => {
         crewMax: 5,
         cargoUsed: 3,
         cargoMax: 20,
-        status: 'DOCKED',
+        status: 'IDLE',
         fleetId: null,
       },
     ] as unknown as never[]);
@@ -6699,7 +6706,7 @@ describe('airfield hangar loop', () => {
         shipClassId: 1,
         starSystemId: 10,
         celestialObjectId: 20,
-        status: 'DOCKED',
+        status: 'IDLE',
       }),
     );
     expect(colonyCrewService.assignCrewToShip).not.toHaveBeenCalled();
@@ -6991,7 +6998,7 @@ describe('ship repair queue reactivation', () => {
       celestialObjectId: 20,
       hull: 50,
       hullMax: 100,
-      status: 'DOCKED',
+      status: 'IDLE',
     });
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
@@ -7073,7 +7080,7 @@ describe('ship repair queue reactivation', () => {
       celestialObjectId: 20,
       hull: 100,
       hullMax: 100,
-      status: 'DOCKED',
+      status: 'IDLE',
     });
     shipClassRepo.findOneBy.mockResolvedValue({
       id: 1,
@@ -7153,7 +7160,7 @@ describe('colony orbit assignments', () => {
       fleet: { id: 99, leaderId: 7 },
       starSystemId: 10,
       celestialObjectId: 20,
-      status: 'DOCKED',
+      status: 'IDLE',
     });
     orbitAssignmentRepo.find.mockResolvedValue([]);
     orbitAssignmentRepo.findOne.mockResolvedValue(null);
@@ -7198,7 +7205,7 @@ describe('colony orbit assignments', () => {
       fleet: { id: 99, leaderId: 7 },
       starSystemId: 10,
       celestialObjectId: 20,
-      status: 'DOCKED',
+      status: 'IDLE',
     });
     orbitAssignmentRepo.find.mockResolvedValue([]);
     orbitAssignmentRepo.findOne.mockResolvedValue(null);

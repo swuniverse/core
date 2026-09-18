@@ -2,14 +2,14 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  OneToOne,
+  ManyToOne,
   JoinColumn,
   Index,
 } from 'typeorm';
 import { Spacecraft } from './spacecraft.entity';
 
 @Entity('spacecraft_torpedo_storage')
-@Index(['spacecraftId'], { unique: true })
+@Index(['spacecraftId', 'torpedoTypeId'], { unique: true })
 export class SpacecraftTorpedoStorage {
   @PrimaryGeneratedColumn()
   id: number;
@@ -17,7 +17,7 @@ export class SpacecraftTorpedoStorage {
   @Column()
   spacecraftId: number;
 
-  @OneToOne(() => Spacecraft, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Spacecraft, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'spacecraftId' })
   spacecraft: Spacecraft;
 
@@ -29,4 +29,7 @@ export class SpacecraftTorpedoStorage {
 
   @Column({ default: 0 })
   amount: number;
+
+  @Column({ default: false })
+  isActive: boolean;
 }

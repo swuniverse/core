@@ -6,6 +6,7 @@ import { StarmapService } from './starmap.service';
 import { StarmapAdminService } from './starmap-admin.service';
 import { StarmapQueryService } from './starmap-query.service';
 import { ExplorationService } from './exploration.service';
+import { SystemTypeDiscoveryService } from './system-type-discovery.service';
 import { Layer } from './entities/layer.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { CelestialObject } from './entities/celestial-object.entity';
@@ -16,6 +17,7 @@ import { MapRegion } from './entities/map-region.entity';
 import { BorderType } from './entities/border-type.entity';
 import { ExplorationState } from './entities/exploration-state.entity';
 import { SystemExploration } from './entities/system-exploration.entity';
+import { SystemTypeDiscovery } from './entities/system-type-discovery.entity';
 import { PlanetField } from './entities/planet-field.entity';
 import { InfluenceArea } from './entities/influence-area.entity';
 import { Wormhole } from './entities/wormhole.entity';
@@ -41,6 +43,7 @@ import { WormholeService } from './wormhole.service';
       BorderType,
       ExplorationState,
       SystemExploration,
+      SystemTypeDiscovery,
       PlanetField,
       InfluenceArea,
       Wormhole,
@@ -56,6 +59,7 @@ import { WormholeService } from './wormhole.service';
     StarmapAdminService,
     StarmapQueryService,
     ExplorationService,
+    SystemTypeDiscoveryService,
     StarmapSystemGeneratorService,
     PlanetGeneratorService,
     InfluenceService,
@@ -66,6 +70,7 @@ import { WormholeService } from './wormhole.service';
     StarmapAdminService,
     StarmapQueryService,
     ExplorationService,
+    SystemTypeDiscoveryService,
     StarmapSystemGeneratorService,
     PlanetGeneratorService,
     InfluenceService,

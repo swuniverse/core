@@ -21,7 +21,7 @@
 
   processes = {
     infra.exec = "docker compose -f docker-compose.dev.yml up";
-    backend.exec = "docker compose -f docker-compose.dev.yml up --wait && npx nx serve backend";
+    backend.exec = "npx nx serve backend";
     frontend.exec = "npx nx serve frontend";
   };
 

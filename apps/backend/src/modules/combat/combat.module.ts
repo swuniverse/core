@@ -16,6 +16,7 @@ import { ColonyDefenseService } from '../colony/colony-defense.service';
 import { ColonyEvent } from '../colony/entities/colony-event.entity';
 import { ColonyEventService } from '../colony/colony-event.service';
 import { ColonyDamageService } from '../colony/colony-damage.service';
+import { CombatReportFormatter } from './combat-report.formatter';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ColonyDamageService } from '../colony/colony-damage.service';
     ColonyDefenseService,
     ColonyDamageService,
     ColonyEventService,
+    CombatReportFormatter,
   ],
   exports: [CombatService],
 })

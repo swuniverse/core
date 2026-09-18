@@ -16,6 +16,8 @@ import { WidgetColonyEvents } from './widgets/WidgetColonyEvents';
 import { WidgetMessages } from './widgets/WidgetMessages';
 import { WidgetServerStats } from './widgets/WidgetServerStats';
 import { WidgetBaustellen } from './widgets/WidgetBaustellen';
+import { WidgetDistressSignals } from './widgets/WidgetDistressSignals';
+import { WidgetRecentEvents } from './widgets/WidgetRecentEvents';
 
 export interface WidgetDefinition {
   id: string;
@@ -99,6 +101,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     component: WidgetTickCountdown,
   },
   {
+    id: 'recent-events',
+    title: 'Letzte Ereignisse',
+    defaultLayout: { w: 8, h: 5, minW: 4, minH: 3 },
+    component: WidgetRecentEvents,
+  },
+  {
     id: 'colony-events',
     title: 'Kolonie-Ereignisse',
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
@@ -115,6 +123,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     title: 'Universum',
     defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
     component: WidgetServerStats,
+  },
+  {
+    id: 'distress-signals',
+    title: 'Aktive Notrufe',
+    defaultLayout: { w: 6, h: 4, minW: 3, minH: 3 },
+    component: WidgetDistressSignals,
   },
   {
     id: 'admin-tick',

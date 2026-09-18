@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -32,6 +33,33 @@ export class DatabaseController {
   @UseGuards(AuthGuard('jwt'))
   getSettler(@Param('id', ParseIntPipe) id: number) {
     return this.databaseService.getSettler(id);
+  }
+
+  @Get('system-types')
+  @UseGuards(AuthGuard('jwt'))
+  getSystemTypes(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getSystemTypes(req.user.sub);
+  }
+
+  @Get('ship-classes')
+  @UseGuards(AuthGuard('jwt'))
+  getShipClasses(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getShipClasses(req.user.sub);
+  }
+
+  @Get('ship-classes/:key')
+  @UseGuards(AuthGuard('jwt'))
+  getShipClassDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('key') key: string,
+  ) {
+    return this.databaseService.getShipClassDetail(req.user.sub, key);
+  }
+
+  @Get('modules')
+  @UseGuards(AuthGuard('jwt'))
+  getModules() {
+    return this.databaseService.getModules();
   }
 
   @Get('commodities')

@@ -4,9 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { GameDataService } from '../game-data/game-data.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
+import { CrewAssignment } from './entities/crew-assignment.entity';
+import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
+import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import {
   Spacecraft,
   SpacecraftStatus,
@@ -15,7 +18,10 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
-import { ColonyStatsService, getColonyChangeable } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  getColonyChangeable,
+} from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import {
@@ -29,6 +35,8 @@ import {
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
 import { assertOwnedColony } from './colony-owner.util';
+import { reactorFuelProfile } from '../spacecraft/reactor-fuel-profile';
+import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 
 @Injectable()
 export class ColonyOrbitService {
@@ -43,6 +51,8 @@ export class ColonyOrbitService {
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(CargoItem)
     private readonly cargoRepo: Repository<CargoItem>,
+    @InjectRepository(CrewAssignment)
+    private readonly crewRepo: Repository<CrewAssignment>,
     @InjectRepository(ColonyStorage)
     private readonly storageRepo: Repository<ColonyStorage>,
     @InjectRepository(ShipClassDef)
@@ -53,7 +63,273 @@ export class ColonyOrbitService {
     private readonly colonyStorageService: ColonyStorageService,
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyEventService: ColonyEventService,
+    private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
   ) {}
+
+  async getManagement(colonyId: number, userId: number) {
+    const colony = await this.ownership.findOwnedColony(colonyId, userId);
+    const ships = await this.shipRepo.find({
+      where: { userId },
+      relations: ['fleet', 'modules'],
+      order: { id: 'ASC' },
+    });
+    const orbitShips = ships.filter((ship) =>
+      this.isShipInColonyOrbit(colony, ship),
+    );
+    const shipIds = orbitShips.map((ship) => ship.id);
+    const [cargo, assignments, torpedoes] = await Promise.all([
+      shipIds.length
+        ? this.cargoRepo.find({ where: { spacecraftId: In(shipIds) } })
+        : [],
+      shipIds.length
+        ? this.orbitAssignmentRepo.find({ where: { colonyId } })
+        : [],
+      shipIds.length
+        ? this.colonyRepo.manager
+            .getRepository(SpacecraftTorpedoStorage)
+            .find({ where: { spacecraftId: In(shipIds) } })
+        : [],
+    ]);
+    const classes = shipIds.length
+      ? await this.shipClassRepo.find({
+          where: {
+            id: In([...new Set(orbitShips.map((ship) => ship.shipClassId))]),
+          },
+        })
+      : [];
+    const crewMinimumByClass = new Map(
+      classes.map((shipClass) => [shipClass.id, shipClass.crewMin]),
+    );
+    const usedByShip = new Map<number, number>();
+    for (const item of cargo)
+      usedByShip.set(
+        item.spacecraftId,
+        (usedByShip.get(item.spacecraftId) ?? 0) + item.amount,
+      );
+    const assignmentByShip = new Map(
+      assignments.map((assignment) => [assignment.spacecraftId, assignment]),
+    );
+    const torpedoesByShip = new Map(
+      torpedoes.map((storage) => [storage.spacecraftId, storage]),
+    );
+    return {
+      colony: {
+        id: colony.id,
+        energy: getColonyChangeable(colony).energy,
+        energyMax: getColonyChangeable(colony).maxEnergy,
+        storage: colony.storage
+          .filter((item) => item.amount > 0)
+          .map((item) => ({
+            commodityId: item.commodityId,
+            amount: item.amount,
+          })),
+      },
+      ships: orbitShips.map((ship) => {
+        const profile = reactorFuelProfile(ship.modules ?? []);
+        return {
+          id: ship.id,
+          name: ship.name,
+          shipClassId: ship.shipClassId,
+          crew: {
+            current: ship.crew,
+            max: ship.crewMax,
+            minimum: crewMinimumByClass.get(ship.shipClassId) ?? 0,
+          },
+          battery: { current: ship.battery, max: ship.batteryMax },
+          reactor: {
+            fuel: { current: ship.reactorFuel, max: ship.reactorFuelMax },
+            profile,
+          },
+          torpedoes: torpedoesByShip.get(ship.id) ?? null,
+          cargo: { used: usedByShip.get(ship.id) ?? 0, max: ship.cargoMax },
+          shieldsActive:
+            (ship.runtimeSystems as Record<string, { active?: boolean }>)
+              .SHIELDS?.active === true,
+          hyperdriveActive:
+            (ship.runtimeSystems as Record<string, { active?: boolean }>)
+              .WARPDRIVE?.active === true,
+          orbitAssignment: assignmentByShip.get(ship.id)?.mode ?? null,
+        };
+      }),
+    };
+  }
+
+  async executeManagement(
+    colonyId: number,
+    userId: number,
+    requests: Array<{
+      shipId: number;
+      targetCrew?: number;
+      batteryCharge?: number;
+      reactorLoad?: number;
+      torpedoTypeId?: number;
+      torpedoLoad?: number;
+    }>,
+  ) {
+    const colony = await this.ownership.findOwnedColony(colonyId, userId);
+    const results: Array<{
+      shipId: number;
+      applied: string[];
+      rejected: string[];
+    }> = [];
+    for (const request of requests ?? []) {
+      const applied: string[] = [];
+      const rejected: string[] = [];
+      try {
+        const ship = await this.shipRepo.findOne({
+          where: { id: request.shipId, userId },
+          relations: ['modules'],
+        });
+        if (!ship || !this.isShipInColonyOrbit(colony, ship))
+          throw new BadRequestException('Schiff ist nicht im Kolonieorbit');
+        const targetCrew = request.targetCrew;
+        const crewToShip =
+          targetCrew == null
+            ? 0
+            : Math.max(0, Math.floor(targetCrew) - ship.crew);
+        if (crewToShip) {
+          const available = await this.crewRepo.find({
+            where: { colonyId: colony.id },
+            take: crewToShip,
+            order: { crewId: 'ASC' },
+          });
+          if (
+            available.length < crewToShip ||
+            ship.crew + crewToShip > ship.crewMax
+          )
+            throw new BadRequestException(
+              'Nicht genug freie Crew oder Schiffskapazität',
+            );
+          for (const entry of available) {
+            entry.colonyId = null;
+            entry.spacecraftId = ship.id;
+          }
+          await this.crewRepo.save(available);
+          ship.crew += crewToShip;
+          applied.push(`Crew: +${crewToShip}`);
+        }
+        const batteryCharge = Math.max(
+          0,
+          Math.floor(request.batteryCharge ?? 0),
+        );
+        if (batteryCharge) {
+          const changeable = getColonyChangeable(colony);
+          const amount = Math.min(
+            batteryCharge,
+            changeable.energy,
+            Math.max(0, ship.batteryMax - ship.battery),
+          );
+          if (!amount)
+            throw new BadRequestException(
+              'Keine Kolonie-EPS oder Batteriekapazität verfügbar',
+            );
+          changeable.energy -= amount;
+          ship.battery += amount;
+          await this.changeableRepo.save(changeable);
+          applied.push(`Batterie: +${amount}`);
+        }
+        const requestedLoad = Math.max(0, Math.floor(request.reactorLoad ?? 0));
+        if (requestedLoad) {
+          const profile = reactorFuelProfile(ship.modules ?? []);
+          const capacityUnits = Math.floor(
+            Math.max(0, ship.reactorFuelMax - ship.reactorFuel) /
+              profile.loadUnits,
+          );
+          const stock = new Map(
+            (colony.storage ?? []).map((item) => [
+              item.commodityId,
+              item.amount,
+            ]),
+          );
+          const stockUnits = Math.min(
+            ...profile.costs.map((cost) =>
+              Math.floor((stock.get(cost.commodityId) ?? 0) / cost.amount),
+            ),
+          );
+          const units = Math.min(
+            Math.ceil(requestedLoad / profile.loadUnits),
+            capacityUnits,
+            stockUnits,
+          );
+          if (!units)
+            throw new BadRequestException(
+              'Nicht genug Reaktorkapazität oder Rohstoffe',
+            );
+          for (const cost of profile.costs)
+            await this.colonyStorageService.lowerStorage(
+              colony,
+              cost.commodityId,
+              cost.amount * units,
+            );
+          const gained = units * profile.loadUnits;
+          ship.reactorFuel += gained;
+          applied.push(`Reaktor: +${gained}`);
+        }
+        const crewToColony =
+          targetCrew == null
+            ? 0
+            : Math.max(0, ship.crew - Math.floor(targetCrew));
+        if (crewToColony) {
+          const assigned = await this.crewRepo.find({
+            where: { spacecraftId: ship.id },
+            take: crewToColony,
+            order: { crewId: 'ASC' },
+          });
+          if (assigned.length < crewToColony)
+            throw new BadRequestException('Nicht genug Crew an Bord');
+          for (const entry of assigned) {
+            entry.spacecraftId = null;
+            entry.colonyId = colony.id;
+          }
+          await this.crewRepo.save(assigned);
+          ship.crew -= crewToColony;
+          applied.push(`Crew: -${crewToColony}`);
+        }
+        const torpedoLoad = Math.max(0, Math.floor(request.torpedoLoad ?? 0));
+        if (torpedoLoad) {
+          const type = request.torpedoTypeId;
+          if (!type) throw new BadRequestException('Torpedotyp fehlt');
+          const torpedo = this.gameData.getTorpedoType(type);
+          if (!torpedo) throw new BadRequestException('Unbekannter Torpedotyp');
+          const repo = this.colonyRepo.manager.getRepository(
+            SpacecraftTorpedoStorage,
+          );
+          let storage = await repo.findOneBy({ spacecraftId: ship.id });
+          if (storage && storage.amount > 0 && storage.torpedoTypeId !== type)
+            throw new BadRequestException(
+              'Geladenen Torpedotyp zuerst entladen',
+            );
+          const capacity =
+            await this.spacecraftTorpedoService.getCapacity(ship);
+          if ((storage?.amount ?? 0) + torpedoLoad > capacity)
+            throw new BadRequestException('Nicht genug Torpedokapazität');
+          await this.colonyStorageService.lowerStorage(
+            colony,
+            torpedo.commodityId,
+            torpedoLoad,
+          );
+          storage ??= repo.create({
+            spacecraftId: ship.id,
+            torpedoTypeId: type,
+            commodityId: torpedo.commodityId,
+            amount: 0,
+          });
+          storage.torpedoTypeId = type;
+          storage.commodityId = torpedo.commodityId;
+          storage.amount += torpedoLoad;
+          await repo.save(storage);
+          applied.push(`Torpedos: +${torpedoLoad}`);
+        }
+        await this.shipRepo.save(ship);
+      } catch (error) {
+        rejected.push(
+          error instanceof Error ? error.message : 'Versorgung fehlgeschlagen',
+        );
+      }
+      results.push({ shipId: request.shipId, applied, rejected });
+    }
+    return { results };
+  }
 
   async cleanupInvalidOrbitAssignments(colony: Colony): Promise<void> {
     const assignments = await this.orbitAssignmentRepo.find({
@@ -99,7 +375,11 @@ export class ColonyOrbitService {
     if (Boolean(changeable.isBlockaded) !== nextBlocked) {
       changeable.isBlockaded = nextBlocked;
       await this.colonyRepo.manager.save(changeable);
-      if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID || 'expect' in globalThis) {
+      if (
+        process.env.NODE_ENV === 'test' ||
+        process.env.JEST_WORKER_ID ||
+        'expect' in globalThis
+      ) {
         await this.changeableRepo.save(changeable);
       }
     }
@@ -354,7 +634,11 @@ export class ColonyOrbitService {
 
     for (const [commodityId, amount] of normalized.entries()) {
       if (amount > 0) {
-        await this.colonyStorageService.lowerStorage(colony, commodityId, amount);
+        await this.colonyStorageService.lowerStorage(
+          colony,
+          commodityId,
+          amount,
+        );
 
         const cargoItem =
           (await this.getShipCargoItem(ship.id, commodityId)) ??
@@ -415,11 +699,7 @@ export class ColonyOrbitService {
   }
 
   isShipInColonyOrbit(colony: Colony, ship: Spacecraft): boolean {
-    return (
-      ship.starSystemId === colony.starSystemId &&
-      (colony.celestialObjectId == null ||
-        ship.celestialObjectId === colony.celestialObjectId)
-    );
+    return matchesColonyOrbit(ship, colony);
   }
 
   private getActiveBuildingFunctionIds(colony: Colony): number[] {

@@ -116,13 +116,7 @@ export interface CombatFormulas {
     { damage: number; speed: number; hull: number; evasion: number }
   >;
   combat_flow: {
-    max_rounds: number;
     initiative: { speed_weight: number; sensor_weight: number };
-    escape: {
-      base_chance: number;
-      speed_bonus: number;
-      damage_penalty: number;
-    };
   };
   ion_effects: {
     disable_chance: number;
@@ -230,9 +224,7 @@ export interface FabricationCostDef {
 }
 
 export type ShipyardGroup =
-  | 'CORE_SYSTEMS'
-  | 'OFFENSE_SYSTEMS'
-  | 'DEFENSE_SYSTEMS';
+  'CORE_SYSTEMS' | 'OFFENSE_SYSTEMS' | 'DEFENSE_SYSTEMS';
 
 export type ShipyardType =
   | 'HULL'
@@ -414,11 +406,7 @@ export interface SocialEffectsDef {
 }
 
 export type TorpedoDamageType =
-  | 'PROTON'
-  | 'QUANTUM'
-  | 'HEAVY_QUANTUM'
-  | 'PLASMA'
-  | 'HEAVY_PLASMA';
+  'PROTON' | 'QUANTUM' | 'HEAVY_QUANTUM' | 'PLASMA' | 'HEAVY_PLASMA';
 
 export interface WeaponShieldModifierDef {
   weaponFamily: string;
@@ -795,7 +783,9 @@ export class GameDataService implements OnModuleInit {
     return null;
   }
 
-  private applyShipyardClassification(item: FabricationItemDef): FabricationItemDef {
+  private applyShipyardClassification(
+    item: FabricationItemDef,
+  ): FabricationItemDef {
     const shipyardType = item.shipyardType ?? this.classifyShipyardType(item);
     const shipyardModuleStats = this.moduleStatsByOutputCommodity.get(
       item.outputCommodityId,
@@ -808,9 +798,7 @@ export class GameDataService implements OnModuleInit {
         (shipyardType ? SHIPYARD_TYPE_TO_GROUP[shipyardType] : undefined),
       shipyardModuleStats,
     };
-
   }
-
 
   private loadShipClassSlotRules() {
     const data = this.loadYaml<{
@@ -836,10 +824,13 @@ export class GameDataService implements OnModuleInit {
   private buildModuleSlotCounts(
     slots: ShipClassLayoutSlotDef[],
   ): Record<ShipyardType, number> {
-    return slots.reduce<Record<ShipyardType, number>>((counts, slot) => {
-      counts[slot.moduleCategory] = (counts[slot.moduleCategory] ?? 0) + 1;
-      return counts;
-    }, {} as Record<ShipyardType, number>);
+    return slots.reduce<Record<ShipyardType, number>>(
+      (counts, slot) => {
+        counts[slot.moduleCategory] = (counts[slot.moduleCategory] ?? 0) + 1;
+        return counts;
+      },
+      {} as Record<ShipyardType, number>,
+    );
   }
 
   private loadSocialEffects() {
@@ -874,7 +865,9 @@ export class GameDataService implements OnModuleInit {
       def.buildCosts = sourceCosts.filter((cost) => cost.commodityId < 10_000);
       def.defaultModuleCommodityIds = sourceCosts
         .filter((cost) => cost.commodityId >= 10_000)
-        .flatMap((cost) => Array.from({ length: cost.amount }, () => cost.commodityId));
+        .flatMap((cost) =>
+          Array.from({ length: cost.amount }, () => cost.commodityId),
+        );
       def.defaultTorpedoCommodityId ??= null;
       def.defaultTorpedoAmount ??= 0;
       this.hangarShipDefsByClassKey.set(def.shipClassKey, def);
@@ -1126,7 +1119,8 @@ export class GameDataService implements OnModuleInit {
     const moduleRules = this.getShipyardRumpModuleRules(stuRumpId)?.moduleRules;
     const rule = moduleRules?.[item.shipyardType];
     if (item.shipyardType === 'SPECIAL') {
-      const specialSlots = this.getShipyardRumpStats(stuRumpId)?.specialSlots ?? 0;
+      const specialSlots =
+        this.getShipyardRumpStats(stuRumpId)?.specialSlots ?? 0;
       return specialSlots > 0;
     }
     if (!rule || rule.level <= 0) return false;
@@ -1174,8 +1168,12 @@ export class GameDataService implements OnModuleInit {
     return this.shipClassDefs.find((definition) => definition.key === key);
   }
 
-  getShipyardRumpStats(stuRumpId?: number | null): ShipyardRumpStatsDef | undefined {
-    return stuRumpId == null ? undefined : this.rumpStatsByStuRumpId.get(stuRumpId);
+  getShipyardRumpStats(
+    stuRumpId?: number | null,
+  ): ShipyardRumpStatsDef | undefined {
+    return stuRumpId == null
+      ? undefined
+      : this.rumpStatsByStuRumpId.get(stuRumpId);
   }
 
   getShipyardModuleStats(

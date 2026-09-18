@@ -402,7 +402,6 @@ function getSelectedModuleEffects(
   });
 }
 
-
 function ShipHullDesigner({
   layout,
   shipClassKey,
@@ -454,7 +453,9 @@ function ShipHullDesigner({
     [activeType, classModules],
   );
   const activeSelection = activeSlot
-    ? moduleSelections.find((selection) => selection.slotId === activeSlot.slotId)
+    ? moduleSelections.find(
+        (selection) => selection.slotId === activeSlot.slotId,
+      )
     : undefined;
   const activeSelectedModule = classModules.find(
     (module) => module.commodityId === activeSelection?.commodityId,
@@ -684,7 +685,7 @@ function ShipHullDesigner({
               )}
               {baseStats.baseWarpdrive > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-swu-muted">Warpdrive</span>
+                  <span className="text-swu-muted">Hyperantrieb</span>
                   <span className="text-swu-primary">
                     {baseStats.baseWarpdrive}
                   </span>
@@ -1471,7 +1472,10 @@ export function PanelShipyard({
               </div>
               <div className="text-[10px] text-swu-muted">
                 {selectedSlotRule
-                  ? summarizeSelections(selectedLayout.slots, designerModuleSelections)
+                  ? summarizeSelections(
+                      selectedLayout.slots,
+                      designerModuleSelections,
+                    )
                   : 'Keine Slotdaten verfügbar'}
               </div>
             </div>
@@ -1563,12 +1567,15 @@ export function PanelShipyard({
             )}
             {isFixedLayout && !isResourceOnlyFixedRump && (
               <div className="mt-2 rounded border border-swu-accent/40 bg-swu-accent/10 px-2 py-2 text-[10px] text-swu-accent">
-                Fester Rumpf: Kosten und Module sind durch die Hangar/Jägerwerft-Definition vorgegeben.
+                Fester Rumpf: Kosten und Module sind durch die
+                Hangar/Jägerwerft-Definition vorgegeben.
               </div>
             )}
             {isResourceOnlyFixedRump && (
               <div className="mt-2 rounded border border-swu-accent/40 bg-swu-accent/10 px-2 py-2 text-[10px] text-swu-accent">
-                Ressourcen-only Rumpf: gemäß STU benötigen erste Frachtschiffe, Workbees und erste unbemannte Kolonieschiffe nur Ressourcen und keine Module.
+                Ressourcen-only Rumpf: gemäß STU benötigen erste Frachtschiffe,
+                Workbees und erste unbemannte Kolonieschiffe nur Ressourcen und
+                keine Module.
               </div>
             )}
             {designerMode === 'retrofit' && selectedShip && selectedLayout && (
@@ -1621,7 +1628,9 @@ export function PanelShipyard({
                 Ressourcen-only Rumpf
               </div>
               <div className="text-[10px] text-swu-muted">
-                Dieser Rumpf entspricht der STU-Regel für erste Frachtschiffe, Workbees oder erste unbemannte Kolonieschiffe: Bau nur über Ressourcen, ohne frei wählbare Module.
+                Dieser Rumpf entspricht der STU-Regel für erste Frachtschiffe,
+                Workbees oder erste unbemannte Kolonieschiffe: Bau nur über
+                Ressourcen, ohne frei wählbare Module.
               </div>
               <div className="text-[10px] text-swu-muted">
                 Benötigte Ressourcen:{' '}

@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type {
+  SpacecraftScanPageDto,
+  SpacecraftScanResultDto,
+} from '@swuniverse/shared';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
@@ -14,6 +18,18 @@ import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { ColonyScan } from './entities/colony-scan.entity';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
+import { ExplorationService } from '../starmap/exploration.service';
+import { SystemTypeDiscoveryService } from '../starmap/system-type-discovery.service';
+import { SYSTEM_TYPE_BY_ID } from '../starmap/starmap-system-types';
+import { ExplorationLevel } from '../starmap/entities/exploration-state.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
+import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import {
+  SpacecraftScanResult,
+  SpacecraftScanType,
+} from './entities/spacecraft-scan-result.entity';
+import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 @Injectable()
 export class SpacecraftScanService {
@@ -28,10 +44,264 @@ export class SpacecraftScanService {
     private readonly colonyRepo: Repository<Colony>,
     @InjectRepository(ColonyScan)
     private readonly colonyScanRepo: Repository<ColonyScan>,
+    @InjectRepository(SpacecraftScanResult)
+    private readonly scanResultRepo: Repository<SpacecraftScanResult>,
+    @InjectRepository(SystemField)
+    private readonly systemFieldRepo: Repository<SystemField>,
+    @InjectRepository(GalaxyField)
+    private readonly galaxyFieldRepo: Repository<GalaxyField>,
     private readonly planetGenerator: PlanetGeneratorService,
     private readonly gameData: GameDataService,
     private readonly spacecraftCrewService: SpacecraftCrewService,
+    private readonly runtimeState: SpacecraftRuntimeStateService,
+    private readonly explorationService: ExplorationService,
+    private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
   ) {}
+
+  async sectorScan(
+    shipId: number,
+    userId: number,
+  ): Promise<SpacecraftScanResultDto> {
+    const ship = await this.requireOperationalScanner(
+      shipId,
+      userId,
+      'SHORT_RANGE_SENSORS',
+      1,
+    );
+    const x = ship.inSystem
+      ? (ship.currentSystemFieldX ?? ship.posX)
+      : ship.posX;
+    const y = ship.inSystem
+      ? (ship.currentSystemFieldY ?? ship.posY)
+      : ship.posY;
+    const field =
+      ship.inSystem && ship.starSystemId
+        ? await this.systemFieldRepo.findOne({
+            where: { starSystemId: ship.starSystemId, sx: x, sy: y },
+            relations: ['fieldType', 'celestialObject'],
+          })
+        : await this.galaxyFieldRepo.findOne({
+            where: { layerId: ship.currentLayerId ?? -1, cx: x, cy: y },
+            relations: ['fieldType', 'starSystem'],
+          });
+    if (!field) throw new NotFoundException('Aktuelles Feld nicht gefunden');
+    if (!ship.inSystem && ship.currentLayerId) {
+      await this.explorationService.discoverArea({
+        userId,
+        layerId: ship.currentLayerId,
+        cx: x,
+        cy: y,
+        radius: 1,
+        level: ExplorationLevel.TERRAIN,
+        source: 'sector_scan',
+      });
+    }
+    const object = 'celestialObject' in field ? field.celestialObject : null;
+    const systemTypeId =
+      !ship.inSystem && 'systemTypeId' in field ? field.systemTypeId : null;
+    const discovery =
+      systemTypeId != null && SYSTEM_TYPE_BY_ID[systemTypeId]
+        ? await this.systemTypeDiscoveryService.discover({
+            userId,
+            systemTypeId,
+            source: 'SECTOR_SCAN',
+            spacecraftId: ship.id,
+            layerId: ship.currentLayerId,
+            x,
+            y,
+          })
+        : null;
+    return this.persistScan(ship, SpacecraftScanType.SECTOR, x, y, 1, {
+      field: {
+        scope: ship.inSystem ? 'SYSTEM' : 'GALAXY',
+        x,
+        y,
+        fieldType: {
+          id: field.fieldType.id,
+          key: field.fieldType.key,
+          name: field.fieldType.name,
+        },
+        movementEnergyCost: field.energyCost,
+        damage: field.damage,
+        specialDamage: 0,
+        effects: field.effects ?? [],
+        celestialObject: object
+          ? {
+              id: object.id,
+              name: object.name,
+              objectType: object.objectType,
+              classId: object.classId,
+            }
+          : null,
+        starSystem:
+          !ship.inSystem &&
+          'starSystem' in field &&
+          field.starSystem &&
+          systemTypeId != null
+            ? {
+                id: field.starSystem.id,
+                name: field.starSystem.name,
+                systemTypeId,
+                systemTypeName: SYSTEM_TYPE_BY_ID[systemTypeId]?.name ?? null,
+              }
+            : null,
+      },
+      discovery,
+      signatures: [],
+      fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      buoys: [],
+    });
+  }
+
+  async systemFieldScan(
+    shipId: number,
+    userId: number,
+    targetX: number,
+    targetY: number,
+  ): Promise<SpacecraftScanResultDto> {
+    const ship = await this.requireOperationalScanner(
+      shipId,
+      userId,
+      'LONG_RANGE_SENSORS',
+      2,
+    );
+    if (!ship.inSystem || !ship.starSystemId) {
+      throw new BadRequestException(
+        'Systemfeldscan erfordert ein Sternensystem',
+      );
+    }
+    const x = ship.currentSystemFieldX ?? ship.posX;
+    const y = ship.currentSystemFieldY ?? ship.posY;
+    const range = await this.getSensorRange(ship);
+    if (Math.max(Math.abs(targetX - x), Math.abs(targetY - y)) > range) {
+      throw new BadRequestException(
+        'Zielfeld liegt außerhalb der Sensorreichweite',
+      );
+    }
+    const field = await this.systemFieldRepo.findOne({
+      where: { starSystemId: ship.starSystemId, sx: targetX, sy: targetY },
+      relations: ['fieldType', 'celestialObject'],
+    });
+    if (!field) throw new NotFoundException('Systemfeld nicht gefunden');
+    await this.explorationService.discoverSystem({
+      userId,
+      starSystemId: ship.starSystemId,
+      source: 'system_field_scan',
+    });
+    return this.persistScan(
+      ship,
+      SpacecraftScanType.SYSTEM_FIELD,
+      targetX,
+      targetY,
+      2,
+      {
+        fieldType: field.fieldType?.name ?? null,
+        passable: field.isPassable,
+        effects: field.effects ?? [],
+        celestialObject: field.celestialObject
+          ? {
+              id: field.celestialObject.id,
+              name: field.celestialObject.name,
+              classId: field.celestialObject.classId,
+            }
+          : null,
+      },
+    );
+  }
+
+  async listScans(
+    shipId: number,
+    userId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<SpacecraftScanPageDto> {
+    const ship = await this.shipRepo.findOneBy({ id: shipId, userId });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, Math.min(50, limit));
+    const [rows, total] = await this.scanResultRepo.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
+    });
+    return {
+      data: rows.map((row) => this.toScanDto(row)),
+      total,
+      page: safePage,
+      limit: safeLimit,
+    };
+  }
+
+  private async requireOperationalScanner(
+    shipId: number,
+    userId: number,
+    key: 'LONG_RANGE_SENSORS' | 'SHORT_RANGE_SENSORS',
+    cost: number,
+  ): Promise<Spacecraft> {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['modules'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    assertSpacecraftNotInStandby(ship, 'einem Scan');
+    if (ship.status === SpacecraftStatus.DESTROYED)
+      throw new BadRequestException('Destroyed ship cannot scan');
+    if (!(await this.spacecraftCrewService.hasEnoughCrew(ship)))
+      throw new BadRequestException('Not enough crew');
+    const systems = this.runtimeState.initialize(ship);
+    const sensor = systems[key];
+    if (!sensor?.active)
+      throw new BadRequestException(`${key} sind nicht aktiv`);
+    if (sensor.integrity <= 0)
+      throw new BadRequestException(`${key} ist zerstört`);
+    if (ship.energy < cost) throw new BadRequestException('Nicht genug EPS');
+    ship.energy -= cost;
+    ship.runtimeSystems = systems;
+    await this.shipRepo.save(ship);
+    return ship;
+  }
+
+  private async persistScan(
+    ship: Spacecraft,
+    type: SpacecraftScanType,
+    x: number,
+    y: number,
+    energyCost: number,
+    result: Record<string, unknown>,
+  ): Promise<SpacecraftScanResultDto> {
+    const saved = await this.scanResultRepo.save(
+      this.scanResultRepo.create({
+        userId: ship.userId,
+        spacecraftId: ship.id,
+        type,
+        layerId: ship.currentLayerId,
+        starSystemId: ship.starSystemId,
+        x,
+        y,
+        energyCost,
+        cooldown: 1,
+        result,
+      }),
+    );
+    return this.toScanDto(saved);
+  }
+
+  private toScanDto(row: SpacecraftScanResult): SpacecraftScanResultDto {
+    return {
+      id: row.id,
+      type: row.type,
+      spacecraftId: row.spacecraftId,
+      createdAt: row.createdAt.toISOString(),
+      energyCost: row.energyCost,
+      cooldown: row.cooldown,
+      layerId: row.layerId,
+      starSystemId: row.starSystemId,
+      x: row.x,
+      y: row.y,
+      result: row.result,
+    };
+  }
 
   async surfaceScan(
     shipId: number,
@@ -43,6 +313,7 @@ export class SpacecraftScanService {
       relations: ['modules'],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
+    assertSpacecraftNotInStandby(ship, 'einem Scan');
     if (!ship.inSystem || !ship.starSystemId) {
       throw new BadRequestException(
         'Surface scan requires ship inside a system',
@@ -128,6 +399,7 @@ export class SpacecraftScanService {
       relations: ['modules'],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
+    assertSpacecraftNotInStandby(ship, 'einem Scan');
     if (!ship.inSystem || !ship.starSystemId) {
       throw new BadRequestException(
         'Colony scan requires ship inside a system',

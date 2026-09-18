@@ -5,6 +5,7 @@ import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 import {
   GameDataService,
   HangarShipDef,
@@ -158,7 +159,11 @@ export class ColonyProjectionService {
   ): number {
     const limits = [50];
     if (hangarDef.buildEnergyCost > 0) {
-      limits.push(Math.floor((getColonyChangeable(colony).energy ?? 0) / hangarDef.buildEnergyCost));
+      limits.push(
+        Math.floor(
+          (getColonyChangeable(colony).energy ?? 0) / hangarDef.buildEnergyCost,
+        ),
+      );
     }
     const storage = new Map(
       (colony.storage ?? []).map((row) => [row.commodityId, row.amount]),
@@ -227,7 +232,8 @@ export class ColonyProjectionService {
         buildProgress: field.buildProgress,
         buildFinishesAt: field.buildFinishesAt?.toISOString() ?? null,
         terraformingId: field.terraformingId,
-        terraformingFinishesAt: field.terraformingFinishesAt?.toISOString() ?? null,
+        terraformingFinishesAt:
+          field.terraformingFinishesAt?.toISOString() ?? null,
       })),
     });
   }
@@ -272,17 +278,17 @@ export class ColonyProjectionService {
     const hasDefendingFleet = defendingFleetIds.length > 0;
     const hasBlockadingFleet = blockadingFleetIds.length > 0;
     const orbitShips = colony.starSystemId
-      ? await this.shipRepo.find({
-          where: {
-            userId,
-            starSystemId: colony.starSystemId,
-            ...(colony.celestialObjectId
-              ? { celestialObjectId: colony.celestialObjectId }
-              : {}),
-          },
-          relations: ['fleet'],
-          order: { id: 'ASC' },
-        })
+      ? (
+          await this.shipRepo.find({
+            where: {
+              userId,
+              starSystemId: colony.starSystemId,
+              inSystem: true,
+            },
+            relations: ['fleet'],
+            order: { id: 'ASC' },
+          })
+        ).filter((ship) => matchesColonyOrbit(ship, colony))
       : [];
     const orbitShipModules = orbitShips.length
       ? await this.spacecraftModuleRepo.find({
@@ -332,17 +338,18 @@ export class ColonyProjectionService {
           shipyardBuilding.id,
         )
       : false;
-    const depositMining = colony.celestialObject?.objectType === 3
-      ? await this.depositMiningRepo.manager
-          .getRepository(AsteroidResourceDeposit)
-          .find({
-          where: { celestialObjectId: colony.celestialObject.id, userId },
-          order: { commodityId: 'ASC' },
-        })
-      : await this.depositMiningRepo.find({
-          where: { colonyId: colony.id, userId },
-          order: { commodityId: 'ASC' },
-        });
+    const depositMining =
+      colony.celestialObject?.objectType === 3
+        ? await this.depositMiningRepo.manager
+            .getRepository(AsteroidResourceDeposit)
+            .find({
+              where: { celestialObjectId: colony.celestialObject.id, userId },
+              order: { commodityId: 'ASC' },
+            })
+        : await this.depositMiningRepo.find({
+            where: { colonyId: colony.id, userId },
+            order: { commodityId: 'ASC' },
+          });
     const shipBuildQueue = await this.shipBuildQueueRepo.find({
       where: {
         colonyId: colony.id,
@@ -354,7 +361,7 @@ export class ColonyProjectionService {
       order: { finishesAt: 'ASC' },
     });
     const buildplans = await this.shipBuildplanRepo.find({
-      where: { colonyId: colony.id, userId },
+      where: { userId },
       order: { id: 'ASC' },
     });
     const fabricationQueue = await this.fabricationQueueRepo.find({
@@ -415,15 +422,18 @@ export class ColonyProjectionService {
     const completedTechIds = new Set(
       (await this.unlockResolver.getCompletedTechIds(userId)).values(),
     );
-    const availableUpgradesByFieldIndex = new Map<number, Array<{
-      id: number;
-      fromBuildingId: number;
-      toBuildingId: number;
-      researchId: number | null;
-      description: string;
-      energyCost: number;
-      costs: Array<{ commodityId: number; amount: number }>;
-    }>>();
+    const availableUpgradesByFieldIndex = new Map<
+      number,
+      Array<{
+        id: number;
+        fromBuildingId: number;
+        toBuildingId: number;
+        researchId: number | null;
+        description: string;
+        energyCost: number;
+        costs: Array<{ commodityId: number; amount: number }>;
+      }>
+    >();
     for (const field of fields) {
       if (!field.buildingId || field.isBuilding) {
         availableUpgradesByFieldIndex.set(field.fieldIndex, []);
@@ -438,7 +448,9 @@ export class ColonyProjectionService {
               completedTechIds.has(upgrade.researchId)),
         )
         .flatMap((upgrade) => {
-          const targetBuilding = this.gameData.getBuilding(upgrade.toBuildingId);
+          const targetBuilding = this.gameData.getBuilding(
+            upgrade.toBuildingId,
+          );
           if (!targetBuilding) return [];
           return [
             {
@@ -809,7 +821,9 @@ export class ColonyProjectionService {
               !!shipClass &&
               !!this.getHangarDefForShipClass(shipClass),
             canDisassemble:
-              canManage && getColonyChangeable(colony).energy >= 20 && hasMatchingRepairShipyard,
+              canManage &&
+              getColonyChangeable(colony).energy >= 20 &&
+              hasMatchingRepairShipyard,
             canRepair,
             canRetrofit,
             canManage,
@@ -1786,7 +1800,9 @@ export class ColonyProjectionService {
     return [
       ...new Set(
         (colony.fields ?? [])
-          .filter((field) => this.isShipyardField(field, false) && field.isActive)
+          .filter(
+            (field) => this.isShipyardField(field, false) && field.isActive,
+          )
           .flatMap((field) =>
             this.gameData.getBuildingFunctions(field.buildingId!),
           )
@@ -1805,8 +1821,8 @@ export class ColonyProjectionService {
       classOverride?.allowedBuildingFunctionIds ??
       rule?.allowedBuildingFunctionIds;
     if (!allowedIds) return;
-    const hasCompatibleShipyard = allowedIds.some(
-      (functionId) => activeShipyardFunctionIds.includes(functionId),
+    const hasCompatibleShipyard = allowedIds.some((functionId) =>
+      activeShipyardFunctionIds.includes(functionId),
     );
     if (!hasCompatibleShipyard) {
       throw new BadRequestException(

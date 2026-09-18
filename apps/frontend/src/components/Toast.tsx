@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from 'react';
 
 type Severity = 'error' | 'warning' | 'info';
 
@@ -31,7 +37,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const add = useCallback((message: string, severity: Severity) => {
     const id = ++idRef.current;
-    setToasts((prev) => [...prev.slice(-(MAX_VISIBLE - 1)), { id, message, severity }]);
+    setToasts((prev) => [
+      ...prev.slice(-(MAX_VISIBLE - 1)),
+      { id, message, severity },
+    ]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, AUTO_DISMISS_MS);
@@ -50,8 +59,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
-            className={`pointer-events-auto cursor-pointer rounded border px-4 py-2 text-xs max-w-sm shadow-lg animate-slide-in-right ${
+            onClick={() =>
+              setToasts((prev) => prev.filter((x) => x.id !== t.id))
+            }
+            className={`pointer-events-auto cursor-pointer whitespace-pre-line rounded border px-4 py-2 text-xs max-w-sm shadow-lg animate-slide-in-right ${
               t.severity === 'error'
                 ? 'bg-red-900/90 border-red-500/60 text-red-200'
                 : t.severity === 'warning'

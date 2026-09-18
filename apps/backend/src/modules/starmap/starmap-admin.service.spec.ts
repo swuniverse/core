@@ -293,7 +293,9 @@ describe('StarmapAdminService updateCelestialObject', () => {
 describe('StarmapAdminService tactical world reset', () => {
   it('removes world state while preserving research progress', async () => {
     const { service } = createService();
-    const manager = { query: jest.fn(async () => undefined) };
+    const manager = {
+      query: jest.fn<Promise<void>, [string]>(async () => undefined),
+    };
 
     const deleteWorldState = Reflect.get(service, 'deleteWorldState');
     if (typeof deleteWorldState !== 'function') {

@@ -11,27 +11,6 @@ type PanelInfoProps = {
 export function PanelInfo({ colony, detail }: PanelInfoProps) {
   return (
     <div className="space-y-2">
-      <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-        <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-          Orbit
-        </div>
-        {(detail?.orbitShips.length ?? 0) > 0 ? (
-          <div className="space-y-1 text-sm">
-            {detail?.orbitShips.map((ship) => (
-              <div key={ship.id} className="flex justify-between gap-2">
-                <span className="text-swu-primary">{ship.name}</span>
-                <span className="text-swu-muted">
-                  {ship.shipClassName ?? `#${ship.shipClassId}`} · {ship.status}{' '}
-                  · Crew {ship.crew}/{ship.crewRequired}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-swu-muted">Keine Schiffe im Orbit.</div>
-        )}
-      </div>
-
       {/* Planet + System */}
       <div className="flex gap-2">
         {colony.celestialObject && (
@@ -62,12 +41,6 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
               <BbCodeText
                 text={colony.celestialObject.description}
                 className="mt-2 text-sm leading-relaxed text-swu-muted whitespace-pre-wrap"
-              />
-            )}
-            {detail?.options?.colonyMessage && (
-              <BbCodeText
-                text={detail.options.colonyMessage}
-                className="mt-2 rounded border border-swu-border/40 bg-swu-bg/50 px-2 py-1.5 text-sm leading-relaxed text-swu-muted whitespace-pre-wrap"
               />
             )}
           </div>
@@ -213,9 +186,7 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
                     {deposit.delta !== 0 && (
                       <span
                         className={
-                          deposit.delta < 0
-                            ? 'text-red-400'
-                            : 'text-green-400'
+                          deposit.delta < 0 ? 'text-red-400' : 'text-green-400'
                         }
                       >
                         {formatSignedAmount(deposit.delta)}

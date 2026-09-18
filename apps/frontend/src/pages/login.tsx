@@ -51,7 +51,13 @@ const steps = [
   },
 ];
 
-function AnimatedCounter({ target, duration = 1800 }: { target: number; duration?: number }) {
+function AnimatedCounter({
+  target,
+  duration = 1800,
+}: {
+  target: number;
+  duration?: number;
+}) {
   const [count, setCount] = useState(0);
   const [started, setStarted] = useState(false);
 
@@ -59,7 +65,9 @@ function AnimatedCounter({ target, duration = 1800 }: { target: number; duration
     const el = document.getElementById(`counter-${target}`);
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setStarted(true); },
+      ([entry]) => {
+        if (entry.isIntersecting) setStarted(true);
+      },
       { threshold: 0.3 },
     );
     observer.observe(el);
@@ -110,7 +118,11 @@ function IconSignal() {
   );
 }
 
-const iconMap = { orbit: IconOrbit, fleet: IconFleet, signal: IconSignal } as const;
+const iconMap = {
+  orbit: IconOrbit,
+  fleet: IconFleet,
+  signal: IconSignal,
+} as const;
 
 export function LoginPage() {
   const [loginOpen, setLoginOpen] = useState(false);
@@ -123,14 +135,21 @@ export function LoginPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const scrollTo = (id: string) =>
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   useEffect(() => {
-    api.get<GalaxyStats>('/database/overview').then(setStats).catch(() => undefined);
+    api
+      .get<GalaxyStats>('/database/overview')
+      .then(setStats)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setLoginOpen(false); };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLoginOpen(false);
+    };
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, []);
@@ -140,11 +159,16 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>('/auth/login', { username, password });
+      const res = await api.post<AuthResponse>('/auth/login', {
+        username,
+        password,
+      });
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/onboarding');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen');
+      setError(
+        err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen',
+      );
     } finally {
       setLoading(false);
     }
@@ -163,15 +187,29 @@ export function LoginPage() {
 
       {/* Navigation */}
       <nav className="swu-nav" aria-label="Hauptnavigation">
-        <a className="swu-nav__brand" href="#top" aria-label="Star Wars Universe">
+        <a
+          className="swu-nav__brand"
+          href="#top"
+          aria-label="Star Wars Universe"
+        >
           <span className="swu-nav__sigil" aria-hidden="true" />
           <span>SWU</span>
         </a>
         <div className="swu-nav__links">
-          <button type="button" onClick={() => scrollTo('features')}>Features</button>
-          <button type="button" onClick={() => scrollTo('stats')}>Galaxis</button>
-          <button type="button" onClick={() => scrollTo('join')}>Start</button>
-          <button className="swu-nav__login" type="button" onClick={() => setLoginOpen(true)}>
+          <button type="button" onClick={() => scrollTo('features')}>
+            Features
+          </button>
+          <button type="button" onClick={() => scrollTo('stats')}>
+            Galaxis
+          </button>
+          <button type="button" onClick={() => scrollTo('join')}>
+            Start
+          </button>
+          <button
+            className="swu-nav__login"
+            type="button"
+            onClick={() => setLoginOpen(true)}
+          >
             Login
           </button>
           <a
@@ -201,14 +239,18 @@ export function LoginPage() {
             <em>Universe</em>
           </h1>
           <p className="swu-hero__tagline">
-            Kolonien. Flotten. Allianzen. Ein tick-basiertes Strategiespiel
-            im Star Wars Universum.
+            Kolonien. Flotten. Allianzen. Ein tick-basiertes Strategiespiel im
+            Star Wars Universum.
           </p>
           <div className="swu-hero__actions">
             <Link className="swu-btn swu-btn--primary" to="/register">
               Registrieren
             </Link>
-            <button className="swu-btn swu-btn--ghost" type="button" onClick={() => setLoginOpen(true)}>
+            <button
+              className="swu-btn swu-btn--ghost"
+              type="button"
+              onClick={() => setLoginOpen(true)}
+            >
               Login
             </button>
           </div>
@@ -219,7 +261,11 @@ export function LoginPage() {
       </section>
 
       {/* Features — bento grid */}
-      <section className="swu-section" id="features" aria-labelledby="features-title">
+      <section
+        className="swu-section"
+        id="features"
+        aria-labelledby="features-title"
+      >
         <div className="swu-section__header">
           <h2 id="features-title">Dein Imperium wartet</h2>
         </div>
@@ -231,7 +277,9 @@ export function LoginPage() {
                 key={f.title}
                 className={`swu-bento__cell${f.variant === 'primary' ? ' swu-bento__cell--primary' : ''}`}
               >
-                <div className={`swu-bento__icon${f.icon === 'signal' ? ' swu-bento__icon--blue' : ''}`}>
+                <div
+                  className={`swu-bento__icon${f.icon === 'signal' ? ' swu-bento__icon--blue' : ''}`}
+                >
                   <Icon />
                 </div>
                 <h3>{f.title}</h3>
@@ -247,27 +295,39 @@ export function LoginPage() {
         <div className="swu-stats" id="stats">
           <div className="swu-stats__grid">
             <div className="swu-stats__item">
-              <span className="swu-stats__value"><AnimatedCounter target={stats.settlers} /></span>
+              <span className="swu-stats__value">
+                <AnimatedCounter target={stats.settlers} />
+              </span>
               <span className="swu-stats__label">Siedler</span>
             </div>
             <div className="swu-stats__item">
-              <span className="swu-stats__value"><AnimatedCounter target={stats.colonies} /></span>
+              <span className="swu-stats__value">
+                <AnimatedCounter target={stats.colonies} />
+              </span>
               <span className="swu-stats__label">Kolonien</span>
             </div>
             <div className="swu-stats__item">
-              <span className="swu-stats__value"><AnimatedCounter target={stats.ships} /></span>
+              <span className="swu-stats__value">
+                <AnimatedCounter target={stats.ships} />
+              </span>
               <span className="swu-stats__label">Schiffe</span>
             </div>
             <div className="swu-stats__item">
-              <span className="swu-stats__value"><AnimatedCounter target={stats.totalTechs} /></span>
+              <span className="swu-stats__value">
+                <AnimatedCounter target={stats.totalTechs} />
+              </span>
               <span className="swu-stats__label">Forschungen</span>
             </div>
             <div className="swu-stats__item">
-              <span className="swu-stats__value"><AnimatedCounter target={stats.buildingTypes} /></span>
+              <span className="swu-stats__value">
+                <AnimatedCounter target={stats.buildingTypes} />
+              </span>
               <span className="swu-stats__label">Gebaudetypen</span>
             </div>
             <div className="swu-stats__item">
-              <span className="swu-stats__value"><AnimatedCounter target={stats.shipClasses} /></span>
+              <span className="swu-stats__value">
+                <AnimatedCounter target={stats.shipClasses} />
+              </span>
               <span className="swu-stats__label">Schiffsklassen</span>
             </div>
           </div>
@@ -275,10 +335,17 @@ export function LoginPage() {
       )}
 
       {/* How to start — briefing layout */}
-      <section className="swu-section" id="start" aria-labelledby="briefing-title">
+      <section
+        className="swu-section"
+        id="start"
+        aria-labelledby="briefing-title"
+      >
         <div className="swu-briefing">
           <div className="swu-briefing__steps">
-            <div className="swu-section__header" style={{ marginBottom: '32px' }}>
+            <div
+              className="swu-section__header"
+              style={{ marginBottom: '32px' }}
+            >
               <h2 id="briefing-title">So startest du</h2>
             </div>
             <div>
@@ -304,7 +371,11 @@ export function LoginPage() {
       </section>
 
       {/* CTA */}
-      <section className="swu-section swu-section--cta" id="join" aria-labelledby="cta-title">
+      <section
+        className="swu-section swu-section--cta"
+        id="join"
+        aria-labelledby="cta-title"
+      >
         <div className="swu-cta">
           <p className="swu-eyebrow">Closed Alpha</p>
           <h2 id="cta-title">Die Galaxis braucht dich.</h2>
@@ -338,25 +409,72 @@ export function LoginPage() {
         <span className="swu-footer__brand">Star Wars Universe</span>
         <span>Open Source · {new Date().getFullYear()}</span>
         <div className="swu-footer__links">
-          <a href="https://github.com/swuniverse" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="https://discord.com/invite/vvUwR6UZbB" target="_blank" rel="noopener noreferrer">Discord</a>
+          <a
+            href="https://github.com/swuniverse"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+          <a
+            href="https://discord.com/invite/vvUwR6UZbB"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Discord
+          </a>
         </div>
       </footer>
 
       {/* Mobile Sticky CTA */}
       <div className="swu-mobile-cta">
-        <button className="swu-mobile-cta__login" type="button" onClick={() => setLoginOpen(true)}>Login</button>
-        <Link className="swu-mobile-cta__register" to="/register">Registrieren</Link>
+        <button
+          className="swu-mobile-cta__login"
+          type="button"
+          onClick={() => setLoginOpen(true)}
+        >
+          Login
+        </button>
+        <Link className="swu-mobile-cta__register" to="/register">
+          Registrieren
+        </Link>
       </div>
 
       {/* Login Drawer */}
-      <div className={`swu-login${loginOpen ? ' swu-login--open' : ''}`} aria-hidden={!loginOpen} role="dialog" aria-modal="true" aria-label="Login">
-        <button className="swu-login__scrim" type="button" onClick={() => setLoginOpen(false)} aria-label="Login schliessen" tabIndex={loginOpen ? 0 : -1} />
-        <form className="swu-login__panel" onSubmit={handleLogin} aria-label="Login Formular">
-          <button className="swu-login__close" type="button" onClick={() => setLoginOpen(false)} aria-label="Schliessen">×</button>
+      <div
+        className={`swu-login${loginOpen ? ' swu-login--open' : ''}`}
+        aria-hidden={!loginOpen}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Login"
+      >
+        <button
+          className="swu-login__scrim"
+          type="button"
+          onClick={() => setLoginOpen(false)}
+          aria-label="Login schliessen"
+          tabIndex={loginOpen ? 0 : -1}
+        />
+        <form
+          className="swu-login__panel"
+          onSubmit={handleLogin}
+          aria-label="Login Formular"
+        >
+          <button
+            className="swu-login__close"
+            type="button"
+            onClick={() => setLoginOpen(false)}
+            aria-label="Schliessen"
+          >
+            ×
+          </button>
           <p className="swu-eyebrow">Commander Login</p>
           <h2>Zurück auf die Brucke</h2>
-          {error && <div className="auth-error" role="alert">{error}</div>}
+          {error && (
+            <div className="auth-error" role="alert">
+              {error}
+            </div>
+          )}
           <label className="swu-field">
             <span>Username</span>
             <input
@@ -382,12 +500,26 @@ export function LoginPage() {
               tabIndex={loginOpen ? 0 : -1}
             />
           </label>
-          <button className="swu-btn swu-btn--primary swu-btn--wide" type="submit" disabled={loading} tabIndex={loginOpen ? 0 : -1}>
+          <button
+            className="swu-btn swu-btn--primary swu-btn--wide"
+            type="submit"
+            disabled={loading}
+            tabIndex={loginOpen ? 0 : -1}
+          >
             {loading ? 'Anmeldung...' : 'Login'}
           </button>
           <div className="swu-login__meta">
-            <Link to="/register" tabIndex={loginOpen ? 0 : -1}>Registrieren</Link>
-            <a href="https://discord.com/invite/vvUwR6UZbB" target="_blank" rel="noopener noreferrer" tabIndex={loginOpen ? 0 : -1}>Discord</a>
+            <Link to="/register" tabIndex={loginOpen ? 0 : -1}>
+              Registrieren
+            </Link>
+            <a
+              href="https://discord.com/invite/vvUwR6UZbB"
+              target="_blank"
+              rel="noopener noreferrer"
+              tabIndex={loginOpen ? 0 : -1}
+            >
+              Discord
+            </a>
           </div>
         </form>
       </div>

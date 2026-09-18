@@ -1,189 +1,179 @@
+import { useEffect, useState } from 'react';
+import { commodityImage } from '../../lib/assets';
 import { api } from '../../services/api';
-import type { LocalMapResponse } from './LssMap';
-
-interface RuntimeSystem {
-  active: boolean;
-  cooldown: number;
-  integrity: number;
-  current?: number;
-  max?: number;
-}
+import { type RuntimeSystemState } from './ship-system-presentation';
 
 interface ShipControlCenterProps {
   shipId: number;
-  status: string;
-  alertState: string;
-  shields: number;
-  shieldsMax: number;
-  systems: Record<string, RuntimeSystem> | undefined;
-  localMap: LocalMapResponse | null;
+  systems: Record<string, RuntimeSystemState> | undefined;
   onUpdate: () => void;
 }
-
-const ALERT_LABELS: Record<string, string> = {
-  GREEN: 'Grün',
-  YELLOW: 'Gelb',
-  RED: 'Rot',
+type Torpedo = {
+  torpedoTypeId: number;
+  commodityId: number;
+  amount: number;
+  name: string;
+  isActive: boolean;
 };
-
-const STATUS_LABELS: Record<string, string> = {
-  DOCKED: 'Angedockt',
-  IN_FLIGHT: 'Im Flug',
-  IN_COMBAT: 'Im Kampf',
-  DESTROYED: 'Zerstört',
+type TorpedoStorage = {
+  capacity: number;
+  fireable: Torpedo[];
+  transport: Torpedo[];
 };
-
-const SYSTEM_LABELS: Record<string, string> = {
-  REACTOR: 'Reaktor',
-  EPS: 'EPS',
-  SHIELDS: 'Schilde',
-  WEAPONS: 'Waffen',
-  TORPEDO_BANK: 'Torpedo',
-  WARPDRIVE: 'Warp',
-  SUBLIGHT_DRIVE: 'Impuls',
-  SENSORS: 'Sensoren',
-  COMPUTER: 'Computer',
-  SPECIAL: 'Spezial',
-};
-
-const DISPLAY_ORDER = [
-  'REACTOR',
-  'EPS',
-  'SHIELDS',
-  'WEAPONS',
-  'TORPEDO_BANK',
-  'WARPDRIVE',
-  'SUBLIGHT_DRIVE',
-  'SENSORS',
-  'COMPUTER',
-  'SPECIAL',
-];
-
-const FACTION_ZONE_LABELS: Record<string, string> = {
-  REBEL: 'Rebellen',
-  EMPIRE: 'Imperium',
-  NEUTRAL: 'Neutral',
-  CONTESTED: 'Umkämpft',
-  UNKNOWN: 'Unbekannt',
+export const SYSTEM_ASSETS: Record<string, string> = {
+  EPS: '1.png',
+  SUBLIGHT_DRIVE: '2.png',
+  REACTOR: '3.png',
+  COMPUTER: '4.png',
+  WEAPONS: '5.png',
+  TORPEDO_BANK: '6.png',
+  SPECIAL: '7.png',
+  LONG_RANGE_SENSORS: '8.png',
+  SHORT_RANGE_SENSORS: '9.png',
+  WARPDRIVE: '10.png',
+  SHIELDS: '11.png',
+  LIFE_SUPPORT: '13.png',
 };
 
 export function ShipControlCenter({
   shipId,
-  status,
-  alertState,
-  shields,
-  shieldsMax,
   systems,
-  localMap,
   onUpdate,
 }: ShipControlCenterProps) {
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [torpedoes, setTorpedoes] = useState<TorpedoStorage | null>(null);
+  const loadTorpedoes = () =>
+    api
+      .get<TorpedoStorage>(`/spacecraft/${shipId}/torpedoes`)
+      .then(setTorpedoes)
+      .catch(() => setTorpedoes(null));
+  useEffect(() => {
+    void loadTorpedoes();
+  }, [shipId]);
   async function toggle(key: string, active: boolean) {
-    await api.patch(`/spacecraft/${shipId}/systems/${key}`, { active });
-    onUpdate();
+    setPending(key);
+    setError(null);
+    try {
+      await api.patch(`/spacecraft/${shipId}/systems/${key}`, { active });
+      onUpdate();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'System konnte nicht umgeschaltet werden',
+      );
+    } finally {
+      setPending(null);
+    }
   }
-
-  const context = localMap?.context;
-
+  async function selectTorpedo(torpedoTypeId: number) {
+    try {
+      await api.patch(`/spacecraft/${shipId}/torpedoes/active`, {
+        torpedoTypeId,
+      });
+      await loadTorpedoes();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Torpedo konnte nicht gewählt werden',
+      );
+    }
+  }
+  const systemRow = (key: 'SHIELDS' | 'WEAPONS') => {
+    const state = systems?.[key];
+    if (!state) return null;
+    const label = key === 'SHIELDS' ? 'Schilde' : 'Strahlenwaffen';
+    return (
+      <button
+        key={key}
+        type="button"
+        disabled={pending !== null}
+        onClick={() => void toggle(key, !state.active)}
+        className="flex w-full items-center gap-2 border-b border-swu-border px-2 py-1.5 text-left text-swu-primary hover:bg-white/5 disabled:opacity-40"
+      >
+        <img
+          src={`/assets/system/${SYSTEM_ASSETS[key]}`}
+          alt=""
+          className="size-5"
+        />
+        {label} {state.active ? 'deaktivieren' : 'aktivieren'}
+      </button>
+    );
+  };
+  const torpedoState = systems?.TORPEDO_BANK;
   return (
-    <section className="space-y-3">
-      {/* Schiffskontrolle */}
-      <div className="rounded-lg border border-swu-border bg-swu-surface p-3">
-        <h3 className="mb-2 border-b border-swu-border/60 pb-1 text-center text-xs font-bold text-swu-primary">
+    <section>
+      <div className="border border-swu-border bg-swu-surface text-xs">
+        <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
           Schiffskontrolle
         </h3>
-        <div className="space-y-1 text-xs">
-          <div className="flex justify-between">
-            <span className="text-swu-muted">Status</span>
-            <span className="text-swu-primary">
-              {STATUS_LABELS[status] ?? status}
-            </span>
+        {systemRow('SHIELDS')}
+        {systemRow('WEAPONS')}{' '}
+        {torpedoState && (
+          <div className="grid grid-cols-2 border-b border-swu-border">
+            <button
+              type="button"
+              disabled={pending !== null}
+              onClick={() => void toggle('TORPEDO_BANK', !torpedoState.active)}
+              className="flex items-center gap-2 border-r border-swu-border px-2 py-1.5 text-left text-swu-primary hover:bg-white/5 disabled:opacity-40"
+            >
+              <img
+                src={`/assets/system/${SYSTEM_ASSETS.TORPEDO_BANK}`}
+                alt=""
+                className="size-5"
+              />
+              Projektilwaffe{' '}
+              {torpedoState.active ? 'deaktivieren' : 'aktivieren'}
+            </button>
+            <div className="p-1 text-swu-primary">
+              {torpedoes?.fireable.length ? (
+                torpedoes.fireable.map((torpedo) => (
+                  <label
+                    key={torpedo.torpedoTypeId}
+                    className="flex items-center gap-1"
+                  >
+                    <input
+                      type="radio"
+                      checked={torpedo.isActive}
+                      onChange={() => void selectTorpedo(torpedo.torpedoTypeId)}
+                    />
+                    <img
+                      src={commodityImage(torpedo.commodityId, torpedo.name)}
+                      alt=""
+                      className="size-5"
+                    />
+                    {torpedo.name}: {torpedo.amount}
+                  </label>
+                ))
+              ) : (
+                <span className="flex items-center gap-1 text-swu-muted">
+                  <img
+                    src="/assets/buttons/torp.png"
+                    alt=""
+                    className="size-5"
+                  />
+                  keine Torpedos geladen
+                </span>
+              )}
+              {torpedoes?.transport.length ? (
+                <div className="mt-1 text-swu-muted">
+                  Im Transport:{' '}
+                  {torpedoes.transport
+                    .map((torpedo) => `${torpedo.name}: ${torpedo.amount}`)
+                    .join(', ')}
+                </div>
+              ) : null}
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-swu-muted">Alarm</span>
-            <span className="text-swu-primary">
-              {ALERT_LABELS[alertState] ?? alertState}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-swu-muted">Schilde</span>
-            <span className="font-mono text-swu-primary">
-              {shields}/{shieldsMax}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Systeme */}
-      {systems && (
-        <div className="rounded-lg border border-swu-border bg-swu-surface p-3">
-          <h3 className="mb-2 border-b border-swu-border/60 pb-1 text-center text-xs font-bold text-swu-primary">
-            Systeme
-          </h3>
-          <div className="grid grid-cols-2 gap-1 text-xs">
-            {DISPLAY_ORDER.map((key) => {
-              const sys = systems[key];
-              if (!sys) return null;
-              return (
-                <button
-                  key={key}
-                  onClick={() => toggle(key, !sys.active)}
-                  disabled={sys.cooldown > 0}
-                  className={`flex items-center justify-between rounded border px-2 py-1 ${
-                    sys.active
-                      ? 'border-swu-accent/40 bg-swu-accent/10 text-swu-primary'
-                      : 'border-swu-border bg-black/30 text-swu-muted'
-                  } ${sys.cooldown > 0 ? 'cursor-not-allowed opacity-50' : 'hover:border-swu-accent'}`}
-                >
-                  <span>{SYSTEM_LABELS[key] ?? key}</span>
-                  <span className="ml-1 text-[10px]">
-                    {sys.cooldown > 0
-                      ? `CD:${sys.cooldown}`
-                      : sys.active
-                        ? 'ON'
-                        : 'OFF'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Informationen */}
-      <div className="rounded-lg border border-swu-border bg-swu-surface p-3">
-        <h3 className="mb-2 border-b border-swu-border/60 pb-1 text-center text-xs font-bold text-swu-primary">
-          Informationen
-        </h3>
-        <div className="space-y-1 text-[11px]">
-          {context?.sectorNumber != null && (
-            <InfoRow label="Sektor" value={`${context.sectorNumber}`} />
-          )}
-          {localMap?.mode === 'system' && context?.systemName && (
-            <InfoRow label="System" value={context.systemName} />
-          )}
-          {context?.sensorRange != null && (
-            <InfoRow label="LSS-Reichweite" value={`${context.sensorRange}`} />
-          )}
-          {context?.factionZone && (
-            <InfoRow
-              label="Kontrollzone"
-              value={FACTION_ZONE_LABELS[context.factionZone] ?? context.factionZone}
-            />
-          )}
-          {context?.nearestSystem?.name && (
-            <InfoRow label="Nächstes System" value={context.nearestSystem.name} />
-          )}
-        </div>
+        )}
+        {error && (
+          <p role="alert" className="p-2 text-red-300">
+            {error}
+          </p>
+        )}
       </div>
     </section>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-swu-border/30 pb-0.5 last:border-b-0">
-      <span className="text-swu-muted">{label}</span>
-      <span className="text-swu-primary">{value}</span>
-    </div>
   );
 }

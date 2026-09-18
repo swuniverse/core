@@ -32,6 +32,9 @@ import {
   deductColonyEnergy,
   getColonyChangeable,
 } from '../colony/colony-stats.service';
+import { assertSpacecraftNotInStandby } from '../spacecraft/spacecraft-mode.util';
+import { SpacecraftDestructionService } from '../spacecraft/spacecraft-destruction.service';
+import { CombatReportFormatter } from './combat-report.formatter';
 
 @Injectable()
 export class CombatService {
@@ -53,27 +56,30 @@ export class CombatService {
     private readonly gameData: GameDataService,
     private readonly colonyEventService: ColonyEventService,
     private readonly colonyDamageService: ColonyDamageService,
+    private readonly destructionService: SpacecraftDestructionService,
+    private readonly reportFormatter: CombatReportFormatter,
   ) {}
 
   async attack(
     attackerId: number,
     targetId: number,
     userId: number,
-  ): Promise<CombatResult> {
+  ): Promise<ReturnType<CombatReportFormatter['format']>> {
     const attacker = await this.shipRepo.findOne({
       where: { id: attackerId, userId },
     });
     if (!attacker) throw new NotFoundException('Attacker not found');
+    assertSpacecraftNotInStandby(attacker, 'einem Angriff');
 
     const defender = await this.shipRepo.findOne({
       where: { id: targetId },
     });
     if (!defender) throw new NotFoundException('Target not found');
 
-    if (attacker.userId === defender.userId) {
+    if (attacker.id === defender.id) {
       throw new BadRequestException('Cannot attack own ship');
     }
-    if (attacker.status !== SpacecraftStatus.DOCKED) {
+    if (attacker.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle to initiate combat');
     }
     if (defender.status === SpacecraftStatus.DESTROYED) {
@@ -129,11 +135,23 @@ export class CombatService {
       defenderModules,
     );
 
-    await this.shipRepo.save(attacker);
-    await this.shipRepo.save(defender);
+    // Persist surviving state first. Destruction is finalized through the
+    // canonical locked transition so a stale combat save cannot revive a ship.
+    if (!result.attackerDestroyed) {
+      await this.destructionService.saveCombatSurvivor(attacker);
+    }
+    if (!result.defenderDestroyed) {
+      await this.destructionService.saveCombatSurvivor(defender);
+    }
     await this.moduleRepo.save([...attackerModules, ...defenderModules]);
+    if (result.attackerDestroyed) {
+      await this.destructionService.destroyFromCombat(attacker.id);
+    }
+    if (result.defenderDestroyed) {
+      await this.destructionService.destroyFromCombat(defender.id);
+    }
 
-    return result;
+    return this.reportFormatter.format(result, attacker, defender);
   }
 
   async attackColony(
@@ -151,6 +169,7 @@ export class CombatService {
       where: { id: attackerId, userId },
     });
     if (!attacker) throw new NotFoundException('Attacker not found');
+    assertSpacecraftNotInStandby(attacker, 'einem Angriff');
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
       relations: ['fields', 'stats', 'changeable'],
@@ -162,7 +181,7 @@ export class CombatService {
     if (colony.userId === attacker.userId) {
       throw new BadRequestException('Cannot attack own colony');
     }
-    if (attacker.status !== SpacecraftStatus.DOCKED) {
+    if (attacker.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle to initiate combat');
     }
     if (!(await this.spacecraftCrewService.hasEnoughCrew(attacker))) {
@@ -269,8 +288,12 @@ export class CombatService {
     }
 
     attacker.status =
-      attacker.hull <= 0 ? SpacecraftStatus.DESTROYED : SpacecraftStatus.DOCKED;
-    await this.shipRepo.save(attacker);
+      attacker.hull <= 0 ? SpacecraftStatus.DESTROYED : SpacecraftStatus.IDLE;
+    if (attacker.hull <= 0) {
+      await this.destructionService.destroyFromCombat(attacker.id);
+    } else {
+      await this.destructionService.saveCombatSurvivor(attacker);
+    }
     for (const damagedField of damagedFields) {
       const field = (colony.fields ?? []).find(
         (candidate) => candidate.fieldIndex === damagedField.fieldIndex,

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import {
   COLONIZATION_CLASS_GATE_RULES,
   COLONIZATION_LIMIT_RULES,
@@ -39,6 +40,8 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
+import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
+import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 
@@ -88,6 +91,17 @@ export interface ColonizationTargetCheckDto {
     limitType: ColonizationLimitType | null;
     classGate: string | null;
     starterZone?: StarterZoneStatusDto;
+    reclaimed?: boolean;
+  } | null;
+  surface?: {
+    width: number;
+    fields: Array<{
+      fieldIndex: number;
+      fieldType: number;
+      terrainTileId: number | null;
+      layer: string | null;
+      selectable: boolean;
+    }>;
   } | null;
   status: ColonizationStatusDto;
   ship?: {
@@ -118,11 +132,16 @@ export class ColonizationService {
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
+    @InjectRepository(SpacecraftModule)
+    private readonly spacecraftModuleRepo: Repository<SpacecraftModule>,
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
+    @InjectRepository(CrewAssignment)
+    private readonly crewAssignmentRepo: Repository<CrewAssignment>,
     private readonly unlockResolver: UnlockResolverService,
     private readonly colonySeedService: ColonySeedService,
     private readonly colonyEventService: ColonyEventService,
+    private readonly spacecraftStatsService: SpacecraftStatsService,
   ) {}
 
   async getColonizationStatus(userId: number): Promise<ColonizationStatusDto> {
@@ -252,7 +271,7 @@ export class ColonizationService {
         currentSystemFieldY: null,
         posX: 0,
         posY: 0,
-        status: SpacecraftStatus.DOCKED,
+        status: SpacecraftStatus.IDLE,
         alertState: AlertState.GREEN,
         hull: shipClass.hullBase,
         hullMax: shipClass.hullBase,
@@ -268,12 +287,27 @@ export class ColonizationService {
         battery: shipClass.batteryBase,
         batteryMax: shipClass.batteryBase,
         epsMax: shipClass.epsBase,
-        reactorOutput: 0,
+        reactorOutput: shipClass.reactorBase,
         warpdriveMax: shipClass.warpdriveBase,
         evadeChance: 0,
         fleetId: null,
       }),
     );
+
+    const reactor = await this.spacecraftModuleRepo.save(
+      this.spacecraftModuleRepo.create({
+        spacecraftId: ship.id,
+        moduleType: 'Leichter Hypermaterie-Reaktor',
+        category: 'SPECIAL',
+        level: 1,
+        integrity: 100,
+        cooldown: 0,
+        isActive: true,
+      }),
+    );
+    this.spacecraftStatsService.applyStats(ship, shipClass, [reactor]);
+    ship.reactorFuel = ship.reactorFuelMax;
+    await this.shipRepo.save(ship);
 
     user.starterShipId = ship.id;
     await this.userRepo.save(user);
@@ -366,6 +400,7 @@ export class ColonizationService {
         reasons: ['Ziel nicht gefunden'],
         target: null,
         status,
+        surface: null,
       };
     }
 
@@ -444,8 +479,29 @@ export class ColonizationService {
         limitType,
         classGate,
         starterZone: await this.buildStarterZoneStatus(user, target),
+        reclaimed: existing?.isAbandoned === true,
       },
       status,
+      surface: existing?.isAbandoned
+        ? null
+        : (() => {
+            const surface = this.colonySeedService.generateSurfaceSnapshot(
+              target.classId ?? 0,
+              `colony-${userId}-${target.id}`,
+              target.starSystem?.bonusFields ?? 2,
+            );
+            return {
+              width: surface.width,
+              fields: surface.fields.map((field) => ({
+                fieldIndex: field.fieldIndex,
+                fieldType: field.fieldType,
+                terrainTileId: field.terrainTileId ?? null,
+                layer: field.layer ?? null,
+                selectable:
+                  field.layer === 'SURFACE' && field.fieldType !== 201,
+              })),
+            };
+          })(),
       ship: ship
         ? {
             id: ship.id,
@@ -462,7 +518,14 @@ export class ColonizationService {
     userId: number,
     shipId: number,
     celestialObjectId: number,
-  ): Promise<{ success: true; colonyId: number; consumedShipId: number }> {
+    initialFieldIndex?: number,
+  ): Promise<{
+    success: true;
+    colonyId: number;
+    colonyName: string;
+    consumedShipId: number;
+    transferredCrewCount: number;
+  }> {
     const check = await this.explainTarget(userId, celestialObjectId, shipId);
     if (!check.canColonize) {
       throw new BadRequestException(check.reasons.join('; '));
@@ -484,6 +547,19 @@ export class ColonizationService {
       where: { celestialObjectId, isAbandoned: true },
       relations: ['changeable'],
     });
+    if (!abandonedColony) {
+      const surface = this.colonySeedService.generateSurfaceSnapshot(
+        target.classId ?? 0,
+        `colony-${userId}-${target.id}`,
+        target.starSystem?.bonusFields ?? 2,
+      );
+      const field = surface.fields.find(
+        (entry) => entry.fieldIndex === initialFieldIndex,
+      );
+      if (!field || field.layer !== 'SURFACE' || field.fieldType === 201) {
+        throw new BadRequestException('Ungültiges Startfeld');
+      }
+    }
     const colony = abandonedColony
       ? await this.reclaimAbandonedColony(abandonedColony, userId)
       : await this.colonySeedService.createFollowUpColony({
@@ -491,11 +567,21 @@ export class ColonizationService {
           username: user.username,
           celestialObjectId,
           buildingId: shipClass.colonizationBuildingId,
+          initialFieldIndex,
         });
     if (target.objectType === CelestialObjectType.ASTEROID) {
       await this.colonySeedService.ensureAsteroidDepositMining(userId, target);
     }
 
+    const crewAssignments = await this.crewAssignmentRepo.find({
+      where: { spacecraftId: ship.id, userId },
+    });
+    for (const assignment of crewAssignments) {
+      assignment.spacecraftId = null;
+      assignment.colonyId = colony.id;
+    }
+    if (crewAssignments.length)
+      await this.crewAssignmentRepo.save(crewAssignments);
     await this.shipRepo.delete({ id: ship.id, userId });
     await this.colonyEventService.createActionEvent({
       colonyId: colony.id,
@@ -513,12 +599,23 @@ export class ColonizationService {
         consumedShipId: ship.id,
         shipClassId: ship.shipClassId,
         colonizerTier: shipClass.colonizerTier,
-        initialBuildingId: shipClass.colonizationBuildingId,
+        initialBuildingId: abandonedColony
+          ? null
+          : shipClass.colonizationBuildingId,
         reclaimed: !!abandonedColony,
+        ruinsPreserved: !!abandonedColony,
+        transferredCrewCount: crewAssignments.length,
+        initialFieldIndex: abandonedColony ? null : (initialFieldIndex ?? null),
       },
     });
 
-    return { success: true, colonyId: colony.id, consumedShipId: ship.id };
+    return {
+      success: true,
+      colonyId: colony.id,
+      colonyName: colony.name,
+      consumedShipId: ship.id,
+      transferredCrewCount: crewAssignments.length,
+    };
   }
 
   private async reclaimAbandonedColony(
@@ -596,7 +693,7 @@ export class ColonizationService {
     if (!shipClass.colonizationBuildingId) {
       reasons.push('Kolonieschiff hat kein Startgebäude konfiguriert');
     }
-    if (ship.status !== SpacecraftStatus.DOCKED) {
+    if (ship.status !== SpacecraftStatus.IDLE) {
       reasons.push('Kolonieschiff muss betriebsbereit sein');
     }
     if (!ship.inSystem) reasons.push('Kolonieschiff muss im Sternsystem sein');

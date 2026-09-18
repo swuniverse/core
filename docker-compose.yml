@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: swuniverse-db
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: swuniverse
@@ -16,7 +17,8 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    container_name: swuniverse-redis
+    image: redis:7
     ports:
       - '6379:6379'
     healthcheck:
@@ -26,6 +28,7 @@ services:
       retries: 5
 
   backend:
+    container_name: swuniverse-backend
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
@@ -47,6 +50,7 @@ services:
       - ./game-data:/app/game-data:ro
 
   frontend:
+    container_name: swuniverse-frontend
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile

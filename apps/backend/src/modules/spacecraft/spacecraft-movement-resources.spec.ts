@@ -1,12 +1,13 @@
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
-    DOCKED: 'DOCKED',
+    IDLE: 'IDLE',
     IN_FLIGHT: 'IN_FLIGHT',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
   },
   AlertState: { GREEN: 'GREEN', YELLOW: 'YELLOW', RED: 'RED' },
+  SpacecraftOperatingMode: { NORMAL: 'NORMAL', STANDBY: 'STANDBY' },
 }));
 jest.mock('./entities/spacecraft-module.entity', () => ({
   SpacecraftModule: class SpacecraftModule {},
@@ -18,13 +19,19 @@ jest.mock('./entities/ship-class-def.entity', () => ({
 jest.mock('./entities/spacecraft-torpedo-storage.entity', () => ({
   SpacecraftTorpedoStorage: class SpacecraftTorpedoStorage {},
 }));
-jest.mock('./entities/cargo-item.entity', () => ({ CargoItem: class CargoItem {} }));
+jest.mock('./entities/cargo-item.entity', () => ({
+  CargoItem: class CargoItem {},
+}));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
-jest.mock('../colony/entities/colony.entity', () => ({ Colony: class Colony {} }));
+jest.mock('../colony/entities/colony.entity', () => ({
+  Colony: class Colony {},
+}));
 jest.mock('../starmap/entities/star-system.entity', () => ({
   StarSystem: class StarSystem {},
 }));
-jest.mock('../starmap/entities/layer.entity', () => ({ Layer: class Layer {} }));
+jest.mock('../starmap/entities/layer.entity', () => ({
+  Layer: class Layer {},
+}));
 jest.mock('../starmap/entities/celestial-object.entity', () => ({
   CelestialObject: class CelestialObject {},
 }));
@@ -69,9 +76,11 @@ function createService() {
   const galaxyFieldRepo = { findOne: jest.fn() };
   const systemFieldRepo = { findOne: jest.fn() };
   const userRepo = { find: jest.fn() };
-  const colonyRepo = { findOne: jest.fn() };
   const gameData = { getCombatFormulas: jest.fn() };
-  const shipClassService = { findById: jest.fn(async () => null), findAll: jest.fn() };
+  const shipClassService = {
+    findById: jest.fn(async () => null),
+    findAll: jest.fn(),
+  };
   const explorationService = {
     discoverSystem: jest.fn(async () => undefined),
     discoverFieldsAround: jest.fn(async () => undefined),
@@ -84,10 +93,16 @@ function createService() {
   const torpedoService = { getStorage: jest.fn() };
   const resourceFlow = { recharge: jest.fn() };
   const runtimeState = {
-    initialize: jest.fn(),
+    initialize: jest.fn((ship) => ship.runtimeSystems ?? {}),
     getSystems: jest.fn(() => ({})),
   };
   const gameGateway = { emitToUser: jest.fn() };
+  const destructionService = {
+    saveUnlessDestroyed: jest.fn(async (ship) => {
+      await shipRepo.save(ship);
+      return true;
+    }),
+  };
 
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
@@ -96,21 +111,51 @@ function createService() {
     systemRepo as unknown as ConstructorParameters<typeof SpacecraftService>[3],
     layerRepo as unknown as ConstructorParameters<typeof SpacecraftService>[4],
     objectRepo as unknown as ConstructorParameters<typeof SpacecraftService>[5],
-    galaxyFieldRepo as unknown as ConstructorParameters<typeof SpacecraftService>[6],
-    systemFieldRepo as unknown as ConstructorParameters<typeof SpacecraftService>[7],
+    galaxyFieldRepo as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[6],
+    systemFieldRepo as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[7],
     userRepo as unknown as ConstructorParameters<typeof SpacecraftService>[8],
-    colonyRepo as unknown as ConstructorParameters<typeof SpacecraftService>[9],
+    {
+      getRepository: jest.fn(() => ({ findOne: jest.fn(async () => null) })),
+    } as unknown as ConstructorParameters<typeof SpacecraftService>[9],
     gameData as unknown as ConstructorParameters<typeof SpacecraftService>[10],
-    shipClassService as unknown as ConstructorParameters<typeof SpacecraftService>[11],
-    explorationService as unknown as ConstructorParameters<typeof SpacecraftService>[12],
-    planetGenerator as unknown as ConstructorParameters<typeof SpacecraftService>[13],
-    unlockResolver as unknown as ConstructorParameters<typeof SpacecraftService>[14],
-    statsService as unknown as ConstructorParameters<typeof SpacecraftService>[15],
-    crewService as unknown as ConstructorParameters<typeof SpacecraftService>[16],
-    torpedoService as unknown as ConstructorParameters<typeof SpacecraftService>[17],
-    resourceFlow as unknown as ConstructorParameters<typeof SpacecraftService>[18],
-    runtimeState as unknown as ConstructorParameters<typeof SpacecraftService>[19],
-    gameGateway as unknown as ConstructorParameters<typeof SpacecraftService>[20],
+    shipClassService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[11],
+    explorationService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[12],
+    planetGenerator as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[13],
+    unlockResolver as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[14],
+    statsService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[15],
+    crewService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[16],
+    torpedoService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[17],
+    resourceFlow as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[18],
+    runtimeState as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[19],
+    gameGateway as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[20],
+    {} as ConstructorParameters<typeof SpacecraftService>[21],
+    destructionService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[22],
   );
 
   return {
@@ -124,13 +169,26 @@ function createService() {
 }
 
 describe('SpacecraftService movement resources', () => {
+  it('blocks movement while the ship is in standby', async () => {
+    const { service, shipRepo } = createService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      operatingMode: 'STANDBY',
+      inSystem: true,
+      modules: [],
+    });
+    await expect(service.navigate(7, 1, 2, 2)).rejects.toThrow(/Standby/);
+  });
+
   it('uses EPS for in-system navigation and syncs runtime systems', async () => {
     const { service, shipRepo, systemRepo, systemFieldRepo, runtimeState } =
       createService();
     const ship = {
       id: 7,
       userId: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       inSystem: true,
       starSystemId: 3,
       currentSystemFieldX: 1,
@@ -153,7 +211,7 @@ describe('SpacecraftService movement resources', () => {
     shipRepo.findOne.mockResolvedValue({
       id: 7,
       userId: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       inSystem: true,
       starSystemId: 3,
       currentSystemFieldX: 1,
@@ -183,16 +241,22 @@ describe('SpacecraftService movement resources', () => {
       posX: number;
       posY: number;
       warpdrive: number;
+      runtimeSystems?: {
+        WARPDRIVE: { active: boolean; cooldown: number; integrity: number };
+      };
       modules: never[];
     } = {
       id: 7,
       userId: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       inSystem: false,
       currentLayerId: 1,
       posX: 1,
       posY: 1,
       warpdrive: 5,
+      runtimeSystems: {
+        WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
+      },
       modules: [],
     };
     shipRepo.findOne.mockResolvedValue(ship);
@@ -201,9 +265,10 @@ describe('SpacecraftService movement resources', () => {
     await service.flyGalaxy(7, 1, 4, 1);
 
     expect(ship.warpdrive).toBe(2);
+    expect(ship.runtimeSystems?.WARPDRIVE.active).toBe(true);
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
 
-    ship.status = SpacecraftStatus.DOCKED;
+    ship.status = SpacecraftStatus.IDLE;
     ship.inSystem = true;
     ship.starSystemId = 11;
     ship.warpCooldown = 0;
@@ -217,27 +282,31 @@ describe('SpacecraftService movement resources', () => {
     expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
   });
 
-  it('blocks in-system navigation when SUBLIGHT_DRIVE is offline', async () => {
+  it('activates SUBLIGHT_DRIVE for in-system navigation', async () => {
     const { service, shipRepo, systemRepo, systemFieldRepo, runtimeState } =
       createService();
-    runtimeState.getSystems.mockReturnValue({
-      SUBLIGHT_DRIVE: { active: false, cooldown: 0, integrity: 100 },
-    });
-    shipRepo.findOne.mockResolvedValue({
+    const ship = {
       id: 7,
       userId: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       inSystem: true,
       starSystemId: 3,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
       energy: 50,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: false, cooldown: 0, integrity: 100 },
+      },
       modules: [],
-    });
+    };
+    runtimeState.getSystems.mockReturnValue(ship.runtimeSystems);
+    shipRepo.findOne.mockResolvedValue(ship);
     systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
     systemFieldRepo.findOne.mockResolvedValue({ isPassable: true });
 
-    await expect(service.navigate(7, 1, 1, 3)).rejects.toThrow('Sublight drive offline');
+    await service.navigate(7, 1, 1, 3);
+
+    expect(ship.runtimeSystems.SUBLIGHT_DRIVE.active).toBe(true);
   });
 
   it('blocks warp when WARPDRIVE system is offline', async () => {
@@ -248,7 +317,7 @@ describe('SpacecraftService movement resources', () => {
     shipRepo.findOne.mockResolvedValue({
       id: 7,
       userId: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       inSystem: true,
       starSystemId: 11,
       warpCooldown: 0,
@@ -259,18 +328,21 @@ describe('SpacecraftService movement resources', () => {
       .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
       .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
 
-    await expect(service.warp(7, 1, 12)).rejects.toThrow('Warp drive offline');
+    await expect(service.warp(7, 1, 12)).rejects.toThrow(
+      'Hyperantrieb offline',
+    );
   });
 
   it('blocks galaxy flight when COMPUTER is offline', async () => {
-    const { service, shipRepo, galaxyFieldRepo, runtimeState } = createService();
+    const { service, shipRepo, galaxyFieldRepo, runtimeState } =
+      createService();
     runtimeState.getSystems.mockReturnValue({
       COMPUTER: { active: false, cooldown: 0, integrity: 100 },
     });
     shipRepo.findOne.mockResolvedValue({
       id: 7,
       userId: 1,
-      status: SpacecraftStatus.DOCKED,
+      status: SpacecraftStatus.IDLE,
       inSystem: false,
       currentLayerId: 1,
       posX: 1,
@@ -280,6 +352,8 @@ describe('SpacecraftService movement resources', () => {
     });
     galaxyFieldRepo.findOne.mockResolvedValue({ isPassable: true });
 
-    await expect(service.flyGalaxy(7, 1, 4, 1)).rejects.toThrow('Navigation computer offline');
+    await expect(service.flyGalaxy(7, 1, 4, 1)).rejects.toThrow(
+      'Navigation computer offline',
+    );
   });
 });

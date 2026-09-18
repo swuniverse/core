@@ -3,7 +3,9 @@ import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.servic
 
 describe('SpacecraftResourceFlowService', () => {
   function createService() {
-    return new SpacecraftResourceFlowService(new SpacecraftRuntimeStateService());
+    return new SpacecraftResourceFlowService(
+      new SpacecraftRuntimeStateService(),
+    );
   }
 
   function makeShip(overrides = {}) {
@@ -16,6 +18,8 @@ describe('SpacecraftResourceFlowService', () => {
       battery: 0,
       batteryMax: 20,
       reactorOutput: 10,
+      reactorFuel: 100,
+      reactorFuelMax: 100,
       reactorWarpSplit: 100,
       shields: 0,
       shieldsMax: 0,
@@ -24,30 +28,25 @@ describe('SpacecraftResourceFlowService', () => {
     };
   }
 
-  // All tests: initialize() creates all 10 systems active.
-  // Active systems with cost: SENSORS(1) + WEAPONS(1) + TORPEDO_BANK(1) + SPECIAL(1) = 4 epsUsage
+  // initialize() creates all runtime systems active.
+  // Active costs: LSS + NBS + WEAPONS + TORPEDO_BANK + SPECIAL + LIFE_SUPPORT = 6.
 
-  it('split=100 sends nothing to warpdrive, all remaining to EPS', () => {
+  it('split=100 sends nothing to hyperdrive, all remaining to EPS', () => {
     const service = createService();
     const ship = makeShip({ reactorWarpSplit: 100, reactorOutput: 10 });
     service.recharge(ship as never, 2);
 
-    // epsUsage=4, maxWarpGain=floor((10-4)/2)=3, warpProd=round(0*3)=0
-    // epsProd=10-0=10, netEps=10-4=6, epsGain=min(100,6)=6
-    expect(ship.energy).toBe(6);
+    expect(ship.energy).toBe(4);
     expect(ship.warpdrive).toBe(0);
   });
 
-  it('split=0 sends maximum to warpdrive', () => {
+  it('split=0 sends maximum to hyperdrive', () => {
     const service = createService();
     const ship = makeShip({ reactorWarpSplit: 0, reactorOutput: 10 });
     service.recharge(ship as never, 2);
 
-    // epsUsage=4, maxWarpGain=floor((10-4)/2)=3, warpProd=round(1*3)=3
-    // epsProd=10-3*2=4, netEps=4-4=0, epsGain=0
-    // warpGain=min(50,3)=3
     expect(ship.energy).toBe(0);
-    expect(ship.warpdrive).toBe(3);
+    expect(ship.warpdrive).toBe(2);
   });
 
   it('split=50 distributes evenly', () => {
@@ -55,14 +54,11 @@ describe('SpacecraftResourceFlowService', () => {
     const ship = makeShip({ reactorWarpSplit: 50, reactorOutput: 10 });
     service.recharge(ship as never, 2);
 
-    // maxWarpGain=floor(6/2)=3, warpProd=round(0.5*3)=2
-    // epsProd=10-2*2=6, netEps=6-4=2
-    // warpGain=2
     expect(ship.energy).toBe(2);
-    expect(ship.warpdrive).toBe(2);
+    expect(ship.warpdrive).toBe(1);
   });
 
-  it('leftover goes to battery when EPS and warp are full', () => {
+  it('does not automatically charge ship batteries from leftover reactor output', () => {
     const service = createService();
     const ship = makeShip({
       reactorWarpSplit: 100,
@@ -77,34 +73,56 @@ describe('SpacecraftResourceFlowService', () => {
     });
     service.recharge(ship as never, 1);
 
-    // epsUsage=4, maxWarpGain=floor((20-4)/1)=16, warpProd=0 (split=100)
-    // epsProd=20, netEps=20-4=16, epsGain=min(2,16)=2
-    // warpGain=0 (warp full)
-    // leftover: (16-2) + 0 = 14, batteryGain=min(20,14)=14
     expect(ship.energy).toBe(100);
     expect(ship.warpdrive).toBe(50);
-    expect(ship.battery).toBe(14);
+    expect(ship.battery).toBe(0);
+  });
+
+  it('caps output by reactor load and consumes actual energy use', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorOutput: 10,
+      reactorFuel: 3,
+      reactorWarpSplit: 100,
+    });
+    service.recharge(ship as never, 1);
+    expect(ship.energy).toBe(0);
+    expect(ship.reactorFuel).toBe(0);
+  });
+
+  it('does not consume reactor load for already full stores', () => {
+    const service = createService();
+    const ship = makeShip({
+      energy: 100,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 50,
+      warpdriveMax: 50,
+      battery: 20,
+      batteryMax: 20,
+    });
+    service.recharge(ship as never, 1);
+    expect(ship.reactorFuel).toBe(94);
   });
 
   it('brownout deactivates systems when reactor cannot cover usage', () => {
     const service = createService();
     const ship = makeShip({
       reactorWarpSplit: 100,
-      reactorOutput: 2,
+      reactorOutput: 3,
       energy: 0,
       battery: 0,
     });
     service.recharge(ship as never, 1);
 
-    // epsUsage=4, reactorOutput=2
-    // maxWarpGain=floor((2-4)/1)=0 (clamped), warpProd=0
-    // epsProd=2, netEps=2-4=-2 → brownout deficit=2
-    // Deactivation: SPECIAL(1, deficit→1), TORPEDO_BANK(1, deficit→0)
+    // epsUsage=6, reactorOutput=3, so three non-critical systems brown out.
+    // Deactivation: SPECIAL, TORPEDO_BANK, WEAPONS.
     const systems = ship.runtimeSystems as Record<string, { active: boolean }>;
     expect(systems.SPECIAL?.active).toBe(false);
     expect(systems.TORPEDO_BANK?.active).toBe(false);
-    expect(systems.WEAPONS?.active).toBe(true);
-    expect(systems.SENSORS?.active).toBe(true);
+    expect(systems.WEAPONS?.active).toBe(false);
+    expect(systems.LONG_RANGE_SENSORS?.active).toBe(true);
+    expect(systems.SHORT_RANGE_SENSORS?.active).toBe(true);
   });
 
   it('handles flightCost=0 gracefully (no warp production)', () => {
@@ -113,8 +131,19 @@ describe('SpacecraftResourceFlowService', () => {
     service.recharge(ship as never, 0);
 
     // flightCost=0 → maxWarpGain=0 → warpProd=0
-    // epsProd=10, netEps=10-4=6
-    expect(ship.energy).toBe(6);
+    expect(ship.energy).toBe(4);
     expect(ship.warpdrive).toBe(0);
+  });
+
+  it('uses the same calculation for the read model and recharge', () => {
+    const service = createService();
+    const ship = makeShip({ reactorWarpSplit: 100, reactorOutput: 10 });
+    const flow = service.calculate(ship as never, 2);
+    expect(flow.totalSystemConsumption).toBe(6);
+    expect(flow.systems).toContainEqual(
+      expect.objectContaining({ systemKey: 'LIFE_SUPPORT', epsPerTick: 1 }),
+    );
+    service.recharge(ship as never, 2);
+    expect(ship.energy).toBe(flow.netEps);
   });
 });

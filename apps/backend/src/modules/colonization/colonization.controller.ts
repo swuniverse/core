@@ -44,9 +44,7 @@ export class ColonizationController {
 
   @Post('starter/ship')
   createStarterShip(@Request() req: { user: { sub: number } }) {
-    return this.colonizationService.createStarterColonizationShip(
-      req.user.sub,
-    );
+    return this.colonizationService.createStarterColonizationShip(req.user.sub);
   }
 
   @Post('starter/found')
@@ -65,11 +63,13 @@ export class ColonizationController {
     @Request() req: { user: { sub: number } },
     @Param('shipId', ParseIntPipe) shipId: number,
     @Body('celestialObjectId') celestialObjectId: number,
+    @Body('initialFieldIndex') initialFieldIndex?: number,
   ) {
     return this.colonizationService.colonize(
       req.user.sub,
       shipId,
       celestialObjectId,
+      initialFieldIndex,
     );
   }
 }

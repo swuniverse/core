@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { SpacecraftEnergyFlowDto } from '@swuniverse/shared';
 import { Spacecraft } from './entities/spacecraft.entity';
 import {
   SpacecraftRuntimeStateService,
@@ -13,11 +14,30 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   EPS: 0,
   WARPDRIVE: 0,
   SUBLIGHT_DRIVE: 0,
-  SENSORS: 1,
+  LONG_RANGE_SENSORS: 1,
+  SHORT_RANGE_SENSORS: 1,
   COMPUTER: 0,
   WEAPONS: 1,
   TORPEDO_BANK: 1,
   SPECIAL: 1,
+  LIFE_SUPPORT: 1,
+};
+
+export const SPACECRAFT_REACTOR_FUEL_COMMODITY_ID = 5;
+
+const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
+  SHIELDS: 'Schilde',
+  REACTOR: 'Reaktor',
+  EPS: 'Energiesystem',
+  WARPDRIVE: 'Hyperantrieb',
+  SUBLIGHT_DRIVE: 'Impulsantrieb',
+  LONG_RANGE_SENSORS: 'Langstreckensensoren',
+  SHORT_RANGE_SENSORS: 'Nahbereichssensoren',
+  COMPUTER: 'Computer',
+  WEAPONS: 'Waffen',
+  TORPEDO_BANK: 'Torpedobank',
+  SPECIAL: 'Spezialsysteme',
+  LIFE_SUPPORT: 'Lebenserhaltung',
 };
 
 @Injectable()
@@ -25,49 +45,92 @@ export class SpacecraftResourceFlowService {
   constructor(private readonly runtimeState: SpacecraftRuntimeStateService) {}
 
   recharge(ship: Spacecraft, flightCost = 1): void {
+    let flow = this.calculate(ship, flightCost);
     const systems = this.runtimeState.initialize(ship);
-    const reactorOutput = Math.max(0, ship.reactorOutput);
-    const epsUsage = this.calculateEpsUsage(systems);
-    const split = Math.max(0, Math.min(100, ship.reactorWarpSplit ?? 100));
 
-    // STU formula: split determines what fraction goes to warpdrive
-    const maxWarpGain = flightCost > 0
-      ? Math.max(0, Math.floor((reactorOutput - epsUsage) / flightCost))
-      : 0;
-    const warpProduction = Math.round((1 - split / 100) * maxWarpGain);
-    const epsProduction = reactorOutput - warpProduction * flightCost;
-    const netEps = epsProduction - epsUsage;
-
-    // Brownout: not enough reactor output to cover system usage
-    if (netEps < 0) {
-      this.handleBrownout(ship, systems, -netEps);
+    // Brownout: reactor output is capped by the remaining reactor load.
+    if (flow.netEps < 0) {
+      this.handleBrownout(ship, systems, -flow.netEps);
+      flow = this.calculate(ship, flightCost);
     }
 
-    // Charge EPS
     const epsMax = ship.epsMax || ship.energyMax;
     const missingEps = Math.max(0, epsMax - ship.energy);
-    const epsGain = Math.min(missingEps, Math.max(0, netEps));
+    const epsGain = Math.min(missingEps, Math.max(0, flow.netEps));
     ship.energy += epsGain;
     ship.energyMax = epsMax;
 
-    // Charge Warpdrive
     const missingWarp = Math.max(0, ship.warpdriveMax - ship.warpdrive);
-    const warpGain = Math.min(missingWarp, warpProduction);
+    const warpGain = Math.min(missingWarp, flow.warpProduction);
     ship.warpdrive += warpGain;
 
-    // Leftover → battery (autoCarryOver)
-    const epsLeftover = Math.max(0, netEps) - epsGain;
-    const warpLeftover = (warpProduction - warpGain) * flightCost;
-    const totalLeftover = epsLeftover + warpLeftover;
-    const missingBattery = Math.max(0, ship.batteryMax - ship.battery);
-    ship.battery += Math.min(missingBattery, totalLeftover);
+    // Stations will opt in to limited automatic reload once Station support exists.
+    const batteryGain = 0;
 
+    const reactorUsage = Math.min(
+      ship.reactorFuel ?? 0,
+      flow.totalSystemConsumption +
+        epsGain +
+        warpGain * flightCost +
+        batteryGain,
+    );
+    ship.reactorFuel = Math.max(0, (ship.reactorFuel ?? 0) - reactorUsage);
     this.runtimeState.initialize(ship);
   }
 
+  calculate(ship: Spacecraft, flightCost = 1): SpacecraftEnergyFlowDto {
+    const systems = this.runtimeState.initialize(ship);
+    const reactorOutput = Math.min(
+      Math.max(0, ship.reactorOutput),
+      Math.max(0, ship.reactorFuel ?? 0),
+    );
+    const totalSystemConsumption = this.calculateEpsUsage(systems);
+    const split = Math.max(0, Math.min(100, ship.reactorWarpSplit ?? 100));
+    const maxWarpGain =
+      flightCost > 0
+        ? Math.max(
+            0,
+            Math.floor((reactorOutput - totalSystemConsumption) / flightCost),
+          )
+        : 0;
+    const warpProduction = Math.round((1 - split / 100) * maxWarpGain);
+    const epsProduction = reactorOutput - warpProduction * flightCost;
+    const netEps = epsProduction - totalSystemConsumption;
+    return {
+      energy: { current: ship.energy, max: ship.epsMax || ship.energyMax },
+      warpdrive: { current: ship.warpdrive, max: ship.warpdriveMax },
+      battery: { current: ship.battery, max: ship.batteryMax },
+      reactorFuel: {
+        current: ship.reactorFuel ?? 0,
+        max: ship.reactorFuelMax ?? 0,
+        commodityId: SPACECRAFT_REACTOR_FUEL_COMMODITY_ID,
+      },
+      reactorOutput,
+      reactorWarpSplit: split,
+      flightCost,
+      epsProduction,
+      warpProduction,
+      totalSystemConsumption,
+      netEps,
+      systems: Object.entries(systems).map(([systemKey, state]) => ({
+        systemKey: systemKey as SpacecraftRuntimeSystemKey,
+        label:
+          SYSTEM_LABELS[systemKey as SpacecraftRuntimeSystemKey] ?? systemKey,
+        active: state?.active !== false,
+        epsPerTick:
+          state?.active === false
+            ? 0
+            : (SYSTEM_EPS_USAGE[systemKey as SpacecraftRuntimeSystemKey] ?? 0),
+      })),
+    };
+  }
+
   getEpsUsage(ship: Spacecraft): number {
-    const systems = this.runtimeState.getSystems(ship);
-    return this.calculateEpsUsage(systems);
+    return this.calculate(ship).totalSystemConsumption;
+  }
+
+  getSystemCost(systemKey: SpacecraftRuntimeSystemKey): number {
+    return SYSTEM_EPS_USAGE[systemKey] ?? 0;
   }
 
   private calculateEpsUsage(systems: SpacecraftRuntimeSystems): number {
@@ -90,7 +153,8 @@ export class SpacecraftResourceFlowService {
       'SPECIAL',
       'TORPEDO_BANK',
       'WEAPONS',
-      'SENSORS',
+      'LONG_RANGE_SENSORS',
+      'SHORT_RANGE_SENSORS',
     ];
 
     let remaining = deficit;

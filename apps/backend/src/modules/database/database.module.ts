@@ -6,13 +6,24 @@ import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { Research } from '../research/entities/research.entity';
+import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.entity';
+import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
+import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { FactionModule } from '../faction/faction.module';
 import { GameDataModule } from '../game-data/game-data.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Colony, Spacecraft, Research]),
+    TypeOrmModule.forFeature([
+      User,
+      Colony,
+      Spacecraft,
+      Research,
+      SystemTypeDiscovery,
+      ShipClassDiscovery,
+      ShipClassDef,
+    ]),
     FactionModule,
     GameDataModule,
     WebsocketModule,

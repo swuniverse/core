@@ -12,7 +12,7 @@ jest.mock('../starmap/entities/layer.entity', () => ({
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
-    DOCKED: 'DOCKED',
+    IDLE: 'IDLE',
     IN_FLIGHT: 'IN_FLIGHT',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
@@ -55,11 +55,23 @@ describe('ColonizationService', () => {
     const objectRepo = repo();
     const shipRepo = repo({ save: jest.fn(), create: jest.fn() });
     const shipClassRepo = repo();
+    const spacecraftModuleRepo = repo();
     const researchRepo = repo();
     const unlockResolver = { hasTech: jest.fn() };
     const colonySeedService = {
       createFollowUpColony: jest.fn(),
       createStarterColony: jest.fn(),
+      generateSurfaceSnapshot: jest.fn(() => ({
+        width: 1,
+        fields: [
+          {
+            fieldIndex: 0,
+            fieldType: 101,
+            terrainTileId: 101,
+            layer: 'SURFACE',
+          },
+        ],
+      })),
     };
     const colonyEventService = { createActionEvent: jest.fn() };
 
@@ -69,10 +81,13 @@ describe('ColonizationService', () => {
       objectRepo,
       shipRepo,
       shipClassRepo,
+      spacecraftModuleRepo,
       researchRepo,
+      repo({ find: jest.fn(async () => []) }) as never,
       unlockResolver as never,
       colonySeedService as never,
       colonyEventService as never,
+      {} as never,
     );
 
     return {
@@ -215,7 +230,7 @@ describe('ColonizationService', () => {
       id: 12,
       userId: 1,
       shipClassId: 55,
-      status: 'DOCKED',
+      status: 'IDLE',
       inSystem: true,
       starSystemId: 44,
       currentSystemFieldX: 8,
@@ -281,7 +296,7 @@ describe('ColonizationService', () => {
       id: 15,
       userId: 1,
       shipClassId: 56,
-      status: 'DOCKED',
+      status: 'IDLE',
       inSystem: true,
       starSystemId: 44,
       currentSystemFieldX: 8,
@@ -300,7 +315,7 @@ describe('ColonizationService', () => {
       name: 'Neue Kolonie',
     });
 
-    const result = await service.colonize(1, 15, 7);
+    const result = await service.colonize(1, 15, 7, 0);
 
     expect(colonySeedService.createFollowUpColony).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -315,10 +330,12 @@ describe('ColonizationService', () => {
         colonyId: 123,
       }),
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       success: true,
       colonyId: 123,
+      colonyName: 'Neue Kolonie',
       consumedShipId: 15,
+      transferredCrewCount: 0,
     });
   });
 

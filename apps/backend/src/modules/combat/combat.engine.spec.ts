@@ -1,7 +1,7 @@
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
-    DOCKED: 'DOCKED',
+    IDLE: 'IDLE',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
   },
@@ -30,9 +30,11 @@ jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
   ShipClassDef: class ShipClassDef {},
 }));
 
-
 import { CombatAction, CombatEngine } from './combat.engine';
-import type { CombatFormulas, TorpedoTypeDef } from '../game-data/game-data.service';
+import type {
+  CombatFormulas,
+  TorpedoTypeDef,
+} from '../game-data/game-data.service';
 
 function combatFormulas(): CombatFormulas {
   return {
@@ -77,7 +79,8 @@ describe('CombatEngine projectile specialization', () => {
   });
 
   it('applies torpedo hull factors and active hull projectile resistance', async () => {
-    jest.spyOn(Math, 'random')
+    jest
+      .spyOn(Math, 'random')
       .mockReturnValueOnce(0.1) // hit
       .mockReturnValueOnce(0.5) // variance midpoint
       .mockReturnValueOnce(0.99); // no crit
@@ -116,8 +119,13 @@ describe('CombatEngine projectile specialization', () => {
       damageType: 'QUANTUM',
     };
     const torpedoService = { consumeForAttack: jest.fn(async () => torpedo) };
-    const gameDataArg = gameData as unknown as ConstructorParameters<typeof CombatEngine>[0];
-    const torpedoServiceArg = torpedoService as unknown as ConstructorParameters<typeof CombatEngine>[1];
+    const gameDataArg = gameData as unknown as ConstructorParameters<
+      typeof CombatEngine
+    >[0];
+    const torpedoServiceArg =
+      torpedoService as unknown as ConstructorParameters<
+        typeof CombatEngine
+      >[1];
     const engine = new CombatEngine(gameDataArg, torpedoServiceArg);
     const attacker = {
       id: 1,
@@ -127,7 +135,7 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
-      status: 'DOCKED',
+      status: 'IDLE',
       alertState: 'GREEN',
     };
     const defender = {
@@ -138,7 +146,7 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
-      status: 'DOCKED',
+      status: 'IDLE',
       alertState: 'GREEN',
     };
 
@@ -183,7 +191,8 @@ describe('CombatEngine projectile specialization', () => {
   });
 
   it('applies projectile launcher damage multipliers', async () => {
-    jest.spyOn(Math, 'random')
+    jest
+      .spyOn(Math, 'random')
       .mockReturnValueOnce(0.1) // hit
       .mockReturnValueOnce(0.5) // variance midpoint
       .mockReturnValueOnce(0.99); // no crit
@@ -216,8 +225,13 @@ describe('CombatEngine projectile specialization', () => {
       damageType: 'PROTON',
     };
     const torpedoService = { consumeForAttack: jest.fn(async () => torpedo) };
-    const gameDataArg = gameData as unknown as ConstructorParameters<typeof CombatEngine>[0];
-    const torpedoServiceArg = torpedoService as unknown as ConstructorParameters<typeof CombatEngine>[1];
+    const gameDataArg = gameData as unknown as ConstructorParameters<
+      typeof CombatEngine
+    >[0];
+    const torpedoServiceArg =
+      torpedoService as unknown as ConstructorParameters<
+        typeof CombatEngine
+      >[1];
     const engine = new CombatEngine(gameDataArg, torpedoServiceArg);
     const attacker = {
       id: 1,
@@ -227,7 +241,7 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
-      status: 'DOCKED',
+      status: 'IDLE',
       alertState: 'GREEN',
     };
     const defender = {
@@ -238,7 +252,7 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
-      status: 'DOCKED',
+      status: 'IDLE',
       alertState: 'GREEN',
     };
 
@@ -260,7 +274,10 @@ describe('CombatEngine projectile specialization', () => {
     );
 
     expect(result.rounds[0].log).toContainEqual(
-      expect.objectContaining({ action: CombatAction.PROJECTILE_HIT, value: 150 }),
+      expect.objectContaining({
+        action: CombatAction.PROJECTILE_HIT,
+        value: 150,
+      }),
     );
     expect(result.rounds[0].log).toContainEqual(
       expect.objectContaining({ action: CombatAction.HULL_DAMAGE, value: 150 }),
@@ -275,9 +292,10 @@ describe('CombatEngine weapon-vs-shield modifier', () => {
 
   it('PHASER vs PHASIC shield (modifier 120) increases shield damage', async () => {
     // variance fixed to 1, no crit
-    jest.spyOn(Math, 'random')
-      .mockReturnValueOnce(0.1)   // hit
-      .mockReturnValueOnce(0.5)   // variance midpoint → 1.0 (min=1, max=1)
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.1) // hit
+      .mockReturnValueOnce(0.5) // variance midpoint → 1.0 (min=1, max=1)
       .mockReturnValueOnce(0.99); // no crit
 
     const gameData = {
@@ -287,13 +305,21 @@ describe('CombatEngine weapon-vs-shield modifier', () => {
           name: 'Leichter Turbolaser',
           category: 'WEAPONS',
           public: {},
-          secret: { baseDamage: 15, tibannaConsumption: 8, weaponFamily: 'PHASER' },
+          secret: {
+            baseDamage: 15,
+            tibannaConsumption: 8,
+            weaponFamily: 'PHASER',
+          },
         },
         {
           name: 'Verstärkter Deflektorschild',
           category: 'SHIELDS',
           public: {},
-          secret: { baseShieldStrength: 35, tibannaConsumption: 8, shieldFamily: 'PHASIC' },
+          secret: {
+            baseShieldStrength: 35,
+            tibannaConsumption: 8,
+            shieldFamily: 'PHASIC',
+          },
         },
       ]),
       getWeaponShieldModifier: jest.fn((wf: string, sf: string) => {
@@ -304,23 +330,33 @@ describe('CombatEngine weapon-vs-shield modifier', () => {
     const torpedoService = { consumeForAttack: jest.fn(async () => null) };
     const engine = new CombatEngine(
       gameData as unknown as ConstructorParameters<typeof CombatEngine>[0],
-      torpedoService as unknown as ConstructorParameters<typeof CombatEngine>[1],
+      torpedoService as unknown as ConstructorParameters<
+        typeof CombatEngine
+      >[1],
     );
 
     const attacker = {
-      id: 1, shipClassId: 3,
-      hull: 1000, hullMax: 1000,
-      shields: 0, shieldsMax: 0,
+      id: 1,
+      shipClassId: 3,
+      hull: 1000,
+      hullMax: 1000,
+      shields: 0,
+      shieldsMax: 0,
       energy: 100,
-      status: 'DOCKED', alertState: 'GREEN',
+      status: 'IDLE',
+      alertState: 'GREEN',
     };
     // Defender has shields so modifier applies
     const defender = {
-      id: 2, shipClassId: 3,
-      hull: 1000, hullMax: 1000,
-      shields: 500, shieldsMax: 500,
+      id: 2,
+      shipClassId: 3,
+      hull: 1000,
+      hullMax: 1000,
+      shields: 500,
+      shieldsMax: 500,
       energy: 100,
-      status: 'DOCKED', alertState: 'GREEN',
+      status: 'IDLE',
+      alertState: 'GREEN',
     };
 
     const result = await engine.resolveCombat(
@@ -378,26 +414,42 @@ describe('CombatEngine runtimeSystems integration', () => {
     const gameData = {
       getCombatFormulas: jest.fn(() => combatFormulas()),
       getAllModules: jest.fn(() => [
-        { name: 'Turbolaser', category: 'WEAPONS', public: {}, secret: { baseDamage: 50 } },
-        { name: 'Torpedorampe', category: 'PROJECTILE', public: {}, secret: { baseDamage: 50 } },
+        {
+          name: 'Turbolaser',
+          category: 'WEAPONS',
+          public: {},
+          secret: { baseDamage: 50 },
+        },
+        {
+          name: 'Torpedorampe',
+          category: 'PROJECTILE',
+          public: {},
+          secret: { baseDamage: 50 },
+        },
       ]),
     };
     const torpedoService = { consumeForAttack: jest.fn(async () => null) };
     return new CombatEngine(
       gameData as unknown as ConstructorParameters<typeof CombatEngine>[0],
-      torpedoService as unknown as ConstructorParameters<typeof CombatEngine>[1],
+      torpedoService as unknown as ConstructorParameters<
+        typeof CombatEngine
+      >[1],
     );
   }
 
   function makeShip(overrides: Record<string, unknown> = {}) {
     return {
-      id: 1, shipClassId: 3,
-      hull: 1000, hullMax: 1000,
-      shields: 500, shieldsMax: 500,
+      id: 1,
+      shipClassId: 3,
+      hull: 1000,
+      hullMax: 1000,
+      shields: 500,
+      shieldsMax: 500,
       energy: 100,
       evadeChance: 0,
       runtimeSystems: null,
-      status: 'DOCKED', alertState: 'GREEN',
+      status: 'IDLE',
+      alertState: 'GREEN',
       ...overrides,
     };
   }
@@ -406,36 +458,55 @@ describe('CombatEngine runtimeSystems integration', () => {
     spacecraftId: 1,
     moduleType: cat === 'WEAPONS' ? 'Turbolaser' : 'Torpedorampe',
     category: cat,
-    level: 1, integrity: 100, cooldown: 0, isActive: true,
+    level: 1,
+    integrity: 100,
+    cooldown: 0,
+    isActive: true,
   });
 
   it('disabled WEAPONS system prevents energy weapons from firing', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.1); // always hit
     const engine = makeEngine();
-    const attacker = makeShip({ runtimeSystems: { WEAPONS: { active: false } } });
+    const attacker = makeShip({
+      runtimeSystems: { WEAPONS: { active: false } },
+    });
     const defender = makeShip();
 
     const result = await engine.resolveCombat(
-      attacker as any, defender as any,
-      [weaponModule('WEAPONS')] as any, [] as any,
+      attacker as any,
+      defender as any,
+      [weaponModule('WEAPONS')] as any,
+      [] as any,
     );
 
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_HIT)).toHaveLength(0);
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.HULL_DAMAGE)).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter((e) => e.action === CombatAction.ENERGY_HIT),
+    ).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter((e) => e.action === CombatAction.HULL_DAMAGE),
+    ).toHaveLength(0);
   });
 
   it('disabled TORPEDO_BANK system prevents projectile weapons from firing', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.1); // always hit
     const engine = makeEngine();
-    const attacker = makeShip({ runtimeSystems: { TORPEDO_BANK: { active: false } } });
+    const attacker = makeShip({
+      runtimeSystems: { TORPEDO_BANK: { active: false } },
+    });
     const defender = makeShip();
 
     const result = await engine.resolveCombat(
-      attacker as any, defender as any,
-      [weaponModule('PROJECTILE')] as any, [] as any,
+      attacker as any,
+      defender as any,
+      [weaponModule('PROJECTILE')] as any,
+      [] as any,
     );
 
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.PROJECTILE_HIT)).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter(
+        (e) => e.action === CombatAction.PROJECTILE_HIT,
+      ),
+    ).toHaveLength(0);
   });
 
   it('disabled SHIELDS system prevents shield regeneration', async () => {
@@ -443,7 +514,8 @@ describe('CombatEngine runtimeSystems integration', () => {
     const engine = makeEngine();
     const attacker = makeShip();
     const defender = makeShip({
-      shields: 0, shieldsMax: 500,
+      shields: 0,
+      shieldsMax: 500,
       runtimeSystems: { SHIELDS: { active: false } },
     });
     const formulas = combatFormulas();
@@ -453,12 +525,27 @@ describe('CombatEngine runtimeSystems integration', () => {
     });
 
     const result = await engine.resolveCombat(
-      attacker as any, defender as any,
+      attacker as any,
+      defender as any,
       [] as any,
-      [{ spacecraftId: 2, moduleType: 'Shields', category: 'SHIELDS', level: 1, integrity: 100, cooldown: 0, isActive: true }] as any,
+      [
+        {
+          spacecraftId: 2,
+          moduleType: 'Shields',
+          category: 'SHIELDS',
+          level: 1,
+          integrity: 100,
+          cooldown: 0,
+          isActive: true,
+        },
+      ] as any,
     );
 
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.SHIELD_REGEN)).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter(
+        (e) => e.action === CombatAction.SHIELD_REGEN,
+      ),
+    ).toHaveLength(0);
     expect(defender.shields).toBe(0);
   });
 
@@ -471,12 +558,18 @@ describe('CombatEngine runtimeSystems integration', () => {
     const defender = makeShip({ evadeChance: 50 });
 
     const result = await engine.resolveCombat(
-      attacker as any, defender as any,
-      [weaponModule('WEAPONS')] as any, [] as any,
+      attacker as any,
+      defender as any,
+      [weaponModule('WEAPONS')] as any,
+      [] as any,
     );
 
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_HIT)).toHaveLength(0);
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_MISS)).toHaveLength(1);
+    expect(
+      result.rounds[0].log.filter((e) => e.action === CombatAction.ENERGY_HIT),
+    ).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter((e) => e.action === CombatAction.ENERGY_MISS),
+    ).toHaveLength(1);
   });
 
   it('energy weapon does not fire when EPS is insufficient', async () => {
@@ -486,11 +579,17 @@ describe('CombatEngine runtimeSystems integration', () => {
     const defender = makeShip();
 
     const result = await engine.resolveCombat(
-      attacker as any, defender as any,
-      [weaponModule('WEAPONS')] as any, [] as any,
+      attacker as any,
+      defender as any,
+      [weaponModule('WEAPONS')] as any,
+      [] as any,
     );
 
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_HIT)).toHaveLength(0);
-    expect(result.rounds[0].log.filter(e => e.action === CombatAction.ENERGY_MISS)).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter((e) => e.action === CombatAction.ENERGY_HIT),
+    ).toHaveLength(0);
+    expect(
+      result.rounds[0].log.filter((e) => e.action === CombatAction.ENERGY_MISS),
+    ).toHaveLength(0);
   });
 });

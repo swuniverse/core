@@ -71,7 +71,8 @@ export class ColonyAbandonmentService {
       throw new BadRequestException('Confirmation does not match colony name');
     }
 
-    const asteroid = colony.celestialObject?.objectType === CelestialObjectType.ASTEROID;
+    const asteroid =
+      colony.celestialObject?.objectType === CelestialObjectType.ASTEROID;
     await this.colonyEventService.createActionEvent({
       colonyId: colony.id,
       userId,
@@ -90,7 +91,11 @@ export class ColonyAbandonmentService {
       this.shipBuildQueueRepo.delete({ colonyId: colony.id }),
       this.orbitAssignmentRepo.delete({ colonyId: colony.id }),
       ...(asteroid
-        ? [this.colonyRepo.manager.getRepository(ColonyStorage).delete({ colonyId: colony.id })]
+        ? [
+            this.colonyRepo.manager
+              .getRepository(ColonyStorage)
+              .delete({ colonyId: colony.id }),
+          ]
         : []),
     ]);
 
@@ -108,15 +113,16 @@ export class ColonyAbandonmentService {
     for (const field of colony.fields ?? []) {
       field.isActive = false;
       field.activateAfterBuild = false;
+      field.reactivateAfterUpgrade = null;
+      field.terraformingId = null;
+      field.terraformingFinishesAt = null;
       if (field.isBuilding) {
+        // A construction site has no completed ruin to preserve.
         field.buildingId = null;
         field.isBuilding = false;
         field.buildProgress = 0;
         field.buildFinishesAt = null;
-        field.reactivateAfterUpgrade = null;
       }
-      field.terraformingId = null;
-      field.terraformingFinishesAt = null;
     }
     if ((colony.fields ?? []).length > 0) {
       await this.fieldRepo.save(colony.fields);
@@ -132,7 +138,11 @@ export class ColonyAbandonmentService {
       colony.changeable.torpedoTypeId = null;
       colony.changeable.immigrationEnabled = false;
       await this.colonyRepo.manager.save(colony.changeable);
-      if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID || 'expect' in globalThis) {
+      if (
+        process.env.NODE_ENV === 'test' ||
+        process.env.JEST_WORKER_ID ||
+        'expect' in globalThis
+      ) {
         await this.statsRepo.save(colony.changeable as never);
       }
     }

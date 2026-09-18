@@ -3,6 +3,7 @@ import { GameDataService, ModuleDef } from '../game-data/game-data.service';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { reactorFuelProfile } from './reactor-fuel-profile';
 
 export interface CalculatedSpacecraftStats {
   hullMax: number;
@@ -65,9 +66,17 @@ export class SpacecraftStatsService {
     ship.batteryMax = stats.batteryMax;
     ship.epsMax = stats.epsMax;
     ship.reactorOutput = stats.reactorOutput;
+    const reactorProfile = reactorFuelProfile(modules);
+    ship.reactorFuelMax = Math.max(
+      ship.reactorFuelMax ?? 0,
+      stats.reactorOutput * reactorProfile.capacityMultiplier,
+    );
+    ship.reactorFuel = Math.min(
+      ship.reactorFuel ?? ship.reactorFuelMax,
+      ship.reactorFuelMax,
+    );
     ship.warpdriveMax = stats.warpdriveMax;
     ship.evadeChance = stats.evadeChance;
-
 
     ship.hull = Math.min(ship.hull, ship.hullMax);
     ship.shields = Math.min(ship.shields, ship.shieldsMax);

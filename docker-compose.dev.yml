@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: swuniverse-dev-db
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: swuniverse
@@ -16,7 +17,8 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    container_name: swuniverse-dev-redis
+    image: redis:7
     ports:
       - '6379:6379'
     healthcheck:

@@ -1,7 +1,8 @@
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
+  SpacecraftOperatingMode: { NORMAL: 'NORMAL', STANDBY: 'STANDBY' },
   SpacecraftStatus: {
-    DOCKED: 'DOCKED',
+    IDLE: 'IDLE',
     IN_FLIGHT: 'IN_FLIGHT',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
@@ -18,6 +19,9 @@ jest.mock('../colony/entities/colony-stats.entity', () => ({
 }));
 jest.mock('../spacecraft/spacecraft-crew.service', () => ({
   SpacecraftCrewService: class SpacecraftCrewService {},
+}));
+jest.mock('../messaging/messaging.service', () => ({
+  MessagingService: class MessagingService {},
 }));
 
 import { CombatService } from './combat.service';
@@ -85,6 +89,13 @@ function createService() {
     gameData as any,
     colonyEventService as any,
     colonyDamageService as any,
+    {
+      destroyFromCombat: jest.fn(async () => undefined),
+      saveCombatSurvivor: jest.fn(async (ship) => {
+        await shipRepo.save(ship);
+        return true;
+      }),
+    } as any,
   );
   return {
     service,
@@ -104,7 +115,7 @@ describe('CombatService attackColony', () => {
   const attacker = () => ({
     id: 7,
     userId: 1,
-    status: SpacecraftStatus.DOCKED,
+    status: SpacecraftStatus.IDLE,
     starSystemId: 10,
     celestialObjectId: 20,
     hull: 500,

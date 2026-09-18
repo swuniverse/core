@@ -44,9 +44,11 @@ export const DEFAULT_LAYOUT_LG: WidgetSlot[] = [
   { id: 'crew-limit', enabled: true, x: 4, y: 17, w: 4, h: 4 },
   { id: 'online-players', enabled: true, x: 8, y: 17, w: 4, h: 4 },
   { id: 'tick-countdown', enabled: false, x: 0, y: 21, w: 4, h: 3 },
+  { id: 'recent-events', enabled: true, x: 0, y: 21, w: 8, h: 5 },
   { id: 'colony-events', enabled: false, x: 8, y: 21, w: 4, h: 6 },
   { id: 'messages', enabled: false, x: 6, y: 21, w: 6, h: 6 },
   { id: 'server-stats', enabled: false, x: 0, y: 27, w: 4, h: 3 },
+  { id: 'distress-signals', enabled: true, x: 4, y: 27, w: 6, h: 4 },
   { id: 'admin-tick', enabled: false, x: 0, y: 30, w: 4, h: 2 },
 ];
 
@@ -63,10 +65,12 @@ export const DEFAULT_LAYOUT_SM: WidgetSlot[] = [
   { id: 'crew-limit', enabled: true, x: 0, y: 37, w: 1, h: 3 },
   { id: 'online-players', enabled: true, x: 0, y: 40, w: 1, h: 3 },
   { id: 'tick-countdown', enabled: false, x: 0, y: 43, w: 1, h: 3 },
-  { id: 'colony-events', enabled: false, x: 0, y: 46, w: 1, h: 6 },
-  { id: 'messages', enabled: false, x: 0, y: 52, w: 1, h: 6 },
+  { id: 'recent-events', enabled: true, x: 0, y: 46, w: 1, h: 5 },
+  { id: 'colony-events', enabled: false, x: 0, y: 51, w: 1, h: 6 },
+  { id: 'messages', enabled: false, x: 0, y: 57, w: 1, h: 6 },
   { id: 'server-stats', enabled: false, x: 0, y: 58, w: 1, h: 3 },
-  { id: 'admin-tick', enabled: false, x: 0, y: 61, w: 1, h: 2 },
+  { id: 'distress-signals', enabled: true, x: 0, y: 61, w: 1, h: 4 },
+  { id: 'admin-tick', enabled: false, x: 0, y: 65, w: 1, h: 2 },
 ];
 
 // Keep backward-compat export for DashboardCustomizer
@@ -79,7 +83,10 @@ const DEFAULT_LAYOUTS: PerBreakpointLayouts = {
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-function mergeWithDefaults(saved: WidgetSlot[], defaults: WidgetSlot[]): WidgetSlot[] {
+function mergeWithDefaults(
+  saved: WidgetSlot[],
+  defaults: WidgetSlot[],
+): WidgetSlot[] {
   const savedMap = new Map(saved.map((w) => [w.id, w]));
   const result: WidgetSlot[] = saved.map((w) => ({ ...w }));
   for (const def of defaults) {
@@ -127,8 +134,12 @@ export const useDashboardLayoutStore = create<DashboardLayoutState>()(
       toggleWidget: (id) => {
         const { layouts } = get();
         const newLayouts: PerBreakpointLayouts = {
-          lg: layouts.lg.map((w) => (w.id === id ? { ...w, enabled: !w.enabled } : w)),
-          sm: layouts.sm.map((w) => (w.id === id ? { ...w, enabled: !w.enabled } : w)),
+          lg: layouts.lg.map((w) =>
+            w.id === id ? { ...w, enabled: !w.enabled } : w,
+          ),
+          sm: layouts.sm.map((w) =>
+            w.id === id ? { ...w, enabled: !w.enabled } : w,
+          ),
         };
         set({ layouts: newLayouts });
         get().saveToServer(newLayouts);
@@ -158,7 +169,9 @@ export const useDashboardLayoutStore = create<DashboardLayoutState>()(
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
           void api
-            .patch('/user/dashboard-layout', { layout: JSON.stringify(layouts) })
+            .patch('/user/dashboard-layout', {
+              layout: JSON.stringify(layouts),
+            })
             .catch(() => undefined);
         }, 1000);
       },

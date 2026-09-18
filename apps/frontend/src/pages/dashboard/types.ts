@@ -92,6 +92,18 @@ export interface ColonyWarning {
   message: string;
 }
 
+export interface RecentGameEvent {
+  id: number;
+  type: string;
+  text: string;
+  scope: 'GALAXY' | 'SYSTEM' | null;
+  layerId: number | null;
+  systemId: number | null;
+  x: number | null;
+  y: number | null;
+  createdAt: string;
+}
+
 export interface ColonyEvent {
   id: number;
   type: string;
@@ -139,6 +151,18 @@ export interface TickStatus {
   totalTicks: number;
 }
 
+export interface DistressSignal {
+  id: number;
+  spacecraftId: number;
+  shipName: string;
+  ownerId: number;
+  message: string;
+  active: boolean;
+  startedAt: string;
+  stoppedAt: string | null;
+  locationLabel: string;
+}
+
 export interface DashboardData {
   activeResearch: ActiveResearch | null;
   queuedResearch: ActiveResearch | null;
@@ -146,7 +170,12 @@ export interface DashboardData {
   holonetPosts: HolonetPost[];
   colonizationLimits: ColonizationStatus | null;
   crewInfo: CrewInfo | null;
-  onlinePlayers: Array<{ id: number; username: string; faction: string; avatar?: string | null }>;
+  onlinePlayers: Array<{
+    id: number;
+    username: string;
+    faction: string;
+    avatar?: string | null;
+  }>;
   colonyCount: number;
   fleetTotal: number;
   fleetInFlight: number;
@@ -156,9 +185,11 @@ export interface DashboardData {
   unreadMessages: number;
   warnings: ColonyWarning[];
   colonyEvents: ColonyEvent[];
+  recentEvents: RecentGameEvent[];
   serverStats: ServerStats | null;
   inboxMessages: InboxMessage[];
   tickStatus: TickStatus | null;
   currentObjective: CurrentObjective | null;
   baustelleAlerts: BaustelleAlert[];
+  distressSignals?: DistressSignal[];
 }

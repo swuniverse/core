@@ -16,23 +16,35 @@ export function DirectionalControls({
     : 'border-swu-border bg-swu-surface text-swu-primary hover:border-swu-accent hover:bg-swu-accent/10 active:scale-95';
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div
+      className="flex flex-col items-center gap-1"
+      aria-label="Richtungssteuerung"
+    >
       <button
+        type="button"
+        aria-label="Nach Norden fliegen"
         disabled={disabled}
         onClick={() => onMove(0, -1)}
-        className={`w-10 h-10 rounded border text-base font-bold flex items-center justify-center transition-all ${btnClass}`}
+        className={`flex h-10 w-10 items-center justify-center rounded border text-base font-bold transition-all ${btnClass}`}
       >
         ▲
       </button>
       <div className="flex items-center gap-1">
         <button
+          type="button"
+          aria-label="Nach Westen fliegen"
           disabled={disabled}
           onClick={() => onMove(-1, 0)}
-          className={`w-10 h-10 rounded border text-base font-bold flex items-center justify-center transition-all ${btnClass}`}
+          className={`flex h-10 w-10 items-center justify-center rounded border text-base font-bold transition-all ${btnClass}`}
         >
           ◄
         </button>
+        <label className="sr-only" htmlFor="ship-step-size">
+          Felder pro Schritt
+        </label>
         <input
+          id="ship-step-size"
+          aria-label="Felder pro Schritt"
           type="number"
           min={1}
           max={9}
@@ -42,24 +54,27 @@ export function DirectionalControls({
             onStepChange(v);
           }}
           disabled={disabled}
-          className="w-10 h-10 rounded border border-swu-accent/50 bg-swu-accent/10 text-swu-accent text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-swu-accent disabled:opacity-40"
+          className="h-10 w-10 rounded border border-swu-accent/50 bg-swu-accent/10 text-center text-sm font-bold text-swu-accent focus:outline-none focus:ring-1 focus:ring-swu-accent disabled:opacity-40"
         />
         <button
+          type="button"
+          aria-label="Nach Osten fliegen"
           disabled={disabled}
           onClick={() => onMove(1, 0)}
-          className={`w-10 h-10 rounded border text-base font-bold flex items-center justify-center transition-all ${btnClass}`}
+          className={`flex h-10 w-10 items-center justify-center rounded border text-base font-bold transition-all ${btnClass}`}
         >
           ►
         </button>
       </div>
       <button
+        type="button"
+        aria-label="Nach Süden fliegen"
         disabled={disabled}
         onClick={() => onMove(0, 1)}
-        className={`w-10 h-10 rounded border text-base font-bold flex items-center justify-center transition-all ${btnClass}`}
+        className={`flex h-10 w-10 items-center justify-center rounded border text-base font-bold transition-all ${btnClass}`}
       >
         ▼
       </button>
-      <span className="text-[10px] text-swu-muted mt-1">Felder/Schritt</span>
     </div>
   );
 }

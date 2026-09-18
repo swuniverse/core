@@ -1,9 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { ColonySocialService } from './colony-social.service';
-import { ColonyStatsService, getColonyChangeable } from './colony-stats.service';
+import {
+  ColonyStatsService,
+  getColonyChangeable,
+} from './colony-stats.service';
 import {
   ColonyCrewTrainingQueue,
   ColonyCrewTrainingQueueStatus,
@@ -31,7 +34,10 @@ export class ColonyCrewService {
     private readonly shipRepo: Repository<Spacecraft>,
     private readonly colonyStatsService: ColonyStatsService,
     private readonly colonySocialService: ColonySocialService,
-  ) {}
+    private readonly dataSource?: DataSource,
+  ) {
+    void this.shipRepo;
+  }
 
   getLocalCrewLimit(colony: Colony): number {
     const summary = this.colonyStatsService.calculateSummary(colony);
@@ -175,21 +181,49 @@ export class ColonyCrewService {
     amount: number,
   ): Promise<void> {
     this.assertSameOwnerAndLocation(colony, ship);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      throw new BadRequestException('Amount must be positive');
+    this.assertTransferAmount(amount);
+    if (!this.dataSource) {
+      return this.transferCrewFromColonyToShipLegacy(colony, ship, amount);
     }
+    await this.dataSource.transaction(async (manager) => {
+      const assignments = await manager.find(CrewAssignment, {
+        where: { colonyId: colony.id },
+        order: { crewId: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const shipCrew = await manager.count(CrewAssignment, {
+        where: { spacecraftId: ship.id },
+      });
+      if (assignments.length < amount)
+        throw new BadRequestException('Not enough crew on colony');
+      if (shipCrew + amount > ship.crewMax)
+        throw new BadRequestException('Not enough crew capacity on ship');
+      for (const assignment of assignments.slice(0, amount)) {
+        assignment.colonyId = null;
+        assignment.spacecraftId = ship.id;
+      }
+      await manager.save(assignments.slice(0, amount));
+      ship.crew = shipCrew + amount;
+      await manager.save(ship);
+      const changeable = getColonyChangeable(colony);
+      changeable.trainedCrew = assignments.length - amount;
+      await manager.save(changeable);
+    });
+  }
+
+  private async transferCrewFromColonyToShipLegacy(
+    colony: Colony,
+    ship: Spacecraft,
+    amount: number,
+  ) {
     const available = await this.getAvailableColonyCrew(colony.id);
-    if (available.length < amount) {
-      throw new BadRequestException('Not enough crew on colony');
-    }
     const shipCrew = await this.crewAssignmentRepo.count({
       where: { spacecraftId: ship.id },
     });
-    const freeShipCapacity = Math.max(0, ship.crewMax - shipCrew);
-    if (freeShipCapacity < amount) {
+    if (available.length < amount)
+      throw new BadRequestException('Not enough crew on colony');
+    if (shipCrew + amount > ship.crewMax)
       throw new BadRequestException('Not enough crew capacity on ship');
-    }
-
     for (const assignment of available.slice(0, amount)) {
       assignment.colonyId = null;
       assignment.spacecraftId = ship.id;
@@ -207,28 +241,70 @@ export class ColonyCrewService {
   ): Promise<void> {
     assertOwnedColony(colony);
     this.assertSameOwnerAndLocation(colony, ship);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      throw new BadRequestException('Amount must be positive');
+    this.assertTransferAmount(amount);
+    if (!this.dataSource) {
+      return this.transferCrewFromShipToColonyLegacy(colony, ship, amount);
     }
-    const freeLocal = await this.getFreeAssignmentCount(colony);
-    if (freeLocal < amount) {
-      throw new BadRequestException('Not enough crew capacity on colony');
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const assignments = await manager.find(CrewAssignment, {
+        where: { userId: colony.userId!, spacecraftId: ship.id },
+        order: { crewId: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (assignments.length < amount)
+        throw new BadRequestException('Not enough crew on ship');
+      if (assignments.length - amount < 1)
+        throw new BadRequestException(
+          'At least one crew member must remain on ship',
+        );
+      const colonyAssigned = await manager.count(CrewAssignment, {
+        where: { colonyId: colony.id },
+      });
+      if (colonyAssigned + amount > this.getLocalCrewLimit(colony)) {
+        throw new BadRequestException('Not enough crew capacity on colony');
+      }
+      for (const assignment of assignments.slice(0, amount)) {
+        assignment.spacecraftId = null;
+        assignment.colonyId = colony.id;
+      }
+      await manager.save(assignments.slice(0, amount));
+      ship.crew = assignments.length - amount;
+      await manager.save(ship);
+      const changeable = getColonyChangeable(colony);
+      changeable.trainedCrew = colonyAssigned + amount;
+      await manager.save(changeable);
+    });
+  }
+
+  private async transferCrewFromShipToColonyLegacy(
+    colony: Colony,
+    ship: Spacecraft,
+    amount: number,
+  ) {
     const assignments = await this.crewAssignmentRepo.find({
-      where: { userId: colony.userId, spacecraftId: ship.id },
+      where: { userId: colony.userId!, spacecraftId: ship.id },
       order: { crewId: 'ASC' },
     });
-    if (assignments.length < amount) {
+    if (assignments.length < amount)
       throw new BadRequestException('Not enough crew on ship');
-    }
+    if (assignments.length - amount < 1)
+      throw new BadRequestException(
+        'At least one crew member must remain on ship',
+      );
     for (const assignment of assignments.slice(0, amount)) {
       assignment.spacecraftId = null;
       assignment.colonyId = colony.id;
       await this.crewAssignmentRepo.save(assignment);
     }
     await this.refreshColonyCrewCache(colony);
-    ship.crew = Math.max(0, assignments.length - amount);
+    ship.crew = assignments.length - amount;
     await this.shipRepo.save(ship);
+  }
+
+  private assertTransferAmount(amount: number): void {
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new BadRequestException('Amount must be positive');
+    }
   }
 
   private assertSameOwnerAndLocation(colony: Colony, ship: Spacecraft): void {
@@ -274,7 +350,9 @@ export class ColonyCrewService {
       order: { crewId: 'ASC' },
     });
     const removedCrewIds: number[] = [];
-    for (const assignment of colonyAssignments.filter((entry) => entry.colonyId)) {
+    for (const assignment of colonyAssignments.filter(
+      (entry) => entry.colonyId,
+    )) {
       if (excess === 0) break;
       removedCrewIds.push(assignment.crewId);
       await this.crewAssignmentRepo.delete({ crewId: assignment.crewId });

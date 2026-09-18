@@ -370,6 +370,36 @@ export class ColonyController {
     return this.colonyService.landShip(id, req.user.sub, shipId);
   }
 
+  @Get(':id/orbital-management')
+  getOrbitalManagement(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.getOrbitalManagement(id, req.user.sub);
+  }
+
+  @Post(':id/orbital-management')
+  executeOrbitalManagement(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('ships')
+    ships: Array<{
+      shipId: number;
+      crewToShip?: number;
+      crewToColony?: number;
+      batteryCharge?: number;
+      reactorLoad?: number;
+      torpedoTypeId?: number;
+      torpedoLoad?: number;
+    }>,
+  ) {
+    return this.colonyService.executeOrbitalManagement(
+      id,
+      req.user.sub,
+      ships ?? [],
+    );
+  }
+
   @Post(':id/orbit/ships/:shipId/defend')
   defendOrbitShip(
     @Param('id', ParseIntPipe) id: number,

@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { commodityImage } from '../../../lib/assets';
-import { formatSignedAmount } from '../utils';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { shipImage } from '../../../lib/assets';
+import { TransferDialog } from '../../../components/spacecraft/TransferDialog';
 import type { ColonyDetailV2, CommodityDef } from '../types';
+import { OrbitalManagementPanel } from './OrbitalManagementPanel';
+
+type OrbitShip = ColonyDetailV2['orbitShips'][number];
 
 type PanelOrbitProps = {
+  colonyId: number;
   orbitShips: ColonyDetailV2['orbitShips'];
   orbitBlockers?: ColonyDetailV2['orbitBlockers'];
   inventory?: ColonyDetailV2['inventory'];
@@ -19,471 +23,261 @@ type PanelOrbitProps = {
     shipId: number,
     items: Array<{ commodityId: number; amount: number }>,
   ) => Promise<void> | void;
+  compact?: boolean;
+  onOpenManagement?: () => void;
 };
-
-type OrbitShip = ColonyDetailV2['orbitShips'][number];
-
-type OrbitGroup = {
-  label: string;
-  ships: OrbitShip[];
-};
-
-const SHIP_ACTION_BASE =
-  'px-2 py-1 rounded border text-[10px] transition-colors disabled:opacity-40';
 
 export function PanelOrbit({
+  colonyId,
   orbitShips,
-  orbitBlockers,
-  inventory = [],
-  commodityMap,
-  isBlockaded = false,
-  onLandShip,
-  onDisassembleShip,
-  onDefendShip,
-  onBlockadeShip,
-  onClearOrbitOrder,
-  onTransferShuttles,
+  compact = false,
+  onOpenManagement,
 }: PanelOrbitProps) {
-  const navigate = useNavigate();
-  const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const shuttleInventory = useMemo(
-    () =>
-      inventory
-        .filter(
-          (item) =>
-            commodityMap[item.commodityId]?.isShuttle && item.amount > 0,
-        )
-        .sort((a, b) => a.commodityId - b.commodityId),
-    [inventory, commodityMap],
+  const [selectedId, setSelectedId] = useState<number | null>(
+    orbitShips[0]?.id ?? null,
   );
-  const run = async (key: string, action: () => Promise<void> | void) => {
-    setBusyKey(key);
-    setError(null);
-    try {
-      await action();
-    } catch (e: unknown) {
-      setError(
-        e instanceof Error ? e.message : 'Shuttle-Transfer fehlgeschlagen',
-      );
-    } finally {
-      setBusyKey(null);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
+    null,
+  );
+  const selected =
+    orbitShips.find((ship) => ship.id === selectedId) ?? orbitShips[0] ?? null;
+
+  useEffect(() => {
+    if (!orbitShips.some((ship) => ship.id === selectedId)) {
+      setSelectedId(orbitShips[0]?.id ?? null);
+      setSelectorOpen(false);
     }
-  };
-  const groups = useMemo<OrbitGroup[]>(() => {
-    const grouped: Record<string, OrbitShip[]> = {};
+  }, [orbitShips, selectedId]);
+
+  const groups = useMemo(() => {
+    const result = new Map<string, OrbitShip[]>();
     for (const ship of orbitShips) {
-      const key = ship.orbitGroupLabel ?? 'Einzelschiff';
-      grouped[key] ??= [];
-      grouped[key].push(ship);
+      const label = ship.orbitGroupLabel ?? 'Einzelschiffe';
+      result.set(label, [...(result.get(label) ?? []), ship]);
     }
-    return Object.entries(grouped).map(([label, ships]) => ({ label, ships }));
+    return [...result.entries()];
   }, [orbitShips]);
 
   return (
-    <div className="space-y-2">
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-1">
-        <div className="text-[10px] font-bold text-swu-muted uppercase">
-          Orbitlage
-        </div>
-        <div className="flex flex-wrap gap-4 text-[10px] text-swu-muted">
-          <span>
-            Schiffe:{' '}
-            <span className="font-mono text-swu-primary">
-              {orbitShips.length}
-            </span>
-          </span>
-          <span>
-            Blockade:{' '}
-            <span
-              className={
-                isBlockaded
-                  ? 'text-red-400 font-semibold'
-                  : 'text-green-400 font-semibold'
-              }
-            >
-              {isBlockaded ? 'aktiv' : 'keine'}
-            </span>
-          </span>
-        </div>
-        {orbitBlockers?.defense && (
-          <div className="text-[10px] text-amber-300">
-            {orbitBlockers.defense}
+    <section className="space-y-2">
+      {compact ? (
+        !selected ? (
+          <div className="border border-swu-border bg-swu-surface p-3 text-xs text-swu-muted">
+            Keine Schiffe im Orbit.
           </div>
-        )}
-        {orbitBlockers?.station && (
-          <div className="text-[10px] text-amber-300">
-            {orbitBlockers.station}
+        ) : (
+          <div className="border border-swu-border bg-swu-surface text-xs">
+            <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
+              Schiffe im Orbit
+            </h3>
+            <OrbitShipCard ship={selected} openShip={selected.canManage} />
+            <div className="flex items-center gap-2 border-t border-swu-border p-2">
+              <button
+                type="button"
+                onClick={() => setTransfer('TO_COLONY')}
+                title="Von Schiff zur Kolonie entladen"
+              >
+                <img
+                  src="/assets/buttons/b_down1.png"
+                  alt="Entladen"
+                  className="size-5"
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransfer('TO_SHIP')}
+                title="Von Kolonie zum Schiff verladen"
+              >
+                <img
+                  src="/assets/buttons/b_up1.png"
+                  alt="Verladen"
+                  className="size-5"
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectorOpen(true)}
+                title="Schiffe im Orbit auswählen"
+                className="ml-1 border border-swu-border p-0.5"
+              >
+                <img
+                  src="/assets/buttons/fleet.png"
+                  alt="Schiffe auswählen"
+                  className="size-5"
+                />
+              </button>
+              <button
+                type="button"
+                onClick={onOpenManagement}
+                className="ml-auto border border-swu-accent/60 px-2 py-1 text-swu-accent hover:border-swu-accent"
+              >
+                Orbitalmanagement
+              </button>
+            </div>
           </div>
-        )}
-        {orbitBlockers?.shuttleManagement && (
-          <div className="text-[10px] text-amber-300">
-            {orbitBlockers.shuttleManagement}
-          </div>
-        )}
-      </div>
-
-      {groups.length === 0 ? (
-        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
-          Keine Schiffe im Orbit.
-        </div>
+        )
       ) : (
-        groups.map(({ label: groupLabel, ships }) => (
-          <div
-            key={groupLabel}
-            className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-2"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[10px] font-bold text-swu-muted uppercase">
-                {groupLabel}
-              </div>
-              <div className="text-[10px] text-swu-muted">
-                {ships.length} Schiff{ships.length === 1 ? '' : 'e'}
-              </div>
-            </div>
-            <div className="space-y-2">
-              {ships.map((ship) => {
-                const stationText = ship.station
-                  ? `${ship.station.name}${ship.station.type ? ` · ${ship.station.type}` : ''}`
-                  : ship.actionBlockers?.station;
-                return (
-                  <div
-                    key={ship.id}
-                    className="border border-swu-border/40 rounded px-2 py-2 space-y-2"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <div className="font-bold text-swu-primary">
-                          {ship.name}
-                        </div>
-                        <div className="text-[10px] text-swu-muted">
-                          {ship.shipClassName ?? `Klasse #${ship.shipClassId}`}
-                          {ship.shipCategory ? ` · ${ship.shipCategory}` : ''}
-                          {ship.shipRole ? ` · ${ship.shipRole}` : ''}
-                          {ship.status ? ` · ${ship.status}` : ''}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() =>
-                          navigate(`/spacecraft?selected=${ship.id}`)
-                        }
-                        className={`${SHIP_ACTION_BASE} border-swu-accent/50 text-swu-accent hover:border-swu-accent`}
-                      >
-                        Schiff öffnen
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] text-swu-muted">
-                      <div>
-                        Hülle{' '}
-                        <span className="font-mono text-swu-primary">
-                          {ship.hull}/{ship.hullMax}
-                        </span>
-                      </div>
-                      <div>
-                        Schilde{' '}
-                        <span className="font-mono text-swu-primary">
-                          {ship.shields}/{ship.shieldsMax}
-                        </span>
-                      </div>
-                      <div>
-                        Energie{' '}
-                        <span className="font-mono text-swu-primary">
-                          {ship.energy}/{ship.energyMax}
-                        </span>
-                      </div>
-                      <div>
-                        Crew{' '}
-                        <span className="font-mono text-swu-primary">
-                          {ship.crew}/{ship.crewRequired}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 text-[10px]">
-                      <button
-                        onClick={() => onLandShip(ship.id)}
-                        disabled={!ship.canLand}
-                        title={
-                          !ship.canLand ? 'Landung nicht verfügbar' : undefined
-                        }
-                        className={`${SHIP_ACTION_BASE} border-swu-primary/50 text-swu-primary hover:border-swu-primary`}
-                      >
-                        Landen
-                      </button>
-                      <button
-                        onClick={() => onDisassembleShip(ship.id)}
-                        disabled={!ship.canDisassemble}
-                        title={
-                          !ship.canDisassemble
-                            ? 'Demontage nicht verfügbar'
-                            : undefined
-                        }
-                        className={`${SHIP_ACTION_BASE} border-red-400/40 text-red-300 hover:border-red-400`}
-                      >
-                        Demontieren
-                      </button>
-                      <button
-                        disabled={!ship.canRepair}
-                        title={
-                          !ship.canRepair
-                            ? 'Passende aktive Werft erforderlich'
-                            : undefined
-                        }
-                        className={`${SHIP_ACTION_BASE} border-swu-border text-swu-muted`}
-                      >
-                        In passender Werft reparieren
-                      </button>
-                      <button
-                        disabled={!ship.canRetrofit}
-                        title={
-                          !ship.canRetrofit
-                            ? 'Retrofit im Werft-Tab'
-                            : undefined
-                        }
-                        className={`${SHIP_ACTION_BASE} border-swu-border text-swu-muted`}
-                      >
-                        Retrofit via Werft
-                      </button>
-                      {ship.orbitAssignment ? (
-                        <button
-                          onClick={() => onClearOrbitOrder(ship.id)}
-                          className={`${SHIP_ACTION_BASE} border-yellow-400/50 text-yellow-300 hover:border-yellow-400`}
-                        >
-                          {ship.orbitAssignment.mode === 'DEFEND'
-                            ? 'Verteidigung beenden'
-                            : 'Blockade beenden'}
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => onDefendShip(ship.id)}
-                            disabled={!ship.canDefend}
-                            title={
-                              !ship.canDefend
-                                ? (ship.actionBlockers?.defend ??
-                                  'Nicht verfügbar')
-                                : undefined
-                            }
-                            className={`${SHIP_ACTION_BASE} ${ship.canDefend ? 'border-green-400/50 text-green-300 hover:border-green-400' : 'border-swu-border text-swu-muted'}`}
-                          >
-                            Verteidigen
-                          </button>
-                          <button
-                            onClick={() => onBlockadeShip(ship.id)}
-                            disabled={!ship.canBlock}
-                            title={
-                              !ship.canBlock
-                                ? (ship.actionBlockers?.block ??
-                                  'Nicht verfügbar')
-                                : undefined
-                            }
-                            className={`${SHIP_ACTION_BASE} ${ship.canBlock ? 'border-red-400/50 text-red-300 hover:border-red-400' : 'border-swu-border text-swu-muted'}`}
-                          >
-                            Blockade
-                          </button>
-                        </>
-                      )}
-                      <button
-                        disabled={!ship.canManageShuttle}
-                        title={
-                          ship.actionBlockers?.shuttleManagement ??
-                          'Nicht verfügbar'
-                        }
-                        className={`${SHIP_ACTION_BASE} border-swu-border text-swu-muted`}
-                      >
-                        Shuttle-Management
-                      </button>
-                      {ship.canManageShuttle && (
-                        <span className="px-2 py-1 rounded border border-cyan-500/30 bg-cyan-500/10 text-[10px] text-cyan-200">
-                          {Math.max(
-                            0,
-                            (ship.shuttleCapacity ?? 0) -
-                              (ship.shuttleStored ?? 0),
-                          )}{' '}
-                          freie Slots
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-swu-muted">
-                      <span>
-                        Shuttle:{' '}
-                        <span className="font-mono text-swu-primary">
-                          {ship.shuttleStored ?? 0}/{ship.shuttleCapacity ?? 0}
-                        </span>
-                      </span>
-                      <span>
-                        Verwaltung:{' '}
-                        <span
-                          className={
-                            ship.canManage ? 'text-green-400' : 'text-red-400'
-                          }
-                        >
-                          {ship.canManage ? 'lokal' : 'extern'}
-                        </span>
-                      </span>
-                      <span>
-                        Schaden:{' '}
-                        <span className="font-mono text-swu-primary">
-                          Hülle -{ship.damageSummary?.hullDamage ?? 0}, Module{' '}
-                          {ship.damageSummary?.damagedModules ?? 0}
-                        </span>
-                      </span>
-                      <span>
-                        Cargo:{' '}
-                        <span className="font-mono text-swu-primary">
-                          {ship.cargoUsed ?? 0}/{ship.cargoMax ?? 0}
-                        </span>
-                      </span>
-                    </div>
-
-                    {ship.orbitAssignment && (
-                      <div className="text-[10px] text-swu-muted">
-                        Orbitbefehl:{' '}
-                        <span
-                          className={
-                            ship.orbitAssignment.mode === 'DEFEND'
-                              ? 'text-green-400'
-                              : 'text-red-400'
-                          }
-                        >
-                          {ship.orbitAssignment.mode === 'DEFEND'
-                            ? 'Kolonie verteidigen'
-                            : 'Kolonie blockieren'}
-                        </span>
-                      </div>
-                    )}
-
-                    {ship.canManageShuttle && shuttleInventory.length > 0 && (
-                      <div className="border border-swu-border/30 rounded px-2 py-2 space-y-2">
-                        <div className="text-[10px] font-bold text-swu-muted uppercase">
-                          Shuttle-Transfer
-                        </div>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {shuttleInventory.map((item) => {
-                            const commodity = commodityMap[item.commodityId];
-                            const freeSlots = Math.max(
-                              0,
-                              (ship.shuttleCapacity ?? 0) -
-                                (ship.shuttleStored ?? 0),
-                            );
-                            const canLoad = freeSlots > 0;
-                            const canUnload = (ship.shuttleStored ?? 0) > 0;
-                            const shuttleLabel = commodity?.isWorkbee
-                              ? 'Workbee'
-                              : 'Shuttle';
-                            return (
-                              <div
-                                key={`${ship.id}-${item.commodityId}`}
-                                className="flex items-center justify-between gap-2 rounded border border-swu-border/30 bg-swu-bg/40 px-2 py-1"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <img
-                                    src={commodityImage(item.commodityId)}
-                                    alt=""
-                                    className="h-5 w-5 rounded object-contain"
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="truncate text-[10px] text-swu-primary font-medium">
-                                      {commodity?.name ?? item.name}
-                                    </div>
-                                    <div className="text-[10px] text-swu-muted">
-                                      {shuttleLabel} · Kolonie {item.amount}
-                                      {item.delta !== 0 && (
-                                        <span
-                                          className={`ml-1 ${item.delta > 0 ? 'text-green-400' : 'text-red-400'}`}
-                                        >
-                                          {formatSignedAmount(item.delta)}/Tick
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() =>
-                                      run(
-                                        `load-${ship.id}-${item.commodityId}`,
-                                        () =>
-                                          onTransferShuttles(ship.id, [
-                                            {
-                                              commodityId: item.commodityId,
-                                              amount: 1,
-                                            },
-                                          ]),
-                                      )
-                                    }
-                                    disabled={
-                                      !canLoad ||
-                                      item.amount <= 0 ||
-                                      busyKey ===
-                                        `load-${ship.id}-${item.commodityId}`
-                                    }
-                                    className={`${SHIP_ACTION_BASE} border-cyan-400/40 text-cyan-300 hover:border-cyan-400`}
-                                    title={
-                                      item.amount <= 0
-                                        ? 'Kein Bestand auf der Kolonie'
-                                        : !canLoad
-                                          ? 'Keine freien Shuttle-Slots'
-                                          : `Freie Slots: ${freeSlots}`
-                                    }
-                                  >
-                                    +1
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      run(
-                                        `unload-${ship.id}-${item.commodityId}`,
-                                        () =>
-                                          onTransferShuttles(ship.id, [
-                                            {
-                                              commodityId: item.commodityId,
-                                              amount: -1,
-                                            },
-                                          ]),
-                                      )
-                                    }
-                                    disabled={
-                                      !canUnload ||
-                                      busyKey ===
-                                        `unload-${ship.id}-${item.commodityId}`
-                                    }
-                                    className={`${SHIP_ACTION_BASE} border-orange-400/40 text-orange-300 hover:border-orange-400`}
-                                    title={
-                                      !canUnload
-                                        ? 'Keine Shuttles im Schiff'
-                                        : 'Zur Kolonie entladen'
-                                    }
-                                  >
-                                    -1
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="text-[10px] text-swu-muted">
-                      Station:{' '}
-                      <span
-                        className={
-                          ship.station ? 'text-swu-primary' : 'text-amber-300'
-                        }
-                      >
-                        {stationText ?? 'Keine Stationsdaten'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))
+        <OrbitalManagementPanel colonyId={colonyId} />
       )}
-      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      {transfer && selected && (
+        <TransferDialog
+          shipId={selected.id}
+          colonyId={colonyId}
+          colonyName={`Kolonie ${colonyId}`}
+          direction={transfer}
+          onClose={() => setTransfer(null)}
+          onTransfer={() => {}}
+        />
+      )}
+      {selectorOpen && (
+        <OrbitSelectorDialog
+          groups={groups}
+          selectedId={selectedId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setSelectorOpen(false);
+          }}
+          onClose={() => setSelectorOpen(false)}
+        />
+      )}
+    </section>
+  );
+}
+
+function OrbitShipCard({
+  ship,
+  selectable,
+  onOpen,
+  openShip,
+}: {
+  ship: OrbitShip;
+  selectable?: boolean;
+  onOpen?: () => void;
+  openShip?: boolean;
+}) {
+  const content = (
+    <>
+      <div className="mb-1 font-bold text-swu-primary">
+        {ship.name}{' '}
+        <span className="font-normal text-swu-muted">
+          | {ship.canManage ? 'Eigene Flotte' : 'Fremdes Schiff'}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <img
+          src={shipImage(ship.shipClassId, ship.shipClassKey)}
+          alt=""
+          className="h-9 w-16 object-contain"
+        />
+        <Status
+          label="Hülle"
+          value={`${ship.hull}/${ship.hullMax}`}
+          tone="text-green-300"
+        />
+        <Status
+          label="Schilde"
+          value={`${ship.shields}/${ship.shieldsMax}`}
+          tone="text-cyan-300"
+        />
+        <Status
+          label="EPS"
+          value={`${ship.energy}/${ship.energyMax}`}
+          tone="text-yellow-200"
+        />
+        <Status
+          label="Crew"
+          value={`${ship.crew}/${ship.crewMax}`}
+          tone="text-swu-primary"
+        />
+      </div>
+    </>
+  );
+  if (openShip) {
+    return (
+      <Link
+        to={`/spacecraft/${ship.id}`}
+        title={`${ship.name} öffnen`}
+        className="block cursor-pointer p-2 hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-swu-accent"
+      >
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <div
+      className={`p-2 ${selectable ? 'cursor-pointer hover:bg-white/5' : ''}`}
+      onClick={onOpen}
+    >
+      {content}
+    </div>
+  );
+}
+
+function Status({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <span className="border border-swu-border bg-black/30 px-1.5 py-1">
+      <span className="text-swu-muted">{label} </span>
+      <span className={`font-mono ${tone}`}>{value}</span>
+    </span>
+  );
+}
+
+function OrbitSelectorDialog({
+  groups,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  groups: Array<[string, OrbitShip[]]>;
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Schiffe im Orbit auswählen"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="max-h-[80vh] w-full max-w-2xl overflow-y-auto border border-swu-border bg-swu-bg text-xs">
+        <header className="flex items-center justify-between border-b border-swu-border px-3 py-2">
+          <h3 className="font-bold text-swu-primary">Schiffe im Orbit</h3>
+          <button type="button" onClick={onClose}>
+            Schließen
+          </button>
+        </header>
+        {groups.map(([label, ships]) => (
+          <div key={label}>
+            <h4 className="border-b border-swu-border bg-swu-surface px-3 py-1 font-bold text-swu-muted">
+              {label}
+            </h4>
+            {ships.map((ship) => (
+              <button
+                key={ship.id}
+                type="button"
+                onClick={() => onSelect(ship.id)}
+                aria-pressed={ship.id === selectedId}
+                className="block w-full border-b border-swu-border text-left aria-pressed:bg-swu-accent/10"
+              >
+                <OrbitShipCard ship={ship} />
+              </button>
+            ))}
+          </div>
+        ))}
+      </section>
     </div>
   );
 }

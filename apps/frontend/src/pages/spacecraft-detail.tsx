@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import type { SpacecraftDetailDto } from '@swuniverse/shared';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
@@ -8,61 +9,37 @@ import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
 import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessageBar';
 import type { LocalMapResponse } from '../components/spacecraft/LssMap';
 import { ApiError } from '../services/api';
+import { ShipStoragePanel } from '../components/spacecraft/ShipStoragePanel';
+import { NearbySensorPanel } from '../components/spacecraft/NearbySensorPanel';
+import { FieldContextPanel } from '../components/spacecraft/FieldContextPanel';
+import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
+import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
+import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
+import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
+import {
+  spaceBackgroundTile,
+  starTileImage,
+  systemTypeImage,
+} from '../lib/assets';
 
-interface Spacecraft {
-  id: number;
-  name: string;
-  shipClassId: number;
-  shipClassName?: string;
-  shipClassKey?: string | null;
-  isColonizer?: boolean;
-  colonizerTier?: number | null;
-  colonizationBuildingId?: number | null;
-  inSystem?: boolean;
-  currentSystemFieldX?: number | null;
-  currentSystemFieldY?: number | null;
-  status: string;
-  alertState: string;
-  hull: number;
-  hullMax: number;
-  shields: number;
-  shieldsMax: number;
-  energy: number;
-  energyMax: number;
-  epsMax: number;
-  reactorOutput: number;
-  warpdrive: number;
-  warpdriveMax: number;
-  warpSpeed: number;
-  warpCooldown: number;
-  battery: number;
-  batteryMax: number;
-  evadeChance: number;
-  crew: number;
-  crewMax: number;
-  cargoUsed?: number;
-  cargoMax?: number;
-  reactorWarpSplit: number;
-  runtimeSystems?: Record<string, { active: boolean; cooldown: number; integrity: number; current?: number; max?: number }>;
-  moduleCount?: number;
-  fleetName?: string | null;
-  locationLabel?: string;
-  posX: number;
-  posY: number;
-  starSystem?: { id: number; name: string };
-  celestialObject?: { id: number; name: string | null };
-  arrivalAt: string | null;
-}
-
+type Spacecraft = SpacecraftDetailDto;
 
 export function SpacecraftDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [ship, setShip] = useState<Spacecraft | null>(null);
   const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
+  const [fieldContext, setFieldContext] = useState<
+    import('@swuniverse/shared').SpacecraftFieldContextDto | null
+  >(null);
   const [loading, setLoading] = useState(true);
-  const [colonizationMessage, setColonizationMessage] = useState<string | null>(
-    null,
-  );
+  const [selfDestructOpen, setSelfDestructOpen] = useState(false);
+  const [shipInfoOpen, setShipInfoOpen] = useState(false);
+  const [energyFlowOpen, setEnergyFlowOpen] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [sensorsOpen, setSensorsOpen] = useState(false);
+  const [storageVersion, setStorageVersion] = useState(0);
+  const [shipRefreshVersion, setShipRefreshVersion] = useState(0);
 
   const fetchShip = useCallback(async () => {
     const data = await api.get<Spacecraft>(`/spacecraft/${id}`);
@@ -73,6 +50,37 @@ export function SpacecraftDetailPage() {
   useEffect(() => {
     void fetchShip();
   }, [fetchShip]);
+
+  const refreshShipAndStorage = useCallback(async () => {
+    await fetchShip();
+    setStorageVersion((version) => version + 1);
+    setShipRefreshVersion((version) => version + 1);
+  }, [fetchShip]);
+
+  const locationKey = ship
+    ? ship.inSystem
+      ? `system:${ship.starSystem?.id ?? ''}:${ship.currentSystemFieldX ?? ''}:${ship.currentSystemFieldY ?? ''}`
+      : `galaxy:${ship.posX}:${ship.posY}`
+    : '';
+
+  useEffect(() => {
+    if (!ship || !locationKey) return;
+    let current = true;
+    setFieldContext(null);
+    void api
+      .get<import('@swuniverse/shared').SpacecraftFieldContextDto>(
+        `/spacecraft/${ship.id}/field-context`,
+      )
+      .then((data) => {
+        if (current) setFieldContext(data);
+      })
+      .catch(() => {
+        if (current) setFieldContext(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [ship?.id, locationKey]);
 
   useEffect(() => {
     if (ship?.status !== 'IN_FLIGHT') return;
@@ -105,55 +113,227 @@ export function SpacecraftDetailPage() {
       </Link>
 
       <SpacecraftMessageBar shipId={ship.id} />
-      <ShipHeaderTable ship={ship} />
+      <ShipHeaderTable
+        ship={ship}
+        onUpdate={refreshShipAndStorage}
+        onSelfDestruct={() => setSelfDestructOpen(true)}
+        onInfo={() => setShipInfoOpen(true)}
+        onEnergy={() => setEnergyFlowOpen(true)}
+        standby={ship.operatingMode === 'STANDBY'}
+        alertState={ship.alertState}
+        onNavigation={() => setNavigationOpen(true)}
+        onSensors={() => setSensorsOpen(true)}
+        systems={ship.runtimeSystems}
+      >
+        <ShipModulesPanel shipId={ship.id} compact />
+      </ShipHeaderTable>
 
-      <div className="mt-2 grid gap-2 xl:grid-cols-[minmax(360px,0.9fr)_minmax(360px,1.35fr)_minmax(250px,0.75fr)] xl:items-start">
-        <NavigationPanel
-          ship={ship}
-          onShipUpdate={fetchShip}
-          onLocalMapChange={setLocalMap}
-        />
-        <ShipControlCenter
-          shipId={ship.id}
-          status={ship.status}
-          alertState={ship.alertState}
-          shields={ship.shields}
-          shieldsMax={ship.shieldsMax}
-          systems={ship.runtimeSystems}
-          localMap={localMap}
-          onUpdate={fetchShip}
-        />
-        <ReactorPanel
-          shipId={ship.id}
-          energy={ship.energy}
-          energyMax={ship.energyMax}
-          reactorOutput={ship.reactorOutput}
-          warpdrive={ship.warpdrive}
-          warpdriveMax={ship.warpdriveMax}
-          battery={ship.battery}
-          batteryMax={ship.batteryMax}
-          reactorWarpSplit={ship.reactorWarpSplit}
-          onUpdate={fetchShip}
-        />
+      <div className="mt-2 grid gap-2 xl:grid-cols-[minmax(360px,1.2fr)_minmax(300px,0.9fr)_minmax(250px,0.75fr)] xl:items-start">
+        <div id="ship-navigation">
+          <NavigationPanel
+            ship={ship}
+            onShipUpdate={refreshShipAndStorage}
+            onLocalMapChange={setLocalMap}
+          />
+        </div>
+        <div className="space-y-2">
+          <ShipControlCenter
+            shipId={ship.id}
+            systems={ship.runtimeSystems}
+            onUpdate={refreshShipAndStorage}
+          />
+          <FieldContextPanel
+            shipId={ship.id}
+            context={fieldContext}
+            onUpdate={refreshShipAndStorage}
+            canColonize={ship.isColonizer === true}
+            onColonized={(colonyId) =>
+              navigate(`/colonies?selected=${colonyId}`)
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <div id="ship-operations">
+            <ShipOperationsPanel
+              shipId={ship.id}
+              showDetails={shipInfoOpen}
+              onCloseDetails={() => setShipInfoOpen(false)}
+              showEnergy={energyFlowOpen}
+              onCloseEnergy={() => setEnergyFlowOpen(false)}
+            />
+          </div>
+          <div id="ship-reactor">
+            <ReactorPanel
+              shipId={ship.id}
+              energy={ship.energy}
+              energyMax={ship.energyMax}
+              reactorOutput={ship.reactorOutput}
+              warpdrive={ship.warpdrive}
+              warpdriveMax={ship.warpdriveMax}
+              battery={ship.battery}
+              batteryMax={ship.batteryMax}
+              reactorFuel={ship.reactorFuel ?? 0}
+              reactorFuelMax={ship.reactorFuelMax ?? 0}
+              reactorWarpSplit={ship.reactorWarpSplit}
+              hyperdriveActive={ship.runtimeSystems?.WARPDRIVE?.active === true}
+              inSystem={ship.inSystem === true}
+              onUpdate={refreshShipAndStorage}
+            />
+          </div>
+        </div>
       </div>
 
-      {ship.isColonizer && (
-        <ColonizationPanel
-          ship={ship}
-          localMap={localMap}
-          message={colonizationMessage}
-          onMessage={setColonizationMessage}
-          onColonized={fetchShip}
+      {navigationOpen && (
+        <StarMapDialog
+          shipId={ship.id}
+          onClose={() => setNavigationOpen(false)}
         />
       )}
+      <SensorOperationsPanel
+        shipId={ship.id}
+        open={sensorsOpen}
+        onClose={() => setSensorsOpen(false)}
+        onUpdate={refreshShipAndStorage}
+      />
 
+      <SelfDestructPanel
+        shipId={ship.id}
+        shipName={ship.name}
+        destroyed={ship.status === 'DESTROYED'}
+        open={selfDestructOpen}
+        onClose={() => setSelfDestructOpen(false)}
+        onDestroyed={() => navigate('/spacecraft')}
+      />
+
+      <NearbySensorPanel
+        shipId={ship.id}
+        locationKey={locationKey}
+        refreshKey={shipRefreshVersion}
+        systems={ship.runtimeSystems}
+        onUpdate={refreshShipAndStorage}
+      />
       <div className="mt-2">
-        <CargoPanel
-          shipId={ship.id}
-          cargoMax={ship.cargoMax ?? 0}
-          onTransfer={fetchShip}
-        />
+        <div id="ship-storage">
+          <ShipStoragePanel
+            shipId={ship.id}
+            cargoMax={ship.cargoMax ?? 0}
+            refreshKey={storageVersion}
+          />
+        </div>
       </div>
+    </div>
+  );
+}
+
+interface StarMapField {
+  id: number;
+  x: number;
+  y: number;
+  name: string;
+  passable: boolean;
+  fieldTypeKey: string;
+  fieldTypeId: number;
+  systemTypeId?: number | null;
+  tooltip: string;
+}
+
+interface StarMapData {
+  center: { x: number; y: number };
+  fields: StarMapField[];
+}
+
+function StarMapDialog({
+  shipId,
+  onClose,
+}: {
+  shipId: number;
+  onClose: () => void;
+}) {
+  const [map, setMap] = useState<StarMapData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<StarMapData>(
+        `/spacecraft/${shipId}/centred-map?sectionX=0&sectionY=0`,
+      )
+      .then(setMap)
+      .catch((err: unknown) =>
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Sternkarte konnte nicht geladen werden',
+        ),
+      );
+  }, [shipId]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sternkarte"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="max-h-[90vh] w-full max-w-4xl overflow-auto border border-swu-border bg-swu-bg p-3 shadow-xl">
+        <header className="mb-3 flex items-center justify-between border-b border-swu-border pb-2">
+          <h2 className="text-sm font-bold text-swu-primary">Sternkarte</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs text-swu-muted"
+          >
+            Schließen
+          </button>
+        </header>
+        {error ? (
+          <p role="alert" className="text-xs text-red-300">
+            {error}
+          </p>
+        ) : !map ? (
+          <p className="text-xs text-swu-muted">Sternkarte wird geladen…</p>
+        ) : (
+          <div
+            className="grid gap-px bg-swu-border"
+            style={{ gridTemplateColumns: 'repeat(20, minmax(0, 1fr))' }}
+          >
+            {Array.from({ length: 400 }, (_, index) => {
+              const x = map.center.x - 10 + (index % 20);
+              const y = map.center.y - 10 + Math.floor(index / 20);
+              const field = map.fields.find(
+                (entry) => entry.x === x && entry.y === y,
+              );
+              const isShip = x === map.center.x && y === map.center.y;
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  title={field?.tooltip ?? `[${x},${y}] unbekannt`}
+                  className={`relative aspect-square min-w-0 overflow-hidden border border-black/20 ${isShip ? 'z-10 ring-2 ring-emerald-400' : field?.passable ? '' : 'opacity-60'}`}
+                  style={{
+                    backgroundImage: `url(${field?.fieldTypeKey === 'EMPTY_SPACE' ? spaceBackgroundTile(x, y) : field ? starTileImage(field.fieldTypeId) : spaceBackgroundTile(x, y)})`,
+                    backgroundSize: 'cover',
+                  }}
+                >
+                  {field?.systemTypeId && (
+                    <img
+                      src={systemTypeImage(field.systemTypeId)}
+                      alt=""
+                      className="absolute inset-0 size-full object-contain"
+                    />
+                  )}
+                  {isShip && (
+                    <span className="absolute inset-0 grid place-items-center text-sm text-emerald-300">
+                      ◆
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -291,164 +471,6 @@ function ColonizationPanel({
         </ul>
       )}
       {message && <div className="text-[11px] text-swu-accent">{message}</div>}
-    </div>
-  );
-}
-
-interface CargoItemData {
-  id: number;
-  commodityId: number;
-  amount: number;
-}
-
-interface ColonySummary {
-  id: number;
-  name: string;
-}
-
-function CargoPanel({
-  shipId,
-  cargoMax,
-  onTransfer,
-}: {
-  shipId: number;
-  cargoMax: number;
-  onTransfer: () => void;
-}) {
-  const [cargo, setCargo] = useState<CargoItemData[]>([]);
-  const [colonies, setColonies] = useState<ColonySummary[]>([]);
-  const [selectedColony, setSelectedColony] = useState<number | null>(null);
-  const [transferCommodity, setTransferCommodity] = useState<number>(1);
-  const [transferAmount, setTransferAmount] = useState<number>(10);
-  const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.get<CargoItemData[]>(`/spacecraft/${shipId}/cargo`).then(setCargo);
-    api.get<ColonySummary[]>('/colonies').then((c) => {
-      setColonies(c);
-      if (c.length > 0 && !selectedColony) setSelectedColony(c[0].id);
-    });
-  }, [shipId]);
-
-  const handleLoad = async () => {
-    if (!selectedColony) return;
-    setMessage(null);
-    try {
-      await api.post(`/spacecraft/${shipId}/cargo/load`, {
-        colonyId: selectedColony,
-        commodityId: transferCommodity,
-        amount: transferAmount,
-      });
-      const updated = await api.get<CargoItemData[]>(
-        `/spacecraft/${shipId}/cargo`,
-      );
-      setCargo(updated);
-      onTransfer();
-      setMessage('Beladen erfolgreich');
-    } catch (e: unknown) {
-      setMessage(e instanceof Error ? e.message : 'Fehler');
-    }
-  };
-
-  const handleUnload = async () => {
-    if (!selectedColony) return;
-    setMessage(null);
-    try {
-      await api.post(`/spacecraft/${shipId}/cargo/unload`, {
-        colonyId: selectedColony,
-        commodityId: transferCommodity,
-        amount: transferAmount,
-      });
-      const updated = await api.get<CargoItemData[]>(
-        `/spacecraft/${shipId}/cargo`,
-      );
-      setCargo(updated);
-      onTransfer();
-      setMessage('Entladen erfolgreich');
-    } catch (e: unknown) {
-      setMessage(e instanceof Error ? e.message : 'Fehler');
-    }
-  };
-
-  const cargoUsed = cargo.reduce((sum, c) => sum + c.amount, 0);
-
-  return (
-    <div className="bg-swu-surface border border-swu-border rounded-lg p-3">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-          Frachtraum
-        </h3>
-        <span className="text-[10px] text-swu-muted">
-          {cargoUsed}/{cargoMax}
-        </span>
-      </div>
-
-      {cargo.length > 0 ? (
-        <div className="grid grid-cols-4 gap-1 mb-3">
-          {cargo.map((item) => (
-            <div
-              key={item.id}
-              className="bg-swu-bg/50 border border-swu-border/30 rounded px-2 py-1 text-[10px]"
-            >
-              <span className="text-swu-muted">#{item.commodityId}</span>
-              <span className="text-swu-primary font-mono ml-1">
-                {item.amount}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[10px] text-swu-muted mb-3">Frachtraum leer</p>
-      )}
-
-      {colonies.length > 0 && (
-        <div className="border-t border-swu-border/50 pt-2 space-y-2">
-          <div className="flex gap-2 items-center">
-            <select
-              value={selectedColony ?? ''}
-              onChange={(e) => setSelectedColony(Number(e.target.value))}
-              className="flex-1 px-2 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary"
-            >
-              {colonies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={1}
-              value={transferCommodity}
-              onChange={(e) => setTransferCommodity(Number(e.target.value))}
-              className="w-14 px-1 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary text-center"
-              title="Commodity ID"
-            />
-            <input
-              type="number"
-              min={1}
-              value={transferAmount}
-              onChange={(e) => setTransferAmount(Number(e.target.value))}
-              className="w-16 px-1 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary text-center"
-              title="Menge"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => void handleLoad()}
-              className="flex-1 px-2 py-1 rounded border border-green-500/60 bg-green-500/10 text-[10px] font-bold text-green-300 hover:bg-green-500/20"
-            >
-              Beladen
-            </button>
-            <button
-              onClick={() => void handleUnload()}
-              className="flex-1 px-2 py-1 rounded border border-swu-warning/60 bg-swu-warning/10 text-[10px] font-bold text-swu-warning hover:bg-swu-warning/20"
-            >
-              Entladen
-            </button>
-          </div>
-          {message && <p className="text-[10px] text-swu-muted">{message}</p>}
-        </div>
-      )}
     </div>
   );
 }

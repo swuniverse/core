@@ -419,7 +419,7 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "currentSystemFieldY" integer,
         "posX" integer NOT NULL DEFAULT 10,
         "posY" integer NOT NULL DEFAULT 10,
-        "status" varchar NOT NULL DEFAULT 'DOCKED',
+        "status" varchar NOT NULL DEFAULT 'IDLE',
         "alertState" varchar NOT NULL DEFAULT 'GREEN',
         "hull" integer NOT NULL DEFAULT 100,
         "hullMax" integer NOT NULL DEFAULT 100,
