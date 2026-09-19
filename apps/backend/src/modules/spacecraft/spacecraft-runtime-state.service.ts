@@ -1,29 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { SPACECRAFT_RUNTIME_SYSTEM_KEYS } from '@swuniverse/shared';
 import type {
   SpacecraftRuntimeSystemKey,
   SpacecraftRuntimeSystemStateDto,
   SpacecraftRuntimeSystemsDto,
 } from '@swuniverse/shared';
 import { Spacecraft } from './entities/spacecraft.entity';
+import type { SpacecraftModule } from './entities/spacecraft-module.entity';
 
 export type SpacecraftRuntimeSystemState = SpacecraftRuntimeSystemStateDto;
 export type SpacecraftRuntimeSystems = SpacecraftRuntimeSystemsDto;
 export type { SpacecraftRuntimeSystemKey } from '@swuniverse/shared';
-
-const DEFAULT_SYSTEMS: SpacecraftRuntimeSystemKey[] = [
-  'SHIELDS',
-  'REACTOR',
-  'EPS',
-  'WARPDRIVE',
-  'SUBLIGHT_DRIVE',
-  'LONG_RANGE_SENSORS',
-  'SHORT_RANGE_SENSORS',
-  'COMPUTER',
-  'WEAPONS',
-  'TORPEDO_BANK',
-  'SPECIAL',
-  'LIFE_SUPPORT',
-];
 
 @Injectable()
 export class SpacecraftRuntimeStateService {
@@ -37,7 +24,11 @@ export class SpacecraftRuntimeStateService {
       systems.SHORT_RANGE_SENSORS ??= { ...legacy };
       delete (systems as Record<string, unknown>).SENSORS;
     }
-    for (const key of DEFAULT_SYSTEMS) {
+    const availableSystems = this.getAvailableSystems(ship.modules);
+    for (const key of Object.keys(systems) as SpacecraftRuntimeSystemKey[]) {
+      if (!availableSystems.has(key)) delete systems[key];
+    }
+    for (const key of availableSystems) {
       systems[key] ??= {
         active: true,
         cooldown: 0,
@@ -61,6 +52,56 @@ export class SpacecraftRuntimeStateService {
       max: ship.shieldsMax,
     });
     ship.runtimeSystems = systems;
+    return systems;
+  }
+
+  private getAvailableSystems(
+    modules: SpacecraftModule[] | undefined,
+  ): Set<SpacecraftRuntimeSystemKey> {
+    // Life support is a universal ship system. All other runtime systems must
+    // be backed by an installed module, matching STU's system creation model.
+    const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT']);
+    if (!modules) {
+      // Callers that did not load modules retain the legacy state until they
+      // hydrate the ship relation instead of losing runtime information.
+      for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) systems.add(key);
+      return systems;
+    }
+
+    for (const module of modules) {
+      const category = module.category.toUpperCase();
+      const name = module.moduleType.toLowerCase();
+      if (category === 'SHIELDS') systems.add('SHIELDS');
+      if (category === 'COMPUTER') systems.add('COMPUTER');
+      if (category === 'SUBLIGHT_DRIVE' || category === 'SUBLIGHT_ENGINE') {
+        systems.add('SUBLIGHT_DRIVE');
+      }
+      if (category === 'HYPERDRIVE') systems.add('WARPDRIVE');
+      if (category === 'ENERGY_WEAPON' || category === 'WEAPONS') {
+        systems.add('WEAPONS');
+      }
+      if (category === 'TORPEDO_BANK' || category === 'PROJECTILE') {
+        systems.add('TORPEDO_BANK');
+      }
+      if (category === 'SENSORS') {
+        // STU creates both NBS and LSS from its single SENSOR module type.
+        systems.add('LONG_RANGE_SENSORS');
+        systems.add('SHORT_RANGE_SENSORS');
+      }
+      if (category === 'REACTOR' || name.includes('reaktor')) {
+        systems.add('REACTOR');
+      }
+      if (category === 'EPS' || name.includes('energieverteiler')) {
+        systems.add('EPS');
+      }
+      if (
+        category === 'SPECIAL' &&
+        !name.includes('reaktor') &&
+        !name.includes('energieverteiler')
+      ) {
+        systems.add('SPECIAL');
+      }
+    }
     return systems;
   }
 

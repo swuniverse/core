@@ -146,4 +146,34 @@ describe('SpacecraftResourceFlowService', () => {
     service.recharge(ship as never, 2);
     expect(ship.energy).toBe(flow.netEps);
   });
+
+  it('only charges systems created by the ship modules', () => {
+    const service = createService();
+    const ship = makeShip({
+      modules: [
+        { category: 'SENSORS', moduleType: 'Sensorphalanx' },
+        { category: 'SUBLIGHT_DRIVE', moduleType: 'Ion-Triebwerk' },
+      ],
+      runtimeSystems: {
+        WEAPONS: { active: true, cooldown: 0, integrity: 100 },
+        TORPEDO_BANK: { active: true, cooldown: 0, integrity: 100 },
+        SPECIAL: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+
+    const flow = service.calculate(ship as never);
+
+    expect(flow.totalSystemConsumption).toBe(3);
+    expect(flow.systems.map((system) => system.systemKey)).toEqual(
+      expect.arrayContaining([
+        'LIFE_SUPPORT',
+        'LONG_RANGE_SENSORS',
+        'SHORT_RANGE_SENSORS',
+        'SUBLIGHT_DRIVE',
+      ]),
+    );
+    expect(flow.systems.map((system) => system.systemKey)).not.toEqual(
+      expect.arrayContaining(['WEAPONS', 'TORPEDO_BANK', 'SPECIAL']),
+    );
+  });
 });

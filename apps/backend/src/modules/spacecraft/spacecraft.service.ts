@@ -291,7 +291,11 @@ export class SpacecraftService {
     userId: number,
   ): Promise<SpacecraftEnergyFlowDto> {
     const ship = await this.findOne(shipId, userId);
-    return this.spacecraftResourceFlowService.calculate(ship);
+    const shipClass = await this.shipClassService.findById(ship.shipClassId);
+    return this.spacecraftResourceFlowService.calculate(
+      ship,
+      shipClass?.flightEnergyCost ?? 1,
+    );
   }
 
   async getLssMode(shipId: number, userId: number) {
@@ -1409,7 +1413,9 @@ export class SpacecraftService {
       throw new BadRequestException('Already at target position');
     }
 
-    const energyCost = distance * 5;
+    const shipClass = await this.shipClassService.findById(ship.shipClassId);
+    if (!shipClass) throw new NotFoundException('Ship class not found');
+    const energyCost = distance * shipClass.flightEnergyCost;
     this.consumeEps(ship, energyCost, 'navigation');
 
     const previousField = resolveSpacecraftField(ship);
@@ -2754,7 +2760,15 @@ export class SpacecraftService {
   async processTick(ship: Spacecraft): Promise<void> {
     await this.processMovement(ship);
 
-    this.spacecraftResourceFlowService.recharge(ship);
+    const [modules, shipClass] = await Promise.all([
+      this.moduleRepo.find({ where: { spacecraftId: ship.id } }),
+      this.shipClassService.findById(ship.shipClassId),
+    ]);
+    ship.modules = modules;
+    this.spacecraftResourceFlowService.recharge(
+      ship,
+      shipClass?.flightEnergyCost ?? 1,
+    );
 
     if (ship.shields < ship.shieldsMax && ship.energy > 10) {
       const formulas = this.gameData.getCombatFormulas();
@@ -2769,9 +2783,6 @@ export class SpacecraftService {
     }
 
     // Passive module repair (1% integrity per tick)
-    const modules = await this.moduleRepo.find({
-      where: { spacecraftId: ship.id },
-    });
     for (const mod of modules) {
       if (mod.integrity < 100) {
         mod.integrity = Math.min(100, mod.integrity + 1);
