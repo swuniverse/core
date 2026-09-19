@@ -78,7 +78,7 @@ function createService() {
   const userRepo = { find: jest.fn() };
   const gameData = { getCombatFormulas: jest.fn() };
   const shipClassService = {
-    findById: jest.fn(async () => null),
+    findById: jest.fn(async () => ({ flightEnergyCost: 1 })),
     findAll: jest.fn(),
   };
   const explorationService = {
@@ -202,8 +202,34 @@ describe('SpacecraftService movement resources', () => {
 
     await service.navigate(7, 1, 1, 3);
 
-    expect(ship.energy).toBe(10);
+    expect(ship.energy).toBe(18);
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
+  });
+
+  it('uses the STU rump flight cost for every in-system field', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      shipClassId: 42,
+      status: SpacecraftStatus.IDLE,
+      inSystem: true,
+      starSystemId: 3,
+      currentSystemFieldX: 1,
+      currentSystemFieldY: 1,
+      energy: 20,
+      modules: [],
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+    (service as any).shipClassService.findById.mockResolvedValue({
+      flightEnergyCost: 2,
+    });
+
+    await service.navigate(7, 1, 1, 4);
+
+    expect(ship.energy).toBe(14);
   });
 
   it('rejects in-system navigation when EPS is insufficient', async () => {
@@ -216,7 +242,7 @@ describe('SpacecraftService movement resources', () => {
       starSystemId: 3,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
-      energy: 4,
+      energy: 0,
       modules: [],
     });
     systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
@@ -237,6 +263,8 @@ describe('SpacecraftService movement resources', () => {
       inSystem: boolean;
       currentLayerId: number;
       starSystemId?: number;
+      currentSystemFieldX?: number;
+      currentSystemFieldY?: number;
       warpCooldown?: number;
       posX: number;
       posY: number;
@@ -271,6 +299,8 @@ describe('SpacecraftService movement resources', () => {
     ship.status = SpacecraftStatus.IDLE;
     ship.inSystem = true;
     ship.starSystemId = 11;
+    ship.currentSystemFieldX = 1;
+    ship.currentSystemFieldY = 1;
     ship.warpCooldown = 0;
     systemRepo.findOne
       .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
