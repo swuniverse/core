@@ -155,21 +155,20 @@ export function FieldContextPanel({
                 <div className="text-swu-primary">
                   ✦ {context.starSystem.name}
                 </div>
-                {context.starSystem.canLeave && (
-                  <button
-                    type="button"
-                    disabled={leaving}
-                    onClick={() => void leaveSystem()}
-                    className="inline-flex items-center gap-1 text-swu-muted hover:text-swu-accent disabled:opacity-40"
-                  >
-                    <img
-                      src="/assets/buttons/sysleave1.png"
-                      alt=""
-                      className="size-5"
-                    />
-                    System verlassen
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={leaving || !context.starSystem.canLeave}
+                  title={context.starSystem.leaveReason ?? undefined}
+                  onClick={() => void leaveSystem()}
+                  className="inline-flex items-center gap-1 text-swu-muted hover:text-swu-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <img
+                    src="/assets/buttons/sysleave1.png"
+                    alt=""
+                    className="size-5"
+                  />
+                  System verlassen
+                </button>
               </>
             ) : context.information.entrySystem ? (
               <>

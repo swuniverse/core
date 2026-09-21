@@ -93,8 +93,14 @@ function createService() {
   const torpedoService = { getStorage: jest.fn() };
   const resourceFlow = { recharge: jest.fn() };
   const runtimeState = {
-    initialize: jest.fn((ship) => ship.runtimeSystems ?? {}),
-    getSystems: jest.fn(() => ({})),
+    initialize: jest.fn((ship) => {
+      ship.runtimeSystems ??= {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+        WARPDRIVE: { active: true, cooldown: 0, integrity: 100 },
+      };
+      return ship.runtimeSystems;
+    }),
+    getSystems: jest.fn((ship) => ship.runtimeSystems ?? {}),
   };
   const gameGateway = { emitToUser: jest.fn() };
   const destructionService = {
@@ -363,13 +369,9 @@ describe('SpacecraftService movement resources', () => {
     );
   });
 
-  it('blocks galaxy flight when COMPUTER is offline', async () => {
-    const { service, shipRepo, galaxyFieldRepo, runtimeState } =
-      createService();
-    runtimeState.getSystems.mockReturnValue({
-      COMPUTER: { active: false, cooldown: 0, integrity: 100 },
-    });
-    shipRepo.findOne.mockResolvedValue({
+  it('blocks galaxy flight when no hyperdrive is installed', async () => {
+    const { service, shipRepo, runtimeState } = createService();
+    const ship = {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
@@ -378,12 +380,59 @@ describe('SpacecraftService movement resources', () => {
       posX: 1,
       posY: 1,
       warpdrive: 10,
+      runtimeSystems: {},
       modules: [],
-    });
-    galaxyFieldRepo.findOne.mockResolvedValue({ isPassable: true });
-
+    };
+    runtimeState.initialize.mockReturnValue(ship.runtimeSystems);
+    runtimeState.getSystems.mockReturnValue(ship.runtimeSystems);
+    shipRepo.findOne.mockResolvedValue(ship);
     await expect(service.flyGalaxy(7, 1, 4, 1)).rejects.toThrow(
-      'Navigation computer offline',
+      'Kein Hyperantrieb installiert',
+    );
+  });
+
+  it('blocks in-system navigation when no impulse drive is installed', async () => {
+    const { service, shipRepo, runtimeState } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      inSystem: true,
+      starSystemId: 3,
+      currentSystemFieldX: 1,
+      currentSystemFieldY: 1,
+      energy: 20,
+      runtimeSystems: {},
+      modules: [],
+    };
+    runtimeState.initialize.mockReturnValue(ship.runtimeSystems);
+    runtimeState.getSystems.mockReturnValue(ship.runtimeSystems);
+    shipRepo.findOne.mockResolvedValue(ship);
+
+    await expect(service.navigate(7, 1, 1, 2)).rejects.toThrow(
+      'Kein Impulsantrieb installiert',
+    );
+  });
+
+  it('blocks leaving a system when no hyperdrive is installed', async () => {
+    const { service, shipRepo, runtimeState } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      inSystem: true,
+      starSystemId: 3,
+      currentSystemFieldX: 5,
+      currentSystemFieldY: 5,
+      runtimeSystems: {},
+      modules: [],
+    };
+    runtimeState.initialize.mockReturnValue(ship.runtimeSystems);
+    runtimeState.getSystems.mockReturnValue(ship.runtimeSystems);
+    shipRepo.findOne.mockResolvedValue(ship);
+
+    await expect(service.leaveSystem(7, 1)).rejects.toThrow(
+      'Kein Hyperantrieb installiert',
     );
   });
 });

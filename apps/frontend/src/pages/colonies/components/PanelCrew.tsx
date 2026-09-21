@@ -152,7 +152,8 @@ export function PanelCrew({
                 <div>
                   <div className="text-swu-primary">{ship.name}</div>
                   <div className="text-[10px] text-swu-muted">
-                    Crew {ship.crew}/{ship.crewRequired} · Max {ship.crewMax}
+                    Crew {ship.crew} ({ship.crewRequired},{ship.crewMax || 'kA'}
+                    )
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -188,9 +189,7 @@ export function PanelCrew({
                 className="flex justify-between border-b border-swu-border/20 pb-1 last:border-0 last:pb-0"
               >
                 <span className="text-swu-primary">{job.amount} Crew</span>
-                <span className="text-swu-muted">
-                  nächster Tick
-                </span>
+                <span className="text-swu-muted">nächster Tick</span>
               </div>
             ))}
           </div>

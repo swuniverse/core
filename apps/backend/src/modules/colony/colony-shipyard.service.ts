@@ -21,6 +21,7 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
+import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOrbitService } from './colony-orbit.service';
@@ -410,13 +411,33 @@ export class ColonyShipyardService {
     shipClass: ShipClassDef,
     moduleSelections: ShipModuleSelection[],
   ): number {
-    const moduleCrew = moduleSelections.reduce((sum, selection) => {
+    const modules = moduleSelections.flatMap((selection) => {
       const item = this.gameData.getFabricationItemByOutputCommodity(
         selection.commodityId,
       );
-      return sum + (item?.shipyardModuleStats?.crew ?? 0);
-    }, 0);
-    return Math.max(0, (shipClass.crewMin || 0) + moduleCrew);
+      return item?.moduleType
+        ? [
+            {
+              moduleType: item.moduleType,
+              level: item.moduleLevel ?? 1,
+            } as SpacecraftModule,
+          ]
+        : [];
+    });
+    return Math.max(
+      0,
+      shipClass.crewMin +
+        modules.reduce((sum, module) => {
+          const item = this.gameData
+            .getAllFabricationItems()
+            .find(
+              (candidate) =>
+                candidate.moduleType === module.moduleType &&
+                candidate.moduleLevel === module.level,
+            );
+          return sum + (item?.shipyardModuleStats?.crew ?? 0);
+        }, 0),
+    );
   }
 
   private normalizeInstalledModuleSelections(
@@ -1407,6 +1428,13 @@ export class ColonyShipyardService {
       );
     }
     this.spacecraftStatsService.applyStats(savedShip, shipClass, modules);
+    savedShip.crewRequired = this.calculateCrewRequired(
+      shipClass,
+      job.moduleSelections ?? [],
+    );
+    savedShip.crewMax = Math.max(savedShip.crewMax, savedShip.crewRequired);
+    savedShip.modules = modules;
+    initializeSpacecraftRuntimeSystems(savedShip);
     await this.shipRepo.save(savedShip);
     job.status = ColonyShipBuildQueueStatus.COMPLETED;
     await this.shipBuildQueueRepo.save(job);
@@ -1560,6 +1588,13 @@ export class ColonyShipyardService {
 
     const finalModules = [...modulesToKeep, ...createdModules];
     this.spacecraftStatsService.applyStats(ship, shipClass, finalModules);
+    ship.crewRequired = this.calculateCrewRequired(
+      shipClass,
+      desiredSelections,
+    );
+    ship.crewMax = Math.max(ship.crewMax, ship.crewRequired);
+    ship.modules = finalModules;
+    initializeSpacecraftRuntimeSystems(ship);
     await this.shipRepo.save(ship);
     job.retrofitSnapshot = {
       oldModuleSelections: job.retrofitSnapshot?.oldModuleSelections ?? [],

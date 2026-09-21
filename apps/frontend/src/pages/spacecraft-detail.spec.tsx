@@ -46,6 +46,7 @@ const ship = {
   batteryMax: 10,
   evadeChance: 0,
   crew: 4,
+  crewRequired: 2,
   crewMax: 8,
   cargoUsed: 0,
   cargoMax: 20,

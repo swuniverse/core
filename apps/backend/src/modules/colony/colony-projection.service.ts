@@ -133,6 +133,21 @@ export class ColonyProjectionService {
     });
   }
 
+  private getHangarCrewRequired(
+    shipClass: ShipClassDef,
+    hangarDef: HangarShipDef,
+  ): number {
+    return Math.max(
+      0,
+      shipClass.crewMin +
+        hangarDef.defaultModuleCommodityIds.reduce((sum, commodityId) => {
+          const item =
+            this.gameData.getFabricationItemByOutputCommodity(commodityId);
+          return sum + (item?.shipyardModuleStats?.crew ?? 0);
+        }, 0),
+    );
+  }
+
   private getHangarBuildCosts(
     hangarDef: HangarShipDef,
     amount: number,
@@ -727,12 +742,12 @@ export class ColonyProjectionService {
         effects: this.buildEffectSummary(summary),
         orbitShips: orbitShips.map((ship) => {
           const shipClass = orbitShipClassMap.get(ship.shipClassId);
-          const crewRequired = shipClass?.crewMin ?? 0;
           const canManage = this.colonyOrbitService.canManageOrbitShip(
             colony,
             ship,
           );
           const modules = modulesByShipId.get(ship.id) ?? [];
+          const crewRequired = Math.max(0, ship.crewRequired ?? 0);
           const cargo = cargoByShipId.get(ship.id) ?? [];
           const normalizedModuleSelections =
             this.normalizeInstalledModuleSelections(shipClass, modules);
@@ -1141,7 +1156,7 @@ export class ColonyProjectionService {
             buildCosts: this.getHangarBuildCosts(hangarDef, 1),
             defaultModules: this.defaultModuleSummaries(hangarDef),
             maxBuildable: this.maxBuildableHangarAmount(colony, hangarDef),
-            crewRequired: shipClass.crewMin,
+            crewRequired: hangarDef.crewRequired,
           })),
           startable: startableHangarShips.map(
             ({ shipClass, hangarDef, amount }) => ({
@@ -1153,7 +1168,7 @@ export class ColonyProjectionService {
               amount,
               startEnergyCost: hangarDef.startEnergyCost,
               defaultModules: this.defaultModuleSummaries(hangarDef),
-              crewRequired: shipClass.crewMin,
+              crewRequired: hangarDef.crewRequired,
             }),
           ),
           landableOrbitShips: orbitShips
