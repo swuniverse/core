@@ -166,7 +166,7 @@ export function PanelOrbit({
           colonyName={`Kolonie ${colonyId}`}
           direction={transfer}
           onClose={() => setTransfer(null)}
-          onTransfer={() => {}}
+          onTransfer={() => setTransfer(null)}
         />
       )}
       {selectorOpen && (
