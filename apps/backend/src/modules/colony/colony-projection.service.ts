@@ -133,21 +133,6 @@ export class ColonyProjectionService {
     });
   }
 
-  private getHangarCrewRequired(
-    shipClass: ShipClassDef,
-    hangarDef: HangarShipDef,
-  ): number {
-    return Math.max(
-      0,
-      shipClass.crewMin +
-        hangarDef.defaultModuleCommodityIds.reduce((sum, commodityId) => {
-          const item =
-            this.gameData.getFabricationItemByOutputCommodity(commodityId);
-          return sum + (item?.shipyardModuleStats?.crew ?? 0);
-        }, 0),
-    );
-  }
-
   private getHangarBuildCosts(
     hangarDef: HangarShipDef,
     amount: number,
@@ -746,6 +731,13 @@ export class ColonyProjectionService {
             colony,
             ship,
           );
+          const landReason = !canManage
+            ? 'Schiff ist nicht im eigenen Kolonieorbit'
+            : !hasAirfield
+              ? 'Aktiver Raumhafen erforderlich'
+              : !shipClass || !this.getHangarDefForShipClass(shipClass)
+                ? 'Schiff kann nicht im Hangar landen'
+                : null;
           const modules = modulesByShipId.get(ship.id) ?? [];
           const crewRequired = Math.max(0, ship.crewRequired ?? 0);
           const cargo = cargoByShipId.get(ship.id) ?? [];
@@ -830,11 +822,8 @@ export class ColonyProjectionService {
             crewRequired,
             crewMax: ship.crewMax,
             hasEnoughCrew: crewRequired <= 0 || ship.crew >= crewRequired,
-            canLand:
-              canManage &&
-              hasAirfield &&
-              !!shipClass &&
-              !!this.getHangarDefForShipClass(shipClass),
+            canLand: landReason == null,
+            landReason,
             canDisassemble:
               canManage &&
               getColonyChangeable(colony).energy >= 20 &&

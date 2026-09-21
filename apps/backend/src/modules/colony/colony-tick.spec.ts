@@ -1091,6 +1091,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     getInTrainingCount: jest.fn(async () => 0),
     getFreeAssignmentCount: jest.fn(async () => 999),
     getAssignedCount: jest.fn(async () => 0),
+    getAssignedToShipCount: jest.fn(async () => 0),
     getAvailableColonyCrew: jest.fn(async () => [
       { crewId: 1 },
       { crewId: 2 },
@@ -1104,6 +1105,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     assignCrewToShip: jest.fn(async () => undefined),
     returnCrewToColony: jest.fn(async () => undefined),
     transferCrewFromShipToColony: jest.fn(async () => undefined),
+    landCrewWithShip: jest.fn(async () => undefined),
     removeExcessColonyCrew: jest.fn(async () => 0),
     createCrewOnColony: jest.fn(async () => []),
     getAssignedToColonyCount: jest.fn(async () => 0),
@@ -4712,10 +4714,9 @@ describe('orbit ship operations', () => {
 
     await service.landShip(1, 1, 7);
 
-    expect(colonyCrewService.transferCrewFromShipToColony).toHaveBeenCalledWith(
+    expect(colonyCrewService.landCrewWithShip).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
       expect.objectContaining({ id: 7 }),
-      2,
     );
     expect(shipRepo.remove).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7 }),
@@ -4758,6 +4759,7 @@ describe('orbit ship operations', () => {
       key: 'REBEL_SHUTTLE_LAAT',
     });
     colonyCrewService.getFreeAssignmentCount.mockResolvedValue(1);
+    colonyCrewService.getAssignedToShipCount.mockResolvedValue(3);
 
     await expect(service.landShip(1, 1, 7)).rejects.toThrow(
       'Not enough colony crew capacity',
@@ -6655,6 +6657,34 @@ describe('airfield hangar loop', () => {
     expect(storage[21401].amount).toBe(1);
   });
 
+  it('stores four built hangar rumps exactly once', async () => {
+    const { service, colonyRepo, shipClassRepo, storageRepo } =
+      createColonyService();
+    const colony = { ...airfieldColony(), energy: 500 };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+    const storage: Record<number, any> = Object.fromEntries(
+      [10201, 10301, 10401, 10501, 10701, 10801].map((commodityId) => [
+        commodityId,
+        { colonyId: 1, commodityId, amount: 4 },
+      ]),
+    );
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => storage[where.commodityId] ?? null,
+    );
+    storageRepo.create.mockImplementation((value: any) => {
+      storage[value.commodityId] = { ...value };
+      return storage[value.commodityId];
+    });
+
+    await service.buildAirfieldRump(1, 1, 1, 4);
+
+    expect(storage[21401].amount).toBe(4);
+    expect(
+      colony.storage.find((item: any) => item.commodityId === 21401)?.amount,
+    ).toBe(4);
+  });
+
   it('rejects hangar rump construction without default modules', async () => {
     const { service, colonyRepo, shipClassRepo, storageRepo } =
       createColonyService();
@@ -6833,10 +6863,9 @@ describe('airfield hangar loop', () => {
     await service.landShip(1, 1, 7);
 
     expect(storage[21401].amount).toBe(1);
-    expect(colonyCrewService.transferCrewFromShipToColony).toHaveBeenCalledWith(
+    expect(colonyCrewService.landCrewWithShip).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
       expect.objectContaining({ id: 7 }),
-      2,
     );
     expect(shipRepo.remove).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7 }),

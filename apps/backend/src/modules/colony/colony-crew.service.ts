@@ -89,6 +89,10 @@ export class ColonyCrewService {
     return this.crewAssignmentRepo.count({ where: { colonyId } });
   }
 
+  async getAssignedToShipCount(spacecraftId: number): Promise<number> {
+    return this.crewAssignmentRepo.count({ where: { spacecraftId } });
+  }
+
   async getCrewCountsByColonyIds(
     colonyIds: number[],
   ): Promise<Map<number, number>> {
@@ -274,6 +278,28 @@ export class ColonyCrewService {
       changeable.trainedCrew = colonyAssigned + amount;
       await manager.save(changeable);
     });
+  }
+
+  async landCrewWithShip(colony: Colony, ship: Spacecraft): Promise<void> {
+    assertOwnedColony(colony);
+    this.assertSameOwnerAndLocation(colony, ship);
+    const assignments = await this.crewAssignmentRepo.find({
+      where: { userId: colony.userId!, spacecraftId: ship.id },
+      order: { crewId: 'ASC' },
+    });
+    const colonyAssigned = await this.getAssignedToColonyCount(colony.id);
+    if (colonyAssigned + assignments.length > this.getLocalCrewLimit(colony)) {
+      throw new BadRequestException('Not enough crew capacity on colony');
+    }
+    for (const assignment of assignments) {
+      assignment.spacecraftId = null;
+      assignment.colonyId = colony.id;
+    }
+    if (assignments.length > 0) {
+      await this.crewAssignmentRepo.save(assignments);
+    }
+    ship.crew = 0;
+    await this.refreshColonyCrewCache(colony);
   }
 
   private async transferCrewFromShipToColonyLegacy(
