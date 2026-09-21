@@ -152,7 +152,9 @@ function createService() {
     } as any,
     {
       getAssignedCrew: jest.fn(async () => []),
+      getAssignedCrewCount: jest.fn(async () => 0),
       hasEnoughCrew: jest.fn(async () => true),
+      getRequiredCrew: jest.fn(async () => 1),
     } as any,
     {} as any,
     resourceFlow as any,
@@ -160,6 +162,17 @@ function createService() {
     { emitToUser: jest.fn() } as any,
     {} as any,
     { saveUnlessDestroyed: jest.fn(async () => true) } as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {
+      apply: jest.fn(() => ({
+        applied: true,
+        systems: ship.runtimeSystems,
+        rejections: [],
+        messages: [],
+      })),
+    } as any,
   );
   jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);
   jest.spyOn(service, 'getSensorRange').mockResolvedValue(3);
@@ -208,5 +221,33 @@ describe('spacecraft core detail controls', () => {
     expect(details.effectiveStats?.sensorRange).toBe(3);
     await service.getEnergyFlow(2, 1);
     expect(resourceFlow.calculate).toHaveBeenCalled();
+  });
+
+  it('allows Icarus sensor activation without crew when STU crew requirement is zero', async () => {
+    const { service, ship } = createService();
+    ship.crew = 0;
+    ship.crewRequired = 0;
+    ship.modules = [
+      {
+        moduleType: 'Sensorphalanx',
+        category: 'SENSORS',
+        level: 1,
+        isActive: true,
+        integrity: 100,
+      },
+    ];
+    ship.runtimeSystems = {
+      LONG_RANGE_SENSORS: { active: false, cooldown: 0, integrity: 100 },
+    };
+    (
+      service as any
+    ).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(0);
+    (service as any).spacecraftCrewService.getRequiredCrew.mockImplementation(
+      async (candidate: any) => candidate.crewRequired,
+    );
+
+    await expect(
+      service.toggleSystem(2, 1, 'LONG_RANGE_SENSORS', true),
+    ).resolves.toEqual(expect.objectContaining({ systems: expect.anything() }));
   });
 });

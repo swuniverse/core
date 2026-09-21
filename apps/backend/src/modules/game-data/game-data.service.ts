@@ -273,6 +273,7 @@ export interface ShipyardRumpStatsDef {
   stuName: string;
   moduleLevel: number;
   baseCrew: number;
+  maxCrew: number;
   baseEps: number;
   baseReactor: number;
   baseHull: number;
@@ -283,6 +284,12 @@ export interface ShipyardRumpStatsDef {
   baseHitChance: number;
   baseWarpdrive: number;
   specialSlots: number;
+}
+
+export interface ShipyardRumpCrewDef {
+  stuRumpId: number;
+  baseCrew: number;
+  maxCrew: number;
 }
 
 export interface ShipyardRumpModuleRuleDef {
@@ -349,6 +356,7 @@ export interface ShipClassSlotRuleDef {
 
 export interface HangarShipDef {
   shipClassKey: string;
+  crewRequired: number;
   hangarCommodityId: number;
   displayName: string;
   airfieldFunctionId: number;
@@ -358,6 +366,11 @@ export interface HangarShipDef {
   defaultModuleCommodityIds: number[];
   defaultTorpedoCommodityId: number | null;
   defaultTorpedoAmount: number;
+}
+
+export interface ShipyardRumpSpecialDef {
+  stuRumpId: number;
+  fullyLoadedStart: boolean;
 }
 
 export interface ShipClassYamlDef {
@@ -462,6 +475,9 @@ export class GameDataService implements OnModuleInit {
   private moduleStatsByOutputCommodity: Map<number, ShipyardModuleStatsDef> =
     new Map();
   private rumpStatsByStuRumpId: Map<number, ShipyardRumpStatsDef> = new Map();
+  private rumpCrewByStuRumpId: Map<number, ShipyardRumpCrewDef> = new Map();
+  private rumpSpecialsByStuRumpId: Map<number, ShipyardRumpSpecialDef> =
+    new Map();
   private rumpModuleRulesByStuRumpId: Map<number, ShipyardRumpModuleRulesDef> =
     new Map();
   private weaponShieldModifiers: WeaponShieldModifierDef[] = [];
@@ -487,6 +503,8 @@ export class GameDataService implements OnModuleInit {
     this.loadModules();
     this.loadShipyardModuleStats();
     this.loadShipyardRumpStats();
+    this.loadShipyardRumpCrew();
+    this.loadShipyardRumpSpecials();
     this.loadShipyardRumpModuleRules();
     this.loadFabricationItems();
 
@@ -707,6 +725,29 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadShipyardRumpCrew() {
+    const data = this.loadYaml<{ rumpCrew: ShipyardRumpCrewDef[] }>(
+      'ship-building/stu-rump-crew.yaml',
+    );
+    for (const crew of data?.rumpCrew ?? []) {
+      this.rumpCrewByStuRumpId.set(crew.stuRumpId, crew);
+    }
+    if (this.rumpCrewByStuRumpId.size > 0) {
+      this.logger.log(
+        `Loaded ${this.rumpCrewByStuRumpId.size} shipyard rump crew rows`,
+      );
+    }
+  }
+
+  private loadShipyardRumpSpecials() {
+    const data = this.loadYaml<{
+      rumpSpecials: ShipyardRumpSpecialDef[];
+    }>('ship-building/stu-rump-specials.yaml');
+    for (const special of data?.rumpSpecials ?? []) {
+      this.rumpSpecialsByStuRumpId.set(special.stuRumpId, special);
+    }
+  }
+
   private loadShipyardRumpModuleRules() {
     const data = this.loadYaml<{
       rumpModuleRules: ShipyardRumpModuleRulesDef[];
@@ -862,12 +903,17 @@ export class GameDataService implements OnModuleInit {
     for (const def of data?.hangarShips ?? []) {
       const shipClass = this.getShipClassDefByKey(def.shipClassKey);
       const sourceCosts = shipClass?.buildCosts ?? [];
-      def.buildCosts = sourceCosts.filter((cost) => cost.commodityId < 10_000);
-      def.defaultModuleCommodityIds = sourceCosts
-        .filter((cost) => cost.commodityId >= 10_000)
-        .flatMap((cost) =>
-          Array.from({ length: cost.amount }, () => cost.commodityId),
-        );
+      def.buildCosts =
+        def.buildCosts.length > 0
+          ? def.buildCosts
+          : sourceCosts.filter((cost) => cost.commodityId < 10_000);
+      if (def.defaultModuleCommodityIds.length === 0) {
+        def.defaultModuleCommodityIds = sourceCosts
+          .filter((cost) => cost.commodityId >= 10_000)
+          .flatMap((cost) =>
+            Array.from({ length: cost.amount }, () => cost.commodityId),
+          );
+      }
       def.defaultTorpedoCommodityId ??= null;
       def.defaultTorpedoAmount ??= 0;
       this.hangarShipDefsByClassKey.set(def.shipClassKey, def);
@@ -884,7 +930,12 @@ export class GameDataService implements OnModuleInit {
     const data = this.loadYaml<{ shipClasses: ShipClassYamlDef[] }>(
       'ship-building/ship-classes.yaml',
     );
-    this.shipClassDefs = data?.shipClasses ?? [];
+    this.shipClassDefs = (data?.shipClasses ?? []).map((definition) => {
+      const crew = this.getShipyardRumpCrew(definition.stuRumpId);
+      return crew
+        ? { ...definition, crewMin: crew.baseCrew, crewMax: crew.maxCrew }
+        : definition;
+    });
     if (this.shipClassDefs.length > 0) {
       this.logger.log(
         `Loaded ${this.shipClassDefs.length} ship class definitions`,
@@ -1174,6 +1225,21 @@ export class GameDataService implements OnModuleInit {
     return stuRumpId == null
       ? undefined
       : this.rumpStatsByStuRumpId.get(stuRumpId);
+  }
+
+  getShipyardRumpCrew(
+    stuRumpId?: number | null,
+  ): ShipyardRumpCrewDef | undefined {
+    return stuRumpId == null
+      ? undefined
+      : this.rumpCrewByStuRumpId.get(stuRumpId);
+  }
+
+  hasFullyLoadedStart(stuRumpId?: number | null): boolean {
+    return (
+      stuRumpId != null &&
+      this.rumpSpecialsByStuRumpId.get(stuRumpId)?.fullyLoadedStart === true
+    );
   }
 
   getShipyardModuleStats(

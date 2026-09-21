@@ -31,6 +31,7 @@ const ship = {
   warpSpeed: 2,
   warpCooldown: 0,
   crew: 4,
+  crewRequired: 2,
   crewMax: 8,
   posX: 12,
   posY: 13,
@@ -66,6 +67,7 @@ describe('ShipHeaderTable', () => {
     expect(screen.getByText('Korvette')).toBeTruthy();
     expect(screen.getAllByText('90/100').length).toBeGreaterThan(0);
     expect(screen.getAllByText('8/20').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('4 (2,8)').length).toBeGreaterThan(0);
     expect(screen.getAllByText('40/50')[0].className).toContain(
       'text-cyan-400',
     );
@@ -110,6 +112,25 @@ describe('ShipHeaderTable', () => {
       }),
     );
     expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('uses STU unknown-capacity notation for the Icarus', () => {
+    render(
+      <ShipHeaderTable
+        ship={{ ...ship, crew: 0, crewRequired: 0, crewMax: 0 }}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('0 (0,kA)').length).toBeGreaterThan(0);
+    expect(screen.getByTitle('aktuell (Minimum, Maximum)')).toBeTruthy();
   });
 
   it('uses consistent framed 24px runtime-system icons', () => {

@@ -87,6 +87,7 @@ export interface SpacecraftDetailDto {
   reactorFuelMax: number;
   evadeChance: number;
   crew: number;
+  crewRequired?: number;
   crewMax: number;
   cargoUsed?: number;
   cargoMax?: number;
@@ -267,7 +268,12 @@ export interface SpacecraftNearbyTargetDto {
 
 export interface SpacecraftFieldContextDto {
   coordinates: { x: number; y: number };
-  starSystem: { id: number; name: string; canLeave: boolean } | null;
+  starSystem: {
+    id: number;
+    name: string;
+    canLeave: boolean;
+    leaveReason: string | null;
+  } | null;
   colony: {
     id: number;
     name: string;

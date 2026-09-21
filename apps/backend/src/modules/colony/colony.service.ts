@@ -30,6 +30,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
+import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
 import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 import { GameDataService, HangarShipDef } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
@@ -991,10 +992,10 @@ export class ColonyService {
         `Not enough energy: need ${hangarDef.startEnergyCost}, have ${changeable.energy}`,
       );
     }
+    const crewRequired = hangarDef.crewRequired;
     const availableCrew = await this.colonyCrewService.getAvailableColonyCrew(
       colony.id,
     );
-    const crewRequired = Math.max(0, shipClass.crewMin || 0);
     if (availableCrew.length < crewRequired) {
       throw new BadRequestException(
         `Not enough trained crew: need ${crewRequired}, have ${availableCrew.length}`,
@@ -1023,8 +1024,9 @@ export class ColonyService {
       name?.trim() || shipClass.name,
     );
     ship.crew = crewRequired;
+    ship.crewRequired = crewRequired;
     const savedShip = await this.shipRepo.save(ship);
-    const modules = await this.createDefaultModulesForHangarShip(
+    const installedModules = await this.createDefaultModulesForHangarShip(
       savedShip.id,
       hangarDef,
     );
@@ -1068,7 +1070,22 @@ export class ColonyService {
         }
       }
     }
-    this.spacecraftStatsService.applyStats(savedShip, shipClass, modules);
+    this.spacecraftStatsService.applyStats(
+      savedShip,
+      shipClass,
+      installedModules,
+    );
+    savedShip.crewRequired = hangarDef.crewRequired;
+    savedShip.crewMax = Math.max(savedShip.crewMax, savedShip.crewRequired);
+    if (
+      this.gameData.hasFullyLoadedStart(
+        this.gameData.getShipClassDefByKey(shipClass.key)?.stuRumpId,
+      )
+    ) {
+      this.spacecraftStatsService.fillResources(savedShip);
+    }
+    savedShip.modules = installedModules;
+    initializeSpacecraftRuntimeSystems(savedShip);
     await this.shipRepo.save(savedShip);
     return this.findOne(colonyId, userId);
   }

@@ -3,7 +3,9 @@ import { GameDataService } from './game-data.service';
 
 process.env.GAME_DATA_PATH = path.resolve(
   process.cwd(),
-  process.cwd().endsWith('apps/backend') ? '../../game-data/data' : 'game-data/data',
+  process.cwd().endsWith('apps/backend')
+    ? '../../game-data/data'
+    : 'game-data/data',
 );
 
 const FUNCTIONS = {
@@ -465,9 +467,11 @@ describe('GameDataService hangar ship definitions', () => {
     expect(service.getHangarShipDef('REBEL_SHUTTLE_LAAT')).toMatchObject({
       hangarCommodityId: 21401,
       airfieldFunctionId: FUNCTIONS.AIRFIELD,
-      startEnergyCost: 90,
+      startEnergyCost: 150,
       buildEnergyCost: 90,
-      defaultModuleCommodityIds: [10101, 10201, 10301, 10401, 10501, 10601, 10701, 10801],
+      defaultModuleCommodityIds: [
+        10101, 10201, 10301, 10401, 10501, 10601, 11901, 10901, 10701, 10801,
+      ],
     });
     expect(service.getHangarShipDefByCommodity(21401)).toMatchObject({
       shipClassKey: 'REBEL_SHUTTLE_LAAT',
@@ -476,7 +480,33 @@ describe('GameDataService hangar ship definitions', () => {
 
     expect(service.getHangarShipDef('REBEL_FIGHTER_X_WING')).toMatchObject({
       hangarCommodityId: 21201,
-      defaultModuleCommodityIds: [10101, 10201, 10301, 10401, 10501, 10601, 11701, 10801],
+      defaultModuleCommodityIds: [
+        10101, 10201, 10301, 10401, 10501, 10601, 11901, 10901, 11701, 10801,
+      ],
+    });
+  });
+
+  it('loads STU hangar buildplans for colonizers, freighters and workbees', () => {
+    expect(service.getHangarShipDef('REBEL_COLONIZER_ICARUS')).toMatchObject({
+      startEnergyCost: 125,
+      crewRequired: 0,
+      defaultModuleCommodityIds: [
+        10101, 10201, 10301, 10401, 10501, 10601, 10901,
+      ],
+    });
+    expect(service.hasFullyLoadedStart(1501)).toBe(true);
+    expect(service.hasFullyLoadedStart(1503)).toBe(true);
+    expect(service.hasFullyLoadedStart(6701)).toBe(false);
+    expect(service.getHangarShipDef('REBEL_FREIGHTER_YT')).toMatchObject({
+      startEnergyCost: 150,
+      crewRequired: 2,
+      defaultModuleCommodityIds: [
+        10101, 10201, 10301, 10401, 10501, 10601, 10901,
+      ],
+    });
+    expect(service.getHangarShipDef('REBEL_WORKBEE_DROID')).toMatchObject({
+      startEnergyCost: 10,
+      defaultModuleCommodityIds: [10101, 10301, 11901, 10601],
     });
   });
 
@@ -541,6 +571,42 @@ describe('GameDataService ship class slot rules', () => {
     });
   });
 
+  it('keeps every SWU ship class linked to its STU rump data and module rules', () => {
+    const definitions = service.getShipClassDefs();
+    expect(definitions).toHaveLength(42);
+
+    for (const definition of definitions) {
+      expect(definition.stuRumpId).toBeDefined();
+      expect(service.getShipyardRumpStats(definition.stuRumpId)).toMatchObject({
+        baseEps: definition.epsBase,
+        baseReactor: definition.reactorBase,
+        baseHull: definition.hullBase,
+        baseShield: definition.shieldBase,
+        baseSensorRange: definition.sensorRangeBase,
+        baseWarpdrive: definition.warpdriveBase,
+      });
+      expect(service.getShipyardRumpCrew(definition.stuRumpId)).toMatchObject({
+        baseCrew: definition.crewMin,
+        maxCrew: definition.crewMax,
+      });
+      expect(
+        service.getShipyardRumpModuleRules(definition.stuRumpId),
+      ).toBeDefined();
+    }
+  });
+
+  it('uses only STU-compatible modules in each hangar buildplan', () => {
+    for (const hangar of service.getAllHangarShipDefs()) {
+      const shipClass = service.getShipClassDefByKey(hangar.shipClassKey)!;
+      for (const commodityId of hangar.defaultModuleCommodityIds) {
+        const item = service.getFabricationItemByOutputCommodity(commodityId);
+        expect(item).toBeDefined();
+        expect(
+          service.isShipyardModuleAllowedForShipClass(item!, shipClass),
+        ).toBe(true);
+      }
+    }
+  });
 });
 
 describe('GameDataService building function mapping', () => {

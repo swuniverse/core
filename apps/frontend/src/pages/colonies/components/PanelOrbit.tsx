@@ -187,7 +187,7 @@ function OrbitShipCard({
         />
         <Status
           label="Crew"
-          value={`${ship.crew}/${ship.crewMax}`}
+          value={`${ship.crew} (${ship.crewRequired ?? 0},${ship.crewMax || 'kA'})`}
           tone="text-swu-primary"
         />
       </div>

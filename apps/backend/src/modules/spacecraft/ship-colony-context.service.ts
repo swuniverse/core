@@ -117,7 +117,7 @@ export class ShipColonyContextService {
         }),
         this.shipClassRepo.findOneBy({ id: ship.shipClassId }),
       ]);
-      const shipMinimum = shipClass?.crewMin ?? 1;
+      const shipMinimum = await this.crewService.getRequiredCrew(ship);
       return {
         available: true,
         reason: null,

@@ -40,6 +40,7 @@ import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
 import {
+  getRuntimeSystemsForModule,
   SpacecraftRuntimeStateService,
   SpacecraftRuntimeSystemKey,
 } from './spacecraft-runtime-state.service';
@@ -231,11 +232,13 @@ export class SpacecraftService {
     userId: number,
   ): Promise<SpacecraftDetailDto> {
     const ship = await this.findOne(shipId, userId);
-    const [crewRoster, shipClass, sensorRange] = await Promise.all([
-      this.spacecraftCrewService.getAssignedCrew(ship.id),
-      this.shipClassService.findById(ship.shipClassId),
-      this.getSensorRange(ship),
-    ]);
+    const [crewRoster, shipClass, sensorRange, crewRequired] =
+      await Promise.all([
+        this.spacecraftCrewService.getAssignedCrew(ship.id),
+        this.shipClassService.findById(ship.shipClassId),
+        this.getSensorRange(ship),
+        this.spacecraftCrewService.getRequiredCrew(ship),
+      ]);
     const effective = shipClass
       ? this.spacecraftStatsService.calculateStats(
           shipClass,
@@ -247,11 +250,14 @@ export class SpacecraftService {
       SpacecraftOperatingMode.STANDBY;
     return {
       ...ship,
+      crew: crewRoster.length,
+      crewMax: effective?.crewMax ?? ship.crewMax,
       operatingMode: ship.operatingMode ?? SpacecraftOperatingMode.NORMAL,
       alertState: ship.alertState,
       arrivalAt: ship.arrivalAt?.toISOString() ?? null,
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(ship),
       crewRoster,
+      crewRequired,
       effectiveStats: effective
         ? {
             hullMax: effective.hullMax,
@@ -512,7 +518,7 @@ export class SpacecraftService {
     if (active) {
       if (system.integrity <= 0)
         throw new BadRequestException('System zerstört');
-      this.assertCrewForActivation(ship, systemKey);
+      await this.assertCrewForActivation(ship, systemKey);
       if (['SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(systemKey)) {
         if (systemKey === 'SHORT_RANGE_SENSORS') {
           const colonies = await this.dataSource
@@ -604,71 +610,26 @@ export class SpacecraftService {
     };
   }
 
-  private assertCrewForActivation(
+  private async assertCrewForActivation(
     ship: Spacecraft,
     systemKey: SpacecraftRuntimeSystemKey,
-  ): void {
+  ): Promise<void> {
     const modules = ship.modules ?? [];
-    const category = this.systemKeyToCategory(systemKey);
-    if (!category) return;
-
-    const modulesForSystem = modules.filter(
-      (m) => m.category === category && m.isActive && m.integrity > 0,
-    );
-    if (modulesForSystem.length === 0) return;
-
-    const crewNeeded = this.getActiveCrewDemand(modules, systemKey);
-    if (crewNeeded > ship.crew) {
+    if (
+      !modules.some((module) =>
+        getRuntimeSystemsForModule(module).includes(systemKey),
+      )
+    )
+      return;
+    const [crewNeeded, assigned] = await Promise.all([
+      this.spacecraftCrewService.getRequiredCrew(ship),
+      this.spacecraftCrewService.getAssignedCrewCount(ship.id),
+    ]);
+    if (crewNeeded > assigned) {
       throw new BadRequestException(
-        `Not enough crew to activate ${systemKey}: need ${crewNeeded}, have ${ship.crew}`,
+        `Not enough crew to activate ${systemKey}: need ${crewNeeded}, have ${assigned}`,
       );
     }
-  }
-
-  private getActiveCrewDemand(
-    modules: SpacecraftModule[],
-    activatingKey: SpacecraftRuntimeSystemKey,
-  ): number {
-    let total = 0;
-    for (const mod of modules) {
-      if (!mod.isActive || mod.integrity <= 0) continue;
-      const def = this.gameData
-        .getAllModules()
-        .find((d) => d.name === mod.moduleType);
-      const crew =
-        (def?.public as Record<string, number>)?.baseCrewCapacity ?? 0;
-      total += crew;
-    }
-    const activatingCategory = this.systemKeyToCategory(activatingKey);
-    if (activatingCategory) {
-      for (const mod of modules) {
-        if (mod.category !== activatingCategory) continue;
-        if (mod.isActive || mod.integrity <= 0) continue;
-        const def = this.gameData
-          .getAllModules()
-          .find((d) => d.name === mod.moduleType);
-        const crew =
-          (def?.public as Record<string, number>)?.baseCrewCapacity ?? 0;
-        total += crew;
-      }
-    }
-    return total;
-  }
-
-  private systemKeyToCategory(key: SpacecraftRuntimeSystemKey): string | null {
-    const map: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
-      SHIELDS: 'SHIELDS',
-      WEAPONS: 'WEAPONS',
-      TORPEDO_BANK: 'PROJECTILE',
-      LONG_RANGE_SENSORS: 'SENSORS',
-      SHORT_RANGE_SENSORS: 'SENSORS',
-      COMPUTER: 'COMPUTER',
-      SUBLIGHT_DRIVE: 'SUBLIGHT_ENGINE',
-      WARPDRIVE: 'HYPERDRIVE',
-      REACTOR: 'SPECIAL',
-      EPS: 'SPECIAL',
-    };
-    return map[key] ?? null;
   }
 
   async installModule(
@@ -1160,6 +1121,11 @@ export class SpacecraftService {
         shipClass,
         createdModules,
       );
+      this.spacecraftCrewService.applyRequiredCrew(
+        savedShip,
+        shipClass.crewMin,
+        createdModules,
+      );
       this.applyAdminSpawnPreset(savedShip, preset);
       this.spacecraftRuntimeStateService.initialize(savedShip);
       if (preset === 'operational') {
@@ -1175,33 +1141,9 @@ export class SpacecraftService {
         savedShip.runtimeSystems = systems;
       }
       await manager.getRepository(Spacecraft).save(savedShip);
-      const crewRequired = Math.max(
+      const crewRequired = this.spacecraftCrewService.calculateRequiredCrew(
         shipClass.crewMin,
-        shipClass.crewMin +
-          createdModules.reduce(
-            (sum, module) =>
-              sum +
-              (this.gameData.getFabricationItemByOutputCommodity(
-                selections.find(
-                  (selection) => selection.slotId === module.slotId,
-                )?.commodityId ?? 0,
-              )?.moduleType
-                ? ((
-                    this.gameData
-                      .getAllModules()
-                      .find(
-                        (definition) =>
-                          definition.name ===
-                          this.gameData.getFabricationItemByOutputCommodity(
-                            selections.find(
-                              (selection) => selection.slotId === module.slotId,
-                            )?.commodityId ?? 0,
-                          )?.moduleType,
-                      )?.public as Record<string, number> | undefined
-                  )?.baseCrewCapacity ?? 0)
-                : 0),
-            0,
-          ),
+        createdModules,
       );
       const crewCount = Math.min(savedShip.crewMax, crewRequired);
       for (let index = 0; index < crewCount; index++) {
@@ -1327,6 +1269,11 @@ export class SpacecraftService {
     ]);
     if (!shipClass) return;
     this.spacecraftStatsService.applyStats(ship, shipClass, modules);
+    this.spacecraftCrewService.applyRequiredCrew(
+      ship,
+      shipClass.crewMin,
+      modules,
+    );
     await this.shipRepo.save(ship);
   }
 
@@ -1543,7 +1490,13 @@ export class SpacecraftService {
   ): void {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     const drive = systems[systemKey];
-    if (!drive || drive.active) return;
+    if (!drive) {
+      throw new BadRequestException(
+        systemKey === 'WARPDRIVE'
+          ? 'Kein Hyperantrieb installiert'
+          : 'Kein Impulsantrieb installiert',
+      );
+    }
     if (drive.integrity <= 0) {
       throw new BadRequestException(
         systemKey === 'WARPDRIVE'
@@ -1558,6 +1511,7 @@ export class SpacecraftService {
           : 'Impulsantrieb kühlt noch ab',
       );
     }
+    if (drive.active) return;
     systems[systemKey] = { ...drive, active: true };
     ship.runtimeSystems = systems;
   }
@@ -1595,6 +1549,7 @@ export class SpacecraftService {
     }
     await this.assertEnoughCrew(ship);
     this.activateDriveForFlight(ship, 'SUBLIGHT_DRIVE');
+    this.assertSystemsForFlight(ship, 'sublight');
 
     const galaxyField = await this.galaxyFieldRepo.findOne({
       where: { layerId: ship.currentLayerId, cx: ship.posX, cy: ship.posY },
@@ -1621,7 +1576,7 @@ export class SpacecraftService {
     ship.celestialObjectId = entryField.celestialObjectId;
     ship.status = SpacecraftStatus.IDLE;
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
-    systems.WARPDRIVE!.active = false;
+    if (systems.WARPDRIVE) systems.WARPDRIVE.active = false;
     ship.runtimeSystems = systems;
 
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
@@ -1712,6 +1667,7 @@ export class SpacecraftService {
     }
     await this.assertEnoughCrew(ship);
     this.activateDriveForFlight(ship, 'WARPDRIVE');
+    this.assertSystemsForFlight(ship, 'warp');
 
     // Get galaxy coordinates from the star system
     const system = await this.systemRepo.findOne({
@@ -1811,20 +1767,14 @@ export class SpacecraftService {
     const errors: string[] = [];
 
     if (mode === 'sublight') {
-      if (systems.SUBLIGHT_DRIVE?.active === false) {
+      if (systems.SUBLIGHT_DRIVE?.active !== true) {
         errors.push('Sublight drive offline');
-      }
-      if (systems.COMPUTER?.active === false) {
-        errors.push('Navigation computer offline');
       }
     }
 
     if (mode === 'warp') {
-      if (systems.WARPDRIVE?.active === false) {
+      if (systems.WARPDRIVE?.active !== true) {
         errors.push('Hyperantrieb offline');
-      }
-      if (systems.COMPUTER?.active === false) {
-        errors.push('Navigation computer offline');
       }
     }
 
@@ -2144,6 +2094,8 @@ export class SpacecraftService {
 
   async getFieldContext(shipId: number, userId: number) {
     const ship = await this.findOne(shipId, userId);
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    const leaveReason = this.getSystemExitUnavailableReason(ship, systems);
     const x = ship.inSystem ? ship.currentSystemFieldX : ship.posX;
     const y = ship.inSystem ? ship.currentSystemFieldY : ship.posY;
     const colony =
@@ -2193,7 +2145,8 @@ export class SpacecraftService {
           ? {
               id: ship.starSystemId,
               name: ship.starSystem?.name ?? `System ${ship.starSystemId}`,
-              canLeave: ship.status === SpacecraftStatus.IDLE,
+              canLeave: leaveReason == null,
+              leaveReason,
             }
           : null,
       colony: colony
@@ -2205,9 +2158,7 @@ export class SpacecraftService {
           }
         : null,
       information: {
-        canSectorScan:
-          this.spacecraftRuntimeStateService.initialize(ship)
-            .SHORT_RANGE_SENSORS?.active === true,
+        canSectorScan: systems.SHORT_RANGE_SENSORS?.active === true,
         cartographyKnown: cartography?.explored === true,
         entrySystem: entryField?.starSystem
           ? {
@@ -2227,6 +2178,19 @@ export class SpacecraftService {
           : null,
       },
     };
+  }
+
+  private getSystemExitUnavailableReason(
+    ship: Spacecraft,
+    systems: ReturnType<SpacecraftRuntimeStateService['initialize']>,
+  ): string | null {
+    if (ship.status !== SpacecraftStatus.IDLE)
+      return 'Schiff ist nicht flugbereit';
+    const drive = systems.WARPDRIVE;
+    if (!drive) return 'Kein Hyperantrieb installiert';
+    if (drive.integrity <= 0) return 'Hyperantrieb zerstört';
+    if (drive.cooldown > 0) return 'Hyperantrieb kühlt noch ab';
+    return null;
   }
 
   async interceptNearbyTarget(
@@ -2356,11 +2320,11 @@ export class SpacecraftService {
   async getLocalMap(shipId: number, userId: number) {
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
-      relations: ['starSystem'],
+      relations: ['starSystem', 'modules'],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
-    const lss =
-      this.spacecraftRuntimeStateService.initialize(ship).LONG_RANGE_SENSORS;
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    const lss = systems.LONG_RANGE_SENSORS;
     if (!lss?.active)
       throw new BadRequestException('Langstreckensensoren sind nicht aktiv');
     if (lss.integrity <= 0)
@@ -2498,7 +2462,11 @@ export class SpacecraftService {
             s.currentSystemFieldX === shipX && s.currentSystemFieldY === shipY,
         })),
         canEnterSystem: false,
-        canLeaveSystem: ship.status === SpacecraftStatus.IDLE,
+        canLeaveSystem:
+          ship.status === SpacecraftStatus.IDLE &&
+          systems.WARPDRIVE != null &&
+          systems.WARPDRIVE.integrity > 0 &&
+          systems.WARPDRIVE.cooldown === 0,
         context: await this.buildLocalMapContext({
           ship,
           layerId: ship.currentLayerId,

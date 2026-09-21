@@ -54,8 +54,20 @@ describe('SpacecraftRuntimeStateService', () => {
       shields: 1,
       shieldsMax: 2,
       modules: [
-        { category: 'SENSORS', moduleType: 'Sensorphalanx' },
-        { category: 'SUBLIGHT_DRIVE', moduleType: 'Ion-Triebwerk' },
+        {
+          category: 'SENSORS',
+          moduleType: 'Sensorphalanx',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
+        {
+          category: 'SUBLIGHT_DRIVE',
+          moduleType: 'Ion-Triebwerk',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
       ],
       runtimeSystems: {
         TORPEDO_BANK: { active: true, cooldown: 0, integrity: 100 },
@@ -70,6 +82,55 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.LIFE_SUPPORT).toBeDefined();
     expect(systems.TORPEDO_BANK).toBeUndefined();
     expect(systems.WEAPONS).toBeUndefined();
+    expect(systems.SPECIAL).toBeUndefined();
+  });
+
+  it('uses installed module state and category aliases consistently', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const ship = {
+      energy: 4,
+      energyMax: 10,
+      epsMax: 10,
+      warpdrive: 0,
+      warpdriveMax: 5,
+      reactorOutput: 3,
+      shields: 1,
+      shieldsMax: 2,
+      modules: [
+        {
+          category: 'SUBLIGHT_ENGINE',
+          moduleType: 'Ion-Triebwerk',
+          isActive: false,
+          cooldown: 2,
+          integrity: 60,
+        },
+        {
+          category: 'SPECIAL',
+          moduleType: 'Hypermaterie-Reaktor',
+          isActive: true,
+          cooldown: 0,
+          integrity: 80,
+        },
+        {
+          category: 'SPECIAL',
+          moduleType: 'Energieverteiler',
+          isActive: true,
+          cooldown: 0,
+          integrity: 90,
+        },
+      ],
+      runtimeSystems: {},
+    } as never;
+
+    const systems = service.initialize(ship);
+
+    expect(systems.SUBLIGHT_DRIVE).toMatchObject({
+      active: false,
+      cooldown: 2,
+      integrity: 60,
+    });
+    expect(systems.REACTOR?.integrity).toBe(80);
+    expect(systems.EPS?.integrity).toBe(90);
     expect(systems.SPECIAL).toBeUndefined();
   });
 });
