@@ -306,6 +306,8 @@ export class ColonizationService {
       }),
     );
     this.spacecraftStatsService.applyStats(ship, shipClass, [reactor]);
+    ship.crewRequired = shipClass.crewMin;
+    ship.crewMax = Math.max(ship.crewMax, ship.crewRequired);
     ship.reactorFuel = ship.reactorFuelMax;
     await this.shipRepo.save(ship);
 

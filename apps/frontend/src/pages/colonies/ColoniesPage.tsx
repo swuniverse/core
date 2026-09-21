@@ -1210,11 +1210,9 @@ export function ColonyDetail({
           {activeTab === 'hangar' && detail?.hangar && (
             <PanelHangar
               hangar={detail.hangar}
-              orbitShips={detail.orbitShips}
               commodityMap={commodityMap}
               onBuildAirfieldRump={onBuildAirfieldRump}
               onStartHangarShip={onStartHangarShip}
-              onLandShip={onLandShip}
             />
           )}
           {activeTab === 'fabrication' && (

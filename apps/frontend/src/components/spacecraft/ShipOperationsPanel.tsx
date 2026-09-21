@@ -113,7 +113,12 @@ export function ShipOperationsPanel({
                           member.name,
                           `${member.position} · ${member.rank}`,
                         ])
-                      : [['Besatzung', `${details.crew}/${details.crewMax}`]]
+                      : [
+                          [
+                            'Besatzung',
+                            `${details.crew} (${details.crewRequired ?? 0},${details.crewMax || 'kA'})`,
+                          ],
+                        ]
                   }
                 />
                 <InfoSection

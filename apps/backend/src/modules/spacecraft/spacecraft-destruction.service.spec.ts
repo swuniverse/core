@@ -62,16 +62,23 @@ function setup(
     remove: jest.fn(async () => undefined),
     create: jest.fn((_entity, value) => value),
   };
-  const dataSource = { transaction: jest.fn(async (work) => work(manager)) };
+  const dataSource = {
+    transaction: jest.fn(async (work) => work(manager)),
+    getRepository: jest.fn(() => ({
+      findOneBy: jest.fn().mockResolvedValue(ship),
+    })),
+  };
   const runtime = { initialize: jest.fn((value) => value.runtimeSystems) };
   const gateway = { emitToUser: jest.fn(), emitToAll: jest.fn() };
   const messaging = { sendSystem: jest.fn(async () => undefined) };
+  const gameEvents = { recordSpacecraft: jest.fn(async () => undefined) };
   return {
     service: new SpacecraftDestructionService(
       dataSource as any,
       runtime as any,
       gateway as any,
       messaging as any,
+      gameEvents as any,
     ),
     ship,
     distress,

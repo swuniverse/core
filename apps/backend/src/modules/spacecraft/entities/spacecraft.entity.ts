@@ -144,6 +144,9 @@ export class Spacecraft {
   crewMax: number;
 
   @Column({ default: 0 })
+  crewRequired: number;
+
+  @Column({ default: 0 })
   cargoUsed: number;
 
   @Column({ default: 0 })

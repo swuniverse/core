@@ -87,6 +87,14 @@ export class SpacecraftStatsService {
     return ship;
   }
 
+  fillResources(ship: Spacecraft): Spacecraft {
+    ship.energy = ship.energyMax;
+    ship.warpdrive = ship.warpdriveMax;
+    ship.battery = ship.batteryMax;
+    ship.reactorFuel = ship.reactorFuelMax;
+    return ship;
+  }
+
   private findModuleDefinition(moduleType: string): ModuleDef | undefined {
     return this.gameData
       .getAllModules()
@@ -142,7 +150,5 @@ export class SpacecraftStatsService {
       default:
         break;
     }
-
-    stats.crewMax += scaled(publicStats.baseCrewCapacity);
   }
 }

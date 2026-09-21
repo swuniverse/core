@@ -28,6 +28,7 @@ interface ShipHeaderTableProps {
     warpSpeed: number;
     warpCooldown: number;
     crew: number;
+    crewRequired?: number;
     crewMax: number;
     posX: number;
     posY: number;
@@ -122,7 +123,12 @@ export function ShipHeaderTable({
       value: `${ship.battery}/${ship.batteryMax}`,
       icon: 'batt.png',
     },
-    { label: 'Crew', value: `${ship.crew}/${ship.crewMax}`, icon: 'crew.png' },
+    {
+      label: 'Crew',
+      value: `${ship.crew} (${ship.crewRequired ?? 0},${ship.crewMax || 'kA'})`,
+      icon: 'crew.png',
+      title: 'aktuell (Minimum, Maximum)',
+    },
   ];
 
   return (
@@ -154,7 +160,10 @@ export function ShipHeaderTable({
                       {row.label}
                     </button>
                   ) : (
-                    <span className="inline-flex items-center gap-1">
+                    <span
+                      title={row.title}
+                      className="inline-flex items-center gap-1"
+                    >
                       <AssetIcon file={row.icon} />
                       {row.label}
                     </span>

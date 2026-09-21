@@ -727,12 +727,19 @@ export class ColonyProjectionService {
         effects: this.buildEffectSummary(summary),
         orbitShips: orbitShips.map((ship) => {
           const shipClass = orbitShipClassMap.get(ship.shipClassId);
-          const crewRequired = shipClass?.crewMin ?? 0;
           const canManage = this.colonyOrbitService.canManageOrbitShip(
             colony,
             ship,
           );
+          const landReason = !canManage
+            ? 'Schiff ist nicht im eigenen Kolonieorbit'
+            : !hasAirfield
+              ? 'Aktiver Raumhafen erforderlich'
+              : !shipClass || !this.getHangarDefForShipClass(shipClass)
+                ? 'Schiff kann nicht im Hangar landen'
+                : null;
           const modules = modulesByShipId.get(ship.id) ?? [];
+          const crewRequired = Math.max(0, ship.crewRequired ?? 0);
           const cargo = cargoByShipId.get(ship.id) ?? [];
           const normalizedModuleSelections =
             this.normalizeInstalledModuleSelections(shipClass, modules);
@@ -815,11 +822,8 @@ export class ColonyProjectionService {
             crewRequired,
             crewMax: ship.crewMax,
             hasEnoughCrew: crewRequired <= 0 || ship.crew >= crewRequired,
-            canLand:
-              canManage &&
-              hasAirfield &&
-              !!shipClass &&
-              !!this.getHangarDefForShipClass(shipClass),
+            canLand: landReason == null,
+            landReason,
             canDisassemble:
               canManage &&
               getColonyChangeable(colony).energy >= 20 &&
@@ -1141,7 +1145,7 @@ export class ColonyProjectionService {
             buildCosts: this.getHangarBuildCosts(hangarDef, 1),
             defaultModules: this.defaultModuleSummaries(hangarDef),
             maxBuildable: this.maxBuildableHangarAmount(colony, hangarDef),
-            crewRequired: shipClass.crewMin,
+            crewRequired: hangarDef.crewRequired,
           })),
           startable: startableHangarShips.map(
             ({ shipClass, hangarDef, amount }) => ({
@@ -1153,7 +1157,7 @@ export class ColonyProjectionService {
               amount,
               startEnergyCost: hangarDef.startEnergyCost,
               defaultModules: this.defaultModuleSummaries(hangarDef),
-              crewRequired: shipClass.crewMin,
+              crewRequired: hangarDef.crewRequired,
             }),
           ),
           landableOrbitShips: orbitShips

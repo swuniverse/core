@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
-import { ShipClassService } from './ship-class.service';
+import { GameDataService } from '../game-data/game-data.service';
+import type { SpacecraftModule } from './entities/spacecraft-module.entity';
 
 @Injectable()
 export class SpacecraftCrewService {
@@ -12,7 +13,7 @@ export class SpacecraftCrewService {
     private readonly crewAssignmentRepo: Repository<CrewAssignment>,
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
-    private readonly shipClassService: ShipClassService,
+    private readonly gameData: GameDataService,
   ) {}
 
   async getAssignedCrewCount(spacecraftId: number): Promise<number> {
@@ -34,8 +35,34 @@ export class SpacecraftCrewService {
   }
 
   async getRequiredCrew(ship: Spacecraft): Promise<number> {
-    const shipClass = await this.shipClassService.findById(ship.shipClassId);
-    return Math.max(0, shipClass?.crewMin ?? 0);
+    return Math.max(0, ship.crewRequired ?? 0);
+  }
+
+  applyRequiredCrew(
+    ship: Spacecraft,
+    baseCrew: number,
+    modules: SpacecraftModule[],
+  ): number {
+    ship.crewRequired = this.calculateRequiredCrew(baseCrew, modules);
+    ship.crewMax = Math.max(ship.crewMax, ship.crewRequired);
+    return ship.crewRequired;
+  }
+
+  calculateRequiredCrew(baseCrew: number, modules: SpacecraftModule[]): number {
+    return Math.max(
+      0,
+      baseCrew +
+        modules.reduce((sum, module) => {
+          const item = this.gameData
+            .getAllFabricationItems()
+            .find(
+              (candidate) =>
+                candidate.moduleType === module.moduleType &&
+                candidate.moduleLevel === module.level,
+            );
+          return sum + (item?.shipyardModuleStats?.crew ?? 0);
+        }, 0),
+    );
   }
 
   async hasEnoughCrew(ship: Spacecraft): Promise<boolean> {

@@ -16,17 +16,23 @@ import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 
 function createService() {
   const torpedoRepo = {
-    findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
   };
   const shipClassRepo = { findOneBy: jest.fn() };
+  const torpedoType = {
+    id: 81,
+    commodityId: 81,
+    name: 'Micro',
+    baseDamage: 90,
+    compatibleShipCategories: ['CORVETTE'],
+  };
   const gameData = {
     getTorpedoType: jest.fn((id: number) =>
-      id === 81
-        ? { id: 81, commodityId: 81, name: 'Micro', baseDamage: 90 }
-        : undefined,
+      id === 81 ? torpedoType : undefined,
     ),
+    getAllTorpedoTypes: jest.fn(() => [torpedoType]),
   };
   const colonyStorageService = {
     lowerStorage: jest.fn(async () => 1),
@@ -48,8 +54,11 @@ describe('SpacecraftTorpedoService', () => {
   it('loads torpedoes from colony storage into empty ship storage', async () => {
     const { service, torpedoRepo, shipClassRepo, colonyStorageService } =
       createService();
-    shipClassRepo.findOneBy.mockResolvedValue({ category: 'CORVETTE' });
-    torpedoRepo.findOne.mockResolvedValue(null);
+    shipClassRepo.findOneBy.mockResolvedValue({
+      category: 'CORVETTE',
+      torpedoStorageBase: 4,
+    });
+    torpedoRepo.find.mockResolvedValue([]);
 
     const storage = await service.loadFromColony(colony, ship, 81, 2);
 
@@ -68,41 +77,43 @@ describe('SpacecraftTorpedoService', () => {
     expect(storage.amount).toBe(2);
   });
 
-  it('rejects over-capacity loads and mixed loaded types', async () => {
+  it('rejects over-capacity loads across loaded types', async () => {
     const { service, torpedoRepo, shipClassRepo } = createService();
-    shipClassRepo.findOneBy.mockResolvedValue({ category: 'CORVETTE' });
-    torpedoRepo.findOne.mockResolvedValue({
-      spacecraftId: 7,
-      torpedoTypeId: 82,
-      commodityId: 82,
-      amount: 1,
+    shipClassRepo.findOneBy.mockResolvedValue({
+      category: 'CORVETTE',
+      torpedoStorageBase: 4,
     });
-    await expect(service.loadFromColony(colony, ship, 81, 1)).rejects.toThrow(
-      'Unload current torpedo type first',
-    );
-
-    torpedoRepo.findOne.mockResolvedValue({
-      spacecraftId: 7,
-      torpedoTypeId: 81,
-      commodityId: 81,
-      amount: 4,
-    });
+    torpedoRepo.find.mockResolvedValue([
+      {
+        spacecraftId: 7,
+        torpedoTypeId: 82,
+        commodityId: 82,
+        amount: 4,
+        isActive: true,
+      },
+    ]);
     await expect(service.loadFromColony(colony, ship, 81, 1)).rejects.toThrow(
       'Not enough torpedo capacity',
     );
   });
 
   it('unloads torpedoes to colony and consumes for attacks', async () => {
-    const { service, torpedoRepo, colonyStorageService } = createService();
+    const { service, torpedoRepo, shipClassRepo, colonyStorageService } =
+      createService();
+    shipClassRepo.findOneBy.mockResolvedValue({
+      category: 'CORVETTE',
+      torpedoStorageBase: 4,
+    });
     const storage = {
       spacecraftId: 7,
       torpedoTypeId: 81,
       commodityId: 81,
       amount: 3,
+      isActive: true,
     };
-    torpedoRepo.findOne.mockResolvedValue(storage);
+    torpedoRepo.find.mockResolvedValue([storage]);
 
-    await service.unloadToColony(colony, ship, 2, 100);
+    await service.unloadToColony(colony, ship, 81, 2, 100);
     expect(colonyStorageService.upperStorage).toHaveBeenCalledWith(
       colony,
       81,

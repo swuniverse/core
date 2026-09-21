@@ -54,14 +54,12 @@ describe('NavigationPanel', () => {
     apiMocks.patch.mockReset();
   });
 
-  it('selects an accessible field and sends the exact target', async () => {
+  it('flies directly to an accessible field', async () => {
     apiMocks.get.mockResolvedValue(map);
     apiMocks.post.mockResolvedValue({});
     render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
     const field = await screen.findByRole('button', { name: /Feld 6,5/ });
     fireEvent.click(field);
-    expect(screen.getByText(/Ziel ausgewählt:/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Fliegen nach [6,5]' }));
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/fly', {
         targetX: 6,

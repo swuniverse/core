@@ -30,6 +30,12 @@ jest.mock('./spacecraft-crew.service', () => ({
 jest.mock('../starmap/exploration.service', () => ({
   ExplorationService: class ExplorationService {},
 }));
+jest.mock('../starmap/system-type-discovery.service', () => ({
+  SystemTypeDiscoveryService: class SystemTypeDiscoveryService {},
+}));
+jest.mock('../starmap/celestial-class-discovery.service', () => ({
+  CelestialClassDiscoveryService: class CelestialClassDiscoveryService {},
+}));
 
 import { SpacecraftScanService } from './spacecraft-scan.service';
 
@@ -91,6 +97,8 @@ describe('Spacecraft sensor operations', () => {
       { hasEnoughCrew: jest.fn().mockResolvedValue(true) } as never,
       { initialize: jest.fn(() => ship.runtimeSystems) } as never,
       exploration as never,
+      { discover: jest.fn() } as never,
+      { discover: jest.fn() } as never,
     );
     return { service, ship, shipRepo, scanRepo, exploration };
   }
