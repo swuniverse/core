@@ -69,6 +69,13 @@ export function TorpedoPanel({
       );
     }
   }
+  if (error && !storage) {
+    return (
+      <p role="alert" className="text-xs text-red-300">
+        {error}
+      </p>
+    );
+  }
   if (!storage)
     return <p className="text-xs text-swu-muted">Torpedos werden geladen…</p>;
   return (
@@ -86,6 +93,7 @@ export function TorpedoPanel({
         <>
           <div className="grid gap-2 sm:grid-cols-3">
             <select
+              aria-label="Kolonie"
               value={colonyId ?? ''}
               onChange={(event) =>
                 setColonyId(Number(event.target.value) || null)
@@ -99,6 +107,7 @@ export function TorpedoPanel({
               ))}
             </select>
             <select
+              aria-label="Torpedotyp"
               value={torpedoTypeId ?? ''}
               onChange={(event) =>
                 setTorpedoTypeId(Number(event.target.value) || null)
@@ -112,6 +121,7 @@ export function TorpedoPanel({
               ))}
             </select>
             <input
+              aria-label="Menge"
               type="number"
               min={1}
               value={amount}
