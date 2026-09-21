@@ -87,11 +87,7 @@ export type ShipyardQueueEntry = {
 };
 
 export type TorpedoDamageTypeDto =
-  | 'PROTON'
-  | 'QUANTUM'
-  | 'HEAVY_QUANTUM'
-  | 'PLASMA'
-  | 'HEAVY_PLASMA';
+  'PROTON' | 'QUANTUM' | 'HEAVY_QUANTUM' | 'PLASMA' | 'HEAVY_PLASMA';
 
 export interface TorpedoTypeDto {
   id: number;
@@ -257,9 +253,7 @@ export interface ColonyEffectiveState {
 }
 
 export type ShipyardGroup =
-  | 'CORE_SYSTEMS'
-  | 'DEFENSE_SYSTEMS'
-  | 'OFFENSE_SYSTEMS';
+  'CORE_SYSTEMS' | 'DEFENSE_SYSTEMS' | 'OFFENSE_SYSTEMS';
 
 export type ShipyardType =
   | 'HULL'
@@ -732,6 +726,36 @@ export interface Colony {
   detailV2?: ColonyDetailV2;
   stats?: {
     isBlockaded?: boolean;
+  };
+  signatureCount?: number;
+  overview?: {
+    location: {
+      x: number;
+      y: number;
+      systemName: string | null;
+      systemX: number | null;
+      systemY: number | null;
+      systemTypeId: number | null;
+    };
+    status: {
+      blocked: boolean;
+      defended: boolean;
+    };
+    population: {
+      current: number;
+      max: number;
+      immigration: number;
+    };
+    energy: {
+      current: number;
+      max: number;
+      production: number;
+    };
+    storage: {
+      current: number;
+      max: number;
+      production: number;
+    };
   };
   crewSummary?: { assigned: number; limit: number; inTraining: number };
   productionDeltas?: Array<{ commodityId: number; amount: number }>;

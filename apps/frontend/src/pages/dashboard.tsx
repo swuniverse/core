@@ -1,9 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
-import type { Layout } from 'react-grid-layout/legacy';
-import { useAuthStore } from '../stores/auth.store';
-import { useDashboardLayoutStore } from '../stores/dashboard-layout.store';
-import type { Breakpoint } from '../stores/dashboard-layout.store';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
 import type {
@@ -12,25 +7,19 @@ import type {
   ActiveBuildJob,
   BaustelleAlert,
 } from './dashboard/types';
-import { WIDGET_MAP } from './dashboard/widget-registry';
-import { WidgetShell } from './dashboard/WidgetShell';
-import { DashboardCustomizer } from './dashboard/DashboardCustomizer';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { DashboardAttention } from './dashboard/DashboardAttention';
+import { DashboardFleet } from './dashboard/DashboardFleet';
+import { DashboardColonies } from './dashboard/DashboardColonies';
+import { DashboardProcesses } from './dashboard/DashboardProcesses';
+import {
+  RecentEvents,
+  DashboardMessages,
+  DashboardLimits,
+} from './dashboard/DashboardLowerSections';
 
 export function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
-  const {
-    layouts,
-    editMode,
-    setLayout,
-    toggleWidget,
-    loadFromServer,
-    setActiveBreakpoint,
-  } = useDashboardLayoutStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const activeBreakpointRef = useRef<Breakpoint>('lg');
 
   const loadDashboard = useCallback(async () => {
     const [
@@ -42,7 +31,6 @@ export function DashboardPage() {
       spacecraftData,
       unreadData,
       tickData,
-      serverStatsData,
       distressSignals,
       recentEvents,
     ] = await Promise.all([
@@ -134,11 +122,6 @@ export function DashboardPage() {
         }>('/tick/status')
         .catch(() => null),
       api
-        .get<{ settlers: number; colonies: number; ships: number }>(
-          '/database/overview',
-        )
-        .catch(() => null),
-      api
         .get<NonNullable<DashboardData['distressSignals']>>(
           '/spacecraft/distress-signals/active',
         )
@@ -161,7 +144,9 @@ export function DashboardPage() {
       (s) => s.status === 'IN_FLIGHT',
     );
 
-    const buildJobs: Array<ActiveBuildJob & { colonyName: string }> = [];
+    const buildJobs: Array<
+      ActiveBuildJob & { colonyId: number; colonyName: string }
+    > = [];
     let crewInfo: { assigned: number; globalLimit: number } | null = null;
     const warnings: DashboardData['warnings'] = [];
     const colonyEvents: DashboardData['colonyEvents'] = [];
@@ -183,51 +168,49 @@ export function DashboardPage() {
         ),
       );
 
-      // fetch events for colonies with enabled colony-events widget
-      const colonyEventsWidget = layouts.lg.find(
-        (w) => w.id === 'colony-events' && w.enabled,
+      const eventResults = await Promise.all(
+        colonies.map((c) =>
+          api
+            .get<
+              Array<{
+                id: number;
+                type: string;
+                severity: string;
+                title: string;
+                message: string;
+                createdAt: string;
+              }>
+            >(`/colonies/${c.id}/events?limit=10&unreadOnly=false`)
+            .catch(() => []),
+        ),
       );
-      if (colonyEventsWidget) {
-        const eventResults = await Promise.all(
-          colonies.map((c) =>
-            api
-              .get<
-                Array<{
-                  id: number;
-                  type: string;
-                  severity: string;
-                  title: string;
-                  message: string;
-                  createdAt: string;
-                }>
-              >(`/colonies/${c.id}/events?limit=10&unreadOnly=false`)
-              .catch(() => []),
-          ),
-        );
-        for (let i = 0; i < eventResults.length; i++) {
-          for (const ev of eventResults[i]) {
-            if (ev.severity === 'CRITICAL' || ev.severity === 'WARNING') {
-              colonyEvents.push({
-                ...ev,
-                severity: ev.severity as 'INFO' | 'WARNING' | 'CRITICAL',
-                colonyName: colonies[i].name,
-                colonyId: colonies[i].id,
-              });
-            }
+      for (let i = 0; i < eventResults.length; i++) {
+        for (const ev of eventResults[i]) {
+          if (ev.severity === 'CRITICAL' || ev.severity === 'WARNING') {
+            colonyEvents.push({
+              ...ev,
+              severity: ev.severity as 'INFO' | 'WARNING' | 'CRITICAL',
+              colonyName: colonies[i].name,
+              colonyId: colonies[i].id,
+            });
           }
         }
-        colonyEvents.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
       }
+      colonyEvents.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
 
       for (let i = 0; i < details.length; i++) {
         const detail = details[i];
         if (!detail) continue;
         const jobs = detail.detailV2?.activeBuildJobs ?? [];
         buildJobs.push(
-          ...jobs.map((j) => ({ ...j, colonyName: colonies[i].name })),
+          ...jobs.map((j) => ({
+            ...j,
+            colonyId: colonies[i].id,
+            colonyName: colonies[i].name,
+          })),
         );
         if (!crewInfo && detail.detailV2?.crew) {
           crewInfo = {
@@ -346,55 +329,72 @@ export function DashboardPage() {
         (b.severity === 'critical' ? 0 : 1),
     );
 
-    // fetch unread inbox messages if widget enabled
-    let inboxMessages: DashboardData['inboxMessages'] = [];
-    const messagesWidget = layouts.lg.find(
-      (w) => w.id === 'messages' && w.enabled,
-    );
-    if (messagesWidget) {
-      const inboxRes = await api
-        .get<{
-          data: Array<{
-            id: number;
-            subject: string;
-            isRead: boolean;
-            isSystem: boolean;
-            sender?: { username: string };
-            createdAt: string;
-          }>;
-          total: number;
-        }>('/messages/inbox')
-        .catch(() => ({ data: [], total: 0 }));
-      inboxMessages = inboxRes.data;
-    }
-
-    // fetch current objective if widget enabled
-    let currentObjective: DashboardData['currentObjective'] = null;
-    const objectiveWidget = layouts.lg.find(
-      (w) => w.id === 'current-objective' && w.enabled,
-    );
-    if (objectiveWidget) {
-      currentObjective = await api
-        .get<{
+    const inboxRes = await api
+      .get<{
+        data: Array<{
           id: number;
-          title: string;
-          description?: string;
-          progress?: number;
-          target?: number;
-        }>('/colonies/objectives/current')
-        .catch(() => null);
-    }
+          subject: string;
+          isRead: boolean;
+          isSystem: boolean;
+          sender?: { username: string };
+          createdAt: string;
+        }>;
+        total: number;
+      }>('/messages/inbox')
+      .catch(() => ({ data: [], total: 0 }));
+
+    const currentObjective = await api
+      .get<{
+        id: number;
+        title: string;
+        description?: string;
+        progress?: number;
+        target?: number;
+      }>('/colonies/objectives/current')
+      .catch(() => null);
+
+    const processes = [
+      ...(activeResearch
+        ? [
+            {
+              id: 'research',
+              kind: 'FORSCHUNG' as const,
+              label: activeResearch.name,
+              detail: `${activeResearch.progress}/${activeResearch.pointsRequired}`,
+              progress:
+                activeResearch.pointsRequired > 0
+                  ? Math.round(
+                      (activeResearch.progress /
+                        activeResearch.pointsRequired) *
+                        100,
+                    )
+                  : 0,
+              linkTo: '/research',
+            },
+          ]
+        : []),
+      ...buildJobs.slice(0, 8).map((job) => ({
+        id: `build-${job.colonyName}-${job.fieldIndex}`,
+        kind: 'BAU' as const,
+        label: job.buildingName,
+        detail: job.colonyName,
+        progress: job.progress,
+        linkTo: `/colonies?selected=${job.colonyId}`,
+      })),
+    ];
 
     setData({
       activeResearch,
       queuedResearch,
       buildJobs,
+      processes,
       holonetPosts: (holonetData?.data ?? [])
         .filter((post) => post.isUnread)
         .slice(0, 5),
       colonizationLimits: colonizationData,
       crewInfo,
       onlinePlayers: onlineData,
+      colonies,
       colonyCount: colonies.length,
       fleetTotal: spacecraftData.length,
       fleetInFlight: shipsInFlight.length,
@@ -405,19 +405,14 @@ export function DashboardPage() {
       warnings,
       colonyEvents,
       recentEvents,
-      serverStats: serverStatsData,
-      inboxMessages,
+      inboxMessages: inboxRes.data,
       tickStatus: tickData,
       currentObjective,
       baustelleAlerts,
       distressSignals,
     });
     setLoading(false);
-  }, [layouts]);
-
-  useEffect(() => {
-    void loadFromServer();
-  }, [loadFromServer]);
+  }, []);
 
   useEffect(() => {
     void loadDashboard();
@@ -434,105 +429,22 @@ export function DashboardPage() {
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
   if (!data) return null;
 
-  const enabledWidgetIds = new Set(
-    layouts.lg
-      .filter((slot) => {
-        const def = WIDGET_MAP.get(slot.id);
-        if (!def) return false;
-        if (def.adminOnly && !user?.isAdmin) return false;
-        return slot.enabled;
-      })
-      .map((s) => s.id),
-  );
-
-  const toGridItems = (slots: typeof layouts.lg, bp: Breakpoint) =>
-    slots
-      .filter((slot) => enabledWidgetIds.has(slot.id))
-      .map((slot) => ({
-        i: slot.id,
-        x: bp === 'sm' ? 0 : slot.x,
-        y: slot.y,
-        w: bp === 'sm' ? 1 : slot.w,
-        h: slot.h,
-        minW:
-          bp === 'sm' ? 1 : (WIDGET_MAP.get(slot.id)?.defaultLayout.minW ?? 1),
-        maxW: bp === 'sm' ? 1 : undefined,
-        minH: WIDGET_MAP.get(slot.id)?.defaultLayout.minH ?? 2,
-      }));
-
-  const gridLayouts = {
-    lg: toGridItems(layouts.lg, 'lg'),
-    sm: toGridItems(layouts.sm, 'sm'),
-  };
-
-  const handleLayoutChange = (
-    _layout: Layout,
-    allLayouts: Partial<Record<string, Layout>>,
-  ) => {
-    const bp = activeBreakpointRef.current;
-    const bpLayout = allLayouts[bp];
-    if (!bpLayout) return;
-    const source = layouts[bp];
-    const updated = source.map((slot) => {
-      const item = bpLayout.find((l) => l.i === slot.id);
-      if (!item) return slot;
-      return { ...slot, x: item.x, y: item.y, w: item.w, h: item.h };
-    });
-    setLayout(bp, updated);
-  };
-
-  const handleBreakpointChange = (newBp: string) => {
-    const bp = (newBp === 'sm' ? 'sm' : 'lg') as Breakpoint;
-    activeBreakpointRef.current = bp;
-    setActiveBreakpoint(bp);
-  };
-
   return (
-    <div className="space-y-2">
-      {/* Header: title + customizer button */}
-      <div className="flex items-center justify-between">
-        <h1
-          className="text-base font-bold text-swu-primary hidden md:block"
-          style={{ fontFamily: 'var(--font-swu-display)' }}
-        >
-          Maindesk
-        </h1>
-        <div className="ml-auto">
-          <DashboardCustomizer />
-        </div>
+    <div className="space-y-3 p-2 sm:p-4">
+      <header className="border border-swu-border bg-black/30 px-3 py-1.5">
+        <h1 className="text-xs font-bold text-swu-primary">/ Maindesk</h1>
+      </header>
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+        <DashboardColonies data={data} />
+        <DashboardLimits data={data} />
       </div>
-
-      {/* Responsive widget grid — renders on all viewports */}
-      <ResponsiveGridLayout
-        className="layout"
-        layouts={gridLayouts}
-        breakpoints={{ lg: 1200, sm: 0 }}
-        cols={{ lg: 12, sm: 1 }}
-        rowHeight={30}
-        isDraggable={editMode}
-        isResizable={editMode}
-        onLayoutChange={handleLayoutChange}
-        onBreakpointChange={handleBreakpointChange}
-        draggableHandle=".widget-drag-handle"
-        margin={[8, 8]}
-      >
-        {[...enabledWidgetIds].map((id) => {
-          const def = WIDGET_MAP.get(id);
-          if (!def) return null;
-          const Component = def.component;
-          return (
-            <div key={id}>
-              <WidgetShell
-                title={def.title}
-                editMode={editMode}
-                onClose={() => toggleWidget(id)}
-              >
-                <Component data={data} />
-              </WidgetShell>
-            </div>
-          );
-        })}
-      </ResponsiveGridLayout>
+      <DashboardAttention data={data} />
+      <div className="grid gap-3 lg:grid-cols-2">
+        <DashboardFleet data={data} />
+        <DashboardProcesses data={data} />
+      </div>
+      <DashboardMessages data={data} />
+      <RecentEvents data={data} />
     </div>
   );
 }

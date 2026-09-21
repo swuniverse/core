@@ -7,6 +7,7 @@ import { ColonyEventService } from '../colony/colony-event.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
+import { DashboardService } from '../dashboard/dashboard.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -50,6 +51,7 @@ export class TickService {
     private readonly researchService: ResearchService,
     private readonly gateway: GameGateway,
     private readonly config: ConfigService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -185,6 +187,7 @@ export class TickService {
         );
       }
 
+      await this.dashboardService.recordSnapshot();
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
     } catch (error) {
       await this.finishTick(

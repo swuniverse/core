@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 
@@ -28,7 +29,11 @@ interface InboxResponse {
 type Tab = 'inbox' | 'sent' | 'system' | 'compose';
 
 export function MessagesPage() {
-  const [tab, setTab] = useState<Tab>('inbox');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    initialTab === 'system' ? 'system' : 'inbox',
+  );
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [selected, setSelected] = useState<MessageDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +77,13 @@ export function MessagesPage() {
       loadMessages(tab, page);
     }
   }, [tab, page]);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    setTab(requestedTab === 'system' ? 'system' : 'inbox');
+    setPage(1);
+    setSelected(null);
+  }, [searchParams]);
 
   const switchTab = (t: Tab) => {
     setTab(t);
@@ -155,7 +167,12 @@ export function MessagesPage() {
 
   return (
     <div className="p-3 md:p-6">
-      <h1 className="text-2xl font-bold text-swu-accent mb-4" style={{ fontFamily: 'var(--font-swu-display)' }}>Nachrichten</h1>
+      <h1
+        className="text-2xl font-bold text-swu-accent mb-4"
+        style={{ fontFamily: 'var(--font-swu-display)' }}
+      >
+        Nachrichten
+      </h1>
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {(['inbox', 'sent', 'system', 'compose'] as const).map((t) => (
@@ -320,7 +337,10 @@ export function MessagesPage() {
                 {selected.sender?.username || 'System'} ·{' '}
                 {timeAgo(selected.createdAt)}
               </p>
-              <BbCodeText text={selected.body} className="text-sm text-swu-muted whitespace-pre-wrap mb-4" />
+              <BbCodeText
+                text={selected.body}
+                className="text-sm text-swu-muted whitespace-pre-wrap mb-4"
+              />
               {!selected.isSystem && tab !== 'sent' && (
                 <button
                   onClick={replyTo}

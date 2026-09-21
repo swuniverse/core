@@ -14,7 +14,6 @@ export interface TickState {
 
 export interface StatusBarData {
   tick: TickState;
-  unreadMessages: number;
 }
 
 interface TickStatusResponse {
@@ -71,7 +70,6 @@ export function formatTickCountdown(ms: number): string {
 
 export function useStatusBar(): StatusBarData {
   const [tick, setTick] = useState<TickState>(EMPTY_TICK_STATE);
-  const [unreadMessages, setUnreadMessages] = useState(0);
   const tickStatusRef = useRef<{
     currentTickIndex: number;
     totalTicks: number;
@@ -126,12 +124,5 @@ export function useStatusBar(): StatusBarData {
     return () => window.clearInterval(interval);
   }, [refreshTickStatus]);
 
-  useEffect(() => {
-    api
-      .get<number>('/messages/unread')
-      .then((count) => setUnreadMessages(count ?? 0))
-      .catch(() => undefined);
-  }, []);
-
-  return { tick, unreadMessages };
+  return { tick };
 }

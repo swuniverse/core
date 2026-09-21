@@ -265,6 +265,39 @@ export class ColonyService {
       (base as any).energyMax = summary.effectiveState.energy.max;
       (base as any).storageMax = summary.effectiveStorageMax;
       return Object.assign(base, {
+        signatureCount: 0,
+        overview: {
+          location: {
+            x: colony.posX,
+            y: colony.posY,
+            systemName: colony.starSystem?.name ?? null,
+            systemX: colony.starSystem?.cx ?? null,
+            systemY: colony.starSystem?.cy ?? null,
+            systemTypeId: colony.starSystem?.systemTypeId ?? null,
+          },
+          status: {
+            blocked: colony.stats?.isBlockaded ?? false,
+            defended: false,
+          },
+          population: {
+            current: summary.effectiveState.population.current,
+            max: summary.effectiveState.population.maxHousing,
+            immigration:
+              colony.stats?.immigrationEnabled === false
+                ? 0
+                : summary.effectiveState.population.available,
+          },
+          energy: {
+            current: summary.effectiveState.energy.current,
+            max: summary.effectiveState.energy.max,
+            production: summary.effectiveState.energy.delta,
+          },
+          storage: {
+            current: summary.effectiveState.storage.current,
+            max: summary.effectiveState.storage.max,
+            production: summary.effectiveState.storage.delta,
+          },
+        },
         crewSummary: {
           assigned: crewAssigned,
           limit: crewLimit,

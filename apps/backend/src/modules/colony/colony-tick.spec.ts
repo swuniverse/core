@@ -2151,9 +2151,18 @@ describe('colony tick calculations', () => {
           maxPopulation: 312,
           maxEnergy: 100,
           maxStorage: 3000,
+          immigrationEnabled: true,
+          isBlockaded: true,
         },
         fields: [],
-        starSystem: { name: 'Kelaris VI' },
+        posX: 5,
+        posY: 19,
+        starSystem: {
+          name: 'Kelaris VI',
+          cx: 116,
+          cy: 76,
+          systemTypeId: 1001,
+        },
         celestialObject: null,
       } as any,
     ]);
@@ -2181,6 +2190,21 @@ describe('colony tick calculations', () => {
       energyMax: 100,
       storageMax: 3000,
       locationLabel: 'Kelaris VI',
+      signatureCount: 0,
+      overview: {
+        location: {
+          x: 5,
+          y: 19,
+          systemName: 'Kelaris VI',
+          systemX: 116,
+          systemY: 76,
+          systemTypeId: 1001,
+        },
+        status: { blocked: true, defended: false },
+        population: { current: 276, max: 312, immigration: 252 },
+        energy: { current: 50, max: 100, production: 0 },
+        storage: { current: 25, max: 3000, production: 0 },
+      },
     });
     expect(result[0].fields).toBeUndefined();
   });
@@ -5357,6 +5381,7 @@ describe('main tick idempotency', () => {
       { processTick: jest.fn(async () => undefined) } as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn((key: string) => config[key]) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
   it('calculates hourly tick slots when schedule is wildcard', () => {
@@ -5543,6 +5568,7 @@ describe('main tick idempotency', () => {
       { processTick: jest.fn(async () => undefined) } as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const result = await service.triggerManualTick();
@@ -5597,6 +5623,9 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -5677,6 +5706,7 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -5776,6 +5806,9 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.checkBuildingCompletions();
@@ -5839,6 +5872,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await service.checkBuildingCompletions();
@@ -5895,6 +5929,7 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -5937,6 +5972,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).rejects.toBe(completionError);
@@ -5978,6 +6014,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).rejects.toThrow('tick failed');
@@ -6019,6 +6056,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).resolves.toEqual({

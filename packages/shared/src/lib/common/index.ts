@@ -39,3 +39,32 @@ export interface SpacecraftEventPayload {
     | 'DESTROYED';
   detail: string;
 }
+
+export interface GlobalHeaderStatusDto {
+  user: {
+    id: number;
+    name: string;
+    faction: string | null;
+    prestige: number;
+    avatar: string | null;
+  };
+  notifications: {
+    messages: number;
+    system: number;
+  };
+  research: {
+    techId: number;
+    name: string;
+    progress: number;
+    pointsRequired: number;
+    blockedReason: string | null;
+  } | null;
+  colonies: Array<{
+    id: number;
+    name: string;
+    energy: number;
+    energyMax: number;
+    storageUsed: number;
+    storageMax: number;
+  }>;
+}

@@ -81,6 +81,8 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
 import { GameEvent } from './modules/events/entities/game-event.entity';
 import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-history-entry.entity';
 import { PrestigeModule } from './modules/prestige/prestige.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapshot.entity';
 
 @Module({
   imports: [
@@ -153,6 +155,7 @@ import { PrestigeModule } from './modules/prestige/prestige.module';
           UserSetting,
           GameEvent,
           PrestigeHistoryEntry,
+          DashboardSnapshot,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -175,6 +178,7 @@ import { PrestigeModule } from './modules/prestige/prestige.module';
     MailModule,
     EventsModule,
     PrestigeModule,
+    DashboardModule,
     TickModule,
     WebsocketModule,
   ],
