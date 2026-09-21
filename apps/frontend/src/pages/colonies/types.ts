@@ -383,6 +383,7 @@ export interface ColonyDetailV2 {
     crewMax: number;
     hasEnoughCrew: boolean;
     canLand?: boolean;
+    landReason?: string | null;
     canDisassemble?: boolean;
     canRepair?: boolean;
     canRetrofit?: boolean;

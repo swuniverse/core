@@ -32,6 +32,7 @@ export function PanelOrbit({
   orbitShips,
   compact = false,
   onOpenManagement,
+  onLandShip,
 }: PanelOrbitProps) {
   const [selectedId, setSelectedId] = useState<number | null>(
     orbitShips[0]?.id ?? null,
@@ -40,6 +41,8 @@ export function PanelOrbit({
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
     null,
   );
+  const [landing, setLanding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const selected =
     orbitShips.find((ship) => ship.id === selectedId) ?? orbitShips[0] ?? null;
 
@@ -58,6 +61,21 @@ export function PanelOrbit({
     }
     return [...result.entries()];
   }, [orbitShips]);
+
+  async function landSelected() {
+    if (!selected?.canLand || landing) return;
+    setLanding(true);
+    setError(null);
+    try {
+      await onLandShip(selected.id);
+    } catch (cause: unknown) {
+      setError(
+        cause instanceof Error ? cause.message : 'Landen fehlgeschlagen',
+      );
+    } finally {
+      setLanding(false);
+    }
+  }
 
   return (
     <section className="space-y-2">
@@ -84,6 +102,22 @@ export function PanelOrbit({
                   className="size-5"
                 />
               </button>
+              {selected.canLand && (
+                <button
+                  type="button"
+                  disabled={landing}
+                  onClick={() => void landSelected()}
+                  title="Schiff auf der Kolonie landen"
+                  className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent disabled:opacity-40"
+                >
+                  <img
+                    src="/assets/buttons/b_down1.png"
+                    alt=""
+                    className="size-5"
+                  />
+                  Landen
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setTransfer('TO_SHIP')}
@@ -119,6 +153,11 @@ export function PanelOrbit({
         )
       ) : (
         <OrbitalManagementPanel colonyId={colonyId} />
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-red-400">
+          {error}
+        </p>
       )}
       {transfer && selected && (
         <TransferDialog

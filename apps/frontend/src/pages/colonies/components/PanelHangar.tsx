@@ -5,14 +5,11 @@ import type { ColonyDetailV2, CommodityDef } from '../types';
 
 export function PanelHangar({
   hangar,
-  orbitShips,
   commodityMap,
   onBuildAirfieldRump,
   onStartHangarShip,
-  onLandShip,
 }: {
   hangar: NonNullable<ColonyDetailV2['hangar']>;
-  orbitShips: ColonyDetailV2['orbitShips'];
   commodityMap: Record<number, CommodityDef>;
   onBuildAirfieldRump: (
     shipClassId: number,
@@ -22,7 +19,6 @@ export function PanelHangar({
     shipClassId: number,
     name?: string,
   ) => Promise<void> | void;
-  onLandShip: (shipId: number) => Promise<void> | void;
 }) {
   const [amountByClass, setAmountByClass] = useState<Record<number, number>>(
     {},
@@ -42,9 +38,6 @@ export function PanelHangar({
       setBusy(null);
     }
   };
-
-  const landableIds = new Set(hangar.landableOrbitShips.map((ship) => ship.id));
-  const landableShips = orbitShips.filter((ship) => landableIds.has(ship.id));
 
   return (
     <div className="space-y-2">
@@ -108,7 +101,9 @@ export function PanelHangar({
                   <div className="text-[10px] text-swu-muted">
                     Defaultmodule:{' '}
                     {item.defaultModules.length
-                      ? item.defaultModules.map((module) => module.name).join(', ')
+                      ? item.defaultModules
+                          .map((module) => module.name)
+                          .join(', ')
                       : 'keine'}
                   </div>
                   {item.maxBuildable <= 0 && (
@@ -184,7 +179,9 @@ export function PanelHangar({
                   <div className="text-[10px] text-swu-muted">
                     Startet mit:{' '}
                     {item.defaultModules.length
-                      ? item.defaultModules.map((module) => module.name).join(', ')
+                      ? item.defaultModules
+                          .map((module) => module.name)
+                          .join(', ')
                       : 'keinen Defaultmodulen'}
                   </div>
                 </div>
@@ -219,34 +216,6 @@ export function PanelHangar({
         )}
       </div>
 
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-1">
-        <div className="text-[10px] font-bold text-swu-muted uppercase">
-          Landbare Orbit-Schiffe
-        </div>
-        {landableShips.length === 0 ? (
-          <div className="text-swu-muted">
-            Keine landbaren Schiffe im Orbit.
-          </div>
-        ) : (
-          landableShips.map((ship) => (
-            <div
-              key={ship.id}
-              className="flex justify-between items-center border-b border-swu-border/20 pb-1 last:border-0 last:pb-0"
-            >
-              <span className="text-swu-primary">{ship.name}</span>
-              <button
-                onClick={() =>
-                  run(`land-${ship.id}`, () => onLandShip(ship.id))
-                }
-                disabled={busy === `land-${ship.id}`}
-                className="px-2 py-1 bg-swu-primary/10 border border-swu-border text-swu-primary text-[10px] rounded disabled:opacity-40"
-              >
-                Landen
-              </button>
-            </div>
-          ))
-        )}
-      </div>
       {error && <p className="text-[10px] text-red-400">{error}</p>}
     </div>
   );

@@ -127,4 +127,66 @@ describe('ColonyCrewService', () => {
       expect.objectContaining({ trainedCrew: 2 }),
     );
   });
+
+  it('returns all ship crew to the colony when landing', async () => {
+    const { service, crewAssignmentRepo, shipRepo } = createService();
+    const assignments = [1, 2, 3, 4].map((crewId) => ({
+      crewId,
+      userId: 5,
+      colonyId: null,
+      spacecraftId: 9,
+    }));
+    crewAssignmentRepo.find.mockResolvedValue(assignments);
+    crewAssignmentRepo.count.mockResolvedValue(0);
+    jest.spyOn(service, 'getLocalCrewLimit').mockReturnValue(10);
+    const colony = { id: 1, userId: 5, stats: {}, fields: [] } as any;
+    const ship = {
+      id: 9,
+      userId: 5,
+      starSystemId: 2,
+      celestialObjectId: 3,
+      crew: 4,
+    } as any;
+    colony.starSystemId = 2;
+    colony.celestialObjectId = 3;
+
+    await service.landCrewWithShip(colony, ship);
+
+    expect(assignments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ colonyId: 1, spacecraftId: null }),
+      ]),
+    );
+    expect(ship.crew).toBe(0);
+    expect(shipRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps one crew member aboard during a normal transfer', async () => {
+    const { service, crewAssignmentRepo } = createService();
+    crewAssignmentRepo.find.mockResolvedValue(
+      [1, 2, 3, 4].map((crewId) => ({
+        crewId,
+        userId: 5,
+        colonyId: null,
+        spacecraftId: 9,
+      })),
+    );
+    const colony = {
+      id: 1,
+      userId: 5,
+      starSystemId: 2,
+      celestialObjectId: 3,
+    } as any;
+    const ship = {
+      id: 9,
+      userId: 5,
+      starSystemId: 2,
+      celestialObjectId: 3,
+      crew: 4,
+    } as any;
+
+    await expect(
+      service.transferCrewFromShipToColony(colony, ship, 4),
+    ).rejects.toThrow('At least one crew member must remain on ship');
+  });
 });

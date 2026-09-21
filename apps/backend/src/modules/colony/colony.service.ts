@@ -836,9 +836,11 @@ export class ColonyService {
     const hangarDef = this.getHangarDefForShipClass(shipClass);
     if (!hangarDef) throw new BadRequestException('Ship cannot land in hangar');
 
-    const freeAssignmentCount =
-      await this.colonyCrewService.getFreeAssignmentCount(colony);
-    if (ship.crew > freeAssignmentCount) {
+    const [freeAssignmentCount, assignedCrew] = await Promise.all([
+      this.colonyCrewService.getFreeAssignmentCount(colony),
+      this.colonyCrewService.getAssignedToShipCount(ship.id),
+    ]);
+    if (assignedCrew > freeAssignmentCount) {
       throw new BadRequestException('Not enough colony crew capacity');
     }
     const maxStorage =
@@ -886,11 +888,7 @@ export class ColonyService {
         hangarCommodityId: hangarDef.hangarCommodityId,
       },
     });
-    await this.colonyCrewService.transferCrewFromShipToColony(
-      colony,
-      ship,
-      ship.crew,
-    );
+    await this.colonyCrewService.landCrewWithShip(colony, ship);
     await this.shipRepo.remove(ship);
     return this.findOne(colonyId, userId);
   }
