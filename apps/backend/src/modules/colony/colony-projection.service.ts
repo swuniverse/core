@@ -144,8 +144,10 @@ export class ColonyProjectionService {
         (totals.get(cost.commodityId) ?? 0) + cost.amount * amount,
       );
     }
-    for (const commodityId of hangarDef.defaultModuleCommodityIds ?? []) {
-      totals.set(commodityId, (totals.get(commodityId) ?? 0) + amount);
+    if (totals.size === 0) {
+      for (const commodityId of hangarDef.defaultModuleCommodityIds ?? []) {
+        totals.set(commodityId, (totals.get(commodityId) ?? 0) + amount);
+      }
     }
     return Array.from(totals, ([commodityId, required]) => ({
       commodityId,

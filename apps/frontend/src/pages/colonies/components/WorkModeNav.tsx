@@ -23,13 +23,13 @@ export const WORK_MODE_DEFINITIONS: Array<{
   {
     key: 'construction',
     label: 'Bauen',
-    tabs: ['build', 'buildingManagement'],
+    tabs: ['build', 'hangar', 'shipyard', 'buildingManagement'],
   },
   { key: 'production', label: 'Produktion', tabs: ['fabrication', 'waste'] },
   {
     key: 'fleet',
     label: 'Flotte',
-    tabs: ['orbit', 'shipyard', 'hangar', 'crew'],
+    tabs: ['orbit', 'crew'],
   },
   { key: 'security', label: 'Sicherheit', tabs: ['defense'] },
   { key: 'administration', label: 'Verwaltung', tabs: ['settings'] },

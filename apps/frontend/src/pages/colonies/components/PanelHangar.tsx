@@ -90,7 +90,7 @@ export function PanelHangar({
                     {item.startEnergyCost} · Crew {item.crewRequired}
                   </div>
                   <div className="text-[10px] text-swu-muted">
-                    Kosten/Module:{' '}
+                    Kosten:{' '}
                     {item.buildCosts
                       .map(
                         (cost) =>
@@ -98,17 +98,9 @@ export function PanelHangar({
                       )
                       .join(', ')}
                   </div>
-                  <div className="text-[10px] text-swu-muted">
-                    Defaultmodule:{' '}
-                    {item.defaultModules.length
-                      ? item.defaultModules
-                          .map((module) => module.name)
-                          .join(', ')
-                      : 'keine'}
-                  </div>
                   {item.maxBuildable <= 0 && (
                     <div className="text-[10px] text-red-400">
-                      Nicht baubar: Energie oder benötigte Module fehlen.
+                      Nicht baubar: Energie oder benötigte Ressourcen fehlen.
                     </div>
                   )}
                 </div>
@@ -175,14 +167,6 @@ export function PanelHangar({
                   <div className="text-[10px] text-swu-muted">
                     Startenergie {item.startEnergyCost} · Crew{' '}
                     {item.crewRequired}
-                  </div>
-                  <div className="text-[10px] text-swu-muted">
-                    Startet mit:{' '}
-                    {item.defaultModules.length
-                      ? item.defaultModules
-                          .map((module) => module.name)
-                          .join(', ')
-                      : 'keinen Defaultmodulen'}
                   </div>
                 </div>
                 <input

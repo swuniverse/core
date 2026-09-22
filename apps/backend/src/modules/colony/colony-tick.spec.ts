@@ -6695,6 +6695,88 @@ describe('airfield hangar loop', () => {
     expect(storage[21401].amount).toBe(1);
   });
 
+  it('builds STU colonizer rumps from resources and installs their modules on start', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipClassRepo,
+      storageRepo,
+      shipRepo,
+      spacecraftModuleRepo,
+      gameData,
+    } = createColonyService();
+    const colony = { ...airfieldColony(), energy: 500 };
+    const colonizerClass = {
+      ...hangarShipClass,
+      key: 'REBEL_COLONIZER_ICARUS',
+      name: 'GR-75 Kolonietransporter',
+      crewMax: 0,
+    };
+    const hangarDef = {
+      shipClassKey: colonizerClass.key,
+      crewRequired: 0,
+      hangarCommodityId: 21501,
+      displayName: 'GR-75 Kolonietransporter Rumpf',
+      airfieldFunctionId: 4,
+      startEnergyCost: 125,
+      buildEnergyCost: 90,
+      buildCosts: [
+        { commodityId: 2, amount: 30 },
+        { commodityId: 21, amount: 12 },
+        { commodityId: 5, amount: 100 },
+        { commodityId: 4, amount: 12 },
+      ],
+      defaultModuleCommodityIds: [
+        10101, 10201, 10301, 10401, 10501, 10601, 10901,
+      ],
+      defaultTorpedoCommodityId: null,
+      defaultTorpedoAmount: 0,
+    };
+    const storage: Record<number, any> = Object.fromEntries(
+      hangarDef.buildCosts.map(({ commodityId, amount }) => [
+        commodityId,
+        { colonyId: 1, commodityId, amount },
+      ]),
+    );
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(colonizerClass);
+    gameData.getHangarShipDef.mockReturnValue(hangarDef as any);
+    gameData.getFabricationItemByOutputCommodity.mockImplementation(
+      (commodityId: number) => ({
+        outputCommodityId: commodityId,
+        moduleType: `Module ${commodityId}`,
+        moduleCategory: 'SPECIAL',
+        shipyardType: 'SPECIAL',
+        moduleLevel: 1,
+      }),
+    );
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => storage[where.commodityId] ?? null,
+    );
+    storageRepo.create.mockImplementation((value: any) => {
+      storage[value.commodityId] = { ...value };
+      return storage[value.commodityId];
+    });
+    shipRepo.save.mockImplementation(async (value: any) => ({
+      id: 77,
+      ...value,
+    }));
+
+    await service.buildAirfieldRump(1, 1, 1, 1);
+
+    expect(storage[2].amount).toBe(0);
+    expect(storage[21].amount).toBe(0);
+    expect(storage[5].amount).toBe(0);
+    expect(storage[4].amount).toBe(0);
+    expect(storage[10101]).toBeUndefined();
+    expect(storage[21501].amount).toBe(1);
+
+    await service.startHangarShip(1, 1, 1, 'Icarus');
+
+    expect(storage[21501].amount).toBe(0);
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledTimes(7);
+  });
+
   it('stores four built hangar rumps exactly once', async () => {
     const { service, colonyRepo, shipClassRepo, storageRepo } =
       createColonyService();
