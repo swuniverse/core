@@ -1,3 +1,5 @@
+import type { GameEventDto } from '@swuniverse/shared';
+
 export interface ActiveResearch {
   name: string;
   progress: number;
@@ -92,8 +94,6 @@ export interface ColonyWarning {
   type: 'energy' | 'storage';
   message: string;
 }
-
-import type { GameEventDto } from '@swuniverse/shared';
 
 export type RecentGameEvent = GameEventDto;
 
