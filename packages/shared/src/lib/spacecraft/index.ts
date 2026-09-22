@@ -294,6 +294,8 @@ export interface SpacecraftFieldContextDto {
     colonizationTarget?: {
       celestialObjectId: number;
       name: string | null;
+      classId: number | null;
+      className: string | null;
       isAbandoned: boolean;
     } | null;
   };
@@ -393,5 +395,3 @@ export interface SpacecraftDistressSignalDto {
   stoppedAt: string | null;
   locationLabel: string;
 }
-      classId: number | null;
-      className: string | null;
