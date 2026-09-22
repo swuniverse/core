@@ -219,11 +219,25 @@ export function FieldContextPanel({
         </div>
       </div>
       {canColonize && context.information.colonizationTarget && (
-        <div className="border border-swu-border bg-swu-surface p-2">
+        <div className="border border-swu-border bg-swu-surface">
+          <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1">
+            {context.information.colonizationTarget.classId != null && (
+              <img
+                src={planetThumbnail(context.information.colonizationTarget.classId)}
+                alt=""
+                className="size-5 object-contain"
+              />
+            )}
+            <span className="text-swu-primary">
+              {context.information.colonizationTarget.className ??
+                context.information.colonizationTarget.name ??
+                'Unbekannter Himmelskörper'}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setColonizationOpen(true)}
-            className="inline-flex items-center gap-1 text-swu-primary hover:text-swu-accent"
+            className="inline-flex items-center gap-1 px-2 py-1 text-swu-primary hover:text-swu-accent"
           >
             ◉{' '}
             {context.information.colonizationTarget.isAbandoned

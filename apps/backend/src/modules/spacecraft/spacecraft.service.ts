@@ -55,6 +55,7 @@ import {
   type SpacecraftCartographyDto,
   type SpacecraftLssMode as SpacecraftLssModeDto,
   WsEventType,
+  getStuCelestialClass,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
@@ -2231,20 +2232,21 @@ export class SpacecraftService {
             relations: ['starSystem'],
           })
         : null;
-    const colonizationTarget =
+    const colonizationCandidate =
       location?.scope === 'SYSTEM' && celestialObjectId != null
         ? await this.dataSource.getRepository(CelestialObject).findOne({
             where: { id: celestialObjectId, isColonizable: true },
           })
         : null;
-    const abandonedColony = colonizationTarget
+    const abandonedColony = colonizationCandidate
       ? await this.dataSource.getRepository(Colony).findOne({
           where: {
-            celestialObjectId: colonizationTarget.id,
+            celestialObjectId: colonizationCandidate.id,
             isAbandoned: true,
           },
         })
       : null;
+    const colonizationTarget = colony ? null : colonizationCandidate;
     return {
       coordinates: { x: location?.x ?? 0, y: location?.y ?? 0 },
       starSystem:
@@ -2283,6 +2285,9 @@ export class SpacecraftService {
           ? {
               celestialObjectId: colonizationTarget.id,
               name: colonizationTarget.name,
+              classId: colonizationTarget.classId,
+              className:
+                getStuCelestialClass(colonizationTarget.classId)?.name ?? null,
               isAbandoned: abandonedColony != null,
             }
           : null,

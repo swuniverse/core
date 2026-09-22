@@ -393,3 +393,5 @@ export interface SpacecraftDistressSignalDto {
   stoppedAt: string | null;
   locationLabel: string;
 }
+      classId: number | null;
+      className: string | null;

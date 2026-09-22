@@ -149,4 +149,102 @@ describe('FieldContextPanel', () => {
       'Nicht genug Lagerraum',
     );
   });
+
+  it('shows the STU-style colonization action for an uncolonized target', () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          canColonize
+          context={{
+            coordinates: { x: 1, y: 4 },
+            starSystem: null,
+            colony: null,
+            information: {
+              canSectorScan: false,
+              cartographyKnown: true,
+              colonizationTarget: {
+                celestialObjectId: 9,
+                name: 'Tatooine',
+                classId: 701,
+                className: 'Klasse M',
+                isAbandoned: false,
+              },
+            },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Klasse M')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Kolonie gründen/ }),
+    ).toBeTruthy();
+  });
+
+  it('does not show a colonization action for an occupied colony', () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          canColonize
+          context={{
+            coordinates: { x: 1, y: 4 },
+            starSystem: null,
+            colony: {
+              id: 3,
+              name: 'Alpha',
+              planetName: 'Alpha',
+              isOwn: true,
+              canLand: false,
+            },
+            information: {
+              canSectorScan: false,
+              cartographyKnown: true,
+              colonizationTarget: null,
+            },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /Kolonie gründen/ }),
+    ).toBeNull();
+    expect(screen.getByText('Alpha')).toBeTruthy();
+  });
+
+  it('labels abandoned colonies as a takeover target', () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          canColonize
+          context={{
+            coordinates: { x: 1, y: 4 },
+            starSystem: null,
+            colony: null,
+            information: {
+              canSectorScan: false,
+              cartographyKnown: true,
+              colonizationTarget: {
+                celestialObjectId: 9,
+                name: 'Tatooine',
+                classId: 701,
+                className: 'Klasse M',
+                isAbandoned: true,
+              },
+            },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Ruinen übernehmen/ }),
+    ).toBeTruthy();
+  });
 });
