@@ -10,6 +10,7 @@ import {
   starTileImage,
   systemTypeImage,
 } from '../../lib/assets';
+import { isStarObject } from '../../lib/starmap-render';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
 interface FieldType {
@@ -199,9 +200,6 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
               {xValues.map((x) => {
                 const isShip = x === shipX && y === shipY;
                 const isTarget = navTarget?.x === x && navTarget?.y === y;
-                const wreck = localMap.wrecks?.find(
-                  (entry) => entry.x === x && entry.y === y,
-                );
                 const signatureCount = signaturesByPosition.get(`${x},${y}`);
                 const signatureLabel = signatureCount
                   ? `, ${signatureCount} sichtbare ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
@@ -264,11 +262,9 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                           }}
                         />
                       )}
-                      {wreck
-                        ? '✹'
-                        : field.starSystemId
-                          ? '✦'
-                          : getGalaxyFieldMarker(field.fieldType.key)}
+                      {field.starSystemId
+                        ? '✦'
+                        : getGalaxyFieldMarker(field.fieldType.key)}
                       {signatureCount != null && (
                         <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
                           {signatureCount}
@@ -325,12 +321,20 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                       )
                     : null;
                 const obj = field.celestialObject;
+                const showStarTile =
+                  starTileId != null &&
+                  (obj == null || isStarObject(obj.classId));
+                const starTileAsset =
+                  showStarTile && starTileId != null
+                    ? starTileImage(starTileId)
+                    : null;
+                const objectAsset =
+                  obj?.classId != null ? planetThumbnail(obj.classId) : null;
                 const fieldTileImage =
                   field.fieldType.key === 'EMPTY_SPACE' ||
                   field.fieldType.key === 'DEEP_SPACE'
                     ? spaceBackgroundTile(x, y)
                     : starTileImage(field.fieldType.id);
-                const hasImage = obj?.classId != null;
                 const fallbackLabel = obj
                   ? OBJECT_TYPE_EMOJI[obj.objectType] || '●'
                   : field.fieldType.key === 'STAR_CORE'
@@ -347,22 +351,20 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     style={{ width: cellSize, height: cellSize }}
                     aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}`}
                     className={[
-                      starTileId != null
+                      showStarTile
                         ? 'relative flex items-center justify-center overflow-hidden border-0 rounded-none'
                         : 'relative border rounded-sm text-[10px] flex items-center justify-center transition-all overflow-hidden',
                       getSystemFieldStyle(
-                        starTileId != null
-                          ? 'EMPTY_SPACE'
-                          : field.fieldType.key,
+                        showStarTile ? 'EMPTY_SPACE' : field.fieldType.key,
                       ),
-                      field.fieldType.key === 'STAR_CORE' && starTileId == null
+                      field.fieldType.key === 'STAR_CORE' && !showStarTile
                         ? 'shadow-[0_0_14px_rgba(255,210,80,0.5)]'
                         : '',
                       isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                       isTarget ? 'ring-2 ring-swu-accent z-10' : '',
                     ].join(' ')}
                   >
-                    {starTileId == null && !hasImage && (
+                    {!showStarTile && !objectAsset && (
                       <img
                         src={fieldTileImage}
                         alt=""
@@ -377,17 +379,15 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                         K
                       </span>
                     )}
-                    {wreck ? (
-                      <span className="text-amber-300">✹</span>
-                    ) : starTileId != null ? (
+                    {starTileAsset ? (
                       <img
-                        src={starTileImage(starTileId)}
+                        src={starTileAsset}
                         alt=""
                         className="h-full w-full object-cover"
                       />
-                    ) : hasImage ? (
+                    ) : objectAsset ? (
                       <img
-                        src={planetThumbnail(obj!.classId!)}
+                        src={objectAsset}
                         alt=""
                         className="h-full w-full object-contain"
                       />
