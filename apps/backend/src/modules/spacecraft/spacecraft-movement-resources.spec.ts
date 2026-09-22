@@ -72,7 +72,7 @@ function createService() {
   const fleetRepo = { create: jest.fn(), save: jest.fn() };
   const systemRepo = { findOne: jest.fn() };
   const layerRepo = { findOne: jest.fn() };
-  const objectRepo = { findOne: jest.fn() };
+  const objectRepo = { findOne: jest.fn(), findOneBy: jest.fn() };
   const galaxyFieldRepo = { findOne: jest.fn() };
   const systemFieldRepo = { findOne: jest.fn() };
   const userRepo = { find: jest.fn() };
@@ -168,6 +168,7 @@ function createService() {
     service,
     shipRepo,
     systemRepo,
+    objectRepo,
     galaxyFieldRepo,
     systemFieldRepo,
     runtimeState,
@@ -189,8 +190,15 @@ describe('SpacecraftService movement resources', () => {
   });
 
   it('uses EPS for in-system navigation and syncs runtime systems', async () => {
-    const { service, shipRepo, systemRepo, systemFieldRepo, runtimeState } =
-      createService();
+    const {
+      service,
+      shipRepo,
+      systemRepo,
+      objectRepo,
+      systemFieldRepo,
+      runtimeState,
+    } = createService();
+    const celestialObject = { id: 42 };
     const ship = {
       id: 7,
       userId: 1,
@@ -199,16 +207,24 @@ describe('SpacecraftService movement resources', () => {
       starSystemId: 3,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
+      celestialObjectId: 23,
+      celestialObject: { id: 23 },
       energy: 20,
       modules: [],
     };
     shipRepo.findOne.mockResolvedValue(ship);
     systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
-    systemFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+    systemFieldRepo.findOne.mockResolvedValue({
+      isPassable: true,
+      celestialObjectId: 42,
+    });
+    objectRepo.findOneBy.mockResolvedValue(celestialObject);
 
     await service.navigate(7, 1, 1, 3);
 
     expect(ship.energy).toBe(18);
+    expect(ship.celestialObjectId).toBe(42);
+    expect(ship.celestialObject).toBe(celestialObject);
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
   });
 
@@ -317,6 +333,95 @@ describe('SpacecraftService movement resources', () => {
     expect(ship.warpdrive).toBe(0);
     expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
   });
+
+  it.each([
+    ['sets the target celestial object', { celestialObjectId: 42 }, 42],
+    ['clears a stale celestial object', null, null],
+  ])(
+    '%s after delayed in-system arrival',
+    async (_description, targetField, expectedCelestialObjectId) => {
+      const { service, shipRepo, objectRepo, systemFieldRepo } =
+        createService();
+      const celestialObject = targetField
+        ? { id: targetField.celestialObjectId }
+        : null;
+      const ship = {
+        id: 7,
+        userId: 1,
+        status: SpacecraftStatus.IN_FLIGHT,
+        inSystem: true,
+        starSystemId: 3,
+        currentSystemFieldX: 1,
+        currentSystemFieldY: 1,
+        celestialObjectId: 23,
+        celestialObject: { id: 23 },
+        targetX: 8,
+        targetY: 12,
+        targetSystemId: null,
+        arrivalAt: new Date(0),
+      };
+      systemFieldRepo.findOne.mockResolvedValue(targetField);
+      objectRepo.findOneBy.mockResolvedValue(celestialObject);
+
+      await service.processMovement(ship as any);
+
+      expect(systemFieldRepo.findOne).toHaveBeenCalledWith({
+        where: { starSystemId: 3, sx: 8, sy: 12 },
+      });
+      expect(ship.celestialObjectId).toBe(expectedCelestialObjectId);
+      expect(ship.celestialObject).toEqual(celestialObject);
+      expect(shipRepo.save).toHaveBeenCalledWith(ship);
+    },
+  );
+
+  it.each([
+    ['sets the entry celestial object', { celestialObjectId: 42 }, 42],
+    ['clears a stale celestial object', null, null],
+  ])(
+    '%s after delayed warp arrival',
+    async (_description, entryField, expectedCelestialObjectId) => {
+      const { service, shipRepo, systemRepo, objectRepo, systemFieldRepo } =
+        createService();
+      const celestialObject = entryField
+        ? { id: entryField.celestialObjectId }
+        : null;
+      const ship = {
+        id: 7,
+        userId: 1,
+        status: SpacecraftStatus.IN_FLIGHT,
+        inSystem: true,
+        starSystemId: 3,
+        currentSystemFieldX: 8,
+        currentSystemFieldY: 12,
+        celestialObjectId: 23,
+        celestialObject: { id: 23 },
+        posX: 4,
+        posY: 5,
+        currentLayerId: 1,
+        targetX: null,
+        targetY: null,
+        targetSystemId: 12,
+        arrivalAt: new Date(0),
+      };
+      systemRepo.findOne.mockResolvedValue({
+        id: 12,
+        cx: 9,
+        cy: 10,
+        layerId: 2,
+      });
+      systemFieldRepo.findOne.mockResolvedValue(entryField);
+      objectRepo.findOneBy.mockResolvedValue(celestialObject);
+
+      await service.processMovement(ship as any);
+
+      expect(systemFieldRepo.findOne).toHaveBeenCalledWith({
+        where: { starSystemId: 12, sx: 1, sy: 1 },
+      });
+      expect(ship.celestialObjectId).toBe(expectedCelestialObjectId);
+      expect(ship.celestialObject).toEqual(celestialObject);
+      expect(shipRepo.save).toHaveBeenCalledWith(ship);
+    },
+  );
 
   it('activates SUBLIGHT_DRIVE for in-system navigation', async () => {
     const { service, shipRepo, systemRepo, systemFieldRepo, runtimeState } =

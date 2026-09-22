@@ -1369,7 +1369,7 @@ export class SpacecraftService {
     const previousField = resolveSpacecraftField(ship);
     ship.currentSystemFieldX = targetX;
     ship.currentSystemFieldY = targetY;
-    ship.celestialObjectId = targetField?.celestialObjectId ?? null;
+    await this.setCelestialObject(ship, targetField?.celestialObjectId ?? null);
     ship.targetX = null;
     ship.targetY = null;
     ship.arrivalAt = null;
@@ -1574,7 +1574,7 @@ export class SpacecraftService {
     ship.starSystemId = galaxyField.starSystemId;
     ship.currentSystemFieldX = entryField.sx;
     ship.currentSystemFieldY = entryField.sy;
-    ship.celestialObjectId = entryField.celestialObjectId;
+    await this.setCelestialObject(ship, entryField.celestialObjectId);
     ship.status = SpacecraftStatus.IDLE;
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (systems.WARPDRIVE) systems.WARPDRIVE.active = false;
@@ -1683,8 +1683,7 @@ export class SpacecraftService {
     ship.currentSystemFieldY = null;
     ship.starSystemId = null;
     ship.starSystem = null!;
-    ship.celestialObjectId = null;
-    ship.celestialObject = null;
+    await this.setCelestialObject(ship, null);
     ship.posX = system.cx;
     ship.posY = system.cy;
     ship.currentLayerId = system.layerId;
@@ -1921,6 +1920,13 @@ export class SpacecraftService {
         ship.inSystem = true;
         ship.currentSystemFieldX = 1;
         ship.currentSystemFieldY = 1;
+        const entryField = await this.systemFieldRepo.findOne({
+          where: { starSystemId: ship.targetSystemId, sx: 1, sy: 1 },
+        });
+        await this.setCelestialObject(
+          ship,
+          entryField?.celestialObjectId ?? null,
+        );
         ship.posX = targetSystem?.cx ?? ship.posX;
         ship.posY = targetSystem?.cy ?? ship.posY;
         ship.currentLayerId = targetSystem?.layerId ?? ship.currentLayerId;
@@ -1938,6 +1944,17 @@ export class SpacecraftService {
           // In-system navigation arrival
           ship.currentSystemFieldX = ship.targetX;
           ship.currentSystemFieldY = ship.targetY;
+          const targetField = await this.systemFieldRepo.findOne({
+            where: {
+              starSystemId: ship.starSystemId,
+              sx: ship.targetX,
+              sy: ship.targetY,
+            },
+          });
+          await this.setCelestialObject(
+            ship,
+            targetField?.celestialObjectId ?? null,
+          );
 
           if (ship.starSystemId) {
             await this.explorationService.discoverSystem({
@@ -1971,6 +1988,26 @@ export class SpacecraftService {
 
       await this.shipRepo.save(ship);
     }
+  }
+
+  private async setCelestialObject(
+    ship: Spacecraft,
+    celestialObjectId: number | null,
+  ): Promise<void> {
+    if (celestialObjectId == null) {
+      ship.celestialObjectId = null;
+      ship.celestialObject = null;
+      return;
+    }
+
+    const celestialObject = await this.objectRepo.findOneBy({
+      id: celestialObjectId,
+    });
+    if (!celestialObject) {
+      throw new NotFoundException('Celestial object not found');
+    }
+    ship.celestialObjectId = celestialObject.id;
+    ship.celestialObject = celestialObject;
   }
 
   private async discoverGalaxyAroundShip(
