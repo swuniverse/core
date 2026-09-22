@@ -11,7 +11,6 @@ export function PanelCrew({
   onQueueCrewTraining,
   onAssignCrewToShip,
   onUnassignCrewFromShip,
-  onLandShip: _onLandShip,
   onDisassembleShip: _onDisassembleShip,
 }: {
   crew: NonNullable<ColonyDetailV2['crew']>;
@@ -23,7 +22,6 @@ export function PanelCrew({
     shipId: number,
     amount: number,
   ) => Promise<void> | void;
-  onLandShip: (shipId: number) => Promise<void> | void;
   onDisassembleShip: (shipId: number) => Promise<void> | void;
 }) {
   const [amount, setAmount] = useState(1);

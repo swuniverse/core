@@ -343,7 +343,6 @@ function renderColonyDetail(
       onQueueCrewTraining={noopPromise}
       onAssignCrewToShip={noopPromise}
       onUnassignCrewFromShip={noopPromise}
-      onLandShip={noopPromise}
       onDisassembleShip={noopPromise}
       onDefendOrbitShip={noopPromise}
       onBlockadeOrbitShip={noopPromise}

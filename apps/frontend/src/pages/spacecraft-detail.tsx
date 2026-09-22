@@ -150,6 +150,7 @@ export function SpacecraftDetailPage() {
             onColonized={(colonyId) =>
               navigate(`/colonies?selected=${colonyId}`)
             }
+            onLanded={(colonyId) => navigate(`/colonies?selected=${colonyId}`)}
           />
         </div>
         <div className="space-y-2">

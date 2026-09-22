@@ -29,12 +29,14 @@ export function FieldContextPanel({
   onUpdate,
   canColonize = false,
   onColonized,
+  onLanded,
 }: {
   shipId: number;
   context: SpacecraftFieldContextDto | null;
   onUpdate: () => Promise<void> | void;
   canColonize?: boolean;
   onColonized?: (colonyId: number) => void;
+  onLanded?: (colonyId: number) => void;
 }) {
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
     null,
@@ -49,6 +51,7 @@ export function FieldContextPanel({
     message: string | null;
   } | null>(null);
   const [colonizationOpen, setColonizationOpen] = useState(false);
+  const [landing, setLanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function scanSector() {
@@ -79,6 +82,19 @@ export function FieldContextPanel({
       setError(
         err instanceof Error ? err.message : 'Koloniebotschaft nicht verfügbar',
       );
+    }
+  }
+
+  async function landShip() {
+    if (!context?.colony?.canLand || landing) return;
+    setLanding(true);
+    setError(null);
+    try {
+      await api.post(`/colonies/${context.colony.id}/ships/${shipId}/land`, {});
+      onLanded?.(context.colony.id);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Landen fehlgeschlagen');
+      setLanding(false);
     }
   }
   async function enterSystem() {
@@ -222,26 +238,28 @@ export function FieldContextPanel({
             {context.colony.planetName}
           </h3>
           <div className="flex items-center gap-2 p-2">
-            {context.colony.isOwn ? (
-              <Link
-                to={`/colonies?selected=${context.colony.id}`}
-                className="flex-1 text-swu-primary hover:text-swu-accent"
+            <div className="flex flex-1 items-center gap-1">
+              {context.colony.isOwn ? (
+                <Link
+                  to={`/colonies?selected=${context.colony.id}`}
+                  className="text-swu-primary hover:text-swu-accent"
+                >
+                  ◉ {context.colony.name}
+                </Link>
+              ) : (
+                <span className="text-swu-primary">
+                  ◉ {context.colony.name}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => void showMessage()}
+                title="Koloniebotschaft"
+                className="border border-swu-border px-1 text-swu-primary"
               >
-                ◉ {context.colony.name}
-              </Link>
-            ) : (
-              <span className="flex-1 text-swu-primary">
-                ◉ {context.colony.name}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => void showMessage()}
-              title="Koloniebotschaft"
-              className="border border-swu-border px-1 text-swu-primary"
-            >
-              ?
-            </button>
+                ?
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => setTransfer('TO_COLONY')}
@@ -264,6 +282,22 @@ export function FieldContextPanel({
                 className="size-5"
               />
             </button>
+            {context.colony.canLand && (
+              <button
+                type="button"
+                disabled={landing}
+                onClick={() => void landShip()}
+                title="Schiff auf der Kolonie landen"
+                className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent disabled:opacity-40"
+              >
+                <img
+                  src="/assets/buttons/dock1.png"
+                  alt=""
+                  className="size-5"
+                />
+                Landen
+              </button>
+            )}
           </div>
         </div>
       )}

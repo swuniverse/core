@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PanelOrbit } from './PanelOrbit';
 
@@ -6,10 +6,7 @@ vi.mock('../../../components/spacecraft/TransferDialog', () => ({
   TransferDialog: () => null,
 }));
 
-function renderPanel(
-  canLand: boolean,
-  onLandShip: (shipId: number) => Promise<void> | void = vi.fn(),
-) {
+function renderPanel() {
   render(
     <MemoryRouter>
       <PanelOrbit
@@ -31,11 +28,10 @@ function renderPanel(
             crewMax: 0,
             hasEnoughCrew: true,
             canManage: true,
-            canLand,
+            canLand: true,
           },
         ]}
         commodityMap={{}}
-        onLandShip={onLandShip}
         onDisassembleShip={vi.fn()}
         onDefendShip={vi.fn()}
         onBlockadeShip={vi.fn()}
@@ -49,29 +45,8 @@ function renderPanel(
 }
 
 describe('PanelOrbit landing', () => {
-  it('lands an eligible selected ship from the orbit action bar', async () => {
-    const onLandShip = vi.fn(async () => undefined);
-    renderPanel(true, onLandShip);
-
-    fireEvent.click(screen.getByRole('button', { name: /Landen/ }));
-
-    await waitFor(() => expect(onLandShip).toHaveBeenCalledWith(7));
-  });
-
-  it('hides landing when the selected ship is not eligible', () => {
-    renderPanel(false);
+  it('does not offer landing in the colony orbit action bar', () => {
+    renderPanel();
     expect(screen.queryByRole('button', { name: /Landen/ })).toBeNull();
-  });
-
-  it('shows landing errors without closing the orbit panel', async () => {
-    renderPanel(true, async () => {
-      throw new Error('Nicht genug Lagerraum');
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /Landen/ }));
-
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      'Nicht genug Lagerraum',
-    );
   });
 });

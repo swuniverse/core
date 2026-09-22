@@ -66,6 +66,7 @@ import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '../events/entities/game-event.entity';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { resolveSpacecraftField } from './spacecraft-field';
+import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 
 @Injectable()
 export class SpacecraftService {
@@ -2107,9 +2108,25 @@ export class SpacecraftService {
               posY: y,
               isAbandoned: false,
             },
-            relations: ['celestialObject'],
+            relations: ['celestialObject', 'fields'],
           })
         : null;
+    const shipClass = colony
+      ? await this.shipClassService.findById(ship.shipClassId)
+      : null;
+    const canLand =
+      colony?.userId === userId &&
+      colony.fields.some(
+        (field) =>
+          field.buildingId != null &&
+          !field.isBuilding &&
+          field.isActive &&
+          this.gameData
+            .getBuildingFunctions(field.buildingId)
+            .includes(COLONY_FUNCTION_IDS.AIRFIELD),
+      ) &&
+      shipClass != null &&
+      this.gameData.getHangarShipDef(shipClass.key) != null;
     const cartography = ship.starSystemId
       ? await this.getCartography(ship.id, userId)
       : null;
@@ -2155,6 +2172,7 @@ export class SpacecraftService {
             name: colony.name,
             planetName: colony.celestialObject?.name ?? colony.name,
             isOwn: colony.userId === userId,
+            canLand,
           }
         : null,
       information: {

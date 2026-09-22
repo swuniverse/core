@@ -361,12 +361,6 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onLandShip={(shipId) =>
-        act(async () => {
-          await api.post(`/colonies/${selected.id}/ships/${shipId}/land`, {});
-          loadColonyDetail(selected.id);
-        })
-      }
       onDisassembleShip={(shipId) =>
         act(async () => {
           await api.post(
@@ -698,7 +692,6 @@ export function ColonyDetail({
   onQueueCrewTraining,
   onAssignCrewToShip,
   onUnassignCrewFromShip,
-  onLandShip,
   onDisassembleShip,
   onDefendOrbitShip,
   onBlockadeOrbitShip,
@@ -761,7 +754,6 @@ export function ColonyDetail({
     shipId: number,
     amount: number,
   ) => Promise<void> | void;
-  onLandShip: (shipId: number) => Promise<void> | void;
   onDisassembleShip: (shipId: number) => Promise<void> | void;
   onDefendOrbitShip: (shipId: number) => Promise<void> | void;
   onBlockadeOrbitShip: (shipId: number) => Promise<void> | void;
@@ -1105,7 +1097,6 @@ export function ColonyDetail({
                       colonyId={colony.id}
                       orbitShips={detail.orbitShips}
                       commodityMap={commodityMap}
-                      onLandShip={onLandShip}
                       onDisassembleShip={onDisassembleShip}
                       onDefendShip={onDefendOrbitShip}
                       onBlockadeShip={onBlockadeOrbitShip}
@@ -1131,7 +1122,6 @@ export function ColonyDetail({
               inventory={detail.inventory}
               commodityMap={commodityMap}
               isBlockaded={colony.stats?.isBlockaded ?? false}
-              onLandShip={onLandShip}
               onDisassembleShip={onDisassembleShip}
               onDefendShip={onDefendOrbitShip}
               onBlockadeShip={onBlockadeOrbitShip}
@@ -1253,7 +1243,6 @@ export function ColonyDetail({
                 onQueueCrewTraining={onQueueCrewTraining}
                 onAssignCrewToShip={onAssignCrewToShip}
                 onUnassignCrewFromShip={onUnassignCrewFromShip}
-                onLandShip={onLandShip}
                 onDisassembleShip={onDisassembleShip}
               />
             ) : (
