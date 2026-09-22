@@ -34,7 +34,8 @@ import type { ColonyTickResult } from './colony.service';
 
 @Injectable()
 export class ColonyTickProcessorService {
-  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
+  private readonly headquartersBuildingIds =
+    COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(
     @InjectRepository(Colony)
@@ -194,11 +195,22 @@ export class ColonyTickProcessorService {
         field.terraformingFinishesAt &&
         field.terraformingFinishesAt <= now
       ) {
-        const terraforming = this.gameData.getTerraforming(
+        const selectedTerraforming = this.gameData.getTerraforming(
           field.terraformingId,
         );
+        const terraforming = selectedTerraforming
+          ? (this.gameData
+              .getTerraformingForFieldType(
+                field.terrainTileId ?? field.fieldType,
+              )
+              .find(
+                (option) =>
+                  this.normalizeFieldType(option.toFieldType) ===
+                  this.normalizeFieldType(selectedTerraforming.toFieldType),
+              ) ?? selectedTerraforming)
+          : undefined;
         if (terraforming) {
-          field.fieldType = terraforming.toFieldType;
+          field.fieldType = this.normalizeFieldType(terraforming.toFieldType);
           field.terrainTileId = terraforming.toFieldType;
         }
         field.terraformingId = null;
@@ -238,6 +250,10 @@ export class ColonyTickProcessorService {
         });
       }
     }
+  }
+
+  private normalizeFieldType(fieldType: number): number {
+    return fieldType >= 10000 ? Math.floor(fieldType / 100) : fieldType;
   }
 
   async balanceAndProduce(

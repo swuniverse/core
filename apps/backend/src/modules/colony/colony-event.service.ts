@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { ColonyTickEvent } from '@swuniverse/shared';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import {
   ColonyEvent,
   ColonyEventSeverity,
@@ -58,8 +58,21 @@ export class ColonyEventService {
     return created;
   }
 
-  createActionEvent(input: CreateColonyEventInput): Promise<ColonyEvent> {
-    return this.createEvent(input);
+  createActionEvent(
+    input: CreateColonyEventInput,
+    manager?: EntityManager,
+  ): Promise<ColonyEvent> {
+    if (!manager) return this.createEvent(input);
+    const repository = manager.getRepository(ColonyEvent);
+    return repository.save(
+      repository.create({
+        ...input,
+        severity: input.severity ?? ColonyEventSeverity.INFO,
+        payload: input.payload ?? {},
+        tickId: input.tickId ?? null,
+        readAt: null,
+      }),
+    );
   }
 
   async listForColony(

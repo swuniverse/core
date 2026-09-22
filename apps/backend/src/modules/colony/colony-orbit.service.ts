@@ -70,7 +70,7 @@ export class ColonyOrbitService {
     const colony = await this.ownership.findOwnedColony(colonyId, userId);
     const ships = await this.shipRepo.find({
       where: { userId },
-      relations: ['fleet', 'modules'],
+      relations: ['fleet', 'modules', 'location', 'location.systemField'],
       order: { id: 'ASC' },
     });
     const orbitShips = ships.filter((ship) =>
@@ -178,7 +178,7 @@ export class ColonyOrbitService {
       try {
         const ship = await this.shipRepo.findOne({
           where: { id: request.shipId, userId },
-          relations: ['modules'],
+          relations: ['modules', 'location', 'location.systemField'],
         });
         if (!ship || !this.isShipInColonyOrbit(colony, ship))
           throw new BadRequestException('Schiff ist nicht im Kolonieorbit');
@@ -334,7 +334,11 @@ export class ColonyOrbitService {
   async cleanupInvalidOrbitAssignments(colony: Colony): Promise<void> {
     const assignments = await this.orbitAssignmentRepo.find({
       where: { colonyId: colony.id },
-      relations: ['spacecraft'],
+      relations: [
+        'spacecraft',
+        'spacecraft.location',
+        'spacecraft.location.systemField',
+      ],
     });
     for (const assignment of assignments) {
       if (
@@ -393,7 +397,7 @@ export class ColonyOrbitService {
   ): Promise<ColonyOrbitAssignment> {
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['fields', 'changeable'],
+      relations: ['fields', 'changeable', 'systemField'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     assertOwnedColony(colony);
@@ -401,7 +405,7 @@ export class ColonyOrbitService {
 
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
-      relations: ['fleet'],
+      relations: ['fleet', 'location', 'location.systemField'],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     if (!this.isShipInColonyOrbit(colony, ship)) {
@@ -546,7 +550,10 @@ export class ColonyOrbitService {
     items: Array<{ commodityId: number; amount: number }>,
   ): Promise<void> {
     const colony = await this.ownership.findOwnedColony(colonyId, userId);
-    const ship = await this.shipRepo.findOne({ where: { id: shipId, userId } });
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['location', 'location.systemField'],
+    });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     if (!this.canManageOrbitShip(colony, ship)) {
       throw new BadRequestException('Ship is not in colony orbit');

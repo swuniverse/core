@@ -1,3 +1,5 @@
+import type { SpaceLocationDto } from '../starmap/index.js';
+
 export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'SHIELDS',
   'REACTOR',
@@ -93,11 +95,7 @@ export interface SpacecraftDetailDto {
   cargoMax?: number;
   reactorWarpSplit: number;
   runtimeSystems: SpacecraftRuntimeSystemsDto;
-  posX: number;
-  posY: number;
-  inSystem?: boolean;
-  currentSystemFieldX?: number | null;
-  currentSystemFieldY?: number | null;
+  location: SpaceLocationDto;
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
   arrivalAt: string | null;
   locationLabel?: string;
@@ -161,6 +159,8 @@ export interface SpacecraftScanResultDto {
   cooldown: number;
   layerId: number | null;
   starSystemId: number | null;
+  locationId: number | null;
+  location: SpaceLocationDto | null;
   x: number;
   y: number;
   result: unknown;

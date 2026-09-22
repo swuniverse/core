@@ -409,7 +409,7 @@ export class SpacecraftController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
   ) {
-    return this.spacecraftService.findOne(id, req.user.sub);
+    return this.spacecraftService.getDetails(id, req.user.sub);
   }
 
   @Put(':id')

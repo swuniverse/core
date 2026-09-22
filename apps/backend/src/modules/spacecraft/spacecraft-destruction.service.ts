@@ -17,6 +17,8 @@ import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '../events/entities/game-event.entity';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import { resolveSpacecraftLocation } from './spacecraft-field';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -40,6 +42,7 @@ export class SpacecraftDestructionService {
     const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId, userId },
+        relations: ['location', 'location.galaxyField', 'location.systemField'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!ship) throw new NotFoundException('Spacecraft not found');
@@ -72,12 +75,18 @@ export class SpacecraftDestructionService {
       const ship = await this.dataSource
         .getRepository(Spacecraft)
         .findOneBy({ id: shipId });
-      if (ship)
+      if (ship) {
+        const location = await this.loadLocation(ship);
+        const coordinates = resolveSpacecraftLocation({
+          locationId: ship.locationId,
+          location,
+        });
         await this.gameEvents.recordSpacecraft(
           GameEventType.SPACECRAFT_DESTROYED,
-          `${ship.name} hat sich in Sektor ${ship.posX}|${ship.posY} selbst zerstört.`,
+          `${ship.name} hat sich in Sektor ${coordinates?.x ?? '?'}|${coordinates?.y ?? '?'} selbst zerstört.`,
           ship,
         );
+      }
       this.emitDestroyed(userId, shipId, 'Selbstzerstörung ausgeführt');
       await this.messagingService.sendSystem(
         userId,
@@ -111,6 +120,7 @@ export class SpacecraftDestructionService {
     const ownerId = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId },
+        relations: ['location', 'location.galaxyField', 'location.systemField'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!ship || ship.status === SpacecraftStatus.DESTROYED) return null;
@@ -159,16 +169,12 @@ export class SpacecraftDestructionService {
         where: { spacecraftId: ship.id },
       }),
     ]);
+    const location = ship.location ?? (await this.loadLocation(ship, manager));
     await manager.save(
       manager.create(SpacecraftWreck, {
         formerShipClassId: ship.shipClassId,
-        currentLayerId: ship.currentLayerId,
-        starSystemId: ship.starSystemId,
-        inSystem: ship.inSystem,
-        posX: ship.posX,
-        posY: ship.posY,
-        currentSystemFieldX: ship.currentSystemFieldX,
-        currentSystemFieldY: ship.currentSystemFieldY,
+        locationId: ship.locationId,
+        location,
         hull: Math.ceil(ship.hullMax / 20),
         crewCount: ship.crew,
         cargo: cargo.map((item) => ({
@@ -184,11 +190,7 @@ export class SpacecraftDestructionService {
     );
     ship.hull = 0;
     ship.status = SpacecraftStatus.DESTROYED;
-    ship.targetSystemId = null;
-    ship.targetX = null;
-    ship.targetY = null;
     ship.arrivalAt = null;
-    ship.flightOrigin = null;
     ship.fleetId = null;
     const systems = this.runtimeState.initialize(ship);
     for (const state of Object.values(systems)) {
@@ -208,5 +210,17 @@ export class SpacecraftDestructionService {
     }
     await manager.remove(ship);
     void _reason;
+  }
+
+  private async loadLocation(
+    ship: Spacecraft,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<SpaceLocation> {
+    const location = await manager.findOne(SpaceLocation, {
+      where: { id: ship.locationId },
+      relations: ['galaxyField', 'systemField'],
+    });
+    if (!location) throw new NotFoundException('Spacecraft location not found');
+    return location;
   }
 }

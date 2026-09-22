@@ -60,8 +60,7 @@ const ship = {
       max: 50,
     },
   },
-  posX: 5,
-  posY: 5,
+  location: { scope: 'GALAXY' as const, layerId: 3, x: 5, y: 5 },
   arrivalAt: null,
 };
 const map = {
@@ -112,5 +111,30 @@ describe('SpacecraftDetailPage', () => {
     expect(screen.queryByText('Fracht')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Torpedos' })).toBeNull();
     expect(screen.queryByText('STU-Parität')).toBeNull();
+  });
+
+  it('uses canonical galaxy location coordinates in the ship header', async () => {
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft/2') {
+        return Promise.resolve({
+          ...ship,
+          location: { scope: 'GALAXY', layerId: 3, x: 8, y: 9 },
+        });
+      }
+      if (path === '/spacecraft/2/modules' || path === '/spacecraft/2/cargo')
+        return Promise.resolve([]);
+      if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+      if (path === '/colonies') return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(
+      <MemoryRouter initialEntries={['/spacecraft/2']}>
+        <Routes>
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect((await screen.findAllByText('8|9')).length).toBeGreaterThan(0);
   });
 });

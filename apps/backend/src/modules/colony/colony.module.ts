@@ -53,6 +53,8 @@ import { ResearchModule } from '../research/research.module';
 import { Research } from '../research/entities/research.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { User } from '../auth/user.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
 
 @Module({
   imports: [
@@ -81,6 +83,8 @@ import { User } from '../auth/user.entity';
       Research,
       ShipClassDef,
       User,
+      SystemField,
+      SpaceLocation,
     ]),
     ResearchModule,
     StarmapModule,

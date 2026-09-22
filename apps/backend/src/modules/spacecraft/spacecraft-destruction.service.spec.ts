@@ -30,13 +30,12 @@ function setup(
     hull: 20,
     hullMax: 100,
     shipClassId: 7,
-    currentLayerId: 1,
-    starSystemId: null,
-    inSystem: false,
-    posX: 5,
-    posY: 6,
-    currentSystemFieldX: null,
-    currentSystemFieldY: null,
+    locationId: 42,
+    location: {
+      id: 42,
+      kind: 'GALAXY_FIELD',
+      galaxyField: { id: 20, layerId: 1, cx: 5, cy: 6 },
+    },
     crew: assignments.length,
     fleetId: 4,
     targetSystemId: 8,
@@ -52,6 +51,7 @@ function setup(
   const manager = {
     findOne: jest.fn(async (entity) => {
       if (entity.name === 'Spacecraft') return ship;
+      if (entity.name === 'SpaceLocation') return ship.location ?? null;
       if (entity.name === 'ShipDistressSignal') return distress;
       return null;
     }),
@@ -64,6 +64,7 @@ function setup(
   };
   const dataSource = {
     transaction: jest.fn(async (work) => work(manager)),
+    manager,
     getRepository: jest.fn(() => ({
       findOneBy: jest.fn().mockResolvedValue(ship),
     })),
@@ -101,9 +102,6 @@ describe('SpacecraftDestructionService', () => {
       status: 'DESTROYED',
       hull: 0,
       fleetId: null,
-      targetSystemId: null,
-      targetX: null,
-      targetY: null,
       arrivalAt: null,
     });
     expect(ship.runtimeSystems.SHIELDS.active).toBe(false);
@@ -112,8 +110,8 @@ describe('SpacecraftDestructionService', () => {
     expect(manager.save).toHaveBeenCalledWith(
       expect.objectContaining({
         formerShipClassId: 7,
-        posX: 5,
-        posY: 6,
+        locationId: 42,
+        location: ship.location,
         hull: 5,
         crewCount: 1,
       }),
@@ -126,6 +124,29 @@ describe('SpacecraftDestructionService', () => {
     await expect(service.selfDestruct(2, 1)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('preserves the canonical location on the wreck', async () => {
+    const { service, manager } = setup({
+      location: {
+        id: 42,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 9, sy: 10 },
+      },
+    });
+
+    await service.selfDestruct(2, 1);
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locationId: 42,
+        location: expect.objectContaining({ id: 42, kind: 'SYSTEM_FIELD' }),
+      }),
+    );
+    expect(manager.findOne).toHaveBeenCalledWith(expect.anything(), {
+      where: { id: 42 },
+      relations: ['galaxyField', 'systemField'],
+    });
   });
 
   it('propagates persistence failure so the transaction can roll back', async () => {

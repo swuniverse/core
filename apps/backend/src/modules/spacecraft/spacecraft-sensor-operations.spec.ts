@@ -52,6 +52,11 @@ describe('Spacecraft sensor operations', () => {
       starSystemId: null,
       posX: 4,
       posY: 5,
+      locationId: 42,
+      location: {
+        kind: 'GALAXY_FIELD',
+        galaxyField: { layerId: 3, cx: 8, cy: 9 },
+      },
       runtimeSystems: {
         SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
         LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
@@ -92,6 +97,7 @@ describe('Spacecraft sensor operations', () => {
       scanRepo as never,
       { find: jest.fn(), findOne: jest.fn() } as never,
       galaxyFieldRepo as never,
+      { findOne: jest.fn() } as never,
       {} as never,
       { getAllModules: jest.fn() } as never,
       { hasEnoughCrew: jest.fn().mockResolvedValue(true) } as never,
@@ -100,11 +106,19 @@ describe('Spacecraft sensor operations', () => {
       { discover: jest.fn() } as never,
       { discover: jest.fn() } as never,
     );
-    return { service, ship, shipRepo, scanRepo, exploration };
+    return {
+      service,
+      ship,
+      shipRepo,
+      scanRepo,
+      galaxyFieldRepo,
+      exploration,
+    };
   }
 
   it('charges one EPS, applies NBS cooldown and persists a user snapshot', async () => {
-    const { service, ship, shipRepo, scanRepo, exploration } = setup();
+    const { service, ship, shipRepo, scanRepo, galaxyFieldRepo, exploration } =
+      setup();
     const result = await service.sectorScan(2, 1);
     expect(ship.energy).toBe(4);
     expect(ship.runtimeSystems.SHORT_RANGE_SENSORS.cooldown).toBe(0);
@@ -118,7 +132,19 @@ describe('Spacecraft sensor operations', () => {
       }),
     );
     expect(exploration.discoverArea).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 1, radius: 1 }),
+      expect.objectContaining({
+        userId: 1,
+        layerId: 3,
+        cx: 8,
+        cy: 9,
+        radius: 1,
+      }),
+    );
+    expect(galaxyFieldRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { layerId: 3, cx: 8, cy: 9 } }),
+    );
+    expect(scanRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ locationId: 42, location: ship.location }),
     );
     expect(result.id).toBe(9);
   });

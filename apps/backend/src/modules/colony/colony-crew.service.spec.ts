@@ -139,17 +139,25 @@ describe('ColonyCrewService', () => {
     crewAssignmentRepo.find.mockResolvedValue(assignments);
     crewAssignmentRepo.count.mockResolvedValue(0);
     jest.spyOn(service, 'getLocalCrewLimit').mockReturnValue(10);
-    const colony = { id: 1, userId: 5, stats: {}, fields: [] } as any;
+    const colony = {
+      id: 1,
+      userId: 5,
+      systemFieldId: 30,
+      systemField: { starSystemId: 2, sx: 4, sy: 6 },
+      stats: {},
+      fields: [],
+    } as any;
     const ship = {
       id: 9,
       userId: 5,
-      starSystemId: 2,
-      celestialObjectId: 3,
+      locationId: 40,
+      location: {
+        id: 40,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 2, sx: 4, sy: 6 },
+      },
       crew: 4,
     } as any;
-    colony.starSystemId = 2;
-    colony.celestialObjectId = 3;
-
     await service.landCrewWithShip(colony, ship);
 
     expect(assignments).toEqual(
@@ -174,19 +182,53 @@ describe('ColonyCrewService', () => {
     const colony = {
       id: 1,
       userId: 5,
-      starSystemId: 2,
-      celestialObjectId: 3,
+      systemFieldId: 30,
+      systemField: { starSystemId: 2, sx: 4, sy: 6 },
     } as any;
     const ship = {
       id: 9,
       userId: 5,
-      starSystemId: 2,
-      celestialObjectId: 3,
+      locationId: 40,
+      location: {
+        id: 40,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 2, sx: 4, sy: 6 },
+      },
       crew: 4,
     } as any;
 
     await expect(
       service.transferCrewFromShipToColony(colony, ship, 4),
     ).rejects.toThrow('At least one crew member must remain on ship');
+  });
+
+  it('uses the canonical system field for crew transfers', async () => {
+    const { service, crewAssignmentRepo } = createService();
+    crewAssignmentRepo.find.mockResolvedValue([
+      { crewId: 1, userId: 5, colonyId: 1, spacecraftId: null },
+    ]);
+    const colony = {
+      id: 1,
+      userId: 5,
+      systemFieldId: 30,
+      systemField: { starSystemId: 2, sx: 4, sy: 6 },
+      stats: {},
+    } as any;
+    const ship = {
+      id: 9,
+      userId: 5,
+      locationId: 40,
+      location: {
+        id: 40,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 2, sx: 4, sy: 6 },
+      },
+      crew: 0,
+      crewMax: 2,
+    } as any;
+
+    await expect(
+      service.transferCrewFromColonyToShip(colony, ship, 1),
+    ).resolves.toBeUndefined();
   });
 });

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Colony } from '../../colony/entities/colony.entity';
 import { User } from '../../auth/user.entity';
+import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 
 @Entity('colony_scans')
 @Index(['userId', 'colonyId'])
@@ -45,6 +46,13 @@ export class ColonyScan {
 
   @Column({ type: 'int', nullable: true })
   celestialObjectId: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  locationId: number | null;
+
+  @ManyToOne(() => SpaceLocation, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'locationId' })
+  location: SpaceLocation | null;
 
   @Column({ type: 'int', nullable: true })
   colonyClassId: number | null;

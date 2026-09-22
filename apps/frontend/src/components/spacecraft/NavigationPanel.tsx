@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { SpaceLocationDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
@@ -11,13 +12,7 @@ interface Ship {
   energy: number;
   energyMax: number;
   arrivalAt: string | null;
-  posX: number;
-  posY: number;
-  inSystem?: boolean;
-  starSystemId?: number | null;
-  currentLayerId?: number | null;
-  currentSystemFieldX?: number | null;
-  currentSystemFieldY?: number | null;
+  location: SpaceLocationDto;
   runtimeSystems?: Record<string, { active: boolean }>;
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
@@ -43,9 +38,14 @@ export function NavigationPanel({
   const [loading, setLoading] = useState(true);
   const [moving, setMoving] = useState(false);
   const [changingSystem, setChangingSystem] = useState(false);
-  const navigationLocationKey = ship.inSystem
-    ? `system:${ship.starSystemId ?? ''}:${ship.currentSystemFieldX ?? ''}:${ship.currentSystemFieldY ?? ''}`
-    : `galaxy:${ship.currentLayerId ?? ''}:${ship.posX}:${ship.posY}`;
+  const inSystem = ship.location.scope === 'SYSTEM';
+  const shipX = ship.location.x;
+  const shipY = ship.location.y;
+  const locationId =
+    ship.location.scope === 'SYSTEM'
+      ? ship.location.systemId
+      : ship.location.layerId;
+  const navigationLocationKey = `${inSystem ? 'system' : 'galaxy'}:${locationId ?? ''}:${shipX}:${shipY}`;
 
   const fetchLocalMap = useCallback(async () => {
     try {
@@ -104,7 +104,7 @@ export function NavigationPanel({
     setNavMessage(null);
     setMoving(true);
     try {
-      if (localMap?.mode === 'system' || ship.inSystem) {
+      if (localMap?.mode === 'system' || inSystem) {
         await api.post(`/spacecraft/${ship.id}/navigate`, { targetX, targetY });
       } else {
         await api.post(`/spacecraft/${ship.id}/fly`, { targetX, targetY });
@@ -121,14 +121,8 @@ export function NavigationPanel({
   };
 
   const handleDirectionalMove = (dx: number, dy: number) => {
-    const x =
-      localMap?.shipX ??
-      (ship.inSystem ? ship.currentSystemFieldX : ship.posX) ??
-      ship.posX;
-    const y =
-      localMap?.shipY ??
-      (ship.inSystem ? ship.currentSystemFieldY : ship.posY) ??
-      ship.posY;
+    const x = localMap?.shipX ?? shipX;
+    const y = localMap?.shipY ?? shipY;
     void handleFly(x + dx * stepSize, y + dy * stepSize);
   };
 
@@ -158,12 +152,8 @@ export function NavigationPanel({
   };
 
   const lssActive = ship.runtimeSystems?.LONG_RANGE_SENSORS?.active === true;
-  const blindX = ship.inSystem
-    ? (ship.currentSystemFieldX ?? ship.posX)
-    : ship.posX;
-  const blindY = ship.inSystem
-    ? (ship.currentSystemFieldY ?? ship.posY)
-    : ship.posY;
+  const blindX = shipX;
+  const blindY = shipY;
   const blindBounds = ship.navigationBounds ?? {
     minX: 1,
     maxX: Number.MAX_SAFE_INTEGER,

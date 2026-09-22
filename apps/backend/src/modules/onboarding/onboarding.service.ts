@@ -332,7 +332,6 @@ export class OnboardingService {
     );
     user.onboardingCompleted = true;
     user.starterColonyId = colony.id;
-    user.starterShipId = null;
     user.factionId = factionId;
     await this.userRepo.save(user);
     await this.ensureBaseResearchCompleted(user.id, factionId);

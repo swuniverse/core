@@ -520,7 +520,7 @@ export class StarmapAdminService {
     await manager.query('DELETE FROM "influence_areas"');
     await manager.query('DELETE FROM "onboarding_selections"');
     await manager.query(
-      'UPDATE "users" SET "onboardingCompleted" = false, "starterColonyId" = NULL, "starterShipId" = NULL',
+      'UPDATE "users" SET "onboardingCompleted" = false, "starterColonyId" = NULL',
     );
     await manager.query('DELETE FROM "colonies"');
     await manager.query('DELETE FROM "hyperspace_route_segments"');
@@ -561,27 +561,35 @@ export class StarmapAdminService {
         [layerId],
       );
       await manager.query(
-        `UPDATE "spacecraft"
-         SET "celestialObjectId" = NULL,
-             "starSystemId" = NULL,
-             "currentLayerId" = CASE WHEN "currentLayerId" = $1 THEN NULL ELSE "currentLayerId" END,
-             "targetSystemId" = CASE
-               WHEN "targetSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN NULL
-               ELSE "targetSystemId"
-             END,
-             "inSystem" = CASE WHEN "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN false ELSE "inSystem" END,
-             "currentSystemFieldX" = CASE WHEN "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN NULL ELSE "currentSystemFieldX" END,
-             "currentSystemFieldY" = CASE WHEN "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1) THEN NULL ELSE "currentSystemFieldY" END
-         WHERE "currentLayerId" = $1
-            OR "starSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
-            OR "targetSystemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
-            OR "celestialObjectId" IN (
-              SELECT id FROM "celestial_objects"
-              WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
-            )`,
+        `DELETE FROM "spacecraft_wrecks"
+         WHERE "locationId" IN (
+           SELECT location.id
+           FROM "space_locations" location
+           LEFT JOIN "galaxy_fields" galaxy_field
+             ON galaxy_field.id = location."galaxyFieldId"
+           LEFT JOIN "system_fields" system_field
+             ON system_field.id = location."systemFieldId"
+           LEFT JOIN "star_systems" system
+             ON system.id = system_field."starSystemId"
+           WHERE galaxy_field."layerId" = $1 OR system."layerId" = $1
+         )`,
         [layerId],
       );
-
+      await manager.query(
+        `DELETE FROM "spacecraft"
+         WHERE "locationId" IN (
+           SELECT location.id
+           FROM "space_locations" location
+           LEFT JOIN "galaxy_fields" galaxy_field
+             ON galaxy_field.id = location."galaxyFieldId"
+           LEFT JOIN "system_fields" system_field
+             ON system_field.id = location."systemFieldId"
+           LEFT JOIN "star_systems" system
+             ON system.id = system_field."starSystemId"
+           WHERE galaxy_field."layerId" = $1 OR system."layerId" = $1
+         )`,
+        [layerId],
+      );
       await manager.query(
         `DELETE FROM "hyperspace_route_segments"
          WHERE "routeId" IN (SELECT id FROM "hyperspace_routes" WHERE "layerId" = $1)

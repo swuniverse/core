@@ -14,6 +14,7 @@ export function FieldCell({
   buildingId,
   isSelected,
   isHighlighted,
+  isReplacement,
   isBuildMode,
   isFieldActive,
   buildPreviewTitle,
@@ -26,6 +27,7 @@ export function FieldCell({
   buildingId?: number;
   isSelected: boolean;
   isHighlighted: boolean;
+  isReplacement: boolean;
   isBuildMode: boolean;
   isFieldActive: boolean;
   buildPreviewTitle?: string;
@@ -51,7 +53,7 @@ export function FieldCell({
       aria-label={`Feld ${field.fieldIndex}${buildingName ? ': ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ' (beschädigt)' : ''}`}
       className={`relative w-full aspect-square overflow-hidden text-xs flex items-center justify-center border border-gray-500
         ${isSelected ? 'ring-2 ring-swu-accent z-10' : ''}
-        ${isHighlighted ? 'ring-2 ring-swu-accent/60 animate-pulse z-10' : ''}
+        ${isHighlighted ? `ring-2 ${isReplacement ? 'ring-orange-400/80' : 'ring-swu-accent/60'} animate-pulse z-10` : ''}
         ${inactive ? 'border-red-600' : ''}
         ${damaged && !inactive ? 'border-orange-500' : ''}
         ${!isSelected && !isHighlighted && !inactive && !damaged && isBonus && !bonusUsed ? 'border-yellow-400/70' : ''}
@@ -59,7 +61,7 @@ export function FieldCell({
         ${FIELD_TYPE_COLORS[field.fieldType] || 'bg-swu-bg'}
         ${field.isBuilding ? 'animate-pulse' : ''}
         ${field.terraformingId ? 'border-2 border-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]' : ''}
-        ${isBuildMode && !isHighlighted && !field.buildingId ? 'opacity-30' : ''}
+        ${isBuildMode && !isHighlighted ? 'opacity-30' : ''}
         ${isHighlighted ? 'cursor-crosshair' : ''}`}
       title={[
         `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ' ⟳ Terraform' : ''} (${field.fieldIndex})`,
@@ -76,7 +78,9 @@ export function FieldCell({
       />
       {field.terraformingId && (
         <span className="absolute inset-0 bg-cyan-500/20 flex items-center justify-center">
-          <span className="text-cyan-300 text-[10px] font-bold drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]">⟳</span>
+          <span className="text-cyan-300 text-[10px] font-bold drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]">
+            ⟳
+          </span>
         </span>
       )}
       {buildingId && (
@@ -97,6 +101,11 @@ export function FieldCell({
             loading="lazy"
           />
         </>
+      )}
+      {isReplacement && (
+        <span className="absolute bottom-0.5 right-0.5 z-20 rounded bg-orange-500/90 px-1 text-[8px] font-bold leading-3 text-black">
+          ↻
+        </span>
       )}
     </button>
   );

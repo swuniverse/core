@@ -13,6 +13,7 @@ import {
   CelestialObject,
   CelestialObjectType,
 } from '../starmap/entities/celestial-object.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import {
   STU_DEFAULT_COLONY_CLASS_ID,
@@ -50,6 +51,7 @@ export interface CreateFollowUpColonyOptions {
   resources?: Array<{ commodityId: number; amount: number }>;
   name?: string;
   initialFieldIndex?: number;
+  systemFieldId?: number | null;
 }
 
 @Injectable()
@@ -71,6 +73,8 @@ export class ColonySeedService {
     private readonly depositMiningRepo: Repository<ColonyDepositMining>,
     @InjectRepository(CelestialObject)
     private readonly objectRepo: Repository<CelestialObject>,
+    @InjectRepository(SystemField)
+    private readonly systemFieldRepo: Repository<SystemField>,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -90,6 +94,11 @@ export class ColonySeedService {
     if (!planet) {
       throw new BadRequestException('Starterplanet ist nicht verfügbar');
     }
+    const systemField = await this.systemFieldRepo.findOneBy({
+      starSystemId: planet.systemId,
+      sx: planet.posX,
+      sy: planet.posY,
+    });
     const surface = this.generateSurfaceSnapshot(
       planet.classId || STU_DEFAULT_COLONY_CLASS_ID,
       `starter-${userId}-${planet.id}`,
@@ -99,6 +108,7 @@ export class ColonySeedService {
       name: `${username}'s Homeworld`,
       userId,
       starSystemId: planet.systemId,
+      systemFieldId: systemField?.id ?? null,
       celestialObjectId: planet.id,
       posX: planet.posX,
       posY: planet.posY,
@@ -136,6 +146,13 @@ export class ColonySeedService {
       relations: ['starSystem'],
     });
     const classId = object?.classId || STU_DEFAULT_COLONY_CLASS_ID;
+    const systemField = object
+      ? await this.systemFieldRepo.findOneBy({
+          starSystemId: object.systemId,
+          sx: object.posX,
+          sy: object.posY,
+        })
+      : null;
     const surface = this.generateSurfaceSnapshot(
       classId,
       `colony-${options.userId}-${options.celestialObjectId}`,
@@ -146,6 +163,7 @@ export class ColonySeedService {
       name: options.name?.trim() || `${options.username}'s Kolonie`,
       userId: options.userId,
       starSystemId: object?.systemId || null,
+      systemFieldId: options.systemFieldId ?? systemField?.id ?? null,
       celestialObjectId: object?.id || null,
       posX: object?.posX || 10,
       posY: object?.posY || 10,

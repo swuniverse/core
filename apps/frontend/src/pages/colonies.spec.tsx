@@ -8,12 +8,10 @@ import type {
   ColonyDetailV2,
   CommodityDef,
   ShipClassDef,
-  StarterColonizationOptions,
   TerraformingDef,
 } from './colonies/types';
 
 const colonyApiMocks = vi.hoisted(() => ({
-  fetchStarterColonizationOptions: vi.fn(),
   fetchCommodities: vi.fn(),
   fetchAvailableBuildings: vi.fn(),
   fetchAllBuildings: vi.fn(),
@@ -46,13 +44,6 @@ const toastMock = vi.hoisted(() => ({
 vi.mock('../components/Toast', () => ({
   useToast: () => toastMock,
 }));
-
-const starterOptions: StarterColonizationOptions = {
-  mode: 'not-required',
-  reservedStarterColonyId: null,
-  starterShipId: null,
-  targets: [],
-};
 
 const commodities = [
   { id: 1, name: 'Erz', nameShort: 'ERZ', isSaveable: true },
@@ -222,9 +213,6 @@ describe('ColoniesPage socket refresh', () => {
       mock.mockReset();
     }
 
-    colonyApiMocks.fetchStarterColonizationOptions.mockResolvedValue(
-      starterOptions,
-    );
     colonyApiMocks.fetchCommodities.mockResolvedValue(commodities);
     colonyApiMocks.fetchAvailableBuildings.mockResolvedValue(
       availableBuildings,

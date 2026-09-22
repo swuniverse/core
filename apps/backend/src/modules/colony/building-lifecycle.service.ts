@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { BuildingDef } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
@@ -64,10 +64,11 @@ export class BuildingLifecycleService {
     colony: Colony,
     field: ColonyField,
     definition: BuildingDef,
+    manager?: EntityManager,
   ): Promise<ColonyField> {
-    await this.deactivateBuildingStats(colony, definition);
+    await this.deactivateBuildingStats(colony, definition, manager);
     field.isActive = false;
-    return this.fieldRepo.save(field);
+    return (manager?.getRepository(ColonyField) ?? this.fieldRepo).save(field);
   }
 
   hasHighDamage(field: ColonyField): boolean {
@@ -93,6 +94,7 @@ export class BuildingLifecycleService {
   async deactivateBuildingStats(
     colony: Colony,
     definition: BuildingDef,
+    manager?: EntityManager,
   ): Promise<void> {
     const changeable = getColonyChangeable(colony);
     const workerAmount = Math.min(changeable.workers, definition.bevUse || 0);
@@ -102,7 +104,9 @@ export class BuildingLifecycleService {
       colony,
       (changeable.maxPopulation ?? colony.populationMax ?? 0) - housingAmount,
     );
-    await this.changeableRepo.save(changeable);
+    await (
+      manager?.getRepository(ColonyChangeable) ?? this.changeableRepo
+    ).save(changeable);
   }
 
   prepareBuildJob(

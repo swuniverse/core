@@ -9,9 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
-import { StarSystem } from '../../starmap/entities/star-system.entity';
-import { CelestialObject } from '../../starmap/entities/celestial-object.entity';
-import { Layer } from '../../starmap/entities/layer.entity';
+import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 import { SpacecraftModule } from './spacecraft-module.entity';
 import { Fleet } from './fleet.entity';
 
@@ -42,7 +40,9 @@ export enum SpacecraftLssMode {
 
 @Entity('spacecraft')
 @Index(['userId'])
-@Index(['starSystemId'])
+@Index(['locationId'])
+@Index(['originLocationId'])
+@Index(['targetLocationId'])
 export class Spacecraft {
   @PrimaryGeneratedColumn()
   id: number;
@@ -60,41 +60,12 @@ export class Spacecraft {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'int', nullable: true })
-  starSystemId: number | null;
+  @Column({ type: 'int' })
+  locationId: number;
 
-  @ManyToOne(() => StarSystem, { nullable: true })
-  @JoinColumn({ name: 'starSystemId' })
-  starSystem: StarSystem;
-
-  @Column({ type: 'int', nullable: true })
-  currentLayerId: number | null;
-
-  @ManyToOne(() => Layer, { nullable: true })
-  @JoinColumn({ name: 'currentLayerId' })
-  currentLayer: Layer | null;
-
-  @Column({ type: 'int', nullable: true })
-  celestialObjectId: number | null;
-
-  @ManyToOne(() => CelestialObject, { nullable: true })
-  @JoinColumn({ name: 'celestialObjectId' })
-  celestialObject: CelestialObject | null;
-
-  @Column({ default: false })
-  inSystem: boolean;
-
-  @Column({ type: 'int', nullable: true })
-  currentSystemFieldX: number | null;
-
-  @Column({ type: 'int', nullable: true })
-  currentSystemFieldY: number | null;
-
-  @Column({ default: 10 })
-  posX: number;
-
-  @Column({ default: 10 })
-  posY: number;
+  @ManyToOne(() => SpaceLocation, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'locationId' })
+  location: SpaceLocation;
 
   @Column({ type: 'varchar', default: SpacecraftStatus.IDLE })
   status: SpacecraftStatus;
@@ -188,24 +159,22 @@ export class Spacecraft {
   @Column({ default: 100 })
   reactorWarpSplit: number;
 
-  // Navigation target (for in-flight)
-  @Column({ type: 'int', nullable: true })
-  targetSystemId: number | null;
-
-  @Column({ type: 'int', nullable: true })
-  targetX: number | null;
-
-  @Column({ type: 'int', nullable: true })
-  targetY: number | null;
-
   @Column({ type: 'timestamp', nullable: true })
   arrivalAt: Date | null;
 
-  @Column({ type: 'jsonb', nullable: true })
-  flightOrigin:
-    | { scope: 'SYSTEM'; systemId: number; x: number; y: number }
-    | { scope: 'GALAXY'; layerId: number; x: number; y: number }
-    | null;
+  @Column({ type: 'int', nullable: true })
+  originLocationId: number | null;
+
+  @ManyToOne(() => SpaceLocation, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'originLocationId' })
+  originLocation: SpaceLocation | null;
+
+  @Column({ type: 'int', nullable: true })
+  targetLocationId: number | null;
+
+  @ManyToOne(() => SpaceLocation, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'targetLocationId' })
+  targetLocation: SpaceLocation | null;
 
   @Column({ type: 'int', nullable: true })
   fleetId: number | null;

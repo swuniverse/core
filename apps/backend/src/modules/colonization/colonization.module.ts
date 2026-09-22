@@ -10,9 +10,7 @@ import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-de
 import { ColonyModule } from '../colony/colony.module';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
-import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
-import { Research } from '../research/entities/research.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { ResearchModule } from '../research/research.module';
 
@@ -26,9 +24,7 @@ import { ResearchModule } from '../research/research.module';
       AsteroidResourceDeposit,
       CelestialObject,
       Spacecraft,
-      SpacecraftModule,
       ShipClassDef,
-      Research,
       CrewAssignment,
     ]),
     ResearchModule,

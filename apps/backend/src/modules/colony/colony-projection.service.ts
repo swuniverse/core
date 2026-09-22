@@ -50,6 +50,7 @@ import {
 } from './entities/colony-ship-build-queue.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
+import { resolveColonyLocation } from './colony-location';
 import {
   COLONY_BUILDING_ID_SETS,
   COLONY_FUNCTION_ID_SETS,
@@ -217,7 +218,9 @@ export class ColonyProjectionService {
   ) {}
 
   toColonySummary(colony: Colony): Colony {
+    const location = resolveColonyLocation(colony);
     return Object.assign(colony, {
+      location,
       locationLabel:
         colony.celestialObject?.name || colony.starSystem?.name || 'Unknown',
       fields: (colony.fields ?? []).map((field) => ({
@@ -279,15 +282,17 @@ export class ColonyProjectionService {
       .map((assignment) => assignment.fleetId);
     const hasDefendingFleet = defendingFleetIds.length > 0;
     const hasBlockadingFleet = blockadingFleetIds.length > 0;
-    const orbitShips = colony.starSystemId
+    const colonyLocation = resolveColonyLocation(colony);
+    const orbitShips = colonyLocation
       ? (
           await this.shipRepo.find({
             where: {
               userId,
-              starSystemId: colony.starSystemId,
-              inSystem: true,
+              location: {
+                systemField: { starSystemId: colonyLocation.systemId },
+              },
             },
-            relations: ['fleet'],
+            relations: ['fleet', 'location', 'location.systemField'],
             order: { id: 'ASC' },
           })
         ).filter((ship) => matchesColonyOrbit(ship, colony))

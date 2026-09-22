@@ -246,6 +246,7 @@ export class ResearchService {
     if (research) {
       research.status = targetStatus;
       research.queuePosition = queuePosition;
+      research.blockedReason = null;
       research.remainingPoints =
         research.remainingPoints ?? this.getPointsRequired(tech);
     } else {

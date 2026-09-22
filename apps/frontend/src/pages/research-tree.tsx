@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ReactFlow,
@@ -378,6 +378,7 @@ export function ResearchTreePage() {
   const [nodes, setNodes] = useState<Node<ResearchTreeNodeData>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedTech, setSelectedTech] = useState<TechState | null>(null);
+  const loadSequence = useRef(0);
   const navigate = useNavigate();
   const focusTechId =
     Number(searchParams.get('focus')) ||
@@ -385,7 +386,9 @@ export function ResearchTreePage() {
     null;
 
   const loadTechs = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     const data = await api.get<TechState[]>('/research');
+    if (sequence !== loadSequence.current) return;
     setTechs(data);
   }, []);
 
@@ -394,6 +397,10 @@ export function ResearchTreePage() {
   }, [loadTechs]);
 
   useSocket('TICK', () => {
+    void loadTechs();
+  });
+
+  useSocket('COLONY_UPDATED', () => {
     void loadTechs();
   });
 

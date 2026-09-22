@@ -7,6 +7,7 @@ import type {
   CommodityDef,
   TerraformingDef,
 } from '../types';
+import { getTerraformingOptionsForField } from '../utils';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from '../constants';
 import { formatSignedAmount } from '../utils';
 
@@ -95,8 +96,9 @@ export function FieldInspector({
       ? Math.round((integrityCurrent / integrityMax) * 100)
       : 100;
   const availableUpgrades = field.availableUpgrades ?? [];
-  const terraformOptions = terraformingDefs.filter(
-    (option) => option.fromFieldType === field.fieldType,
+  const terraformOptions = getTerraformingOptionsForField(
+    field,
+    terraformingDefs,
   );
 
   const renderUpgradeCosts = (upgrade: ColonyFieldUpgrade) => {

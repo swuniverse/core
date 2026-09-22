@@ -17,21 +17,12 @@ jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
   },
+  AlertState: { GREEN: 'GREEN' },
 }));
 jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
   ShipClassDef: class ShipClassDef {},
 }));
 
-jest.mock('../research/entities/research.entity', () => ({
-  Research: class Research {},
-  ResearchStatus: {
-    LOCKED: 'LOCKED',
-    AVAILABLE: 'AVAILABLE',
-    IN_PROGRESS: 'IN_PROGRESS',
-    QUEUED: 'QUEUED',
-    COMPLETED: 'COMPLETED',
-  },
-}));
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ColonizationService } from './colonization.service';
 import { ColonyEventType } from '../colony/entities/colony-event.entity';
@@ -55,8 +46,6 @@ describe('ColonizationService', () => {
     const objectRepo = repo();
     const shipRepo = repo({ save: jest.fn(), create: jest.fn() });
     const shipClassRepo = repo();
-    const spacecraftModuleRepo = repo();
-    const researchRepo = repo();
     const unlockResolver = { hasTech: jest.fn() };
     const colonySeedService = {
       createFollowUpColony: jest.fn(),
@@ -81,13 +70,10 @@ describe('ColonizationService', () => {
       objectRepo,
       shipRepo,
       shipClassRepo,
-      spacecraftModuleRepo,
-      researchRepo,
       repo({ find: jest.fn(async () => []) }) as never,
       unlockResolver as never,
       colonySeedService as never,
       colonyEventService as never,
-      {} as never,
     );
 
     return {
@@ -98,7 +84,6 @@ describe('ColonizationService', () => {
       shipRepo,
       shipClassRepo,
       unlockResolver,
-      researchRepo,
       colonySeedService,
       colonyEventService,
     };
@@ -110,39 +95,6 @@ describe('ColonizationService', () => {
     faction: 'REBEL_ALLIANCE',
     factionRef: { key: 'REBEL_ALLIANCE' },
   };
-
-  interface StarterTarget {
-    id: number;
-    systemId: number;
-    posX: number;
-    posY: number;
-    classId: number;
-    name: string;
-    starSystem?: { id: number; layerId: number };
-  }
-
-  function starterTarget(id: number): StarterTarget {
-    return {
-      id,
-      systemId: 55,
-      posX: 7,
-      posY: 9,
-      classId: 401,
-      name: `Planet ${id}`,
-    };
-  }
-
-  function starterTargetQuery(targets: StarterTarget[]) {
-    return {
-      innerJoinAndSelect: jest.fn().mockReturnThis(),
-      innerJoin: jest.fn().mockReturnThis(),
-      leftJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue(targets),
-    };
-  }
 
   function colonyLayerCountQuery(count: number) {
     return {
@@ -231,10 +183,12 @@ describe('ColonizationService', () => {
       userId: 1,
       shipClassId: 55,
       status: 'IDLE',
-      inSystem: true,
-      starSystemId: 44,
-      currentSystemFieldX: 8,
-      currentSystemFieldY: 8,
+      locationId: 41,
+      location: {
+        id: 41,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 44, sx: 8, sy: 8 },
+      },
       name: 'GR-75',
     });
     shipClassRepo.findOneBy.mockResolvedValue({
@@ -250,6 +204,65 @@ describe('ColonizationService', () => {
     expect(result.canColonize).toBe(false);
     expect(result.reasons).toContain(
       'Kolonieschiff muss exakt auf dem Zielfeld stehen',
+    );
+  });
+
+  it('uses the canonical system field for a colonizer ship', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      objectRepo,
+      shipRepo,
+      shipClassRepo,
+      unlockResolver,
+    } = createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
+      id: 6,
+      objectType: 2,
+      isColonizable: true,
+      classId: 401,
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 12,
+      userId: 1,
+      shipClassId: 55,
+      status: 'IDLE',
+      locationId: 42,
+      location: {
+        id: 42,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 44, sx: 8, sy: 9 },
+      },
+      name: 'GR-75',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 55,
+      isColonizer: true,
+      colonizerTier: 1,
+      colonizationBuildingId: 81010100,
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    const result = await service.explainTarget(1, 6, 12);
+
+    expect(result.reasons).not.toContain(
+      'Kolonieschiff muss exakt auf dem Zielfeld stehen',
+    );
+    expect(result.reasons).not.toContain(
+      'Kolonieschiff muss im Sternsystem sein',
     );
   });
 
@@ -297,10 +310,12 @@ describe('ColonizationService', () => {
       userId: 1,
       shipClassId: 56,
       status: 'IDLE',
-      inSystem: true,
-      starSystemId: 44,
-      currentSystemFieldX: 8,
-      currentSystemFieldY: 9,
+      locationId: 43,
+      location: {
+        id: 43,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 44, sx: 8, sy: 9 },
+      },
       name: 'Aerie',
     });
     shipClassRepo.findOneBy.mockResolvedValue({
@@ -337,166 +352,6 @@ describe('ColonizationService', () => {
       consumedShipId: 15,
       transferredCrewCount: 0,
     });
-  });
-
-  it('returns required starter options with available targets', async () => {
-    const { service, userRepo, colonyRepo, objectRepo } = createService();
-    userRepo.findOne.mockResolvedValue({
-      ...rebelUser,
-      onboardingCompleted: false,
-      starterColonyId: null,
-      starterShipId: null,
-      factionId: 1,
-    });
-    colonyRepo.findOne.mockResolvedValue(null);
-    objectRepo.createQueryBuilder.mockReturnValue(
-      starterTargetQuery([starterTarget(101), starterTarget(102)]),
-    );
-
-    const result = await service.getStarterColonizationOptions(1);
-
-    expect(result.mode).toBe('required');
-    expect(result.targets).toHaveLength(2);
-    expect(result.targets[0]).toMatchObject({ id: 101, systemId: 55 });
-  });
-
-  it('queries starter targets by faction zone and starter classes', async () => {
-    const { service, userRepo, colonyRepo, objectRepo } = createService();
-    const query = starterTargetQuery([starterTarget(201)]);
-    userRepo.findOne.mockResolvedValue({
-      ...rebelUser,
-      onboardingCompleted: false,
-      starterColonyId: null,
-      starterShipId: null,
-      factionId: 1,
-      factionRef: { homeZone: 'REBEL' },
-    });
-    colonyRepo.findOne.mockResolvedValue(null);
-    objectRepo.createQueryBuilder.mockReturnValue(query);
-
-    await service.getStarterColonizationOptions(1);
-
-    expect(query.innerJoin).toHaveBeenCalledWith(
-      expect.any(Function),
-      'galaxyField',
-      'galaxyField.starSystemId = starSystem.id',
-    );
-    expect(query.andWhere).toHaveBeenCalledWith(
-      'target.classId IN (:...starterClassIds)',
-      { starterClassIds: [201, 203, 205] },
-    );
-    expect(query.andWhere).toHaveBeenCalledWith(
-      'galaxyField.factionZone IN (:...starterZones)',
-      { starterZones: ['REBEL'] },
-    );
-    expect(query.andWhere).not.toHaveBeenCalledWith(
-      'starSystem.layerId = :layerId',
-      expect.anything(),
-    );
-  });
-
-  it('creates starter colony and completes onboarding once', async () => {
-    const {
-      service,
-      userRepo,
-      colonyRepo,
-      objectRepo,
-      colonySeedService,
-      researchRepo,
-    } = createService();
-    const user = {
-      ...rebelUser,
-      onboardingCompleted: false,
-      starterColonyId: null,
-      starterShipId: null,
-      factionId: 1,
-    };
-    userRepo.findOne.mockResolvedValue(user);
-    colonyRepo.findOne.mockResolvedValue(null);
-    objectRepo.createQueryBuilder.mockReturnValue(
-      starterTargetQuery([starterTarget(777)]),
-    );
-    colonySeedService.createStarterColony.mockResolvedValue({ id: 7777 });
-    researchRepo.findOne.mockResolvedValue(null);
-
-    const result = await service.foundStarterColony(1, 777);
-
-    expect(result).toEqual({ success: true, colonyId: 7777 });
-    expect(colonySeedService.createStarterColony).toHaveBeenCalledWith(
-      1,
-      'Luke',
-      777,
-      1,
-    );
-    expect(user.onboardingCompleted).toBe(true);
-    expect(user.starterColonyId).toBe(7777);
-    expect(researchRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 1,
-        techId: 1001,
-        status: 'COMPLETED',
-      }),
-    );
-
-    await expect(service.foundStarterColony(1, 777)).rejects.toThrow(
-      'Starterkolonisierung bereits abgeschlossen',
-    );
-  });
-
-  it('marks starter mode not required when active colony already exists', async () => {
-    const { service, userRepo, colonyRepo } = createService();
-    const user = {
-      ...rebelUser,
-      onboardingCompleted: false,
-      starterColonyId: null,
-      starterShipId: null,
-      factionId: 1,
-    };
-    userRepo.findOne.mockResolvedValue(user);
-    colonyRepo.findOne.mockResolvedValue({ id: 9001 });
-
-    const result = await service.getStarterColonizationOptions(1);
-
-    expect(result.mode).toBe('not-required');
-    expect(result.targets).toEqual([]);
-    expect(user.onboardingCompleted).toBe(true);
-  });
-
-  it('repairs missing base research for existing starter colonies', async () => {
-    const { service, userRepo, colonyRepo, researchRepo } = createService();
-    const user = {
-      ...rebelUser,
-      onboardingCompleted: false,
-      starterColonyId: 9001,
-      starterShipId: null,
-      factionId: 2,
-    };
-    userRepo.findOne.mockResolvedValue(user);
-    colonyRepo.findOne.mockResolvedValue({ id: 9001 });
-    researchRepo.findOne.mockResolvedValue({
-      userId: 1,
-      techId: 1003,
-      status: 'LOCKED',
-      progress: 12,
-      remainingPoints: 5,
-      spentPoints: 1,
-      blockedReason: 'old',
-    });
-
-    const result = await service.getStarterColonizationOptions(1);
-
-    expect(result.mode).toBe('not-required');
-    expect(researchRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 1,
-        techId: 1003,
-        status: 'COMPLETED',
-        progress: 0,
-        remainingPoints: 0,
-        spentPoints: 0,
-        blockedReason: null,
-      }),
-    );
   });
 
   it('blocks old accounts in noobzone targets', async () => {

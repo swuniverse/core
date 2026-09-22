@@ -16,6 +16,7 @@ import { Crew, CrewGender, CrewType } from './entities/crew.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import { assertOwnedColony } from './colony-owner.util';
+import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 
 @Injectable()
 export class ColonyCrewService {
@@ -337,14 +338,7 @@ export class ColonyCrewService {
     if (colony.userId !== ship.userId) {
       throw new BadRequestException('Ship does not belong to colony owner');
     }
-    if (colony.starSystemId !== ship.starSystemId) {
-      throw new BadRequestException('Ship is not in colony system');
-    }
-    if (
-      colony.celestialObjectId &&
-      ship.celestialObjectId &&
-      colony.celestialObjectId !== ship.celestialObjectId
-    ) {
+    if (!matchesColonyOrbit(ship, colony)) {
       throw new BadRequestException('Ship is not in colony orbit');
     }
   }

@@ -1,4 +1,8 @@
-import type { ColonyEventDto, ShipModuleSelection } from '@swuniverse/shared';
+import type {
+  ColonyEventDto,
+  ShipModuleSelection,
+  SpaceLocationDto,
+} from '@swuniverse/shared';
 
 export type { ColonyEventDto, ShipModuleSelection };
 
@@ -34,20 +38,6 @@ export interface ColonyStorageItem {
   id: number;
   commodityId: number;
   amount: number;
-}
-
-export interface StarterColonizationOptions {
-  mode: 'required' | 'not-required';
-  reservedStarterColonyId: number | null;
-  starterShipId: number | null;
-  targets: Array<{
-    id: number;
-    systemId: number;
-    posX: number;
-    posY: number;
-    classId: number | null;
-    name: string | null;
-  }>;
 }
 
 export type ShipyardQueueMode = 'BUILD' | 'REPAIR' | 'RETROFIT';
@@ -703,6 +693,7 @@ export interface ColonyDetailV2 {
 export interface Colony {
   id: number;
   name: string;
+  colonyClassId?: number;
   energy: number;
   energyMax: number;
   population: number;
@@ -710,6 +701,7 @@ export interface Colony {
   storageUsed: number;
   storageMax: number;
   locationLabel?: string;
+  location?: SpaceLocationDto | null;
   fieldCount?: number;
   storageItemCount?: number;
   posX?: number;

@@ -42,8 +42,7 @@ const ship = {
   energy: 20,
   energyMax: 30,
   arrivalAt: null,
-  posX: 5,
-  posY: 5,
+  location: { scope: 'GALAXY' as const, layerId: 1, x: 5, y: 5 },
   runtimeSystems: { LONG_RANGE_SENSORS: { active: true } },
 };
 
@@ -101,6 +100,30 @@ describe('NavigationPanel', () => {
         '/spacecraft/2/systems/LONG_RANGE_SENSORS',
         { active: true },
       ),
+    );
+  });
+
+  it('uses canonical system location coordinates for blind navigation', async () => {
+    apiMocks.post.mockResolvedValue({});
+    render(
+      <NavigationPanel
+        ship={{
+          ...ship,
+          location: { scope: 'SYSTEM', systemId: 8, x: 20, y: 30 },
+          runtimeSystems: { LONG_RANGE_SENSORS: { active: false } },
+        }}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Blindflug nach 21|30' }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/navigate', {
+        targetX: 21,
+        targetY: 30,
+      }),
     );
   });
 

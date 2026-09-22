@@ -19,6 +19,7 @@ import {
   calculateTransferEnergyCost,
   TRANSFER_CAPACITY_PER_EPS,
 } from './transfer-cost';
+import { matchesColonyOrbit } from './spacecraft-field';
 
 @Injectable()
 export class ShipColonyContextService {
@@ -48,8 +49,16 @@ export class ShipColonyContextService {
     const colonyRepo = manager?.getRepository(Colony) ?? this.colonyRepo;
     const lock = manager ? { mode: 'pessimistic_write' as const } : undefined;
     const [ship, colony] = await Promise.all([
-      shipRepo.findOne({ where: { id: shipId, userId }, lock }),
-      colonyRepo.findOne({ where: { id: colonyId, userId }, lock }),
+      shipRepo.findOne({
+        where: { id: shipId, userId },
+        relations: ['location', 'location.systemField'],
+        lock,
+      }),
+      colonyRepo.findOne({
+        where: { id: colonyId, userId },
+        relations: ['systemField'],
+        lock,
+      }),
     ]);
     if (!ship) throw new NotFoundException('Ship not found');
     if (!colony) throw new NotFoundException('Colony not found');
@@ -61,13 +70,7 @@ export class ShipColonyContextService {
     if (ship.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle');
     }
-    if (ship.starSystemId !== colony.starSystemId) {
-      throw new BadRequestException('Ship must be in same system as colony');
-    }
-    if (
-      ship.currentSystemFieldX !== colony.posX ||
-      ship.currentSystemFieldY !== colony.posY
-    ) {
+    if (!matchesColonyOrbit(ship, colony)) {
       throw new BadRequestException('Ship must be in colony orbit');
     }
     return { ship, colony };

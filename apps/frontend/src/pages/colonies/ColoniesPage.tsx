@@ -15,10 +15,8 @@ import type {
   DetailTab,
   ShipClassDef,
   ShipModuleSelection,
-  StarterColonizationOptions,
   TerraformingDef,
 } from './types';
-import { planetImage } from '../../lib/assets';
 import { FieldInspector } from './components/FieldInspector';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelInfo } from './components/PanelInfo';
@@ -107,6 +105,10 @@ const buildingMatchesField = (building: BuildingDef, field: ColonyField) =>
     building.allowedFieldTypes.includes(fieldType),
   );
 
+const isHeadquartersField = (field: ColonyField) =>
+  field.buildingId != null &&
+  [1, 82010100, 82010300].includes(field.buildingId);
+
 // ─── Page ────────────────────────────────────────────────────
 
 export function ColoniesPage() {
@@ -121,8 +123,6 @@ export function ColoniesPage() {
   const [terraformingDefs, setTerraformingDefs] = useState<TerraformingDef[]>(
     [],
   );
-  const [starterOptions, setStarterOptions] =
-    useState<StarterColonizationOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>('info');
 
@@ -153,7 +153,6 @@ export function ColoniesPage() {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const starter = await colonyApi.fetchStarterColonizationOptions();
       const [comms, buildings, allBuildings, terraforming, classes] =
         await Promise.all([
           colonyApi.fetchCommodities(),
@@ -167,14 +166,6 @@ export function ColoniesPage() {
       setAllBuildingDefs(allBuildings);
       setTerraformingDefs(terraforming);
       setShipClasses(classes);
-      setStarterOptions(starter);
-      if (starter.mode === 'required') {
-        setSelected(null);
-        setColonies([]);
-        setLoading(false);
-        return;
-      }
-
       await loadColonyOverview();
       const reqId = initialSelectedIdRef.current;
       if (reqId) await loadColonyDetail(reqId);
@@ -223,32 +214,9 @@ export function ColoniesPage() {
     }
   };
 
-  const handleStarterFound = async (celestialObjectId: number) => {
-    await act(async () => {
-      const result = await colonyApi.foundStarterColony(celestialObjectId);
-      const detail = await colonyApi.fetchColonyDetail(result.colonyId);
-      setStarterOptions({
-        mode: 'not-required',
-        reservedStarterColonyId: result.colonyId,
-        starterShipId: null,
-        targets: [],
-      });
-      setSelected(detail);
-      setSearchParams({ selected: String(result.colonyId) }, { replace: true });
-    });
-  };
-
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
 
-  if (starterOptions?.mode === 'required') {
-    return (
-      <StarterColonizationGate
-        options={starterOptions}
-        onFound={handleStarterFound}
-      />
-    );
-  }
   if (!selected)
     return (
       <ColonyOverview
@@ -603,72 +571,6 @@ export function ColoniesPage() {
   );
 }
 
-function StarterColonizationGate({
-  options,
-  onFound,
-}: {
-  options: StarterColonizationOptions;
-  onFound: (celestialObjectId: number) => Promise<void> | void;
-}) {
-  const [busyTargetId, setBusyTargetId] = useState<number | null>(null);
-
-  return (
-    <div className="p-4 space-y-4">
-      <div className="rounded border border-swu-accent/40 bg-swu-surface px-4 py-3">
-        <div className="text-sm font-semibold text-swu-primary">
-          Starterkolonisierung erforderlich
-        </div>
-        <div className="mt-1 text-xs text-swu-muted">
-          Wähle einen freien Startplaneten. Die normale Kolonieübersicht ist
-          erst nach der Gründung verfügbar.
-        </div>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {options.targets.map((target) => (
-          <div
-            key={target.id}
-            className="rounded border border-swu-border bg-swu-surface px-4 py-3 space-y-3"
-          >
-            <div className="flex items-center gap-3">
-              {target.classId ? (
-                <img
-                  src={planetImage(target.classId)}
-                  alt={target.name ?? 'Starterplanet'}
-                  className="h-12 w-12 rounded border border-swu-border/60 object-cover"
-                />
-              ) : null}
-              <div>
-                <div className="text-sm font-semibold text-swu-primary">
-                  {target.name ?? `Planet ${target.id}`}
-                </div>
-                <div className="text-[11px] text-swu-muted">
-                  System {target.systemId} · Feld {target.posX}/{target.posY}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={async () => {
-                setBusyTargetId(target.id);
-                try {
-                  await onFound(target.id);
-                } finally {
-                  setBusyTargetId(null);
-                }
-              }}
-              disabled={busyTargetId === target.id}
-              className="w-full rounded border border-swu-accent bg-swu-accent/15 px-3 py-2 text-xs font-semibold text-swu-accent disabled:opacity-40"
-            >
-              {busyTargetId === target.id
-                ? 'Gründe…'
-                : 'Starterkolonie gründen'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ─── Overview ────────────────────────────────────────────────
 
 export function ColonyDetail({
@@ -826,6 +728,7 @@ export function ColonyDetail({
     useState<ColonyField | null>(null);
 
   const detail = colony.detailV2;
+  const currentEnergy = detail?.energy.current ?? colony.energy;
   const fieldUpgradeMap = useMemo(
     () =>
       Object.fromEntries(
@@ -867,21 +770,32 @@ export function ColonyDetail({
       fields
         .filter(
           (f) =>
-            !f.buildingId &&
-            !f.isBuilding &&
+            !f.terraformingId &&
+            !isHeadquartersField(f) &&
             buildingMatchesField(selectedBuilding, f),
         )
         .map((f) => f.fieldIndex),
     );
-  }, [selectedBuilding, fields]);
+  }, [fields, selectedBuilding]);
+
+  const replacementFields = useMemo(
+    () =>
+      new Set(
+        fields
+          .filter(
+            (field) =>
+              field.buildingId != null &&
+              highlightedFields.has(field.fieldIndex),
+          )
+          .map((field) => field.fieldIndex),
+      ),
+    [fields, highlightedFields],
+  );
 
   const getBuildPreviewTitle = (field: ColonyField): string | undefined => {
     if (!selectedBuilding) return undefined;
 
-    const isBuildTarget =
-      !field.buildingId &&
-      !field.isBuilding &&
-      highlightedFields.has(field.fieldIndex);
+    const isBuildTarget = highlightedFields.has(field.fieldIndex);
     if (!isBuildTarget) return undefined;
 
     const previewBuilding = getEffectiveBuildingForField(
@@ -917,6 +831,9 @@ export function ColonyDetail({
 
     return [
       `Bauen: ${previewBuilding.name}`,
+      field.buildingId
+        ? `Ersetzt: ${buildingMap[field.buildingId]?.name ?? `Gebäude #${field.buildingId}`}`
+        : undefined,
       previewBuilding.id !== selectedBuilding.id
         ? `Bonusfeld-Version von ${selectedBuilding.name}`
         : undefined,
@@ -929,6 +846,17 @@ export function ColonyDetail({
 
   const handleFieldClick = (field: ColonyField) => {
     if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
+      if (field.buildingId) {
+        const buildingName =
+          buildingMap[field.buildingId]?.name ?? `Gebäude #${field.buildingId}`;
+        if (
+          !window.confirm(
+            `Soll das Gebäude "${buildingName}" auf diesem Feld abgerissen werden?`,
+          )
+        ) {
+          return;
+        }
+      }
       onBuild(field.fieldIndex, selectedBuilding.id, !deactivateAfterBuild);
       setHoveredBuildField(null);
       setSelectedField(null);
@@ -1038,6 +966,7 @@ export function ColonyDetail({
           undergroundFields={undergroundFields}
           selectedField={selectedField}
           highlightedFields={highlightedFields}
+          replacementFields={replacementFields}
           isBuildMode={!!selectedBuilding}
           buildingMap={buildingMap}
           getBuildPreviewTitle={getBuildPreviewTitle}
@@ -1066,6 +995,7 @@ export function ColonyDetail({
                   buildingMap={buildingMap}
                   commodityMap={commodityMap}
                   storage={storage}
+                  energy={currentEnergy}
                   deactivateAfterBuild={deactivateAfterBuild}
                   onDeactivateAfterBuildChange={setDeactivateAfterBuild}
                   onClearSelection={() => {
@@ -1134,6 +1064,7 @@ export function ColonyDetail({
               buildingDefs={buildingDefs}
               fields={fields}
               storage={storage}
+              energy={currentEnergy}
               commodityMap={commodityMap}
               selectedBuilding={selectedBuilding}
               onSelectBuilding={(b: BuildingDef) => {

@@ -1,30 +1,42 @@
-import type { BuildingDef, ColonyField, ColonyStorageItem } from './types';
+import type {
+  BuildingDef,
+  ColonyField,
+  ColonyStorageItem,
+  TerraformingDef,
+} from './types';
 
 export function canAfford(
   building: BuildingDef,
   storage: ColonyStorageItem[],
+  energy: number,
 ): boolean {
-  return (building.resourceCosts || []).every(
-    (cost) =>
-      (storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
-        0) >= cost.amount,
+  return (
+    energy >= (building.epsCost || 0) &&
+    (building.resourceCosts || []).every(
+      (cost) =>
+        (storage.find((item) => item.commodityId === cost.commodityId)
+          ?.amount || 0) >= cost.amount,
+    )
   );
 }
 
 export function maxAffordable(
   building: BuildingDef,
   storage: ColonyStorageItem[],
+  energy: number,
 ): number {
   const costs = building.resourceCosts || [];
-  if (costs.length === 0) return Infinity;
-  return Math.min(
-    ...costs.map((cost) => {
-      const avail =
-        storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
-        0;
-      return cost.amount > 0 ? Math.floor(avail / cost.amount) : Infinity;
-    }),
-  );
+  const limits = costs.map((cost) => {
+    const avail =
+      storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
+      0;
+    return cost.amount > 0 ? Math.floor(avail / cost.amount) : Infinity;
+  });
+  const energyCost = building.epsCost || 0;
+  if (energyCost > 0) {
+    limits.push(Math.floor(energy / energyCost));
+  }
+  return limits.length > 0 ? Math.min(...limits) : Infinity;
 }
 
 export function formatBuildTime(seconds: number): string {
@@ -70,4 +82,29 @@ export function getEffectiveBuildingForField(
     }
   }
   return building;
+}
+
+export function getTerraformingOptionsForField(
+  field: ColonyField,
+  terraformingDefs: TerraformingDef[],
+): TerraformingDef[] {
+  return getFieldTypeCandidates(field)
+    .flatMap((fieldType) =>
+      terraformingDefs.filter((option) => option.fromFieldType === fieldType),
+    )
+    .filter((option, index, options) => {
+      const targetType =
+        option.toFieldType >= 10000
+          ? Math.floor(option.toFieldType / 100)
+          : option.toFieldType;
+      return (
+        options.findIndex((candidate) => {
+          const candidateTargetType =
+            candidate.toFieldType >= 10000
+              ? Math.floor(candidate.toFieldType / 100)
+              : candidate.toFieldType;
+          return candidateTargetType === targetType;
+        }) === index
+      );
+    });
 }

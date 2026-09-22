@@ -1,10 +1,22 @@
 jest.mock('./entities/layer.entity', () => ({ Layer: class Layer {} }));
-jest.mock('./entities/galaxy-field.entity', () => ({ GalaxyField: class GalaxyField {} }));
-jest.mock('./entities/system-field.entity', () => ({ SystemField: class SystemField {} }));
-jest.mock('./entities/star-system.entity', () => ({ StarSystem: class StarSystem {} }));
-jest.mock('./entities/hyperspace-route.entity', () => ({ HyperspaceRoute: class HyperspaceRoute {} }));
-jest.mock('./entities/hyperspace-route-segment.entity', () => ({ HyperspaceRouteSegment: class HyperspaceRouteSegment {} }));
-jest.mock('../colony/entities/colony.entity', () => ({ Colony: class Colony {} }));
+jest.mock('./entities/galaxy-field.entity', () => ({
+  GalaxyField: class GalaxyField {},
+}));
+jest.mock('./entities/system-field.entity', () => ({
+  SystemField: class SystemField {},
+}));
+jest.mock('./entities/star-system.entity', () => ({
+  StarSystem: class StarSystem {},
+}));
+jest.mock('./entities/hyperspace-route.entity', () => ({
+  HyperspaceRoute: class HyperspaceRoute {},
+}));
+jest.mock('./entities/hyperspace-route-segment.entity', () => ({
+  HyperspaceRouteSegment: class HyperspaceRouteSegment {},
+}));
+jest.mock('../colony/entities/colony.entity', () => ({
+  Colony: class Colony {},
+}));
 
 import { StarmapQueryService } from './starmap-query.service';
 
@@ -30,7 +42,14 @@ describe('StarmapQueryService shields', () => {
       landmarkKey: null,
       landmarkCategory: null,
     };
-    const fieldType = { id: 1, key: 'EMPTY_SPACE', name: 'Space', color: '#000', isSystem: false, isVisible: true };
+    const fieldType = {
+      id: 1,
+      key: 'EMPTY_SPACE',
+      name: 'Space',
+      color: '#000',
+      isSystem: false,
+      isVisible: true,
+    };
     const systemRepo = repo({ findOneBy: jest.fn(async () => system) });
     const systemFieldRepo = repo({
       find: jest.fn(async () => [
@@ -54,21 +73,19 @@ describe('StarmapQueryService shields', () => {
         },
       ]),
     });
-    const colonyRepo = repo({
+    const colonyRepo: any = repo({
       find: jest.fn(async () => [
         {
           id: 99,
-          starSystemId: 5,
-          posX: 7,
-          posY: 8,
+          systemFieldId: 11,
+          systemField: { starSystemId: 5, sx: 9, sy: 10 },
           isAbandoned: false,
           changeable: { shields: 12 },
         },
         {
           id: 100,
-          starSystemId: 5,
-          posX: 1,
-          posY: 1,
+          systemFieldId: 12,
+          systemField: { starSystemId: 5, sx: 1, sy: 1 },
           isAbandoned: false,
           changeable: { shields: 0 },
         },
@@ -87,7 +104,16 @@ describe('StarmapQueryService shields', () => {
     const result = await service.getSystemGrid(5);
 
     expect(result.colonyShields).toEqual([
-      { colonyId: 99, systemId: 5, posX: 7, posY: 8, shielded: true },
+      { colonyId: 99, systemId: 5, posX: 9, posY: 10, shielded: true },
     ]);
+    expect(colonyRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: [
+          { systemField: { starSystemId: 5 }, isAbandoned: false },
+          { starSystemId: 5, isAbandoned: false },
+        ],
+        relations: expect.arrayContaining(['systemField']),
+      }),
+    );
   });
 });

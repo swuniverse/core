@@ -11,6 +11,7 @@ import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { ShipColonyContextService } from './ship-colony-context.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
+import { sameSpacecraftLocation } from './spacecraft-field';
 
 @Injectable()
 export class TransferService {
@@ -170,23 +171,17 @@ export class TransferService {
     torpedoTransferAvailable: boolean;
     torpedoTransferReason: string | null;
   }> {
-    const sourceShip = await this.dataSource
-      .getRepository(Spacecraft)
-      .findOneBy({ id: shipId, userId });
-    const targetShip = await this.dataSource
-      .getRepository(Spacecraft)
-      .findOneBy({ id: targetShipId });
+    const sourceShip = await this.dataSource.getRepository(Spacecraft).findOne({
+      where: { id: shipId, userId },
+      relations: { location: { galaxyField: true, systemField: true } },
+    });
+    const targetShip = await this.dataSource.getRepository(Spacecraft).findOne({
+      where: { id: targetShipId },
+      relations: { location: { galaxyField: true, systemField: true } },
+    });
     if (!sourceShip || !targetShip)
       throw new BadRequestException('Schiff nicht gefunden');
-    const sameField =
-      sourceShip.inSystem === targetShip.inSystem &&
-      (sourceShip.inSystem
-        ? sourceShip.starSystemId === targetShip.starSystemId &&
-          sourceShip.currentSystemFieldX === targetShip.currentSystemFieldX &&
-          sourceShip.currentSystemFieldY === targetShip.currentSystemFieldY
-        : sourceShip.currentLayerId === targetShip.currentLayerId &&
-          sourceShip.posX === targetShip.posX &&
-          sourceShip.posY === targetShip.posY);
+    const sameField = sameSpacecraftLocation(sourceShip, targetShip);
     const systems = (ship: Spacecraft) =>
       ship.runtimeSystems as Record<string, { active?: boolean }>;
     const reason =
@@ -273,21 +268,14 @@ export class TransferService {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
+        relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write' },
       });
       const sourceShip = ships.find((ship) => ship.id === shipId);
       const targetShip = ships.find((ship) => ship.id === targetShipId);
       if (!sourceShip || !targetShip)
         throw new BadRequestException('Schiff nicht gefunden');
-      const sameField =
-        sourceShip.inSystem === targetShip.inSystem &&
-        (sourceShip.inSystem
-          ? sourceShip.starSystemId === targetShip.starSystemId &&
-            sourceShip.currentSystemFieldX === targetShip.currentSystemFieldX &&
-            sourceShip.currentSystemFieldY === targetShip.currentSystemFieldY
-          : sourceShip.currentLayerId === targetShip.currentLayerId &&
-            sourceShip.posX === targetShip.posX &&
-            sourceShip.posY === targetShip.posY);
+      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
       const systems = (ship: Spacecraft) =>
         ship.runtimeSystems as Record<string, { active?: boolean }>;
       if (
@@ -344,6 +332,7 @@ export class TransferService {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
+        relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write' },
       });
       const sourceShip = ships.find((ship) => ship.id === shipId);
@@ -354,15 +343,7 @@ export class TransferService {
         throw new BadRequestException(
           'Torpedotransfer nur zu eigenen Schiffen, bis Allianzen verfügbar sind',
         );
-      const sameField =
-        sourceShip.inSystem === targetShip.inSystem &&
-        (sourceShip.inSystem
-          ? sourceShip.starSystemId === targetShip.starSystemId &&
-            sourceShip.currentSystemFieldX === targetShip.currentSystemFieldX &&
-            sourceShip.currentSystemFieldY === targetShip.currentSystemFieldY
-          : sourceShip.currentLayerId === targetShip.currentLayerId &&
-            sourceShip.posX === targetShip.posX &&
-            sourceShip.posY === targetShip.posY);
+      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
       const systems = (ship: Spacecraft) =>
         ship.runtimeSystems as Record<string, { active?: boolean }>;
       if (
@@ -433,6 +414,7 @@ export class TransferService {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
+        relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write' },
       });
       const sourceShip = ships.find((ship) => ship.id === shipId);
@@ -444,15 +426,7 @@ export class TransferService {
         targetShip.status !== SpacecraftStatus.IDLE
       )
         throw new BadRequestException('Beide Schiffe müssen im Raum stehen');
-      const sameField =
-        sourceShip.inSystem === targetShip.inSystem &&
-        (sourceShip.inSystem
-          ? sourceShip.starSystemId === targetShip.starSystemId &&
-            sourceShip.currentSystemFieldX === targetShip.currentSystemFieldX &&
-            sourceShip.currentSystemFieldY === targetShip.currentSystemFieldY
-          : sourceShip.currentLayerId === targetShip.currentLayerId &&
-            sourceShip.posX === targetShip.posX &&
-            sourceShip.posY === targetShip.posY);
+      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
       if (!sameField)
         throw new BadRequestException(
           'Schiffe müssen sich auf demselben Feld befinden',
@@ -516,24 +490,21 @@ export class TransferService {
     await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId, userId },
+        relations: {
+          location: { galaxyField: true, systemField: true },
+        },
         lock: { mode: 'pessimistic_write' },
       });
       const wreck = await manager.findOne(SpacecraftWreck, {
         where: { id: wreckId },
+        relations: {
+          location: { galaxyField: true, systemField: true },
+        },
         lock: { mode: 'pessimistic_write' },
       });
       if (!ship || !wreck)
         throw new BadRequestException('Ship or wreck not found');
-      const sameField =
-        wreck.inSystem === ship.inSystem &&
-        (wreck.inSystem
-          ? wreck.starSystemId === ship.starSystemId &&
-            wreck.currentSystemFieldX === ship.currentSystemFieldX &&
-            wreck.currentSystemFieldY === ship.currentSystemFieldY
-          : wreck.currentLayerId === ship.currentLayerId &&
-            wreck.posX === ship.posX &&
-            wreck.posY === ship.posY);
-      if (!sameField)
+      if (!sameSpacecraftLocation(ship, wreck))
         throw new BadRequestException('Wreck must be on the same field');
       const systems = ship.runtimeSystems as Record<
         string,

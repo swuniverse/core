@@ -12,7 +12,7 @@ type ManagementData = {
     id: number;
     name: string;
     shipClassId: number;
-    crew: { current: number; max: number };
+    crew: { current: number; max: number; minimum: number };
     battery: { current: number; max: number };
     reactor: {
       fuel: { current: number; max: number };

@@ -467,6 +467,155 @@ describe('ColonyDetail', () => {
     expect(onBuild).toHaveBeenNthCalledWith(2, 2, mineBuilding.id, false);
   });
 
+  it('confirms and replaces a compatible occupied field with one build request', () => {
+    const detail = createDetail();
+    detail.surface = {
+      width: 1,
+      rotationFactor: null,
+      layers: ['SURFACE'],
+      hasUnderground: false,
+    };
+    const onBuild = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const colony = {
+      ...createColony(detail),
+      fields: [
+        {
+          id: 1,
+          fieldIndex: 1,
+          fieldType: 101,
+          terrainTileId: null,
+          layer: 'SURFACE' as const,
+          buildingId: fz1Building.id,
+          isBuilding: true,
+          isActive: false,
+          buildProgress: 20,
+          buildFinishesAt: new Date().toISOString(),
+          availableUpgrades: [],
+        },
+      ],
+    };
+
+    renderColonyDetail(detail, {
+      colony,
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [mineBuilding, fz1Building],
+      activeTab: 'build',
+      onBuild,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
+    const field = screen.getByRole('button', {
+      name: `Feld 1: ${fz1Building.name}`,
+    });
+    expect(field.title).toContain(`Ersetzt: ${fz1Building.name}`);
+    fireEvent.click(field);
+
+    expect(confirm).toHaveBeenCalledWith(
+      `Soll das Gebäude "${fz1Building.name}" auf diesem Feld abgerissen werden?`,
+    );
+    expect(onBuild).toHaveBeenCalledOnce();
+    expect(onBuild).toHaveBeenCalledWith(1, mineBuilding.id, true);
+    confirm.mockRestore();
+  });
+
+  it('keeps an occupied field unchanged when replacement is cancelled', () => {
+    const detail = createDetail();
+    const onBuild = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const colony = {
+      ...createColony(detail),
+      fields: [
+        {
+          id: 1,
+          fieldIndex: 1,
+          fieldType: 101,
+          terrainTileId: null,
+          layer: 'SURFACE' as const,
+          buildingId: fz1Building.id,
+          isBuilding: false,
+          isActive: true,
+          buildProgress: 100,
+          buildFinishesAt: null,
+          availableUpgrades: [],
+        },
+      ],
+    };
+
+    renderColonyDetail(detail, {
+      colony,
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [mineBuilding, fz1Building],
+      activeTab: 'build',
+      onBuild,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
+    fireEvent.click(
+      screen.getByRole('button', { name: `Feld 1: ${fz1Building.name}` }),
+    );
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(onBuild).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('does not offer headquarters or terraforming fields for replacement', () => {
+    const detail = createDetail();
+    const onBuild = vi.fn();
+    const colony = {
+      ...createColony(detail),
+      fields: [
+        {
+          id: 1,
+          fieldIndex: 1,
+          fieldType: 101,
+          terrainTileId: null,
+          layer: 'SURFACE' as const,
+          buildingId: 82010100,
+          isBuilding: false,
+          isActive: true,
+          buildProgress: 100,
+          buildFinishesAt: null,
+          availableUpgrades: [],
+        },
+        {
+          id: 2,
+          fieldIndex: 2,
+          fieldType: 101,
+          terrainTileId: null,
+          layer: 'SURFACE' as const,
+          buildingId: null,
+          isBuilding: false,
+          isActive: true,
+          buildProgress: 0,
+          buildFinishesAt: null,
+          terraformingId: 101201,
+          availableUpgrades: [],
+        },
+      ],
+    };
+
+    renderColonyDetail(detail, {
+      colony,
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [
+        mineBuilding,
+        { ...fz1Building, id: 82010100, name: 'Koloniezentrale' },
+      ],
+      activeTab: 'build',
+      onBuild,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Feld 1: Koloniezentrale' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Feld 2' }));
+
+    expect(onBuild).not.toHaveBeenCalled();
+  });
+
   it('renders field upgrades and keeps FZ II out of the build menu', () => {
     const detail = createDetail();
     detail.surface = {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { SpaceLocationDto } from '@swuniverse/shared';
 import { shipImage } from '../../lib/assets';
 import { api } from '../../services/api';
 import { ShipQuickActions } from './ShipQuickActions';
@@ -30,8 +31,7 @@ interface ShipHeaderTableProps {
     crew: number;
     crewRequired?: number;
     crewMax: number;
-    posX: number;
-    posY: number;
+    location: SpaceLocationDto;
     locationLabel?: string;
   };
   onUpdate?: () => void;
@@ -92,7 +92,7 @@ export function ShipHeaderTable({
   const rows = [
     {
       label: 'Koordinaten',
-      value: `${ship.posX}|${ship.posY}`,
+      value: `${ship.location.x}|${ship.location.y}`,
       icon: 'hud1.png',
     },
     {

@@ -68,6 +68,7 @@ function createSeedService() {
   const changeableRepo = repo();
   const depositMiningRepo = repo();
   const objectRepo = repo();
+  const systemFieldRepo = repo({ findOneBy: jest.fn() });
   const gameData = {
     getBuilding: jest.fn(() => ({ bevPro: 84 })),
     getColonyClassDeposits: jest.fn(() => []),
@@ -80,6 +81,7 @@ function createSeedService() {
     changeableRepo as any,
     depositMiningRepo as any,
     objectRepo as any,
+    systemFieldRepo as any,
     gameData as never,
   );
   return {
@@ -89,6 +91,7 @@ function createSeedService() {
     statsRepo,
     changeableRepo,
     objectRepo,
+    systemFieldRepo,
   };
 }
 
@@ -116,7 +119,9 @@ describe('Colony surface snapshots', () => {
   });
 
   it('seeds starter colonies from the generated surface snapshot', async () => {
-    const { service, colonyRepo, fieldRepo, objectRepo } = createSeedService();
+    const { service, colonyRepo, fieldRepo, objectRepo, systemFieldRepo } =
+      createSeedService();
+    systemFieldRepo.findOneBy.mockResolvedValue({ id: 42 });
     objectRepo.createQueryBuilder.mockReturnValue({
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -144,6 +149,10 @@ describe('Colony surface snapshots', () => {
 
     expect(colonyRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
+        starSystemId: 3,
+        systemFieldId: 42,
+        posX: 4,
+        posY: 5,
         surfaceMask: expect.any(String),
         surfaceWidth: 10,
         rotationFactor: 1,

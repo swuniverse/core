@@ -35,6 +35,10 @@ import {
 import { assertSpacecraftNotInStandby } from '../spacecraft/spacecraft-mode.util';
 import { SpacecraftDestructionService } from '../spacecraft/spacecraft-destruction.service';
 import { CombatReportFormatter } from './combat-report.formatter';
+import {
+  matchesColonyOrbit,
+  sameSpacecraftLocation,
+} from '../spacecraft/spacecraft-field';
 
 @Injectable()
 export class CombatService {
@@ -92,23 +96,7 @@ export class CombatService {
       throw new BadRequestException('Not enough crew');
     }
 
-    if (attacker.inSystem && defender.inSystem) {
-      if (
-        attacker.starSystemId !== defender.starSystemId ||
-        attacker.currentSystemFieldX !== defender.currentSystemFieldX ||
-        attacker.currentSystemFieldY !== defender.currentSystemFieldY
-      ) {
-        throw new BadRequestException('Target must be on same field');
-      }
-    } else if (!attacker.inSystem && !defender.inSystem) {
-      if (
-        attacker.currentLayerId !== defender.currentLayerId ||
-        attacker.posX !== defender.posX ||
-        attacker.posY !== defender.posY
-      ) {
-        throw new BadRequestException('Target must be on same field');
-      }
-    } else {
+    if (!sameSpacecraftLocation(attacker, defender)) {
       throw new BadRequestException('Target must be on same field');
     }
 
@@ -167,12 +155,13 @@ export class CombatService {
   > {
     const attacker = await this.shipRepo.findOne({
       where: { id: attackerId, userId },
+      relations: ['location', 'location.systemField'],
     });
     if (!attacker) throw new NotFoundException('Attacker not found');
     assertSpacecraftNotInStandby(attacker, 'einem Angriff');
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['fields', 'stats', 'changeable'],
+      relations: ['fields', 'stats', 'changeable', 'systemField'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
     if (colony.userId == null || colony.isAbandoned) {
@@ -187,11 +176,7 @@ export class CombatService {
     if (!(await this.spacecraftCrewService.hasEnoughCrew(attacker))) {
       throw new BadRequestException('Not enough crew');
     }
-    if (
-      attacker.starSystemId !== colony.starSystemId ||
-      (colony.celestialObjectId != null &&
-        attacker.celestialObjectId !== colony.celestialObjectId)
-    ) {
+    if (!matchesColonyOrbit(attacker, colony)) {
       throw new BadRequestException('Colony must be in same orbit');
     }
     if (!colony.stats) throw new BadRequestException('Colony stats missing');

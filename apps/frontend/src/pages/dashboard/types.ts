@@ -93,17 +93,9 @@ export interface ColonyWarning {
   message: string;
 }
 
-export interface RecentGameEvent {
-  id: number;
-  type: string;
-  text: string;
-  scope: 'GALAXY' | 'SYSTEM' | null;
-  layerId: number | null;
-  systemId: number | null;
-  x: number | null;
-  y: number | null;
-  createdAt: string;
-}
+import type { GameEventDto } from '@swuniverse/shared';
+
+export type RecentGameEvent = GameEventDto;
 
 export interface ColonyEvent {
   id: number;

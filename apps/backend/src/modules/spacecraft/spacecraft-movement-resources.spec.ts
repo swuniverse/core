@@ -75,6 +75,14 @@ function createService() {
   const objectRepo = { findOne: jest.fn(), findOneBy: jest.fn() };
   const galaxyFieldRepo = { findOne: jest.fn() };
   const systemFieldRepo = { findOne: jest.fn() };
+  const locationRepo = {
+    findOne: jest.fn(async ({ where }: any) => ({
+      id: 91,
+      kind: 'systemFieldId' in where ? 'SYSTEM_FIELD' : 'GALAXY_FIELD',
+      systemFieldId: where.systemFieldId ?? null,
+      galaxyFieldId: where.galaxyFieldId ?? null,
+    })),
+  };
   const userRepo = { find: jest.fn() };
   const gameData = { getCombatFormulas: jest.fn() };
   const shipClassService = {
@@ -125,7 +133,7 @@ function createService() {
     >[7],
     userRepo as unknown as ConstructorParameters<typeof SpacecraftService>[8],
     {
-      getRepository: jest.fn(() => ({ findOne: jest.fn(async () => null) })),
+      getRepository: jest.fn(() => locationRepo),
     } as unknown as ConstructorParameters<typeof SpacecraftService>[9],
     gameData as unknown as ConstructorParameters<typeof SpacecraftService>[10],
     shipClassService as unknown as ConstructorParameters<
@@ -171,11 +179,29 @@ function createService() {
     objectRepo,
     galaxyFieldRepo,
     systemFieldRepo,
+    locationRepo,
     runtimeState,
   };
 }
 
 describe('SpacecraftService movement resources', () => {
+  const systemLocation = (systemId = 3, x = 1, y = 1) => ({
+    locationId: 90,
+    location: {
+      id: 90,
+      kind: 'SYSTEM_FIELD',
+      systemField: { id: 30, starSystemId: systemId, sx: x, sy: y },
+    },
+  });
+  const galaxyLocation = (layerId = 1, x = 1, y = 1) => ({
+    locationId: 90,
+    location: {
+      id: 90,
+      kind: 'GALAXY_FIELD',
+      galaxyField: { id: 30, layerId, cx: x, cy: y },
+    },
+  });
+
   it('blocks movement while the ship is in standby', async () => {
     const { service, shipRepo } = createService();
     shipRepo.findOne.mockResolvedValue({
@@ -183,7 +209,7 @@ describe('SpacecraftService movement resources', () => {
       userId: 1,
       status: SpacecraftStatus.IDLE,
       operatingMode: 'STANDBY',
-      inSystem: true,
+      ...systemLocation(),
       modules: [],
     });
     await expect(service.navigate(7, 1, 2, 2)).rejects.toThrow(/Standby/);
@@ -196,36 +222,83 @@ describe('SpacecraftService movement resources', () => {
       systemRepo,
       objectRepo,
       systemFieldRepo,
+      locationRepo,
       runtimeState,
     } = createService();
-    const celestialObject = { id: 42 };
     const ship = {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
-      celestialObjectId: 23,
-      celestialObject: { id: 23 },
+      ...systemLocation(),
       energy: 20,
       modules: [],
     };
     shipRepo.findOne.mockResolvedValue(ship);
     systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
-    systemFieldRepo.findOne.mockResolvedValue({
+    const targetField = {
+      id: 31,
+      starSystemId: 3,
+      sx: 1,
+      sy: 3,
       isPassable: true,
       celestialObjectId: 42,
+      celestialObject: { id: 42 },
+    };
+    systemFieldRepo.findOne.mockResolvedValue(targetField);
+    locationRepo.findOne.mockResolvedValue({
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      systemFieldId: 31,
+      systemField: targetField,
     });
-    objectRepo.findOneBy.mockResolvedValue(celestialObject);
 
     await service.navigate(7, 1, 1, 3);
 
+    expect(systemRepo.findOne).toHaveBeenCalledWith({ where: { id: 3 } });
     expect(ship.energy).toBe(18);
-    expect(ship.celestialObjectId).toBe(42);
-    expect(ship.celestialObject).toBe(celestialObject);
+    expect(ship.locationId).toBe(91);
+    expect(ship.location).toEqual(expect.objectContaining({ systemField: targetField }));
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
+  });
+
+  it('writes the canonical system location during navigation', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo, locationRepo } =
+      createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      shipClassId: 42,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      energy: 20,
+      modules: [],
+    };
+    const targetField = {
+      id: 31,
+      starSystemId: 3,
+      sx: 1,
+      sy: 3,
+      isPassable: true,
+      celestialObjectId: null,
+    };
+    const location = { id: 91, kind: 'SYSTEM_FIELD', systemField: targetField };
+    shipRepo.findOne.mockResolvedValue(ship);
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue(targetField);
+    locationRepo.findOne.mockResolvedValue(location);
+
+    await service.navigate(7, 1, 1, 3);
+
+    expect(locationRepo.findOne).toHaveBeenCalledWith({
+      where: { systemFieldId: 31 },
+      relations: ['systemField', 'systemField.celestialObject'],
+    });
+    expect(ship).toEqual(
+      expect.objectContaining({
+        locationId: 91,
+        location,
+      }),
+    );
   });
 
   it('uses the STU rump flight cost for every in-system field', async () => {
@@ -235,10 +308,7 @@ describe('SpacecraftService movement resources', () => {
       userId: 1,
       shipClassId: 42,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
+      ...systemLocation(),
       energy: 20,
       modules: [],
     };
@@ -260,10 +330,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
+      ...systemLocation(),
       energy: 0,
       modules: [],
     });
@@ -299,10 +366,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: false,
-      currentLayerId: 1,
-      posX: 1,
-      posY: 1,
+      ...galaxyLocation(),
       warpdrive: 5,
       runtimeSystems: {
         WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
@@ -319,10 +383,7 @@ describe('SpacecraftService movement resources', () => {
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
 
     ship.status = SpacecraftStatus.IDLE;
-    ship.inSystem = true;
-    ship.starSystemId = 11;
-    ship.currentSystemFieldX = 1;
-    ship.currentSystemFieldY = 1;
+    Object.assign(ship, systemLocation(11));
     ship.warpCooldown = 0;
     systemRepo.findOne
       .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
@@ -334,94 +395,180 @@ describe('SpacecraftService movement resources', () => {
     expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
   });
 
-  it.each([
-    ['sets the target celestial object', { celestialObjectId: 42 }, 42],
-    ['clears a stale celestial object', null, null],
-  ])(
-    '%s after delayed in-system arrival',
-    async (_description, targetField, expectedCelestialObjectId) => {
-      const { service, shipRepo, objectRepo, systemFieldRepo } =
-        createService();
-      const celestialObject = targetField
-        ? { id: targetField.celestialObjectId }
-        : null;
-      const ship = {
-        id: 7,
-        userId: 1,
-        status: SpacecraftStatus.IN_FLIGHT,
-        inSystem: true,
-        starSystemId: 3,
-        currentSystemFieldX: 1,
-        currentSystemFieldY: 1,
-        celestialObjectId: 23,
-        celestialObject: { id: 23 },
-        targetX: 8,
-        targetY: 12,
-        targetSystemId: null,
-        arrivalAt: new Date(0),
-      };
-      systemFieldRepo.findOne.mockResolvedValue(targetField);
-      objectRepo.findOneBy.mockResolvedValue(celestialObject);
+  it('writes canonical origin and target locations for warp', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo, locationRepo } =
+      createService();
+    const originLocation = {
+      id: 90,
+      kind: 'SYSTEM_FIELD',
+      systemField: { id: 30, starSystemId: 11, sx: 4, sy: 5 },
+    };
+    const targetField = {
+      id: 31,
+      starSystemId: 12,
+      sx: 1,
+      sy: 1,
+      celestialObjectId: null,
+    };
+    const targetLocation = {
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      systemField: targetField,
+    };
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      inSystem: true,
+      starSystemId: 99,
+      currentSystemFieldX: 9,
+      currentSystemFieldY: 9,
+      locationId: 90,
+      location: originLocation,
+      warpCooldown: 0,
+      warpdrive: 10,
+      runtimeSystems: {
+        WARPDRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+      modules: [],
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    systemRepo.findOne
+      .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
+      .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
+    systemFieldRepo.findOne.mockResolvedValue(targetField);
+    locationRepo.findOne.mockResolvedValue(targetLocation);
 
-      await service.processMovement(ship as any);
+    await service.warp(7, 1, 12);
 
-      expect(systemFieldRepo.findOne).toHaveBeenCalledWith({
-        where: { starSystemId: 3, sx: 8, sy: 12 },
-      });
-      expect(ship.celestialObjectId).toBe(expectedCelestialObjectId);
-      expect(ship.celestialObject).toEqual(celestialObject);
-      expect(shipRepo.save).toHaveBeenCalledWith(ship);
-    },
-  );
+    expect(systemRepo.findOne).toHaveBeenNthCalledWith(1, {
+      where: { id: 11 },
+    });
+    expect(ship).toEqual(
+      expect.objectContaining({
+        originLocationId: 90,
+        originLocation,
+        targetLocationId: 91,
+        targetLocation,
+      }),
+    );
+  });
 
-  it.each([
-    ['sets the entry celestial object', { celestialObjectId: 42 }, 42],
-    ['clears a stale celestial object', null, null],
-  ])(
-    '%s after delayed warp arrival',
-    async (_description, entryField, expectedCelestialObjectId) => {
-      const { service, shipRepo, systemRepo, objectRepo, systemFieldRepo } =
-        createService();
-      const celestialObject = entryField
-        ? { id: entryField.celestialObjectId }
-        : null;
-      const ship = {
-        id: 7,
-        userId: 1,
-        status: SpacecraftStatus.IN_FLIGHT,
-        inSystem: true,
-        starSystemId: 3,
-        currentSystemFieldX: 8,
-        currentSystemFieldY: 12,
-        celestialObjectId: 23,
-        celestialObject: { id: 23 },
-        posX: 4,
-        posY: 5,
-        currentLayerId: 1,
-        targetX: null,
-        targetY: null,
-        targetSystemId: 12,
-        arrivalAt: new Date(0),
-      };
-      systemRepo.findOne.mockResolvedValue({
-        id: 12,
-        cx: 9,
-        cy: 10,
-        layerId: 2,
-      });
-      systemFieldRepo.findOne.mockResolvedValue(entryField);
-      objectRepo.findOneBy.mockResolvedValue(celestialObject);
+  it('uses a canonical target location on arrival and clears flight locations', async () => {
+    const { service, shipRepo, objectRepo, systemFieldRepo, locationRepo } =
+      createService();
+    const celestialObject = { id: 42 };
+    const canonicalField = {
+      id: 31,
+      starSystemId: 3,
+      sx: 8,
+      sy: 12,
+      celestialObjectId: 42,
+    };
+    const targetLocation = {
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      galaxyFieldId: null,
+      galaxyField: null,
+      systemFieldId: canonicalField.id,
+      systemField: canonicalField,
+    };
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IN_FLIGHT,
+      inSystem: true,
+      starSystemId: 3,
+      currentSystemFieldX: 1,
+      currentSystemFieldY: 1,
+      celestialObjectId: null,
+      celestialObject: null,
+      targetX: 2,
+      targetY: 2,
+      targetSystemId: null,
+      targetLocationId: 91,
+      targetLocation: null,
+      originLocationId: 90,
+      originLocation: { id: 90 },
+      flightOrigin: { scope: 'SYSTEM', systemId: 3, x: 1, y: 1 },
+      arrivalAt: new Date(0),
+    };
+    locationRepo.findOne.mockResolvedValue(targetLocation);
+    objectRepo.findOneBy.mockResolvedValue(celestialObject);
 
-      await service.processMovement(ship as any);
+    await service.processMovement(ship as any);
 
-      expect(systemFieldRepo.findOne).toHaveBeenCalledWith({
-        where: { starSystemId: 12, sx: 1, sy: 1 },
-      });
-      expect(ship.celestialObjectId).toBe(expectedCelestialObjectId);
-      expect(ship.celestialObject).toEqual(celestialObject);
-      expect(shipRepo.save).toHaveBeenCalledWith(ship);
-    },
-  );
+    expect(locationRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 91 },
+      relations: ['galaxyField', 'systemField', 'systemField.celestialObject'],
+    });
+    expect(systemFieldRepo.findOne).not.toHaveBeenCalled();
+    expect(ship).toEqual(
+      expect.objectContaining({
+        locationId: 91,
+        location: targetLocation,
+        targetLocationId: null,
+        targetLocation: null,
+        originLocationId: null,
+        originLocation: null,
+      }),
+    );
+    expect(shipRepo.save).toHaveBeenCalledWith(ship);
+  });
+
+  it('uses the canonical target location kind on arrival', async () => {
+    const { service, shipRepo, systemRepo, galaxyFieldRepo } = createService();
+    const currentLocation = {
+      id: 90,
+      kind: 'SYSTEM_FIELD',
+      systemField: { starSystemId: 3, sx: 1, sy: 1 },
+    };
+    const targetLocation = {
+      id: 91,
+      kind: 'GALAXY_FIELD',
+      galaxyField: {
+        id: 41,
+        layerId: 5,
+        cx: 12,
+        cy: 14,
+        starSystemId: null,
+      },
+    };
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IN_FLIGHT,
+      inSystem: true,
+      starSystemId: 3,
+      currentSystemFieldX: 1,
+      currentSystemFieldY: 1,
+      currentLayerId: 2,
+      posX: 2,
+      posY: 2,
+      locationId: 90,
+      location: currentLocation,
+      targetLocationId: 91,
+      targetLocation,
+      targetSystemId: 99,
+      targetX: 8,
+      targetY: 9,
+      arrivalAt: new Date(0),
+    };
+
+    await service.processMovement(ship as any);
+
+    expect(systemRepo.findOne).not.toHaveBeenCalled();
+    expect(galaxyFieldRepo.findOne).not.toHaveBeenCalled();
+    expect(ship).toEqual(
+      expect.objectContaining({
+        locationId: 91,
+        location: targetLocation,
+        targetLocationId: null,
+        targetLocation: null,
+      }),
+    );
+    expect(shipRepo.save).toHaveBeenCalledWith(ship);
+  });
 
   it('activates SUBLIGHT_DRIVE for in-system navigation', async () => {
     const { service, shipRepo, systemRepo, systemFieldRepo, runtimeState } =
@@ -430,10 +577,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
+      ...systemLocation(),
       energy: 50,
       runtimeSystems: {
         SUBLIGHT_DRIVE: { active: false, cooldown: 0, integrity: 100 },
@@ -459,8 +603,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 11,
+      ...systemLocation(11),
       warpCooldown: 0,
       modules: [],
       warpdrive: 10,
@@ -480,10 +623,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: false,
-      currentLayerId: 1,
-      posX: 1,
-      posY: 1,
+      ...galaxyLocation(),
       warpdrive: 10,
       runtimeSystems: {},
       modules: [],
@@ -502,10 +642,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
+      ...systemLocation(),
       energy: 20,
       runtimeSystems: {},
       modules: [],
@@ -525,10 +662,7 @@ describe('SpacecraftService movement resources', () => {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 5,
-      currentSystemFieldY: 5,
+      ...systemLocation(3, 5, 5),
       runtimeSystems: {},
       modules: [],
     };

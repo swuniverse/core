@@ -17,6 +17,7 @@ type PanelBuildProps = {
   buildingDefs: BuildingDef[];
   fields: ColonyField[];
   storage: ColonyStorageItem[];
+  energy: number;
   commodityMap: Record<number, CommodityDef>;
   selectedBuilding: BuildingDef | null;
   onSelectBuilding: (building: BuildingDef) => void;
@@ -63,6 +64,7 @@ function getMissingCostLabel(
   building: BuildingDef,
   storage: ColonyStorageItem[],
   commodityMap: Record<number, CommodityDef>,
+  energy: number,
 ): string | null {
   const missing = (building.resourceCosts || [])
     .filter((cost) => cost.amount > 0)
@@ -77,6 +79,9 @@ function getMissingCostLabel(
     })
     .filter((entry) => entry.amount > 0);
 
+  if (missing.length === 0 && energy < (building.epsCost || 0)) {
+    return `Fehlt ${(building.epsCost || 0) - energy} Energie`;
+  }
   if (missing.length === 0) return null;
   const first = missing[0];
   const name =
@@ -92,6 +97,7 @@ export function PanelBuild({
   buildingDefs,
   fields,
   storage,
+  energy,
   commodityMap,
   selectedBuilding,
   onSelectBuilding,
@@ -108,14 +114,14 @@ export function PanelBuild({
     }
     for (const col of Object.keys(cols)) {
       cols[Number(col)].sort((a, b) => {
-        const aAffordable = canAfford(a, storage) ? 0 : 1;
-        const bAffordable = canAfford(b, storage) ? 0 : 1;
+        const aAffordable = canAfford(a, storage, energy) ? 0 : 1;
+        const bAffordable = canAfford(b, storage, energy) ? 0 : 1;
         if (aAffordable !== bAffordable) return aAffordable - bAffordable;
         return a.name.localeCompare(b.name, 'de');
       });
     }
     return cols;
-  }, [buildingDefs, storage]);
+  }, [buildingDefs, energy, storage]);
 
   const visibleBuildings = useMemo(() => {
     if (activeCategory === 'all') {
@@ -180,7 +186,7 @@ export function PanelBuild({
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {visibleBuildings.map((building) => {
-            const affordable = canAfford(building, storage);
+            const affordable = canAfford(building, storage, energy);
             const isSelected = selectedBuilding?.id === building.id;
             const alreadyBuilt =
               building.isUnique &&
@@ -193,6 +199,7 @@ export function PanelBuild({
               building,
               storage,
               commodityMap,
+              energy,
             );
 
             return (

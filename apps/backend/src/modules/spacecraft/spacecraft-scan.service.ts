@@ -11,6 +11,7 @@ import type {
 } from '@swuniverse/shared';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { resolveColonyLocation } from '../colony/colony-location';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
 import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.generator';
 import { GameDataService } from '../game-data/game-data.service';
@@ -31,6 +32,8 @@ import {
   SpacecraftScanType,
 } from './entities/spacecraft-scan-result.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { resolveSpacecraftLocation } from './spacecraft-field';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
 
 @Injectable()
 export class SpacecraftScanService {
@@ -51,6 +54,8 @@ export class SpacecraftScanService {
     private readonly systemFieldRepo: Repository<SystemField>,
     @InjectRepository(GalaxyField)
     private readonly galaxyFieldRepo: Repository<GalaxyField>,
+    @InjectRepository(SpaceLocation)
+    private readonly locationRepo: Repository<SpaceLocation>,
     private readonly planetGenerator: PlanetGeneratorService,
     private readonly gameData: GameDataService,
     private readonly spacecraftCrewService: SpacecraftCrewService,
@@ -70,27 +75,24 @@ export class SpacecraftScanService {
       'SHORT_RANGE_SENSORS',
       1,
     );
-    const x = ship.inSystem
-      ? (ship.currentSystemFieldX ?? ship.posX)
-      : ship.posX;
-    const y = ship.inSystem
-      ? (ship.currentSystemFieldY ?? ship.posY)
-      : ship.posY;
+    const location = resolveSpacecraftLocation(ship);
+    if (!location) throw new NotFoundException('Aktuelles Feld nicht gefunden');
+    const { x, y } = location;
     const field =
-      ship.inSystem && ship.starSystemId
+      location.scope === 'SYSTEM'
         ? await this.systemFieldRepo.findOne({
-            where: { starSystemId: ship.starSystemId, sx: x, sy: y },
+            where: { starSystemId: location.systemId, sx: x, sy: y },
             relations: ['fieldType', 'celestialObject'],
           })
         : await this.galaxyFieldRepo.findOne({
-            where: { layerId: ship.currentLayerId ?? -1, cx: x, cy: y },
+            where: { layerId: location.layerId, cx: x, cy: y },
             relations: ['fieldType', 'starSystem'],
           });
     if (!field) throw new NotFoundException('Aktuelles Feld nicht gefunden');
-    if (!ship.inSystem && ship.currentLayerId) {
+    if (location.scope === 'GALAXY') {
       await this.explorationService.discoverArea({
         userId,
-        layerId: ship.currentLayerId,
+        layerId: location.layerId,
         cx: x,
         cy: y,
         radius: 1,
@@ -108,22 +110,25 @@ export class SpacecraftScanService {
         })
       : null;
     const systemTypeId =
-      !ship.inSystem && 'systemTypeId' in field ? field.systemTypeId : null;
+      location.scope === 'GALAXY' && 'systemTypeId' in field
+        ? field.systemTypeId
+        : null;
+    const galaxyLocation = location.scope === 'GALAXY' ? location : null;
     const discovery =
-      systemTypeId != null && SYSTEM_TYPE_BY_ID[systemTypeId]
+      galaxyLocation && systemTypeId != null && SYSTEM_TYPE_BY_ID[systemTypeId]
         ? await this.systemTypeDiscoveryService.discover({
             userId,
             systemTypeId,
             source: 'SECTOR_SCAN',
             spacecraftId: ship.id,
-            layerId: ship.currentLayerId,
+            layerId: galaxyLocation.layerId,
             x,
             y,
           })
         : null;
     return this.persistScan(ship, SpacecraftScanType.SECTOR, x, y, 1, {
       field: {
-        scope: ship.inSystem ? 'SYSTEM' : 'GALAXY',
+        scope: location.scope,
         x,
         y,
         fieldType: {
@@ -144,7 +149,7 @@ export class SpacecraftScanService {
             }
           : null,
         starSystem:
-          !ship.inSystem &&
+          location.scope === 'GALAXY' &&
           'starSystem' in field &&
           field.starSystem &&
           systemTypeId != null
@@ -176,27 +181,29 @@ export class SpacecraftScanService {
       'LONG_RANGE_SENSORS',
       2,
     );
-    if (!ship.inSystem || !ship.starSystemId) {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
       throw new BadRequestException(
         'Systemfeldscan erfordert ein Sternensystem',
       );
     }
-    const x = ship.currentSystemFieldX ?? ship.posX;
-    const y = ship.currentSystemFieldY ?? ship.posY;
     const range = await this.getSensorRange(ship);
-    if (Math.max(Math.abs(targetX - x), Math.abs(targetY - y)) > range) {
+    if (
+      Math.max(Math.abs(targetX - location.x), Math.abs(targetY - location.y)) >
+      range
+    ) {
       throw new BadRequestException(
         'Zielfeld liegt außerhalb der Sensorreichweite',
       );
     }
     const field = await this.systemFieldRepo.findOne({
-      where: { starSystemId: ship.starSystemId, sx: targetX, sy: targetY },
+      where: { starSystemId: location.systemId, sx: targetX, sy: targetY },
       relations: ['fieldType', 'celestialObject'],
     });
     if (!field) throw new NotFoundException('Systemfeld nicht gefunden');
     await this.explorationService.discoverSystem({
       userId,
-      starSystemId: ship.starSystemId,
+      starSystemId: location.systemId,
       source: 'system_field_scan',
     });
     return this.persistScan(
@@ -232,6 +239,7 @@ export class SpacecraftScanService {
     const safeLimit = Math.max(1, Math.min(50, limit));
     const [rows, total] = await this.scanResultRepo.findAndCount({
       where: { userId },
+      relations: ['location', 'location.galaxyField', 'location.systemField'],
       order: { createdAt: 'DESC' },
       skip: (safePage - 1) * safeLimit,
       take: safeLimit,
@@ -252,7 +260,12 @@ export class SpacecraftScanService {
   ): Promise<Spacecraft> {
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
-      relations: ['modules'],
+      relations: [
+        'modules',
+        'location',
+        'location.galaxyField',
+        'location.systemField',
+      ],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     assertSpacecraftNotInStandby(ship, 'einem Scan');
@@ -281,13 +294,29 @@ export class SpacecraftScanService {
     energyCost: number,
     result: Record<string, unknown>,
   ): Promise<SpacecraftScanResultDto> {
+    const location = resolveSpacecraftLocation(ship);
+    const scannedLocation =
+      type === SpacecraftScanType.SYSTEM_FIELD && location?.scope === 'SYSTEM'
+        ? await this.locationRepo.findOne({
+            where: {
+              systemField: { starSystemId: location.systemId, sx: x, sy: y },
+            },
+            relations: ['systemField'],
+          })
+        : ship.location;
     const saved = await this.scanResultRepo.save(
       this.scanResultRepo.create({
         userId: ship.userId,
         spacecraftId: ship.id,
         type,
-        layerId: ship.currentLayerId,
-        starSystemId: ship.starSystemId,
+        layerId: location?.scope === 'GALAXY' ? location.layerId : null,
+        starSystemId: location?.scope === 'SYSTEM' ? location.systemId : null,
+        locationId:
+          scannedLocation?.id ??
+          (scannedLocation === ship.location
+            ? (ship.locationId ?? null)
+            : null),
+        location: scannedLocation ?? null,
         x,
         y,
         energyCost,
@@ -308,6 +337,23 @@ export class SpacecraftScanService {
       cooldown: row.cooldown,
       layerId: row.layerId,
       starSystemId: row.starSystemId,
+      locationId: row.locationId,
+      location:
+        row.location?.kind === 'SYSTEM_FIELD' && row.location.systemField
+          ? {
+              scope: 'SYSTEM',
+              systemId: row.location.systemField.starSystemId,
+              x: row.location.systemField.sx,
+              y: row.location.systemField.sy,
+            }
+          : row.location?.kind === 'GALAXY_FIELD' && row.location.galaxyField
+            ? {
+                scope: 'GALAXY',
+                layerId: row.location.galaxyField.layerId,
+                x: row.location.galaxyField.cx,
+                y: row.location.galaxyField.cy,
+              }
+            : null,
       x: row.x,
       y: row.y,
       result: row.result,
@@ -321,11 +367,17 @@ export class SpacecraftScanService {
   ): Promise<{ celestialObjectId: number; created: number }> {
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
-      relations: ['modules'],
+      relations: [
+        'modules',
+        'location',
+        'location.galaxyField',
+        'location.systemField',
+      ],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     assertSpacecraftNotInStandby(ship, 'einem Scan');
-    if (!ship.inSystem || !ship.starSystemId) {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
       throw new BadRequestException(
         'Surface scan requires ship inside a system',
       );
@@ -342,7 +394,7 @@ export class SpacecraftScanService {
 
     const object = await this.objectRepo.findOneBy({ id: celestialObjectId });
     if (!object) throw new NotFoundException('Celestial object not found');
-    if (object.systemId !== ship.starSystemId) {
+    if (object.systemId !== location.systemId) {
       throw new BadRequestException(
         'Celestial object is not in current system',
       );
@@ -353,11 +405,9 @@ export class SpacecraftScanService {
       );
     }
 
-    const shipX = ship.currentSystemFieldX ?? ship.posX;
-    const shipY = ship.currentSystemFieldY ?? ship.posY;
     const distance = Math.max(
-      Math.abs(object.posX - shipX),
-      Math.abs(object.posY - shipY),
+      Math.abs(object.posX - location.x),
+      Math.abs(object.posY - location.y),
     );
     const range = await this.getSensorRange(ship);
     if (distance > range) {
@@ -407,11 +457,17 @@ export class SpacecraftScanService {
   }> {
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
-      relations: ['modules'],
+      relations: [
+        'modules',
+        'location',
+        'location.galaxyField',
+        'location.systemField',
+      ],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     assertSpacecraftNotInStandby(ship, 'einem Scan');
-    if (!ship.inSystem || !ship.starSystemId) {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
       throw new BadRequestException(
         'Colony scan requires ship inside a system',
       );
@@ -428,20 +484,17 @@ export class SpacecraftScanService {
 
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['fields', 'user', 'celestialObject'],
+      relations: ['fields', 'user', 'celestialObject', 'systemField'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
-    if (colony.starSystemId !== ship.starSystemId) {
+    const colonyLocation = resolveColonyLocation(colony);
+    if (colonyLocation?.systemId !== location.systemId) {
       throw new BadRequestException('Colony is not in current system');
     }
 
-    const shipX = ship.currentSystemFieldX ?? ship.posX;
-    const shipY = ship.currentSystemFieldY ?? ship.posY;
-    const colonyX = colony.celestialObject?.posX ?? colony.posX;
-    const colonyY = colony.celestialObject?.posY ?? colony.posY;
     const distance = Math.max(
-      Math.abs(colonyX - shipX),
-      Math.abs(colonyY - shipY),
+      Math.abs(colonyLocation.x - location.x),
+      Math.abs(colonyLocation.y - location.y),
     );
     const range = await this.getSensorRange(ship);
     if (distance > range) {
@@ -478,8 +531,16 @@ export class SpacecraftScanService {
     scan.colonyOwnerId = colony.userId;
     scan.colonyName = colony.name;
     scan.colonyOwnerUsername = colony.user?.username ?? null;
-    scan.starSystemId = colony.starSystemId;
+    scan.starSystemId = colonyLocation.systemId;
     scan.celestialObjectId = colony.celestialObjectId;
+    scan.location =
+      colony.systemFieldId != null
+        ? await this.locationRepo.findOne({
+            where: { systemFieldId: colony.systemFieldId },
+            relations: ['systemField'],
+          })
+        : null;
+    scan.locationId = scan.location?.id ?? null;
     scan.colonyClassId = colony.colonyClassId;
     scan.surfaceWidth = colony.celestialObject?.surfaceWidth ?? null;
     scan.surfaceHeight = colony.celestialObject?.surfaceHeight ?? null;
@@ -493,14 +554,14 @@ export class SpacecraftScanService {
         name: colony.name,
         owner: { id: colony.userId, username: colony.user?.username ?? null },
         colonyClassId: colony.colonyClassId,
-        starSystemId: colony.starSystemId,
+        starSystemId: colonyLocation.systemId,
         celestialObject: colony.celestialObject
           ? {
               id: colony.celestialObject.id,
               name: colony.celestialObject.name,
               classId: colony.celestialObject.classId,
-              posX: colony.celestialObject.posX,
-              posY: colony.celestialObject.posY,
+              posX: colonyLocation.x,
+              posY: colonyLocation.y,
             }
           : null,
       },

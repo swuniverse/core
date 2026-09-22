@@ -12,6 +12,7 @@ import { StarSystem } from './entities/star-system.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { resolveColonyLocation } from '../colony/colony-location';
 import type { ExplorationService } from './exploration.service';
 import { ExplorationLevel } from './entities/exploration-state.entity';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
@@ -283,17 +284,26 @@ export class StarmapQueryService {
 
   private async getColonyShields(systemId: number) {
     const colonies = await this.colonyRepo.find({
-      where: { starSystemId: systemId, isAbandoned: false },
-      relations: ['changeable'],
+      where: [
+        { systemField: { starSystemId: systemId }, isAbandoned: false },
+        // Explicit fallback while legacy colony coordinates remain stored.
+        { starSystemId: systemId, isAbandoned: false },
+      ],
+      relations: ['changeable', 'systemField'],
       order: { id: 'ASC' },
     });
     return colonies
-      .filter((colony) => (colony.changeable?.shields ?? 0) > 0)
-      .map((colony) => ({
+      .map((colony) => ({ colony, location: resolveColonyLocation(colony) }))
+      .filter(
+        ({ colony, location }) =>
+          location?.systemId === systemId &&
+          (colony.changeable?.shields ?? 0) > 0,
+      )
+      .map(({ colony, location }) => ({
         colonyId: colony.id,
-        systemId,
-        posX: colony.posX,
-        posY: colony.posY,
+        systemId: location!.systemId,
+        posX: location!.x,
+        posY: location!.y,
         shielded: true,
       }));
   }

@@ -27,6 +27,26 @@ export enum WsEventType {
   DISTRESS_CHANGED = 'DISTRESS_CHANGED',
 }
 
+export interface ShipMovedPayload {
+  shipId: number;
+  locationId: number | null;
+  location: SpaceLocationDto | null;
+}
+
+export interface GameEventDto {
+  id: number;
+  type: string;
+  text: string;
+  scope: 'GALAXY' | 'SYSTEM' | null;
+  layerId: number | null;
+  systemId: number | null;
+  x: number | null;
+  y: number | null;
+  locationId: number | null;
+  location: SpaceLocationDto | null;
+  createdAt: string;
+}
+
 export interface SpacecraftEventPayload {
   shipId: number;
   type:
@@ -68,3 +88,4 @@ export interface GlobalHeaderStatusDto {
     storageMax: number;
   }>;
 }
+import type { SpaceLocationDto } from '../starmap/index.js';

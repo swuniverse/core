@@ -11,6 +11,7 @@ import type {
 import { In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { resolveColonyLocation } from '../colony/colony-location';
 import { MessagingService } from '../messaging/messaging.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { WsEventType } from '@swuniverse/shared';
@@ -18,8 +19,9 @@ import { ShipDistressSignal } from './entities/ship-distress-signal.entity';
 import { ShipLogEntry } from './entities/ship-log-entry.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import {
-  resolveSpacecraftField,
-  sameSpacecraftField,
+  resolveSpacecraftLocation,
+  sameSpaceLocation,
+  sameSpacecraftLocation,
 } from './spacecraft-field';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
@@ -43,8 +45,17 @@ export class SpacecraftCommunicationService {
     private readonly runtimeState: SpacecraftRuntimeStateService,
   ) {}
 
-  private async requireShip(shipId: number, userId: number) {
-    const ship = await this.shipRepo.findOne({ where: { id: shipId, userId } });
+  private async requireShip(
+    shipId: number,
+    userId: number,
+    withLocation = false,
+  ) {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: withLocation
+        ? ['location', 'location.galaxyField', 'location.systemField']
+        : undefined,
+    });
     if (!ship) throw new NotFoundException('Ship not found');
     if (ship.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Ship is destroyed');
@@ -56,42 +67,69 @@ export class SpacecraftCommunicationService {
     shipId: number,
     userId: number,
   ): Promise<SpacecraftCommunicationRecipientDto[]> {
-    const ship = await this.requireShip(shipId, userId);
+    const ship = await this.requireShip(shipId, userId, true);
+    const field = resolveSpacecraftLocation(ship);
+    if (!field) return [];
     const candidates = new Map<
       number,
       SpacecraftCommunicationRecipientDto['source']
     >();
-    const colonies =
-      ship.starSystemId == null
-        ? []
-        : await this.colonyRepo.find({
-            where: { starSystemId: ship.starSystemId },
-          });
+    const systemField = field.scope === 'SYSTEM' ? field : null;
+    const colonies = !systemField
+      ? []
+      : await this.colonyRepo.find({
+          where: [
+            { systemField: { starSystemId: systemField.systemId } },
+            // Explicit fallback while legacy colony coordinates remain stored.
+            { starSystemId: systemField.systemId },
+          ],
+          relations: ['systemField'],
+        });
     for (const colony of colonies) {
+      const colonyLocation = resolveColonyLocation(colony);
       if (
         colony.userId != null &&
         colony.userId !== userId &&
+        systemField != null &&
+        colonyLocation != null &&
+        colonyLocation.systemId === systemField.systemId &&
         Math.max(
-          Math.abs(colony.posX - ship.posX),
-          Math.abs(colony.posY - ship.posY),
+          Math.abs(colonyLocation.x - systemField.x),
+          Math.abs(colonyLocation.y - systemField.y),
         ) <= 1
       ) {
         candidates.set(colony.userId, 'COLONY');
       }
     }
-    const ships =
-      ship.currentLayerId == null
-        ? []
-        : await this.shipRepo.find({
-            where: { currentLayerId: ship.currentLayerId },
-          });
+    const ships = await this.shipRepo.find({
+      where:
+        field.scope === 'SYSTEM'
+          ? {
+              location: {
+                systemField: { starSystemId: field.systemId },
+              },
+            }
+          : {
+              location: {
+                galaxyField: { layerId: field.layerId },
+              },
+            },
+      relations: ['location', 'location.galaxyField', 'location.systemField'],
+    });
     for (const other of ships) {
+      const otherField = resolveSpacecraftLocation(other);
       if (
         other.userId !== userId &&
         other.status !== SpacecraftStatus.DESTROYED &&
+        otherField?.scope === field.scope &&
+        (field.scope === 'SYSTEM'
+          ? otherField.scope === 'SYSTEM' &&
+            otherField.systemId === field.systemId
+          : otherField.scope === 'GALAXY' &&
+            otherField.layerId === field.layerId) &&
         Math.max(
-          Math.abs(other.posX - ship.posX),
-          Math.abs(other.posY - ship.posY),
+          Math.abs(otherField.x - field.x),
+          Math.abs(otherField.y - field.y),
         ) <= 1
       ) {
         candidates.set(
@@ -118,8 +156,11 @@ export class SpacecraftCommunicationService {
     body: string,
   ) {
     const [source, target] = await Promise.all([
-      this.requireShip(shipId, userId),
-      this.shipRepo.findOne({ where: { id: targetShipId } }),
+      this.requireShip(shipId, userId, true),
+      this.shipRepo.findOne({
+        where: { id: targetShipId },
+        relations: ['location', 'location.galaxyField', 'location.systemField'],
+      }),
     ]);
     if (
       !target ||
@@ -128,7 +169,7 @@ export class SpacecraftCommunicationService {
     ) {
       throw new BadRequestException('Empfänger nicht verfügbar');
     }
-    if (!sameSpacecraftField(source, target)) {
+    if (!sameSpacecraftLocation(source, target)) {
       throw new BadRequestException(
         'Empfänger befindet sich nicht auf diesem Feld',
       );
@@ -147,7 +188,7 @@ export class SpacecraftCommunicationService {
         'Nachricht muss 1 bis 1000 Zeichen enthalten',
       );
     }
-    const field = resolveSpacecraftField(source);
+    const field = resolveSpacecraftLocation(source);
     const coordinates = field ? `${field.x}|${field.y}` : '?';
     await this.messaging.send(
       userId,
@@ -338,39 +379,46 @@ export class SpacecraftCommunicationService {
   async listActiveDistress(): Promise<SpacecraftDistressSignalDto[]> {
     const signals = await this.distressRepo.find({
       where: { active: true },
-      relations: ['spacecraft'],
+      relations: [
+        'spacecraft',
+        'spacecraft.location',
+        'spacecraft.location.galaxyField',
+        'spacecraft.location.systemField',
+      ],
       order: { startedAt: 'DESC' },
       take: 100,
     });
-    return signals.map((signal) => ({
-      id: signal.id,
-      spacecraftId: signal.spacecraftId,
-      shipName: signal.spacecraft.name,
-      ownerId: signal.ownerId,
-      message: signal.message,
-      active: signal.active,
-      startedAt: signal.startedAt.toISOString(),
-      stoppedAt: signal.stoppedAt?.toISOString() ?? null,
-      locationLabel: signal.spacecraft.inSystem
-        ? `System ${signal.spacecraft.starSystemId ?? '?'} [${signal.spacecraft.currentSystemFieldX ?? '?'},${signal.spacecraft.currentSystemFieldY ?? '?'}]`
-        : `[${signal.spacecraft.posX},${signal.spacecraft.posY}]`,
-    }));
+    return signals.map((signal) => {
+      const location = resolveSpacecraftLocation(signal.spacecraft);
+      return {
+        id: signal.id,
+        spacecraftId: signal.spacecraftId,
+        shipName: signal.spacecraft.name,
+        ownerId: signal.ownerId,
+        message: signal.message,
+        active: signal.active,
+        startedAt: signal.startedAt.toISOString(),
+        stoppedAt: signal.stoppedAt?.toISOString() ?? null,
+        locationLabel:
+          location?.scope === 'SYSTEM'
+            ? `System ${location.systemId} [${location.x},${location.y}]`
+            : location
+              ? `[${location.x},${location.y}]`
+              : '[?,?]',
+      };
+    });
   }
 
   async getColonyMessage(shipId: number, userId: number, colonyId: number) {
-    const ship = await this.requireShip(shipId, userId);
+    const ship = await this.requireShip(shipId, userId, true);
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },
-      relations: ['celestialObject', 'changeable'],
+      relations: ['celestialObject', 'changeable', 'systemField'],
     });
     if (!colony) throw new NotFoundException('Colony not found');
-    const field = resolveSpacecraftField(ship);
-    if (
-      field?.scope !== 'SYSTEM' ||
-      field.systemId !== colony.starSystemId ||
-      field.x !== colony.posX ||
-      field.y !== colony.posY
-    ) {
+    const shipLocation = resolveSpacecraftLocation(ship);
+    const colonyLocation = resolveColonyLocation(colony);
+    if (!sameSpaceLocation(shipLocation, colonyLocation)) {
       throw new BadRequestException('Colony is not on the current field');
     }
     return {

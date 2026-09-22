@@ -1,94 +1,191 @@
-import type { Spacecraft } from './entities/spacecraft.entity';
+import { resolveColonyLocation } from '../colony/colony-location';
+import type { CelestialObject } from '../starmap/entities/celestial-object.entity';
 
-export type SpacecraftField =
-  | { scope: 'SYSTEM'; systemId: number; x: number; y: number }
-  | { scope: 'GALAXY'; layerId: number; x: number; y: number };
-
-export function resolveSpacecraftField(
-  ship: Pick<
-    Spacecraft,
-    | 'inSystem'
-    | 'starSystemId'
-    | 'currentSystemFieldX'
-    | 'currentSystemFieldY'
-    | 'currentLayerId'
-    | 'posX'
-    | 'posY'
-  >,
-): SpacecraftField | null {
-  if (ship.inSystem) {
-    if (
-      ship.starSystemId == null ||
-      ship.currentSystemFieldX == null ||
-      ship.currentSystemFieldY == null
-    ) {
-      return null;
+export type SpaceLocationDto =
+  | {
+      scope: 'SYSTEM';
+      locationId?: number;
+      systemId: number;
+      x: number;
+      y: number;
     }
+  | {
+      scope: 'GALAXY';
+      locationId?: number;
+      layerId: number;
+      x: number;
+      y: number;
+    };
+
+export type SpacecraftField = SpaceLocationDto;
+
+export type CanonicalSpaceLocation = {
+  id?: number;
+  kind: 'GALAXY_FIELD' | 'SYSTEM_FIELD';
+  galaxyField?: {
+    layerId: number;
+    cx: number;
+    cy: number;
+    starSystemId?: number | null;
+  } | null;
+  systemField?: {
+    starSystemId: number;
+    sx: number;
+    sy: number;
+    celestialObjectId?: number | null;
+    celestialObject?: CelestialObject | null;
+    starSystem?: {
+      layerId: number;
+      cx: number;
+      cy: number;
+    };
+  } | null;
+};
+
+export function resolveSpaceLocation(
+  location: CanonicalSpaceLocation | null | undefined,
+): SpaceLocationDto | null {
+  if (location?.kind === 'SYSTEM_FIELD' && location.systemField) {
     return {
       scope: 'SYSTEM',
-      systemId: ship.starSystemId,
-      x: ship.currentSystemFieldX,
-      y: ship.currentSystemFieldY,
+      locationId: location.id,
+      systemId: location.systemField.starSystemId,
+      x: location.systemField.sx,
+      y: location.systemField.sy,
     };
   }
-  if (ship.currentLayerId == null) return null;
-  return {
-    scope: 'GALAXY',
-    layerId: ship.currentLayerId,
-    x: ship.posX,
-    y: ship.posY,
-  };
+  if (location?.kind === 'GALAXY_FIELD' && location.galaxyField) {
+    return {
+      scope: 'GALAXY',
+      locationId: location.id,
+      layerId: location.galaxyField.layerId,
+      x: location.galaxyField.cx,
+      y: location.galaxyField.cy,
+    };
+  }
+  return null;
+}
+
+export type SpacecraftLocationSource = {
+  locationId?: number;
+  location: CanonicalSpaceLocation;
+};
+
+export function resolveSpacecraftLocation(
+  ship: SpacecraftLocationSource,
+): SpaceLocationDto | null {
+  return resolveSpaceLocation(ship.location);
+}
+
+export function resolveSpacecraftField(
+  ship: SpacecraftLocationSource,
+): SpacecraftField | null {
+  return resolveSpacecraftLocation(ship);
+}
+
+export function sameSpaceLocation(
+  left: SpaceLocationDto | null | undefined,
+  right: SpaceLocationDto | null | undefined,
+): boolean {
+  if (
+    !left ||
+    !right ||
+    left.scope !== right.scope ||
+    left.x !== right.x ||
+    left.y !== right.y
+  ) {
+    return false;
+  }
+  if (left.scope === 'SYSTEM' && right.scope === 'SYSTEM') {
+    return left.systemId === right.systemId;
+  }
+  if (left.scope === 'GALAXY' && right.scope === 'GALAXY') {
+    return left.layerId === right.layerId;
+  }
+  return false;
+}
+
+export function projectSpacecraftLocationToGalaxy(
+  ship: SpacecraftLocationSource,
+): Extract<SpaceLocationDto, { scope: 'GALAXY' }> | null {
+  const location = ship.location;
+  if (location?.kind === 'SYSTEM_FIELD') {
+    const galaxyField =
+      location.galaxyField ?? location.systemField?.starSystem;
+    if (galaxyField) {
+      return {
+        scope: 'GALAXY',
+        layerId: galaxyField.layerId,
+        x: galaxyField.cx,
+        y: galaxyField.cy,
+      };
+    }
+    return null;
+  }
+
+  const resolved = resolveSpacecraftLocation(ship);
+  return resolved?.scope === 'GALAXY' ? resolved : null;
+}
+
+export function resolveContextualCelestialObject(
+  ship: SpacecraftLocationSource,
+): CelestialObject | null {
+  return ship.location.kind === 'SYSTEM_FIELD'
+    ? (ship.location.systemField?.celestialObject ?? null)
+    : null;
+}
+
+export function resolveContextualCelestialObjectId(
+  ship: SpacecraftLocationSource,
+): number | null {
+  return ship.location.kind === 'SYSTEM_FIELD'
+    ? (ship.location.systemField?.celestialObjectId ?? null)
+    : null;
 }
 
 export function matchesColonyOrbit(
-  ship: Pick<
-    Spacecraft,
-    | 'inSystem'
-    | 'starSystemId'
-    | 'currentSystemFieldX'
-    | 'currentSystemFieldY'
-    | 'currentLayerId'
-    | 'posX'
-    | 'posY'
-    | 'celestialObjectId'
-  >,
+  ship: SpacecraftLocationSource,
   colony: {
     starSystemId: number | null;
     posX: number;
     posY: number;
     celestialObjectId: number | null;
+    systemFieldId?: number | null;
+    systemField?: {
+      starSystemId: number;
+      sx: number;
+      sy: number;
+    } | null;
   },
 ): boolean {
-  const field = resolveSpacecraftField(ship);
-  if (field?.scope === 'SYSTEM') {
-    return (
-      field.systemId === colony.starSystemId &&
-      field.x === colony.posX &&
-      field.y === colony.posY
-    );
+  const shipLocation = resolveSpacecraftLocation(ship);
+  const colonyLocation = resolveColonyLocation(colony);
+  if (shipLocation?.scope === 'SYSTEM' && colonyLocation) {
+    return sameSpaceLocation(shipLocation, colonyLocation);
   }
-  // ponytail: legacy fixtures without system-field coordinates use their object link.
-  return (
-    ship.starSystemId === colony.starSystemId &&
-    ship.celestialObjectId != null &&
-    ship.celestialObjectId === colony.celestialObjectId
-  );
+
+  return false;
 }
 
 export function sameSpacecraftField(
   left: Parameters<typeof resolveSpacecraftField>[0],
   right: Parameters<typeof resolveSpacecraftField>[0],
 ): boolean {
-  const a = resolveSpacecraftField(left);
-  const b = resolveSpacecraftField(right);
-  if (!a || !b || a.scope !== b.scope || a.x !== b.x || a.y !== b.y) {
-    return false;
+  return sameSpaceLocation(
+    resolveSpacecraftField(left),
+    resolveSpacecraftField(right),
+  );
+}
+
+export function sameSpacecraftLocation(
+  left: SpacecraftLocationSource,
+  right: SpacecraftLocationSource,
+): boolean {
+  if (left.locationId != null && right.locationId != null) {
+    return left.locationId === right.locationId;
   }
-  if (a.scope === 'SYSTEM' && b.scope === 'SYSTEM') {
-    return a.systemId === b.systemId;
-  }
-  if (a.scope === 'GALAXY' && b.scope === 'GALAXY') {
-    return a.layerId === b.layerId;
-  }
-  return false;
+  return sameSpaceLocation(
+    resolveSpacecraftLocation(left),
+    resolveSpacecraftLocation(right),
+  );
 }

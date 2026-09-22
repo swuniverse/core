@@ -16,10 +16,12 @@ import { ColonyField } from './colony-field.entity';
 import { ColonyStorage } from './colony-storage.entity';
 import { ColonyStats } from './colony-stats.entity';
 import { ColonyChangeable } from './colony-changeable.entity';
+import { SystemField } from '../../starmap/entities/system-field.entity';
 
 @Entity('colonies')
 @Index(['userId'])
 @Index(['starSystemId'])
+@Index(['systemFieldId'])
 export class Colony {
   @PrimaryGeneratedColumn()
   id: number;
@@ -40,6 +42,13 @@ export class Colony {
   @ManyToOne(() => StarSystem, { nullable: true })
   @JoinColumn({ name: 'starSystemId' })
   starSystem: StarSystem;
+
+  @Column({ type: 'int', nullable: true })
+  systemFieldId: number | null;
+
+  @ManyToOne(() => SystemField, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'systemFieldId' })
+  systemField: SystemField | null;
 
   @Column({ type: 'int', nullable: true })
   celestialObjectId: number | null;

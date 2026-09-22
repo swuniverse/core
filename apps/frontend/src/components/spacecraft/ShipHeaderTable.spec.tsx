@@ -33,8 +33,7 @@ const ship = {
   crew: 4,
   crewRequired: 2,
   crewMax: 8,
-  posX: 12,
-  posY: 13,
+  location: { scope: 'SYSTEM' as const, systemId: 9, x: 12, y: 13 },
 };
 
 describe('ShipHeaderTable', () => {
@@ -131,6 +130,26 @@ describe('ShipHeaderTable', () => {
 
     expect(screen.getAllByText('0 (0,kA)').length).toBeGreaterThan(0);
     expect(screen.getByTitle('aktuell (Minimum, Maximum)')).toBeTruthy();
+  });
+
+  it('renders canonical system location coordinates', () => {
+    render(
+      <ShipHeaderTable
+        ship={{
+          ...ship,
+          location: { scope: 'SYSTEM', systemId: 9, x: 21, y: 22 },
+        }}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('21|22').length).toBeGreaterThan(0);
   });
 
   it('uses consistent framed 24px runtime-system icons', () => {

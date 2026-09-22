@@ -18,6 +18,7 @@ import {
 } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { WsEventType } from '@swuniverse/shared';
+import { resolveSpaceLocation } from '../spacecraft/spacecraft-field';
 import {
   GameTickState,
   GameTickStatus,
@@ -168,12 +169,23 @@ export class TickService {
         }
       }
 
-      const ships = await this.shipRepo.find();
+      const ships = await this.shipRepo.find({
+        relations: [
+          'location',
+          'location.galaxyField',
+          'location.systemField',
+          'targetLocation',
+          'targetLocation.galaxyField',
+          'targetLocation.systemField',
+        ],
+      });
       processedShipCount = ships.length;
       for (const ship of ships) {
         await this.spacecraftService.processTick(ship);
         this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
           shipId: ship.id,
+          locationId: ship.location?.id ?? null,
+          location: resolveSpaceLocation(ship.location),
         });
       }
 
@@ -316,6 +328,14 @@ export class TickService {
   async checkWarpArrivals() {
     const inFlightShips = await this.shipRepo.find({
       where: { status: SpacecraftStatus.IN_FLIGHT },
+      relations: [
+        'location',
+        'location.galaxyField',
+        'location.systemField',
+        'targetLocation',
+        'targetLocation.galaxyField',
+        'targetLocation.systemField',
+      ],
     });
 
     const now = new Date();
@@ -329,6 +349,8 @@ export class TickService {
       await this.spacecraftService.processMovement(ship);
       this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
         shipId: ship.id,
+        locationId: ship.location?.id ?? null,
+        location: resolveSpaceLocation(ship.location),
       });
     }
 

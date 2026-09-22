@@ -23,6 +23,7 @@ export class ColonyOwnershipService {
         'stats',
         'changeable',
         'starSystem',
+        'systemField',
         'celestialObject',
       ],
     });

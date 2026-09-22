@@ -20,6 +20,9 @@ jest.mock('../colony/entities/colony-stats.entity', () => ({
 jest.mock('../spacecraft/spacecraft-crew.service', () => ({
   SpacecraftCrewService: class SpacecraftCrewService {},
 }));
+jest.mock('../spacecraft/spacecraft-destruction.service', () => ({
+  SpacecraftDestructionService: class SpacecraftDestructionService {},
+}));
 jest.mock('../messaging/messaging.service', () => ({
   MessagingService: class MessagingService {},
 }));
@@ -43,7 +46,14 @@ function createService() {
   };
   const colonyStatsRepo = { save: jest.fn(async (value) => value) };
   const colonyFieldRepo = { save: jest.fn(async (value) => value) };
-  const engine = { resolveCombat: jest.fn() };
+  const engine = {
+    resolveCombat: jest.fn(async () => ({
+      attackerDestroyed: false,
+      defenderDestroyed: false,
+      rounds: [],
+      winner: 'attacker',
+    })),
+  };
   const gateway = { emitToUser: jest.fn() };
   const spacecraftCrewService = { hasEnoughCrew: jest.fn(async () => true) };
   const storageService = { lowerStorage: jest.fn(async () => 1) };
@@ -76,6 +86,7 @@ function createService() {
   const colonyDamageService = {
     applyIncomingDamage: jest.fn<any, any[]>(() => []),
   };
+  const reportFormatter = { format: jest.fn((result) => result) };
   const service = new CombatService(
     shipRepo as any,
     moduleRepo as any,
@@ -96,6 +107,7 @@ function createService() {
         return true;
       }),
     } as any,
+    reportFormatter as any,
   );
   return {
     service,
@@ -116,8 +128,12 @@ describe('CombatService attackColony', () => {
     id: 7,
     userId: 1,
     status: SpacecraftStatus.IDLE,
-    starSystemId: 10,
-    celestialObjectId: 20,
+    locationId: 40,
+    location: {
+      id: 40,
+      kind: 'SYSTEM_FIELD',
+      systemField: { starSystemId: 10, sx: 4, sy: 6, celestialObjectId: 20 },
+    },
     hull: 500,
     shields: 0,
   });
@@ -126,6 +142,8 @@ describe('CombatService attackColony', () => {
     id: 5,
     userId: 2,
     starSystemId: 10,
+    systemFieldId: 30,
+    systemField: { id: 30, starSystemId: 10, sx: 4, sy: 6 },
     celestialObjectId: 20,
     energy: 100,
     fields,
@@ -303,12 +321,63 @@ describe('CombatService attackColony', () => {
     const { service, shipRepo, colonyRepo } = createService();
     shipRepo.findOne.mockResolvedValue({
       ...attacker(),
-      celestialObjectId: 99,
+      locationId: 41,
+      location: {
+        id: 41,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 10, sx: 5, sy: 6 },
+      },
     });
     colonyRepo.findOne.mockResolvedValue(colony());
 
     await expect(service.attackColony(7, 5, 1)).rejects.toThrow(
       'Colony must be in same orbit',
     );
+  });
+
+  it('uses the canonical system field for colony orbit', async () => {
+    const { service, shipRepo, colonyRepo } = createService();
+    shipRepo.findOne.mockResolvedValue({
+      ...attacker(),
+      location: {
+        id: 40,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 10, sx: 4, sy: 6 },
+      },
+    });
+    colonyRepo.findOne.mockResolvedValue({
+      ...colony(),
+      systemFieldId: 30,
+      systemField: { id: 30, starSystemId: 10, sx: 4, sy: 6 },
+    });
+
+    await expect(service.attackColony(7, 5, 1)).resolves.toMatchObject({
+      defenderType: 'COLONY',
+    });
+  });
+});
+
+describe('CombatService attack', () => {
+  it('uses matching canonical location IDs', async () => {
+    const { service, shipRepo } = createService();
+    const attacker = {
+      id: 1,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      locationId: 42,
+      location: { id: 42, kind: 'GALAXY_FIELD' },
+    };
+    const defender = {
+      id: 2,
+      userId: 2,
+      status: SpacecraftStatus.IDLE,
+      locationId: 42,
+      location: { id: 42, kind: 'GALAXY_FIELD' },
+    };
+    shipRepo.findOne
+      .mockResolvedValueOnce(attacker)
+      .mockResolvedValueOnce(defender);
+
+    await expect(service.attack(1, 2, 1)).resolves.toBeDefined();
   });
 });

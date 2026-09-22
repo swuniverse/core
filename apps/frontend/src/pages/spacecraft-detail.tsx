@@ -7,8 +7,6 @@ import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
 import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
 import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
 import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessageBar';
-import type { LocalMapResponse } from '../components/spacecraft/LssMap';
-import { ApiError } from '../services/api';
 import { ShipStoragePanel } from '../components/spacecraft/ShipStoragePanel';
 import { NearbySensorPanel } from '../components/spacecraft/NearbySensorPanel';
 import { FieldContextPanel } from '../components/spacecraft/FieldContextPanel';
@@ -28,7 +26,6 @@ export function SpacecraftDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [ship, setShip] = useState<Spacecraft | null>(null);
-  const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
   const [fieldContext, setFieldContext] = useState<
     import('@swuniverse/shared').SpacecraftFieldContextDto | null
   >(null);
@@ -58,9 +55,9 @@ export function SpacecraftDetailPage() {
   }, [fetchShip]);
 
   const locationKey = ship
-    ? ship.inSystem
-      ? `system:${ship.starSystem?.id ?? ''}:${ship.currentSystemFieldX ?? ''}:${ship.currentSystemFieldY ?? ''}`
-      : `galaxy:${ship.posX}:${ship.posY}`
+    ? ship.location.scope === 'SYSTEM'
+      ? `system:${ship.location.systemId}:${ship.location.x}:${ship.location.y}`
+      : `galaxy:${ship.location.layerId}:${ship.location.x}:${ship.location.y}`
     : '';
 
   useEffect(() => {
@@ -133,7 +130,6 @@ export function SpacecraftDetailPage() {
           <NavigationPanel
             ship={ship}
             onShipUpdate={refreshShipAndStorage}
-            onLocalMapChange={setLocalMap}
           />
         </div>
         <div className="space-y-2">
@@ -177,7 +173,7 @@ export function SpacecraftDetailPage() {
               reactorFuelMax={ship.reactorFuelMax ?? 0}
               reactorWarpSplit={ship.reactorWarpSplit}
               hyperdriveActive={ship.runtimeSystems?.WARPDRIVE?.active === true}
-              inSystem={ship.inSystem === true}
+              inSystem={ship.location.scope === 'SYSTEM'}
               onUpdate={refreshShipAndStorage}
             />
           </div>
@@ -335,143 +331,6 @@ function StarMapDialog({
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-interface ColonizationTargetCheck {
-  canColonize: boolean;
-  reasons: string[];
-  target: {
-    id: number;
-    classId: number | null;
-    classGate: string | null;
-    limitType: string | null;
-  } | null;
-}
-
-function ColonizationPanel({
-  ship,
-  localMap,
-  message,
-  onMessage,
-  onColonized,
-}: {
-  ship: Spacecraft;
-  localMap: LocalMapResponse | null;
-  message: string | null;
-  onMessage: (message: string | null) => void;
-  onColonized: () => void;
-}) {
-  const [targetCheck, setTargetCheck] =
-    useState<ColonizationTargetCheck | null>(null);
-  const [checking, setChecking] = useState(false);
-
-  const currentObject =
-    localMap?.mode === 'system'
-      ? localMap.fields.find(
-          (field) =>
-            field.sx === localMap.shipX &&
-            field.sy === localMap.shipY &&
-            field.celestialObject,
-        )?.celestialObject
-      : null;
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!currentObject) {
-      setTargetCheck(null);
-      return;
-    }
-    setChecking(true);
-    api
-      .get<ColonizationTargetCheck>(
-        `/colonization/targets/${currentObject.id}?shipId=${ship.id}`,
-      )
-      .then((result) => {
-        if (!cancelled) setTargetCheck(result);
-      })
-      .catch(() => {
-        if (!cancelled) setTargetCheck(null);
-      })
-      .finally(() => {
-        if (!cancelled) setChecking(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentObject?.id, ship.id]);
-
-  const canTry =
-    Boolean(currentObject?.isColonizable) && Boolean(targetCheck?.canColonize);
-
-  const colonize = async () => {
-    if (!currentObject) return;
-    if (
-      !window.confirm(
-        `${currentObject.name ?? 'Dieses Objekt'} kolonisieren? Das Kolonieschiff wird verbraucht.`,
-      )
-    ) {
-      return;
-    }
-    onMessage(null);
-    try {
-      const result = await api.post<
-        { success: true; colonyId: number; consumedShipId: number },
-        { celestialObjectId: number }
-      >(`/spacecraft/${ship.id}/colonize`, {
-        celestialObjectId: currentObject.id,
-      });
-      onMessage(
-        `Kolonie #${result.colonyId} gegründet. Kolonieschiff verbraucht.`,
-      );
-      onColonized();
-    } catch (e: unknown) {
-      onMessage(
-        e instanceof ApiError || e instanceof Error
-          ? e.message
-          : 'Kolonisierung fehlgeschlagen',
-      );
-    }
-  };
-
-  return (
-    <div className="mt-3 bg-swu-surface border border-swu-border rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-[10px] font-bold text-swu-muted uppercase">
-            Kolonieschiff
-          </h3>
-          <p className="text-[11px] text-swu-muted">
-            Tier {ship.colonizerTier ?? 1} · Ziel muss exakt auf dem aktuellen
-            Systemfeld liegen.
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={!canTry || checking}
-          onClick={colonize}
-          className="rounded bg-swu-accent px-3 py-1.5 text-xs font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {checking ? 'Prüfe…' : 'Kolonie gründen'}
-        </button>
-      </div>
-      <div className="text-[11px] text-swu-muted">
-        Aktuelles Ziel:{' '}
-        <span className="text-swu-primary">
-          {currentObject
-            ? `${currentObject.name ?? 'Unbenannt'}${currentObject.isColonizable ? ' (kolonisierbar)' : ' (nicht kolonisierbar)'}`
-            : 'kein Himmelskörper auf diesem Feld'}
-        </span>
-      </div>
-      {targetCheck?.reasons && targetCheck.reasons.length > 0 && (
-        <ul className="list-disc pl-5 text-[11px] text-swu-warning">
-          {targetCheck.reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      )}
-      {message && <div className="text-[11px] text-swu-accent">{message}</div>}
     </div>
   );
 }

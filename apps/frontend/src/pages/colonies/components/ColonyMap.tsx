@@ -8,6 +8,7 @@ type ColonyMapProps = {
   undergroundFields: ColonyField[];
   selectedField: ColonyField | null;
   highlightedFields: Set<number>;
+  replacementFields: Set<number>;
   isBuildMode: boolean;
   buildingMap: Record<number, BuildingDef>;
   getBuildPreviewTitle: (field: ColonyField) => string | undefined;
@@ -54,6 +55,7 @@ export function ColonyMap({
   energy,
   selectedField,
   highlightedFields,
+  replacementFields,
   isBuildMode,
   buildingMap,
   getBuildPreviewTitle,
@@ -74,6 +76,7 @@ export function ColonyMap({
       }
       isSelected={selectedField?.fieldIndex === field.fieldIndex}
       isHighlighted={highlightedFields.has(field.fieldIndex)}
+      isReplacement={replacementFields.has(field.fieldIndex)}
       isBuildMode={isBuildMode}
       isFieldActive={field.isActive}
       buildPreviewTitle={getBuildPreviewTitle(field)}
