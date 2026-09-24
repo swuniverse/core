@@ -37,8 +37,8 @@ export function CrewSocialSection({
   }, [primary, secondary, workers, lifeStandardAbsolute, population]);
 
   return (
-    <div className="space-y-3 text-xs">
-      <div className="bg-swu-surface border border-swu-border rounded overflow-hidden">
+    <div className="space-y-2 text-xs">
+      <section className="overflow-hidden border border-swu-border bg-swu-surface">
         <div className="px-3 py-1.5 text-center text-[10px] font-bold text-swu-muted uppercase border-b border-swu-border">
           Crewberechnung dieser Kolonie
         </div>
@@ -57,9 +57,9 @@ export function CrewSocialSection({
           />
           <SocialRow label="Erzeugte Crew" value={social.local.generatedCrew} />
         </div>
-      </div>
+      </section>
 
-      <div className="bg-swu-surface border border-swu-border rounded overflow-hidden">
+      <section className="overflow-hidden border border-swu-border bg-swu-surface">
         <div className="px-3 py-1.5 text-center text-[10px] font-bold text-swu-muted uppercase border-b border-swu-border">
           Globale Crewübersicht
         </div>
@@ -85,13 +85,13 @@ export function CrewSocialSection({
             value={social.global.trainableRemaining}
           />
         </div>
-      </div>
+      </section>
 
-      <div className="bg-swu-surface border border-swu-border rounded overflow-hidden">
+      <section className="overflow-hidden border border-swu-border bg-swu-surface">
         <div className="px-3 py-1.5 text-center text-[10px] font-bold text-swu-muted uppercase border-b border-swu-border">
           Lokaler Crewrechner
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3">
+        <div className="grid grid-cols-1 gap-2 p-2 md:grid-cols-3">
           <NumberInput
             label={social.local.primaryEffect.name}
             value={primary}
@@ -120,7 +120,7 @@ export function CrewSocialSection({
             </span>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

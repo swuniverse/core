@@ -172,6 +172,22 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Effekte')).toBeTruthy();
     expect(screen.getByText('Ereignisse')).toBeTruthy();
+    const sectionHeadings = [
+      'Schiffe im Orbit',
+      'Planet',
+      'Umgebungsscan',
+      'Sternensystem',
+      'Bevölkerung',
+      'Effekte',
+      'Ereignisse',
+    ].map((heading) => screen.getByText(heading));
+    for (let index = 1; index < sectionHeadings.length; index += 1) {
+      expect(
+        sectionHeadings[index - 1].compareDocumentPosition(
+          sectionHeadings[index],
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
     expect(screen.queryAllByLabelText(/^0\|/)).toHaveLength(0);
     expect(screen.queryAllByLabelText(/\|0:/)).toHaveLength(0);
     expect(screen.getByLabelText('1|1: Nicht verfügbar')).toBeTruthy();

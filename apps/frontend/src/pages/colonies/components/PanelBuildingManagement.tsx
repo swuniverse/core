@@ -51,17 +51,29 @@ export function PanelBuildingManagement({
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded border border-swu-border bg-swu-surface px-3 py-2">
+      <div className="grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4">
+        <div className="border border-swu-border bg-swu-surface px-2 py-1.5">
           Aktiv:{' '}
           <span className="font-mono text-green-400">
             {management.counts.active}
           </span>
         </div>
-        <div className="rounded border border-swu-border bg-swu-surface px-3 py-2">
+        <div className="border border-swu-border bg-swu-surface px-2 py-1.5">
           Inaktiv:{' '}
           <span className="font-mono text-yellow-400">
             {management.counts.inactive}
+          </span>
+        </div>
+        <div className="border border-swu-border bg-swu-surface px-2 py-1.5">
+          Beschädigt:{' '}
+          <span className="font-mono text-red-400">
+            {management.counts.damaged}
+          </span>
+        </div>
+        <div className="border border-swu-border bg-swu-surface px-2 py-1.5">
+          Im Bau:{' '}
+          <span className="font-mono text-swu-accent">
+            {management.counts.building}
           </span>
         </div>
       </div>
@@ -85,11 +97,11 @@ export function PanelBuildingManagement({
         {error && <span className="text-red-400">{error}</span>}
       </div>
 
-      <div className="rounded border border-swu-border bg-swu-surface text-xs">
+      <div className="border border-swu-border bg-swu-surface text-xs">
         {fields.map((field) => (
           <label
             key={field.fieldIndex}
-            className="flex items-center gap-2 px-3 py-1.5 odd:bg-swu-bg/30"
+            className="flex items-center gap-2 border-b border-swu-border/30 px-2 py-1.5 last:border-b-0"
           >
             <input
               type="checkbox"
@@ -104,6 +116,9 @@ export function PanelBuildingManagement({
                 )
               }
             />
+            <span className="w-14 shrink-0 font-mono text-[10px] text-swu-muted">
+              Feld {field.fieldIndex}
+            </span>
             <span
               className="min-w-0 flex-1 truncate text-swu-primary"
               title={field.buildingName}
@@ -111,9 +126,23 @@ export function PanelBuildingManagement({
               {field.buildingName}
             </span>
             <span
-              className={`font-mono ${field.isActive ? 'text-green-400' : 'text-yellow-400'}`}
+              className={`font-mono ${
+                field.isBuilding
+                  ? 'text-swu-accent'
+                  : field.integrity < field.maxIntegrity
+                    ? 'text-red-400'
+                    : field.isActive
+                      ? 'text-green-400'
+                      : 'text-yellow-400'
+              }`}
             >
-              {field.isActive ? 'aktiv' : 'inaktiv'}
+              {field.isBuilding
+                ? 'im Bau'
+                : field.integrity < field.maxIntegrity
+                  ? 'beschädigt'
+                  : field.isActive
+                    ? 'aktiv'
+                    : 'inaktiv'}
             </span>
           </label>
         ))}

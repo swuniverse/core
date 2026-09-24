@@ -77,7 +77,11 @@ export type ShipyardQueueEntry = {
 };
 
 export type TorpedoDamageTypeDto =
-  'PROTON' | 'QUANTUM' | 'HEAVY_QUANTUM' | 'PLASMA' | 'HEAVY_PLASMA';
+  | 'PROTON'
+  | 'QUANTUM'
+  | 'HEAVY_QUANTUM'
+  | 'PLASMA'
+  | 'HEAVY_PLASMA';
 
 export interface TorpedoTypeDto {
   id: number;
@@ -186,7 +190,7 @@ export interface ColonyFeatureTabAccess {
 }
 
 export interface ColonyFeatureAccess {
-  tabs: Record<DetailTab | string, ColonyFeatureTabAccess>;
+  tabs: Record<string, ColonyFeatureTabAccess>;
   functions: {
     present: ColonyEffectiveFunction[];
     active: ColonyEffectiveFunction[];
@@ -243,7 +247,9 @@ export interface ColonyEffectiveState {
 }
 
 export type ShipyardGroup =
-  'CORE_SYSTEMS' | 'DEFENSE_SYSTEMS' | 'OFFENSE_SYSTEMS';
+  | 'CORE_SYSTEMS'
+  | 'DEFENSE_SYSTEMS'
+  | 'OFFENSE_SYSTEMS';
 
 export type ShipyardType =
   | 'HULL'
@@ -841,17 +847,3 @@ export interface ShipClassDef {
   buildCosts?: Array<{ commodityId: number; amount: number; name: string }>;
   allowedBuildingFunctionIds?: number[] | null;
 }
-
-export type DetailTab =
-  | 'info'
-  | 'orbit'
-  | 'build'
-  | 'buildingManagement'
-  | 'shipyard'
-  | 'fabrication'
-  | 'defense'
-  | 'waste'
-  | 'events'
-  | 'settings'
-  | 'crew'
-  | 'hangar';

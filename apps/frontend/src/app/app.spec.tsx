@@ -453,13 +453,20 @@ function renderColonyDetail(
 }
 
 describe('ColonyDetail', () => {
-  it('renders five primary views with a permanent map and storage', () => {
+  it('routes every work area through the single colony section navigation', () => {
     const detail = createDetail();
+    detail.buildingManagement = {
+      counts: { active: 2, inactive: 3, damaged: 1, building: 4 },
+      fields: [],
+      usableCommodities: [],
+    };
     renderColonyDetail(detail);
 
-    const primaryNav = screen.getByRole('navigation', {
+    const colonySectionNavs = screen.getAllByRole('navigation', {
       name: 'Koloniebereiche',
     });
+    expect(colonySectionNavs).toHaveLength(1);
+    const primaryNav = colonySectionNavs[0];
     const labels = within(primaryNav)
       .getAllByRole('button')
       .map((button) => button.textContent);
@@ -471,8 +478,16 @@ describe('ColonyDetail', () => {
       'Gebäudeschaltung',
       'Einstellungen',
     ]);
-    expect(screen.queryByRole('button', { name: 'Übersicht' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Flotte' })).toBeNull();
+    for (const legacyWorkMode of [
+      'Übersicht',
+      'Bauen',
+      'Produktion',
+      'Flotte',
+      'Sicherheit',
+      'Verwaltung',
+    ]) {
+      expect(screen.queryByRole('button', { name: legacyWorkMode })).toBeNull();
+    }
     for (const specialty of [
       'Hangar',
       'Werft',
@@ -486,16 +501,26 @@ describe('ColonyDetail', () => {
       ).toBeNull();
     }
 
-    for (const tab of [
-      'Baumenü',
-      'Soziales',
-      'Gebäudeschaltung',
-      'Einstellungen',
-    ]) {
-      fireEvent.click(screen.getByRole('button', { name: tab }));
-      expect(screen.getByText('Lagerraum')).toBeTruthy();
-      expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
-    }
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
+    expect(
+      screen.getByText('Gebäude auswählen und auf der Karte platzieren'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Soziales' }));
+    expect(screen.getByText('Globale Crewübersicht')).toBeTruthy();
+    expect(screen.getByText('Lokaler Crewrechner')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gebäudeschaltung' }));
+    expect(screen.getByText('0 ausgewählt')).toBeTruthy();
+    expect(screen.getByText('Beschädigt:')).toBeTruthy();
+    expect(screen.getByText('Im Bau:')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen' }));
+    expect(screen.getByText('Kolonieoptionen')).toBeTruthy();
+    expect(screen.getAllByText(/Kolonie aufgeben/).length).toBeGreaterThan(0);
+
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
   });
 
   it('clears field and build selections when switching primary views', () => {

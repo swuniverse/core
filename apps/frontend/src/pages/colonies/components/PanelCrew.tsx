@@ -44,8 +44,8 @@ export function PanelCrew({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-1">
+    <section className="space-y-2">
+      <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs space-y-1">
         <div className="text-[10px] font-bold text-swu-muted uppercase">
           Crew-Übersicht
         </div>
@@ -83,7 +83,7 @@ export function PanelCrew({
         </div>
       </div>
 
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-2">
+      <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs space-y-2">
         <div className="text-[10px] font-bold text-swu-muted uppercase">
           {crew.trainingFacility?.mode === 'ACADEMY'
             ? 'Akademie'
@@ -129,12 +129,12 @@ export function PanelCrew({
       {social ? (
         <CrewSocialSection social={social} />
       ) : (
-        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
+        <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs text-swu-muted">
           Keine Sozialdaten verfügbar. Bitte Backend/Seite neu laden.
         </div>
       )}
 
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs">
+      <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs">
         <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
           Orbit-Crew
         </div>
@@ -193,6 +193,6 @@ export function PanelCrew({
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

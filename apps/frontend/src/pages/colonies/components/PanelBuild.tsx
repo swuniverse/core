@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { buildingImage, commodityImage } from '../../../lib/assets';
+import { buildingImage } from '../../../lib/assets';
 import type {
   BuildingDef,
   ColonyField,
@@ -133,8 +133,8 @@ export function PanelBuild({
   }, [activeCategory, buildingsByColumn]);
 
   return (
-    <div className="rounded border border-swu-border bg-swu-surface p-3">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+    <section className="border border-swu-border bg-swu-surface p-2">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-swu-muted">
             Baumenü
@@ -150,7 +150,7 @@ export function PanelBuild({
         )}
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-1">
+      <div className="mb-2 flex flex-wrap gap-1">
         <button
           onClick={() => setActiveCategory('all')}
           className={`rounded border px-2 py-1 text-[10px] transition-colors ${
@@ -184,7 +184,7 @@ export function PanelBuild({
           Keine Gebäude verfügbar.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {visibleBuildings.map((building) => {
             const affordable = canAfford(building, storage, energy);
             const isSelected = selectedBuilding?.id === building.id;
@@ -209,9 +209,9 @@ export function PanelBuild({
                 disabled={alreadyBuilt}
                 title={building.name}
                 aria-label={building.name}
-                className={`min-h-[104px] rounded border p-2 text-left transition-all ${
+                className={`border p-2 text-left transition-colors ${
                   isSelected
-                    ? 'border-swu-accent bg-swu-accent/12 shadow-[0_0_0_1px_rgba(194,185,66,0.2)]'
+                    ? 'border-swu-accent bg-swu-accent/10'
                     : alreadyBuilt
                       ? 'border-swu-border/40 bg-swu-bg/20 opacity-45 cursor-not-allowed'
                       : affordable
@@ -223,7 +223,7 @@ export function PanelBuild({
                   <img
                     src={buildingImage(building.id)}
                     alt=""
-                    className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14"
+                    className="h-10 w-10 shrink-0 object-contain"
                     loading="lazy"
                   />
                   <div className="min-w-0 flex-1">
@@ -259,6 +259,6 @@ export function PanelBuild({
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }
