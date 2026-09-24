@@ -888,7 +888,9 @@ describe('ColonyDetail', () => {
     ).toBeNull();
     fireEvent.click(fieldButton);
     expect(onBuild).not.toHaveBeenCalled();
-    expect(screen.getByText('Feld 1')).toBeTruthy();
+    expect(
+      screen.getByRole('dialog', { name: 'Feld 1 - Informationen' }),
+    ).toBeTruthy();
   });
 
   it.each([undefined, false])(

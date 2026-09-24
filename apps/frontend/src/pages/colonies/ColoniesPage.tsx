@@ -17,7 +17,7 @@ import type {
   ShipModuleSelection,
   TerraformingDef,
 } from './types';
-import { FieldInspector } from './components/FieldInspector';
+import { ColonyFieldDialog } from './components/ColonyFieldDialog';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelInfo } from './components/PanelInfo';
 import { PanelBuild } from './components/PanelBuild';
@@ -970,48 +970,26 @@ export function ColonyDetail({
         </div>
 
         <div className="min-w-0 space-y-3">
-          {!contextView && (mainView === 'information' || mainView === 'build') && (
-            <div>
-              {mainView === 'build' && selectedBuilding ? (
-                <BuildInspector
-                  selectedBuilding={selectedBuilding}
-                  hoveredBuildField={
-                    hoveredBuildField &&
-                    highlightedFields.has(hoveredBuildField.fieldIndex)
-                      ? hoveredBuildField
-                      : null
-                  }
-                  buildingMap={buildingMap}
-                  commodityMap={commodityMap}
-                  storage={storage}
-                  energy={currentEnergy}
-                  deactivateAfterBuild={deactivateAfterBuild}
-                  onDeactivateAfterBuildChange={setDeactivateAfterBuild}
-                  onClearSelection={() => {
-                    setSelectedBuilding(null);
-                    setHoveredBuildField(null);
-                  }}
-                />
-              ) : (
-                <FieldInspector
-                  field={selectedField}
-                  building={
-                    selectedField?.buildingId
-                      ? buildingMap[selectedField.buildingId]
-                      : undefined
-                  }
-                  buildingMap={buildingMap}
-                  commodityMap={commodityMap}
-                  terraformingDefs={terraformingDefs}
-                  selectedBuilding={selectedBuilding}
-                  onClearSelection={() => setSelectedField(null)}
-                  onTerraform={onTerraform}
-                  onUpgrade={onUpgradeBuilding}
-                  onDemolish={onDemolish}
-                  onToggle={onToggle}
-                />
-              )}
-            </div>
+          {!contextView && mainView === 'build' && selectedBuilding && (
+            <BuildInspector
+              selectedBuilding={selectedBuilding}
+              hoveredBuildField={
+                hoveredBuildField &&
+                highlightedFields.has(hoveredBuildField.fieldIndex)
+                  ? hoveredBuildField
+                  : null
+              }
+              buildingMap={buildingMap}
+              commodityMap={commodityMap}
+              storage={storage}
+              energy={currentEnergy}
+              deactivateAfterBuild={deactivateAfterBuild}
+              onDeactivateAfterBuildChange={setDeactivateAfterBuild}
+              onClearSelection={() => {
+                setSelectedBuilding(null);
+                setHoveredBuildField(null);
+              }}
+            />
           )}
 
           {!contextView && mainView === 'information' && (
@@ -1168,6 +1146,26 @@ export function ColonyDetail({
             ))}
         </div>
       </div>
+      {selectedField && !selectedBuilding && !contextView && (
+        <ColonyFieldDialog
+          field={selectedField}
+          building={
+            selectedField.buildingId
+              ? buildingMap[selectedField.buildingId]
+              : undefined
+          }
+          buildingMap={buildingMap}
+          commodityMap={commodityMap}
+          terraformingDefs={terraformingDefs}
+          onClose={() => setSelectedField(null)}
+          onOpenContext={handleOpenContext}
+          onOpenBuildMenu={() => handleMainViewChange('build')}
+          onTerraform={onTerraform}
+          onUpgrade={onUpgradeBuilding}
+          onDemolish={onDemolish}
+          onToggle={onToggle}
+        />
+      )}
     </div>
   );
 }
