@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { StarmapSystemGridDto } from '@swuniverse/shared';
+import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
 import { useToast } from '../../components/Toast';
 import { colonyApi } from './api';
 import { api } from '../../services/api';
@@ -150,10 +150,11 @@ export function ColoniesPage() {
     [],
   );
   const [loading, setLoading] = useState(true);
-  const [systemGrid, setSystemGrid] = useState<StarmapSystemGridDto | null>(
-    null,
-  );
-  const [systemGridError, setSystemGridError] = useState<string | null>(null);
+  const [environmentScan, setEnvironmentScan] =
+    useState<ColonyEnvironmentScanDto | null>(null);
+  const [environmentScanError, setEnvironmentScanError] = useState<
+    string | null
+  >(null);
 
   const detailRequestSequenceRef = useRef(0);
   const initialSelectedIdRef = useRef(Number(searchParams.get('selected')));
@@ -170,22 +171,20 @@ export function ColoniesPage() {
       if (requestSequence !== detailRequestSequenceRef.current) return;
       setSelected(detail);
       setSearchParams({ selected: String(id) }, { replace: true });
-      setSystemGrid(null);
-      setSystemGridError(null);
-      if (detail.starSystem?.id) {
-        void colonyApi
-          .fetchSystemGrid(detail.starSystem.id)
-          .then((grid) => {
-            if (requestSequence === detailRequestSequenceRef.current) {
-              setSystemGrid(grid);
-            }
-          })
-          .catch((error: unknown) => {
-            if (requestSequence === detailRequestSequenceRef.current) {
-              setSystemGridError(errorMessage(error));
-            }
-          });
-      }
+      setEnvironmentScan(null);
+      setEnvironmentScanError(null);
+      void colonyApi
+        .fetchEnvironmentScan(id)
+        .then((scan) => {
+          if (requestSequence === detailRequestSequenceRef.current) {
+            setEnvironmentScan(scan);
+          }
+        })
+        .catch((error: unknown) => {
+          if (requestSequence === detailRequestSequenceRef.current) {
+            setEnvironmentScanError(errorMessage(error));
+          }
+        });
     },
     [setSearchParams],
   );
@@ -279,8 +278,8 @@ export function ColoniesPage() {
       allBuildingDefs={allBuildingDefs}
       shipClasses={shipClasses}
       terraformingDefs={terraformingDefs}
-      systemGrid={systemGrid}
-      systemGridError={systemGridError}
+      environmentScan={environmentScan}
+      environmentScanError={environmentScanError}
       onBack={goBack}
       onBuild={(fi, bi, activateAfterBuild) =>
         act(async () => {
@@ -625,8 +624,8 @@ export function ColonyDetail({
   allBuildingDefs,
   shipClasses,
   terraformingDefs,
-  systemGrid,
-  systemGridError,
+  environmentScan,
+  environmentScanError,
   onBack,
   onBuild,
   onUpgradeBuilding,
@@ -675,8 +674,8 @@ export function ColonyDetail({
   allBuildingDefs: BuildingDef[];
   shipClasses: ShipClassDef[];
   terraformingDefs: TerraformingDef[];
-  systemGrid?: StarmapSystemGridDto | null;
-  systemGridError?: string | null;
+  environmentScan?: ColonyEnvironmentScanDto | null;
+  environmentScanError?: string | null;
   onBack: () => void;
   onBuild: (fi: number, bi: number, activateAfterBuild: boolean) => void;
   onUpgradeBuilding: (fi: number, ui: number) => Promise<void> | void;
@@ -776,6 +775,13 @@ export function ColonyDetail({
 
   const detail = colony.detailV2;
   const currentEnergy = detail?.energy.current ?? colony.energy;
+  const shield =
+    detail?.defense?.shields.max &&
+    detail.featureAccess?.functions.present.some((fn) =>
+      [24, 25].includes(fn.id),
+    )
+      ? detail.defense.shields
+      : undefined;
   const fieldUpgradeMap = useMemo(
     () =>
       Object.fromEntries(
@@ -1091,6 +1097,7 @@ export function ColonyDetail({
               max: detail?.energy.max ?? colony.energyMax,
               delta: detail?.energy.delta,
             }}
+            shield={shield}
             onFieldClick={handleFieldClick}
             onFieldMouseEnter={setHoveredBuildField}
             onFieldMouseLeave={() => setHoveredBuildField(null)}
@@ -1134,8 +1141,8 @@ export function ColonyDetail({
             <PanelInfo
               colony={colony}
               detail={detail}
-              systemGrid={systemGrid ?? null}
-              systemGridError={systemGridError ?? null}
+              environmentScan={environmentScan ?? null}
+              environmentScanError={environmentScanError ?? null}
               onOpenOrbitManagement={() =>
                 handleOpenContext('orbit-management')
               }

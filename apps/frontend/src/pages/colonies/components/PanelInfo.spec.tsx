@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { StarmapSystemGridDto } from '@swuniverse/shared';
+import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
 import { MemoryRouter } from 'react-router-dom';
 
 import type { Colony, ColonyDetailV2 } from '../types';
@@ -56,8 +56,8 @@ const detail = {
   ],
   orbitShips: [
     {
-      id: 9,
-      name: 'Falke',
+      id: 7,
+      name: 'Eigenes Schiff',
       shipClassId: 101,
       status: 'ACTIVE',
       hull: 80,
@@ -71,6 +71,23 @@ const detail = {
       crewMax: 6,
       hasEnoughCrew: true,
       canManage: true,
+    },
+    {
+      id: 8,
+      name: 'Zweites Schiff',
+      shipClassId: 102,
+      status: 'ACTIVE',
+      hull: 70,
+      hullMax: 100,
+      shields: 20,
+      shieldsMax: 50,
+      energy: 10,
+      energyMax: 60,
+      crew: 2,
+      crewRequired: 2,
+      crewMax: 5,
+      hasEnoughCrew: true,
+      canManage: false,
     },
   ],
   eventSummary: {
@@ -88,56 +105,27 @@ const detail = {
   },
 } as ColonyDetailV2;
 
-const systemGrid = {
-  system: {
-    id: 7,
-    name: 'Testsystem',
-    cx: 3,
-    cy: 4,
-    maxX: 4,
-    maxY: 4,
-    systemTypeId: 1,
-    systemTypeName: 'Gelber Stern',
-  },
+const environmentScan = {
+  bounds: { minX: 1, maxX: 3, minY: 1, maxY: 3 },
   fields: [
     {
-      id: 12,
-      sx: 2,
-      sy: 2,
+      x: 2,
+      y: 2,
       fieldTypeId: 1,
-      celestialObjectId: 21,
-      isPassable: true,
-      energyCost: 1,
-      damage: 0,
-      effects: [],
-      regionKey: null,
-      adminRegionKey: null,
-      influenceAreaId: null,
-      borderMask: null,
-      fieldType: {
-        id: 1,
-        key: 'EMPTY_SPACE',
-        name: 'Leerer Raum',
-        passable: true,
-        energyCost: 1,
-        damage: 0,
-        isSystem: true,
-        colorKey: null,
-        category: null,
-      },
+      fieldTypeName: 'Leerer Raum',
       celestialObject: {
         id: 21,
         objectType: 1,
         name: 'Testwelt',
-        description: null,
-        posX: 2,
-        posY: 2,
         classId: 201,
-        isColonizable: true,
       },
     },
   ],
-} satisfies StarmapSystemGridDto;
+  signatures: [{ x: 2, y: 2, visibleCount: 2 }],
+  fadedSignatures: { uncloaked: 0, cloaked: 0 },
+  colonyShields: [{ colonyId: 1, x: 2, y: 2, shielded: true }],
+  anomalies: [],
+} satisfies ColonyEnvironmentScanDto;
 
 const eventProps = {
   initialEvents: detail.eventSummary!.latest,
@@ -155,15 +143,28 @@ describe('PanelInfo', () => {
         <PanelInfo
           colony={colony}
           detail={detail}
-          systemGrid={systemGrid}
-          systemGridError={null}
+          environmentScan={environmentScan}
+          environmentScanError={null}
           onOpenOrbitManagement={onOpenOrbitManagement}
           eventProps={eventProps}
         />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Schiffe im Orbit')).toBeTruthy();
+    const sections = screen
+      .getAllByRole('heading')
+      .map((node) => node.textContent);
+    expect(sections.indexOf('Orbitalmanagement')).toBeLessThan(
+      sections.indexOf('Planet'),
+    );
+    expect(
+      screen.getByText('Eigenes Schiff').closest('a')?.getAttribute('href'),
+    ).toBe('/spacecraft/7');
+    expect(screen.queryByText('Zweites Schiff')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Schiffsliste aufklappen' }),
+    );
+    expect(screen.getByText('Zweites Schiff').closest('a')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Orbitalmanagement' }),
     ).toBeTruthy();
@@ -173,14 +174,15 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Effekte')).toBeTruthy();
     expect(screen.getByText('Ereignisse')).toBeTruthy();
     const sectionHeadings = [
-      'Schiffe im Orbit',
+      'Orbitalmanagement',
       'Planet',
+      'Schiffe im Orbit',
       'Umgebungsscan',
       'Sternensystem',
       'Bevölkerung',
       'Effekte',
       'Ereignisse',
-    ].map((heading) => screen.getByText(heading));
+    ].map((heading) => screen.getByRole('heading', { name: heading }));
     for (let index = 1; index < sectionHeadings.length; index += 1) {
       expect(
         sectionHeadings[index - 1].compareDocumentPosition(
@@ -188,9 +190,12 @@ describe('PanelInfo', () => {
         ) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
-    expect(screen.queryAllByLabelText(/^0\|/)).toHaveLength(0);
-    expect(screen.queryAllByLabelText(/\|0:/)).toHaveLength(0);
-    expect(screen.getByLabelText('1|1: Nicht verfügbar')).toBeTruthy();
+    expect(screen.getByText('X 1')).toBeTruthy();
+    expect(screen.getByText('X 3')).toBeTruthy();
+    expect(screen.getByText('Y 1')).toBeTruthy();
+    expect(screen.getByText('Y 3')).toBeTruthy();
+    expect(screen.getByLabelText(/2 Signaturen/)).toBeTruthy();
+    expect(screen.queryByText('Unsichtbares Schiff')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Orbitalmanagement' }));
     expect(onOpenOrbitManagement).toHaveBeenCalledOnce();
   });
@@ -201,8 +206,8 @@ describe('PanelInfo', () => {
         <PanelInfo
           colony={colony}
           detail={detail}
-          systemGrid={null}
-          systemGridError="Umgebungsscan nicht verfügbar"
+          environmentScan={null}
+          environmentScanError="Umgebungsscan nicht verfügbar"
           onOpenOrbitManagement={vi.fn()}
           eventProps={eventProps}
         />
@@ -219,7 +224,67 @@ describe('PanelInfo', () => {
     expect(scan?.textContent).toContain('Umgebungsscan nicht verfügbar');
   });
 
-  it('retains shields, planetary defense, asteroid exhaustion, and deposits', () => {
+  it('never links a foreign first orbit ship', () => {
+    render(
+      <MemoryRouter>
+        <PanelInfo
+          colony={colony}
+          detail={{
+            ...detail,
+            orbitShips: [
+              {
+                ...detail.orbitShips[0],
+                name: 'Fremdes Schiff',
+                canManage: false,
+              },
+            ],
+          }}
+          environmentScan={environmentScan}
+          environmentScanError={null}
+          onOpenOrbitManagement={vi.fn()}
+          eventProps={eventProps}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Fremdes Schiff').closest('a')).toBeNull();
+  });
+
+  it('collapses the expanded ship list when the colony changes', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <PanelInfo
+          colony={colony}
+          detail={detail}
+          environmentScan={environmentScan}
+          environmentScanError={null}
+          onOpenOrbitManagement={vi.fn()}
+          eventProps={eventProps}
+        />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Schiffsliste aufklappen' }),
+    );
+    expect(screen.getByText('Zweites Schiff')).toBeTruthy();
+
+    rerender(
+      <MemoryRouter>
+        <PanelInfo
+          colony={{ ...colony, id: 2 }}
+          detail={detail}
+          environmentScan={environmentScan}
+          environmentScanError={null}
+          onOpenOrbitManagement={vi.fn()}
+          eventProps={eventProps}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('Zweites Schiff')).toBeNull();
+  });
+
+  it('retains planetary defense, asteroid exhaustion, and deposits without a standalone shield section', () => {
     const retainedDetail = {
       ...detail,
       defense: {
@@ -260,16 +325,15 @@ describe('PanelInfo', () => {
             celestialObject: { ...colony.celestialObject, objectType: 3 },
           }}
           detail={retainedDetail}
-          systemGrid={systemGrid}
-          systemGridError={null}
+          environmentScan={environmentScan}
+          environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
           eventProps={eventProps}
         />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Schilde' })).toBeTruthy();
-    expect(screen.getByText('25/100')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Schilde' })).toBeNull();
     expect(
       screen.getByRole('heading', { name: 'Planetare Verteidigung' }),
     ).toBeTruthy();

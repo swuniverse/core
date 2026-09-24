@@ -1,7 +1,6 @@
-import type {
-  StarmapSystemFieldDto,
-  StarmapSystemGridDto,
-} from '@swuniverse/shared';
+import { useEffect, useState } from 'react';
+import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
+import { Link } from 'react-router-dom';
 
 import { BbCodeText } from '../../../components/BbCodeText';
 import {
@@ -20,8 +19,8 @@ type PanelEventsProps = React.ComponentProps<typeof PanelEvents>;
 type PanelInfoProps = {
   colony: Colony;
   detail?: ColonyDetailV2;
-  systemGrid: StarmapSystemGridDto | null;
-  systemGridError: string | null;
+  environmentScan: ColonyEnvironmentScanDto | null;
+  environmentScanError: string | null;
   onOpenOrbitManagement: () => void;
   eventProps: PanelEventsProps;
 };
@@ -33,11 +32,13 @@ const headingClass =
 export function PanelInfo({
   colony,
   detail,
-  systemGrid,
-  systemGridError,
+  environmentScan,
+  environmentScanError,
   onOpenOrbitManagement,
   eventProps,
 }: PanelInfoProps) {
+  const [showAllOrbitShips, setShowAllOrbitShips] = useState(false);
+  useEffect(() => setShowAllOrbitShips(false), [colony.id]);
   const storageIds = new Set(
     (colony.storage ?? []).map((item) => item.commodityId),
   );
@@ -49,95 +50,79 @@ export function PanelInfo({
   return (
     <div className="space-y-2">
       <section className={sectionClass}>
+        <h3 className={headingClass}>Orbitalmanagement</h3>
+        <button
+          type="button"
+          onClick={onOpenOrbitManagement}
+          className="border border-swu-accent/60 px-2 py-1 text-xs text-swu-accent hover:border-swu-accent"
+        >
+          Orbitalmanagement
+        </button>
+      </section>
+
+      <section className={sectionClass}>
+        <h3 className={headingClass}>Planet</h3>
+        {colony.celestialObject && (
+          <>
+            <div className="flex items-center gap-2">
+              {colony.celestialObject.classId && (
+                <img
+                  src={planetImage(colony.celestialObject.classId)}
+                  alt=""
+                  className="h-10 w-10 object-contain"
+                />
+              )}
+              <div className="text-sm">
+                <div className="text-swu-primary">
+                  {colony.celestialObject.name || colony.name}
+                </div>
+                {colony.posX != null && colony.posY != null && (
+                  <div className="font-mono text-[10px] text-swu-muted">
+                    {colony.posX}|{colony.posY}
+                  </div>
+                )}
+              </div>
+            </div>
+            {colony.celestialObject.description && (
+              <BbCodeText
+                text={colony.celestialObject.description}
+                className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
+              />
+            )}
+          </>
+        )}
+      </section>
+
+      <section className={sectionClass}>
         <h3 className={headingClass}>Schiffe im Orbit</h3>
         {detail?.orbitShips.length ? (
           <div className="divide-y divide-swu-border/40">
-            {detail.orbitShips.map((ship) => (
-              <div
-                key={ship.id}
-                className="flex flex-wrap items-center gap-2 py-1.5 text-xs"
-              >
-                <img
-                  src={shipImage(ship.shipClassId, ship.shipClassKey)}
-                  alt=""
-                  className="h-8 w-14 object-contain"
-                />
-                <div className="min-w-28 flex-1">
-                  <div className="font-bold text-swu-primary">{ship.name}</div>
-                  <div className="text-[10px] text-swu-muted">
-                    {ship.canManage ? 'Eigene Flotte' : 'Fremdes Schiff'} ·{' '}
-                    {ship.status}
-                  </div>
-                </div>
-                <ShipStatus
-                  label="Hülle"
-                  value={`${ship.hull}/${ship.hullMax}`}
-                />
-                <ShipStatus
-                  label="Schilde"
-                  value={`${ship.shields}/${ship.shieldsMax}`}
-                />
-                <ShipStatus
-                  label="EPS"
-                  value={`${ship.energy}/${ship.energyMax}`}
-                />
-                <ShipStatus
-                  label="Crew"
-                  value={`${ship.crew}/${ship.crewMax}`}
-                />
-              </div>
-            ))}
+            <OrbitShipRow ship={detail.orbitShips[0]} />
+            {showAllOrbitShips &&
+              detail.orbitShips
+                .slice(1)
+                .map((ship) => <OrbitShipRow key={ship.id} ship={ship} />)}
           </div>
         ) : (
           <p className="text-xs text-swu-muted">Keine Schiffe im Orbit.</p>
         )}
-      </section>
-
-      <div className="grid gap-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]">
-        <section className={sectionClass}>
-          <h3 className={headingClass}>Planet</h3>
-          {colony.celestialObject && (
-            <>
-              <div className="flex items-center gap-2">
-                {colony.celestialObject.classId && (
-                  <img
-                    src={planetImage(colony.celestialObject.classId)}
-                    alt=""
-                    className="h-10 w-10 object-contain"
-                  />
-                )}
-                <div className="text-sm">
-                  <div className="text-swu-primary">
-                    {colony.celestialObject.name || colony.name}
-                  </div>
-                  {colony.posX != null && colony.posY != null && (
-                    <div className="font-mono text-[10px] text-swu-muted">
-                      {colony.posX}|{colony.posY}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {colony.celestialObject.description && (
-                <BbCodeText
-                  text={colony.celestialObject.description}
-                  className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
-                />
-              )}
-            </>
-          )}
+        {(detail?.orbitShips.length ?? 0) > 1 && (
           <button
             type="button"
-            onClick={onOpenOrbitManagement}
-            className="mt-2 border border-swu-accent/60 px-2 py-1 text-xs text-swu-accent hover:border-swu-accent"
+            onClick={() => setShowAllOrbitShips((current) => !current)}
+            className="mt-2 border border-swu-border/60 px-2 py-1 text-[10px] text-swu-muted hover:border-swu-accent/60 hover:text-swu-accent"
           >
-            Orbitalmanagement
+            {showAllOrbitShips
+              ? 'Schiffsliste einklappen'
+              : 'Schiffsliste aufklappen'}
           </button>
-        </section>
+        )}
+      </section>
 
+      <div className="grid gap-2 lg:grid-cols-[minmax(240px,1.4fr)_minmax(0,0.8fr)]">
         <SystemScan
-          colony={colony}
-          systemGrid={systemGrid}
-          error={systemGridError}
+          environmentScan={environmentScan}
+          error={environmentScanError}
         />
 
         <section className={sectionClass}>
@@ -191,25 +176,6 @@ export function PanelInfo({
               label="Entwicklung"
               value={formatSignedAmount(detail.population.growth)}
             />
-          </div>
-        </section>
-      )}
-
-      {detail?.defense?.shields && (
-        <section className={sectionClass}>
-          <h3 className={headingClass}>Schilde</h3>
-          <div className="flex items-center justify-between gap-3">
-            <div className="font-mono text-swu-accent">
-              {detail.defense.shields.current}/{detail.defense.shields.max}
-            </div>
-            <div className="h-2 flex-1 overflow-hidden rounded border border-swu-border/60 bg-swu-bg">
-              <div
-                className="h-full bg-swu-accent"
-                style={{
-                  width: `${detail.defense.shields.max > 0 ? Math.min(100, Math.max(0, (detail.defense.shields.current / detail.defense.shields.max) * 100)) : 0}%`,
-                }}
-              />
-            </div>
           </div>
         </section>
       )}
@@ -305,30 +271,32 @@ export function PanelInfo({
 }
 
 function SystemScan({
-  colony,
-  systemGrid,
+  environmentScan,
   error,
 }: {
-  colony: Colony;
-  systemGrid: StarmapSystemGridDto | null;
+  environmentScan: ColonyEnvironmentScanDto | null;
   error: string | null;
 }) {
-  const maxX = systemGrid?.system.maxX ?? colony.starSystem?.maxX;
-  const maxY = systemGrid?.system.maxY ?? colony.starSystem?.maxY;
-  const canRender =
-    systemGrid &&
-    colony.posX != null &&
-    colony.posY != null &&
-    maxX != null &&
-    maxY != null;
-  const xs = canRender
-    ? range(Math.max(1, colony.posX! - 2), Math.min(maxX!, colony.posX! + 2))
+  const xs = environmentScan
+    ? range(environmentScan.bounds.minX, environmentScan.bounds.maxX)
     : [];
-  const ys = canRender
-    ? range(Math.max(1, colony.posY! - 2), Math.min(maxY!, colony.posY! + 2))
+  const ys = environmentScan
+    ? range(environmentScan.bounds.minY, environmentScan.bounds.maxY)
     : [];
   const fields = new Map(
-    systemGrid?.fields.map((field) => [`${field.sx}|${field.sy}`, field]) ?? [],
+    environmentScan?.fields.map((field) => [`${field.x}|${field.y}`, field]) ??
+      [],
+  );
+  const signatures = new Map(
+    environmentScan?.signatures.map((signature) => [
+      `${signature.x}|${signature.y}`,
+      signature.visibleCount,
+    ]) ?? [],
+  );
+  const shields = new Set(
+    environmentScan?.colonyShields
+      .filter((shield) => shield.shielded)
+      .map((shield) => `${shield.x}|${shield.y}`) ?? [],
   );
 
   return (
@@ -336,17 +304,43 @@ function SystemScan({
       <h3 className={headingClass}>Umgebungsscan</h3>
       {error ? (
         <p className="text-xs text-red-400">{error}</p>
-      ) : canRender ? (
+      ) : environmentScan ? (
         <div
           className="mx-auto grid w-fit gap-px bg-swu-border"
-          style={{ gridTemplateColumns: `repeat(${xs.length}, 2.5rem)` }}
+          style={{
+            gridTemplateColumns: `1.5rem repeat(${xs.length}, 2.5rem)`,
+          }}
         >
-          {ys.flatMap((y) =>
-            xs.map((x) => {
-              const field = fields.get(`${x}|${y}`);
-              return <ScanCell key={`${x}|${y}`} x={x} y={y} field={field} />;
+          <div aria-hidden="true" className="bg-swu-surface" />
+          {xs.map((x) => (
+            <div
+              key={`x-${x}`}
+              className="flex h-5 items-center justify-center bg-swu-surface font-mono text-[9px] text-swu-muted"
+            >
+              X {x}
+            </div>
+          ))}
+          {ys.flatMap((y) => [
+            <div
+              key={`y-${y}`}
+              className="flex h-10 items-center justify-center bg-swu-surface font-mono text-[9px] text-swu-muted"
+            >
+              Y {y}
+            </div>,
+            ...xs.map((x) => {
+              const coordinate = `${x}|${y}`;
+              return (
+                <ScanCell
+                  key={coordinate}
+                  x={x}
+                  y={y}
+                  field={fields.get(coordinate)}
+                  signatureCount={signatures.get(coordinate) ?? 0}
+                  shielded={shields.has(coordinate)}
+                />
+              );
             }),
-          )}
+          ])}
         </div>
       ) : (
         <p className="text-xs text-swu-muted">Umgebungsscan nicht verfügbar</p>
@@ -359,33 +353,93 @@ function ScanCell({
   x,
   y,
   field,
+  signatureCount,
+  shielded,
 }: {
   x: number;
   y: number;
-  field?: StarmapSystemFieldDto;
+  field?: ColonyEnvironmentScanDto['fields'][number];
+  signatureCount: number;
+  shielded: boolean;
 }) {
   const object = field?.celestialObject;
   const image = object?.classId
     ? planetThumbnail(object.classId)
     : field
-      ? starTileImage(field.fieldType.id)
+      ? starTileImage(field.fieldTypeId)
       : null;
-  const label = field
-    ? `${x}|${y}: ${object?.name ?? field.fieldType.name}`
-    : `${x}|${y}: Nicht verfügbar`;
+  const details = [
+    field ? (object?.name ?? field.fieldTypeName) : 'Nicht verfügbar',
+    signatureCount > 0
+      ? `${signatureCount} ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
+      : null,
+    shielded ? 'Kolonieschild' : null,
+  ].filter(Boolean);
+  const label = `${x}|${y}: ${details.join(', ')}`;
 
   return (
     <div
       aria-label={label}
       title={label}
-      className="flex h-10 w-10 items-center justify-center bg-swu-bg text-[9px] text-swu-muted"
+      className="relative flex h-10 w-10 items-center justify-center bg-swu-bg text-[9px] text-swu-muted"
     >
       {image ? (
         <img src={image} alt="" className="h-full w-full object-contain" />
       ) : (
         '–'
       )}
+      {shielded && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 border border-swu-accent/80"
+        />
+      )}
+      {signatureCount > 0 && (
+        <span className="absolute right-0 top-0 min-w-3 border border-swu-accent bg-swu-bg px-0.5 text-center font-mono text-[8px] leading-3 text-swu-accent">
+          {signatureCount}
+        </span>
+      )}
     </div>
+  );
+}
+
+function OrbitShipRow({
+  ship,
+}: {
+  ship: ColonyDetailV2['orbitShips'][number];
+}) {
+  const content = (
+    <div className="flex flex-wrap items-center gap-2 py-1.5 text-xs">
+      <img
+        src={shipImage(ship.shipClassId, ship.shipClassKey)}
+        alt=""
+        className="h-8 w-14 object-contain"
+      />
+      <div className="min-w-28 flex-1">
+        <div className="font-bold text-swu-primary">{ship.name}</div>
+        <div className="text-[10px] text-swu-muted">
+          {ship.canManage ? 'Eigene Flotte' : 'Fremdes Schiff'} · {ship.status}
+        </div>
+      </div>
+      <ShipStatus label="Hülle" value={`${ship.hull}/${ship.hullMax}`} />
+      <ShipStatus
+        label="Schilde"
+        value={`${ship.shields}/${ship.shieldsMax}`}
+      />
+      <ShipStatus label="EPS" value={`${ship.energy}/${ship.energyMax}`} />
+      <ShipStatus label="Crew" value={`${ship.crew}/${ship.crewMax}`} />
+    </div>
+  );
+
+  return ship.canManage === true ? (
+    <Link
+      to={`/spacecraft/${ship.id}`}
+      className="block hover:bg-swu-accent/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent"
+    >
+      {content}
+    </Link>
+  ) : (
+    <div>{content}</div>
   );
 }
 

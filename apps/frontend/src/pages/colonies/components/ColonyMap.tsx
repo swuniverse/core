@@ -16,6 +16,7 @@ type ColonyMapProps = {
   onFieldMouseEnter: (field: ColonyField) => void;
   onFieldMouseLeave: () => void;
   energy: { current: number; max: number; delta?: number };
+  shield?: { current: number; max: number };
 };
 
 function ColonyMapSection({
@@ -53,6 +54,7 @@ export function ColonyMap({
   surfaceFields,
   undergroundFields,
   energy,
+  shield,
   selectedField,
   highlightedFields,
   replacementFields,
@@ -116,6 +118,36 @@ export function ColonyMap({
             }}
           />
         </div>
+        {shield && (
+          <div className="mt-2 border-t border-swu-border/40 pt-2">
+            <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
+              <span className="font-bold uppercase tracking-wide text-swu-muted">
+                <span aria-hidden="true" className="mr-1 text-swu-accent">
+                  ◇
+                </span>
+                Schildstärke
+              </span>
+              <span className="font-mono text-swu-accent">
+                {shield.current}/{shield.max}
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Schildstärke"
+              aria-valuemin={0}
+              aria-valuenow={shield.current}
+              aria-valuemax={shield.max}
+              className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg"
+            >
+              <div
+                className="h-full bg-swu-accent transition-[width]"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (shield.current / shield.max) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       {isBuildMode && (
         <div className="mb-2 flex justify-end border-b border-swu-border/40 pb-2">

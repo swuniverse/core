@@ -19,7 +19,7 @@ const colonyApiMocks = vi.hoisted(() => ({
   fetchShipClasses: vi.fn(),
   fetchColonies: vi.fn(),
   fetchColonyDetail: vi.fn(),
-  fetchSystemGrid: vi.fn(),
+  fetchEnvironmentScan: vi.fn(),
 }));
 
 const socketHandlers = vi.hoisted(
@@ -260,7 +260,7 @@ describe('ColoniesPage socket refresh', () => {
     colonyApiMocks.fetchAllBuildings.mockResolvedValue(allBuildings);
     colonyApiMocks.fetchTerraforming.mockResolvedValue(terraformingDefs);
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
-    colonyApiMocks.fetchSystemGrid.mockResolvedValue(null);
+    colonyApiMocks.fetchEnvironmentScan.mockResolvedValue(null);
   });
 
   it('refreshes overview and selected detail for matching COLONY_UPDATED', async () => {
@@ -394,7 +394,7 @@ describe('ColoniesPage socket refresh', () => {
     };
     colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
     colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
-    colonyApiMocks.fetchSystemGrid.mockRejectedValue(
+    colonyApiMocks.fetchEnvironmentScan.mockRejectedValue(
       new Error('Umgebungsscan nicht verfügbar'),
     );
 
@@ -423,7 +423,7 @@ describe('ColoniesPage socket refresh', () => {
     };
     colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
     colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
-    colonyApiMocks.fetchSystemGrid.mockReturnValue(
+    colonyApiMocks.fetchEnvironmentScan.mockReturnValue(
       new Promise(() => undefined),
     );
 
@@ -437,6 +437,53 @@ describe('ColoniesPage socket refresh', () => {
 
     expect(await screen.findByText('Lagerraum')).toBeTruthy();
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
+  });
+
+  it('removes shield strength after a socket refresh removes shield functions', async () => {
+    const shielded = createColony(1, 'Alpha', 5, 10);
+    shielded.detailV2!.defense = {
+      shields: { current: 25, max: 100, frequency: null },
+      activeFunctionIds: [],
+      energyPhalanx: false,
+      particlePhalanx: false,
+      antiParticle: false,
+      torpedoTypeId: null,
+    };
+    shielded.detailV2!.featureAccess!.functions.present = [
+      {
+        id: 24,
+        key: 'SHIELD_GENERATOR',
+        name: 'Schildgenerator',
+        buildingIds: [1],
+      },
+    ];
+    const unshielded = createColony(1, 'Alpha', 5, 10);
+    unshielded.detailV2!.defense = shielded.detailV2!.defense;
+    colonyApiMocks.fetchColonies.mockResolvedValue([shielded]);
+    colonyApiMocks.fetchColonyDetail
+      .mockResolvedValueOnce(shielded)
+      .mockResolvedValueOnce(unshielded);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('progressbar', { name: 'Schildstärke' }),
+    ).toBeTruthy();
+    emitSocket('COLONY_UPDATED', { colonyId: 1 });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('progressbar', { name: 'Schildstärke' }),
+      ).toBeNull(),
+    );
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Informationen' })).toBeTruthy();
   });
 
   it('reloads available buildings on TICK only', async () => {
