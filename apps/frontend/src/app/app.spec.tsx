@@ -292,6 +292,71 @@ const fz2Building: BuildingDef = {
   bevPro: 0,
 };
 
+const contextPanelFixtures = [
+  {
+    functionId: 4,
+    action: 'Hangar öffnen',
+    content: 'Hangarbestand',
+    view: 'hangar',
+  },
+  {
+    functionId: 6,
+    action: 'Werft öffnen',
+    content: 'Werften',
+    view: 'shipyards',
+  },
+  {
+    functionId: 5,
+    action: 'Werft öffnen',
+    content: 'Werften',
+    view: 'fighterShipyards',
+  },
+  {
+    functionId: 10,
+    action: 'Fabrikation öffnen',
+    content: 'Aktive Fertigung',
+    view: 'fabrication',
+  },
+  {
+    functionId: 24,
+    action: 'Verteidigung öffnen',
+    content: 'Kolonieschilde',
+    view: 'defense',
+  },
+] as const;
+
+function addContextPanelData(
+  detail: ColonyDetailV2,
+  view: (typeof contextPanelFixtures)[number]['view'],
+  functionId: number,
+) {
+  const group = view === 'hangar' ? 'airfield' : view;
+  if (!detail.featureAccess) throw new Error('feature access fixture missing');
+  detail.featureAccess.functions.groups[group] = {
+    presentFunctionIds: [functionId],
+    activeFunctionIds: [functionId],
+  };
+  if (view === 'hangar') {
+    detail.hangar = {
+      hasAirfield: true,
+      inventory: [],
+      buildable: [],
+      startable: [],
+      landableOrbitShips: [],
+    };
+  }
+  if (view === 'defense') {
+    detail.defense = {
+      shields: { current: 0, max: 100, frequency: null },
+      activeFunctionIds: [functionId],
+      energyPhalanx: false,
+      particlePhalanx: false,
+      antiParticle: false,
+      torpedoTypeId: null,
+    };
+  }
+}
+
 const noop = vi.fn();
 const noopPromise = vi.fn().mockResolvedValue(undefined);
 const noopEvents = vi.fn().mockResolvedValue([]);
@@ -374,11 +439,7 @@ function renderColonyDetail(
     onDeactivateBuildings: noopPromise,
     ...overrides,
   };
-  const result = render(
-    <ColonyDetail
-      {...props}
-    />,
-  );
+  const result = render(<ColonyDetail {...props} />);
   return {
     ...result,
     rerenderColonyDetail: (
@@ -411,6 +472,18 @@ describe('ColonyDetail', () => {
     ]);
     expect(screen.queryByRole('button', { name: 'Übersicht' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Flotte' })).toBeNull();
+    for (const specialty of [
+      'Hangar',
+      'Werft',
+      'Fabrikation',
+      'Verteidigung',
+      'Entsorgung',
+      'Orbitalmanagement',
+    ]) {
+      expect(
+        within(primaryNav).queryByRole('button', { name: specialty }),
+      ).toBeNull();
+    }
 
     for (const tab of [
       'Baumenü',
@@ -454,14 +527,18 @@ describe('ColonyDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
     expect(screen.getByText('Baumodus')).toBeTruthy();
     expect(
-      screen.getByText('← Markiertes Feld auf der Karte klicken zum Platzieren'),
+      screen.getByText(
+        '← Markiertes Feld auf der Karte klicken zum Platzieren',
+      ),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Soziales' }));
 
     expect(screen.queryByText('Baumodus')).toBeNull();
     expect(
-      screen.queryByText('← Markiertes Feld auf der Karte klicken zum Platzieren'),
+      screen.queryByText(
+        '← Markiertes Feld auf der Karte klicken zum Platzieren',
+      ),
     ).toBeNull();
     expect(fieldButton.className).not.toContain('ring-swu-accent');
     expect(
@@ -874,40 +951,52 @@ describe('ColonyDetail', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(
-      screen.getByRole('button', { name: 'Baumenü' }).getAttribute('aria-current'),
+      screen
+        .getByRole('button', { name: 'Baumenü' })
+        .getAttribute('aria-current'),
     ).toBe('page');
-    expect(screen.getByRole('button', { name: mineBuilding.name })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: mineBuilding.name }),
+    ).toBeTruthy();
   });
 
-  it('closes the dialog and opens the requested context view', () => {
-    const detail = createDetail();
-    const shipyardBuilding = { ...fz1Building, functions: [5] };
-    const field = {
-      id: 10,
-      fieldIndex: 5,
-      fieldType: 101,
-      terrainTileId: null,
-      layer: 'SURFACE' as const,
-      buildingId: shipyardBuilding.id,
-      isBuilding: false,
-      isActive: true,
-      buildProgress: 100,
-      buildFinishesAt: null,
-      availableUpgrades: [],
-    };
-    renderColonyDetail(detail, {
-      colony: { ...createColony(detail), fields: [field] },
-      allBuildingDefs: [shipyardBuilding],
-    });
+  it.each(contextPanelFixtures)(
+    'opens $content only from the enabled function $functionId field action',
+    ({ functionId, action, content, view }) => {
+      const detail = createDetail();
+      addContextPanelData(detail, view, functionId);
+      const building = { ...fz1Building, functions: [functionId] };
+      const field = {
+        id: 10,
+        fieldIndex: 5,
+        fieldType: 101,
+        terrainTileId: null,
+        layer: 'SURFACE' as const,
+        buildingId: building.id,
+        isBuilding: false,
+        isActive: true,
+        buildProgress: 100,
+        buildFinishesAt: null,
+        availableUpgrades: [],
+      };
+      renderColonyDetail(detail, {
+        colony: { ...createColony(detail), fields: [field] },
+        allBuildingDefs: [building],
+      });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: `Feld 5: ${shipyardBuilding.name}` }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: `Feld 5: ${building.name}` }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: action }));
 
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByText('Werften')).toBeTruthy();
-  });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.getByText(content)).toBeTruthy();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Zurück zu Informationen' }),
+      );
+      expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
+    },
+  );
 
   it('restores focus to the triggering field after closing the dialog', () => {
     const detail = createDetail();
@@ -1014,13 +1103,13 @@ describe('ColonyDetail', () => {
     expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
     expect(screen.getByText('Lagerraum')).toBeTruthy();
     fireEvent.click(
-      screen.getByRole('button', { name: '← Zurück zu Informationen' }),
+      screen.getByRole('button', { name: 'Zurück zu Informationen' }),
     );
     expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Informationen' }).getAttribute(
-        'aria-current',
-      ),
+      screen
+        .getByRole('button', { name: 'Informationen' })
+        .getAttribute('aria-current'),
     ).toBe('page');
   });
 
@@ -1068,7 +1157,7 @@ describe('ColonyDetail', () => {
     expect(onBuild).not.toHaveBeenCalled();
 
     fireEvent.click(
-      screen.getByRole('button', { name: '← Zurück zu Informationen' }),
+      screen.getByRole('button', { name: 'Zurück zu Informationen' }),
     );
 
     expect(fieldButton.className).not.toContain('ring-swu-accent');
@@ -1101,18 +1190,16 @@ describe('ColonyDetail', () => {
     },
   );
 
-  it('keeps map and storage visible in the interim orbit context', () => {
+  it('opens the full orbital management panel from information', () => {
     renderColonyDetail(createDetail());
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Orbitalmanagement' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Orbitalmanagement' }));
 
-    expect(screen.getByText('Orbitalmanagement wird vorbereitet.')).toBeTruthy();
+    expect(screen.getByText('Orbitalmanagement wird geladen…')).toBeTruthy();
     expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
     expect(screen.getByText('Lagerraum')).toBeTruthy();
     fireEvent.click(
-      screen.getByRole('button', { name: '← Zurück zu Informationen' }),
+      screen.getByRole('button', { name: 'Zurück zu Informationen' }),
     );
     expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
   });

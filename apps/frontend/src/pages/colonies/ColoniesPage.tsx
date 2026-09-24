@@ -28,16 +28,15 @@ import { PanelBuildingManagement } from './components/PanelBuildingManagement';
 import { PanelFabrication } from './components/PanelFabrication';
 import { PanelCrew } from './components/PanelCrew';
 import { PanelHangar } from './components/PanelHangar';
+import { PanelOrbit } from './components/PanelOrbit';
 import { PanelWaste } from './components/PanelWaste';
+import { ColonyContextPanel } from './components/ColonyContextPanel';
 import { ColonyCommandBar } from './components/ColonyCommandBar';
 import { ColonyMap } from './components/ColonyMap';
 import { SupplyDock } from './components/SupplyDock';
 import { ColonyPrimaryNav } from './components/ColonyPrimaryNav';
 import { BuildInspector } from './components/BuildInspector';
-import type {
-  ColonyContextView,
-  ColonyMainView,
-} from './colony-navigation';
+import type { ColonyContextView, ColonyMainView } from './colony-navigation';
 import {
   formatSignedAmount,
   getEffectiveBuildingForField,
@@ -110,6 +109,31 @@ const buildingMatchesField = (building: BuildingDef, field: ColonyField) =>
 const isHeadquartersField = (field: ColonyField) =>
   field.buildingId != null &&
   [1, 82010100, 82010300].includes(field.buildingId);
+
+const isContextViewAvailable = (
+  view: ColonyContextView,
+  detail: Colony['detailV2'],
+) => {
+  if (!view || !detail) return false;
+  if (view === 'orbit-management') return true;
+  if (view === 'waste') return detail.waste?.canDiscard === true;
+
+  const groups = detail.featureAccess?.functions.groups;
+  if (!groups) return false;
+  const active = (group: string) =>
+    (groups[group]?.activeFunctionIds.length ?? 0) > 0;
+
+  switch (view) {
+    case 'hangar':
+      return active('airfield');
+    case 'shipyard':
+      return active('fighterShipyards') || active('shipyards');
+    case 'fabrication':
+      return active('fabrication') || active('fabricationSupport');
+    case 'defense':
+      return active('defense');
+  }
+};
 
 // ─── Page ────────────────────────────────────────────────────
 
@@ -808,6 +832,13 @@ export function ColonyDetail({
     });
   }, [fields]);
 
+  useEffect(() => {
+    if (contextView && !isContextViewAvailable(contextView, detail)) {
+      setContextView(null);
+      setMainView('information');
+    }
+  }, [contextView, detail]);
+
   const highlightedFields = useMemo(() => {
     if (!selectedBuilding) return new Set<number>();
     return new Set(
@@ -926,6 +957,113 @@ export function ColonyDetail({
     .filter((f) => f.layer === 'SURFACE' || (!f.layer && f.fieldType < 800))
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
 
+  const renderContextView = () => {
+    if (!contextView || !detail) return null;
+
+    let title: string;
+    let content: React.ReactNode;
+    switch (contextView) {
+      case 'orbit-management':
+        title = 'Orbitalmanagement';
+        content = (
+          <PanelOrbit
+            colonyId={colony.id}
+            orbitShips={detail.orbitShips}
+            orbitBlockers={detail.orbitBlockers}
+            inventory={detail.inventory}
+            commodityMap={commodityMap}
+            onDisassembleShip={onDisassembleShip}
+            onDefendShip={onDefendOrbitShip}
+            onBlockadeShip={onBlockadeOrbitShip}
+            onClearOrbitOrder={onClearOrbitOrder}
+            onTransferShuttles={onTransferOrbitShipShuttles}
+          />
+        );
+        break;
+      case 'hangar':
+        if (!detail.hangar) return null;
+        title = 'Hangar';
+        content = (
+          <PanelHangar
+            hangar={detail.hangar}
+            commodityMap={commodityMap}
+            onBuildAirfieldRump={onBuildAirfieldRump}
+            onStartHangarShip={onStartHangarShip}
+          />
+        );
+        break;
+      case 'shipyard':
+        title = 'Werft';
+        content = (
+          <PanelShipyard
+            shipyard={detail.shipyard}
+            shipClasses={shipClasses}
+            queue={detail.shipBuildQueue ?? []}
+            availableModules={detail.availableShipModules ?? []}
+            slotRules={detail.shipyard.slotRules ?? []}
+            availableCrew={detail.crew?.available ?? 0}
+            commodityMap={commodityMap}
+            orbitShips={detail.orbitShips}
+            buildplans={detail.buildplans ?? []}
+            onBuildShip={onBuildShip}
+            onDisassembleShip={onDisassembleShip}
+            onQueueShipRepair={onQueueShipRepair}
+            onQueueShipRetrofit={onQueueShipRetrofit}
+            onCancelShipyardQueue={onCancelShipyardQueue}
+            onReactivateShipyardQueue={onReactivateShipyardQueue}
+            onCreateBuildplan={onCreateBuildplan}
+            onRenameBuildplan={onRenameBuildplan}
+            onDeleteBuildplan={onDeleteBuildplan}
+            onBuildFromBuildplan={onBuildFromBuildplan}
+          />
+        );
+        break;
+      case 'fabrication':
+        title = 'Fabrikation';
+        content = (
+          <PanelFabrication
+            catalog={detail.fabricationCatalog ?? []}
+            queue={detail.fabricationQueue ?? []}
+            activeFunctionIds={detail.activeFabricationFunctionIds ?? []}
+            presentFunctions={
+              detail.featureAccess?.functions.present.filter((fn) =>
+                [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 29, 30].includes(fn.id),
+              ) ?? []
+            }
+            commodityMap={commodityMap}
+            onStartFabrication={onStartFabrication}
+            onCancelFabrication={onCancelFabrication}
+          />
+        );
+        break;
+      case 'defense':
+        if (!detail.defense) return null;
+        title = 'Verteidigung';
+        content = (
+          <PanelDefense
+            defense={detail.defense}
+            inventory={detail.inventory}
+            onLoadColonyShields={onLoadColonyShields}
+            onSetShieldFrequency={onSetShieldFrequency}
+            onSetDefenseTorpedoType={onSetDefenseTorpedoType}
+          />
+        );
+        break;
+      case 'waste':
+        title = 'Entsorgung';
+        content = (
+          <PanelWaste detail={detail} onDiscardStorage={onDiscardStorage} />
+        );
+        break;
+    }
+
+    return (
+      <ColonyContextPanel title={title} onBack={handleCloseContext}>
+        {content}
+      </ColonyContextPanel>
+    );
+  };
+
   return (
     <div className="space-y-2">
       <ColonyCommandBar colony={colony} onBack={onBack} />
@@ -1009,18 +1147,7 @@ export function ColonyDetail({
               }}
             />
           )}
-          {contextView === 'orbit-management' && (
-            <div className="rounded border border-swu-border bg-swu-surface p-3 text-xs text-swu-muted">
-              <button
-                type="button"
-                className="mb-2 text-swu-accent hover:text-swu-primary"
-                onClick={handleCloseContext}
-              >
-                ← Zurück zu Informationen
-              </button>
-              <div>Orbitalmanagement wird vorbereitet.</div>
-            </div>
-          )}
+          {renderContextView()}
           {!contextView && mainView === 'build' && (
             <PanelBuild
               buildingDefs={buildingDefs}
@@ -1040,82 +1167,15 @@ export function ColonyDetail({
               }}
             />
           )}
-          {!contextView && mainView === 'building-control' && detail?.buildingManagement && (
-            <PanelBuildingManagement
-              management={detail.buildingManagement}
-              onActivate={onActivateBuildings}
-              onDeactivate={onDeactivateBuildings}
-            />
-          )}
-          {contextView === 'shipyard' && (
-            <PanelShipyard
-              shipyard={detail?.shipyard}
-              shipClasses={shipClasses}
-              queue={detail?.shipBuildQueue ?? []}
-              availableModules={detail?.availableShipModules ?? []}
-              slotRules={detail?.shipyard.slotRules ?? []}
-              availableCrew={detail?.crew?.available ?? 0}
-              commodityMap={commodityMap}
-              orbitShips={detail?.orbitShips ?? []}
-              buildplans={detail?.buildplans ?? []}
-              onBuildShip={onBuildShip}
-              onDisassembleShip={onDisassembleShip}
-              onQueueShipRepair={onQueueShipRepair}
-              onQueueShipRetrofit={onQueueShipRetrofit}
-              onCancelShipyardQueue={onCancelShipyardQueue}
-              onReactivateShipyardQueue={onReactivateShipyardQueue}
-              onCreateBuildplan={onCreateBuildplan}
-              onRenameBuildplan={onRenameBuildplan}
-              onDeleteBuildplan={onDeleteBuildplan}
-              onBuildFromBuildplan={onBuildFromBuildplan}
-            />
-          )}
-          {contextView === 'waste' && detail?.waste?.canDiscard && (
-            <div className="space-y-3">
-              <button
-                type="button"
-                className="text-xs text-swu-accent hover:text-swu-primary"
-                onClick={handleCloseContext}
-              >
-                ← Zurück zu Informationen
-              </button>
-              <PanelWaste detail={detail} onDiscardStorage={onDiscardStorage} />
-            </div>
-          )}
-          {contextView === 'defense' && detail?.defense && (
-            <PanelDefense
-              defense={detail.defense}
-              inventory={detail.inventory}
-              onLoadColonyShields={onLoadColonyShields}
-              onSetShieldFrequency={onSetShieldFrequency}
-              onSetDefenseTorpedoType={onSetDefenseTorpedoType}
-            />
-          )}
-          {contextView === 'hangar' && detail?.hangar && (
-            <PanelHangar
-              hangar={detail.hangar}
-              commodityMap={commodityMap}
-              onBuildAirfieldRump={onBuildAirfieldRump}
-              onStartHangarShip={onStartHangarShip}
-            />
-          )}
-          {contextView === 'fabrication' && (
-            <PanelFabrication
-              catalog={detail?.fabricationCatalog ?? []}
-              queue={detail?.fabricationQueue ?? []}
-              activeFunctionIds={detail?.activeFabricationFunctionIds ?? []}
-              presentFunctions={
-                detail?.featureAccess?.functions.present.filter((fn) =>
-                  [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 29, 30].includes(
-                    fn.id,
-                  ),
-                ) ?? []
-              }
-              commodityMap={commodityMap}
-              onStartFabrication={onStartFabrication}
-              onCancelFabrication={onCancelFabrication}
-            />
-          )}
+          {!contextView &&
+            mainView === 'building-control' &&
+            detail?.buildingManagement && (
+              <PanelBuildingManagement
+                management={detail.buildingManagement}
+                onActivate={onActivateBuildings}
+                onDeactivate={onDeactivateBuildings}
+              />
+            )}
           {!contextView && mainView === 'settings' && detail && (
             <PanelSettings
               colonyName={colony.name}
@@ -1128,7 +1188,8 @@ export function ColonyDetail({
               onGiveUpColony={onGiveUpColony}
             />
           )}
-          {!contextView && mainView === 'social' &&
+          {!contextView &&
+            mainView === 'social' &&
             (detail?.crew ? (
               <PanelCrew
                 crew={detail.crew}

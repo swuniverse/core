@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { ColoniesPage } from './colonies/ColoniesPage';
@@ -63,7 +63,13 @@ const availableBuildings = [
     bonuses: { energy: 0, population: 0, storage: 0 },
   },
 ] as BuildingDef[];
-const allBuildings: BuildingDef[] = availableBuildings;
+const airfieldBuilding = {
+  ...availableBuildings[0],
+  id: 102,
+  name: 'Raumhafen',
+  functions: [4],
+} as BuildingDef;
+const allBuildings: BuildingDef[] = [...availableBuildings, airfieldBuilding];
 const terraformingDefs: TerraformingDef[] = [];
 const shipClasses: ShipClassDef[] = [];
 
@@ -207,6 +213,39 @@ function emitSocket(event: string, payload: unknown) {
   socketHandlers.get(event)?.(payload);
 }
 
+function createAirfieldColony(active: boolean): Colony {
+  const colony = createColony(1, 'Alpha', 5, 10);
+  colony.fields = [
+    {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 1,
+      terrainTileId: null,
+      layer: 'SURFACE',
+      buildingId: airfieldBuilding.id,
+      isBuilding: false,
+      isActive: active,
+      buildProgress: 100,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    },
+  ];
+  const detail = colony.detailV2;
+  if (!detail?.featureAccess) throw new Error('feature access fixture missing');
+  detail.featureAccess.functions.groups.airfield = {
+    presentFunctionIds: [4],
+    activeFunctionIds: active ? [4] : [],
+  };
+  detail.hangar = {
+    hasAirfield: active,
+    inventory: [],
+    buildable: [],
+    startable: [],
+    landableOrbitShips: [],
+  };
+  return colony;
+}
+
 describe('ColoniesPage socket refresh', () => {
   beforeEach(() => {
     socketHandlers.clear();
@@ -282,6 +321,34 @@ describe('ColoniesPage socket refresh', () => {
       expect(colonyApiMocks.fetchColonies).toHaveBeenCalledTimes(2);
     });
     expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes hangar context when a socket refresh removes active access', async () => {
+    const activeColony = createAirfieldColony(true);
+    const inactiveColony = createAirfieldColony(false);
+    colonyApiMocks.fetchColonies.mockResolvedValue([activeColony]);
+    colonyApiMocks.fetchColonyDetail
+      .mockResolvedValueOnce(activeColony)
+      .mockResolvedValueOnce(inactiveColony);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Feld 1: Raumhafen' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Hangar öffnen' }));
+    expect(screen.getByText('Hangarbestand')).toBeTruthy();
+
+    emitSocket('COLONY_UPDATED', { colonyId: 1 });
+
+    await waitFor(() => expect(screen.queryByText('Hangarbestand')).toBeNull());
+    expect(screen.getByText('Informationen')).toBeTruthy();
   });
 
   it('shows zero-stock production resources but not effects', async () => {
