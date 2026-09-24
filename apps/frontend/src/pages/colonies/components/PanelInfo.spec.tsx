@@ -176,6 +176,12 @@ describe('PanelInfo', () => {
       }),
     ).toBeTruthy();
     expect(
+      screen.getAllByRole('button', { name: 'Orbitalmanagement' }),
+    ).toHaveLength(1);
+    expect(
+      screen.queryByRole('heading', { name: 'Orbitalmanagement' }),
+    ).toBeNull();
+    expect(
       screen.getByText('Eigenes Schiff').closest('a')?.getAttribute('href'),
     ).toBe('/spacecraft/7');
     expect(screen.queryByText('Zweites Schiff')).toBeNull();
@@ -211,8 +217,24 @@ describe('PanelInfo', () => {
       name: 'Umgebungsscan',
     }).parentElement;
     expect(scan).toBeTruthy();
+    const informationRow = (planetSection as HTMLElement).parentElement;
+    expect(
+      informationRow?.classList.contains(
+        'lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]',
+      ),
+    ).toBe(true);
+    expect(informationRow?.children).toHaveLength(3);
+    expect(informationRow?.children[0]).toBe(planetSection);
+    expect(informationRow?.children[1]).toBe(scan);
+    expect(informationRow?.children[2]).toBe(
+      screen.getByRole('heading', { name: 'Sternensystem' }).closest('section'),
+    );
     expect(within(scan as HTMLElement).getAllByText('1')).toHaveLength(2);
     expect(within(scan as HTMLElement).getAllByText('3')).toHaveLength(2);
+    expect(within(scan as HTMLElement).queryByText('X 1')).toBeNull();
+    expect(within(scan as HTMLElement).queryByText('X 3')).toBeNull();
+    expect(within(scan as HTMLElement).queryByText('Y 1')).toBeNull();
+    expect(within(scan as HTMLElement).queryByText('Y 3')).toBeNull();
     expect(scan?.textContent).not.toContain('Geheime Korvette');
     expect(scan?.textContent).not.toContain('4711');
     const scanCellNames = within(scan as HTMLElement)
@@ -227,7 +249,11 @@ describe('PanelInfo', () => {
       .getAllByText('2')
       .find((node) => node.classList.contains('text-white'));
     expect(signature).toBeTruthy();
+    expect(signature?.classList.contains('grid')).toBe(true);
     expect(signature?.classList.contains('place-items-center')).toBe(true);
+    expect(signature?.classList.contains('drop-shadow-[0_1px_1px_black]')).toBe(
+      true,
+    );
     fireEvent.click(
       within(planetSection as HTMLElement).getByRole('button', {
         name: 'Orbitalmanagement',
