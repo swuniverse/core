@@ -78,6 +78,65 @@ describe('SpacecraftResourceFlowService', () => {
     expect(ship.battery).toBe(0);
   });
 
+  it('carries unused EPS allocation into hyperdrive when enabled', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorWarpSplit: 100,
+      reactorAutoCarryOver: true,
+      reactorOutput: 20,
+      energy: 100,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 0,
+      warpdriveMax: 50,
+    });
+
+    service.recharge(ship as never, 1);
+
+    expect(ship.energy).toBe(100);
+    expect(ship.warpdrive).toBe(14);
+    expect(ship.reactorFuel).toBe(80);
+  });
+
+  it('carries unused hyperdrive allocation into EPS when enabled', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorWarpSplit: 0,
+      reactorAutoCarryOver: true,
+      reactorOutput: 20,
+      energy: 0,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 50,
+      warpdriveMax: 50,
+    });
+
+    service.recharge(ship as never, 1);
+
+    expect(ship.energy).toBe(14);
+    expect(ship.warpdrive).toBe(50);
+    expect(ship.reactorFuel).toBe(80);
+  });
+
+  it('does not carry unused reactor output when automatic transfer is disabled', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorWarpSplit: 100,
+      reactorAutoCarryOver: false,
+      reactorOutput: 20,
+      energy: 100,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 0,
+      warpdriveMax: 50,
+    });
+
+    service.recharge(ship as never, 1);
+
+    expect(ship.warpdrive).toBe(0);
+    expect(ship.reactorFuel).toBe(94);
+  });
+
   it('caps output by reactor load and consumes actual energy use', () => {
     const service = createService();
     const ship = makeShip({

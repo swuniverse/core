@@ -51,6 +51,7 @@ const ship = {
   cargoUsed: 0,
   cargoMax: 20,
   reactorWarpSplit: 30,
+  reactorAutoCarryOver: false,
   runtimeSystems: {
     SHIELDS: {
       active: true,
@@ -105,7 +106,7 @@ describe('SpacecraftDetailPage', () => {
     expect(await screen.findByText('Korvette')).toBeTruthy();
     expect(screen.getByLabelText('Systemstatus')).toBeTruthy();
     expect(
-      screen.getByRole('heading', { name: 'Reaktor + Hyperantrieb' }),
+      screen.getByRole('heading', { name: /Reaktor \+ Antrieb/ }),
     ).toBeTruthy();
     expect(await screen.findByText(/Lagerraum 0\/20/)).toBeTruthy();
     expect(screen.queryByText('Fracht')).toBeNull();

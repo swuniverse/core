@@ -149,22 +149,17 @@ export function SpacecraftDetailPage() {
             onLanded={(colonyId) => navigate(`/colonies?selected=${colonyId}`)}
           />
         </div>
-        <div className="space-y-2">
-          <div id="ship-operations">
-            <ShipOperationsPanel
-              shipId={ship.id}
-              showDetails={shipInfoOpen}
-              onCloseDetails={() => setShipInfoOpen(false)}
-              showEnergy={energyFlowOpen}
-              onCloseEnergy={() => setEnergyFlowOpen(false)}
-            />
-          </div>
+        <div>
+          <ShipOperationsPanel
+            shipId={ship.id}
+            showDetails={shipInfoOpen}
+            onCloseDetails={() => setShipInfoOpen(false)}
+            showEnergy={energyFlowOpen}
+            onCloseEnergy={() => setEnergyFlowOpen(false)}
+          />
           <div id="ship-reactor">
             <ReactorPanel
               shipId={ship.id}
-              energy={ship.energy}
-              energyMax={ship.energyMax}
-              reactorOutput={ship.reactorOutput}
               warpdrive={ship.warpdrive}
               warpdriveMax={ship.warpdriveMax}
               battery={ship.battery}
@@ -172,6 +167,7 @@ export function SpacecraftDetailPage() {
               reactorFuel={ship.reactorFuel ?? 0}
               reactorFuelMax={ship.reactorFuelMax ?? 0}
               reactorWarpSplit={ship.reactorWarpSplit}
+              reactorAutoCarryOver={ship.reactorAutoCarryOver ?? false}
               hyperdriveActive={ship.runtimeSystems?.WARPDRIVE?.active === true}
               inSystem={ship.location.scope === 'SYSTEM'}
               onUpdate={refreshShipAndStorage}

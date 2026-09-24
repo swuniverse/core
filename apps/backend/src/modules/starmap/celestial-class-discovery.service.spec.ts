@@ -16,13 +16,41 @@ import { CelestialClassDiscoveryService } from './celestial-class-discovery.serv
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 
 describe('CelestialClassDiscoveryService', () => {
+  it('does not award prestige when the unique class discovery already exists', async () => {
+    const query = {
+      insert: jest.fn().mockReturnThis(),
+      into: jest.fn().mockReturnThis(),
+      values: jest.fn().mockReturnThis(),
+      orIgnore: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ raw: [] }),
+    };
+    const manager = { createQueryBuilder: jest.fn().mockReturnValue(query) };
+    const prestigeService = { change: jest.fn().mockResolvedValue(undefined) };
+    const service = new CelestialClassDiscoveryService(
+      { transaction: (work: (entityManager: unknown) => unknown) => work(manager) } as never,
+      {} as never,
+      prestigeService as never,
+    );
+
+    await expect(
+      service.discover({ userId: 1, classId: 201, celestialObjectId: 3, spacecraftId: 7 }),
+    ).resolves.toEqual({
+      discovered: false,
+      prestigeAwarded: 0,
+      name: 'Klasse M',
+    });
+    expect(prestigeService.change).not.toHaveBeenCalled();
+  });
+
   it('awards logged prestige once for a newly scanned class', async () => {
     const query = {
       insert: jest.fn().mockReturnThis(),
       into: jest.fn().mockReturnThis(),
       values: jest.fn().mockReturnThis(),
       orIgnore: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ identifiers: [{ id: 1 }] }),
+      returning: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ raw: [{ id: 1 }] }),
     };
     const manager: { createQueryBuilder: jest.Mock } = {
       createQueryBuilder: jest.fn().mockReturnValue(query),

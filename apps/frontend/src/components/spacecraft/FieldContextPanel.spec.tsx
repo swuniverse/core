@@ -8,6 +8,91 @@ vi.mock('../../services/api', () => ({
 }));
 
 describe('FieldContextPanel', () => {
+  it('shows a database discovery notification after a sector scan', async () => {
+    apiMocks.post.mockResolvedValue({
+      result: {
+        field: {
+          x: 5,
+          y: 23,
+          fieldType: { id: 1, name: 'Planet' },
+          movementEnergyCost: 0,
+          damage: 0,
+          specialDamage: 0,
+          effects: [],
+          celestialObject: { name: 'Tatooine', classId: 701 },
+        },
+        discovery: {
+          discovered: true,
+          prestigeAwarded: 100,
+          name: 'Klasse M',
+        },
+      },
+      energyCost: 1,
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: true, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+
+    expect(
+      await screen.findByText('Neuer Datenbankeintrag: Klasse M (+100 Prestige)'),
+    ).toBeTruthy();
+  });
+
+  it('does not show a notification for an already known planet class', async () => {
+    apiMocks.post.mockResolvedValue({
+      result: {
+        field: {
+          x: 5,
+          y: 23,
+          fieldType: { id: 1, name: 'Planet' },
+          movementEnergyCost: 0,
+          damage: 0,
+          specialDamage: 0,
+          effects: [],
+          celestialObject: { name: 'Tatooine', classId: 701 },
+        },
+        discovery: {
+          discovered: false,
+          prestigeAwarded: 0,
+          name: 'Klasse M',
+        },
+      },
+      energyCost: 1,
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: true, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+
+    await screen.findByRole('dialog', { name: 'Sektor-Scan' });
+    expect(screen.queryByText(/Neuer Datenbankeintrag/)).toBeNull();
+  });
+
   it('disables system exit when no hyperdrive is available', () => {
     render(
       <MemoryRouter>

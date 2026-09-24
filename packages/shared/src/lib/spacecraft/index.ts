@@ -94,6 +94,7 @@ export interface SpacecraftDetailDto {
   cargoUsed?: number;
   cargoMax?: number;
   reactorWarpSplit: number;
+  reactorAutoCarryOver: boolean;
   runtimeSystems: SpacecraftRuntimeSystemsDto;
   location: SpaceLocationDto;
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
@@ -126,9 +127,13 @@ export interface SpacecraftEnergyFlowDto {
   reactorFuel: { current: number; max: number; commodityId: number };
   reactorOutput: number;
   reactorWarpSplit: number;
+  reactorAutoCarryOver: boolean;
   flightCost: number;
   epsProduction: number;
   warpProduction: number;
+  effectiveEpsProduction: number;
+  effectiveWarpProduction: number;
+  reactorUsage: number;
   totalSystemConsumption: number;
   netEps: number;
   systems: SpacecraftEnergyFlowRowDto[];

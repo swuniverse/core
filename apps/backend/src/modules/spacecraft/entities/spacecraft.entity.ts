@@ -159,6 +159,9 @@ export class Spacecraft {
   @Column({ default: 100 })
   reactorWarpSplit: number;
 
+  @Column({ default: false })
+  reactorAutoCarryOver: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   arrivalAt: Date | null;
 

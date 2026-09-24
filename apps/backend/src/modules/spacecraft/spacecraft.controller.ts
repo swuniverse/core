@@ -14,7 +14,15 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
@@ -89,6 +97,11 @@ class ReactorDistributionDto {
   @Min(0)
   @Max(100)
   warpSplit: number;
+
+  @Type(() => Boolean)
+  @IsBoolean()
+  @IsOptional()
+  autoCarryOver?: boolean;
 }
 
 class TorpedoLoadDto {
@@ -681,6 +694,7 @@ export class SpacecraftController {
       id,
       req.user.sub,
       dto.warpSplit,
+      dto.autoCarryOver,
     );
   }
 

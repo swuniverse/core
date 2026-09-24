@@ -40,8 +40,9 @@ export class SystemTypeDiscoveryService {
           y: input.y ?? null,
         })
         .orIgnore()
+        .returning('id')
         .execute();
-      if (!result.identifiers.length) {
+      if (!result.raw.length) {
         return { discovered: false, prestigeAwarded: 0, name: definition.name };
       }
       await this.prestigeService.change(

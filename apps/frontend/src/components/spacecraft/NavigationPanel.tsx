@@ -193,7 +193,7 @@ export function NavigationPanel({
 
   return (
     <section
-      className="rounded border border-swu-border bg-swu-surface/80 p-2"
+      className="rounded-lg border border-swu-border bg-swu-surface/80 p-2"
       aria-labelledby="navigation-panel-heading"
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-swu-border/60 pb-1">

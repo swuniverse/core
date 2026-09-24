@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SpacecraftEnergyFlowDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
 
 interface ReactorPanelProps {
   shipId: number;
-  energy: number;
-  energyMax: number;
-  reactorOutput: number;
   warpdrive: number;
   warpdriveMax: number;
   battery: number;
@@ -13,6 +11,7 @@ interface ReactorPanelProps {
   reactorFuel: number;
   reactorFuelMax: number;
   reactorWarpSplit: number;
+  reactorAutoCarryOver: boolean;
   hyperdriveActive: boolean;
   inSystem: boolean;
   onUpdate: () => void;
@@ -20,9 +19,6 @@ interface ReactorPanelProps {
 
 export function ReactorPanel({
   shipId,
-  energy,
-  energyMax,
-  reactorOutput,
   warpdrive,
   warpdriveMax,
   battery,
@@ -30,13 +26,19 @@ export function ReactorPanel({
   reactorFuel,
   reactorFuelMax,
   reactorWarpSplit,
+  reactorAutoCarryOver,
   hyperdriveActive,
   inSystem,
   onUpdate,
 }: ReactorPanelProps) {
   const [split, setSplit] = useState(reactorWarpSplit);
-  const [confirmedSplit, setConfirmedSplit] = useState(reactorWarpSplit);
+  const [autoCarryOver, setAutoCarryOver] = useState(reactorAutoCarryOver);
+  const [confirmedDistribution, setConfirmedDistribution] = useState({
+    split: reactorWarpSplit,
+    autoCarryOver: reactorAutoCarryOver,
+  });
   const [savingSplit, setSavingSplit] = useState(false);
+  const [flow, setFlow] = useState<SpacecraftEnergyFlowDto | null>(null);
   const [engineering, setEngineering] = useState<'reactor' | 'battery' | null>(
     null,
   );
@@ -46,8 +48,19 @@ export function ReactorPanel({
 
   useEffect(() => {
     setSplit(reactorWarpSplit);
-    setConfirmedSplit(reactorWarpSplit);
-  }, [reactorWarpSplit]);
+    setAutoCarryOver(reactorAutoCarryOver);
+    setConfirmedDistribution({
+      split: reactorWarpSplit,
+      autoCarryOver: reactorAutoCarryOver,
+    });
+  }, [reactorAutoCarryOver, reactorWarpSplit]);
+
+  useEffect(() => {
+    api
+      .get<SpacecraftEnergyFlowDto>(`/spacecraft/${shipId}/energy-flow`)
+      .then(setFlow)
+      .catch(() => setFlow(null));
+  }, [shipId, reactorAutoCarryOver, reactorWarpSplit, warpdrive]);
 
   useEffect(
     () => () => {
@@ -56,22 +69,31 @@ export function ReactorPanel({
     [],
   );
 
-  const updateSplit = useCallback(
-    (value: number) => {
-      const clamped = Math.max(0, Math.min(100, value));
+  const updateDistribution = useCallback(
+    (nextSplit: number, nextAutoCarryOver: boolean, debounce = true) => {
+      const clamped = Math.max(0, Math.min(100, nextSplit));
       setSplit(clamped);
+      setAutoCarryOver(nextAutoCarryOver);
       setError(null);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(async () => {
+      const save = async () => {
         setSavingSplit(true);
         try {
-          await api.patch(`/spacecraft/${shipId}/reactor-distribution`, {
+          const result = await api.patch<{
+            reactorWarpSplit: number;
+            reactorAutoCarryOver: boolean;
+          }>(`/spacecraft/${shipId}/reactor-distribution`, {
             warpSplit: clamped,
+            autoCarryOver: nextAutoCarryOver,
           });
-          setConfirmedSplit(clamped);
+          setConfirmedDistribution({
+            split: result.reactorWarpSplit,
+            autoCarryOver: result.reactorAutoCarryOver,
+          });
           onUpdate();
         } catch (err: unknown) {
-          setSplit(confirmedSplit);
+          setSplit(confirmedDistribution.split);
+          setAutoCarryOver(confirmedDistribution.autoCarryOver);
           setError(
             err instanceof Error
               ? err.message
@@ -80,9 +102,11 @@ export function ReactorPanel({
         } finally {
           setSavingSplit(false);
         }
-      }, 300);
+      };
+      if (debounce) debounceRef.current = setTimeout(() => void save(), 300);
+      else void save();
     },
-    [confirmedSplit, shipId, onUpdate],
+    [confirmedDistribution, shipId, onUpdate],
   );
 
   async function transferEngineering(
@@ -117,25 +141,29 @@ export function ReactorPanel({
     }
   }
 
+  const warpProduction = flow?.warpProduction ?? 0;
+  const epsProduction = flow?.epsProduction ?? 0;
+
   return (
     <section
-      className="rounded-lg border border-swu-border bg-swu-surface p-3"
       aria-labelledby="reactor-panel-heading"
+      className="rounded-lg border border-swu-border bg-swu-surface p-3 text-xs"
     >
       <h3
         id="reactor-panel-heading"
-        className="mb-2 border-b border-swu-border/60 pb-1 text-center text-xs font-bold text-swu-primary"
+        className="mb-2 border-b border-swu-border/60 pb-1 text-center font-bold text-swu-primary"
       >
-        Reaktor + Hyperantrieb
+        Reaktor + Antrieb
       </h3>
 
-      <div className="divide-y divide-swu-border/60 border border-swu-border/60 text-xs">
-        <div className="flex items-center gap-2 p-2">
+      <div className="overflow-hidden rounded-md border border-swu-border/60 divide-y divide-swu-border/60">
+        <div className="flex flex-wrap items-center gap-2 p-2">
           <span className="flex-1 font-mono text-swu-primary">
             Reaktortreibstoff {reactorFuel}/{reactorFuelMax}
           </span>
           <EngineeringControls
-            label="Reaktor laden"
+            label="aufladen"
+            amountLabel="Reaktor laden Menge"
             pending={engineering === 'reactor'}
             amount={amount}
             onAmount={setAmount}
@@ -143,20 +171,19 @@ export function ReactorPanel({
           />
         </div>
 
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[10px] text-swu-muted">
-            <span>Hyperantriebsaufladung {100 - split}%</span>
-            <span>EPS-Anteil {split}%</span>
-          </div>
+        <div className="space-y-2 p-2">
           <div className="flex items-center gap-1">
+            <span className="w-16 font-mono text-swu-primary">
+              Antrieb +{warpProduction}
+            </span>
             <button
               type="button"
-              onClick={() => updateSplit(split - 5)}
+              onClick={() => updateDistribution(split - 5, autoCarryOver)}
               disabled={savingSplit}
-              aria-label="Reaktorverteilung um 5 Prozent Richtung Hyperantriebsaufladung erhöhen"
-              className="rounded border border-swu-border bg-black/40 px-1.5 py-0.5 text-[10px] text-swu-accent hover:border-swu-accent disabled:opacity-40"
+              aria-label="Hyperantriebsaufladung erhöhen"
+              className="rounded border border-swu-border bg-black/40 px-1 text-[10px] text-swu-primary hover:border-swu-accent disabled:opacity-40"
             >
-              -5
+              −
             </button>
             <input
               aria-label="Reaktorverteilung EPS-Anteil"
@@ -164,52 +191,72 @@ export function ReactorPanel({
               min={0}
               max={100}
               value={split}
-              onChange={(e) => updateSplit(Number(e.target.value))}
-              className="h-2 flex-1 cursor-pointer appearance-none rounded bg-swu-border [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-swu-accent"
+              onChange={(event) =>
+                updateDistribution(Number(event.target.value), autoCarryOver)
+              }
+              className="h-2 min-w-20 flex-1 cursor-pointer appearance-none rounded bg-swu-border accent-swu-accent"
             />
             <button
               type="button"
-              onClick={() => updateSplit(split + 5)}
+              onClick={() => updateDistribution(split + 5, autoCarryOver)}
               disabled={savingSplit}
-              aria-label="Reaktorverteilung um 5 Prozent Richtung EPS erhöhen"
-              className="rounded border border-swu-border bg-black/40 px-1.5 py-0.5 text-[10px] text-swu-accent hover:border-swu-accent disabled:opacity-40"
+              aria-label="EPS-Anteil erhöhen"
+              className="rounded border border-swu-border bg-black/40 px-1 text-[10px] text-swu-primary hover:border-swu-accent disabled:opacity-40"
             >
-              +5
+              +
             </button>
+            <span className="w-14 font-mono text-swu-primary">EPS +{epsProduction}</span>
           </div>
-          <div className="text-center text-[10px] text-swu-muted">
-            EPS {energy}/{energyMax} · Reaktorleistung: {reactorOutput} · Server
-            bestätigt {confirmedSplit}% EPS
-          </div>
+          <label
+            title="Überschüssige Energie wird in andere Speicher übertragen"
+            className="inline-flex items-center gap-1 text-[10px] text-swu-muted"
+          >
+            <input
+              type="checkbox"
+              checked={autoCarryOver}
+              disabled={savingSplit}
+              onChange={(event) =>
+                updateDistribution(split, event.target.checked, false)
+              }
+              aria-label="Überschüssige Energie übertragen"
+              className="accent-swu-accent"
+            />
+            Überschüssige Energie übertragen
+          </label>
         </div>
 
         {!inSystem && (
           <div className="flex items-center justify-between gap-2 p-2">
             <span className="font-mono text-swu-primary">
-              Hyperantriebsenergie {warpdrive}/{warpdriveMax}
+              Hyperantrieb {warpdrive}/{warpdriveMax}
             </span>
             <button
               type="button"
               onClick={() => void toggleHyperdrive()}
-              className="border border-swu-border px-2 py-1 text-xs text-swu-primary"
+              className="rounded border border-swu-border px-2 py-0.5 text-[10px] text-swu-primary hover:border-swu-accent"
             >
-              Hyperantrieb {hyperdriveActive ? 'deaktivieren' : 'aktivieren'}
+              {hyperdriveActive ? 'deaktivieren' : 'aktivieren'}
             </button>
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 p-2">
-          <span className="font-mono text-swu-primary">
+        <div className="flex flex-wrap items-center gap-2 p-2">
+          <img
+            src="/assets/buttons/batt.png"
+            alt=""
+            aria-hidden="true"
+            className="size-4"
+          />
+          <span className="flex-1 font-mono text-swu-primary">
             Ersatzbatterie {battery}/{batteryMax}
           </span>
           <EngineeringControls
-            label="Batterie entladen"
+            label="entladen"
+            amountLabel="Batterie entladen Menge"
             pending={engineering === 'battery'}
             amount={amount}
             onAmount={setAmount}
-            onSubmit={(value) =>
-              transferEngineering('battery/discharge', value)
-            }
+            onSubmit={(value) => transferEngineering('battery/discharge', value)}
           />
         </div>
       </div>
@@ -224,12 +271,14 @@ export function ReactorPanel({
 
 function EngineeringControls({
   label,
+  amountLabel,
   pending,
   amount,
   onAmount,
   onSubmit,
 }: {
   label: string;
+  amountLabel: string;
   pending: boolean;
   amount: number;
   onAmount: (amount: number) => void;
@@ -237,25 +286,25 @@ function EngineeringControls({
 }) {
   return (
     <div className="flex flex-wrap gap-1">
-      <label className="sr-only" htmlFor={`${label}-amount`}>
+      <label className="sr-only" htmlFor={`${amountLabel}-amount`}>
         Menge
       </label>
       <input
-        id={`${label}-amount`}
-        aria-label={`${label} Menge`}
+        id={`${amountLabel}-amount`}
+        aria-label={amountLabel}
         type="number"
         min={1}
         value={amount}
         onChange={(event) =>
           onAmount(Math.max(1, Number(event.target.value) || 1))
         }
-        className="w-16 rounded border border-swu-border bg-swu-bg px-1 text-xs"
+        className="w-12 border border-swu-border bg-swu-bg px-1 text-xs"
       />
       <button
         type="button"
         disabled={pending}
         onClick={() => void onSubmit(amount)}
-        className="rounded border border-swu-border px-2 py-0.5 text-[10px] disabled:opacity-40"
+        className="border border-swu-border bg-swu-surface px-2 py-0.5 text-[10px] hover:bg-white/5 disabled:opacity-40"
       >
         {pending ? 'läuft…' : label}
       </button>
@@ -263,7 +312,7 @@ function EngineeringControls({
         type="button"
         disabled={pending}
         onClick={() => void onSubmit('MAX')}
-        className="rounded border border-swu-border px-2 py-0.5 text-[10px] disabled:opacity-40"
+        className="border border-swu-border bg-swu-surface px-2 py-0.5 text-[10px] hover:bg-white/5 disabled:opacity-40"
       >
         max
       </button>

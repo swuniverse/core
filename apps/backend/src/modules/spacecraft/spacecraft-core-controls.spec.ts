@@ -79,6 +79,7 @@ function createService() {
     batteryMax: 5,
     reactorOutput: 8,
     reactorWarpSplit: 100,
+    reactorAutoCarryOver: false,
     shields: 10,
     shieldsMax: 20,
     hull: 30,
@@ -212,6 +213,18 @@ describe('spacecraft core detail controls', () => {
     expect(result.systems.SHIELDS?.active).toBe(false);
     expect(ship.alertState).toBe('GREEN');
     expect(shipRepo.save).toHaveBeenCalled();
+  });
+
+  it('persists reactor split and automatic energy transfer together', async () => {
+    const { service, ship, shipRepo } = createService();
+
+    await expect(service.setReactorDistribution(2, 1, 40, true)).resolves.toEqual({
+      reactorWarpSplit: 40,
+      reactorAutoCarryOver: true,
+    });
+    expect(ship.reactorWarpSplit).toBe(40);
+    expect(ship.reactorAutoCarryOver).toBe(true);
+    expect(shipRepo.save).toHaveBeenCalledWith(ship);
   });
 
   it('serves authoritative details and energy flow', async () => {

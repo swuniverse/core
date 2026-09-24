@@ -21,6 +21,11 @@ type SectorScanResult = {
     effects: string[];
     celestialObject: { name: string | null; classId: number | null } | null;
   };
+  discovery?: {
+    discovered: boolean;
+    prestigeAwarded: number;
+    name: string;
+  } | null;
 };
 
 export function FieldContextPanel({
@@ -373,6 +378,12 @@ function SectorScanDialog({
       : starTileImage(field.fieldType.id);
   return (
     <Dialog title="Sektor-Scan" label="Sektor-Scan" onClose={onClose}>
+      {scan.result.discovery?.discovered && (
+        <p className="mb-2 border border-emerald-400/50 bg-emerald-400/10 p-2 text-emerald-200">
+          Neuer Datenbankeintrag: {scan.result.discovery.name} (+
+          {scan.result.discovery.prestigeAwarded} Prestige)
+        </p>
+      )}
       <div className="grid grid-cols-[64px_1fr] gap-3">
         <img src={image} alt="" className="h-14 w-14 object-contain" />
         <div>

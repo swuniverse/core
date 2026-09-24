@@ -25,19 +25,17 @@ export class ShipClassDiscoveryService {
       const shipClass = await manager.findOneByOrFail(ShipClassDef, {
         id: input.shipClassId,
       });
-      const existing = await manager.exists(ShipClassDiscovery, {
-        where: { userId: input.userId, shipClassId: input.shipClassId },
-      });
-      if (existing) {
-        return { discovered: false, prestigeAwarded: 0, name: shipClass.name };
-      }
-      await manager
+      const result = await manager
         .createQueryBuilder()
         .insert()
         .into(ShipClassDiscovery)
         .values({ ...input, source: 'TARGET_SCAN' })
         .orIgnore()
+        .returning('id')
         .execute();
+      if (!result.raw.length) {
+        return { discovered: false, prestigeAwarded: 0, name: shipClass.name };
+      }
       await this.prestigeService.change(
         input.userId,
         STU_PRESTIGE.SCAN_SHIP_HULL,

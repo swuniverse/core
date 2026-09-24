@@ -7,14 +7,15 @@ import {
 } from '@testing-library/react';
 import { ReactorPanel } from './ReactorPanel';
 
-const apiMocks = vi.hoisted(() => ({ post: vi.fn(), patch: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+}));
 vi.mock('../../services/api', () => ({ api: apiMocks }));
 
 const props = {
   shipId: 2,
-  energy: 40,
-  energyMax: 100,
-  reactorOutput: 12,
   warpdrive: 5,
   warpdriveMax: 20,
   battery: 3,
@@ -22,6 +23,7 @@ const props = {
   reactorFuel: 4,
   reactorFuelMax: 12,
   reactorWarpSplit: 30,
+  reactorAutoCarryOver: false,
   hyperdriveActive: true,
   inSystem: false,
   onUpdate: vi.fn(),
@@ -29,29 +31,37 @@ const props = {
 
 describe('ReactorPanel', () => {
   beforeEach(() => {
+    apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
+    apiMocks.get.mockResolvedValue({
+      epsProduction: 8,
+      warpProduction: 2,
+      effectiveEpsProduction: 8,
+      effectiveWarpProduction: 2,
+    });
     props.onUpdate.mockReset();
   });
 
   it('shows authoritative compact reactor controls', async () => {
     render(<ReactorPanel {...props} />);
-    expect(screen.getByText(/EPS 40\/100/)).toBeTruthy();
-    expect(screen.getByText(/Reaktorleistung: 12/)).toBeTruthy();
-    expect(screen.queryByText(/EPS \+/)).toBeNull();
-
-    expect(screen.getByText('Hyperantriebsenergie 5/20')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Reaktor \+ Antrieb/ })).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Antrieb +2')).toBeTruthy());
+    expect(screen.getByText('EPS +8')).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Hyperantrieb deaktivieren' }),
+      screen.getByRole('checkbox', {
+        name: 'Überschüssige Energie übertragen',
+      }),
     ).toBeTruthy();
+
+    expect(screen.getByText('Hyperantrieb 5/20')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'deaktivieren' })).toBeTruthy();
   });
 
   it('hides hyperdrive controls inside a star system', () => {
     render(<ReactorPanel {...props} inSystem />);
-    expect(screen.queryByText('Hyperantriebsenergie 5/20')).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Hyperantrieb deaktivieren' }),
-    ).toBeNull();
+    expect(screen.queryByText('Hyperantrieb 5/20')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'deaktivieren' })).toBeNull();
   });
 
   it('sends clamped split changes and rolls back after failure', async () => {
@@ -61,21 +71,48 @@ describe('ReactorPanel', () => {
     });
     render(<ReactorPanel {...props} />);
     fireEvent.click(
-      screen.getByRole('button', { name: /Hyperantriebsaufladung erhöhen/i }),
+      screen.getByRole('button', { name: 'Hyperantriebsaufladung erhöhen' }),
     );
-    expect(screen.getByText('EPS-Anteil 25%')).toBeTruthy();
+    expect(
+      (screen.getByLabelText('Reaktorverteilung EPS-Anteil') as HTMLInputElement)
+        .value,
+    ).toBe('25');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
     });
     expect(apiMocks.patch).toHaveBeenCalledWith(
       '/spacecraft/2/reactor-distribution',
-      { warpSplit: 25 },
+      { warpSplit: 25, autoCarryOver: false },
     );
     expect(screen.getByRole('alert').textContent).toContain(
       'Verteilung blockiert',
     );
-    expect(screen.getByText('EPS-Anteil 30%')).toBeTruthy();
+    expect(
+      (screen.getByLabelText('Reaktorverteilung EPS-Anteil') as HTMLInputElement)
+        .value,
+    ).toBe('30');
     vi.useRealTimers();
+  });
+
+  it('persists automatic energy transfer with the current split', async () => {
+    apiMocks.patch.mockResolvedValue({
+      reactorWarpSplit: 30,
+      reactorAutoCarryOver: true,
+    });
+    render(<ReactorPanel {...props} />);
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Überschüssige Energie übertragen',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/2/reactor-distribution',
+        { warpSplit: 30, autoCarryOver: true },
+      ),
+    );
   });
 
   it('uses explicit amount and MAX engineering endpoints', async () => {
@@ -84,7 +121,7 @@ describe('ReactorPanel', () => {
     fireEvent.change(screen.getByLabelText('Reaktor laden Menge'), {
       target: { value: '2' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Reaktor laden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'aufladen' }));
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/reactor/load', {
         amount: 2,
@@ -105,14 +142,14 @@ describe('ReactorPanel', () => {
       throw new Error('Reaktor offline');
     });
     render(<ReactorPanel {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Reaktor laden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'aufladen' }));
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Reaktor offline',
     );
     expect(
       (
         screen.getByRole('button', {
-          name: 'Reaktor laden',
+          name: 'aufladen',
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false);

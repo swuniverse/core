@@ -60,16 +60,7 @@ export function ShipOperationsPanel({
   }, [flow, shipId, showEnergy]);
 
   return (
-    <section
-      className="rounded-lg border border-swu-border bg-swu-surface p-3"
-      aria-label="Schiffswerkzeuge"
-    >
-      {error && (
-        <p role="alert" className="mt-2 text-[11px] text-red-300">
-          {error}
-        </p>
-      )}
-
+    <>
       {showDetails && (
         <div
           role="dialog"
@@ -218,7 +209,12 @@ export function ShipOperationsPanel({
           </section>
         </div>
       )}
-    </section>
+      {error && (showDetails || showEnergy) && (
+        <p role="alert" className="sr-only">
+          {error}
+        </p>
+      )}
+    </>
   );
 }
 

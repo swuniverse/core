@@ -612,19 +612,26 @@ export class SpacecraftService {
     shipId: number,
     userId: number,
     warpSplit: number,
-  ): Promise<{ reactorWarpSplit: number }> {
+    autoCarryOver?: boolean,
+  ): Promise<{ reactorWarpSplit: number; reactorAutoCarryOver: boolean }> {
     if (warpSplit < 0 || warpSplit > 100) {
       throw new BadRequestException('warpSplit must be 0-100');
     }
     const ship = await this.findOne(shipId, userId);
     ship.reactorWarpSplit = Math.round(warpSplit);
+    if (autoCarryOver !== undefined) {
+      ship.reactorAutoCarryOver = autoCarryOver;
+    }
     await this.shipRepo.save(ship);
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
       shipId: ship.id,
       type: 'REACTOR_ADJUSTED',
-      detail: `Verteilung: EPS ${100 - ship.reactorWarpSplit}% / Hyperantrieb ${ship.reactorWarpSplit}%`,
+      detail: `Verteilung: EPS ${ship.reactorWarpSplit}% / Hyperantrieb ${100 - ship.reactorWarpSplit}% (Übertrag ${ship.reactorAutoCarryOver ? 'aktiviert' : 'deaktiviert'})`,
     });
-    return { reactorWarpSplit: ship.reactorWarpSplit };
+    return {
+      reactorWarpSplit: ship.reactorWarpSplit,
+      reactorAutoCarryOver: ship.reactorAutoCarryOver,
+    };
   }
 
   async manualRecharge(
