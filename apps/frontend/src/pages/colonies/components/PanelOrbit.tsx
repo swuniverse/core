@@ -24,6 +24,8 @@ type PanelOrbitProps = {
   ) => Promise<void> | void;
   compact?: boolean;
   onOpenManagement?: () => void;
+  showHeading?: boolean;
+  showManagementButton?: boolean;
 };
 
 export function PanelOrbit({
@@ -31,6 +33,8 @@ export function PanelOrbit({
   orbitShips,
   compact = false,
   onOpenManagement,
+  showHeading = true,
+  showManagementButton = true,
 }: PanelOrbitProps) {
   const [selectedId, setSelectedId] = useState<number | null>(
     orbitShips[0]?.id ?? null,
@@ -41,6 +45,12 @@ export function PanelOrbit({
   );
   const selected =
     orbitShips.find((ship) => ship.id === selectedId) ?? orbitShips[0] ?? null;
+
+  useEffect(() => {
+    setSelectedId(orbitShips[0]?.id ?? null);
+    setSelectorOpen(false);
+    setTransfer(null);
+  }, [colonyId]);
 
   useEffect(() => {
     if (!orbitShips.some((ship) => ship.id === selectedId)) {
@@ -67,9 +77,11 @@ export function PanelOrbit({
           </div>
         ) : (
           <div className="border border-swu-border bg-swu-surface text-xs">
-            <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
-              Schiffe im Orbit
-            </h3>
+            {showHeading && (
+              <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
+                Schiffe im Orbit
+              </h3>
+            )}
             <OrbitShipCard ship={selected} openShip={selected.canManage} />
             <div className="flex items-center gap-2 border-t border-swu-border p-2">
               <button
@@ -106,13 +118,15 @@ export function PanelOrbit({
                   className="size-5"
                 />
               </button>
-              <button
-                type="button"
-                onClick={onOpenManagement}
-                className="ml-auto border border-swu-accent/60 px-2 py-1 text-swu-accent hover:border-swu-accent"
-              >
-                Orbitalmanagement
-              </button>
+              {showManagementButton && (
+                <button
+                  type="button"
+                  onClick={onOpenManagement}
+                  className="ml-auto border border-swu-accent/60 px-2 py-1 text-swu-accent hover:border-swu-accent"
+                >
+                  Orbitalmanagement
+                </button>
+              )}
             </div>
           </div>
         )
@@ -183,6 +197,11 @@ function OrbitShipCard({
           label="EPS"
           value={`${ship.energy}/${ship.energyMax}`}
           tone="text-yellow-200"
+        />
+        <Status
+          label="Hyperantrieb"
+          value={`${ship.warpdrive}/${ship.warpdriveMax}`}
+          tone="text-blue-300"
         />
         <Status
           label="Crew"

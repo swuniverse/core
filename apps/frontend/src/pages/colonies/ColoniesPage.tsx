@@ -1178,6 +1178,14 @@ export function ColonyDetail({
               onOpenOrbitManagement={() =>
                 handleOpenContext('orbit-management')
               }
+              orbitProps={{
+                commodityMap,
+                onDisassembleShip,
+                onDefendShip: onDefendOrbitShip,
+                onBlockadeShip: onBlockadeOrbitShip,
+                onClearOrbitOrder,
+                onTransferShuttles: onTransferOrbitShipShuttles,
+              }}
               eventProps={{
                 initialEvents: detail?.eventSummary?.latest ?? [],
                 onLoadEvents: onLoadColonyEvents,

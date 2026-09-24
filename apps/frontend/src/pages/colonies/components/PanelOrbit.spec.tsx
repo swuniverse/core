@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PanelOrbit } from './PanelOrbit';
 
 vi.mock('../../../components/spacecraft/TransferDialog', () => ({
-  TransferDialog: () => null,
+  TransferDialog: ({ direction }: { direction: string }) => (
+    <div>Transfer {direction}</div>
+  ),
 }));
 
 function renderPanel() {
@@ -23,6 +25,8 @@ function renderPanel() {
             shieldsMax: 50,
             energy: 60,
             energyMax: 60,
+            warpdrive: 8,
+            warpdriveMax: 20,
             crew: 0,
             crewRequired: 0,
             crewMax: 0,
@@ -48,5 +52,23 @@ describe('PanelOrbit landing', () => {
   it('does not offer landing in the colony orbit action bar', () => {
     renderPanel();
     expect(screen.queryByRole('button', { name: /Landen/ })).toBeNull();
+  });
+
+  it('shows STU orbit actions and all four runtime status bars', () => {
+    renderPanel();
+
+    expect(screen.getByText('Hülle')).toBeTruthy();
+    expect(screen.getByText('Schilde')).toBeTruthy();
+    expect(screen.getByText('EPS')).toBeTruthy();
+    expect(screen.getByText('Hyperantrieb')).toBeTruthy();
+    expect(screen.getByText('8/20')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Entladen' }));
+    expect(screen.getByText('Transfer TO_COLONY')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Schiffe im Orbit auswählen' }),
+    ).toBeTruthy();
   });
 });

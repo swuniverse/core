@@ -5,6 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 import type { Colony, ColonyDetailV2 } from '../types';
 import { PanelInfo } from './PanelInfo';
 
+vi.mock('../../../components/spacecraft/TransferDialog', () => ({
+  TransferDialog: ({ direction }: { direction: string }) => (
+    <div>Transfer {direction}</div>
+  ),
+}));
+
 const colony = {
   id: 1,
   name: 'Testkolonie',
@@ -66,6 +72,8 @@ const detail = {
       shieldsMax: 50,
       energy: 30,
       energyMax: 60,
+      warpdrive: 8,
+      warpdriveMax: 20,
       crew: 4,
       crewRequired: 3,
       crewMax: 6,
@@ -83,6 +91,8 @@ const detail = {
       shieldsMax: 50,
       energy: 10,
       energyMax: 60,
+      warpdrive: 6,
+      warpdriveMax: 20,
       crew: 2,
       crewRequired: 2,
       crewMax: 5,
@@ -149,6 +159,15 @@ const eventProps = {
   onMarkAllRead: vi.fn(),
 };
 
+const orbitProps = {
+  commodityMap: {},
+  onDisassembleShip: vi.fn(),
+  onDefendShip: vi.fn(),
+  onBlockadeShip: vi.fn(),
+  onClearOrbitOrder: vi.fn(),
+  onTransferShuttles: vi.fn(),
+};
+
 describe('PanelInfo', () => {
   it('renders the STU information hierarchy and opens orbit management', () => {
     const onOpenOrbitManagement = vi.fn();
@@ -161,6 +180,7 @@ describe('PanelInfo', () => {
           environmentScan={environmentScan}
           environmentScanError={null}
           onOpenOrbitManagement={onOpenOrbitManagement}
+          orbitProps={orbitProps}
           eventProps={eventProps}
         />
       </MemoryRouter>,
@@ -185,10 +205,16 @@ describe('PanelInfo', () => {
       screen.getByText('Eigenes Schiff').closest('a')?.getAttribute('href'),
     ).toBe('/spacecraft/7');
     expect(screen.queryByText('Zweites Schiff')).toBeNull();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Schiffsliste aufklappen' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Schiffe im Orbit auswählen' }),
+    ).toBeTruthy();
     expect(screen.getByText('Zweites Schiff').closest('a')).toBeNull();
+    fireEvent.click(screen.getByText('Zweites Schiff'));
+    fireEvent.click(screen.getByRole('button', { name: 'Entladen' }));
+    expect(screen.getByText('Transfer TO_COLONY')).toBeTruthy();
+    expect(screen.getByText('Hyperantrieb')).toBeTruthy();
+    expect(screen.getByText('6/20')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Orbitalmanagement' }),
     ).toBeTruthy();
@@ -271,6 +297,7 @@ describe('PanelInfo', () => {
           environmentScan={null}
           environmentScanError="Umgebungsscan nicht verfügbar"
           onOpenOrbitManagement={vi.fn()}
+          orbitProps={orbitProps}
           eventProps={eventProps}
         />
       </MemoryRouter>,
@@ -304,6 +331,7 @@ describe('PanelInfo', () => {
           environmentScan={environmentScan}
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
+          orbitProps={orbitProps}
           eventProps={eventProps}
         />
       </MemoryRouter>,
@@ -312,7 +340,7 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Fremdes Schiff').closest('a')).toBeNull();
   });
 
-  it('collapses the expanded ship list when the colony changes', () => {
+  it('closes the ship selector when the colony changes', () => {
     const { rerender } = render(
       <MemoryRouter>
         <PanelInfo
@@ -321,13 +349,12 @@ describe('PanelInfo', () => {
           environmentScan={environmentScan}
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
+          orbitProps={orbitProps}
           eventProps={eventProps}
         />
       </MemoryRouter>,
     );
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Schiffsliste aufklappen' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
     expect(screen.getByText('Zweites Schiff')).toBeTruthy();
 
     rerender(
@@ -338,12 +365,15 @@ describe('PanelInfo', () => {
           environmentScan={environmentScan}
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
+          orbitProps={orbitProps}
           eventProps={eventProps}
         />
       </MemoryRouter>,
     );
 
-    expect(screen.queryByText('Zweites Schiff')).toBeNull();
+    expect(
+      screen.queryByRole('dialog', { name: 'Schiffe im Orbit auswählen' }),
+    ).toBeNull();
   });
 
   it('retains planetary defense, asteroid exhaustion, and deposits without a standalone shield section', () => {
@@ -390,6 +420,7 @@ describe('PanelInfo', () => {
           environmentScan={environmentScan}
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
+          orbitProps={orbitProps}
           eventProps={eventProps}
         />
       </MemoryRouter>,

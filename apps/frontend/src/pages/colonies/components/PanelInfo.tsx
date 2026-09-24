@@ -1,18 +1,16 @@
-import { useEffect, useState } from 'react';
 import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
-import { Link } from 'react-router-dom';
 
 import { BbCodeText } from '../../../components/BbCodeText';
 import {
   planetImage,
   planetThumbnail,
-  shipImage,
   starTileImage,
   systemTypeImage,
 } from '../../../lib/assets';
 import type { Colony, ColonyDetailV2 } from '../types';
 import { formatSignedAmount } from '../utils';
 import { PanelEvents } from './PanelEvents';
+import { PanelOrbit } from './PanelOrbit';
 
 type PanelEventsProps = React.ComponentProps<typeof PanelEvents>;
 
@@ -23,6 +21,14 @@ type PanelInfoProps = {
   environmentScanError: string | null;
   onOpenOrbitManagement: () => void;
   eventProps: PanelEventsProps;
+  orbitProps: Omit<
+    React.ComponentProps<typeof PanelOrbit>,
+    | 'colonyId'
+    | 'orbitShips'
+    | 'compact'
+    | 'showHeading'
+    | 'showManagementButton'
+  >;
 };
 
 const sectionClass = 'border border-swu-border bg-swu-surface px-3 py-2';
@@ -36,9 +42,8 @@ export function PanelInfo({
   environmentScanError,
   onOpenOrbitManagement,
   eventProps,
+  orbitProps,
 }: PanelInfoProps) {
-  const [showAllOrbitShips, setShowAllOrbitShips] = useState(false);
-  useEffect(() => setShowAllOrbitShips(false), [colony.id]);
   const storageIds = new Set(
     (colony.storage ?? []).map((item) => item.commodityId),
   );
@@ -51,28 +56,14 @@ export function PanelInfo({
     <div className="space-y-2">
       <section className={sectionClass}>
         <h3 className={headingClass}>Schiffe im Orbit</h3>
-        {detail?.orbitShips.length ? (
-          <div className="divide-y divide-swu-border/40">
-            <OrbitShipRow ship={detail.orbitShips[0]} />
-            {showAllOrbitShips &&
-              detail.orbitShips
-                .slice(1)
-                .map((ship) => <OrbitShipRow key={ship.id} ship={ship} />)}
-          </div>
-        ) : (
-          <p className="text-xs text-swu-muted">Keine Schiffe im Orbit.</p>
-        )}
-        {(detail?.orbitShips.length ?? 0) > 1 && (
-          <button
-            type="button"
-            onClick={() => setShowAllOrbitShips((current) => !current)}
-            className="mt-2 border border-swu-border/60 px-2 py-1 text-[10px] text-swu-muted hover:border-swu-accent/60 hover:text-swu-accent"
-          >
-            {showAllOrbitShips
-              ? 'Schiffsliste einklappen'
-              : 'Schiffsliste aufklappen'}
-          </button>
-        )}
+        <PanelOrbit
+          {...orbitProps}
+          colonyId={colony.id}
+          orbitShips={detail?.orbitShips ?? []}
+          compact
+          showHeading={false}
+          showManagementButton={false}
+        />
       </section>
 
       <div className="grid gap-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]">
@@ -397,55 +388,6 @@ function ScanCell({
         </span>
       )}
     </div>
-  );
-}
-
-function OrbitShipRow({
-  ship,
-}: {
-  ship: ColonyDetailV2['orbitShips'][number];
-}) {
-  const content = (
-    <div className="flex flex-wrap items-center gap-2 py-1.5 text-xs">
-      <img
-        src={shipImage(ship.shipClassId, ship.shipClassKey)}
-        alt=""
-        className="h-8 w-14 object-contain"
-      />
-      <div className="min-w-28 flex-1">
-        <div className="font-bold text-swu-primary">{ship.name}</div>
-        <div className="text-[10px] text-swu-muted">
-          {ship.canManage ? 'Eigene Flotte' : 'Fremdes Schiff'} · {ship.status}
-        </div>
-      </div>
-      <ShipStatus label="Hülle" value={`${ship.hull}/${ship.hullMax}`} />
-      <ShipStatus
-        label="Schilde"
-        value={`${ship.shields}/${ship.shieldsMax}`}
-      />
-      <ShipStatus label="EPS" value={`${ship.energy}/${ship.energyMax}`} />
-      <ShipStatus label="Crew" value={`${ship.crew}/${ship.crewMax}`} />
-    </div>
-  );
-
-  return ship.canManage === true ? (
-    <Link
-      to={`/spacecraft/${ship.id}`}
-      className="block hover:bg-swu-accent/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent"
-    >
-      {content}
-    </Link>
-  ) : (
-    <div>{content}</div>
-  );
-}
-
-function ShipStatus({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="border border-swu-border bg-black/30 px-1.5 py-1">
-      <span className="text-swu-muted">{label} </span>
-      <span className="font-mono text-swu-primary">{value}</span>
-    </span>
   );
 }
 

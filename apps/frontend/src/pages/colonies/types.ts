@@ -368,6 +368,8 @@ export interface ColonyDetailV2 {
     shieldsMax: number;
     energy: number;
     energyMax: number;
+    warpdrive: number;
+    warpdriveMax: number;
     crew: number;
     crewRequired: number;
     crewMax: number;

@@ -825,6 +825,8 @@ export class ColonyProjectionService {
             shieldsMax: ship.shieldsMax,
             energy: ship.energy,
             energyMax: ship.energyMax,
+            warpdrive: ship.warpdrive,
+            warpdriveMax: ship.warpdriveMax,
             crew: ship.crew,
             crewRequired,
             crewMax: ship.crewMax,
