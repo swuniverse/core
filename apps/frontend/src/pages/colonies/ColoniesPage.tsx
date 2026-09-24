@@ -776,7 +776,8 @@ export function ColonyDetail({
   const detail = colony.detailV2;
   const currentEnergy = detail?.energy.current ?? colony.energy;
   const shield =
-    detail?.defense?.shields.max &&
+    detail?.defense?.shields.max != null &&
+    detail.defense.shields.max > 0 &&
     detail.featureAccess?.functions.present.some((fn) =>
       [24, 25].includes(fn.id),
     )

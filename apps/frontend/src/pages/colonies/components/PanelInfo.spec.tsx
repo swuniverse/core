@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -121,11 +121,19 @@ const environmentScan = {
       },
     },
   ],
-  signatures: [{ x: 2, y: 2, visibleCount: 2 }],
+  signatures: [
+    {
+      x: 2,
+      y: 2,
+      visibleCount: 2,
+      shipId: 4711,
+      shipName: 'Geheime Korvette',
+    },
+  ],
   fadedSignatures: { uncloaked: 0, cloaked: 0 },
   colonyShields: [{ colonyId: 1, x: 2, y: 2, shielded: true }],
   anomalies: [],
-} satisfies ColonyEnvironmentScanDto;
+} as ColonyEnvironmentScanDto;
 
 const eventProps = {
   initialEvents: detail.eventSummary!.latest,
@@ -194,8 +202,20 @@ describe('PanelInfo', () => {
     expect(screen.getByText('X 3')).toBeTruthy();
     expect(screen.getByText('Y 1')).toBeTruthy();
     expect(screen.getByText('Y 3')).toBeTruthy();
-    expect(screen.getByLabelText(/2 Signaturen/)).toBeTruthy();
-    expect(screen.queryByText('Unsichtbares Schiff')).toBeNull();
+    const scan = screen.getByRole('heading', {
+      name: 'Umgebungsscan',
+    }).parentElement;
+    expect(scan).toBeTruthy();
+    expect(scan?.textContent).not.toContain('Geheime Korvette');
+    expect(scan?.textContent).not.toContain('4711');
+    const scanCellNames = within(scan as HTMLElement)
+      .getAllByLabelText(/^\d+\|\d+:/)
+      .map((cell) => cell.getAttribute('aria-label'));
+    expect(scanCellNames).toContain(
+      '2|2: Testwelt, 2 Signaturen, Kolonieschild',
+    );
+    expect(scanCellNames.join(' ')).not.toContain('Geheime Korvette');
+    expect(scanCellNames.join(' ')).not.toContain('4711');
     fireEvent.click(screen.getByRole('button', { name: 'Orbitalmanagement' }));
     expect(onOpenOrbitManagement).toHaveBeenCalledOnce();
   });

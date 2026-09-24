@@ -453,6 +453,39 @@ function renderColonyDetail(
 }
 
 describe('ColonyDetail', () => {
+  it.each([
+    { max: 0, visible: false },
+    { max: -1, visible: false },
+    { max: 100, visible: true },
+  ])(
+    'shows shield strength only for a positive maximum ($max)',
+    ({ max, visible }) => {
+      const detail = createDetail();
+      detail.featureAccess!.functions.present = [
+        {
+          id: 24,
+          key: 'SHIELD_GENERATOR',
+          name: 'Schildgenerator',
+          buildingIds: [1],
+        },
+      ];
+      detail.defense = {
+        shields: { current: 25, max, frequency: null },
+        activeFunctionIds: [],
+        energyPhalanx: false,
+        particlePhalanx: false,
+        antiParticle: false,
+        torpedoTypeId: null,
+      };
+
+      renderColonyDetail(detail);
+
+      expect(
+        screen.queryByRole('progressbar', { name: 'Schildstärke' }) !== null,
+      ).toBe(visible);
+    },
+  );
+
   it('routes every work area through the single colony section navigation', () => {
     const detail = createDetail();
     detail.buildingManagement = {
