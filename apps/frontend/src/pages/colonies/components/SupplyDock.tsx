@@ -1,17 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { commodityImage } from '../../../lib/assets';
 import type { ColonyDetailV2, ColonyStorageItem, CommodityDef } from '../types';
 import { formatSignedAmount } from '../utils';
-
-type FilterKey = 'all' | 'critical' | 'consuming' | 'producing' | 'neutral';
-
-const filterLabels: Array<{ key: FilterKey; label: string }> = [
-  { key: 'all', label: 'Alle' },
-  { key: 'critical', label: 'Kritisch' },
-  { key: 'consuming', label: 'Verbrauch' },
-  { key: 'producing', label: 'Produktion' },
-  { key: 'neutral', label: 'Neutral' },
-];
 
 function getLabel(
   commodityMap: Record<number, CommodityDef>,
@@ -32,12 +22,13 @@ export function SupplyDock({
   storage,
   detail,
   commodityMap,
+  onOpenWaste,
 }: {
   storage: ColonyStorageItem[];
   detail?: ColonyDetailV2;
   commodityMap: Record<number, CommodityDef>;
+  onOpenWaste?: () => void;
 }) {
-  const [filter, setFilter] = useState<FilterKey>('all');
   const current =
     detail?.storage.current ??
     storage.reduce((sum, item) => sum + item.amount, 0);
@@ -71,60 +62,41 @@ export function SupplyDock({
       });
   }, [commodityMap, detail, storage]);
 
-  const counts = useMemo(() => {
-    const result: Record<FilterKey, number> = {
-      all: rows.length,
-      critical: 0,
-      consuming: 0,
-      producing: 0,
-      neutral: 0,
-    };
-    for (const row of rows) {
-      if (row.item.amount <= 0 || (row.delta ?? 0) < 0) result.critical += 1;
-      if ((row.delta ?? 0) < 0) result.consuming += 1;
-      else if ((row.delta ?? 0) > 0) result.producing += 1;
-      else result.neutral += 1;
-    }
-    return result;
-  }, [rows]);
-
-  const filteredRows = rows.filter((row) => {
-    if (filter === 'all') return true;
-    if (filter === 'critical')
-      return row.item.amount <= 0 || (row.delta ?? 0) < 0;
-    if (filter === 'consuming') return (row.delta ?? 0) < 0;
-    if (filter === 'producing') return (row.delta ?? 0) > 0;
-    return (row.delta ?? 0) === 0;
-  });
-
   return (
     <section className="rounded border border-swu-border bg-swu-surface p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wide text-swu-muted">
-            Versorgung / Lager
+            Lagerraum
           </div>
           <div className="mt-0.5 text-xs text-swu-primary">
             <span className="font-mono">
               {current}/{max || '∞'}
             </span>
+            {detail?.storage.delta != null && (
+              <span
+                className={
+                  detail.storage.delta >= 0
+                    ? 'ml-1 font-mono text-green-400'
+                    : 'ml-1 font-mono text-red-400'
+                }
+              >
+                {formatSignedAmount(detail.storage.delta)}
+              </span>
+            )}
             {max > 0 && <span className="text-swu-muted"> · {percent}%</span>}
           </div>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {filterLabels.map((entry) => (
+        <div className="flex flex-wrap items-center gap-1">
+          {onOpenWaste && (
             <button
-              key={entry.key}
-              onClick={() => setFilter(entry.key)}
-              className={`rounded border px-2 py-1 text-[10px] transition-colors ${
-                filter === entry.key
-                  ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-                  : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
-              }`}
+              type="button"
+              onClick={onOpenWaste}
+              className="rounded border border-swu-border/60 px-2 py-1 text-[10px] text-swu-muted transition-colors hover:border-swu-accent/60 hover:text-swu-accent"
             >
-              {entry.label} {counts[entry.key]}
+              Entsorgung
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -137,19 +109,19 @@ export function SupplyDock({
         </div>
       )}
 
-      {filteredRows.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="mt-3 rounded border border-swu-border/40 bg-swu-bg/30 px-3 py-2 text-xs text-swu-muted">
           Keine Waren in dieser Ansicht.
         </div>
       ) : (
-        <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
-          {filteredRows.map(({ item, delta, label }) => {
+        <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-1.5">
+          {rows.map(({ item, delta, label }) => {
             const critical = item.amount <= 0 || (delta ?? 0) < 0;
             return (
               <div
                 key={item.commodityId}
                 title={label}
-                className={`flex min-w-0 items-center gap-2 rounded border px-2 py-1.5 ${
+                className={`flex min-w-0 items-center gap-1.5 rounded border px-2 py-1.5 ${
                   critical
                     ? 'border-red-500/40 bg-red-950/20'
                     : 'border-swu-border/50 bg-swu-bg/30'
@@ -165,10 +137,7 @@ export function SupplyDock({
                   loading="lazy"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[11px] text-swu-primary">
-                    {label}
-                  </div>
-                  <div className="flex items-center gap-2 font-mono text-[10px]">
+                  <div className="flex flex-col font-mono text-[10px] leading-tight">
                     <span className="text-swu-muted">{item.amount}</span>
                     {delta != null && (
                       <span

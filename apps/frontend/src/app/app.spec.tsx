@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ColonyDetail } from '../pages/colonies/ColoniesPage';
+import { PanelShipyard } from '../pages/colonies/components/PanelShipyard';
 import type {
   BuildingDef,
   Colony,
@@ -329,10 +330,8 @@ function renderColonyDetail(
       allBuildingDefs={[]}
       shipClasses={[]}
       terraformingDefs={[]}
-      activeTab="info"
       systemGrid={null}
       systemGridError={null}
-      setActiveTab={noop}
       onBack={noop}
       onBuild={noop}
       onUpgradeBuilding={noop}
@@ -380,25 +379,80 @@ function renderColonyDetail(
 }
 
 describe('ColonyDetail', () => {
-  it('renders visible tabs in the requested order', () => {
+  it('renders five primary views with a permanent map and storage', () => {
     const detail = createDetail();
     renderColonyDetail(detail);
 
-    const overviewButton = screen.getByRole('button', { name: 'Übersicht' });
-    const modeLabels = within(overviewButton.closest('div') as HTMLElement)
+    const primaryNav = screen.getByRole('navigation', {
+      name: 'Koloniebereiche',
+    });
+    const labels = within(primaryNav)
       .getAllByRole('button')
       .map((button) => button.textContent);
 
-    expect(modeLabels).toEqual(['Übersicht', 'Bauen', 'Flotte', 'Verwaltung']);
+    expect(labels).toEqual([
+      'Informationen',
+      'Baumenü',
+      'Soziales',
+      'Gebäudeschaltung',
+      'Einstellungen',
+    ]);
+    expect(screen.queryByRole('button', { name: 'Übersicht' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Flotte' })).toBeNull();
 
-    const infoButton = screen.getByRole('button', { name: 'Informationen' });
-    const subTabLabels = within(infoButton.closest('div') as HTMLElement)
-      .getAllByRole('button')
-      .map((button) => button.textContent);
+    for (const tab of [
+      'Baumenü',
+      'Soziales',
+      'Gebäudeschaltung',
+      'Einstellungen',
+    ]) {
+      fireEvent.click(screen.getByRole('button', { name: tab }));
+      expect(screen.getByText('Lagerraum')).toBeTruthy();
+      expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
+    }
+  });
 
-    expect(subTabLabels).toEqual(['Informationen', 'Ereignisse']);
-    expect(screen.queryByRole('button', { name: 'Produktion' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Sicherheit' })).toBeNull();
+  it('clears field and build selections when switching primary views', () => {
+    const detail = createDetail();
+    const field = {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: null,
+      isBuilding: false,
+      isActive: false,
+      buildProgress: 0,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+
+    renderColonyDetail(detail, {
+      colony: { ...createColony(detail), fields: [field] },
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [mineBuilding],
+    });
+
+    const fieldButton = screen.getByRole('button', { name: 'Feld 1' });
+    fireEvent.click(fieldButton);
+    expect(fieldButton.className).toContain('ring-swu-accent');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
+    fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
+    expect(screen.getByText('Baumodus')).toBeTruthy();
+    expect(
+      screen.getByText('← Markiertes Feld auf der Karte klicken zum Platzieren'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Soziales' }));
+
+    expect(screen.queryByText('Baumodus')).toBeNull();
+    expect(
+      screen.queryByText('← Markiertes Feld auf der Karte klicken zum Platzieren'),
+    ).toBeNull();
+    expect(fieldButton.className).not.toContain('ring-swu-accent');
+    expect(screen.queryByText('Felddetails')).toBeNull();
   });
 
   it('keeps the selected building active for consecutive placements', () => {
@@ -437,10 +491,10 @@ describe('ColonyDetail', () => {
       colony,
       buildingDefs: [mineBuilding, fz1Building],
       allBuildingDefs: [mineBuilding, fz1Building, fz2Building],
-      activeTab: 'build',
       onBuild,
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
     expect(screen.queryByText(mineBuilding.description)).toBeNull();
     expect(
@@ -502,10 +556,10 @@ describe('ColonyDetail', () => {
       colony,
       buildingDefs: [mineBuilding],
       allBuildingDefs: [mineBuilding, fz1Building],
-      activeTab: 'build',
       onBuild,
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
     const field = screen.getByRole('button', {
       name: `Feld 1: ${fz1Building.name}`,
@@ -548,10 +602,10 @@ describe('ColonyDetail', () => {
       colony,
       buildingDefs: [mineBuilding],
       allBuildingDefs: [mineBuilding, fz1Building],
-      activeTab: 'build',
       onBuild,
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
     fireEvent.click(
       screen.getByRole('button', { name: `Feld 1: ${fz1Building.name}` }),
@@ -605,10 +659,10 @@ describe('ColonyDetail', () => {
         mineBuilding,
         { ...fz1Building, id: 82010100, name: 'Koloniezentrale' },
       ],
-      activeTab: 'build',
       onBuild,
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Feld 1: Koloniezentrale' }),
@@ -663,10 +717,10 @@ describe('ColonyDetail', () => {
       buildingDefs: [mineBuilding, fz1Building],
       allBuildingDefs: [mineBuilding, fz1Building, fz2Building],
       commodities: [{ id: 1, name: 'Erz', nameShort: 'ERZ' }],
-      activeTab: 'build',
       onUpgradeBuilding,
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     expect(screen.queryByRole('button', { name: fz2Building.name })).toBeNull();
 
     fireEvent.click(
@@ -691,9 +745,9 @@ describe('ColonyDetail', () => {
     renderColonyDetail(detail, {
       buildingDefs: [mineBuilding],
       allBuildingDefs: [mineBuilding],
-      activeTab: 'build',
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     expect(screen.getByTitle(mineBuilding.name)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Soziales 1' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Industrie 0' })).toBeTruthy();
@@ -721,8 +775,8 @@ describe('ColonyDetail', () => {
       commodities: [],
     });
 
-    expect(screen.getByText('Versorgung / Lager')).toBeTruthy();
-    expect(screen.getByText('Deuterium-Vorrat')).toBeTruthy();
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    expect(screen.queryByText('Deuterium-Vorrat')).toBeNull();
     expect(screen.getAllByTitle('Deuterium-Vorrat')).toHaveLength(1);
   });
 
@@ -744,9 +798,49 @@ describe('ColonyDetail', () => {
       ],
     });
 
-    expect(screen.getByText('Versorgung / Lager')).toBeTruthy();
-    expect(screen.getByText('Visible Ore')).toBeTruthy();
-    expect(screen.queryByText('Empty Rump')).toBeNull();
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    expect(screen.getByTitle('Visible Ore')).toBeTruthy();
+    expect(screen.queryByTitle('Empty Rump')).toBeNull();
+  });
+
+  it('shows storage capacity, delta and conditional waste access', () => {
+    const detail = createDetail();
+    detail.storage = { current: 4, max: 10, delta: -2 };
+    detail.waste = { canDiscard: true, requiredFunctionId: 1 };
+
+    renderColonyDetail(detail);
+
+    expect(screen.getByText('4/10')).toBeTruthy();
+    expect(screen.getByText('-2')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Soziales' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Entsorgung' }));
+    expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: '← Zurück zu Informationen' }),
+    );
+    expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Informationen' }).getAttribute(
+        'aria-current',
+      ),
+    ).toBe('page');
+  });
+
+  it('keeps map and storage visible in the interim orbit context', () => {
+    renderColonyDetail(createDetail());
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Orbitalmanagement' }),
+    );
+
+    expect(screen.getByText('Orbitalmanagement wird vorbereitet.')).toBeTruthy();
+    expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: '← Zurück zu Informationen' }),
+    );
+    expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
   });
 
   it('opens the shipyard flow and submits slot-based module selections', () => {
@@ -888,11 +982,29 @@ describe('ColonyDetail', () => {
     };
 
     const onBuildShip = vi.fn().mockResolvedValue(undefined);
-    renderColonyDetail(detail, {
-      shipClasses: [shipClassFixture],
-      activeTab: 'shipyard',
-      onBuildShip,
-    });
+    render(
+      <PanelShipyard
+        shipyard={detail.shipyard}
+        shipClasses={[shipClassFixture]}
+        queue={detail.shipBuildQueue ?? []}
+        availableModules={detail.availableShipModules ?? []}
+        slotRules={detail.shipyard.slotRules ?? []}
+        availableCrew={detail.crew?.available ?? 0}
+        commodityMap={{}}
+        orbitShips={detail.orbitShips}
+        buildplans={detail.buildplans ?? []}
+        onBuildShip={onBuildShip}
+        onDisassembleShip={noopPromise}
+        onQueueShipRepair={noopPromise}
+        onQueueShipRetrofit={noopPromise}
+        onCancelShipyardQueue={noopPromise}
+        onReactivateShipyardQueue={noopPromise}
+        onCreateBuildplan={noopPromise}
+        onRenameBuildplan={noopPromise}
+        onDeleteBuildplan={noopPromise}
+        onBuildFromBuildplan={noopPromise}
+      />,
+    );
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Werft öffnen' })[1]);
     fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
@@ -983,10 +1095,29 @@ describe('ColonyDetail', () => {
       allowedBuildingFunctionIds: [7, 22],
     };
 
-    renderColonyDetail(detail, {
-      shipClasses: [ytFreighter, frigateFreighter],
-      activeTab: 'shipyard',
-    });
+    render(
+      <PanelShipyard
+        shipyard={detail.shipyard}
+        shipClasses={[ytFreighter, frigateFreighter]}
+        queue={detail.shipBuildQueue ?? []}
+        availableModules={detail.availableShipModules ?? []}
+        slotRules={detail.shipyard.slotRules ?? []}
+        availableCrew={detail.crew?.available ?? 0}
+        commodityMap={{}}
+        orbitShips={detail.orbitShips}
+        buildplans={detail.buildplans ?? []}
+        onBuildShip={noopPromise}
+        onDisassembleShip={noopPromise}
+        onQueueShipRepair={noopPromise}
+        onQueueShipRetrofit={noopPromise}
+        onCancelShipyardQueue={noopPromise}
+        onReactivateShipyardQueue={noopPromise}
+        onCreateBuildplan={noopPromise}
+        onRenameBuildplan={noopPromise}
+        onDeleteBuildplan={noopPromise}
+        onBuildFromBuildplan={noopPromise}
+      />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
     fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));

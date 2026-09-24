@@ -306,7 +306,7 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
+    expect(await screen.findByText('Lagerraum')).toBeTruthy();
     const storageCard = screen
       .getAllByTitle('Erz')
       .find((element) => element.tagName === 'DIV');
@@ -339,7 +339,7 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
+    expect(await screen.findByText('Lagerraum')).toBeTruthy();
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
   });
@@ -368,7 +368,7 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
+    expect(await screen.findByText('Lagerraum')).toBeTruthy();
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
   });
 
