@@ -322,60 +322,72 @@ function renderColonyDetail(
   overrides: Partial<React.ComponentProps<typeof ColonyDetail>> = {},
 ) {
   const colony = createColony(detail);
-  return render(
+  const props: React.ComponentProps<typeof ColonyDetail> = {
+    colony,
+    commodities: [],
+    buildingDefs: [],
+    allBuildingDefs: [],
+    shipClasses: [],
+    terraformingDefs: [],
+    systemGrid: null,
+    systemGridError: null,
+    onBack: noop,
+    onBuild: noop,
+    onUpgradeBuilding: noop,
+    onDemolish: noop,
+    onToggle: noop,
+    onTerraform: noopPromise,
+    onBuildShip: noopPromise,
+    onStartFabrication: noopPromise,
+    onCancelFabrication: noopPromise,
+    onQueueCrewTraining: noopPromise,
+    onAssignCrewToShip: noopPromise,
+    onUnassignCrewFromShip: noopPromise,
+    onDisassembleShip: noopPromise,
+    onDefendOrbitShip: noopPromise,
+    onBlockadeOrbitShip: noopPromise,
+    onClearOrbitOrder: noopPromise,
+    onTransferOrbitShipShuttles: noopPromise,
+    onQueueShipRepair: noopPromise,
+    onQueueShipRetrofit: noopPromise,
+    onCancelShipyardQueue: noopPromise,
+    onReactivateShipyardQueue: noopPromise,
+    onCreateBuildplan: noopPromise,
+    onRenameBuildplan: noopPromise,
+    onDeleteBuildplan: noopPromise,
+    onBuildFromBuildplan: noopPromise,
+    onBuildAirfieldRump: noopPromise,
+    onStartHangarShip: noopPromise,
+    onLoadColonyShields: noopPromise,
+    onSetShieldFrequency: noopPromise,
+    onSetDefenseTorpedoType: noopPromise,
+    onLoadColonyEvents: noopEvents,
+    onMarkColonyEventRead: noopPromise,
+    onMarkAllColonyEventsRead: noopPromise,
+    onRenameColony: noopPromise,
+    onSetPopulationLimit: noopPromise,
+    onSetImmigration: noopPromise,
+    onSetColonyMessage: noopPromise,
+    onGiveUpColony: noopPromise,
+    onDiscardStorage: noopPromise,
+    onActivateBuildings: noopPromise,
+    onDeactivateBuildings: noopPromise,
+    ...overrides,
+  };
+  const result = render(
     <ColonyDetail
-      colony={colony}
-      commodities={[]}
-      buildingDefs={[]}
-      allBuildingDefs={[]}
-      shipClasses={[]}
-      terraformingDefs={[]}
-      systemGrid={null}
-      systemGridError={null}
-      onBack={noop}
-      onBuild={noop}
-      onUpgradeBuilding={noop}
-      onDemolish={noop}
-      onToggle={noop}
-      onTerraform={noopPromise}
-      onBuildShip={noopPromise}
-      onStartFabrication={noopPromise}
-      onCancelFabrication={noopPromise}
-      onQueueCrewTraining={noopPromise}
-      onAssignCrewToShip={noopPromise}
-      onUnassignCrewFromShip={noopPromise}
-      onDisassembleShip={noopPromise}
-      onDefendOrbitShip={noopPromise}
-      onBlockadeOrbitShip={noopPromise}
-      onClearOrbitOrder={noopPromise}
-      onTransferOrbitShipShuttles={noopPromise}
-      onQueueShipRepair={noopPromise}
-      onQueueShipRetrofit={noopPromise}
-      onCancelShipyardQueue={noopPromise}
-      onReactivateShipyardQueue={noopPromise}
-      onCreateBuildplan={noopPromise}
-      onRenameBuildplan={noopPromise}
-      onDeleteBuildplan={noopPromise}
-      onBuildFromBuildplan={noopPromise}
-      onBuildAirfieldRump={noopPromise}
-      onStartHangarShip={noopPromise}
-      onLoadColonyShields={noopPromise}
-      onSetShieldFrequency={noopPromise}
-      onSetDefenseTorpedoType={noopPromise}
-      onLoadColonyEvents={noopEvents}
-      onMarkColonyEventRead={noopPromise}
-      onMarkAllColonyEventsRead={noopPromise}
-      onRenameColony={noopPromise}
-      onSetPopulationLimit={noopPromise}
-      onSetImmigration={noopPromise}
-      onSetColonyMessage={noopPromise}
-      onGiveUpColony={noopPromise}
-      onDiscardStorage={noopPromise}
-      onActivateBuildings={noopPromise}
-      onDeactivateBuildings={noopPromise}
-      {...overrides}
+      {...props}
     />,
   );
+  return {
+    ...result,
+    rerenderColonyDetail: (
+      nextOverrides: Partial<React.ComponentProps<typeof ColonyDetail>>,
+    ) => {
+      Object.assign(props, nextOverrides);
+      result.rerender(<ColonyDetail {...props} />);
+    },
+  };
 }
 
 describe('ColonyDetail', () => {
@@ -741,6 +753,187 @@ describe('ColonyDetail', () => {
     fireEvent.click(upgradeButton);
 
     expect(onUpgradeBuilding).toHaveBeenCalledWith(5, 7201010073);
+  });
+
+  it('synchronizes an open field dialog by fieldIndex after refreshed props', () => {
+    const detail = createDetail();
+    const field = {
+      id: 10,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: fz1Building.id,
+      isBuilding: false,
+      isActive: true,
+      integrity: 100,
+      maxIntegrity: 100,
+      buildProgress: 100,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+    const colony = { ...createColony(detail), fields: [field] };
+    const { rerenderColonyDetail } = renderColonyDetail(detail, {
+      colony,
+      allBuildingDefs: [fz1Building],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: `Feld 5: ${fz1Building.name}` }),
+    );
+    expect(screen.getByText('Integrität: 100/100')).toBeTruthy();
+
+    rerenderColonyDetail({
+      colony: {
+        ...colony,
+        fields: [{ ...field, isActive: false, integrity: 40 }],
+      },
+    });
+
+    expect(screen.getByText('Integrität: 40/100')).toBeTruthy();
+    expect(screen.getByText('DEAKTIVIERT')).toBeTruthy();
+  });
+
+  it('keeps the dialog selected and shows a free field after demolition reload', () => {
+    const detail = createDetail();
+    const onDemolish = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const field = {
+      id: 10,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: fz1Building.id,
+      isBuilding: false,
+      isActive: true,
+      integrity: 100,
+      maxIntegrity: 100,
+      buildProgress: 100,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+    const colony = { ...createColony(detail), fields: [field] };
+    const { rerenderColonyDetail } = renderColonyDetail(detail, {
+      colony,
+      allBuildingDefs: [fz1Building],
+      onDemolish,
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: `Feld 5: ${fz1Building.name}` }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
+    expect(onDemolish).toHaveBeenCalledWith(5);
+    expect(
+      screen.getByRole('dialog', { name: 'Feld 5 - Informationen' }),
+    ).toBeTruthy();
+
+    rerenderColonyDetail({
+      colony: {
+        ...colony,
+        fields: [
+          {
+            ...field,
+            buildingId: null,
+            integrity: undefined,
+            maxIntegrity: undefined,
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByText('Dieses Feld ist aktuell unbebaut.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Baumenü öffnen' })).toBeTruthy();
+    confirm.mockRestore();
+  });
+
+  it('closes a free-field dialog and enters the build menu', () => {
+    const detail = createDetail();
+    const field = {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: null,
+      isBuilding: false,
+      isActive: false,
+      buildProgress: 0,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+    renderColonyDetail(detail, {
+      colony: { ...createColony(detail), fields: [field] },
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [mineBuilding],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Feld 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü öffnen' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Baumenü' }).getAttribute('aria-current'),
+    ).toBe('page');
+    expect(screen.getByRole('button', { name: mineBuilding.name })).toBeTruthy();
+  });
+
+  it('closes the dialog and opens the requested context view', () => {
+    const detail = createDetail();
+    const shipyardBuilding = { ...fz1Building, functions: [5] };
+    const field = {
+      id: 10,
+      fieldIndex: 5,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: shipyardBuilding.id,
+      isBuilding: false,
+      isActive: true,
+      buildProgress: 100,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+    renderColonyDetail(detail, {
+      colony: { ...createColony(detail), fields: [field] },
+      allBuildingDefs: [shipyardBuilding],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: `Feld 5: ${shipyardBuilding.name}` }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('Werften')).toBeTruthy();
+  });
+
+  it('restores focus to the triggering field after closing the dialog', () => {
+    const detail = createDetail();
+    const field = {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: null,
+      isBuilding: false,
+      isActive: false,
+      buildProgress: 0,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+    renderColonyDetail(detail, {
+      colony: { ...createColony(detail), fields: [field] },
+    });
+    const fieldButton = screen.getByRole('button', { name: 'Feld 1' });
+
+    fieldButton.focus();
+    fireEvent.click(fieldButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Dialog schließen' }));
+
+    expect(document.activeElement).toBe(fieldButton);
   });
 
   it('renders build menu placeholders and building hover titles', () => {

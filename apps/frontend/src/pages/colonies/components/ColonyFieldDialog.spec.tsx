@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import type {
@@ -175,13 +176,56 @@ describe('ColonyFieldDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
 
     rerender(<ColonyFieldDialog {...defaultProps} onClose={onClose} />);
-    fireEvent.click(
-      screen.getByRole('dialog', { name: 'Feld 79 - Informationen' }),
-    );
+    fireEvent.click(screen.getByTestId('field-dialog-backdrop'));
     expect(onClose).toHaveBeenCalledTimes(2);
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  it('focuses the close button and traps focus in both directions', () => {
+    render(<ColonyFieldDialog {...defaultProps} />);
+
+    const closeButton = screen.getByRole('button', {
+      name: 'Dialog schließen',
+    });
+    const demolishButton = screen.getByRole('button', { name: 'Demontieren' });
+    expect(document.activeElement).toBe(closeButton);
+
+    demolishButton.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton);
+
+    closeButton.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(demolishButton);
+  });
+
+  it('restores focus to the trigger when the dialog closes', () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Feld 79
+          </button>
+          {open && (
+            <ColonyFieldDialog
+              {...defaultProps}
+              onClose={() => setOpen(false)}
+            />
+          )}
+        </>
+      );
+    }
+
+    render(<Harness />);
+    const trigger = screen.getByRole('button', { name: 'Feld 79' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Dialog schließen' }));
+
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('requires confirmation before demolishing a building', () => {
@@ -197,5 +241,16 @@ describe('ColonyFieldDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
     expect(onDemolish).toHaveBeenCalledWith(79);
     confirm.mockRestore();
+  });
+
+  it('uses non-submitting buttons for every dialog action', () => {
+    render(<ColonyFieldDialog {...defaultProps} />);
+
+    const dialog = screen.getByRole('dialog', {
+      name: 'Feld 79 - Informationen',
+    });
+    for (const button of dialog.querySelectorAll('button')) {
+      expect(button.getAttribute('type')).toBe('button');
+    }
   });
 });

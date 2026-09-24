@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { buildingImage, commodityImage } from '../../../lib/assets';
 import type {
   BuildingDef,
@@ -69,13 +69,45 @@ export function ColonyFieldDialog({
   onDemolish: (fieldIndex: number) => void;
   onToggle: (fieldIndex: number) => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, []);
 
   const terrainName =
     TILE_TYPE_NAMES[field.terrainTileId ?? field.fieldType] ||
@@ -144,15 +176,19 @@ export function ColonyFieldDialog({
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="colony-field-dialog-title"
+      data-testid="field-dialog-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="max-h-[calc(100vh-1.5rem)] w-full max-w-xl overflow-y-auto rounded border border-swu-border bg-swu-surface px-4 py-4 shadow-2xl">
+      <section
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="colony-field-dialog-title"
+        className="max-h-[calc(100vh-1.5rem)] w-full max-w-xl overflow-y-auto rounded border border-swu-border bg-swu-surface px-4 py-4 shadow-2xl"
+      >
         <div className="flex items-start justify-between gap-2">
           <div>
             <h2
@@ -174,6 +210,7 @@ export function ColonyFieldDialog({
             </div>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="text-sm text-swu-muted hover:text-swu-primary"
@@ -326,6 +363,7 @@ export function ColonyFieldDialog({
                               {targetBuilding.name}
                             </span>
                             <button
+                              type="button"
                               onClick={() =>
                                 onUpgrade(field.fieldIndex, upgrade.id)
                               }
@@ -378,12 +416,14 @@ export function ColonyFieldDialog({
                 <Section title="Aktionen">
                   <div className="flex flex-wrap gap-2">
                     <button
+                      type="button"
                       onClick={() => onToggle(field.fieldIndex)}
                       className={`rounded border px-3 py-1.5 text-xs font-bold ${field.isActive ? 'border-yellow-500/50 bg-yellow-900/20 text-yellow-400' : 'border-green-500/50 bg-green-900/20 text-green-400'}`}
                     >
                       {field.isActive ? 'Deaktivieren' : 'Aktivieren'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         if (window.confirm('Gebäude wirklich demontieren?')) {
                           onDemolish(field.fieldIndex);
@@ -426,6 +466,7 @@ export function ColonyFieldDialog({
                 <div className="space-y-1">
                   {terraformOptions.map((option) => (
                     <button
+                      type="button"
                       key={option.id}
                       onClick={() => onTerraform(field.fieldIndex, option.id)}
                       aria-label={option.description}

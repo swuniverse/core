@@ -790,7 +790,7 @@ export function ColonyDetail({
     clearWorkspaceSelection();
   };
 
-  const handleOpenContext = (view: Exclude<ColonyContextView, null>) => {
+  const handleOpenContext = (view: ColonyContextView) => {
     clearWorkspaceSelection();
     setContextView(view);
   };
