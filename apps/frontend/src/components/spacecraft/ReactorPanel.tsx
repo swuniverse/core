@@ -153,11 +153,23 @@ export function ReactorPanel({
         id="reactor-panel-heading"
         className="mb-2 border-b border-swu-border/60 pb-1 text-center font-bold text-swu-primary"
       >
+        <img
+          src="/assets/system/3.png"
+          alt=""
+          aria-hidden="true"
+          className="mr-1 inline size-5 align-middle"
+        />
         Reaktor + Antrieb
       </h3>
 
       <div className="overflow-hidden rounded-md border border-swu-border/60 divide-y divide-swu-border/60">
         <div className="flex flex-wrap items-center gap-2 p-2">
+          <img
+            src="/assets/system/3.png"
+            alt=""
+            aria-hidden="true"
+            className="size-4"
+          />
           <span className="flex-1 font-mono text-swu-primary">
             Reaktortreibstoff {reactorFuel}/{reactorFuelMax}
           </span>
@@ -173,6 +185,12 @@ export function ReactorPanel({
 
         <div className="space-y-2 p-2">
           <div className="flex items-center gap-1">
+            <img
+              src="/assets/buttons/warpsys.png"
+              alt=""
+              aria-hidden="true"
+              className="size-5"
+            />
             <span className="w-16 font-mono text-swu-primary">
               Antrieb +{warpProduction}
             </span>
@@ -205,12 +223,24 @@ export function ReactorPanel({
             >
               +
             </button>
+            <img
+              src="/assets/buttons/eps.png"
+              alt=""
+              aria-hidden="true"
+              className="size-5"
+            />
             <span className="w-14 font-mono text-swu-primary">EPS +{epsProduction}</span>
           </div>
           <label
             title="Überschüssige Energie wird in andere Speicher übertragen"
             className="inline-flex items-center gap-1 text-[10px] text-swu-muted"
           >
+            <img
+              src="/assets/buttons/e_trans2.png"
+              alt=""
+              aria-hidden="true"
+              className="size-5"
+            />
             <input
               type="checkbox"
               checked={autoCarryOver}
