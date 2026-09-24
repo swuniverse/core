@@ -52,6 +52,7 @@ export function ColonyFieldDialog({
   onUpgrade,
   onDemolish,
   onToggle,
+  wasteAvailability,
 }: {
   field: ColonyField;
   building?: BuildingDef;
@@ -68,6 +69,7 @@ export function ColonyFieldDialog({
   onUpgrade: (fieldIndex: number, upgradeId: number) => Promise<void> | void;
   onDemolish: (fieldIndex: number) => Promise<void> | void;
   onToggle: (fieldIndex: number) => Promise<void> | void;
+  wasteAvailability?: { enabled: boolean; reason?: string };
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -153,7 +155,12 @@ export function ColonyFieldDialog({
     terraformingDefs,
   );
   const contextActions = building
-    ? getBuildingContextActions(building.functions ?? [], field.isActive)
+    ? getBuildingContextActions(building.functions ?? [], field.isActive, {
+        waste: wasteAvailability ?? {
+          enabled: false,
+          reason: 'Lagerfunktion nicht verfügbar',
+        },
+      }).filter((action) => action.view !== 'waste' || !field.isBuilding)
     : [];
 
   const renderUpgradeCosts = (upgrade: ColonyFieldUpgrade) => {

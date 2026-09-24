@@ -22,7 +22,7 @@ export const COLONY_MAIN_VIEWS = [
   { key: 'settings', label: 'Einstellungen' },
 ] as const;
 
-type BuildingContextAction = {
+export type BuildingContextAction = {
   view: Exclude<ColonyContextView, null>;
   label: string;
   enabled: boolean;
@@ -33,12 +33,19 @@ const BUILDING_CONTEXT_DEFINITIONS: Array<{
   view: BuildingContextAction['view'];
   label: string;
   functionIds: readonly number[];
+  requiresActiveField?: boolean;
 }> = [
   { view: 'hangar', label: 'Hangar öffnen', functionIds: [4] },
   {
     view: 'shipyard',
     label: 'Werft öffnen',
     functionIds: [5, 6, 7, 8, 21],
+  },
+  {
+    view: 'waste',
+    label: 'Müllverbrennung',
+    functionIds: [23],
+    requiresActiveField: false,
   },
   {
     view: 'fabrication',
@@ -52,16 +59,32 @@ const BUILDING_CONTEXT_DEFINITIONS: Array<{
   },
 ];
 
+export type BuildingContextAvailability = Partial<
+  Record<
+    Exclude<ColonyContextView, null>,
+    { enabled: boolean; reason?: string }
+  >
+>;
+
 export function getBuildingContextActions(
   functionIds: number[],
   isFieldActive: boolean,
+  availability?: BuildingContextAvailability,
 ): BuildingContextAction[] {
   return BUILDING_CONTEXT_DEFINITIONS.filter((definition) =>
-    definition.functionIds.some((functionId) => functionIds.includes(functionId)),
-  ).map(({ view, label }) => ({
-    view,
-    label,
-    enabled: isFieldActive,
-    ...(isFieldActive ? {} : { reason: 'Gebäude ist deaktiviert' }),
-  }));
+    definition.functionIds.some((functionId) =>
+      functionIds.includes(functionId),
+    ),
+  ).map(({ view, label, requiresActiveField = true }) => {
+    const contextAvailability = availability?.[view];
+    const enabled =
+      (!requiresActiveField || isFieldActive) &&
+      (contextAvailability?.enabled ?? true);
+    const reason = !enabled
+      ? requiresActiveField && !isFieldActive
+        ? 'Gebäude ist deaktiviert'
+        : contextAvailability?.reason
+      : undefined;
+    return { view, label, enabled, ...(reason ? { reason } : {}) };
+  });
 }

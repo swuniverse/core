@@ -526,7 +526,7 @@ describe('ColonyDetail', () => {
       'Werft',
       'Fabrikation',
       'Verteidigung',
-      'Entsorgung',
+      'Müllverbrennung',
       'Orbitalmanagement',
     ]) {
       expect(
@@ -1119,7 +1119,7 @@ describe('ColonyDetail', () => {
     });
 
     expect(screen.getByText('Lagerraum')).toBeTruthy();
-    expect(screen.queryByText('Deuterium-Vorrat')).toBeNull();
+    expect(screen.getByText('Deuterium-Vorrat')).toBeTruthy();
     expect(screen.getAllByTitle('Deuterium-Vorrat')).toHaveLength(1);
   });
 
@@ -1146,7 +1146,7 @@ describe('ColonyDetail', () => {
     expect(screen.queryByTitle('Empty Rump')).toBeNull();
   });
 
-  it('shows storage capacity, delta and conditional waste access', () => {
+  it('shows storage capacity without waste access in storage', () => {
     const detail = createDetail();
     detail.storage = { current: 4, max: 10, delta: -2 };
     detail.waste = { canDiscard: true, requiredFunctionId: 1 };
@@ -1155,22 +1155,14 @@ describe('ColonyDetail', () => {
 
     expect(screen.getByText('4/10')).toBeTruthy();
     expect(screen.getByText('-2')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Soziales' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Entsorgung' }));
     expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
     expect(screen.getByText('Lagerraum')).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Zurück zu Informationen' }),
-    );
-    expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
     expect(
-      screen
-        .getByRole('button', { name: 'Informationen' })
-        .getAttribute('aria-current'),
-    ).toBe('page');
+      screen.queryByRole('button', { name: 'Müllverbrennung' }),
+    ).toBeNull();
   });
 
-  it('clears build selection before entering and leaving waste', () => {
+  it('does not expose waste from storage while changing build selection', () => {
     const detail = createDetail();
     detail.waste = { canDiscard: true, requiredFunctionId: 1 };
     const onBuild = vi.fn();
@@ -1209,27 +1201,10 @@ describe('ColonyDetail', () => {
       }),
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Entsorgung' }));
-    fireEvent.click(fieldButton);
-    expect(onBuild).not.toHaveBeenCalled();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Zurück zu Informationen' }),
-    );
-
-    expect(fieldButton.className).not.toContain('ring-swu-accent');
-    expect(fieldButton.title).not.toContain(`Bauen: ${mineBuilding.name}`);
-    expect(screen.queryByText('Vorschau für Feld 1')).toBeNull();
     expect(
-      screen.queryByRole('checkbox', {
-        name: 'Nach Fertigstellung deaktivieren',
-      }),
+      screen.queryByRole('button', { name: 'Müllverbrennung' }),
     ).toBeNull();
-    fireEvent.click(fieldButton);
     expect(onBuild).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole('dialog', { name: 'Feld 1 - Informationen' }),
-    ).toBeTruthy();
   });
 
   it.each([undefined, false])(
@@ -1243,7 +1218,9 @@ describe('ColonyDetail', () => {
 
       renderColonyDetail(detail);
 
-      expect(screen.queryByRole('button', { name: 'Entsorgung' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Müllverbrennung' }),
+      ).toBeNull();
     },
   );
 

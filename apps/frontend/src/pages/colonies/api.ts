@@ -1,5 +1,8 @@
 import { api } from '../../services/api';
-import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
+import type {
+  ColonyEnvironmentScanDto,
+  CommodityLocationsDto,
+} from '@swuniverse/shared';
 import type {
   BuildingDef,
   BuildingMassActionMode,
@@ -19,6 +22,10 @@ export const colonyApi = {
   fetchColonyDetail: (id: number) => api.get<Colony>(`/colonies/${id}`),
   fetchEnvironmentScan: (colonyId: number) =>
     api.get<ColonyEnvironmentScanDto>(`/colonies/${colonyId}/environment-scan`),
+  fetchCommodityLocations: (colonyId: number, commodityId: number) =>
+    api.get<CommodityLocationsDto>(
+      `/colonies/${colonyId}/commodity-locations/${commodityId}`,
+    ),
   fetchCommodities: () => api.get<CommodityDef[]>('/colonies/commodities/all'),
   fetchAvailableBuildings: () =>
     api.get<BuildingDef[]>('/colonies/buildings/available'),

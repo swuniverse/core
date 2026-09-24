@@ -34,6 +34,7 @@ import { ColonyContextPanel } from './components/ColonyContextPanel';
 import { ColonyCommandBar } from './components/ColonyCommandBar';
 import { ColonyMap } from './components/ColonyMap';
 import { SupplyDock } from './components/SupplyDock';
+import { CommodityLocationsDialog } from './components/CommodityLocationsDialog';
 import { ColonyPrimaryNav } from './components/ColonyPrimaryNav';
 import { BuildInspector } from './components/BuildInspector';
 import type { ColonyContextView, ColonyMainView } from './colony-navigation';
@@ -772,6 +773,11 @@ export function ColonyDetail({
   const [deactivateAfterBuild, setDeactivateAfterBuild] = useState(false);
   const [hoveredBuildField, setHoveredBuildField] =
     useState<ColonyField | null>(null);
+  const [commodityLocations, setCommodityLocations] = useState<{
+    commodityId: number;
+    trigger: HTMLElement;
+  } | null>(null);
+  const commodityLocationsRequestSequenceRef = useRef(0);
 
   const detail = colony.detailV2;
   const currentEnergy = detail?.energy.current ?? colony.energy;
@@ -815,7 +821,33 @@ export function ColonyDetail({
     setHoveredBuildField(null);
   };
 
+  const closeCommodityLocations = useCallback(() => {
+    commodityLocationsRequestSequenceRef.current += 1;
+    setCommodityLocations(null);
+  }, []);
+
+  const loadCommodityLocations = useCallback(
+    async (commodityId: number) => {
+      const requestSequence = commodityLocationsRequestSequenceRef.current;
+      const result = await colonyApi.fetchCommodityLocations(
+        colony.id,
+        commodityId,
+      );
+      if (requestSequence !== commodityLocationsRequestSequenceRef.current) {
+        throw new Error('Veraltete Lagerortanfrage');
+      }
+      return result;
+    },
+    [colony.id],
+  );
+
+  useEffect(() => {
+    commodityLocationsRequestSequenceRef.current += 1;
+    setCommodityLocations(null);
+  }, [colony.id]);
+
   const handleMainViewChange = (view: ColonyMainView) => {
+    closeCommodityLocations();
     setMainView(view);
     setContextView(null);
     clearWorkspaceSelection();
@@ -1057,7 +1089,7 @@ export function ColonyDetail({
         );
         break;
       case 'waste':
-        title = 'Entsorgung';
+        title = 'Müllverbrennung';
         content = (
           <PanelWaste detail={detail} onDiscardStorage={onDiscardStorage} />
         );
@@ -1107,11 +1139,10 @@ export function ColonyDetail({
             storage={storage}
             detail={detail}
             commodityMap={commodityMap}
-            onOpenWaste={
-              detail?.waste?.canDiscard
-                ? () => handleOpenContext('waste')
-                : undefined
-            }
+            onOpenCommodityLocations={(commodityId, trigger) => {
+              commodityLocationsRequestSequenceRef.current += 1;
+              setCommodityLocations({ commodityId, trigger });
+            }}
           />
         </div>
 
@@ -1226,6 +1257,12 @@ export function ColonyDetail({
           buildingMap={buildingMap}
           commodityMap={commodityMap}
           terraformingDefs={terraformingDefs}
+          wasteAvailability={{
+            enabled: detail?.waste?.canDiscard === true,
+            reason:
+              detail?.featureAccess?.tabs.waste?.reason ??
+              'Lagerfunktion nicht verfügbar',
+          }}
           onClose={() => setSelectedField(null)}
           onOpenContext={handleOpenContext}
           onOpenBuildMenu={() => handleMainViewChange('build')}
@@ -1233,6 +1270,14 @@ export function ColonyDetail({
           onUpgrade={onUpgradeBuilding}
           onDemolish={onDemolish}
           onToggle={onToggle}
+        />
+      )}
+      {commodityLocations && (
+        <CommodityLocationsDialog
+          commodityId={commodityLocations.commodityId}
+          trigger={commodityLocations.trigger}
+          load={loadCommodityLocations}
+          onClose={closeCommodityLocations}
         />
       )}
     </div>

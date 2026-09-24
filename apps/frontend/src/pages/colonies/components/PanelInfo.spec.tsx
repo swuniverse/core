@@ -133,7 +133,7 @@ const environmentScan = {
   fadedSignatures: { uncloaked: 0, cloaked: 0 },
   colonyShields: [{ colonyId: 1, x: 2, y: 2, shielded: true }],
   anomalies: [],
-} as ColonyEnvironmentScanDto;
+} as unknown as ColonyEnvironmentScanDto;
 
 const eventProps = {
   initialEvents: detail.eventSummary!.latest,

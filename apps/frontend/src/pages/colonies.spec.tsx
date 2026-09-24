@@ -374,11 +374,11 @@ describe('ColoniesPage socket refresh', () => {
     );
 
     expect(await screen.findByText('Lagerraum')).toBeTruthy();
-    const storageCard = screen
-      .getAllByTitle('Erz')
-      .find((element) => element.tagName === 'DIV');
-    expect(storageCard?.textContent).toContain('0');
-    expect(storageCard?.textContent).toContain('+15');
+    const storageRow = screen.getByRole('listitem', {
+      name: 'Erz Lagerbestand',
+    });
+    expect(storageRow.textContent).toContain('0');
+    expect(storageRow.textContent).toContain('+15');
     expect(screen.queryByTitle('Ausbildungsgrad')).toBeNull();
   });
 

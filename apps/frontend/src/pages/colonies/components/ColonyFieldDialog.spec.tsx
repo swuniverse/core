@@ -33,6 +33,13 @@ const spaceport: BuildingDef = {
   functions: [4, 5],
 };
 
+const warehouse: BuildingDef = {
+  ...airfield,
+  id: 81010300,
+  name: 'Lagerhaus',
+  functions: [23],
+};
+
 const commodity: CommodityDef = {
   id: 1,
   name: 'Durastahl',
@@ -142,6 +149,67 @@ describe('ColonyFieldDialog', () => {
       ).disabled,
     ).toBe(true);
     expect(screen.getByText('Gebäude ist deaktiviert')).toBeTruthy();
+  });
+
+  it.each([true, false])(
+    'enables Müllverbrennung for a completed %s warehouse when the server allows it',
+    (isActive) => {
+      const onOpenContext = vi.fn();
+      render(
+        <ColonyFieldDialog
+          {...defaultProps}
+          field={{ ...builtField, buildingId: warehouse.id, isActive }}
+          building={warehouse}
+          wasteAvailability={{ enabled: true }}
+          onOpenContext={onOpenContext}
+        />,
+      );
+
+      const action = screen.getByRole('button', { name: 'Müllverbrennung' });
+      expect((action as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(action);
+      expect(onOpenContext).toHaveBeenCalledWith('waste');
+    },
+  );
+
+  it('uses only the passed server availability for the clicked warehouse', () => {
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, buildingId: warehouse.id }}
+        building={warehouse}
+        wasteAvailability={{ enabled: false, reason: 'Lager blockiert' }}
+      />,
+    );
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Müllverbrennung',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(screen.getByText('Lager blockiert')).toBeTruthy();
+  });
+
+  it('does not offer Müllverbrennung for a warehouse still under construction', () => {
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{
+          ...builtField,
+          buildingId: warehouse.id,
+          isBuilding: true,
+          buildProgress: 50,
+        }}
+        building={warehouse}
+        wasteAvailability={{ enabled: true }}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Müllverbrennung' }),
+    ).toBeNull();
   });
 
   it('shows terraforming and opens the build menu for a free field', () => {

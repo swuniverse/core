@@ -39,6 +39,31 @@ describe('colony navigation', () => {
     ]);
   });
 
+  it('maps warehouse function 23 to server-controlled waste availability', () => {
+    expect(
+      getBuildingContextActions([23], true, {
+        waste: { enabled: true },
+      }),
+    ).toEqual([{ view: 'waste', label: 'Müllverbrennung', enabled: true }]);
+    expect(
+      getBuildingContextActions([23], false, {
+        waste: { enabled: true },
+      }),
+    ).toEqual([{ view: 'waste', label: 'Müllverbrennung', enabled: true }]);
+    expect(
+      getBuildingContextActions([23], true, {
+        waste: { enabled: false, reason: 'Lager blockiert' },
+      }),
+    ).toEqual([
+      {
+        view: 'waste',
+        label: 'Müllverbrennung',
+        enabled: false,
+        reason: 'Lager blockiert',
+      },
+    ]);
+  });
+
   it('recognizes every canonical function group boundary', () => {
     expect(
       getBuildingContextActions(
