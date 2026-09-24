@@ -83,3 +83,36 @@ No new diagnostics or production-source type errors were introduced.
 Self-reviewed because Task 6 explicitly prohibited subagents. No critical or
 important findings remain. Changes are limited to the requested colony panels,
 types, tests, deleted legacy navigation, and this report.
+
+## Fix Round 1
+
+### Changes
+
+- Added focused real-rendering coverage in
+  `PanelBuildingManagement.spec.tsx` for compact building rows.
+- Verified each representative building row associates its building name with
+  the correct field number and effective status: `aktiv`, `inaktiv`,
+  `beschädigt`, or `im Bau`.
+- Locked the intended status precedence: damage overrides active state, and a
+  building under construction overrides both damage and active state.
+- Selected the damaged row and verified the component updates the selection
+  count and dispatches selection mode `2` with its field index `13`.
+
+### RED
+
+- Deliberately mutated the production row to omit the `Feld` prefix and to
+  evaluate active state before construction/damage, then ran
+  `npx nx test frontend --run src/pages/colonies/components/PanelBuildingManagement.spec.tsx`.
+- Result: 1 failed test. It stopped at `Unable to find an element with the text:
+  Feld 11`, proving the new focused test detects incorrect row association.
+- Restored the intended field label and status precedence before GREEN.
+
+### GREEN And Verification
+
+- Focused component test: 1 file, 1/1 test passed.
+- Colony-focused suite including the new spec: 9 files, 54/54 tests passed.
+- Full frontend suite: 39 files, 163/163 tests passed.
+- `npx tsc --noEmit -p apps/frontend/tsconfig.app.json`: passed with no output.
+- `npx nx typecheck frontend`: retained exactly the accepted six diagnostics in
+  `utils.spec.ts` and `DashboardColonies.spec.tsx`; no new diagnostics.
+- No unrelated fixture files or production behavior were changed.
