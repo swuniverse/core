@@ -279,6 +279,7 @@ describe('ColonyFieldDialog', () => {
       screen.getByRole('button', { name: 'Ebene vorbereiten' }),
     ).toBeTruthy();
     expect(screen.getByText('Kosten')).toBeTruthy();
+    expect(screen.getByText('Energie')).toBeTruthy();
     expect(screen.getByText('⚡ 50')).toBeTruthy();
     expect(screen.getByText('10')).toBeTruthy();
     expect(screen.getByText('20')).toBeTruthy();
@@ -293,6 +294,10 @@ describe('ColonyFieldDialog', () => {
     );
     expect(screen.getByText('Dauer')).toBeTruthy();
     expect(screen.getAllByText('4h')).toHaveLength(1);
+    const costs = screen.getByText('Kosten').parentElement;
+    const energy = screen.getByText('Energie').parentElement;
+    expect(costs?.nextElementSibling).toBe(energy);
+    expect(costs?.textContent).not.toContain('50');
     fireEvent.click(screen.getByRole('button', { name: 'Baumenü öffnen' }));
     expect(onOpenBuildMenu).toHaveBeenCalledOnce();
   });

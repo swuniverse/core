@@ -209,38 +209,43 @@ export function ColonyFieldDialog({
   };
 
   const renderTerraformingCosts = (option: TerraformingDef) => (
-    <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-swu-border/40 pt-2 text-xs">
-      <span className="text-swu-muted">Kosten</span>
-      <span className="text-right text-swu-primary">
-        ⚡ {option.energyCost}
-      </span>
-      {option.costs
-        .filter((cost) => cost.amount > 0)
-        .map((cost) => {
-          const commodity = commodityMap[cost.commodityId];
-          return (
-            <span
-              key={cost.commodityId}
-              className="col-span-2 flex items-center justify-between gap-2 text-swu-muted"
-            >
-              <span className="flex items-center gap-1.5">
-                <img
-                  src={commodityImage(cost.commodityId, commodity?.name)}
-                  alt=""
-                  className="h-4 w-4 object-contain"
-                  loading="lazy"
-                />
-                {commodity?.name ||
-                  commodity?.nameShort ||
-                  `Ware #${cost.commodityId}`}
+    <span className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 border-t border-swu-border/40 pt-2 text-xs">
+      <span>
+        <span className="mb-1 block text-swu-muted">Kosten</span>
+        {option.costs
+          .filter((cost) => cost.amount > 0)
+          .map((cost) => {
+            const commodity = commodityMap[cost.commodityId];
+            return (
+              <span
+                key={cost.commodityId}
+                className="flex items-center justify-between gap-2 text-swu-muted"
+              >
+                <span className="flex items-center gap-1.5">
+                  <img
+                    src={commodityImage(cost.commodityId, commodity?.name)}
+                    alt=""
+                    className="h-4 w-4 object-contain"
+                    loading="lazy"
+                  />
+                  {commodity?.name ||
+                    commodity?.nameShort ||
+                    `Ware #${cost.commodityId}`}
+                </span>
+                <span className="text-swu-primary">{cost.amount}</span>
               </span>
-              <span className="text-swu-primary">{cost.amount}</span>
-            </span>
-          );
-        })}
-      <span className="text-swu-muted">Dauer</span>
-      <span className="text-right text-swu-primary">
-        {formatDuration(option.duration)}
+            );
+          })}
+      </span>
+      <span className="text-right">
+        <span className="mb-1 block text-swu-muted">Energie</span>
+        <span className="text-swu-primary">⚡ {option.energyCost}</span>
+      </span>
+      <span className="col-span-2 mt-1 flex justify-between border-t border-swu-border/20 pt-1">
+        <span className="text-swu-muted">Dauer</span>
+        <span className="text-swu-primary">
+          {formatDuration(option.duration)}
+        </span>
       </span>
     </span>
   );
