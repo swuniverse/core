@@ -154,7 +154,7 @@ export function ReactorPanel({
         className="mb-2 border-b border-swu-border/60 pb-1 text-center font-bold text-swu-primary"
       >
         <img
-          src="/assets/system/3.png"
+          src="/assets/buttons/wkp2.png"
           alt=""
           aria-hidden="true"
           className="mr-1 inline size-5 align-middle"
@@ -165,7 +165,7 @@ export function ReactorPanel({
       <div className="overflow-hidden rounded-md border border-swu-border/60 divide-y divide-swu-border/60">
         <div className="flex flex-wrap items-center gap-2 p-2">
           <img
-            src="/assets/system/3.png"
+            src="/assets/buttons/wkp2.png"
             alt=""
             aria-hidden="true"
             className="size-4"
@@ -186,7 +186,7 @@ export function ReactorPanel({
         <div className="space-y-2 p-2">
           <div className="flex items-center gap-1">
             <img
-              src="/assets/buttons/warpsys.png"
+              src="/assets/buttons/wkp2.png"
               alt=""
               aria-hidden="true"
               className="size-5"
@@ -224,7 +224,7 @@ export function ReactorPanel({
               +
             </button>
             <img
-              src="/assets/buttons/eps.png"
+              src="/assets/buttons/battp2.png"
               alt=""
               aria-hidden="true"
               className="size-5"
@@ -236,7 +236,7 @@ export function ReactorPanel({
             className="inline-flex items-center gap-1 text-[10px] text-swu-muted"
           >
             <img
-              src="/assets/buttons/e_trans2.png"
+              src="/assets/buttons/transfer.png"
               alt=""
               aria-hidden="true"
               className="size-5"
