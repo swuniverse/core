@@ -46,11 +46,11 @@ describe('ReactorPanel', () => {
   it('shows authoritative compact reactor controls', async () => {
     render(<ReactorPanel {...props} />);
     expect(screen.getByRole('heading', { name: /Reaktor \+ Antrieb/ })).toBeTruthy();
-    expect(document.querySelector('[src="/assets/buttons/wkp2.png"]')).toBeTruthy();
+    expect(document.querySelector('[src="/assets/buttons/fusrkt.png"]')).toBeTruthy();
     expect(document.querySelector('[src="/assets/buttons/battp2.png"]')).toBeTruthy();
     expect(document.querySelector('[src="/assets/buttons/transfer.png"]')).toBeTruthy();
-    await waitFor(() => expect(screen.getByText('Antrieb +2')).toBeTruthy());
-    expect(screen.getByText('EPS +8')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('2')).toBeTruthy());
+    expect(screen.getByText('+8')).toBeTruthy();
     expect(
       screen.getByRole('checkbox', {
         name: 'Überschüssige Energie übertragen',

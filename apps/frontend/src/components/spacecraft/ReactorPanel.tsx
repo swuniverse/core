@@ -154,7 +154,7 @@ export function ReactorPanel({
         className="mb-2 border-b border-swu-border/60 pb-1 text-center font-bold text-swu-primary"
       >
         <img
-          src="/assets/buttons/wkp2.png"
+          src="/assets/buttons/fusrkt.png"
           alt=""
           aria-hidden="true"
           className="mr-1 inline size-5 align-middle"
@@ -165,7 +165,7 @@ export function ReactorPanel({
       <div className="overflow-hidden rounded-md border border-swu-border/60 divide-y divide-swu-border/60">
         <div className="flex flex-wrap items-center gap-2 p-2">
           <img
-            src="/assets/buttons/wkp2.png"
+            src="/assets/buttons/fusrkt.png"
             alt=""
             aria-hidden="true"
             className="size-4"
@@ -191,9 +191,7 @@ export function ReactorPanel({
               aria-hidden="true"
               className="size-5"
             />
-            <span className="w-16 font-mono text-swu-primary">
-              Antrieb +{warpProduction}
-            </span>
+            <span className="w-6 font-mono text-swu-primary">{warpProduction}</span>
             <button
               type="button"
               onClick={() => updateDistribution(split - 5, autoCarryOver)}
@@ -229,7 +227,7 @@ export function ReactorPanel({
               aria-hidden="true"
               className="size-5"
             />
-            <span className="w-14 font-mono text-swu-primary">EPS +{epsProduction}</span>
+            <span className="w-6 font-mono text-swu-primary">+{epsProduction}</span>
           </div>
           <label
             title="Überschüssige Energie wird in andere Speicher übertragen"
@@ -239,7 +237,7 @@ export function ReactorPanel({
               src="/assets/buttons/transfer.png"
               alt=""
               aria-hidden="true"
-              className="size-5"
+              className="h-5 w-auto"
             />
             <input
               type="checkbox"
