@@ -25,6 +25,7 @@ import { ColonyProjectionService } from './colony-projection.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
 import { ColonyConstructionService } from './colony-construction.service';
 import { ColonyTickProcessorService } from './colony-tick-processor.service';
+import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -115,6 +116,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
     ColonyShipyardService,
     ColonyConstructionService,
     ColonyTickProcessorService,
+    ColonyEnvironmentScanService,
     SpacecraftStatsService,
     SpacecraftTorpedoService,
   ],

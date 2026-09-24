@@ -61,7 +61,7 @@ import {
 import { SpacecraftService } from './spacecraft.service';
 
 function createService() {
-  const ship = {
+  const ship: any = {
     id: 2,
     userId: 1,
     name: 'Falke',
@@ -218,7 +218,9 @@ describe('spacecraft core detail controls', () => {
   it('persists reactor split and automatic energy transfer together', async () => {
     const { service, ship, shipRepo } = createService();
 
-    await expect(service.setReactorDistribution(2, 1, 40, true)).resolves.toEqual({
+    await expect(
+      service.setReactorDistribution(2, 1, 40, true),
+    ).resolves.toEqual({
       reactorWarpSplit: 40,
       reactorAutoCarryOver: true,
     });

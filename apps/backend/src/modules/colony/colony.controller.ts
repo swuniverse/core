@@ -25,6 +25,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ColonyService } from './colony.service';
+import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
 import { ColonyOrbitAssignmentMode } from './entities/colony-orbit-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
@@ -140,6 +141,7 @@ export class ColonyController {
   constructor(
     private readonly colonyService: ColonyService,
     private readonly gameData: GameDataService,
+    private readonly colonyEnvironmentScanService: ColonyEnvironmentScanService,
   ) {}
 
   @Get('buildings/available')
@@ -208,6 +210,14 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.colonyService.markEventRead(id, req.user.sub, eventId);
+  }
+
+  @Get(':id/environment-scan')
+  getEnvironmentScan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyEnvironmentScanService.getScan(id, req.user.sub);
   }
 
   @Get(':id')
