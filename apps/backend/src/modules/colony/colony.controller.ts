@@ -26,6 +26,7 @@ import {
 } from 'class-validator';
 import { ColonyService } from './colony.service';
 import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
+import { ColonyCommodityLocationsService } from './colony-commodity-locations.service';
 import { ColonyOrbitAssignmentMode } from './entities/colony-orbit-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
@@ -142,6 +143,7 @@ export class ColonyController {
     private readonly colonyService: ColonyService,
     private readonly gameData: GameDataService,
     private readonly colonyEnvironmentScanService: ColonyEnvironmentScanService,
+    private readonly colonyCommodityLocationsService: ColonyCommodityLocationsService,
   ) {}
 
   @Get('buildings/available')
@@ -218,6 +220,19 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.colonyEnvironmentScanService.getScan(id, req.user.sub);
+  }
+
+  @Get(':id/commodity-locations/:commodityId')
+  getCommodityLocations(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('commodityId', ParseIntPipe) commodityId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyCommodityLocationsService.getLocations(
+      id,
+      commodityId,
+      req.user.sub,
+    );
   }
 
   @Get(':id')
