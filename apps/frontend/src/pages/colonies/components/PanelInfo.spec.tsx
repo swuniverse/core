@@ -219,7 +219,7 @@ describe('PanelInfo', () => {
       .getAllByLabelText(/^\d+\|\d+:/)
       .map((cell) => cell.getAttribute('aria-label'));
     expect(scanCellNames).toContain(
-      '2|2: Testwelt, 2 Signaturen, Kolonieschild',
+      '2|2: Leerer Raum, Testwelt, 2 Signaturen, Kolonieschild',
     );
     expect(scanCellNames.join(' ')).not.toContain('Geheime Korvette');
     expect(scanCellNames.join(' ')).not.toContain('4711');

@@ -369,7 +369,8 @@ function ScanCell({
       ? starTileImage(field.fieldTypeId)
       : null;
   const details = [
-    field ? (object?.name ?? field.fieldTypeName) : 'Nicht verfügbar',
+    field?.fieldTypeName ?? 'Nicht verfügbar',
+    object?.name,
     signatureCount > 0
       ? `${signatureCount} ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
       : null,
