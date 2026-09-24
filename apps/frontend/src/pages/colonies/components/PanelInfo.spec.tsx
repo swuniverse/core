@@ -6,8 +6,16 @@ import type { Colony, ColonyDetailV2 } from '../types';
 import { PanelInfo } from './PanelInfo';
 
 vi.mock('../../../components/spacecraft/TransferDialog', () => ({
-  TransferDialog: ({ direction }: { direction: string }) => (
-    <div>Transfer {direction}</div>
+  TransferDialog: ({
+    direction,
+    shipId,
+  }: {
+    direction: string;
+    shipId: number;
+  }) => (
+    <div>
+      Transfer {direction} Schiff {shipId}
+    </div>
   ),
 }));
 
@@ -212,7 +220,7 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Zweites Schiff').closest('a')).toBeNull();
     fireEvent.click(screen.getByText('Zweites Schiff'));
     fireEvent.click(screen.getByRole('button', { name: 'Entladen' }));
-    expect(screen.getByText('Transfer TO_COLONY')).toBeTruthy();
+    expect(screen.getByText('Transfer TO_COLONY Schiff 8')).toBeTruthy();
     expect(screen.getByText('Hyperantrieb')).toBeTruthy();
     expect(screen.getByText('6/20')).toBeTruthy();
     expect(

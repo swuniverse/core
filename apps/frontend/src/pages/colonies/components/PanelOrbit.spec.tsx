@@ -67,8 +67,13 @@ describe('PanelOrbit landing', () => {
     expect(screen.getByText('Transfer TO_COLONY')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
-    expect(
-      screen.getByRole('dialog', { name: 'Schiffe im Orbit auswählen' }),
-    ).toBeTruthy();
+    const selector = screen.getByRole('dialog', {
+      name: 'Schiffe im Orbit auswählen',
+    });
+    expect(selector).toBeTruthy();
+    expect(screen.getAllByText('Hülle')).toHaveLength(2);
+    expect(screen.getAllByText('Schilde')).toHaveLength(2);
+    expect(screen.getAllByText('EPS')).toHaveLength(2);
+    expect(screen.getAllByText('Hyperantrieb')).toHaveLength(2);
   });
 });
