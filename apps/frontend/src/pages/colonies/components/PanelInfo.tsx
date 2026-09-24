@@ -50,50 +50,6 @@ export function PanelInfo({
   return (
     <div className="space-y-2">
       <section className={sectionClass}>
-        <h3 className={headingClass}>Orbitalmanagement</h3>
-        <button
-          type="button"
-          onClick={onOpenOrbitManagement}
-          className="border border-swu-accent/60 px-2 py-1 text-xs text-swu-accent hover:border-swu-accent"
-        >
-          Orbitalmanagement
-        </button>
-      </section>
-
-      <section className={sectionClass}>
-        <h3 className={headingClass}>Planet</h3>
-        {colony.celestialObject && (
-          <>
-            <div className="flex items-center gap-2">
-              {colony.celestialObject.classId && (
-                <img
-                  src={planetImage(colony.celestialObject.classId)}
-                  alt=""
-                  className="h-10 w-10 object-contain"
-                />
-              )}
-              <div className="text-sm">
-                <div className="text-swu-primary">
-                  {colony.celestialObject.name || colony.name}
-                </div>
-                {colony.posX != null && colony.posY != null && (
-                  <div className="font-mono text-[10px] text-swu-muted">
-                    {colony.posX}|{colony.posY}
-                  </div>
-                )}
-              </div>
-            </div>
-            {colony.celestialObject.description && (
-              <BbCodeText
-                text={colony.celestialObject.description}
-                className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
-              />
-            )}
-          </>
-        )}
-      </section>
-
-      <section className={sectionClass}>
         <h3 className={headingClass}>Schiffe im Orbit</h3>
         {detail?.orbitShips.length ? (
           <div className="divide-y divide-swu-border/40">
@@ -119,7 +75,47 @@ export function PanelInfo({
         )}
       </section>
 
-      <div className="grid gap-2 lg:grid-cols-[minmax(240px,1.4fr)_minmax(0,0.8fr)]">
+      <div className="grid gap-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]">
+        <section className={sectionClass}>
+          <h3 className={headingClass}>Planet</h3>
+          <button
+            type="button"
+            onClick={onOpenOrbitManagement}
+            className="mb-2 w-full border border-swu-accent/60 px-2 py-1 text-xs text-swu-accent hover:border-swu-accent"
+          >
+            Orbitalmanagement
+          </button>
+          {colony.celestialObject && (
+            <>
+              <div className="flex items-center gap-2">
+                {colony.celestialObject.classId && (
+                  <img
+                    src={planetImage(colony.celestialObject.classId)}
+                    alt=""
+                    className="h-10 w-10 object-contain"
+                  />
+                )}
+                <div className="text-sm">
+                  <div className="text-swu-primary">
+                    {colony.celestialObject.name || colony.name}
+                  </div>
+                  {colony.posX != null && colony.posY != null && (
+                    <div className="font-mono text-[10px] text-swu-muted">
+                      {colony.posX}|{colony.posY}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {colony.celestialObject.description && (
+                <BbCodeText
+                  text={colony.celestialObject.description}
+                  className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
+                />
+              )}
+            </>
+          )}
+        </section>
+
         <SystemScan
           environmentScan={environmentScan}
           error={environmentScanError}
@@ -317,7 +313,7 @@ function SystemScan({
               key={`x-${x}`}
               className="flex h-5 items-center justify-center bg-swu-surface font-mono text-[9px] text-swu-muted"
             >
-              X {x}
+              {x}
             </div>
           ))}
           {ys.flatMap((y) => [
@@ -325,7 +321,7 @@ function SystemScan({
               key={`y-${y}`}
               className="flex h-10 items-center justify-center bg-swu-surface font-mono text-[9px] text-swu-muted"
             >
-              Y {y}
+              {y}
             </div>,
             ...xs.map((x) => {
               const coordinate = `${x}|${y}`;
@@ -396,7 +392,7 @@ function ScanCell({
         />
       )}
       {signatureCount > 0 && (
-        <span className="absolute right-0 top-0 min-w-3 border border-swu-accent bg-swu-bg px-0.5 text-center font-mono text-[8px] leading-3 text-swu-accent">
+        <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
           {signatureCount}
         </span>
       )}

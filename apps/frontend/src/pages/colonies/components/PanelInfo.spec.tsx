@@ -166,12 +166,15 @@ describe('PanelInfo', () => {
       </MemoryRouter>,
     );
 
-    const sections = screen
-      .getAllByRole('heading')
-      .map((node) => node.textContent);
-    expect(sections.indexOf('Orbitalmanagement')).toBeLessThan(
-      sections.indexOf('Planet'),
-    );
+    const planetSection = screen
+      .getByRole('heading', { name: 'Planet' })
+      .closest('section');
+    expect(planetSection).toBeTruthy();
+    expect(
+      within(planetSection as HTMLElement).getByRole('button', {
+        name: 'Orbitalmanagement',
+      }),
+    ).toBeTruthy();
     expect(
       screen.getByText('Eigenes Schiff').closest('a')?.getAttribute('href'),
     ).toBe('/spacecraft/7');
@@ -189,9 +192,8 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Effekte')).toBeTruthy();
     expect(screen.getByText('Ereignisse')).toBeTruthy();
     const sectionHeadings = [
-      'Orbitalmanagement',
-      'Planet',
       'Schiffe im Orbit',
+      'Planet',
       'Umgebungsscan',
       'Sternensystem',
       'Bevölkerung',
@@ -205,14 +207,12 @@ describe('PanelInfo', () => {
         ) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
-    expect(screen.getByText('X 1')).toBeTruthy();
-    expect(screen.getByText('X 3')).toBeTruthy();
-    expect(screen.getByText('Y 1')).toBeTruthy();
-    expect(screen.getByText('Y 3')).toBeTruthy();
     const scan = screen.getByRole('heading', {
       name: 'Umgebungsscan',
     }).parentElement;
     expect(scan).toBeTruthy();
+    expect(within(scan as HTMLElement).getAllByText('1')).toHaveLength(2);
+    expect(within(scan as HTMLElement).getAllByText('3')).toHaveLength(2);
     expect(scan?.textContent).not.toContain('Geheime Korvette');
     expect(scan?.textContent).not.toContain('4711');
     const scanCellNames = within(scan as HTMLElement)
@@ -223,7 +223,16 @@ describe('PanelInfo', () => {
     );
     expect(scanCellNames.join(' ')).not.toContain('Geheime Korvette');
     expect(scanCellNames.join(' ')).not.toContain('4711');
-    fireEvent.click(screen.getByRole('button', { name: 'Orbitalmanagement' }));
+    const signature = within(scan as HTMLElement)
+      .getAllByText('2')
+      .find((node) => node.classList.contains('text-white'));
+    expect(signature).toBeTruthy();
+    expect(signature?.classList.contains('place-items-center')).toBe(true);
+    fireEvent.click(
+      within(planetSection as HTMLElement).getByRole('button', {
+        name: 'Orbitalmanagement',
+      }),
+    );
     expect(onOpenOrbitManagement).toHaveBeenCalledOnce();
   });
 
