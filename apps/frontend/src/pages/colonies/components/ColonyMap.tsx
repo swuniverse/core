@@ -43,7 +43,7 @@ function ColonyMapSection({
           {fields.length} Felder · {built} bebaut
         </div>
       </div>
-      <div className="grid grid-cols-10 gap-px">{children}</div>
+      <div className="grid min-w-[400px] grid-cols-10 gap-px">{children}</div>
     </section>
   );
 }

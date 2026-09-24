@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type {
   BuildingDef,
@@ -90,6 +90,14 @@ const defaultProps = {
   onDemolish: vi.fn(),
   onToggle: vi.fn(),
 };
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
 
 describe('ColonyFieldDialog', () => {
   it('shows building details, upgrades, production, and enabled context actions', () => {
@@ -228,7 +236,7 @@ describe('ColonyFieldDialog', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('requires confirmation before demolishing a building', () => {
+  it('requires confirmation before demolishing a building', async () => {
     const onDemolish = vi.fn();
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<ColonyFieldDialog {...defaultProps} onDemolish={onDemolish} />);
@@ -240,7 +248,102 @@ describe('ColonyFieldDialog', () => {
     confirm.mockReturnValue(true);
     fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
     expect(onDemolish).toHaveBeenCalledWith(79);
+    await act(async () => undefined);
     confirm.mockRestore();
+  });
+
+  it.each([
+    ['upgrade', 'Upgrade auf Raumhafen', 'Deaktivieren', 'onUpgrade'],
+    ['toggle', 'Deaktivieren', 'Upgrade auf Raumhafen', 'onToggle'],
+  ] as const)(
+    'prevents duplicate %s mutations while only its trigger is pending',
+    async (_action, label, otherActionLabel, callbackName) => {
+      const pending = deferred();
+      const callback = vi.fn(() => pending.promise);
+      render(
+        <ColonyFieldDialog
+          {...defaultProps}
+          {...{ [callbackName]: callback }}
+        />,
+      );
+      const trigger = screen.getByRole('button', { name: label });
+      const close = screen.getByRole('button', { name: 'Dialog schließen' });
+
+      fireEvent.click(trigger);
+      fireEvent.click(trigger);
+
+      expect(callback).toHaveBeenCalledOnce();
+      expect((trigger as HTMLButtonElement).disabled).toBe(true);
+      expect(
+        (
+          screen.getByRole('button', {
+            name: otherActionLabel,
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+      expect((close as HTMLButtonElement).disabled).toBe(false);
+      await act(async () => pending.resolve());
+      expect((trigger as HTMLButtonElement).disabled).toBe(false);
+    },
+  );
+
+  it('confirms once and prevents duplicate demolition while pending', async () => {
+    const pending = deferred();
+    const onDemolish = vi.fn(() => pending.promise);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<ColonyFieldDialog {...defaultProps} onDemolish={onDemolish} />);
+    const trigger = screen.getByRole('button', { name: 'Demontieren' });
+
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(onDemolish).toHaveBeenCalledOnce();
+    expect((trigger as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Deaktivieren',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    await act(async () => pending.resolve());
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
+    confirm.mockRestore();
+  });
+
+  it('prevents duplicate terraforming while only that option is pending', async () => {
+    const pending = deferred();
+    const onTerraform = vi.fn(() => pending.promise);
+    const freeField: ColonyField = {
+      ...builtField,
+      fieldIndex: 12,
+      fieldType: 101,
+      layer: 'SURFACE',
+      buildingId: null,
+      integrity: undefined,
+      maxIntegrity: undefined,
+      availableUpgrades: [],
+    };
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={freeField}
+        building={undefined}
+        onTerraform={onTerraform}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Ebene vorbereiten' });
+    const buildMenu = screen.getByRole('button', { name: 'Baumenü öffnen' });
+
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+
+    expect(onTerraform).toHaveBeenCalledOnce();
+    expect((trigger as HTMLButtonElement).disabled).toBe(true);
+    expect((buildMenu as HTMLButtonElement).disabled).toBe(false);
+    await act(async () => pending.resolve());
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('uses non-submitting buttons for every dialog action', () => {

@@ -9,7 +9,7 @@ import type {
 import { BMCOL_LABELS } from '../constants';
 import { canAfford, formatSignedAmount } from '../utils';
 
-const BUILDING_COLUMNS = [1, 2, 3, 4] as const;
+const BUILDING_COLUMNS = [4, 2, 1, 3] as const;
 
 type CategoryKey = 'all' | (typeof BUILDING_COLUMNS)[number];
 
@@ -131,6 +131,10 @@ export function PanelBuild({
     }
     return buildingsByColumn[activeCategory] || [];
   }, [activeCategory, buildingsByColumn]);
+  const totalBuildingCount = BUILDING_COLUMNS.reduce(
+    (total, column) => total + (buildingsByColumn[column]?.length ?? 0),
+    0,
+  );
 
   return (
     <section className="border border-swu-border bg-swu-surface p-2">
@@ -159,7 +163,7 @@ export function PanelBuild({
               : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
           }`}
         >
-          Alle {visibleBuildings.length}
+          Alle {totalBuildingCount}
         </button>
         {BUILDING_COLUMNS.map((column) => {
           const count = buildingsByColumn[column]?.length ?? 0;

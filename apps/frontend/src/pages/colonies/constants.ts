@@ -159,8 +159,8 @@ export const TILE_TYPE_NAMES: Record<number, string> = {
 };
 
 export const BMCOL_LABELS: Record<number, string> = {
-  1: 'Soziales',
-  2: 'Industrie',
-  3: 'Infrastruktur',
-  4: 'Energie',
+  1: 'Forschung',
+  2: 'Produktion',
+  3: 'Spezial',
+  4: 'Versorgung',
 };

@@ -679,9 +679,9 @@ export function ColonyDetail({
   systemGridError?: string | null;
   onBack: () => void;
   onBuild: (fi: number, bi: number, activateAfterBuild: boolean) => void;
-  onUpgradeBuilding: (fi: number, ui: number) => void;
-  onDemolish: (fi: number) => void;
-  onToggle: (fi: number) => void;
+  onUpgradeBuilding: (fi: number, ui: number) => Promise<void> | void;
+  onDemolish: (fi: number) => Promise<void> | void;
+  onToggle: (fi: number) => Promise<void> | void;
   onTerraform: (fi: number, ti: number) => Promise<void> | void;
   onBuildShip: (
     sci: number,

@@ -218,4 +218,73 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
     expect(scan?.textContent).toContain('Umgebungsscan nicht verfügbar');
   });
+
+  it('retains shields, planetary defense, asteroid exhaustion, and deposits', () => {
+    const retainedDetail = {
+      ...detail,
+      defense: {
+        shields: { current: 25, max: 100, frequency: null },
+        activeFunctionIds: [],
+        energyPhalanx: false,
+        particlePhalanx: false,
+        antiParticle: false,
+        torpedoTypeId: null,
+      },
+      planetaryDefense: [
+        {
+          fieldIndex: 7,
+          buildingId: 70,
+          buildingName: 'Abwehranlage',
+          functionId: 24,
+          functionName: 'Phalanx',
+        },
+      ],
+      asteroidExhausted: true,
+      deposits: [
+        {
+          commodityId: 9,
+          name: 'Kristall',
+          nameShort: 'KRI',
+          amountLeft: 40,
+          delta: -2,
+          depleted: false,
+        },
+      ],
+    } satisfies ColonyDetailV2;
+
+    render(
+      <MemoryRouter>
+        <PanelInfo
+          colony={{
+            ...colony,
+            celestialObject: { ...colony.celestialObject, objectType: 3 },
+          }}
+          detail={retainedDetail}
+          systemGrid={systemGrid}
+          systemGridError={null}
+          onOpenOrbitManagement={vi.fn()}
+          eventProps={eventProps}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Schilde' })).toBeTruthy();
+    expect(screen.getByText('25/100')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Planetare Verteidigung' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Feld 7: Abwehranlage')).toBeTruthy();
+    expect(screen.getByText(/vollständig erschöpft/)).toBeTruthy();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Asteroidenlagerstätten · accountgebunden',
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText('Kristall')).toBeTruthy();
+    expect(screen.getByText('-2')).toBeTruthy();
+    const effects = screen.getByRole('heading', {
+      name: 'Effekte',
+    }).parentElement;
+    expect(effects?.textContent).toContain('Ausbildungsgrad+2');
+  });
 });

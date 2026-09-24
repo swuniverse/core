@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { buildingImage, commodityImage } from '../../../lib/assets';
 import type {
   BuildingDef,
@@ -65,14 +65,38 @@ export function ColonyFieldDialog({
     fieldIndex: number,
     terraformingId: number,
   ) => Promise<void> | void;
-  onUpgrade: (fieldIndex: number, upgradeId: number) => void;
-  onDemolish: (fieldIndex: number) => void;
-  onToggle: (fieldIndex: number) => void;
+  onUpgrade: (fieldIndex: number, upgradeId: number) => Promise<void> | void;
+  onDemolish: (fieldIndex: number) => Promise<void> | void;
+  onToggle: (fieldIndex: number) => Promise<void> | void;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
+  const pendingActionsRef = useRef(new Set<string>());
+  const [pendingActions, setPendingActions] = useState<Set<string>>(
+    () => new Set(),
+  );
   onCloseRef.current = onClose;
+
+  const runAction = (key: string, action: () => Promise<void> | void) => {
+    if (pendingActionsRef.current.has(key)) return;
+    pendingActionsRef.current.add(key);
+    setPendingActions(new Set(pendingActionsRef.current));
+    let result: Promise<void> | void;
+    try {
+      result = action();
+    } catch {
+      pendingActionsRef.current.delete(key);
+      setPendingActions(new Set(pendingActionsRef.current));
+      return;
+    }
+    void Promise.resolve(result)
+      .catch(() => undefined)
+      .finally(() => {
+        pendingActionsRef.current.delete(key);
+        setPendingActions(new Set(pendingActionsRef.current));
+      });
+  };
 
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
@@ -364,8 +388,13 @@ export function ColonyFieldDialog({
                             </span>
                             <button
                               type="button"
+                              disabled={pendingActions.has(
+                                `upgrade-${upgrade.id}`,
+                              )}
                               onClick={() =>
-                                onUpgrade(field.fieldIndex, upgrade.id)
+                                runAction(`upgrade-${upgrade.id}`, () =>
+                                  onUpgrade(field.fieldIndex, upgrade.id),
+                                )
                               }
                               aria-label={`Upgrade auf ${targetBuilding.name}`}
                               className="rounded border border-swu-accent/40 bg-swu-accent/15 px-2.5 py-1.5 text-xs font-bold text-swu-accent hover:bg-swu-accent/25"
@@ -417,7 +446,10 @@ export function ColonyFieldDialog({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => onToggle(field.fieldIndex)}
+                      disabled={pendingActions.has('toggle')}
+                      onClick={() =>
+                        runAction('toggle', () => onToggle(field.fieldIndex))
+                      }
                       className={`rounded border px-3 py-1.5 text-xs font-bold ${field.isActive ? 'border-yellow-500/50 bg-yellow-900/20 text-yellow-400' : 'border-green-500/50 bg-green-900/20 text-green-400'}`}
                     >
                       {field.isActive ? 'Deaktivieren' : 'Aktivieren'}
@@ -425,10 +457,16 @@ export function ColonyFieldDialog({
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm('Gebäude wirklich demontieren?')) {
-                          onDemolish(field.fieldIndex);
+                        if (
+                          !pendingActionsRef.current.has('demolish') &&
+                          window.confirm('Gebäude wirklich demontieren?')
+                        ) {
+                          runAction('demolish', () =>
+                            onDemolish(field.fieldIndex),
+                          );
                         }
                       }}
+                      disabled={pendingActions.has('demolish')}
                       className="rounded border border-red-500/50 bg-red-900/20 px-3 py-1.5 text-xs font-bold text-red-400"
                     >
                       Demontieren
@@ -468,7 +506,12 @@ export function ColonyFieldDialog({
                     <button
                       type="button"
                       key={option.id}
-                      onClick={() => onTerraform(field.fieldIndex, option.id)}
+                      disabled={pendingActions.has(`terraform-${option.id}`)}
+                      onClick={() =>
+                        runAction(`terraform-${option.id}`, () =>
+                          onTerraform(field.fieldIndex, option.id),
+                        )
+                      }
                       aria-label={option.description}
                       className="w-full rounded border border-swu-border/60 px-2 py-1 text-left text-[10px] hover:border-swu-accent"
                     >
