@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import type { StarmapSystemGridDto } from '@swuniverse/shared';
 import { useToast } from '../../components/Toast';
 import { colonyApi } from './api';
 import { api } from '../../services/api';
@@ -125,6 +126,10 @@ export function ColoniesPage() {
   );
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>('info');
+  const [systemGrid, setSystemGrid] = useState<StarmapSystemGridDto | null>(
+    null,
+  );
+  const [systemGridError, setSystemGridError] = useState<string | null>(null);
 
   const detailRequestSequenceRef = useRef(0);
   const initialSelectedIdRef = useRef(Number(searchParams.get('selected')));
@@ -141,6 +146,22 @@ export function ColoniesPage() {
       if (requestSequence !== detailRequestSequenceRef.current) return;
       setSelected(detail);
       setSearchParams({ selected: String(id) }, { replace: true });
+      setSystemGrid(null);
+      setSystemGridError(null);
+      if (detail.starSystem?.id) {
+        void colonyApi
+          .fetchSystemGrid(detail.starSystem.id)
+          .then((grid) => {
+            if (requestSequence === detailRequestSequenceRef.current) {
+              setSystemGrid(grid);
+            }
+          })
+          .catch((error: unknown) => {
+            if (requestSequence === detailRequestSequenceRef.current) {
+              setSystemGridError(errorMessage(error));
+            }
+          });
+      }
     },
     [setSearchParams],
   );
@@ -235,6 +256,8 @@ export function ColoniesPage() {
       shipClasses={shipClasses}
       terraformingDefs={terraformingDefs}
       activeTab={activeTab}
+      systemGrid={systemGrid}
+      systemGridError={systemGridError}
       setActiveTab={setActiveTab}
       onBack={goBack}
       onBuild={(fi, bi, activateAfterBuild) =>
@@ -581,6 +604,8 @@ export function ColonyDetail({
   shipClasses,
   terraformingDefs,
   activeTab,
+  systemGrid,
+  systemGridError,
   setActiveTab,
   onBack,
   onBuild,
@@ -631,6 +656,8 @@ export function ColonyDetail({
   shipClasses: ShipClassDef[];
   terraformingDefs: TerraformingDef[];
   activeTab: DetailTab;
+  systemGrid?: StarmapSystemGridDto | null;
+  systemGridError?: string | null;
   setActiveTab: (t: DetailTab) => void;
   onBack: () => void;
   onBuild: (fi: number, bi: number, activateAfterBuild: boolean) => void;
@@ -1022,27 +1049,25 @@ export function ColonyDetail({
                     onDemolish={onDemolish}
                     onToggle={onToggle}
                   />
-                  {detail && (
-                    <PanelOrbit
-                      colonyId={colony.id}
-                      orbitShips={detail.orbitShips}
-                      commodityMap={commodityMap}
-                      onDisassembleShip={onDisassembleShip}
-                      onDefendShip={onDefendOrbitShip}
-                      onBlockadeShip={onBlockadeOrbitShip}
-                      onClearOrbitOrder={onClearOrbitOrder}
-                      onTransferShuttles={onTransferOrbitShipShuttles}
-                      compact
-                      onOpenManagement={() => setActiveTab('orbit')}
-                    />
-                  )}
                 </>
               )}
             </div>
           )}
 
           {activeTab === 'info' && (
-            <PanelInfo colony={colony} detail={detail} />
+            <PanelInfo
+              colony={colony}
+              detail={detail}
+              systemGrid={systemGrid ?? null}
+              systemGridError={systemGridError ?? null}
+              onOpenOrbitManagement={() => setActiveTab('orbit')}
+              eventProps={{
+                initialEvents: detail?.eventSummary?.latest ?? [],
+                onLoadEvents: onLoadColonyEvents,
+                onMarkRead: onMarkColonyEventRead,
+                onMarkAllRead: onMarkAllColonyEventsRead,
+              }}
+            />
           )}
           {activeTab === 'orbit' && detail && (
             <PanelOrbit

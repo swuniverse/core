@@ -330,6 +330,8 @@ function renderColonyDetail(
       shipClasses={[]}
       terraformingDefs={[]}
       activeTab="info"
+      systemGrid={null}
+      systemGridError={null}
       setActiveTab={noop}
       onBack={noop}
       onBuild={noop}

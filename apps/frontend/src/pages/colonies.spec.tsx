@@ -19,6 +19,7 @@ const colonyApiMocks = vi.hoisted(() => ({
   fetchShipClasses: vi.fn(),
   fetchColonies: vi.fn(),
   fetchColonyDetail: vi.fn(),
+  fetchSystemGrid: vi.fn(),
 }));
 
 const socketHandlers = vi.hoisted(
@@ -220,6 +221,7 @@ describe('ColoniesPage socket refresh', () => {
     colonyApiMocks.fetchAllBuildings.mockResolvedValue(allBuildings);
     colonyApiMocks.fetchTerraforming.mockResolvedValue(terraformingDefs);
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
+    colonyApiMocks.fetchSystemGrid.mockResolvedValue(null);
   });
 
   it('refreshes overview and selected detail for matching COLONY_UPDATED', async () => {
@@ -311,6 +313,63 @@ describe('ColoniesPage socket refresh', () => {
     expect(storageCard?.textContent).toContain('0');
     expect(storageCard?.textContent).toContain('+15');
     expect(screen.queryByTitle('Ausbildungsgrad')).toBeNull();
+  });
+
+  it('keeps colony detail visible when the environment scan fails', async () => {
+    const colony = createColony(1, 'Alpha', 5, 10);
+    colony.starSystem = {
+      id: 7,
+      name: 'Testsystem',
+      systemTypeId: 1,
+      systemTypeName: 'Gelber Stern',
+      maxX: 4,
+      maxY: 4,
+    };
+    colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
+    colonyApiMocks.fetchSystemGrid.mockRejectedValue(
+      new Error('Umgebungsscan nicht verfügbar'),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
+    expect(screen.getByText('Bevölkerung')).toBeTruthy();
+    expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
+  });
+
+  it('does not block colony detail while the environment scan is pending', async () => {
+    const colony = createColony(1, 'Alpha', 5, 10);
+    colony.starSystem = {
+      id: 7,
+      name: 'Testsystem',
+      systemTypeId: 1,
+      systemTypeName: 'Gelber Stern',
+      maxX: 4,
+      maxY: 4,
+    };
+    colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
+    colonyApiMocks.fetchSystemGrid.mockReturnValue(
+      new Promise(() => undefined),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
+    expect(screen.getByText('Bevölkerung')).toBeTruthy();
   });
 
   it('reloads available buildings on TICK only', async () => {

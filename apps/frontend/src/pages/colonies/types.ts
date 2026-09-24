@@ -712,7 +712,17 @@ export interface Colony {
     classId: number | null;
     objectType?: number;
   };
-  starSystem?: { name: string; cx?: number; cy?: number; layerId?: number };
+  starSystem?: {
+    id: number;
+    name: string;
+    cx?: number;
+    cy?: number;
+    layerId?: number;
+    systemTypeId: number;
+    systemTypeName?: string;
+    maxX: number;
+    maxY: number;
+  };
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
   detailV2?: ColonyDetailV2;

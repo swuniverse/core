@@ -1,4 +1,5 @@
 import { api } from '../../services/api';
+import type { StarmapSystemGridDto } from '@swuniverse/shared';
 import type {
   BuildingDef,
   BuildingMassActionMode,
@@ -16,6 +17,8 @@ import type {
 export const colonyApi = {
   fetchColonies: () => api.get<Colony[]>('/colonies'),
   fetchColonyDetail: (id: number) => api.get<Colony>(`/colonies/${id}`),
+  fetchSystemGrid: (systemId: number) =>
+    api.get<StarmapSystemGridDto>(`/starmap/systems/${systemId}/grid`),
   fetchCommodities: () => api.get<CommodityDef[]>('/colonies/commodities/all'),
   fetchAvailableBuildings: () =>
     api.get<BuildingDef[]>('/colonies/buildings/available'),
