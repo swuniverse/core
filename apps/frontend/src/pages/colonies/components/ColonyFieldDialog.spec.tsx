@@ -249,7 +249,7 @@ describe('ColonyFieldDialog', () => {
     const dialog = screen.getByRole('dialog', {
       name: 'Feld 79 - Informationen',
     });
-    for (const button of dialog.querySelectorAll('button')) {
+    for (const button of Array.from(dialog.querySelectorAll('button'))) {
       expect(button.getAttribute('type')).toBe('button');
     }
   });

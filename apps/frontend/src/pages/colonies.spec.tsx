@@ -348,7 +348,7 @@ describe('ColoniesPage socket refresh', () => {
     emitSocket('COLONY_UPDATED', { colonyId: 1 });
 
     await waitFor(() => expect(screen.queryByText('Hangarbestand')).toBeNull());
-    expect(screen.getByText('Informationen')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
   });
 
   it('shows zero-stock production resources but not effects', async () => {

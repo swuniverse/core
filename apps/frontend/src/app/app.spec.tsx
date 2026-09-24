@@ -9,6 +9,7 @@ import type {
   ShipClassDef,
   ShipModuleSelection,
 } from '../pages/colonies/types';
+import { api } from '../services/api';
 import App from './app';
 
 function createDetail(): ColonyDetailV2 {
@@ -1190,18 +1191,42 @@ describe('ColonyDetail', () => {
     },
   );
 
-  it('opens the full orbital management panel from information', () => {
+  it('opens the full orbital management panel from information', async () => {
+    const get = vi.spyOn(api, 'get').mockResolvedValueOnce({
+      colony: { energy: 40, energyMax: 80, storage: [] },
+      ships: [
+        {
+          id: 7,
+          name: 'Icarus',
+          shipClassId: 1,
+          crew: { current: 3, max: 5, minimum: 2 },
+          battery: { current: 20, max: 40 },
+          reactor: {
+            fuel: { current: 10, max: 30 },
+            profile: { label: 'Standard', loadUnits: 1, costs: [] },
+          },
+          torpedoes: null,
+          cargo: { used: 2, max: 20 },
+          shieldsActive: true,
+          hyperdriveActive: false,
+          orbitAssignment: null,
+        },
+      ],
+    });
     renderColonyDetail(createDetail());
 
     fireEvent.click(screen.getByRole('button', { name: 'Orbitalmanagement' }));
 
-    expect(screen.getByText('Orbitalmanagement wird geladen…')).toBeTruthy();
+    expect(await screen.findByText('Icarus')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Schiff' })).toBeTruthy();
+    expect(screen.getByText('Kolonie-EPS 40/80')).toBeTruthy();
     expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
     expect(screen.getByText('Lagerraum')).toBeTruthy();
     fireEvent.click(
       screen.getByRole('button', { name: 'Zurück zu Informationen' }),
     );
     expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
+    get.mockRestore();
   });
 
   it('opens the shipyard flow and submits slot-based module selections', () => {
