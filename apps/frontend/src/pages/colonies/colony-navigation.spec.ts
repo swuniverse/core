@@ -55,4 +55,9 @@ describe('colony navigation', () => {
       ),
     ).toEqual(['shipyard', 'fabrication', 'defense']);
   });
+
+  it('ignores empty and unsupported function IDs', () => {
+    expect(getBuildingContextActions([], true)).toEqual([]);
+    expect(getBuildingContextActions([0, 19, 999], true)).toEqual([]);
+  });
 });
