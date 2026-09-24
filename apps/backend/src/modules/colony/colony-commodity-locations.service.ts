@@ -47,7 +47,10 @@ export class ColonyCommodityLocationsService {
       }),
     ]);
     const ownCargo = cargo.filter(
-      (item) => item.amount > 0 && item.spacecraft.userId === userId,
+      (item) =>
+        item.commodityId === commodityId &&
+        item.amount > 0 &&
+        item.spacecraft.userId === userId,
     );
     const shipClassIds = [
       ...new Set(ownCargo.map((item) => item.spacecraft.shipClassId)),
@@ -63,7 +66,12 @@ export class ColonyCommodityLocationsService {
       commodityName:
         this.gameData.getCommodity(commodityId)?.name ?? `Ware #${commodityId}`,
       colonies: storage
-        .filter((item) => item.amount > 0 && item.colony.userId === userId)
+        .filter(
+          (item) =>
+            item.commodityId === commodityId &&
+            item.amount > 0 &&
+            item.colony.userId === userId,
+        )
         .map((item) => ({
           colonyId: item.colony.id,
           colonyName: item.colony.name,

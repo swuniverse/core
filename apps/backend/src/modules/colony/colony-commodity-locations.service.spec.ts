@@ -33,6 +33,7 @@ describe('ColonyCommodityLocationsService', () => {
         storage(3, 4, 'Foreign', 203, 100, 9999),
         storage(4, 5, 'Zero', 204, 99, 0),
         storage(5, 6, 'Negative', 205, 99, -4),
+        storage(6, 7, 'Wrong Commodity', 206, 99, 700, 3),
       ]),
     };
     const cargoRepo = {
@@ -41,6 +42,7 @@ describe('ColonyCommodityLocationsService', () => {
         cargo(2, 10, 'Foreign Ship', 45, 100, 500),
         cargo(3, 11, 'Zero Ship', 46, 99, 0),
         cargo(4, 12, 'Negative Ship', 47, 99, -2),
+        cargo(5, 13, 'Wrong Commodity Ship', 48, 99, 600, 3),
       ]),
     };
     const shipClassRepo = {
@@ -157,14 +159,14 @@ describe('ColonyCommodityLocationsService', () => {
     const { storageRepo, cargoRepo, shipClassRepo, gameData, service } =
       setup();
     storageRepo.find.mockResolvedValue([
-      storage(1, 8, 'Zeta', 208, 99, 1),
-      storage(2, 7, 'Ähre', 207, 99, 1),
-      storage(3, 6, 'Ähre', 206, 99, 1),
+      storage(1, 8, 'Zeta', 208, 99, 1, 404),
+      storage(2, 7, 'Ähre', 207, 99, 1, 404),
+      storage(3, 6, 'Ähre', 206, 99, 1, 404),
     ]);
     cargoRepo.find.mockResolvedValue([
-      cargo(1, 15, 'Zeta', 50, 99, 1),
-      cargo(2, 14, 'Ähre', 49, 99, 1),
-      cargo(3, 13, 'Ähre', 48, 99, 1),
+      cargo(1, 15, 'Zeta', 50, 99, 1, 404),
+      cargo(2, 14, 'Ähre', 49, 99, 1, 404),
+      cargo(3, 13, 'Ähre', 48, 99, 1, 404),
     ]);
     shipClassRepo.findBy.mockResolvedValue([
       { id: 48, key: 'A' },
@@ -190,11 +192,12 @@ function storage(
   colonyClassId: number,
   userId: number,
   amount: number,
+  commodityId = 2,
 ) {
   return {
     id,
     colonyId,
-    commodityId: 2,
+    commodityId,
     amount,
     colony: { id: colonyId, name: colonyName, colonyClassId, userId },
   };
@@ -207,11 +210,12 @@ function cargo(
   shipClassId: number,
   userId: number,
   amount: number,
+  commodityId = 2,
 ) {
   return {
     id,
     spacecraftId,
-    commodityId: 2,
+    commodityId,
     amount,
     spacecraft: {
       id: spacecraftId,
