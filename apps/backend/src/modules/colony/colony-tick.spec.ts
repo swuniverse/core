@@ -5929,7 +5929,6 @@ describe('main tick idempotency', () => {
       {} as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn(() => undefined) } as any,
-      { recordSnapshot: jest.fn() } as any,
     );
 
     const result = await service.handleTick();
@@ -6080,6 +6079,8 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
       { recordSnapshot: jest.fn() } as any,
     );
 
@@ -6261,6 +6262,8 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
       { recordSnapshot: jest.fn() } as any,
     );
 
@@ -7167,7 +7170,7 @@ describe('airfield hangar loop', () => {
       spacecraftModuleRepo,
       gameData,
     } = createColonyService();
-    const colony: any = { ...airfieldColony(), energy: 500 };
+    const colony = { ...airfieldColony(), energy: 500 };
     const colonizerClass = {
       ...hangarShipClass,
       key: 'REBEL_COLONIZER_ICARUS',
@@ -7263,8 +7266,7 @@ describe('airfield hangar loop', () => {
 
     expect(storage[21401].amount).toBe(4);
     expect(
-      (colony.storage as any[]).find((item: any) => item.commodityId === 21401)
-        ?.amount,
+      colony.storage.find((item: any) => item.commodityId === 21401)?.amount,
     ).toBe(4);
   });
 
@@ -7387,7 +7389,7 @@ describe('airfield hangar loop', () => {
     const colony = airfieldColony();
     colonyRepo.findOne.mockResolvedValue(colony);
     shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
-    (gameData.getShipClassDefByKey as jest.Mock).mockReturnValue({
+    gameData.getShipClassDefByKey.mockReturnValue({
       key: hangarShipClass.key,
       stuRumpId: 1501,
       buildCosts: [],

@@ -16,7 +16,7 @@ function createService() {
     find: jest.fn(async () => []),
   };
   const shipRepo = { save: jest.fn(async (value) => value) };
-  const gameData: any = { getAllFabricationItems: jest.fn(() => []) };
+  const gameData = { getAllFabricationItems: jest.fn(() => []) };
   const service = new SpacecraftCrewService(
     crewAssignmentRepo as any,
     shipRepo as any,

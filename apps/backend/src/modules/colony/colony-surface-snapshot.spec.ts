@@ -53,7 +53,6 @@ function repo(overrides: Partial<Record<string, unknown>> = {}) {
     save: jest.fn(async (value) => value),
     find: jest.fn(async () => []),
     findOne: jest.fn(),
-    findOneBy: jest.fn(),
     createQueryBuilder: jest.fn(),
     ...overrides,
   };

@@ -13,6 +13,7 @@ jest.mock('./colony-ownership.service', () => ({
 }));
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { FindOperator } from 'typeorm';
 import { SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
 import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
 
@@ -82,13 +83,15 @@ describe('ColonyEnvironmentScanService', () => {
       getSystemGrid: jest.fn(async () => grid),
     };
     const shipRepo = {
-      find: jest.fn(async () => [
-        shipAt(1, 2, 2),
-        shipAt(2, 2, 2),
-        shipAt(3, 3, 4),
-        shipAt(4, 3, 4, SpacecraftStatus.DESTROYED),
-        shipAt(5, 8, 8),
-      ]),
+      find: jest.fn<Promise<any[]>, [any]>(async () =>
+        Promise.resolve([
+          shipAt(1, 2, 2),
+          shipAt(2, 2, 2),
+          shipAt(3, 3, 4),
+          shipAt(4, 3, 4, SpacecraftStatus.DESTROYED),
+          shipAt(5, 8, 8),
+        ]),
+      ),
     };
     const service = new ColonyEnvironmentScanService(
       ownership as never,
@@ -133,13 +136,16 @@ describe('ColonyEnvironmentScanService', () => {
 
     expect(ownership.findOwnedColony).toHaveBeenCalledWith(7, 99);
     expect(starmap.getSystemGrid).toHaveBeenCalledWith(5);
-    expect(shipRepo.find).toHaveBeenCalledWith({
+    const findOptions = shipRepo.find.mock.calls[0][0];
+    expect(findOptions).toEqual({
       where: {
-        status: expect.anything(),
+        status: expect.any(FindOperator),
         location: { systemField: { starSystemId: 5 } },
       },
       relations: ['location', 'location.systemField'],
     });
+    expect(findOptions.where.status.type).toBe('not');
+    expect(findOptions.where.status.value).toBe(SpacecraftStatus.DESTROYED);
     expect(result).toEqual({
       bounds: { minX: 1, maxX: 3, minY: 1, maxY: 4 },
       fields: [
@@ -171,14 +177,9 @@ describe('ColonyEnvironmentScanService', () => {
       colonyShields: [{ colonyId: 7, x: 2, y: 2, shielded: true }],
       anomalies: [],
     });
-    expect(result.signatures).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: expect.anything() }),
-        expect.objectContaining({ name: expect.anything() }),
-        expect.objectContaining({ owner: expect.anything() }),
-        expect.objectContaining({ shipClassId: expect.anything() }),
-      ]),
-    );
+    for (const signature of result.signatures) {
+      expect(Object.keys(signature).sort()).toEqual(['visibleCount', 'x', 'y']);
+    }
   });
 });
 

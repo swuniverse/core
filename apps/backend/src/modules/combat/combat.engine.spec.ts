@@ -70,7 +70,7 @@ function combatFormulas(): CombatFormulas {
       disable_duration: 2,
       systems_priority: ['SHIELDS', 'WEAPONS'],
     },
-  } as CombatFormulas;
+  };
 }
 
 describe('CombatEngine projectile specialization', () => {
