@@ -1274,6 +1274,7 @@ export function ColonyDetail({
           onClose={() => setSelectedField(null)}
           onOpenContext={handleOpenContext}
           onOpenBuildMenu={() => handleMainViewChange('build')}
+          onOpenAcademy={() => handleMainViewChange('social')}
           onTerraform={onTerraform}
           onUpgrade={onUpgradeBuilding}
           onDemolish={onDemolish}

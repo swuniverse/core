@@ -40,6 +40,13 @@ const warehouse: BuildingDef = {
   functions: [23],
 };
 
+const colonyCentral: BuildingDef = {
+  ...airfield,
+  id: 82010100,
+  name: 'Koloniezentrale',
+  functions: [1],
+};
+
 const commodity: CommodityDef = {
   id: 1,
   name: 'Durastahl',
@@ -77,16 +84,20 @@ const terraforming: TerraformingDef = {
   description: 'Ebene vorbereiten',
   fromFieldType: 101,
   toFieldType: 102,
-  energyCost: 5,
-  duration: 120,
+  energyCost: 50,
+  duration: 4 * 60 * 60,
   researchId: null,
-  costs: [],
+  costs: [{ commodityId: commodity.id, amount: 10 }],
 };
 
 const defaultProps = {
   field: builtField,
   building: airfield,
-  buildingMap: { [airfield.id]: airfield, [spaceport.id]: spaceport },
+  buildingMap: {
+    [airfield.id]: airfield,
+    [spaceport.id]: spaceport,
+    [colonyCentral.id]: colonyCentral,
+  },
   commodityMap: { [commodity.id]: commodity },
   terraformingDefs: [terraforming],
   onClose: vi.fn(),
@@ -131,6 +142,23 @@ describe('ColonyFieldDialog', () => {
     fireEvent.click(hangarButton);
 
     expect(onOpenContext).toHaveBeenCalledWith('hangar');
+  });
+
+  it('opens the academy from a colony central', () => {
+    const onOpenAcademy = vi.fn();
+
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, buildingId: colonyCentral.id }}
+        building={colonyCentral}
+        onOpenAcademy={onOpenAcademy}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Akademie' }));
+
+    expect(onOpenAcademy).toHaveBeenCalledOnce();
   });
 
   it('disables context actions from an inactive field and explains why', () => {
@@ -238,6 +266,10 @@ describe('ColonyFieldDialog', () => {
     expect(
       screen.getByRole('button', { name: 'Ebene vorbereiten' }),
     ).toBeTruthy();
+    expect(screen.getByText('Kosten')).toBeTruthy();
+    expect(screen.getByText('⚡ 50')).toBeTruthy();
+    expect(screen.getByText('10')).toBeTruthy();
+    expect(screen.getByText('Dauer: 4h')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Baumenü öffnen' }));
     expect(onOpenBuildMenu).toHaveBeenCalledOnce();
   });

@@ -48,6 +48,7 @@ export function ColonyFieldDialog({
   onClose,
   onOpenContext,
   onOpenBuildMenu,
+  onOpenAcademy,
   onTerraform,
   onUpgrade,
   onDemolish,
@@ -62,6 +63,7 @@ export function ColonyFieldDialog({
   onClose: () => void;
   onOpenContext: (view: ColonyContextView) => void;
   onOpenBuildMenu: () => void;
+  onOpenAcademy: () => void;
   onTerraform: (
     fieldIndex: number,
     terraformingId: number,
@@ -162,6 +164,7 @@ export function ColonyFieldDialog({
         },
       }).filter((action) => action.view !== 'waste' || !field.isBuilding)
     : [];
+  const canOpenAcademy = building?.functions?.includes(1) && !field.isBuilding;
 
   const renderUpgradeCosts = (upgrade: ColonyFieldUpgrade) => {
     const rows: ReactNode[] = [];
@@ -204,6 +207,43 @@ export function ColonyFieldDialog({
       });
     return rows;
   };
+
+  const renderTerraformingCosts = (option: TerraformingDef) => (
+    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-swu-border/40 pt-2 text-xs">
+      <span className="text-swu-muted">Kosten</span>
+      <span className="text-right text-swu-primary">
+        ⚡ {option.energyCost}
+      </span>
+      {option.costs
+        .filter((cost) => cost.amount > 0)
+        .map((cost) => {
+          const commodity = commodityMap[cost.commodityId];
+          return (
+            <span
+              key={cost.commodityId}
+              className="col-span-2 flex items-center justify-between gap-2 text-swu-muted"
+            >
+              <span className="flex items-center gap-1.5">
+                <img
+                  src={commodityImage(cost.commodityId, commodity?.name)}
+                  alt=""
+                  className="h-4 w-4 object-contain"
+                  loading="lazy"
+                />
+                {commodity?.nameShort ||
+                  commodity?.name ||
+                  `Ware #${cost.commodityId}`}
+              </span>
+              <span className="text-swu-primary">{cost.amount}</span>
+            </span>
+          );
+        })}
+      <span className="text-swu-muted">Dauer</span>
+      <span className="text-right text-swu-primary">
+        {formatDuration(option.duration)}
+      </span>
+    </div>
+  );
 
   return (
     <div
@@ -448,6 +488,18 @@ export function ColonyFieldDialog({
                 </Section>
               )}
 
+              {canOpenAcademy && (
+                <Section title="Gebäudefunktionen">
+                  <button
+                    type="button"
+                    onClick={onOpenAcademy}
+                    className="w-full rounded border border-swu-accent/40 bg-swu-accent/15 px-3 py-1.5 text-xs font-bold text-swu-accent hover:bg-swu-accent/25"
+                  >
+                    Akademie
+                  </button>
+                </Section>
+              )}
+
               {!isHQ && !field.isBuilding && (
                 <Section title="Aktionen">
                   <div className="flex flex-wrap gap-2">
@@ -533,6 +585,7 @@ export function ColonyFieldDialog({
                       <span className="ml-2 text-swu-muted">
                         Dauer: {formatDuration(option.duration)}
                       </span>
+                      {renderTerraformingCosts(option)}
                     </button>
                   ))}
                 </div>
