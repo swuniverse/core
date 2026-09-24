@@ -53,6 +53,12 @@ const commodity: CommodityDef = {
   nameShort: 'DUR',
 };
 
+const secondCommodity: CommodityDef = {
+  id: 2,
+  name: 'Tritanium',
+  nameShort: 'TRI',
+};
+
 const builtField: ColonyField = {
   id: 79,
   fieldIndex: 79,
@@ -87,7 +93,10 @@ const terraforming: TerraformingDef = {
   energyCost: 50,
   duration: 4 * 60 * 60,
   researchId: null,
-  costs: [{ commodityId: commodity.id, amount: 10 }],
+  costs: [
+    { commodityId: commodity.id, amount: 10 },
+    { commodityId: secondCommodity.id, amount: 20 },
+  ],
 };
 
 const defaultProps = {
@@ -98,7 +107,10 @@ const defaultProps = {
     [spaceport.id]: spaceport,
     [colonyCentral.id]: colonyCentral,
   },
-  commodityMap: { [commodity.id]: commodity },
+  commodityMap: {
+    [commodity.id]: commodity,
+    [secondCommodity.id]: secondCommodity,
+  },
   terraformingDefs: [terraforming],
   onClose: vi.fn(),
   onOpenContext: vi.fn(),
@@ -269,9 +281,15 @@ describe('ColonyFieldDialog', () => {
     expect(screen.getByText('Kosten')).toBeTruthy();
     expect(screen.getByText('⚡ 50')).toBeTruthy();
     expect(screen.getByText('10')).toBeTruthy();
-    expect(screen.getByText('DUR')).toBeTruthy();
-    expect(screen.getByAltText('').getAttribute('src')).toBe(
-      '/assets/commodities/1.png',
+    expect(screen.getByText('20')).toBeTruthy();
+    expect(screen.getByText('Durastahl')).toBeTruthy();
+    expect(screen.getByText('Tritanium')).toBeTruthy();
+    const costIcons = Array.from(screen.getAllByAltText('')).map((image) =>
+      image.getAttribute('src'),
+    );
+    expect(costIcons).toContain('/assets/commodities/1.png');
+    expect(costIcons.some((src) => src?.includes('2-baumaterial.png'))).toBe(
+      true,
     );
     expect(screen.getByText('Dauer')).toBeTruthy();
     expect(screen.getAllByText('4h')).toHaveLength(1);

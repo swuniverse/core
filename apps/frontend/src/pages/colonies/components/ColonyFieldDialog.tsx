@@ -196,8 +196,8 @@ export function ColonyFieldDialog({
                 loading="lazy"
               />
               <span className="truncate">
-                {commodity?.nameShort ||
-                  commodity?.name ||
+                {commodity?.name ||
+                  commodity?.nameShort ||
                   `Ware #${cost.commodityId}`}
               </span>
             </span>
@@ -230,8 +230,8 @@ export function ColonyFieldDialog({
                   className="h-4 w-4 object-contain"
                   loading="lazy"
                 />
-                {commodity?.nameShort ||
-                  commodity?.name ||
+                {commodity?.name ||
+                  commodity?.nameShort ||
                   `Ware #${cost.commodityId}`}
               </span>
               <span className="text-swu-primary">{cost.amount}</span>
