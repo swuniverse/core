@@ -249,7 +249,6 @@ export function ReactorPanel({
               aria-label="Überschüssige Energie übertragen"
               className="accent-swu-accent"
             />
-            Überschüssige Energie übertragen
           </label>
         </div>
 
