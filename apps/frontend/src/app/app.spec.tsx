@@ -453,6 +453,47 @@ function renderColonyDetail(
 }
 
 describe('ColonyDetail', () => {
+  it('opens the social view from the colony central academy action', () => {
+    const detail = createDetail();
+    const colony = {
+      ...createColony(detail),
+      fields: [
+        {
+          id: 1,
+          fieldIndex: 1,
+          fieldType: 101,
+          terrainTileId: null,
+          layer: 'SURFACE' as const,
+          buildingId: 82010100,
+          isBuilding: false,
+          isActive: true,
+          buildProgress: 100,
+          buildFinishesAt: null,
+          availableUpgrades: [],
+        },
+      ],
+    };
+    const central = {
+      ...mineBuilding,
+      id: 82010100,
+      name: 'Koloniezentrale',
+      functions: [1],
+    };
+
+    renderColonyDetail(detail, {
+      colony,
+      allBuildingDefs: [central],
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Feld 1: Koloniezentrale' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Akademie' }));
+
+    expect(screen.getByText('Crew-Übersicht')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it.each([
     { max: 0, visible: false },
     { max: -1, visible: false },

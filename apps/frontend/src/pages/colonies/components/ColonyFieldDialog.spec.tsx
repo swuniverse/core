@@ -269,7 +269,12 @@ describe('ColonyFieldDialog', () => {
     expect(screen.getByText('Kosten')).toBeTruthy();
     expect(screen.getByText('⚡ 50')).toBeTruthy();
     expect(screen.getByText('10')).toBeTruthy();
-    expect(screen.getByText('Dauer: 4h')).toBeTruthy();
+    expect(screen.getByText('DUR')).toBeTruthy();
+    expect(screen.getByAltText('').getAttribute('src')).toBe(
+      '/assets/commodities/1.png',
+    );
+    expect(screen.getByText('Dauer')).toBeTruthy();
+    expect(screen.getAllByText('4h')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Baumenü öffnen' }));
     expect(onOpenBuildMenu).toHaveBeenCalledOnce();
   });

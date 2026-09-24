@@ -209,7 +209,7 @@ export function ColonyFieldDialog({
   };
 
   const renderTerraformingCosts = (option: TerraformingDef) => (
-    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-swu-border/40 pt-2 text-xs">
+    <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-swu-border/40 pt-2 text-xs">
       <span className="text-swu-muted">Kosten</span>
       <span className="text-right text-swu-primary">
         ⚡ {option.energyCost}
@@ -242,7 +242,7 @@ export function ColonyFieldDialog({
       <span className="text-right text-swu-primary">
         {formatDuration(option.duration)}
       </span>
-    </div>
+    </span>
   );
 
   return (
@@ -581,9 +581,6 @@ export function ColonyFieldDialog({
                         →{' '}
                         {FIELD_TYPE_NAMES[option.toFieldType] ||
                           option.toFieldType}
-                      </span>
-                      <span className="ml-2 text-swu-muted">
-                        Dauer: {formatDuration(option.duration)}
                       </span>
                       {renderTerraformingCosts(option)}
                     </button>
