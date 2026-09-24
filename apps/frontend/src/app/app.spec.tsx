@@ -452,7 +452,11 @@ describe('ColonyDetail', () => {
       screen.queryByText('← Markiertes Feld auf der Karte klicken zum Platzieren'),
     ).toBeNull();
     expect(fieldButton.className).not.toContain('ring-swu-accent');
-    expect(screen.queryByText('Felddetails')).toBeNull();
+    expect(
+      screen.queryByRole('checkbox', {
+        name: 'Nach Fertigstellung deaktivieren',
+      }),
+    ).toBeNull();
   });
 
   it('keeps the selected building active for consecutive placements', () => {
@@ -826,6 +830,81 @@ describe('ColonyDetail', () => {
       ),
     ).toBe('page');
   });
+
+  it('clears build selection before entering and leaving waste', () => {
+    const detail = createDetail();
+    detail.waste = { canDiscard: true, requiredFunctionId: 1 };
+    const onBuild = vi.fn();
+    const field = {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 101,
+      terrainTileId: null,
+      layer: 'SURFACE' as const,
+      buildingId: null,
+      isBuilding: false,
+      isActive: false,
+      buildProgress: 0,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    };
+
+    renderColonyDetail(detail, {
+      colony: { ...createColony(detail), fields: [field] },
+      buildingDefs: [mineBuilding],
+      allBuildingDefs: [mineBuilding],
+      onBuild,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
+    fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
+    const fieldButton = screen.getByRole('button', { name: 'Feld 1' });
+    fireEvent.mouseEnter(fieldButton);
+
+    expect(fieldButton.className).toContain('ring-swu-accent');
+    expect(fieldButton.title).toContain(`Bauen: ${mineBuilding.name}`);
+    expect(screen.getByText('Vorschau für Feld 1')).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Nach Fertigstellung deaktivieren',
+      }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Entsorgung' }));
+    fireEvent.click(fieldButton);
+    expect(onBuild).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: '← Zurück zu Informationen' }),
+    );
+
+    expect(fieldButton.className).not.toContain('ring-swu-accent');
+    expect(fieldButton.title).not.toContain(`Bauen: ${mineBuilding.name}`);
+    expect(screen.queryByText('Vorschau für Feld 1')).toBeNull();
+    expect(
+      screen.queryByRole('checkbox', {
+        name: 'Nach Fertigstellung deaktivieren',
+      }),
+    ).toBeNull();
+    fireEvent.click(fieldButton);
+    expect(onBuild).not.toHaveBeenCalled();
+    expect(screen.getByText('Feld 1')).toBeTruthy();
+  });
+
+  it.each([undefined, false])(
+    'hides waste access when canDiscard is %s',
+    (canDiscard) => {
+      const detail = createDetail();
+      detail.waste =
+        canDiscard === undefined
+          ? undefined
+          : { canDiscard, requiredFunctionId: 1 };
+
+      renderColonyDetail(detail);
+
+      expect(screen.queryByRole('button', { name: 'Entsorgung' })).toBeNull();
+    },
+  );
 
   it('keeps map and storage visible in the interim orbit context', () => {
     renderColonyDetail(createDetail());

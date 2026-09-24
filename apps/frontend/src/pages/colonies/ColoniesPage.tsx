@@ -778,17 +778,25 @@ export function ColonyDetail({
     [colony, commodityMap],
   );
 
-  const handleMainViewChange = (view: ColonyMainView) => {
-    setMainView(view);
-    setContextView(null);
+  const clearWorkspaceSelection = () => {
     setSelectedField(null);
     setSelectedBuilding(null);
     setHoveredBuildField(null);
   };
 
-  const handleCloseContext = () => {
+  const handleMainViewChange = (view: ColonyMainView) => {
+    setMainView(view);
     setContextView(null);
-    setMainView('information');
+    clearWorkspaceSelection();
+  };
+
+  const handleOpenContext = (view: Exclude<ColonyContextView, null>) => {
+    clearWorkspaceSelection();
+    setContextView(view);
+  };
+
+  const handleCloseContext = () => {
+    handleMainViewChange('information');
   };
 
   useEffect(() => {
@@ -881,6 +889,8 @@ export function ColonyDetail({
   };
 
   const handleFieldClick = (field: ColonyField) => {
+    if (contextView) return;
+
     if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
       if (field.buildingId) {
         const buildingName =
@@ -953,7 +963,7 @@ export function ColonyDetail({
             commodityMap={commodityMap}
             onOpenWaste={
               detail?.waste?.canDiscard
-                ? () => setContextView('waste')
+                ? () => handleOpenContext('waste')
                 : undefined
             }
           />
@@ -1010,7 +1020,9 @@ export function ColonyDetail({
               detail={detail}
               systemGrid={systemGrid ?? null}
               systemGridError={systemGridError ?? null}
-              onOpenOrbitManagement={() => setContextView('orbit-management')}
+              onOpenOrbitManagement={() =>
+                handleOpenContext('orbit-management')
+              }
               eventProps={{
                 initialEvents: detail?.eventSummary?.latest ?? [],
                 onLoadEvents: onLoadColonyEvents,
