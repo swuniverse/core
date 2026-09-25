@@ -556,37 +556,41 @@ export class ColonyConstructionService {
 
   private async deactivateDependentBuildings(
     colony: Colony,
-    fieldToRemove: ColonyField,
+    definition: BuildingDef,
     manager?: EntityManager,
   ): Promise<ColonyField[]> {
     const deactivated: ColonyField[] = [];
+    const dependentCommodityIds = new Set(
+      (definition.production ?? [])
+        .filter(
+          (production) =>
+            production.amount > 0 &&
+            (production.commodityId === 1801 || production.commodityId === 1802),
+        )
+        .map((production) => production.commodityId),
+    );
 
-    for (let round = 0; round < 100; round++) {
-      const summary = this.colonyStatsService.calculateSummary(
-        colony,
-        new Set([fieldToRemove.id, ...deactivated.map((field) => field.id)]),
-      );
-      let victim: ColonyField | null = null;
+    if (dependentCommodityIds.size === 0) return deactivated;
 
-      for (const field of summary.activeFields) {
-        if (field.id === fieldToRemove.id || this.isHeadquartersField(field)) {
-          continue;
-        }
-        const definition = this.gameData.getBuilding(field.buildingId!);
-        if (!definition) continue;
-        const missingEffectCommodity = this.getUnavailableEffectCommodity(
-          summary,
-          definition,
-        );
-        if (missingEffectCommodity) {
-          victim = field;
-          break;
-        }
+    for (const victim of colony.fields ?? []) {
+      if (
+        !victim.isActive ||
+        victim.isBuilding ||
+        this.isHeadquartersField(victim)
+      ) {
+        continue;
       }
-
-      if (!victim) break;
       const victimDefinition = this.gameData.getBuilding(victim.buildingId!);
-      if (!victimDefinition) break;
+      if (
+        !victimDefinition ||
+        !victimDefinition.production.some(
+          (production) =>
+            production.amount < 0 &&
+            dependentCommodityIds.has(production.commodityId),
+        )
+      ) {
+        continue;
+      }
       await this.buildingLifecycleService.deactivateBuilding(
         colony,
         victim,
@@ -653,7 +657,11 @@ export class ColonyConstructionService {
     }
     if (!field.isBuilding) {
       deactivatedFields.push(
-        ...(await this.deactivateDependentBuildings(colony, field, manager)),
+        ...(await this.deactivateDependentBuildings(
+          colony,
+          definition,
+          manager,
+        )),
       );
     }
 
@@ -945,7 +953,7 @@ export class ColonyConstructionService {
         field,
         definition,
       );
-      await this.deactivateDependentBuildings(colony, field);
+      await this.deactivateDependentBuildings(colony, definition);
       return field;
     } else {
       this.assertCanActivateBuilding(colony, field, definition);

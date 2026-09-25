@@ -456,6 +456,21 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           resourceCosts: [],
           production: [{ commodityId: 1801, amount: 1 }],
         },
+        650: {
+          id: 650,
+          name: 'Independent Effect Producer',
+          epsProc: 0,
+          researchPoints: 0,
+          bevUse: 0,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [101],
+          isUnique: false,
+          costs: { buildTime: 60 },
+          resourceCosts: [],
+          production: [{ commodityId: 1201, amount: 1 }],
+        },
         400: {
           id: 400,
           name: 'Worker Building',
@@ -3786,6 +3801,50 @@ describe('colony tick calculations', () => {
     expect(consumer.isActive).toBe(false);
     expect(fieldRepo.save).toHaveBeenCalledWith(consumer);
     expect(statsRepo.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps unrelated effect consumers active when a producer of another effect is toggled off', async () => {
+    const { service, colonyRepo, fieldRepo } = createColonyService();
+    const unrelatedBuilding = {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 101,
+      buildingId: 650,
+      isBuilding: false,
+      isActive: true,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const unsupportedConsumer = {
+      id: 2,
+      fieldIndex: 2,
+      fieldType: 900,
+      buildingId: 600,
+      isBuilding: false,
+      isActive: true,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 10,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      stats: { workers: 0, workless: 10, maxPopulation: 100 },
+      fields: [unrelatedBuilding, unsupportedConsumer],
+      storage: [],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+
+    await service.toggleBuilding(1, 1, 1);
+
+    expect(unrelatedBuilding.isActive).toBe(false);
+    expect(unsupportedConsumer.isActive).toBe(true);
+    expect(fieldRepo.save).not.toHaveBeenCalledWith(unsupportedConsumer);
   });
 
   it('keeps orbital maintenance consumers active when maintenance is sufficient', async () => {
