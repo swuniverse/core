@@ -119,11 +119,32 @@ describe('SpacecraftDestructionService', () => {
     expect(manager.remove).toHaveBeenCalledWith(ship);
   });
 
+  it('locks the ship without loading nullable location relations', async () => {
+    const { service, manager } = setup();
+
+    await service.selfDestruct(2, 1);
+
+    expect(manager.findOne).toHaveBeenCalledWith(expect.anything(), {
+      where: { id: 2, userId: 1 },
+      lock: { mode: 'pessimistic_write' },
+    });
+  });
+
   it('requires an actual crew assignment', async () => {
-    const { service } = setup({}, []);
+    const { service } = setup({ crewRequired: 1 }, []);
     await expect(service.selfDestruct(2, 1)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('allows a crew-free ship to self-destruct without assignments', async () => {
+    const { service, manager } = setup({ crewRequired: 0 }, []);
+
+    await expect(service.selfDestruct(2, 1)).resolves.toMatchObject({
+      spacecraftId: 2,
+      status: 'DESTROYED',
+    });
+    expect(manager.remove).toHaveBeenCalledWith([]);
   });
 
   it('preserves the canonical location on the wreck', async () => {

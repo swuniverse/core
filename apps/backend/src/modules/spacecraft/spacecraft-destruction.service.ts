@@ -42,7 +42,6 @@ export class SpacecraftDestructionService {
     const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId, userId },
-        relations: ['location', 'location.galaxyField', 'location.systemField'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!ship) throw new NotFoundException('Spacecraft not found');
@@ -57,7 +56,7 @@ export class SpacecraftDestructionService {
         where: { spacecraftId: ship.id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (assignments.length === 0) {
+      if (ship.crewRequired > 0 && assignments.length === 0) {
         throw new BadRequestException(
           'At least one assigned crew member is required to self-destruct',
         );
@@ -120,7 +119,6 @@ export class SpacecraftDestructionService {
     const ownerId = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId },
-        relations: ['location', 'location.galaxyField', 'location.systemField'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!ship || ship.status === SpacecraftStatus.DESTROYED) return null;
