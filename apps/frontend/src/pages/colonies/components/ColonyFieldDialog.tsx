@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { buildingImage, commodityImage } from '../../../lib/assets';
+import {
+  buildingImage,
+  colonyFieldTileImage,
+  commodityImage,
+} from '../../../lib/assets';
 import type {
   BuildingDef,
   ColonyField,
@@ -208,47 +212,26 @@ export function ColonyFieldDialog({
     return rows;
   };
 
-  const renderTerraformingCosts = (option: TerraformingDef) => (
-    <span className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 border-t border-swu-border/40 pt-2 text-xs">
-      <span>
-        <span className="mb-1 block text-swu-muted">Kosten</span>
-        {option.costs
-          .filter((cost) => cost.amount > 0)
-          .map((cost) => {
-            const commodity = commodityMap[cost.commodityId];
-            return (
-              <span
-                key={cost.commodityId}
-                className="flex items-center justify-between gap-2 text-swu-muted"
-              >
-                <span className="flex items-center gap-1.5">
-                  <img
-                    src={commodityImage(cost.commodityId, commodity?.name)}
-                    alt=""
-                    className="h-4 w-4 object-contain"
-                    loading="lazy"
-                  />
-                  {commodity?.name ||
-                    commodity?.nameShort ||
-                    `Ware #${cost.commodityId}`}
-                </span>
-                <span className="text-swu-primary">{cost.amount}</span>
-              </span>
-            );
-          })}
-      </span>
-      <span className="text-right">
-        <span className="mb-1 block text-swu-muted">Energie</span>
-        <span className="text-swu-primary">⚡ {option.energyCost}</span>
-      </span>
-      <span className="col-span-2 mt-1 flex justify-between border-t border-swu-border/20 pt-1">
-        <span className="text-swu-muted">Dauer</span>
-        <span className="text-swu-primary">
-          {formatDuration(option.duration)}
-        </span>
-      </span>
-    </span>
-  );
+  const activeTerraforming = field.terraformingId
+    ? terraformingDefs.find((option) => option.id === field.terraformingId)
+    : undefined;
+  const activeTerraformingProgress = activeTerraforming?.duration
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          ((activeTerraforming.duration -
+            Math.max(
+              0,
+              new Date(field.terraformingFinishesAt ?? 0).getTime() -
+                Date.now(),
+            ) /
+              1000) /
+            activeTerraforming.duration) *
+            100,
+        ),
+      )
+    : 0;
 
   return (
     <div
@@ -541,8 +524,23 @@ export function ColonyFieldDialog({
             </>
           ) : (
             <Section title="Freies Feld">
-              <div className="text-xs text-swu-muted">
-                Dieses Feld ist aktuell unbebaut.
+              <div className="flex items-center gap-3">
+                <img
+                  src={colonyFieldTileImage(
+                    field.terrainTileId ?? field.fieldType,
+                  )}
+                  alt={terrainName}
+                  className="h-14 w-14 border border-swu-border/60 object-cover"
+                  loading="lazy"
+                />
+                <div>
+                  <div className="font-bold text-swu-primary">
+                    {terrainName}
+                  </div>
+                  <div className="text-xs text-swu-muted">
+                    Dieses Feld ist aktuell unbebaut.
+                  </div>
+                </div>
               </div>
             </Section>
           )}
@@ -550,45 +548,175 @@ export function ColonyFieldDialog({
           {!field.buildingId && (
             <Section title="Terraforming">
               {field.terraformingId ? (
-                <div className="rounded border border-cyan-400/40 bg-cyan-950/20 px-2 py-1 text-[10px] text-cyan-300">
-                  Terraforming läuft bis{' '}
-                  {field.terraformingFinishesAt
-                    ? new Date(field.terraformingFinishesAt).toLocaleString(
-                        'de-DE',
-                        {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        },
-                      )
-                    : '?'}
+                <div className="rounded border border-cyan-400/40 bg-cyan-950/20 p-3">
+                  <div className="mb-2 text-center text-xs font-bold text-cyan-300">
+                    {activeTerraforming?.description ?? 'Terraforming'} läuft
+                  </div>
+                  {activeTerraforming && (
+                    <div className="flex items-center justify-center gap-3">
+                      <img
+                        src={colonyFieldTileImage(
+                          activeTerraforming.fromFieldType,
+                        )}
+                        alt={
+                          FIELD_TYPE_NAMES[activeTerraforming.fromFieldType] ??
+                          String(activeTerraforming.fromFieldType)
+                        }
+                        className="h-12 w-12 border border-swu-border/60 object-cover"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="font-bold text-cyan-300"
+                      >
+                        →
+                      </span>
+                      <img
+                        src={colonyFieldTileImage(
+                          activeTerraforming.toFieldType,
+                        )}
+                        alt={
+                          FIELD_TYPE_NAMES[activeTerraforming.toFieldType] ??
+                          String(activeTerraforming.toFieldType)
+                        }
+                        className="h-12 w-12 border border-swu-border/60 object-cover"
+                      />
+                    </div>
+                  )}
+                  <div
+                    role="progressbar"
+                    aria-label="Terraforming-Fortschritt"
+                    aria-valuemin={0}
+                    aria-valuenow={Math.round(activeTerraformingProgress)}
+                    aria-valuemax={100}
+                    className="mt-3 h-2 overflow-hidden border border-cyan-300/40 bg-swu-bg"
+                  >
+                    <div
+                      className="h-full bg-cyan-400 transition-[width]"
+                      style={{ width: `${activeTerraformingProgress}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-center text-xs text-swu-muted">
+                    Fertigstellung:{' '}
+                    {field.terraformingFinishesAt
+                      ? new Date(field.terraformingFinishesAt).toLocaleString(
+                          'de-DE',
+                          {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          },
+                        )
+                      : '?'}
+                  </div>
                 </div>
               ) : terraformOptions.length > 0 ? (
-                <div className="space-y-1">
+                <div className="space-y-3">
                   {terraformOptions.map((option) => (
-                    <button
-                      type="button"
+                    <div
                       key={option.id}
-                      disabled={pendingActions.has(`terraform-${option.id}`)}
-                      onClick={() =>
-                        runAction(`terraform-${option.id}`, () =>
-                          onTerraform(field.fieldIndex, option.id),
-                        )
-                      }
-                      aria-label={option.description}
-                      className="w-full rounded border border-swu-border/60 px-2 py-1 text-left text-[10px] hover:border-swu-accent"
+                      className="overflow-hidden rounded border border-swu-border/70 bg-swu-bg/50"
                     >
-                      <span className="text-swu-primary">
+                      <div className="border-b border-swu-border/60 bg-swu-surface px-3 py-1.5 text-center text-xs font-bold text-swu-primary">
                         {option.description}
-                      </span>
-                      <span className="ml-2 text-swu-muted">
-                        →{' '}
-                        {FIELD_TYPE_NAMES[option.toFieldType] ||
-                          option.toFieldType}
-                      </span>
-                      {renderTerraformingCosts(option)}
-                    </button>
+                      </div>
+                      <div className="grid grid-cols-[1fr_auto] gap-3 p-3">
+                        <div className="flex min-w-0 flex-col items-center justify-center">
+                          <div className="flex items-center justify-center gap-3">
+                            <img
+                              src={colonyFieldTileImage(option.fromFieldType)}
+                              alt={
+                                FIELD_TYPE_NAMES[option.fromFieldType] ??
+                                String(option.fromFieldType)
+                              }
+                              className="h-12 w-12 border border-swu-border/60 object-cover"
+                              loading="lazy"
+                            />
+                            <span
+                              aria-hidden="true"
+                              className="font-bold text-swu-primary"
+                            >
+                              →
+                            </span>
+                            <img
+                              src={colonyFieldTileImage(option.toFieldType)}
+                              alt={
+                                FIELD_TYPE_NAMES[option.toFieldType] ??
+                                String(option.toFieldType)
+                              }
+                              className="h-12 w-12 border border-swu-border/60 object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={pendingActions.has(
+                              `terraform-${option.id}`,
+                            )}
+                            onClick={() =>
+                              runAction(`terraform-${option.id}`, () =>
+                                onTerraform(field.fieldIndex, option.id),
+                              )
+                            }
+                            aria-label={option.description}
+                            className="mt-3 border border-swu-accent/60 bg-swu-accent/15 px-3 py-1 text-xs font-bold text-swu-accent hover:bg-swu-accent/25 disabled:opacity-50"
+                          >
+                            Durchführen
+                          </button>
+                          <div className="mt-1 text-center text-xs text-swu-muted">
+                            Dauer{' '}
+                            <span className="font-bold text-swu-primary">
+                              {formatDuration(option.duration)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="min-w-20 border-l border-swu-border/40 pl-3 text-xs">
+                          <div className="mb-1 font-bold text-swu-primary">
+                            Kosten
+                          </div>
+                          <div className="flex items-center gap-1 text-swu-primary">
+                            <img
+                              src="/assets/buttons/e_trans2.png"
+                              alt="Energie"
+                              className="h-5 w-5 object-contain"
+                              loading="lazy"
+                            />
+                            {option.energyCost}
+                          </div>
+                          {option.costs
+                            .filter((cost) => cost.amount > 0)
+                            .map((cost) => {
+                              const commodity = commodityMap[cost.commodityId];
+                              return (
+                                <div
+                                  key={cost.commodityId}
+                                  className="mt-1 flex items-center gap-1 text-swu-primary"
+                                >
+                                  <img
+                                    src={commodityImage(
+                                      cost.commodityId,
+                                      commodity?.name,
+                                    )}
+                                    alt={
+                                      commodity?.name ||
+                                      commodity?.nameShort ||
+                                      `Ware #${cost.commodityId}`
+                                    }
+                                    title={
+                                      commodity?.name ||
+                                      commodity?.nameShort ||
+                                      `Ware #${cost.commodityId}`
+                                    }
+                                    className="h-5 w-5 object-contain"
+                                    loading="lazy"
+                                  />
+                                  {cost.amount}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (

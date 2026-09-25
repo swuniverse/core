@@ -115,6 +115,7 @@ const defaultProps = {
   onClose: vi.fn(),
   onOpenContext: vi.fn(),
   onOpenBuildMenu: vi.fn(),
+  onOpenAcademy: vi.fn(),
   onTerraform: vi.fn(),
   onUpgrade: vi.fn(),
   onDemolish: vi.fn(),
@@ -279,27 +280,61 @@ describe('ColonyFieldDialog', () => {
       screen.getByRole('button', { name: 'Ebene vorbereiten' }),
     ).toBeTruthy();
     expect(screen.getByText('Kosten')).toBeTruthy();
-    expect(screen.getByText('Energie')).toBeTruthy();
-    expect(screen.getByText('⚡ 50')).toBeTruthy();
+    expect(screen.getByAltText('Energie').getAttribute('src')).toBe(
+      '/assets/buttons/e_trans2.png',
+    );
+    expect(screen.getByText('50')).toBeTruthy();
     expect(screen.getByText('10')).toBeTruthy();
     expect(screen.getByText('20')).toBeTruthy();
-    expect(screen.getByText('Durastahl')).toBeTruthy();
-    expect(screen.getByText('Tritanium')).toBeTruthy();
-    const costIcons = Array.from(screen.getAllByAltText('')).map((image) =>
-      image.getAttribute('src'),
+    expect(screen.getByAltText('Durastahl').getAttribute('src')).toBe(
+      '/assets/commodities/1.png',
     );
-    expect(costIcons).toContain('/assets/commodities/1.png');
-    expect(costIcons.some((src) => src?.includes('2-baumaterial.png'))).toBe(
-      true,
+    expect(screen.getByAltText('Tritanium').getAttribute('src')).toContain(
+      '2-baumaterial.png',
+    );
+    expect(screen.getAllByAltText('Wiese')[1].getAttribute('src')).toBe(
+      '/assets/generated/fields/101.png',
+    );
+    expect(screen.getByAltText('102').getAttribute('src')).toBe(
+      '/assets/generated/fields/102.png',
     );
     expect(screen.getByText('Dauer')).toBeTruthy();
     expect(screen.getAllByText('4h')).toHaveLength(1);
-    const costs = screen.getByText('Kosten').parentElement;
-    const energy = screen.getByText('Energie').parentElement;
-    expect(costs?.nextElementSibling).toBe(energy);
-    expect(costs?.textContent).not.toContain('50');
     fireEvent.click(screen.getByRole('button', { name: 'Baumenü öffnen' }));
     expect(onOpenBuildMenu).toHaveBeenCalledOnce();
+  });
+
+  it('shows field transformation progress while terraforming is active', () => {
+    const freeField: ColonyField = {
+      ...builtField,
+      fieldIndex: 12,
+      fieldType: 101,
+      layer: 'SURFACE',
+      buildingId: null,
+      integrity: undefined,
+      maxIntegrity: undefined,
+      availableUpgrades: [],
+      terraformingId: terraforming.id,
+      terraformingFinishesAt: new Date(
+        Date.now() + 2 * 60 * 60 * 1000,
+      ).toISOString(),
+    };
+
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={freeField}
+        building={undefined}
+      />,
+    );
+
+    expect(screen.getByText('Ebene vorbereiten läuft')).toBeTruthy();
+    expect(
+      screen
+        .getByRole('progressbar', { name: 'Terraforming-Fortschritt' })
+        .getAttribute('aria-valuenow'),
+    ).toMatch(/^(4[5-9]|5[0-5])$/);
+    expect(screen.getByText('Fertigstellung:', { exact: false })).toBeTruthy();
   });
 
   it('closes via its button, backdrop, and Escape', () => {
