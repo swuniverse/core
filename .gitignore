@@ -81,7 +81,9 @@ nebula-demo.html
 
 # Plans & progress (local only)
 plans/
-docs/
+docs/*
+!docs/agents/
+!docs/agents/**
 tools/
 PLAN.md
 progress.md
