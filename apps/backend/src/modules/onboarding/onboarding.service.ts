@@ -257,15 +257,25 @@ export class OnboardingService {
     const factionId = await this.getEffectiveFactionId(userId, selection);
     await this.assertSystemInStarterFaction(system, factionId);
 
-    const objects = await this.objectRepo.find({
-      where: {
-        systemId,
+    const objects = await this.objectRepo
+      .createQueryBuilder('object')
+      .leftJoin(
+        'colonies',
+        'colony',
+        'colony.celestialObjectId = object.id',
+      )
+      .where('object.systemId = :systemId', { systemId })
+      .andWhere('object.objectType = :objectType', {
         objectType: CelestialObjectType.PLANET,
-        isColonizable: true,
-        classId: In(STU_STARTER_PLANET_CLASS_IDS),
-      },
-      order: { posX: 'ASC', posY: 'ASC' },
-    });
+      })
+      .andWhere('object.isColonizable = true')
+      .andWhere('object.classId IN (:...classIds)', {
+        classIds: STU_STARTER_PLANET_CLASS_IDS,
+      })
+      .andWhere('colony.id IS NULL')
+      .orderBy('object.posX', 'ASC')
+      .addOrderBy('object.posY', 'ASC')
+      .getMany();
 
     selection.selectedSystemId = systemId;
     await this.onboardingRepo.save(selection);
