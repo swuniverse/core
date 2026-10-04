@@ -9,7 +9,7 @@ import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
+import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
 import {
@@ -28,6 +28,7 @@ import {
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
 type MainTickSchedule = '*' | number[];
 
+const TICK_BATCH_SIZE = 50;
 const DEFAULT_MAIN_TICK_SCHEDULE_HOURS = '0,12,15,18,21';
 const DEFAULT_MAIN_TICK_HOURS = [0, 12, 15, 18, 21];
 
@@ -123,70 +124,80 @@ export class TickService {
 
       const researchByUser = new Map<number, number>();
       const commodityProductionByUser = new Map<number, Map<number, number>>();
-      const colonies = await this.colonyRepo.find({
-        relations: ['fields', 'stats', 'changeable', 'celestialObject'],
-      });
-      processedColonyCount = colonies.length;
-      for (const colony of colonies) {
-        if (colony.userId == null || colony.isAbandoned) continue;
-        const colonyUserId = colony.userId;
-        const tickResult = await this.colonyService.processTick(colony);
-        researchByUser.set(
-          colonyUserId,
-          (researchByUser.get(colonyUserId) || 0) + tickResult.researchPoints,
-        );
-        if (!commodityProductionByUser.has(colonyUserId)) {
-          commodityProductionByUser.set(colonyUserId, new Map());
-        }
-        const userProd = commodityProductionByUser.get(colonyUserId)!;
-        for (const [commodityId, amount] of tickResult.productionDelta) {
-          if (amount > 0) {
-            userProd.set(
-              commodityId,
-              (userProd.get(commodityId) || 0) + amount,
+      const colonyIds = await this.loadIds(this.colonyRepo);
+      processedColonyCount = colonyIds.length;
+      for (const idChunk of this.chunk(colonyIds, TICK_BATCH_SIZE)) {
+        const colonies = await this.colonyRepo.find({
+          where: { id: In(idChunk) },
+          order: { id: 'ASC' },
+          relations: ['fields', 'stats', 'changeable', 'celestialObject'],
+        });
+        for (const colony of colonies) {
+          if (colony.userId == null || colony.isAbandoned) continue;
+          const colonyUserId = colony.userId;
+          const tickResult = await this.colonyService.processTick(colony);
+          researchByUser.set(
+            colonyUserId,
+            (researchByUser.get(colonyUserId) || 0) + tickResult.researchPoints,
+          );
+          if (!commodityProductionByUser.has(colonyUserId)) {
+            commodityProductionByUser.set(colonyUserId, new Map());
+          }
+          const userProd = commodityProductionByUser.get(colonyUserId)!;
+          for (const [commodityId, amount] of tickResult.productionDelta) {
+            if (amount > 0) {
+              userProd.set(
+                commodityId,
+                (userProd.get(commodityId) || 0) + amount,
+              );
+            }
+          }
+          this.gateway.emitToUser(colonyUserId, WsEventType.COLONY_UPDATED, {
+            colonyId: colony.id,
+          });
+          if (tickResult.events.length > 0) {
+            await this.colonyEventService.createTickEvents(
+              colony.id,
+              colonyUserId,
+              tickResult.events,
+              tickNumber,
+            );
+            this.gateway.emitToUser(
+              colonyUserId,
+              WsEventType.COLONY_TICK_REPORT,
+              {
+                colonyId: colony.id,
+                tick: tickNumber,
+                events: tickResult.events,
+              },
             );
           }
         }
-        this.gateway.emitToUser(colonyUserId, WsEventType.COLONY_UPDATED, {
-          colonyId: colony.id,
-        });
-        if (tickResult.events.length > 0) {
-          await this.colonyEventService.createTickEvents(
-            colony.id,
-            colonyUserId,
-            tickResult.events,
-            tickNumber,
-          );
-          this.gateway.emitToUser(
-            colonyUserId,
-            WsEventType.COLONY_TICK_REPORT,
-            {
-              colonyId: colony.id,
-              tick: tickNumber,
-              events: tickResult.events,
-            },
-          );
-        }
       }
 
-      const ships = await this.shipRepo.find({
-        relations: [
-          'location',
-          'location.galaxyField',
-          'location.systemField',
-          'targetLocation',
-          'targetLocation.galaxyField',
-          'targetLocation.systemField',
-        ],
-      });
-      processedShipCount = ships.length;
-      for (const ship of ships) {
-        await this.spacecraftService.processTick(ship);
-        this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
-          shipId: ship.id,
-          locationId: ship.location?.id ?? null,
-          location: resolveSpaceLocation(ship.location),
+      const shipIds = await this.loadIds(this.shipRepo);
+      processedShipCount = shipIds.length;
+      for (const idChunk of this.chunk(shipIds, TICK_BATCH_SIZE)) {
+        const ships = await this.shipRepo.find({
+          where: { id: In(idChunk) },
+          order: { id: 'ASC' },
+          relations: [
+            'location',
+            'location.galaxyField',
+            'location.systemField',
+            'targetLocation',
+            'targetLocation.galaxyField',
+            'targetLocation.systemField',
+          ],
         });
+        for (const ship of ships) {
+          await this.spacecraftService.processTick(ship);
+          this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
+            shipId: ship.id,
+            locationId: ship.location?.id ?? null,
+            location: resolveSpaceLocation(ship.location),
+          });
+        }
       }
 
       const users = await this.userRepo.find({ select: ['id'] });
@@ -385,6 +396,22 @@ export class TickService {
       }),
     );
     return { tickState, shouldRun: true };
+  }
+
+  private async loadIds(repo: Repository<{ id: number }>): Promise<number[]> {
+    const rows = await repo.find({
+      select: { id: true },
+      order: { id: 'ASC' },
+    });
+    return rows.map((row) => row.id);
+  }
+
+  private chunk<T>(items: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+      chunks.push(items.slice(i, i + size));
+    }
+    return chunks;
   }
 
   private getMainTickNumber(now: Date): number {
