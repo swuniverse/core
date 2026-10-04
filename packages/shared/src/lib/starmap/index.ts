@@ -2,6 +2,22 @@ export * from './planet-classes.js';
 export * from './colonization-rules.js';
 export * from './swu-planet-assets.js';
 
+export type SpaceLocationDto =
+  | {
+      scope: 'SYSTEM';
+      locationId?: number;
+      systemId: number;
+      x: number;
+      y: number;
+    }
+  | {
+      scope: 'GALAXY';
+      locationId?: number;
+      layerId: number;
+      x: number;
+      y: number;
+    };
+
 export interface StarmapLayerDto {
   id: number;
   name: string;
@@ -317,8 +333,7 @@ export interface StarmapGenerateTacticalGalaxyDto {
   systemCount?: number;
 }
 
-export interface StarmapGenerateTacticalGalaxyResultDto
-  extends StarmapOperationResultDto {
+export interface StarmapGenerateTacticalGalaxyResultDto extends StarmapOperationResultDto {
   seed: string;
   systems: number;
   routes: number;

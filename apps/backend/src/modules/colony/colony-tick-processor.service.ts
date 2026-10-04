@@ -34,7 +34,8 @@ import type { ColonyTickResult } from './colony.service';
 
 @Injectable()
 export class ColonyTickProcessorService {
-  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
+  private readonly headquartersBuildingIds =
+    COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(
     @InjectRepository(Colony)
@@ -194,15 +195,30 @@ export class ColonyTickProcessorService {
         field.terraformingFinishesAt &&
         field.terraformingFinishesAt <= now
       ) {
-        const terraforming = this.gameData.getTerraforming(
+        const selectedTerraforming = this.gameData.getTerraforming(
           field.terraformingId,
         );
+        const terraforming = selectedTerraforming
+          ? (this.gameData
+              .getTerraformingForFieldType(
+                field.terrainTileId ?? field.fieldType,
+              )
+              .find(
+                (option) =>
+                  this.normalizeTerraformingTarget(option.toFieldType) ===
+                  this.normalizeTerraformingTarget(
+                    selectedTerraforming.toFieldType,
+                  ),
+              ) ?? selectedTerraforming)
+          : undefined;
         if (terraforming) {
           // fieldType bleibt eine reine Gameplay-Zahl - bei SWU-Zielen (z.B.
           // "E433") gibt es noch keine numerische Entsprechung, also nur bei
           // rein numerischen (alten STU-)Zielen mitziehen.
           if (/^\d+$/.test(String(terraforming.toFieldType))) {
-            field.fieldType = Number(terraforming.toFieldType);
+            field.fieldType = this.normalizeFieldType(
+              Number(terraforming.toFieldType),
+            );
           }
           field.terrainTileId = String(terraforming.toFieldType);
         }
@@ -243,6 +259,16 @@ export class ColonyTickProcessorService {
         });
       }
     }
+  }
+
+  private normalizeTerraformingTarget(toFieldType: string): string {
+    return /^\d+$/.test(toFieldType)
+      ? String(this.normalizeFieldType(Number(toFieldType)))
+      : toFieldType;
+  }
+
+  private normalizeFieldType(fieldType: number): number {
+    return fieldType >= 10000 ? Math.floor(fieldType / 100) : fieldType;
   }
 
   async balanceAndProduce(

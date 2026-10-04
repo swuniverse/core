@@ -14,6 +14,7 @@ type ColonyMapProps = {
   undergroundFields: ColonyField[];
   selectedField: ColonyField | null;
   highlightedFields: Set<number>;
+  replacementFields: Set<number>;
   isBuildMode: boolean;
   buildingMap: Record<number, BuildingDef>;
   getBuildPreviewTitle: (field: ColonyField) => string | undefined;
@@ -25,6 +26,7 @@ type ColonyMapProps = {
   ecosystem?: SwuColonyEcosystem | null;
   /** Breite von Oberflaeche und Untergrund (Monde sind schmaler als 10). */
   surfaceWidth?: number;
+  shield?: { current: number; max: number };
 };
 
 function ColonyMapSection({
@@ -55,8 +57,12 @@ function ColonyMapSection({
         </div>
       </div>
       <div
-        className="grid gap-px"
-        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        className={`grid min-w-[400px] gap-px ${columns === 10 ? 'grid-cols-10' : ''}`}
+        style={
+          columns === 10
+            ? undefined
+            : { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+        }
       >
         {children}
       </div>
@@ -69,8 +75,10 @@ export function ColonyMap({
   surfaceFields,
   undergroundFields,
   energy,
+  shield,
   selectedField,
   highlightedFields,
+  replacementFields,
   isBuildMode,
   buildingMap,
   getBuildPreviewTitle,
@@ -118,6 +126,7 @@ export function ColonyMap({
       }
       isSelected={selectedField?.fieldIndex === field.fieldIndex}
       isHighlighted={highlightedFields.has(field.fieldIndex)}
+      isReplacement={replacementFields.has(field.fieldIndex)}
       isBuildMode={isBuildMode}
       isFieldActive={field.isActive}
       buildPreviewTitle={getBuildPreviewTitle(field)}
@@ -158,6 +167,36 @@ export function ColonyMap({
             }}
           />
         </div>
+        {shield && (
+          <div className="mt-2 border-t border-swu-border/40 pt-2">
+            <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
+              <span className="font-bold uppercase tracking-wide text-swu-muted">
+                <span aria-hidden="true" className="mr-1 text-swu-accent">
+                  ◇
+                </span>
+                Schildstärke
+              </span>
+              <span className="font-mono text-swu-accent">
+                {shield.current}/{shield.max}
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Schildstärke"
+              aria-valuemin={0}
+              aria-valuenow={shield.current}
+              aria-valuemax={shield.max}
+              className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg"
+            >
+              <div
+                className="h-full bg-swu-accent transition-[width]"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (shield.current / shield.max) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       {isBuildMode && (
         <div className="mb-2 flex justify-end border-b border-swu-border/40 pb-2">

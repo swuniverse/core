@@ -54,25 +54,13 @@ export class SpacecraftResourceFlowService {
       flow = this.calculate(ship, flightCost);
     }
 
-    const epsMax = ship.epsMax || ship.energyMax;
-    const missingEps = Math.max(0, epsMax - ship.energy);
-    const epsGain = Math.min(missingEps, Math.max(0, flow.netEps));
-    ship.energy += epsGain;
-    ship.energyMax = epsMax;
-
-    const missingWarp = Math.max(0, ship.warpdriveMax - ship.warpdrive);
-    const warpGain = Math.min(missingWarp, flow.warpProduction);
-    ship.warpdrive += warpGain;
-
-    // Stations will opt in to limited automatic reload once Station support exists.
-    const batteryGain = 0;
+    ship.energy += flow.effectiveEpsProduction;
+    ship.energyMax = ship.epsMax || ship.energyMax;
+    ship.warpdrive += flow.effectiveWarpProduction;
 
     const reactorUsage = Math.min(
       ship.reactorFuel ?? 0,
-      flow.totalSystemConsumption +
-        epsGain +
-        warpGain * flightCost +
-        batteryGain,
+      flow.reactorUsage,
     );
     ship.reactorFuel = Math.max(0, (ship.reactorFuel ?? 0) - reactorUsage);
     this.runtimeState.initialize(ship);
@@ -96,6 +84,35 @@ export class SpacecraftResourceFlowService {
     const warpProduction = Math.round((1 - split / 100) * maxWarpGain);
     const epsProduction = reactorOutput - warpProduction * flightCost;
     const netEps = epsProduction - totalSystemConsumption;
+    const missingEps = Math.max(0, (ship.epsMax || ship.energyMax) - ship.energy);
+    const missingWarp = Math.max(0, ship.warpdriveMax - ship.warpdrive);
+    let effectiveEpsProduction = Math.min(
+      missingEps,
+      Math.max(0, netEps),
+    );
+    let effectiveWarpProduction = Math.min(missingWarp, warpProduction);
+
+    if (ship.reactorAutoCarryOver && flightCost > 0) {
+      const potential = Math.max(0, reactorOutput - totalSystemConsumption);
+      const excess = Math.max(
+        0,
+        potential - effectiveEpsProduction - effectiveWarpProduction * flightCost,
+      );
+      effectiveEpsProduction = Math.min(
+        missingEps,
+        Math.max(0, netEps + excess),
+      );
+      effectiveWarpProduction = Math.min(
+        missingWarp,
+        warpProduction + Math.floor(excess / flightCost),
+      );
+    }
+
+    const reactorUsage =
+      totalSystemConsumption +
+      effectiveEpsProduction +
+      effectiveWarpProduction * flightCost;
+
     return {
       energy: { current: ship.energy, max: ship.epsMax || ship.energyMax },
       warpdrive: { current: ship.warpdrive, max: ship.warpdriveMax },
@@ -107,9 +124,13 @@ export class SpacecraftResourceFlowService {
       },
       reactorOutput,
       reactorWarpSplit: split,
+      reactorAutoCarryOver: ship.reactorAutoCarryOver ?? false,
       flightCost,
       epsProduction,
       warpProduction,
+      effectiveEpsProduction,
+      effectiveWarpProduction,
+      reactorUsage,
       totalSystemConsumption,
       netEps,
       systems: Object.entries(systems).map(([systemKey, state]) => ({

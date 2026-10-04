@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { ColoniesPage } from './colonies/ColoniesPage';
@@ -8,12 +8,10 @@ import type {
   ColonyDetailV2,
   CommodityDef,
   ShipClassDef,
-  StarterColonizationOptions,
   TerraformingDef,
 } from './colonies/types';
 
 const colonyApiMocks = vi.hoisted(() => ({
-  fetchStarterColonizationOptions: vi.fn(),
   fetchCommodities: vi.fn(),
   fetchAvailableBuildings: vi.fn(),
   fetchAllBuildings: vi.fn(),
@@ -22,6 +20,7 @@ const colonyApiMocks = vi.hoisted(() => ({
   fetchShipClasses: vi.fn(),
   fetchColonies: vi.fn(),
   fetchColonyDetail: vi.fn(),
+  fetchEnvironmentScan: vi.fn(),
 }));
 
 const socketHandlers = vi.hoisted(
@@ -48,13 +47,6 @@ vi.mock('../components/Toast', () => ({
   useToast: () => toastMock,
 }));
 
-const starterOptions: StarterColonizationOptions = {
-  mode: 'not-required',
-  reservedStarterColonyId: null,
-  starterShipId: null,
-  targets: [],
-};
-
 const commodities = [
   { id: 1, name: 'Erz', nameShort: 'ERZ', isSaveable: true },
   { id: 1001, name: 'Ausbildungsgrad', nameShort: 'AUS', isSaveable: false },
@@ -72,7 +64,13 @@ const availableBuildings = [
     bonuses: { energy: 0, population: 0, storage: 0 },
   },
 ] as BuildingDef[];
-const allBuildings: BuildingDef[] = availableBuildings;
+const airfieldBuilding = {
+  ...availableBuildings[0],
+  id: 102,
+  name: 'Raumhafen',
+  functions: [4],
+} as BuildingDef;
+const allBuildings: BuildingDef[] = [...availableBuildings, airfieldBuilding];
 const terraformingDefs: TerraformingDef[] = [];
 const shipClasses: ShipClassDef[] = [];
 
@@ -216,6 +214,39 @@ function emitSocket(event: string, payload: unknown) {
   socketHandlers.get(event)?.(payload);
 }
 
+function createAirfieldColony(active: boolean): Colony {
+  const colony = createColony(1, 'Alpha', 5, 10);
+  colony.fields = [
+    {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 1,
+      terrainTileId: null,
+      layer: 'SURFACE',
+      buildingId: airfieldBuilding.id,
+      isBuilding: false,
+      isActive: active,
+      buildProgress: 100,
+      buildFinishesAt: null,
+      availableUpgrades: [],
+    },
+  ];
+  const detail = colony.detailV2;
+  if (!detail?.featureAccess) throw new Error('feature access fixture missing');
+  detail.featureAccess.functions.groups.airfield = {
+    presentFunctionIds: [4],
+    activeFunctionIds: active ? [4] : [],
+  };
+  detail.hangar = {
+    hasAirfield: active,
+    inventory: [],
+    buildable: [],
+    startable: [],
+    landableOrbitShips: [],
+  };
+  return colony;
+}
+
 describe('ColoniesPage socket refresh', () => {
   beforeEach(() => {
     socketHandlers.clear();
@@ -223,9 +254,6 @@ describe('ColoniesPage socket refresh', () => {
       mock.mockReset();
     }
 
-    colonyApiMocks.fetchStarterColonizationOptions.mockResolvedValue(
-      starterOptions,
-    );
     colonyApiMocks.fetchCommodities.mockResolvedValue(commodities);
     colonyApiMocks.fetchAvailableBuildings.mockResolvedValue(
       availableBuildings,
@@ -237,6 +265,7 @@ describe('ColoniesPage socket refresh', () => {
       anyCategories: [],
     });
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
+    colonyApiMocks.fetchEnvironmentScan.mockResolvedValue(null);
   });
 
   it('refreshes overview and selected detail for matching COLONY_UPDATED', async () => {
@@ -299,6 +328,34 @@ describe('ColoniesPage socket refresh', () => {
     expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
   });
 
+  it('closes hangar context when a socket refresh removes active access', async () => {
+    const activeColony = createAirfieldColony(true);
+    const inactiveColony = createAirfieldColony(false);
+    colonyApiMocks.fetchColonies.mockResolvedValue([activeColony]);
+    colonyApiMocks.fetchColonyDetail
+      .mockResolvedValueOnce(activeColony)
+      .mockResolvedValueOnce(inactiveColony);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Feld 1: Raumhafen' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Hangar öffnen' }));
+    expect(screen.getByText('Hangarbestand')).toBeTruthy();
+
+    emitSocket('COLONY_UPDATED', { colonyId: 1 });
+
+    await waitFor(() => expect(screen.queryByText('Hangarbestand')).toBeNull());
+    expect(screen.getByRole('heading', { name: 'Planet' })).toBeTruthy();
+  });
+
   it('shows zero-stock production resources but not effects', async () => {
     const colony = createColony(1, 'Alpha', 5, 10);
     colony.detailV2!.productionDeltas = [
@@ -321,13 +378,117 @@ describe('ColoniesPage socket refresh', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Versorgung / Lager')).toBeTruthy();
-    const storageCard = screen
-      .getAllByTitle('Erz')
-      .find((element) => element.tagName === 'DIV');
-    expect(storageCard?.textContent).toContain('0');
-    expect(storageCard?.textContent).toContain('+15');
+    expect(await screen.findByText('Lagerraum')).toBeTruthy();
+    const storageRow = screen.getByRole('listitem', {
+      name: 'Erz Lagerbestand',
+    });
+    expect(storageRow.textContent).toContain('0');
+    expect(storageRow.textContent).toContain('+15');
     expect(screen.queryByTitle('Ausbildungsgrad')).toBeNull();
+  });
+
+  it('keeps colony detail visible when the environment scan fails', async () => {
+    const colony = createColony(1, 'Alpha', 5, 10);
+    colony.starSystem = {
+      id: 7,
+      name: 'Testsystem',
+      systemTypeId: 1,
+      systemTypeName: 'Gelber Stern',
+      maxX: 4,
+      maxY: 4,
+    };
+    colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
+    colonyApiMocks.fetchEnvironmentScan.mockRejectedValue(
+      new Error('Umgebungsscan nicht verfügbar'),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Lagerraum')).toBeTruthy();
+    expect(screen.getByText('Bevölkerung')).toBeTruthy();
+    expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
+  });
+
+  it('does not block colony detail while the environment scan is pending', async () => {
+    const colony = createColony(1, 'Alpha', 5, 10);
+    colony.starSystem = {
+      id: 7,
+      name: 'Testsystem',
+      systemTypeId: 1,
+      systemTypeName: 'Gelber Stern',
+      maxX: 4,
+      maxY: 4,
+    };
+    colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
+    colonyApiMocks.fetchEnvironmentScan.mockReturnValue(
+      new Promise(() => undefined),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Lagerraum')).toBeTruthy();
+    expect(screen.getByText('Bevölkerung')).toBeTruthy();
+  });
+
+  it('removes shield strength after a socket refresh removes shield functions', async () => {
+    const shielded = createColony(1, 'Alpha', 5, 10);
+    shielded.detailV2!.defense = {
+      shields: { current: 25, max: 100, frequency: null },
+      activeFunctionIds: [],
+      energyPhalanx: false,
+      particlePhalanx: false,
+      antiParticle: false,
+      torpedoTypeId: null,
+    };
+    shielded.detailV2!.featureAccess!.functions.present = [
+      {
+        id: 24,
+        key: 'SHIELD_GENERATOR',
+        name: 'Schildgenerator',
+        buildingIds: [1],
+      },
+    ];
+    const unshielded = createColony(1, 'Alpha', 5, 10);
+    unshielded.detailV2!.defense = shielded.detailV2!.defense;
+    colonyApiMocks.fetchColonies.mockResolvedValue([shielded]);
+    colonyApiMocks.fetchColonyDetail
+      .mockResolvedValueOnce(shielded)
+      .mockResolvedValueOnce(unshielded);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('progressbar', { name: 'Schildstärke' }),
+    ).toBeTruthy();
+    emitSocket('COLONY_UPDATED', { colonyId: 1 });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('progressbar', { name: 'Schildstärke' }),
+      ).toBeNull(),
+    );
+    expect(screen.getByText('Lagerraum')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Informationen' })).toBeTruthy();
   });
 
   it('reloads available buildings on TICK only', async () => {

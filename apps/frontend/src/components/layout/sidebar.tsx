@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { useStatusBar, formatTickCountdown } from '../../hooks/use-status-bar';
@@ -27,7 +27,6 @@ export function Sidebar() {
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const setUser = useAuthStore((state) => state.setUser);
-  const [unreadCount, setUnreadCount] = useState(0);
   const { tick } = useStatusBar();
   const extraItems = user?.isAdmin
     ? [adminNavItem, mapEditorNavItem]
@@ -47,21 +46,8 @@ export function Sidebar() {
       .catch(() => undefined);
   }, [accessToken, setUser, user?.isAdmin]);
 
-  useEffect(() => {
-    if (!accessToken) return;
-    const fetchUnread = () => {
-      api
-        .get<number>('/messages/unread')
-        .then(setUnreadCount)
-        .catch(() => undefined);
-    };
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 60000);
-    return () => clearInterval(interval);
-  }, [accessToken]);
-
   return (
-    <aside className="hidden md:flex fixed top-[52px] left-0 w-[68px] h-[calc(100vh-52px)] bg-swu-surface border-r border-swu-border flex-col items-center py-3 z-40">
+    <aside className="fixed left-0 top-[86px] z-40 hidden h-[calc(100vh-86px)] w-[68px] flex-col items-center border-r border-swu-border bg-swu-surface py-3 md:flex">
       <div className="flex flex-col items-center gap-1 flex-1">
         {items.map((item) => (
           <NavLink
@@ -76,11 +62,6 @@ export function Sidebar() {
           >
             <span className="relative">
               <item.icon />
-              {item.path === '/messages' && unreadCount > 0 && (
-                <span className="absolute -top-1 -right-2.5 bg-swu-accent text-swu-bg text-[7px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
             </span>
             <span className="text-[10px] leading-tight">{item.label}</span>
           </NavLink>

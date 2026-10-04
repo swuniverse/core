@@ -54,9 +54,6 @@ describe('useStatusBar', () => {
           totalTicks: 5,
         });
       }
-      if (path === '/messages/unread') {
-        return Promise.resolve(7);
-      }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
 
@@ -68,7 +65,6 @@ describe('useStatusBar', () => {
 
     expect(result.current.tick.loaded).toBe(true);
 
-    expect(result.current.unreadMessages).toBe(7);
     expect(result.current.tick.currentTickIndex).toBe(2);
     expect(result.current.tick.totalTicks).toBe(5);
     expect(result.current.tick.previousTickAt.toISOString()).toBe(
@@ -84,7 +80,6 @@ describe('useStatusBar', () => {
   it('refetches tick status when countdown reaches zero', async () => {
     let tickStatusCalls = 0;
     apiMocks.get.mockImplementation((path: string) => {
-      if (path === '/messages/unread') return Promise.resolve(0);
       if (path !== '/tick/status') {
         return Promise.reject(new Error(`Unexpected path ${path}`));
       }
@@ -131,7 +126,6 @@ describe('useStatusBar', () => {
   it('refetches tick status on TICK socket events', async () => {
     let tickStatusCalls = 0;
     apiMocks.get.mockImplementation((path: string) => {
-      if (path === '/messages/unread') return Promise.resolve(0);
       if (path !== '/tick/status') {
         return Promise.reject(new Error(`Unexpected path ${path}`));
       }

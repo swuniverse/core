@@ -13,6 +13,7 @@ import { ColonyField } from '../colony/entities/colony-field.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { GameTickState } from './entities/game-tick-state.entity';
+import { DashboardModule } from '../dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { GameTickState } from './entities/game-tick-state.entity';
     SpacecraftModule,
     ResearchModule,
     WebsocketModule,
+    DashboardModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [TickService],

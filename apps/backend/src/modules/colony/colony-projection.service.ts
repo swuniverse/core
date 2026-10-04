@@ -51,6 +51,7 @@ import {
 } from './entities/colony-ship-build-queue.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
+import { resolveColonyLocation } from './colony-location';
 import {
   COLONY_BUILDING_ID_SETS,
   COLONY_FUNCTION_ID_SETS,
@@ -145,8 +146,10 @@ export class ColonyProjectionService {
         (totals.get(cost.commodityId) ?? 0) + cost.amount * amount,
       );
     }
-    for (const commodityId of hangarDef.defaultModuleCommodityIds ?? []) {
-      totals.set(commodityId, (totals.get(commodityId) ?? 0) + amount);
+    if (totals.size === 0) {
+      for (const commodityId of hangarDef.defaultModuleCommodityIds ?? []) {
+        totals.set(commodityId, (totals.get(commodityId) ?? 0) + amount);
+      }
     }
     return Array.from(totals, ([commodityId, required]) => ({
       commodityId,
@@ -225,7 +228,9 @@ export class ColonyProjectionService {
     colony: Colony,
     undergroundVisibility: 'visible' | 'hidden' | 'preview' = 'visible',
   ): Colony {
+    const location = resolveColonyLocation(colony);
     return Object.assign(colony, {
+      location,
       locationLabel:
         colony.celestialObject?.name || colony.starSystem?.name || 'Unknown',
       fields: (colony.fields ?? []).map((field) => {
@@ -325,15 +330,17 @@ export class ColonyProjectionService {
       .map((assignment) => assignment.fleetId);
     const hasDefendingFleet = defendingFleetIds.length > 0;
     const hasBlockadingFleet = blockadingFleetIds.length > 0;
-    const orbitShips = colony.starSystemId
+    const colonyLocation = resolveColonyLocation(colony);
+    const orbitShips = colonyLocation
       ? (
           await this.shipRepo.find({
             where: {
               userId,
-              starSystemId: colony.starSystemId,
-              inSystem: true,
+              location: {
+                systemField: { starSystemId: colonyLocation.systemId },
+              },
             },
-            relations: ['fleet'],
+            relations: ['fleet', 'location', 'location.systemField'],
             order: { id: 'ASC' },
           })
         ).filter((ship) => matchesColonyOrbit(ship, colony))
@@ -781,12 +788,19 @@ export class ColonyProjectionService {
         effects: this.buildEffectSummary(summary),
         orbitShips: orbitShips.map((ship) => {
           const shipClass = orbitShipClassMap.get(ship.shipClassId);
-          const crewRequired = shipClass?.crewMin ?? 0;
           const canManage = this.colonyOrbitService.canManageOrbitShip(
             colony,
             ship,
           );
+          const landReason = !canManage
+            ? 'Schiff ist nicht im eigenen Kolonieorbit'
+            : !hasAirfield
+              ? 'Aktiver Raumhafen erforderlich'
+              : !shipClass || !this.getHangarDefForShipClass(shipClass)
+                ? 'Schiff kann nicht im Hangar landen'
+                : null;
           const modules = modulesByShipId.get(ship.id) ?? [];
+          const crewRequired = Math.max(0, ship.crewRequired ?? 0);
           const cargo = cargoByShipId.get(ship.id) ?? [];
           const normalizedModuleSelections =
             this.normalizeInstalledModuleSelections(shipClass, modules);
@@ -865,15 +879,14 @@ export class ColonyProjectionService {
             shieldsMax: ship.shieldsMax,
             energy: ship.energy,
             energyMax: ship.energyMax,
+            warpdrive: ship.warpdrive,
+            warpdriveMax: ship.warpdriveMax,
             crew: ship.crew,
             crewRequired,
             crewMax: ship.crewMax,
             hasEnoughCrew: crewRequired <= 0 || ship.crew >= crewRequired,
-            canLand:
-              canManage &&
-              hasAirfield &&
-              !!shipClass &&
-              !!this.getHangarDefForShipClass(shipClass),
+            canLand: landReason == null,
+            landReason,
             canDisassemble:
               canManage &&
               getColonyChangeable(colony).energy >= 20 &&
@@ -1195,7 +1208,7 @@ export class ColonyProjectionService {
             buildCosts: this.getHangarBuildCosts(hangarDef, 1),
             defaultModules: this.defaultModuleSummaries(hangarDef),
             maxBuildable: this.maxBuildableHangarAmount(colony, hangarDef),
-            crewRequired: shipClass.crewMin,
+            crewRequired: hangarDef.crewRequired,
           })),
           startable: startableHangarShips.map(
             ({ shipClass, hangarDef, amount }) => ({
@@ -1207,7 +1220,7 @@ export class ColonyProjectionService {
               amount,
               startEnergyCost: hangarDef.startEnergyCost,
               defaultModules: this.defaultModuleSummaries(hangarDef),
-              crewRequired: shipClass.crewMin,
+              crewRequired: hangarDef.crewRequired,
             }),
           ),
           landableOrbitShips: orbitShips

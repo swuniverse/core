@@ -30,13 +30,12 @@ function setup(
     hull: 20,
     hullMax: 100,
     shipClassId: 7,
-    currentLayerId: 1,
-    starSystemId: null,
-    inSystem: false,
-    posX: 5,
-    posY: 6,
-    currentSystemFieldX: null,
-    currentSystemFieldY: null,
+    locationId: 42,
+    location: {
+      id: 42,
+      kind: 'GALAXY_FIELD',
+      galaxyField: { id: 20, layerId: 1, cx: 5, cy: 6 },
+    },
     crew: assignments.length,
     fleetId: 4,
     targetSystemId: 8,
@@ -52,6 +51,7 @@ function setup(
   const manager = {
     findOne: jest.fn(async (entity) => {
       if (entity.name === 'Spacecraft') return ship;
+      if (entity.name === 'SpaceLocation') return ship.location ?? null;
       if (entity.name === 'ShipDistressSignal') return distress;
       return null;
     }),
@@ -62,16 +62,24 @@ function setup(
     remove: jest.fn(async () => undefined),
     create: jest.fn((_entity, value) => value),
   };
-  const dataSource = { transaction: jest.fn(async (work) => work(manager)) };
+  const dataSource = {
+    transaction: jest.fn(async (work) => work(manager)),
+    manager,
+    getRepository: jest.fn(() => ({
+      findOneBy: jest.fn().mockResolvedValue(ship),
+    })),
+  };
   const runtime = { initialize: jest.fn((value) => value.runtimeSystems) };
   const gateway = { emitToUser: jest.fn(), emitToAll: jest.fn() };
   const messaging = { sendSystem: jest.fn(async () => undefined) };
+  const gameEvents = { recordSpacecraft: jest.fn(async () => undefined) };
   return {
     service: new SpacecraftDestructionService(
       dataSource as any,
       runtime as any,
       gateway as any,
       messaging as any,
+      gameEvents as any,
     ),
     ship,
     distress,
@@ -94,9 +102,6 @@ describe('SpacecraftDestructionService', () => {
       status: 'DESTROYED',
       hull: 0,
       fleetId: null,
-      targetSystemId: null,
-      targetX: null,
-      targetY: null,
       arrivalAt: null,
     });
     expect(ship.runtimeSystems.SHIELDS.active).toBe(false);
@@ -105,8 +110,8 @@ describe('SpacecraftDestructionService', () => {
     expect(manager.save).toHaveBeenCalledWith(
       expect.objectContaining({
         formerShipClassId: 7,
-        posX: 5,
-        posY: 6,
+        locationId: 42,
+        location: ship.location,
         hull: 5,
         crewCount: 1,
       }),
@@ -114,11 +119,55 @@ describe('SpacecraftDestructionService', () => {
     expect(manager.remove).toHaveBeenCalledWith(ship);
   });
 
+  it('locks the ship without loading nullable location relations', async () => {
+    const { service, manager } = setup();
+
+    await service.selfDestruct(2, 1);
+
+    expect(manager.findOne).toHaveBeenCalledWith(expect.anything(), {
+      where: { id: 2, userId: 1 },
+      lock: { mode: 'pessimistic_write' },
+    });
+  });
+
   it('requires an actual crew assignment', async () => {
-    const { service } = setup({}, []);
+    const { service } = setup({ crewRequired: 1 }, []);
     await expect(service.selfDestruct(2, 1)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('allows a crew-free ship to self-destruct without assignments', async () => {
+    const { service, manager } = setup({ crewRequired: 0 }, []);
+
+    await expect(service.selfDestruct(2, 1)).resolves.toMatchObject({
+      spacecraftId: 2,
+      status: 'DESTROYED',
+    });
+    expect(manager.remove).toHaveBeenCalledWith([]);
+  });
+
+  it('preserves the canonical location on the wreck', async () => {
+    const { service, manager } = setup({
+      location: {
+        id: 42,
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 9, sy: 10 },
+      },
+    });
+
+    await service.selfDestruct(2, 1);
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locationId: 42,
+        location: expect.objectContaining({ id: 42, kind: 'SYSTEM_FIELD' }),
+      }),
+    );
+    expect(manager.findOne).toHaveBeenCalledWith(expect.anything(), {
+      where: { id: 42 },
+      relations: ['galaxyField', 'systemField'],
+    });
   });
 
   it('propagates persistence failure so the transaction can roll back', async () => {

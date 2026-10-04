@@ -340,15 +340,25 @@ export class OnboardingService {
           : [];
       });
     } else {
-      objects = await this.objectRepo.find({
-        where: {
-          systemId,
+      objects = await this.objectRepo
+        .createQueryBuilder('object')
+        .leftJoin(
+          'colonies',
+          'colony',
+          'colony.celestialObjectId = object.id',
+        )
+        .where('object.systemId = :systemId', { systemId })
+        .andWhere('object.objectType = :objectType', {
           objectType: CelestialObjectType.PLANET,
-          isColonizable: true,
-          classId: In(STU_STARTER_PLANET_CLASS_IDS),
-        },
-        order: { posX: 'ASC', posY: 'ASC' },
-      });
+        })
+        .andWhere('object.isColonizable = true')
+        .andWhere('object.classId IN (:...classIds)', {
+          classIds: STU_STARTER_PLANET_CLASS_IDS,
+        })
+        .andWhere('colony.id IS NULL')
+        .orderBy('object.posX', 'ASC')
+        .addOrderBy('object.posY', 'ASC')
+        .getMany();
     }
 
     selection.selectedSystemId = systemId;
@@ -452,7 +462,6 @@ export class OnboardingService {
           );
     user.onboardingCompleted = true;
     user.starterColonyId = colony.id;
-    user.starterShipId = null;
     user.factionId = factionId;
     await this.userRepo.save(user);
     await this.ensureBaseResearchCompleted(user.id, factionId);

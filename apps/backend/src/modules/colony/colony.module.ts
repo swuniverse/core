@@ -25,6 +25,8 @@ import { ColonyProjectionService } from './colony-projection.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
 import { ColonyConstructionService } from './colony-construction.service';
 import { ColonyTickProcessorService } from './colony-tick-processor.service';
+import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
+import { ColonyCommodityLocationsService } from './colony-commodity-locations.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -53,6 +55,8 @@ import { ResearchModule } from '../research/research.module';
 import { Research } from '../research/entities/research.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { User } from '../auth/user.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
 
 @Module({
   imports: [
@@ -81,6 +85,8 @@ import { User } from '../auth/user.entity';
       Research,
       ShipClassDef,
       User,
+      SystemField,
+      SpaceLocation,
     ]),
     ResearchModule,
     StarmapModule,
@@ -111,6 +117,8 @@ import { User } from '../auth/user.entity';
     ColonyShipyardService,
     ColonyConstructionService,
     ColonyTickProcessorService,
+    ColonyEnvironmentScanService,
+    ColonyCommodityLocationsService,
     SpacecraftStatsService,
     SpacecraftTorpedoService,
   ],

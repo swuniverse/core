@@ -1,26 +1,66 @@
+import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
+
 import { BbCodeText } from '../../../components/BbCodeText';
 import { PlanetImg } from '../../../components/PlanetImg';
-import type { SwuColonyEcosystem } from '../useSwuColonyEcosystem';
-import {
-  isColonyShielded,
-  type Colony,
-  type ColonyDetailV2,
-} from '../types';
-import { formatSignedAmount } from '../utils';
 import { SettlementBadge } from '../../../lib/settlement-rating';
+import {
+  planetThumbnail,
+  starTileImage,
+  systemTypeImage,
+} from '../../../lib/assets';
+import { isColonyShielded, type Colony, type ColonyDetailV2 } from '../types';
+import type { SwuColonyEcosystem } from '../useSwuColonyEcosystem';
+import { formatSignedAmount } from '../utils';
+import { PanelEvents } from './PanelEvents';
+import { PanelOrbit } from './PanelOrbit';
+
+type PanelEventsProps = React.ComponentProps<typeof PanelEvents>;
 
 type PanelInfoProps = {
   colony: Colony;
   detail?: ColonyDetailV2;
-  ecosystem: SwuColonyEcosystem | null;
+  environmentScan: ColonyEnvironmentScanDto | null;
+  environmentScanError: string | null;
+  /** Nur SWU-Kolonien (siehe useSwuColonyEcosystem). */
+  ecosystem?: SwuColonyEcosystem | null;
+  onOpenOrbitManagement: () => void;
+  eventProps: PanelEventsProps;
+  orbitProps: Omit<
+    React.ComponentProps<typeof PanelOrbit>,
+    | 'colonyId'
+    | 'orbitShips'
+    | 'compact'
+    | 'showHeading'
+    | 'showManagementButton'
+  >;
 };
 
-export function PanelInfo({ colony, detail, ecosystem }: PanelInfoProps) {
+const sectionClass = 'border border-swu-border bg-swu-surface px-3 py-2';
+const headingClass =
+  'mb-1.5 text-[11px] font-bold uppercase tracking-wide text-swu-muted';
+
+export function PanelInfo({
+  colony,
+  detail,
+  environmentScan,
+  environmentScanError,
+  ecosystem,
+  onOpenOrbitManagement,
+  eventProps,
+  orbitProps,
+}: PanelInfoProps) {
+  const storageIds = new Set(
+    (colony.storage ?? []).map((item) => item.commodityId),
+  );
+  const effects =
+    detail?.productionDeltas.filter(
+      (delta) => !storageIds.has(delta.commodityId),
+    ) ?? [];
+
   return (
     <div className="space-y-2">
-      {/* Oekosystem-Legende - nur SWU-Kolonien (siehe useSwuColonyEcosystem) */}
       {ecosystem && (
-        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 flex items-center gap-3">
+        <section className={`${sectionClass} flex items-center gap-3`}>
           {colony.celestialObject?.classId && (
             <PlanetImg
               classId={colony.celestialObject.classId}
@@ -41,7 +81,8 @@ export function PanelInfo({ colony, detail, ecosystem }: PanelInfoProps) {
               <>
                 <span className="text-swu-muted">Temperatur</span>
                 <span className="text-swu-primary">
-                  {Math.round(ecosystem.temperatureRangeK[0])} – {Math.round(ecosystem.temperatureRangeK[1])} K
+                  {Math.round(ecosystem.temperatureRangeK[0])} –{' '}
+                  {Math.round(ecosystem.temperatureRangeK[1])} K
                 </span>
               </>
             )}
@@ -76,151 +117,141 @@ export function PanelInfo({ colony, detail, ecosystem }: PanelInfoProps) {
               </>
             )}
           </div>
-        </div>
+        </section>
       )}
-      {/* Planet + System */}
-      <div className="flex gap-2">
-        {colony.celestialObject && (
-          <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 flex-1">
-            <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-              Planet
-            </div>
-            <div className="flex items-center gap-2">
-              {colony.celestialObject.classId && (
-                <PlanetImg
-                  classId={colony.celestialObject.classId}
-                  name={colony.celestialObject.name}
-                  objectType={colony.celestialObject.objectType}
-                  shielded={isColonyShielded(colony)}
-                  className="w-10 h-10 object-contain"
-                  emojiClassName="text-3xl"
+      <section className={sectionClass}>
+        <h3 className={headingClass}>Schiffe im Orbit</h3>
+        <PanelOrbit
+          {...orbitProps}
+          colonyId={colony.id}
+          orbitShips={detail?.orbitShips ?? []}
+          compact
+          showHeading={false}
+          showManagementButton={false}
+        />
+      </section>
+
+      <div className="grid gap-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]">
+        <section className={sectionClass}>
+          <h3 className={headingClass}>Planet</h3>
+          <button
+            type="button"
+            onClick={onOpenOrbitManagement}
+            className="mb-2 w-full border border-swu-accent/60 px-2 py-1 text-xs text-swu-accent hover:border-swu-accent"
+          >
+            Orbitalmanagement
+          </button>
+          {colony.celestialObject && (
+            <>
+              <div className="flex items-center gap-2">
+                {colony.celestialObject.classId && (
+                  <PlanetImg
+                    classId={colony.celestialObject.classId}
+                    name={colony.celestialObject.name}
+                    objectType={colony.celestialObject.objectType}
+                    shielded={isColonyShielded(colony)}
+                    className="h-10 w-10 object-contain"
+                    emojiClassName="text-3xl"
+                  />
+                )}
+                <div className="text-sm">
+                  <div className="text-swu-primary">
+                    {colony.celestialObject.name || colony.name}
+                  </div>
+                  {colony.posX != null && colony.posY != null && (
+                    <div className="font-mono text-[10px] text-swu-muted">
+                      {colony.posX}|{colony.posY}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {colony.celestialObject.description && (
+                <BbCodeText
+                  text={colony.celestialObject.description}
+                  className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
                 />
               )}
-              <div className="text-sm">
-                <div className="text-swu-primary">
-                  {colony.celestialObject.name || colony.name}
-                </div>
-                {colony.posX != null && colony.posY != null && (
-                  <div className="text-[10px] text-swu-muted font-mono">
-                    {colony.posX}|{colony.posY}
-                  </div>
-                )}
-              </div>
-            </div>
-            {colony.celestialObject.description && (
-              <BbCodeText
-                text={colony.celestialObject.description}
-                className="mt-2 text-sm leading-relaxed text-swu-muted whitespace-pre-wrap"
+            </>
+          )}
+        </section>
+
+        <SystemScan
+          environmentScan={environmentScan}
+          error={environmentScanError}
+        />
+
+        <section className={sectionClass}>
+          <h3 className={headingClass}>Sternensystem</h3>
+          {colony.starSystem ? (
+            <div className="flex items-center gap-2">
+              <img
+                src={systemTypeImage(colony.starSystem.systemTypeId)}
+                alt=""
+                className="h-10 w-10 object-contain"
               />
-            )}
-          </div>
-        )}
-        {colony.starSystem && (
-          <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 flex-1">
-            <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-              Sternensystem
-            </div>
-            <div className="text-sm text-swu-primary">
-              {colony.starSystem.name}
-            </div>
-            {colony.starSystem.cx != null && colony.starSystem.cy != null && (
-              <div className="text-[10px] text-swu-muted font-mono">
-                Sektor {colony.starSystem.cx}|{colony.starSystem.cy}
+              <div>
+                <div className="text-sm text-swu-primary">
+                  {colony.starSystem.name}
+                </div>
+                <div className="text-[10px] text-swu-muted">
+                  {colony.starSystem.systemTypeName}
+                </div>
+                {colony.starSystem.cx != null &&
+                  colony.starSystem.cy != null && (
+                    <div className="font-mono text-[10px] text-swu-muted">
+                      Sektor {colony.starSystem.cx}|{colony.starSystem.cy}
+                    </div>
+                  )}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          ) : (
+            <p className="text-xs text-swu-muted">Nicht verfügbar.</p>
+          )}
+        </section>
       </div>
 
-      {/* Population — STU-style */}
       {detail && (
-        <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-          <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-            Bevölkerung
-          </div>
+        <section className={sectionClass}>
+          <h3 className={headingClass}>Bevölkerung</h3>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 xl:grid-cols-5">
-            <div>
-              <div className="text-swu-muted text-[10px]">Gesamt</div>
-              <div className="font-mono text-swu-primary">
-                {detail.population.current}
-              </div>
-            </div>
-            <div>
-              <div className="text-swu-muted text-[10px]">Arbeiter</div>
-              <div className="font-mono text-yellow-400">
-                {detail.population.workers}
-              </div>
-            </div>
-            <div>
-              <div className="text-swu-muted text-[10px]">Verfügbar</div>
-              <div className="font-mono text-green-400">
-                {detail.population.available}
-              </div>
-            </div>
-            <div>
-              <div className="text-swu-muted text-[10px]">Wohnraum</div>
-              <div className="font-mono text-swu-primary">
-                {detail.population.housingFree ?? detail.population.housing} (
-                {detail.population.housingMax ?? detail.population.max})
-              </div>
-            </div>
-            <div>
-              <div className="text-swu-muted text-[10px]">Entwicklung</div>
-              <div className="font-mono text-green-400">
-                {formatSignedAmount(detail.population.growth)}
-              </div>
-            </div>
+            <PopulationValue label="Gesamt" value={detail.population.current} />
+            <PopulationValue
+              label="Arbeiter"
+              value={detail.population.workers}
+            />
+            <PopulationValue
+              label="Verfügbar"
+              value={detail.population.available}
+            />
+            <PopulationValue
+              label="Wohnraum"
+              value={`${detail.population.housingFree ?? detail.population.housing} (${detail.population.housingMax ?? detail.population.max})`}
+            />
+            <PopulationValue
+              label="Entwicklung"
+              value={formatSignedAmount(detail.population.growth)}
+            />
           </div>
-        </div>
-      )}
-      {detail?.defense?.shields && (
-        <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-          <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-            Schilde
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="font-mono text-swu-accent">
-              {detail.defense.shields.current}/{detail.defense.shields.max}
-            </div>
-            <div className="h-2 flex-1 overflow-hidden rounded border border-swu-border/60 bg-swu-bg">
-              <div
-                className="h-full bg-swu-accent transition-[width]"
-                style={{
-                  width: `${detail.defense.shields.max > 0 ? Math.min(100, Math.max(0, (detail.defense.shields.current / detail.defense.shields.max) * 100)) : 0}%`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        </section>
       )}
 
       {detail?.planetaryDefense && detail.planetaryDefense.length > 0 && (
-        <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-          <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-            Planetare Verteidigung
-          </div>
+        <section className={sectionClass}>
+          <h3 className={headingClass}>Planetare Verteidigung</h3>
           <div className="space-y-1 text-xs">
-            {detail.planetaryDefense.map(
-              (
-                defense: NonNullable<
-                  ColonyDetailV2['planetaryDefense']
-                >[number],
-              ) => (
-                <div
-                  key={`${defense.fieldIndex}-${defense.functionId}`}
-                  className="flex justify-between"
-                >
-                  <span className="text-swu-muted">
-                    Feld {defense.fieldIndex}: {defense.buildingName}
-                  </span>
-                  <span className="text-swu-primary">
-                    {defense.functionName}
-                  </span>
-                </div>
-              ),
-            )}
+            {detail.planetaryDefense.map((defense) => (
+              <div
+                key={`${defense.fieldIndex}-${defense.functionId}`}
+                className="flex justify-between"
+              >
+                <span className="text-swu-muted">
+                  Feld {defense.fieldIndex}: {defense.buildingName}
+                </span>
+                <span className="text-swu-primary">{defense.functionName}</span>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
       )}
 
       {detail?.asteroidExhausted && (
@@ -232,78 +263,217 @@ export function PanelInfo({ colony, detail, ecosystem }: PanelInfoProps) {
       )}
 
       {detail?.deposits && detail.deposits.length > 0 && (
-        <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-          <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
+        <section className={sectionClass}>
+          <h3 className={headingClass}>
             {colony.celestialObject?.objectType === 3
               ? 'Asteroidenlagerstätten · accountgebunden'
               : 'Vorkommen'}
-          </div>
+          </h3>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-            {detail.deposits.map(
-              (deposit: NonNullable<ColonyDetailV2['deposits']>[number]) => (
-                <div
-                  key={deposit.commodityId}
-                  className="flex justify-between gap-2"
+            {detail.deposits.map((deposit) => (
+              <div
+                key={deposit.commodityId}
+                className="flex justify-between gap-2"
+              >
+                <span
+                  className={
+                    deposit.depleted ? 'text-red-400' : 'text-swu-muted'
+                  }
                 >
+                  {deposit.name}
+                </span>
+                {deposit.delta !== 0 && (
                   <span
                     className={
-                      deposit.depleted ? 'text-red-400' : 'text-swu-muted'
+                      deposit.delta < 0 ? 'text-red-400' : 'text-green-400'
                     }
                   >
-                    {deposit.name}
+                    {formatSignedAmount(deposit.delta)}
                   </span>
-                  <span className="font-mono">
-                    {deposit.delta !== 0 && (
-                      <span
-                        className={
-                          deposit.delta < 0 ? 'text-red-400' : 'text-green-400'
-                        }
-                      >
-                        {formatSignedAmount(deposit.delta)}
-                      </span>
-                    )}
-                  </span>
-                </div>
-              ),
-            )}
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Effects (non-resource commodities only — resources shown in Lager) */}
-      {detail &&
-        (() => {
-          const storageIds = new Set(
-            (colony.storage || []).map((item) => item.commodityId),
-          );
-          const effects = detail.productionDeltas.filter(
-            (delta) => !storageIds.has(delta.commodityId),
-          );
-          if (effects.length === 0) return null;
-          return (
-            <div className="bg-swu-surface border border-swu-border rounded px-4 py-3">
-              <div className="text-[11px] font-bold text-swu-muted uppercase tracking-wide mb-1.5">
-                Effekte
+      {effects.length > 0 && (
+        <section className={sectionClass}>
+          <h3 className={headingClass}>Effekte</h3>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+            {effects.map((effect) => (
+              <div key={effect.commodityId} className="flex justify-between">
+                <span className="text-swu-muted">{effect.name}</span>
+                <span
+                  className={
+                    effect.amount >= 0 ? 'text-green-400' : 'text-red-400'
+                  }
+                >
+                  {formatSignedAmount(effect.amount)}
+                </span>
               </div>
-              <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-                {effects.map((d) => (
-                  <div key={d.commodityId} className="flex justify-between">
-                    <span className="text-swu-muted">{d.name}</span>
-                    <span
-                      className={
-                        d.amount >= 0 ? 'text-green-400' : 'text-red-400'
-                      }
-                    >
-                      {formatSignedAmount(d.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className={sectionClass}>
+        <h3 className={headingClass}>Ereignisse</h3>
+        <PanelEvents {...eventProps} />
+      </section>
     </div>
   );
 }
 
-// ─── Panel: Baumenü ──────────────────────────────────────────
+function SystemScan({
+  environmentScan,
+  error,
+}: {
+  environmentScan: ColonyEnvironmentScanDto | null;
+  error: string | null;
+}) {
+  const xs = environmentScan
+    ? range(environmentScan.bounds.minX, environmentScan.bounds.maxX)
+    : [];
+  const ys = environmentScan
+    ? range(environmentScan.bounds.minY, environmentScan.bounds.maxY)
+    : [];
+  const fields = new Map(
+    environmentScan?.fields.map((field) => [`${field.x}|${field.y}`, field]) ??
+      [],
+  );
+  const signatures = new Map(
+    environmentScan?.signatures.map((signature) => [
+      `${signature.x}|${signature.y}`,
+      signature.visibleCount,
+    ]) ?? [],
+  );
+  const shields = new Set(
+    environmentScan?.colonyShields
+      .filter((shield) => shield.shielded)
+      .map((shield) => `${shield.x}|${shield.y}`) ?? [],
+  );
+
+  return (
+    <section className={sectionClass}>
+      <h3 className={headingClass}>Umgebungsscan</h3>
+      {error ? (
+        <p className="text-xs text-red-400">{error}</p>
+      ) : environmentScan ? (
+        <div
+          className="mx-auto grid w-fit gap-px bg-swu-border"
+          style={{
+            gridTemplateColumns: `1.5rem repeat(${xs.length}, 2.5rem)`,
+          }}
+        >
+          <div aria-hidden="true" className="bg-swu-surface" />
+          {xs.map((x) => (
+            <div
+              key={`x-${x}`}
+              className="flex h-5 items-center justify-center bg-swu-surface font-mono text-[9px] text-swu-muted"
+            >
+              {x}
+            </div>
+          ))}
+          {ys.flatMap((y) => [
+            <div
+              key={`y-${y}`}
+              className="flex h-10 items-center justify-center bg-swu-surface font-mono text-[9px] text-swu-muted"
+            >
+              {y}
+            </div>,
+            ...xs.map((x) => {
+              const coordinate = `${x}|${y}`;
+              return (
+                <ScanCell
+                  key={coordinate}
+                  x={x}
+                  y={y}
+                  field={fields.get(coordinate)}
+                  signatureCount={signatures.get(coordinate) ?? 0}
+                  shielded={shields.has(coordinate)}
+                />
+              );
+            }),
+          ])}
+        </div>
+      ) : (
+        <p className="text-xs text-swu-muted">Umgebungsscan nicht verfügbar</p>
+      )}
+    </section>
+  );
+}
+
+function ScanCell({
+  x,
+  y,
+  field,
+  signatureCount,
+  shielded,
+}: {
+  x: number;
+  y: number;
+  field?: ColonyEnvironmentScanDto['fields'][number];
+  signatureCount: number;
+  shielded: boolean;
+}) {
+  const object = field?.celestialObject;
+  const image = object?.classId
+    ? planetThumbnail(object.classId)
+    : field
+      ? starTileImage(field.fieldTypeId)
+      : null;
+  const details = [
+    field?.fieldTypeName ?? 'Nicht verfügbar',
+    object?.name,
+    signatureCount > 0
+      ? `${signatureCount} ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
+      : null,
+    shielded ? 'Kolonieschild' : null,
+  ].filter(Boolean);
+  const label = `${x}|${y}: ${details.join(', ')}`;
+
+  return (
+    <div
+      aria-label={label}
+      title={label}
+      className="relative flex h-10 w-10 items-center justify-center bg-swu-bg text-[9px] text-swu-muted"
+    >
+      {image ? (
+        <img src={image} alt="" className="h-full w-full object-contain" />
+      ) : (
+        '–'
+      )}
+      {shielded && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 border border-swu-accent/80"
+        />
+      )}
+      {signatureCount > 0 && (
+        <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
+          {signatureCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function PopulationValue({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] text-swu-muted">{label}</div>
+      <div className="font-mono text-swu-primary">{value}</div>
+    </div>
+  );
+}
+
+function range(start: number, end: number) {
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}

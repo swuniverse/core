@@ -37,11 +37,19 @@ export function AppShell() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    void api.get<UserProfile>('/auth/me').then(setUser).catch(() => undefined);
+    void api
+      .get<UserProfile>('/auth/me')
+      .then(setUser)
+      .catch(() => undefined);
   }, [setUser]);
 
   useEffect(() => {
-    if (!user || user.onboardingCompleted || location.pathname === '/claim-colony') return;
+    if (
+      !user ||
+      user.onboardingCompleted ||
+      location.pathname === '/claim-colony'
+    )
+      return;
     navigate('/claim-colony', { replace: true });
   }, [location.pathname, navigate, user]);
   useSocket();
@@ -59,7 +67,7 @@ export function AppShell() {
       <Sidebar />
       <BottomNav />
       {tickReports.length > 0 && (
-        <div className="fixed right-3 top-[60px] z-50 w-[min(360px,calc(100vw-24px))] space-y-2">
+        <div className="fixed right-3 top-[66px] z-50 w-[min(360px,calc(100vw-24px))] space-y-2 md:top-[94px]">
           {tickReports.map((report) => (
             <div
               key={report}
@@ -70,7 +78,7 @@ export function AppShell() {
           ))}
         </div>
       )}
-      <main className="md:ml-[68px] mt-[52px] px-3 md:px-4 py-2 pb-[calc(56px+env(safe-area-inset-bottom,0px)+8px)] md:pb-2">
+      <main className="mt-[58px] px-3 py-2 pb-[calc(56px+env(safe-area-inset-bottom,0px)+8px)] md:ml-[68px] md:mt-[86px] md:px-4 md:pb-2">
         <Outlet />
       </main>
     </div>

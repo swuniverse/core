@@ -498,7 +498,6 @@ export class AuthService {
         prestige: user.prestige,
         onboardingCompleted: user.onboardingCompleted,
         starterColonyId: user.starterColonyId,
-        starterShipId: user.starterShipId,
         isAdmin: user.isAdmin,
         permissions: user.permissions ?? [],
         createdAt: user.createdAt.toISOString(),

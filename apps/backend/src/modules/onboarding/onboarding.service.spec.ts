@@ -33,6 +33,54 @@ import { Faction } from '@swuniverse/shared';
 import { OnboardingService } from './onboarding.service';
 
 describe('OnboardingService', () => {
+  it('excludes already claimed planets from the available homeworlds', async () => {
+    const selection = { factionId: 1, selectedSystemId: null };
+    const onboardingRepo = {
+      findOne: jest.fn(async () => selection),
+      save: jest.fn(async (value) => value),
+    };
+    const starSystemRepo = {
+      findOneBy: jest.fn(async () => ({ id: 12, landmarkKey: null })),
+    };
+    const query = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn(async () => [{ id: 1231, systemId: 12 }]),
+    };
+    const objectRepo = {
+      createQueryBuilder: jest.fn(() => query),
+    };
+    const galaxyFieldRepo = {
+      findOne: jest.fn(async () => ({ factionZone: 'REBEL' })),
+      // Kein freier SWU-Starterplanet -> STU-Fallback.
+      query: jest.fn(async () => []),
+    };
+    const service = new OnboardingService(
+      onboardingRepo as never,
+      {} as never,
+      {} as never,
+      starSystemRepo as never,
+      objectRepo as never,
+      galaxyFieldRepo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const planets = await service.listPlanets(7, 12);
+
+    expect(planets).toEqual([{ id: 1231, systemId: 12 }]);
+    expect(query.leftJoin).toHaveBeenCalledWith(
+      'colonies',
+      'colony',
+      'colony.celestialObjectId = object.id',
+    );
+    expect(query.andWhere).toHaveBeenCalledWith('colony.id IS NULL');
+  });
+
   it('does not allow changing a retained faction while claiming a new homeworld', async () => {
     const userRepo = {
       findOneBy: jest.fn(async () => ({ id: 7, factionId: 2 })),

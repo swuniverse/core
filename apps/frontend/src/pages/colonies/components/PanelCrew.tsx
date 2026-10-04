@@ -11,7 +11,6 @@ export function PanelCrew({
   onQueueCrewTraining,
   onAssignCrewToShip,
   onUnassignCrewFromShip,
-  onLandShip: _onLandShip,
   onDisassembleShip: _onDisassembleShip,
 }: {
   crew: NonNullable<ColonyDetailV2['crew']>;
@@ -23,7 +22,6 @@ export function PanelCrew({
     shipId: number,
     amount: number,
   ) => Promise<void> | void;
-  onLandShip: (shipId: number) => Promise<void> | void;
   onDisassembleShip: (shipId: number) => Promise<void> | void;
 }) {
   const [amount, setAmount] = useState(1);
@@ -46,8 +44,8 @@ export function PanelCrew({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-1">
+    <section className="space-y-2">
+      <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs space-y-1">
         <div className="text-[10px] font-bold text-swu-muted uppercase">
           Crew-Übersicht
         </div>
@@ -85,7 +83,7 @@ export function PanelCrew({
         </div>
       </div>
 
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs space-y-2">
+      <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs space-y-2">
         <div className="text-[10px] font-bold text-swu-muted uppercase">
           {crew.trainingFacility?.mode === 'ACADEMY'
             ? 'Akademie'
@@ -131,12 +129,12 @@ export function PanelCrew({
       {social ? (
         <CrewSocialSection social={social} />
       ) : (
-        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs text-swu-muted">
+        <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs text-swu-muted">
           Keine Sozialdaten verfügbar. Bitte Backend/Seite neu laden.
         </div>
       )}
 
-      <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 text-xs">
+      <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs">
         <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">
           Orbit-Crew
         </div>
@@ -152,7 +150,8 @@ export function PanelCrew({
                 <div>
                   <div className="text-swu-primary">{ship.name}</div>
                   <div className="text-[10px] text-swu-muted">
-                    Crew {ship.crew}/{ship.crewRequired} · Max {ship.crewMax}
+                    Crew {ship.crew} ({ship.crewRequired},{ship.crewMax || 'kA'}
+                    )
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -188,14 +187,12 @@ export function PanelCrew({
                 className="flex justify-between border-b border-swu-border/20 pb-1 last:border-0 last:pb-0"
               >
                 <span className="text-swu-primary">{job.amount} Crew</span>
-                <span className="text-swu-muted">
-                  nächster Tick
-                </span>
+                <span className="text-swu-muted">nächster Tick</span>
               </div>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

@@ -40,7 +40,9 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
       setDiscardAmounts({});
     } catch (error: unknown) {
       setDiscardError(
-        error instanceof Error ? error.message : 'Entsorgung fehlgeschlagen',
+        error instanceof Error
+          ? error.message
+          : 'Müllverbrennung fehlgeschlagen',
       );
     } finally {
       setDiscarding(false);
@@ -64,10 +66,10 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
         <div className="flex items-center justify-between gap-2 mb-2">
           <div>
             <div className="text-[10px] font-bold text-swu-muted uppercase">
-              Waren entsorgen
+              Müllverbrennung
             </div>
             <div className="text-[10px] text-swu-muted">
-              Entsorgung ist nur mit Lagergebäude verfügbar.
+              Müllverbrennung ist nur mit Lagergebäude verfügbar.
             </div>
           </div>
           <div className="text-[10px] text-swu-muted">
@@ -167,7 +169,9 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
                 disabled={discarding || discardItems.length === 0}
                 className="px-2 py-1 rounded border border-red-500/50 bg-red-900/20 text-[10px] text-red-300 disabled:opacity-40"
               >
-                {discarding ? 'Entsorge…' : 'Ausgewählte Waren entsorgen'}
+                {discarding
+                  ? 'Müllverbrennung läuft...'
+                  : 'Müllverbrennung starten'}
               </button>
               <button
                 onClick={() => setDiscardAmounts({})}

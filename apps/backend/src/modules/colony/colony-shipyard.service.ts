@@ -21,6 +21,9 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
+import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyOrbitService } from './colony-orbit.service';
@@ -51,6 +54,7 @@ import {
 } from './entities/colony-ship-build-queue.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
+import { resolveColonyLocation } from './colony-location';
 
 @Injectable()
 export class ColonyShipyardService {
@@ -74,6 +78,10 @@ export class ColonyShipyardService {
     private readonly spacecraftModuleRepo: Repository<SpacecraftModule>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
+    @InjectRepository(SystemField)
+    private readonly systemFieldRepo: Repository<SystemField>,
+    @InjectRepository(SpaceLocation)
+    private readonly locationRepo: Repository<SpaceLocation>,
     private readonly gameData: GameDataService,
     private readonly colonyOwnershipService: ColonyOwnershipService,
     private readonly colonyCrewService: ColonyCrewService,
@@ -410,13 +418,33 @@ export class ColonyShipyardService {
     shipClass: ShipClassDef,
     moduleSelections: ShipModuleSelection[],
   ): number {
-    const moduleCrew = moduleSelections.reduce((sum, selection) => {
+    const modules = moduleSelections.flatMap((selection) => {
       const item = this.gameData.getFabricationItemByOutputCommodity(
         selection.commodityId,
       );
-      return sum + (item?.shipyardModuleStats?.crew ?? 0);
-    }, 0);
-    return Math.max(0, (shipClass.crewMin || 0) + moduleCrew);
+      return item?.moduleType
+        ? [
+            {
+              moduleType: item.moduleType,
+              level: item.moduleLevel ?? 1,
+            } as SpacecraftModule,
+          ]
+        : [];
+    });
+    return Math.max(
+      0,
+      shipClass.crewMin +
+        modules.reduce((sum, module) => {
+          const item = this.gameData
+            .getAllFabricationItems()
+            .find(
+              (candidate) =>
+                candidate.moduleType === module.moduleType &&
+                candidate.moduleLevel === module.level,
+            );
+          return sum + (item?.shipyardModuleStats?.crew ?? 0);
+        }, 0),
+    );
   }
 
   private normalizeInstalledModuleSelections(
@@ -506,7 +534,10 @@ export class ColonyShipyardService {
     shipId: number,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
-    const ship = await this.shipRepo.findOne({ where: { id: shipId, userId } });
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['location', 'location.systemField'],
+    });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     if (!this.colonyOrbitService.canManageOrbitShip(colony, ship)) {
       throw new BadRequestException('Ship is not in colony orbit');
@@ -584,7 +615,10 @@ export class ColonyShipyardService {
     buildPlanName?: string,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
-    const ship = await this.shipRepo.findOne({ where: { id: shipId, userId } });
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['location', 'location.systemField'],
+    });
     if (!ship) throw new NotFoundException('Spacecraft not found');
     if (!this.colonyOrbitService.canManageOrbitShip(colony, ship)) {
       throw new BadRequestException('Ship is not in colony orbit');
@@ -1390,7 +1424,7 @@ export class ColonyShipyardService {
       job.shipClass ??
       (await this.shipClassRepo.findOneBy({ id: job.shipClassId }));
     if (!shipClass) return;
-    const ship = this.createShipFromClass(
+    const ship = await this.createShipFromClass(
       colony,
       job.userId,
       shipClass,
@@ -1407,6 +1441,13 @@ export class ColonyShipyardService {
       );
     }
     this.spacecraftStatsService.applyStats(savedShip, shipClass, modules);
+    savedShip.crewRequired = this.calculateCrewRequired(
+      shipClass,
+      job.moduleSelections ?? [],
+    );
+    savedShip.crewMax = Math.max(savedShip.crewMax, savedShip.crewRequired);
+    savedShip.modules = modules;
+    initializeSpacecraftRuntimeSystems(savedShip);
     await this.shipRepo.save(savedShip);
     job.status = ColonyShipBuildQueueStatus.COMPLETED;
     await this.shipBuildQueueRepo.save(job);
@@ -1560,6 +1601,13 @@ export class ColonyShipyardService {
 
     const finalModules = [...modulesToKeep, ...createdModules];
     this.spacecraftStatsService.applyStats(ship, shipClass, finalModules);
+    ship.crewRequired = this.calculateCrewRequired(
+      shipClass,
+      desiredSelections,
+    );
+    ship.crewMax = Math.max(ship.crewMax, ship.crewRequired);
+    ship.modules = finalModules;
+    initializeSpacecraftRuntimeSystems(ship);
     await this.shipRepo.save(ship);
     job.retrofitSnapshot = {
       oldModuleSelections: job.retrofitSnapshot?.oldModuleSelections ?? [],
@@ -1601,24 +1649,36 @@ export class ColonyShipyardService {
     return createdModules;
   }
 
-  private createShipFromClass(
+  private async createShipFromClass(
     colony: Colony,
     userId: number,
     shipClass: ShipClassDef,
     name: string,
-  ): Spacecraft {
+  ): Promise<Spacecraft> {
+    const colonyLocation = resolveColonyLocation(colony);
+    const starSystemId = colonyLocation?.systemId ?? colony.starSystemId;
+    if (starSystemId == null) {
+      throw new NotFoundException('Colony star system not found');
+    }
+    const systemField = colony.systemFieldId
+      ? (colony.systemField ??
+        (await this.systemFieldRepo.findOneByOrFail({
+          id: colony.systemFieldId,
+        })))
+      : await this.systemFieldRepo.findOneByOrFail({
+          starSystemId,
+          sx: colonyLocation?.x ?? colony.posX,
+          sy: colonyLocation?.y ?? colony.posY,
+        });
+    const location = await this.locationRepo.findOneByOrFail({
+      systemFieldId: systemField.id,
+    });
     return this.shipRepo.create({
       name: name?.trim() || shipClass.name,
       shipClassId: shipClass.id,
       userId,
-      starSystemId: colony.starSystemId,
-      currentLayerId: colony.starSystem?.layerId ?? null,
-      celestialObjectId: colony.celestialObjectId,
-      inSystem: true,
-      currentSystemFieldX: colony.posX,
-      currentSystemFieldY: colony.posY,
-      posX: colony.posX,
-      posY: colony.posY,
+      locationId: location.id,
+      location,
       status: SpacecraftStatus.IDLE,
       alertState: AlertState.GREEN,
       hull: shipClass.hullBase,

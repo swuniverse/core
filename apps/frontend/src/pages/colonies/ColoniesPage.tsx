@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
 import { useToast } from '../../components/Toast';
 import { colonyApi } from './api';
 import { api } from '../../services/api';
@@ -12,34 +13,33 @@ import type {
   ColonyFieldUpgrade,
   ColonyStorageItem,
   CommodityDef,
-  DetailTab,
   FieldCategoriesSummary,
   ShipClassDef,
   ShipModuleSelection,
-  StarterColonizationOptions,
   TerraformingDef,
 } from './types';
-import { PlanetImg } from '../../components/PlanetImg';
-import { FieldInspector } from './components/FieldInspector';
+import { ColonyFieldDialog } from './components/ColonyFieldDialog';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelInfo } from './components/PanelInfo';
 import { useSwuColonyEcosystem } from './useSwuColonyEcosystem';
 import { PanelBuild } from './components/PanelBuild';
 import { PanelShipyard } from './components/PanelShipyard';
-import { PanelOrbit } from './components/PanelOrbit';
 import { PanelDefense } from './components/PanelDefense';
-import { PanelEvents } from './components/PanelEvents';
 import { PanelSettings } from './components/PanelSettings';
 import { PanelBuildingManagement } from './components/PanelBuildingManagement';
 import { PanelFabrication } from './components/PanelFabrication';
 import { PanelCrew } from './components/PanelCrew';
 import { PanelHangar } from './components/PanelHangar';
+import { PanelOrbit } from './components/PanelOrbit';
 import { PanelWaste } from './components/PanelWaste';
+import { ColonyContextPanel } from './components/ColonyContextPanel';
 import { ColonyCommandBar } from './components/ColonyCommandBar';
 import { ColonyMap } from './components/ColonyMap';
 import { SupplyDock } from './components/SupplyDock';
-import { WorkModeNav } from './components/WorkModeNav';
+import { CommodityLocationsDialog } from './components/CommodityLocationsDialog';
+import { ColonyPrimaryNav } from './components/ColonyPrimaryNav';
 import { BuildInspector } from './components/BuildInspector';
+import type { ColonyContextView, ColonyMainView } from './colony-navigation';
 import {
   buildingAllowedOnField,
   formatSignedAmount,
@@ -105,6 +105,35 @@ const buildStorageRows = (
 };
 
 
+const isHeadquartersField = (field: ColonyField) =>
+  field.buildingId != null &&
+  [1, 82010100, 82010300].includes(field.buildingId);
+
+const isContextViewAvailable = (
+  view: ColonyContextView,
+  detail: Colony['detailV2'],
+) => {
+  if (!view || !detail) return false;
+  if (view === 'orbit-management') return true;
+  if (view === 'waste') return detail.waste?.canDiscard === true;
+
+  const groups = detail.featureAccess?.functions.groups;
+  if (!groups) return false;
+  const active = (group: string) =>
+    (groups[group]?.activeFunctionIds.length ?? 0) > 0;
+
+  switch (view) {
+    case 'hangar':
+      return active('airfield');
+    case 'shipyard':
+      return active('fighterShipyards') || active('shipyards');
+    case 'fabrication':
+      return active('fabrication') || active('fabricationSupport');
+    case 'defense':
+      return active('defense');
+  }
+};
+
 // ─── Page ────────────────────────────────────────────────────
 
 export function ColoniesPage() {
@@ -116,16 +145,17 @@ export function ColoniesPage() {
   const [buildingDefs, setBuildingDefs] = useState<BuildingDef[]>([]);
   const [allBuildingDefs, setAllBuildingDefs] = useState<BuildingDef[]>([]);
   const [shipClasses, setShipClasses] = useState<ShipClassDef[]>([]);
+  const [fieldCategories, setFieldCategories] =
+    useState<FieldCategoriesSummary>({ tiles: {}, anyCategories: [] });
   const [terraformingDefs, setTerraformingDefs] = useState<TerraformingDef[]>(
     [],
   );
-  const [fieldCategories, setFieldCategories] = useState<FieldCategoriesSummary>(
-    { tiles: {}, anyCategories: [] },
-  );
-  const [starterOptions, setStarterOptions] =
-    useState<StarterColonizationOptions | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<DetailTab>('info');
+  const [environmentScan, setEnvironmentScan] =
+    useState<ColonyEnvironmentScanDto | null>(null);
+  const [environmentScanError, setEnvironmentScanError] = useState<
+    string | null
+  >(null);
 
   const detailRequestSequenceRef = useRef(0);
   const initialSelectedIdRef = useRef(Number(searchParams.get('selected')));
@@ -147,6 +177,20 @@ export function ColoniesPage() {
       setBuildingDefs(buildings);
       setSelected(detail);
       setSearchParams({ selected: String(id) }, { replace: true });
+      setEnvironmentScan(null);
+      setEnvironmentScanError(null);
+      void colonyApi
+        .fetchEnvironmentScan(id)
+        .then((scan) => {
+          if (requestSequence === detailRequestSequenceRef.current) {
+            setEnvironmentScan(scan);
+          }
+        })
+        .catch((error: unknown) => {
+          if (requestSequence === detailRequestSequenceRef.current) {
+            setEnvironmentScanError(errorMessage(error));
+          }
+        });
     },
     [setSearchParams],
   );
@@ -159,7 +203,6 @@ export function ColoniesPage() {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const starter = await colonyApi.fetchStarterColonizationOptions();
       const [comms, buildings, allBuildings, terraforming, categories, classes] =
         await Promise.all([
           colonyApi.fetchCommodities(),
@@ -175,14 +218,6 @@ export function ColoniesPage() {
       setTerraformingDefs(terraforming);
       setFieldCategories(categories);
       setShipClasses(classes);
-      setStarterOptions(starter);
-      if (starter.mode === 'required') {
-        setSelected(null);
-        setColonies([]);
-        setLoading(false);
-        return;
-      }
-
       await loadColonyOverview();
       const reqId = initialSelectedIdRef.current;
       if (reqId) await loadColonyDetail(reqId);
@@ -231,32 +266,9 @@ export function ColoniesPage() {
     }
   };
 
-  const handleStarterFound = async (celestialObjectId: number) => {
-    await act(async () => {
-      const result = await colonyApi.foundStarterColony(celestialObjectId);
-      const detail = await colonyApi.fetchColonyDetail(result.colonyId);
-      setStarterOptions({
-        mode: 'not-required',
-        reservedStarterColonyId: result.colonyId,
-        starterShipId: null,
-        targets: [],
-      });
-      setSelected(detail);
-      setSearchParams({ selected: String(result.colonyId) }, { replace: true });
-    });
-  };
-
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;
 
-  if (starterOptions?.mode === 'required') {
-    return (
-      <StarterColonizationGate
-        options={starterOptions}
-        onFound={handleStarterFound}
-      />
-    );
-  }
   if (!selected)
     return (
       <ColonyOverview
@@ -275,8 +287,8 @@ export function ColoniesPage() {
       fieldCategories={fieldCategories}
       shipClasses={shipClasses}
       terraformingDefs={terraformingDefs}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
+      environmentScan={environmentScan}
+      environmentScanError={environmentScanError}
       onBack={goBack}
       onBuild={(fi, bi, activateAfterBuild) =>
         act(async () => {
@@ -367,12 +379,6 @@ export function ColoniesPage() {
             `/colonies/${selected.id}/ships/${shipId}/crew/unassign`,
             { amount },
           );
-          loadColonyDetail(selected.id);
-        })
-      }
-      onLandShip={(shipId) =>
-        act(async () => {
-          await api.post(`/colonies/${selected.id}/ships/${shipId}/land`, {});
           loadColonyDetail(selected.id);
         })
       }
@@ -618,72 +624,6 @@ export function ColoniesPage() {
   );
 }
 
-function StarterColonizationGate({
-  options,
-  onFound,
-}: {
-  options: StarterColonizationOptions;
-  onFound: (celestialObjectId: number) => Promise<void> | void;
-}) {
-  const [busyTargetId, setBusyTargetId] = useState<number | null>(null);
-
-  return (
-    <div className="p-4 space-y-4">
-      <div className="rounded border border-swu-accent/40 bg-swu-surface px-4 py-3">
-        <div className="text-sm font-semibold text-swu-primary">
-          Starterkolonisierung erforderlich
-        </div>
-        <div className="mt-1 text-xs text-swu-muted">
-          Wähle einen freien Startplaneten. Die normale Kolonieübersicht ist
-          erst nach der Gründung verfügbar.
-        </div>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {options.targets.map((target) => (
-          <div
-            key={target.id}
-            className="rounded border border-swu-border bg-swu-surface px-4 py-3 space-y-3"
-          >
-            <div className="flex items-center gap-3">
-              {target.classId ? (
-                <PlanetImg
-                  classId={target.classId}
-                  name={target.name}
-                  className="h-12 w-12 rounded border border-swu-border/60 object-cover"
-                />
-              ) : null}
-              <div>
-                <div className="text-sm font-semibold text-swu-primary">
-                  {target.name ?? `Planet ${target.id}`}
-                </div>
-                <div className="text-[11px] text-swu-muted">
-                  System {target.systemId} · Feld {target.posX}/{target.posY}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={async () => {
-                setBusyTargetId(target.id);
-                try {
-                  await onFound(target.id);
-                } finally {
-                  setBusyTargetId(null);
-                }
-              }}
-              disabled={busyTargetId === target.id}
-              className="w-full rounded border border-swu-accent bg-swu-accent/15 px-3 py-2 text-xs font-semibold text-swu-accent disabled:opacity-40"
-            >
-              {busyTargetId === target.id
-                ? 'Gründe…'
-                : 'Starterkolonie gründen'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ─── Overview ────────────────────────────────────────────────
 
 export function ColonyDetail({
@@ -694,8 +634,8 @@ export function ColonyDetail({
   fieldCategories,
   shipClasses,
   terraformingDefs,
-  activeTab,
-  setActiveTab,
+  environmentScan,
+  environmentScanError,
   onBack,
   onBuild,
   onUpgradeBuilding,
@@ -708,7 +648,6 @@ export function ColonyDetail({
   onQueueCrewTraining,
   onAssignCrewToShip,
   onUnassignCrewFromShip,
-  onLandShip,
   onDisassembleShip,
   onDefendOrbitShip,
   onBlockadeOrbitShip,
@@ -746,13 +685,13 @@ export function ColonyDetail({
   fieldCategories: FieldCategoriesSummary;
   shipClasses: ShipClassDef[];
   terraformingDefs: TerraformingDef[];
-  activeTab: DetailTab;
-  setActiveTab: (t: DetailTab) => void;
+  environmentScan?: ColonyEnvironmentScanDto | null;
+  environmentScanError?: string | null;
   onBack: () => void;
   onBuild: (fi: number, bi: number, activateAfterBuild: boolean) => void;
-  onUpgradeBuilding: (fi: number, ui: number) => void;
-  onDemolish: (fi: number) => void;
-  onToggle: (fi: number) => void;
+  onUpgradeBuilding: (fi: number, ui: number) => Promise<void> | void;
+  onDemolish: (fi: number) => Promise<void> | void;
+  onToggle: (fi: number) => Promise<void> | void;
   onTerraform: (fi: number, ti: string) => Promise<void> | void;
   onBuildShip: (
     sci: number,
@@ -772,7 +711,6 @@ export function ColonyDetail({
     shipId: number,
     amount: number,
   ) => Promise<void> | void;
-  onLandShip: (shipId: number) => Promise<void> | void;
   onDisassembleShip: (shipId: number) => Promise<void> | void;
   onDefendOrbitShip: (shipId: number) => Promise<void> | void;
   onBlockadeOrbitShip: (shipId: number) => Promise<void> | void;
@@ -838,14 +776,30 @@ export function ColonyDetail({
     [commodities],
   );
   const [selectedField, setSelectedField] = useState<ColonyField | null>(null);
+  const [mainView, setMainView] = useState<ColonyMainView>('information');
+  const [contextView, setContextView] = useState<ColonyContextView>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
     null,
   );
   const [deactivateAfterBuild, setDeactivateAfterBuild] = useState(false);
   const [hoveredBuildField, setHoveredBuildField] =
     useState<ColonyField | null>(null);
+  const [commodityLocations, setCommodityLocations] = useState<{
+    commodityId: number;
+    trigger: HTMLElement;
+  } | null>(null);
+  const commodityLocationsRequestSequenceRef = useRef(0);
 
   const detail = colony.detailV2;
+  const currentEnergy = detail?.energy.current ?? colony.energy;
+  const shield =
+    detail?.defense?.shields.max != null &&
+    detail.defense.shields.max > 0 &&
+    detail.featureAccess?.functions.present.some((fn) =>
+      [24, 25].includes(fn.id),
+    )
+      ? detail.defense.shields
+      : undefined;
   const fieldUpgradeMap = useMemo(
     () =>
       Object.fromEntries(
@@ -872,6 +826,53 @@ export function ColonyDetail({
     [colony, commodityMap],
   );
 
+  const clearWorkspaceSelection = () => {
+    setSelectedField(null);
+    setSelectedBuilding(null);
+    setHoveredBuildField(null);
+  };
+
+  const closeCommodityLocations = useCallback(() => {
+    commodityLocationsRequestSequenceRef.current += 1;
+    setCommodityLocations(null);
+  }, []);
+
+  const loadCommodityLocations = useCallback(
+    async (commodityId: number) => {
+      const requestSequence = commodityLocationsRequestSequenceRef.current;
+      const result = await colonyApi.fetchCommodityLocations(
+        colony.id,
+        commodityId,
+      );
+      if (requestSequence !== commodityLocationsRequestSequenceRef.current) {
+        throw new Error('Veraltete Lagerortanfrage');
+      }
+      return result;
+    },
+    [colony.id],
+  );
+
+  useEffect(() => {
+    commodityLocationsRequestSequenceRef.current += 1;
+    setCommodityLocations(null);
+  }, [colony.id]);
+
+  const handleMainViewChange = (view: ColonyMainView) => {
+    closeCommodityLocations();
+    setMainView(view);
+    setContextView(null);
+    clearWorkspaceSelection();
+  };
+
+  const handleOpenContext = (view: ColonyContextView) => {
+    clearWorkspaceSelection();
+    setContextView(view);
+  };
+
+  const handleCloseContext = () => {
+    handleMainViewChange('information');
+  };
+
   useEffect(() => {
     setSelectedField((current) => {
       if (!current) return current;
@@ -881,27 +882,45 @@ export function ColonyDetail({
     });
   }, [fields]);
 
+  useEffect(() => {
+    if (contextView && !isContextViewAvailable(contextView, detail)) {
+      setContextView(null);
+      setMainView('information');
+    }
+  }, [contextView, detail]);
+
   const highlightedFields = useMemo(() => {
     if (!selectedBuilding) return new Set<number>();
     return new Set(
       fields
         .filter(
           (f) =>
-            !f.buildingId &&
-            !f.isBuilding &&
+            !f.terraformingId &&
+            !isHeadquartersField(f) &&
             buildingAllowedOnField(selectedBuilding, f, fieldCategories),
         )
         .map((f) => f.fieldIndex),
     );
-  }, [selectedBuilding, fields, fieldCategories]);
+  }, [fields, selectedBuilding, fieldCategories]);
+
+  const replacementFields = useMemo(
+    () =>
+      new Set(
+        fields
+          .filter(
+            (field) =>
+              field.buildingId != null &&
+              highlightedFields.has(field.fieldIndex),
+          )
+          .map((field) => field.fieldIndex),
+      ),
+    [fields, highlightedFields],
+  );
 
   const getBuildPreviewTitle = (field: ColonyField): string | undefined => {
     if (!selectedBuilding) return undefined;
 
-    const isBuildTarget =
-      !field.buildingId &&
-      !field.isBuilding &&
-      highlightedFields.has(field.fieldIndex);
+    const isBuildTarget = highlightedFields.has(field.fieldIndex);
     if (!isBuildTarget) return undefined;
 
     const previewBuilding = getEffectiveBuildingForField(
@@ -937,6 +956,9 @@ export function ColonyDetail({
 
     return [
       `Bauen: ${previewBuilding.name}`,
+      field.buildingId
+        ? `Ersetzt: ${buildingMap[field.buildingId]?.name ?? `Gebäude #${field.buildingId}`}`
+        : undefined,
       previewBuilding.id !== selectedBuilding.id
         ? `Bonusfeld-Version von ${selectedBuilding.name}`
         : undefined,
@@ -948,7 +970,20 @@ export function ColonyDetail({
   };
 
   const handleFieldClick = (field: ColonyField) => {
+    if (contextView) return;
+
     if (selectedBuilding && highlightedFields.has(field.fieldIndex)) {
+      if (field.buildingId) {
+        const buildingName =
+          buildingMap[field.buildingId]?.name ?? `Gebäude #${field.buildingId}`;
+        if (
+          !window.confirm(
+            `Soll das Gebäude "${buildingName}" auf diesem Feld abgerissen werden?`,
+          )
+        ) {
+          return;
+        }
+      }
       onBuild(field.fieldIndex, selectedBuilding.id, !deactivateAfterBuild);
       setHoveredBuildField(null);
       setSelectedField(null);
@@ -972,192 +1007,214 @@ export function ColonyDetail({
     .filter((f) => f.layer === 'SURFACE' || (!f.layer && f.fieldType < 800))
     .sort((a, b) => a.fieldIndex - b.fieldIndex);
 
-  const tabAccess = detail?.featureAccess?.tabs;
-  const tabs = useMemo<
-    Array<{ key: DetailTab; label: string; show: boolean }>
-  >(() => {
-    const isTabVisible = (key: DetailTab, fallback = true) =>
-      tabAccess?.[key]?.visible ?? fallback;
+  const renderContextView = () => {
+    if (!contextView || !detail) return null;
 
-    return [
-      { key: 'info', label: 'Informationen', show: isTabVisible('info') },
-      // STU places the compact orbit selector below the field inspector.
-      // Fleet → Orbit remains the dedicated management view.
-      {
-        key: 'orbit',
-        label: 'Orbitalmanagement',
-        show: tabAccess?.hangar?.visible === true,
-      },
-      { key: 'build', label: 'Baumenü', show: isTabVisible('build') },
-      { key: 'crew', label: 'Crew', show: isTabVisible('crew') },
-      {
-        key: 'buildingManagement',
-        label: 'Gebäudemanagement',
-        show: isTabVisible('buildingManagement'),
-      },
-      {
-        key: 'shipyard',
-        label: 'Werft',
-        show: isTabVisible('shipyard', false),
-      },
-      {
-        key: 'fabrication',
-        label: 'Fabrikation',
-        show: isTabVisible('fabrication', false),
-      },
-      {
-        key: 'defense',
-        label: 'Verteidigung',
-        show: isTabVisible('defense', false),
-      },
-      { key: 'hangar', label: 'Hangar', show: isTabVisible('hangar', false) },
-      {
-        key: 'waste',
-        label: 'Entsorgung',
-        show: Boolean(detail?.waste?.canDiscard),
-      },
-      {
-        key: 'events',
-        label: `Ereignisse${detail?.eventSummary?.unreadCount ? ` (${detail.eventSummary.unreadCount})` : ''}`,
-        show: isTabVisible('events'),
-      },
-      {
-        key: 'settings',
-        label: 'Einstellungen',
-        show: isTabVisible('settings'),
-      },
-    ];
-  }, [
-    detail?.orbitShips.length,
-    detail?.eventSummary?.unreadCount,
-    detail?.waste?.canDiscard,
-    tabAccess,
-  ]);
-
-  useEffect(() => {
-    if (!tabs.some((tab) => tab.key === activeTab && tab.show)) {
-      setActiveTab(tabs.find((tab) => tab.show)?.key ?? 'info');
+    let title: string;
+    let content: React.ReactNode;
+    switch (contextView) {
+      case 'orbit-management':
+        title = 'Orbitalmanagement';
+        content = (
+          <PanelOrbit
+            colonyId={colony.id}
+            orbitShips={detail.orbitShips}
+            orbitBlockers={detail.orbitBlockers}
+            inventory={detail.inventory}
+            commodityMap={commodityMap}
+            onDisassembleShip={onDisassembleShip}
+            onDefendShip={onDefendOrbitShip}
+            onBlockadeShip={onBlockadeOrbitShip}
+            onClearOrbitOrder={onClearOrbitOrder}
+            onTransferShuttles={onTransferOrbitShipShuttles}
+          />
+        );
+        break;
+      case 'hangar':
+        if (!detail.hangar) return null;
+        title = 'Hangar';
+        content = (
+          <PanelHangar
+            hangar={detail.hangar}
+            commodityMap={commodityMap}
+            onBuildAirfieldRump={onBuildAirfieldRump}
+            onStartHangarShip={onStartHangarShip}
+          />
+        );
+        break;
+      case 'shipyard':
+        title = 'Werft';
+        content = (
+          <PanelShipyard
+            shipyard={detail.shipyard}
+            shipClasses={shipClasses}
+            queue={detail.shipBuildQueue ?? []}
+            availableModules={detail.availableShipModules ?? []}
+            slotRules={detail.shipyard.slotRules ?? []}
+            availableCrew={detail.crew?.available ?? 0}
+            commodityMap={commodityMap}
+            orbitShips={detail.orbitShips}
+            buildplans={detail.buildplans ?? []}
+            onBuildShip={onBuildShip}
+            onDisassembleShip={onDisassembleShip}
+            onQueueShipRepair={onQueueShipRepair}
+            onQueueShipRetrofit={onQueueShipRetrofit}
+            onCancelShipyardQueue={onCancelShipyardQueue}
+            onReactivateShipyardQueue={onReactivateShipyardQueue}
+            onCreateBuildplan={onCreateBuildplan}
+            onRenameBuildplan={onRenameBuildplan}
+            onDeleteBuildplan={onDeleteBuildplan}
+            onBuildFromBuildplan={onBuildFromBuildplan}
+          />
+        );
+        break;
+      case 'fabrication':
+        title = 'Fabrikation';
+        content = (
+          <PanelFabrication
+            catalog={detail.fabricationCatalog ?? []}
+            queue={detail.fabricationQueue ?? []}
+            activeFunctionIds={detail.activeFabricationFunctionIds ?? []}
+            presentFunctions={
+              detail.featureAccess?.functions.present.filter((fn) =>
+                [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 29, 30].includes(fn.id),
+              ) ?? []
+            }
+            commodityMap={commodityMap}
+            onStartFabrication={onStartFabrication}
+            onCancelFabrication={onCancelFabrication}
+          />
+        );
+        break;
+      case 'defense':
+        if (!detail.defense) return null;
+        title = 'Verteidigung';
+        content = (
+          <PanelDefense
+            defense={detail.defense}
+            inventory={detail.inventory}
+            onLoadColonyShields={onLoadColonyShields}
+            onSetShieldFrequency={onSetShieldFrequency}
+            onSetDefenseTorpedoType={onSetDefenseTorpedoType}
+          />
+        );
+        break;
+      case 'waste':
+        title = 'Müllverbrennung';
+        content = (
+          <PanelWaste detail={detail} onDiscardStorage={onDiscardStorage} />
+        );
+        break;
     }
-  }, [activeTab, setActiveTab, tabs]);
+
+    return (
+      <ColonyContextPanel title={title} onBack={handleCloseContext}>
+        {content}
+      </ColonyContextPanel>
+    );
+  };
 
   return (
     <div className="space-y-2">
       <ColonyCommandBar colony={colony} onBack={onBack} />
 
-      <WorkModeNav
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
+      <ColonyPrimaryNav
+        activeView={mainView}
+        onViewChange={handleMainViewChange}
       />
 
       {/* Main: Map-first Leitstand */}
       <div className="grid gap-3 xl:grid-cols-[minmax(560px,720px)_minmax(360px,1fr)]">
-        <ColonyMap
-          ecosystem={ecosystem}
-          surfaceWidth={detail?.surface?.width}
-          orbitFields={orbitFields}
-          surfaceFields={surfaceFields}
-          undergroundFields={undergroundFields}
-          selectedField={selectedField}
-          highlightedFields={highlightedFields}
-          isBuildMode={!!selectedBuilding}
-          buildingMap={buildingMap}
-          getBuildPreviewTitle={getBuildPreviewTitle}
-          energy={{
-            current: detail?.energy.current ?? colony.energy,
-            max: detail?.energy.max ?? colony.energyMax,
-            delta: detail?.energy.delta,
-          }}
-          onFieldClick={handleFieldClick}
-          onFieldMouseEnter={setHoveredBuildField}
-          onFieldMouseLeave={() => setHoveredBuildField(null)}
-        />
+        <div aria-label="Koloniefelder" className="min-w-0 space-y-3">
+          <ColonyMap
+            ecosystem={ecosystem}
+            surfaceWidth={detail?.surface?.width}
+            orbitFields={orbitFields}
+            surfaceFields={surfaceFields}
+            undergroundFields={undergroundFields}
+            selectedField={selectedField}
+            highlightedFields={highlightedFields}
+            replacementFields={replacementFields}
+            isBuildMode={!!selectedBuilding}
+            buildingMap={buildingMap}
+            getBuildPreviewTitle={getBuildPreviewTitle}
+            energy={{
+              current: detail?.energy.current ?? colony.energy,
+              max: detail?.energy.max ?? colony.energyMax,
+              delta: detail?.energy.delta,
+            }}
+            shield={shield}
+            onFieldClick={handleFieldClick}
+            onFieldMouseEnter={setHoveredBuildField}
+            onFieldMouseLeave={() => setHoveredBuildField(null)}
+          />
+          <SupplyDock
+            storage={storage}
+            detail={detail}
+            commodityMap={commodityMap}
+            onOpenCommodityLocations={(commodityId, trigger) => {
+              commodityLocationsRequestSequenceRef.current += 1;
+              setCommodityLocations({ commodityId, trigger });
+            }}
+          />
+        </div>
 
         <div className="min-w-0 space-y-3">
-          {(activeTab === 'info' || activeTab === 'build') && (
-            <div>
-              {activeTab === 'build' && selectedBuilding ? (
-                <BuildInspector
-                  selectedBuilding={selectedBuilding}
-                  hoveredBuildField={
-                    hoveredBuildField &&
-                    highlightedFields.has(hoveredBuildField.fieldIndex)
-                      ? hoveredBuildField
-                      : null
-                  }
-                  buildingMap={buildingMap}
-                  commodityMap={commodityMap}
-                  storage={storage}
-                  deactivateAfterBuild={deactivateAfterBuild}
-                  onDeactivateAfterBuildChange={setDeactivateAfterBuild}
-                  onClearSelection={() => {
-                    setSelectedBuilding(null);
-                    setHoveredBuildField(null);
-                  }}
-                />
-              ) : (
-                <>
-                  <FieldInspector
-                    field={selectedField}
-                    building={
-                      selectedField?.buildingId
-                        ? buildingMap[selectedField.buildingId]
-                        : undefined
-                    }
-                    buildingMap={buildingMap}
-                    commodityMap={commodityMap}
-                    terraformingDefs={terraformingDefs}
-                    selectedBuilding={selectedBuilding}
-                    onClearSelection={() => setSelectedField(null)}
-                    onTerraform={onTerraform}
-                    onUpgrade={onUpgradeBuilding}
-                    onDemolish={onDemolish}
-                    onToggle={onToggle}
-                  />
-                  {detail && (
-                    <PanelOrbit
-                      colonyId={colony.id}
-                      orbitShips={detail.orbitShips}
-                      commodityMap={commodityMap}
-                      onLandShip={onLandShip}
-                      onDisassembleShip={onDisassembleShip}
-                      onDefendShip={onDefendOrbitShip}
-                      onBlockadeShip={onBlockadeOrbitShip}
-                      onClearOrbitOrder={onClearOrbitOrder}
-                      onTransferShuttles={onTransferOrbitShipShuttles}
-                      compact
-                      onOpenManagement={() => setActiveTab('orbit')}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'info' && (
-            <PanelInfo colony={colony} detail={detail} ecosystem={ecosystem} />
-          )}
-          {activeTab === 'orbit' && detail && (
-            <PanelOrbit
-              colonyId={colony.id}
-              orbitShips={detail.orbitShips}
-              orbitBlockers={detail.orbitBlockers}
-              inventory={detail.inventory}
+          {!contextView && mainView === 'build' && selectedBuilding && (
+            <BuildInspector
+              selectedBuilding={selectedBuilding}
+              hoveredBuildField={
+                hoveredBuildField &&
+                highlightedFields.has(hoveredBuildField.fieldIndex)
+                  ? hoveredBuildField
+                  : null
+              }
+              buildingMap={buildingMap}
               commodityMap={commodityMap}
-              isBlockaded={colony.stats?.isBlockaded ?? false}
-              onLandShip={onLandShip}
-              onDisassembleShip={onDisassembleShip}
-              onDefendShip={onDefendOrbitShip}
-              onBlockadeShip={onBlockadeOrbitShip}
-              onClearOrbitOrder={onClearOrbitOrder}
-              onTransferShuttles={onTransferOrbitShipShuttles}
+              storage={storage}
+              energy={currentEnergy}
+              deactivateAfterBuild={deactivateAfterBuild}
+              onDeactivateAfterBuildChange={setDeactivateAfterBuild}
+              onClearSelection={() => {
+                setSelectedBuilding(null);
+                setHoveredBuildField(null);
+              }}
             />
           )}
-          {activeTab === 'build' && (
+
+          {!contextView && mainView === 'information' && (
+            <PanelInfo
+              colony={colony}
+              detail={detail}
+              ecosystem={ecosystem}
+              environmentScan={environmentScan ?? null}
+              environmentScanError={environmentScanError ?? null}
+              onOpenOrbitManagement={() =>
+                handleOpenContext('orbit-management')
+              }
+              orbitProps={{
+                commodityMap,
+                onDisassembleShip,
+                onDefendShip: onDefendOrbitShip,
+                onBlockadeShip: onBlockadeOrbitShip,
+                onClearOrbitOrder,
+                onTransferShuttles: onTransferOrbitShipShuttles,
+              }}
+              eventProps={{
+                initialEvents: detail?.eventSummary?.latest ?? [],
+                onLoadEvents: onLoadColonyEvents,
+                onMarkRead: onMarkColonyEventRead,
+                onMarkAllRead: onMarkAllColonyEventsRead,
+              }}
+            />
+          )}
+          {renderContextView()}
+          {!contextView && mainView === 'build' && (
             <PanelBuild
               buildingDefs={buildingDefs}
               fields={fields}
               storage={storage}
+              energy={currentEnergy}
               commodityMap={commodityMap}
               selectedBuilding={selectedBuilding}
               onSelectBuilding={(b: BuildingDef) => {
@@ -1171,84 +1228,16 @@ export function ColonyDetail({
               }}
             />
           )}
-          {activeTab === 'buildingManagement' && detail?.buildingManagement && (
-            <PanelBuildingManagement
-              management={detail.buildingManagement}
-              onActivate={onActivateBuildings}
-              onDeactivate={onDeactivateBuildings}
-            />
-          )}
-          {activeTab === 'shipyard' && (
-            <PanelShipyard
-              shipyard={detail?.shipyard}
-              shipClasses={shipClasses}
-              queue={detail?.shipBuildQueue ?? []}
-              availableModules={detail?.availableShipModules ?? []}
-              slotRules={detail?.shipyard.slotRules ?? []}
-              availableCrew={detail?.crew?.available ?? 0}
-              commodityMap={commodityMap}
-              orbitShips={detail?.orbitShips ?? []}
-              buildplans={detail?.buildplans ?? []}
-              onBuildShip={onBuildShip}
-              onDisassembleShip={onDisassembleShip}
-              onQueueShipRepair={onQueueShipRepair}
-              onQueueShipRetrofit={onQueueShipRetrofit}
-              onCancelShipyardQueue={onCancelShipyardQueue}
-              onReactivateShipyardQueue={onReactivateShipyardQueue}
-              onCreateBuildplan={onCreateBuildplan}
-              onRenameBuildplan={onRenameBuildplan}
-              onDeleteBuildplan={onDeleteBuildplan}
-              onBuildFromBuildplan={onBuildFromBuildplan}
-            />
-          )}
-          {activeTab === 'waste' && detail?.waste?.canDiscard && (
-            <PanelWaste detail={detail} onDiscardStorage={onDiscardStorage} />
-          )}
-          {activeTab === 'events' && (
-            <PanelEvents
-              initialEvents={detail?.eventSummary?.latest ?? []}
-              onLoadEvents={onLoadColonyEvents}
-              onMarkRead={onMarkColonyEventRead}
-              onMarkAllRead={onMarkAllColonyEventsRead}
-            />
-          )}
-          {activeTab === 'defense' && detail?.defense && (
-            <PanelDefense
-              defense={detail.defense}
-              inventory={detail.inventory}
-              onLoadColonyShields={onLoadColonyShields}
-              onSetShieldFrequency={onSetShieldFrequency}
-              onSetDefenseTorpedoType={onSetDefenseTorpedoType}
-            />
-          )}
-          {activeTab === 'hangar' && detail?.hangar && (
-            <PanelHangar
-              hangar={detail.hangar}
-              orbitShips={detail.orbitShips}
-              commodityMap={commodityMap}
-              onBuildAirfieldRump={onBuildAirfieldRump}
-              onStartHangarShip={onStartHangarShip}
-              onLandShip={onLandShip}
-            />
-          )}
-          {activeTab === 'fabrication' && (
-            <PanelFabrication
-              catalog={detail?.fabricationCatalog ?? []}
-              queue={detail?.fabricationQueue ?? []}
-              activeFunctionIds={detail?.activeFabricationFunctionIds ?? []}
-              presentFunctions={
-                detail?.featureAccess?.functions.present.filter((fn) =>
-                  [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 29, 30].includes(
-                    fn.id,
-                  ),
-                ) ?? []
-              }
-              commodityMap={commodityMap}
-              onStartFabrication={onStartFabrication}
-              onCancelFabrication={onCancelFabrication}
-            />
-          )}
-          {activeTab === 'settings' && detail && (
+          {!contextView &&
+            mainView === 'building-control' &&
+            detail?.buildingManagement && (
+              <PanelBuildingManagement
+                management={detail.buildingManagement}
+                onActivate={onActivateBuildings}
+                onDeactivate={onDeactivateBuildings}
+              />
+            )}
+          {!contextView && mainView === 'settings' && detail && (
             <PanelSettings
               colonyName={colony.name}
               population={detail.population}
@@ -1260,7 +1249,8 @@ export function ColonyDetail({
               onGiveUpColony={onGiveUpColony}
             />
           )}
-          {activeTab === 'crew' &&
+          {!contextView &&
+            mainView === 'social' &&
             (detail?.crew ? (
               <PanelCrew
                 crew={detail.crew}
@@ -1269,7 +1259,6 @@ export function ColonyDetail({
                 onQueueCrewTraining={onQueueCrewTraining}
                 onAssignCrewToShip={onAssignCrewToShip}
                 onUnassignCrewFromShip={onUnassignCrewFromShip}
-                onLandShip={onLandShip}
                 onDisassembleShip={onDisassembleShip}
               />
             ) : (
@@ -1277,16 +1266,43 @@ export function ColonyDetail({
                 Keine Crewdaten verfügbar. Bitte Backend/Seite neu laden.
               </div>
             ))}
-
-          {activeTab === 'info' && (
-            <SupplyDock
-              storage={storage}
-              detail={detail}
-              commodityMap={commodityMap}
-            />
-          )}
         </div>
       </div>
+      {selectedField && !selectedBuilding && !contextView && (
+        <ColonyFieldDialog
+          field={selectedField}
+          building={
+            selectedField.buildingId
+              ? buildingMap[selectedField.buildingId]
+              : undefined
+          }
+          buildingMap={buildingMap}
+          commodityMap={commodityMap}
+          terraformingDefs={terraformingDefs}
+          wasteAvailability={{
+            enabled: detail?.waste?.canDiscard === true,
+            reason:
+              detail?.featureAccess?.tabs.waste?.reason ??
+              'Lagerfunktion nicht verfügbar',
+          }}
+          onClose={() => setSelectedField(null)}
+          onOpenContext={handleOpenContext}
+          onOpenBuildMenu={() => handleMainViewChange('build')}
+          onOpenAcademy={() => handleMainViewChange('social')}
+          onTerraform={onTerraform}
+          onUpgrade={onUpgradeBuilding}
+          onDemolish={onDemolish}
+          onToggle={onToggle}
+        />
+      )}
+      {commodityLocations && (
+        <CommodityLocationsDialog
+          commodityId={commodityLocations.commodityId}
+          trigger={commodityLocations.trigger}
+          load={loadCommodityLocations}
+          onClose={closeCommodityLocations}
+        />
+      )}
     </div>
   );
 }

@@ -27,7 +27,6 @@ export interface UserProfile {
   prestige: number;
   onboardingCompleted?: boolean;
   starterColonyId?: number | null;
-  starterShipId?: number | null;
   isAdmin?: boolean;
   permissions?: string[];
   createdAt: string;

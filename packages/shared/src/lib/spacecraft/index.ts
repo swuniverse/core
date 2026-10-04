@@ -1,3 +1,5 @@
+import type { SpaceLocationDto } from '../starmap/index.js';
+
 export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'SHIELDS',
   'REACTOR',
@@ -87,16 +89,14 @@ export interface SpacecraftDetailDto {
   reactorFuelMax: number;
   evadeChance: number;
   crew: number;
+  crewRequired?: number;
   crewMax: number;
   cargoUsed?: number;
   cargoMax?: number;
   reactorWarpSplit: number;
+  reactorAutoCarryOver: boolean;
   runtimeSystems: SpacecraftRuntimeSystemsDto;
-  posX: number;
-  posY: number;
-  inSystem?: boolean;
-  currentSystemFieldX?: number | null;
-  currentSystemFieldY?: number | null;
+  location: SpaceLocationDto;
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
   arrivalAt: string | null;
   locationLabel?: string;
@@ -127,9 +127,13 @@ export interface SpacecraftEnergyFlowDto {
   reactorFuel: { current: number; max: number; commodityId: number };
   reactorOutput: number;
   reactorWarpSplit: number;
+  reactorAutoCarryOver: boolean;
   flightCost: number;
   epsProduction: number;
   warpProduction: number;
+  effectiveEpsProduction: number;
+  effectiveWarpProduction: number;
+  reactorUsage: number;
   totalSystemConsumption: number;
   netEps: number;
   systems: SpacecraftEnergyFlowRowDto[];
@@ -160,6 +164,8 @@ export interface SpacecraftScanResultDto {
   cooldown: number;
   layerId: number | null;
   starSystemId: number | null;
+  locationId: number | null;
+  location: SpaceLocationDto | null;
   x: number;
   y: number;
   result: unknown;
@@ -267,12 +273,18 @@ export interface SpacecraftNearbyTargetDto {
 
 export interface SpacecraftFieldContextDto {
   coordinates: { x: number; y: number };
-  starSystem: { id: number; name: string; canLeave: boolean } | null;
+  starSystem: {
+    id: number;
+    name: string;
+    canLeave: boolean;
+    leaveReason: string | null;
+  } | null;
   colony: {
     id: number;
     name: string;
     planetName: string;
     isOwn: boolean;
+    canLand: boolean;
   } | null;
   information: {
     canSectorScan: boolean;
@@ -287,6 +299,8 @@ export interface SpacecraftFieldContextDto {
     colonizationTarget?: {
       celestialObjectId: number;
       name: string | null;
+      classId: number | null;
+      className: string | null;
       isAbandoned: boolean;
     } | null;
   };

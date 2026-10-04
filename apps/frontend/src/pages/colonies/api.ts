@@ -1,5 +1,9 @@
 import { api } from '../../services/api';
 import type {
+  ColonyEnvironmentScanDto,
+  CommodityLocationsDto,
+} from '@swuniverse/shared';
+import type {
   BuildingDef,
   BuildingMassActionMode,
   BuildingMassActionResult,
@@ -11,13 +15,18 @@ import type {
   FieldCategoriesSummary,
   ShipClassDef,
   ShipModuleSelection,
-  StarterColonizationOptions,
   TerraformingDef,
 } from './types';
 
 export const colonyApi = {
   fetchColonies: () => api.get<Colony[]>('/colonies'),
   fetchColonyDetail: (id: number) => api.get<Colony>(`/colonies/${id}`),
+  fetchEnvironmentScan: (colonyId: number) =>
+    api.get<ColonyEnvironmentScanDto>(`/colonies/${colonyId}/environment-scan`),
+  fetchCommodityLocations: (colonyId: number, commodityId: number) =>
+    api.get<CommodityLocationsDto>(
+      `/colonies/${colonyId}/commodity-locations/${commodityId}`,
+    ),
   fetchCommodities: () => api.get<CommodityDef[]>('/colonies/commodities/all'),
   fetchAvailableBuildings: (colonyId?: number) =>
     api.get<BuildingDef[]>(
@@ -31,19 +40,6 @@ export const colonyApi = {
   fetchFieldCategories: () =>
     api.get<FieldCategoriesSummary>('/colonies/field-categories'),
   fetchShipClasses: () => api.get<ShipClassDef[]>('/spacecraft/classes'),
-
-  fetchStarterColonizationOptions: () =>
-    api.get<StarterColonizationOptions>('/colonization/starter/options'),
-  createStarterColonizationShip: () =>
-    api.post<{ success: true; shipId: number }, Record<string, never>>(
-      '/colonization/starter/ship',
-      {},
-    ),
-  foundStarterColony: (celestialObjectId: number) =>
-    api.post<
-      { success: true; colonyId: number },
-      { celestialObjectId: number }
-    >('/colonization/starter/found', { celestialObjectId }),
 
   renameColony: (colonyId: number, name: string) =>
     api.put(`/colonies/${colonyId}`, { name }),

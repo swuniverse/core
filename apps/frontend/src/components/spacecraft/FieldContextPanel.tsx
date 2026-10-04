@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { SpacecraftFieldContextDto } from '@swuniverse/shared';
 import { PlanetImg } from '../PlanetImg';
-import { starTileImage, systemTypeImage } from '../../lib/assets';
+import {
+  planetThumbnail,
+  starTileImage,
+  systemTypeImage,
+} from '../../lib/assets';
 import { api } from '../../services/api';
 import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
@@ -18,6 +22,11 @@ type SectorScanResult = {
     effects: string[];
     celestialObject: { name: string | null; classId: number | null; objectType?: number; shielded?: boolean } | null;
   };
+  discovery?: {
+    discovered: boolean;
+    prestigeAwarded: number;
+    name: string;
+  } | null;
 };
 
 export function FieldContextPanel({
@@ -26,12 +35,14 @@ export function FieldContextPanel({
   onUpdate,
   canColonize = false,
   onColonized,
+  onLanded,
 }: {
   shipId: number;
   context: SpacecraftFieldContextDto | null;
   onUpdate: () => Promise<void> | void;
   canColonize?: boolean;
   onColonized?: (colonyId: number) => void;
+  onLanded?: (colonyId: number) => void;
 }) {
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
     null,
@@ -46,6 +57,7 @@ export function FieldContextPanel({
     message: string | null;
   } | null>(null);
   const [colonizationOpen, setColonizationOpen] = useState(false);
+  const [landing, setLanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function scanSector() {
@@ -76,6 +88,19 @@ export function FieldContextPanel({
       setError(
         err instanceof Error ? err.message : 'Koloniebotschaft nicht verfügbar',
       );
+    }
+  }
+
+  async function landShip() {
+    if (!context?.colony?.canLand || landing) return;
+    setLanding(true);
+    setError(null);
+    try {
+      await api.post(`/colonies/${context.colony.id}/ships/${shipId}/land`, {});
+      onLanded?.(context.colony.id);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Landen fehlgeschlagen');
+      setLanding(false);
     }
   }
   async function enterSystem() {
@@ -152,21 +177,20 @@ export function FieldContextPanel({
                 <div className="text-swu-primary">
                   ✦ {context.starSystem.name}
                 </div>
-                {context.starSystem.canLeave && (
-                  <button
-                    type="button"
-                    disabled={leaving}
-                    onClick={() => void leaveSystem()}
-                    className="inline-flex items-center gap-1 text-swu-muted hover:text-swu-accent disabled:opacity-40"
-                  >
-                    <img
-                      src="/assets/buttons/sysleave1.png"
-                      alt=""
-                      className="size-5"
-                    />
-                    System verlassen
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={leaving || !context.starSystem.canLeave}
+                  title={context.starSystem.leaveReason ?? undefined}
+                  onClick={() => void leaveSystem()}
+                  className="inline-flex items-center gap-1 text-swu-muted hover:text-swu-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <img
+                    src="/assets/buttons/sysleave1.png"
+                    alt=""
+                    className="size-5"
+                  />
+                  System verlassen
+                </button>
               </>
             ) : context.information.entrySystem ? (
               <>
@@ -201,11 +225,25 @@ export function FieldContextPanel({
         </div>
       </div>
       {canColonize && context.information.colonizationTarget && (
-        <div className="border border-swu-border bg-swu-surface p-2">
+        <div className="border border-swu-border bg-swu-surface">
+          <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1">
+            {context.information.colonizationTarget.classId != null && (
+              <img
+                src={planetThumbnail(context.information.colonizationTarget.classId)}
+                alt=""
+                className="size-5 object-contain"
+              />
+            )}
+            <span className="text-swu-primary">
+              {context.information.colonizationTarget.className ??
+                context.information.colonizationTarget.name ??
+                'Unbekannter Himmelskörper'}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setColonizationOpen(true)}
-            className="inline-flex items-center gap-1 text-swu-primary hover:text-swu-accent"
+            className="inline-flex items-center gap-1 px-2 py-1 text-swu-primary hover:text-swu-accent"
           >
             ◉{' '}
             {context.information.colonizationTarget.isAbandoned
@@ -220,26 +258,28 @@ export function FieldContextPanel({
             {context.colony.planetName}
           </h3>
           <div className="flex items-center gap-2 p-2">
-            {context.colony.isOwn ? (
-              <Link
-                to={`/colonies?selected=${context.colony.id}`}
-                className="flex-1 text-swu-primary hover:text-swu-accent"
+            <div className="flex flex-1 items-center gap-1">
+              {context.colony.isOwn ? (
+                <Link
+                  to={`/colonies?selected=${context.colony.id}`}
+                  className="text-swu-primary hover:text-swu-accent"
+                >
+                  ◉ {context.colony.name}
+                </Link>
+              ) : (
+                <span className="text-swu-primary">
+                  ◉ {context.colony.name}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => void showMessage()}
+                title="Koloniebotschaft"
+                className="border border-swu-border px-1 text-swu-primary"
               >
-                ◉ {context.colony.name}
-              </Link>
-            ) : (
-              <span className="flex-1 text-swu-primary">
-                ◉ {context.colony.name}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => void showMessage()}
-              title="Koloniebotschaft"
-              className="border border-swu-border px-1 text-swu-primary"
-            >
-              ?
-            </button>
+                ?
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => setTransfer('TO_COLONY')}
@@ -262,6 +302,22 @@ export function FieldContextPanel({
                 className="size-5"
               />
             </button>
+            {context.colony.canLand && (
+              <button
+                type="button"
+                disabled={landing}
+                onClick={() => void landShip()}
+                title="Schiff auf der Kolonie landen"
+                className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent disabled:opacity-40"
+              >
+                <img
+                  src="/assets/buttons/dock1.png"
+                  alt=""
+                  className="size-5"
+                />
+                Landen
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -319,6 +375,12 @@ function SectorScanDialog({
   const object = field.celestialObject;
   return (
     <Dialog title="Sektor-Scan" label="Sektor-Scan" onClose={onClose}>
+      {scan.result.discovery?.discovered && (
+        <p className="mb-2 border border-emerald-400/50 bg-emerald-400/10 p-2 text-emerald-200">
+          Neuer Datenbankeintrag: {scan.result.discovery.name} (+
+          {scan.result.discovery.prestigeAwarded} Prestige)
+        </p>
+      )}
       <div className="grid grid-cols-[64px_1fr] gap-3">
         {object?.classId != null ? (
           <PlanetImg

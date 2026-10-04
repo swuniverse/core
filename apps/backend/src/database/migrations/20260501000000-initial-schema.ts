@@ -431,6 +431,7 @@ export class InitialSchema20260501000000 implements MigrationInterface {
         "warpCooldown" integer NOT NULL DEFAULT 0,
         "crew" integer NOT NULL DEFAULT 10,
         "crewMax" integer NOT NULL DEFAULT 20,
+        "crewRequired" integer NOT NULL DEFAULT 0,
         "cargoUsed" integer NOT NULL DEFAULT 0,
         "cargoMax" integer NOT NULL DEFAULT 0,
         "battery" integer NOT NULL DEFAULT 0,

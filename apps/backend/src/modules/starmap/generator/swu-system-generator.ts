@@ -91,10 +91,6 @@ export function buildSwuTestClassId(typeId: number, variant: string | null): num
   return 90000 + typeId * 10 + variantIndex;
 }
 
-function variantIndexOf(variant: string | null): number {
-  return variant ? variant.charCodeAt(0) - 'A'.charCodeAt(0) : 0;
-}
-
 function describeObject(
   archetype: SwuPlanetArchetype,
   rotation: SwuRotationType,

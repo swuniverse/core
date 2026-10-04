@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 
@@ -11,8 +11,13 @@ export class ColonyStorageService {
     private readonly storageRepo: Repository<ColonyStorage>,
   ) {}
 
-  async getStorageUsed(colonyId: number): Promise<number> {
-    const totalStored = await this.storageRepo
+  async getStorageUsed(
+    colonyId: number,
+    manager?: EntityManager,
+  ): Promise<number> {
+    const totalStored = await (
+      manager?.getRepository(ColonyStorage) ?? this.storageRepo
+    )
       .createQueryBuilder('s')
       .select('SUM(s.amount)', 'total')
       .where('s.colonyId = :id', { id: colonyId })
@@ -20,8 +25,15 @@ export class ColonyStorageService {
     return Number(totalStored?.total || 0);
   }
 
-  async getFreeStorage(colony: Colony, maxStorage: number): Promise<number> {
-    return Math.max(0, maxStorage - (await this.getStorageUsed(colony.id)));
+  async getFreeStorage(
+    colony: Colony,
+    maxStorage: number,
+    manager?: EntityManager,
+  ): Promise<number> {
+    return Math.max(
+      0,
+      maxStorage - (await this.getStorageUsed(colony.id, manager)),
+    );
   }
 
   capToMax(amount: number, freeStorage: number): number {
@@ -33,26 +45,29 @@ export class ColonyStorageService {
     commodityId: number,
     amount: number,
     maxStorage: number,
+    manager?: EntityManager,
   ): Promise<number> {
     if (amount <= 0) return 0;
-    const freeStorage = await this.getFreeStorage(colony, maxStorage);
+    const repository =
+      manager?.getRepository(ColonyStorage) ?? this.storageRepo;
+    const freeStorage = await this.getFreeStorage(colony, maxStorage, manager);
     const storedAmount = this.capToMax(amount, freeStorage);
     if (storedAmount <= 0) return 0;
 
-    let storage = await this.storageRepo.findOne({
+    let storage = await repository.findOne({
       where: { colonyId: colony.id, commodityId },
     });
     if (storage) {
       storage.amount += storedAmount;
     } else {
-      storage = this.storageRepo.create({
+      storage = repository.create({
         colonyId: colony.id,
         commodityId,
         amount: storedAmount,
       });
     }
-    await this.storageRepo.save(storage);
-    await this.syncColonyStorageState(colony, storage, storedAmount);
+    await repository.save(storage);
+    await this.syncColonyStorageState(colony, storage, storedAmount, manager);
     return storedAmount;
   }
 
@@ -60,17 +75,20 @@ export class ColonyStorageService {
     colony: Colony,
     commodityId: number,
     amount: number,
+    manager?: EntityManager,
   ): Promise<number> {
     if (amount <= 0) return 0;
-    const storage = await this.storageRepo.findOne({
+    const repository =
+      manager?.getRepository(ColonyStorage) ?? this.storageRepo;
+    const storage = await repository.findOne({
       where: { colonyId: colony.id, commodityId },
     });
     if (!storage || storage.amount < amount) {
       throw new BadRequestException('Not enough resources in colony storage');
     }
     storage.amount -= amount;
-    await this.storageRepo.save(storage);
-    await this.syncColonyStorageState(colony, storage, -amount);
+    await repository.save(storage);
+    await this.syncColonyStorageState(colony, storage, -amount, manager);
     return amount;
   }
 
@@ -78,6 +96,7 @@ export class ColonyStorageService {
     colony: Colony,
     storage: ColonyStorage,
     _delta: number,
+    manager?: EntityManager,
   ): Promise<void> {
     const loadedStorage = colony.storage?.find(
       (item) => item.commodityId === storage.commodityId,
@@ -88,8 +107,9 @@ export class ColonyStorageService {
       colony.storage.push(storage);
     }
 
-    colony.storageUsed = await this.getStorageUsed(colony.id);
-    await this.storageRepo.manager
+    colony.storageUsed = await this.getStorageUsed(colony.id, manager);
+    const entityManager = manager ?? this.storageRepo.manager;
+    await entityManager
       ?.getRepository(Colony)
       .update({ id: colony.id }, { storageUsed: colony.storageUsed });
   }

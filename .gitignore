@@ -81,7 +81,9 @@ nebula-demo.html
 
 # Plans & progress (local only)
 plans/
-docs/
+docs/*
+!docs/agents/
+!docs/agents/**
 tools/
 PLAN.md
 progress.md
@@ -91,3 +93,7 @@ progress.md
 
 # Screenshots
 *.png
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json

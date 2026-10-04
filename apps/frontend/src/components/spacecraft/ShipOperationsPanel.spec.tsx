@@ -127,7 +127,7 @@ describe('ShipOperationsPanel', () => {
         onCloseEnergy={vi.fn()}
       />,
     );
-    expect(await screen.findByText('4/2')).toBeTruthy();
+    expect(await screen.findByText('4 (0,2)')).toBeTruthy();
   });
 
   it('renders no inline alarm controls', async () => {

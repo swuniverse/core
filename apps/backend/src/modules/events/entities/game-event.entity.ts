@@ -3,8 +3,11 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 
 export enum GameEventType {
   SPACECRAFT_DESTROYED = 'SPACECRAFT_DESTROYED',
@@ -39,6 +42,13 @@ export class GameEvent {
 
   @Column({ type: 'int', nullable: true })
   y: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  locationId: number | null;
+
+  @ManyToOne(() => SpaceLocation, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'locationId' })
+  location: SpaceLocation | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { buildingImage, commodityImage } from '../../../lib/assets';
+import { buildingImage } from '../../../lib/assets';
 import type {
   BuildingDef,
   ColonyField,
@@ -9,7 +9,7 @@ import type {
 import { BMCOL_LABELS } from '../constants';
 import { canAfford, formatSignedAmount } from '../utils';
 
-const BUILDING_COLUMNS = [1, 2, 3, 4] as const;
+const BUILDING_COLUMNS = [4, 2, 1, 3] as const;
 
 type CategoryKey = 'all' | (typeof BUILDING_COLUMNS)[number];
 
@@ -17,6 +17,7 @@ type PanelBuildProps = {
   buildingDefs: BuildingDef[];
   fields: ColonyField[];
   storage: ColonyStorageItem[];
+  energy: number;
   commodityMap: Record<number, CommodityDef>;
   selectedBuilding: BuildingDef | null;
   onSelectBuilding: (building: BuildingDef) => void;
@@ -63,6 +64,7 @@ function getMissingCostLabel(
   building: BuildingDef,
   storage: ColonyStorageItem[],
   commodityMap: Record<number, CommodityDef>,
+  energy: number,
 ): string | null {
   const missing = (building.resourceCosts || [])
     .filter((cost) => cost.amount > 0)
@@ -77,6 +79,9 @@ function getMissingCostLabel(
     })
     .filter((entry) => entry.amount > 0);
 
+  if (missing.length === 0 && energy < (building.epsCost || 0)) {
+    return `Fehlt ${(building.epsCost || 0) - energy} Energie`;
+  }
   if (missing.length === 0) return null;
   const first = missing[0];
   const name =
@@ -92,6 +97,7 @@ export function PanelBuild({
   buildingDefs,
   fields,
   storage,
+  energy,
   commodityMap,
   selectedBuilding,
   onSelectBuilding,
@@ -108,14 +114,14 @@ export function PanelBuild({
     }
     for (const col of Object.keys(cols)) {
       cols[Number(col)].sort((a, b) => {
-        const aAffordable = canAfford(a, storage) ? 0 : 1;
-        const bAffordable = canAfford(b, storage) ? 0 : 1;
+        const aAffordable = canAfford(a, storage, energy) ? 0 : 1;
+        const bAffordable = canAfford(b, storage, energy) ? 0 : 1;
         if (aAffordable !== bAffordable) return aAffordable - bAffordable;
         return a.name.localeCompare(b.name, 'de');
       });
     }
     return cols;
-  }, [buildingDefs, storage]);
+  }, [buildingDefs, energy, storage]);
 
   const visibleBuildings = useMemo(() => {
     if (activeCategory === 'all') {
@@ -125,10 +131,14 @@ export function PanelBuild({
     }
     return buildingsByColumn[activeCategory] || [];
   }, [activeCategory, buildingsByColumn]);
+  const totalBuildingCount = BUILDING_COLUMNS.reduce(
+    (total, column) => total + (buildingsByColumn[column]?.length ?? 0),
+    0,
+  );
 
   return (
-    <div className="rounded border border-swu-border bg-swu-surface p-3">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+    <section className="border border-swu-border bg-swu-surface p-2">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-swu-muted">
             Baumenü
@@ -144,7 +154,7 @@ export function PanelBuild({
         )}
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-1">
+      <div className="mb-2 flex flex-wrap gap-1">
         <button
           onClick={() => setActiveCategory('all')}
           className={`rounded border px-2 py-1 text-[10px] transition-colors ${
@@ -153,7 +163,7 @@ export function PanelBuild({
               : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
           }`}
         >
-          Alle {visibleBuildings.length}
+          Alle {totalBuildingCount}
         </button>
         {BUILDING_COLUMNS.map((column) => {
           const count = buildingsByColumn[column]?.length ?? 0;
@@ -178,9 +188,9 @@ export function PanelBuild({
           Keine Gebäude verfügbar.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {visibleBuildings.map((building) => {
-            const affordable = canAfford(building, storage);
+            const affordable = canAfford(building, storage, energy);
             const isSelected = selectedBuilding?.id === building.id;
             const alreadyBuilt =
               building.isUnique &&
@@ -193,6 +203,7 @@ export function PanelBuild({
               building,
               storage,
               commodityMap,
+              energy,
             );
 
             return (
@@ -202,9 +213,9 @@ export function PanelBuild({
                 disabled={alreadyBuilt}
                 title={building.name}
                 aria-label={building.name}
-                className={`min-h-[104px] rounded border p-2 text-left transition-all ${
+                className={`border p-2 text-left transition-colors ${
                   isSelected
-                    ? 'border-swu-accent bg-swu-accent/12 shadow-[0_0_0_1px_rgba(194,185,66,0.2)]'
+                    ? 'border-swu-accent bg-swu-accent/10'
                     : alreadyBuilt
                       ? 'border-swu-border/40 bg-swu-bg/20 opacity-45 cursor-not-allowed'
                       : affordable
@@ -216,7 +227,7 @@ export function PanelBuild({
                   <img
                     src={buildingImage(building.id)}
                     alt=""
-                    className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14"
+                    className="h-10 w-10 shrink-0 object-contain"
                     loading="lazy"
                   />
                   <div className="min-w-0 flex-1">
@@ -252,6 +263,6 @@ export function PanelBuild({
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }

@@ -4,7 +4,14 @@ import { TorpedoPanel } from './TorpedoPanel';
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('../../services/api', () => ({ api: apiMocks }));
 
-function mockLoads(storage: unknown = null) {
+const emptyStorage = {
+  capacity: 4,
+  fireable: [],
+  transport: [],
+  compatible: [{ id: 7, name: 'Plasmatorpedo' }],
+};
+
+function mockLoads(storage: unknown = emptyStorage) {
   apiMocks.get.mockImplementation((path: string) => {
     if (path === '/spacecraft/2/torpedoes') return Promise.resolve(storage);
     if (path === '/colonies')
@@ -24,7 +31,7 @@ describe('TorpedoPanel', () => {
     apiMocks.post.mockResolvedValue({});
     const onTransfer = vi.fn();
     render(<TorpedoPanel shipId={2} onTransfer={onTransfer} />);
-    expect(await screen.findByText('Keine Torpedos geladen.')).toBeTruthy();
+    expect(await screen.findByText('Torpedos · 0/4')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Torpedotyp'), {
       target: { value: '7' },
     });

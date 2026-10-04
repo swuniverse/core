@@ -20,10 +20,21 @@ const nearby = {
       username: 'Andere',
       hull: 10,
       hullMax: 10,
+      shields: 0,
       shieldsActive: false,
       hyperdriveActive: false,
-      canScan: true,
-      canAttack: true,
+      isOwn: false,
+      inHyperspace: false,
+      actions: {
+        attack: true,
+        scan: true,
+        intercept: false,
+        contact: true,
+        transfer: true,
+        energyTransfer: false,
+        tractor: false,
+        boarding: false,
+      },
     },
   ],
   wrecks: [],
@@ -108,7 +119,20 @@ describe('NearbySensorPanel', () => {
     apiMocks.get.mockImplementation((path: string) =>
       Promise.resolve(
         path.endsWith('/nearby')
-          ? { ...nearby, actionsAvailable: false, hyperdriveActive: true }
+          ? {
+              ...nearby,
+              actionsAvailable: false,
+              hyperdriveActive: true,
+              ships: nearby.ships.map((target) => ({
+                ...target,
+                actions: {
+                  ...target.actions,
+                  attack: false,
+                  contact: false,
+                  transfer: false,
+                },
+              })),
+            }
           : [],
       ),
     );

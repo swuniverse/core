@@ -3,33 +3,41 @@ import type {
   ColonyField,
   ColonyStorageItem,
   FieldCategoriesSummary,
+  TerraformingDef,
 } from './types';
 
 export function canAfford(
   building: BuildingDef,
   storage: ColonyStorageItem[],
+  energy: number,
 ): boolean {
-  return (building.resourceCosts || []).every(
-    (cost) =>
-      (storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
-        0) >= cost.amount,
+  return (
+    energy >= (building.epsCost || 0) &&
+    (building.resourceCosts || []).every(
+      (cost) =>
+        (storage.find((item) => item.commodityId === cost.commodityId)
+          ?.amount || 0) >= cost.amount,
+    )
   );
 }
 
 export function maxAffordable(
   building: BuildingDef,
   storage: ColonyStorageItem[],
+  energy: number,
 ): number {
   const costs = building.resourceCosts || [];
-  if (costs.length === 0) return Infinity;
-  return Math.min(
-    ...costs.map((cost) => {
-      const avail =
-        storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
-        0;
-      return cost.amount > 0 ? Math.floor(avail / cost.amount) : Infinity;
-    }),
-  );
+  const limits = costs.map((cost) => {
+    const avail =
+      storage.find((item) => item.commodityId === cost.commodityId)?.amount ||
+      0;
+    return cost.amount > 0 ? Math.floor(avail / cost.amount) : Infinity;
+  });
+  const energyCost = building.epsCost || 0;
+  if (energyCost > 0) {
+    limits.push(Math.floor(energy / energyCost));
+  }
+  return limits.length > 0 ? Math.min(...limits) : Infinity;
 }
 
 export function formatBuildTime(seconds: number): string {
@@ -117,4 +125,28 @@ export function getEffectiveBuildingForField(
     }
   }
   return building;
+}
+
+export function getTerraformingOptionsForField(
+  field: ColonyField,
+  terraformingDefs: TerraformingDef[],
+): TerraformingDef[] {
+  const normalizeTarget = (value: string) => {
+    const numeric = /^\d+$/.test(value) ? Number(value) : null;
+    return numeric != null && numeric >= 10000
+      ? String(Math.floor(numeric / 100))
+      : value;
+  };
+  return getFieldIdentityCandidates(field)
+    .flatMap((fieldType) =>
+      terraformingDefs.filter((option) => option.fromFieldType === fieldType),
+    )
+    .filter((option, index, options) => {
+      const targetType = normalizeTarget(option.toFieldType);
+      return (
+        options.findIndex(
+          (candidate) => normalizeTarget(candidate.toFieldType) === targetType,
+        ) === index
+      );
+    });
 }

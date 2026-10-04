@@ -134,7 +134,7 @@ describe('SpacecraftStatsService', () => {
       warpdriveMax: 32,
       evadeChance: 10,
       warpSpeed: 2,
-      crewMax: 15,
+      crewMax: 10,
       cargoMax: 90,
       batteryMax: 8,
     });

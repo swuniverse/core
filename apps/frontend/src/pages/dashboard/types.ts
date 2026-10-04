@@ -1,3 +1,5 @@
+import type { GameEventDto } from '@swuniverse/shared';
+
 export interface ActiveResearch {
   name: string;
   progress: number;
@@ -16,6 +18,7 @@ export interface ActiveBuildJob {
 }
 
 export interface DashboardBuildJob extends ActiveBuildJob {
+  colonyId: number;
   colonyName: string;
 }
 
@@ -92,17 +95,7 @@ export interface ColonyWarning {
   message: string;
 }
 
-export interface RecentGameEvent {
-  id: number;
-  type: string;
-  text: string;
-  scope: 'GALAXY' | 'SYSTEM' | null;
-  layerId: number | null;
-  systemId: number | null;
-  x: number | null;
-  y: number | null;
-  createdAt: string;
-}
+export type RecentGameEvent = GameEventDto;
 
 export interface ColonyEvent {
   id: number;
@@ -120,12 +113,6 @@ export interface RankingEntry {
   value: number;
   rank: number;
   isCurrentUser?: boolean;
-}
-
-export interface ServerStats {
-  settlers: number;
-  colonies: number;
-  ships: number;
 }
 
 export interface InboxMessage {
@@ -163,10 +150,20 @@ export interface DistressSignal {
   locationLabel: string;
 }
 
+export interface DashboardProcess {
+  id: string;
+  kind: 'FORSCHUNG' | 'BAU' | 'KOLONISIERUNG';
+  label: string;
+  detail: string;
+  progress?: number;
+  linkTo: string;
+}
+
 export interface DashboardData {
   activeResearch: ActiveResearch | null;
   queuedResearch: ActiveResearch | null;
   buildJobs: DashboardBuildJob[];
+  processes: DashboardProcess[];
   holonetPosts: HolonetPost[];
   colonizationLimits: ColonizationStatus | null;
   crewInfo: CrewInfo | null;
@@ -176,6 +173,7 @@ export interface DashboardData {
     faction: string;
     avatar?: string | null;
   }>;
+  colonies: ColonySummary[];
   colonyCount: number;
   fleetTotal: number;
   fleetInFlight: number;
@@ -186,7 +184,6 @@ export interface DashboardData {
   warnings: ColonyWarning[];
   colonyEvents: ColonyEvent[];
   recentEvents: RecentGameEvent[];
-  serverStats: ServerStats | null;
   inboxMessages: InboxMessage[];
   tickStatus: TickStatus | null;
   currentObjective: CurrentObjective | null;

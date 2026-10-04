@@ -60,12 +60,12 @@ export function PanelSettings({
   };
 
   return (
-    <div className="space-y-3 text-xs">
-      <div className="bg-swu-surface border border-swu-border rounded overflow-hidden">
+    <div className="space-y-2 text-xs">
+      <section className="overflow-hidden border border-swu-border bg-swu-surface">
         <div className="px-3 py-1.5 text-center text-[10px] font-bold text-swu-muted uppercase border-b border-swu-border">
           Kolonieoptionen
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3">
+        <div className="grid grid-cols-1 gap-2 p-2 lg:grid-cols-2">
           <label className="space-y-1">
             <span className="block text-[10px] font-bold text-swu-muted uppercase">
               Koloniename
@@ -203,14 +203,14 @@ export function PanelSettings({
             {status}
           </div>
         )}
-      </div>
+      </section>
 
       {onGiveUpColony && (
-        <div className="bg-red-950/20 border border-red-500/40 rounded overflow-hidden">
+        <section className="overflow-hidden border border-red-500/40 bg-swu-surface">
           <div className="px-3 py-1.5 text-center text-[10px] font-bold text-red-300 uppercase border-b border-red-500/30">
             Danger Zone · Kolonie aufgeben
           </div>
-          <div className="p-3 space-y-2">
+          <div className="space-y-2 p-2">
             <p className="text-red-200">
               Diese Kolonie wird herrenlos. Gebäude und Storage bleiben zurück,
               alle Gebäude werden deaktiviert, laufende Aufträge abgebrochen und
@@ -244,7 +244,7 @@ export function PanelSettings({
               </button>
             </div>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

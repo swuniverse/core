@@ -43,6 +43,7 @@ import { CelestialObject } from './modules/starmap/entities/celestial-object.ent
 import { GalaxyFieldType } from './modules/starmap/entities/galaxy-field-type.entity';
 import { GalaxyField } from './modules/starmap/entities/galaxy-field.entity';
 import { SystemField } from './modules/starmap/entities/system-field.entity';
+import { SpaceLocation } from './modules/starmap/entities/space-location.entity';
 import { MapRegion } from './modules/starmap/entities/map-region.entity';
 import { BorderType } from './modules/starmap/entities/border-type.entity';
 import { ExplorationState } from './modules/starmap/entities/exploration-state.entity';
@@ -81,6 +82,8 @@ import { UserSetting } from './modules/settings/entities/user-setting.entity';
 import { GameEvent } from './modules/events/entities/game-event.entity';
 import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-history-entry.entity';
 import { PrestigeModule } from './modules/prestige/prestige.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapshot.entity';
 
 @Module({
   imports: [
@@ -116,6 +119,7 @@ import { PrestigeModule } from './modules/prestige/prestige.module';
           GalaxyFieldType,
           GalaxyField,
           SystemField,
+          SpaceLocation,
           MapRegion,
           BorderType,
           ExplorationState,
@@ -153,6 +157,7 @@ import { PrestigeModule } from './modules/prestige/prestige.module';
           UserSetting,
           GameEvent,
           PrestigeHistoryEntry,
+          DashboardSnapshot,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -175,6 +180,7 @@ import { PrestigeModule } from './modules/prestige/prestige.module';
     MailModule,
     EventsModule,
     PrestigeModule,
+    DashboardModule,
     TickModule,
     WebsocketModule,
   ],

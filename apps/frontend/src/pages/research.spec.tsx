@@ -838,19 +838,17 @@ describe('ResearchPage routing', () => {
   });
 
   it('refreshes research progress on TICK without changing focus query', async () => {
-    apiMocks.get
-      .mockResolvedValueOnce(techs)
-      .mockResolvedValueOnce([
-        techs[0],
-        techs[1],
-        {
-          ...techs[2],
-          status: 'IN_PROGRESS',
-          progress: 30,
-          pointsRequired: 120,
-        },
-        techs[3],
-      ]);
+    apiMocks.get.mockResolvedValueOnce(techs).mockResolvedValueOnce([
+      techs[0],
+      techs[1],
+      {
+        ...techs[2],
+        status: 'IN_PROGRESS',
+        progress: 30,
+        pointsRequired: 120,
+      },
+      techs[3],
+    ]);
 
     render(
       <MemoryRouter initialEntries={['/research?focus=211301']}>
@@ -880,6 +878,26 @@ describe('ResearchPage routing', () => {
     expect(screen.getByTestId('location').textContent).toBe(
       '/research?focus=211301',
     );
+  });
+
+  it('refreshes research after a colony update', async () => {
+    apiMocks.get.mockResolvedValue(techs);
+
+    render(
+      <MemoryRouter initialEntries={['/research']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Verfuegbare Forschungen');
+    const callsBeforeUpdate = apiMocks.get.mock.calls.length;
+    emitSocket('COLONY_UPDATED', { colonyId: 8 });
+
+    await waitFor(() => {
+      expect(apiMocks.get.mock.calls.length).toBeGreaterThan(callsBeforeUpdate);
+    });
   });
 
   it('anchors module tiers beneath the matching research centers in tree data', async () => {

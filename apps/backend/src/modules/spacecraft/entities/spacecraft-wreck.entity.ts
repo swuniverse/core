@@ -3,12 +3,14 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 
 @Entity('spacecraft_wrecks')
-@Index(['currentLayerId', 'posX', 'posY'])
-@Index(['starSystemId', 'currentSystemFieldX', 'currentSystemFieldY'])
+@Index(['locationId'])
 export class SpacecraftWreck {
   @PrimaryGeneratedColumn()
   id: number;
@@ -16,26 +18,12 @@ export class SpacecraftWreck {
   @Column()
   formerShipClassId: number;
 
-  @Column({ type: 'int', nullable: true })
-  currentLayerId: number | null;
+  @Column({ type: 'int' })
+  locationId: number;
 
-  @Column({ type: 'int', nullable: true })
-  starSystemId: number | null;
-
-  @Column({ default: false })
-  inSystem: boolean;
-
-  @Column()
-  posX: number;
-
-  @Column()
-  posY: number;
-
-  @Column({ type: 'int', nullable: true })
-  currentSystemFieldX: number | null;
-
-  @Column({ type: 'int', nullable: true })
-  currentSystemFieldY: number | null;
+  @ManyToOne(() => SpaceLocation, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'locationId' })
+  location: SpaceLocation;
 
   @Column()
   hull: number;

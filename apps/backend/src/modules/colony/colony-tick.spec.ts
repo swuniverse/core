@@ -77,6 +77,12 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     save: jest.fn(async (value) => value),
     remove: jest.fn(async (value) => value),
   };
+  const systemFieldRepo = {
+    findOneByOrFail: jest.fn(async () => ({ id: 301 })),
+  };
+  const locationRepo = {
+    findOneByOrFail: jest.fn(async () => ({ id: 401, systemFieldId: 301 })),
+  };
   const cargoRepo = {
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
@@ -450,6 +456,21 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           resourceCosts: [],
           production: [{ commodityId: 1801, amount: 1 }],
         },
+        650: {
+          id: 650,
+          name: 'Independent Effect Producer',
+          epsProc: 0,
+          researchPoints: 0,
+          bevUse: 0,
+          bevPro: 0,
+          lager: 0,
+          bonuses: { population: 0, storage: 0 },
+          allowedFieldTypes: [101],
+          isUnique: false,
+          costs: { buildTime: 60 },
+          resourceCosts: [],
+          production: [{ commodityId: 1201, amount: 1 }],
+        },
         400: {
           id: 400,
           name: 'Worker Building',
@@ -565,17 +586,42 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     isCategoryOpenToAnyBuilding: jest.fn(() => false),
     getFieldCategoriesSummary: jest.fn(() => ({ tiles: {}, anyCategories: [] })),
     getTerraforming: jest.fn((id: number) =>
-      id === 101201
-        ? {
-            id: 101201,
-            fromFieldType: 101,
-            toFieldType: 201,
-            energyCost: 5,
-            duration: 60,
-            researchId: null,
-            costs: [{ commodityId: 2, amount: 4 }],
-          }
+      id === 101201 || id === 111101 || id === 11110103
+        ? id === 101201
+          ? {
+              id: 101201,
+              fromFieldType: '101',
+              toFieldType: '201',
+              energyCost: 5,
+              duration: 60,
+              researchId: null,
+              costs: [{ commodityId: 2, amount: 4 }],
+            }
+          : {
+              id,
+              fromFieldType: id === 11110103 ? '11103' : '111',
+              toFieldType: id === 11110103 ? '10103' : '101',
+              energyCost: 5,
+              duration: 60,
+              researchId: null,
+              costs: [{ commodityId: 2, amount: 4 }],
+            }
         : undefined,
+    ),
+    getTerraformingForFieldType: jest.fn((fieldType: string | number) =>
+      String(fieldType) === '11103'
+        ? [
+            {
+              id: 11110103,
+              fromFieldType: '11103',
+              toFieldType: '10103',
+              energyCost: 5,
+              duration: 60,
+              researchId: null,
+              costs: [{ commodityId: 2, amount: 4 }],
+            },
+          ]
+        : [],
     ),
     getAllTerraforming: jest.fn(() => [
       {
@@ -758,6 +804,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       return byOutput[commodityId];
     }),
     getShipClassDefByKey: jest.fn((key: string) => ({ key, buildCosts: [] })),
+    hasFullyLoadedStart: jest.fn(() => false),
     getShipyardRumpStats: jest.fn(() => null),
     getShipClassSlotRule: jest.fn((category: string) => {
       const rules = [
@@ -866,6 +913,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     getAllHangarShipDefs: jest.fn(() => [
       {
         shipClassKey: 'REBEL_SHUTTLE_LAAT',
+        crewRequired: 5,
         hangarCommodityId: 21401,
         displayName: 'LAAT Shuttle Rumpf',
         airfieldFunctionId: 4,
@@ -881,6 +929,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       shipClassKey === 'REBEL_SHUTTLE_LAAT'
         ? {
             shipClassKey: 'REBEL_SHUTTLE_LAAT',
+            crewRequired: 5,
             hangarCommodityId: 21401,
             displayName: 'LAAT Shuttle Rumpf',
             airfieldFunctionId: 4,
@@ -899,6 +948,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       commodityId === 21401
         ? {
             shipClassKey: 'REBEL_SHUTTLE_LAAT',
+            crewRequired: 5,
             hangarCommodityId: 21401,
             displayName: 'LAAT Shuttle Rumpf',
             airfieldFunctionId: 4,
@@ -1072,6 +1122,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   };
   const spacecraftStatsService = {
     applyStats: jest.fn((ship) => ship),
+    fillResources: jest.fn((ship) => ship),
   };
   const buildingManagementService = new ColonyBuildingManagementService(
     fieldRepo as any,
@@ -1089,6 +1140,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     getInTrainingCount: jest.fn(async () => 0),
     getFreeAssignmentCount: jest.fn(async () => 999),
     getAssignedCount: jest.fn(async () => 0),
+    getAssignedToShipCount: jest.fn(async () => 0),
     getAvailableColonyCrew: jest.fn(async () => [
       { crewId: 1 },
       { crewId: 2 },
@@ -1102,6 +1154,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     assignCrewToShip: jest.fn(async () => undefined),
     returnCrewToColony: jest.fn(async () => undefined),
     transferCrewFromShipToColony: jest.fn(async () => undefined),
+    landCrewWithShip: jest.fn(async () => undefined),
     removeExcessColonyCrew: jest.fn(async () => 0),
     createCrewOnColony: jest.fn(async () => []),
     getAssignedToColonyCount: jest.fn(async () => 0),
@@ -1235,6 +1288,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     shipBuildplanRepo as any,
     spacecraftModuleRepo as any,
     shipClassRepo as any,
+    systemFieldRepo as any,
+    locationRepo as any,
     gameData as any,
     ownershipService as any,
     colonyCrewService as any,
@@ -1289,6 +1344,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     spacecraftModuleRepo as any,
     crewTrainingQueueRepo as any,
     shipClassRepo as any,
+    systemFieldRepo as any,
+    locationRepo as any,
     gameData as any,
     unlockResolver as any,
     statsService,
@@ -1319,6 +1376,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       statsRepo,
       userRepo,
       shipRepo,
+      systemFieldRepo,
+      locationRepo,
       cargoRepo,
       shipClassRepo,
       shipBuildQueueRepo,
@@ -2147,9 +2206,18 @@ describe('colony tick calculations', () => {
           maxPopulation: 312,
           maxEnergy: 100,
           maxStorage: 3000,
+          immigrationEnabled: true,
+          isBlockaded: true,
         },
         fields: [],
-        starSystem: { name: 'Kelaris VI' },
+        posX: 5,
+        posY: 19,
+        starSystem: {
+          name: 'Kelaris VI',
+          cx: 116,
+          cy: 76,
+          systemTypeId: 1001,
+        },
         celestialObject: null,
       } as any,
     ]);
@@ -2163,6 +2231,7 @@ describe('colony tick calculations', () => {
       expect.objectContaining({
         relations: [
           'starSystem',
+          'systemField',
           'celestialObject',
           'storage',
           'fields',
@@ -2177,6 +2246,21 @@ describe('colony tick calculations', () => {
       energyMax: 100,
       storageMax: 3000,
       locationLabel: 'Kelaris VI',
+      signatureCount: 0,
+      overview: {
+        location: {
+          x: 5,
+          y: 19,
+          systemName: 'Kelaris VI',
+          systemX: 116,
+          systemY: 76,
+          systemTypeId: 1001,
+        },
+        status: { blocked: true, defended: false },
+        population: { current: 276, max: 312, immigration: 252 },
+        energy: { current: 50, max: 100, production: 0 },
+        storage: { current: 25, max: 3000, production: 0 },
+      },
     });
     expect(result[0].fields).toBeUndefined();
   });
@@ -2285,6 +2369,51 @@ describe('colony tick calculations', () => {
 
     expect(field.fieldType).toBe(201);
     expect(field.terrainTileId).toBe("201");
+    expect(field.terraformingId).toBeNull();
+    expect(fieldRepo.save).toHaveBeenCalledWith(field);
+  });
+
+  it('preserves a bonus field through terraforming completion', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 111,
+      terrainTileId: 11103,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+      terraformingId: null as number | null,
+      terraformingFinishesAt: null as Date | null,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      fields: [field],
+      storage: [],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 2,
+      amount: 10,
+    });
+
+    await service.terraformField(1, 1, 5, 111101);
+    expect(field.terraformingId).toBe(11110103);
+
+    field.terraformingFinishesAt = new Date(Date.now() - 1000);
+    await service.checkBuildingCompletions(colony as any);
+
+    expect(field.fieldType).toBe(101);
+    expect(field.terrainTileId).toBe('10103');
     expect(field.terraformingId).toBeNull();
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });
@@ -2537,13 +2666,13 @@ describe('colony tick calculations', () => {
     const saved = await service.demolish(1, 1, 5);
 
     expect(saved.buildingId).toBeNull();
-    expect(storage.amount).toBe(2);
-    expect(colony.storageUsed).toBe(2);
+    expect(storage.amount).toBe(3);
+    expect(colony.storageUsed).toBe(3);
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
     expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({
-          recycled: [{ commodityId: 2, amount: 2 }],
+          recycled: [{ commodityId: 2, amount: 3 }],
         }),
       }),
     );
@@ -2717,6 +2846,265 @@ describe('colony tick calculations', () => {
     };
     expect(detail.detailV2?.energy?.current).toBe(45);
     expect(detail.detailV2?.energy?.max).toBe(100);
+  });
+
+  it('rejects a building job before charging resources when energy is insufficient', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo, gameData } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: null,
+      isBuilding: false,
+      isActive: true,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 4,
+      fields: [field],
+      storage: [],
+      changeable: { energy: 4 },
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 10 };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+    const building = { ...gameData.getBuilding(100), epsCost: 5 };
+    gameData.getBuilding.mockImplementation((id: number) =>
+      id === 100 ? building : undefined,
+    );
+
+    await expect(service.build(1, 1, 5, 100)).rejects.toThrow(
+      'Not enough energy: need 5, have 4',
+    );
+
+    expect(storage.amount).toBe(10);
+    expect(field.buildingId).toBeNull();
+    expect(fieldRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('replaces a completed building and uses its recycling for the new build', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo, colonyEventService } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: 100,
+      isBuilding: false,
+      isActive: false,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 8 };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      storageUsed: 8,
+      fields: [field],
+      storage: [storage],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+
+    await service.build(1, 1, 5, 101);
+
+    expect(storage.amount).toBe(1);
+    expect(field).toMatchObject({
+      buildingId: 101,
+      isBuilding: true,
+      isActive: false,
+      buildProgress: 0,
+    });
+    expect(fieldRepo.save).toHaveBeenCalledWith(field);
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'BUILDING_DESTROYED',
+        payload: expect.objectContaining({
+          buildingId: 100,
+          recycled: [{ commodityId: 2, amount: 3 }],
+        }),
+      }),
+    );
+  });
+
+  it('replaces a building job and recycles half its costs', async () => {
+    const { service, colonyRepo, storageRepo } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: 100,
+      isBuilding: true,
+      isActive: false,
+      buildProgress: 20,
+      buildFinishesAt: new Date(Date.now() + 60_000),
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 8 };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      storageUsed: 8,
+      fields: [field],
+      storage: [storage],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+
+    await service.build(1, 1, 5, 101);
+
+    expect(storage.amount).toBe(1);
+    expect(field.buildingId).toBe(101);
+    expect(field.isBuilding).toBe(true);
+    expect(field.buildProgress).toBe(0);
+  });
+
+  it('keeps the existing building when replacement resources are insufficient', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo } =
+      createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: 100,
+      isBuilding: false,
+      isActive: false,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const storage = { colonyId: 1, commodityId: 2, amount: 6 };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      storageUsed: 7,
+      fields: [field],
+      storage: [storage],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(storage);
+
+    await expect(service.build(1, 1, 5, 101)).rejects.toThrow(
+      'Not enough 2: need 10, have 9',
+    );
+
+    expect(field).toMatchObject({
+      buildingId: 100,
+      isBuilding: false,
+      isActive: false,
+    });
+    expect(storage.amount).toBe(6);
+    expect(fieldRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects replacement before demolition when energy storage would be lost', async () => {
+    const { service, colonyRepo, storageRepo, fieldRepo, gameData } =
+      createColonyService();
+    const currentBuilding = {
+      ...gameData.getBuilding(100),
+      bonuses: { population: 0, storage: 0, energy: 10 },
+    };
+    const targetBuilding = {
+      ...gameData.getBuilding(101),
+      epsCost: 5,
+      resourceCosts: [],
+    };
+    gameData.getBuilding.mockImplementation((id: number) => {
+      if (id === 100) return currentBuilding;
+      if (id === 101) return targetBuilding;
+      return undefined;
+    });
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: 100,
+      isBuilding: false,
+      isActive: true,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 10,
+      energyMax: 0,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      storageUsed: 0,
+      fields: [field],
+      storage: [],
+      changeable: {
+        energy: 10,
+        maxEnergy: 0,
+        workers: 0,
+        workless: 10,
+        maxPopulation: 100,
+        maxStorage: 100,
+      },
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue(null);
+
+    await expect(service.build(1, 1, 5, 101)).rejects.toThrow(
+      'Not enough energy remains after demolishing the existing building',
+    );
+
+    expect(field.buildingId).toBe(100);
+    expect(field.isBuilding).toBe(false);
+    expect(fieldRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('does not replace headquarters or build on a terraforming field', async () => {
+    const { service, colonyRepo } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      fieldType: 101,
+      buildingId: 82010100 as number | null,
+      isBuilding: false,
+      isActive: true,
+      terraformingId: null as number | null,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      fields: [field],
+      storage: [],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+
+    await expect(service.build(1, 1, 5, 100)).rejects.toThrow(
+      'Cannot replace headquarters',
+    );
+
+    field.buildingId = null;
+    field.terraformingId = 101201;
+    await expect(service.build(1, 1, 5, 100)).rejects.toThrow(
+      'Cannot build on a field being terraformed',
+    );
   });
 
   it('allows bonus-field buildings and prefers exact bonus alternatives', async () => {
@@ -3418,6 +3806,50 @@ describe('colony tick calculations', () => {
     expect(statsRepo.save).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps unrelated effect consumers active when a producer of another effect is toggled off', async () => {
+    const { service, colonyRepo, fieldRepo } = createColonyService();
+    const unrelatedBuilding = {
+      id: 1,
+      fieldIndex: 1,
+      fieldType: 101,
+      buildingId: 650,
+      isBuilding: false,
+      isActive: true,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const unsupportedConsumer = {
+      id: 2,
+      fieldIndex: 2,
+      fieldType: 900,
+      buildingId: 600,
+      isBuilding: false,
+      isActive: true,
+      integrity: 1000,
+      maxIntegrity: 1000,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      energy: 10,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageMax: 100,
+      stats: { workers: 0, workless: 10, maxPopulation: 100 },
+      fields: [unrelatedBuilding, unsupportedConsumer],
+      storage: [],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+
+    await service.toggleBuilding(1, 1, 1);
+
+    expect(unrelatedBuilding.isActive).toBe(false);
+    expect(unsupportedConsumer.isActive).toBe(true);
+    expect(fieldRepo.save).not.toHaveBeenCalledWith(unsupportedConsumer);
+  });
+
   it('keeps orbital maintenance consumers active when maintenance is sufficient', async () => {
     const { service, fieldRepo } = createColonyService();
     const consumer = {
@@ -3894,6 +4326,18 @@ describe('fabrication queues', () => {
 
 const weaponSelection = { slotId: 'corvette-weapons-1', commodityId: 10701 };
 const shieldSelection = { slotId: 'corvette-shields-1', commodityId: 10201 };
+const orbitColonyLocation = {
+  systemFieldId: 301,
+  systemField: { id: 301, starSystemId: 10, sx: 3, sy: 4 },
+};
+const orbitShipLocation = {
+  locationId: 401,
+  location: {
+    id: 401,
+    kind: 'SYSTEM_FIELD',
+    systemField: { id: 301, starSystemId: 10, sx: 3, sy: 4 },
+  },
+};
 describe('ship building compatibility', () => {
   it('creates deterministic buildplan signatures independent of slot order', () => {
     const { shipyardService } = createColonyService();
@@ -3927,6 +4371,7 @@ describe('ship building compatibility', () => {
     const colony = {
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -3958,6 +4403,7 @@ describe('ship building compatibility', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Corvette',
@@ -4002,7 +4448,13 @@ describe('ship building compatibility', () => {
   });
 
   it('finishes queued ship builds during colony tick', async () => {
-    const { service, shipBuildQueueRepo, shipRepo } = createColonyService();
+    const {
+      service,
+      shipBuildQueueRepo,
+      shipRepo,
+      systemFieldRepo,
+      locationRepo,
+    } = createColonyService();
     const job = {
       id: 1,
       colonyId: 1,
@@ -4037,8 +4489,20 @@ describe('ship building compatibility', () => {
     await (service as any).processShipBuildQueue(colony);
 
     expect(shipRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Queued Ship', shipClassId: 1 }),
+      expect.objectContaining({
+        name: 'Queued Ship',
+        shipClassId: 1,
+        locationId: 401,
+      }),
     );
+    expect(systemFieldRepo.findOneByOrFail).toHaveBeenCalledWith({
+      starSystemId: 10,
+      sx: 3,
+      sy: 4,
+    });
+    expect(locationRepo.findOneByOrFail).toHaveBeenCalledWith({
+      systemFieldId: 301,
+    });
     expect(job.status).toBe('COMPLETED');
     expect(shipBuildQueueRepo.save).toHaveBeenCalledWith(job);
   });
@@ -4118,6 +4582,7 @@ describe('ship building compatibility', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       currentLayerId: 1,
@@ -4261,6 +4726,7 @@ describe('ship building compatibility', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       colonyClassId: 999,
       fields: [
         {
@@ -4353,6 +4819,7 @@ describe('ship building compatibility', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       currentLayerId: 1,
@@ -4581,6 +5048,7 @@ describe('ship building compatibility', () => {
     const colony = {
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       currentLayerId: 1,
@@ -4604,6 +5072,7 @@ describe('ship building compatibility', () => {
       colonyId: 1,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       name: 'Snapshot Plan',
       signature: 'stable-signature',
       moduleSelections: [weaponSelection],
@@ -4674,6 +5143,7 @@ describe('orbit ship operations', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -4695,6 +5165,7 @@ describe('orbit ship operations', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       crew: 2,
@@ -4710,10 +5181,9 @@ describe('orbit ship operations', () => {
 
     await service.landShip(1, 1, 7);
 
-    expect(colonyCrewService.transferCrewFromShipToColony).toHaveBeenCalledWith(
+    expect(colonyCrewService.landCrewWithShip).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
       expect.objectContaining({ id: 7 }),
-      2,
     );
     expect(shipRepo.remove).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7 }),
@@ -4726,6 +5196,7 @@ describe('orbit ship operations', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -4745,6 +5216,7 @@ describe('orbit ship operations', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       crew: 3,
@@ -4756,6 +5228,7 @@ describe('orbit ship operations', () => {
       key: 'REBEL_SHUTTLE_LAAT',
     });
     colonyCrewService.getFreeAssignmentCount.mockResolvedValue(1);
+    colonyCrewService.getAssignedToShipCount.mockResolvedValue(3);
 
     await expect(service.landShip(1, 1, 7)).rejects.toThrow(
       'Not enough colony crew capacity',
@@ -4775,6 +5248,7 @@ describe('orbit ship operations', () => {
     const colony = {
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -4789,6 +5263,7 @@ describe('orbit ship operations', () => {
       id: 8,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       crew: 1,
@@ -4822,6 +5297,7 @@ describe('faction shipyard visibility', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       name: 'Faction Test',
       energy: 100,
       energyMax: 100,
@@ -4907,6 +5383,7 @@ describe('orbit dto blockers', () => {
       populationMax: 10,
       storageUsed: 0,
       storageMax: 500,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -4944,6 +5421,7 @@ describe('orbit dto blockers', () => {
         userId: 1,
         name: 'Solo Ship',
         shipClassId: 1,
+        ...orbitShipLocation,
         starSystemId: 10,
         celestialObjectId: 20,
         hull: 80,
@@ -4952,6 +5430,8 @@ describe('orbit dto blockers', () => {
         shieldsMax: 50,
         energy: 70,
         energyMax: 100,
+        warpdrive: 24,
+        warpdriveMax: 40,
         crew: 2,
         crewMax: 5,
         cargoUsed: 3,
@@ -4994,6 +5474,8 @@ describe('orbit dto blockers', () => {
         shipClassName: 'Non Hangar Frigate',
         shipCategory: 'FRIGATE',
         shipRole: 'ESCORT',
+        warpdrive: 24,
+        warpdriveMax: 40,
         canManage: true,
         canLand: false,
         canDefend: false,
@@ -5353,6 +5835,7 @@ describe('main tick idempotency', () => {
       { processTick: jest.fn(async () => undefined) } as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn((key: string) => config[key]) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
   it('calculates hourly tick slots when schedule is wildcard', () => {
@@ -5539,6 +6022,7 @@ describe('main tick idempotency', () => {
       { processTick: jest.fn(async () => undefined) } as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const result = await service.triggerManualTick();
@@ -5548,6 +6032,74 @@ describe('main tick idempotency', () => {
       where: { tickType: GameTickType.MAIN, tickNumber: result.tickNumber },
     });
     expect(colonyRepo.find).toHaveBeenCalled();
+  });
+
+  it('loads canonical ship locations and emits them in movement payloads', async () => {
+    const location = {
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      systemField: { starSystemId: 3, sx: 8, sy: 12 },
+    };
+    const ship = {
+      id: 7,
+      userId: 4,
+      locationId: 90,
+      location: null,
+      inSystem: false,
+      currentLayerId: 2,
+      posX: 1,
+      posY: 1,
+    };
+    const shipRepo = { find: jest.fn(async () => [ship]) };
+    const spacecraftService = {
+      processTick: jest.fn(async () => {
+        ship.locationId = location.id;
+        ship.location = location as any;
+      }),
+    };
+    const gateway = { emitToAll: jest.fn(), emitToUser: jest.fn() };
+    const service = new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      shipRepo as any,
+      { find: jest.fn(async () => []) } as any,
+      {
+        findOne: jest.fn(async () => null),
+        create: jest.fn((value) => value),
+        save: jest.fn(async (value) => value),
+      } as any,
+      {} as any,
+      { createTickEvents: jest.fn() } as any,
+      spacecraftService as any,
+      { processTick: jest.fn() } as any,
+      gateway as any,
+      { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+    );
+
+    await service.handleTick(1);
+
+    expect(shipRepo.find).toHaveBeenCalledWith({
+      relations: [
+        'location',
+        'location.galaxyField',
+        'location.systemField',
+        'targetLocation',
+        'targetLocation.galaxyField',
+        'targetLocation.systemField',
+      ],
+    });
+    expect(gateway.emitToUser).toHaveBeenCalledWith(4, WsEventType.SHIP_MOVED, {
+      shipId: 7,
+      locationId: 91,
+      location: {
+        scope: 'SYSTEM',
+        locationId: 91,
+        systemId: 3,
+        x: 8,
+        y: 12,
+      },
+    });
   });
 
   it('always emits colony updates after processing even without report events', async () => {
@@ -5593,6 +6145,9 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -5673,6 +6228,7 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -5772,6 +6328,9 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.checkBuildingCompletions();
@@ -5835,6 +6394,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await service.checkBuildingCompletions();
@@ -5891,6 +6451,7 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -5933,6 +6494,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).rejects.toBe(completionError);
@@ -5974,6 +6536,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).rejects.toThrow('tick failed');
@@ -6015,6 +6578,7 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).resolves.toEqual({
@@ -6032,6 +6596,7 @@ describe('ship repair queues', () => {
   const repairColony = () => ({
     id: 1,
     userId: 1,
+    ...orbitColonyLocation,
     starSystemId: 10,
     celestialObjectId: 20,
     colonyClassId: 999,
@@ -6072,6 +6637,7 @@ describe('ship repair queues', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Damaged Corvette',
@@ -6129,6 +6695,7 @@ describe('ship repair queues', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Damaged Corvette',
@@ -6158,6 +6725,7 @@ describe('ship repair queues', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Fine Corvette',
@@ -6250,6 +6818,7 @@ describe('ship retrofit queues', () => {
   const retrofitColony = () => ({
     id: 1,
     userId: 1,
+    ...orbitColonyLocation,
     starSystemId: 10,
     celestialObjectId: 20,
     colonyClassId: 999,
@@ -6300,6 +6869,7 @@ describe('ship retrofit queues', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Corvette',
@@ -6353,6 +6923,7 @@ describe('ship retrofit queues', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Corvette',
@@ -6390,6 +6961,7 @@ describe('ship retrofit queues', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       name: 'Corvette',
@@ -6586,6 +7158,7 @@ describe('airfield hangar loop', () => {
   const airfieldColony = () => ({
     id: 1,
     userId: 1,
+    ...orbitColonyLocation,
     starSystemId: 10,
     celestialObjectId: 20,
     colonyClassId: 999,
@@ -6653,6 +7226,116 @@ describe('airfield hangar loop', () => {
     expect(storage[21401].amount).toBe(1);
   });
 
+  it('builds STU colonizer rumps from resources and installs their modules on start', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipClassRepo,
+      storageRepo,
+      shipRepo,
+      spacecraftModuleRepo,
+      gameData,
+    } = createColonyService();
+    const colony = { ...airfieldColony(), energy: 500 };
+    const colonizerClass = {
+      ...hangarShipClass,
+      key: 'REBEL_COLONIZER_ICARUS',
+      name: 'GR-75 Kolonietransporter',
+      crewMax: 0,
+    };
+    const hangarDef = {
+      shipClassKey: colonizerClass.key,
+      crewRequired: 0,
+      hangarCommodityId: 21501,
+      displayName: 'GR-75 Kolonietransporter Rumpf',
+      airfieldFunctionId: 4,
+      startEnergyCost: 125,
+      buildEnergyCost: 90,
+      buildCosts: [
+        { commodityId: 2, amount: 30 },
+        { commodityId: 21, amount: 12 },
+        { commodityId: 5, amount: 100 },
+        { commodityId: 4, amount: 12 },
+      ],
+      defaultModuleCommodityIds: [
+        10101, 10201, 10301, 10401, 10501, 10601, 10901,
+      ],
+      defaultTorpedoCommodityId: null,
+      defaultTorpedoAmount: 0,
+    };
+    const storage: Record<number, any> = Object.fromEntries(
+      hangarDef.buildCosts.map(({ commodityId, amount }) => [
+        commodityId,
+        { colonyId: 1, commodityId, amount },
+      ]),
+    );
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(colonizerClass);
+    gameData.getHangarShipDef.mockReturnValue(hangarDef as any);
+    gameData.getFabricationItemByOutputCommodity.mockImplementation(
+      (commodityId: number) => ({
+        outputCommodityId: commodityId,
+        moduleType: `Module ${commodityId}`,
+        moduleCategory: 'SPECIAL',
+        shipyardType: 'SPECIAL',
+        moduleLevel: 1,
+      }),
+    );
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => storage[where.commodityId] ?? null,
+    );
+    storageRepo.create.mockImplementation((value: any) => {
+      storage[value.commodityId] = { ...value };
+      return storage[value.commodityId];
+    });
+    shipRepo.save.mockImplementation(async (value: any) => ({
+      id: 77,
+      ...value,
+    }));
+
+    await service.buildAirfieldRump(1, 1, 1, 1);
+
+    expect(storage[2].amount).toBe(0);
+    expect(storage[21].amount).toBe(0);
+    expect(storage[5].amount).toBe(0);
+    expect(storage[4].amount).toBe(0);
+    expect(storage[10101]).toBeUndefined();
+    expect(storage[21501].amount).toBe(1);
+
+    await service.startHangarShip(1, 1, 1, 'Icarus');
+
+    expect(storage[21501].amount).toBe(0);
+    expect(spacecraftModuleRepo.create).toHaveBeenCalledTimes(7);
+  });
+
+  it('stores four built hangar rumps exactly once', async () => {
+    const { service, colonyRepo, shipClassRepo, storageRepo } =
+      createColonyService();
+    const colony = { ...airfieldColony(), energy: 500 };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+    const storage: Record<number, any> = Object.fromEntries(
+      [10201, 10301, 10401, 10501, 10701, 10801].map((commodityId) => [
+        commodityId,
+        { colonyId: 1, commodityId, amount: 4 },
+      ]),
+    );
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => storage[where.commodityId] ?? null,
+    );
+    storageRepo.create.mockImplementation((value: any) => {
+      storage[value.commodityId] = { ...value };
+      return storage[value.commodityId];
+    });
+
+    await service.buildAirfieldRump(1, 1, 1, 4);
+
+    expect(storage[21401].amount).toBe(4);
+    expect(
+      colony.storage.find((item: any) => item.commodityId === 21401)?.amount,
+    ).toBe(4);
+  });
+
   it('rejects hangar rump construction without default modules', async () => {
     const { service, colonyRepo, shipClassRepo, storageRepo } =
       createColonyService();
@@ -6707,12 +7390,16 @@ describe('airfield hangar loop', () => {
       expect.objectContaining({
         name: 'Launched Ship',
         shipClassId: 1,
-        starSystemId: 10,
-        celestialObjectId: 20,
+        locationId: 401,
+        location: { id: 401, systemFieldId: 301 },
         status: 'IDLE',
       }),
     );
-    expect(colonyCrewService.assignCrewToShip).not.toHaveBeenCalled();
+    expect(colonyCrewService.assignCrewToShip).toHaveBeenCalledWith(
+      1,
+      77,
+      [1, 2, 3, 4, 5],
+    );
     expect(spacecraftModuleRepo.create).toHaveBeenCalledTimes(6);
     expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -6755,6 +7442,42 @@ describe('airfield hangar loop', () => {
     expect(spacecraftStatsService.applyStats).toHaveBeenCalled();
   });
 
+  it('fully loads STU airfield ships with the fully-loaded-start ability', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipClassRepo,
+      storageRepo,
+      shipRepo,
+      gameData,
+      spacecraftStatsService,
+    } = createColonyService();
+    const colony = airfieldColony();
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+    gameData.getShipClassDefByKey.mockReturnValue({
+      key: hangarShipClass.key,
+      stuRumpId: 1501,
+      buildCosts: [],
+    });
+    gameData.hasFullyLoadedStart.mockReturnValue(true);
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 21401,
+      amount: 1,
+    });
+    shipRepo.save.mockImplementation(async (value: any) => ({
+      id: 77,
+      ...value,
+    }));
+
+    await service.startHangarShip(1, 1, 1, 'Icarus');
+
+    expect(spacecraftStatsService.fillResources).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 77 }),
+    );
+  });
+
   it('lands ships into the hangar and returns the rump commodity', async () => {
     const {
       service,
@@ -6771,6 +7494,7 @@ describe('airfield hangar loop', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       crew: 2,
@@ -6791,10 +7515,9 @@ describe('airfield hangar loop', () => {
     await service.landShip(1, 1, 7);
 
     expect(storage[21401].amount).toBe(1);
-    expect(colonyCrewService.transferCrewFromShipToColony).toHaveBeenCalledWith(
+    expect(colonyCrewService.landCrewWithShip).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
       expect.objectContaining({ id: 7 }),
-      2,
     );
     expect(shipRepo.remove).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7 }),
@@ -6816,6 +7539,7 @@ describe('airfield hangar loop', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       crew: 0,
@@ -6922,6 +7646,7 @@ describe('ship repair queue reactivation', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       fields: [
@@ -6934,6 +7659,7 @@ describe('ship repair queue reactivation', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       hull: 50,
@@ -7151,6 +7877,7 @@ describe('colony orbit assignments', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 2,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       fields: [],
@@ -7161,6 +7888,7 @@ describe('colony orbit assignments', () => {
       userId: 1,
       fleetId: 99,
       fleet: { id: 99, leaderId: 7 },
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       status: 'IDLE',
@@ -7196,6 +7924,7 @@ describe('colony orbit assignments', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 2,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       fields: [],
@@ -7206,6 +7935,7 @@ describe('colony orbit assignments', () => {
       userId: 1,
       fleetId: 99,
       fleet: { id: 99, leaderId: 7 },
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       status: 'IDLE',
@@ -7275,6 +8005,7 @@ describe('colony orbit assignments', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -7286,6 +8017,7 @@ describe('colony orbit assignments', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       cargoUsed: 0,
@@ -7334,6 +8066,7 @@ describe('colony orbit assignments', () => {
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
+      ...orbitColonyLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       colonyClassId: 999,
@@ -7345,6 +8078,7 @@ describe('colony orbit assignments', () => {
       id: 7,
       userId: 1,
       shipClassId: 1,
+      ...orbitShipLocation,
       starSystemId: 10,
       celestialObjectId: 20,
       cargoUsed: 0,

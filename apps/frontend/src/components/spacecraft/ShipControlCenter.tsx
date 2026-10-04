@@ -105,7 +105,7 @@ export function ShipControlCenter({
   const torpedoState = systems?.TORPEDO_BANK;
   return (
     <section>
-      <div className="border border-swu-border bg-swu-surface text-xs">
+      <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface text-xs">
         <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
           Schiffskontrolle
         </h3>

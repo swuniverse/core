@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -72,9 +72,12 @@ export function ResearchPage() {
   const [techs, setTechs] = useState<TechState[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTech, setSelectedTech] = useState<TechState | null>(null);
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     const data = await api.get<TechState[]>('/research');
+    if (sequence !== loadSequence.current) return;
     setTechs(data);
     setLoading(false);
   }, []);
@@ -84,6 +87,10 @@ export function ResearchPage() {
   }, [load]);
 
   useSocket('TICK', () => {
+    void load();
+  });
+
+  useSocket('COLONY_UPDATED', () => {
     void load();
   });
 
@@ -406,7 +413,6 @@ function uniqueTechsById(techs: TechState[]): TechState[] {
   });
 }
 
-
 export function TechDetailModal({
   tech,
   techs,
@@ -442,8 +448,8 @@ export function TechDetailModal({
       .map((id) => techs.find((candidate) => candidate.id === id))
       .filter((candidate): candidate is TechState => !!candidate),
   );
-  const completedTechs = techs.filter((candidate) =>
-    candidate.status === 'COMPLETED',
+  const completedTechs = techs.filter(
+    (candidate) => candidate.status === 'COMPLETED',
   );
   const blockingExcluders = uniqueTechsById([
     ...tech.dependencies
@@ -651,7 +657,8 @@ export function TechDetailModal({
           {excludedTechs.length > 0 && (
             <div className="border-t border-swu-border/30 pt-3">
               <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider mb-2 text-center">
-                Folgende Forschungen sind nach dieser Forschung nicht mehr möglich
+                Folgende Forschungen sind nach dieser Forschung nicht mehr
+                möglich
               </div>
               <div className="flex flex-wrap gap-1.5 justify-center">
                 {excludedTechs.map((excluded) => (

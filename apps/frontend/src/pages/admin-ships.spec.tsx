@@ -51,6 +51,7 @@ describe('AdminShipsPage', () => {
         ]);
       if (path === '/spacecraft/admin/spawn-options/2')
         return Promise.resolve({
+          torpedoes: { capacity: 0, compatible: [] },
           slots: [
             {
               slotId: 'core',

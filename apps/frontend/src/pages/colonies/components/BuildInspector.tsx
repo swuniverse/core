@@ -1,5 +1,10 @@
 import { buildingImage, commodityImage } from '../../../lib/assets';
-import type { BuildingDef, ColonyField, ColonyStorageItem, CommodityDef } from '../types';
+import type {
+  BuildingDef,
+  ColonyField,
+  ColonyStorageItem,
+  CommodityDef,
+} from '../types';
 import {
   formatBuildTime,
   formatSignedAmount,
@@ -21,6 +26,7 @@ export function BuildInspector({
   buildingMap,
   commodityMap,
   storage,
+  energy,
   deactivateAfterBuild,
   onDeactivateAfterBuildChange,
   onClearSelection,
@@ -30,6 +36,7 @@ export function BuildInspector({
   buildingMap: Record<number, BuildingDef>;
   commodityMap: Record<number, CommodityDef>;
   storage: ColonyStorageItem[];
+  energy: number;
   deactivateAfterBuild: boolean;
   onDeactivateAfterBuildChange: (value: boolean) => void;
   onClearSelection: () => void;
@@ -37,10 +44,17 @@ export function BuildInspector({
   if (!selectedBuilding) return null;
 
   const detailBuilding = hoveredBuildField
-    ? getEffectiveBuildingForField(selectedBuilding, hoveredBuildField, buildingMap)
+    ? getEffectiveBuildingForField(
+        selectedBuilding,
+        hoveredBuildField,
+        buildingMap,
+      )
     : selectedBuilding;
   const isBonusPreview = detailBuilding.id !== selectedBuilding.id;
-  const buildableCount = maxAffordable(selectedBuilding, storage);
+  const replacedBuilding = hoveredBuildField?.buildingId
+    ? buildingMap[hoveredBuildField.buildingId]
+    : null;
+  const buildableCount = maxAffordable(detailBuilding, storage, energy);
 
   return (
     <aside className="rounded border border-swu-accent/50 bg-swu-surface px-4 py-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
@@ -55,6 +69,11 @@ export function BuildInspector({
           {isBonusPreview && (
             <div className="text-xs font-bold text-yellow-400">
               Bonusfeld-Version von {selectedBuilding.name}
+            </div>
+          )}
+          {replacedBuilding && (
+            <div className="text-xs font-bold text-orange-400">
+              Ersetzt: {replacedBuilding.name}
             </div>
           )}
         </div>
@@ -96,20 +115,39 @@ export function BuildInspector({
             <span>Vorh. / Benöt.</span>
           </div>
           <div className="space-y-1 text-sm">
-            {(selectedBuilding.epsCost || 0) > 0 && (
+            {(detailBuilding.epsCost || 0) > 0 && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-swu-muted">⚡ Energie</span>
-                <span className="font-mono text-swu-primary">{selectedBuilding.epsCost}</span>
+                <span className="flex items-center gap-1 font-mono">
+                  <span
+                    className={
+                      energy >= (detailBuilding.epsCost || 0)
+                        ? 'text-swu-primary'
+                        : 'text-red-400'
+                    }
+                  >
+                    {energy} / {detailBuilding.epsCost}
+                  </span>
+                  {energy < (detailBuilding.epsCost || 0) && (
+                    <span className="rounded bg-red-400/10 px-1 text-[10px] text-red-400">
+                      -{(detailBuilding.epsCost || 0) - energy}
+                    </span>
+                  )}
+                </span>
               </div>
             )}
-            {(selectedBuilding.resourceCosts || [])
+            {(detailBuilding.resourceCosts || [])
               .filter((cost) => cost.amount > 0)
               .map((cost) => {
                 const available =
-                  storage.find((item) => item.commodityId === cost.commodityId)?.amount || 0;
+                  storage.find((item) => item.commodityId === cost.commodityId)
+                    ?.amount || 0;
                 const commodity = commodityMap[cost.commodityId];
                 return (
-                  <div key={cost.commodityId} className="flex items-center justify-between gap-2">
+                  <div
+                    key={cost.commodityId}
+                    className="flex items-center justify-between gap-2"
+                  >
                     <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
                       <img
                         src={commodityImage(cost.commodityId, commodity?.name)}
@@ -117,10 +155,18 @@ export function BuildInspector({
                         className="h-4 w-4 object-contain"
                         loading="lazy"
                       />
-                      <span className="truncate">{getCommodityLabel(commodityMap, cost.commodityId)}</span>
+                      <span className="truncate">
+                        {getCommodityLabel(commodityMap, cost.commodityId)}
+                      </span>
                     </span>
                     <span className="flex items-center gap-1 font-mono">
-                      <span className={available >= cost.amount ? 'text-swu-primary' : 'text-red-400'}>
+                      <span
+                        className={
+                          available >= cost.amount
+                            ? 'text-swu-primary'
+                            : 'text-red-400'
+                        }
+                      >
                         {available} / {cost.amount}
                       </span>
                       {available < cost.amount && (
@@ -152,13 +198,21 @@ export function BuildInspector({
               {(detailBuilding.bevPro || 0) > 0 && (
                 <div className="flex justify-between">
                   <span className="text-swu-muted">🏠 Wohnraum</span>
-                  <span className="text-green-400">+{detailBuilding.bevPro}</span>
+                  <span className="text-green-400">
+                    +{detailBuilding.bevPro}
+                  </span>
                 </div>
               )}
               {detailBuilding.bonuses.storage !== 0 && (
                 <div className="flex justify-between">
                   <span className="text-swu-muted">📦 Lager</span>
-                  <span className={detailBuilding.bonuses.storage > 0 ? 'text-green-400' : 'text-red-400'}>
+                  <span
+                    className={
+                      detailBuilding.bonuses.storage > 0
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                    }
+                  >
                     {formatSignedAmount(detailBuilding.bonuses.storage)}
                   </span>
                 </div>
@@ -167,7 +221,8 @@ export function BuildInspector({
           </section>
         )}
 
-        {((detailBuilding.epsProc || 0) !== 0 || detailBuilding.production.length > 0) && (
+        {((detailBuilding.epsProc || 0) !== 0 ||
+          detailBuilding.production.length > 0) && (
           <section className="border-t border-swu-border/40 pt-3">
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-swu-muted">
               Produktion
@@ -176,7 +231,13 @@ export function BuildInspector({
               {(detailBuilding.epsProc || 0) !== 0 && (
                 <div className="flex justify-between">
                   <span className="text-swu-muted">⚡ Energie</span>
-                  <span className={(detailBuilding.epsProc || 0) < 0 ? 'text-red-400' : 'text-green-400'}>
+                  <span
+                    className={
+                      (detailBuilding.epsProc || 0) < 0
+                        ? 'text-red-400'
+                        : 'text-green-400'
+                    }
+                  >
                     {formatSignedAmount(detailBuilding.epsProc || 0)}/Tick
                   </span>
                 </div>
@@ -184,17 +245,34 @@ export function BuildInspector({
               {detailBuilding.production.map((production) => {
                 const commodity = commodityMap[production.commodityId];
                 return (
-                  <div key={production.commodityId} className="flex items-center justify-between gap-2">
+                  <div
+                    key={production.commodityId}
+                    className="flex items-center justify-between gap-2"
+                  >
                     <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
                       <img
-                        src={commodityImage(production.commodityId, commodity?.name)}
+                        src={commodityImage(
+                          production.commodityId,
+                          commodity?.name,
+                        )}
                         alt=""
                         className="h-4 w-4 object-contain"
                         loading="lazy"
                       />
-                      <span className="truncate">{getCommodityLabel(commodityMap, production.commodityId)}</span>
+                      <span className="truncate">
+                        {getCommodityLabel(
+                          commodityMap,
+                          production.commodityId,
+                        )}
+                      </span>
                     </span>
-                    <span className={production.amount < 0 ? 'text-red-400' : 'text-green-400'}>
+                    <span
+                      className={
+                        production.amount < 0
+                          ? 'text-red-400'
+                          : 'text-green-400'
+                      }
+                    >
                       {formatSignedAmount(production.amount)}/Tick
                     </span>
                   </div>
@@ -209,19 +287,25 @@ export function BuildInspector({
             type="checkbox"
             aria-label="Nach Fertigstellung deaktivieren"
             checked={deactivateAfterBuild}
-            onChange={(event) => onDeactivateAfterBuildChange(event.target.checked)}
+            onChange={(event) =>
+              onDeactivateAfterBuildChange(event.target.checked)
+            }
             className="mt-0.5 h-4 w-4 accent-swu-accent"
           />
           <span>
-            <span className="block font-bold">Nach Fertigstellung deaktivieren</span>
-            <span className="text-swu-muted">Gebäude wird nach dem Bau nicht automatisch aktiviert.</span>
+            <span className="block font-bold">
+              Nach Fertigstellung deaktivieren
+            </span>
+            <span className="text-swu-muted">
+              Gebäude wird nach dem Bau nicht automatisch aktiviert.
+            </span>
           </span>
         </label>
 
         <div className="flex items-center justify-between gap-2 border-t border-swu-border/40 pt-3 text-xs">
           <span className="text-swu-muted">Bauzeit</span>
           <span className="font-mono text-swu-primary">
-            {formatBuildTime(selectedBuilding.costs.buildTime || 0)}
+            {formatBuildTime(detailBuilding.costs.buildTime || 0)}
           </span>
         </div>
         <div className="rounded border border-swu-accent/30 bg-swu-accent/10 px-2 py-1.5 text-xs font-bold text-swu-accent">

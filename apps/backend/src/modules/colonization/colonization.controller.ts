@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ColonizationService } from './colonization.service';
-import type { StarterColonizationRequestDto } from './colonization.service';
 
 @Controller('colonization')
 @UseGuards(AuthGuard('jwt'))
@@ -56,27 +55,6 @@ export class ColonizationController {
     return this.colonizationService.getSwuColonyEcosystem(
       colonyId,
       req.user.sub,
-    );
-  }
-
-  @Get('starter/options')
-  starterOptions(@Request() req: { user: { sub: number } }) {
-    return this.colonizationService.getStarterColonizationOptions(req.user.sub);
-  }
-
-  @Post('starter/ship')
-  createStarterShip(@Request() req: { user: { sub: number } }) {
-    return this.colonizationService.createStarterColonizationShip(req.user.sub);
-  }
-
-  @Post('starter/found')
-  foundStarterColony(
-    @Request() req: { user: { sub: number } },
-    @Body() body: StarterColonizationRequestDto,
-  ) {
-    return this.colonizationService.foundStarterColony(
-      req.user.sub,
-      body.celestialObjectId,
     );
   }
 

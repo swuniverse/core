@@ -7,6 +7,7 @@ import { ColonyEventService } from '../colony/colony-event.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
+import { DashboardService } from '../dashboard/dashboard.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -17,6 +18,7 @@ import {
 } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { WsEventType } from '@swuniverse/shared';
+import { resolveSpaceLocation } from '../spacecraft/spacecraft-field';
 import {
   GameTickState,
   GameTickStatus,
@@ -50,6 +52,7 @@ export class TickService {
     private readonly researchService: ResearchService,
     private readonly gateway: GameGateway,
     private readonly config: ConfigService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -166,12 +169,23 @@ export class TickService {
         }
       }
 
-      const ships = await this.shipRepo.find();
+      const ships = await this.shipRepo.find({
+        relations: [
+          'location',
+          'location.galaxyField',
+          'location.systemField',
+          'targetLocation',
+          'targetLocation.galaxyField',
+          'targetLocation.systemField',
+        ],
+      });
       processedShipCount = ships.length;
       for (const ship of ships) {
         await this.spacecraftService.processTick(ship);
         this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
           shipId: ship.id,
+          locationId: ship.location?.id ?? null,
+          location: resolveSpaceLocation(ship.location),
         });
       }
 
@@ -185,6 +199,7 @@ export class TickService {
         );
       }
 
+      await this.dashboardService.recordSnapshot();
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
     } catch (error) {
       await this.finishTick(
@@ -313,6 +328,14 @@ export class TickService {
   async checkWarpArrivals() {
     const inFlightShips = await this.shipRepo.find({
       where: { status: SpacecraftStatus.IN_FLIGHT },
+      relations: [
+        'location',
+        'location.galaxyField',
+        'location.systemField',
+        'targetLocation',
+        'targetLocation.galaxyField',
+        'targetLocation.systemField',
+      ],
     });
 
     const now = new Date();
@@ -326,6 +349,8 @@ export class TickService {
       await this.spacecraftService.processMovement(ship);
       this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
         shipId: ship.id,
+        locationId: ship.location?.id ?? null,
+        location: resolveSpaceLocation(ship.location),
       });
     }
 

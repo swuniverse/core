@@ -16,6 +16,7 @@ import { Crew, CrewGender, CrewType } from './entities/crew.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import { assertOwnedColony } from './colony-owner.util';
+import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 
 @Injectable()
 export class ColonyCrewService {
@@ -87,6 +88,10 @@ export class ColonyCrewService {
 
   async getAssignedToColonyCount(colonyId: number): Promise<number> {
     return this.crewAssignmentRepo.count({ where: { colonyId } });
+  }
+
+  async getAssignedToShipCount(spacecraftId: number): Promise<number> {
+    return this.crewAssignmentRepo.count({ where: { spacecraftId } });
   }
 
   async getCrewCountsByColonyIds(
@@ -276,6 +281,28 @@ export class ColonyCrewService {
     });
   }
 
+  async landCrewWithShip(colony: Colony, ship: Spacecraft): Promise<void> {
+    assertOwnedColony(colony);
+    this.assertSameOwnerAndLocation(colony, ship);
+    const assignments = await this.crewAssignmentRepo.find({
+      where: { userId: colony.userId!, spacecraftId: ship.id },
+      order: { crewId: 'ASC' },
+    });
+    const colonyAssigned = await this.getAssignedToColonyCount(colony.id);
+    if (colonyAssigned + assignments.length > this.getLocalCrewLimit(colony)) {
+      throw new BadRequestException('Not enough crew capacity on colony');
+    }
+    for (const assignment of assignments) {
+      assignment.spacecraftId = null;
+      assignment.colonyId = colony.id;
+    }
+    if (assignments.length > 0) {
+      await this.crewAssignmentRepo.save(assignments);
+    }
+    ship.crew = 0;
+    await this.refreshColonyCrewCache(colony);
+  }
+
   private async transferCrewFromShipToColonyLegacy(
     colony: Colony,
     ship: Spacecraft,
@@ -311,14 +338,7 @@ export class ColonyCrewService {
     if (colony.userId !== ship.userId) {
       throw new BadRequestException('Ship does not belong to colony owner');
     }
-    if (colony.starSystemId !== ship.starSystemId) {
-      throw new BadRequestException('Ship is not in colony system');
-    }
-    if (
-      colony.celestialObjectId &&
-      ship.celestialObjectId &&
-      colony.celestialObjectId !== ship.celestialObjectId
-    ) {
+    if (!matchesColonyOrbit(ship, colony)) {
       throw new BadRequestException('Ship is not in colony orbit');
     }
   }

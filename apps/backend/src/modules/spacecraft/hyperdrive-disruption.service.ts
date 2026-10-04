@@ -8,8 +8,8 @@ import { WsEventType } from '@swuniverse/shared';
 import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '../events/entities/game-event.entity';
 import {
-  resolveSpacecraftField,
-  sameSpacecraftField,
+  resolveSpacecraftLocation,
+  sameSpacecraftLocation,
 } from './spacecraft-field';
 
 export type HyperdriveDisruptionCause =
@@ -26,11 +26,18 @@ export class HyperdriveDisruptionService {
   ) {}
 
   async intercept(interceptor: Spacecraft, targetId: number) {
-    const target = await this.shipRepo.findOne({ where: { id: targetId } });
+    const target = await this.shipRepo.findOne({
+      where: { id: targetId },
+      relations: ['location', 'location.galaxyField', 'location.systemField'],
+    });
     if (!target || target.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Zielschiff nicht gefunden');
     }
-    if (interceptor.inSystem || interceptor.status !== SpacecraftStatus.IDLE) {
+    const interceptorLocation = resolveSpacecraftLocation(interceptor);
+    if (
+      interceptorLocation?.scope !== 'GALAXY' ||
+      interceptor.status !== SpacecraftStatus.IDLE
+    ) {
       throw new BadRequestException(
         'Abfänger muss auf einem Galaxiefeld stationär sein',
       );
@@ -43,14 +50,15 @@ export class HyperdriveDisruptionService {
       );
     }
     const targetDrive = this.runtimeState.initialize(target).WARPDRIVE;
+    const targetLocation = resolveSpacecraftLocation(target);
     if (
-      target.inSystem ||
+      targetLocation?.scope !== 'GALAXY' ||
       target.status !== SpacecraftStatus.IDLE ||
       !targetDrive?.active
     ) {
       throw new BadRequestException('Ziel befindet sich nicht im Hyperraum');
     }
-    if (!sameSpacecraftField(interceptor, target)) {
+    if (!sameSpacecraftLocation(interceptor, target)) {
       throw new BadRequestException('Ziel ist nicht auf diesem Feld');
     }
     return this.disrupt(target, { cause: 'MANUAL_INTERCEPT', interceptor });
@@ -60,7 +68,7 @@ export class HyperdriveDisruptionService {
     target: Spacecraft,
     input: { cause: HyperdriveDisruptionCause; interceptor?: Spacecraft },
   ) {
-    const field = resolveSpacecraftField(target);
+    const field = resolveSpacecraftLocation(target);
     if (!field || field.scope !== 'GALAXY') {
       throw new BadRequestException('Hyperraumfeld nicht verfügbar');
     }

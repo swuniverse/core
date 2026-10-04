@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { SpaceLocationDto } from '@swuniverse/shared';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { shipImage } from '../lib/assets';
@@ -21,8 +22,7 @@ interface Spacecraft {
   warpCooldown: number;
   crew: number;
   crewMax: number;
-  posX: number;
-  posY: number;
+  location: SpaceLocationDto;
 }
 
 const ALERT_COLORS: Record<string, string> = {
@@ -113,7 +113,7 @@ export function SpacecraftPage() {
                     </div>
                   </td>
                   <td className="px-3 py-1.5 text-center text-swu-muted font-mono">
-                    {ship.posX}|{ship.posY}
+                    {ship.location.x}|{ship.location.y}
                   </td>
                   <td className="px-3 py-1.5 text-center font-mono">
                     <StatValue

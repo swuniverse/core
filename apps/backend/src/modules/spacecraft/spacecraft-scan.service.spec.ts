@@ -79,6 +79,7 @@ function createService() {
   };
   const systemFieldRepo = { find: jest.fn(), findOne: jest.fn() };
   const galaxyFieldRepo = { find: jest.fn() };
+  const locationRepo = { findOne: jest.fn() };
   const planetGenerator = { generateAndPersist: jest.fn() };
   const gameData = {
     getAllModules: jest.fn().mockReturnValue([
@@ -111,6 +112,7 @@ function createService() {
     scanResultRepo as any,
     systemFieldRepo as any,
     galaxyFieldRepo as any,
+    locationRepo as any,
     planetGenerator as any,
     gameData as any,
     spacecraftCrewService as any,
@@ -143,6 +145,10 @@ describe('SpacecraftScanService colonyScan', () => {
       starSystemId: 7,
       currentSystemFieldX: 5,
       currentSystemFieldY: 5,
+      location: {
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 6, sy: 6 },
+      },
       status: SpacecraftStatus.IDLE,
       modules: [activeScanner],
     });
@@ -151,16 +157,17 @@ describe('SpacecraftScanService colonyScan', () => {
       name: 'Fremdwelt',
       userId: 2,
       user: { username: 'Leia' },
-      starSystemId: 7,
+      starSystemId: 8,
       colonyClassId: 3,
       posX: 5,
       posY: 5,
+      systemField: { starSystemId: 8, sx: 6, sy: 6 },
       celestialObject: {
         id: 30,
         name: 'Mond I',
         classId: 3,
-        posX: 5,
-        posY: 5,
+        posX: 6,
+        posY: 6,
         surfaceWidth: 4,
         surfaceHeight: 3,
       },
@@ -198,13 +205,13 @@ describe('SpacecraftScanService colonyScan', () => {
         name: 'Fremdwelt',
         owner: { id: 2, username: 'Leia' },
         colonyClassId: 3,
-        starSystemId: 7,
+        starSystemId: 8,
         celestialObject: {
           id: 30,
           name: 'Mond I',
           classId: 3,
-          posX: 5,
-          posY: 5,
+          posX: 6,
+          posY: 6,
         },
       },
       surface: {
@@ -250,13 +257,17 @@ describe('SpacecraftScanService colonyScan', () => {
       starSystemId: 7,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
+      location: {
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 2, sy: 2 },
+      },
       status: SpacecraftStatus.IDLE,
       modules: [activeScanner],
     });
     colonyRepo.findOne.mockResolvedValue({
       id: 20,
       userId: 2,
-      starSystemId: 7,
+      starSystemId: 8,
       posX: 20,
       posY: 20,
       fields: [],
@@ -276,6 +287,10 @@ describe('SpacecraftScanService colonyScan', () => {
       starSystemId: 7,
       currentSystemFieldX: 1,
       currentSystemFieldY: 1,
+      location: {
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 2, sy: 2 },
+      },
       status: SpacecraftStatus.IDLE,
       modules: [activeScanner],
     });
@@ -286,8 +301,17 @@ describe('SpacecraftScanService colonyScan', () => {
     );
     expect(colonyRepo.findOne).toHaveBeenCalledWith({
       where: { id: 20 },
-      relations: ['fields', 'user', 'celestialObject'],
+      relations: ['fields', 'user', 'celestialObject', 'systemField'],
     });
+    expect(shipRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: expect.arrayContaining([
+          'location',
+          'location.galaxyField',
+          'location.systemField',
+        ]),
+      }),
+    );
   });
 
   it('lists latest colony scans per colony for a user', async () => {

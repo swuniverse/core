@@ -21,6 +21,7 @@ import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
@@ -73,6 +74,7 @@ import { PrestigeModule } from '../prestige/prestige.module';
       CelestialObject,
       GalaxyField,
       SystemField,
+      SpaceLocation,
       FactionEntity,
       User,
       Colony,

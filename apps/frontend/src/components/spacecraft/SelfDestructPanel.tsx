@@ -75,7 +75,7 @@ export function SelfDestructPanel({
           <ShipSymbol kind="self-destruct" className="size-4" />
           Selbstzerstörung
         </h2>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {!confirmed ? (
             <>
               <p className="text-xs text-red-200">
@@ -111,14 +111,16 @@ export function SelfDestructPanel({
               </button>
             </>
           )}
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onClose}
-            className="text-xs text-swu-muted hover:text-swu-primary"
-          >
-            Schließen
-          </button>
+          <div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onClose}
+              className="text-xs text-swu-muted hover:text-swu-primary"
+            >
+              Schließen
+            </button>
+          </div>
         </div>
         {error && (
           <p role="alert" className="text-xs text-red-300">

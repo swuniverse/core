@@ -54,10 +54,17 @@ describe('ShipControlCenter', () => {
   it('renders STU-style controls only for present systems', async () => {
     apiMocks.patch.mockResolvedValue({});
     apiMocks.get.mockResolvedValue({
-      amount: 3,
-      commodityId: 8,
-      torpedoTypeId: 2,
-      name: 'Schwerer Plasmatorpedo',
+      capacity: 6,
+      fireable: [
+        {
+          amount: 3,
+          commodityId: 8,
+          torpedoTypeId: 2,
+          name: 'Schwerer Plasmatorpedo',
+          isActive: true,
+        },
+      ],
+      transport: [],
     });
     render(
       <ShipControlCenter
@@ -90,15 +97,21 @@ describe('ShipControlCenter', () => {
     );
   });
 
-  it('always displays zero torpedoes', async () => {
-    apiMocks.get.mockResolvedValue(null);
+  it('shows empty torpedo storage when a torpedo bank is present', async () => {
+    apiMocks.get.mockResolvedValue({
+      capacity: 6,
+      fireable: [],
+      transport: [],
+    });
     render(
       <ShipControlCenter
         shipId={baseProps.shipId}
         onUpdate={baseProps.onUpdate}
-        systems={{}}
+        systems={{
+          TORPEDO_BANK: { active: false, cooldown: 0, integrity: 100 },
+        }}
       />,
     );
-    expect(await screen.findByText('Torpedos: 0')).toBeTruthy();
+    expect(await screen.findByText('keine Torpedos geladen')).toBeTruthy();
   });
 });

@@ -2,9 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { findArchetypeBySwuClassId } from '../starmap/generator/swu-archetype-registry';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
@@ -33,7 +34,8 @@ import { Colony } from './entities/colony.entity';
 
 @Injectable()
 export class ColonyConstructionService {
-  private readonly headquartersBuildingIds = COLONY_BUILDING_ID_SETS.HEADQUARTERS;
+  private readonly headquartersBuildingIds =
+    COLONY_BUILDING_ID_SETS.HEADQUARTERS;
 
   constructor(
     @InjectRepository(Colony)
@@ -52,6 +54,9 @@ export class ColonyConstructionService {
     private readonly ownership: ColonyOwnershipService,
     private readonly timing: ColonyTimingService,
     private readonly buildingEffectsService?: ColonyBuildingEffectsService,
+    @Optional()
+    @InjectDataSource()
+    private readonly dataSource?: DataSource,
   ) {}
 
   private async findOne(colonyId: number, userId: number): Promise<Colony> {
@@ -182,11 +187,60 @@ export class ColonyConstructionService {
     buildingId: number,
     activateAfterBuild = true,
   ): Promise<ColonyField> {
-    const colony = await this.findOne(colonyId, userId);
+    if (this.dataSource) {
+      return this.dataSource.transaction((manager) =>
+        this.buildWithManager(
+          colonyId,
+          userId,
+          fieldIndex,
+          buildingId,
+          activateAfterBuild,
+          manager,
+        ),
+      );
+    }
+    return this.buildWithManager(
+      colonyId,
+      userId,
+      fieldIndex,
+      buildingId,
+      activateAfterBuild,
+    );
+  }
+
+  private async buildWithManager(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+    buildingId: number,
+    activateAfterBuild: boolean,
+    manager?: EntityManager,
+  ): Promise<ColonyField> {
+    let colony: Colony | null;
+    if (manager) {
+      const repository = manager.getRepository(Colony);
+      const lockedColony = await repository.findOne({
+        where: { id: colonyId, userId, isAbandoned: false },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedColony) throw new NotFoundException('Colony not found');
+      colony = await repository.findOne({
+        where: { id: colonyId, userId, isAbandoned: false },
+        relations: ['fields', 'storage', 'stats', 'changeable'],
+      });
+    } else {
+      colony = await this.findOne(colonyId, userId);
+    }
+    if (!colony) throw new NotFoundException('Colony not found');
     const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
     if (!field) throw new NotFoundException('Field not found');
-    if (field.buildingId && !field.isBuilding) {
-      throw new BadRequestException('Field already has a building');
+    if (field.terraformingId) {
+      throw new BadRequestException(
+        'Cannot build on a field being terraformed',
+      );
+    }
+    if (field.buildingId && this.isHeadquartersField(field)) {
+      throw new BadRequestException('Cannot replace headquarters');
     }
 
     const buildingDef = this.gameData.getBuilding(buildingId);
@@ -236,21 +290,53 @@ export class ColonyConstructionService {
         ? (this.gameData.getBuilding(actualBuildingId) ?? buildingDef)
         : buildingDef;
 
-    await this.checkBuildingLimits(colony, userId, actualDef);
+    await this.checkBuildingLimits(colony, userId, actualDef, manager);
+
+    const currentDefinition = field.buildingId
+      ? (this.gameData.getBuilding(field.buildingId) ?? null)
+      : null;
+    if (field.buildingId && !currentDefinition) {
+      throw new BadRequestException('Unknown existing building');
+    }
+
+    await this.assertReplacementCostsAvailable(
+      colony,
+      field,
+      actualDef,
+      currentDefinition,
+      manager,
+    );
+    this.assertReplacementEnergyAvailable(
+      colony,
+      field,
+      actualDef,
+      currentDefinition,
+    );
+
+    if (currentDefinition) {
+      await this.removeBuilding(
+        colony,
+        field,
+        currentDefinition,
+        userId,
+        true,
+        manager,
+      );
+    }
 
     // ponytail: deposit check removed — balanceAndProduce() deactivates if deposits insufficient
-    this.deductBuildEnergy(colony, buildingDef);
-    await this.deductBuildCosts(colony, buildingDef.resourceCosts ?? []);
-    await this.colonyRepo.save(colony);
+    this.deductBuildEnergy(colony, actualDef);
+    await this.deductBuildCosts(colony, actualDef.resourceCosts ?? [], manager);
+    await (manager?.getRepository(Colony) ?? this.colonyRepo).save(colony);
 
     this.buildingLifecycleService.prepareBuildJob(
       field,
       actualBuildingId,
-      buildingDef.costs.buildTime,
+      actualDef.costs.buildTime,
       activateAfterBuild,
     );
 
-    return this.fieldRepo.save(field);
+    return (manager?.getRepository(ColonyField) ?? this.fieldRepo).save(field);
   }
 
   /** Wohn- und Farmgebaeude brauchen eine Atmosphaere - auf Planeten ohne (z.B. Mondartig, Lavaplanet) nie baubar, auch nicht auf "standard"-Feldern. */
@@ -279,6 +365,7 @@ export class ColonyConstructionService {
     colony: Colony,
     userId: number,
     buildingDef: BuildingDef,
+    manager?: EntityManager,
   ): Promise<void> {
     const colonyLimit = buildingDef.colonyLimit ?? buildingDef.bclimit ?? 0;
     const globalLimit = buildingDef.globalLimit ?? buildingDef.blimit ?? 0;
@@ -295,7 +382,9 @@ export class ColonyConstructionService {
     }
 
     if (globalLimit > 0) {
-      const userColonies = await this.colonyRepo.find({
+      const userColonies = await (
+        manager?.getRepository(Colony) ?? this.colonyRepo
+      ).find({
         where: { userId },
         relations: ['fields'],
       });
@@ -315,6 +404,79 @@ export class ColonyConstructionService {
     }
   }
 
+  private async assertReplacementCostsAvailable(
+    colony: Colony,
+    field: ColonyField,
+    buildingDef: BuildingDef,
+    currentDefinition: BuildingDef | null,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const refunds = currentDefinition
+      ? this.getDemolitionRefunds(currentDefinition)
+      : [];
+    const maxStorage = this.colonyStatsService.calculateSummary(
+      colony,
+      currentDefinition ? new Set([field.id]) : new Set(),
+    ).effectiveStorageMax;
+    let freeStorage = Math.max(
+      0,
+      maxStorage -
+        (await this.colonyStorageService.getStorageUsed(colony.id, manager)),
+    );
+    const availableRefunds = new Map<number, number>();
+    for (const refund of refunds) {
+      const amount = Math.min(refund.amount, freeStorage);
+      availableRefunds.set(refund.commodityId, amount);
+      freeStorage -= amount;
+    }
+
+    for (const cost of buildingDef.resourceCosts ?? []) {
+      if (cost.amount <= 0) continue;
+      const storage = await (
+        manager?.getRepository(ColonyStorage) ?? this.storageRepo
+      ).findOne({
+        where: { colonyId: colony.id, commodityId: cost.commodityId },
+      });
+      const available =
+        (storage?.amount ?? 0) + (availableRefunds.get(cost.commodityId) ?? 0);
+      if (available < cost.amount) {
+        const commodity = this.gameData.getCommodity(cost.commodityId);
+        throw new BadRequestException(
+          `Not enough ${commodity?.name || `resource #${cost.commodityId}`}: need ${cost.amount}, have ${available}`,
+        );
+      }
+    }
+  }
+
+  private assertReplacementEnergyAvailable(
+    colony: Colony,
+    field: ColonyField,
+    buildingDef: BuildingDef,
+    currentDefinition: BuildingDef | null,
+  ): void {
+    const energyCost = buildingDef.epsCost || 0;
+    const changeable = getColonyChangeable(colony);
+    if (changeable.energy < energyCost) {
+      throw new BadRequestException(
+        `Not enough energy: need ${energyCost}, have ${changeable.energy}`,
+      );
+    }
+    if (!currentDefinition) return;
+
+    const energyMaxAfterRemoval = this.colonyStatsService.calculateSummary(
+      colony,
+      new Set([field.id]),
+    ).effectiveState.energy.max;
+    if (
+      changeable.energy > energyMaxAfterRemoval &&
+      energyMaxAfterRemoval < energyCost
+    ) {
+      throw new BadRequestException(
+        'Not enough energy remains after demolishing the existing building',
+      );
+    }
+  }
+
   private deductBuildEnergy(colony: Colony, buildingDef: BuildingDef): void {
     const epsCost = buildingDef.epsCost || 0;
     if (epsCost <= 0) return;
@@ -329,6 +491,7 @@ export class ColonyConstructionService {
   private async deductBuildCosts(
     colony: Colony,
     resourceCosts: Array<{ commodityId: number; amount: number }>,
+    manager?: EntityManager,
   ): Promise<void> {
     const costMap: [number, number][] = resourceCosts.map((cost) => [
       cost.commodityId,
@@ -337,7 +500,9 @@ export class ColonyConstructionService {
 
     for (const [commodityId, required] of costMap) {
       if (required <= 0) continue;
-      const storage = await this.storageRepo.findOne({
+      const storage = await (
+        manager?.getRepository(ColonyStorage) ?? this.storageRepo
+      ).findOne({
         where: { colonyId: colony.id, commodityId },
       });
       const available = storage?.amount || 0;
@@ -355,6 +520,7 @@ export class ColonyConstructionService {
         colony,
         commodityId,
         required,
+        manager,
       );
     }
   }
@@ -381,6 +547,12 @@ export class ColonyConstructionService {
       (candidate, index, values): candidate is number =>
         candidate != null && values.indexOf(candidate) === index,
     );
+  }
+
+  /** Bonusfeld-Ziele (>= 10000) auf ihren Basis-Feldtyp normalisieren; SWU-Codes bleiben unveraendert. */
+  private normalizeTerraformingTarget(toFieldType: string): string {
+    if (!/^\d+$/.test(toFieldType)) return toFieldType;
+    return String(this.normalizeFieldTypeCandidate(Number(toFieldType)));
   }
 
   private normalizeFieldTypeCandidate(fieldType: number): number {
@@ -456,7 +628,7 @@ export class ColonyConstructionService {
     return (definition.resourceCosts ?? [])
       .map((cost) => ({
         commodityId: cost.commodityId,
-        amount: Math.floor(cost.amount / 2),
+        amount: Math.ceil(cost.amount / 2),
       }))
       .filter((cost) => cost.amount > 0);
   }
@@ -528,40 +700,46 @@ export class ColonyConstructionService {
 
   private async deactivateDependentBuildings(
     colony: Colony,
-    fieldToRemove: ColonyField,
+    definition: BuildingDef,
+    manager?: EntityManager,
   ): Promise<ColonyField[]> {
     const deactivated: ColonyField[] = [];
+    const dependentCommodityIds = new Set(
+      (definition.production ?? [])
+        .filter(
+          (production) =>
+            production.amount > 0 &&
+            (production.commodityId === 1801 || production.commodityId === 1802),
+        )
+        .map((production) => production.commodityId),
+    );
 
-    for (let round = 0; round < 100; round++) {
-      const summary = this.colonyStatsService.calculateSummary(
-        colony,
-        new Set([fieldToRemove.id, ...deactivated.map((field) => field.id)]),
-      );
-      let victim: ColonyField | null = null;
+    if (dependentCommodityIds.size === 0) return deactivated;
 
-      for (const field of summary.activeFields) {
-        if (field.id === fieldToRemove.id || this.isHeadquartersField(field)) {
-          continue;
-        }
-        const definition = this.gameData.getBuilding(field.buildingId!);
-        if (!definition) continue;
-        const missingEffectCommodity = this.getUnavailableEffectCommodity(
-          summary,
-          definition,
-        );
-        if (missingEffectCommodity) {
-          victim = field;
-          break;
-        }
+    for (const victim of colony.fields ?? []) {
+      if (
+        !victim.isActive ||
+        victim.isBuilding ||
+        this.isHeadquartersField(victim)
+      ) {
+        continue;
       }
-
-      if (!victim) break;
       const victimDefinition = this.gameData.getBuilding(victim.buildingId!);
-      if (!victimDefinition) break;
+      if (
+        !victimDefinition ||
+        !victimDefinition.production.some(
+          (production) =>
+            production.amount < 0 &&
+            dependentCommodityIds.has(production.commodityId),
+        )
+      ) {
+        continue;
+      }
       await this.buildingLifecycleService.deactivateBuilding(
         colony,
         victim,
         victimDefinition,
+        manager,
       );
       deactivated.push(victim);
     }
@@ -594,27 +772,53 @@ export class ColonyConstructionService {
       throw new BadRequestException('Unknown building');
     }
 
+    return this.removeBuilding(colony, field, definition, userId, false);
+  }
+
+  private async removeBuilding(
+    colony: Colony,
+    field: ColonyField,
+    definition: BuildingDef,
+    userId: number,
+    allowUnderConstruction: boolean,
+    manager?: EntityManager,
+  ): Promise<ColonyField> {
+    if (field.isBuilding && !allowUnderConstruction) {
+      throw new BadRequestException(
+        'Cannot demolish a building under construction',
+      );
+    }
+
     const deactivatedFields: ColonyField[] = [];
-    if (field.isActive) {
+    if (!field.isBuilding && field.isActive) {
       await this.buildingLifecycleService.deactivateBuilding(
         colony,
         field,
         definition,
+        manager,
       );
       deactivatedFields.push(field);
     }
-    deactivatedFields.push(
-      ...(await this.deactivateDependentBuildings(colony, field)),
-    );
+    if (!field.isBuilding) {
+      deactivatedFields.push(
+        ...(await this.deactivateDependentBuildings(
+          colony,
+          definition,
+          manager,
+        )),
+      );
+    }
 
     this.buildingLifecycleService.clearBuilding(field);
-    const saved = await this.fieldRepo.save(field);
-
+    const saved = await (
+      manager?.getRepository(ColonyField) ?? this.fieldRepo
+    ).save(field);
     const storageMax =
       this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
     const recycled: Array<{ commodityId: number; amount: number }> = [];
     let currentStored = await this.colonyStorageService.getStorageUsed(
       colony.id,
+      manager,
     );
     for (const refund of this.getDemolitionRefunds(definition)) {
       const stored = await this.colonyStorageService.upperStorage(
@@ -622,6 +826,7 @@ export class ColonyConstructionService {
         refund.commodityId,
         refund.amount,
         storageMax,
+        manager,
       );
       if (stored > 0) {
         recycled.push({ commodityId: refund.commodityId, amount: stored });
@@ -629,8 +834,8 @@ export class ColonyConstructionService {
       }
     }
     colony.storageUsed = currentStored;
-    await this.colonyRepo.save(colony);
-    await this.colonyEventService.createActionEvent({
+    await (manager?.getRepository(Colony) ?? this.colonyRepo).save(colony);
+    const event = {
       colonyId: colony.id,
       userId,
       type: ColonyEventType.BUILDING_DESTROYED,
@@ -645,7 +850,12 @@ export class ColonyConstructionService {
           .filter((entry) => entry.id !== field.id)
           .map((entry) => entry.fieldIndex),
       },
-    });
+    };
+    if (manager) {
+      await this.colonyEventService.createActionEvent(event, manager);
+    } else {
+      await this.colonyEventService.createActionEvent(event);
+    }
 
     return saved;
   }
@@ -749,13 +959,23 @@ export class ColonyConstructionService {
       throw new BadRequestException('Field is already being terraformed');
     }
 
-    const terraforming = this.gameData.getTerraforming(terraformingId);
+    const selectedTerraforming = this.gameData.getTerraforming(terraformingId);
     if (
-      !terraforming ||
-      !this.getFieldIdentityCandidates(field).includes(terraforming.fromFieldType)
+      !selectedTerraforming ||
+      !this.getFieldIdentityCandidates(field).includes(
+        selectedTerraforming.fromFieldType,
+      )
     ) {
       throw new BadRequestException('Invalid terraforming option');
     }
+    const terraforming =
+      this.gameData
+        .getTerraformingForFieldType(field.terrainTileId ?? field.fieldType)
+        .find(
+          (option) =>
+            this.normalizeTerraformingTarget(option.toFieldType) ===
+            this.normalizeTerraformingTarget(selectedTerraforming.toFieldType),
+        ) ?? selectedTerraforming;
     if (terraforming.researchId != null) {
       const hasResearch = await this.unlockResolver.hasTech(
         userId,
@@ -877,7 +1097,7 @@ export class ColonyConstructionService {
         field,
         definition,
       );
-      await this.deactivateDependentBuildings(colony, field);
+      await this.deactivateDependentBuildings(colony, definition);
       return field;
     } else {
       this.assertCanActivateBuilding(colony, field, definition);

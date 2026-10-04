@@ -120,6 +120,7 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [claimError, setClaimError] = useState('');
   const [_selection, setSelection] = useState<SelectionDto | null>(null);
   const [factions, setFactions] = useState<FactionOption[]>([]);
   const [sectors, setSectors] = useState<SectorOverview[]>([]);
@@ -305,7 +306,7 @@ export function OnboardingPage() {
   async function claimHomeworld() {
     if (!selectedPlanetId) return;
     setSaving(true);
-    setError('');
+    setClaimError('');
     try {
       const claimRes = await api.post<{
         starterColonyId: number;
@@ -322,9 +323,10 @@ export function OnboardingPage() {
       setStarterColony(colony);
       setNextObjective(claimRes.nextObjective ?? null);
     } catch (err) {
-      setError(
+      setClaimError(
         err instanceof ApiError ? err.message : 'Failed to claim homeworld',
       );
+      if (selectedSystemId) await loadPlanets(selectedSystemId);
     } finally {
       setSaving(false);
     }
@@ -636,6 +638,7 @@ export function OnboardingPage() {
                     type="button"
                     disabled={saving}
                     onClick={() => {
+                      setClaimError('');
                       setPlanets([]);
                       setSelectedPlanetId(null);
                       setSelectedSystemId(system.id);
@@ -692,6 +695,7 @@ export function OnboardingPage() {
                         type="button"
                         disabled={saving}
                         onClick={() => {
+                          setClaimError('');
                           setSelectedPlanetId(planet.id);
                           setSelectedZoneSlot(zones[0]?.zoneSlot ?? null);
                         }}
@@ -774,6 +778,11 @@ export function OnboardingPage() {
                 Final step. Creates your starter colony and stores starting
                 resources there.
               </p>
+              {claimError && (
+                <p role="alert" className="mt-2 text-sm text-swu-danger">
+                  {claimError}
+                </p>
+              )}
             </div>
             <button
               type="button"

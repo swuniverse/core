@@ -78,6 +78,65 @@ describe('SpacecraftResourceFlowService', () => {
     expect(ship.battery).toBe(0);
   });
 
+  it('carries unused EPS allocation into hyperdrive when enabled', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorWarpSplit: 100,
+      reactorAutoCarryOver: true,
+      reactorOutput: 20,
+      energy: 100,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 0,
+      warpdriveMax: 50,
+    });
+
+    service.recharge(ship as never, 1);
+
+    expect(ship.energy).toBe(100);
+    expect(ship.warpdrive).toBe(14);
+    expect(ship.reactorFuel).toBe(80);
+  });
+
+  it('carries unused hyperdrive allocation into EPS when enabled', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorWarpSplit: 0,
+      reactorAutoCarryOver: true,
+      reactorOutput: 20,
+      energy: 0,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 50,
+      warpdriveMax: 50,
+    });
+
+    service.recharge(ship as never, 1);
+
+    expect(ship.energy).toBe(14);
+    expect(ship.warpdrive).toBe(50);
+    expect(ship.reactorFuel).toBe(80);
+  });
+
+  it('does not carry unused reactor output when automatic transfer is disabled', () => {
+    const service = createService();
+    const ship = makeShip({
+      reactorWarpSplit: 100,
+      reactorAutoCarryOver: false,
+      reactorOutput: 20,
+      energy: 100,
+      epsMax: 100,
+      energyMax: 100,
+      warpdrive: 0,
+      warpdriveMax: 50,
+    });
+
+    service.recharge(ship as never, 1);
+
+    expect(ship.warpdrive).toBe(0);
+    expect(ship.reactorFuel).toBe(94);
+  });
+
   it('caps output by reactor load and consumes actual energy use', () => {
     const service = createService();
     const ship = makeShip({
@@ -145,5 +204,35 @@ describe('SpacecraftResourceFlowService', () => {
     );
     service.recharge(ship as never, 2);
     expect(ship.energy).toBe(flow.netEps);
+  });
+
+  it('only charges systems created by the ship modules', () => {
+    const service = createService();
+    const ship = makeShip({
+      modules: [
+        { category: 'SENSORS', moduleType: 'Sensorphalanx' },
+        { category: 'SUBLIGHT_DRIVE', moduleType: 'Ion-Triebwerk' },
+      ],
+      runtimeSystems: {
+        WEAPONS: { active: true, cooldown: 0, integrity: 100 },
+        TORPEDO_BANK: { active: true, cooldown: 0, integrity: 100 },
+        SPECIAL: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+
+    const flow = service.calculate(ship as never);
+
+    expect(flow.totalSystemConsumption).toBe(3);
+    expect(flow.systems.map((system) => system.systemKey)).toEqual(
+      expect.arrayContaining([
+        'LIFE_SUPPORT',
+        'LONG_RANGE_SENSORS',
+        'SHORT_RANGE_SENSORS',
+        'SUBLIGHT_DRIVE',
+      ]),
+    );
+    expect(flow.systems.map((system) => system.systemKey)).not.toEqual(
+      expect.arrayContaining(['WEAPONS', 'TORPEDO_BANK', 'SPECIAL']),
+    );
   });
 });

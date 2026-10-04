@@ -240,3 +240,33 @@ describe('ResearchService – state deduplication', () => {
     ).toEqual([{ type: 'REQUIRE', techIds: [200503, 290001] }]);
   });
 });
+
+describe('ResearchService – restart state', () => {
+  it('clears a stale blocked reason when research is restarted', async () => {
+    const research = {
+      userId: 42,
+      techId: 10,
+      status: 'AVAILABLE',
+      queuePosition: null,
+      blockedReason: 'NO_RESEARCH_PRODUCTION',
+      remainingPoints: 5,
+    };
+    const repository = {
+      find: jest.fn().mockResolvedValue([research]),
+      save: jest.fn(async (value) => value),
+    };
+    const tech = makeTech(10, 5);
+    const service = new ResearchService(
+      repository as any,
+      {
+        getTechTree: () => [tech],
+        getTech: () => tech,
+      } as any,
+    );
+
+    await service.startResearch(42, 10);
+
+    expect(research.blockedReason).toBeNull();
+    expect(research.status).toBe('IN_PROGRESS');
+  });
+});

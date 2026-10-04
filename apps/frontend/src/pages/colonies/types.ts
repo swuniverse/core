@@ -1,4 +1,8 @@
-import type { ColonyEventDto, ShipModuleSelection } from '@swuniverse/shared';
+import type {
+  ColonyEventDto,
+  ShipModuleSelection,
+  SpaceLocationDto,
+} from '@swuniverse/shared';
 
 export type { ColonyEventDto, ShipModuleSelection };
 
@@ -42,20 +46,6 @@ export interface ColonyStorageItem {
   id: number;
   commodityId: number;
   amount: number;
-}
-
-export interface StarterColonizationOptions {
-  mode: 'required' | 'not-required';
-  reservedStarterColonyId: number | null;
-  starterShipId: number | null;
-  targets: Array<{
-    id: number;
-    systemId: number;
-    posX: number;
-    posY: number;
-    classId: number | null;
-    name: string | null;
-  }>;
 }
 
 export type ShipyardQueueMode = 'BUILD' | 'REPAIR' | 'RETROFIT';
@@ -208,7 +198,7 @@ export interface ColonyFeatureTabAccess {
 }
 
 export interface ColonyFeatureAccess {
-  tabs: Record<DetailTab | string, ColonyFeatureTabAccess>;
+  tabs: Record<string, ColonyFeatureTabAccess>;
   functions: {
     present: ColonyEffectiveFunction[];
     active: ColonyEffectiveFunction[];
@@ -386,11 +376,14 @@ export interface ColonyDetailV2 {
     shieldsMax: number;
     energy: number;
     energyMax: number;
+    warpdrive: number;
+    warpdriveMax: number;
     crew: number;
     crewRequired: number;
     crewMax: number;
     hasEnoughCrew: boolean;
     canLand?: boolean;
+    landReason?: string | null;
     canDisassemble?: boolean;
     canRepair?: boolean;
     canRetrofit?: boolean;
@@ -716,6 +709,7 @@ export interface ColonyDetailV2 {
 export interface Colony {
   id: number;
   name: string;
+  colonyClassId?: number;
   energy: number;
   energyMax: number;
   population: number;
@@ -723,6 +717,7 @@ export interface Colony {
   storageUsed: number;
   storageMax: number;
   locationLabel?: string;
+  location?: SpaceLocationDto | null;
   fieldCount?: number;
   storageItemCount?: number;
   posX?: number;
@@ -733,12 +728,52 @@ export interface Colony {
     classId: number | null;
     objectType?: number;
   };
-  starSystem?: { name: string; cx?: number; cy?: number; layerId?: number };
+  starSystem?: {
+    id: number;
+    name: string;
+    cx?: number;
+    cy?: number;
+    layerId?: number;
+    systemTypeId: number;
+    systemTypeName?: string;
+    maxX: number;
+    maxY: number;
+  };
   fields?: ColonyField[];
   storage?: ColonyStorageItem[];
   detailV2?: ColonyDetailV2;
   stats?: {
     isBlockaded?: boolean;
+  };
+  signatureCount?: number;
+  overview?: {
+    location: {
+      x: number;
+      y: number;
+      systemName: string | null;
+      systemX: number | null;
+      systemY: number | null;
+      systemTypeId: number | null;
+    };
+    status: {
+      blocked: boolean;
+      defended: boolean;
+    };
+    population: {
+      current: number;
+      max: number;
+      immigration: number;
+    };
+    energy: {
+      current: number;
+      max: number;
+      production: number;
+    };
+    storage: {
+      current: number;
+      max: number;
+      production: number;
+    };
   };
   crewSummary?: { assigned: number; limit: number; inTraining: number };
   productionDeltas?: Array<{ commodityId: number; amount: number }>;
@@ -832,20 +867,6 @@ export interface ShipClassDef {
   buildCosts?: Array<{ commodityId: number; amount: number; name: string }>;
   allowedBuildingFunctionIds?: number[] | null;
 }
-
-export type DetailTab =
-  | 'info'
-  | 'orbit'
-  | 'build'
-  | 'buildingManagement'
-  | 'shipyard'
-  | 'fabrication'
-  | 'defense'
-  | 'waste'
-  | 'events'
-  | 'settings'
-  | 'crew'
-  | 'hangar';
 
 /** Planetarer Schild errichtet (Schildenergie > 0) - waehlt die Schild-Variante der Planetengrafik. */
 export function isColonyShielded(colony: Colony): boolean {

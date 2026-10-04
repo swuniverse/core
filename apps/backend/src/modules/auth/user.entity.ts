@@ -50,9 +50,6 @@ export class User {
   starterColonyId: number | null;
 
   @Column({ type: 'int', nullable: true })
-  starterShipId: number | null;
-
-  @Column({ type: 'int', nullable: true })
   lastActiveTick: number | null;
 
   @Column({ default: 0 })
@@ -69,9 +66,6 @@ export class User {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  dashboardLayout: string | null;
 
   @Column({ type: 'boolean', default: false })
   vacationMode: boolean;

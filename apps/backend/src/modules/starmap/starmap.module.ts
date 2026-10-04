@@ -14,6 +14,7 @@ import { CelestialObject } from './entities/celestial-object.entity';
 import { GalaxyFieldType } from './entities/galaxy-field-type.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
 import { SystemField } from './entities/system-field.entity';
+import { SpaceLocation } from './entities/space-location.entity';
 import { MapRegion } from './entities/map-region.entity';
 import { BorderType } from './entities/border-type.entity';
 import { ExplorationState } from './entities/exploration-state.entity';
@@ -42,6 +43,7 @@ import { PrestigeModule } from '../prestige/prestige.module';
       GalaxyFieldType,
       GalaxyField,
       SystemField,
+      SpaceLocation,
       MapRegion,
       BorderType,
       ExplorationState,

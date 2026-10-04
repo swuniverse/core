@@ -10,7 +10,6 @@ import {
   COLONIZATION_CLASS_GATE_RULES,
   COLONIZATION_LIMIT_RULES,
   COLONIZATION_MAX_LIMITS,
-  STU_STARTER_PLANET_CLASS_IDS,
   type ColonizationLimitType,
   getClassGateRequiredTechPair,
   getColonizationClassGate,
@@ -34,19 +33,8 @@ import {
   CelestialObject,
   CelestialObjectType,
 } from '../starmap/entities/celestial-object.entity';
-import {
-  FactionZone,
-  GalaxyField,
-} from '../starmap/entities/galaxy-field.entity';
-import {
-  AlertState,
-  Spacecraft,
-  SpacecraftStatus,
-} from '../spacecraft/entities/spacecraft.entity';
+import { Spacecraft, SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
-import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
-import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
-import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import {
   findArchetypeBySwuClassId,
@@ -98,20 +86,8 @@ export interface SwuColonyEcosystemDto {
   dayNightPhaseHours: number;
   tidalLocked: boolean;
 }
+import { resolveSpacecraftLocation } from '../spacecraft/spacecraft-field';
 
-export interface StarterColonizationOptionsDto {
-  mode: 'required' | 'not-required';
-  reservedStarterColonyId: number | null;
-  starterShipId: number | null;
-  targets: Array<{
-    id: number;
-    systemId: number;
-    posX: number;
-    posY: number;
-    classId: number | null;
-    name: string | null;
-  }>;
-}
 export interface ColonizationLimitStatus {
   type: ColonizationLimitType;
   count: number;
@@ -184,10 +160,6 @@ export interface ColonizationTargetCheckDto {
     colonizationBuildingId: number | null;
   } | null;
 }
-export interface StarterColonizationRequestDto {
-  celestialObjectId: number;
-}
-
 const STARTER_NOOBZONE_MAX_ACCOUNT_AGE_MS = 12_960_000 * 1000;
 const STARTER_NOOBZONE_MAX_COLONIES_PER_LAYER = 4;
 
@@ -204,16 +176,11 @@ export class ColonizationService {
     private readonly shipRepo: Repository<Spacecraft>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
-    @InjectRepository(SpacecraftModule)
-    private readonly spacecraftModuleRepo: Repository<SpacecraftModule>,
-    @InjectRepository(Research)
-    private readonly researchRepo: Repository<Research>,
     @InjectRepository(CrewAssignment)
     private readonly crewAssignmentRepo: Repository<CrewAssignment>,
     private readonly unlockResolver: UnlockResolverService,
     private readonly colonySeedService: ColonySeedService,
     private readonly colonyEventService: ColonyEventService,
-    private readonly spacecraftStatsService: SpacecraftStatsService,
     private readonly gameData: GameDataService,
   ) {}
 
@@ -248,203 +215,6 @@ export class ColonizationService {
         },
       },
     };
-  }
-
-  async getStarterColonizationOptions(
-    userId: number,
-  ): Promise<StarterColonizationOptionsDto> {
-    const user = await this.getUser(userId);
-    const activeColony = await this.colonyRepo.findOne({
-      where: { userId, isAbandoned: false },
-      select: ['id'],
-    });
-
-    if (activeColony) {
-      await this.ensureBaseResearchCompleted(user.id, user.factionId);
-      if (!user.onboardingCompleted) {
-        user.onboardingCompleted = true;
-        await this.userRepo.save(user);
-      }
-      return {
-        mode: 'not-required',
-        reservedStarterColonyId: user.starterColonyId,
-        starterShipId: user.starterShipId,
-        targets: [],
-      };
-    }
-
-    if (user.onboardingCompleted) {
-      await this.ensureBaseResearchCompleted(user.id, user.factionId);
-      return {
-        mode: 'not-required',
-        reservedStarterColonyId: user.starterColonyId,
-        starterShipId: user.starterShipId,
-        targets: [],
-      };
-    }
-
-    const targets = await this.findStarterTargetsForUser(user);
-    return {
-      mode: 'required',
-      reservedStarterColonyId: user.starterColonyId,
-      starterShipId: user.starterShipId,
-      targets: targets.map((target) => ({
-        id: target.id,
-        systemId: target.systemId,
-        posX: target.posX,
-        posY: target.posY,
-        classId: target.classId,
-        name: target.name,
-      })),
-    };
-  }
-
-  async createStarterColonizationShip(
-    userId: number,
-  ): Promise<{ success: true; shipId: number }> {
-    const user = await this.getUser(userId);
-    await this.assertStarterFlowOpen(user);
-
-    if (user.starterShipId) {
-      const existingShip = await this.shipRepo.findOne({
-        where: { id: user.starterShipId, userId },
-        select: ['id'],
-      });
-      if (existingShip) {
-        return { success: true, shipId: existingShip.id };
-      }
-    }
-
-    const shipClass = user.factionId
-      ? await this.shipClassRepo.findOne({
-          where: {
-            starterAllowed: true,
-            factionId: user.factionId,
-            isColonizer: true,
-          },
-          order: { id: 'ASC' },
-        })
-      : null;
-    if (!shipClass) {
-      throw new BadRequestException(
-        'Keine Starter-Kolonisierungsklasse konfiguriert',
-      );
-    }
-
-    const ship = await this.shipRepo.save(
-      this.shipRepo.create({
-        name: `${user.username} Starterkolonieschiff`,
-        shipClassId: shipClass.id,
-        userId,
-        starSystemId: null,
-        currentLayerId: null,
-        celestialObjectId: null,
-        inSystem: false,
-        currentSystemFieldX: null,
-        currentSystemFieldY: null,
-        posX: 0,
-        posY: 0,
-        status: SpacecraftStatus.IDLE,
-        alertState: AlertState.GREEN,
-        hull: shipClass.hullBase,
-        hullMax: shipClass.hullBase,
-        shields: shipClass.shieldBase,
-        shieldsMax: shipClass.shieldBase,
-        energy: shipClass.epsBase,
-        energyMax: shipClass.epsBase,
-        warpSpeed: shipClass.warpdriveBase,
-        crew: shipClass.crewMin,
-        crewMax: shipClass.crewMax,
-        cargoUsed: 0,
-        cargoMax: shipClass.cargoCapacity,
-        battery: shipClass.batteryBase,
-        batteryMax: shipClass.batteryBase,
-        epsMax: shipClass.epsBase,
-        reactorOutput: shipClass.reactorBase,
-        warpdriveMax: shipClass.warpdriveBase,
-        evadeChance: 0,
-        fleetId: null,
-      }),
-    );
-
-    const reactor = await this.spacecraftModuleRepo.save(
-      this.spacecraftModuleRepo.create({
-        spacecraftId: ship.id,
-        moduleType: 'Leichter Hypermaterie-Reaktor',
-        category: 'SPECIAL',
-        level: 1,
-        integrity: 100,
-        cooldown: 0,
-        isActive: true,
-      }),
-    );
-    this.spacecraftStatsService.applyStats(ship, shipClass, [reactor]);
-    ship.reactorFuel = ship.reactorFuelMax;
-    await this.shipRepo.save(ship);
-
-    user.starterShipId = ship.id;
-    await this.userRepo.save(user);
-
-    return { success: true, shipId: ship.id };
-  }
-
-  async foundStarterColony(
-    userId: number,
-    celestialObjectId: number,
-  ): Promise<{ success: true; colonyId: number }> {
-    const user = await this.getUser(userId);
-    await this.assertStarterFlowOpen(user);
-
-    const starterTargets = await this.findStarterTargetsForUser(user);
-    const isAllowedTarget = starterTargets.some(
-      (target) => target.id === celestialObjectId,
-    );
-    if (!isAllowedTarget) {
-      throw new BadRequestException('Starterplanet ist nicht verfügbar');
-    }
-
-    const colony = await this.colonySeedService.createStarterColony(
-      user.id,
-      user.username,
-      celestialObjectId,
-      user.factionId,
-    );
-    user.starterColonyId = colony.id;
-    user.onboardingCompleted = true;
-    await this.userRepo.save(user);
-    await this.ensureBaseResearchCompleted(user.id, user.factionId);
-
-    return { success: true, colonyId: colony.id };
-  }
-
-  private async ensureBaseResearchCompleted(
-    userId: number,
-    factionId: number | null,
-  ): Promise<void> {
-    const baseResearchId = factionId === 2 ? 1003 : 1001;
-    const existing = await this.researchRepo.findOne({
-      where: { userId, techId: baseResearchId },
-    });
-    if (existing) {
-      existing.status = ResearchStatus.COMPLETED;
-      existing.progress = 0;
-      existing.remainingPoints = 0;
-      existing.spentPoints = 0;
-      existing.blockedReason = null;
-      await this.researchRepo.save(existing);
-      return;
-    }
-
-    await this.researchRepo.save({
-      userId,
-      techId: baseResearchId,
-      status: ResearchStatus.COMPLETED,
-      progress: 0,
-      remainingPoints: 0,
-      spentPoints: 0,
-      sourceCommodityId: 1701,
-      blockedReason: null,
-    });
   }
 
   /**
@@ -535,7 +305,10 @@ export class ColonizationService {
       relations: ['starSystem', 'starSystem.layer'],
     });
     const ship = shipId
-      ? await this.shipRepo.findOne({ where: { id: shipId, userId } })
+      ? await this.shipRepo.findOne({
+          where: { id: shipId, userId },
+          relations: ['location', 'location.systemField'],
+        })
       : null;
     const shipClass = ship
       ? await this.shipClassRepo.findOneBy({ id: ship.shipClassId })
@@ -1047,13 +820,16 @@ export class ColonizationService {
     if (ship.status !== SpacecraftStatus.IDLE) {
       reasons.push('Kolonieschiff muss betriebsbereit sein');
     }
-    if (!ship.inSystem) reasons.push('Kolonieschiff muss im Sternsystem sein');
-    if (ship.starSystemId !== target.systemId) {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
+      reasons.push('Kolonieschiff muss im Sternsystem sein');
+    } else if (location.systemId !== target.systemId) {
       reasons.push('Kolonieschiff ist nicht im Zielsystem');
     }
     if (
-      ship.currentSystemFieldX !== target.posX ||
-      ship.currentSystemFieldY !== target.posY
+      location?.scope !== 'SYSTEM' ||
+      location.x !== target.posX ||
+      location.y !== target.posY
     ) {
       reasons.push('Kolonieschiff muss exakt auf dem Zielfeld stehen');
     }
@@ -1128,58 +904,6 @@ export class ColonizationService {
       currentColoniesInLayer,
       maxColoniesInLayer: STARTER_NOOBZONE_MAX_COLONIES_PER_LAYER,
     };
-  }
-
-  private async assertStarterFlowOpen(user: User): Promise<void> {
-    if (user.onboardingCompleted) {
-      throw new BadRequestException(
-        'Starterkolonisierung bereits abgeschlossen',
-      );
-    }
-  }
-
-  private async findStarterTargetsForUser(
-    user: User,
-  ): Promise<CelestialObject[]> {
-    const homeZone = user.factionRef?.homeZone;
-    const starterZones =
-      homeZone === FactionZone.REBEL || homeZone === FactionZone.EMPIRE
-        ? [homeZone]
-        : user.factionId === 1
-          ? [FactionZone.REBEL]
-          : user.factionId === 2
-            ? [FactionZone.EMPIRE]
-            : [];
-    if (starterZones.length === 0) {
-      return [];
-    }
-
-    return this.objectRepo
-      .createQueryBuilder('target')
-      .innerJoinAndSelect('target.starSystem', 'starSystem')
-      .innerJoin(
-        GalaxyField,
-        'galaxyField',
-        'galaxyField.starSystemId = starSystem.id',
-      )
-      .leftJoin(
-        Colony,
-        'colony',
-        'colony.celestialObjectId = target.id AND colony.isAbandoned = false',
-      )
-      .where('target.isColonizable = true')
-      .andWhere('target.objectType = :objectType', {
-        objectType: CelestialObjectType.PLANET,
-      })
-      .andWhere('target.classId IN (:...starterClassIds)', {
-        starterClassIds: STU_STARTER_PLANET_CLASS_IDS,
-      })
-      .andWhere('colony.id IS NULL')
-      .andWhere('galaxyField.factionZone IN (:...starterZones)', {
-        starterZones,
-      })
-      .orderBy('target.id', 'ASC')
-      .getMany();
   }
 
   private getFactionKey(user: User): string | null {
