@@ -1,7 +1,7 @@
 import type {
   ColonyEnvironmentScanDto,
   CommodityLocationsDto,
-} from '@swuniverse/shared';
+} from './index.js';
 
 const environmentScanContract: ColonyEnvironmentScanDto = {
   bounds: { minX: 1, maxX: 5, minY: 1, maxY: 5 },
