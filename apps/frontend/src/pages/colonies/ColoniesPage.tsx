@@ -232,6 +232,24 @@ export function ColoniesPage() {
     void loadInitial();
   }, [loadInitial]);
 
+  // URL ist Quelle der Wahrheit: Navigation auf /colonies (ohne ?selected)
+  // bzw. auf eine andere Kolonie muss den lokalen State mitziehen.
+  const urlSelectedId = Number(searchParams.get('selected')) || null;
+  useEffect(() => {
+    if (loading) return;
+    if (!urlSelectedId) {
+      if (selected) {
+        detailRequestSequenceRef.current += 1;
+        setSelected(null);
+      }
+    } else if (urlSelectedId !== selected?.id) {
+      void loadColonyDetail(urlSelectedId).catch((error: unknown) =>
+        toast.error(errorMessage(error)),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSelectedId, loading]);
+
   useSocket('COLONY_UPDATED', (payload) => {
     void loadColonyOverview();
 
