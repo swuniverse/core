@@ -9,7 +9,7 @@ import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
 import {
@@ -227,6 +227,20 @@ export class TickService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async checkBuildingCompletions() {
+    const now = new Date();
+    const activeBuilds = await this.fieldRepo.find({
+      where: [
+        { isBuilding: true, buildFinishesAt: LessThanOrEqual(now) },
+        {
+          terraformingId: Not(IsNull()),
+          terraformingFinishesAt: LessThanOrEqual(now),
+        },
+      ],
+      select: { id: true, colonyId: true },
+    });
+    // Nichts faellig: keinen game_tick_states-Eintrag pro Minute schreiben.
+    if (activeBuilds.length === 0) return;
+
     const tickNumber = Date.now();
     const { tickState, shouldRun } = await this.startTick(
       GameTickType.BUILDING_COMPLETION,
@@ -235,16 +249,6 @@ export class TickService {
     if (!shouldRun) return;
 
     try {
-      const activeBuilds = await this.fieldRepo.find({
-        where: [{ isBuilding: true }, { terraformingId: Not(IsNull()) }],
-        relations: ['colony'],
-      });
-
-      if (activeBuilds.length === 0) {
-        await this.finishTick(tickState, GameTickStatus.COMPLETED);
-        return;
-      }
-
       const colonyIds = [...new Set(activeBuilds.map((f) => f.colonyId))];
       const colonies = await this.colonyRepo.find({
         where: colonyIds.map((id) => ({ id })),
@@ -326,8 +330,12 @@ export class TickService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async checkWarpArrivals() {
-    const inFlightShips = await this.shipRepo.find({
-      where: { status: SpacecraftStatus.IN_FLIGHT },
+    const now = new Date();
+    const arrived = await this.shipRepo.find({
+      where: {
+        status: SpacecraftStatus.IN_FLIGHT,
+        arrivalAt: LessThanOrEqual(now),
+      },
       relations: [
         'location',
         'location.galaxyField',
@@ -337,11 +345,6 @@ export class TickService {
         'targetLocation.systemField',
       ],
     });
-
-    const now = new Date();
-    const arrived = inFlightShips.filter(
-      (s) => s.arrivalAt && new Date(s.arrivalAt) <= now,
-    );
 
     if (arrived.length === 0) return;
 

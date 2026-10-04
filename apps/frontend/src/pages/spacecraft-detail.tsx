@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { SpacecraftDetailDto } from '@swuniverse/shared';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { useSocket } from '../hooks/use-socket';
+import { WsEventType } from '@swuniverse/shared';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
 import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
@@ -81,9 +83,15 @@ export function SpacecraftDetailPage() {
 
   useEffect(() => {
     if (ship?.status !== 'IN_FLIGHT') return;
-    const interval = setInterval(() => void fetchShip(), 5000);
+    // Ankunft kommt per SHIP_MOVED-Socket-Event; das Intervall ist nur Fallback.
+    const interval = setInterval(() => void fetchShip(), 30000);
     return () => clearInterval(interval);
   }, [ship?.status, fetchShip]);
+
+  useSocket(WsEventType.SHIP_MOVED, (payload) => {
+    const event = payload as { shipId?: number };
+    if (event.shipId === Number(id)) void fetchShip();
+  });
 
   if (loading)
     return (
@@ -127,10 +135,7 @@ export function SpacecraftDetailPage() {
 
       <div className="mt-2 grid gap-2 xl:grid-cols-[minmax(360px,1.2fr)_minmax(300px,0.9fr)_minmax(250px,0.75fr)] xl:items-start">
         <div id="ship-navigation">
-          <NavigationPanel
-            ship={ship}
-            onShipUpdate={refreshShipAndStorage}
-          />
+          <NavigationPanel ship={ship} onShipUpdate={refreshShipAndStorage} />
         </div>
         <div className="space-y-2">
           <ShipControlCenter
