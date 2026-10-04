@@ -35,7 +35,7 @@ export interface SwuPolarWeights {
   eispanzer?: [number, number];
 }
 
-export function buildPolarPhases(entryField: string = 'A410', weights: SwuPolarWeights = {}): SwuBiomPhaseConfig[] {
+export function buildPolarPhases(entryField = 'A410', weights: SwuPolarWeights = {}): SwuBiomPhaseConfig[] {
   const gefriert = weights.gefriert ?? [7, 13];
   const packeis = weights.packeis ?? [4, 8];
   const eispanzer = weights.eispanzer ?? [2, 6];
@@ -116,7 +116,7 @@ export const SWU_POLAR_SEED_TILES = ['A540'];
  * vollstaendig freigelegte Felsplatte (= Bergersatz) + Gestein/Felsformation/
  * Geysir-Thermalquelle als optionale Deko. entryField default = 'B610'.
  */
-export function buildSubpolarPhases(entryField: string = 'B610'): SwuBiomPhaseConfig[] {
+export function buildSubpolarPhases(entryField = 'B610'): SwuBiomPhaseConfig[] {
   return [
     biomPhase({
       mode: 'nocluster',
@@ -185,7 +185,7 @@ export const SWU_SUBPOLAR_SEED_TILES = ['B119'];
  * Schneeflecken verbergen einfach nur offene Tundra, nicht zwingend Fels.
  * Reveal-Kaskade: B140 -> B110 (offene Tundra), Deko B141 (Verwehung).
  */
-export function buildSnowHiddenTundraPhases(entryField: string = 'B140'): SwuBiomPhaseConfig[] {
+export function buildSnowHiddenTundraPhases(entryField = 'B140'): SwuBiomPhaseConfig[] {
   return [
     biomPhase({
       mode: 'nocluster',
@@ -220,8 +220,8 @@ export const SWU_SNOW_HIDDEN_TUNDRA_SEED_TILES = ['B140'];
  * Suempfe statt Waelder", aber immer noch Buchstabe B, kein hoeherer Buchstabe).
  */
 export function buildTundraPhases(
-  entryField: string = 'B110',
-  warmerVariant: boolean = false,
+  entryField = 'B110',
+  warmerVariant = false,
   felsOverride?: [number, number],
   felsplatteOverride?: [number, number],
 ): SwuBiomPhaseConfig[] {
@@ -357,7 +357,7 @@ export interface SwuGemaessigtWeights {
 }
 
 export function buildGemaessigtPhases(
-  entryField: string = 'C110',
+  entryField = 'C110',
   weights: SwuGemaessigtWeights = {},
 ): SwuBiomPhaseConfig[] {
   const wald = weights.wald ?? [15, 25];
@@ -449,7 +449,7 @@ export interface SwuTropischWeights {
 }
 
 export function buildTropischPhases(
-  entryField: string = 'E110',
+  entryField = 'E110',
   weights: SwuTropischWeights = {},
 ): SwuBiomPhaseConfig[] {
   const regenwald = weights.regenwald ?? [13, 23];
@@ -667,7 +667,7 @@ export interface SwuVulkanischWeights {
 }
 
 export function buildVulkanischDecorationPhases(
-  entryField: string = 'F710',
+  entryField = 'F710',
   weights: SwuVulkanischWeights = {},
 ): SwuBiomPhaseConfig[] {
   const vulkane = weights.vulkane ?? [2, 6];
@@ -753,7 +753,7 @@ export interface SwuSchneeAufLavaWeights {
 }
 
 export function buildSchneeAufLavaPhases(
-  entryField: string = 'F550',
+  entryField = 'F550',
   weights: SwuSchneeAufLavaWeights = {},
 ): SwuBiomPhaseConfig[] {
   const verwehung = weights.verwehung ?? [0, 5];
@@ -851,7 +851,7 @@ export function isPlanetoidCraterIntact(grid: string[][]): boolean {
  * neutrale Ausgangsflaeche - alle natuerlichen Formationen "wachsen" hier
  * konzeptionell aus dem planierten Grund, symmetrisch zu den anderen Buchstaben).
  */
-export function buildPlanetoidDecorationPhases(entryField: string = 'G649'): SwuBiomPhaseConfig[] {
+export function buildPlanetoidDecorationPhases(entryField = 'G649'): SwuBiomPhaseConfig[] {
   return [
     biomPhase({
       mode: 'normal',
@@ -905,7 +905,7 @@ export interface SwuSubtropischWeights {
 }
 
 export function buildSubtropischPhases(
-  entryField: string = 'D110',
+  entryField = 'D110',
   weights: SwuSubtropischWeights = {},
 ): SwuBiomPhaseConfig[] {
   const waeldchen = weights.waeldchen ?? [6, 12];
@@ -1099,7 +1099,7 @@ export const SWU_GAS_STORM_COUNT_MOON = 7;
  * entryField default = 'H910'.
  */
 export function buildGasDecorationPhases(
-  entryField: string = 'H910',
+  entryField = 'H910',
   stormCount: number = SWU_GAS_STORM_COUNT_PLANET,
 ): SwuBiomPhaseConfig[] {
   return [
@@ -1151,7 +1151,7 @@ export interface SwuMarsartigWeights {
 }
 
 export function buildMarsartigPhases(
-  entryField: string = 'I110',
+  entryField = 'I110',
   weights: SwuMarsartigWeights = {},
 ): SwuBiomPhaseConfig[] {
   const wueste = weights.wueste ?? [12, 22];
@@ -1248,7 +1248,7 @@ export const SWU_MARSARTIG_SEED_TILES = ['I910', 'I119'];
 // statt Fels darunter (J840, ebenfalls Seed=Ja) - gleiche "Schnee versteckt X"-
 // Idee wie bei der Arktis (A/B), nur mit ANDEREM Basiszustand statt eines
 // generischen Composers, da beide Aeste selbst schon eigenstaendige Seed-Tiles sind.
-export function buildKaeltewuestePhases(entryField: string = 'J610'): SwuBiomPhaseConfig[] {
+export function buildKaeltewuestePhases(entryField = 'J610'): SwuBiomPhaseConfig[] {
   return [
     // Manche Bereiche sind eigentlich Kaeltewueste, nicht Fels, unter dem Schnee
     biomPhase({
@@ -1345,7 +1345,7 @@ export const SWU_KAELTEWUESTE_SEED_TILES = ['J610', 'J840', 'J819'];
 // Marsartig-Mid). Drei Aeste aus einer gemeinsamen Schneedecke: Fels, Rote
 // Wueste, Oedland.
 // ---------------------------------------------------------------------------
-export function buildRoteKaeltewuestePhases(entryField: string = 'K610'): SwuBiomPhaseConfig[] {
+export function buildRoteKaeltewuestePhases(entryField = 'K610'): SwuBiomPhaseConfig[] {
   return [
     // Manche Bereiche sind eigentlich Rote Wueste bzw. Oedland statt Fels
     biomPhase({

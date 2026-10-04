@@ -1056,7 +1056,7 @@ export function generateSwuBiomeSurface(
   archetype: SwuPlanetArchetype,
   rotation: SwuRotationType,
   elapsedGameMinutes = 0,
-  seed: string = `${archetype.typeId}-${archetype.variant ?? 'x'}-${rotation}`,
+  seed = `${archetype.typeId}-${archetype.variant ?? 'x'}-${rotation}`,
 ): SwuBiomeSurfaceCell[] {
   const width = SWU_BASE_WIDTH;
   const height = SWU_BASE_HEIGHT;
