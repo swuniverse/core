@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { getStuCelestialClass } from '@swuniverse/shared';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { PrestigeService } from '../prestige/prestige.service';
+import {
+  resolveSwuPlanetType,
+  type SwuTypeSource,
+} from './generator/swu-planet-type';
 import { CelestialClassDiscovery } from './entities/celestial-class-discovery.entity';
 
 @Injectable()
@@ -17,19 +20,25 @@ export class CelestialClassDiscoveryService {
 
   async discover(input: {
     userId: number;
-    classId: number | null;
-    celestialObjectId: number;
+    object: SwuTypeSource & { id: number };
     spacecraftId: number;
   }): Promise<{ discovered: boolean; prestigeAwarded: number; name: string } | null> {
-    const definition = getStuCelestialClass(input.classId);
-    if (!definition || definition.colonization === 'UNUSED') return null;
+    const definition = resolveSwuPlanetType(input.object);
+    if (!definition) return null;
 
     return this.dataSource.transaction(async (manager) => {
       const result = await manager
         .createQueryBuilder()
         .insert()
         .into(CelestialClassDiscovery)
-        .values({ ...input, classId: definition.id, source: 'SECTOR_SCAN' })
+        .values({
+          userId: input.userId,
+          spacecraftId: input.spacecraftId,
+          celestialObjectId: input.object.id,
+          classId: definition.classId,
+          swuTypeKey: definition.key,
+          source: 'SECTOR_SCAN',
+        })
         .orIgnore()
         .execute();
       if (!result.identifiers.length) {

@@ -13,6 +13,7 @@ COPY package.json package-lock.json nx.json tsconfig.base.json tsconfig.json ./
 COPY apps/frontend ./apps/frontend
 COPY packages ./packages
 COPY assets ./assets
+COPY game-data ./game-data
 RUN npx nx sync && npx nx build frontend
 
 FROM caddy:2-alpine AS production

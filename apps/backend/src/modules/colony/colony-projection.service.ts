@@ -1,3 +1,4 @@
+import { isSwuBonusMarkerUsable } from '../starmap/generator/swu-bonus-markers';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -214,31 +215,78 @@ export class ColonyProjectionService {
     private readonly colonyOrbitService: ColonyOrbitService,
   ) {}
 
-  toColonySummary(colony: Colony): Colony {
+  /**
+   * 'hidden' = Untergrund fuer normale Spieler unerforscht: echte Feld-
+   * daten werden ausgeblendet (kein Leak von terrainTileId/Gebaeuden).
+   * 'preview' = Admin sieht die echten Daten trotz fehlender Forschung
+   * (Frontend rendert das per `locked` z.B. in Graustufen).
+   */
+  toColonySummary(
+    colony: Colony,
+    undergroundVisibility: 'visible' | 'hidden' | 'preview' = 'visible',
+  ): Colony {
     return Object.assign(colony, {
       locationLabel:
         colony.celestialObject?.name || colony.starSystem?.name || 'Unknown',
-      fields: (colony.fields ?? []).map((field) => ({
-        id: field.id,
-        fieldIndex: field.fieldIndex,
-        fieldType: field.fieldType,
-        terrainTileId: field.terrainTileId ?? null,
-        layer: field.layer,
-        buildingId: field.buildingId,
-        isBuilding: field.isBuilding,
-        isActive: field.isActive,
-        integrity: field.integrity,
-        maxIntegrity: field.maxIntegrity,
-        buildProgress: field.buildProgress,
-        buildFinishesAt: field.buildFinishesAt?.toISOString() ?? null,
-        terraformingId: field.terraformingId,
-        terraformingFinishesAt:
-          field.terraformingFinishesAt?.toISOString() ?? null,
-      })),
+      fields: (colony.fields ?? []).map((field) => {
+        const locked =
+          field.layer === 'UNDERGROUND' && undergroundVisibility !== 'visible';
+        if (locked && undergroundVisibility === 'hidden') {
+          return {
+            id: field.id,
+            fieldIndex: field.fieldIndex,
+            fieldType: field.fieldType,
+            terrainTileId: null,
+            layer: field.layer,
+            buildingId: null,
+            isBuilding: false,
+            isActive: false,
+            integrity: 0,
+            maxIntegrity: 0,
+            buildProgress: 0,
+            buildFinishesAt: null,
+            terraformingId: null,
+            terraformingFinishesAt: null,
+            locked: true,
+          };
+        }
+        return {
+          id: field.id,
+          fieldIndex: field.fieldIndex,
+          fieldType: field.fieldType,
+          terrainTileId: field.terrainTileId ?? null,
+          bonusMarker: field.bonusMarker ?? null,
+          bonusMarkerActive: field.bonusMarker
+            ? isSwuBonusMarkerUsable(
+                field.bonusMarker,
+                field.terrainTileId,
+                this.gameData.getCategoriesForTerrainTile(
+                  field.terrainTileId ?? '',
+                ),
+              )
+            : null,
+          layer: field.layer,
+          buildingId: field.buildingId,
+          isBuilding: field.isBuilding,
+          isActive: field.isActive,
+          integrity: field.integrity,
+          maxIntegrity: field.maxIntegrity,
+          buildProgress: field.buildProgress,
+          buildFinishesAt: field.buildFinishesAt?.toISOString() ?? null,
+          terraformingId: field.terraformingId,
+          terraformingFinishesAt:
+            field.terraformingFinishesAt?.toISOString() ?? null,
+          ...(locked ? { locked: true, adminPreview: true } : {}),
+        };
+      }),
     });
   }
 
-  async toColonyDetail(colony: Colony, userId: number): Promise<Colony> {
+  async toColonyDetail(
+    colony: Colony,
+    userId: number,
+    isAdmin = false,
+  ): Promise<Colony> {
     const fields = colony.fields ?? [];
     const storage = colony.storage ?? [];
     const summary = this.colonyEconomyService.calculateSummary(colony);
@@ -422,6 +470,12 @@ export class ColonyProjectionService {
     const completedTechIds = new Set(
       (await this.unlockResolver.getCompletedTechIds(userId)).values(),
     );
+    const hasUndergroundKnowledge = await this.unlockResolver.hasTechByName(
+      userId,
+      'Untergrund-Wissen',
+    );
+    const undergroundVisibility: 'visible' | 'hidden' | 'preview' =
+      hasUndergroundKnowledge ? 'visible' : isAdmin ? 'preview' : 'hidden';
     const availableUpgradesByFieldIndex = new Map<
       number,
       Array<{
@@ -540,7 +594,7 @@ export class ColonyProjectionService {
       this.isShipyardField(field, true),
     );
 
-    return Object.assign(this.toColonySummary(colony), {
+    return Object.assign(this.toColonySummary(colony, undergroundVisibility), {
       fieldCount: fields.length,
       storageItemCount: storage.length,
       detailV2: {

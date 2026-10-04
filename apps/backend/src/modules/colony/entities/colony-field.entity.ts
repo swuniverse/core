@@ -27,11 +27,15 @@ export class ColonyField {
   @Column()
   fieldType: number;
 
-  @Column({ type: 'int', nullable: true })
-  terrainTileId: number | null;
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  terrainTileId: string | null;
 
   @Column({ type: 'varchar', length: 16, nullable: true })
   layer: 'ORBIT' | 'SURFACE' | 'UNDERGROUND' | null;
+
+  /** SWU planetarer Bonus-Marker (siehe swu-bonus-markers.ts), null = keiner. */
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  bonusMarker: string | null;
 
   @Column({ type: 'int', nullable: true })
   buildingId: number | null;
@@ -60,8 +64,8 @@ export class ColonyField {
   @Column({ type: 'int', nullable: true })
   reactivateAfterUpgrade: number | null;
 
-  @Column({ type: 'int', nullable: true })
-  terraformingId: number | null;
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  terraformingId: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   terraformingFinishesAt: Date | null;

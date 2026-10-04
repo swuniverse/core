@@ -94,13 +94,13 @@ describe('GameDataService terraforming', () => {
 
   it('loads curated STU-like terraforming options', () => {
     expect(service.getTerraforming(111101)).toMatchObject({
-      fromFieldType: 111,
-      toFieldType: 101,
+      fromFieldType: '111',
+      toFieldType: '101',
       energyCost: 25,
     });
     expect(
       service.getTerraformingForFieldType(111).map((option) => option.id),
-    ).toContain(111101);
+    ).toContain('111101');
   });
 });
 

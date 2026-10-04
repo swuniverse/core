@@ -57,6 +57,7 @@ import {
 import { Colony } from '../colony/entities/colony.entity';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
 import { ShipColonyContextService } from './ship-colony-context.service';
+import { findShieldedColonyObjectIds } from './shielded-colonies.util';
 import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
@@ -1415,7 +1416,14 @@ export class SpacecraftService {
     const previousField = resolveSpacecraftField(ship);
     ship.currentSystemFieldX = targetX;
     ship.currentSystemFieldY = targetY;
+    // targetField wurde oben schon fuer diese exakte Position geladen - kein
+    // erneuter Lookup noetig (anders als refreshCelestialObjectAtCurrentField).
     ship.celestialObjectId = targetField?.celestialObjectId ?? null;
+    // `ship` wurde mit der celestialObject-Relation geladen (this.findOne oben).
+    // Ohne dieses Zuruecksetzen ueberschreibt TypeORM beim Speichern die eben
+    // gesetzte celestialObjectId wieder mit der ID der noch geladenen (alten)
+    // Relation - die Spalte blieb dadurch de facto am vorherigen Objekt haengen.
+    ship.celestialObject = null;
     ship.targetX = null;
     ship.targetY = null;
     ship.arrivalAt = null;
@@ -1613,6 +1621,10 @@ export class SpacecraftService {
     ship.currentSystemFieldX = entryField.sx;
     ship.currentSystemFieldY = entryField.sy;
     ship.celestialObjectId = entryField.celestialObjectId;
+    // siehe Kommentar in navigate(): geladene celestialObject-Relation muss
+    // mit zurueckgesetzt werden, sonst gewinnt sie beim Speichern gegen die
+    // hier gesetzte celestialObjectId.
+    ship.celestialObject = null;
     ship.status = SpacecraftStatus.IDLE;
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     systems.WARPDRIVE!.active = false;
@@ -1951,6 +1963,42 @@ export class SpacecraftService {
     });
   }
 
+  /**
+   * Synchronisiert ship.celestialObjectId mit dem SystemField an der aktuellen
+   * currentSystemFieldX/Y-Position. Noetig ueberall dort, wo eine Schiffs-
+   * position asynchron (per Tick, siehe processMovement) statt synchron per
+   * Request gesetzt wird - der synchrone Pfad (siehe oben) setzt es direkt aus
+   * dem bereits geladenen targetField, hier fehlt dieser Kontext und muss neu
+   * nachgeschlagen werden. Ohne das blieb celestialObjectId auf dem zuletzt
+   * besuchten Objekt stehen, auch nachdem das Schiff laengst woanders war -
+   * sichtbar z.B. im Kolonisierungsdialog, der dann das falsche Ziel zeigte.
+   */
+  private async refreshCelestialObjectAtCurrentField(
+    ship: Spacecraft,
+  ): Promise<void> {
+    if (
+      !ship.starSystemId ||
+      ship.currentSystemFieldX == null ||
+      ship.currentSystemFieldY == null
+    ) {
+      ship.celestialObjectId = null;
+      ship.celestialObject = null;
+      return;
+    }
+    const field = await this.systemFieldRepo.findOne({
+      where: {
+        starSystemId: ship.starSystemId,
+        sx: ship.currentSystemFieldX,
+        sy: ship.currentSystemFieldY,
+      },
+    });
+    ship.celestialObjectId = field?.celestialObjectId ?? null;
+    // Eine zuvor geladene celestialObject-Relation gewinnt sonst beim
+    // Speichern gegen die hier gesetzte celestialObjectId (TypeORM leitet die
+    // FK-Spalte aus der Relation ab, wenn beide gesetzt sind) - siehe navigate().
+    ship.celestialObject = null;
+  }
+
   async processMovement(ship: Spacecraft): Promise<void> {
     if (ship.status !== SpacecraftStatus.IN_FLIGHT || !ship.arrivalAt) return;
 
@@ -1968,6 +2016,7 @@ export class SpacecraftService {
         ship.posY = targetSystem?.cy ?? ship.posY;
         ship.currentLayerId = targetSystem?.layerId ?? ship.currentLayerId;
         ship.targetSystemId = null;
+        await this.refreshCelestialObjectAtCurrentField(ship);
 
         if (targetSystem) {
           await this.explorationService.discoverSystem({
@@ -1981,6 +2030,7 @@ export class SpacecraftService {
           // In-system navigation arrival
           ship.currentSystemFieldX = ship.targetX;
           ship.currentSystemFieldY = ship.targetY;
+          await this.refreshCelestialObjectAtCurrentField(ship);
 
           if (ship.starSystemId) {
             await this.explorationService.discoverSystem({
@@ -2371,55 +2421,60 @@ export class SpacecraftService {
         minY: Math.max(1, shipY - sensorRange),
         maxY: Math.min(ship.starSystem?.maxY ?? shipY, shipY + sensorRange),
       };
-      const [fields, nearbyShips, starObjects, wrecks] = await Promise.all([
-        this.systemFieldRepo
-          .createQueryBuilder('sf')
-          .leftJoinAndSelect('sf.fieldType', 'ft')
-          .leftJoinAndSelect('sf.celestialObject', 'co')
-          .where('sf.starSystemId = :sid', { sid: ship.starSystemId })
-          .andWhere('sf.sx BETWEEN :minX AND :maxX', {
-            minX: bounds.minX,
-            maxX: bounds.maxX,
-          })
-          .andWhere('sf.sy BETWEEN :minY AND :maxY', {
-            minY: bounds.minY,
-            maxY: bounds.maxY,
-          })
-          .getMany(),
-        this.shipRepo
-          .createQueryBuilder('s')
-          .leftJoin('s.user', 'u')
-          .addSelect(['u.username'])
-          .where('s.starSystemId = :sid', { sid: ship.starSystemId })
-          .andWhere('s.inSystem = true')
-          .andWhere('s.id != :shipId', { shipId: ship.id })
-          .andWhere('s.status != :destroyed', {
-            destroyed: SpacecraftStatus.DESTROYED,
-          })
-          .andWhere('s.currentSystemFieldX BETWEEN :minX AND :maxX', {
-            minX: bounds.minX,
-            maxX: bounds.maxX,
-          })
-          .andWhere('s.currentSystemFieldY BETWEEN :minY AND :maxY', {
-            minY: bounds.minY,
-            maxY: bounds.maxY,
-          })
-          .getMany(),
-        this.objectRepo
-          .createQueryBuilder('object')
-          .where('object.systemId = :systemId', {
-            systemId: ship.starSystemId,
-          })
-          .andWhere('object.classId IN (:...starClassIds)', {
-            starClassIds: [9001, 9002],
-          })
-          .orderBy('object.classId', 'ASC')
-          .addOrderBy('object.id', 'ASC')
-          .getMany(),
-        this.dataSource.getRepository(SpacecraftWreck).find({
-          where: { starSystemId: ship.starSystemId, inSystem: true },
-        }),
-      ]);
+      const [fields, nearbyShips, starObjects, wrecks, shieldedObjectIds] =
+        await Promise.all([
+          this.systemFieldRepo
+            .createQueryBuilder('sf')
+            .leftJoinAndSelect('sf.fieldType', 'ft')
+            .leftJoinAndSelect('sf.celestialObject', 'co')
+            .where('sf.starSystemId = :sid', { sid: ship.starSystemId })
+            .andWhere('sf.sx BETWEEN :minX AND :maxX', {
+              minX: bounds.minX,
+              maxX: bounds.maxX,
+            })
+            .andWhere('sf.sy BETWEEN :minY AND :maxY', {
+              minY: bounds.minY,
+              maxY: bounds.maxY,
+            })
+            .getMany(),
+          this.shipRepo
+            .createQueryBuilder('s')
+            .leftJoin('s.user', 'u')
+            .addSelect(['u.username'])
+            .where('s.starSystemId = :sid', { sid: ship.starSystemId })
+            .andWhere('s.inSystem = true')
+            .andWhere('s.id != :shipId', { shipId: ship.id })
+            .andWhere('s.status != :destroyed', {
+              destroyed: SpacecraftStatus.DESTROYED,
+            })
+            .andWhere('s.currentSystemFieldX BETWEEN :minX AND :maxX', {
+              minX: bounds.minX,
+              maxX: bounds.maxX,
+            })
+            .andWhere('s.currentSystemFieldY BETWEEN :minY AND :maxY', {
+              minY: bounds.minY,
+              maxY: bounds.maxY,
+            })
+            .getMany(),
+          this.objectRepo
+            .createQueryBuilder('object')
+            .where('object.systemId = :systemId', {
+              systemId: ship.starSystemId,
+            })
+            .andWhere('object.classId IN (:...starClassIds)', {
+              starClassIds: [9001, 9002],
+            })
+            .orderBy('object.classId', 'ASC')
+            .addOrderBy('object.id', 'ASC')
+            .getMany(),
+          this.dataSource.getRepository(SpacecraftWreck).find({
+            where: { starSystemId: ship.starSystemId, inSystem: true },
+          }),
+          findShieldedColonyObjectIds(
+            this.dataSource.getRepository(Colony),
+            ship.starSystemId,
+          ),
+        ]);
 
       return {
         mode: 'system' as const,
@@ -2452,6 +2507,7 @@ export class SpacecraftService {
                 objectType: f.celestialObject.objectType,
                 classId: f.celestialObject.classId,
                 isColonizable: f.celestialObject.isColonizable,
+                shielded: shieldedObjectIds.has(f.celestialObject.id),
                 posX: f.celestialObject.posX,
                 posY: f.celestialObject.posY,
               }

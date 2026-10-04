@@ -1,6 +1,12 @@
+import { useEffect, useState } from 'react';
 import { formatSignedAmount } from '../utils';
 import type { BuildingDef, ColonyField } from '../types';
 import { FieldCell } from './FieldCell';
+import { surfaceTimeState } from '../../../lib/daylight';
+import type { SwuColonyEcosystem } from '../useSwuColonyEcosystem';
+
+const DEFAULT_COLUMNS = 10;
+const DAYLIGHT_REFRESH_MS = 60_000;
 
 type ColonyMapProps = {
   orbitFields: ColonyField[];
@@ -15,17 +21,23 @@ type ColonyMapProps = {
   onFieldMouseEnter: (field: ColonyField) => void;
   onFieldMouseLeave: () => void;
   energy: { current: number; max: number; delta?: number };
+  /** Nur SWU-Kolonien: steuert die Tag/Nacht-Kacheln der Oberflaeche. */
+  ecosystem?: SwuColonyEcosystem | null;
+  /** Breite von Oberflaeche und Untergrund (Monde sind schmaler als 10). */
+  surfaceWidth?: number;
 };
 
 function ColonyMapSection({
   title,
   tone,
   fields,
+  columns,
   children,
 }: {
   title: string;
   tone: string;
   fields: ColonyField[];
+  columns: number;
   children: React.ReactNode;
 }) {
   if (fields.length === 0) return null;
@@ -42,7 +54,12 @@ function ColonyMapSection({
           {fields.length} Felder · {built} bebaut
         </div>
       </div>
-      <div className="grid grid-cols-10 gap-px">{children}</div>
+      <div
+        className="grid gap-px"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -60,7 +77,34 @@ export function ColonyMap({
   onFieldClick,
   onFieldMouseEnter,
   onFieldMouseLeave,
+  ecosystem,
+  surfaceWidth: surfaceWidthProp,
 }: ColonyMapProps) {
+  // Orbit besteht aus zwei Reihen (Planeten 10 Spalten, Monde 6).
+  const orbitColumns = orbitFields.length >= 2 ? Math.round(orbitFields.length / 2) : DEFAULT_COLUMNS;
+  const surfaceWidth = surfaceWidthProp && surfaceWidthProp > 0 ? surfaceWidthProp : DEFAULT_COLUMNS;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ecosystem) return;
+    const timer = window.setInterval(() => setNow(Date.now()), DAYLIGHT_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [ecosystem]);
+
+  // Orbit und Oberflaeche wechseln spaltenweise zwischen Tag und Nacht; der
+  // Untergrund liegt in ewiger Nacht (relevant fuer Codes mit t/n-Variante,
+  // z.B. der vulkanische Untergrund von Gasplaneten).
+  const columnIndex = new Map<string, number>();
+  orbitFields.forEach((f, i) => columnIndex.set(`ORBIT-${f.fieldIndex}`, i));
+  surfaceFields.forEach((f, i) => columnIndex.set(`SURFACE-${f.fieldIndex}`, i));
+  const timeStateOf = (field: ColonyField) => {
+    if (!ecosystem) return undefined;
+    if (field.layer === 'UNDERGROUND') return 'night' as const;
+    const i = columnIndex.get(`${field.layer}-${field.fieldIndex}`);
+    if (i === undefined) return undefined;
+    const width = field.layer === 'ORBIT' ? orbitColumns : surfaceWidth;
+    return surfaceTimeState(ecosystem, i % width, width, now);
+  };
+
   const renderField = (field: ColonyField) => (
     <FieldCell
       key={field.fieldIndex}
@@ -77,6 +121,7 @@ export function ColonyMap({
       isBuildMode={isBuildMode}
       isFieldActive={field.isActive}
       buildPreviewTitle={getBuildPreviewTitle(field)}
+      timeState={timeStateOf(field)}
       onMouseEnter={() => onFieldMouseEnter(field)}
       onMouseLeave={onFieldMouseLeave}
       onClick={() => onFieldClick(field)}
@@ -126,6 +171,7 @@ export function ColonyMap({
           title="Orbit"
           tone="text-swu-orbit"
           fields={orbitFields}
+          columns={orbitColumns}
         >
           {orbitFields.map(renderField)}
         </ColonyMapSection>
@@ -133,6 +179,7 @@ export function ColonyMap({
           title="Oberfläche"
           tone="text-swu-success"
           fields={surfaceFields}
+          columns={surfaceWidth}
         >
           {surfaceFields.map(renderField)}
         </ColonyMapSection>
@@ -140,6 +187,7 @@ export function ColonyMap({
           title="Untergrund"
           tone="text-swu-underground"
           fields={undergroundFields}
+          columns={surfaceWidth}
         >
           {undergroundFields.map(renderField)}
         </ColonyMapSection>

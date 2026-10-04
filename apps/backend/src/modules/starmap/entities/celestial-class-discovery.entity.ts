@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 
 @Entity('celestial_class_discoveries')
-@Index(['userId', 'classId'], { unique: true })
+@Index(['userId', 'swuTypeKey'], { unique: true })
 export class CelestialClassDiscovery {
   @PrimaryGeneratedColumn()
   id: number;
@@ -15,8 +15,13 @@ export class CelestialClassDiscovery {
   @Column()
   userId: number;
 
+  /** Synthetische SWU-classId (Grafik); nicht eindeutig, da Rotation/Ring/Mond eigene Typen sind. */
   @Column()
   classId: number;
+
+  /** SWU-Planetentyp-Schluessel, siehe resolveSwuPlanetType(). */
+  @Column({ type: 'varchar', length: 32 })
+  swuTypeKey: string;
 
   @Column()
   celestialObjectId: number;

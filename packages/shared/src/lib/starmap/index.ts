@@ -1,5 +1,6 @@
 export * from './planet-classes.js';
 export * from './colonization-rules.js';
+export * from './swu-planet-assets.js';
 
 export interface StarmapLayerDto {
   id: number;
@@ -235,6 +236,26 @@ export interface StarmapOperationResultDto {
   updated?: number;
   deleted?: boolean;
   generated?: number;
+}
+
+export interface StarmapSetEmptyToSwuResultDto extends StarmapOperationResultDto {
+  converted: number;
+  skippedInhabited: number;
+  skippedNoMapping: number;
+}
+
+export interface StarmapSetEmptyToStuResultDto extends StarmapOperationResultDto {
+  reverted: number;
+  skippedInhabited: number;
+}
+
+export interface StarmapResetUninhabitedResultDto extends StarmapOperationResultDto {
+  /** Anzahl geloeschter Kolonie-Datensaetze (aufgegeben/besitzerlos) */
+  removedColonies: number;
+  /** Anzahl Himmelskoerper, die dadurch wieder unbespielt sind */
+  resetObjects: number;
+  /** Aktiv bewohnte Kolonien, die unangetastet blieben */
+  skippedInhabited: number;
 }
 
 export interface StarmapFillSectorDto {

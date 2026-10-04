@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { planetThumbnail, systemTypeImage } from '../lib/assets';
+import { PlanetImg } from '../components/PlanetImg';
+import { systemTypeImage } from '../lib/assets';
 import { api } from '../services/api';
 
 type RankingKey =
@@ -59,7 +60,10 @@ type PlanetTypes = {
   discovered: number;
   total: number;
   entries: Array<{
+    key: string;
     classId: number;
+    objectTypeId: number;
+    imageName: string;
     discovered: boolean;
     name: string | null;
     description: string | null;
@@ -255,13 +259,15 @@ function PlanetTypes({ data }: { data: PlanetTypes }) {
         </thead>
         <tbody>
           {data.entries.map((entry) => (
-            <tr key={entry.classId} className="border-t border-swu-border/60">
+            <tr key={entry.key} className="border-t border-swu-border/60">
               {entry.discovered ? (
                 <>
                   <td className="p-1">
-                    <img
-                      src={planetThumbnail(entry.classId)}
-                      alt=""
+                    <PlanetImg
+                      classId={entry.classId}
+                      name={entry.imageName}
+                      objectType={entry.objectTypeId}
+                      thumbnail
                       className="size-10 object-contain"
                     />
                   </td>

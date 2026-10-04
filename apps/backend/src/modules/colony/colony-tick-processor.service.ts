@@ -198,8 +198,13 @@ export class ColonyTickProcessorService {
           field.terraformingId,
         );
         if (terraforming) {
-          field.fieldType = terraforming.toFieldType;
-          field.terrainTileId = terraforming.toFieldType;
+          // fieldType bleibt eine reine Gameplay-Zahl - bei SWU-Zielen (z.B.
+          // "E433") gibt es noch keine numerische Entsprechung, also nur bei
+          // rein numerischen (alten STU-)Zielen mitziehen.
+          if (/^\d+$/.test(String(terraforming.toFieldType))) {
+            field.fieldType = Number(terraforming.toFieldType);
+          }
+          field.terrainTileId = String(terraforming.toFieldType);
         }
         field.terraformingId = null;
         field.terraformingFinishesAt = null;

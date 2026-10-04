@@ -24,7 +24,7 @@ function formatColonyTickReport(payload: ColonyTickReportPayload): string {
     return `Kolonie ${payload.colonyId}: Gebäude fertiggestellt${suffix}`;
   }
   if (first.type === 'TERRAFORMING_FINISHED') {
-    return `Kolonie ${payload.colonyId}: Terraforming abgeschlossen${suffix}`;
+    return `Kolonie ${payload.colonyId}: Geoengineering abgeschlossen${suffix}`;
   }
   return `Kolonie ${payload.colonyId}: ${payload.events.length} Tick-Ereignis(se)`;
 }

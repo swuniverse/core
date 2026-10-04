@@ -37,6 +37,28 @@ export class ColonizationController {
     );
   }
 
+  @Get('targets/:celestialObjectId/swu-proposals')
+  swuProposals(
+    @Param('celestialObjectId', ParseIntPipe) celestialObjectId: number,
+    @Query('rotation') rotation?: string,
+  ) {
+    return this.colonizationService.getSwuColonizationProposals(
+      celestialObjectId,
+      rotation === 'tidal-locked' ? 'tidal-locked' : 'rotating',
+    );
+  }
+
+  @Get('colonies/:colonyId/ecosystem')
+  colonyEcosystem(
+    @Request() req: { user: { sub: number } },
+    @Param('colonyId', ParseIntPipe) colonyId: number,
+  ) {
+    return this.colonizationService.getSwuColonyEcosystem(
+      colonyId,
+      req.user.sub,
+    );
+  }
+
   @Get('starter/options')
   starterOptions(@Request() req: { user: { sub: number } }) {
     return this.colonizationService.getStarterColonizationOptions(req.user.sub);
@@ -64,12 +86,14 @@ export class ColonizationController {
     @Param('shipId', ParseIntPipe) shipId: number,
     @Body('celestialObjectId') celestialObjectId: number,
     @Body('initialFieldIndex') initialFieldIndex?: number,
+    @Body('zoneSlot') zoneSlot?: 1 | 2 | 3,
   ) {
     return this.colonizationService.colonize(
       req.user.sub,
       shipId,
       celestialObjectId,
       initialFieldIndex,
+      zoneSlot,
     );
   }
 }

@@ -309,3 +309,91 @@ describe('StarmapAdminService tactical world reset', () => {
     expect(queries).not.toContain('DELETE FROM "research"');
   });
 });
+
+/**
+ * Fluent QueryBuilder-Mock fuer setEmptyPlanetsToSwu/Stu: .clone() muss den
+ * bisher angesammelten Zustand (hier: nur die andWhere-Bedingungen) in einen
+ * NEUEN, unabhaengig weiter verketteten Builder kopieren - die Antwort
+ * (getMany/getCount) haengt davon ab, ob unter den Bedingungen ein
+ * "NOT EXISTS" (= unbewohnt/Kandidat) oder ein blankes "EXISTS" (= bewohnt)
+ * vorkommt, analog zur echten SQL-Semantik.
+ */
+function createQueryBuilderMock(options: {
+  inhabited: unknown[];
+  uninhabited: unknown[];
+}) {
+  function build(conditions: string[]): Record<string, unknown> {
+    const builder: Record<string, unknown> = {
+      where: jest.fn((sql: string) => build([...conditions, sql])),
+      andWhere: jest.fn((sql: string) => build([...conditions, sql])),
+      clone: jest.fn(() => build([...conditions])),
+      getMany: jest.fn(async () =>
+        conditions.some((c) => c.includes('NOT EXISTS'))
+          ? options.uninhabited
+          : conditions.some((c) => c.includes('EXISTS'))
+            ? options.inhabited
+            : [...options.inhabited, ...options.uninhabited],
+      ),
+      getCount: jest.fn(async () => {
+        if (conditions.some((c) => c.includes('NOT EXISTS')))
+          return options.uninhabited.length;
+        if (conditions.some((c) => c.includes('EXISTS')))
+          return options.inhabited.length;
+        return options.inhabited.length + options.uninhabited.length;
+      }),
+    };
+    return builder;
+  }
+  return jest.fn(() => build([]));
+}
+
+describe('StarmapAdminService setEmptyPlanetsToSwu/Stu', () => {
+  it('converts only unmapped-free, uninhabited STU planets/moons and remembers originalClassId', async () => {
+    const uninhabited = [
+      { id: 1, classId: 201, originalClassId: null }, // M planet -> Erdaehnlich
+      { id: 2, classId: 231, originalClassId: null }, // D planet -> Mondartig
+    ];
+    const inhabited = [{ id: 3, classId: 211, originalClassId: null }]; // K planet, bewohnt
+    const objectRepo = repo({
+      createQueryBuilder: createQueryBuilderMock({
+        inhabited,
+        uninhabited,
+      }),
+      save: jest.fn(async (value) => value),
+    });
+    const { service } = createService({ objectRepo });
+
+    const result = await service.setEmptyPlanetsToSwu();
+
+    expect(result.converted).toBe(2);
+    expect(result.skippedInhabited).toBe(1);
+    expect(result.skippedNoMapping).toBe(0);
+    expect(uninhabited[0]).toMatchObject({ originalClassId: 201 });
+    expect(uninhabited[0].classId).not.toBe(201);
+    expect(uninhabited[1]).toMatchObject({ originalClassId: 231 });
+    expect(objectRepo.save).toHaveBeenCalledWith(uninhabited);
+    // die bewohnte Kandidatin wird nie angefasst
+    expect(inhabited[0]).toMatchObject({ classId: 211, originalClassId: null });
+  });
+
+  it('restores the exact original classId on the way back, leaving inhabited objects untouched', async () => {
+    const uninhabited = [
+      { id: 1, classId: 90010, originalClassId: 201 },
+      { id: 2, classId: 90100, originalClassId: 221 },
+    ];
+    const inhabited = [{ id: 3, classId: 90090, originalClassId: 211 }];
+    const objectRepo = repo({
+      createQueryBuilder: createQueryBuilderMock({ inhabited, uninhabited }),
+      save: jest.fn(async (value) => value),
+    });
+    const { service } = createService({ objectRepo });
+
+    const result = await service.setEmptyPlanetsToStu();
+
+    expect(result.reverted).toBe(2);
+    expect(result.skippedInhabited).toBe(1);
+    expect(uninhabited[0]).toMatchObject({ id: 1, classId: 201, originalClassId: null, swuRotation: null, swuRing: false });
+    expect(uninhabited[1]).toMatchObject({ id: 2, classId: 221, originalClassId: null });
+    expect(inhabited[0]).toEqual({ id: 3, classId: 90090, originalClassId: 211 });
+  });
+});

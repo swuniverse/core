@@ -1,4 +1,9 @@
-import type { BuildingDef, ColonyField, ColonyStorageItem } from './types';
+import type {
+  BuildingDef,
+  ColonyField,
+  ColonyStorageItem,
+  FieldCategoriesSummary,
+} from './types';
 
 export function canAfford(
   building: BuildingDef,
@@ -43,7 +48,11 @@ export function formatSignedAmount(value: number): string {
 }
 
 export function getFieldTypeCandidates(field: ColonyField): number[] {
-  const terrainTileId = field.terrainTileId ?? undefined;
+  // terrainTileId ist string|null (SWU-Codes wie "A540") - nur reine Zahlen (alte STU-Felder) einbeziehen.
+  const terrainTileId =
+    field.terrainTileId != null && /^\d+$/.test(field.terrainTileId)
+      ? Number(field.terrainTileId)
+      : undefined;
   const normalizedFieldType =
     field.fieldType >= 10000
       ? Math.floor(field.fieldType / 100)
@@ -53,6 +62,44 @@ export function getFieldTypeCandidates(field: ColonyField): number[] {
       fieldType !== null &&
       fieldType !== undefined &&
       values.indexOf(fieldType) === index,
+  );
+}
+
+/** Numerische Feldtyp-Kandidaten plus roher terrainTileId-String (auch nicht-numerisch, z.B. "E432"), fuer Terraforming-Matching. */
+export function getFieldIdentityCandidates(field: ColonyField): string[] {
+  const candidates = getFieldTypeCandidates(field).map((candidate) =>
+    String(candidate),
+  );
+  if (field.terrainTileId != null && !candidates.includes(field.terrainTileId)) {
+    candidates.push(field.terrainTileId);
+  }
+  return candidates;
+}
+
+/**
+ * Baubarkeits-Check analog zum Backend (isBuildingAllowedOnField): erst die
+ * alten numerischen allowedFieldTypes, dann zusaetzlich die SWU-Feldkategorien
+ * (terrainTileId -> Kategorien wie "standard"/"bergbau"/"orbit"). "any"-
+ * Kategorien erlauben jedes Gebaeude.
+ */
+export function buildingAllowedOnField(
+  building: BuildingDef,
+  field: ColonyField,
+  fieldCategories: FieldCategoriesSummary,
+): boolean {
+  if (
+    getFieldTypeCandidates(field).some((fieldType) =>
+      building.allowedFieldTypes.includes(fieldType),
+    )
+  ) {
+    return true;
+  }
+  if (!field.terrainTileId) return false;
+  const categories = fieldCategories.tiles[field.terrainTileId] ?? [];
+  return categories.some(
+    (category) =>
+      fieldCategories.anyCategories.includes(category) ||
+      building.allowedFieldTypes.includes(category),
   );
 }
 

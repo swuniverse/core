@@ -57,6 +57,21 @@ class CelestialObjectActionDto {
   celestialObjectId: number;
 }
 
+class ColonizeDto extends CelestialObjectActionDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  initialFieldIndex?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  zoneSlot?: 1 | 2 | 3;
+}
+
 class ColonyScanDto {
   @Type(() => Number)
   @IsInt()
@@ -600,12 +615,14 @@ export class SpacecraftController {
   colonize(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body() dto: CelestialObjectActionDto,
+    @Body() dto: ColonizeDto,
   ) {
     return this.colonizationService.colonize(
       req.user.sub,
       id,
       dto.celestialObjectId,
+      dto.initialFieldIndex,
+      dto.zoneSlot,
     );
   }
 

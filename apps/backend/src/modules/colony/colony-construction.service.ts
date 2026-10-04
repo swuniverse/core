@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
+import { findArchetypeBySwuClassId } from '../starmap/generator/swu-archetype-registry';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyBuildingEffectsService } from './colony-building-effects.service';
@@ -57,8 +58,18 @@ export class ColonyConstructionService {
     return this.ownership.findOwnedColony(colonyId, userId);
   }
 
-  async getAvailableBuildings(userId: number, fieldType?: number) {
-    const buildings = fieldType
+  /**
+   * Freigeschaltete Gebaeude. Mit colonyId nur solche, die auf dieser Kolonie
+   * zumindest ueber Terraforming baubar sind (aktuelles Feld oder eine
+   * Terraforming-Kette dorthin) und nicht an der fehlenden Atmosphaere
+   * scheitern.
+   */
+  async getAvailableBuildings(
+    userId: number,
+    fieldType?: number,
+    colonyId?: number,
+  ) {
+    let buildings = fieldType
       ? this.gameData.getBuildingsForFieldTypes(
           this.getFieldTypeCandidatesFromType(fieldType),
         )
@@ -69,6 +80,21 @@ export class ColonyConstructionService {
               building.visible !== false &&
               building.allowedFieldTypes.length > 0,
           );
+    if (colonyId != null) {
+      const colony = await this.findOne(colonyId, userId);
+      const reachable = this.getReachableFieldIdentities(colony);
+      buildings = buildings.filter(
+        (building) =>
+          !this.lacksRequiredAtmosphere(colony, building) &&
+          reachable.some((identity) =>
+            this.isBuildingAllowedOnFieldIdentity(
+              building,
+              identity.fieldType,
+              identity.terrainTileId,
+            ),
+          ),
+      );
+    }
     const result = [];
     for (const building of buildings) {
       if (await this.unlockResolver.isBuildingUnlocked(userId, building.id)) {
@@ -76,6 +102,49 @@ export class ColonyConstructionService {
       }
     }
     return result;
+  }
+
+  /** Alle Feld-Identitaeten der Kolonie plus alles, was per Terraforming-Kette daraus entstehen kann. */
+  private getReachableFieldIdentities(
+    colony: Colony,
+  ): Array<{ fieldType: number | null; terrainTileId: string | null }> {
+    const result = new Map<
+      string,
+      { fieldType: number | null; terrainTileId: string | null }
+    >();
+    const queue: string[] = [];
+    const visit = (
+      key: string,
+      fieldType: number | null,
+      terrainTileId: string | null,
+    ) => {
+      if (result.has(key)) return;
+      result.set(key, { fieldType, terrainTileId });
+    };
+    for (const field of colony.fields ?? []) {
+      visit(
+        `${field.fieldType}|${field.terrainTileId ?? ''}`,
+        field.fieldType,
+        field.terrainTileId ?? null,
+      );
+      // Terraforming-Quellen sind je nach Datensatz Tile-Code oder numerischer Feldtyp.
+      for (const source of [field.terrainTileId, String(field.fieldType)]) {
+        if (source) queue.push(source);
+      }
+    }
+    const seenSources = new Set<string>();
+    while (queue.length > 0) {
+      const source = queue.shift() as string;
+      if (seenSources.has(source)) continue;
+      seenSources.add(source);
+      for (const option of this.gameData.getTerraformingForFieldType(source)) {
+        const target = option.toFieldType;
+        const numeric = /^\d+$/.test(target) ? Number(target) : null;
+        visit(`t|${target}`, numeric, target);
+        queue.push(target);
+      }
+    }
+    return Array.from(result.values());
   }
 
   async activateBuildings(
@@ -131,6 +200,7 @@ export class ColonyConstructionService {
       );
     }
     this.assertOrbitAllowed(colony, field, 'build in orbit');
+    this.assertAtmosphereAllowed(colony, buildingDef);
 
     if (buildingDef.researchId != null) {
       const unlocked = await this.unlockResolver.isBuildingUnlocked(
@@ -181,6 +251,28 @@ export class ColonyConstructionService {
     );
 
     return this.fieldRepo.save(field);
+  }
+
+  /** Wohn- und Farmgebaeude brauchen eine Atmosphaere - auf Planeten ohne (z.B. Mondartig, Lavaplanet) nie baubar, auch nicht auf "standard"-Feldern. */
+  private lacksRequiredAtmosphere(
+    colony: Colony,
+    buildingDef: BuildingDef,
+  ): boolean {
+    if (!buildingDef.requiresAtmosphere) return false;
+    const classId = colony.celestialObject?.classId;
+    const archetype = classId ? findArchetypeBySwuClassId(classId) : null;
+    return archetype?.atmosphere === 'Keine';
+  }
+
+  private assertAtmosphereAllowed(
+    colony: Colony,
+    buildingDef: BuildingDef,
+  ): void {
+    if (this.lacksRequiredAtmosphere(colony, buildingDef)) {
+      throw new BadRequestException(
+        'This building requires an atmosphere, which this planet does not have',
+      );
+    }
   }
 
   private async checkBuildingLimits(
@@ -276,10 +368,16 @@ export class ColonyConstructionService {
 
   private getFieldTypeCandidatesFromType(
     fieldType: number,
-    terrainTileId?: number,
+    terrainTileId?: string,
   ): number[] {
     const normalizedFieldType = this.normalizeFieldTypeCandidate(fieldType);
-    return [terrainTileId, fieldType, normalizedFieldType].filter(
+    // terrainTileId ist ein String (SWU-Codes wie "A540" sind nicht numerisch) -
+    // nur einbeziehen, wenn es sich (wie bei alten STU-Feldern) um eine reine Zahl handelt.
+    const terrainTileIdAsNumber =
+      terrainTileId != null && /^\d+$/.test(terrainTileId)
+        ? Number(terrainTileId)
+        : undefined;
+    return [terrainTileIdAsNumber, fieldType, normalizedFieldType].filter(
       (candidate, index, values): candidate is number =>
         candidate != null && values.indexOf(candidate) === index,
     );
@@ -293,9 +391,49 @@ export class ColonyConstructionService {
     buildingDef: BuildingDef,
     field: ColonyField,
   ): boolean {
-    return this.getFieldTypeCandidates(field).some((fieldType) =>
-      buildingDef.allowedFieldTypes.includes(fieldType),
+    return this.isBuildingAllowedOnFieldIdentity(
+      buildingDef,
+      field.fieldType,
+      field.terrainTileId ?? null,
     );
+  }
+
+  private isBuildingAllowedOnFieldIdentity(
+    buildingDef: BuildingDef,
+    fieldType: number | null,
+    terrainTileId: string | null,
+  ): boolean {
+    if (
+      fieldType != null &&
+      this.getFieldTypeCandidatesFromType(
+        fieldType,
+        terrainTileId ?? undefined,
+      ).some((candidate) => buildingDef.allowedFieldTypes.includes(candidate))
+    ) {
+      return true;
+    }
+    // SWU-Tiles: Baubarkeit zusaetzlich ueber die Feldkategorien pruefen
+    // (terrainTileId -> Kategorien wie "standard"/"bergbau"/"orbit", siehe
+    // swu-field-build-categories.yaml). "any"-Kategorien erlauben jedes
+    // Gebaeude (gegated ueber dessen eigene researchId, siehe build()).
+    if (!terrainTileId) return false;
+    const categories = this.gameData.getCategoriesForTerrainTile(terrainTileId);
+    return categories.some(
+      (category) =>
+        this.gameData.isCategoryOpenToAnyBuilding(category) ||
+        buildingDef.allowedFieldTypes.includes(category),
+    );
+  }
+
+  /** Numerische Feldtyp-Kandidaten plus roher terrainTileId-String (auch nicht-numerisch, z.B. "E432"), fuer Terraforming-Matching. */
+  private getFieldIdentityCandidates(field: ColonyField): string[] {
+    const candidates = this.getFieldTypeCandidates(field).map((candidate) =>
+      String(candidate),
+    );
+    if (field.terrainTileId != null && !candidates.includes(field.terrainTileId)) {
+      candidates.push(field.terrainTileId);
+    }
+    return candidates;
   }
 
   private resolveFieldAlternative(
@@ -599,7 +737,7 @@ export class ColonyConstructionService {
     colonyId: number,
     userId: number,
     fieldIndex: number,
-    terraformingId: number,
+    terraformingId: string,
   ): Promise<ColonyField> {
     const colony = await this.findOne(colonyId, userId);
     const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
@@ -612,7 +750,10 @@ export class ColonyConstructionService {
     }
 
     const terraforming = this.gameData.getTerraforming(terraformingId);
-    if (!terraforming || terraforming.fromFieldType !== field.fieldType) {
+    if (
+      !terraforming ||
+      !this.getFieldIdentityCandidates(field).includes(terraforming.fromFieldType)
+    ) {
       throw new BadRequestException('Invalid terraforming option');
     }
     if (terraforming.researchId != null) {

@@ -62,8 +62,11 @@ export interface BuildingDef {
   source?: 'stu' | 'swu';
   sourceId?: number;
   category: string;
-  allowedFieldTypes: number[];
+  /** Zahlen (alte STU-Feldtypen) und/oder SWU-Feldkategorie-Strings (z.B. "standard", "orbit"). */
+  allowedFieldTypes: Array<number | string>;
   isUnique: boolean;
+  /** Nur auf Planeten mit Atmosphaere baubar (Wohn-/Farmgebaeude); Planeten mit atmosphere "Keine" lehnen sie ab. */
+  requiresAtmosphere?: boolean;
   visible?: boolean;
   researchId?: number | null;
   researchRequired?: string | null;
@@ -175,14 +178,41 @@ export interface TechDef {
 }
 
 export interface TerraformingDef {
-  id: number;
+  /** String, damit sowohl alte STU-Zahlen-IDs als auch neue SWU-IDs (z.B. "J810J840") passen. */
+  id: string;
   description: string;
-  fromFieldType: number;
-  toFieldType: number;
+  /** SWU-Tile-Codes (z.B. "E432") oder alte STU-Feldtyp-Zahlen, jeweils als String normalisiert. */
+  fromFieldType: string;
+  toFieldType: string;
   energyCost: number;
   duration: number;
   researchId: number | null;
   costs: Array<{ commodityId: number; amount: number }>;
+  /** Nur bei manchen SWU-Regeln: automatische Ruecktransformation, wenn die Bedingung (noch) zutrifft. */
+  condition?: { operator: '<' | '>'; value: number };
+  /** Anzahl Ticks, nach der die Regel bei erfuellter condition automatisch angewendet wird. */
+  autoAfterTicks?: number;
+}
+
+export interface FieldBuildCategoryDef {
+  id: string;
+  semantics?: string;
+  todo?: string;
+  tiles: string[];
+}
+
+export interface FieldCategoryRuleDef {
+  fieldCategory: string | string[];
+  mode: string;
+  buildings: string;
+  researchId: string | number | null;
+}
+
+export interface FieldCategoriesSummary {
+  /** terrainTileId -> Liste der Kategorien, denen dieses Tile angehoert. */
+  tiles: Record<string, string[]>;
+  /** Kategorien, deren Regel "buildings: any" ist (jedes Gebaeude erlaubt, gegated nur ueber seine eigene researchId). */
+  anyCategories: string[];
 }
 
 export interface BuildingUpgradeDef {
@@ -207,6 +237,13 @@ export interface ColonyClassDepositDef {
   commodityId: number;
   minAmount: number;
   maxAmount: number;
+}
+
+/** Rohstoff-Betrag/Tick fuer einen SWU-Biom-Buchstaben (siehe swu-letter-resources.yaml). */
+export interface SwuLetterResourceEntry {
+  commodityId: number;
+  planet: number;
+  moon: number;
 }
 
 export interface ColonyClassDef {
@@ -445,12 +482,15 @@ export class GameDataService implements OnModuleInit {
   private modules: Map<string, ModuleDef[]> = new Map();
   private techTree: TechDef[] = [];
   private colonyClasses: Map<number, ColonyClassDef> = new Map();
+  private swuLetterResources: Map<string, SwuLetterResourceEntry[]> = new Map();
   private fieldBuildRules: FieldBuildRuleDef[] = [];
   private buildingUpgrades: Map<number, BuildingUpgradeDef> = new Map();
   private buildingUpgradesBySource: Map<number, BuildingUpgradeDef[]> =
     new Map();
-  private terraforming: Map<number, TerraformingDef> = new Map();
-  private terraformingBySourceField: Map<number, TerraformingDef[]> = new Map();
+  private terraforming: Map<string, TerraformingDef> = new Map();
+  private terraformingBySourceField: Map<string, TerraformingDef[]> = new Map();
+  private fieldTileCategories: Map<string, string[]> = new Map();
+  private fieldCategoryRules: Map<string, FieldCategoryRuleDef> = new Map();
   private fabricationItems: Map<string, FabricationItemDef> = new Map();
   private shipClassSlotRules: Map<string, ShipClassSlotRuleDef> = new Map();
   private socialEffects: SocialEffectsDef | null = null;
@@ -480,6 +520,7 @@ export class GameDataService implements OnModuleInit {
     this.loadCommodities();
     this.loadBuildings();
     this.loadFieldBuildRules();
+    this.loadFieldBuildCategories();
     this.loadBuildingFunctions();
     this.loadBuildingUpgrades();
     this.loadTerraforming();
@@ -497,6 +538,7 @@ export class GameDataService implements OnModuleInit {
     this.loadHangarShipDefs();
     this.loadTechTree();
     this.loadColonyClasses();
+    this.loadSwuLetterResources();
     this.loadWeaponShieldModifiers();
   }
 
@@ -583,6 +625,40 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  /**
+   * Laedt die SWU-Feldkategorien (bergbau/orbit/standard/...) und deren
+   * Bauregeln - Ergaenzung zum alten, flachen stu-field-build.yaml. Ein Tile
+   * kann mehreren Kategorien angehoeren (additiv, siehe Datei-Kommentar).
+   */
+  private loadFieldBuildCategories() {
+    const data = this.loadYaml<{
+      fieldBuildCategories: FieldBuildCategoryDef[];
+      fieldBuildRules: FieldCategoryRuleDef[];
+    }>('buildings/swu-field-build-categories.yaml');
+    if (!data) return;
+
+    for (const category of data.fieldBuildCategories ?? []) {
+      for (const tile of category.tiles ?? []) {
+        const list = this.fieldTileCategories.get(tile) ?? [];
+        list.push(category.id);
+        this.fieldTileCategories.set(tile, list);
+      }
+    }
+    for (const rule of data.fieldBuildRules ?? []) {
+      const categories = Array.isArray(rule.fieldCategory)
+        ? rule.fieldCategory
+        : [rule.fieldCategory];
+      for (const category of categories) {
+        this.fieldCategoryRules.set(category, rule);
+      }
+    }
+    if (this.fieldTileCategories.size > 0) {
+      this.logger.log(
+        `Loaded ${this.fieldTileCategories.size} field build category tile mappings`,
+      );
+    }
+  }
+
   private loadBuildingFunctions() {
     const data = this.loadYaml<{
       functionDefs: BuildingFunctionDef[];
@@ -626,7 +702,16 @@ export class GameDataService implements OnModuleInit {
     const data = this.loadYaml<{ terraforming: TerraformingDef[] }>(
       'terraforming/stu-terraforming.yaml',
     );
-    for (const option of data?.terraforming ?? []) {
+    for (const raw of data?.terraforming ?? []) {
+      // id/fromFieldType/toFieldType kommen aus YAML teils als number (alte STU-
+      // Eintraege, z.B. 111) und teils als string (SWU-Codes, z.B. "E432") -
+      // hier einheitlich auf string normalisieren, damit ein Lookup-Typ reicht.
+      const option: TerraformingDef = {
+        ...raw,
+        id: String(raw.id),
+        fromFieldType: String(raw.fromFieldType),
+        toFieldType: String(raw.toFieldType),
+      };
       this.terraforming.set(option.id, option);
       const list =
         this.terraformingBySourceField.get(option.fromFieldType) ?? [];
@@ -927,6 +1012,20 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadSwuLetterResources() {
+    const data = this.loadYaml<{
+      letterResources: Array<{ letter: string; resources: SwuLetterResourceEntry[] }>;
+    }>('colony-classes/swu-letter-resources.yaml');
+    if (data?.letterResources?.length) {
+      for (const entry of data.letterResources) {
+        this.swuLetterResources.set(entry.letter.toUpperCase(), entry.resources);
+      }
+      this.logger.log(
+        `Loaded SWU letter resource profiles for ${this.swuLetterResources.size} letters`,
+      );
+    }
+  }
+
   private loadWeaponShieldModifiers() {
     const data = this.loadYaml<{ modifiers: WeaponShieldModifierDef[] }>(
       'combat/weapon-shield-modifiers.yaml',
@@ -982,16 +1081,38 @@ export class GameDataService implements OnModuleInit {
     return Array.from(this.buildingFunctions.values());
   }
 
-  getTerraforming(id: number): TerraformingDef | undefined {
-    return this.terraforming.get(id);
+  getTerraforming(id: string | number): TerraformingDef | undefined {
+    return this.terraforming.get(String(id));
   }
 
   getAllTerraforming(): TerraformingDef[] {
     return Array.from(this.terraforming.values());
   }
 
-  getTerraformingForFieldType(fieldType: number): TerraformingDef[] {
-    return this.terraformingBySourceField.get(fieldType) ?? [];
+  getTerraformingForFieldType(fieldType: string | number): TerraformingDef[] {
+    return this.terraformingBySourceField.get(String(fieldType)) ?? [];
+  }
+
+  /** Kategorien (z.B. ["standard", "bergbau"]), denen dieses SWU-Tile angehoert. */
+  getCategoriesForTerrainTile(terrainTileId: string): string[] {
+    return this.fieldTileCategories.get(terrainTileId) ?? [];
+  }
+
+  /** true, wenn diese Kategorie "buildings: any" ist (jedes Gebaeude, gegated ueber seine eigene researchId). */
+  isCategoryOpenToAnyBuilding(category: string): boolean {
+    return this.fieldCategoryRules.get(category)?.buildings === 'any';
+  }
+
+  /** Fuer's Frontend: dieselbe tile->Kategorien-Zuordnung plus die "any"-Kategorien, um Baubarkeit clientseitig zu spiegeln. */
+  getFieldCategoriesSummary(): FieldCategoriesSummary {
+    const tiles: Record<string, string[]> = {};
+    for (const [tile, categories] of this.fieldTileCategories) {
+      tiles[tile] = categories;
+    }
+    const anyCategories = Array.from(this.fieldCategoryRules.entries())
+      .filter(([, rule]) => rule.buildings === 'any')
+      .map(([category]) => category);
+    return { tiles, anyCategories };
   }
 
   getBuildingUpgrade(id: number): BuildingUpgradeDef | undefined {
@@ -1204,6 +1325,11 @@ export class GameDataService implements OnModuleInit {
 
   getColonyClassDeposits(classId: number): ColonyClassDepositDef[] {
     return this.getColonyClass(classId)?.deposits ?? [];
+  }
+
+  /** Rohstoff-Profil fuer einen SWU-Biom-Buchstaben (z.B. "A" fuer Polar), leer wenn unbekannt. */
+  getSwuLetterResources(letter: string): SwuLetterResourceEntry[] {
+    return this.swuLetterResources.get(letter.toUpperCase()) ?? [];
   }
 
   getColonyClassCount(): number {

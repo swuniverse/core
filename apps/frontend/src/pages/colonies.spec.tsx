@@ -18,6 +18,7 @@ const colonyApiMocks = vi.hoisted(() => ({
   fetchAvailableBuildings: vi.fn(),
   fetchAllBuildings: vi.fn(),
   fetchTerraforming: vi.fn(),
+  fetchFieldCategories: vi.fn(),
   fetchShipClasses: vi.fn(),
   fetchColonies: vi.fn(),
   fetchColonyDetail: vi.fn(),
@@ -231,6 +232,10 @@ describe('ColoniesPage socket refresh', () => {
     );
     colonyApiMocks.fetchAllBuildings.mockResolvedValue(allBuildings);
     colonyApiMocks.fetchTerraforming.mockResolvedValue(terraformingDefs);
+    colonyApiMocks.fetchFieldCategories.mockResolvedValue({
+      tiles: {},
+      anyCategories: [],
+    });
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
   });
 

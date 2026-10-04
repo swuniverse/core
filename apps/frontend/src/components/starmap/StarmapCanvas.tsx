@@ -15,9 +15,11 @@ import type {
   StarmapSystemListItemDto,
   StarmapWormholeDto,
 } from '@swuniverse/shared';
+import { isSwuClassId } from '@swuniverse/shared';
 import {
   galaxyMapBackground,
   planetThumbnail,
+  SWU_TEST_PLANET_EMOJI,
   spaceBackgroundTile,
   starTileImage,
   starWarsMarkerImage,
@@ -302,25 +304,48 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         }
         const object = field.celestialObjectId ? objects.get(field.celestialObjectId) : undefined;
         if (object?.classId != null && !isStarClass(object.classId)) {
-          try {
           const classId = object.classId;
+          const drawEmojiFallback = () => {
+            const text = new Text({
+              text: SWU_TEST_PLANET_EMOJI[classId] ?? '🪐',
+              style: { fontSize: placement.fieldPixelSize * 0.68 },
+            });
+            text.anchor.set(0.5);
+            text.position.set(position.x + placement.fieldPixelSize / 2, position.y + placement.fieldPixelSize / 2);
+            icons.addChild(text);
+          };
+          try {
+            const shielded = (colonyShields ?? []).some(
+              (shield) => shield.shielded && shield.posX === field.sx && shield.posY === field.sy,
+            );
             const image = new Image();
             image.crossOrigin = 'anonymous';
             await new Promise<void>((resolve, reject) => {
               image.onload = () => resolve();
               image.onerror = () => reject();
-              image.src = planetThumbnail(classId);
+              image.src = planetThumbnail(classId, {
+                name: object.name,
+                objectType: object.objectType,
+                shielded,
+              });
             });
             const sprite = new Sprite(Texture.from(image));
             sprite.position.set(position.x + placement.fieldPixelSize * 0.075, position.y + placement.fieldPixelSize * 0.075);
             sprite.width = placement.fieldPixelSize * 0.85;
             sprite.height = placement.fieldPixelSize * 0.85;
             icons.addChild(sprite);
-          } catch { /* optional celestial asset */ }
+          } catch {
+            drawEmojiFallback();
+          }
         }
       }));
       for (const shield of colonyShields ?? []) {
         if (!shield.shielded) continue;
+        // SWU-Planetengrafiken tragen den Schild selbst (…S-Variante) - kein zweiter Ring.
+        const hasSwuShieldImage = (celestialObjects ?? []).some(
+          (object) => object.posX === shield.posX && object.posY === shield.posY && isSwuClassId(object.classId),
+        );
+        if (hasSwuShieldImage) continue;
         const position = at(shield.posX, shield.posY);
         const graphic = new Graphics();
         graphic.circle(position.x + placement.fieldPixelSize / 2, position.y + placement.fieldPixelSize / 2, placement.fieldPixelSize * 0.48).stroke({ color: 0x22d3ee, width: 0.5, alpha: 0.85 });

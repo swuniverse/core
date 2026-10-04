@@ -1,5 +1,5 @@
-import { planetImage } from '../../../lib/assets';
-import type { Colony } from '../types';
+import { PlanetImg } from '../../../components/PlanetImg';
+import { isColonyShielded, type Colony } from '../types';
 
 export function ColonyCommandBar({
   colony,
@@ -18,9 +18,11 @@ export function ColonyCommandBar({
           ← Kolonien
         </button>
         {colony.celestialObject?.classId && (
-          <img
-            src={planetImage(colony.celestialObject.classId)}
-            alt=""
+          <PlanetImg
+            classId={colony.celestialObject.classId}
+            name={colony.celestialObject.name}
+            objectType={colony.celestialObject.objectType}
+            shielded={isColonyShielded(colony)}
             className="h-9 w-9 object-contain"
           />
         )}

@@ -40,6 +40,7 @@ function createService() {
     factionService as any,
     gameData as any,
     gameGateway as any,
+    {} as any,
   );
   return {
     service,

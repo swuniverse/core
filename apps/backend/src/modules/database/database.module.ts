@@ -1,3 +1,4 @@
+import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseController } from './database.controller';
@@ -29,6 +30,7 @@ import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
       PrestigeHistoryEntry,
       CelestialClassDiscovery,
       CrewAssignment,
+      CelestialObject,
     ]),
     FactionModule,
     GameDataModule,

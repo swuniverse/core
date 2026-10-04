@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BuildingDef } from '../game-data/game-data.service';
+import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
+import { housingYieldFactor } from './colony-bonus-marker.util';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import {
@@ -20,6 +21,7 @@ export class BuildingLifecycleService {
     @InjectRepository(ColonyChangeable)
     private readonly changeableRepo: Repository<ColonyChangeable>,
     private readonly config: ConfigService,
+    @Optional() private readonly gameData?: GameDataService,
   ) {}
 
   async finishBuilding(
@@ -39,7 +41,7 @@ export class BuildingLifecycleService {
       const workerAmount = definition.bevUse || 0;
       const hasWorkers = getColonyChangeable(colony).workless >= workerAmount;
       if (hasWorkers) {
-        await this.activateBuildingStats(colony, definition);
+        await this.activateBuildingStats(colony, definition, field);
         field.isActive = true;
       }
     }
@@ -55,7 +57,7 @@ export class BuildingLifecycleService {
     if (this.hasHighDamage(field)) {
       throw new BadRequestException('Building is too damaged to activate');
     }
-    await this.activateBuildingStats(colony, definition);
+    await this.activateBuildingStats(colony, definition, field);
     field.isActive = true;
     return this.fieldRepo.save(field);
   }
@@ -65,7 +67,7 @@ export class BuildingLifecycleService {
     field: ColonyField,
     definition: BuildingDef,
   ): Promise<ColonyField> {
-    await this.deactivateBuildingStats(colony, definition);
+    await this.deactivateBuildingStats(colony, definition, field);
     field.isActive = false;
     return this.fieldRepo.save(field);
   }
@@ -78,10 +80,11 @@ export class BuildingLifecycleService {
   async activateBuildingStats(
     colony: Colony,
     definition: BuildingDef,
+    field?: ColonyField,
   ): Promise<void> {
     const changeable = getColonyChangeable(colony);
     const workerAmount = definition.bevUse || 0;
-    const housingAmount = definition.bevPro || 0;
+    const housingAmount = (definition.bevPro || 0) * housingYieldFactor(field, this.gameData);
     adjustColonyPopulationParts(colony, workerAmount, -workerAmount);
     setColonyMaxPopulation(
       colony,
@@ -93,10 +96,11 @@ export class BuildingLifecycleService {
   async deactivateBuildingStats(
     colony: Colony,
     definition: BuildingDef,
+    field?: ColonyField,
   ): Promise<void> {
     const changeable = getColonyChangeable(colony);
     const workerAmount = Math.min(changeable.workers, definition.bevUse || 0);
-    const housingAmount = definition.bevPro || 0;
+    const housingAmount = (definition.bevPro || 0) * housingYieldFactor(field, this.gameData);
     adjustColonyPopulationParts(colony, -workerAmount, workerAmount);
     setColonyMaxPopulation(
       colony,

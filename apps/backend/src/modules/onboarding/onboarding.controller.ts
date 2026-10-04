@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { IsEnum, IsInt, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Faction } from '@swuniverse/shared';
 import { OnboardingService } from './onboarding.service';
@@ -44,6 +44,14 @@ class ClaimHomeworldDto {
   @Type(() => Number)
   @IsInt()
   celestialObjectId: number;
+
+  /** SWU-Zone (1=Kalt, 2=Mittel, 3=Heiss); ohne Angabe waehlt das Backend eine gueltige Starter-Zone. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  zoneSlot?: number;
 }
 
 @UseGuards(AuthGuard('jwt'))
@@ -95,6 +103,10 @@ export class OnboardingController {
     @Request() req: { user: { sub: number } },
     @Body() dto: ClaimHomeworldDto,
   ) {
-    return this.onboardingService.claimHomeworld(req.user.sub, dto.celestialObjectId);
+    return this.onboardingService.claimHomeworld(
+      req.user.sub,
+      dto.celestialObjectId,
+      dto.zoneSlot,
+    );
   }
 }

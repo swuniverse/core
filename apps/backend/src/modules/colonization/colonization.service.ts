@@ -20,7 +20,11 @@ import {
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-deposit.entity';
-import { ColonySeedService } from '../colony/colony-seed.service';
+import {
+  ColonySeedService,
+  SWU_AURODIUM_DEPOSIT_MAX,
+  SWU_AURODIUM_DEPOSIT_MIN,
+} from '../colony/colony-seed.service';
 import { ColonyEventService } from '../colony/colony-event.service';
 import {
   ColonyEventSeverity,
@@ -44,6 +48,56 @@ import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entit
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
+import {
+  findArchetypeBySwuClassId,
+  getColonizationProposals,
+  getSwuArchetypeAtmosphere,
+  getSwuUndergroundMixin,
+  getSwuZoneLetter,
+  type SwuColonizationProposal,
+} from '../starmap/generator/swu-archetype-registry';
+import {
+  computeSwuDayNightPhaseHours,
+  computeSwuDayNightSwitchMinutes,
+  computeSwuTerminatorShiftHours,
+  resolveSwuInstance,
+  type SwuRotationType,
+  type SwuZoneSlot,
+} from '../starmap/generator/swu-planet-archetypes.generator';
+import {
+  computeSwuOrbitDistance,
+  solarOutputTJ,
+} from '../starmap/generator/swu-solar';
+import { GameDataService } from '../game-data/game-data.service';
+import { classifyZoneOres, oreDisplayName, zoneDeuteriumSources, zoneOreSources, type SwuZoneOre } from './swu-zone-ores';
+import {
+  rateSwuSettlement,
+  type SwuSettlementAssessment,
+} from '../starmap/generator/swu-settlement-rating';
+
+export interface SwuColonyEcosystemDto {
+  archetype: string;
+  rotation: SwuRotationType;
+  primaryBiome: string | null;
+  secondaryBiome: string | null;
+  temperatureRangeK: [number, number] | null;
+  solarOutputTJ: number | null;
+  /** Besiedlungs-Bedingungen der gewaehlten Zone (Perfekt/Gut/Schwierig/Herausfordernd). */
+  settlement: SwuSettlementAssessment | null;
+  /**
+   * Tag/Nacht-Wechsel-Intervall in Ingame-Minuten (Anzeige-Konvention: die UI
+   * zeigt diesen Wert als "X Stunden", siehe computeSwuDayNightSwitchMinutes).
+   * null bei gebundener Rotation (da gibt's keinen Wechsel, siehe tidalLocked).
+   */
+  dayNightSwitchMinutes: number | null;
+  /** Nur gebundene Rotation: Dauer eines Terminator-Pendelzyklus (Stunden). */
+  terminatorShiftHours: number | null;
+  /** Gewaehlte Zone (1 Polar/Nacht, 2 Gemaessigt/Terminator, 3 Aequator/Tag) - fuer die Tag/Nacht-Darstellung der Felder. */
+  zoneSlot: number;
+  /** Startphase des Tag/Nacht- bzw. Terminator-Zyklus in Stunden, damit Koerper nicht synchron laufen. */
+  dayNightPhaseHours: number;
+  tidalLocked: boolean;
+}
 
 export interface StarterColonizationOptionsDto {
   mode: 'required' | 'not-required';
@@ -103,6 +157,24 @@ export interface ColonizationTargetCheckDto {
       selectable: boolean;
     }>;
   } | null;
+  /** Zonen-Vorschlaege (Cold/Mid/Hot) fuer SWU-Archetyp-Ziele - Alternative zum STU surface-Feld. */
+  swu?: {
+    archetype: string;
+    rotation: SwuRotationType;
+    tidalLocked: boolean;
+    /** Siehe computeSwuDayNightSwitchMinutes - UI zeigt diesen Wert als "X Stunden". null bei gebundener Rotation. */
+    dayNightSwitchMinutes: number | null;
+    /** Nur gebundene Rotation: Dauer eines Terminator-Pendelzyklus (Stunden). */
+    terminatorShiftHours: number | null;
+    /** Erwartetes Aurodium-Vorkommen (Verbrauchsgut, beim Gruenden gewuerfelt, unabhaengig von der Zone). */
+    aurodiumDeposit: { min: number; max: number };
+    proposals: Array<
+      SwuColonizationProposal & {
+        ores: SwuZoneOre[];
+        settlement: SwuSettlementAssessment | null;
+      }
+    >;
+  } | null;
   status: ColonizationStatusDto;
   ship?: {
     id: number;
@@ -142,6 +214,7 @@ export class ColonizationService {
     private readonly colonySeedService: ColonySeedService,
     private readonly colonyEventService: ColonyEventService,
     private readonly spacecraftStatsService: SpacecraftStatsService,
+    private readonly gameData: GameDataService,
   ) {}
 
   async getColonizationStatus(userId: number): Promise<ColonizationStatusDto> {
@@ -374,6 +447,80 @@ export class ColonizationService {
     });
   }
 
+  /**
+   * Kolonietyp-Vorschlaege (Cold/Mid/Hot-Zone) fuer ein SWU-Ziel. Rotation ist
+   * noch keine Objekt-Eigenschaft und wird vom Aufrufer angegeben.
+   */
+  async getSwuColonizationProposals(
+    celestialObjectId: number,
+    rotation: SwuRotationType = 'rotating',
+  ): Promise<{ archetype: string; rotation: SwuRotationType; proposals: SwuColonizationProposal[] }> {
+    const target = await this.objectRepo.findOneBy({ id: celestialObjectId });
+    if (!target) throw new NotFoundException('Ziel nicht gefunden');
+    const archetype =
+      target.classId != null ? findArchetypeBySwuClassId(target.classId) : null;
+    if (!archetype) {
+      throw new BadRequestException('Ziel ist kein SWU-Planet');
+    }
+    return {
+      archetype: archetype.typeName,
+      rotation,
+      proposals: getColonizationProposals(archetype, rotation),
+    };
+  }
+
+  /** Besiedlungs-Bedingungen einer Zone aus Erzquellen, Bergbaufeldern, Atmosphaere und Solareintrag. */
+  private assessSwuZone(
+    archetype: NonNullable<ReturnType<typeof findArchetypeBySwuClassId>>,
+    proposal: Pick<SwuColonizationProposal, 'miningFields' | 'solarOutputTJ' | 'colonizable'>,
+    ores: SwuZoneOre[],
+    isMoon: boolean,
+  ): SwuSettlementAssessment | null {
+    if (!proposal.miningFields || !proposal.colonizable) return null;
+    return rateSwuSettlement({
+      mining: proposal.miningFields,
+      oreSources: zoneOreSources(ores),
+      atmosphere: getSwuArchetypeAtmosphere(archetype),
+      solarOutputTJ: proposal.solarOutputTJ,
+      deuteriumSources: zoneDeuteriumSources(ores),
+      isMoon,
+    });
+  }
+
+  /**
+   * Erzvorkommen einer Zone - gleiche Buchstaben-/Untergrund-Mixin-Logik wie
+   * ColonyStatsService.getSwuBaseProduction, damit die Vorschau der spaeteren
+   * Kolonie-Produktion entspricht.
+   */
+  private getSwuZoneOres(
+    archetype: NonNullable<ReturnType<typeof findArchetypeBySwuClassId>>,
+    zoneSlot: SwuZoneSlot,
+    rotation: SwuRotationType,
+    bodyFeature: Parameters<typeof getSwuZoneLetter>[3],
+    isMoon: boolean,
+    kyberMarkers = 0,
+  ): SwuZoneOre[] {
+    const amounts = new Map<number, number>();
+    const addLetter = (letter: string | null, factor = 1) => {
+      if (!letter) return;
+      for (const entry of this.gameData.getSwuLetterResources(letter)) {
+        const amount = Math.round((isMoon ? entry.moon : entry.planet) * factor);
+        if (amount === 0) continue;
+        amounts.set(entry.commodityId, (amounts.get(entry.commodityId) ?? 0) + amount);
+      }
+    };
+    addLetter(getSwuZoneLetter(archetype, zoneSlot, rotation, bodyFeature));
+    const mixin = getSwuUndergroundMixin(archetype);
+    if (mixin) addLetter(mixin.letter, mixin.factor);
+    // Kyber-Marker = eine zusaetzliche Quelle je Marker (wie in ColonyStatsService).
+    if (kyberMarkers > 0) {
+      amounts.set(1508, (amounts.get(1508) ?? 0) + kyberMarkers);
+    }
+    return classifyZoneOres(amounts, isMoon, (id) =>
+      oreDisplayName(id, this.gameData.getCommodity(id)?.name),
+    );
+  }
+
   async explainTarget(
     userId: number,
     celestialObjectId: number,
@@ -405,11 +552,16 @@ export class ColonizationService {
     }
 
     const limitType = getColonizationLimitType(target.objectType);
-    const classGate = getColonizationClassGate(target.classId);
+    const swuArchetype =
+      target.classId != null ? findArchetypeBySwuClassId(target.classId) : null;
+    // SWU-Archetypen sind der STU-Klassen-Gate-Tabelle unbekannt (keine STU-
+    // classId) - fuer sie gilt stattdessen nur archetype.landable (bereits in
+    // target.isColonizable eingeflossen, siehe swu-system-generator.ts).
+    const classGate = swuArchetype ? null : getColonizationClassGate(target.classId);
 
     if (!target.isColonizable) reasons.push('Ziel ist nicht kolonisierbar');
     if (!limitType) reasons.push('Unbekannter Zieltyp');
-    if (!classGate)
+    if (!classGate && !swuArchetype)
       reasons.push('Kolonieklasse ist nicht freigeschaltet oder unbewohnbar');
 
     const existing = await this.colonyRepo.findOne({
@@ -466,6 +618,10 @@ export class ColonizationService {
       }
     }
 
+    const swuOrbitDistance = swuArchetype
+      ? await this.computeSwuOrbitDistance(target)
+      : null;
+
     return {
       canColonize: reasons.length === 0,
       reasons,
@@ -482,26 +638,86 @@ export class ColonizationService {
         reclaimed: existing?.isAbandoned === true,
       },
       status,
-      surface: existing?.isAbandoned
-        ? null
-        : (() => {
-            const surface = this.colonySeedService.generateSurfaceSnapshot(
-              target.classId ?? 0,
-              `colony-${userId}-${target.id}`,
-              target.starSystem?.bonusFields ?? 2,
-            );
-            return {
-              width: surface.width,
-              fields: surface.fields.map((field) => ({
-                fieldIndex: field.fieldIndex,
-                fieldType: field.fieldType,
-                terrainTileId: field.terrainTileId ?? null,
-                layer: field.layer ?? null,
-                selectable:
-                  field.layer === 'SURFACE' && field.fieldType !== 201,
-              })),
-            };
-          })(),
+      surface:
+        existing?.isAbandoned || swuArchetype
+          ? null
+          : (() => {
+              const surface = this.colonySeedService.generateSurfaceSnapshot(
+                target.classId ?? 0,
+                `colony-${userId}-${target.id}`,
+                target.starSystem?.bonusFields ?? 2,
+              );
+              return {
+                width: surface.width,
+                fields: surface.fields.map((field) => ({
+                  fieldIndex: field.fieldIndex,
+                  fieldType: field.fieldType,
+                  terrainTileId: field.terrainTileId ?? null,
+                  layer: field.layer ?? null,
+                  selectable:
+                    field.layer === 'SURFACE' && field.fieldType !== 201,
+                })),
+              };
+            })(),
+      swu:
+        swuArchetype && !existing?.isAbandoned
+          ? (() => {
+              const instance = resolveSwuInstance(target);
+              const tidalLocked = instance.rotation === 'tidal-locked';
+              return {
+                archetype: swuArchetype.typeName,
+                rotation: instance.rotation,
+                tidalLocked,
+                aurodiumDeposit: {
+                  min: SWU_AURODIUM_DEPOSIT_MIN,
+                  max: SWU_AURODIUM_DEPOSIT_MAX,
+                },
+                // Planeten-Eigenschaft, nicht zonenabhaengig - derselbe key wie in
+                // getSwuColonyEcosystem, damit die Vorschau vor der Gruendung mit
+                // dem Wert nach der Gruendung uebereinstimmt.
+                dayNightSwitchMinutes: tidalLocked
+                  ? null
+                  : computeSwuDayNightSwitchMinutes(
+                      swuArchetype,
+                      `celestial-${target.id}`,
+                      target.objectType === CelestialObjectType.MOON,
+                    ),
+                terminatorShiftHours: tidalLocked
+                  ? computeSwuTerminatorShiftHours(`celestial-${target.id}`)
+                  : null,
+                // Gleicher seed wie createFollowUpSwuColony() spaeter verwendet -
+                // die Vorschau zeigt exakt das, was beim Gruenden entsteht.
+                proposals: getColonizationProposals(swuArchetype, instance.rotation, {
+                  seed: `colony-${userId}-${target.id}`,
+                  bodyFeature: instance.bodyFeature,
+                  orbitDistance: swuOrbitDistance ?? undefined,
+                  classify: (tile) =>
+                    this.gameData.getCategoriesForTerrainTile(tile),
+                }).map((proposal) => {
+                  const ores = this.getSwuZoneOres(
+                    swuArchetype,
+                    proposal.zoneSlot,
+                    instance.rotation,
+                    instance.bodyFeature,
+                    target.objectType === CelestialObjectType.MOON,
+                    proposal.bonusMarkers.filter(
+                      (marker) => marker.type === 'KYBER',
+                    ).length,
+                  );
+                  return {
+                    ...proposal,
+                    ores,
+                    settlement: this.assessSwuZone(
+                      swuArchetype,
+                      proposal,
+                      ores,
+                      target.objectType === CelestialObjectType.MOON,
+                    ),
+                  };
+                }),
+              };
+            })()
+          : null,
       ship: ship
         ? {
             id: ship.id,
@@ -519,6 +735,7 @@ export class ColonizationService {
     shipId: number,
     celestialObjectId: number,
     initialFieldIndex?: number,
+    swuZoneSlot?: SwuZoneSlot,
   ): Promise<{
     success: true;
     colonyId: number;
@@ -547,28 +764,65 @@ export class ColonizationService {
       where: { celestialObjectId, isAbandoned: true },
       relations: ['changeable'],
     });
+    const swuArchetype =
+      target.classId != null ? findArchetypeBySwuClassId(target.classId) : null;
+    const swuInstance = swuArchetype ? resolveSwuInstance(target) : null;
     if (!abandonedColony) {
-      const surface = this.colonySeedService.generateSurfaceSnapshot(
-        target.classId ?? 0,
-        `colony-${userId}-${target.id}`,
-        target.starSystem?.bonusFields ?? 2,
-      );
-      const field = surface.fields.find(
-        (entry) => entry.fieldIndex === initialFieldIndex,
-      );
-      if (!field || field.layer !== 'SURFACE' || field.fieldType === 201) {
-        throw new BadRequestException('Ungültiges Startfeld');
+      if (swuArchetype) {
+        if (swuZoneSlot == null) {
+          throw new BadRequestException('Zone muss gewählt werden');
+        }
+        const proposal = getColonizationProposals(
+          swuArchetype,
+          swuInstance!.rotation,
+        ).find((entry) => entry.zoneSlot === swuZoneSlot);
+        if (!proposal || !proposal.colonizable) {
+          throw new BadRequestException('Gewählte Zone ist nicht kolonisierbar');
+        }
+      } else {
+        const surface = this.colonySeedService.generateSurfaceSnapshot(
+          target.classId ?? 0,
+          `colony-${userId}-${target.id}`,
+          target.starSystem?.bonusFields ?? 2,
+        );
+        const field = surface.fields.find(
+          (entry) => entry.fieldIndex === initialFieldIndex,
+        );
+        if (!field || field.layer !== 'SURFACE' || field.fieldType === 201) {
+          throw new BadRequestException('Ungültiges Startfeld');
+        }
       }
     }
     const colony = abandonedColony
       ? await this.reclaimAbandonedColony(abandonedColony, userId)
-      : await this.colonySeedService.createFollowUpColony({
-          userId,
-          username: user.username,
-          celestialObjectId,
-          buildingId: shipClass.colonizationBuildingId,
-          initialFieldIndex,
-        });
+      : swuArchetype
+        ? await this.colonySeedService.createFollowUpSwuColony({
+            userId,
+            username: user.username,
+            celestialObjectId,
+            buildingId: shipClass.colonizationBuildingId,
+            archetype: swuArchetype,
+            rotation: swuInstance!.rotation,
+            bodyFeature: swuInstance!.bodyFeature,
+            zoneSlot: swuZoneSlot!,
+            // Aendert sich nach der Gruendung nie mehr (Zone/Rotation/Archetyp/
+            // Orbit-Distanz sind fix) - einmalig berechnen und speichern, statt
+            // bei jeder Tick-Berechnung erneut die Sternposition abzufragen.
+            solarOutputTJ: solarOutputTJ(
+              await this.computeSwuOrbitDistance(target),
+              swuZoneSlot!,
+              swuInstance!.rotation,
+              swuArchetype.typeId,
+              swuArchetype.variant,
+            ),
+          })
+        : await this.colonySeedService.createFollowUpColony({
+            userId,
+            username: user.username,
+            celestialObjectId,
+            buildingId: shipClass.colonizationBuildingId,
+            initialFieldIndex,
+          });
     if (target.objectType === CelestialObjectType.ASTEROID) {
       await this.colonySeedService.ensureAsteroidDepositMining(userId, target);
     }
@@ -606,6 +860,7 @@ export class ColonizationService {
         ruinsPreserved: !!abandonedColony,
         transferredCrewCount: crewAssignments.length,
         initialFieldIndex: abandonedColony ? null : (initialFieldIndex ?? null),
+        swuZoneSlot: abandonedColony ? null : (swuZoneSlot ?? null),
       },
     });
 
@@ -681,6 +936,102 @@ export class ColonizationService {
       if (type) counts[type] += 1;
     }
     return counts;
+  }
+
+  /**
+   * "Oekosystem"-Legende fuer eine bereits gegruendete SWU-Kolonie (Biom,
+   * Temperatur, Tag/Nacht-Rhythmus, Solarertrag) - dieselben Werte, die der
+   * Spieler schon bei der Zonenwahl im Kolonisierungsdialog sah, jetzt aus
+   * der gespeicherten swuZoneSlot rekonstruiert. null fuer STU-Kolonien oder
+   * Kolonien ohne gespeicherte Zonenwahl (vor dieser Migration gegruendet).
+   */
+  async getSwuColonyEcosystem(
+    colonyId: number,
+    userId: number,
+  ): Promise<SwuColonyEcosystemDto | null> {
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId, userId },
+      relations: ['celestialObject', 'celestialObject.starSystem'],
+    });
+    if (!colony) throw new NotFoundException('Kolonie nicht gefunden');
+    if (colony.swuZoneSlot == null || !colony.celestialObject) return null;
+
+    const archetype =
+      colony.celestialObject.classId != null
+        ? findArchetypeBySwuClassId(colony.celestialObject.classId)
+        : null;
+    if (!archetype) return null;
+
+    const instance = resolveSwuInstance(colony.celestialObject);
+    const orbitDistance = await this.computeSwuOrbitDistance(
+      colony.celestialObject,
+    );
+    const proposals = getColonizationProposals(archetype, instance.rotation, {
+      orbitDistance,
+      // Gleicher seed wie bei der Gruendung - Bewertung entspricht der Vorschau.
+      seed: `colony-${userId}-${colony.celestialObject.id}`,
+      bodyFeature: instance.bodyFeature,
+      classify: (tile) => this.gameData.getCategoriesForTerrainTile(tile),
+    });
+    const chosen = proposals.find((p) => p.zoneSlot === colony.swuZoneSlot);
+    if (!chosen) return null;
+    const settlement = this.assessSwuZone(
+      archetype,
+      chosen,
+      this.getSwuZoneOres(
+        archetype,
+        chosen.zoneSlot,
+        instance.rotation,
+        instance.bodyFeature,
+        colony.celestialObject.objectType === CelestialObjectType.MOON,
+        chosen.bonusMarkers.filter((marker) => marker.type === 'KYBER').length,
+      ),
+      colony.celestialObject.objectType === CelestialObjectType.MOON,
+    );
+
+    const tidalLocked = instance.rotation === 'tidal-locked';
+    const isMoon = colony.celestialObject.objectType === CelestialObjectType.MOON;
+    const seedKey = `celestial-${colony.celestialObject.id}`;
+    const dayNightSwitchMinutes = tidalLocked
+      ? null
+      : computeSwuDayNightSwitchMinutes(archetype, seedKey, isMoon);
+    return {
+      archetype: archetype.typeName,
+      rotation: instance.rotation,
+      primaryBiome: chosen.primaryBiome,
+      secondaryBiome: chosen.secondaryBiome,
+      temperatureRangeK: chosen.temperatureRangeK,
+      solarOutputTJ: chosen.solarOutputTJ,
+      settlement,
+      dayNightSwitchMinutes,
+      terminatorShiftHours: tidalLocked
+        ? computeSwuTerminatorShiftHours(seedKey)
+        : null,
+      zoneSlot: colony.swuZoneSlot,
+      dayNightPhaseHours: computeSwuDayNightPhaseHours(
+        seedKey,
+        dayNightSwitchMinutes ?? computeSwuTerminatorShiftHours(seedKey) / 2,
+      ),
+      tidalLocked,
+    };
+  }
+
+  /**
+   * Distanz zum Systemstern, normiert 0 (sonnennah) bis 1 (sonnenfern) relativ
+   * zur maximal moeglichen Distanz innerhalb der Systemgrenzen (maxX/maxY) -
+   * fuer swu-solar.ts. 0.5 (neutral) als Fallback, wenn kein Stern gefunden
+   * wird oder Systemgroesse fehlt (sollte in der Praxis nicht vorkommen).
+   */
+  private async computeSwuOrbitDistance(
+    target: CelestialObject,
+  ): Promise<number> {
+    if (!target.starSystem) return computeSwuOrbitDistance(target, null, null);
+    const star = await this.objectRepo
+      .createQueryBuilder('object')
+      .where('object.systemId = :systemId', { systemId: target.systemId })
+      .andWhere('object.classId BETWEEN 9001 AND 9005')
+      .getOne();
+    return computeSwuOrbitDistance(target, star, target.starSystem);
   }
 
   private collectShipReasons(

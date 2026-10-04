@@ -45,6 +45,22 @@ export class CelestialObject {
   @Column({ type: 'int', nullable: true })
   classId: number | null;
 
+  /**
+   * Urspruengliche STU-classId, gesichert beim SWU-Umschalten ("SET EMPTY TO
+   * SWU"), damit "SET EMPTY TO STU" exakt zurueckstellen kann. Nur waehrend
+   * classId eine synthetische SWU-Archetyp-Id (90000er-Bereich) ist gesetzt.
+   */
+  @Column({ type: 'int', nullable: true })
+  originalClassId: number | null;
+
+  /** SWU-Rotation ('rotating' | 'tidal-locked'); null = noch STU/unbekannt (Fallback: Namens-Suffix). */
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  swuRotation: 'rotating' | 'tidal-locked' | null;
+
+  /** SWU-Planet mit Ring (Monde/Asteroiden nie). */
+  @Column({ default: false })
+  swuRing: boolean;
+
   @Column({ default: false })
   isColonizable: boolean;
 

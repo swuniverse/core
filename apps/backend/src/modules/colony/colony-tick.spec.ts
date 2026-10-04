@@ -561,6 +561,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       (_buildingId: number, _fieldType: number) => null,
     ),
     getFieldBuildRuleForFieldTypes: jest.fn(),
+    getCategoriesForTerrainTile: jest.fn(() => []),
+    isCategoryOpenToAnyBuilding: jest.fn(() => false),
+    getFieldCategoriesSummary: jest.fn(() => ({ tiles: {}, anyCategories: [] })),
     getTerraforming: jest.fn((id: number) =>
       id === 101201
         ? {
@@ -2281,7 +2284,7 @@ describe('colony tick calculations', () => {
     await service.checkBuildingCompletions(colony as any);
 
     expect(field.fieldType).toBe(201);
-    expect(field.terrainTileId).toBe(201);
+    expect(field.terrainTileId).toBe("201");
     expect(field.terraformingId).toBeNull();
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });

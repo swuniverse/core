@@ -8,7 +8,7 @@ import type {
   TerraformingDef,
 } from '../types';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from '../constants';
-import { formatSignedAmount } from '../utils';
+import { formatSignedAmount, getFieldIdentityCandidates } from '../utils';
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -56,7 +56,7 @@ export function FieldInspector({
   onClearSelection: () => void;
   onTerraform: (
     fieldIndex: number,
-    terraformingId: number,
+    terraformingId: string,
   ) => Promise<void> | void;
   onUpgrade: (fieldIndex: number, upgradeId: number) => void;
   onDemolish: (fieldIndex: number) => void;
@@ -84,7 +84,7 @@ export function FieldInspector({
     TILE_TYPE_NAMES[field.terrainTileId ?? field.fieldType] ||
     FIELD_TYPE_NAMES[field.fieldType] ||
     '?';
-  const isBonus = (field.terrainTileId ?? field.fieldType) >= 10000;
+  const isBonus = Number(field.terrainTileId ?? field.fieldType) >= 10000;
   const isHQ =
     field.buildingId != null &&
     [1, 82010100, 82010300].includes(field.buildingId);
@@ -95,11 +95,16 @@ export function FieldInspector({
       ? Math.round((integrityCurrent / integrityMax) * 100)
       : 100;
   const availableUpgrades = field.availableUpgrades ?? [];
-  const terraformOptions = terraformingDefs.filter(
-    (option) => option.fromFieldType === field.fieldType,
+  const fieldIdentityCandidates = getFieldIdentityCandidates(field);
+  const terraformOptions = terraformingDefs.filter((option) =>
+    fieldIdentityCandidates.includes(option.fromFieldType),
   );
 
-  const renderUpgradeCosts = (upgrade: ColonyFieldUpgrade) => {
+  const renderUpgradeCosts = (upgrade: {
+    id: number | string;
+    energyCost: number;
+    costs: Array<{ commodityId: number; amount: number }>;
+  }) => {
     const rows: ReactNode[] = [];
     if (upgrade.energyCost > 0) {
       rows.push(
@@ -129,8 +134,8 @@ export function FieldInspector({
                 loading="lazy"
               />
               <span className="truncate">
-                {commodity?.nameShort ||
-                  commodity?.name ||
+                {commodity?.name ||
+                  commodity?.nameShort ||
                   `Ware #${cost.commodityId}`}
               </span>
             </span>
@@ -172,6 +177,15 @@ export function FieldInspector({
         </button>
       </div>
 
+      {field.locked && (
+        <div className="mt-3 rounded border border-swu-border/60 bg-swu-bg/40 px-2 py-1.5 text-[10px] leading-relaxed text-swu-muted">
+          {field.adminPreview
+            ? 'Admin-Vorschau: Für Spieler ohne die Forschung „Untergrund-Wissen" ist dieses Feld verborgen.'
+            : 'Dieses Feld ist verborgen, bis die Forschung „Untergrund-Wissen" abgeschlossen ist.'}
+        </div>
+      )}
+
+      {field.locked && !field.adminPreview ? null : (
       <div className="mt-4 space-y-4">
         {building ? (
           <>
@@ -363,10 +377,10 @@ export function FieldInspector({
         )}
 
         {!field.buildingId && (
-          <Section title="Terraforming">
+          <Section title="Geoengineering">
             {field.terraformingId ? (
               <div className="rounded border border-cyan-400/40 bg-cyan-950/20 px-2 py-1 text-[10px] text-cyan-300">
-                Terraforming läuft bis{' '}
+                Geoengineering läuft bis{' '}
                 {field.terraformingFinishesAt
                   ? new Date(field.terraformingFinishesAt).toLocaleString(
                       'de-DE',
@@ -392,12 +406,16 @@ export function FieldInspector({
                     </span>
                     <span className="ml-2 text-swu-muted">
                       →{' '}
-                      {FIELD_TYPE_NAMES[option.toFieldType] ||
+                      {TILE_TYPE_NAMES[option.toFieldType] ||
+                        FIELD_TYPE_NAMES[option.toFieldType] ||
                         option.toFieldType}
                     </span>
                     <span className="ml-2 text-swu-muted">
                       Dauer: {formatDuration(option.duration)}
                     </span>
+                    <div className="mt-1 space-y-0.5">
+                      {renderUpgradeCosts(option)}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -409,6 +427,7 @@ export function FieldInspector({
           </Section>
         )}
       </div>
+      )}
     </aside>
   );
 }

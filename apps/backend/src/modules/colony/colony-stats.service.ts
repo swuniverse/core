@@ -1,10 +1,44 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  BuildingDef,
   BuildingFunctionDef,
   GameDataService,
 } from '../game-data/game-data.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
+import {
+  energyYieldFactor,
+  housingYieldFactor,
+  productionYieldFactor,
+} from './colony-bonus-marker.util';
+import { CelestialObjectType } from '../starmap/entities/celestial-object.entity';
+import {
+  findArchetypeBySwuClassId,
+  getSwuZoneLetter,
+  getSwuUndergroundMixin,
+} from '../starmap/generator/swu-archetype-registry';
+import {
+  resolveSwuInstance,
+  type SwuZoneSlot,
+} from '../starmap/generator/swu-planet-archetypes.generator';
+
+/**
+ * Solar-Gebaeude, deren Energie-Output am tatsaechlichen Solarertrag der
+ * Kolonie haengt (colony.solarOutputTJ, siehe swu-solar.ts), statt an einer
+ * festen epsProc aus dem Gebaeude-Katalog. Faktor = Multiplikator auf
+ * solarOutputTJ/100 (Referenzwert: 1600 TJ Basisertrag == 16 Energie, die
+ * alte STU-Pauschale - siehe SWU_SOLAR_BASE_OUTPUT_TJ). Ionensegel-Kollektor
+ * und Orbital-Solarkollektor (Solarsatellit) sind baugleich (Faktor 1),
+ * Solarfokus buendelt/verstaerkt auf das 4.5-fache (72 vs. 16 alte Pauschale).
+ */
+const SWU_SOLAR_BUILDING_ENERGY_FACTOR: Record<number, number> = {
+  31010100: 1, // Ionensegel-Kollektor (Rebellen)
+  31010300: 1, // Ionensegel-Kollektor (Imperium)
+  31910100: 1, // Orbital-Solarkollektor / Solarsatellit (Rebellen)
+  31910300: 1, // Orbital-Solarkollektor / Solarsatellit (Imperium)
+  33020100: 4.5, // Solarfokus (Rebellen)
+  33020300: 4.5, // Solarfokus (Imperium)
+};
 
 export function getColonyChangeable(colony: Colony) {
   if (colony.changeable) {
@@ -231,6 +265,9 @@ export interface ColonyInternalSummary {
   effectiveState: ColonyEffectiveState;
 }
 
+/** Kyber-Kristall-Vorkommen (Dilithium-Vorkommen), siehe colonization/swu-zone-ores.ts. */
+const SWU_KYBER_COMMODITY_ID = 1508;
+
 @Injectable()
 export class ColonyStatsService {
   constructor(private readonly gameData: GameDataService) {}
@@ -269,13 +306,15 @@ export class ColonyStatsService {
       }
       const definition = this.gameData.getBuilding(buildingId);
       if (!definition) continue;
-      const epsProc = definition.epsProc || 0;
+      const baseEpsProc = this.resolveEpsProc(buildingId, definition, colony);
+      const epsProc =
+        baseEpsProc > 0 ? baseEpsProc * energyYieldFactor(field, this.gameData) : baseEpsProc;
       energyDelta += epsProc;
       if (epsProc > 0) energyProduction += epsProc;
       if (epsProc < 0) energyConsumption += Math.abs(epsProc);
       researchPoints += definition.researchPoints || 0;
       workersUsed += definition.bevUse || 0;
-      housingBonus += definition.bevPro || 0;
+      housingBonus += (definition.bevPro || 0) * housingYieldFactor(field, this.gameData);
       storageBonus += definition.lager || definition.bonuses.storage || 0;
       energyBonus += definition.bonuses.energy || 0;
       for (const output of definition.production) {
@@ -285,7 +324,10 @@ export class ColonyStatsService {
           : productionDelta;
         targetDelta.set(
           output.commodityId,
-          (targetDelta.get(output.commodityId) || 0) + output.amount,
+          (targetDelta.get(output.commodityId) || 0) +
+            (output.amount > 0
+              ? output.amount * productionYieldFactor(field, output.commodityId, this.gameData)
+              : output.amount),
         );
         if (commodity?.isDeposit && output.amount < 0) {
           depositConsumption.set(
@@ -297,14 +339,27 @@ export class ColonyStatsService {
       }
     }
 
-    const colonyClass = this.gameData.getColonyClass(colony.colonyClassId);
-    if (colonyClass) {
-      for (const baseProduction of colonyClass.baseProduction) {
+    if (colony.swuZoneSlot != null && colony.celestialObject) {
+      // SWU-Archetyp-Kolonie: Rohstoffe haengen am Biom-Buchstaben der
+      // gewaehlten Zone, nicht an einer festen classId (siehe
+      // getSwuBaseProduction - "mehr ueber die Biome, weniger ueber die
+      // Archetypen", Balancing-Konversation).
+      for (const entry of this.getSwuBaseProduction(colony)) {
         depositDelta.set(
-          baseProduction.commodityId,
-          (depositDelta.get(baseProduction.commodityId) || 0) +
-            baseProduction.amount,
+          entry.commodityId,
+          (depositDelta.get(entry.commodityId) || 0) + entry.amount,
         );
+      }
+    } else {
+      const colonyClass = this.gameData.getColonyClass(colony.colonyClassId);
+      if (colonyClass) {
+        for (const baseProduction of colonyClass.baseProduction) {
+          depositDelta.set(
+            baseProduction.commodityId,
+            (depositDelta.get(baseProduction.commodityId) || 0) +
+              baseProduction.amount,
+          );
+        }
       }
     }
 
@@ -411,5 +466,85 @@ export class ColonyStatsService {
       effectiveStorageMax,
       effectiveState,
     };
+  }
+
+  /**
+   * Rohstoff-Produktion einer SWU-Archetyp-Kolonie: haengt am Biom-Buchstaben
+   * der GEWAEHLTEN ZONE (colony.swuZoneSlot), nicht an einer festen classId
+   * (siehe swu-letter-resources.yaml). Bei Gasplanet kommt zusaetzlich ein
+   * Bruchteil des vulkanischen Untergrund-Profils dazu (undergroundMixin).
+   */
+  private getSwuBaseProduction(
+    colony: Colony,
+  ): Array<{ commodityId: number; amount: number }> {
+    const celestialObject = colony.celestialObject;
+    if (!celestialObject?.classId) return [];
+    const archetype = findArchetypeBySwuClassId(celestialObject.classId);
+    if (!archetype) return [];
+
+    const instance = resolveSwuInstance(celestialObject);
+    const isMoon = celestialObject.objectType === CelestialObjectType.MOON;
+
+    const amounts = new Map<number, number>();
+    const addLetter = (letter: string | null, factor = 1) => {
+      if (!letter) return;
+      for (const entry of this.gameData.getSwuLetterResources(letter)) {
+        const amount = (isMoon ? entry.moon : entry.planet) * factor;
+        if (amount === 0) continue;
+        amounts.set(
+          entry.commodityId,
+          (amounts.get(entry.commodityId) ?? 0) + Math.round(amount),
+        );
+      }
+    };
+
+    addLetter(
+      getSwuZoneLetter(
+        archetype,
+        colony.swuZoneSlot as SwuZoneSlot,
+        instance.rotation,
+        instance.bodyFeature,
+      ),
+    );
+    const mixin = getSwuUndergroundMixin(archetype);
+    if (mixin) addLetter(mixin.letter, mixin.factor);
+
+    // Kyber-Marker: je Marker eine zusaetzliche Kyber-Quelle (+1) ueber die
+    // Zonen-Basis hinaus (siehe swu-bonus-markers.ts).
+    const kyberMarkers = (colony.fields ?? []).filter(
+      (field) => field.bonusMarker === 'KYBER',
+    ).length;
+    if (kyberMarkers > 0) {
+      amounts.set(
+        SWU_KYBER_COMMODITY_ID,
+        (amounts.get(SWU_KYBER_COMMODITY_ID) ?? 0) + kyberMarkers,
+      );
+    }
+
+    return Array.from(amounts.entries()).map(([commodityId, amount]) => ({
+      commodityId,
+      amount,
+    }));
+  }
+
+  /**
+   * epsProc fuer ein Gebaeude: Solar-Gebaeude (siehe
+   * SWU_SOLAR_BUILDING_ENERGY_FACTOR) skalieren mit dem tatsaechlichen
+   * Solarertrag der Kolonie (colony.solarOutputTJ) statt der festen
+   * Katalog-epsProc zu nutzen - nur wenn die Kolonie einen gespeicherten
+   * Solarertrag hat (SWU-Archetyp-Kolonie, nach dieser Aenderung gegruendet).
+   * Sonst (STU-Kolonie, aeltere SWU-Kolonie ohne gespeicherten Wert, oder ein
+   * anderes Gebaeude) bleibt es bei der Katalog-epsProc.
+   */
+  private resolveEpsProc(
+    buildingId: number,
+    definition: BuildingDef,
+    colony: Colony,
+  ): number {
+    const factor = SWU_SOLAR_BUILDING_ENERGY_FACTOR[buildingId];
+    if (factor != null && colony.solarOutputTJ != null) {
+      return Math.floor((colony.solarOutputTJ / 100) * factor);
+    }
+    return definition.epsProc || 0;
   }
 }

@@ -19,7 +19,17 @@ import { GalaxyField, FactionZone } from './entities/galaxy-field.entity';
 import { GalaxyFieldType } from './entities/galaxy-field-type.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { SystemField } from './entities/system-field.entity';
-import { CelestialObject } from './entities/celestial-object.entity';
+import {
+  CelestialObject,
+  CelestialObjectType,
+} from './entities/celestial-object.entity';
+import { purgeColonies } from '../colony/colony-purge';
+import {
+  convertObjectToSwu,
+  isStuClassColonizable,
+  getMappedStuClassIds,
+  stripSwuNameSuffix,
+} from './generator/swu-stu-class-mapping';
 import { MapRegion } from './entities/map-region.entity';
 import { BorderType } from './entities/border-type.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
@@ -57,6 +67,9 @@ import type {
   StarmapWorldResetTacticalResultDto,
   StarmapRegenerateSystemDto,
   StarmapSectorOverviewEntry,
+  StarmapSetEmptyToStuResultDto,
+  StarmapResetUninhabitedResultDto,
+  StarmapSetEmptyToSwuResultDto,
   StarmapSystemFieldDto,
   StarmapSystemListItemDto,
   StarmapUpdateBorderTypeDto,
@@ -65,6 +78,10 @@ import type {
   StarmapUpdateSystemFieldDto,
 } from '@swuniverse/shared';
 import { StarmapSystemGeneratorService } from './generator/starmap-system-generator.service';
+import {
+  createSwuTestSystemLayout,
+  SWU_TEST_SYSTEM_KEY,
+} from './generator/swu-system-generator';
 
 interface StarWarsSystemCatalogEntry {
   name: string;
@@ -149,6 +166,11 @@ const AUTO_SYSTEM_NAMES = [
   'Talos',
   'Umbriel',
 ];
+
+type SwuInstanceFields = {
+  swuRotation?: 'rotating' | 'tidal-locked' | null;
+  swuRing?: boolean;
+};
 
 @Injectable()
 export class StarmapAdminService {
@@ -1344,6 +1366,8 @@ export class StarmapAdminService {
           posY: object.posY,
           classId: object.classId,
           isColonizable: object.isColonizable,
+          swuRotation: (object as SwuInstanceFields).swuRotation ?? null,
+          swuRing: (object as SwuInstanceFields).swuRing ?? false,
         }),
       ),
     );
@@ -1893,6 +1917,178 @@ export class StarmapAdminService {
 
     await this.persistGeneratedLayout(system, layout);
     return { generated: 1, updated: 1 };
+  }
+
+  /**
+   * Ueberschreibt ein BESTEHENDES System komplett mit dem SWU-Testsystem-Layout
+   * (alle 18 SWU-Planeten-Archetypen einmal, siehe swu-system-generator.ts).
+   * Beruehrt NICHT den regulaeren STU-Generator/-Pfad - das System muss vorher
+   * ganz normal auf der Karte angelegt worden sein (z.B. per createStarSystem),
+   * diese Methode ersetzt danach nur seinen Inhalt.
+   */
+  async regenerateSwuTestSystem(
+    systemId: number,
+  ): Promise<StarmapOperationResultDto> {
+    const system = await this.systemRepo.findOneBy({ id: systemId });
+    if (!system) throw new NotFoundException('Star system not found');
+
+    await this.systemFieldRepo.delete({ starSystemId: system.id });
+    await this.objectRepo.delete({ systemId: system.id });
+
+    const layout = createSwuTestSystemLayout(system.name);
+    system.maxX = layout.width;
+    system.maxY = layout.height;
+    system.isLandmark = true;
+    system.landmarkKey = SWU_TEST_SYSTEM_KEY;
+    await this.systemRepo.save(system);
+
+    await this.persistGeneratedLayout(system, layout);
+    return { generated: 1, updated: 1 };
+  }
+
+  /**
+   * Stellt ALLE unbewohnten (keine aktive Kolonie) Planeten/Monde mit einer
+   * bekannten STU-classId (siehe swu-stu-class-mapping.ts) auf ihren
+   * zugeordneten SWU-Archetyp um. Unkolonisierte Objekte haben noch keine
+   * generierten Felder (die entstehen erst bei der Kolonisierung selbst) -
+   * es reicht daher, nur die classId zu tauschen. Die urspruengliche classId
+   * wird in originalClassId gesichert, damit setEmptyPlanetsToStu() exakt
+   * zurueckstellen kann.
+   */
+  async setEmptyPlanetsToSwu(): Promise<StarmapSetEmptyToSwuResultDto> {
+    const mappedClassIds = getMappedStuClassIds();
+    if (mappedClassIds.length === 0) {
+      return { converted: 0, skippedInhabited: 0, skippedNoMapping: 0 };
+    }
+
+    const matchingObjectTypes = this.objectRepo
+      .createQueryBuilder('object')
+      .where('object.objectType IN (:...objectTypes)', {
+        objectTypes: [CelestialObjectType.PLANET, CelestialObjectType.MOON],
+      })
+      .andWhere('object.classId IN (:...classIds)', {
+        classIds: mappedClassIds,
+      });
+
+    const skippedInhabited = await matchingObjectTypes
+      .clone()
+      .andWhere(
+        `EXISTS (SELECT 1 FROM colonies c WHERE c."celestialObjectId" = object.id AND c."isAbandoned" = false)`,
+      )
+      .getCount();
+
+    const candidates = await matchingObjectTypes
+      .clone()
+      .andWhere(
+        `NOT EXISTS (SELECT 1 FROM colonies c WHERE c."celestialObjectId" = object.id AND c."isAbandoned" = false)`,
+      )
+      .getMany();
+
+    let converted = 0;
+    let skippedNoMapping = 0;
+    for (const object of candidates) {
+      if (!convertObjectToSwu(object)) {
+        skippedNoMapping++;
+        continue;
+      }
+      converted++;
+    }
+    if (converted > 0) {
+      await this.objectRepo.save(candidates.filter((o) => o.originalClassId != null));
+    }
+
+    return { converted, skippedInhabited, skippedNoMapping, updated: converted };
+  }
+
+  /**
+   * Kehrt setEmptyPlanetsToSwu() um: alle Objekte mit gesetzter
+   * originalClassId (und weiterhin unbewohnt) bekommen ihre urspruengliche
+   * STU-classId zurueck. Objekte, die inzwischen kolonisiert wurden, bleiben
+   * unangetastet (originalClassId bleibt gesetzt, damit sie spaeter -
+   * z.B. nach Aufgabe der Kolonie - immer noch zurueckgestellt werden koennen).
+   */
+  async setEmptyPlanetsToStu(): Promise<StarmapSetEmptyToStuResultDto> {
+    const hasOriginal = this.objectRepo
+      .createQueryBuilder('object')
+      .where('object."originalClassId" IS NOT NULL');
+
+    const skippedInhabited = await hasOriginal
+      .clone()
+      .andWhere(
+        `EXISTS (SELECT 1 FROM colonies c WHERE c."celestialObjectId" = object.id AND c."isAbandoned" = false)`,
+      )
+      .getCount();
+
+    const candidates = await hasOriginal
+      .clone()
+      .andWhere(
+        `NOT EXISTS (SELECT 1 FROM colonies c WHERE c."celestialObjectId" = object.id AND c."isAbandoned" = false)`,
+      )
+      .getMany();
+
+    for (const object of candidates) {
+      object.classId = object.originalClassId;
+      object.isColonizable = isStuClassColonizable(object.originalClassId);
+      object.originalClassId = null;
+      object.swuRotation = null;
+      object.swuRing = false;
+      object.name = stripSwuNameSuffix(object.name);
+    }
+    if (candidates.length > 0) {
+      await this.objectRepo.save(candidates);
+    }
+
+    return {
+      reverted: candidates.length,
+      skippedInhabited,
+      updated: candidates.length,
+    };
+  }
+
+  /**
+   * Setzt alle Planeten/Monde/Asteroiden zurueck, die gerade nicht aktiv
+   * bewohnt sind (aufgegebene oder besitzerlose Kolonien): Kolonie samt
+   * Gebaeuden, Lager, Queues, Scans und Asteroiden-Vorkommen wird geloescht,
+   * sodass der Himmelskoerper wieder als nie bespielt gilt. Aktiv bewohnte
+   * Kolonien und Starter-Kolonien bleiben unangetastet.
+   */
+  async resetUninhabitedColonies(): Promise<StarmapResetUninhabitedResultDto> {
+    const inactive = `c."id" NOT IN (SELECT "starterColonyId" FROM "users" WHERE "starterColonyId" IS NOT NULL)
+       AND (c."isAbandoned" = true OR c."userId" IS NULL)`;
+    return this.entityManager.transaction(async (manager) => {
+      const rows: { id: number; celestialObjectId: number | null }[] =
+        await manager.query(
+          `SELECT c."id", c."celestialObjectId" FROM "colonies" c WHERE ${inactive}`,
+        );
+      const skippedInhabited: { count: string }[] = await manager.query(
+        `SELECT COUNT(*) AS count FROM "colonies" c WHERE NOT (${inactive})`,
+      );
+      const colonyIds = rows.map((r) => r.id);
+      const objectIds = [
+        ...new Set(
+          rows
+            .map((r) => r.celestialObjectId)
+            .filter((id): id is number => id != null),
+        ),
+      ];
+      await purgeColonies(manager, colonyIds);
+      // Vorkommen nur fuer Objekte loeschen, die keine aktive Kolonie mehr tragen.
+      if (objectIds.length > 0) {
+        await manager.query(
+          `DELETE FROM "asteroid_resource_deposits" d
+           WHERE d."celestialObjectId" = ANY($1)
+             AND NOT EXISTS (
+               SELECT 1 FROM "colonies" c WHERE c."celestialObjectId" = d."celestialObjectId"
+             )`,
+          [objectIds],
+        );
+      }
+      return {
+        removedColonies: colonyIds.length,
+        resetObjects: objectIds.length,
+        skippedInhabited: Number(skippedInhabited[0]?.count ?? 0),
+      };
+    });
   }
 
   async initializeSystemGrid(

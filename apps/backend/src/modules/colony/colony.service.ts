@@ -184,10 +184,15 @@ export class ColonyService {
     );
   }
 
-  async getAvailableBuildings(userId: number, fieldType?: number) {
+  async getAvailableBuildings(
+    userId: number,
+    fieldType?: number,
+    colonyId?: number,
+  ) {
     return this.colonyConstructionService.getAvailableBuildings(
       userId,
       fieldType,
+      colonyId,
     );
   }
 
@@ -279,12 +284,20 @@ export class ColonyService {
     });
   }
 
-  async findOne(colonyId: number, userId: number): Promise<Colony> {
+  async findOne(
+    colonyId: number,
+    userId: number,
+    isAdmin = false,
+  ): Promise<Colony> {
     const colony = await this.colonyOwnershipService.findOwnedColony(
       colonyId,
       userId,
     );
-    return this.colonyProjectionService.toColonyDetail(colony, userId);
+    return this.colonyProjectionService.toColonyDetail(
+      colony,
+      userId,
+      isAdmin,
+    );
   }
 
   async getCurrentObjective(userId: number) {
@@ -600,7 +613,7 @@ export class ColonyService {
     colonyId: number,
     userId: number,
     fieldIndex: number,
-    terraformingId: number,
+    terraformingId: string,
   ): Promise<ColonyField> {
     return this.colonyConstructionService.terraformField(
       colonyId,

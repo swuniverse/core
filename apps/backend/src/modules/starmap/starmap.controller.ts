@@ -50,6 +50,9 @@ import type {
   StarmapLayerOverviewDto,
   StarmapMapRegionDto,
   StarmapOperationResultDto,
+  StarmapSetEmptyToStuResultDto,
+  StarmapResetUninhabitedResultDto,
+  StarmapSetEmptyToSwuResultDto,
   StarmapRegenerateSystemDto,
   StarmapSectorDto,
   StarmapSystemDetailDto,
@@ -384,6 +387,35 @@ export class StarmapController {
     body: StarmapCreateSystemDto,
   ): Promise<StarmapSystemListItemDto> {
     return this.starmapAdminService.createStarSystem(body);
+  }
+
+  @Post('admin/systems/:id/regenerate-swu-test')
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
+  regenerateSwuTestSystem(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StarmapOperationResultDto> {
+    return this.starmapAdminService.regenerateSwuTestSystem(id);
+  }
+
+  @Post('admin/celestial-objects/set-empty-to-swu')
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
+  setEmptyPlanetsToSwu(): Promise<StarmapSetEmptyToSwuResultDto> {
+    return this.starmapAdminService.setEmptyPlanetsToSwu();
+  }
+
+  @Post('admin/celestial-objects/set-empty-to-stu')
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
+  setEmptyPlanetsToStu(): Promise<StarmapSetEmptyToStuResultDto> {
+    return this.starmapAdminService.setEmptyPlanetsToStu();
+  }
+
+  @Post('admin/celestial-objects/reset-uninhabited')
+  @UseGuards(AdminGuard)
+  resetUninhabitedColonies(): Promise<StarmapResetUninhabitedResultDto> {
+    return this.starmapAdminService.resetUninhabitedColonies();
   }
 
   @Post('admin/systems/:id/initialize-grid')

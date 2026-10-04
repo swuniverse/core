@@ -1,3 +1,8 @@
+import {
+  getSwuPlanetAssetFileName,
+  type SwuPlanetAssetInput,
+} from '@swuniverse/shared';
+
 const ASSET_BASE = import.meta.env.VITE_ASSET_BASE_URL || '/assets';
 
 const PNG_PLANET_IMAGES = new Set([
@@ -16,12 +21,67 @@ function planetAssetExtension(
   return pngSet.has(classId) ? 'png' : 'gif';
 }
 
-export function planetImage(classId: number): string {
-  return `${ASSET_BASE}/planets/${classId}.${planetAssetExtension(classId)}`;
+/**
+ * SWU-Planeten: EINE PNG (assets/SWU_PLANETS, 150x150) fuer alle Groessen -
+ * Detail- wie Karten-Ansicht skalieren sie per CSS bzw. Sprite-Groesse.
+ * Rotation/Ring/Mond kommen aus Objektname + objectType, der Schild-Status
+ * (nur mit errichtetem planetarem Schild) aus `shielded`.
+ */
+export function swuPlanetImage(input: SwuPlanetAssetInput): string | null {
+  const file = getSwuPlanetAssetFileName(input);
+  return file ? `${ASSET_BASE}/SWU_PLANETS/${file}` : null;
 }
 
-export function planetThumbnail(classId: number): string {
-  return `${ASSET_BASE}/planets/${classId}s.${planetAssetExtension(classId, true)}`;
+export function planetImage(
+  classId: number,
+  swu?: Omit<SwuPlanetAssetInput, 'classId'>,
+): string {
+  return (
+    swuPlanetImage({ classId, ...swu }) ??
+    `${ASSET_BASE}/planets/${classId}.${planetAssetExtension(classId)}`
+  );
+}
+
+export function planetThumbnail(
+  classId: number,
+  swu?: Omit<SwuPlanetAssetInput, 'classId'>,
+): string {
+  return (
+    swuPlanetImage({ classId, ...swu }) ??
+    `${ASSET_BASE}/planets/${classId}s.${planetAssetExtension(classId, true)}`
+  );
+}
+
+/**
+ * Emoji-Fallback fuer die SYNTHETISCHEN classIds des SWU-Testsystems
+ * (90000 + typeId*10 + variantIndex, siehe buildSwuTestClassId() in
+ * apps/backend/.../swu-system-generator.ts). Die echten Grafiken liegen in
+ * assets/SWU_PLANETS (siehe swuPlanetImage); das Emoji greift nur noch, wenn
+ * das Bild nicht geladen werden kann.
+ */
+export const SWU_TEST_PLANET_EMOJI: Record<number, string> = {
+  90010: '🌍', // Erdähnlich
+  90020: '🌊', // Ozeanwelt
+  90030: '🌲', // Waldplanet
+  90040: '🐸', // Sumpf
+  90050: '🦁', // Savanne
+  90060: '🏜️', // Wüste
+  90070: '⛰️', // Gebirgswelt
+  90080: '❄️', // Tundraartig
+  90090: '🔴', // Marsartig
+  90100: '🧊', // Arktisch
+  90110: '🏝️', // Archipel
+  90120: '🌑', // Mondartig
+  90130: '🌋', // Lavaplanet
+  90140: '☠️', // Giftwelt
+  90150: '🟠', // Gasplanet A
+  90151: '🟡', // Gasplanet B
+  90152: '🟢', // Gasplanet C
+  90153: '🟣', // Gasplanet D
+};
+
+export function isSwuTestClassId(classId: number): boolean {
+  return classId >= 90000 && classId < 91000;
 }
 
 const SHIP_CLASS_KEY_FILES: Record<string, string> = {
@@ -391,8 +451,17 @@ export function buildingImage(buildingId: number): string {
     : `${ASSET_BASE}/buildings/${buildingId}.png`;
 }
 
-export function colonyFieldTileImage(tileId: number): string {
-  return `${ASSET_BASE}/generated/fields/${tileId}.png`;
+export function colonyFieldTileImage(
+  tileId: number | string,
+  timeState: 'day' | 'night' = 'day',
+): string {
+  // Alte STU-Felder haben rein numerische IDs (generated/fields). SWU-Codes
+  // (z.B. "A540", "OU1A", "U101") liegen in generated/SWUfields, dort mit
+  // Praefix t (Tag) / n (Nacht); Untergrund-Codes (U...) ohne Praefix.
+  const id = String(tileId);
+  if (/^\d+$/.test(id)) return `${ASSET_BASE}/generated/fields/${id}.png`;
+  const prefix = id.startsWith('U') ? '' : timeState === 'night' ? 'n' : 't';
+  return `${ASSET_BASE}/generated/SWUfields/${prefix}${id}.png`;
 }
 
 export function researchImage(techId: number): string {

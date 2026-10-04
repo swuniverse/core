@@ -30,6 +30,7 @@ import {
   SpacecraftScanResult,
   SpacecraftScanType,
 } from './entities/spacecraft-scan-result.entity';
+import { findShieldedColonyObjectIds } from './shielded-colonies.util';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 @Injectable()
@@ -102,8 +103,7 @@ export class SpacecraftScanService {
     const celestialDiscovery = object
       ? await this.celestialClassDiscoveryService.discover({
           userId,
-          classId: object.classId,
-          celestialObjectId: object.id,
+          object,
           spacecraftId: ship.id,
         })
       : null;
@@ -199,6 +199,11 @@ export class SpacecraftScanService {
       starSystemId: ship.starSystemId,
       source: 'system_field_scan',
     });
+    const shielded = field.celestialObject
+      ? (
+          await findShieldedColonyObjectIds(this.colonyRepo, ship.starSystemId)
+        ).has(field.celestialObject.id)
+      : false;
     return this.persistScan(
       ship,
       SpacecraftScanType.SYSTEM_FIELD,
@@ -214,6 +219,8 @@ export class SpacecraftScanService {
               id: field.celestialObject.id,
               name: field.celestialObject.name,
               classId: field.celestialObject.classId,
+              objectType: field.celestialObject.objectType,
+              shielded,
             }
           : null,
       },
@@ -394,7 +401,7 @@ export class SpacecraftScanService {
       fields: Array<{
         fieldIndex: number;
         fieldType: number;
-        terrainTileId: number | null;
+        terrainTileId: string | null;
         buildingId: number | null;
         buildingName: string | null;
         hasBuilding: boolean;

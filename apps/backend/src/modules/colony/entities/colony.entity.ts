@@ -57,6 +57,27 @@ export class Colony {
   @Column()
   colonyClassId: number;
 
+  /**
+   * Gewaehlte Zone (Cold/Mid/Hot) bei der Gruendung - nur gesetzt fuer SWU-
+   * Archetyp-Kolonien (siehe ColonySeedService.createFollowUpSwuColony).
+   * Archetyp/Rotation/bodyFeature bleiben weiterhin aus celestialObject
+   * (classId/name) ableitbar - nur die Zonenwahl selbst ist sonst nirgends
+   * gespeichert und wuerde nach der Gruendung verloren gehen.
+   */
+  @Column({ type: 'int', nullable: true })
+  swuZoneSlot: number | null;
+
+  /**
+   * Solarertrag in TJ (siehe starmap/generator/swu-solar.ts), einmalig bei
+   * Gruendung berechnet - haengt nur von Zone/Rotation/Archetyp/Orbit-Distanz
+   * ab, die sich danach nie mehr aendern. Treibt den Energie-Output der
+   * Solar-Gebaeude (Ionensegel-Kollektor, Orbital-Solarkollektor, Solarfokus)
+   * in colony-stats.service.ts. null = STU-Kolonie oder vor dieser Aenderung
+   * gegruendete SWU-Kolonie (faellt auf die alte statische epsProc zurueck).
+   */
+  @Column({ type: 'real', nullable: true })
+  solarOutputTJ: number | null;
+
   @Column({ type: 'text', nullable: true })
   surfaceMask: string | null;
 

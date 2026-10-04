@@ -16,7 +16,11 @@ export interface ColonyField {
   id: number;
   fieldIndex: number;
   fieldType: number;
-  terrainTileId: number | null;
+  terrainTileId: string | null;
+  /** SWU planetarer Bonus-Marker (KYBER|PHRIK|FERTILE|ENERGY|ATTRACTIVE). */
+  bonusMarker?: string | null;
+  /** false = Marker am Feld, passt aber nicht (mehr) zum aktuellen Tile -> ausgegraut. */
+  bonusMarkerActive?: boolean | null;
   layer?: 'ORBIT' | 'SURFACE' | 'UNDERGROUND' | null;
   buildingId: number | null;
   isBuilding: boolean;
@@ -25,9 +29,13 @@ export interface ColonyField {
   maxIntegrity?: number;
   buildProgress: number;
   buildFinishesAt: string | null;
-  terraformingId?: number | null;
+  terraformingId?: string | null;
   terraformingFinishesAt?: string | null;
   availableUpgrades?: ColonyFieldUpgrade[];
+  /** Untergrund vor Forschung "Untergrund-Wissen" gesperrt. */
+  locked?: boolean;
+  /** Admin sieht echte Daten trotz `locked` (Frontend zeigt z.B. Graustufen). */
+  adminPreview?: boolean;
 }
 
 export interface ColonyStorageItem {
@@ -751,7 +759,8 @@ export interface BuildingDef {
   category: string;
   costs: Record<string, number>;
   resourceCosts?: Array<{ commodityId: number; amount: number }>;
-  allowedFieldTypes: number[];
+  /** Zahlen (alte STU-Feldtypen) und/oder SWU-Feldkategorie-Strings (z.B. "standard", "orbit"). */
+  allowedFieldTypes: Array<number | string>;
   isUnique: boolean;
   visible?: boolean;
   researchId?: number | null;
@@ -785,14 +794,23 @@ export interface CommodityDef {
 }
 
 export interface TerraformingDef {
-  id: number;
+  /** String, damit sowohl alte STU-Zahlen-IDs als auch neue SWU-IDs (z.B. "J810J840") passen. */
+  id: string;
   description: string;
-  fromFieldType: number;
-  toFieldType: number;
+  /** SWU-Tile-Codes (z.B. "E432") oder alte STU-Feldtyp-Zahlen, jeweils als String normalisiert. */
+  fromFieldType: string;
+  toFieldType: string;
   energyCost: number;
   duration: number;
   researchId: number | null;
   costs: Array<{ commodityId: number; amount: number }>;
+  condition?: { operator: '<' | '>'; value: number };
+  autoAfterTicks?: number;
+}
+
+export interface FieldCategoriesSummary {
+  tiles: Record<string, string[]>;
+  anyCategories: string[];
 }
 
 export interface ShipClassDef {
@@ -828,3 +846,8 @@ export type DetailTab =
   | 'settings'
   | 'crew'
   | 'hangar';
+
+/** Planetarer Schild errichtet (Schildenergie > 0) - waehlt die Schild-Variante der Planetengrafik. */
+export function isColonyShielded(colony: Colony): boolean {
+  return (colony.detailV2?.defense?.shields.current ?? 0) > 0;
+}

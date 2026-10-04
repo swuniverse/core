@@ -81,11 +81,26 @@ export function StarmapPage() {
     setSelectedSystem(system);
   }
 
+  const markSystemOpened = useCallback((systemId: number) => {
+    if (openedSystemIdsRef.current.includes(systemId)) return;
+    const openedIds = [...openedSystemIdsRef.current, systemId];
+    openedSystemIdsRef.current = openedIds;
+    setOpenedSystemIds(openedIds);
+  }, []);
+
   const openSystem = useCallback(async (system: StarSystem): Promise<SystemGrid | null> => {
     if (!canLoadInlineSystem(system)) return null;
     setSelectedSystem(system);
     const cached = systemGridsRef.current.get(system.id);
-    if (cached) return cached;
+    if (cached) {
+      // Alle Systeme werden bereits im Hintergrund vorab geladen (siehe
+      // useEffect unten) - ohne dieses markSystemOpened() blieb ein Klick auf
+      // "Systemfelder laden" wirkungslos, sobald die Grid-Daten schon im
+      // Cache lagen: renderInlineSystems() rendert nur, was in
+      // openedSystemIds steht, das wurde hier aber nie gesetzt.
+      markSystemOpened(system.id);
+      return cached;
+    }
     const pending = openingSystemsRef.current.get(system.id);
     if (pending) return pending;
     const request = api.get<SystemGrid>(`/starmap/systems/${system.id}/grid`);
@@ -95,16 +110,12 @@ export function StarmapPage() {
       const grids = new Map(systemGridsRef.current).set(system.id, grid);
       systemGridsRef.current = grids;
       setSystemGrids(grids);
-      const openedIds = openedSystemIdsRef.current.includes(system.id)
-        ? openedSystemIdsRef.current
-        : [...openedSystemIdsRef.current, system.id];
-      openedSystemIdsRef.current = openedIds;
-      setOpenedSystemIds(openedIds);
+      markSystemOpened(system.id);
       return grid;
     } finally {
       openingSystemsRef.current.delete(system.id);
     }
-  }, []);
+  }, [markSystemOpened]);
 
   useEffect(() => {
     const systems = Array.from(

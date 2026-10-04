@@ -16,6 +16,9 @@ import type {
   DefaultStarWarsGalaxySeedResultDto,
   StarmapWorldResetTacticalResultDto,
   StarmapSystemFieldDto,
+  StarmapSetEmptyToSwuResultDto,
+  StarmapSetEmptyToStuResultDto,
+  StarmapResetUninhabitedResultDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
 
@@ -111,6 +114,9 @@ interface FullmapEditorState {
   initializeLayerGrid: (fieldTypeId: number) => Promise<void>;
   generateSystemsForLayer: () => Promise<void>;
   worldResetTactical: () => Promise<void>;
+  setEmptyPlanetsToSwu: () => Promise<void>;
+  setEmptyPlanetsToStu: () => Promise<void>;
+  resetUninhabitedColonies: () => Promise<void>;
 
   // System view
   openSystemView: (systemId: number) => Promise<void>;
@@ -356,6 +362,54 @@ export const useFullmapEditorStore = create<FullmapEditorState>((set, get) => ({
       });
       await get().bootstrap();
       await get().selectLayer(result.layerId);
+    } catch (err) {
+      set({ error: readError(err), status: '' });
+    }
+  },
+
+  setEmptyPlanetsToSwu: async () => {
+    set({ status: 'Unbewohnte Planeten/Monde werden auf SWU umgestellt...', error: null });
+    try {
+      const result = await api.post<StarmapSetEmptyToSwuResultDto>(
+        '/starmap/admin/celestial-objects/set-empty-to-swu',
+        {},
+      );
+      set({
+        status: `${result.converted} umgestellt, ${result.skippedInhabited} bewohnt übersprungen, ${result.skippedNoMapping} ohne Zuordnung übersprungen`,
+      });
+      await get().loadFields();
+    } catch (err) {
+      set({ error: readError(err), status: '' });
+    }
+  },
+
+  setEmptyPlanetsToStu: async () => {
+    set({ status: 'Unbewohnte Planeten/Monde werden auf STU zurückgestellt...', error: null });
+    try {
+      const result = await api.post<StarmapSetEmptyToStuResultDto>(
+        '/starmap/admin/celestial-objects/set-empty-to-stu',
+        {},
+      );
+      set({
+        status: `${result.reverted} zurückgestellt, ${result.skippedInhabited} bewohnt übersprungen`,
+      });
+      await get().loadFields();
+    } catch (err) {
+      set({ error: readError(err), status: '' });
+    }
+  },
+
+  resetUninhabitedColonies: async () => {
+    set({ status: 'Unbewohnte Himmelskörper werden zurückgesetzt...', error: null });
+    try {
+      const result = await api.post<StarmapResetUninhabitedResultDto>(
+        '/starmap/admin/celestial-objects/reset-uninhabited',
+        {},
+      );
+      set({
+        status: `${result.removedColonies} Kolonien entfernt, ${result.resetObjects} Himmelskörper zurückgesetzt, ${result.skippedInhabited} bewohnt übersprungen`,
+      });
+      await get().loadFields();
     } catch (err) {
       set({ error: readError(err), status: '' });
     }

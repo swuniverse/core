@@ -8,6 +8,7 @@ import type {
   Colony,
   ColonyEventDto,
   CommodityDef,
+  FieldCategoriesSummary,
   ShipClassDef,
   ShipModuleSelection,
   StarterColonizationOptions,
@@ -18,11 +19,17 @@ export const colonyApi = {
   fetchColonies: () => api.get<Colony[]>('/colonies'),
   fetchColonyDetail: (id: number) => api.get<Colony>(`/colonies/${id}`),
   fetchCommodities: () => api.get<CommodityDef[]>('/colonies/commodities/all'),
-  fetchAvailableBuildings: () =>
-    api.get<BuildingDef[]>('/colonies/buildings/available'),
+  fetchAvailableBuildings: (colonyId?: number) =>
+    api.get<BuildingDef[]>(
+      colonyId != null
+        ? `/colonies/buildings/available?colonyId=${colonyId}`
+        : '/colonies/buildings/available',
+    ),
   fetchAllBuildings: () => api.get<BuildingDef[]>('/colonies/buildings/all'),
   fetchTerraforming: () =>
     api.get<TerraformingDef[]>('/colonies/terraforming/all'),
+  fetchFieldCategories: () =>
+    api.get<FieldCategoriesSummary>('/colonies/field-categories'),
   fetchShipClasses: () => api.get<ShipClassDef[]>('/spacecraft/classes'),
 
   fetchStarterColonizationOptions: () =>
@@ -102,7 +109,7 @@ export const colonyApi = {
   terraformField: (
     colonyId: number,
     fieldIndex: number,
-    terraformingId: number,
+    terraformingId: string,
   ) =>
     api.post(`/colonies/${colonyId}/fields/${fieldIndex}/terraform`, {
       terraformingId,

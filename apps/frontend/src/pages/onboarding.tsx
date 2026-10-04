@@ -14,7 +14,7 @@ import type {
 } from '@swuniverse/shared';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
-import { planetImage } from '../lib/assets';
+import { PlanetImg } from '../components/PlanetImg';
 
 const FACTION_ZONE_LABELS: Record<string, string> = {
   REBEL: 'Rebellen',
@@ -68,6 +68,14 @@ interface CelestialObjectDto {
   systemId: number;
   objectType?: number;
   isColonizable?: boolean;
+  /** Nur SWU-Planeten: Zonen mit Biom C/E, auf denen gestartet werden darf. */
+  starterZones?: Array<{
+    zoneSlot: number;
+    label: string;
+    letter: string;
+    primaryBiome: string | null;
+    secondaryBiome: string | null;
+  }>;
 }
 
 interface StarterColonyDto {
@@ -124,6 +132,9 @@ export function OnboardingPage() {
   const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null);
   const [planets, setPlanets] = useState<CelestialObjectDto[]>([]);
   const [selectedPlanetId, setSelectedPlanetId] = useState<number | null>(null);
+  const [selectedZoneSlot, setSelectedZoneSlot] = useState<number | null>(
+    null,
+  );
   const [starterColony, setStarterColony] = useState<StarterColonyDto | null>(
     null,
   );
@@ -242,10 +253,17 @@ export function OnboardingPage() {
       const planetRes = await api.get<CelestialObjectDto[]>(
         `/onboarding/planets?systemId=${systemId}`,
       );
+      // Das Backend liefert SWU-Planeten (mit starterZones) oder - nur als
+      // Fallback, wenn kein SWU-Starterplanet frei ist - STU M/L/O-Planeten.
       setPlanets(
-        planetRes.filter((planet) => isStarterPlanetClass(planet.classId)),
+        planetRes.filter(
+          (planet) =>
+            (planet.starterZones?.length ?? 0) > 0 ||
+            isStarterPlanetClass(planet.classId),
+        ),
       );
       setSelectedPlanetId(null);
+      setSelectedZoneSlot(null);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Failed to load planets',
@@ -294,6 +312,7 @@ export function OnboardingPage() {
         nextObjective?: NextObjectiveDto;
       }>('/onboarding/claim-homeworld', {
         celestialObjectId: selectedPlanetId,
+        ...(selectedZoneSlot != null ? { zoneSlot: selectedZoneSlot } : {}),
       });
       const [profile, colony] = await Promise.all([
         api.get<UserWithOnboarding>('/auth/me'),
@@ -643,51 +662,87 @@ export function OnboardingPage() {
                 {selectedFaction ? '3. Planet' : '4. Planet'}
               </h2>
               <p className="text-xs text-swu-muted mb-4">
-                Nur kolonialisierbare M-, L- und O-Klasse-Planeten koennen als
-                Heimatwelt gewaehlt werden.
+                Als Heimatwelt sind SWU-Planeten mit den Biomen C (Gemaessigt) und
+                E (Tropisch) moeglich. Nur wenn kein solcher Planet mehr frei
+                ist, werden M-, L- und O-Klasse-Planeten angeboten.
               </p>
               <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
                 {planets.length === 0 && (
                   <p className="text-swu-muted text-sm">
                     {selectedSystemId
-                      ? 'In diesem System gibt es keine geeigneten Startplaneten der Klasse M, L oder O.'
+                      ? 'In diesem System gibt es keine geeigneten Startplaneten.'
                       : 'Choose system first.'}
                   </p>
                 )}
                 {planets.map((planet) => {
+                  const zones = planet.starterZones ?? [];
+                  const isSwu = zones.length > 0;
                   const classLabel = formatPlanetClass(planet.classId);
+                  const selected = selectedPlanetId === planet.id;
                   return (
-                    <button
+                    <div
                       key={planet.id}
-                      type="button"
-                      disabled={saving}
-                      onClick={() => setSelectedPlanetId(planet.id)}
-                      className={`w-full rounded border p-4 text-left transition flex items-center gap-4 ${
-                        selectedPlanetId === planet.id
+                      className={`w-full rounded border p-4 text-left transition ${
+                        selected
                           ? 'border-swu-accent bg-swu-accent/10'
                           : 'border-swu-border hover:border-swu-primary'
                       }`}
                     >
-                      {planet.classId && (
-                        <img
-                          src={planetImage(planet.classId)}
-                          alt={`Klasse ${classLabel}`}
-                          className="w-12 h-12 object-contain shrink-0"
-                        />
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          setSelectedPlanetId(planet.id);
+                          setSelectedZoneSlot(zones[0]?.zoneSlot ?? null);
+                        }}
+                        className="w-full text-left flex items-center gap-4"
+                      >
+                        {planet.classId && (
+                          <PlanetImg
+                            classId={planet.classId}
+                            name={planet.name}
+                            className="w-12 h-12 object-contain shrink-0"
+                          />
+                        )}
+                        <div>
+                          <div className="font-bold text-swu-primary">
+                            {planet.name ?? `Planet ${planet.id}`}
+                          </div>
+                          <div className="text-xs text-swu-muted mt-1">
+                            Position: {planet.posX} | {planet.posY}
+                            {!isSwu && (
+                              <>
+                                {' '}
+                                · Klasse {classLabel}
+                                <span className="ml-1 text-swu-muted/70">
+                                  — {getStuClassDescription(planet.classId)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {isSwu && selected && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {zones.map((zone) => (
+                            <button
+                              key={zone.zoneSlot}
+                              type="button"
+                              disabled={saving}
+                              onClick={() => setSelectedZoneSlot(zone.zoneSlot)}
+                              className={`rounded border px-3 py-1 text-xs ${
+                                selectedZoneSlot === zone.zoneSlot
+                                  ? 'border-swu-accent bg-swu-accent/20 text-swu-accent'
+                                  : 'border-swu-border text-swu-muted hover:border-swu-primary'
+                              }`}
+                            >
+                              {zone.label} · Biom {zone.letter}
+                              {zone.primaryBiome ? ` (${zone.primaryBiome})` : ''}
+                            </button>
+                          ))}
+                        </div>
                       )}
-                      <div>
-                        <div className="font-bold text-swu-primary">
-                          {planet.name ?? `Planet ${planet.id}`}
-                        </div>
-                        <div className="text-xs text-swu-muted mt-1">
-                          Position: {planet.posX} | {planet.posY} · Klasse{' '}
-                          {classLabel}
-                          <span className="ml-1 text-swu-muted/70">
-                            — {getStuClassDescription(planet.classId)}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -696,7 +751,7 @@ export function OnboardingPage() {
                   Planetentypen
                 </h4>
                 <p className="text-xs text-swu-muted mb-2">
-                  Fuer den Spielstart sind nur M-, L- und O-Klasse erlaubt.
+                  Fallback (nur wenn kein SWU-Planet mit Biom C/E frei ist): M-, L- und O-Klasse.
                 </p>
                 <div className="space-y-1 text-xs text-swu-muted">
                   {STARTER_PLANET_CLASS_DESCRIPTIONS.map(([key, desc]) => (

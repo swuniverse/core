@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { SpacecraftFieldContextDto } from '@swuniverse/shared';
-import {
-  planetThumbnail,
-  starTileImage,
-  systemTypeImage,
-} from '../../lib/assets';
+import { PlanetImg } from '../PlanetImg';
+import { starTileImage, systemTypeImage } from '../../lib/assets';
 import { api } from '../../services/api';
 import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
@@ -19,7 +16,7 @@ type SectorScanResult = {
     damage: number;
     specialDamage: number;
     effects: string[];
-    celestialObject: { name: string | null; classId: number | null } | null;
+    celestialObject: { name: string | null; classId: number | null; objectType?: number; shielded?: boolean } | null;
   };
 };
 
@@ -320,14 +317,26 @@ function SectorScanDialog({
 }) {
   const field = scan.result.field;
   const object = field.celestialObject;
-  const image =
-    object?.classId != null
-      ? planetThumbnail(object.classId)
-      : starTileImage(field.fieldType.id);
   return (
     <Dialog title="Sektor-Scan" label="Sektor-Scan" onClose={onClose}>
       <div className="grid grid-cols-[64px_1fr] gap-3">
-        <img src={image} alt="" className="h-14 w-14 object-contain" />
+        {object?.classId != null ? (
+          <PlanetImg
+            classId={object.classId}
+            name={object.name}
+            objectType={object.objectType}
+            shielded={object.shielded}
+            thumbnail
+            className="h-14 w-14 object-contain"
+            emojiClassName="text-4xl"
+          />
+        ) : (
+          <img
+            src={starTileImage(field.fieldType.id)}
+            alt=""
+            className="h-14 w-14 object-contain"
+          />
+        )}
         <div>
           <h4 className="border-b border-swu-border pb-1 font-bold text-swu-primary">
             {object?.name ?? field.fieldType.name}

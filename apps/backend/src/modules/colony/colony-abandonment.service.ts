@@ -22,6 +22,8 @@ import { CrewAssignment } from './entities/crew-assignment.entity';
 import { Crew } from './entities/crew.entity';
 import { Colony } from './entities/colony.entity';
 import { CelestialObjectType } from '../starmap/entities/celestial-object.entity';
+import { convertObjectToSwu } from '../starmap/generator/swu-stu-class-mapping';
+import { purgeColonies } from './colony-purge';
 
 @Injectable()
 export class ColonyAbandonmentService {
@@ -69,6 +71,24 @@ export class ColonyAbandonmentService {
     }
     if ((confirmation ?? '').trim() !== colony.name) {
       throw new BadRequestException('Confirmation does not match colony name');
+    }
+
+    // Noch-STU-Planeten/-Monde werden nicht als Ruine hinterlassen, sondern
+    // gesaeubert und auf SWU umgestellt - so muss das nicht mehr manuell
+    // (Admin: Bereinigen + "Set empty to SWU") nachgezogen werden.
+    const object = colony.celestialObject;
+    if (
+      object &&
+      (object.objectType === CelestialObjectType.PLANET ||
+        object.objectType === CelestialObjectType.MOON) &&
+      object.originalClassId == null &&
+      convertObjectToSwu(object)
+    ) {
+      await this.colonyRepo.manager.transaction(async (manager) => {
+        await purgeColonies(manager, [colony.id]);
+        await manager.save(object);
+      });
+      return { abandoned: true, colonyId: colony.id };
     }
 
     const asteroid =

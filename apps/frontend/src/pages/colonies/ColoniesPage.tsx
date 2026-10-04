@@ -13,15 +13,17 @@ import type {
   ColonyStorageItem,
   CommodityDef,
   DetailTab,
+  FieldCategoriesSummary,
   ShipClassDef,
   ShipModuleSelection,
   StarterColonizationOptions,
   TerraformingDef,
 } from './types';
-import { planetImage } from '../../lib/assets';
+import { PlanetImg } from '../../components/PlanetImg';
 import { FieldInspector } from './components/FieldInspector';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelInfo } from './components/PanelInfo';
+import { useSwuColonyEcosystem } from './useSwuColonyEcosystem';
 import { PanelBuild } from './components/PanelBuild';
 import { PanelShipyard } from './components/PanelShipyard';
 import { PanelOrbit } from './components/PanelOrbit';
@@ -39,9 +41,9 @@ import { SupplyDock } from './components/SupplyDock';
 import { WorkModeNav } from './components/WorkModeNav';
 import { BuildInspector } from './components/BuildInspector';
 import {
+  buildingAllowedOnField,
   formatSignedAmount,
   getEffectiveBuildingForField,
-  getFieldTypeCandidates,
 } from './utils';
 import { useSocket } from '../../hooks/use-socket';
 
@@ -102,10 +104,6 @@ const buildStorageRows = (
   });
 };
 
-const buildingMatchesField = (building: BuildingDef, field: ColonyField) =>
-  getFieldTypeCandidates(field).some((fieldType) =>
-    building.allowedFieldTypes.includes(fieldType),
-  );
 
 // ─── Page ────────────────────────────────────────────────────
 
@@ -120,6 +118,9 @@ export function ColoniesPage() {
   const [shipClasses, setShipClasses] = useState<ShipClassDef[]>([]);
   const [terraformingDefs, setTerraformingDefs] = useState<TerraformingDef[]>(
     [],
+  );
+  const [fieldCategories, setFieldCategories] = useState<FieldCategoriesSummary>(
+    { tiles: {}, anyCategories: [] },
   );
   const [starterOptions, setStarterOptions] =
     useState<StarterColonizationOptions | null>(null);
@@ -137,16 +138,21 @@ export function ColoniesPage() {
   const loadColonyDetail = useCallback(
     async (id: number) => {
       const requestSequence = ++detailRequestSequenceRef.current;
-      const detail = await colonyApi.fetchColonyDetail(id);
+      const [detail, buildings] = await Promise.all([
+        colonyApi.fetchColonyDetail(id),
+        // Pro Kolonie gefiltert: nur Gebaeude, die hier (ggf. via Terraforming) baubar sind.
+        colonyApi.fetchAvailableBuildings(id),
+      ]);
       if (requestSequence !== detailRequestSequenceRef.current) return;
+      setBuildingDefs(buildings);
       setSelected(detail);
       setSearchParams({ selected: String(id) }, { replace: true });
     },
     [setSearchParams],
   );
 
-  const loadAvailableBuildings = useCallback(async () => {
-    const buildings = await colonyApi.fetchAvailableBuildings();
+  const loadAvailableBuildings = useCallback(async (colonyId?: number) => {
+    const buildings = await colonyApi.fetchAvailableBuildings(colonyId);
     setBuildingDefs(buildings);
   }, []);
 
@@ -154,18 +160,20 @@ export function ColoniesPage() {
     setLoading(true);
     try {
       const starter = await colonyApi.fetchStarterColonizationOptions();
-      const [comms, buildings, allBuildings, terraforming, classes] =
+      const [comms, buildings, allBuildings, terraforming, categories, classes] =
         await Promise.all([
           colonyApi.fetchCommodities(),
           colonyApi.fetchAvailableBuildings(),
           colonyApi.fetchAllBuildings(),
           colonyApi.fetchTerraforming(),
+          colonyApi.fetchFieldCategories(),
           colonyApi.fetchShipClasses(),
         ]);
       setCommodities(comms);
       setBuildingDefs(buildings);
       setAllBuildingDefs(allBuildings);
       setTerraformingDefs(terraforming);
+      setFieldCategories(categories);
       setShipClasses(classes);
       setStarterOptions(starter);
       if (starter.mode === 'required') {
@@ -206,7 +214,7 @@ export function ColoniesPage() {
   });
 
   useSocket('TICK', () => {
-    void loadAvailableBuildings();
+    void loadAvailableBuildings(selected?.id);
   });
 
   const goBack = () => {
@@ -264,6 +272,7 @@ export function ColoniesPage() {
       commodities={commodities}
       buildingDefs={buildingDefs}
       allBuildingDefs={allBuildingDefs}
+      fieldCategories={fieldCategories}
       shipClasses={shipClasses}
       terraformingDefs={terraformingDefs}
       activeTab={activeTab}
@@ -637,9 +646,9 @@ function StarterColonizationGate({
           >
             <div className="flex items-center gap-3">
               {target.classId ? (
-                <img
-                  src={planetImage(target.classId)}
-                  alt={target.name ?? 'Starterplanet'}
+                <PlanetImg
+                  classId={target.classId}
+                  name={target.name}
                   className="h-12 w-12 rounded border border-swu-border/60 object-cover"
                 />
               ) : null}
@@ -682,6 +691,7 @@ export function ColonyDetail({
   commodities,
   buildingDefs,
   allBuildingDefs,
+  fieldCategories,
   shipClasses,
   terraformingDefs,
   activeTab,
@@ -733,6 +743,7 @@ export function ColonyDetail({
   commodities: CommodityDef[];
   buildingDefs: BuildingDef[];
   allBuildingDefs: BuildingDef[];
+  fieldCategories: FieldCategoriesSummary;
   shipClasses: ShipClassDef[];
   terraformingDefs: TerraformingDef[];
   activeTab: DetailTab;
@@ -742,7 +753,7 @@ export function ColonyDetail({
   onUpgradeBuilding: (fi: number, ui: number) => void;
   onDemolish: (fi: number) => void;
   onToggle: (fi: number) => void;
-  onTerraform: (fi: number, ti: number) => Promise<void> | void;
+  onTerraform: (fi: number, ti: string) => Promise<void> | void;
   onBuildShip: (
     sci: number,
     name: string,
@@ -817,6 +828,7 @@ export function ColonyDetail({
     options: { fieldIndexes?: number[]; commodityId?: number },
   ) => Promise<BuildingMassActionResult>;
 }) {
+  const ecosystem = useSwuColonyEcosystem(colony.id);
   const buildingMap = useMemo<Record<number, BuildingDef>>(
     () => Object.fromEntries(allBuildingDefs.map((b) => [b.id, b])),
     [allBuildingDefs],
@@ -877,11 +889,11 @@ export function ColonyDetail({
           (f) =>
             !f.buildingId &&
             !f.isBuilding &&
-            buildingMatchesField(selectedBuilding, f),
+            buildingAllowedOnField(selectedBuilding, f, fieldCategories),
         )
         .map((f) => f.fieldIndex),
     );
-  }, [selectedBuilding, fields]);
+  }, [selectedBuilding, fields, fieldCategories]);
 
   const getBuildPreviewTitle = (field: ColonyField): string | undefined => {
     if (!selectedBuilding) return undefined;
@@ -1041,6 +1053,8 @@ export function ColonyDetail({
       {/* Main: Map-first Leitstand */}
       <div className="grid gap-3 xl:grid-cols-[minmax(560px,720px)_minmax(360px,1fr)]">
         <ColonyMap
+          ecosystem={ecosystem}
+          surfaceWidth={detail?.surface?.width}
           orbitFields={orbitFields}
           surfaceFields={surfaceFields}
           undergroundFields={undergroundFields}
@@ -1121,7 +1135,7 @@ export function ColonyDetail({
           )}
 
           {activeTab === 'info' && (
-            <PanelInfo colony={colony} detail={detail} />
+            <PanelInfo colony={colony} detail={detail} ecosystem={ecosystem} />
           )}
           {activeTab === 'orbit' && detail && (
             <PanelOrbit

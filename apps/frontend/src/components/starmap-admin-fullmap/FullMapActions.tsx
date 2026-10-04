@@ -13,6 +13,11 @@ export function FullMapActions() {
     (s) => s.generateSystemsForLayer,
   );
   const worldResetTactical = useFullmapEditorStore((s) => s.worldResetTactical);
+  const setEmptyPlanetsToSwu = useFullmapEditorStore((s) => s.setEmptyPlanetsToSwu);
+  const setEmptyPlanetsToStu = useFullmapEditorStore((s) => s.setEmptyPlanetsToStu);
+  const resetUninhabited = useFullmapEditorStore(
+    (s) => s.resetUninhabitedColonies,
+  );
   const exportLayer = useFullmapEditorStore((s) => s.exportLayer);
   const importLayer = useFullmapEditorStore((s) => s.importLayer);
 
@@ -66,6 +71,47 @@ export function FullMapActions() {
             label="Systeme generieren"
             onClick={async () => {
               await generateSystems();
+              setOpen(false);
+            }}
+          />
+          <div className="border-t border-swu-border/50" />
+          <ActionBtn
+            label="SET EMPTY TO SWU"
+            onClick={async () => {
+              if (
+                window.confirm(
+                  'Alle unbewohnten STU-Planeten/-Monde (mit bekannter Zuordnung) auf SWU-Archetypen umstellen?',
+                )
+              ) {
+                await setEmptyPlanetsToSwu();
+              }
+              setOpen(false);
+            }}
+          />
+          <ActionBtn
+            label="SET EMPTY TO STU"
+            onClick={async () => {
+              if (
+                window.confirm(
+                  'Alle zuvor umgestellten, weiterhin unbewohnten Planeten/Monde zurück auf STU stellen?',
+                )
+              ) {
+                await setEmptyPlanetsToStu();
+              }
+              setOpen(false);
+            }}
+          />
+          <ActionBtn
+            label="Unbewohnte Himmelskörper zurücksetzen"
+            danger
+            onClick={async () => {
+              if (
+                window.confirm(
+                  'Alle aktuell nicht aktiv bewohnten Planeten/Monde/Asteroiden zurücksetzen? Zurückgelassene Gebäude, Lager und Scans aufgegebener Kolonien werden endgültig gelöscht. Aktive Kolonien bleiben unberührt.',
+                )
+              ) {
+                await resetUninhabited();
+              }
               setOpen(false);
             }}
           />

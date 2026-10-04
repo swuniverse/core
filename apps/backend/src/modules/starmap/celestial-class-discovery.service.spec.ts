@@ -1,10 +1,3 @@
-jest.mock('@swuniverse/shared', () => ({
-  getStuCelestialClass: jest.fn((id: number) =>
-    id === 201
-      ? { id, name: 'Klasse M', colonization: 'STARTER' }
-      : undefined,
-  ),
-}));
 jest.mock('../prestige/prestige.service', () => ({
   PrestigeService: class PrestigeService {},
 }));
@@ -36,20 +29,19 @@ describe('CelestialClassDiscoveryService', () => {
 
     const result = await service.discover({
       userId: 1,
-      classId: 201,
-      celestialObjectId: 3,
+      object: { id: 3, classId: 201, name: null, objectType: 1 },
       spacecraftId: 7,
     });
 
     expect(result).toEqual({
       discovered: true,
       prestigeAwarded: STU_PRESTIGE.DISCOVER_PLANET_CLASS,
-      name: 'Klasse M',
+      name: 'Erdähnlich',
     });
     expect(prestigeService.change).toHaveBeenCalledWith(
       1,
       STU_PRESTIGE.DISCOVER_PLANET_CLASS,
-      '5 Prestige erhalten für die Entdeckung des Planetentyps „Klasse M“',
+      '5 Prestige erhalten für die Entdeckung des Planetentyps „Erdähnlich“',
       manager,
     );
   });

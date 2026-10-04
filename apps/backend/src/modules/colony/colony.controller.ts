@@ -128,10 +128,8 @@ class BuildFromBuildplanDto {
 }
 
 class TerraformFieldDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  terraformingId: number;
+  @IsString()
+  terraformingId: string;
 }
 
 @Controller('colonies')
@@ -146,10 +144,12 @@ export class ColonyController {
   getAvailableBuildings(
     @Request() req: { user: { sub: number } },
     @Query('fieldType') fieldType?: string,
+    @Query('colonyId') colonyId?: string,
   ) {
     return this.colonyService.getAvailableBuildings(
       req.user.sub,
       fieldType ? Number(fieldType) : undefined,
+      colonyId ? Number(colonyId) : undefined,
     );
   }
 
@@ -161,6 +161,11 @@ export class ColonyController {
   @Get('terraforming/all')
   getTerraforming(@Request() req: { user: { sub: number } }) {
     return this.colonyService.getAvailableTerraforming(req.user.sub);
+  }
+
+  @Get('field-categories')
+  getFieldCategories() {
+    return this.gameData.getFieldCategoriesSummary();
   }
 
   @Get('commodities/all')
@@ -213,9 +218,13 @@ export class ColonyController {
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
+    @Request() req: { user: { sub: number; isAdmin?: boolean } },
   ) {
-    return this.colonyService.findOne(id, req.user.sub);
+    return this.colonyService.findOne(
+      id,
+      req.user.sub,
+      Boolean(req.user.isAdmin),
+    );
   }
 
   @Put(':id')

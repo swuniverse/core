@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { planetImage, commodityImage } from '../../../lib/assets';
+import { commodityImage } from '../../../lib/assets';
+import { PlanetImg } from '../../../components/PlanetImg';
 import { formatSignedAmount } from '../utils';
-import type { Colony, CommodityDef } from '../types';
+import { isColonyShielded, type Colony, type CommodityDef } from '../types';
 
 export function ColonyOverview({
   colonies,
@@ -72,9 +73,11 @@ export function ColonyOverview({
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         {c.celestialObject?.classId && (
-                          <img
-                            src={planetImage(c.celestialObject.classId)}
-                            alt=""
+                          <PlanetImg
+                            classId={c.celestialObject.classId}
+                            name={c.celestialObject.name}
+                            objectType={c.celestialObject.objectType}
+                            shielded={isColonyShielded(c)}
                             className="w-8 h-8 object-contain"
                           />
                         )}

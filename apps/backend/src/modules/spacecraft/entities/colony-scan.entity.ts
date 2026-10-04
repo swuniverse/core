@@ -59,7 +59,7 @@ export class ColonyScan {
   surfaceFields: Array<{
     fieldIndex: number;
     fieldType: number;
-    terrainTileId: number | null;
+    terrainTileId: string | null;
     buildingId: number | null;
     buildingName: string | null;
     hasBuilding: boolean;

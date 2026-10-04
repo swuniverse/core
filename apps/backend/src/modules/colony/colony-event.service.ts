@@ -158,8 +158,8 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.TERRAFORMING_FINISHED,
           severity: ColonyEventSeverity.INFO,
-          title: 'Terraforming abgeschlossen',
-          message: `Terraforming auf Feld ${event.fieldIndex ?? '?'} wurde abgeschlossen.`,
+          title: 'Geoengineering abgeschlossen',
+          message: `Geoengineering auf Feld ${event.fieldIndex ?? '?'} wurde abgeschlossen.`,
           payload: { ...event },
         };
       case 'CREW_LIMIT_EXCEEDED':

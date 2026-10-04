@@ -1,16 +1,83 @@
 import { BbCodeText } from '../../../components/BbCodeText';
-import { planetImage } from '../../../lib/assets';
-import type { Colony, ColonyDetailV2 } from '../types';
+import { PlanetImg } from '../../../components/PlanetImg';
+import type { SwuColonyEcosystem } from '../useSwuColonyEcosystem';
+import {
+  isColonyShielded,
+  type Colony,
+  type ColonyDetailV2,
+} from '../types';
 import { formatSignedAmount } from '../utils';
+import { SettlementBadge } from '../../../lib/settlement-rating';
 
 type PanelInfoProps = {
   colony: Colony;
   detail?: ColonyDetailV2;
+  ecosystem: SwuColonyEcosystem | null;
 };
 
-export function PanelInfo({ colony, detail }: PanelInfoProps) {
+export function PanelInfo({ colony, detail, ecosystem }: PanelInfoProps) {
   return (
     <div className="space-y-2">
+      {/* Oekosystem-Legende - nur SWU-Kolonien (siehe useSwuColonyEcosystem) */}
+      {ecosystem && (
+        <div className="bg-swu-surface border border-swu-border rounded px-3 py-2 flex items-center gap-3">
+          {colony.celestialObject?.classId && (
+            <PlanetImg
+              classId={colony.celestialObject.classId}
+              name={colony.celestialObject.name}
+              objectType={colony.celestialObject.objectType}
+              shielded={isColonyShielded(colony)}
+              className="h-16 w-16 shrink-0 object-contain"
+              emojiClassName="text-5xl"
+            />
+          )}
+          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
+            <span className="text-swu-muted">Ökosystem</span>
+            <span className="text-swu-primary">
+              {ecosystem.primaryBiome ?? 'Unbekannt'}
+              {ecosystem.secondaryBiome ? ` / ${ecosystem.secondaryBiome}` : ''}
+            </span>
+            {ecosystem.temperatureRangeK && (
+              <>
+                <span className="text-swu-muted">Temperatur</span>
+                <span className="text-swu-primary">
+                  {Math.round(ecosystem.temperatureRangeK[0])} – {Math.round(ecosystem.temperatureRangeK[1])} K
+                </span>
+              </>
+            )}
+            <span className="text-swu-muted">Tagesdauer</span>
+            <span className="text-swu-primary">
+              {ecosystem.tidalLocked
+                ? 'Gebundene Rotation (ewiger Tag / ewige Nacht)'
+                : `${ecosystem.dayNightSwitchMinutes ?? '?'} Stunden`}
+            </span>
+            {ecosystem.tidalLocked && ecosystem.terminatorShiftHours != null && (
+              <>
+                <span className="text-swu-muted">Terminator</span>
+                <span className="text-swu-primary">
+                  pendelt alle {ecosystem.terminatorShiftHours} Stunden
+                </span>
+              </>
+            )}
+            {ecosystem.settlement && (
+              <>
+                <span className="text-swu-muted">Bedingungen</span>
+                <span>
+                  <SettlementBadge settlement={ecosystem.settlement} />
+                </span>
+              </>
+            )}
+            {ecosystem.solarOutputTJ != null && (
+              <>
+                <span className="text-swu-muted">Solareintrag</span>
+                <span className="text-swu-accent">
+                  {ecosystem.solarOutputTJ.toLocaleString('de-DE')} TJ
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* Planet + System */}
       <div className="flex gap-2">
         {colony.celestialObject && (
@@ -20,10 +87,13 @@ export function PanelInfo({ colony, detail }: PanelInfoProps) {
             </div>
             <div className="flex items-center gap-2">
               {colony.celestialObject.classId && (
-                <img
-                  src={planetImage(colony.celestialObject.classId)}
-                  alt=""
+                <PlanetImg
+                  classId={colony.celestialObject.classId}
+                  name={colony.celestialObject.name}
+                  objectType={colony.celestialObject.objectType}
+                  shielded={isColonyShielded(colony)}
                   className="w-10 h-10 object-contain"
+                  emojiClassName="text-3xl"
                 />
               )}
               <div className="text-sm">

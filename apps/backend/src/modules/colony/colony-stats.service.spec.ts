@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   adjustColonyEnergy,
   adjustColonyPopulationParts,
+  ColonyStatsService,
   deductColonyEnergy,
   getColonyChangeable,
   setColonyMaxPopulation,
@@ -84,5 +85,45 @@ describe('colony state helpers', () => {
 
     expect(getColonyChangeable(colony).maxPopulation).toBe(42);
     expect(colony.populationMax).toBe(42);
+  });
+});
+
+describe('bonus marker yield', () => {
+  const definitions: Record<number, unknown> = {
+    1: { epsProc: 10, bevUse: 0, bevPro: 5, lager: 0, bonuses: { storage: 0, energy: 0 }, production: [{ commodityId: 1, amount: 4 }, { commodityId: 2, amount: -3 }], researchPoints: 0 },
+  };
+  const service = new ColonyStatsService({
+    getBuildingFunctions: () => [],
+    getBuilding: (id: number) => definitions[id],
+    getColonyClass: () => undefined,
+    getCategoriesForTerrainTile: (tile: string) =>
+      ({ W: ['wasser_alles'], S: ['standard'], G: ['geothermal'] })[tile] ?? [],
+    getCommodity: () => ({ isDeposit: false, isSaveable: true }),
+  } as never);
+  const summaryFor = (bonusMarker: string | null, terrainTileId = 'W') =>
+    service.calculateSummary({
+      ...createColony(),
+      fields: [{ id: 1, buildingId: 1, isBuilding: false, isActive: true, bonusMarker, terrainTileId }],
+    } as unknown as Colony);
+
+  it('doubles only the matching positive output', () => {
+    const plain = summaryFor(null);
+    expect(plain.energyDelta).toBe(10);
+    expect(plain.housingBonus).toBe(5);
+    expect(plain.productionDelta.get(1)).toBe(4);
+
+    expect(summaryFor('ENERGY').energyDelta).toBe(20);
+    expect(summaryFor('ATTRACTIVE', 'S').housingBonus).toBe(10);
+    const fertile = summaryFor('FERTILE_WATER');
+    expect(fertile.productionDelta.get(1)).toBe(8);
+    expect(fertile.productionDelta.get(2)).toBe(-3);
+    expect(summaryFor('PHRIK', 'S').productionDelta.get(1)).toBe(4);
+  });
+
+  it('gives no bonus once the tile no longer fits the marker (landfill under a jellyfish)', () => {
+    expect(summaryFor('FERTILE_WATER', 'W').productionDelta.get(1)).toBe(8);
+    expect(summaryFor('FERTILE_WATER', 'S').productionDelta.get(1)).toBe(4);
+    expect(summaryFor('ATTRACTIVE', 'W').housingBonus).toBe(5);
+    expect(summaryFor('ENERGY', 'S').energyDelta).toBe(10);
   });
 });

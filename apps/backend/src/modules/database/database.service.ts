@@ -14,7 +14,11 @@ import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
-import { STU_CELESTIAL_CLASSES } from '@swuniverse/shared';
+import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import {
+  resolveSwuPlanetType,
+  type SwuPlanetType,
+} from '../starmap/generator/swu-planet-type';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 
 type RankingKey =
@@ -63,6 +67,8 @@ export class DatabaseService {
     private readonly factionService: FactionService,
     private readonly gameData: GameDataService,
     private readonly gameGateway: GameGateway,
+    @InjectRepository(CelestialObject)
+    private readonly celestialObjectRepo: Repository<CelestialObject>,
   ) {}
 
   async getOnlinePlayers() {
@@ -282,37 +288,77 @@ export class DatabaseService {
     const discoveries = await this.celestialClassDiscoveryRepo.find({
       where: { userId },
     });
-    const discoveredByClass = new Map(
-      discoveries.map((entry) => [entry.classId, entry]),
+    const discoveredByKey = new Map(
+      discoveries.map((entry) => [entry.swuTypeKey, entry]),
     );
-    const definitions = STU_CELESTIAL_CLASSES.filter(
-      (definition) => definition.colonization !== 'UNUSED',
+    // Nur Typen, die im Spiel tatsaechlich vorkommen. Ein Typ ist SWU-Archetyp
+    // + Rotation + Ring/Mond (Schild zaehlt nicht). STU-Objekte zaehlen nur
+    // ueber ihre SWU-Zuordnung (Fallback).
+    const rows = await this.celestialObjectRepo
+      .createQueryBuilder('object')
+      .select('object."classId"', 'classId')
+      .addSelect('object."objectType"', 'objectType')
+      .addSelect('object."swuRotation"', 'swuRotation')
+      .addSelect('object."swuRing"', 'swuRing')
+      .addSelect(`substring(object.name from ' \\[P\\d+[GR][RMB]\\]$')`, 'code')
+      .where('object."classId" IS NOT NULL')
+      .groupBy('object."classId"')
+      .addGroupBy('object."objectType"')
+      .addGroupBy('object."swuRotation"')
+      .addGroupBy('object."swuRing"')
+      .addGroupBy('code')
+      .getRawMany<{
+        classId: number;
+        objectType: number;
+        swuRotation: 'rotating' | 'tidal-locked' | null;
+        swuRing: boolean;
+        code: string | null;
+      }>();
+    const types = new Map<string, SwuPlanetType>();
+    for (const row of rows) {
+      const type = resolveSwuPlanetType({
+        classId: Number(row.classId),
+        objectType: Number(row.objectType),
+        name: row.code,
+        swuRotation: row.swuRotation,
+        swuRing: row.swuRing,
+      });
+      if (type) types.set(type.key, type);
+    }
+    const definitions = [...types.values()].sort(
+      (a, b) =>
+        a.classId - b.classId ||
+        a.rotation.localeCompare(b.rotation) ||
+        a.bodyFeature.localeCompare(b.bodyFeature),
     );
+    const objectTypeLabel = (type: SwuPlanetType) =>
+      type.bodyFeature === 'moon' ? 'Mond' : 'Planet';
     return {
-      discovered: discoveries.length,
+      discovered: definitions.filter((d) => discoveredByKey.has(d.key)).length,
       total: definitions.length,
       entries: definitions.map((definition) => {
-        const discovery = discoveredByClass.get(definition.id);
+        const discovery = discoveredByKey.get(definition.key);
         return discovery
           ? {
-              classId: definition.id,
+              key: definition.key,
+              classId: definition.classId,
               discovered: true,
               name: definition.name,
               description: definition.description,
-              objectType:
-                definition.celestialObjectType === 1
-                  ? 'Planet'
-                  : definition.celestialObjectType === 2
-                    ? 'Mond'
-                    : 'Asteroidenfeld',
+              objectType: objectTypeLabel(definition),
+              objectTypeId: definition.objectType,
+              imageName: definition.imageName,
               discoveredAt: discovery.discoveredAt.toISOString(),
             }
           : {
-              classId: definition.id,
+              key: definition.key,
+              classId: definition.classId,
               discovered: false,
               name: null,
               description: null,
               objectType: null,
+              objectTypeId: definition.objectType,
+              imageName: definition.imageName,
               discoveredAt: null,
             };
       }),

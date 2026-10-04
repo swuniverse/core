@@ -35,6 +35,8 @@ jest.mock('../research/entities/research.entity', () => ({
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ColonizationService } from './colonization.service';
 import { ColonyEventType } from '../colony/entities/colony-event.entity';
+import { buildSwuTestClassId } from '../starmap/generator/swu-system-generator';
+import { solarOutputTJ } from '../starmap/generator/swu-solar';
 
 function repo(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -43,7 +45,13 @@ function repo(overrides: Partial<Record<string, unknown>> = {}) {
     find: jest.fn(),
     save: jest.fn(),
     delete: jest.fn(),
-    createQueryBuilder: jest.fn(),
+    // Default: chainable query builder resolving no match (e.g. computeSwuOrbitDistance's
+    // star lookup) - tests that need a specific result override this per test.
+    createQueryBuilder: jest.fn(() => ({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    })),
     ...overrides,
   } as any;
 }
@@ -60,6 +68,7 @@ describe('ColonizationService', () => {
     const unlockResolver = { hasTech: jest.fn() };
     const colonySeedService = {
       createFollowUpColony: jest.fn(),
+      createFollowUpSwuColony: jest.fn(),
       createStarterColony: jest.fn(),
       generateSurfaceSnapshot: jest.fn(() => ({
         width: 1,
@@ -88,6 +97,7 @@ describe('ColonizationService', () => {
       colonySeedService as never,
       colonyEventService as never,
       {} as never,
+      { getSwuLetterResources: jest.fn(() => []), getCommodity: jest.fn(), getCategoriesForTerrainTile: jest.fn(() => []) } as never,
     );
 
     return {
@@ -337,6 +347,424 @@ describe('ColonizationService', () => {
       consumedShipId: 15,
       transferredCrewCount: 0,
     });
+  });
+
+  it('exposes zone proposals for SWU archetype targets instead of an STU surface preview', async () => {
+    const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
+      createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
+      id: 8,
+      objectType: 2,
+      isColonizable: true,
+      classId: buildSwuTestClassId(4, null), // Sumpf
+      name: 'Sumpf (Rotierend, Ring) [P4RR]',
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    const result = await service.explainTarget(1, 8);
+
+    expect(result.reasons).not.toContain(
+      'Kolonieklasse ist nicht freigeschaltet oder unbewohnbar',
+    );
+    expect(result.surface).toBeNull();
+    expect(result.swu).toMatchObject({ archetype: 'Sumpf', rotation: 'rotating' });
+    expect(result.swu?.proposals).toHaveLength(3);
+  });
+
+  it('computes solarOutputTJ per zone from the real distance to the system star', async () => {
+    const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
+      createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    objectRepo.findOne.mockResolvedValue({
+      id: 11,
+      objectType: 2,
+      isColonizable: true,
+      classId: buildSwuTestClassId(4, null), // Sumpf
+      name: 'Sumpf (Rotierend, Ring) [P4RR]',
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+      starSystem: {
+        maxX: 20,
+        maxY: 20,
+        layer: { id: 2, name: 'Outer Rim', isNoobzone: false },
+      },
+    });
+    const star = { posX: 10, posY: 10 };
+    objectRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(star),
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    const result = await service.explainTarget(1, 11);
+
+    const dx = 8 - star.posX;
+    const dy = 9 - star.posY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const maxDistance = Math.sqrt(
+      Math.max(star.posX, 20 - star.posX) ** 2 +
+        Math.max(star.posY, 20 - star.posY) ** 2,
+    );
+    const expectedOrbitDistance = distance / maxDistance;
+    const expected = solarOutputTJ(
+      expectedOrbitDistance,
+      2,
+      'rotating',
+      4,
+      null,
+    );
+
+    const midZone = result.swu?.proposals.find((p) => p.zoneSlot === 2);
+    expect(midZone?.solarOutputTJ).toBe(expected);
+    // Rotierend: Aequator (Zone 3) +25 %, Polregion (Zone 1) -25 % gegenueber gemaessigt.
+    const [polar, temperate, equator] = result.swu!.proposals.map((p) => p.solarOutputTJ!);
+    expect(polar).toBeLessThan(temperate);
+    expect(temperate).toBeLessThan(equator);
+  });
+
+  it('founds an SWU colony via the archetype generator for the chosen zone', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      objectRepo,
+      shipRepo,
+      shipClassRepo,
+      unlockResolver,
+      colonySeedService,
+    } = createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    const swuTarget = {
+      id: 9,
+      objectType: 1, // Planet - Ring-Bodyfeature ist bei Monden nicht sinnvoll, siehe resolveSwuInstance
+      isColonizable: true,
+      classId: buildSwuTestClassId(4, null), // Sumpf
+      name: 'Sumpf (Rotierend, Ring) [P4RR]',
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+    };
+    objectRepo.findOne.mockResolvedValue(swuTarget);
+    objectRepo.findOneBy.mockResolvedValue(swuTarget);
+    shipRepo.findOne.mockResolvedValue({
+      id: 16,
+      userId: 1,
+      shipClassId: 56,
+      status: 'IDLE',
+      inSystem: true,
+      starSystemId: 44,
+      currentSystemFieldX: 8,
+      currentSystemFieldY: 9,
+      name: 'Aerie',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 56,
+      isColonizer: true,
+      colonizerTier: 2,
+      colonizationBuildingId: 82010100,
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+    colonySeedService.createFollowUpSwuColony.mockResolvedValue({
+      id: 124,
+      name: "Luke's Kolonie",
+    });
+
+    const result = await service.colonize(1, 16, 9, undefined, 1);
+
+    expect(colonySeedService.createFollowUpSwuColony).toHaveBeenCalledWith(
+      expect.objectContaining({
+        celestialObjectId: 9,
+        buildingId: 82010100,
+        rotation: 'rotating',
+        bodyFeature: 'ring',
+        zoneSlot: 1,
+        archetype: expect.objectContaining({ typeName: 'Sumpf' }),
+        solarOutputTJ: 1200,
+      }),
+    );
+    expect(result.colonyId).toBe(124);
+  });
+
+  it('forces bodyFeature "moon" for an actual moon object, even if its name has no or a wrong bracket code', async () => {
+    // Regression: echte STU-Monde (per "SET EMPTY TO SWU" konvertiert) haben
+    // Namen wie "Tactical-1 IIa" ohne Bracket-Code - resolveSwuInstance() muss
+    // trotzdem bodyFeature 'moon' liefern (objectType ist verlaesslicher als
+    // der Name), sonst wird die Kolonie mit voller Planeten-Groesse gegruendet.
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      objectRepo,
+      shipRepo,
+      shipClassRepo,
+      unlockResolver,
+      colonySeedService,
+    } = createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    const swuMoonTarget = {
+      id: 9,
+      objectType: 2, // Mond
+      isColonizable: true,
+      classId: buildSwuTestClassId(12, null), // Mondartig
+      name: 'Tactical-1 IIa', // echter Name, kein Bracket-Code
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+    };
+    objectRepo.findOne.mockResolvedValue(swuMoonTarget);
+    objectRepo.findOneBy.mockResolvedValue(swuMoonTarget);
+    shipRepo.findOne.mockResolvedValue({
+      id: 16,
+      userId: 1,
+      shipClassId: 56,
+      status: 'IDLE',
+      inSystem: true,
+      starSystemId: 44,
+      currentSystemFieldX: 8,
+      currentSystemFieldY: 9,
+      name: 'Aerie',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 56,
+      isColonizer: true,
+      colonizerTier: 2,
+      colonizationBuildingId: 82010100,
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+    colonySeedService.createFollowUpSwuColony.mockResolvedValue({
+      id: 125,
+      name: "Luke's Kolonie",
+    });
+
+    await service.colonize(1, 16, 9, undefined, 1);
+
+    expect(colonySeedService.createFollowUpSwuColony).toHaveBeenCalledWith(
+      expect.objectContaining({ bodyFeature: 'moon' }),
+    );
+  });
+
+  it('rejects SWU colonization without a chosen zone', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      objectRepo,
+      shipRepo,
+      shipClassRepo,
+      unlockResolver,
+    } = createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.findOne.mockResolvedValue(null);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    const swuTarget = {
+      id: 10,
+      objectType: 2,
+      isColonizable: true,
+      classId: buildSwuTestClassId(4, null),
+      name: 'Sumpf (Rotierend, Ring) [P4RR]',
+      systemId: 44,
+      posX: 8,
+      posY: 9,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+    };
+    objectRepo.findOne.mockResolvedValue(swuTarget);
+    objectRepo.findOneBy.mockResolvedValue(swuTarget);
+    shipRepo.findOne.mockResolvedValue({
+      id: 17,
+      userId: 1,
+      shipClassId: 56,
+      status: 'IDLE',
+      inSystem: true,
+      starSystemId: 44,
+      currentSystemFieldX: 8,
+      currentSystemFieldY: 9,
+      name: 'Aerie',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 56,
+      isColonizer: true,
+      colonizerTier: 2,
+      colonizationBuildingId: 82010100,
+    });
+    unlockResolver.hasTech.mockResolvedValue(true);
+
+    await expect(service.colonize(1, 17, 10)).rejects.toThrow(
+      'Zone muss gewählt werden',
+    );
+  });
+
+  it('shows the same dayNightSwitchMinutes before and after founding (same celestial object)', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      objectRepo,
+      unlockResolver,
+    } = createService();
+    userRepo.findOne.mockResolvedValue({
+      ...rebelUser,
+      createdAt: new Date(),
+      factionId: 1,
+    });
+    colonyRepo.find.mockResolvedValue([]);
+    colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+    unlockResolver.hasTech.mockResolvedValue(true);
+    objectRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    });
+
+    // Vor der Gruendung: Vorschau ueber explainTarget.
+    colonyRepo.findOne.mockResolvedValueOnce(null);
+    objectRepo.findOne.mockResolvedValue({
+      id: 12,
+      objectType: 1,
+      isColonizable: true,
+      classId: buildSwuTestClassId(6, null), // Wueste
+      name: 'Wüste (Rotierend, Basis) [P6RB]',
+      systemId: 44,
+      posX: 4,
+      posY: 8,
+      starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+    });
+    const preview = await service.explainTarget(1, 12);
+
+    // Nach der Gruendung: dieselbe celestialObjectId, jetzt ueber die Kolonie.
+    colonyRepo.findOne.mockResolvedValueOnce({
+      id: 88,
+      userId: 1,
+      swuZoneSlot: 1,
+      celestialObject: {
+        id: 12,
+        classId: buildSwuTestClassId(6, null),
+        name: 'Wüste (Rotierend, Basis) [P6RB]',
+        systemId: 44,
+        posX: 4,
+        posY: 8,
+        starSystem: { maxX: 20, maxY: 20 },
+      },
+    });
+    const ecosystem = await service.getSwuColonyEcosystem(88, 1);
+
+    expect(preview.swu?.dayNightSwitchMinutes).not.toBeNull();
+    expect(preview.swu?.dayNightSwitchMinutes).toBe(
+      ecosystem?.dayNightSwitchMinutes,
+    );
+  });
+
+  it('reconstructs the ecosystem legend for a founded SWU colony from its stored zone', async () => {
+    const { service, colonyRepo, objectRepo } = createService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 55,
+      userId: 1,
+      swuZoneSlot: 2,
+      celestialObject: {
+        classId: buildSwuTestClassId(4, null), // Sumpf
+        name: 'Sumpf (Rotierend, Ring) [P4RR]',
+        systemId: 44,
+        posX: 8,
+        posY: 9,
+        starSystem: { maxX: 20, maxY: 20 },
+      },
+    });
+    objectRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ posX: 10, posY: 10 }),
+    });
+
+    const ecosystem = await service.getSwuColonyEcosystem(55, 1);
+
+    expect(ecosystem).toMatchObject({
+      archetype: 'Sumpf',
+      rotation: 'rotating',
+      tidalLocked: false,
+    });
+    expect(ecosystem?.primaryBiome).not.toBeNull();
+    expect(ecosystem?.solarOutputTJ).toBeGreaterThan(0);
+    // Rotierend: Tag/Nacht mittelt sich aus, aber der Wechsel-Rhythmus selbst
+    // ist trotzdem ein positiver, deterministischer Wert (kein null).
+    expect(ecosystem?.dayNightSwitchMinutes).toEqual(expect.any(Number));
+    expect(ecosystem?.dayNightSwitchMinutes).toBeGreaterThan(0);
+
+    const again = await service.getSwuColonyEcosystem(55, 1);
+    expect(again?.dayNightSwitchMinutes).toBe(ecosystem?.dayNightSwitchMinutes);
+  });
+
+  it('has no day/night switch for a tidal-locked colony and returns null without a stored zone', async () => {
+    const { service, colonyRepo, objectRepo } = createService();
+    objectRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    });
+
+    colonyRepo.findOne.mockResolvedValueOnce({
+      id: 56,
+      userId: 1,
+      swuZoneSlot: 3,
+      celestialObject: {
+        classId: buildSwuTestClassId(2, null), // Ozeanwelt
+        name: 'Ozeanwelt (Gebunden, Basis) [P2GB]',
+        systemId: 44,
+        posX: 8,
+        posY: 4,
+        starSystem: { maxX: 20, maxY: 20 },
+      },
+    });
+    const tidalLocked = await service.getSwuColonyEcosystem(56, 1);
+    expect(tidalLocked).toMatchObject({ tidalLocked: true, dayNightSwitchMinutes: null, terminatorShiftHours: expect.any(Number) });
+
+    colonyRepo.findOne.mockResolvedValueOnce({
+      id: 57,
+      userId: 1,
+      swuZoneSlot: null,
+      celestialObject: { classId: 401, name: 'M-Klasse Planet' },
+    });
+    expect(await service.getSwuColonyEcosystem(57, 1)).toBeNull();
   });
 
   it('returns required starter options with available targets', async () => {

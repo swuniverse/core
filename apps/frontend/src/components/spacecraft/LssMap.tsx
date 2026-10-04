@@ -4,8 +4,8 @@ import {
   getGalaxyFieldStyle,
   getSystemFieldStyle,
 } from './field-styles';
+import { PlanetImg } from '../PlanetImg';
 import {
-  planetThumbnail,
   spaceBackgroundTile,
   starTileImage,
   systemTypeImage,
@@ -43,6 +43,7 @@ interface SystemLocalField {
     posX: number;
     posY: number;
     isColonizable?: boolean;
+    shielded?: boolean;
     colonyId?: number | null;
     colonyName?: string | null;
   } | null;
@@ -386,9 +387,12 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                         className="h-full w-full object-cover"
                       />
                     ) : hasImage ? (
-                      <img
-                        src={planetThumbnail(obj!.classId!)}
-                        alt=""
+                      <PlanetImg
+                        classId={obj!.classId!}
+                        name={obj!.name}
+                        objectType={obj!.objectType}
+                        shielded={obj!.shielded}
+                        thumbnail
                         className="h-full w-full object-contain"
                       />
                     ) : (
