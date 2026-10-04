@@ -24,6 +24,12 @@ import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
+import {
+  AllianceDetailPage,
+  AllianceEditPage,
+  AllianceFoundPage,
+  AllianceListPage,
+} from '../pages/alliances';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -131,6 +137,10 @@ export function App() {
             <Route path="/holonet/:id" element={<HolonetPage />} />
             <Route path="/database" element={<DatabasePage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
+            <Route path="/alliances" element={<AllianceListPage />} />
+            <Route path="/alliances/new" element={<AllianceFoundPage />} />
+            <Route path="/alliances/:id" element={<AllianceDetailPage />} />
+            <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />
             <Route path="/claim-colony" element={<OnboardingPage />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/colony-scans" element={<ColonyScansPage />} />

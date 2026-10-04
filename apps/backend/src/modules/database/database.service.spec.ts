@@ -12,6 +12,9 @@ jest.mock('../research/entities/research.entity', () => ({
 jest.mock('../faction/faction.service', () => ({
   FactionService: class FactionService {},
 }));
+jest.mock('../alliance/alliance.service', () => ({
+  AllianceService: class AllianceService {},
+}));
 
 import { NotFoundException } from '@nestjs/common';
 import { DatabaseService } from './database.service';
@@ -26,6 +29,7 @@ function createService() {
   const gameData = { getAllCommodities: jest.fn() };
   const gameGateway = { onlineUserIds: [] as number[] };
   const prestigeHistoryRepo = { find: jest.fn() };
+  const allianceService = { getRef: jest.fn().mockResolvedValue(null) };
   const service = new DatabaseService(
     userRepo as any,
     colonyRepo as any,
@@ -41,6 +45,7 @@ function createService() {
     gameData as any,
     gameGateway as any,
     {} as any,
+    allianceService as any,
   );
   return {
     service,
@@ -50,6 +55,7 @@ function createService() {
     researchRepo,
     factionService,
     prestigeHistoryRepo,
+    allianceService,
   };
 }
 
@@ -194,11 +200,27 @@ describe('DatabaseService settlers', () => {
       onboardingCompleted: true,
       isAdmin: false,
       createdAt,
+      alliance: null,
     });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     expect(JSON.stringify(result)).not.toContain('refreshToken');
     expect(JSON.stringify(result)).not.toContain('email');
     expect(JSON.stringify(result)).not.toContain('notes');
+  });
+
+  it('includes the settler’s alliance reference', async () => {
+    const { service, userRepo, colonyRepo, shipRepo, researchRepo, factionService, allianceService } =
+      createService();
+    const alliance = { id: 3, name: 'Black Squadron', color: null };
+    userRepo.findOne.mockResolvedValue({ id: 1, username: 'vader', factionId: null, createdAt: new Date() });
+    factionService.findAll.mockResolvedValue([]);
+    colonyRepo.count.mockResolvedValue(0);
+    shipRepo.count.mockResolvedValue(0);
+    researchRepo.count.mockResolvedValue(0);
+    allianceService.getRef.mockResolvedValue(alliance);
+
+    await expect(service.getSettler(1)).resolves.toMatchObject({ alliance });
+    expect(allianceService.getRef).toHaveBeenCalledWith(1);
   });
 
   it('throws NotFoundException for missing settler profile', async () => {

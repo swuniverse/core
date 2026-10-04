@@ -20,6 +20,7 @@ import {
   type SwuPlanetType,
 } from '../starmap/generator/swu-planet-type';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { AllianceService } from '../alliance/alliance.service';
 
 type RankingKey =
   | 'discoveries'
@@ -69,6 +70,7 @@ export class DatabaseService {
     private readonly gameGateway: GameGateway,
     @InjectRepository(CelestialObject)
     private readonly celestialObjectRepo: Repository<CelestialObject>,
+    private readonly allianceService: AllianceService,
   ) {}
 
   async getOnlinePlayers() {
@@ -151,7 +153,11 @@ export class DatabaseService {
       factions.map((faction) => [faction.id, faction]),
     );
 
-    return this.toSettlerEntry(user, factionById);
+    const [entry, alliance] = await Promise.all([
+      this.toSettlerEntry(user, factionById),
+      this.allianceService.getRef(user.id),
+    ]);
+    return { ...entry, alliance };
   }
 
   private async toSettlerEntry(

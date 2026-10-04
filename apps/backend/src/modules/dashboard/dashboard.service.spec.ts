@@ -17,6 +17,10 @@ jest.mock('../research/entities/research.entity', () => ({
   ResearchStatus: { IN_PROGRESS: 'IN_PROGRESS' },
 }));
 
+jest.mock('../alliance/alliance.service', () => ({
+  AllianceService: class AllianceService {},
+}));
+
 import { DashboardService } from './dashboard.service';
 
 describe('DashboardService header', () => {
@@ -55,10 +59,12 @@ describe('DashboardService header', () => {
       researchRepo as never,
       {} as never,
       { getTech: jest.fn(() => ({ name: 'Hyperraumtheorie' })) } as never,
+      { getRef: jest.fn(async () => null) } as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({
       user: { name: 'Nuriud', prestige: 385 },
+      alliance: null,
       notifications: { messages: 3, system: 1 },
       research: {
         name: 'Hyperraumtheorie',
@@ -79,5 +85,34 @@ describe('DashboardService header', () => {
         where: expect.objectContaining({ isSystem: true }),
       }),
     );
+  });
+
+  it('includes the player’s alliance reference', async () => {
+    const alliance = { id: 3, name: 'Rogue Squadron', color: '#ff0000' };
+    const allianceService = { getRef: jest.fn(async () => alliance) };
+    const service = new DashboardService(
+      {
+        findOneByOrFail: jest.fn(async () => ({
+          id: 4,
+          username: 'nuriud',
+          displayName: null,
+          faction: 'REBEL_ALLIANCE',
+          prestige: 0,
+          avatar: null,
+        })),
+      } as never,
+      { find: jest.fn(async () => []) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { count: jest.fn(async () => 0) } as never,
+      { findOne: jest.fn(async () => null) } as never,
+      {} as never,
+      { getTech: jest.fn() } as never,
+      allianceService as never,
+    );
+
+    await expect(service.getHeader(4)).resolves.toMatchObject({ alliance });
+    expect(allianceService.getRef).toHaveBeenCalledWith(4);
   });
 });

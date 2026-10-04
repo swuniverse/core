@@ -14,6 +14,7 @@ const moreItems = [
   { label: 'Forschung', path: '/research', icon: '⚗' },
   { label: 'Nachrichten', path: '/messages', icon: '✉' },
   { label: 'HoloNet', path: '/holonet', icon: '▣' },
+  { label: 'Allianzen', path: '/alliances', icon: '⛨' },
   { label: 'Datenbank', path: '/database', icon: '▤' },
   { label: 'Einstellungen', path: '/settings', icon: '⚙' },
 ];

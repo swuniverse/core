@@ -14,6 +14,7 @@ import { Message } from '../messaging/entities/message.entity';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import type { GlobalHeaderStatusDto } from '@swuniverse/shared';
+import { AllianceService } from '../alliance/alliance.service';
 
 @Injectable()
 export class DashboardService {
@@ -32,10 +33,12 @@ export class DashboardService {
     private readonly researchRepo: Repository<Research>,
     private readonly gateway: GameGateway,
     private readonly gameData: GameDataService,
+    private readonly allianceService: AllianceService,
   ) {}
 
   async getHeader(userId: number): Promise<GlobalHeaderStatusDto> {
-    const [user, colonies, messages, system, research] = await Promise.all([
+    const [user, colonies, messages, system, research, alliance] =
+      await Promise.all([
       this.userRepo.findOneByOrFail({ id: userId }),
       this.colonyRepo.find({
         where: { userId, isAbandoned: false },
@@ -69,6 +72,7 @@ export class DashboardService {
         where: { userId, status: ResearchStatus.IN_PROGRESS },
         order: { id: 'ASC' },
       }),
+      this.allianceService.getRef(userId),
     ]);
     const tech = research ? this.gameData.getTech(research.techId) : undefined;
     const pointsRequired = research
@@ -85,6 +89,7 @@ export class DashboardService {
         prestige: user.prestige,
         avatar: user.avatar,
       },
+      alliance,
       notifications: { messages, system },
       research: research
         ? {

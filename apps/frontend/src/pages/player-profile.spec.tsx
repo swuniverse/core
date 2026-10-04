@@ -50,6 +50,7 @@ describe('PlayerProfilePage', () => {
           onboardingCompleted: true,
           isAdmin: false,
           createdAt: '2026-08-04T00:00:00.000Z',
+          alliance: null,
         });
       }
       throw new Error(`Unexpected URL ${url}`);
@@ -71,6 +72,34 @@ describe('PlayerProfilePage', () => {
     });
     expect(container.textContent).not.toContain('[b]');
     expect(container.textContent).not.toContain('[quote]');
+    expect(screen.queryByText('Allianz')).toBeNull();
+  });
+
+  it('links the player’s alliance', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1,
+      username: 'vader',
+      displayName: null,
+      avatar: null,
+      description: null,
+      faction: 'GALACTIC_EMPIRE',
+      factionName: 'Galaktisches Imperium',
+      prestige: 0,
+      colonies: 0,
+      ships: 0,
+      completedResearch: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Black Squadron', color: '#00ff00' },
+    });
+
+    renderProfile();
+
+    const link = await screen.findByRole('link', { name: 'Black Squadron' });
+    expect(link.getAttribute('href')).toBe('/alliances/5');
+    expect(link.getAttribute('style')).toContain('color: rgb(0, 255, 0)');
+    expect(screen.getByText('Allianz')).toBeTruthy();
   });
 
   it('renders not-found error with database backlink', async () => {

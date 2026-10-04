@@ -1,0 +1,918 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AllianceApplicationDto,
+  AllianceDetailDto,
+  AllianceMemberActionsDto,
+  AllianceRelationshipContractDto,
+  AllianceRelationshipSummaryDto,
+  AllianceRefDto,
+  AllianceRelationshipType,
+  AllianceRole,
+  AllianceSummaryDto,
+  AllianceTitlesDto,
+  FoundAllianceRequest,
+  LeaveAllianceResponse,
+  UpdateAllianceRequest,
+} from '@swuniverse/shared';
+import { MessagingService } from '../messaging/messaging.service';
+import {
+  ALLIANCE_DESCRIPTION_MAX,
+  ALLIANCE_HOMEPAGE_MAX,
+  ALLIANCE_NAME_MAX,
+  ALLIANCE_NAME_MIN,
+  ALLIANCE_TITLE_MAX,
+  ALLIANCE_TITLE_MIN,
+} from './alliance.constants';
+import {
+  ALLIANCE_MEMBER_ACTIONS,
+  AllianceAction,
+  AllianceMemberAction,
+  mayActOnAlliance,
+  mayActOnMember,
+} from './alliance-permissions';
+import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
+import type {
+  AllianceConstraint,
+  AlliancePatch,
+  AllianceRecord,
+  AllianceRelationshipRecord,
+  AllianceStore,
+  ApplicationRecord,
+  FactionRecord,
+  MembershipRecord,
+} from './alliance.store';
+
+const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
+
+const ROLE_ORDER: Record<AllianceRole, number> = {
+  [PRESIDENT]: 0,
+  [VICE]: 1,
+  [DIPLOMAT]: 2,
+  [NONE]: 3,
+};
+
+/** Office changes a member may receive via setRole, with the action they need. */
+const ROLE_CHANGE_ACTION = {
+  [VICE]: 'appointVice',
+  [DIPLOMAT]: 'appointDiplomat',
+  [NONE]: 'dismiss',
+} as const satisfies Partial<Record<AllianceRole, AllianceMemberAction>>;
+
+const MESSAGE_SUBJECT = 'Allianz';
+const UNKNOWN_NAME = 'Unbekannt';
+
+const ERR = {
+  alreadyMember: 'Du bist bereits Mitglied einer Allianz',
+  notMember: 'Du bist in keiner Allianz',
+  noFaction: 'Du musst zuerst eine Fraktion wählen',
+  nameTaken: 'Dieser Allianzname ist bereits vergeben',
+  allianceNotFound: 'Die Allianz existiert nicht',
+  applicationNotFound: 'Die Bewerbung existiert nicht',
+  relationshipContractNotFound: 'Das Vertragswerk ist nicht verfügbar',
+  memberNotFound: 'Der Siedler ist kein Mitglied dieser Allianz',
+  forbidden: 'Dazu fehlt Dir die Berechtigung',
+  applicantTaken: 'Der Siedler ist bereits Mitglied einer Allianz',
+  alreadyApplied: 'Du hast Dich bei dieser Allianz bereits beworben',
+  concurrentChange:
+    'Die Allianz wurde gerade geändert. Bitte lade die Seite neu und versuche es erneut',
+} as const;
+
+/** Domain error for a constraint that rejected a write (last line of defence). */
+const CONSTRAINT_ERRORS: Record<AllianceConstraint, string> = {
+  alliance_name: ERR.nameTaken,
+  membership_user: ERR.applicantTaken,
+  alliance_president: ERR.concurrentChange,
+  application: ERR.alreadyApplied,
+};
+
+interface OutgoingMessage {
+  to: number;
+  body: string;
+}
+
+@Injectable()
+export class AllianceService {
+  constructor(
+    @Inject(ALLIANCE_STORE) private readonly store: AllianceStore,
+    private readonly messaging: MessagingService,
+  ) {}
+
+  // --- Queries ---
+
+  async list(): Promise<AllianceSummaryDto[]> {
+    const [alliances, counts, factions] = await Promise.all([
+      this.store.listAlliances(),
+      this.store.countMembers(),
+      this.store.listFactions(),
+    ]);
+    return alliances.map((alliance) =>
+      this.toSummary(alliance, counts.get(alliance.id) ?? 0, factions),
+    );
+  }
+
+  async getDetail(
+    viewerId: number,
+    allianceId: number,
+  ): Promise<AllianceDetailDto> {
+    const alliance = await this.requireAlliance(allianceId);
+    const [
+      memberships,
+      factions,
+      viewer,
+      viewerMembership,
+      application,
+      relationships,
+    ] = await Promise.all([
+      this.store.listMemberships(allianceId),
+      this.store.listFactions(),
+      this.store.findPlayer(viewerId),
+      this.store.findMembership(viewerId),
+      this.store.findApplicationOf(allianceId, viewerId),
+      this.store.listActiveRelationships(allianceId),
+    ]);
+    const nameOf = await this.namesOf(memberships.map((m) => m.userId));
+    const titles = this.titlesOf(alliance);
+    const relationshipSummaries = await this.relationshipSummaries(
+      allianceId,
+      relationships,
+    );
+    const ownRole =
+      viewerMembership?.allianceId === allianceId
+        ? viewerMembership.role
+        : null;
+
+    const members = [...memberships]
+      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
+      .map((m) => ({
+        userId: m.userId,
+        name: nameOf(m.userId),
+        role: m.role,
+        roleTitle: this.roleTitle(titles, m.role),
+        joinedAt: m.joinedAt.toISOString(),
+        actions: this.memberActions(ownRole, viewerId, m),
+      }));
+
+    const may = (action: AllianceAction) =>
+      ownRole !== null && mayActOnAlliance(ownRole, action);
+
+    return {
+      ...this.toSummary(alliance, memberships.length, factions),
+      homepage: alliance.homepage,
+      description: alliance.description,
+      renderedDescription: this.renderDescription(alliance, members),
+      titles,
+      members,
+      relationships: relationshipSummaries,
+      viewer: {
+        role: ownRole,
+        actions: {
+          apply:
+            !viewerMembership &&
+            !application &&
+            alliance.acceptsApplications &&
+            viewer?.factionId === alliance.factionId,
+          withdrawApplication: !!application,
+          leave:
+            ownRole !== null &&
+            (ownRole !== PRESIDENT || memberships.length === 1),
+          editDetails: may('editDetails'),
+          manageApplications: may('manageApplications'),
+          dissolve: may('dissolve'),
+        },
+      },
+    };
+  }
+
+  async getPublicRelationshipContract(
+    allianceId: number,
+    relationshipId: number,
+  ): Promise<AllianceRelationshipContractDto> {
+    const relationship = await this.store.findActiveRelationship(relationshipId);
+    if (
+      !relationship ||
+      (relationship.firstAllianceId !== allianceId &&
+        relationship.secondAllianceId !== allianceId) ||
+      !relationship.contract
+    ) {
+      throw new NotFoundException(ERR.relationshipContractNotFound);
+    }
+    return { relationshipId: relationship.id, contract: relationship.contract };
+  }
+
+  async getRef(userId: number): Promise<AllianceRefDto | null> {
+    const membership = await this.store.findMembership(userId);
+    if (!membership) return null;
+    const alliance = await this.store.findAlliance(membership.allianceId);
+    return alliance
+      ? { id: alliance.id, name: alliance.name, color: alliance.color }
+      : null;
+  }
+
+  async listApplications(
+    actorId: number,
+    allianceId: number,
+  ): Promise<AllianceApplicationDto[]> {
+    await this.requireAlliance(allianceId);
+    const membership = await this.ownMembership(this.store, actorId, allianceId);
+    if (!mayActOnAlliance(membership.role, 'manageApplications')) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    const applications =
+      await this.store.listApplicationsForAlliance(allianceId);
+    const nameOf = await this.namesOf(applications.map((a) => a.userId));
+    return applications.map((a) => ({
+      id: a.id,
+      userId: a.userId,
+      name: nameOf(a.userId),
+      createdAt: a.createdAt.toISOString(),
+    }));
+  }
+
+  // --- Founding ---
+
+  async found(
+    userId: number,
+    request: FoundAllianceRequest,
+  ): Promise<{ id: number }> {
+    const name = this.validateName(request.name);
+    const description = this.validateDescription(request.description ?? '');
+
+    const player = await this.store.findPlayer(userId);
+    if (!player) throw new NotFoundException('Spieler nicht gefunden');
+    if (!player.factionId) throw new BadRequestException(ERR.noFaction);
+    const factionId = player.factionId;
+
+    try {
+      const alliance = await this.store.transaction(async (tx) => {
+        if (await tx.findMembership(userId)) {
+          throw new BadRequestException(ERR.alreadyMember);
+        }
+        if (await tx.isNameTaken(name)) {
+          throw new BadRequestException(ERR.nameTaken);
+        }
+        const created = await tx.insertAlliance({
+          name,
+          description,
+          factionId,
+        });
+        await tx.insertMembership({
+          allianceId: created.id,
+          userId,
+          role: PRESIDENT,
+        });
+        const own = await tx.listApplicationsOfPlayer(userId);
+        await tx.deleteApplications(own.map((a) => a.id));
+        return created;
+      });
+      return { id: alliance.id };
+    } catch (error) {
+      if (error instanceof AllianceConstraintViolation) {
+        throw new BadRequestException(
+          error.constraint === 'membership_user'
+            ? ERR.alreadyMember
+            : CONSTRAINT_ERRORS[error.constraint],
+        );
+      }
+      throw error;
+    }
+  }
+
+  // --- Applications ---
+
+  async apply(userId: number, allianceId: number): Promise<void> {
+    const player = await this.store.findPlayer(userId);
+    if (!player) throw new NotFoundException('Spieler nicht gefunden');
+
+    const messages = await this.mutate(async (tx) => {
+      // The lock serialises against closing applications (STU §4.7.7).
+      const alliance = await this.lockedAlliance(tx, allianceId);
+      if (await tx.findMembership(userId)) {
+        throw new BadRequestException(ERR.alreadyMember);
+      }
+      if (player.factionId !== alliance.factionId) {
+        throw new BadRequestException(
+          'Du kannst Dich nur bei Allianzen Deiner Fraktion bewerben',
+        );
+      }
+      if (!alliance.acceptsApplications) {
+        throw new BadRequestException(
+          'Diese Allianz nimmt derzeit keine Bewerbungen an',
+        );
+      }
+      if (await tx.findApplicationOf(allianceId, userId)) {
+        throw new BadRequestException(ERR.alreadyApplied);
+      }
+      await tx.insertApplication({ allianceId, userId });
+      const leaders = await this.leaderIds(allianceId, tx);
+      return leaders.map((to) => ({
+        to,
+        body: `Der Siedler ${player.name} hat sich für die Allianz beworben`,
+      }));
+    });
+    await this.send(messages);
+  }
+
+  async withdrawApplication(userId: number, allianceId: number): Promise<void> {
+    const application = await this.store.findApplicationOf(allianceId, userId);
+    if (
+      !application ||
+      (await this.store.deleteApplications([application.id])) === 0
+    ) {
+      throw new NotFoundException(ERR.applicationNotFound);
+    }
+  }
+
+  async acceptApplication(
+    actorId: number,
+    applicationId: number,
+  ): Promise<void> {
+    const application = await this.requireApplication(applicationId);
+    const applicant = await this.store.findPlayer(application.userId);
+    const applicantName = applicant?.name ?? UNKNOWN_NAME;
+
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        application.allianceId,
+        'manageApplications',
+      );
+      if (await tx.findMembership(application.userId)) {
+        throw new BadRequestException(ERR.applicantTaken);
+      }
+      const all = await tx.listApplicationsOfPlayer(application.userId);
+      if (!all.some((a) => a.id === application.id)) {
+        // Withdrawn or handled concurrently.
+        throw new NotFoundException(ERR.applicationNotFound);
+      }
+      await tx.insertMembership({
+        allianceId: alliance.id,
+        userId: application.userId,
+        role: NONE,
+      });
+      await tx.deleteApplications(all.map((a) => a.id));
+
+      const out: OutgoingMessage[] = [
+        {
+          to: application.userId,
+          body: `Deine Bewerbung wurde akzeptiert - Du bist jetzt Mitglied der Allianz ${alliance.name}`,
+        },
+      ];
+      for (const dropped of all) {
+        if (dropped.allianceId === alliance.id) continue;
+        for (const to of await this.leaderIds(dropped.allianceId, tx)) {
+          out.push({
+            to,
+            body: `Der Siedler ${applicantName} wurde bei einer anderen Allianz aufgenommen`,
+          });
+        }
+      }
+      return out;
+    });
+    await this.send(messages);
+  }
+
+  async declineApplication(
+    actorId: number,
+    applicationId: number,
+  ): Promise<void> {
+    const application = await this.requireApplication(applicationId);
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        application.allianceId,
+        'manageApplications',
+      );
+      if ((await tx.deleteApplications([application.id])) === 0) {
+        throw new NotFoundException(ERR.applicationNotFound);
+      }
+      return [this.declinedMessage(application.userId, alliance)];
+    });
+    await this.send(messages);
+  }
+
+  // --- Membership ---
+
+  async leave(userId: number): Promise<LeaveAllianceResponse> {
+    const membership = await this.store.findMembership(userId);
+    if (!membership) throw new BadRequestException(ERR.notMember);
+    const player = await this.store.findPlayer(userId);
+
+    let dissolved = false;
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedAlliance(tx, membership.allianceId);
+      const members = await tx.listMemberships(alliance.id);
+      const own = members.find((m) => m.userId === userId);
+      if (!own) throw new BadRequestException(ERR.notMember);
+
+      if (own.role === PRESIDENT) {
+        if (members.length > 1) {
+          throw new BadRequestException(
+            'Du musst das Präsidentenamt zuerst übergeben, bevor Du die Allianz verlassen kannst',
+          );
+        }
+        await tx.deleteAlliance(alliance.id);
+        dissolved = true;
+        return [];
+      }
+
+      await tx.deleteMembership(alliance.id, userId);
+      return members
+        .filter((m) => m.role === PRESIDENT || m.role === VICE)
+        .filter((m) => m.userId !== userId)
+        .map((m) => ({
+          to: m.userId,
+          body: `Der Siedler ${player?.name ?? UNKNOWN_NAME} hat die Allianz verlassen`,
+        }));
+    });
+    await this.send(messages);
+    return { dissolved };
+  }
+
+  async kick(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+  ): Promise<void> {
+    if (actorId === targetId) {
+      throw new BadRequestException(
+        'Du kannst Dich nicht selbst rauswerfen. Nutze dafür den Austritt',
+      );
+    }
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedMemberRight(
+        tx,
+        actorId,
+        allianceId,
+        targetId,
+        'kick',
+      );
+      await tx.deleteMembership(allianceId, targetId);
+      return [
+        {
+          to: targetId,
+          body: `Deine Mitgliedschaft in der Allianz ${alliance.name} wurde beendet`,
+        },
+      ];
+    });
+    await this.send(messages);
+  }
+
+  async dissolve(actorId: number, allianceId: number): Promise<void> {
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        allianceId,
+        'dissolve',
+      );
+      const members = await tx.listMemberships(allianceId);
+      await tx.deleteAlliance(allianceId);
+      return members.map((m) => ({
+        to: m.userId,
+        body: `Die Allianz ${alliance.name} wurde aufgelöst`,
+      }));
+    });
+    await this.send(messages);
+  }
+
+  // --- Offices ---
+
+  async setRole(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+    role: AllianceRole,
+  ): Promise<void> {
+    const action = ROLE_CHANGE_ACTION[role as keyof typeof ROLE_CHANGE_ACTION];
+    if (!action) {
+      throw new BadRequestException(
+        'Das Präsidentenamt kann nur übergeben werden',
+      );
+    }
+    if (actorId === targetId) {
+      throw new BadRequestException('Du kannst Dein eigenes Amt nicht ändern');
+    }
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedMemberRight(
+        tx,
+        actorId,
+        allianceId,
+        targetId,
+        action,
+      );
+      await tx.setRole(allianceId, targetId, role);
+      return [
+        {
+          to: targetId,
+          body:
+            role === NONE
+              ? `Du wurdest von Deinem Amt in der Allianz ${alliance.name} entbunden`
+              : `Du wurdest zum ${this.roleTitle(this.titlesOf(alliance), role)} der Allianz ${alliance.name} ernannt`,
+        },
+      ];
+    });
+    await this.send(messages);
+  }
+
+  async transferPresidency(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+  ): Promise<void> {
+    if (actorId === targetId) {
+      throw new BadRequestException('Du bist bereits Präsident');
+    }
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedMemberRight(
+        tx,
+        actorId,
+        allianceId,
+        targetId,
+        'transferPresidency',
+      );
+      // Demote first: the partial unique index allows one president only.
+      await tx.setRole(allianceId, actorId, NONE);
+      await tx.setRole(allianceId, targetId, PRESIDENT);
+      return [
+        {
+          to: targetId,
+          body: `Du wurdest zum ${alliance.presidentTitle} der Allianz ${alliance.name} ernannt`,
+        },
+      ];
+    });
+    await this.send(messages);
+  }
+
+  // --- Details ---
+
+  async update(
+    actorId: number,
+    allianceId: number,
+    request: UpdateAllianceRequest,
+  ): Promise<void> {
+    // Validate everything before writing anything (STU bug §11.7).
+    const patch: AlliancePatch = {};
+    if (request.name !== undefined) {
+      patch.name = this.validateName(request.name);
+    }
+    if (request.description !== undefined) {
+      patch.description = this.validateDescription(request.description);
+    }
+    if (request.homepage !== undefined) {
+      patch.homepage = this.validateHomepage(request.homepage);
+    }
+    if (request.color !== undefined) {
+      patch.color = this.validateColor(request.color);
+    }
+    if (request.titles !== undefined) {
+      const titles = this.validateTitles(request.titles);
+      patch.presidentTitle = titles.president;
+      patch.viceTitle = titles.vice;
+      patch.diplomatTitle = titles.diplomat;
+    }
+    if (request.acceptsApplications !== undefined) {
+      patch.acceptsApplications = request.acceptsApplications === true;
+    }
+
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        allianceId,
+        'editDetails',
+      );
+      if (
+        patch.name !== undefined &&
+        (await tx.isNameTaken(patch.name, allianceId))
+      ) {
+        throw new BadRequestException(ERR.nameTaken);
+      }
+      await tx.updateAlliance(allianceId, patch);
+      if (patch.acceptsApplications !== false) return [];
+      const open = await tx.listApplicationsForAlliance(allianceId);
+      await tx.deleteApplications(open.map((a) => a.id));
+      const name = patch.name ?? alliance.name;
+      return open.map((a) => this.declinedMessage(a.userId, { name }));
+    });
+    await this.send(messages);
+  }
+
+  // --- Helpers ---
+
+  /**
+   * Runs a write in one transaction, translating constraint violations into
+   * domain errors. Returns the system messages to send after the commit.
+   */
+  private async mutate(
+    work: (tx: AllianceStore) => Promise<OutgoingMessage[]>,
+  ): Promise<OutgoingMessage[]> {
+    try {
+      return await this.store.transaction(work);
+    } catch (error) {
+      if (error instanceof AllianceConstraintViolation) {
+        throw new BadRequestException(CONSTRAINT_ERRORS[error.constraint]);
+      }
+      throw error;
+    }
+  }
+
+  private async relationshipSummaries(
+    allianceId: number,
+    relationships: AllianceRelationshipRecord[],
+  ): Promise<AllianceRelationshipSummaryDto[]> {
+    const counterpartyIds = relationships.map((relationship) =>
+      relationship.firstAllianceId === allianceId
+        ? relationship.secondAllianceId
+        : relationship.firstAllianceId,
+    );
+    const counterparties = await Promise.all(
+      counterpartyIds.map((id) => this.store.findAlliance(id)),
+    );
+
+    return relationships.flatMap((relationship, index) => {
+      const counterparty = counterparties[index];
+      if (!counterparty) return [];
+      return [
+        {
+          id: relationship.id,
+          counterparty: {
+            id: counterparty.id,
+            name: counterparty.name,
+            color: counterparty.color,
+          },
+          type: relationship.type,
+          startedAt: relationship.startedAt.toISOString(),
+          permissions: {
+            treatAsFriend: relationship.treatAsFriend,
+            shareLivePositions: relationship.shareLivePositions,
+          },
+          vassalage:
+            relationship.type === AllianceRelationshipType.VASSALAGE &&
+            relationship.lordAllianceId !== null &&
+            relationship.vassalAllianceId !== null
+              ? {
+                  lordAllianceId: relationship.lordAllianceId,
+                  vassalAllianceId: relationship.vassalAllianceId,
+                }
+              : null,
+          hasContract: relationship.contract.length > 0,
+        },
+      ];
+    });
+  }
+
+  private async requireAlliance(id: number): Promise<AllianceRecord> {
+    const alliance = await this.store.findAlliance(id);
+    if (!alliance) throw new NotFoundException(ERR.allianceNotFound);
+    return alliance;
+  }
+
+  private async requireApplication(id: number): Promise<ApplicationRecord> {
+    const application = await this.store.findApplication(id);
+    if (!application) throw new NotFoundException(ERR.applicationNotFound);
+    return application;
+  }
+
+  /** Locks the alliance for the rest of the transaction. */
+  private async lockedAlliance(
+    tx: AllianceStore,
+    allianceId: number,
+  ): Promise<AllianceRecord> {
+    const alliance = await tx.lockAlliance(allianceId);
+    if (!alliance) throw new NotFoundException(ERR.allianceNotFound);
+    return alliance;
+  }
+
+  private async ownMembership(
+    tx: AllianceStore,
+    actorId: number,
+    allianceId: number,
+  ): Promise<MembershipRecord> {
+    const membership = await tx.findMembership(actorId);
+    if (!membership || membership.allianceId !== allianceId) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    return membership;
+  }
+
+  private async lockedAllianceRight(
+    tx: AllianceStore,
+    actorId: number,
+    allianceId: number,
+    action: AllianceAction,
+  ): Promise<AllianceRecord> {
+    const alliance = await this.lockedAlliance(tx, allianceId);
+    const membership = await this.ownMembership(tx, actorId, allianceId);
+    if (!mayActOnAlliance(membership.role, action)) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    return alliance;
+  }
+
+  private async lockedMemberRight(
+    tx: AllianceStore,
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+    action: AllianceMemberAction,
+  ): Promise<AllianceRecord> {
+    const alliance = await this.lockedAlliance(tx, allianceId);
+    const actor = await this.ownMembership(tx, actorId, allianceId);
+    const target = await tx.findMembership(targetId);
+    if (!target || target.allianceId !== allianceId) {
+      throw new NotFoundException(ERR.memberNotFound);
+    }
+    if (!mayActOnMember(actor.role, action, target.role)) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    return alliance;
+  }
+
+  private async namesOf(ids: number[]): Promise<(id: number) => string> {
+    const players = await this.store.findPlayers(ids);
+    const names = new Map(players.map((p) => [p.id, p.name]));
+    return (id) => names.get(id) ?? UNKNOWN_NAME;
+  }
+
+  /** President and all vices: recipients of applications and departures. */
+  private async leaderIds(
+    allianceId: number,
+    store: AllianceStore = this.store,
+  ): Promise<number[]> {
+    const members = await store.listMemberships(allianceId);
+    return members
+      .filter((m) => m.role === PRESIDENT || m.role === VICE)
+      .map((m) => m.userId);
+  }
+
+  private memberActions(
+    viewerRole: AllianceRole | null,
+    viewerId: number,
+    target: MembershipRecord,
+  ): AllianceMemberActionsDto {
+    const allowed = (action: AllianceMemberAction) =>
+      viewerRole !== null &&
+      target.userId !== viewerId &&
+      mayActOnMember(viewerRole, action, target.role);
+    return Object.fromEntries(
+      ALLIANCE_MEMBER_ACTIONS.map((action) => [action, allowed(action)]),
+    ) as unknown as AllianceMemberActionsDto;
+  }
+
+  private declinedMessage(
+    userId: number,
+    alliance: Pick<AllianceRecord, 'name'>,
+  ): OutgoingMessage {
+    return {
+      to: userId,
+      body: `Deine Bewerbung bei der Allianz ${alliance.name} wurde abgelehnt`,
+    };
+  }
+
+  private async send(messages: OutgoingMessage[]): Promise<void> {
+    for (const message of messages) {
+      await this.messaging.sendSystem(
+        message.to,
+        MESSAGE_SUBJECT,
+        message.body,
+      );
+    }
+  }
+
+  private toSummary(
+    alliance: AllianceRecord,
+    memberCount: number,
+    factions: FactionRecord[],
+  ): AllianceSummaryDto {
+    const faction = factions.find((f) => f.id === alliance.factionId);
+    return {
+      id: alliance.id,
+      name: alliance.name,
+      color: alliance.color,
+      faction: faction?.key as AllianceSummaryDto['faction'],
+      factionName: faction?.name ?? UNKNOWN_NAME,
+      memberCount,
+      acceptsApplications: alliance.acceptsApplications,
+      foundedAt: alliance.foundedAt.toISOString(),
+    };
+  }
+
+  private titlesOf(alliance: AllianceRecord): AllianceTitlesDto {
+    return {
+      president: alliance.presidentTitle,
+      vice: alliance.viceTitle,
+      diplomat: alliance.diplomatTitle,
+    };
+  }
+
+  private roleTitle(
+    titles: AllianceTitlesDto,
+    role: AllianceRole,
+  ): string | null {
+    switch (role) {
+      case PRESIDENT:
+        return titles.president;
+      case VICE:
+        return titles.vice;
+      case DIPLOMAT:
+        return titles.diplomat;
+      default:
+        return null;
+    }
+  }
+
+  /** STU §9.3: placeholders are replaced on read; unknown ones are removed. */
+  private renderDescription(
+    alliance: AllianceRecord,
+    members: Array<{ name: string; role: AllianceRole }>,
+  ): string {
+    const holder = (role: AllianceRole) =>
+      members.find((m) => m.role === role)?.name ?? 'Unbesetzt';
+    const values: Record<string, string> = {
+      $ALLIANCE_PRESIDENT: holder(PRESIDENT),
+      $ALLIANCE_VICEPRESIDENT: holder(VICE),
+      $ALLIANCE_FOREIGNMINISTER: holder(DIPLOMAT),
+      $ALLIANCE_HOMEPAGE_LINK: alliance.homepage
+        ? `[url=${alliance.homepage}]Zur Allianz-Homepage[/url]`
+        : '',
+    };
+    return alliance.description.replace(
+      /\$ALLIANCE_[A-Z_]+/g,
+      (token) => values[token] ?? '',
+    );
+  }
+
+  private validateName(raw: unknown): string {
+    const name = typeof raw === 'string' ? raw.trim() : '';
+    if (name.length < ALLIANCE_NAME_MIN) {
+      throw new BadRequestException(
+        `Der Name muss aus mindestens ${ALLIANCE_NAME_MIN} Zeichen bestehen`,
+      );
+    }
+    if (name.length > ALLIANCE_NAME_MAX) {
+      throw new BadRequestException(
+        `Der Name darf höchstens ${ALLIANCE_NAME_MAX} Zeichen lang sein`,
+      );
+    }
+    return name;
+  }
+
+  private validateDescription(raw: unknown): string {
+    const description = typeof raw === 'string' ? raw : '';
+    if (description.length > ALLIANCE_DESCRIPTION_MAX) {
+      throw new BadRequestException(
+        'Die Beschreibung darf höchstens 10.000 Zeichen lang sein',
+      );
+    }
+    return description;
+  }
+
+  private validateHomepage(raw: unknown): string {
+    const homepage = typeof raw === 'string' ? raw.trim() : '';
+    if (!homepage) return '';
+    if (
+      !/^https?:\/\/[^\s[\]]+$/i.test(homepage) ||
+      homepage.length > ALLIANCE_HOMEPAGE_MAX
+    ) {
+      throw new BadRequestException('Diese Homepage-Adresse ist nicht gültig');
+    }
+    return homepage;
+  }
+
+  private validateColor(raw: unknown): string | null {
+    const color = typeof raw === 'string' ? raw.trim() : '';
+    if (!color) return null;
+    if (!/^#[0-9a-f]{6}$/i.test(color)) {
+      throw new BadRequestException(
+        'Der RGB-Code ist ungültig, erwartet wird z. B. #11ff67',
+      );
+    }
+    return color;
+  }
+
+  private validateTitles(raw: AllianceTitlesDto): AllianceTitlesDto {
+    const titles = {
+      president: typeof raw?.president === 'string' ? raw.president.trim() : '',
+      vice: typeof raw?.vice === 'string' ? raw.vice.trim() : '',
+      diplomat: typeof raw?.diplomat === 'string' ? raw.diplomat.trim() : '',
+    };
+    if (
+      Object.values(titles).some(
+        (t) => t.length < ALLIANCE_TITLE_MIN || t.length > ALLIANCE_TITLE_MAX,
+      )
+    ) {
+      throw new BadRequestException(
+        `Alle Amtstitel müssen ${ALLIANCE_TITLE_MIN} bis ${ALLIANCE_TITLE_MAX} Zeichen lang sein`,
+      );
+    }
+    return titles;
+  }
+}

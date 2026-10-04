@@ -68,6 +68,7 @@ export interface GlobalHeaderStatusDto {
     prestige: number;
     avatar: string | null;
   };
+  alliance: AllianceRefDto | null;
   notifications: {
     messages: number;
     system: number;
@@ -89,3 +90,4 @@ export interface GlobalHeaderStatusDto {
   }>;
 }
 import type { SpaceLocationDto } from '../starmap/index.js';
+import type { AllianceRefDto } from '../alliance/index.js';

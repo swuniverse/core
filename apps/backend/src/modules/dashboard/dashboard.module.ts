@@ -10,6 +10,7 @@ import { HolonetPost } from '../holonet/entities/holonet-post.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { Message } from '../messaging/entities/message.entity';
 import { Research } from '../research/entities/research.entity';
+import { AllianceModule } from '../alliance/alliance.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { Research } from '../research/entities/research.entity';
       Research,
     ]),
     WebsocketModule,
+    AllianceModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

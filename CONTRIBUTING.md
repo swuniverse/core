@@ -40,6 +40,7 @@ game-data/          Private submodule (game balancing data)
 | research | Tech tree with prerequisites |
 | messaging | Player-to-player messages |
 | holonet | Forum posts (News, RP, Trade, Recruitment) |
+| alliance | Player alliances: founding, applications, offices, details |
 | tick | Scheduled game ticks + building completion |
 | websocket | Socket.io gateway for real-time events |
 

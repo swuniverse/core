@@ -1,0 +1,80 @@
+# swuniverse
+
+## Spieler & Gruppen
+
+**Fraktion**:
+Eine der beiden großen Seiten des Spiels, die **Rebellenallianz** oder das **Galaktische Imperium**. Ein Spieler wählt sie beim Einstieg einmalig.
+_Avoid_: Volk, Seite
+
+**Rebellenallianz**:
+Die Fraktion der Rebellen. Sie wird immer mit vollem Namen genannt, nie verkürzt zu „Allianz“.
+_Avoid_: Allianz (für die Fraktion), Rebellion
+
+**Allianz**:
+Ein von Spielern gegründeter Zusammenschluss. Alle Mitglieder gehören derselben **Fraktion** an. Ein Spieler ist in höchstens einer Allianz.
+_Avoid_: Clan, Gilde, Verband
+
+**Amt**:
+Eine feste Rolle innerhalb einer **Allianz**, nämlich **Präsident**, **Vize** oder **Diplomat**. Jedes Mitglied hat höchstens ein Amt. Die Allianz darf den angezeigten Titel eines Amts umbenennen. Ein Mitglied ohne Amt hat keine Verwaltungsrechte.
+_Avoid_: Job, Posten, Rang
+
+**Präsident**:
+Das Amt mit allen Rechten. Jede Allianz hat genau einen Präsidenten. Nur er darf die Allianz auflösen und das Amt übergeben.
+_Avoid_: Gründer, Leader
+
+**Vize**:
+Ein Amt, das die Allianz mitverwaltet (Bewerbungen, Rauswurf, Details, Ämter unterhalb des Präsidenten). Es kann mehrere Vizes geben.
+_Avoid_: Vizepräsident, Stellvertreter
+
+**Diplomat**:
+Ein Amt, das die Beziehungen zu anderen Allianzen pflegt. Es kann mehrere Diplomaten geben.
+_Avoid_: Außenminister
+
+**Bewerbung**:
+Die Anfrage eines allianzlosen Spielers, einer bestimmten Allianz beizutreten. Präsident oder Vize nehmen sie an oder lehnen sie ab.
+
+**Auflösung**:
+Das endgültige Ende einer Allianz, durch den Präsidenten oder durch den Austritt des letzten Mitglieds.
+
+## Beziehungen
+
+**Feind**:
+Ein Spieler der jeweils anderen **Fraktion**. Diese Feindschaft ist grundsätzlich und hängt nicht von Diplomatie ab.
+
+**Freund**:
+Ein Spieler, der derselben **Allianz** angehört.
+
+**Neutral**:
+Ein Spieler derselben **Fraktion**, der weder **Freund** noch **Feind** ist.
+
+**Beziehung**:
+Der diplomatische Zustand zwischen zwei verschiedenen Parteien. Parteien sind **Allianzen** oder allianzlose Spieler; zwischen Allianzen verschiedener **Fraktionen** gibt es keine Beziehung, da sie grundsätzlich **Feinde** sind.
+_Avoid_: Relation, Verhältnis
+
+**Beziehungstyp**:
+Die Art einer **Beziehung**: Krieg, Frieden, Freundschaft, Bündnis, Handelsabkommen oder Vasallenschaft.
+_Avoid_: Relationstyp, Vertragstyp
+
+**Beziehungsvorschlag**:
+Eine noch nicht angenommene Einladung einer Partei an eine andere, eine bestimmte **Beziehung** einzugehen. Zwischen zwei Parteien kann höchstens ein Beziehungsvorschlag bestehen.
+_Avoid_: Angebot, Antrag
+
+**Vertragswerk**:
+Der gemeinsam sichtbare Beschreibungstext einer **Beziehung**. Das Vertragswerk einer aktiven Beziehung ist öffentlich; vor der Annahme sehen es nur die beteiligten Allianzen.
+_Avoid_: Vertragstext
+
+**Beziehungsfreigabe**:
+Eine zusätzlich vereinbarte Wirkung einer **Beziehung**, etwa die gegenseitige Behandlung als **Freund** oder das Teilen von Live-Kartenpositionen. Sie folgt nicht automatisch aus dem Beziehungstyp.
+_Avoid_: Relationsrecht, Permission
+
+**Diplomatie-Chronik**:
+Die öffentliche, unveränderliche Folge abgeschlossener diplomatischer Ereignisse einer **Allianz**, beispielsweise Kriegserklärungen, Vertragsabschlüsse und Auflösungen.
+_Avoid_: Allianz-Historie, Log
+
+**Allianzchronik**:
+Die nur für Mitglieder sichtbare, unveränderliche Folge interner Ereignisse einer **Allianz**, beispielsweise Beitritte, Austritte, Amtswechsel und automatische Nachfolge.
+_Avoid_: Diplomatie-Chronik, Allianz-Historie, Log
+
+**Allianzdepot**:
+Eine geeignete Depotstation, die ihr Eigentümer organisatorisch seiner **Allianz** zuordnet. Die Zuordnung überträgt weder Eigentum noch Entnahmerechte.
+_Avoid_: Allianz-Lager

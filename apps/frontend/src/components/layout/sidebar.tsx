@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: 'Scans', path: '/colony-scans', icon: NavIconScans },
   { label: 'HoloNet', path: '/holonet', icon: NavIconHolonet },
   { label: 'Nachrichten', path: '/messages', icon: NavIconMessages },
+  { label: 'Allianzen', path: '/alliances', icon: NavIconAlliances },
   { label: 'Forschung', path: '/research', icon: NavIconResearch },
   { label: 'Datenbank', path: '/database', icon: NavIconDatabase },
   { label: 'Karte', path: '/starmap', icon: NavIconMap },
@@ -177,6 +178,26 @@ function NavIconResearch() {
       <path d="M9 3v12l-3 3h12l-3-3V3" />
       <path d="M9 3h6" />
       <circle cx="12" cy="17" r="1" />
+    </svg>
+  );
+}
+
+function NavIconAlliances() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
+      <circle cx="9.5" cy="11" r="1.5" />
+      <circle cx="14.5" cy="11" r="1.5" />
+      <path d="M7.5 16c.8-1.3 2.2-2 4.5-2s3.7.7 4.5 2" />
     </svg>
   );
 }

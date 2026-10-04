@@ -96,6 +96,16 @@ export function Header() {
               </div>
             </div>
           </Link>
+          {status?.alliance && (
+            <Link
+              to={`/alliances/${status.alliance.id}`}
+              title="Zur Allianz"
+              className="max-w-[72px] shrink-0 truncate px-1 text-[9px] font-bold text-swu-primary hover:underline md:max-w-[110px] md:px-2 md:text-[10px]"
+              style={{ color: status.alliance.color ?? undefined }}
+            >
+              {status.alliance.name}
+            </Link>
+          )}
           <Link
             to="/notes"
             title="Notizzettel öffnen"

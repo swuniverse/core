@@ -16,6 +16,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { AllianceModule } from '../alliance/alliance.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
     FactionModule,
     GameDataModule,
     WebsocketModule,
+    AllianceModule,
   ],
   controllers: [DatabaseController],
   providers: [DatabaseService],

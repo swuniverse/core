@@ -84,6 +84,12 @@ import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-histo
 import { PrestigeModule } from './modules/prestige/prestige.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapshot.entity';
+import { AllianceModule } from './modules/alliance/alliance.module';
+import { Alliance } from './modules/alliance/entities/alliance.entity';
+import { AllianceMembership } from './modules/alliance/entities/alliance-membership.entity';
+import { AllianceApplication } from './modules/alliance/entities/alliance-application.entity';
+import { AllianceRelationship } from './modules/alliance/entities/alliance-relationship.entity';
+import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.entity';
 
 @Module({
   imports: [
@@ -158,6 +164,11 @@ import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapsh
           GameEvent,
           PrestigeHistoryEntry,
           DashboardSnapshot,
+          Alliance,
+          AllianceMembership,
+          AllianceApplication,
+          DiplomacyParty,
+          AllianceRelationship,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -181,6 +192,7 @@ import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapsh
     EventsModule,
     PrestigeModule,
     DashboardModule,
+    AllianceModule,
     TickModule,
     WebsocketModule,
   ],

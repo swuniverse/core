@@ -36,6 +36,7 @@ describe('Global status header', () => {
         prestige: 385,
         avatar: null,
       },
+      alliance: null,
       notifications: { messages: 2, system: 1 },
       research: {
         techId: 7,
@@ -143,5 +144,35 @@ describe('Global status header', () => {
       expect(screen.getByText('Reaktor ausgefallen')).toBeTruthy(),
     );
     expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');
+  });
+
+  it('shows no alliance for alliance-less players', async () => {
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Nuriud');
+
+    expect(screen.queryByTitle('Zur Allianz')).toBeNull();
+  });
+
+  it('links the own alliance in its color', async () => {
+    const status = await apiMocks.get.getMockImplementation()?.('/dashboard/header');
+    apiMocks.get.mockResolvedValue({
+      ...status,
+      alliance: { id: 3, name: 'Rogue Squadron', color: '#ff0000' },
+    });
+
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    const link = await screen.findByTitle('Zur Allianz');
+    expect(link.textContent).toBe('Rogue Squadron');
+    expect(link.getAttribute('href')).toBe('/alliances/3');
+    expect(link.getAttribute('style')).toContain('color: rgb(255, 0, 0)');
   });
 });

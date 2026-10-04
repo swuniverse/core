@@ -113,6 +113,8 @@ npm run test       # Jest/Vitest-Suites ausführen
 npm run typecheck  # TypeScript-Prüfung ohne Emit
 ```
 
+Backend-Integrationstests gegen echtes Postgres 16 (Docker oder `INTEGRATION_DATABASE_URL`) laufen separat mit `npx nx run backend:test-integration`, siehe `apps/backend/src/testing/integration/README.md`.
+
 ## Projektstruktur
 
 ```text

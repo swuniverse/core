@@ -80,6 +80,17 @@
         "options": {
           "passWithNoTests": true
         }
+      },
+      "test-integration": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "jest --config apps/backend/jest.integration.config.cts --rootDir apps/backend",
+          "cwd": "{workspaceRoot}",
+          "env": {
+            "TS_NODE_COMPILER_OPTIONS": "{\"moduleResolution\":\"node10\",\"module\":\"commonjs\",\"customConditions\":null}"
+          }
+        },
+        "cache": false
       }
     }
   },

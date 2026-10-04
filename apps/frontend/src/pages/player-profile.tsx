@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
+import type { AllianceRefDto } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 
 interface PlayerProfile {
@@ -18,6 +19,7 @@ interface PlayerProfile {
   onboardingCompleted: boolean;
   isAdmin: boolean;
   createdAt: string;
+  alliance: AllianceRefDto | null;
 }
 
 const dateFormatter = new Intl.DateTimeFormat('de-DE', {
@@ -134,6 +136,18 @@ export function PlayerProfilePage() {
               <p className="text-xs text-swu-muted">Login: {player.username}</p>
             )}
             <p className="text-sm text-swu-primary">{player.factionName}</p>
+            {player.alliance && (
+              <p className="text-sm text-swu-muted">
+                Allianz{' '}
+                <Link
+                  to={`/alliances/${player.alliance.id}`}
+                  className="font-bold text-swu-primary hover:underline"
+                  style={{ color: player.alliance.color ?? undefined }}
+                >
+                  {player.alliance.name}
+                </Link>
+              </p>
+            )}
           </div>
         </div>
       </section>
