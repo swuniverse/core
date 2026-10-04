@@ -24,7 +24,6 @@
  * sind aber laut Auftraggeber echte, bespielbare Klassen.
  */
 
-import { isHabitableByClass } from '@swuniverse/shared';
 import { buildSwuTestClassId } from './swu-system-generator';
 import { findArchetypeBySwuClassId } from './swu-archetype-registry';
 import type {
@@ -165,9 +164,4 @@ export function convertObjectToSwu(object: {
     object.name = `${stripSwuNameSuffix(object.name) ?? ''}${suffix}`;
   }
   return true;
-}
-
-/** Kolonisierbarkeit einer STU-classId (Umkehrung von convertObjectToSwu beim Zurueckstellen). */
-export function isStuClassColonizable(classId: number | null): boolean {
-  return isHabitableByClass(classId);
 }

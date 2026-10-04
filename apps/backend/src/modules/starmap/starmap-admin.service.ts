@@ -1,3 +1,4 @@
+import { isStuClassColonizable } from './generator/stu-class-colonizable';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -26,7 +27,6 @@ import {
 import { purgeColonies } from '../colony/colony-purge';
 import {
   convertObjectToSwu,
-  isStuClassColonizable,
   getMappedStuClassIds,
   stripSwuNameSuffix,
 } from './generator/swu-stu-class-mapping';
