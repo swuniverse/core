@@ -8,7 +8,11 @@ import {
   Not,
   QueryFailedError,
 } from 'typeorm';
-import { AllianceRole, Faction } from '@swuniverse/shared';
+import {
+  AllianceRelationshipType,
+  AllianceRole,
+  Faction,
+} from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { Alliance } from './entities/alliance.entity';
@@ -203,6 +207,53 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .andWhere('relationship.endedAt IS NULL')
       .getOne();
     return relationship ? toRelationship(relationship) : null;
+  }
+
+  async replaceRelationshipsWithWar(
+    firstAllianceId: number,
+    secondAllianceId: number,
+  ) {
+    const [firstAllianceIdCanonical, secondAllianceIdCanonical] = [
+      Math.min(firstAllianceId, secondAllianceId),
+      Math.max(firstAllianceId, secondAllianceId),
+    ];
+    const parties = await this.manager
+      .createQueryBuilder(DiplomacyParty, 'party')
+      .where('party.allianceId IN (:...allianceIds)', {
+        allianceIds: [firstAllianceIdCanonical, secondAllianceIdCanonical],
+      })
+      .setLock('pessimistic_write')
+      .getMany();
+    const partyByAllianceId = new Map(
+      parties.map((party) => [party.allianceId, party]),
+    );
+    const firstParty = partyByAllianceId.get(firstAllianceIdCanonical);
+    const secondParty = partyByAllianceId.get(secondAllianceIdCanonical);
+    if (!firstParty || !secondParty) {
+      throw new Error('Alliance diplomacy parties are missing');
+    }
+    await this.manager
+      .createQueryBuilder()
+      .update(AllianceRelationship)
+      .set({ endedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('endedAt IS NULL')
+      .andWhere('"firstPartyId" = :firstPartyId', {
+        firstPartyId: firstParty.id,
+      })
+      .andWhere('"secondPartyId" = :secondPartyId', {
+        secondPartyId: secondParty.id,
+      })
+      .execute();
+    await this.manager.insert(AllianceRelationship, {
+      firstPartyId: firstParty.id,
+      secondPartyId: secondParty.id,
+      type: AllianceRelationshipType.WAR,
+      contract: '',
+      treatAsFriend: false,
+      shareLivePositions: false,
+      lordPartyId: null,
+      vassalPartyId: null,
+    });
   }
 
   async countMembers() {

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AllianceRole,
@@ -49,11 +55,20 @@ function relationshipTypeLabel(type: AllianceRelationshipSummaryDto['type']) {
   }
 }
 
-function PageTitle({ children, color }: { children: ReactNode; color?: string | null }) {
+function PageTitle({
+  children,
+  color,
+}: {
+  children: ReactNode;
+  color?: string | null;
+}) {
   return (
     <h1
       className="text-2xl font-bold text-swu-accent"
-      style={{ fontFamily: 'var(--font-swu-display)', color: color ?? undefined }}
+      style={{
+        fontFamily: 'var(--font-swu-display)',
+        color: color ?? undefined,
+      }}
     >
       {children}
     </h1>
@@ -63,7 +78,10 @@ function PageTitle({ children, color }: { children: ReactNode; color?: string | 
 function ErrorMessage({ message }: { message: string | null }) {
   if (!message) return null;
   return (
-    <p role="alert" className="border border-swu-danger/60 bg-swu-danger/10 px-3 py-2 text-sm text-red-300">
+    <p
+      role="alert"
+      className="border border-swu-danger/60 bg-swu-danger/10 px-3 py-2 text-sm text-red-300"
+    >
       {message}
     </p>
   );
@@ -96,7 +114,10 @@ export function AllianceListPage() {
         setMine(own.alliance);
       })
       .catch((err) => {
-        if (!cancelled) setError(getErrorMessage(err, 'Allianzen konnten nicht geladen werden.'));
+        if (!cancelled)
+          setError(
+            getErrorMessage(err, 'Allianzen konnten nicht geladen werden.'),
+          );
       });
     return () => {
       cancelled = true;
@@ -119,9 +140,13 @@ export function AllianceListPage() {
           ))}
       </div>
       <ErrorMessage message={error} />
-      {!alliances && !error && <p className="text-swu-muted">Allianzen werden geladen...</p>}
+      {!alliances && !error && (
+        <p className="text-swu-muted">Allianzen werden geladen...</p>
+      )}
       {alliances && alliances.length === 0 && (
-        <p className="text-sm italic text-swu-muted">Es gibt noch keine Allianzen.</p>
+        <p className="text-sm italic text-swu-muted">
+          Es gibt noch keine Allianzen.
+        </p>
       )}
       {alliances && alliances.length > 0 && (
         <div className="overflow-x-auto border border-swu-border bg-swu-surface">
@@ -146,7 +171,9 @@ export function AllianceListPage() {
                       <span
                         aria-hidden
                         className="size-2.5 shrink-0 rounded-full border border-swu-border"
-                        style={{ backgroundColor: alliance.color ?? 'transparent' }}
+                        style={{
+                          backgroundColor: alliance.color ?? 'transparent',
+                        }}
                       />
                       <Link
                         to={`/alliances/${alliance.id}`}
@@ -157,8 +184,12 @@ export function AllianceListPage() {
                       </Link>
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-swu-muted">{alliance.factionName}</td>
-                  <td className="px-3 py-2 text-right font-mono">{alliance.memberCount}</td>
+                  <td className="px-3 py-2 text-swu-muted">
+                    {alliance.factionName}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {alliance.memberCount}
+                  </td>
                   <td className="px-3 py-2 text-swu-muted">
                     {alliance.acceptsApplications ? 'offen' : 'geschlossen'}
                   </td>
@@ -186,10 +217,15 @@ export function AllianceFoundPage() {
     setBusy(true);
     setError(null);
     try {
-      const { id } = await api.post<{ id: number }>('/alliances', { name, description });
+      const { id } = await api.post<{ id: number }>('/alliances', {
+        name,
+        description,
+      });
       navigate(`/alliances/${id}`);
     } catch (err) {
-      setError(getErrorMessage(err, 'Die Allianz konnte nicht gegründet werden.'));
+      setError(
+        getErrorMessage(err, 'Die Allianz konnte nicht gegründet werden.'),
+      );
       setBusy(false);
     }
   }
@@ -199,10 +235,13 @@ export function AllianceFoundPage() {
       <BackLink to="/alliances" label="Allianzen" />
       <PageTitle>Allianz gründen</PageTitle>
       <p className="text-sm text-swu-muted">
-        Die Allianz gehört zu Deiner Fraktion. Du wirst ihr Präsident. Bewerbungen sind zunächst
-        geschlossen.
+        Die Allianz gehört zu Deiner Fraktion. Du wirst ihr Präsident.
+        Bewerbungen sind zunächst geschlossen.
       </p>
-      <form onSubmit={submit} className="space-y-3 border border-swu-border bg-swu-surface p-4">
+      <form
+        onSubmit={submit}
+        className="space-y-3 border border-swu-border bg-swu-surface p-4"
+      >
         <Field label="Name" hint="5 bis 40 Zeichen">
           {(id) => (
             <input
@@ -214,7 +253,10 @@ export function AllianceFoundPage() {
             />
           )}
         </Field>
-        <Field label="Beschreibung" hint="BBCode erlaubt, höchstens 10.000 Zeichen">
+        <Field
+          label="Beschreibung"
+          hint="BBCode erlaubt, höchstens 10.000 Zeichen"
+        >
           {(id) => (
             <textarea
               id={id}
@@ -247,7 +289,10 @@ function Field({
   const id = `alliance-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-xs uppercase tracking-wider text-swu-muted">
+      <label
+        htmlFor={id}
+        className="block text-xs uppercase tracking-wider text-swu-muted"
+      >
         {label}
       </label>
       {children(id)}
@@ -288,20 +333,28 @@ export function AllianceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { alliance, loadError, reload } = useAllianceDetail(id);
-  const [applications, setApplications] = useState<AllianceApplicationDto[]>([]);
+  const [applications, setApplications] = useState<AllianceApplicationDto[]>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [contracts, setContracts] = useState<Record<number, string>>({});
-  const [loadingContractId, setLoadingContractId] = useState<number | null>(null);
+  const [loadingContractId, setLoadingContractId] = useState<number | null>(
+    null,
+  );
+  const [warTargetId, setWarTargetId] = useState('');
 
-  const canManageApplications = alliance?.viewer.actions.manageApplications ?? false;
+  const canManageApplications =
+    alliance?.viewer.actions.manageApplications ?? false;
 
   const reloadApplications = useCallback(async () => {
     if (!id || !canManageApplications) {
       setApplications([]);
       return;
     }
-    setApplications(await api.get<AllianceApplicationDto[]>(`/alliances/${id}/applications`));
+    setApplications(
+      await api.get<AllianceApplicationDto[]>(`/alliances/${id}/applications`),
+    );
   }, [id, canManageApplications]);
 
   useEffect(() => {
@@ -316,15 +369,23 @@ export function AllianceDetailPage() {
       const result = await api.get<AllianceRelationshipContractDto>(
         `/alliances/${id}/relationships/${relationship.id}/contract`,
       );
-      setContracts((current) => ({ ...current, [relationship.id]: result.contract }));
+      setContracts((current) => ({
+        ...current,
+        [relationship.id]: result.contract,
+      }));
     } catch (err) {
-      setError(getErrorMessage(err, 'Das Vertragswerk konnte nicht geladen werden.'));
+      setError(
+        getErrorMessage(err, 'Das Vertragswerk konnte nicht geladen werden.'),
+      );
     } finally {
       setLoadingContractId(null);
     }
   }
 
-  async function run(action: () => Promise<unknown>, after: 'reload' | 'list' = 'reload') {
+  async function run(
+    action: () => Promise<unknown>,
+    after: 'reload' | 'list' = 'reload',
+  ) {
     setBusy(true);
     setError(null);
     try {
@@ -350,7 +411,9 @@ export function AllianceDetailPage() {
     );
   }
   if (!alliance) {
-    return <div className="p-3 text-swu-muted md:p-6">Allianz wird geladen...</div>;
+    return (
+      <div className="p-3 text-swu-muted md:p-6">Allianz wird geladen...</div>
+    );
   }
 
   const base = `/alliances/${alliance.id}`;
@@ -364,16 +427,27 @@ export function AllianceDetailPage() {
         type="button"
         disabled={busy}
         className={buttonClass}
-        onClick={() => void run(() => api.put(`${base}/members/${member.userId}/role`, { role }))}
+        onClick={() =>
+          void run(() =>
+            api.put(`${base}/members/${member.userId}/role`, { role }),
+          )
+        }
       >
         {label}
       </button>
     );
     if (member.actions.appointVice) {
-      buttons.push(roleButton(AllianceRole.VICE, `Zum ${alliance.titles.vice} ernennen`));
+      buttons.push(
+        roleButton(AllianceRole.VICE, `Zum ${alliance.titles.vice} ernennen`),
+      );
     }
     if (member.actions.appointDiplomat) {
-      buttons.push(roleButton(AllianceRole.DIPLOMAT, `Zum ${alliance.titles.diplomat} ernennen`));
+      buttons.push(
+        roleButton(
+          AllianceRole.DIPLOMAT,
+          `Zum ${alliance.titles.diplomat} ernennen`,
+        ),
+      );
     }
     if (member.actions.dismiss) {
       buttons.push(roleButton(AllianceRole.NONE, 'Amt entziehen'));
@@ -392,7 +466,12 @@ export function AllianceDetailPage() {
               )
             )
               return;
-            void run(() => api.post(`${base}/members/${member.userId}/transfer-presidency`, {}));
+            void run(() =>
+              api.post(
+                `${base}/members/${member.userId}/transfer-presidency`,
+                {},
+              ),
+            );
           }}
         >
           Präsidentenamt übergeben
@@ -407,7 +486,10 @@ export function AllianceDetailPage() {
           disabled={busy}
           className={dangerButtonClass}
           onClick={() => {
-            if (!window.confirm(`${member.name} wirklich aus der Allianz werfen?`)) return;
+            if (
+              !window.confirm(`${member.name} wirklich aus der Allianz werfen?`)
+            )
+              return;
             void run(() => api.delete(`${base}/members/${member.userId}`));
           }}
         >
@@ -431,7 +513,9 @@ export function AllianceDetailPage() {
                 type="button"
                 disabled={busy}
                 className={primaryButtonClass}
-                onClick={() => void run(() => api.post(`${base}/applications`, {}))}
+                onClick={() =>
+                  void run(() => api.post(`${base}/applications`, {}))
+                }
               >
                 Bewerben
               </button>
@@ -441,7 +525,9 @@ export function AllianceDetailPage() {
                 type="button"
                 disabled={busy}
                 className={buttonClass}
-                onClick={() => void run(() => api.delete(`${base}/applications/mine`))}
+                onClick={() =>
+                  void run(() => api.delete(`${base}/applications/mine`))
+                }
               >
                 Bewerbung zurückziehen
               </button>
@@ -450,6 +536,43 @@ export function AllianceDetailPage() {
               <Link to={`${base}/edit`} className={buttonClass}>
                 Bearbeiten
               </Link>
+            )}
+            {actions.declareWar && (
+              <form
+                className="flex gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!warTargetId) return;
+                  void run(() =>
+                    api.post(`${base}/relationships/${warTargetId}/war`, {}),
+                  );
+                }}
+              >
+                <label className="sr-only" htmlFor="war-target-alliance">
+                  Zielallianz
+                </label>
+                <select
+                  id="war-target-alliance"
+                  value={warTargetId}
+                  disabled={busy}
+                  onChange={(event) => setWarTargetId(event.target.value)}
+                  className="border border-swu-border bg-swu-bg px-2 py-1 text-xs"
+                >
+                  <option value="">Zielallianz wählen</option>
+                  {actions.warTargets.map((target) => (
+                    <option key={target.id} value={target.id}>
+                      {target.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  disabled={busy || !warTargetId}
+                  className={dangerButtonClass}
+                >
+                  Krieg erklären
+                </button>
+              </form>
             )}
             {actions.leave && (
               <button
@@ -525,19 +648,27 @@ export function AllianceDetailPage() {
             className="text-sm text-swu-text whitespace-pre-wrap"
           />
         ) : (
-          <p className="text-sm italic text-swu-muted">Keine Allianz-Beschreibung hinterlegt</p>
+          <p className="text-sm italic text-swu-muted">
+            Keine Allianz-Beschreibung hinterlegt
+          </p>
         )}
       </section>
 
       {alliance.relationships.length > 0 && (
         <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-          <h2 className="text-sm font-bold text-swu-primary">Aktive Beziehungen</h2>
+          <h2 className="text-sm font-bold text-swu-primary">
+            Aktive Beziehungen
+          </h2>
           <ul className="divide-y divide-swu-border/40">
             {alliance.relationships.map((relationship) => {
-              const isLord = relationship.vassalage?.lordAllianceId === alliance.id;
-              const isVassal = relationship.vassalage?.vassalAllianceId === alliance.id;
+              const isLord =
+                relationship.vassalage?.lordAllianceId === alliance.id;
+              const isVassal =
+                relationship.vassalage?.vassalAllianceId === alliance.id;
               const labels = [
-                relationship.permissions.treatAsFriend ? 'Als Freund behandeln' : null,
+                relationship.permissions.treatAsFriend
+                  ? 'Als Freund behandeln'
+                  : null,
                 relationship.permissions.shareLivePositions
                   ? 'Live-Kartenpositionen teilen'
                   : null,
@@ -548,13 +679,16 @@ export function AllianceDetailPage() {
                     <Link
                       to={`/alliances/${relationship.counterparty.id}`}
                       className="font-bold text-swu-primary hover:text-swu-accent"
-                      style={{ color: relationship.counterparty.color ?? undefined }}
+                      style={{
+                        color: relationship.counterparty.color ?? undefined,
+                      }}
                     >
                       {relationship.counterparty.name}
                     </Link>
                     <span>{relationshipTypeLabel(relationship.type)}</span>
                     <span className="text-xs text-swu-muted">
-                      seit {dateFormatter.format(new Date(relationship.startedAt))}
+                      seit{' '}
+                      {dateFormatter.format(new Date(relationship.startedAt))}
                     </span>
                   </div>
                   {relationship.vassalage && (
@@ -567,7 +701,9 @@ export function AllianceDetailPage() {
                     </p>
                   )}
                   {labels.length > 0 && (
-                    <p className="text-xs text-swu-muted">{labels.join(' · ')}</p>
+                    <p className="text-xs text-swu-muted">
+                      {labels.join(' · ')}
+                    </p>
                   )}
                   {relationship.hasContract && (
                     <div className="space-y-2">
@@ -600,11 +736,16 @@ export function AllianceDetailPage() {
         <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
           <h2 className="text-sm font-bold text-swu-primary">Bewerbungen</h2>
           {applications.length === 0 ? (
-            <p className="text-sm italic text-swu-muted">Keine offenen Bewerbungen</p>
+            <p className="text-sm italic text-swu-muted">
+              Keine offenen Bewerbungen
+            </p>
           ) : (
             <ul className="divide-y divide-swu-border/40">
               {applications.map((application) => (
-                <li key={application.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+                <li
+                  key={application.id}
+                  className="flex flex-wrap items-center gap-3 py-2 text-sm"
+                >
                   <Link
                     to={`/players/${application.userId}`}
                     className="font-bold text-swu-primary hover:text-swu-accent"
@@ -621,7 +762,10 @@ export function AllianceDetailPage() {
                       className={primaryButtonClass}
                       onClick={() =>
                         void run(() =>
-                          api.post(`/alliances/applications/${application.id}/accept`, {}),
+                          api.post(
+                            `/alliances/applications/${application.id}/accept`,
+                            {},
+                          ),
                         )
                       }
                     >
@@ -633,7 +777,10 @@ export function AllianceDetailPage() {
                       className={dangerButtonClass}
                       onClick={() =>
                         void run(() =>
-                          api.post(`/alliances/applications/${application.id}/decline`, {}),
+                          api.post(
+                            `/alliances/applications/${application.id}/decline`,
+                            {},
+                          ),
                         )
                       }
                     >
@@ -649,11 +796,17 @@ export function AllianceDetailPage() {
 
       <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
         <h2 className="text-sm font-bold text-swu-primary">
-          Mitglieder <span className="font-normal text-swu-muted">({alliance.memberCount})</span>
+          Mitglieder{' '}
+          <span className="font-normal text-swu-muted">
+            ({alliance.memberCount})
+          </span>
         </h2>
         <ul className="divide-y divide-swu-border/40">
           {alliance.members.map((member) => (
-            <li key={member.userId} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+            <li
+              key={member.userId}
+              className="flex flex-wrap items-center gap-3 py-2 text-sm"
+            >
               <Link
                 to={`/players/${member.userId}`}
                 className="font-bold text-swu-primary hover:text-swu-accent"
@@ -665,7 +818,9 @@ export function AllianceDetailPage() {
                   {member.roleTitle}
                 </span>
               )}
-              <span className="ml-auto flex flex-wrap gap-2">{memberActions(member)}</span>
+              <span className="ml-auto flex flex-wrap gap-2">
+                {memberActions(member)}
+              </span>
             </li>
           ))}
         </ul>
@@ -680,7 +835,9 @@ export function AllianceEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { alliance, loadError } = useAllianceDetail(id);
-  const [form, setForm] = useState<Required<UpdateAllianceRequest> | null>(null);
+  const [form, setForm] = useState<Required<UpdateAllianceRequest> | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -705,13 +862,17 @@ export function AllianceEditPage() {
     );
   }
   if (!alliance || !form) {
-    return <div className="p-3 text-swu-muted md:p-6">Allianz wird geladen...</div>;
+    return (
+      <div className="p-3 text-swu-muted md:p-6">Allianz wird geladen...</div>
+    );
   }
   if (!alliance.viewer.actions.editDetails) {
     return (
       <div className="space-y-4 p-3 md:p-6">
         <BackLink to={`/alliances/${alliance.id}`} label={alliance.name} />
-        <p className="text-swu-muted">Du darfst diese Allianz nicht bearbeiten.</p>
+        <p className="text-swu-muted">
+          Du darfst diese Allianz nicht bearbeiten.
+        </p>
       </div>
     );
   }
@@ -730,7 +891,9 @@ export function AllianceEditPage() {
       await api.patch(`/alliances/${alliance.id}`, form);
       navigate(`/alliances/${alliance.id}`);
     } catch (err) {
-      setError(getErrorMessage(err, 'Die Allianz konnte nicht gespeichert werden.'));
+      setError(
+        getErrorMessage(err, 'Die Allianz konnte nicht gespeichert werden.'),
+      );
       setBusy(false);
     }
   }
@@ -739,7 +902,10 @@ export function AllianceEditPage() {
     <div className="max-w-2xl space-y-4 p-3 md:p-6">
       <BackLink to={`/alliances/${alliance.id}`} label={alliance.name} />
       <PageTitle>Allianz bearbeiten</PageTitle>
-      <form onSubmit={submit} className="space-y-3 border border-swu-border bg-swu-surface p-4">
+      <form
+        onSubmit={submit}
+        className="space-y-3 border border-swu-border bg-swu-surface p-4"
+      >
         <Field label="Name" hint="5 bis 40 Zeichen">
           {(fieldId) => (
             <input
@@ -791,7 +957,9 @@ export function AllianceEditPage() {
                 aria-hidden
                 className="size-7 shrink-0 border border-swu-border"
                 style={{
-                  backgroundColor: /^#[0-9a-f]{6}$/i.test(form.color) ? form.color : 'transparent',
+                  backgroundColor: /^#[0-9a-f]{6}$/i.test(form.color)
+                    ? form.color
+                    : 'transparent',
                 }}
               />
             </span>

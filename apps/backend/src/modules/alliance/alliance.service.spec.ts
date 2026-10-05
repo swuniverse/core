@@ -60,8 +60,14 @@ describe('AllianceService', () => {
     it('returns public active relationship summaries and contracts', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');
-      const rogue = store.seedAlliance({ name: 'Rogue Squadron', color: '#ff0000' }, [[1, PRESIDENT]]);
-      const red = store.seedAlliance({ name: 'Red Squadron', color: '#00ff00' }, []);
+      const rogue = store.seedAlliance(
+        { name: 'Rogue Squadron', color: '#ff0000' },
+        [[1, PRESIDENT]],
+      );
+      const red = store.seedAlliance(
+        { name: 'Red Squadron', color: '#00ff00' },
+        [],
+      );
       const relationship = store.seedActiveAllianceRelationship({
         firstAllianceId: rogue.id,
         secondAllianceId: red.id,
@@ -82,16 +88,20 @@ describe('AllianceService', () => {
           hasContract: true,
         }),
       ]);
-      await expect(service.getPublicRelationshipContract(rogue.id, relationship.id)).resolves.toEqual({
+      await expect(
+        service.getPublicRelationshipContract(rogue.id, relationship.id),
+      ).resolves.toEqual({
         relationshipId: relationship.id,
         contract: '[b]Gemeinsam[/b]',
       });
     });
 
-      it('projects vassalage direction publicly and hides missing contracts', async () => {
+    it('projects vassalage direction publicly and hides missing contracts', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');
-      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+      ]);
       const red = store.seedAlliance({ name: 'Red Squadron' }, []);
       store.seedActiveAllianceRelationship({
         firstAllianceId: rogue.id,
@@ -108,7 +118,10 @@ describe('AllianceService', () => {
         hasContract: false,
       });
       await expectError(
-        service.getPublicRelationshipContract(red.id, detail.relationships[0].id),
+        service.getPublicRelationshipContract(
+          red.id,
+          detail.relationships[0].id,
+        ),
         NotFoundException,
         'Das Vertragswerk ist nicht verfügbar',
       );
@@ -204,7 +217,10 @@ describe('AllianceService', () => {
       store.addPlayer(1, 'Leia');
 
       await expectError(
-        service.found(1, { name: 'Rogue Squadron', description: 'x'.repeat(10001) }),
+        service.found(1, {
+          name: 'Rogue Squadron',
+          description: 'x'.repeat(10001),
+        }),
         BadRequestException,
         /10\.000 Zeichen/,
       );
@@ -264,7 +280,11 @@ describe('AllianceService', () => {
         ],
       );
       store.seedAlliance(
-        { name: 'Black Squadron', factionId: EMPIRE.id, acceptsApplications: false },
+        {
+          name: 'Black Squadron',
+          factionId: EMPIRE.id,
+          acceptsApplications: false,
+        },
         [[3, PRESIDENT]],
       );
 
@@ -315,9 +335,7 @@ describe('AllianceService', () => {
 
       const detail = await service.getDetail(2, alliance.id);
 
-      expect(
-        detail.members.map((m) => [m.name, m.role, m.roleTitle]),
-      ).toEqual([
+      expect(detail.members.map((m) => [m.name, m.role, m.roleTitle])).toEqual([
         ['Leia', PRESIDENT, 'Großadmiral'],
         ['Biggs', VICE, 'Vize-Präsident'],
         ['Mon', DIPLOMAT, 'Diplomat'],
@@ -361,9 +379,13 @@ describe('AllianceService', () => {
             editDetails: false,
             manageApplications: false,
             dissolve: false,
+            declareWar: false,
+            warTargets: [],
           },
         });
-        expect(members.every((m) => Object.values(m.actions).every((a) => !a))).toBe(true);
+        expect(
+          members.every((m) => Object.values(m.actions).every((a) => !a)),
+        ).toBe(true);
       });
 
       it('offers no apply button to the other faction', async () => {
@@ -416,9 +438,13 @@ describe('AllianceService', () => {
             editDetails: true,
             manageApplications: true,
             dissolve: true,
+            declareWar: true,
+            warTargets: [],
           },
         });
-        const byName = Object.fromEntries(members.map((m) => [m.name, m.actions]));
+        const byName = Object.fromEntries(
+          members.map((m) => [m.name, m.actions]),
+        );
         expect(byName['Leia']).toEqual({
           kick: false,
           appointVice: false,
@@ -464,8 +490,12 @@ describe('AllianceService', () => {
           editDetails: true,
           manageApplications: true,
           dissolve: false,
+          declareWar: false,
+          warTargets: [],
         });
-        const byName = Object.fromEntries(members.map((m) => [m.name, m.actions]));
+        const byName = Object.fromEntries(
+          members.map((m) => [m.name, m.actions]),
+        );
         expect(byName['Leia'].kick).toBe(false);
         expect(byName['Mon']).toMatchObject({ kick: true, dismiss: true });
         expect(byName['Biggs']).toMatchObject({
@@ -475,11 +505,17 @@ describe('AllianceService', () => {
         });
       });
 
-      it('gives diplomats and plain members only leave', async () => {
+      it('gives diplomats war declaration and plain members only leave', async () => {
         const { service, alliance } = scenario();
 
-        for (const userId of [3, 4]) {
-          const { viewer, members } = await service.getDetail(userId, alliance.id);
+        for (const [userId, declareWar] of [
+          [3, true],
+          [4, false],
+        ] as const) {
+          const { viewer, members } = await service.getDetail(
+            userId,
+            alliance.id,
+          );
           expect(viewer.actions).toEqual({
             apply: false,
             withdrawApplication: false,
@@ -487,6 +523,8 @@ describe('AllianceService', () => {
             editDetails: false,
             manageApplications: false,
             dissolve: false,
+            declareWar,
+            warTargets: [],
           });
           expect(
             members.every((m) => Object.values(m.actions).every((a) => !a)),
@@ -496,7 +534,11 @@ describe('AllianceService', () => {
     });
 
     describe('description placeholders', () => {
-      function withDescription(description: string, members: Array<[number, AllianceRole]>, homepage = '') {
+      function withDescription(
+        description: string,
+        members: Array<[number, AllianceRole]>,
+        homepage = '',
+      ) {
         const ctx = setup();
         ctx.store.addPlayer(1, 'Leia');
         ctx.store.addPlayer(2, 'Wedge');
@@ -578,6 +620,114 @@ describe('AllianceService', () => {
         color: '#123456',
       });
       await expect(service.getRef(2)).resolves.toBeNull();
+    });
+  });
+
+  describe('declareWar', () => {
+    function scenario() {
+      const ctx = setup();
+      const { store } = ctx;
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Wedge');
+      store.addPlayer(3, 'Mon');
+      store.addPlayer(4, 'Biggs');
+      store.addPlayer(5, 'Vader', EMPIRE.id);
+      store.addPlayer(6, 'Palpatine', EMPIRE.id);
+      const alliance = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+        [2, DIPLOMAT],
+        [3, VICE],
+        [4, NONE],
+      ]);
+      const target = store.seedAlliance({ name: 'Red Squadron' }, [
+        [5, PRESIDENT],
+      ]);
+      const foreign = store.seedAlliance(
+        { name: 'Black Squadron', factionId: EMPIRE.id },
+        [[6, PRESIDENT]],
+      );
+      return { ...ctx, alliance, target, foreign };
+    }
+
+    it('lets presidents and diplomats immediately replace a relationship with public war', async () => {
+      const { store, service, sent, alliance, target } = scenario();
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: alliance.id,
+        secondAllianceId: target.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: 'Gemeinsam',
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+
+      await service.declareWar(2, alliance.id, target.id);
+
+      const relationships = await store.listActiveRelationships(alliance.id);
+      expect(relationships).toEqual([
+        expect.objectContaining({
+          type: AllianceRelationshipType.WAR,
+          contract: '',
+          treatAsFriend: false,
+          shareLivePositions: false,
+        }),
+      ]);
+      expect((await service.getDetail(1, target.id)).relationships).toEqual([
+        expect.objectContaining({
+          counterparty: expect.objectContaining({ id: alliance.id }),
+          type: AllianceRelationshipType.WAR,
+          permissions: { treatAsFriend: false, shareLivePositions: false },
+          hasContract: false,
+        }),
+      ]);
+      expect(messagesTo(sent, 5)).toEqual([
+        'Wedge hat im Namen der Allianz Rogue Squadron den Krieg erklärt',
+      ]);
+    });
+
+    it('rejects vice presidents, members, outsiders, own alliances and foreign factions', async () => {
+      const { service, alliance, target, foreign } = scenario();
+
+      for (const actor of [3, 4, 999]) {
+        await expectError(
+          service.declareWar(actor, alliance.id, target.id),
+          ForbiddenException,
+        );
+      }
+      await expectError(
+        service.declareWar(1, alliance.id, alliance.id),
+        BadRequestException,
+        'kein gültiges Kriegsziel',
+      );
+      await expectError(
+        service.declareWar(1, alliance.id, foreign.id),
+        BadRequestException,
+        'kein gültiges Kriegsziel',
+      );
+    });
+
+    it('sends no notification when the transactional mutation rolls back', async () => {
+      const { store, service, sent, alliance, target } = scenario();
+      jest
+        .spyOn(store, 'replaceRelationshipsWithWar')
+        .mockRejectedValueOnce(new Error('rollback'));
+
+      await expect(
+        service.declareWar(1, alliance.id, target.id),
+      ).rejects.toThrow('rollback');
+
+      expect(await store.listActiveRelationships(alliance.id)).toEqual([]);
+      expect(sent).toEqual([]);
+    });
+
+    it('keeps exactly one active war for repeated declarations', async () => {
+      const { store, service, alliance, target } = scenario();
+
+      await service.declareWar(1, alliance.id, target.id);
+      await service.declareWar(2, alliance.id, target.id);
+
+      const active = await store.listActiveRelationships(alliance.id);
+      expect(active).toHaveLength(1);
+      expect(active[0].type).toBe(AllianceRelationshipType.WAR);
     });
   });
 
@@ -754,14 +904,19 @@ describe('AllianceService', () => {
       it('drops the applicant’s other applications and informs those leaders', async () => {
         const { store, service, sent, alliance, other } = scenario();
         store.addPlayer(8, 'Ackbar');
-        await store.insertMembership({ allianceId: other.id, userId: 8, role: VICE });
+        await store.insertMembership({
+          allianceId: other.id,
+          userId: 8,
+          role: VICE,
+        });
         const application = store.seedApplication(alliance.id, 5);
         store.seedApplication(other.id, 5);
 
         await service.acceptApplication(1, application.id);
 
         expect(store.snapshot().applications).toHaveLength(0);
-        const text = 'Der Siedler Han wurde bei einer anderen Allianz aufgenommen';
+        const text =
+          'Der Siedler Han wurde bei einer anderen Allianz aufgenommen';
         expect(messagesTo(sent, 7)).toEqual([text]);
         expect(messagesTo(sent, 8)).toEqual([text]);
         expect(messagesTo(sent, 1)).toEqual([]);
@@ -771,7 +926,11 @@ describe('AllianceService', () => {
       it('fails if the applicant joined another alliance meanwhile', async () => {
         const { store, service, sent, alliance, other } = scenario();
         const application = store.seedApplication(alliance.id, 5);
-        await store.insertMembership({ allianceId: other.id, userId: 5, role: NONE });
+        await store.insertMembership({
+          allianceId: other.id,
+          userId: 5,
+          role: NONE,
+        });
 
         await expectError(
           service.acceptApplication(1, application.id),
@@ -787,10 +946,12 @@ describe('AllianceService', () => {
         store.seedApplication(other.id, 5);
         // Simulate a concurrent acceptance that commits between check and insert.
         const insert = store.insertMembership.bind(store);
-        jest.spyOn(store, 'insertMembership').mockImplementationOnce(async (data) => {
-          await insert({ allianceId: other.id, userId: 5, role: NONE });
-          return insert(data);
-        });
+        jest
+          .spyOn(store, 'insertMembership')
+          .mockImplementationOnce(async (data) => {
+            await insert({ allianceId: other.id, userId: 5, role: NONE });
+            return insert(data);
+          });
 
         await expectError(
           service.acceptApplication(1, application.id),
@@ -876,9 +1037,12 @@ describe('AllianceService', () => {
 
         await service.update(2, alliance.id, { acceptsApplications: false });
 
-        expect((await store.findAlliance(alliance.id))?.acceptsApplications).toBe(false);
+        expect(
+          (await store.findAlliance(alliance.id))?.acceptsApplications,
+        ).toBe(false);
         expect(store.snapshot().applications).toHaveLength(0);
-        const text = 'Deine Bewerbung bei der Allianz Rogue Squadron wurde abgelehnt';
+        const text =
+          'Deine Bewerbung bei der Allianz Rogue Squadron wurde abgelehnt';
         expect(messagesTo(sent, 5)).toEqual([text]);
         expect(messagesTo(sent, 8)).toEqual([text]);
       });
@@ -889,7 +1053,9 @@ describe('AllianceService', () => {
 
         await service.update(1, alliance.id, { acceptsApplications: true });
 
-        expect((await store.findAlliance(alliance.id))?.acceptsApplications).toBe(true);
+        expect(
+          (await store.findAlliance(alliance.id))?.acceptsApplications,
+        ).toBe(true);
       });
 
       it('is forbidden for diplomats and members', async () => {
@@ -978,7 +1144,11 @@ describe('AllianceService', () => {
       it('fails without alliance', async () => {
         const { store, service } = scenario();
         store.addPlayer(9, 'Lando');
-        await expectError(service.leave(9), BadRequestException, 'Du bist in keiner Allianz');
+        await expectError(
+          service.leave(9),
+          BadRequestException,
+          'Du bist in keiner Allianz',
+        );
       });
     });
 
@@ -1073,7 +1243,10 @@ describe('AllianceService', () => {
         const { store, service, alliance } = scenario();
 
         for (const actor of [2, 3, 4, 5]) {
-          await expectError(service.dissolve(actor, alliance.id), ForbiddenException);
+          await expectError(
+            service.dissolve(actor, alliance.id),
+            ForbiddenException,
+          );
         }
         expect(await store.findAlliance(alliance.id)).not.toBeNull();
       });
@@ -1139,28 +1312,49 @@ describe('AllianceService', () => {
       await service.setRole(2, alliance.id, 3, NONE);
       expect((await store.findMembership(3))?.role).toBe(NONE);
 
-      await expectError(service.setRole(2, alliance.id, 4, VICE), ForbiddenException);
-      await expectError(service.setRole(2, alliance.id, 1, NONE), ForbiddenException);
+      await expectError(
+        service.setRole(2, alliance.id, 4, VICE),
+        ForbiddenException,
+      );
+      await expectError(
+        service.setRole(2, alliance.id, 1, NONE),
+        ForbiddenException,
+      );
     });
 
     it('refuses changing one’s own office', async () => {
       const { service, alliance } = scenario();
 
-      await expectError(service.setRole(2, alliance.id, 2, NONE), BadRequestException);
-      await expectError(service.setRole(1, alliance.id, 1, VICE), BadRequestException);
+      await expectError(
+        service.setRole(2, alliance.id, 2, NONE),
+        BadRequestException,
+      );
+      await expectError(
+        service.setRole(1, alliance.id, 1, VICE),
+        BadRequestException,
+      );
     });
 
     it('forbids diplomats and members', async () => {
       const { service, alliance } = scenario();
 
-      await expectError(service.setRole(3, alliance.id, 4, DIPLOMAT), ForbiddenException);
-      await expectError(service.setRole(4, alliance.id, 3, NONE), ForbiddenException);
+      await expectError(
+        service.setRole(3, alliance.id, 4, DIPLOMAT),
+        ForbiddenException,
+      );
+      await expectError(
+        service.setRole(4, alliance.id, 3, NONE),
+        ForbiddenException,
+      );
     });
 
     it('refuses appointing to an office the member already holds', async () => {
       const { service, alliance } = scenario();
 
-      await expectError(service.setRole(1, alliance.id, 2, VICE), ForbiddenException);
+      await expectError(
+        service.setRole(1, alliance.id, 2, VICE),
+        ForbiddenException,
+      );
     });
 
     it('refuses appointing a president via setRole', async () => {
@@ -1214,7 +1408,9 @@ describe('AllianceService', () => {
         const { store, service, alliance } = scenario();
         jest
           .spyOn(store, 'setRole')
-          .mockRejectedValueOnce(new AllianceConstraintViolation('alliance_president'));
+          .mockRejectedValueOnce(
+            new AllianceConstraintViolation('alliance_president'),
+          );
 
         await expectError(
           service.transferPresidency(1, alliance.id, 4),
@@ -1292,7 +1488,9 @@ describe('AllianceService', () => {
 
       await service.update(1, alliance.id, { name: 'ROGUE SQUADRON' });
 
-      expect((await store.findAlliance(alliance.id))?.name).toBe('ROGUE SQUADRON');
+      expect((await store.findAlliance(alliance.id))?.name).toBe(
+        'ROGUE SQUADRON',
+      );
     });
 
     it('clears the color and homepage with empty input', async () => {
@@ -1311,13 +1509,22 @@ describe('AllianceService', () => {
       [{ name: 'Rog' }, /mindestens 5 Zeichen/],
       [{ name: 'x'.repeat(41) }, /höchstens 40 Zeichen/],
       [{ description: 'x'.repeat(10001) }, /10\.000 Zeichen/],
-      [{ homepage: 'ftp://rogue.example' }, 'Diese Homepage-Adresse ist nicht gültig'],
-      [{ homepage: 'rogue.example' }, 'Diese Homepage-Adresse ist nicht gültig'],
+      [
+        { homepage: 'ftp://rogue.example' },
+        'Diese Homepage-Adresse ist nicht gültig',
+      ],
+      [
+        { homepage: 'rogue.example' },
+        'Diese Homepage-Adresse ist nicht gültig',
+      ],
       [
         { homepage: 'https://x.example]Klick[/url][url=https://evil.example' },
         'Diese Homepage-Adresse ist nicht gültig',
       ],
-      [{ homepage: 'https://' + 'x'.repeat(250) }, 'Diese Homepage-Adresse ist nicht gültig'],
+      [
+        { homepage: 'https://' + 'x'.repeat(250) },
+        'Diese Homepage-Adresse ist nicht gültig',
+      ],
       [{ color: '#12345' }, /RGB-Code/],
       [{ color: '123456' }, /RGB-Code/],
       [{ color: '#12345g' }, /RGB-Code/],
@@ -1326,7 +1533,13 @@ describe('AllianceService', () => {
         /3 bis 30 Zeichen/,
       ],
       [
-        { titles: { president: 'Boss', vice: 'x'.repeat(31), diplomat: 'Diplomat' } },
+        {
+          titles: {
+            president: 'Boss',
+            vice: 'x'.repeat(31),
+            diplomat: 'Diplomat',
+          },
+        },
         /3 bis 30 Zeichen/,
       ],
     ])('rejects %j and saves nothing', async (patch, message) => {
@@ -1354,7 +1567,11 @@ describe('AllianceService', () => {
       const { service, alliance } = scenario();
 
       await service.update(2, alliance.id, {
-        titles: { president: 'Großadmiral', vice: 'Admiral', diplomat: 'Botschafter' },
+        titles: {
+          president: 'Großadmiral',
+          vice: 'Admiral',
+          diplomat: 'Botschafter',
+        },
       });
 
       const detail = await service.getDetail(1, alliance.id);

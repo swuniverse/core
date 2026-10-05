@@ -121,8 +121,16 @@ export interface AllianceStore {
   deleteAlliance(id: number): Promise<void>;
 
   /** Active relationships involving an alliance, newest first. */
-  listActiveRelationships(allianceId: number): Promise<AllianceRelationshipRecord[]>;
-  findActiveRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
+  listActiveRelationships(
+    allianceId: number,
+  ): Promise<AllianceRelationshipRecord[]>;
+  findActiveRelationship(
+    id: number,
+  ): Promise<AllianceRelationshipRecord | null>;
+  replaceRelationshipsWithWar(
+    firstAllianceId: number,
+    secondAllianceId: number,
+  ): Promise<void>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Ordered by join time, oldest first. */

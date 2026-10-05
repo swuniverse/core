@@ -62,10 +62,16 @@ export class AllianceController {
     @Request() req: AuthRequest,
     @Param('applicationId', ParseIntPipe) applicationId: number,
   ) {
-    return this.allianceService.declineApplication(
-      req.user.sub,
-      applicationId,
-    );
+    return this.allianceService.declineApplication(req.user.sub, applicationId);
+  }
+
+  @Post(':id/relationships/:targetAllianceId/war')
+  declareWar(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetAllianceId', ParseIntPipe) targetAllianceId: number,
+  ) {
+    return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
   }
 
   @Get(':id/relationships/:relationshipId/contract')
@@ -73,14 +79,14 @@ export class AllianceController {
     @Param('id', ParseIntPipe) id: number,
     @Param('relationshipId', ParseIntPipe) relationshipId: number,
   ) {
-    return this.allianceService.getPublicRelationshipContract(id, relationshipId);
+    return this.allianceService.getPublicRelationshipContract(
+      id,
+      relationshipId,
+    );
   }
 
   @Get(':id')
-  detail(
-    @Request() req: AuthRequest,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  detail(@Request() req: AuthRequest, @Param('id', ParseIntPipe) id: number) {
     return this.allianceService.getDetail(req.user.sub, id);
   }
 
@@ -101,10 +107,7 @@ export class AllianceController {
   }
 
   @Delete(':id')
-  dissolve(
-    @Request() req: AuthRequest,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  dissolve(@Request() req: AuthRequest, @Param('id', ParseIntPipe) id: number) {
     return this.allianceService.dissolve(req.user.sub, id);
   }
 

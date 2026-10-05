@@ -50,6 +50,9 @@ export interface AllianceMemberDto {
 }
 
 /** Actions the viewer may perform on the alliance; computed by the server. */
+export interface AllianceWarTargetDto extends AllianceRefDto {}
+
+/** Actions the viewer may perform on the alliance; computed by the server. */
 export interface AllianceViewerActionsDto {
   apply: boolean;
   withdrawApplication: boolean;
@@ -57,6 +60,8 @@ export interface AllianceViewerActionsDto {
   editDetails: boolean;
   manageApplications: boolean;
   dissolve: boolean;
+  declareWar: boolean;
+  warTargets: AllianceWarTargetDto[];
 }
 
 export enum AllianceRelationshipType {

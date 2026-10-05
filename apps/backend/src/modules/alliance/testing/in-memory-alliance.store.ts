@@ -111,15 +111,27 @@ export class InMemoryAllianceStore implements AllianceStore {
       type: AllianceRelationshipType;
     },
   ): AllianceRelationshipRecord {
-    const firstAllianceId = Math.min(data.firstAllianceId, data.secondAllianceId);
-    const secondAllianceId = Math.max(data.firstAllianceId, data.secondAllianceId);
+    const firstAllianceId = Math.min(
+      data.firstAllianceId,
+      data.secondAllianceId,
+    );
+    const secondAllianceId = Math.max(
+      data.firstAllianceId,
+      data.secondAllianceId,
+    );
     if (firstAllianceId === secondAllianceId) {
       throw new Error('Alliance relationships need two distinct alliances');
     }
-    const first = this.state.alliances.find((alliance) => alliance.id === firstAllianceId);
-    const second = this.state.alliances.find((alliance) => alliance.id === secondAllianceId);
+    const first = this.state.alliances.find(
+      (alliance) => alliance.id === firstAllianceId,
+    );
+    const second = this.state.alliances.find(
+      (alliance) => alliance.id === secondAllianceId,
+    );
     if (!first || !second || first.factionId !== second.factionId) {
-      throw new Error('Alliance relationships need alliances from the same faction');
+      throw new Error(
+        'Alliance relationships need alliances from the same faction',
+      );
     }
     if (
       this.state.relationships.some(
@@ -131,7 +143,10 @@ export class InMemoryAllianceStore implements AllianceStore {
     ) {
       throw new Error('Alliance relationship already active for this pair');
     }
-    const contract = this.normalizeRelationshipContract(data.type, data.contract);
+    const contract = this.normalizeRelationshipContract(
+      data.type,
+      data.contract,
+    );
     const lordAllianceId = data.lordAllianceId ?? null;
     const vassalAllianceId = data.vassalAllianceId ?? null;
     this.assertRelationshipShape({
@@ -250,7 +265,8 @@ export class InMemoryAllianceStore implements AllianceStore {
     );
     this.state.relationships = this.state.relationships.filter(
       (relationship) =>
-        relationship.firstAllianceId !== id && relationship.secondAllianceId !== id,
+        relationship.firstAllianceId !== id &&
+        relationship.secondAllianceId !== id,
     );
   }
 
@@ -263,8 +279,7 @@ export class InMemoryAllianceStore implements AllianceStore {
             relationship.secondAllianceId === allianceId),
       )
       .sort(
-        (a, b) =>
-          b.startedAt.getTime() - a.startedAt.getTime() || b.id - a.id,
+        (a, b) => b.startedAt.getTime() - a.startedAt.getTime() || b.id - a.id,
       )
       .map((relationship) => ({ ...relationship }));
   }
@@ -276,6 +291,52 @@ export class InMemoryAllianceStore implements AllianceStore {
     return relationship ? { ...relationship } : null;
   }
 
+  async replaceRelationshipsWithWar(
+    firstAllianceId: number,
+    secondAllianceId: number,
+  ) {
+    const first = Math.min(firstAllianceId, secondAllianceId);
+    const second = Math.max(firstAllianceId, secondAllianceId);
+    const firstAlliance = this.state.alliances.find(
+      (alliance) => alliance.id === first,
+    );
+    const secondAlliance = this.state.alliances.find(
+      (alliance) => alliance.id === second,
+    );
+    if (
+      !firstAlliance ||
+      !secondAlliance ||
+      firstAlliance.factionId !== secondAlliance.factionId
+    ) {
+      throw new Error(
+        'Alliance relationships need alliances from the same faction',
+      );
+    }
+    const now = this.now();
+    for (const relationship of this.state.relationships) {
+      if (
+        relationship.endedAt === null &&
+        relationship.firstAllianceId === first &&
+        relationship.secondAllianceId === second
+      ) {
+        relationship.endedAt = now;
+      }
+    }
+    this.state.relationships.push({
+      id: this.nextId(),
+      firstAllianceId: first,
+      secondAllianceId: second,
+      type: AllianceRelationshipType.WAR,
+      startedAt: now,
+      endedAt: null,
+      contract: '',
+      treatAsFriend: false,
+      shareLivePositions: false,
+      lordAllianceId: null,
+      vassalAllianceId: null,
+    });
+  }
+
   async findMembership(userId: number) {
     const membership = this.state.memberships.find((m) => m.userId === userId);
     return membership ? { ...membership } : null;
@@ -284,7 +345,9 @@ export class InMemoryAllianceStore implements AllianceStore {
   async listMemberships(allianceId: number) {
     return this.state.memberships
       .filter((m) => m.allianceId === allianceId)
-      .sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime() || a.id - b.id)
+      .sort(
+        (a, b) => a.joinedAt.getTime() - b.joinedAt.getTime() || a.id - b.id,
+      )
       .map((m) => ({ ...m }));
   }
 
@@ -339,7 +402,9 @@ export class InMemoryAllianceStore implements AllianceStore {
   async listApplicationsForAlliance(allianceId: number) {
     return this.state.applications
       .filter((a) => a.allianceId === allianceId)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id);
+      .sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id,
+      );
   }
 
   async listApplicationsOfPlayer(userId: number) {
@@ -368,7 +433,9 @@ export class InMemoryAllianceStore implements AllianceStore {
     if (type === AllianceRelationshipType.WAR) return '';
     const normalized = (contract ?? '').trim();
     if (Array.from(normalized).length > 20_000) {
-      throw new Error('Alliance relationship contract exceeds 20,000 characters');
+      throw new Error(
+        'Alliance relationship contract exceeds 20,000 characters',
+      );
     }
     return normalized;
   }
@@ -406,7 +473,9 @@ export class InMemoryAllianceStore implements AllianceStore {
         AllianceRelationshipType.VASSALAGE,
       ].includes(data.type)
     ) {
-      throw new Error('This relationship type cannot treat the counterparty as a friend');
+      throw new Error(
+        'This relationship type cannot treat the counterparty as a friend',
+      );
     }
     if (
       data.shareLivePositions &&

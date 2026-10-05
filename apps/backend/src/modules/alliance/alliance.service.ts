@@ -128,6 +128,7 @@ export class AllianceService {
       viewerMembership,
       application,
       relationships,
+      alliances,
     ] = await Promise.all([
       this.store.listMemberships(allianceId),
       this.store.listFactions(),
@@ -135,6 +136,7 @@ export class AllianceService {
       this.store.findMembership(viewerId),
       this.store.findApplicationOf(allianceId, viewerId),
       this.store.listActiveRelationships(allianceId),
+      this.store.listAlliances(),
     ]);
     const nameOf = await this.namesOf(memberships.map((m) => m.userId));
     const titles = this.titlesOf(alliance);
@@ -184,6 +186,16 @@ export class AllianceService {
           editDetails: may('editDetails'),
           manageApplications: may('manageApplications'),
           dissolve: may('dissolve'),
+          declareWar: may('declareWar'),
+          warTargets: may('declareWar')
+            ? alliances
+                .filter(
+                  (candidate) =>
+                    candidate.id !== allianceId &&
+                    candidate.factionId === alliance.factionId,
+                )
+                .map(({ id, name, color }) => ({ id, name, color }))
+            : [],
         },
       },
     };
@@ -193,7 +205,8 @@ export class AllianceService {
     allianceId: number,
     relationshipId: number,
   ): Promise<AllianceRelationshipContractDto> {
-    const relationship = await this.store.findActiveRelationship(relationshipId);
+    const relationship =
+      await this.store.findActiveRelationship(relationshipId);
     if (
       !relationship ||
       (relationship.firstAllianceId !== allianceId &&
@@ -214,12 +227,50 @@ export class AllianceService {
       : null;
   }
 
+  async declareWar(
+    actorId: number,
+    allianceId: number,
+    targetAllianceId: number,
+  ): Promise<void> {
+    const messages = await this.mutate(async (tx) => {
+      const alliance = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        allianceId,
+        'declareWar',
+      );
+      if (allianceId === targetAllianceId) {
+        throw new BadRequestException(
+          'Diese Allianz ist kein gültiges Kriegsziel',
+        );
+      }
+      const target = await this.lockedAlliance(tx, targetAllianceId);
+      if (alliance.factionId !== target.factionId) {
+        throw new BadRequestException(
+          'Diese Allianz ist kein gültiges Kriegsziel',
+        );
+      }
+      const actor = await tx.findPlayer(actorId);
+      await tx.replaceRelationshipsWithWar(allianceId, targetAllianceId);
+      const recipients = await tx.listMemberships(targetAllianceId);
+      return recipients.map((member) => ({
+        to: member.userId,
+        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${alliance.name} den Krieg erklärt`,
+      }));
+    });
+    await this.send(messages);
+  }
+
   async listApplications(
     actorId: number,
     allianceId: number,
   ): Promise<AllianceApplicationDto[]> {
     await this.requireAlliance(allianceId);
-    const membership = await this.ownMembership(this.store, actorId, allianceId);
+    const membership = await this.ownMembership(
+      this.store,
+      actorId,
+      allianceId,
+    );
     if (!mayActOnAlliance(membership.role, 'manageApplications')) {
       throw new ForbiddenException(ERR.forbidden);
     }

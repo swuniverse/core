@@ -46,7 +46,9 @@ const NO_MEMBER_ACTIONS: AllianceMemberActionsDto = {
   transferPresidency: false,
 };
 
-const summary = (overrides: Partial<AllianceSummaryDto> = {}): AllianceSummaryDto => ({
+const summary = (
+  overrides: Partial<AllianceSummaryDto> = {},
+): AllianceSummaryDto => ({
   id: 1,
   name: 'Rogue Squadron',
   color: '#ff0000',
@@ -64,7 +66,11 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
     homepage: 'https://rogue.example',
     description: '[b]Wir[/b] fliegen',
     renderedDescription: '[b]Wir[/b] fliegen',
-    titles: { president: 'Großadmiral', vice: 'Vize-Präsident', diplomat: 'Diplomat' },
+    titles: {
+      president: 'Großadmiral',
+      vice: 'Vize-Präsident',
+      diplomat: 'Diplomat',
+    },
     members: [
       {
         userId: 1,
@@ -93,6 +99,8 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         editDetails: false,
         manageApplications: false,
         dissolve: false,
+        declareWar: false,
+        warTargets: [],
       },
     },
     ...overrides,
@@ -104,7 +112,10 @@ function withViewer(
   role: AllianceRole | null,
   actions: Partial<AllianceDetailDto['viewer']['actions']>,
 ): AllianceDetailDto {
-  return { ...base, viewer: { role, actions: { ...base.viewer.actions, ...actions } } };
+  return {
+    ...base,
+    viewer: { role, actions: { ...base.viewer.actions, ...actions } },
+  };
 }
 
 function renderAt(path: string) {
@@ -123,7 +134,9 @@ function renderAt(path: string) {
 /** Action buttons are disabled while a previous action is still reloading. */
 async function clickWhenEnabled(scope: HTMLElement, name: string) {
   const button = await waitFor(() => {
-    const found = within(scope).getByRole('button', { name }) as HTMLButtonElement;
+    const found = within(scope).getByRole('button', {
+      name,
+    }) as HTMLButtonElement;
     expect(found.disabled).toBe(false);
     return found;
   });
@@ -134,7 +147,9 @@ function routeGet(routes: Record<string, unknown>) {
   apiMocks.get.mockImplementation((url: string) => {
     if (url in routes) {
       const value = routes[url];
-      return value instanceof Error ? Promise.reject(value) : Promise.resolve(value);
+      return value instanceof Error
+        ? Promise.reject(value)
+        : Promise.resolve(value);
     }
     return Promise.reject(new Error(`Unexpected URL ${url}`));
   });
@@ -168,35 +183,45 @@ describe('AllianceListPage', () => {
 
     renderAt('/alliances');
 
-    const rogue = (await screen.findByRole('link', { name: 'Rogue Squadron' })).closest('tr')!;
+    const rogue = (
+      await screen.findByRole('link', { name: 'Rogue Squadron' })
+    ).closest('tr')!;
     expect(rogue.getAttribute('data-alliance-color')).toBe('#ff0000');
     expect(within(rogue).getByText('Rebellenallianz')).toBeTruthy();
     expect(within(rogue).getByText('2')).toBeTruthy();
     expect(within(rogue).getByText('offen')).toBeTruthy();
-    const black = screen.getByRole('link', { name: 'Black Squadron' }).closest('tr')!;
+    const black = screen
+      .getByRole('link', { name: 'Black Squadron' })
+      .closest('tr')!;
     expect(within(black).getByText('Galaktisches Imperium')).toBeTruthy();
     expect(within(black).getByText('geschlossen')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Rogue Squadron' }).getAttribute('href')).toBe(
-      '/alliances/1',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Rogue Squadron' }).getAttribute('href'),
+    ).toBe('/alliances/1');
   });
 
   it('offers founding only to alliance-less players', async () => {
     routeGet({ '/alliances': [], '/alliances/mine': { alliance: null } });
     renderAt('/alliances');
     expect(
-      (await screen.findByRole('link', { name: 'Allianz gründen' })).getAttribute('href'),
+      (
+        await screen.findByRole('link', { name: 'Allianz gründen' })
+      ).getAttribute('href'),
     ).toBe('/alliances/new');
   });
 
   it('links to the own alliance instead of founding', async () => {
     routeGet({
       '/alliances': [summary()],
-      '/alliances/mine': { alliance: { id: 1, name: 'Rogue Squadron', color: null } },
+      '/alliances/mine': {
+        alliance: { id: 1, name: 'Rogue Squadron', color: null },
+      },
     });
     renderAt('/alliances');
     expect(
-      (await screen.findByRole('link', { name: 'Meine Allianz' })).getAttribute('href'),
+      (await screen.findByRole('link', { name: 'Meine Allianz' })).getAttribute(
+        'href',
+      ),
     ).toBe('/alliances/1');
     expect(screen.queryByRole('link', { name: 'Allianz gründen' })).toBeNull();
   });
@@ -208,11 +233,17 @@ describe('AllianceFoundPage', () => {
     apiMocks.post.mockResolvedValue({ id: 1 });
 
     renderAt('/alliances/new');
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Rogue Squadron' } });
-    fireEvent.change(screen.getByLabelText('Beschreibung'), { target: { value: 'Wir fliegen' } });
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Rogue Squadron' },
+    });
+    fireEvent.change(screen.getByLabelText('Beschreibung'), {
+      target: { value: 'Wir fliegen' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Gründen' }));
 
-    expect(await screen.findByRole('heading', { name: 'Rogue Squadron' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Rogue Squadron' }),
+    ).toBeTruthy();
     expect(apiMocks.post).toHaveBeenCalledWith('/alliances', {
       name: 'Rogue Squadron',
       description: 'Wir fliegen',
@@ -225,7 +256,9 @@ describe('AllianceFoundPage', () => {
     );
 
     renderAt('/alliances/new');
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Rogue Squadron' } });
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Rogue Squadron' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Gründen' }));
 
     expect((await screen.findByRole('alert')).textContent).toBe(
@@ -235,6 +268,39 @@ describe('AllianceFoundPage', () => {
 });
 
 describe('AllianceDetailPage', () => {
+  it('shows server-provided war targets only and reloads after a declaration', async () => {
+    routeGet({
+      '/alliances/1': withViewer(detail(), AllianceRole.DIPLOMAT, {
+        declareWar: true,
+        warTargets: [{ id: 2, name: 'Red Squadron', color: null }],
+      }),
+    });
+
+    renderAt('/alliances/1');
+
+    fireEvent.change(await screen.findByLabelText('Zielallianz'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Krieg erklären' }));
+
+    await waitFor(() => {
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/1/relationships/2/war',
+        {},
+      );
+    });
+    expect(apiMocks.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('hides war declaration without the server capability', async () => {
+    routeGet({ '/alliances/1': detail() });
+
+    renderAt('/alliances/1');
+
+    await screen.findByRole('heading', { name: 'Rogue Squadron' });
+    expect(screen.queryByRole('button', { name: 'Krieg erklären' })).toBeNull();
+  });
+
   it('shows active public relationships and loads their contract on demand', async () => {
     routeGet({
       '/alliances/1': detail({
@@ -258,15 +324,21 @@ describe('AllianceDetailPage', () => {
 
     renderAt('/alliances/1');
 
-    const counterparty = await screen.findByRole('link', { name: 'Red Squadron' });
+    const counterparty = await screen.findByRole('link', {
+      name: 'Red Squadron',
+    });
     expect(counterparty.getAttribute('href')).toBe('/alliances/2');
     expect(screen.getByText('Vasallenschaft')).toBeTruthy();
     expect(screen.getByText('Lehnsherr von Red Squadron')).toBeTruthy();
     expect(screen.getByText('Als Freund behandeln')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Vertragswerk anzeigen' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Vertragswerk anzeigen' }),
+    );
     expect(await screen.findByText('Schutzpakt')).toBeTruthy();
-    expect(apiMocks.get).toHaveBeenCalledWith('/alliances/1/relationships/9/contract');
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/alliances/1/relationships/9/contract',
+    );
   });
 
   it('shows details, BBCode description and members with their titles', async () => {
@@ -274,25 +346,35 @@ describe('AllianceDetailPage', () => {
 
     const { container } = renderAt('/alliances/1');
 
-    expect(await screen.findByRole('heading', { name: 'Rogue Squadron' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Rogue Squadron' }),
+    ).toBeTruthy();
     expect(screen.getByText('Rebellenallianz')).toBeTruthy();
     expect(screen.getByText('01.10.2026')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'https://rogue.example' }).getAttribute('href')).toBe(
-      'https://rogue.example',
-    );
+    expect(
+      screen
+        .getByRole('link', { name: 'https://rogue.example' })
+        .getAttribute('href'),
+    ).toBe('https://rogue.example');
     expect(container.querySelector('strong')?.textContent).toBe('Wir');
     expect(container.textContent).not.toContain('[b]');
     const leia = screen.getByRole('link', { name: 'Leia' }).closest('li')!;
     expect(within(leia).getByText('Großadmiral')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Leia' }).getAttribute('href')).toBe('/players/1');
     expect(
-      screen.getByRole('heading', { name: 'Rogue Squadron' }).getAttribute('style'),
+      screen.getByRole('link', { name: 'Leia' }).getAttribute('href'),
+    ).toBe('/players/1');
+    expect(
+      screen
+        .getByRole('heading', { name: 'Rogue Squadron' })
+        .getAttribute('style'),
     ).toContain('color: rgb(255, 0, 0)');
   });
 
   it('does not execute HTML in the description', async () => {
     routeGet({
-      '/alliances/1': detail({ renderedDescription: '<img src=x onerror=alert(1)>' }),
+      '/alliances/1': detail({
+        renderedDescription: '<img src=x onerror=alert(1)>',
+      }),
     });
 
     const { container } = renderAt('/alliances/1');
@@ -337,10 +419,16 @@ describe('AllianceDetailPage', () => {
     renderAt('/alliances/1');
     fireEvent.click(await screen.findByRole('button', { name: 'Bewerben' }));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Bewerbung zurückziehen' }));
-    expect(await screen.findByRole('button', { name: 'Bewerben' })).toBeTruthy();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Bewerbung zurückziehen' }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Bewerben' }),
+    ).toBeTruthy();
     expect(apiMocks.post).toHaveBeenCalledWith('/alliances/1/applications', {});
-    expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/applications/mine');
+    expect(apiMocks.delete).toHaveBeenCalledWith(
+      '/alliances/1/applications/mine',
+    );
   });
 
   it('shows the error when applying fails', async () => {
@@ -403,22 +491,38 @@ describe('AllianceDetailPage', () => {
 
       renderAt('/alliances/1');
 
-      const wedge = (await screen.findByRole('link', { name: 'Wedge' })).closest('li')!;
-      expect(within(wedge).getByRole('button', { name: 'Rauswerfen' })).toBeTruthy();
-      expect(within(wedge).getByRole('button', { name: 'Zum Diplomat ernennen' })).toBeTruthy();
-      expect(within(wedge).getByRole('button', { name: 'Amt entziehen' })).toBeTruthy();
-      expect(within(wedge).getByRole('button', { name: 'Präsidentenamt übergeben' })).toBeTruthy();
-      expect(within(wedge).queryByRole('button', { name: 'Zum Vize-Präsident ernennen' })).toBeNull();
+      const wedge = (
+        await screen.findByRole('link', { name: 'Wedge' })
+      ).closest('li')!;
+      expect(
+        within(wedge).getByRole('button', { name: 'Rauswerfen' }),
+      ).toBeTruthy();
+      expect(
+        within(wedge).getByRole('button', { name: 'Zum Diplomat ernennen' }),
+      ).toBeTruthy();
+      expect(
+        within(wedge).getByRole('button', { name: 'Amt entziehen' }),
+      ).toBeTruthy();
+      expect(
+        within(wedge).getByRole('button', { name: 'Präsidentenamt übergeben' }),
+      ).toBeTruthy();
+      expect(
+        within(wedge).queryByRole('button', {
+          name: 'Zum Vize-Präsident ernennen',
+        }),
+      ).toBeNull();
 
       const biggs = screen.getByRole('link', { name: 'Biggs' }).closest('li')!;
-      expect(within(biggs).getAllByRole('button').map((b) => b.textContent)).toEqual([
-        'Rauswerfen',
-      ]);
+      expect(
+        within(biggs)
+          .getAllByRole('button')
+          .map((b) => b.textContent),
+      ).toEqual(['Rauswerfen']);
       const leia = screen.getByRole('link', { name: 'Leia' }).closest('li')!;
       expect(within(leia).queryAllByRole('button')).toHaveLength(0);
-      expect(screen.getByRole('link', { name: 'Bearbeiten' }).getAttribute('href')).toBe(
-        '/alliances/1/edit',
-      );
+      expect(
+        screen.getByRole('link', { name: 'Bearbeiten' }).getAttribute('href'),
+      ).toBe('/alliances/1/edit');
     });
 
     it('appoints, dismisses and transfers via the role endpoints', async () => {
@@ -426,19 +530,27 @@ describe('AllianceDetailPage', () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true);
 
       renderAt('/alliances/1');
-      const wedge = (await screen.findByRole('link', { name: 'Wedge' })).closest('li')!;
+      const wedge = (
+        await screen.findByRole('link', { name: 'Wedge' })
+      ).closest('li')!;
 
       await clickWhenEnabled(wedge, 'Zum Diplomat ernennen');
       await waitFor(() =>
-        expect(apiMocks.put).toHaveBeenCalledWith('/alliances/1/members/2/role', {
-          role: AllianceRole.DIPLOMAT,
-        }),
+        expect(apiMocks.put).toHaveBeenCalledWith(
+          '/alliances/1/members/2/role',
+          {
+            role: AllianceRole.DIPLOMAT,
+          },
+        ),
       );
       await clickWhenEnabled(wedge, 'Amt entziehen');
       await waitFor(() =>
-        expect(apiMocks.put).toHaveBeenCalledWith('/alliances/1/members/2/role', {
-          role: AllianceRole.NONE,
-        }),
+        expect(apiMocks.put).toHaveBeenCalledWith(
+          '/alliances/1/members/2/role',
+          {
+            role: AllianceRole.NONE,
+          },
+        ),
       );
       await clickWhenEnabled(wedge, 'Präsidentenamt übergeben');
       await waitFor(() =>
@@ -451,10 +563,15 @@ describe('AllianceDetailPage', () => {
 
     it('kicks a member after confirmation', async () => {
       routeGet({ '/alliances/1': managed(), '/alliances/1/applications': [] });
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+      const confirm = vi
+        .spyOn(window, 'confirm')
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
 
       renderAt('/alliances/1');
-      const biggs = (await screen.findByRole('link', { name: 'Biggs' })).closest('li')!;
+      const biggs = (
+        await screen.findByRole('link', { name: 'Biggs' })
+      ).closest('li')!;
       await clickWhenEnabled(biggs, 'Rauswerfen');
       expect(apiMocks.delete).not.toHaveBeenCalled();
 
@@ -462,7 +579,9 @@ describe('AllianceDetailPage', () => {
       await waitFor(() =>
         expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/members/3'),
       );
-      expect(confirm).toHaveBeenCalledWith('Biggs wirklich aus der Allianz werfen?');
+      expect(confirm).toHaveBeenCalledWith(
+        'Biggs wirklich aus der Allianz werfen?',
+      );
     });
 
     it('dissolves the alliance only after confirmation', async () => {
@@ -472,18 +591,27 @@ describe('AllianceDetailPage', () => {
         '/alliances': [],
         '/alliances/mine': { alliance: null },
       });
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+      const confirm = vi
+        .spyOn(window, 'confirm')
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
 
       renderAt('/alliances/1');
-      fireEvent.click(await screen.findByRole('button', { name: 'Allianz auflösen' }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Allianz auflösen' }),
+      );
       expect(apiMocks.delete).not.toHaveBeenCalled();
       expect(confirm).toHaveBeenCalledWith(
         'Die Allianz Rogue Squadron endgültig auflösen? Alle Mitglieder verlieren ihre Mitgliedschaft.',
       );
 
       fireEvent.click(screen.getByRole('button', { name: 'Allianz auflösen' }));
-      await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1'));
-      expect(await screen.findByRole('link', { name: 'Allianz gründen' })).toBeTruthy();
+      await waitFor(() =>
+        expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1'),
+      );
+      expect(
+        await screen.findByRole('link', { name: 'Allianz gründen' }),
+      ).toBeTruthy();
     });
 
     it('hides dissolve from a vice who may edit', async () => {
@@ -498,43 +626,78 @@ describe('AllianceDetailPage', () => {
 
       renderAt('/alliances/1');
 
-      expect(await screen.findByRole('link', { name: 'Bearbeiten' })).toBeTruthy();
+      expect(
+        await screen.findByRole('link', { name: 'Bearbeiten' }),
+      ).toBeTruthy();
       expect(screen.getByRole('heading', { name: 'Bewerbungen' })).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Allianz auflösen' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Allianz auflösen' }),
+      ).toBeNull();
     });
 
     it('lists applications oldest first and accepts or declines them', async () => {
       routeGet({
         '/alliances/1': managed(),
         '/alliances/1/applications': [
-          { id: 11, userId: 8, name: 'Luke', createdAt: '2026-10-02T08:00:00.000Z' },
-          { id: 12, userId: 9, name: 'Han', createdAt: '2026-10-03T08:00:00.000Z' },
+          {
+            id: 11,
+            userId: 8,
+            name: 'Luke',
+            createdAt: '2026-10-02T08:00:00.000Z',
+          },
+          {
+            id: 12,
+            userId: 9,
+            name: 'Han',
+            createdAt: '2026-10-03T08:00:00.000Z',
+          },
         ],
       });
 
       renderAt('/alliances/1');
-      const list = (await screen.findByRole('heading', { name: 'Bewerbungen' })).parentElement!;
+      const list = (await screen.findByRole('heading', { name: 'Bewerbungen' }))
+        .parentElement!;
       const rows = await within(list).findAllByRole('listitem');
-      expect(rows.map((r) => within(r).getByRole('link').textContent)).toEqual(['Luke', 'Han']);
+      expect(rows.map((r) => within(r).getByRole('link').textContent)).toEqual([
+        'Luke',
+        'Han',
+      ]);
 
-      fireEvent.click(within(rows[0]).getByRole('button', { name: 'Annehmen' }));
-      await waitFor(() =>
-        expect(apiMocks.post).toHaveBeenCalledWith('/alliances/applications/11/accept', {}),
+      fireEvent.click(
+        within(rows[0]).getByRole('button', { name: 'Annehmen' }),
       );
-      await clickWhenEnabled(within(list).getAllByRole('listitem')[1], 'Ablehnen');
       await waitFor(() =>
-        expect(apiMocks.post).toHaveBeenCalledWith('/alliances/applications/12/decline', {}),
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/applications/11/accept',
+          {},
+        ),
+      );
+      await clickWhenEnabled(
+        within(list).getAllByRole('listitem')[1],
+        'Ablehnen',
+      );
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/applications/12/decline',
+          {},
+        ),
       );
     });
 
     it('shows the server error when an action fails', async () => {
       routeGet({ '/alliances/1': managed(), '/alliances/1/applications': [] });
       vi.spyOn(window, 'confirm').mockReturnValue(true);
-      apiMocks.delete.mockRejectedValue(new ApiError(403, 'Dazu fehlt Dir die Berechtigung'));
+      apiMocks.delete.mockRejectedValue(
+        new ApiError(403, 'Dazu fehlt Dir die Berechtigung'),
+      );
 
       renderAt('/alliances/1');
-      const biggs = (await screen.findByRole('link', { name: 'Biggs' })).closest('li')!;
-      fireEvent.click(within(biggs).getByRole('button', { name: 'Rauswerfen' }));
+      const biggs = (
+        await screen.findByRole('link', { name: 'Biggs' })
+      ).closest('li')!;
+      fireEvent.click(
+        within(biggs).getByRole('button', { name: 'Rauswerfen' }),
+      );
 
       expect((await screen.findByRole('alert')).textContent).toBe(
         'Dazu fehlt Dir die Berechtigung',
@@ -543,7 +706,9 @@ describe('AllianceDetailPage', () => {
 
     it('lets a member leave after confirmation', async () => {
       routeGet({
-        '/alliances/1': withViewer(detail(), AllianceRole.NONE, { leave: true }),
+        '/alliances/1': withViewer(detail(), AllianceRole.NONE, {
+          leave: true,
+        }),
         '/alliances': [],
         '/alliances/mine': { alliance: null },
       });
@@ -551,10 +716,16 @@ describe('AllianceDetailPage', () => {
       apiMocks.post.mockResolvedValue({ dissolved: false });
 
       renderAt('/alliances/1');
-      fireEvent.click(await screen.findByRole('button', { name: 'Allianz verlassen' }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Allianz verlassen' }),
+      );
 
-      await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/alliances/leave', {}));
-      expect(await screen.findByRole('link', { name: 'Allianz gründen' })).toBeTruthy();
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith('/alliances/leave', {}),
+      );
+      expect(
+        await screen.findByRole('link', { name: 'Allianz gründen' }),
+      ).toBeTruthy();
     });
   });
 });
@@ -574,11 +745,17 @@ describe('AllianceEditPage', () => {
     expect((name as HTMLInputElement).value).toBe('Rogue Squadron');
 
     fireEvent.change(name, { target: { value: 'Renegade Flight' } });
-    fireEvent.change(screen.getByLabelText('Homepage'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Homepage'), {
+      target: { value: '' },
+    });
     fireEvent.change(screen.getByLabelText('Farbe'), { target: { value: '' } });
     fireEvent.click(screen.getByLabelText('Bewerbungen annehmen'));
-    fireEvent.change(screen.getByLabelText('Titel Präsident'), { target: { value: 'Kanzler' } });
-    fireEvent.change(screen.getByLabelText('Titel Vize'), { target: { value: 'Admiral' } });
+    fireEvent.change(screen.getByLabelText('Titel Präsident'), {
+      target: { value: 'Kanzler' },
+    });
+    fireEvent.change(screen.getByLabelText('Titel Vize'), {
+      target: { value: 'Admiral' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() =>
@@ -591,17 +768,24 @@ describe('AllianceEditPage', () => {
         titles: { president: 'Kanzler', vice: 'Admiral', diplomat: 'Diplomat' },
       }),
     );
-    expect(await screen.findByRole('heading', { name: 'Rogue Squadron' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Rogue Squadron' }),
+    ).toBeTruthy();
   });
 
   it('shows validation errors and stays on the form', async () => {
     routeGet({ '/alliances/1': editable() });
     apiMocks.patch.mockRejectedValue(
-      new ApiError(400, 'Der RGB-Code ist ungültig, erwartet wird z. B. #11ff67'),
+      new ApiError(
+        400,
+        'Der RGB-Code ist ungültig, erwartet wird z. B. #11ff67',
+      ),
     );
 
     renderAt('/alliances/1/edit');
-    fireEvent.change(await screen.findByLabelText('Farbe'), { target: { value: '#12' } });
+    fireEvent.change(await screen.findByLabelText('Farbe'), {
+      target: { value: '#12' },
+    });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
     });
