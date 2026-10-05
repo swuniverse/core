@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Krieg erklären), 03 (Abkommen vorschlagen und beantworten)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Präsident und Diplomat einer am Krieg beteiligten Allianz dürfen genau einen Friedensvorschlag samt optionalem Vertragswerk anlegen.
 - [ ] Frieden kann nicht ohne aktiven Krieg und nicht als gewöhnliches Erstabkommen angeboten werden.
@@ -18,3 +18,7 @@
 - [ ] Zwei konkurrierende Friedens-/Typwechselaktionen sowie Krieg gegen Annahme serialisieren zu genau einem gültigen Zustand ohne rohen Datenbankfehler.
 - [ ] Alle erfolgreichen Übergänge benachrichtigen die Gegenallianz nach Commit; fehlgeschlagene oder zurückgerollte Übergänge versenden nichts.
 - [ ] Service-, PostgreSQL- und Frontendtests decken die gesamte Zustandsmaschine von Krieg zu Frieden, Typwechsel, Beendigung und die relevanten Rennen ab.
+
+## Answer
+
+Implementiert in 804400dc93c91e33bd16b4e00eeaff0e708060d0; integriert als 9e179355ded44573b1ca420a5fa04d74140c7663.
