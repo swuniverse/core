@@ -47,17 +47,22 @@ export class ShipColonyContextService {
   ) {
     const shipRepo = manager?.getRepository(Spacecraft) ?? this.shipRepo;
     const colonyRepo = manager?.getRepository(Colony) ?? this.colonyRepo;
-    const lock = manager ? { mode: 'pessimistic_write' as const } : undefined;
+    // Lock only the base tables: Postgres rejects FOR UPDATE on the nullable
+    // side of the LEFT JOINs that TypeORM adds for relations.
+    const lockFor = (table: string) =>
+      manager
+        ? { mode: 'pessimistic_write' as const, tables: [table] }
+        : undefined;
     const [ship, colony] = await Promise.all([
       shipRepo.findOne({
         where: { id: shipId, userId },
         relations: ['location', 'location.systemField'],
-        lock,
+        lock: lockFor('spacecraft'),
       }),
       colonyRepo.findOne({
         where: { id: colonyId, userId },
         relations: ['systemField'],
-        lock,
+        lock: lockFor('colonies'),
       }),
     ]);
     if (!ship) throw new NotFoundException('Ship not found');
@@ -65,7 +70,10 @@ export class ShipColonyContextService {
     const changeable = await (
       manager?.getRepository(ColonyChangeable) ??
       this.colonyRepo.manager.getRepository(ColonyChangeable)
-    ).findOne({ where: { colonyId: colony.id }, lock });
+    ).findOne({
+      where: { colonyId: colony.id },
+      lock: lockFor('colony_changeable'),
+    });
     if (changeable) colony.changeable = changeable;
     if (ship.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle');

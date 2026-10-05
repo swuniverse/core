@@ -269,7 +269,7 @@ export class TransferService {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
         relations: { location: { galaxyField: true, systemField: true } },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       const sourceShip = ships.find((ship) => ship.id === shipId);
       const targetShip = ships.find((ship) => ship.id === targetShipId);
@@ -333,7 +333,7 @@ export class TransferService {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
         relations: { location: { galaxyField: true, systemField: true } },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       const sourceShip = ships.find((ship) => ship.id === shipId);
       const targetShip = ships.find((ship) => ship.id === targetShipId);
@@ -415,7 +415,7 @@ export class TransferService {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
         relations: { location: { galaxyField: true, systemField: true } },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       const sourceShip = ships.find((ship) => ship.id === shipId);
       const targetShip = ships.find((ship) => ship.id === targetShipId);
@@ -493,14 +493,14 @@ export class TransferService {
         relations: {
           location: { galaxyField: true, systemField: true },
         },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       const wreck = await manager.findOne(SpacecraftWreck, {
         where: { id: wreckId },
         relations: {
           location: { galaxyField: true, systemField: true },
         },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft_wrecks'] },
       });
       if (!ship || !wreck)
         throw new BadRequestException('Ship or wreck not found');
