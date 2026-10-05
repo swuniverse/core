@@ -49,7 +49,6 @@ export interface AllianceMemberDto {
   actions: AllianceMemberActionsDto;
 }
 
-/** Actions the viewer may perform on the alliance; computed by the server. */
 export interface AllianceWarTargetDto extends AllianceRefDto {}
 
 /** Actions the viewer may perform on the alliance; computed by the server. */
@@ -62,6 +61,7 @@ export interface AllianceViewerActionsDto {
   dissolve: boolean;
   declareWar: boolean;
   warTargets: AllianceWarTargetDto[];
+  manageDiplomacy: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -99,6 +99,21 @@ export interface AllianceRelationshipSummaryDto {
 export interface AllianceRelationshipContractDto {
   relationshipId: number;
   contract: string;
+}
+
+/** Confidential proposal, available only to diplomatic officers of a party. */
+export interface AllianceRelationshipProposalDto {
+  id: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract: string;
+  permissions: AllianceRelationshipPermissionsDto;
+  createdAt: string;
+}
+
+export interface AllianceDiplomacyDto {
+  proposals: AllianceRelationshipProposalDto[];
 }
 
 export interface AllianceDetailDto extends AllianceSummaryDto {
@@ -144,6 +159,13 @@ export interface UpdateAllianceRequest {
 
 export interface SetAllianceRoleRequest {
   role: AllianceRole.VICE | AllianceRole.DIPLOMAT | AllianceRole.NONE;
+}
+
+export interface ProposeAllianceRelationshipRequest {
+  recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract?: string;
+  permissions?: Partial<AllianceRelationshipPermissionsDto>;
 }
 
 export interface LeaveAllianceResponse {

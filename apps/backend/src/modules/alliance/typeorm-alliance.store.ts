@@ -19,12 +19,14 @@ import { Alliance } from './entities/alliance.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
 import { AllianceApplication } from './entities/alliance-application.entity';
 import { AllianceRelationship } from './entities/alliance-relationship.entity';
+import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import {
   AllianceConstraint,
   AllianceConstraintViolation,
   AlliancePatch,
   AllianceRecord,
+  AllianceRelationshipProposalRecord,
   AllianceRelationshipRecord,
   AllianceStore,
   ApplicationRecord,
@@ -38,6 +40,7 @@ const CONSTRAINTS: Record<string, AllianceConstraint> = {
   UQ_alliance_memberships_user: 'membership_user',
   UQ_alliance_memberships_president: 'alliance_president',
   UQ_alliance_applications_alliance_user: 'application',
+  UQ_alliance_relationship_proposals_pair: 'relationship_proposal',
 };
 
 const UNIQUE_VIOLATION = '23505';
@@ -120,6 +123,23 @@ function toRelationship(
     shareLivePositions: relationship.shareLivePositions,
     lordAllianceId: relationship.lordParty?.allianceId ?? null,
     vassalAllianceId: relationship.vassalParty?.allianceId ?? null,
+  };
+}
+
+function toProposal(
+  proposal: AllianceRelationshipProposal,
+): AllianceRelationshipProposalRecord {
+  return {
+    id: proposal.id,
+    firstAllianceId: proposal.firstParty.allianceId!,
+    secondAllianceId: proposal.secondParty.allianceId!,
+    senderAllianceId: proposal.senderParty.allianceId!,
+    recipientAllianceId: proposal.recipientParty.allianceId!,
+    type: proposal.type,
+    contract: proposal.contract,
+    treatAsFriend: proposal.treatAsFriend,
+    shareLivePositions: proposal.shareLivePositions,
+    createdAt: proposal.createdAt,
   };
 }
 
@@ -244,6 +264,10 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
         secondPartyId: secondParty.id,
       })
       .execute();
+    await this.manager.delete(AllianceRelationshipProposal, {
+      firstPartyId: firstParty.id,
+      secondPartyId: secondParty.id,
+    });
     await this.manager.insert(AllianceRelationship, {
       firstPartyId: firstParty.id,
       secondPartyId: secondParty.id,
@@ -254,6 +278,154 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       lordPartyId: null,
       vassalPartyId: null,
     });
+  }
+
+  async listRelationshipProposals(allianceId: number) {
+    const proposals = await this.manager
+      .createQueryBuilder(AllianceRelationshipProposal, 'proposal')
+      .innerJoinAndSelect('proposal.firstParty', 'firstParty')
+      .innerJoinAndSelect('proposal.secondParty', 'secondParty')
+      .innerJoinAndSelect('proposal.senderParty', 'senderParty')
+      .innerJoinAndSelect('proposal.recipientParty', 'recipientParty')
+      .where(
+        '(senderParty.allianceId = :allianceId OR recipientParty.allianceId = :allianceId)',
+        { allianceId },
+      )
+      .orderBy('proposal.createdAt', 'DESC')
+      .addOrderBy('proposal.id', 'DESC')
+      .getMany();
+    return proposals.map(toProposal);
+  }
+
+  async findRelationshipProposal(id: number) {
+    const proposal = await this.manager
+      .createQueryBuilder(AllianceRelationshipProposal, 'proposal')
+      .innerJoinAndSelect('proposal.firstParty', 'firstParty')
+      .innerJoinAndSelect('proposal.secondParty', 'secondParty')
+      .innerJoinAndSelect('proposal.senderParty', 'senderParty')
+      .innerJoinAndSelect('proposal.recipientParty', 'recipientParty')
+      .where('proposal.id = :id', { id })
+      .getOne();
+    return proposal ? toProposal(proposal) : null;
+  }
+
+  async insertRelationshipProposal(data: {
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    type: AllianceRelationshipType;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }) {
+    const [firstAllianceId, secondAllianceId] = [
+      Math.min(data.senderAllianceId, data.recipientAllianceId),
+      Math.max(data.senderAllianceId, data.recipientAllianceId),
+    ];
+    const parties = await this.manager
+      .createQueryBuilder(DiplomacyParty, 'party')
+      .where('party.allianceId IN (:...allianceIds)', {
+        allianceIds: [firstAllianceId, secondAllianceId],
+      })
+      .setLock('pessimistic_write')
+      .getMany();
+    const partyByAllianceId = new Map(
+      parties.map((party) => [party.allianceId, party]),
+    );
+    const firstParty = partyByAllianceId.get(firstAllianceId);
+    const secondParty = partyByAllianceId.get(secondAllianceId);
+    const senderParty = partyByAllianceId.get(data.senderAllianceId);
+    const recipientParty = partyByAllianceId.get(data.recipientAllianceId);
+    if (!firstParty || !secondParty || !senderParty || !recipientParty) {
+      throw new Error('Alliance diplomacy parties are missing');
+    }
+    try {
+      const result = await this.manager
+        .createQueryBuilder()
+        .insert()
+        .into(AllianceRelationshipProposal)
+        .values({
+          firstPartyId: firstParty.id,
+          secondPartyId: secondParty.id,
+          senderPartyId: senderParty.id,
+          recipientPartyId: recipientParty.id,
+          type: data.type,
+          contract: data.contract,
+          treatAsFriend: data.treatAsFriend,
+          shareLivePositions: data.shareLivePositions,
+        })
+        .returning('*')
+        .execute();
+      const proposal = await this.findRelationshipProposal(result.raw[0].id);
+      if (!proposal)
+        throw new Error('Alliance relationship proposal was not created');
+      return proposal;
+    } catch (error) {
+      translateConstraintError(error);
+    }
+  }
+
+  async deleteRelationshipProposal(id: number) {
+    const result = await this.manager.delete(AllianceRelationshipProposal, id);
+    return (result.affected ?? 0) > 0;
+  }
+
+  async acceptRelationshipProposal(id: number) {
+    const proposal = await this.manager
+      .createQueryBuilder(AllianceRelationshipProposal, 'proposal')
+      .innerJoinAndSelect('proposal.firstParty', 'firstParty')
+      .innerJoinAndSelect('proposal.secondParty', 'secondParty')
+      .innerJoinAndSelect('proposal.senderParty', 'senderParty')
+      .innerJoinAndSelect('proposal.recipientParty', 'recipientParty')
+      .where('proposal.id = :id', { id })
+      .setLock('pessimistic_write')
+      .getOne();
+    if (!proposal) return null;
+    await this.manager
+      .createQueryBuilder(DiplomacyParty, 'party')
+      .where('party.id IN (:...partyIds)', {
+        partyIds: [proposal.firstPartyId, proposal.secondPartyId],
+      })
+      .setLock('pessimistic_write')
+      .getMany();
+    await this.manager
+      .createQueryBuilder()
+      .update(AllianceRelationship)
+      .set({ endedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('endedAt IS NULL')
+      .andWhere('"firstPartyId" = :firstPartyId', {
+        firstPartyId: proposal.firstPartyId,
+      })
+      .andWhere('"secondPartyId" = :secondPartyId', {
+        secondPartyId: proposal.secondPartyId,
+      })
+      .execute();
+    const insert = await this.manager
+      .createQueryBuilder()
+      .insert()
+      .into(AllianceRelationship)
+      .values({
+        firstPartyId: proposal.firstPartyId,
+        secondPartyId: proposal.secondPartyId,
+        type: proposal.type,
+        contract: proposal.contract,
+        treatAsFriend: proposal.treatAsFriend,
+        shareLivePositions: proposal.shareLivePositions,
+        lordPartyId:
+          proposal.type === AllianceRelationshipType.VASSALAGE
+            ? proposal.senderPartyId
+            : null,
+        vassalPartyId:
+          proposal.type === AllianceRelationshipType.VASSALAGE
+            ? proposal.recipientPartyId
+            : null,
+      })
+      .returning('*')
+      .execute();
+    await this.manager.delete(AllianceRelationshipProposal, id);
+    const relationship = await this.findActiveRelationship(insert.raw[0].id);
+    if (!relationship)
+      throw new Error('Alliance relationship proposal was not accepted');
+    return relationship;
   }
 
   async countMembers() {

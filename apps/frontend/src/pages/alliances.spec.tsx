@@ -101,6 +101,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         dissolve: false,
         declareWar: false,
         warTargets: [],
+        manageDiplomacy: false,
       },
     },
     ...overrides,
@@ -443,6 +444,99 @@ describe('AllianceDetailPage', () => {
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Diese Allianz nimmt derzeit keine Bewerbungen an',
     );
+  });
+
+  describe('diplomacy proposals', () => {
+    it('shows confidential received proposals and server-authorized response controls', async () => {
+      const managed = withViewer(detail(), AllianceRole.DIPLOMAT, {
+        manageDiplomacy: true,
+      });
+      routeGet({
+        '/alliances/1': managed,
+        '/alliances/1/diplomacy/proposals': [
+          {
+            id: 9,
+            senderAllianceId: 2,
+            recipientAllianceId: 1,
+            type: 'FRIENDSHIP',
+            contract: '[b]Vertraulich[/b]',
+            permissions: { treatAsFriend: true, shareLivePositions: false },
+            createdAt: '2026-10-01T12:00:00.000Z',
+          },
+        ],
+      });
+      apiMocks.post.mockResolvedValue(undefined);
+
+      renderAt('/alliances/1');
+
+      expect(
+        await screen.findByText('Vertrauliche Beziehungsvorschläge'),
+      ).toBeTruthy();
+      expect(screen.getByText('Vertraulich')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Annehmen' }));
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/diplomacy/proposals/9/accept',
+          {},
+        ),
+      );
+    });
+
+    it('creates a proposal using only server-authorized diplomacy targets', async () => {
+      const managed = withViewer(detail(), AllianceRole.DIPLOMAT, {
+        manageDiplomacy: true,
+        warTargets: [{ id: 2, name: 'Red Squadron', color: null }],
+      });
+      routeGet({
+        '/alliances/1': managed,
+        '/alliances/1/diplomacy/proposals': [],
+      });
+
+      renderAt('/alliances/1');
+
+      fireEvent.change(await screen.findByLabelText('Empfängerallianz'), {
+        target: { value: '2' },
+      });
+      fireEvent.change(screen.getByLabelText('Beziehungsart'), {
+        target: { value: 'ALLIANCE' },
+      });
+      fireEvent.change(screen.getByLabelText('Vertragstext'), {
+        target: { value: '[b]Gemeinsam[/b]' },
+      });
+      fireEvent.click(screen.getByLabelText('Als Freund behandeln'));
+      fireEvent.click(
+        screen.getByLabelText('Live-Kartenpositionen teilen (nur Bündnis)'),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Vorschlag senden' }));
+
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/1/diplomacy/proposals',
+          {
+            recipientAllianceId: 2,
+            type: 'ALLIANCE',
+            contract: '[b]Gemeinsam[/b]',
+            permissions: {
+              treatAsFriend: true,
+              shareLivePositions: true,
+            },
+          },
+        ),
+      );
+    });
+
+    it('does not fetch or render confidential proposals without server capability', async () => {
+      routeGet({ '/alliances/1': detail() });
+      renderAt('/alliances/1');
+
+      await screen.findByText('Rogue Squadron');
+      expect(apiMocks.get).not.toHaveBeenCalledWith(
+        '/alliances/1/diplomacy/proposals',
+      );
+      expect(
+        screen.queryByText('Vertrauliche Beziehungsvorschläge'),
+      ).toBeNull();
+    });
   });
 
   describe('management', () => {

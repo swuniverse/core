@@ -14,6 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import type {
   FoundAllianceRequest,
+  ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
@@ -72,6 +73,61 @@ export class AllianceController {
     @Param('targetAllianceId', ParseIntPipe) targetAllianceId: number,
   ) {
     return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
+  }
+
+  @Get(':id/diplomacy/proposals')
+  listRelationshipProposals(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.listRelationshipProposals(req.user.sub, id);
+  }
+
+  @Post(':id/diplomacy/proposals')
+  proposeRelationship(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ProposeAllianceRelationshipRequest,
+  ) {
+    return this.allianceService.proposeRelationship(req.user.sub, id, {
+      recipientAllianceId: body?.recipientAllianceId,
+      type: body?.type,
+      contract: body?.contract,
+      permissions: body?.permissions,
+    });
+  }
+
+  @Post('diplomacy/proposals/:proposalId/accept')
+  acceptRelationshipProposal(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.acceptRelationshipProposal(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Post('diplomacy/proposals/:proposalId/decline')
+  declineRelationshipProposal(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.declineRelationshipProposal(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Delete('diplomacy/proposals/:proposalId')
+  withdrawRelationshipProposal(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.withdrawRelationshipProposal(
+      req.user.sub,
+      proposalId,
+    );
   }
 
   @Get(':id/relationships/:relationshipId/contract')

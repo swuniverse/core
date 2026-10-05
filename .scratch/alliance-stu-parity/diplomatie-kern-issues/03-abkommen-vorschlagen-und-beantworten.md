@@ -18,7 +18,3 @@
 - [ ] Veraltete Wiederholungen und zwei gleichzeitige Antworten erzeugen genau einen erfolgreichen Ausgang und ansonsten fachliche Fehler.
 - [ ] Ein schmaler Verwaltungsfluss erlaubt Anlegen und Beantworten bereits über die Oberfläche und verwendet ausschließlich servergelieferte Aktionsfähigkeiten; die vollständige Verwaltungsübersicht folgt in Ticket 06.
 - [ ] Service-, PostgreSQL- und Frontendtests decken sämtliche Ämter, Richtungen, Sichtbarkeiten, Vasallenschaft, atomare Annahme und Konkurrenzfälle ab.
-
-## Answer
-
-Implementiert in 63a399af088fd4c5b12a966352c6247fab43343a; integriert als 96905e949f41d71199f6f4547680699610337412.
