@@ -1420,6 +1420,166 @@ describe('AllianceService', () => {
     });
   });
 
+  describe('relationship change proposals', () => {
+    function scenario() {
+      const ctx = setup();
+      const { store } = ctx;
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      store.addPlayer(3, 'Wedge');
+      store.addPlayer(4, 'Biggs');
+      const sender = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+        [3, DIPLOMAT],
+      ]);
+      const recipient = store.seedAlliance({ name: 'Red Squadron' }, [
+        [2, DIPLOMAT],
+        [4, NONE],
+      ]);
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: sender.id,
+        secondAllianceId: recipient.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: 'Bisheriges Vertragswerk',
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      return { ...ctx, sender, recipient, relationship };
+    }
+
+    it('keeps the active relationship public state unchanged until the counterparty accepts a diplomat’s replacement proposal', async () => {
+      const { service, sender, recipient, relationship } = scenario();
+
+      const { id } = await service.proposeRelationshipChange(3, relationship.id, {
+        contract: 'Neues Vertragswerk',
+        permissions: { treatAsFriend: false, shareLivePositions: false },
+      });
+
+      await expect(
+        service.getPublicRelationshipContract(sender.id, relationship.id),
+      ).resolves.toEqual({
+        relationshipId: relationship.id,
+        contract: 'Bisheriges Vertragswerk',
+      });
+      await expect(service.getDetail(1, sender.id)).resolves.toMatchObject({
+        relationships: [
+          expect.objectContaining({
+            id: relationship.id,
+            permissions: { treatAsFriend: true, shareLivePositions: true },
+          }),
+        ],
+      });
+
+      await service.acceptRelationshipChange(2, id);
+
+      await expect(
+        service.getPublicRelationshipContract(sender.id, relationship.id),
+      ).resolves.toEqual({
+        relationshipId: relationship.id,
+        contract: 'Neues Vertragswerk',
+      });
+      await expect(service.getDetail(4, recipient.id)).resolves.toMatchObject({
+        relationships: [
+          expect.objectContaining({
+            id: relationship.id,
+            permissions: { treatAsFriend: false, shareLivePositions: false },
+          }),
+        ],
+      });
+    });
+
+    it('allows only the counterparty to accept or decline and only the sender to withdraw', async () => {
+      const { service, relationship } = scenario();
+      const { id } = await service.proposeRelationshipChange(1, relationship.id, {
+        contract: 'Neues Vertragswerk',
+      });
+
+      await expectError(
+        service.acceptRelationshipChange(1, id),
+        ForbiddenException,
+      );
+      await expectError(
+        service.declineRelationshipChange(1, id),
+        ForbiddenException,
+      );
+      await expectError(
+        service.withdrawRelationshipChange(2, id),
+        ForbiddenException,
+      );
+      await expect(service.withdrawRelationshipChange(3, id)).resolves.toBeUndefined();
+    });
+
+    it('rejects invalid, identical, duplicate and war change states without changing the active relationship', async () => {
+      const { store, service, sender, recipient, relationship } = scenario();
+
+      await expectError(
+        service.proposeRelationshipChange(1, relationship.id, {
+          permissions: { shareLivePositions: 'yes' as never },
+        }),
+        BadRequestException,
+      );
+      await expectError(
+        service.proposeRelationshipChange(1, relationship.id, {
+          contract: 'Bisheriges Vertragswerk',
+          permissions: { treatAsFriend: true, shareLivePositions: true },
+        }),
+        BadRequestException,
+      );
+      const { id } = await service.proposeRelationshipChange(1, relationship.id, {
+        contract: 'Neues Vertragswerk',
+      });
+      await expectError(
+        service.proposeRelationshipChange(3, relationship.id, {
+          contract: 'Noch ein Vertragswerk',
+        }),
+        BadRequestException,
+      );
+      await service.withdrawRelationshipChange(1, id);
+      await expect(
+        service.getPublicRelationshipContract(sender.id, relationship.id),
+      ).resolves.toEqual({
+        relationshipId: relationship.id,
+        contract: 'Bisheriges Vertragswerk',
+      });
+
+      await service.declareWar(1, sender.id, recipient.id);
+      const war = (await store.listActiveRelationships(sender.id)).find(
+        (entry) => entry.type === AllianceRelationshipType.WAR,
+      )!;
+      await expectError(
+        service.proposeRelationshipChange(1, war.id, { contract: 'Frieden' }),
+        NotFoundException,
+      );
+    });
+
+    it('removes a pending change when diplomacy escalates to war or the relationship ends', async () => {
+      const { service, sender, recipient, relationship } = scenario();
+      const first = await service.proposeRelationshipChange(1, relationship.id, {
+        contract: 'Neues Vertragswerk',
+      });
+      await service.declareWar(1, sender.id, recipient.id);
+      await expectError(
+        service.acceptRelationshipChange(2, first.id),
+        NotFoundException,
+      );
+
+      const {
+        service: secondService,
+        relationship: secondRelationship,
+      } = scenario();
+      const second = await secondService.proposeRelationshipChange(
+        1,
+        secondRelationship.id,
+        { contract: 'Noch ein Vertragswerk' },
+      );
+      await secondService.endRelationship(1, secondRelationship.id);
+      await expectError(
+        secondService.acceptRelationshipChange(2, second.id),
+        NotFoundException,
+      );
+    });
+  });
+
   describe('membership', () => {
     function scenario() {
       const ctx = setup();

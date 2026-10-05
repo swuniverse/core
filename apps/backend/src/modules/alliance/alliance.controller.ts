@@ -14,6 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import type {
   FoundAllianceRequest,
+  ProposeAllianceRelationshipChangeRequest,
   ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
   UpdateAllianceRequest,
@@ -95,6 +96,57 @@ export class AllianceController {
       contract: body?.contract,
       permissions: body?.permissions,
     });
+  }
+
+  @Get(':id/diplomacy/changes')
+  listRelationshipChangeProposals(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.listRelationshipChangeProposals(
+      req.user.sub,
+      id,
+    );
+  }
+
+  @Post('relationships/:relationshipId/changes')
+  proposeRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('relationshipId', ParseIntPipe) relationshipId: number,
+    @Body() body: ProposeAllianceRelationshipChangeRequest,
+  ) {
+    return this.allianceService.proposeRelationshipChange(
+      req.user.sub,
+      relationshipId,
+      { contract: body?.contract, permissions: body?.permissions },
+    );
+  }
+
+  @Post('diplomacy/changes/:proposalId/accept')
+  acceptRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.acceptRelationshipChange(req.user.sub, proposalId);
+  }
+
+  @Post('diplomacy/changes/:proposalId/decline')
+  declineRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.declineRelationshipChange(req.user.sub, proposalId);
+  }
+
+  @Delete('diplomacy/changes/:proposalId')
+  withdrawRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.withdrawRelationshipChange(
+      req.user.sub,
+      proposalId,
+    );
   }
 
   @Post('diplomacy/proposals/:proposalId/accept')

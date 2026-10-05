@@ -112,8 +112,20 @@ export interface AllianceRelationshipProposalDto {
   createdAt: string;
 }
 
+/** Confidential replacement state for an active relationship. */
+export interface AllianceRelationshipChangeProposalDto {
+  id: number;
+  relationshipId: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  contract: string;
+  permissions: AllianceRelationshipPermissionsDto;
+  createdAt: string;
+}
+
 export interface AllianceDiplomacyDto {
   proposals: AllianceRelationshipProposalDto[];
+  changes: AllianceRelationshipChangeProposalDto[];
 }
 
 export interface AllianceDetailDto extends AllianceSummaryDto {
@@ -164,6 +176,11 @@ export interface SetAllianceRoleRequest {
 export interface ProposeAllianceRelationshipRequest {
   recipientAllianceId: number;
   type: AllianceRelationshipType;
+  contract?: string;
+  permissions?: Partial<AllianceRelationshipPermissionsDto>;
+}
+
+export interface ProposeAllianceRelationshipChangeRequest {
   contract?: string;
   permissions?: Partial<AllianceRelationshipPermissionsDto>;
 }

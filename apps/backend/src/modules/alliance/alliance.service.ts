@@ -9,6 +9,7 @@ import {
   AllianceApplicationDto,
   AllianceDetailDto,
   AllianceMemberActionsDto,
+  AllianceRelationshipChangeProposalDto,
   AllianceRelationshipContractDto,
   AllianceRelationshipProposalDto,
   AllianceRelationshipSummaryDto,
@@ -19,6 +20,7 @@ import {
   AllianceTitlesDto,
   FoundAllianceRequest,
   LeaveAllianceResponse,
+  ProposeAllianceRelationshipChangeRequest,
   ProposeAllianceRelationshipRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
@@ -43,6 +45,7 @@ import type {
   AllianceConstraint,
   AlliancePatch,
   AllianceRecord,
+  AllianceRelationshipChangeProposalRecord,
   AllianceRelationshipProposalRecord,
   AllianceRelationshipRecord,
   AllianceStore,
@@ -81,6 +84,10 @@ const ERR = {
   relationshipProposalNotFound: 'Der Beziehungsvorschlag ist nicht verfügbar',
   relationshipProposalExists:
     'Für dieses Allianzpaar existiert bereits ein Beziehungsvorschlag',
+  relationshipChangeProposalNotFound:
+    'Der Beziehungsvorschlag ist nicht verfügbar',
+  relationshipChangeProposalExists:
+    'Für diese Beziehung existiert bereits ein Änderungsvorschlag',
   invalidRelationshipProposal: 'Dies ist kein gültiger Beziehungsvorschlag',
   memberNotFound: 'Der Siedler ist kein Mitglied dieser Allianz',
   forbidden: 'Dazu fehlt Dir die Berechtigung',
@@ -97,6 +104,7 @@ const CONSTRAINT_ERRORS: Record<AllianceConstraint, string> = {
   alliance_president: ERR.concurrentChange,
   application: ERR.alreadyApplied,
   relationship_proposal: ERR.relationshipProposalExists,
+  relationship_change_proposal: ERR.relationshipChangeProposalExists,
 };
 
 interface OutgoingMessage {
@@ -285,6 +293,158 @@ export class AllianceService {
     }
     const proposals = await this.store.listRelationshipProposals(allianceId);
     return proposals.map((proposal) => this.toProposalDto(proposal));
+  }
+
+  async listRelationshipChangeProposals(
+    actorId: number,
+    allianceId: number,
+  ): Promise<AllianceRelationshipChangeProposalDto[]> {
+    await this.requireAlliance(allianceId);
+    const membership = await this.ownMembership(
+      this.store,
+      actorId,
+      allianceId,
+    );
+    if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    const proposals = await this.store.listRelationshipChangeProposals(
+      allianceId,
+    );
+    return proposals.map((proposal) => this.toChangeProposalDto(proposal));
+  }
+
+  async proposeRelationshipChange(
+    actorId: number,
+    relationshipId: number,
+    request: ProposeAllianceRelationshipChangeRequest,
+  ): Promise<{ id: number }> {
+    const result = await this.mutate(async (tx) => {
+      const relationship = await tx.findActiveRelationship(relationshipId);
+      if (
+        !relationship ||
+        relationship.type === AllianceRelationshipType.WAR ||
+        relationship.type === AllianceRelationshipType.PEACE
+      ) {
+        throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
+      }
+      const membership = await tx.findMembership(actorId);
+      if (
+        !membership ||
+        (membership.allianceId !== relationship.firstAllianceId &&
+          membership.allianceId !== relationship.secondAllianceId)
+      ) {
+        throw new ForbiddenException(ERR.forbidden);
+      }
+      const sender = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        membership.allianceId,
+        'manageDiplomacy',
+      );
+      const recipientAllianceId =
+        relationship.firstAllianceId === sender.id
+          ? relationship.secondAllianceId
+          : relationship.firstAllianceId;
+      await this.lockedAlliance(tx, recipientAllianceId);
+      const contract = this.validateRelationshipContract(request?.contract);
+      const permissions = this.validateRelationshipPermissions(
+        relationship.type,
+        request?.permissions,
+      );
+      if (
+        contract === relationship.contract &&
+        permissions.treatAsFriend === relationship.treatAsFriend &&
+        permissions.shareLivePositions === relationship.shareLivePositions
+      ) {
+        throw new BadRequestException(ERR.invalidRelationshipProposal);
+      }
+      const proposal = await tx.insertRelationshipChangeProposal({
+        relationshipId,
+        senderAllianceId: sender.id,
+        recipientAllianceId,
+        contract,
+        ...permissions,
+      });
+      const actor = await tx.findPlayer(actorId);
+      const recipients = await tx.listMemberships(recipientAllianceId);
+      return {
+        id: proposal.id,
+        messages: recipients.map((member) => ({
+          to: member.userId,
+          body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} eine Beziehungsänderung vorgeschlagen`,
+        })),
+      };
+    });
+    await this.send(result.messages);
+    return { id: result.id };
+  }
+
+  async acceptRelationshipChange(actorId: number, proposalId: number): Promise<void> {
+    const messages = await this.mutate(async (tx) => {
+      const proposal = await this.requireRelationshipChangeProposal(tx, proposalId);
+      const recipient = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        proposal.recipientAllianceId,
+        'manageDiplomacy',
+      );
+      const relationship = await tx.acceptRelationshipChangeProposal(proposalId);
+      if (!relationship) {
+        throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
+      }
+      const actor = await tx.findPlayer(actorId);
+      const recipients = await tx.listMemberships(proposal.senderAllianceId);
+      return recipients.map((member) => ({
+        to: member.userId,
+        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} die Beziehungsänderung angenommen`,
+      }));
+    });
+    await this.send(messages);
+  }
+
+  async declineRelationshipChange(actorId: number, proposalId: number): Promise<void> {
+    const messages = await this.mutate(async (tx) => {
+      const proposal = await this.requireRelationshipChangeProposal(tx, proposalId);
+      const recipient = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        proposal.recipientAllianceId,
+        'manageDiplomacy',
+      );
+      if (!(await tx.deleteRelationshipChangeProposal(proposalId))) {
+        throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
+      }
+      const actor = await tx.findPlayer(actorId);
+      const recipients = await tx.listMemberships(proposal.senderAllianceId);
+      return recipients.map((member) => ({
+        to: member.userId,
+        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} die Beziehungsänderung abgelehnt`,
+      }));
+    });
+    await this.send(messages);
+  }
+
+  async withdrawRelationshipChange(actorId: number, proposalId: number): Promise<void> {
+    const messages = await this.mutate(async (tx) => {
+      const proposal = await this.requireRelationshipChangeProposal(tx, proposalId);
+      const sender = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        proposal.senderAllianceId,
+        'manageDiplomacy',
+      );
+      if (!(await tx.deleteRelationshipChangeProposal(proposalId))) {
+        throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
+      }
+      const actor = await tx.findPlayer(actorId);
+      const recipients = await tx.listMemberships(proposal.recipientAllianceId);
+      return recipients.map((member) => ({
+        to: member.userId,
+        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} die Beziehungsänderung zurückgezogen`,
+      }));
+    });
+    await this.send(messages);
   }
 
   async proposeRelationship(
@@ -948,6 +1108,23 @@ export class AllianceService {
     });
   }
 
+  private toChangeProposalDto(
+    proposal: AllianceRelationshipChangeProposalRecord,
+  ): AllianceRelationshipChangeProposalDto {
+    return {
+      id: proposal.id,
+      relationshipId: proposal.relationshipId,
+      senderAllianceId: proposal.senderAllianceId,
+      recipientAllianceId: proposal.recipientAllianceId,
+      contract: proposal.contract,
+      permissions: {
+        treatAsFriend: proposal.treatAsFriend,
+        shareLivePositions: proposal.shareLivePositions,
+      },
+      createdAt: proposal.createdAt.toISOString(),
+    };
+  }
+
   private toProposalDto(
     proposal: AllianceRelationshipProposalRecord,
   ): AllianceRelationshipProposalDto {
@@ -1012,6 +1189,16 @@ export class AllianceService {
       throw new BadRequestException(ERR.invalidRelationshipProposal);
     }
     return { treatAsFriend, shareLivePositions };
+  }
+
+  private async requireRelationshipChangeProposal(
+    tx: AllianceStore,
+    id: number,
+  ): Promise<AllianceRelationshipChangeProposalRecord> {
+    const proposal = await tx.findRelationshipChangeProposal(id);
+    if (!proposal)
+      throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
+    return proposal;
   }
 
   private async requireRelationshipProposal(

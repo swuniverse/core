@@ -74,6 +74,17 @@ export interface AllianceRelationshipProposalRecord {
   createdAt: Date;
 }
 
+export interface AllianceRelationshipChangeProposalRecord {
+  id: number;
+  relationshipId: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  contract: string;
+  treatAsFriend: boolean;
+  shareLivePositions: boolean;
+  createdAt: Date;
+}
+
 export type AlliancePatch = Partial<
   Pick<
     AllianceRecord,
@@ -94,7 +105,8 @@ export type AllianceConstraint =
   | 'membership_user'
   | 'alliance_president'
   | 'application'
-  | 'relationship_proposal';
+  | 'relationship_proposal'
+  | 'relationship_change_proposal';
 
 export class AllianceConstraintViolation extends Error {
   constructor(readonly constraint: AllianceConstraint) {
@@ -161,6 +173,24 @@ export interface AllianceStore {
   }): Promise<AllianceRelationshipProposalRecord>;
   deleteRelationshipProposal(id: number): Promise<boolean>;
   acceptRelationshipProposal(
+    id: number,
+  ): Promise<AllianceRelationshipRecord | null>;
+  listRelationshipChangeProposals(
+    allianceId: number,
+  ): Promise<AllianceRelationshipChangeProposalRecord[]>;
+  findRelationshipChangeProposal(
+    id: number,
+  ): Promise<AllianceRelationshipChangeProposalRecord | null>;
+  insertRelationshipChangeProposal(data: {
+    relationshipId: number;
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }): Promise<AllianceRelationshipChangeProposalRecord>;
+  deleteRelationshipChangeProposal(id: number): Promise<boolean>;
+  acceptRelationshipChangeProposal(
     id: number,
   ): Promise<AllianceRelationshipRecord | null>;
   /** Ends an active non-war relationship and removes pending proposals for its pair. */

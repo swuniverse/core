@@ -611,6 +611,119 @@ describe('AllianceDetailPage', () => {
       );
     });
 
+    it('proposes a complete replacement state for an active relationship and shows pending drafts only to officers', async () => {
+      const managed = withViewer(
+        detail({
+          relationships: [
+            {
+              id: 8,
+              counterparty: { id: 2, name: 'Red Squadron', color: null },
+              type: AllianceRelationshipType.ALLIANCE,
+              startedAt: '2026-10-01T12:00:00.000Z',
+              permissions: { treatAsFriend: true, shareLivePositions: true },
+              vassalage: null,
+              hasContract: false,
+            },
+          ],
+        }),
+        AllianceRole.DIPLOMAT,
+        { manageDiplomacy: true },
+      );
+      routeGet({
+        '/alliances/1': managed,
+        '/alliances/1/diplomacy/proposals': [],
+        '/alliances/1/diplomacy/changes': [],
+      });
+
+      renderAt('/alliances/1');
+
+      const relationship = (
+        await screen.findByRole('link', { name: 'Red Squadron' })
+      ).closest('li')!;
+      fireEvent.change(
+        within(relationship).getByLabelText(
+          'Neues Vertragswerk mit Red Squadron',
+        ),
+        { target: { value: 'Neues Vertragswerk' } },
+      );
+      fireEvent.click(
+        within(relationship).getByLabelText('Als Freund behandeln'),
+      );
+      fireEvent.click(
+        within(relationship).getByLabelText('Live-Kartenpositionen teilen'),
+      );
+      fireEvent.click(
+        within(relationship).getByRole('button', {
+          name: 'Änderung vorschlagen',
+        }),
+      );
+
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/relationships/8/changes',
+          {
+            contract: 'Neues Vertragswerk',
+            permissions: {
+              treatAsFriend: false,
+              shareLivePositions: false,
+            },
+          },
+        ),
+      );
+    });
+
+    it('loads an existing contract before proposing a relationship change', async () => {
+      const managed = withViewer(
+        detail({
+          relationships: [
+            {
+              id: 8,
+              counterparty: { id: 2, name: 'Red Squadron', color: null },
+              type: AllianceRelationshipType.ALLIANCE,
+              startedAt: '2026-10-01T12:00:00.000Z',
+              permissions: { treatAsFriend: true, shareLivePositions: true },
+              vassalage: null,
+              hasContract: true,
+            },
+          ],
+        }),
+        AllianceRole.DIPLOMAT,
+        { manageDiplomacy: true },
+      );
+      routeGet({
+        '/alliances/1': managed,
+        '/alliances/1/diplomacy/proposals': [],
+        '/alliances/1/diplomacy/changes': [],
+        '/alliances/1/relationships/8/contract': {
+          relationshipId: 8,
+          contract: 'Bestehendes Vertragswerk',
+        },
+      });
+      apiMocks.post.mockResolvedValue(undefined);
+
+      renderAt('/alliances/1');
+
+      const contract = await screen.findByLabelText(
+        'Neues Vertragswerk mit Red Squadron',
+      );
+      expect((contract as HTMLTextAreaElement).value).toBe(
+        'Bestehendes Vertragswerk',
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Änderung vorschlagen' }),
+      );
+
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/relationships/8/changes',
+          {
+            contract: 'Bestehendes Vertragswerk',
+            permissions: { treatAsFriend: true, shareLivePositions: true },
+          },
+        ),
+      );
+    });
+
     it('does not fetch or render confidential proposals without server capability', async () => {
       routeGet({ '/alliances/1': detail() });
       renderAt('/alliances/1');
@@ -618,6 +731,9 @@ describe('AllianceDetailPage', () => {
       await screen.findByText('Rogue Squadron');
       expect(apiMocks.get).not.toHaveBeenCalledWith(
         '/alliances/1/diplomacy/proposals',
+      );
+      expect(apiMocks.get).not.toHaveBeenCalledWith(
+        '/alliances/1/diplomacy/changes',
       );
       expect(
         screen.queryByText('Vertrauliche Beziehungsvorschläge'),

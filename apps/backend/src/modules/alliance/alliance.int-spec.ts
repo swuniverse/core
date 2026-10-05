@@ -145,6 +145,48 @@ describe('alliance persistence (Postgres)', () => {
     ]);
   });
 
+  it('keeps one pending relationship change confidential and atomically replaces the active state on acceptance', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const proposal = await service.proposeRelationship( leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.ALLIANCE,
+      contract: 'Bisheriges Vertragswerk',
+      permissions: { treatAsFriend: true, shareLivePositions: true },
+    });
+    await service.acceptRelationshipProposal(mon.id, proposal.id);
+    const [relationship] = await store.listActiveRelationships(rogue.id);
+
+    const change = await service.proposeRelationshipChange(leia.id, relationship.id, {
+      contract: 'Neues Vertragswerk',
+      permissions: { treatAsFriend: false, shareLivePositions: false },
+    });
+    await expect(
+      service.proposeRelationshipChange(mon.id, relationship.id, {
+        contract: 'Doppelter Entwurf',
+      }),
+    ).rejects.toMatchObject({
+      message: 'Für diese Beziehung existiert bereits ein Änderungsvorschlag',
+    });
+    await expect(store.findActiveRelationship(relationship.id)).resolves.toMatchObject({
+      contract: 'Bisheriges Vertragswerk',
+      treatAsFriend: true,
+      shareLivePositions: true,
+    });
+
+    await service.acceptRelationshipChange(mon.id, change.id);
+
+    await expect(store.findActiveRelationship(relationship.id)).resolves.toMatchObject({
+      id: relationship.id,
+      contract: 'Neues Vertragswerk',
+      treatAsFriend: false,
+      shareLivePositions: false,
+    });
+    await expect(store.findRelationshipChangeProposal(change.id)).resolves.toBeNull();
+  });
+
   it('transitions war through an accepted peace proposal and atomically ends peace with pending changes', async () => {
     const leia = await rebel();
     const mon = await rebel();

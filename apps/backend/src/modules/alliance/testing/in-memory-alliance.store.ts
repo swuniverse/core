@@ -10,6 +10,7 @@ import {
   AllianceStore,
   ApplicationRecord,
   AllianceRelationshipProposalRecord,
+  AllianceRelationshipChangeProposalRecord,
   AllianceRelationshipRecord,
   FactionRecord,
   MembershipRecord,
@@ -25,6 +26,7 @@ interface State {
   applications: ApplicationRecord[];
   relationships: AllianceRelationshipRecord[];
   relationshipProposals: AllianceRelationshipProposalRecord[];
+  relationshipChangeProposals: AllianceRelationshipChangeProposalRecord[];
   nextId: number;
   clock: number;
 }
@@ -53,6 +55,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     applications: [],
     relationships: [],
     relationshipProposals: [],
+    relationshipChangeProposals: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
@@ -328,6 +331,16 @@ export class InMemoryAllianceStore implements AllianceStore {
         proposal.firstAllianceId !== first ||
         proposal.secondAllianceId !== second,
     );
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter((proposal) => {
+        const relationship = this.state.relationships.find(
+          (entry) => entry.id === proposal.relationshipId,
+        );
+        return (
+          relationship?.firstAllianceId !== first ||
+          relationship.secondAllianceId !== second
+        );
+      });
     this.state.relationships.push({
       id: this.nextId(),
       firstAllianceId: first,
@@ -448,6 +461,78 @@ export class InMemoryAllianceStore implements AllianceStore {
     return { ...relationship };
   }
 
+  async listRelationshipChangeProposals(allianceId: number) {
+    return this.state.relationshipChangeProposals
+      .filter(
+        (proposal) =>
+          proposal.senderAllianceId === allianceId ||
+          proposal.recipientAllianceId === allianceId,
+      )
+      .sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+      )
+      .map((proposal) => ({ ...proposal }));
+  }
+
+  async findRelationshipChangeProposal(id: number) {
+    const proposal = this.state.relationshipChangeProposals.find(
+      (entry) => entry.id === id,
+    );
+    return proposal ? { ...proposal } : null;
+  }
+
+  async insertRelationshipChangeProposal(data: {
+    relationshipId: number;
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }) {
+    if (
+      this.state.relationshipChangeProposals.some(
+        (proposal) => proposal.relationshipId === data.relationshipId,
+      )
+    ) {
+      throw new AllianceConstraintViolation('relationship_change_proposal');
+    }
+    const proposal: AllianceRelationshipChangeProposalRecord = {
+      id: this.nextId(),
+      ...data,
+      createdAt: this.now(),
+    };
+    this.state.relationshipChangeProposals.push(proposal);
+    return { ...proposal };
+  }
+
+  async deleteRelationshipChangeProposal(id: number) {
+    const before = this.state.relationshipChangeProposals.length;
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => proposal.id !== id,
+      );
+    return this.state.relationshipChangeProposals.length !== before;
+  }
+
+  async acceptRelationshipChangeProposal(id: number) {
+    const proposal = this.state.relationshipChangeProposals.find(
+      (entry) => entry.id === id,
+    );
+    if (!proposal) return null;
+    const relationship = this.state.relationships.find(
+      (entry) => entry.id === proposal.relationshipId && entry.endedAt === null,
+    );
+    if (!relationship) return null;
+    relationship.contract = proposal.contract;
+    relationship.treatAsFriend = proposal.treatAsFriend;
+    relationship.shareLivePositions = proposal.shareLivePositions;
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (entry) => entry.id !== id,
+      );
+    return { ...relationship };
+  }
+
   async endNonWarRelationship(id: number) {
     const relationship = this.state.relationships.find(
       (entry) => entry.id === id && entry.endedAt === null,
@@ -461,6 +546,10 @@ export class InMemoryAllianceStore implements AllianceStore {
         proposal.firstAllianceId !== relationship.firstAllianceId ||
         proposal.secondAllianceId !== relationship.secondAllianceId,
     );
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => proposal.relationshipId !== relationship.id,
+      );
     return { ...relationship };
   }
 
