@@ -14,7 +14,6 @@ export const ALLIANCE_ACTIONS = [
   'editDetails',
   'dissolve',
   'declareWar',
-  'manageDiplomacy',
 ] as const;
 export type AllianceAction = (typeof ALLIANCE_ACTIONS)[number];
 
@@ -63,15 +62,7 @@ export function mayActOnAlliance(
   action: AllianceAction,
 ): boolean {
   if (actor === PRESIDENT) return true;
-  if (actor === DIPLOMAT) {
-    return action === 'declareWar' || action === 'manageDiplomacy';
-  }
-  if (actor === VICE) {
-    return (
-      action !== 'dissolve' &&
-      action !== 'declareWar' &&
-      action !== 'manageDiplomacy'
-    );
-  }
+  if (actor === DIPLOMAT) return action === 'declareWar';
+  if (actor === VICE) return action !== 'dissolve' && action !== 'declareWar';
   return false;
 }

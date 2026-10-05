@@ -7,13 +7,11 @@ import {
 } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  AllianceRelationshipType,
   AllianceRole,
   type AllianceApplicationDto,
   type AllianceDetailDto,
   type AllianceMemberDto,
   type AllianceRelationshipContractDto,
-  type AllianceRelationshipProposalDto,
   type AllianceRelationshipSummaryDto,
   type AllianceSummaryDto,
   type MyAllianceDto,
@@ -338,9 +336,6 @@ export function AllianceDetailPage() {
   const [applications, setApplications] = useState<AllianceApplicationDto[]>(
     [],
   );
-  const [proposals, setProposals] = useState<AllianceRelationshipProposalDto[]>(
-    [],
-  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [contracts, setContracts] = useState<Record<number, string>>({});
@@ -348,34 +343,9 @@ export function AllianceDetailPage() {
     null,
   );
   const [warTargetId, setWarTargetId] = useState('');
-  const [proposalRecipientId, setProposalRecipientId] = useState('');
-  const [proposalType, setProposalType] = useState<AllianceRelationshipType>(
-    AllianceRelationshipType.FRIENDSHIP,
-  );
-  const [proposalContract, setProposalContract] = useState('');
-  const [proposalTreatAsFriend, setProposalTreatAsFriend] = useState(false);
-  const [proposalShareLivePositions, setProposalShareLivePositions] =
-    useState(false);
 
   const canManageApplications =
     alliance?.viewer.actions.manageApplications ?? false;
-  const canManageDiplomacy = alliance?.viewer.actions.manageDiplomacy ?? false;
-
-  const reloadProposals = useCallback(async () => {
-    if (!id || !canManageDiplomacy) {
-      setProposals([]);
-      return;
-    }
-    setProposals(
-      await api.get<AllianceRelationshipProposalDto[]>(
-        `/alliances/${id}/diplomacy/proposals`,
-      ),
-    );
-  }, [id, canManageDiplomacy]);
-
-  useEffect(() => {
-    void reloadProposals().catch(() => undefined);
-  }, [reloadProposals]);
 
   const reloadApplications = useCallback(async () => {
     if (!id || !canManageApplications) {
@@ -424,7 +394,7 @@ export function AllianceDetailPage() {
         navigate('/alliances');
         return;
       }
-      await Promise.all([reload(), reloadApplications(), reloadProposals()]);
+      await Promise.all([reload(), reloadApplications()]);
     } catch (err) {
       setError(getErrorMessage(err, 'Die Aktion ist fehlgeschlagen.'));
     } finally {
@@ -683,185 +653,6 @@ export function AllianceDetailPage() {
           </p>
         )}
       </section>
-
-      {canManageDiplomacy && (
-        <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-          <h2 className="text-sm font-bold text-swu-primary">
-            Vertrauliche Beziehungsvorschläge
-          </h2>
-          <form
-            className="grid gap-3 border border-swu-border/60 bg-swu-bg/40 p-3 text-sm md:grid-cols-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!proposalRecipientId) return;
-              void run(async () => {
-                await api.post(`${base}/diplomacy/proposals`, {
-                  recipientAllianceId: Number(proposalRecipientId),
-                  type: proposalType,
-                  contract: proposalContract,
-                  permissions: {
-                    treatAsFriend: proposalTreatAsFriend,
-                    shareLivePositions:
-                      proposalType === 'ALLIANCE' && proposalShareLivePositions,
-                  },
-                });
-                setProposalContract('');
-                setProposalTreatAsFriend(false);
-                setProposalShareLivePositions(false);
-              });
-            }}
-          >
-            <label className="space-y-1">
-              <span className="text-swu-muted">Empfängerallianz</span>
-              <select
-                value={proposalRecipientId}
-                disabled={busy}
-                onChange={(event) => setProposalRecipientId(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Zielallianz wählen</option>
-                {actions.warTargets.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {target.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className="text-swu-muted">Beziehungsart</span>
-              <select
-                value={proposalType}
-                disabled={busy}
-                onChange={(event) => {
-                  const type = event.target.value as AllianceRelationshipType;
-                  setProposalType(type);
-                  if (type !== 'ALLIANCE') setProposalShareLivePositions(false);
-                }}
-                className={inputClass}
-              >
-                <option value="FRIENDSHIP">Freundschaft</option>
-                <option value="ALLIANCE">Bündnis</option>
-                <option value="TRADE_AGREEMENT">Handelsabkommen</option>
-                <option value="VASSALAGE">Vasallenschaft</option>
-              </select>
-            </label>
-            <label className="space-y-1 md:col-span-2">
-              <span className="text-swu-muted">Vertragstext</span>
-              <textarea
-                value={proposalContract}
-                disabled={busy}
-                maxLength={20_000}
-                rows={4}
-                onChange={(event) => setProposalContract(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-xs text-swu-muted">
-              <input
-                type="checkbox"
-                checked={proposalTreatAsFriend}
-                disabled={busy}
-                onChange={(event) =>
-                  setProposalTreatAsFriend(event.target.checked)
-                }
-              />
-              Als Freund behandeln
-            </label>
-            <label className="flex items-center gap-2 text-xs text-swu-muted">
-              <input
-                type="checkbox"
-                checked={proposalShareLivePositions}
-                disabled={busy || proposalType !== 'ALLIANCE'}
-                onChange={(event) =>
-                  setProposalShareLivePositions(event.target.checked)
-                }
-              />
-              Live-Kartenpositionen teilen (nur Bündnis)
-            </label>
-            <div className="md:col-span-2">
-              <button
-                type="submit"
-                disabled={busy || !proposalRecipientId}
-                className={primaryButtonClass}
-              >
-                Vorschlag senden
-              </button>
-            </div>
-          </form>
-          {proposals.length > 0 && (
-            <ul className="divide-y divide-swu-border/40">
-              {proposals.map((proposal) => {
-                const received = proposal.recipientAllianceId === alliance.id;
-                return (
-                  <li key={proposal.id} className="space-y-2 py-3 text-sm">
-                    <p>
-                      {received ? 'Eingegangen' : 'Gesendet'}:{' '}
-                      {relationshipTypeLabel(proposal.type)}
-                    </p>
-                    {proposal.contract && (
-                      <BbCodeText
-                        text={proposal.contract}
-                        className="text-sm text-swu-text whitespace-pre-wrap"
-                      />
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {received ? (
-                        <>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            className={primaryButtonClass}
-                            onClick={() =>
-                              void run(() =>
-                                api.post(
-                                  `/alliances/diplomacy/proposals/${proposal.id}/accept`,
-                                  {},
-                                ),
-                              )
-                            }
-                          >
-                            Annehmen
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            className={buttonClass}
-                            onClick={() =>
-                              void run(() =>
-                                api.post(
-                                  `/alliances/diplomacy/proposals/${proposal.id}/decline`,
-                                  {},
-                                ),
-                              )
-                            }
-                          >
-                            Ablehnen
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className={buttonClass}
-                          onClick={() =>
-                            void run(() =>
-                              api.delete(
-                                `/alliances/diplomacy/proposals/${proposal.id}`,
-                              ),
-                            )
-                          }
-                        >
-                          Zurückziehen
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      )}
 
       {alliance.relationships.length > 0 && (
         <section className="space-y-3 border border-swu-border bg-swu-surface p-4">

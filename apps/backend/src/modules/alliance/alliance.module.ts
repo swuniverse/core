@@ -9,7 +9,6 @@ import { Alliance } from './entities/alliance.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
 import { AllianceApplication } from './entities/alliance-application.entity';
 import { AllianceRelationship } from './entities/alliance-relationship.entity';
-import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 
 @Module({
@@ -20,7 +19,6 @@ import { DiplomacyParty } from './entities/diplomacy-party.entity';
       AllianceApplication,
       DiplomacyParty,
       AllianceRelationship,
-      AllianceRelationshipProposal,
     ]),
     MessagingModule,
   ],

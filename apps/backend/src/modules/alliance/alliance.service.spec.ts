@@ -381,7 +381,6 @@ describe('AllianceService', () => {
             dissolve: false,
             declareWar: false,
             warTargets: [],
-            manageDiplomacy: false,
           },
         });
         expect(
@@ -441,7 +440,6 @@ describe('AllianceService', () => {
             dissolve: true,
             declareWar: true,
             warTargets: [],
-            manageDiplomacy: true,
           },
         });
         const byName = Object.fromEntries(
@@ -494,7 +492,6 @@ describe('AllianceService', () => {
           dissolve: false,
           declareWar: false,
           warTargets: [],
-          manageDiplomacy: false,
         });
         const byName = Object.fromEntries(
           members.map((m) => [m.name, m.actions]),
@@ -511,9 +508,9 @@ describe('AllianceService', () => {
       it('gives diplomats war declaration and plain members only leave', async () => {
         const { service, alliance } = scenario();
 
-        for (const [userId, declareWar, manageDiplomacy] of [
-          [3, true, true],
-          [4, false, false],
+        for (const [userId, declareWar] of [
+          [3, true],
+          [4, false],
         ] as const) {
           const { viewer, members } = await service.getDetail(
             userId,
@@ -528,7 +525,6 @@ describe('AllianceService', () => {
             dissolve: false,
             declareWar,
             warTargets: [],
-            manageDiplomacy,
           });
           expect(
             members.every((m) => Object.values(m.actions).every((a) => !a)),
@@ -732,260 +728,6 @@ describe('AllianceService', () => {
       const active = await store.listActiveRelationships(alliance.id);
       expect(active).toHaveLength(1);
       expect(active[0].type).toBe(AllianceRelationshipType.WAR);
-    });
-  });
-
-  describe('relationship proposals', () => {
-    function scenario() {
-      const ctx = setup();
-      const { store } = ctx;
-      store.addPlayer(1, 'Leia');
-      store.addPlayer(2, 'Mon');
-      store.addPlayer(3, 'Wedge');
-      store.addPlayer(4, 'Vader', EMPIRE.id);
-      store.addPlayer(5, 'Unaffiliated');
-      const sender = store.seedAlliance({ name: 'Rogue Squadron' }, [
-        [1, PRESIDENT],
-        [3, DIPLOMAT],
-      ]);
-      const recipient = store.seedAlliance({ name: 'Red Squadron' }, [
-        [2, DIPLOMAT],
-      ]);
-      const foreign = store.seedAlliance(
-        { name: 'Black Squadron', factionId: EMPIRE.id },
-        [[4, PRESIDENT]],
-      );
-      return { ...ctx, sender, recipient, foreign };
-    }
-
-    it('lets a president propose a confidential friendship agreement to a same-faction alliance', async () => {
-      const { store, service, sent, sender, recipient } = scenario();
-
-      await service.proposeRelationship(1, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.FRIENDSHIP,
-        contract: '  [b]Gemeinsame Ziele[/b]  ',
-        permissions: { treatAsFriend: true, shareLivePositions: false },
-      });
-
-      await expect(service.getDetail(3, sender.id)).resolves.toMatchObject({
-        relationships: [],
-      });
-      await expect(
-        service.listRelationshipProposals(1, sender.id),
-      ).resolves.toEqual([
-        expect.objectContaining({
-          senderAllianceId: sender.id,
-          recipientAllianceId: recipient.id,
-          type: AllianceRelationshipType.FRIENDSHIP,
-          contract: '[b]Gemeinsame Ziele[/b]',
-          permissions: { treatAsFriend: true, shareLivePositions: false },
-        }),
-      ]);
-      expect(messagesTo(sent, 2)).toEqual([
-        expect.stringContaining('Beziehungsvorschlag'),
-      ]);
-      expect(sent.map((message) => message.body).join('\n')).not.toContain(
-        '[b]Gemeinsame Ziele[/b]',
-      );
-      expect(store.snapshot().relationships).toEqual([]);
-    });
-
-    it('allows diplomats to create and respond, but keeps proposal lists confidential', async () => {
-      const { store, service, sender, recipient } = scenario();
-      store.addPlayer(6, 'Vice');
-      store.addPlayer(7, 'Member');
-      await store.insertMembership({
-        allianceId: sender.id,
-        userId: 6,
-        role: AllianceRole.VICE,
-      });
-      await store.insertMembership({
-        allianceId: recipient.id,
-        userId: 7,
-        role: AllianceRole.NONE,
-      });
-
-      const { id } = await service.proposeRelationship(3, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.FRIENDSHIP,
-      });
-
-      await service.acceptRelationshipProposal(2, id);
-      expect(await store.listActiveRelationships(sender.id)).toHaveLength(1);
-
-      const second = await service.proposeRelationship(3, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.TRADE_AGREEMENT,
-      });
-      for (const actorId of [5, 6, 7]) {
-        await expectError(
-          service.listRelationshipProposals(actorId, sender.id),
-          ForbiddenException,
-        );
-      }
-      await expect(
-        service.listRelationshipProposals(3, sender.id),
-      ).resolves.toEqual([expect.objectContaining({ id: second.id })]);
-    });
-
-    it.each([AllianceRole.VICE, AllianceRole.NONE])(
-      'rejects proposal commands from %s even when called directly',
-      async (role) => {
-        const { store, service, sender, recipient } = scenario();
-        store.addPlayer(5, 'Unauthorized');
-        await store.insertMembership({
-          allianceId: sender.id,
-          userId: 5,
-          role,
-        });
-
-        await expectError(
-          service.proposeRelationship(5, sender.id, {
-            recipientAllianceId: recipient.id,
-            type: AllianceRelationshipType.FRIENDSHIP,
-          }),
-          ForbiddenException,
-        );
-      },
-    );
-
-    it('rejects self, foreign, peace, war, duplicate and invalid-permission proposals without state changes', async () => {
-      const { store, service, sender, recipient, foreign } = scenario();
-      const invalid = [
-        {
-          recipientAllianceId: sender.id,
-          type: AllianceRelationshipType.FRIENDSHIP,
-        },
-        {
-          recipientAllianceId: foreign.id,
-          type: AllianceRelationshipType.FRIENDSHIP,
-        },
-        {
-          recipientAllianceId: recipient.id,
-          type: AllianceRelationshipType.WAR,
-        },
-        {
-          recipientAllianceId: recipient.id,
-          type: AllianceRelationshipType.PEACE,
-        },
-        {
-          recipientAllianceId: recipient.id,
-          type: AllianceRelationshipType.FRIENDSHIP,
-          permissions: { shareLivePositions: true },
-        },
-        {
-          recipientAllianceId: recipient.id,
-          type: AllianceRelationshipType.FRIENDSHIP,
-          contract: 'x'.repeat(20_001),
-        },
-      ];
-      for (const request of invalid) {
-        await expectError(
-          service.proposeRelationship(1, sender.id, request),
-          BadRequestException,
-        );
-      }
-      await service.proposeRelationship(1, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.TRADE_AGREEMENT,
-      });
-      await expectError(
-        service.proposeRelationship(1, sender.id, {
-          recipientAllianceId: recipient.id,
-          type: AllianceRelationshipType.ALLIANCE,
-        }),
-        BadRequestException,
-      );
-      expect(store.snapshot().relationshipProposals).toHaveLength(1);
-      expect(store.snapshot().relationships).toEqual([]);
-    });
-
-    it('only lets the recipient accept or decline and atomically replaces an active relationship with vassalage in sender direction', async () => {
-      const { store, service, sent, sender, recipient } = scenario();
-      store.seedActiveAllianceRelationship({
-        firstAllianceId: sender.id,
-        secondAllianceId: recipient.id,
-        type: AllianceRelationshipType.FRIENDSHIP,
-      });
-      const { id } = await service.proposeRelationship(1, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.VASSALAGE,
-        contract: 'Abkommen',
-      });
-
-      await expectError(
-        service.acceptRelationshipProposal(1, id),
-        ForbiddenException,
-      );
-      await service.acceptRelationshipProposal(2, id);
-
-      const relationships = await store.listActiveRelationships(sender.id);
-      expect(relationships).toEqual([
-        expect.objectContaining({
-          type: AllianceRelationshipType.VASSALAGE,
-          lordAllianceId: sender.id,
-          vassalAllianceId: recipient.id,
-          contract: 'Abkommen',
-        }),
-      ]);
-      expect(store.snapshot().relationshipProposals).toEqual([]);
-      expect(
-        store
-          .snapshot()
-          .relationships.filter(
-            (relationship) => relationship.endedAt === null,
-          ),
-      ).toHaveLength(1);
-      expect(
-        store
-          .snapshot()
-          .relationships.find(
-            (relationship) =>
-              relationship.type === AllianceRelationshipType.FRIENDSHIP,
-          )?.endedAt,
-      ).not.toBeNull();
-      expect(sent.map((message) => message.body).join('\n')).not.toContain(
-        'Abkommen',
-      );
-      await expectError(
-        service.declineRelationshipProposal(2, id),
-        NotFoundException,
-      );
-      await expectError(
-        service.withdrawRelationshipProposal(1, id),
-        NotFoundException,
-      );
-    });
-
-    it('only lets the sender withdraw and preserves active relationships when a proposal is declined or withdrawn', async () => {
-      const { store, service, sender, recipient } = scenario();
-      store.seedActiveAllianceRelationship({
-        firstAllianceId: sender.id,
-        secondAllianceId: recipient.id,
-        type: AllianceRelationshipType.FRIENDSHIP,
-      });
-      const first = await service.proposeRelationship(1, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.TRADE_AGREEMENT,
-      });
-      await expectError(
-        service.withdrawRelationshipProposal(2, first.id),
-        ForbiddenException,
-      );
-      await service.declineRelationshipProposal(2, first.id);
-      const second = await service.proposeRelationship(1, sender.id, {
-        recipientAllianceId: recipient.id,
-        type: AllianceRelationshipType.ALLIANCE,
-      });
-      await expectError(
-        service.declineRelationshipProposal(1, second.id),
-        ForbiddenException,
-      );
-      await service.withdrawRelationshipProposal(1, second.id);
-      await expect(store.listActiveRelationships(sender.id)).resolves.toEqual([
-        expect.objectContaining({ type: AllianceRelationshipType.FRIENDSHIP }),
-      ]);
     });
   });
 
