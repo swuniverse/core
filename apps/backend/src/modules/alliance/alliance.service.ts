@@ -311,21 +311,35 @@ export class AllianceService {
         throw new BadRequestException(ERR.invalidRelationshipProposal);
       }
       const type = request?.type;
+      const activeRelationship = (
+        await tx.listActiveRelationships(allianceId)
+      ).find(
+        (relationship) =>
+          relationship.firstAllianceId ===
+            Math.min(allianceId, recipientAllianceId) &&
+          relationship.secondAllianceId ===
+            Math.max(allianceId, recipientAllianceId),
+      );
+      const isOrdinaryType = [
+        AllianceRelationshipType.FRIENDSHIP,
+        AllianceRelationshipType.ALLIANCE,
+        AllianceRelationshipType.TRADE_AGREEMENT,
+        AllianceRelationshipType.VASSALAGE,
+      ].includes(type);
       if (
-        ![
-          AllianceRelationshipType.FRIENDSHIP,
-          AllianceRelationshipType.ALLIANCE,
-          AllianceRelationshipType.TRADE_AGREEMENT,
-          AllianceRelationshipType.VASSALAGE,
-        ].includes(type)
+        (!isOrdinaryType && type !== AllianceRelationshipType.PEACE) ||
+        (type === AllianceRelationshipType.PEACE &&
+          activeRelationship?.type !== AllianceRelationshipType.WAR) ||
+        (isOrdinaryType &&
+          activeRelationship?.type === AllianceRelationshipType.WAR)
       ) {
         throw new BadRequestException(ERR.invalidRelationshipProposal);
       }
       const contract = this.validateRelationshipContract(request?.contract);
-      const permissions = this.validateRelationshipPermissions(
-        type,
-        request?.permissions,
-      );
+      const permissions =
+        type === AllianceRelationshipType.PEACE
+          ? { treatAsFriend: false, shareLivePositions: false }
+          : this.validateRelationshipPermissions(type, request?.permissions);
       const proposal = await tx.insertRelationshipProposal({
         senderAllianceId: allianceId,
         recipientAllianceId,
@@ -347,6 +361,47 @@ export class AllianceService {
     return { id: messages.id };
   }
 
+  async endRelationship(
+    actorId: number,
+    relationshipId: number,
+  ): Promise<void> {
+    const messages = await this.mutate(async (tx) => {
+      const relationship = await tx.findActiveRelationship(relationshipId);
+      if (!relationship || relationship.type === AllianceRelationshipType.WAR) {
+        throw new NotFoundException(ERR.relationshipProposalNotFound);
+      }
+      const membership = await tx.findMembership(actorId);
+      if (
+        !membership ||
+        (membership.allianceId !== relationship.firstAllianceId &&
+          membership.allianceId !== relationship.secondAllianceId)
+      ) {
+        throw new ForbiddenException(ERR.forbidden);
+      }
+      const actorAlliance = await this.lockedAllianceRight(
+        tx,
+        actorId,
+        membership.allianceId,
+        'manageDiplomacy',
+      );
+      const counterpartAllianceId =
+        relationship.firstAllianceId === actorAlliance.id
+          ? relationship.secondAllianceId
+          : relationship.firstAllianceId;
+      await this.lockedAlliance(tx, counterpartAllianceId);
+      if (!(await tx.endNonWarRelationship(relationshipId))) {
+        throw new NotFoundException(ERR.relationshipProposalNotFound);
+      }
+      const actor = await tx.findPlayer(actorId);
+      const recipients = await tx.listMemberships(counterpartAllianceId);
+      return recipients.map((member) => ({
+        to: member.userId,
+        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${actorAlliance.name} die Beziehung beendet`,
+      }));
+    });
+    await this.send(messages);
+  }
+
   async acceptRelationshipProposal(
     actorId: number,
     proposalId: number,
@@ -359,6 +414,20 @@ export class AllianceService {
         proposal.recipientAllianceId,
         'manageDiplomacy',
       );
+      const activeRelationship = (
+        await tx.listActiveRelationships(proposal.senderAllianceId)
+      ).find(
+        (relationship) =>
+          relationship.firstAllianceId === proposal.firstAllianceId &&
+          relationship.secondAllianceId === proposal.secondAllianceId,
+      );
+      const proposalIsStillApplicable =
+        proposal.type === AllianceRelationshipType.PEACE
+          ? activeRelationship?.type === AllianceRelationshipType.WAR
+          : activeRelationship?.type !== AllianceRelationshipType.WAR;
+      if (!proposalIsStillApplicable) {
+        throw new BadRequestException(ERR.invalidRelationshipProposal);
+      }
       const relationship = await tx.acceptRelationshipProposal(proposalId);
       if (!relationship)
         throw new NotFoundException(ERR.relationshipProposalNotFound);
@@ -918,7 +987,8 @@ export class AllianceService {
       throw new BadRequestException(ERR.invalidRelationshipProposal);
     }
     const values = permissions as
-      { treatAsFriend?: unknown; shareLivePositions?: unknown } | undefined;
+      | { treatAsFriend?: unknown; shareLivePositions?: unknown }
+      | undefined;
     const treatAsFriend = values?.treatAsFriend ?? false;
     const shareLivePositions = values?.shareLivePositions ?? false;
     if (

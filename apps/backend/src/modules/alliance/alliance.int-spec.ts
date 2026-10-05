@@ -145,6 +145,39 @@ describe('alliance persistence (Postgres)', () => {
     ]);
   });
 
+  it('transitions war through an accepted peace proposal and atomically ends peace with pending changes', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+
+    await service.declareWar(leia.id, rogue.id, red.id);
+    const { id } = await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.PEACE,
+      contract: 'Waffenruhe',
+    });
+    await service.acceptRelationshipProposal(mon.id, id);
+    const [peace] = await store.listActiveRelationships(rogue.id);
+    expect(peace).toMatchObject({
+      type: AllianceRelationshipType.PEACE,
+      contract: 'Waffenruhe',
+      treatAsFriend: false,
+      shareLivePositions: false,
+    });
+
+    await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.FRIENDSHIP,
+    });
+    await service.endRelationship(mon.id, peace.id);
+
+    await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([]);
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual(
+      [],
+    );
+  });
+
   it('applies migration defaults to a new alliance', async () => {
     const leia = await rebel();
     const { id } = await service.found(leia.id, {

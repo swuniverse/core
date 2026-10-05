@@ -446,6 +446,42 @@ describe('AllianceDetailPage', () => {
     );
   });
 
+  it('lets diplomatic officers end an active non-war relationship', async () => {
+    const managed = withViewer(
+      detail({
+        relationships: [
+          {
+            id: 8,
+            counterparty: { id: 2, name: 'Red Squadron', color: null },
+            type: AllianceRelationshipType.PEACE,
+            startedAt: '2026-10-01T12:00:00.000Z',
+            permissions: { treatAsFriend: false, shareLivePositions: false },
+            vassalage: null,
+            hasContract: false,
+          },
+        ],
+      }),
+      AllianceRole.DIPLOMAT,
+      { manageDiplomacy: true },
+    );
+    routeGet({
+      '/alliances/1': managed,
+      '/alliances/1/diplomacy/proposals': [],
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderAt('/alliances/1');
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Beziehung beenden' }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.delete).toHaveBeenCalledWith(
+        '/alliances/relationships/8',
+      ),
+    );
+  });
+
   describe('diplomacy proposals', () => {
     it('shows confidential received proposals and server-authorized response controls', async () => {
       const managed = withViewer(detail(), AllianceRole.DIPLOMAT, {
@@ -520,6 +556,56 @@ describe('AllianceDetailPage', () => {
               treatAsFriend: true,
               shareLivePositions: true,
             },
+          },
+        ),
+      );
+    });
+
+    it('offers peace only for an active war and submits it without relationship permissions', async () => {
+      const managed = withViewer(
+        detail({
+          relationships: [
+            {
+              id: 8,
+              counterparty: { id: 2, name: 'Red Squadron', color: null },
+              type: AllianceRelationshipType.WAR,
+              startedAt: '2026-10-01T12:00:00.000Z',
+              permissions: { treatAsFriend: false, shareLivePositions: false },
+              vassalage: null,
+              hasContract: false,
+            },
+          ],
+        }),
+        AllianceRole.DIPLOMAT,
+        { manageDiplomacy: true },
+      );
+      routeGet({
+        '/alliances/1': managed,
+        '/alliances/1/diplomacy/proposals': [],
+      });
+
+      renderAt('/alliances/1');
+
+      fireEvent.change(await screen.findByLabelText('Empfängerallianz'), {
+        target: { value: '2' },
+      });
+      expect(
+        (screen.getByLabelText('Beziehungsart') as HTMLSelectElement).value,
+      ).toBe(AllianceRelationshipType.PEACE);
+      expect(screen.queryByLabelText('Als Freund behandeln')).toBeNull();
+      fireEvent.change(screen.getByLabelText('Vertragstext'), {
+        target: { value: 'Waffenruhe' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Vorschlag senden' }));
+
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/1/diplomacy/proposals',
+          {
+            recipientAllianceId: 2,
+            type: AllianceRelationshipType.PEACE,
+            contract: 'Waffenruhe',
+            permissions: { treatAsFriend: false, shareLivePositions: false },
           },
         ),
       );
