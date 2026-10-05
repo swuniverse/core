@@ -901,6 +901,97 @@ describe('AllianceService', () => {
       expect(store.snapshot().relationships).toEqual([]);
     });
 
+    it('lets a diplomat propose and accept peace only for an active war, preserving the war until acceptance', async () => {
+      const { store, service, sender, recipient } = scenario();
+      const war = store.seedActiveAllianceRelationship({
+        firstAllianceId: sender.id,
+        secondAllianceId: recipient.id,
+        type: AllianceRelationshipType.WAR,
+      });
+
+      const { id } = await service.proposeRelationship(3, sender.id, {
+        recipientAllianceId: recipient.id,
+        type: AllianceRelationshipType.PEACE,
+        contract: '  Waffenruhe  ',
+      });
+
+      await expect(store.listActiveRelationships(sender.id)).resolves.toEqual([
+        expect.objectContaining({
+          id: war.id,
+          type: AllianceRelationshipType.WAR,
+        }),
+      ]);
+      await service.acceptRelationshipProposal(2, id);
+      await expect(store.listActiveRelationships(sender.id)).resolves.toEqual([
+        expect.objectContaining({
+          type: AllianceRelationshipType.PEACE,
+          contract: 'Waffenruhe',
+          treatAsFriend: false,
+          shareLivePositions: false,
+          lordAllianceId: null,
+          vassalAllianceId: null,
+        }),
+      ]);
+
+      const noWar = scenario();
+      await expectError(
+        noWar.service.proposeRelationship(1, noWar.sender.id, {
+          recipientAllianceId: noWar.recipient.id,
+          type: AllianceRelationshipType.PEACE,
+        }),
+        BadRequestException,
+      );
+    });
+
+    it('does not let an obsolete peace proposal replace a war that was re-declared', async () => {
+      const { store, service, sender, recipient } = scenario();
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: sender.id,
+        secondAllianceId: recipient.id,
+        type: AllianceRelationshipType.WAR,
+      });
+      const { id } = await service.proposeRelationship(1, sender.id, {
+        recipientAllianceId: recipient.id,
+        type: AllianceRelationshipType.PEACE,
+      });
+      await service.declareWar(1, sender.id, recipient.id);
+
+      await expectError(
+        service.acceptRelationshipProposal(2, id),
+        NotFoundException,
+      );
+      await expect(store.listActiveRelationships(sender.id)).resolves.toEqual([
+        expect.objectContaining({ type: AllianceRelationshipType.WAR }),
+      ]);
+    });
+
+    it('lets either diplomatic party end a non-war relationship and removes its pending change proposal', async () => {
+      const { store, service, sent, sender, recipient } = scenario();
+      const peace = store.seedActiveAllianceRelationship({
+        firstAllianceId: sender.id,
+        secondAllianceId: recipient.id,
+        type: AllianceRelationshipType.PEACE,
+      });
+      await service.proposeRelationship(1, sender.id, {
+        recipientAllianceId: recipient.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+      });
+
+      await service.endRelationship(2, peace.id);
+
+      await expect(store.listActiveRelationships(sender.id)).resolves.toEqual(
+        [],
+      );
+      expect(store.snapshot().relationshipProposals).toEqual([]);
+      expect(messagesTo(sent, 1)).toEqual([
+        expect.stringContaining('Beziehung beendet'),
+      ]);
+      await expectError(
+        service.endRelationship(1, peace.id),
+        NotFoundException,
+      );
+    });
+
     it('only lets the recipient accept or decline and atomically replaces an active relationship with vassalage in sender direction', async () => {
       const { store, service, sent, sender, recipient } = scenario();
       store.seedActiveAllianceRelationship({

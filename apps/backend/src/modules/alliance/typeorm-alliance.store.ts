@@ -428,6 +428,43 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return relationship;
   }
 
+  async endNonWarRelationship(id: number) {
+    const relationship = await this.manager
+      .createQueryBuilder(AllianceRelationship, 'relationship')
+      .innerJoinAndSelect('relationship.firstParty', 'firstParty')
+      .innerJoinAndSelect('relationship.secondParty', 'secondParty')
+      .leftJoinAndSelect('relationship.lordParty', 'lordParty')
+      .leftJoinAndSelect('relationship.vassalParty', 'vassalParty')
+      .where('relationship.id = :id', { id })
+      .andWhere('relationship.endedAt IS NULL')
+      .andWhere('relationship.type <> :war', {
+        war: AllianceRelationshipType.WAR,
+      })
+      .setLock('pessimistic_write')
+      .getOne();
+    if (!relationship) return null;
+    await this.manager
+      .createQueryBuilder(DiplomacyParty, 'party')
+      .where('party.id IN (:...partyIds)', {
+        partyIds: [relationship.firstPartyId, relationship.secondPartyId],
+      })
+      .setLock('pessimistic_write')
+      .getMany();
+    await this.manager
+      .createQueryBuilder()
+      .update(AllianceRelationship)
+      .set({ endedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('id = :id', { id })
+      .andWhere('endedAt IS NULL')
+      .execute();
+    await this.manager.delete(AllianceRelationshipProposal, {
+      firstPartyId: relationship.firstPartyId,
+      secondPartyId: relationship.secondPartyId,
+    });
+    relationship.endedAt = new Date();
+    return toRelationship(relationship);
+  }
+
   async countMembers() {
     const rows = await this.manager
       .createQueryBuilder(AllianceMembership, 'm')

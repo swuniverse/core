@@ -448,6 +448,22 @@ export class InMemoryAllianceStore implements AllianceStore {
     return { ...relationship };
   }
 
+  async endNonWarRelationship(id: number) {
+    const relationship = this.state.relationships.find(
+      (entry) => entry.id === id && entry.endedAt === null,
+    );
+    if (!relationship || relationship.type === AllianceRelationshipType.WAR) {
+      return null;
+    }
+    relationship.endedAt = this.now();
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) =>
+        proposal.firstAllianceId !== relationship.firstAllianceId ||
+        proposal.secondAllianceId !== relationship.secondAllianceId,
+    );
+    return { ...relationship };
+  }
+
   async findMembership(userId: number) {
     const membership = this.state.memberships.find((m) => m.userId === userId);
     return membership ? { ...membership } : null;

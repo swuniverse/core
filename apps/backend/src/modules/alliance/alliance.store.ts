@@ -163,6 +163,8 @@ export interface AllianceStore {
   acceptRelationshipProposal(
     id: number,
   ): Promise<AllianceRelationshipRecord | null>;
+  /** Ends an active non-war relationship and removes pending proposals for its pair. */
+  endNonWarRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Ordered by join time, oldest first. */

@@ -360,6 +360,39 @@ export function AllianceDetailPage() {
   const canManageApplications =
     alliance?.viewer.actions.manageApplications ?? false;
   const canManageDiplomacy = alliance?.viewer.actions.manageDiplomacy ?? false;
+  const activeRelationshipByCounterparty = new Map(
+    (alliance?.relationships ?? []).map((relationship) => [
+      relationship.counterparty.id,
+      relationship,
+    ]),
+  );
+  const proposalTargets = [
+    ...(alliance?.viewer.actions.warTargets ?? []),
+    ...(alliance?.relationships.map(
+      (relationship) => relationship.counterparty,
+    ) ?? []),
+  ].filter(
+    (target, index, targets) =>
+      targets.findIndex((candidate) => candidate.id === target.id) === index,
+  );
+  const selectedRelationship = activeRelationshipByCounterparty.get(
+    Number(proposalRecipientId),
+  );
+  const allowedProposalTypes = selectedRelationship
+    ? selectedRelationship.type === AllianceRelationshipType.WAR
+      ? [AllianceRelationshipType.PEACE]
+      : [
+          AllianceRelationshipType.FRIENDSHIP,
+          AllianceRelationshipType.ALLIANCE,
+          AllianceRelationshipType.TRADE_AGREEMENT,
+          AllianceRelationshipType.VASSALAGE,
+        ].filter((type) => type !== selectedRelationship.type)
+    : [
+        AllianceRelationshipType.FRIENDSHIP,
+        AllianceRelationshipType.ALLIANCE,
+        AllianceRelationshipType.TRADE_AGREEMENT,
+        AllianceRelationshipType.VASSALAGE,
+      ];
 
   const reloadProposals = useCallback(async () => {
     if (!id || !canManageDiplomacy) {
@@ -699,11 +732,15 @@ export function AllianceDetailPage() {
                   recipientAllianceId: Number(proposalRecipientId),
                   type: proposalType,
                   contract: proposalContract,
-                  permissions: {
-                    treatAsFriend: proposalTreatAsFriend,
-                    shareLivePositions:
-                      proposalType === 'ALLIANCE' && proposalShareLivePositions,
-                  },
+                  permissions:
+                    proposalType === AllianceRelationshipType.PEACE
+                      ? { treatAsFriend: false, shareLivePositions: false }
+                      : {
+                          treatAsFriend: proposalTreatAsFriend,
+                          shareLivePositions:
+                            proposalType === 'ALLIANCE' &&
+                            proposalShareLivePositions,
+                        },
                 });
                 setProposalContract('');
                 setProposalTreatAsFriend(false);
@@ -716,11 +753,24 @@ export function AllianceDetailPage() {
               <select
                 value={proposalRecipientId}
                 disabled={busy}
-                onChange={(event) => setProposalRecipientId(event.target.value)}
+                onChange={(event) => {
+                  const recipientId = event.target.value;
+                  setProposalRecipientId(recipientId);
+                  const relationship = activeRelationshipByCounterparty.get(
+                    Number(recipientId),
+                  );
+                  setProposalType(
+                    relationship?.type === AllianceRelationshipType.WAR
+                      ? AllianceRelationshipType.PEACE
+                      : AllianceRelationshipType.FRIENDSHIP,
+                  );
+                  setProposalTreatAsFriend(false);
+                  setProposalShareLivePositions(false);
+                }}
                 className={inputClass}
               >
                 <option value="">Zielallianz wählen</option>
-                {actions.warTargets.map((target) => (
+                {proposalTargets.map((target) => (
                   <option key={target.id} value={target.id}>
                     {target.name}
                   </option>
@@ -739,10 +789,11 @@ export function AllianceDetailPage() {
                 }}
                 className={inputClass}
               >
-                <option value="FRIENDSHIP">Freundschaft</option>
-                <option value="ALLIANCE">Bündnis</option>
-                <option value="TRADE_AGREEMENT">Handelsabkommen</option>
-                <option value="VASSALAGE">Vasallenschaft</option>
+                {allowedProposalTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {relationshipTypeLabel(type)}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="space-y-1 md:col-span-2">
@@ -756,28 +807,32 @@ export function AllianceDetailPage() {
                 className={inputClass}
               />
             </label>
-            <label className="flex items-center gap-2 text-xs text-swu-muted">
-              <input
-                type="checkbox"
-                checked={proposalTreatAsFriend}
-                disabled={busy}
-                onChange={(event) =>
-                  setProposalTreatAsFriend(event.target.checked)
-                }
-              />
-              Als Freund behandeln
-            </label>
-            <label className="flex items-center gap-2 text-xs text-swu-muted">
-              <input
-                type="checkbox"
-                checked={proposalShareLivePositions}
-                disabled={busy || proposalType !== 'ALLIANCE'}
-                onChange={(event) =>
-                  setProposalShareLivePositions(event.target.checked)
-                }
-              />
-              Live-Kartenpositionen teilen (nur Bündnis)
-            </label>
+            {proposalType !== AllianceRelationshipType.PEACE && (
+              <>
+                <label className="flex items-center gap-2 text-xs text-swu-muted">
+                  <input
+                    type="checkbox"
+                    checked={proposalTreatAsFriend}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setProposalTreatAsFriend(event.target.checked)
+                    }
+                  />
+                  Als Freund behandeln
+                </label>
+                <label className="flex items-center gap-2 text-xs text-swu-muted">
+                  <input
+                    type="checkbox"
+                    checked={proposalShareLivePositions}
+                    disabled={busy || proposalType !== 'ALLIANCE'}
+                    onChange={(event) =>
+                      setProposalShareLivePositions(event.target.checked)
+                    }
+                  />
+                  Live-Kartenpositionen teilen (nur Bündnis)
+                </label>
+              </>
+            )}
             <div className="md:col-span-2">
               <button
                 type="submit"
@@ -914,6 +969,29 @@ export function AllianceDetailPage() {
                       {labels.join(' · ')}
                     </p>
                   )}
+                  {canManageDiplomacy &&
+                    relationship.type !== AllianceRelationshipType.WAR && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className={dangerButtonClass}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Die Beziehung mit ${relationship.counterparty.name} wirklich beenden?`,
+                            )
+                          )
+                            return;
+                          void run(() =>
+                            api.delete(
+                              `/alliances/relationships/${relationship.id}`,
+                            ),
+                          );
+                        }}
+                      >
+                        Beziehung beenden
+                      </button>
+                    )}
                   {relationship.hasContract && (
                     <div className="space-y-2">
                       <button

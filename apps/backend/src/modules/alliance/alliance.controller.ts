@@ -130,6 +130,14 @@ export class AllianceController {
     );
   }
 
+  @Delete('relationships/:relationshipId')
+  endRelationship(
+    @Request() req: AuthRequest,
+    @Param('relationshipId', ParseIntPipe) relationshipId: number,
+  ) {
+    return this.allianceService.endRelationship(req.user.sub, relationshipId);
+  }
+
   @Get(':id/relationships/:relationshipId/contract')
   relationshipContract(
     @Param('id', ParseIntPipe) id: number,
