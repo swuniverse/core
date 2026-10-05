@@ -21,6 +21,10 @@ import type {
 import { ColonyFieldDialog } from './components/ColonyFieldDialog';
 import { ColonyOverview } from './components/ColonyOverview';
 import { PanelInfo } from './components/PanelInfo';
+import {
+  resolveBuildingEpsProc,
+  SWU_SOLAR_BUILDING_ENERGY_FACTOR,
+} from '@swuniverse/shared';
 import { useSwuColonyEcosystem } from './useSwuColonyEcosystem';
 import { PanelBuild } from './components/PanelBuild';
 import { PanelShipyard } from './components/PanelShipyard';
@@ -647,8 +651,8 @@ export function ColoniesPage() {
 export function ColonyDetail({
   colony,
   commodities,
-  buildingDefs,
-  allBuildingDefs,
+  buildingDefs: catalogBuildingDefs,
+  allBuildingDefs: catalogAllBuildingDefs,
   fieldCategories,
   shipClasses,
   terraformingDefs,
@@ -785,6 +789,29 @@ export function ColonyDetail({
   ) => Promise<BuildingMassActionResult>;
 }) {
   const ecosystem = useSwuColonyEcosystem(colony.id);
+  // Solar-Gebaeude zeigen den echten Ertrag dieser Kolonie statt der Katalog-Pauschale.
+  const solarOutputTJ = ecosystem?.solarOutputTJ ?? null;
+  const withSolarOutput = (defs: BuildingDef[]) =>
+    solarOutputTJ == null
+      ? defs
+      : defs.map((b) =>
+          b.id in SWU_SOLAR_BUILDING_ENERGY_FACTOR
+            ? {
+                ...b,
+                epsProc: resolveBuildingEpsProc(b.id, b.epsProc, solarOutputTJ),
+              }
+            : b,
+        );
+  const buildingDefs = useMemo(
+    () => withSolarOutput(catalogBuildingDefs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [catalogBuildingDefs, solarOutputTJ],
+  );
+  const allBuildingDefs = useMemo(
+    () => withSolarOutput(catalogAllBuildingDefs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [catalogAllBuildingDefs, solarOutputTJ],
+  );
   const buildingMap = useMemo<Record<number, BuildingDef>>(
     () => Object.fromEntries(allBuildingDefs.map((b) => [b.id, b])),
     [allBuildingDefs],
