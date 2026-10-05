@@ -9,6 +9,7 @@ import {
   AllianceRecord,
   AllianceStore,
   ApplicationRecord,
+  AllianceRelationshipProposalRecord,
   AllianceRelationshipRecord,
   FactionRecord,
   MembershipRecord,
@@ -23,6 +24,7 @@ interface State {
   memberships: MembershipRecord[];
   applications: ApplicationRecord[];
   relationships: AllianceRelationshipRecord[];
+  relationshipProposals: AllianceRelationshipProposalRecord[];
   nextId: number;
   clock: number;
 }
@@ -50,6 +52,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     memberships: [],
     applications: [],
     relationships: [],
+    relationshipProposals: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
@@ -170,12 +173,6 @@ export class InMemoryAllianceStore implements AllianceStore {
       shareLivePositions: data.shareLivePositions ?? false,
       lordAllianceId,
       vassalAllianceId,
-      ...data,
-      contract,
-      firstAllianceId,
-      secondAllianceId,
-      lordAllianceId,
-      vassalAllianceId,
     };
     this.state.relationships.push(relationship);
     return relationship;
@@ -268,6 +265,10 @@ export class InMemoryAllianceStore implements AllianceStore {
         relationship.firstAllianceId !== id &&
         relationship.secondAllianceId !== id,
     );
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) =>
+        proposal.firstAllianceId !== id && proposal.secondAllianceId !== id,
+    );
   }
 
   async listActiveRelationships(allianceId: number) {
@@ -322,6 +323,11 @@ export class InMemoryAllianceStore implements AllianceStore {
         relationship.endedAt = now;
       }
     }
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) =>
+        proposal.firstAllianceId !== first ||
+        proposal.secondAllianceId !== second,
+    );
     this.state.relationships.push({
       id: this.nextId(),
       firstAllianceId: first,
@@ -335,6 +341,111 @@ export class InMemoryAllianceStore implements AllianceStore {
       lordAllianceId: null,
       vassalAllianceId: null,
     });
+  }
+
+  async listRelationshipProposals(allianceId: number) {
+    return this.state.relationshipProposals
+      .filter(
+        (proposal) =>
+          proposal.senderAllianceId === allianceId ||
+          proposal.recipientAllianceId === allianceId,
+      )
+      .sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+      )
+      .map((proposal) => ({ ...proposal }));
+  }
+
+  async findRelationshipProposal(id: number) {
+    const proposal = this.state.relationshipProposals.find(
+      (entry) => entry.id === id,
+    );
+    return proposal ? { ...proposal } : null;
+  }
+
+  async insertRelationshipProposal(data: {
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    type: AllianceRelationshipType;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }) {
+    const firstAllianceId = Math.min(
+      data.senderAllianceId,
+      data.recipientAllianceId,
+    );
+    const secondAllianceId = Math.max(
+      data.senderAllianceId,
+      data.recipientAllianceId,
+    );
+    if (
+      this.state.relationshipProposals.some(
+        (proposal) =>
+          proposal.firstAllianceId === firstAllianceId &&
+          proposal.secondAllianceId === secondAllianceId,
+      )
+    ) {
+      throw new AllianceConstraintViolation('relationship_proposal');
+    }
+    const proposal: AllianceRelationshipProposalRecord = {
+      id: this.nextId(),
+      firstAllianceId,
+      secondAllianceId,
+      ...data,
+      createdAt: this.now(),
+    };
+    this.state.relationshipProposals.push(proposal);
+    return { ...proposal };
+  }
+
+  async deleteRelationshipProposal(id: number) {
+    const before = this.state.relationshipProposals.length;
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) => proposal.id !== id,
+    );
+    return this.state.relationshipProposals.length !== before;
+  }
+
+  async acceptRelationshipProposal(id: number) {
+    const proposal = this.state.relationshipProposals.find(
+      (entry) => entry.id === id,
+    );
+    if (!proposal) return null;
+    const now = this.now();
+    for (const relationship of this.state.relationships) {
+      if (
+        relationship.endedAt === null &&
+        relationship.firstAllianceId === proposal.firstAllianceId &&
+        relationship.secondAllianceId === proposal.secondAllianceId
+      ) {
+        relationship.endedAt = now;
+      }
+    }
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (entry) => entry.id !== id,
+    );
+    const relationship: AllianceRelationshipRecord = {
+      id: this.nextId(),
+      firstAllianceId: proposal.firstAllianceId,
+      secondAllianceId: proposal.secondAllianceId,
+      type: proposal.type,
+      startedAt: now,
+      endedAt: null,
+      contract: proposal.contract,
+      treatAsFriend: proposal.treatAsFriend,
+      shareLivePositions: proposal.shareLivePositions,
+      lordAllianceId:
+        proposal.type === AllianceRelationshipType.VASSALAGE
+          ? proposal.senderAllianceId
+          : null,
+      vassalAllianceId:
+        proposal.type === AllianceRelationshipType.VASSALAGE
+          ? proposal.recipientAllianceId
+          : null,
+    };
+    this.state.relationships.push(relationship);
+    return { ...relationship };
   }
 
   async findMembership(userId: number) {
