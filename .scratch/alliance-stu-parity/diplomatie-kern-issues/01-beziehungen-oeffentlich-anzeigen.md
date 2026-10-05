@@ -16,3 +16,7 @@
 - [ ] Die Allianzseite zeigt aktive Beziehungen und das öffentliche Vertragswerk verständlich an; ein Allianzmitglied erhält dabei keine zusätzlichen vertraulichen Daten.
 - [ ] Gespeicherte Beziehungsfreigaben lösen noch keine Wirkungen in Kampf, Karte, Scans, Transfer oder Zugang aus.
 - [ ] Service-, Migrations-, PostgreSQL- und Frontendtests decken öffentliche Sichtbarkeit, Fraktionsgrenze, Vasallenschaftsrichtung, Vertragsvalidierung und die Einzigkeit der aktiven Beziehung ab.
+
+## Answer
+
+Bereits implementiert in ccac081 feat(alliance): expose public relationships.
