@@ -15,6 +15,7 @@ import { Alliance } from './entities/alliance.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
 import { AllianceApplication } from './entities/alliance-application.entity';
 import { AllianceRelationship } from './entities/alliance-relationship.entity';
+import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import {
   AllianceConstraint,
   AllianceConstraintViolation,
@@ -231,6 +232,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     const alliance = await this.manager
       .save(Alliance, this.manager.create(Alliance, data))
       .catch(translateConstraintError);
+    await this.manager.insert(DiplomacyParty, { allianceId: alliance.id });
     return toAlliance(
       await this.manager.findOneByOrFail(Alliance, { id: alliance.id }),
     );

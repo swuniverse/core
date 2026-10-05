@@ -60,11 +60,11 @@ describe('alliance persistence (Postgres)', () => {
     const rogue = await alliance('Rogue Squadron', leia.id);
     const red = await alliance('Red Squadron', mon.id);
     const [{ id: roguePartyId }] = await dataSource.query(
-      'INSERT INTO "diplomacy_parties" ("allianceId") VALUES ($1) RETURNING "id"',
+      'SELECT "id" FROM "diplomacy_parties" WHERE "allianceId" = $1',
       [rogue.id],
     );
     const [{ id: redPartyId }] = await dataSource.query(
-      'INSERT INTO "diplomacy_parties" ("allianceId") VALUES ($1) RETURNING "id"',
+      'SELECT "id" FROM "diplomacy_parties" WHERE "allianceId" = $1',
       [red.id],
     );
     const firstPartyId = Math.min(roguePartyId, redPartyId);
