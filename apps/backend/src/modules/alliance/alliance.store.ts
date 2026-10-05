@@ -61,6 +61,19 @@ export interface AllianceRelationshipRecord {
   vassalAllianceId: number | null;
 }
 
+export interface AllianceRelationshipProposalRecord {
+  id: number;
+  firstAllianceId: number;
+  secondAllianceId: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract: string;
+  treatAsFriend: boolean;
+  shareLivePositions: boolean;
+  createdAt: Date;
+}
+
 export type AlliancePatch = Partial<
   Pick<
     AllianceRecord,
@@ -80,7 +93,8 @@ export type AllianceConstraint =
   | 'alliance_name'
   | 'membership_user'
   | 'alliance_president'
-  | 'application';
+  | 'application'
+  | 'relationship_proposal';
 
 export class AllianceConstraintViolation extends Error {
   constructor(readonly constraint: AllianceConstraint) {
@@ -131,6 +145,24 @@ export interface AllianceStore {
     firstAllianceId: number,
     secondAllianceId: number,
   ): Promise<void>;
+  listRelationshipProposals(
+    allianceId: number,
+  ): Promise<AllianceRelationshipProposalRecord[]>;
+  findRelationshipProposal(
+    id: number,
+  ): Promise<AllianceRelationshipProposalRecord | null>;
+  insertRelationshipProposal(data: {
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    type: AllianceRelationshipType;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }): Promise<AllianceRelationshipProposalRecord>;
+  deleteRelationshipProposal(id: number): Promise<boolean>;
+  acceptRelationshipProposal(
+    id: number,
+  ): Promise<AllianceRelationshipRecord | null>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Ordered by join time, oldest first. */

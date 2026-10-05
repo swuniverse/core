@@ -1,5 +1,9 @@
 import { DataSource } from 'typeorm';
-import { AllianceRelationshipType, AllianceRole, Faction } from '@swuniverse/shared';
+import {
+  AllianceRelationshipType,
+  AllianceRole,
+  Faction,
+} from '@swuniverse/shared';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -74,7 +78,12 @@ describe('alliance persistence (Postgres)', () => {
       `INSERT INTO "alliance_relationships" (
         "firstPartyId", "secondPartyId", "type", "contract"
       ) VALUES ($1, $2, $3, $4)`,
-      [firstPartyId, secondPartyId, AllianceRelationshipType.ALLIANCE, '[b]Pakt[/b]'],
+      [
+        firstPartyId,
+        secondPartyId,
+        AllianceRelationshipType.ALLIANCE,
+        '[b]Pakt[/b]',
+      ],
     );
 
     await expect(
@@ -93,6 +102,46 @@ describe('alliance persistence (Postgres)', () => {
         type: AllianceRelationshipType.ALLIANCE,
         hasContract: true,
       }),
+    ]);
+  });
+
+  it('enforces one canonical pending proposal and atomically accepts it into the sole active relationship', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const proposal = await store.insertRelationshipProposal({
+      senderAllianceId: rogue.id,
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.FRIENDSHIP,
+      contract: 'Vertraulich',
+      treatAsFriend: true,
+      shareLivePositions: false,
+    });
+
+    await expect(
+      store.insertRelationshipProposal({
+        senderAllianceId: red.id,
+        recipientAllianceId: rogue.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: '',
+        treatAsFriend: false,
+        shareLivePositions: false,
+      }),
+    ).rejects.toMatchObject({ code: '23505' });
+
+    const accepted = await store.transaction((tx) =>
+      tx.acceptRelationshipProposal(proposal.id),
+    );
+    expect(accepted).toMatchObject({
+      type: AllianceRelationshipType.FRIENDSHIP,
+      contract: 'Vertraulich',
+    });
+    await expect(
+      store.findRelationshipProposal(proposal.id),
+    ).resolves.toBeNull();
+    await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([
+      expect.objectContaining({ type: AllianceRelationshipType.FRIENDSHIP }),
     ]);
   });
 
@@ -292,7 +341,9 @@ describe('alliance persistence (Postgres)', () => {
       service.update(leia.id, rogue.id, { acceptsApplications: false }),
     ]);
 
-    expect((await store.findAlliance(rogue.id))?.acceptsApplications).toBe(false);
+    expect((await store.findAlliance(rogue.id))?.acceptsApplications).toBe(
+      false,
+    );
     expect(await store.listApplicationsForAlliance(rogue.id)).toEqual([]);
   });
 
@@ -300,7 +351,11 @@ describe('alliance persistence (Postgres)', () => {
     const leia = await rebel();
     const wedge = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
-    await store.insertMembership({ allianceId: rogue.id, userId: wedge.id, role: NONE });
+    await store.insertMembership({
+      allianceId: rogue.id,
+      userId: wedge.id,
+      role: NONE,
+    });
 
     const results = await Promise.allSettled([
       service.kick(leia.id, rogue.id, wedge.id),
