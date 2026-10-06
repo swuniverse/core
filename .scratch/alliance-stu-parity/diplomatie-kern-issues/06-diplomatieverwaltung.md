@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Krieg erklären), 03 (Abkommen vorschlagen und beantworten), 04 (Frieden und Beziehungswechsel), 05 (Beziehungsfreigaben und Vertragswerk aushandeln)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Die Verwaltungsantwort liefert aktive Beziehungen, den gegebenenfalls daneben bestehenden Beziehungsvorschlag und die ausstehende Änderung mit klarer Sender-/Empfängerrichtung.
 - [ ] Für jedes Objekt liefert der Server konkrete Fähigkeiten für Anlegen, Krieg erklären, Frieden anbieten, annehmen, ablehnen, zurückziehen, ändern und beenden.
@@ -17,3 +17,7 @@
 - [ ] Während einer Mutation sind betroffene Aktionen deaktiviert; nach Erfolg wird der autoritative Serverzustand neu geladen, bei Fehler bleibt die Ansicht bedienbar und zeigt eine verständliche Meldung.
 - [ ] Direkte Requests bleiben unabhängig von der UI für jedes Amt und jede Parteirichtung serverseitig autorisiert.
 - [ ] Frontend- und Servicetests decken alle Rollen, Richtungen, parallele Aktiv-/Vorschlagsdarstellung, Formvalidierung, Fehler und Reload ab.
+
+## Answer
+
+Implementiert in fdad441a7c18ce635e5175cae6f5e2159db3bd28; integriert als c01014a4750974f36cfe88dafba3ccb13853fe40.
