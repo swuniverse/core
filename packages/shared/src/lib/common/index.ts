@@ -86,6 +86,12 @@ export interface GlobalHeaderStatusDto {
     energyMax: number;
     storageUsed: number;
     storageMax: number;
+    colonyClassId: number;
+    celestialObject: {
+      classId: number | null;
+      name: string | null;
+      objectType: number;
+    } | null;
   }>;
 }
 import type { SpaceLocationDto } from '../starmap/index.js';

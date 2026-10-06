@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PlanetImg } from '../../components/PlanetImg';
 import type { DashboardData } from './types';
 
 export function DashboardColonies({ data }: { data: DashboardData }) {
@@ -22,9 +23,15 @@ export function DashboardColonies({ data }: { data: DashboardData }) {
                 to={`/colonies?selected=${colony.id}`}
                 className="flex items-center gap-3 border-b border-r border-swu-border/60 px-3 py-2 hover:bg-white/[0.04]"
               >
-                <img
-                  src="/assets/planets/201s.png"
-                  alt=""
+                <PlanetImg
+                  classId={
+                    colony.celestialObject?.classId ??
+                    colony.colonyClassId ??
+                    201
+                  }
+                  name={colony.celestialObject?.name}
+                  objectType={colony.celestialObject?.objectType}
+                  thumbnail
                   className="size-10 object-contain"
                 />
                 <div className="min-w-0 flex-1">

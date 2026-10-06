@@ -162,6 +162,9 @@ export function ColoniesPage() {
   >(null);
 
   const detailRequestSequenceRef = useRef(0);
+  // Zuletzt angeforderte Ziel-Kolonie: Hintergrund-Refreshs (Socket/Tick) fuer
+  // eine andere Kolonie duerfen eine laufende Navigation nicht ueberschreiben.
+  const targetColonyIdRef = useRef<number | null>(null);
   const initialSelectedIdRef = useRef(Number(searchParams.get('selected')));
 
   const loadColonyOverview = useCallback(async () => {
@@ -172,6 +175,7 @@ export function ColoniesPage() {
   const loadColonyDetail = useCallback(
     async (id: number) => {
       const requestSequence = ++detailRequestSequenceRef.current;
+      targetColonyIdRef.current = id;
       const [detail, buildings] = await Promise.all([
         colonyApi.fetchColonyDetail(id),
         // Pro Kolonie gefiltert: nur Gebaeude, die hier (ggf. via Terraforming) baubar sind.
@@ -244,6 +248,7 @@ export function ColoniesPage() {
     if (!urlSelectedId) {
       if (selected) {
         detailRequestSequenceRef.current += 1;
+        targetColonyIdRef.current = null;
         setSelected(null);
       }
     } else if (urlSelectedId !== selected?.id) {
@@ -262,19 +267,23 @@ export function ColoniesPage() {
       colonyId = payload.colonyId;
     }
 
-    if (typeof colonyId !== 'number' || colonyId !== selected?.id) return;
+    const currentId = targetColonyIdRef.current ?? selected?.id;
+    if (typeof colonyId !== 'number' || colonyId !== currentId) return;
     void loadColonyDetail(colonyId);
   });
 
   useSocket('SPACECRAFT_EVENT', () => {
-    if (selected) void loadColonyDetail(selected.id);
+    const currentId = targetColonyIdRef.current ?? selected?.id;
+    if (currentId) void loadColonyDetail(currentId);
   });
 
   useSocket('TICK', () => {
-    void loadAvailableBuildings(selected?.id);
+    void loadAvailableBuildings(targetColonyIdRef.current ?? selected?.id);
   });
 
   const goBack = () => {
+    detailRequestSequenceRef.current += 1;
+    targetColonyIdRef.current = null;
     setSelected(null);
     setSearchParams({}, { replace: true });
   };
@@ -296,7 +305,7 @@ export function ColoniesPage() {
       <ColonyOverview
         colonies={colonies}
         commodities={commodities}
-        onSelect={(id) => loadColonyDetail(id)}
+        onSelect={(id) => setSearchParams({ selected: String(id) })}
       />
     );
 

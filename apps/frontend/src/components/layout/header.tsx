@@ -6,6 +6,7 @@ import type {
 } from '@swuniverse/shared';
 import { useAuthStore } from '../../stores/auth.store';
 import { api } from '../../services/api';
+import { PlanetImg } from '../PlanetImg';
 import { useSocket } from '../../hooks/use-socket';
 
 type ShipNotice = SpacecraftEventPayload & { id: number };
@@ -206,9 +207,15 @@ export function Header() {
                 to={`/colonies?selected=${colony.id}`}
                 className="flex min-w-[72px] items-center gap-1 border border-swu-border bg-black/20 px-1.5 py-1 hover:border-swu-accent"
               >
-                <img
-                  src="/assets/planets/201s.png"
-                  alt=""
+                <PlanetImg
+                  classId={
+                    colony.celestialObject?.classId ??
+                    colony.colonyClassId ??
+                    201
+                  }
+                  name={colony.celestialObject?.name}
+                  objectType={colony.celestialObject?.objectType}
+                  thumbnail
                   className="size-7 object-contain"
                 />
                 <span className="min-w-0 truncate text-swu-primary">

@@ -39,14 +39,17 @@ export class DashboardService {
       this.userRepo.findOneByOrFail({ id: userId }),
       this.colonyRepo.find({
         where: { userId, isAbandoned: false },
-        select: [
-          'id',
-          'name',
-          'energy',
-          'energyMax',
-          'storageUsed',
-          'storageMax',
-        ],
+        relations: { celestialObject: true },
+        select: {
+          id: true,
+          name: true,
+          energy: true,
+          energyMax: true,
+          storageUsed: true,
+          storageMax: true,
+          colonyClassId: true,
+          celestialObject: { classId: true, name: true, objectType: true },
+        },
         order: { id: 'ASC' },
       }),
       this.messageRepo.count({
