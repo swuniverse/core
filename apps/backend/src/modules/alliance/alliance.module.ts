@@ -12,6 +12,7 @@ import { AllianceRelationship } from './entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from './entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
+import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DiplomacyParty } from './entities/diplomacy-party.entity';
       AllianceRelationship,
       AllianceRelationshipProposal,
       AllianceRelationshipChangeProposal,
+      AllianceDiplomacyChronicleEntry,
     ]),
     MessagingModule,
   ],

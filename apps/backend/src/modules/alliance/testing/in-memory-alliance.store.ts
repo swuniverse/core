@@ -5,6 +5,7 @@ import {
 } from '@swuniverse/shared';
 import {
   AllianceConstraintViolation,
+  AllianceDiplomacyChronicleEntryRecord,
   AlliancePatch,
   AllianceRecord,
   AllianceStore,
@@ -27,6 +28,7 @@ interface State {
   relationships: AllianceRelationshipRecord[];
   relationshipProposals: AllianceRelationshipProposalRecord[];
   relationshipChangeProposals: AllianceRelationshipChangeProposalRecord[];
+  diplomacyChronicleEntries: AllianceDiplomacyChronicleEntryRecord[];
   nextId: number;
   clock: number;
 }
@@ -56,6 +58,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     relationships: [],
     relationshipProposals: [],
     relationshipChangeProposals: [],
+    diplomacyChronicleEntries: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
@@ -551,6 +554,42 @@ export class InMemoryAllianceStore implements AllianceStore {
         (proposal) => proposal.relationshipId !== relationship.id,
       );
     return { ...relationship };
+  }
+
+  async appendDiplomacyChronicleEntry(
+    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ) {
+    this.state.diplomacyChronicleEntries.push({
+      id: this.nextId(),
+      ...data,
+      occurredAt: this.now(),
+    });
+  }
+
+  async listDiplomacyChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ) {
+    return this.state.diplomacyChronicleEntries
+      .filter(
+        (entry) =>
+          entry.firstAllianceId === allianceId ||
+          entry.secondAllianceId === allianceId,
+      )
+      .filter(
+        (entry) =>
+          !cursor ||
+          entry.occurredAt < cursor.occurredAt ||
+          (entry.occurredAt.getTime() === cursor.occurredAt.getTime() &&
+            entry.id < cursor.id),
+      )
+      .sort(
+        (a, b) =>
+          b.occurredAt.getTime() - a.occurredAt.getTime() || b.id - a.id,
+      )
+      .slice(0, limit)
+      .map((entry) => ({ ...entry }));
   }
 
   async findMembership(userId: number) {

@@ -9,6 +9,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AllianceRelationshipType,
   AllianceRole,
+  type AllianceDiplomacyChronicleDto,
+  type AllianceDiplomacyChronicleEntryDto,
   type AllianceApplicationDto,
   type AllianceDetailDto,
   type AllianceMemberDto,
@@ -96,6 +98,19 @@ function BackLink({ to, label }: { to: string; label: string }) {
       ← {label}
     </Link>
   );
+}
+
+function chronicleEventLabel(entry: AllianceDiplomacyChronicleEntryDto) {
+  switch (entry.type) {
+    case 'WAR_DECLARED':
+      return 'Krieg erklärt';
+    case 'RELATIONSHIP_STARTED':
+      return `${relationshipTypeLabel(entry.relationship.type)} begonnen`;
+    case 'RELATIONSHIP_CHANGED':
+      return `${relationshipTypeLabel(entry.relationship.type)} geändert`;
+    case 'RELATIONSHIP_ENDED':
+      return `${relationshipTypeLabel(entry.relationship.type)} beendet`;
+  }
 }
 
 // --- List ---
@@ -361,6 +376,8 @@ export function AllianceDetailPage() {
   const [loadingContractId, setLoadingContractId] = useState<number | null>(
     null,
   );
+  const [chronicle, setChronicle] =
+    useState<AllianceDiplomacyChronicleDto | null>(null);
   const [warTargetId, setWarTargetId] = useState('');
   const [proposalRecipientId, setProposalRecipientId] = useState('');
   const [proposalType, setProposalType] = useState<AllianceRelationshipType>(
@@ -440,6 +457,34 @@ export function AllianceDetailPage() {
     void reloadChangeProposals().catch(() => undefined);
   }, [reloadChangeProposals]);
 
+  const reloadChronicle = useCallback(async () => {
+    if (!id) return;
+    try {
+      const response = await api.get<AllianceDiplomacyChronicleDto>(
+        `/alliances/${id}/diplomacy/chronicle`,
+      );
+      setChronicle(Array.isArray(response?.entries) ? response : null);
+    } catch {
+      setChronicle(null);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+    if (!id || !alliance) return undefined;
+    void api
+      .get<AllianceDiplomacyChronicleDto>(`/alliances/${id}/diplomacy/chronicle`)
+      .then((response) => {
+        if (active) setChronicle(Array.isArray(response?.entries) ? response : null);
+      })
+      .catch(() => {
+        if (active) setChronicle(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [alliance, id]);
+
   const reloadApplications = useCallback(async () => {
     if (!id || !canManageApplications) {
       setApplications([]);
@@ -503,6 +548,7 @@ export function AllianceDetailPage() {
       }
       await Promise.all([
         reload(),
+        reloadChronicle(),
         reloadApplications(),
         reloadProposals(),
         reloadChangeProposals(),
@@ -762,6 +808,32 @@ export function AllianceDetailPage() {
         ) : (
           <p className="text-sm italic text-swu-muted">
             Keine Allianz-Beschreibung hinterlegt
+          </p>
+        )}
+      </section>
+
+      <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
+        <h2 className="text-sm font-bold text-swu-primary">Diplomatie-Chronik</h2>
+        {chronicle?.entries.length ? (
+          <ol className="space-y-2 text-sm">
+            {chronicle.entries.map((entry) => (
+              <li key={entry.id} className="border-l-2 border-swu-border pl-3">
+                <p className="font-medium text-swu-text">
+                  {chronicleEventLabel(entry)}: {entry.firstAlliance.name} –{' '}
+                  {entry.secondAlliance.name}
+                  {entry.relationship.vassalage &&
+                    ` (${entry.relationship.vassalage.lordAllianceId === alliance.id ? 'Lehnsherr' : 'Vasall'})`}
+                </p>
+                <p className="text-xs text-swu-muted">
+                  {entry.actor?.name ?? 'Unbekannt'} ·{' '}
+                  {dateFormatter.format(new Date(entry.occurredAt))}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm italic text-swu-muted">
+            Keine öffentlichen Diplomatieereignisse vorhanden
           </p>
         )}
       </section>

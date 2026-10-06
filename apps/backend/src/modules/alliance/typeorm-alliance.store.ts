@@ -23,8 +23,12 @@ import { AllianceRelationshipProposal } from './entities/alliance-relationship-p
 import { AllianceRelationshipChangeProposal } from './entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import {
+  AllianceDiplomacyChronicleEntry,
+} from './entities/alliance-diplomacy-chronicle-entry.entity';
+import {
   AllianceConstraint,
   AllianceConstraintViolation,
+  AllianceDiplomacyChronicleEntryRecord,
   AlliancePatch,
   AllianceRecord,
   AllianceRelationshipChangeProposalRecord,
@@ -109,6 +113,25 @@ function toApplication(application: AllianceApplication): ApplicationRecord {
     allianceId: application.allianceId,
     userId: application.userId,
     createdAt: application.createdAt,
+  };
+}
+
+function toChronicleEntry(
+  entry: AllianceDiplomacyChronicleEntry,
+): AllianceDiplomacyChronicleEntryRecord {
+  return {
+    id: entry.id,
+    eventType: entry.eventType,
+    actorUserId: entry.actorUserId,
+    actorName: entry.actorName,
+    firstAllianceId: entry.firstAllianceId,
+    firstAllianceName: entry.firstAllianceName,
+    secondAllianceId: entry.secondAllianceId,
+    secondAllianceName: entry.secondAllianceName,
+    relationshipType: entry.relationshipType,
+    lordAllianceId: entry.lordAllianceId,
+    vassalAllianceId: entry.vassalAllianceId,
+    occurredAt: entry.occurredAt,
   };
 }
 
@@ -577,6 +600,35 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     proposal.relationship.treatAsFriend = proposal.treatAsFriend;
     proposal.relationship.shareLivePositions = proposal.shareLivePositions;
     return toRelationship(proposal.relationship);
+  }
+
+  async appendDiplomacyChronicleEntry(
+    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ) {
+    await this.manager.insert(AllianceDiplomacyChronicleEntry, data);
+  }
+
+  async listDiplomacyChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ) {
+    const query = this.manager
+      .createQueryBuilder(AllianceDiplomacyChronicleEntry, 'entry')
+      .where(
+        '(entry.firstAllianceId = :allianceId OR entry.secondAllianceId = :allianceId)',
+        { allianceId },
+      )
+      .orderBy('entry.occurredAt', 'DESC')
+      .addOrderBy('entry.id', 'DESC')
+      .take(limit);
+    if (cursor) {
+      query.andWhere(
+        '(entry.occurredAt < :occurredAt OR (entry.occurredAt = :occurredAt AND entry.id < :id))',
+        cursor,
+      );
+    }
+    return (await query.getMany()).map(toChronicleEntry);
   }
 
   async endNonWarRelationship(id: number) {

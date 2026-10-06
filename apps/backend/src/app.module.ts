@@ -90,6 +90,7 @@ import { AllianceMembership } from './modules/alliance/entities/alliance-members
 import { AllianceApplication } from './modules/alliance/entities/alliance-application.entity';
 import { AllianceRelationship } from './modules/alliance/entities/alliance-relationship.entity';
 import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.entity';
+import { AllianceDiplomacyChronicleEntry } from './modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 
 @Module({
   imports: [
@@ -169,6 +170,7 @@ import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.enti
           AllianceApplication,
           DiplomacyParty,
           AllianceRelationship,
+          AllianceDiplomacyChronicleEntry,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',

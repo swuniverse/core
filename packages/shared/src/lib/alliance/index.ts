@@ -128,6 +128,33 @@ export interface AllianceDiplomacyDto {
   changes: AllianceRelationshipChangeProposalDto[];
 }
 
+export enum AllianceDiplomacyChronicleEventType {
+  WAR_DECLARED = 'WAR_DECLARED',
+  RELATIONSHIP_STARTED = 'RELATIONSHIP_STARTED',
+  RELATIONSHIP_CHANGED = 'RELATIONSHIP_CHANGED',
+  RELATIONSHIP_ENDED = 'RELATIONSHIP_ENDED',
+}
+
+/** Immutable, public historical snapshot; it never exposes contracts or proposals. */
+export interface AllianceDiplomacyChronicleEntryDto {
+  id: number;
+  type: AllianceDiplomacyChronicleEventType;
+  actor: { userId: number; name: string } | null;
+  firstAlliance: { id: number; name: string };
+  secondAlliance: { id: number; name: string };
+  relationship: {
+    type: AllianceRelationshipType;
+    vassalage: AllianceVassalageDto | null;
+  };
+  occurredAt: string;
+}
+
+export interface AllianceDiplomacyChronicleDto {
+  entries: AllianceDiplomacyChronicleEntryDto[];
+  /** Opaque cursor for the next page, or null when there are no older entries. */
+  nextCursor: string | null;
+}
+
 export interface AllianceDetailDto extends AllianceSummaryDto {
   homepage: string;
   /** Raw BBCode description as stored, for the edit form. */

@@ -290,7 +290,7 @@ describe('AllianceDetailPage', () => {
         {},
       );
     });
-    expect(apiMocks.get).toHaveBeenCalledTimes(2);
+    expect(apiMocks.get).toHaveBeenCalledTimes(4);
   });
 
   it('hides war declaration without the server capability', async () => {
@@ -369,6 +369,34 @@ describe('AllianceDetailPage', () => {
         .getByRole('heading', { name: 'Rogue Squadron' })
         .getAttribute('style'),
     ).toContain('color: rgb(255, 0, 0)');
+  });
+
+  it('shows the public diplomacy chronicle without confidential proposal data', async () => {
+    routeGet({
+      '/alliances/1': detail(),
+      '/alliances/1/diplomacy/chronicle': {
+        entries: [
+          {
+            id: 7,
+            type: 'WAR_DECLARED',
+            actor: { userId: 1, name: 'Leia' },
+            firstAlliance: { id: 1, name: 'Rogue Squadron' },
+            secondAlliance: { id: 2, name: 'Red Squadron' },
+            relationship: { type: AllianceRelationshipType.WAR, vassalage: null },
+            occurredAt: '2026-10-03T12:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    renderAt('/alliances/1');
+
+    expect(await screen.findByText('Diplomatie-Chronik')).toBeTruthy();
+    expect(screen.getByText(/Krieg erklärt: Rogue Squadron – Red Squadron/)).toBeTruthy();
+    expect(screen.getByText(/Leia · 03\.10\.2026/)).toBeTruthy();
+    expect(apiMocks.get).toHaveBeenCalledWith('/alliances/1/diplomacy/chronicle');
+    expect(screen.queryByText('Vertraulicher Vertragsentwurf')).toBeNull();
   });
 
   it('does not execute HTML in the description', async () => {
@@ -489,6 +517,7 @@ describe('AllianceDetailPage', () => {
       });
       routeGet({
         '/alliances/1': managed,
+        '/alliances/1/diplomacy/chronicle': { entries: [], nextCursor: null },
         '/alliances/1/diplomacy/proposals': [
           {
             id: 9,
@@ -508,7 +537,7 @@ describe('AllianceDetailPage', () => {
       expect(
         await screen.findByText('Vertrauliche Beziehungsvorschläge'),
       ).toBeTruthy();
-      expect(screen.getByText('Vertraulich')).toBeTruthy();
+      expect(await screen.findByText('Vertraulich')).toBeTruthy();
       fireEvent.click(screen.getByRole('button', { name: 'Annehmen' }));
       await waitFor(() =>
         expect(apiMocks.post).toHaveBeenCalledWith(
@@ -525,6 +554,7 @@ describe('AllianceDetailPage', () => {
       });
       routeGet({
         '/alliances/1': managed,
+        '/alliances/1/diplomacy/chronicle': { entries: [], nextCursor: null },
         '/alliances/1/diplomacy/proposals': [],
       });
 
@@ -581,6 +611,7 @@ describe('AllianceDetailPage', () => {
       );
       routeGet({
         '/alliances/1': managed,
+        '/alliances/1/diplomacy/chronicle': { entries: [], nextCursor: null },
         '/alliances/1/diplomacy/proposals': [],
       });
 
@@ -631,6 +662,7 @@ describe('AllianceDetailPage', () => {
       );
       routeGet({
         '/alliances/1': managed,
+        '/alliances/1/diplomacy/chronicle': { entries: [], nextCursor: null },
         '/alliances/1/diplomacy/proposals': [],
         '/alliances/1/diplomacy/changes': [],
       });
@@ -692,6 +724,7 @@ describe('AllianceDetailPage', () => {
       );
       routeGet({
         '/alliances/1': managed,
+        '/alliances/1/diplomacy/chronicle': { entries: [], nextCursor: null },
         '/alliances/1/diplomacy/proposals': [],
         '/alliances/1/diplomacy/changes': [],
         '/alliances/1/relationships/8/contract': {

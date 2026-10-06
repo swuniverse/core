@@ -187,6 +187,40 @@ describe('alliance persistence (Postgres)', () => {
     await expect(store.findRelationshipChangeProposal(change.id)).resolves.toBeNull();
   });
 
+  it('persists immutable public chronicle snapshots without contract text', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+
+    await service.declareWar(leia.id, rogue.id, red.id);
+
+    const [entry] = await dataSource.query(
+      'SELECT * FROM "alliance_diplomacy_chronicle_entries"',
+    );
+    expect(entry).toMatchObject({
+      eventType: 'WAR_DECLARED',
+      actorUserId: leia.id,
+      actorName: leia.username,
+      firstAllianceName: 'Rogue Squadron',
+      secondAllianceName: 'Red Squadron',
+      relationshipType: AllianceRelationshipType.WAR,
+    });
+    expect(entry).not.toHaveProperty('contract');
+    await expect(
+      dataSource.query(
+        'UPDATE "alliance_diplomacy_chronicle_entries" SET "actorName" = $1 WHERE "id" = $2',
+        ['Changed', entry.id],
+      ),
+    ).rejects.toMatchObject({ message: expect.stringContaining('immutable') });
+    await expect(
+      dataSource.query(
+        'DELETE FROM "alliance_diplomacy_chronicle_entries" WHERE "id" = $1',
+        [entry.id],
+      ),
+    ).rejects.toMatchObject({ message: expect.stringContaining('immutable') });
+  });
+
   it('transitions war through an accepted peace proposal and atomically ends peace with pending changes', async () => {
     const leia = await rebel();
     const mon = await rebel();

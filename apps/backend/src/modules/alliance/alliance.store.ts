@@ -1,4 +1,5 @@
 import type {
+  AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
   Faction,
@@ -83,6 +84,21 @@ export interface AllianceRelationshipChangeProposalRecord {
   treatAsFriend: boolean;
   shareLivePositions: boolean;
   createdAt: Date;
+}
+
+export interface AllianceDiplomacyChronicleEntryRecord {
+  id: number;
+  eventType: AllianceDiplomacyChronicleEventType;
+  actorUserId: number | null;
+  actorName: string | null;
+  firstAllianceId: number;
+  firstAllianceName: string;
+  secondAllianceId: number;
+  secondAllianceName: string;
+  relationshipType: AllianceRelationshipType;
+  lordAllianceId: number | null;
+  vassalAllianceId: number | null;
+  occurredAt: Date;
 }
 
 export type AlliancePatch = Partial<
@@ -195,6 +211,14 @@ export interface AllianceStore {
   ): Promise<AllianceRelationshipRecord | null>;
   /** Ends an active non-war relationship and removes pending proposals for its pair. */
   endNonWarRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
+
+  appendDiplomacyChronicleEntry(data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>): Promise<void>;
+  /** Stable reverse chronological keyset pagination. */
+  listDiplomacyChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ): Promise<AllianceDiplomacyChronicleEntryRecord[]>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Ordered by join time, oldest first. */
