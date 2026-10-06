@@ -76,6 +76,14 @@ export class AllianceController {
     return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
   }
 
+  @Get(':id/diplomacy')
+  getDiplomacyManagement(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.getDiplomacyManagement(req.user.sub, id);
+  }
+
   @Get(':id/diplomacy/proposals')
   listRelationshipProposals(
     @Request() req: AuthRequest,
@@ -127,7 +135,10 @@ export class AllianceController {
     @Request() req: AuthRequest,
     @Param('proposalId', ParseIntPipe) proposalId: number,
   ) {
-    return this.allianceService.acceptRelationshipChange(req.user.sub, proposalId);
+    return this.allianceService.acceptRelationshipChange(
+      req.user.sub,
+      proposalId,
+    );
   }
 
   @Post('diplomacy/changes/:proposalId/decline')
@@ -135,7 +146,10 @@ export class AllianceController {
     @Request() req: AuthRequest,
     @Param('proposalId', ParseIntPipe) proposalId: number,
   ) {
-    return this.allianceService.declineRelationshipChange(req.user.sub, proposalId);
+    return this.allianceService.declineRelationshipChange(
+      req.user.sub,
+      proposalId,
+    );
   }
 
   @Delete('diplomacy/changes/:proposalId')

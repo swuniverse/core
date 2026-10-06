@@ -8,6 +8,8 @@ import {
 import {
   AllianceApplicationDto,
   AllianceDetailDto,
+  AllianceDiplomacyManagementDto,
+  AllianceDiplomacyCapabilitiesDto,
   AllianceMemberActionsDto,
   AllianceRelationshipChangeProposalDto,
   AllianceRelationshipContractDto,
@@ -278,6 +280,110 @@ export class AllianceService {
     await this.send(messages);
   }
 
+  async getDiplomacyManagement(
+    actorId: number,
+    allianceId: number,
+  ): Promise<AllianceDiplomacyManagementDto> {
+    const alliance = await this.requireAlliance(allianceId);
+    const membership = await this.ownMembership(
+      this.store,
+      actorId,
+      allianceId,
+    );
+    if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+
+    const [alliances, relationships, proposals, changes] = await Promise.all([
+      this.store.listAlliances(),
+      this.store.listActiveRelationships(allianceId),
+      this.store.listRelationshipProposals(allianceId),
+      this.store.listRelationshipChangeProposals(allianceId),
+    ]);
+    const changesByRelationship = new Map(
+      changes.map((change) => [change.relationshipId, change]),
+    );
+    const relationshipSummaries = await this.relationshipSummaries(
+      allianceId,
+      relationships,
+    );
+
+    return {
+      capabilities: { create: true },
+      targets: alliances
+        .filter(
+          (candidate) =>
+            candidate.id !== allianceId &&
+            candidate.factionId === alliance.factionId,
+        )
+        .map(({ id, name, color }) => ({ id, name, color })),
+      relationships: relationshipSummaries.map((summary) => {
+        const relationship = relationships.find(
+          (candidate) => candidate.id === summary.id,
+        )!;
+        const change = changesByRelationship.get(relationship.id);
+        return {
+          relationship: { ...summary, contract: relationship.contract },
+          change: change
+            ? {
+                ...this.toChangeProposalDto(change),
+                direction:
+                  change.senderAllianceId === allianceId ? 'SENT' : 'RECEIVED',
+              }
+            : null,
+          capabilities: this.diplomacyCapabilities(
+            relationship.type,
+            change?.senderAllianceId === allianceId
+              ? 'SENT'
+              : change
+                ? 'RECEIVED'
+                : null,
+            true,
+          ),
+        };
+      }),
+      proposals: proposals.map((proposal) => {
+        const direction =
+          proposal.senderAllianceId === allianceId ? 'SENT' : 'RECEIVED';
+        return {
+          proposal: this.toProposalDto(proposal),
+          direction,
+          capabilities: this.diplomacyCapabilities(
+            proposal.type,
+            direction,
+            false,
+          ),
+        };
+      }),
+      permissions: {
+        [AllianceRelationshipType.WAR]: {
+          treatAsFriend: false,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.PEACE]: {
+          treatAsFriend: false,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.FRIENDSHIP]: {
+          treatAsFriend: true,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.ALLIANCE]: {
+          treatAsFriend: true,
+          shareLivePositions: true,
+        },
+        [AllianceRelationshipType.TRADE_AGREEMENT]: {
+          treatAsFriend: true,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.VASSALAGE]: {
+          treatAsFriend: true,
+          shareLivePositions: false,
+        },
+      },
+    };
+  }
+
   async listRelationshipProposals(
     actorId: number,
     allianceId: number,
@@ -308,9 +414,8 @@ export class AllianceService {
     if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
       throw new ForbiddenException(ERR.forbidden);
     }
-    const proposals = await this.store.listRelationshipChangeProposals(
-      allianceId,
-    );
+    const proposals =
+      await this.store.listRelationshipChangeProposals(allianceId);
     return proposals.map((proposal) => this.toChangeProposalDto(proposal));
   }
 
@@ -380,16 +485,23 @@ export class AllianceService {
     return { id: result.id };
   }
 
-  async acceptRelationshipChange(actorId: number, proposalId: number): Promise<void> {
+  async acceptRelationshipChange(
+    actorId: number,
+    proposalId: number,
+  ): Promise<void> {
     const messages = await this.mutate(async (tx) => {
-      const proposal = await this.requireRelationshipChangeProposal(tx, proposalId);
+      const proposal = await this.requireRelationshipChangeProposal(
+        tx,
+        proposalId,
+      );
       const recipient = await this.lockedAllianceRight(
         tx,
         actorId,
         proposal.recipientAllianceId,
         'manageDiplomacy',
       );
-      const relationship = await tx.acceptRelationshipChangeProposal(proposalId);
+      const relationship =
+        await tx.acceptRelationshipChangeProposal(proposalId);
       if (!relationship) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
@@ -403,9 +515,15 @@ export class AllianceService {
     await this.send(messages);
   }
 
-  async declineRelationshipChange(actorId: number, proposalId: number): Promise<void> {
+  async declineRelationshipChange(
+    actorId: number,
+    proposalId: number,
+  ): Promise<void> {
     const messages = await this.mutate(async (tx) => {
-      const proposal = await this.requireRelationshipChangeProposal(tx, proposalId);
+      const proposal = await this.requireRelationshipChangeProposal(
+        tx,
+        proposalId,
+      );
       const recipient = await this.lockedAllianceRight(
         tx,
         actorId,
@@ -425,9 +543,15 @@ export class AllianceService {
     await this.send(messages);
   }
 
-  async withdrawRelationshipChange(actorId: number, proposalId: number): Promise<void> {
+  async withdrawRelationshipChange(
+    actorId: number,
+    proposalId: number,
+  ): Promise<void> {
     const messages = await this.mutate(async (tx) => {
-      const proposal = await this.requireRelationshipChangeProposal(tx, proposalId);
+      const proposal = await this.requireRelationshipChangeProposal(
+        tx,
+        proposalId,
+      );
       const sender = await this.lockedAllianceRight(
         tx,
         actorId,
@@ -1139,6 +1263,37 @@ export class AllianceService {
         shareLivePositions: proposal.shareLivePositions,
       },
       createdAt: proposal.createdAt.toISOString(),
+    };
+  }
+
+  private diplomacyCapabilities(
+    type: AllianceRelationshipType,
+    direction: 'SENT' | 'RECEIVED' | null,
+    active: boolean,
+  ): AllianceDiplomacyCapabilitiesDto {
+    if (!active) {
+      return {
+        create: false,
+        declareWar: false,
+        offerPeace: false,
+        accept: direction === 'RECEIVED',
+        decline: direction === 'RECEIVED',
+        withdraw: direction === 'SENT',
+        change: false,
+        end: false,
+      };
+    }
+    const isWar = type === AllianceRelationshipType.WAR;
+    const isPeace = type === AllianceRelationshipType.PEACE;
+    return {
+      create: false,
+      declareWar: true,
+      offerPeace: isWar,
+      accept: direction === 'RECEIVED',
+      decline: direction === 'RECEIVED',
+      withdraw: direction === 'SENT',
+      change: !isWar && !isPeace,
+      end: !isWar && !isPeace,
     };
   }
 

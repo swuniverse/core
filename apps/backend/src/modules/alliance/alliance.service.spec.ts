@@ -735,6 +735,166 @@ describe('AllianceService', () => {
     });
   });
 
+  describe('diplomacy management', () => {
+    function scenario() {
+      const ctx = setup();
+      const { store } = ctx;
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      store.addPlayer(3, 'Wedge');
+      store.addPlayer(4, 'Biggs');
+      store.addPlayer(5, 'Vader', EMPIRE.id);
+      const own = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+        [2, DIPLOMAT],
+        [3, VICE],
+        [4, NONE],
+      ]);
+      const counterparty = store.seedAlliance({ name: 'Red Squadron' }, []);
+      const other = store.seedAlliance({ name: 'Gold Squadron' }, []);
+      const proposer = store.seedAlliance({ name: 'Blue Squadron' }, []);
+      const foreign = store.seedAlliance(
+        { name: 'Black Squadron', factionId: EMPIRE.id },
+        [[5, PRESIDENT]],
+      );
+      return { ...ctx, own, counterparty, other, proposer, foreign };
+    }
+
+    it('provides diplomatic officers an authoritative management view with active state, directions, capabilities and valid targets', async () => {
+      const { store, service, own, counterparty, other, proposer, foreign } =
+        scenario();
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: counterparty.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+        contract: '[b]Aktiv[/b]',
+        treatAsFriend: true,
+      });
+      const sent = await store.insertRelationshipProposal({
+        senderAllianceId: own.id,
+        recipientAllianceId: other.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: '[b]Entwurf[/b]',
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      const received = await store.insertRelationshipProposal({
+        senderAllianceId: proposer.id,
+        recipientAllianceId: own.id,
+        type: AllianceRelationshipType.TRADE_AGREEMENT,
+        contract: 'Handel',
+        treatAsFriend: false,
+        shareLivePositions: false,
+      });
+      const change = await store.insertRelationshipChangeProposal({
+        relationshipId: relationship.id,
+        senderAllianceId: counterparty.id,
+        recipientAllianceId: own.id,
+        contract: '[b]Geändert[/b]',
+        treatAsFriend: true,
+        shareLivePositions: false,
+      });
+
+      const management = await service.getDiplomacyManagement(2, own.id);
+
+      expect(management.capabilities).toEqual({ create: true });
+      expect(management.targets).toEqual([
+        { id: counterparty.id, name: 'Red Squadron', color: null },
+        { id: other.id, name: 'Gold Squadron', color: null },
+        { id: proposer.id, name: 'Blue Squadron', color: null },
+      ]);
+      expect(management.relationships).toEqual([
+        expect.objectContaining({
+          relationship: expect.objectContaining({
+            id: relationship.id,
+            type: AllianceRelationshipType.FRIENDSHIP,
+            contract: '[b]Aktiv[/b]',
+          }),
+          change: expect.objectContaining({
+            id: change.id,
+            direction: 'RECEIVED',
+          }),
+          capabilities: {
+            create: false,
+            declareWar: true,
+            offerPeace: false,
+            accept: true,
+            decline: true,
+            withdraw: false,
+            change: true,
+            end: true,
+          },
+        }),
+      ]);
+      expect(management.proposals).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            proposal: expect.objectContaining({ id: sent.id }),
+            direction: 'SENT',
+            capabilities: expect.objectContaining({
+              withdraw: true,
+              accept: false,
+              decline: false,
+            }),
+          }),
+          expect.objectContaining({
+            proposal: expect.objectContaining({ id: received.id }),
+            direction: 'RECEIVED',
+            capabilities: expect.objectContaining({
+              withdraw: false,
+              accept: true,
+              decline: true,
+            }),
+          }),
+        ]),
+      );
+      expect(management.permissions).toEqual({
+        [AllianceRelationshipType.WAR]: {
+          treatAsFriend: false,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.PEACE]: {
+          treatAsFriend: false,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.FRIENDSHIP]: {
+          treatAsFriend: true,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.ALLIANCE]: {
+          treatAsFriend: true,
+          shareLivePositions: true,
+        },
+        [AllianceRelationshipType.TRADE_AGREEMENT]: {
+          treatAsFriend: true,
+          shareLivePositions: false,
+        },
+        [AllianceRelationshipType.VASSALAGE]: {
+          treatAsFriend: true,
+          shareLivePositions: false,
+        },
+      });
+      expect(management.targets).not.toContainEqual(
+        expect.objectContaining({ id: own.id }),
+      );
+      expect(management.targets).not.toContainEqual(
+        expect.objectContaining({ id: foreign.id }),
+      );
+    });
+
+    it.each([
+      [3, 'vice'],
+      [4, 'member'],
+      [5, 'outsider'],
+    ])('rejects a %s from viewing diplomatic management', async (actorId) => {
+      const { service, own } = scenario();
+      await expectError(
+        service.getDiplomacyManagement(actorId, own.id),
+        ForbiddenException,
+      );
+    });
+  });
+
   describe('relationship proposals', () => {
     function scenario() {
       const ctx = setup();
@@ -1450,10 +1610,14 @@ describe('AllianceService', () => {
     it('keeps the active relationship public state unchanged until the counterparty accepts a diplomat’s replacement proposal', async () => {
       const { service, sender, recipient, relationship } = scenario();
 
-      const { id } = await service.proposeRelationshipChange(3, relationship.id, {
-        contract: 'Neues Vertragswerk',
-        permissions: { treatAsFriend: false, shareLivePositions: false },
-      });
+      const { id } = await service.proposeRelationshipChange(
+        3,
+        relationship.id,
+        {
+          contract: 'Neues Vertragswerk',
+          permissions: { treatAsFriend: false, shareLivePositions: false },
+        },
+      );
 
       await expect(
         service.getPublicRelationshipContract(sender.id, relationship.id),
@@ -1490,9 +1654,13 @@ describe('AllianceService', () => {
 
     it('allows only the counterparty to accept or decline and only the sender to withdraw', async () => {
       const { service, relationship } = scenario();
-      const { id } = await service.proposeRelationshipChange(1, relationship.id, {
-        contract: 'Neues Vertragswerk',
-      });
+      const { id } = await service.proposeRelationshipChange(
+        1,
+        relationship.id,
+        {
+          contract: 'Neues Vertragswerk',
+        },
+      );
 
       await expectError(
         service.acceptRelationshipChange(1, id),
@@ -1506,7 +1674,9 @@ describe('AllianceService', () => {
         service.withdrawRelationshipChange(2, id),
         ForbiddenException,
       );
-      await expect(service.withdrawRelationshipChange(3, id)).resolves.toBeUndefined();
+      await expect(
+        service.withdrawRelationshipChange(3, id),
+      ).resolves.toBeUndefined();
     });
 
     it('rejects invalid, identical, duplicate and war change states without changing the active relationship', async () => {
@@ -1525,9 +1695,13 @@ describe('AllianceService', () => {
         }),
         BadRequestException,
       );
-      const { id } = await service.proposeRelationshipChange(1, relationship.id, {
-        contract: 'Neues Vertragswerk',
-      });
+      const { id } = await service.proposeRelationshipChange(
+        1,
+        relationship.id,
+        {
+          contract: 'Neues Vertragswerk',
+        },
+      );
       await expectError(
         service.proposeRelationshipChange(3, relationship.id, {
           contract: 'Noch ein Vertragswerk',
@@ -1554,19 +1728,21 @@ describe('AllianceService', () => {
 
     it('removes a pending change when diplomacy escalates to war or the relationship ends', async () => {
       const { service, sender, recipient, relationship } = scenario();
-      const first = await service.proposeRelationshipChange(1, relationship.id, {
-        contract: 'Neues Vertragswerk',
-      });
+      const first = await service.proposeRelationshipChange(
+        1,
+        relationship.id,
+        {
+          contract: 'Neues Vertragswerk',
+        },
+      );
       await service.declareWar(1, sender.id, recipient.id);
       await expectError(
         service.acceptRelationshipChange(2, first.id),
         NotFoundException,
       );
 
-      const {
-        service: secondService,
-        relationship: secondRelationship,
-      } = scenario();
+      const { service: secondService, relationship: secondRelationship } =
+        scenario();
       const second = await secondService.proposeRelationshipChange(
         1,
         secondRelationship.id,

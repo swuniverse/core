@@ -11,6 +11,7 @@ import {
   AllianceRole,
   type AllianceApplicationDto,
   type AllianceDetailDto,
+  type AllianceDiplomacyManagementDto,
   type AllianceMemberDto,
   type AllianceRelationshipChangeProposalDto,
   type AllianceRelationshipContractDto,
@@ -332,6 +333,540 @@ function useAllianceDetail(id: string | undefined) {
   return { alliance, loadError, reload };
 }
 
+export function AllianceDiplomacyPage() {
+  const { id } = useParams<{ id: string }>();
+  const [management, setManagement] =
+    useState<AllianceDiplomacyManagementDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [recipientAllianceId, setRecipientAllianceId] = useState('');
+  const [type, setType] = useState<AllianceRelationshipType>(
+    AllianceRelationshipType.FRIENDSHIP,
+  );
+  const [contract, setContract] = useState('');
+  const [treatAsFriend, setTreatAsFriend] = useState(false);
+  const [shareLivePositions, setShareLivePositions] = useState(false);
+  const [changeDrafts, setChangeDrafts] = useState<
+    Record<
+      number,
+      { contract: string; treatAsFriend: boolean; shareLivePositions: boolean }
+    >
+  >({});
+
+  const reload = useCallback(async () => {
+    if (!id) return;
+    setManagement(
+      await api.get<AllianceDiplomacyManagementDto>(
+        `/alliances/${id}/diplomacy`,
+      ),
+    );
+  }, [id]);
+
+  useEffect(() => {
+    void reload().catch((err) =>
+      setError(
+        getErrorMessage(
+          err,
+          'Die Diplomatieverwaltung konnte nicht geladen werden.',
+        ),
+      ),
+    );
+  }, [reload]);
+
+  const allowedPermissions = management?.permissions[type] ?? {
+    treatAsFriend: false,
+    shareLivePositions: false,
+  };
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await reload();
+    } catch (err) {
+      setError(
+        getErrorMessage(err, 'Die diplomatische Aktion ist fehlgeschlagen.'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!management && !error) {
+    return (
+      <p className="p-6 text-swu-muted">Diplomatieverwaltung wird geladen...</p>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl space-y-6 p-3 md:p-6">
+      <BackLink to={id ? `/alliances/${id}` : '/alliances'} label="Allianz" />
+      <PageTitle>Diplomatieverwaltung</PageTitle>
+      <ErrorMessage message={error} />
+      {!management ? null : (
+        <>
+          {management.capabilities.create && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="font-bold text-swu-accent">
+                Beziehung vorschlagen
+              </h2>
+              <p className="text-sm text-swu-muted">
+                Beziehungsfreigaben haben noch keine Spielwirkung. Sie werden
+                erst durch eine spätere Fähigkeit aktiviert.
+              </p>
+              <form
+                className="grid gap-3 md:grid-cols-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!id || !recipientAllianceId) return;
+                  void run(() =>
+                    api.post(`/alliances/${id}/diplomacy/proposals`, {
+                      recipientAllianceId: Number(recipientAllianceId),
+                      type,
+                      contract,
+                      permissions: { treatAsFriend, shareLivePositions },
+                    }),
+                  );
+                }}
+              >
+                <label className="space-y-1 text-sm">
+                  <span>Zielallianz</span>
+                  <select
+                    aria-label="Zielallianz"
+                    className={inputClass}
+                    value={recipientAllianceId}
+                    onChange={(event) =>
+                      setRecipientAllianceId(event.target.value)
+                    }
+                    disabled={busy}
+                  >
+                    <option value="">Bitte wählen</option>
+                    {management.targets.map((target) => (
+                      <option key={target.id} value={target.id}>
+                        {target.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span>Beziehungstyp</span>
+                  <select
+                    aria-label="Beziehungstyp"
+                    className={inputClass}
+                    value={type}
+                    onChange={(event) => {
+                      const next = event.target
+                        .value as AllianceRelationshipType;
+                      setType(next);
+                      setTreatAsFriend(false);
+                      setShareLivePositions(false);
+                    }}
+                    disabled={busy}
+                  >
+                    {Object.values(AllianceRelationshipType).map((value) => (
+                      <option key={value} value={value}>
+                        {relationshipTypeLabel(value)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm md:col-span-2">
+                  <span>Vertragsentwurf</span>
+                  <textarea
+                    aria-label="Vertragsentwurf"
+                    className={inputClass}
+                    value={contract}
+                    onChange={(event) => setContract(event.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                {allowedPermissions.treatAsFriend && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={treatAsFriend}
+                      onChange={(event) =>
+                        setTreatAsFriend(event.target.checked)
+                      }
+                      disabled={busy}
+                    />
+                    Als Freund behandeln
+                  </label>
+                )}
+                {allowedPermissions.shareLivePositions && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={shareLivePositions}
+                      onChange={(event) =>
+                        setShareLivePositions(event.target.checked)
+                      }
+                      disabled={busy}
+                    />
+                    Live-Positionen teilen
+                  </label>
+                )}
+                <button
+                  type="submit"
+                  disabled={busy || !recipientAllianceId}
+                  className={primaryButtonClass}
+                >
+                  Vorschlag senden
+                </button>
+              </form>
+            </section>
+          )}
+
+          <section className="space-y-3">
+            <h2 className="font-bold text-swu-accent">Aktive Beziehungen</h2>
+            {management.relationships.length === 0 ? (
+              <p className="text-sm text-swu-muted">
+                Keine aktiven Beziehungen.
+              </p>
+            ) : (
+              management.relationships.map(
+                ({ relationship, change, capabilities }) => (
+                  <article
+                    key={relationship.id}
+                    className="space-y-3 border border-swu-border bg-swu-surface p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-bold">
+                        {relationship.counterparty.name}:{' '}
+                        {relationshipTypeLabel(relationship.type)}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {capabilities.declareWar && id && (
+                          <button
+                            disabled={busy}
+                            className={dangerButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/${id}/relationships/${relationship.counterparty.id}/war`,
+                                  {},
+                                ),
+                              )
+                            }
+                          >
+                            Krieg erklären
+                          </button>
+                        )}
+                        {capabilities.offerPeace && id && (
+                          <button
+                            disabled={busy}
+                            className={buttonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/${id}/diplomacy/proposals`,
+                                  {
+                                    recipientAllianceId:
+                                      relationship.counterparty.id,
+                                    type: AllianceRelationshipType.PEACE,
+                                  },
+                                ),
+                              )
+                            }
+                          >
+                            Frieden anbieten
+                          </button>
+                        )}
+                        {capabilities.end && (
+                          <button
+                            disabled={busy}
+                            className={dangerButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.delete(
+                                  `/alliances/relationships/${relationship.id}`,
+                                ),
+                              )
+                            }
+                          >
+                            Beenden
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {relationship.contract && (
+                      <BbCodeText
+                        text={relationship.contract}
+                        className="text-sm"
+                      />
+                    )}
+                    {capabilities.change && !change && (
+                      <form
+                        className="grid gap-2 border-t border-swu-border/50 pt-3 md:grid-cols-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const draft = changeDrafts[relationship.id] ?? {
+                            contract: relationship.contract,
+                            treatAsFriend:
+                              relationship.permissions.treatAsFriend,
+                            shareLivePositions:
+                              relationship.permissions.shareLivePositions,
+                          };
+                          void run(() =>
+                            api.post(
+                              `/alliances/relationships/${relationship.id}/changes`,
+                              {
+                                contract: draft.contract,
+                                permissions: {
+                                  treatAsFriend: draft.treatAsFriend,
+                                  shareLivePositions: draft.shareLivePositions,
+                                },
+                              },
+                            ),
+                          );
+                        }}
+                      >
+                        <label className="space-y-1 text-sm md:col-span-2">
+                          <span>Änderungsentwurf</span>
+                          <textarea
+                            aria-label={`Änderungsentwurf ${relationship.counterparty.name}`}
+                            className={inputClass}
+                            value={
+                              changeDrafts[relationship.id]?.contract ??
+                              relationship.contract
+                            }
+                            onChange={(event) =>
+                              setChangeDrafts((drafts) => ({
+                                ...drafts,
+                                [relationship.id]: {
+                                  contract: event.target.value,
+                                  treatAsFriend:
+                                    drafts[relationship.id]?.treatAsFriend ??
+                                    relationship.permissions.treatAsFriend,
+                                  shareLivePositions:
+                                    drafts[relationship.id]
+                                      ?.shareLivePositions ??
+                                    relationship.permissions.shareLivePositions,
+                                },
+                              }))
+                            }
+                            disabled={busy}
+                          />
+                        </label>
+                        {management.permissions[relationship.type]
+                          .treatAsFriend && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={
+                                changeDrafts[relationship.id]?.treatAsFriend ??
+                                relationship.permissions.treatAsFriend
+                              }
+                              onChange={(event) =>
+                                setChangeDrafts((drafts) => ({
+                                  ...drafts,
+                                  [relationship.id]: {
+                                    contract:
+                                      drafts[relationship.id]?.contract ??
+                                      relationship.contract,
+                                    treatAsFriend: event.target.checked,
+                                    shareLivePositions:
+                                      drafts[relationship.id]
+                                        ?.shareLivePositions ??
+                                      relationship.permissions
+                                        .shareLivePositions,
+                                  },
+                                }))
+                              }
+                              disabled={busy}
+                            />
+                            Als Freund behandeln
+                          </label>
+                        )}
+                        {management.permissions[relationship.type]
+                          .shareLivePositions && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={
+                                changeDrafts[relationship.id]
+                                  ?.shareLivePositions ??
+                                relationship.permissions.shareLivePositions
+                              }
+                              onChange={(event) =>
+                                setChangeDrafts((drafts) => ({
+                                  ...drafts,
+                                  [relationship.id]: {
+                                    contract:
+                                      drafts[relationship.id]?.contract ??
+                                      relationship.contract,
+                                    treatAsFriend:
+                                      drafts[relationship.id]?.treatAsFriend ??
+                                      relationship.permissions.treatAsFriend,
+                                    shareLivePositions: event.target.checked,
+                                  },
+                                }))
+                              }
+                              disabled={busy}
+                            />
+                            Live-Positionen teilen
+                          </label>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={busy}
+                          className={buttonClass}
+                        >
+                          Änderung vorschlagen
+                        </button>
+                      </form>
+                    )}
+                    {change && (
+                      <div className="space-y-2 border-l-2 border-swu-accent pl-3">
+                        <p className="text-sm font-semibold">
+                          Ausstehende Änderung (
+                          {change.direction === 'SENT'
+                            ? 'gesendet'
+                            : 'empfangen'}
+                          )
+                        </p>
+                        <BbCodeText
+                          text={change.contract}
+                          className="text-sm"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {capabilities.accept && (
+                            <button
+                              disabled={busy}
+                              className={primaryButtonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.post(
+                                    `/alliances/diplomacy/changes/${change.id}/accept`,
+                                    {},
+                                  ),
+                                )
+                              }
+                            >
+                              Annehmen
+                            </button>
+                          )}
+                          {capabilities.decline && (
+                            <button
+                              disabled={busy}
+                              className={buttonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.post(
+                                    `/alliances/diplomacy/changes/${change.id}/decline`,
+                                    {},
+                                  ),
+                                )
+                              }
+                            >
+                              Ablehnen
+                            </button>
+                          )}
+                          {capabilities.withdraw && (
+                            <button
+                              disabled={busy}
+                              className={buttonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.delete(
+                                    `/alliances/diplomacy/changes/${change.id}`,
+                                  ),
+                                )
+                              }
+                            >
+                              Zurückziehen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ),
+              )
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="font-bold text-swu-accent">
+              Ausstehende Vorschläge
+            </h2>
+            {management.proposals.length === 0 ? (
+              <p className="text-sm text-swu-muted">
+                Keine ausstehenden Vorschläge.
+              </p>
+            ) : (
+              management.proposals.map(
+                ({ proposal, direction, capabilities }) => (
+                  <article
+                    key={proposal.id}
+                    className="space-y-2 border border-swu-border bg-swu-surface p-4"
+                  >
+                    <p className="font-semibold">
+                      {relationshipTypeLabel(proposal.type)} (
+                      {direction === 'SENT' ? 'gesendet' : 'empfangen'})
+                    </p>
+                    <BbCodeText text={proposal.contract} className="text-sm" />
+                    <div className="flex flex-wrap gap-2">
+                      {capabilities.accept && (
+                        <button
+                          disabled={busy}
+                          className={primaryButtonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.post(
+                                `/alliances/diplomacy/proposals/${proposal.id}/accept`,
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          Annehmen
+                        </button>
+                      )}
+                      {capabilities.decline && (
+                        <button
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.post(
+                                `/alliances/diplomacy/proposals/${proposal.id}/decline`,
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          Ablehnen
+                        </button>
+                      )}
+                      {capabilities.withdraw && (
+                        <button
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.delete(
+                                `/alliances/diplomacy/proposals/${proposal.id}`,
+                              ),
+                            )
+                          }
+                        >
+                          Zurückziehen
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ),
+              )
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AllianceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -649,6 +1184,11 @@ export function AllianceDetailPage() {
                 Bearbeiten
               </Link>
             )}
+            {actions.manageDiplomacy && (
+              <Link to={`${base}/diplomacy`} className={buttonClass}>
+                Diplomatieverwaltung
+              </Link>
+            )}
             {actions.declareWar && (
               <form
                 className="flex gap-2"
@@ -962,7 +1502,9 @@ export function AllianceDetailPage() {
                             className={buttonClass}
                             onClick={() =>
                               void run(() =>
-                                api.delete(`/alliances/diplomacy/changes/${proposal.id}`),
+                                api.delete(
+                                  `/alliances/diplomacy/changes/${proposal.id}`,
+                                ),
                               )
                             }
                           >
@@ -1107,7 +1649,8 @@ export function AllianceDetailPage() {
                     relationship.type !== AllianceRelationshipType.PEACE &&
                     (() => {
                       const pending = changeProposals.find(
-                        (proposal) => proposal.relationshipId === relationship.id,
+                        (proposal) =>
+                          proposal.relationshipId === relationship.id,
                       );
                       const needsContract =
                         relationship.hasContract &&
@@ -1120,7 +1663,8 @@ export function AllianceDetailPage() {
                       };
                       return pending ? null : needsContract ? (
                         <p className="text-xs text-swu-muted">
-                          Vertragswerk wird für den Änderungsvorschlag geladen...
+                          Vertragswerk wird für den Änderungsvorschlag
+                          geladen...
                         </p>
                       ) : (
                         <form
