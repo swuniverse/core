@@ -6,6 +6,7 @@ import {
 import {
   AllianceConstraintViolation,
   AllianceDiplomacyChronicleEntryRecord,
+  AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
   AllianceStore,
@@ -29,6 +30,7 @@ interface State {
   relationshipProposals: AllianceRelationshipProposalRecord[];
   relationshipChangeProposals: AllianceRelationshipChangeProposalRecord[];
   diplomacyChronicleEntries: AllianceDiplomacyChronicleEntryRecord[];
+  diplomacyNotifications: AllianceDiplomacyNotificationRecord[];
   nextId: number;
   clock: number;
 }
@@ -59,6 +61,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     relationshipProposals: [],
     relationshipChangeProposals: [],
     diplomacyChronicleEntries: [],
+    diplomacyNotifications: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
@@ -590,6 +593,37 @@ export class InMemoryAllianceStore implements AllianceStore {
       )
       .slice(0, limit)
       .map((entry) => ({ ...entry }));
+  }
+
+  async enqueueDiplomacyNotifications(
+    notifications: Array<{ recipientUserId: number; body: string }>,
+  ) {
+    for (const notification of notifications) {
+      const id = this.nextId();
+      this.state.diplomacyNotifications.push({
+        id,
+        ...notification,
+        deliveryKey: `alliance-diplomacy-notification:${id}`,
+        createdAt: this.now(),
+        deliveredAt: null,
+      });
+    }
+  }
+
+  async listPendingDiplomacyNotifications() {
+    return this.state.diplomacyNotifications
+      .filter((notification) => notification.deliveredAt === null)
+      .sort((a, b) => a.id - b.id)
+      .map((notification) => ({ ...notification }));
+  }
+
+  async markDiplomacyNotificationDelivered(id: number) {
+    const notification = this.state.diplomacyNotifications.find(
+      (entry) => entry.id === id && entry.deliveredAt === null,
+    );
+    if (!notification) return false;
+    notification.deliveredAt = this.now();
+    return true;
   }
 
   async findMembership(userId: number) {

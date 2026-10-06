@@ -163,6 +163,10 @@ export interface AllianceDiplomacyProposalDto {
 
 /** Complete confidential view for president and diplomat diplomacy administration. */
 export interface AllianceDiplomacyManagementDto {
+  /** Explicit rollout state; migrations must be deployed before this is enabled. */
+  enabled: boolean;
+  /** Permissions are stored only; gameplay effects remain intentionally inactive. */
+  effectsApplied: false;
   capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
   targets: AllianceRefDto[];
   relationships: AllianceDiplomacyRelationshipDto[];

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import {
@@ -5,6 +6,7 @@ import {
   EntityManager,
   ILike,
   In,
+  IsNull,
   Not,
   QueryFailedError,
 } from 'typeorm';
@@ -25,10 +27,12 @@ import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import {
   AllianceDiplomacyChronicleEntry,
 } from './entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 import {
   AllianceConstraint,
   AllianceConstraintViolation,
   AllianceDiplomacyChronicleEntryRecord,
+  AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
   AllianceRelationshipChangeProposalRecord,
@@ -132,6 +136,19 @@ function toChronicleEntry(
     lordAllianceId: entry.lordAllianceId,
     vassalAllianceId: entry.vassalAllianceId,
     occurredAt: entry.occurredAt,
+  };
+}
+
+function toNotification(
+  notification: AllianceDiplomacyNotification,
+): AllianceDiplomacyNotificationRecord {
+  return {
+    id: notification.id,
+    recipientUserId: notification.recipientUserId,
+    body: notification.body,
+    deliveryKey: notification.deliveryKey,
+    createdAt: notification.createdAt,
+    deliveredAt: notification.deliveredAt,
   };
 }
 
@@ -629,6 +646,38 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       );
     }
     return (await query.getMany()).map(toChronicleEntry);
+  }
+
+  async enqueueDiplomacyNotifications(
+    notifications: Array<{ recipientUserId: number; body: string }>,
+  ) {
+    if (!notifications.length) return;
+    await this.manager.insert(
+      AllianceDiplomacyNotification,
+      notifications.map((notification) => ({
+        ...notification,
+        deliveryKey: `alliance-diplomacy-notification:${randomUUID()}`,
+      })),
+    );
+  }
+
+  async listPendingDiplomacyNotifications() {
+    const notifications = await this.manager.find(AllianceDiplomacyNotification, {
+      where: { deliveredAt: IsNull() },
+      order: { id: 'ASC' },
+    });
+    return notifications.map(toNotification);
+  }
+
+  async markDiplomacyNotificationDelivered(id: number) {
+    const result = await this.manager
+      .createQueryBuilder()
+      .update(AllianceDiplomacyNotification)
+      .set({ deliveredAt: () => 'CURRENT_TIMESTAMP' })
+      .where('id = :id', { id })
+      .andWhere('"deliveredAt" IS NULL')
+      .execute();
+    return (result.affected ?? 0) === 1;
   }
 
   async endNonWarRelationship(id: number) {

@@ -5,11 +5,13 @@ jest.mock('../messaging/messaging.service', () => ({
 import {
   BadRequestException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
 import { AllianceConstraintViolation } from './alliance.store';
+import { DiplomacyCapabilityService } from './diplomacy-capability.service';
 import {
   EMPIRE,
   InMemoryAllianceStore,
@@ -24,6 +26,12 @@ interface SentMessage {
   body: string;
 }
 
+function silenceDiplomacyDeliveryErrors(service: AllianceService) {
+  jest
+    .spyOn((service as unknown as { logger: Logger }).logger, 'error')
+    .mockImplementation();
+}
+
 function setup() {
   const store = new InMemoryAllianceStore();
   const sent: SentMessage[] = [];
@@ -32,7 +40,8 @@ function setup() {
       sent.push({ to, subject, body });
     }),
   };
-  const service = new AllianceService(store, messaging as never);
+  const capability = new DiplomacyCapabilityService({ get: () => 'true' } as never);
+  const service = new AllianceService(store, messaging as never, undefined, capability);
   return { store, sent, service };
 }
 
@@ -56,6 +65,31 @@ async function expectError(
 }
 
 describe('AllianceService', () => {
+  describe('diplomacy rollout capability', () => {
+    it('rejects diplomatic mutations until the rollout capability is enabled', async () => {
+      const store = new InMemoryAllianceStore();
+      const service = new AllianceService(
+        store,
+        { sendSystem: jest.fn() } as never,
+        undefined,
+        new DiplomacyCapabilityService({ get: () => undefined } as never),
+      );
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
+
+      await expectError(
+        service.declareWar(1, rogue.id, red.id),
+        BadRequestException,
+        'Diplomatie-Kern ist noch nicht aktiviert',
+      );
+      expect((await service.getDetail(1, rogue.id)).viewer.actions.declareWar).toBe(
+        false,
+      );
+    });
+  });
+
   describe('found', () => {
     it('returns public active relationship summaries and contracts', async () => {
       const { store, service } = setup();
@@ -855,7 +889,80 @@ describe('AllianceService', () => {
       ).rejects.toThrow('rollback');
 
       expect(await store.listActiveRelationships(alliance.id)).toEqual([]);
+      expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
       expect(sent).toEqual([]);
+    });
+
+    it('retries a failed post-commit notification without repeating the war', async () => {
+      const { store, sent, alliance, target } = scenario();
+      const failingMessaging = {
+        sendSystem: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('messaging unavailable')),
+      };
+      const retryingService = new AllianceService(store, failingMessaging as never);
+      silenceDiplomacyDeliveryErrors(retryingService);
+
+      await expect(
+        retryingService.declareWar(1, alliance.id, target.id),
+      ).resolves.toBeUndefined();
+      expect(await store.listActiveRelationships(alliance.id)).toEqual([
+        expect.objectContaining({ type: AllianceRelationshipType.WAR }),
+      ]);
+
+      failingMessaging.sendSystem.mockImplementation(
+        async (to: number, subject: string, body: string) => {
+          sent.push({ to, subject, body });
+        },
+      );
+      await retryingService.retryDiplomacyNotifications();
+      await retryingService.retryDiplomacyNotifications();
+
+      expect(await store.listActiveRelationships(alliance.id)).toHaveLength(1);
+      expect(messagesTo(sent, 5)).toEqual([
+        'Leia hat im Namen der Allianz Rogue Squadron den Krieg erklärt',
+      ]);
+    });
+
+    it('uses a stable delivery key when acknowledgment fails after sending', async () => {
+      const { store, alliance, target } = scenario();
+      const delivered = new Map<string, SentMessage>();
+      const messaging = {
+        sendSystem: jest.fn(
+          async (
+            to: number,
+            subject: string,
+            body: string,
+            deliveryKey: string,
+          ) => {
+            if (!delivered.has(deliveryKey)) {
+              delivered.set(deliveryKey, { to, subject, body });
+            }
+          },
+        ),
+      };
+      const retryingService = new AllianceService(store, messaging as never);
+      silenceDiplomacyDeliveryErrors(retryingService);
+      const markDelivered = jest
+        .spyOn(store, 'markDiplomacyNotificationDelivered')
+        .mockRejectedValueOnce(new Error('acknowledgment unavailable'));
+
+      await expect(
+        retryingService.declareWar(1, alliance.id, target.id),
+      ).resolves.toBeUndefined();
+      expect(await store.listActiveRelationships(alliance.id)).toHaveLength(1);
+      expect(delivered.size).toBe(1);
+      expect(await store.listPendingDiplomacyNotifications()).toHaveLength(1);
+
+      await retryingService.retryDiplomacyNotifications();
+
+      expect(await store.listActiveRelationships(alliance.id)).toHaveLength(1);
+      expect(delivered.size).toBe(1);
+      expect(messaging.sendSystem).toHaveBeenCalledTimes(2);
+      const [firstCall, secondCall] = messaging.sendSystem.mock.calls;
+      expect(firstCall[3]).toBe(secondCall[3]);
+      expect(markDelivered).toHaveBeenCalledTimes(2);
+      expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
     });
 
     it('keeps exactly one active war for repeated declarations', async () => {

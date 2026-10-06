@@ -12,6 +12,10 @@ import { User } from '../../auth/user.entity';
 @Entity('messages')
 @Index(['recipientId', 'isRead'])
 @Index(['senderId'])
+@Index('UQ_messages_delivery_key', ['deliveryKey'], {
+  unique: true,
+  where: '"deliveryKey" IS NOT NULL',
+})
 export class Message {
   @PrimaryGeneratedColumn()
   id: number;
@@ -41,6 +45,10 @@ export class Message {
 
   @Column({ default: false })
   isSystem: boolean;
+
+  /** Optional idempotency token for durable system-message delivery. */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  deliveryKey: string | null;
 
   @Column({ default: false })
   deletedBySender: boolean;

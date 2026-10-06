@@ -421,6 +421,13 @@ export function AllianceDiplomacyPage() {
       <ErrorMessage message={error} />
       {!management ? null : (
         <>
+          <p className="border border-swu-border bg-swu-bg/40 px-3 py-2 text-sm text-swu-muted">
+            {!management.enabled
+              ? 'Der Diplomatie-Kern ist noch nicht aktiviert.'
+              : management.effectsApplied
+                ? 'Beziehungsfreigaben sind aktiv.'
+                : 'Beziehungsfreigaben werden gespeichert, aber noch nicht auf Kampf, Karte, Scan, Transfer oder Zugang angewandt.'}
+          </p>
           {management.capabilities.create && (
             <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
               <h2 className="font-bold text-swu-accent">

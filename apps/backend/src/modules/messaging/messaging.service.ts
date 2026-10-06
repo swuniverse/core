@@ -62,15 +62,46 @@ export class MessagingService {
     return this.messageRepo.save(message);
   }
 
-  async sendSystem(recipientId: number, subject: string, body: string): Promise<Message> {
-    const message = this.messageRepo.create({
-      senderId: recipientId,
-      recipientId,
-      subject,
-      body,
-      isSystem: true,
-    });
-    return this.messageRepo.save(message);
+  async sendSystem(
+    recipientId: number,
+    subject: string,
+    body: string,
+    deliveryKey?: string,
+  ): Promise<Message> {
+    if (!deliveryKey) {
+      const message = this.messageRepo.create({
+        senderId: recipientId,
+        recipientId,
+        subject,
+        body,
+        isSystem: true,
+      });
+      return this.messageRepo.save(message);
+    }
+
+    const inserted = await this.messageRepo
+      .createQueryBuilder()
+      .insert()
+      .into(Message)
+      .values({
+        senderId: recipientId,
+        recipientId,
+        subject,
+        body,
+        isSystem: true,
+        deliveryKey,
+      })
+      .orIgnore()
+      .returning('*')
+      .execute();
+    const insertedId = inserted.identifiers[0]?.id as number | undefined;
+    if (insertedId !== undefined) {
+      const message = await this.messageRepo.findOneBy({ id: insertedId });
+      if (message) return message;
+    }
+    const existing = await this.messageRepo.findOneBy({ deliveryKey });
+    if (!existing) throw new Error('System message delivery key was not persisted');
+    return existing;
   }
 
   async getUnreadCount(userId: number): Promise<number> {
