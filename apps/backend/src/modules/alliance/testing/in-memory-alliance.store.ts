@@ -533,9 +533,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     relationship.treatAsFriend = proposal.treatAsFriend;
     relationship.shareLivePositions = proposal.shareLivePositions;
     this.state.relationshipChangeProposals =
-      this.state.relationshipChangeProposals.filter(
-        (entry) => entry.id !== id,
-      );
+      this.state.relationshipChangeProposals.filter((entry) => entry.id !== id);
     return { ...relationship };
   }
 
@@ -606,6 +604,7 @@ export class InMemoryAllianceStore implements AllianceStore {
         deliveryKey: `alliance-diplomacy-notification:${id}`,
         createdAt: this.now(),
         deliveredAt: null,
+        leaseToken: null,
       });
     }
   }
@@ -617,13 +616,41 @@ export class InMemoryAllianceStore implements AllianceStore {
       .map((notification) => ({ ...notification }));
   }
 
-  async markDiplomacyNotificationDelivered(id: number) {
+  async claimDiplomacyNotifications(limit: number) {
+    return this.state.diplomacyNotifications
+      .filter(
+        (notification) =>
+          notification.deliveredAt === null && notification.leaseToken === null,
+      )
+      .sort((a, b) => a.id - b.id)
+      .slice(0, limit)
+      .map((notification) => {
+        notification.leaseToken = `in-memory-lease:${notification.id}:${this.nextId()}`;
+        return { ...notification };
+      });
+  }
+
+  async markDiplomacyNotificationDelivered(id: number, leaseToken: string) {
     const notification = this.state.diplomacyNotifications.find(
-      (entry) => entry.id === id && entry.deliveredAt === null,
+      (entry) =>
+        entry.id === id &&
+        entry.deliveredAt === null &&
+        entry.leaseToken === leaseToken,
     );
     if (!notification) return false;
     notification.deliveredAt = this.now();
+    notification.leaseToken = null;
     return true;
+  }
+
+  async releaseDiplomacyNotificationClaim(id: number, leaseToken: string) {
+    const notification = this.state.diplomacyNotifications.find(
+      (entry) =>
+        entry.id === id &&
+        entry.deliveredAt === null &&
+        entry.leaseToken === leaseToken,
+    );
+    if (notification) notification.leaseToken = null;
   }
 
   async findMembership(userId: number) {

@@ -24,9 +24,7 @@ import { AllianceRelationship } from './entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from './entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
-import {
-  AllianceDiplomacyChronicleEntry,
-} from './entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 import {
   AllianceConstraint,
@@ -149,6 +147,7 @@ function toNotification(
     deliveryKey: notification.deliveryKey,
     createdAt: notification.createdAt,
     deliveredAt: notification.deliveredAt,
+    leaseToken: notification.leaseToken,
   };
 }
 
@@ -563,9 +562,13 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
         })
         .returning('*')
         .execute();
-      const proposal = await this.findRelationshipChangeProposal(result.raw[0].id);
+      const proposal = await this.findRelationshipChangeProposal(
+        result.raw[0].id,
+      );
       if (!proposal) {
-        throw new Error('Alliance relationship change proposal was not created');
+        throw new Error(
+          'Alliance relationship change proposal was not created',
+        );
       }
       return proposal;
     } catch (error) {
@@ -662,22 +665,68 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async listPendingDiplomacyNotifications() {
-    const notifications = await this.manager.find(AllianceDiplomacyNotification, {
-      where: { deliveredAt: IsNull() },
-      order: { id: 'ASC' },
-    });
+    const notifications = await this.manager.find(
+      AllianceDiplomacyNotification,
+      {
+        where: { deliveredAt: IsNull() },
+        order: { id: 'ASC' },
+      },
+    );
     return notifications.map(toNotification);
   }
 
-  async markDiplomacyNotificationDelivered(id: number) {
+  async claimDiplomacyNotifications(limit: number) {
+    const notifications = await this.manager.query(
+      `
+        WITH candidates AS (
+          SELECT "id"
+          FROM "alliance_diplomacy_notifications"
+          WHERE "deliveredAt" IS NULL
+            AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= CURRENT_TIMESTAMP)
+          ORDER BY "id" ASC
+          LIMIT $1
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE "alliance_diplomacy_notifications" AS notification
+        SET
+          "leaseToken" = md5(random()::text || clock_timestamp()::text || notification."id"::text),
+          "leaseExpiresAt" = CURRENT_TIMESTAMP + INTERVAL '30 seconds'
+        FROM candidates
+        WHERE notification."id" = candidates."id"
+        RETURNING notification.*
+      `,
+      [limit],
+    );
+    return notifications.map((notification: AllianceDiplomacyNotification) =>
+      toNotification(notification),
+    );
+  }
+
+  async markDiplomacyNotificationDelivered(id: number, leaseToken: string) {
     const result = await this.manager
       .createQueryBuilder()
       .update(AllianceDiplomacyNotification)
-      .set({ deliveredAt: () => 'CURRENT_TIMESTAMP' })
+      .set({
+        deliveredAt: () => 'CURRENT_TIMESTAMP',
+        leaseToken: null,
+        leaseExpiresAt: null,
+      })
       .where('id = :id', { id })
       .andWhere('"deliveredAt" IS NULL')
+      .andWhere('"leaseToken" = :leaseToken', { leaseToken })
       .execute();
     return (result.affected ?? 0) === 1;
+  }
+
+  async releaseDiplomacyNotificationClaim(id: number, leaseToken: string) {
+    await this.manager
+      .createQueryBuilder()
+      .update(AllianceDiplomacyNotification)
+      .set({ leaseToken: null, leaseExpiresAt: null })
+      .where('id = :id', { id })
+      .andWhere('"deliveredAt" IS NULL')
+      .andWhere('"leaseToken" = :leaseToken', { leaseToken })
+      .execute();
   }
 
   async endNonWarRelationship(id: number) {
