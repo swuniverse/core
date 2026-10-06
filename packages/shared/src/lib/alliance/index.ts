@@ -128,6 +128,51 @@ export interface AllianceDiplomacyDto {
   changes: AllianceRelationshipChangeProposalDto[];
 }
 
+/** Direction of a confidential diplomatic proposal from the viewer's alliance. */
+export type AllianceDiplomacyDirection = 'SENT' | 'RECEIVED';
+
+/** Actions are authoritative server decisions, not frontend role inference. */
+export interface AllianceDiplomacyCapabilitiesDto {
+  create: boolean;
+  declareWar: boolean;
+  offerPeace: boolean;
+  accept: boolean;
+  decline: boolean;
+  withdraw: boolean;
+  change: boolean;
+  end: boolean;
+}
+
+/** Active relationship with its independent pending replacement, if any. */
+export interface AllianceDiplomacyRelationshipDto {
+  relationship: AllianceRelationshipSummaryDto & { contract: string };
+  change:
+    | (AllianceRelationshipChangeProposalDto & {
+        direction: AllianceDiplomacyDirection;
+      })
+    | null;
+  capabilities: AllianceDiplomacyCapabilitiesDto;
+}
+
+/** A proposal is kept separate from active relationships until it is accepted. */
+export interface AllianceDiplomacyProposalDto {
+  proposal: AllianceRelationshipProposalDto;
+  direction: AllianceDiplomacyDirection;
+  capabilities: AllianceDiplomacyCapabilitiesDto;
+}
+
+/** Complete confidential view for president and diplomat diplomacy administration. */
+export interface AllianceDiplomacyManagementDto {
+  capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
+  targets: AllianceRefDto[];
+  relationships: AllianceDiplomacyRelationshipDto[];
+  proposals: AllianceDiplomacyProposalDto[];
+  permissions: Record<
+    AllianceRelationshipType,
+    AllianceRelationshipPermissionsDto
+  >;
+}
+
 export interface AllianceDetailDto extends AllianceSummaryDto {
   homepage: string;
   /** Raw BBCode description as stored, for the edit form. */

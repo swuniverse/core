@@ -12,6 +12,7 @@ import {
   AllianceRole,
   Faction,
   type AllianceDetailDto,
+  type AllianceDiplomacyManagementDto,
   type AllianceMemberActionsDto,
   type AllianceSummaryDto,
 } from '@swuniverse/shared';
@@ -20,6 +21,7 @@ import { ApiError } from '../services/api';
 import type * as ApiModule from '../services/api';
 import {
   AllianceDetailPage,
+  AllianceDiplomacyPage,
   AllianceEditPage,
   AllianceFoundPage,
   AllianceListPage,
@@ -108,6 +110,119 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
   };
 }
 
+function diplomacyManagement(): AllianceDiplomacyManagementDto {
+  return {
+    capabilities: { create: true },
+    targets: [{ id: 2, name: 'Red Squadron', color: null }],
+    relationships: [
+      {
+        relationship: {
+          id: 10,
+          counterparty: { id: 2, name: 'Red Squadron', color: null },
+          type: AllianceRelationshipType.FRIENDSHIP,
+          startedAt: '2026-10-01T12:00:00.000Z',
+          permissions: { treatAsFriend: true, shareLivePositions: false },
+          vassalage: null,
+          hasContract: true,
+          contract: '[b]Aktiv[/b]',
+        },
+        change: {
+          id: 11,
+          relationshipId: 10,
+          senderAllianceId: 2,
+          recipientAllianceId: 1,
+          contract: '[b]Änderung[/b]',
+          permissions: { treatAsFriend: true, shareLivePositions: false },
+          createdAt: '2026-10-02T12:00:00.000Z',
+          direction: 'RECEIVED',
+        },
+        capabilities: {
+          create: false,
+          declareWar: false,
+          offerPeace: false,
+          accept: true,
+          decline: true,
+          withdraw: false,
+          change: true,
+          end: true,
+        },
+      },
+    ],
+    proposals: [
+      {
+        proposal: {
+          id: 12,
+          senderAllianceId: 1,
+          recipientAllianceId: 2,
+          type: AllianceRelationshipType.ALLIANCE,
+          contract: '[b]Gesendet[/b]',
+          permissions: { treatAsFriend: true, shareLivePositions: true },
+          createdAt: '2026-10-03T12:00:00.000Z',
+        },
+        direction: 'SENT',
+        capabilities: {
+          create: false,
+          declareWar: false,
+          offerPeace: false,
+          accept: false,
+          decline: false,
+          withdraw: true,
+          change: false,
+          end: false,
+        },
+      },
+      {
+        proposal: {
+          id: 13,
+          senderAllianceId: 2,
+          recipientAllianceId: 1,
+          type: AllianceRelationshipType.TRADE_AGREEMENT,
+          contract: '[b]Empfangen[/b]',
+          permissions: { treatAsFriend: true, shareLivePositions: false },
+          createdAt: '2026-10-04T12:00:00.000Z',
+        },
+        direction: 'RECEIVED',
+        capabilities: {
+          create: false,
+          declareWar: false,
+          offerPeace: false,
+          accept: true,
+          decline: true,
+          withdraw: false,
+          change: false,
+          end: false,
+        },
+      },
+    ],
+    permissions: {
+      [AllianceRelationshipType.WAR]: {
+        treatAsFriend: false,
+        shareLivePositions: false,
+      },
+      [AllianceRelationshipType.PEACE]: {
+        treatAsFriend: false,
+        shareLivePositions: false,
+      },
+      [AllianceRelationshipType.FRIENDSHIP]: {
+        treatAsFriend: true,
+        shareLivePositions: false,
+      },
+      [AllianceRelationshipType.ALLIANCE]: {
+        treatAsFriend: true,
+        shareLivePositions: true,
+      },
+      [AllianceRelationshipType.TRADE_AGREEMENT]: {
+        treatAsFriend: true,
+        shareLivePositions: false,
+      },
+      [AllianceRelationshipType.VASSALAGE]: {
+        treatAsFriend: true,
+        shareLivePositions: false,
+      },
+    },
+  };
+}
+
 function withViewer(
   base: AllianceDetailDto,
   role: AllianceRole | null,
@@ -125,6 +240,10 @@ function renderAt(path: string) {
       <Routes>
         <Route path="/alliances" element={<AllianceListPage />} />
         <Route path="/alliances/new" element={<AllianceFoundPage />} />
+        <Route
+          path="/alliances/:id/diplomacy"
+          element={<AllianceDiplomacyPage />}
+        />
         <Route path="/alliances/:id" element={<AllianceDetailPage />} />
         <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />
       </Routes>
@@ -265,6 +384,117 @@ describe('AllianceFoundPage', () => {
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Dieser Allianzname ist bereits vergeben',
     );
+  });
+});
+
+describe('AllianceDiplomacyPage', () => {
+  it('renders active state separately from pending changes and uses server-authoritative proposal actions', async () => {
+    routeGet({ '/alliances/1/diplomacy': diplomacyManagement() });
+
+    renderAt('/alliances/1/diplomacy');
+
+    expect(await screen.findByText('Aktive Beziehungen')).toBeTruthy();
+    expect(screen.getByText('Aktiv')).toBeTruthy();
+    expect(screen.getByText('Ausstehende Änderung (empfangen)')).toBeTruthy();
+    expect(screen.getByText('Änderung')).toBeTruthy();
+    expect(screen.getByText('Gesendet')).toBeTruthy();
+    expect(screen.getByText('Empfangen')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Annehmen' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Ablehnen' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Zurückziehen' })).toBeTruthy();
+    expect(screen.getByText(/haben noch keine Spielwirkung/i)).toBeTruthy();
+  });
+
+  it('does not render creation controls when the server denies create capability', async () => {
+    const management = diplomacyManagement();
+    management.capabilities.create = false;
+    routeGet({ '/alliances/1/diplomacy': management });
+
+    renderAt('/alliances/1/diplomacy');
+
+    await screen.findByText('Diplomatieverwaltung');
+    expect(
+      screen.queryByRole('button', { name: 'Vorschlag senden' }),
+    ).toBeNull();
+  });
+
+  it('submits a relationship change draft only when the server grants change capability', async () => {
+    const management = diplomacyManagement();
+    management.relationships[0].change = null;
+    routeGet({ '/alliances/1/diplomacy': management });
+    renderAt('/alliances/1/diplomacy');
+
+    const changeButton = await screen.findByRole('button', {
+      name: 'Änderung vorschlagen',
+    });
+    fireEvent.submit(changeButton.closest('form')!);
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/relationships/10/changes',
+        {
+          contract: '[b]Aktiv[/b]',
+          permissions: { treatAsFriend: true, shareLivePositions: false },
+        },
+      ),
+    );
+  });
+
+  it('offers only permissions allowed for the selected relationship type', async () => {
+    routeGet({ '/alliances/1/diplomacy': diplomacyManagement() });
+    renderAt('/alliances/1/diplomacy');
+
+    await screen.findByText('Diplomatieverwaltung');
+    fireEvent.change(screen.getByLabelText('Beziehungstyp'), {
+      target: { value: AllianceRelationshipType.WAR },
+    });
+    expect(screen.queryByText('Als Freund behandeln')).toBeNull();
+    expect(screen.queryByText('Live-Positionen teilen')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Beziehungstyp'), {
+      target: { value: AllianceRelationshipType.ALLIANCE },
+    });
+
+    expect(screen.getByText('Als Freund behandeln')).toBeTruthy();
+    expect(screen.getByText('Live-Positionen teilen')).toBeTruthy();
+  });
+
+  it('disables affected actions during mutation, reloads authoritative state, and recovers after an error', async () => {
+    let loads = 0;
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url !== '/alliances/1/diplomacy')
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      loads += 1;
+      return Promise.resolve(diplomacyManagement());
+    });
+    let rejectAction: (error: Error) => void = () => undefined;
+    apiMocks.post.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectAction = reject;
+        }),
+    );
+
+    renderAt('/alliances/1/diplomacy');
+    const accept = await screen.findAllByRole('button', { name: 'Annehmen' });
+    fireEvent.click(accept[0]);
+    expect((accept[0] as HTMLButtonElement).disabled).toBe(true);
+    rejectAction(new Error('Server verweigert die Aktion'));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Server verweigert die Aktion',
+    );
+    expect(
+      (
+        screen.getAllByRole('button', {
+          name: 'Annehmen',
+        })[0] as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+
+    apiMocks.post.mockResolvedValueOnce({});
+    fireEvent.click(screen.getAllByRole('button', { name: 'Annehmen' })[0]);
+    await waitFor(() => expect(loads).toBeGreaterThan(1));
   });
 });
 
@@ -508,7 +738,7 @@ describe('AllianceDetailPage', () => {
       expect(
         await screen.findByText('Vertrauliche Beziehungsvorschläge'),
       ).toBeTruthy();
-      expect(screen.getByText('Vertraulich')).toBeTruthy();
+      expect(await screen.findByText('Vertraulich')).toBeTruthy();
       fireEvent.click(screen.getByRole('button', { name: 'Annehmen' }));
       await waitFor(() =>
         expect(apiMocks.post).toHaveBeenCalledWith(
