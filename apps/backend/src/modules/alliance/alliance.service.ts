@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -46,6 +47,8 @@ import {
   mayActOnMember,
 } from './alliance-permissions';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
+import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
+import { DiplomacyCapabilityService } from './diplomacy-capability.service';
 import type {
   AllianceConstraint,
   AllianceDiplomacyChronicleEntryRecord,
@@ -101,6 +104,7 @@ const ERR = {
   alreadyApplied: 'Du hast Dich bei dieser Allianz bereits beworben',
   concurrentChange:
     'Die Allianz wurde gerade geändert. Bitte lade die Seite neu und versuche es erneut',
+  diplomacyUnavailable: 'Der Diplomatie-Kern ist noch nicht aktiviert',
 } as const;
 
 /** Domain error for a constraint that rejected a write (last line of defence). */
@@ -120,9 +124,13 @@ interface OutgoingMessage {
 
 @Injectable()
 export class AllianceService {
+  private readonly logger = new Logger(AllianceService.name);
+
   constructor(
     @Inject(ALLIANCE_STORE) private readonly store: AllianceStore,
     private readonly messaging: MessagingService,
+    private readonly rateLimiter?: DiplomacyRateLimiterService,
+    private readonly diplomacyCapability?: DiplomacyCapabilityService,
   ) {}
 
   // --- Queries ---
@@ -238,9 +246,9 @@ export class AllianceService {
           editDetails: may('editDetails'),
           manageApplications: may('manageApplications'),
           dissolve: may('dissolve'),
-          declareWar: may('declareWar'),
-          manageDiplomacy: may('manageDiplomacy'),
-          warTargets: may('declareWar')
+          declareWar: this.diplomacyEnabled && may('declareWar'),
+          manageDiplomacy: this.diplomacyEnabled && may('manageDiplomacy'),
+          warTargets: this.diplomacyEnabled && may('declareWar')
             ? alliances
                 .filter(
                   (candidate) =>
@@ -285,7 +293,8 @@ export class AllianceService {
     allianceId: number,
     targetAllianceId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    this.rateLimiter?.check(actorId, 'war');
+    await this.mutateDiplomacy(async (tx) => {
       const alliance = await this.lockedAllianceRight(
         tx,
         actorId,
@@ -325,7 +334,6 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${alliance.name} den Krieg erklärt`,
       }));
     });
-    await this.send(messages);
   }
 
   async getDiplomacyManagement(
@@ -357,7 +365,9 @@ export class AllianceService {
     );
 
     return {
-      capabilities: { create: true },
+      enabled: this.diplomacyEnabled,
+      effectsApplied: false,
+      capabilities: { create: this.diplomacyEnabled },
       targets: alliances
         .filter(
           (candidate) =>
@@ -386,7 +396,7 @@ export class AllianceService {
               : change
                 ? 'RECEIVED'
                 : null,
-            true,
+            this.diplomacyEnabled,
           ),
         };
       }),
@@ -472,7 +482,8 @@ export class AllianceService {
     relationshipId: number,
     request: ProposeAllianceRelationshipChangeRequest,
   ): Promise<{ id: number }> {
-    const result = await this.mutate(async (tx) => {
+    this.rateLimiter?.check(actorId, 'change');
+    const result = await this.mutateDiplomacy(async (tx) => {
       const relationship = await tx.findActiveRelationship(relationshipId);
       if (
         !relationship ||
@@ -528,8 +539,7 @@ export class AllianceService {
           body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} eine Beziehungsänderung vorgeschlagen`,
         })),
       };
-    });
-    await this.send(result.messages);
+    }, (result) => result.messages);
     return { id: result.id };
   }
 
@@ -537,7 +547,7 @@ export class AllianceService {
     actorId: number,
     proposalId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipChangeProposal(
         tx,
         proposalId,
@@ -569,14 +579,13 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} die Beziehungsänderung angenommen`,
       }));
     });
-    await this.send(messages);
   }
 
   async declineRelationshipChange(
     actorId: number,
     proposalId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipChangeProposal(
         tx,
         proposalId,
@@ -597,14 +606,13 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} die Beziehungsänderung abgelehnt`,
       }));
     });
-    await this.send(messages);
   }
 
   async withdrawRelationshipChange(
     actorId: number,
     proposalId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipChangeProposal(
         tx,
         proposalId,
@@ -625,7 +633,6 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} die Beziehungsänderung zurückgezogen`,
       }));
     });
-    await this.send(messages);
   }
 
   async proposeRelationship(
@@ -633,7 +640,8 @@ export class AllianceService {
     allianceId: number,
     request: ProposeAllianceRelationshipRequest,
   ): Promise<{ id: number }> {
-    const messages = await this.mutate(async (tx) => {
+    this.rateLimiter?.check(actorId, 'proposal');
+    const messages = await this.mutateDiplomacy(async (tx) => {
       const sender = await this.lockedAllianceRight(
         tx,
         actorId,
@@ -697,8 +705,7 @@ export class AllianceService {
           body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} einen Beziehungsvorschlag gesendet`,
         })),
       };
-    });
-    await this.send(messages.messages);
+    }, (result) => result.messages);
     return { id: messages.id };
   }
 
@@ -706,7 +713,7 @@ export class AllianceService {
     actorId: number,
     relationshipId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const relationship = await tx.findActiveRelationship(relationshipId);
       if (!relationship || relationship.type === AllianceRelationshipType.WAR) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
@@ -755,14 +762,13 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${actorAlliance.name} die Beziehung beendet`,
       }));
     });
-    await this.send(messages);
   }
 
   async acceptRelationshipProposal(
     actorId: number,
     proposalId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipProposal(tx, proposalId);
       const recipient = await this.lockedAllianceRight(
         tx,
@@ -803,14 +809,13 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} den Beziehungsvorschlag angenommen`,
       }));
     });
-    await this.send(messages);
   }
 
   async declineRelationshipProposal(
     actorId: number,
     proposalId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipProposal(tx, proposalId);
       const recipient = await this.lockedAllianceRight(
         tx,
@@ -828,14 +833,13 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} den Beziehungsvorschlag abgelehnt`,
       }));
     });
-    await this.send(messages);
   }
 
   async withdrawRelationshipProposal(
     actorId: number,
     proposalId: number,
   ): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipProposal(tx, proposalId);
       const sender = await this.lockedAllianceRight(
         tx,
@@ -853,7 +857,6 @@ export class AllianceService {
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} den Beziehungsvorschlag zurückgezogen`,
       }));
     });
-    await this.send(messages);
   }
 
   async listApplications(
@@ -1268,6 +1271,69 @@ export class AllianceService {
     }
   }
 
+  /**
+   * Persists diplomacy notification intents in the same transaction as the
+   * transition, then attempts delivery only after that transaction committed.
+   */
+  private async mutateDiplomacy<T>(
+    work: (tx: AllianceStore) => Promise<T>,
+    messagesOf: (result: T) => OutgoingMessage[] = (result) =>
+      result as OutgoingMessage[],
+  ): Promise<T> {
+    this.requireDiplomacyEnabled();
+    const result = await this.mutate(async (tx) => {
+      const value = await work(tx);
+      await tx.enqueueDiplomacyNotifications(
+        messagesOf(value).map((message) => ({
+          recipientUserId: message.to,
+          body: message.body,
+        })),
+      );
+      return value;
+    });
+    await this.tryDiplomacyNotificationDelivery();
+    return result;
+  }
+
+  /**
+   * A committed diplomatic result remains successful when delivery is
+   * temporarily unavailable; the durable intent is retried by the dispatcher.
+   */
+  private async tryDiplomacyNotificationDelivery(): Promise<void> {
+    try {
+      await this.retryDiplomacyNotifications();
+    } catch (error) {
+      this.logger.error(
+        'Failed to deliver committed alliance diplomacy notifications',
+        error instanceof Error ? error.stack : error,
+      );
+    }
+  }
+
+  /** Replays only pending committed notification intents. */
+  async retryDiplomacyNotifications(): Promise<void> {
+    const notifications = await this.store.listPendingDiplomacyNotifications();
+    for (const notification of notifications) {
+      await this.messaging.sendSystem(
+        notification.recipientUserId,
+        MESSAGE_SUBJECT,
+        notification.body,
+        notification.deliveryKey,
+      );
+      await this.store.markDiplomacyNotificationDelivered(notification.id);
+    }
+  }
+
+  private get diplomacyEnabled(): boolean {
+    return this.diplomacyCapability?.enabled ?? true;
+  }
+
+  private requireDiplomacyEnabled(): void {
+    if (!this.diplomacyEnabled) {
+      throw new BadRequestException(ERR.diplomacyUnavailable);
+    }
+  }
+
   private async relationshipSummaries(
     allianceId: number,
     relationships: AllianceRelationshipRecord[],
@@ -1593,7 +1659,11 @@ export class AllianceService {
         id?: unknown;
       };
       const occurredAt = new Date(String(decoded.occurredAt));
-      if (!Number.isInteger(decoded.id) || Number.isNaN(occurredAt.getTime())) {
+      if (
+        typeof decoded.id !== 'number' ||
+        !Number.isInteger(decoded.id) ||
+        Number.isNaN(occurredAt.getTime())
+      ) {
         throw new Error('invalid cursor');
       }
       return { occurredAt, id: decoded.id };
@@ -1740,7 +1810,7 @@ export class AllianceService {
   }
 
   private escapeBbcodeText(value: string): string {
-    return value.replace(/[\[\]]/g, (character) => `\\${character}`);
+    return value.replace(/[[\]]/g, (character) => `\\${character}`);
   }
 
   private validateName(raw: unknown): string {

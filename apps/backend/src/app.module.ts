@@ -89,8 +89,11 @@ import { Alliance } from './modules/alliance/entities/alliance.entity';
 import { AllianceMembership } from './modules/alliance/entities/alliance-membership.entity';
 import { AllianceApplication } from './modules/alliance/entities/alliance-application.entity';
 import { AllianceRelationship } from './modules/alliance/entities/alliance-relationship.entity';
+import { AllianceRelationshipProposal } from './modules/alliance/entities/alliance-relationship-proposal.entity';
+import { AllianceRelationshipChangeProposal } from './modules/alliance/entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.entity';
 import { AllianceDiplomacyChronicleEntry } from './modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceDiplomacyNotification } from './modules/alliance/entities/alliance-diplomacy-notification.entity';
 
 @Module({
   imports: [
@@ -170,7 +173,10 @@ import { AllianceDiplomacyChronicleEntry } from './modules/alliance/entities/all
           AllianceApplication,
           DiplomacyParty,
           AllianceRelationship,
+          AllianceRelationshipProposal,
+          AllianceRelationshipChangeProposal,
           AllianceDiplomacyChronicleEntry,
+          AllianceDiplomacyNotification,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',

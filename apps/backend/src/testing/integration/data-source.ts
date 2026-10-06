@@ -11,6 +11,8 @@ import { AllianceRelationshipProposal } from '../../modules/alliance/entities/al
 import { AllianceRelationshipChangeProposal } from '../../modules/alliance/entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from '../../modules/alliance/entities/diplomacy-party.entity';
 import { AllianceDiplomacyChronicleEntry } from '../../modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceDiplomacyNotification } from '../../modules/alliance/entities/alliance-diplomacy-notification.entity';
+import { Message } from '../../modules/messaging/entities/message.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -25,6 +27,8 @@ export const INTEGRATION_ENTITIES = [
   AllianceRelationshipProposal,
   AllianceRelationshipChangeProposal,
   AllianceDiplomacyChronicleEntry,
+  AllianceDiplomacyNotification,
+  Message,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

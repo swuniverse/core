@@ -112,6 +112,8 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
 
 function diplomacyManagement(): AllianceDiplomacyManagementDto {
   return {
+    enabled: true,
+    effectsApplied: false,
     capabilities: { create: true },
     targets: [{ id: 2, name: 'Red Squadron', color: null }],
     relationships: [
@@ -416,6 +418,20 @@ describe('AllianceDiplomacyPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Vorschlag senden' }),
     ).toBeNull();
+  });
+
+  it('identifies an inactive rollout and does not offer proposal creation', async () => {
+    const management = diplomacyManagement();
+    management.enabled = false;
+    management.capabilities.create = false;
+    routeGet({ '/alliances/1/diplomacy': management });
+
+    renderAt('/alliances/1/diplomacy');
+
+    expect(
+      await screen.findByText('Der Diplomatie-Kern ist noch nicht aktiviert.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Vorschlag senden' })).toBeNull();
   });
 
   it('submits a relationship change draft only when the server grants change capability', async () => {

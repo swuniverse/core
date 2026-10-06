@@ -101,6 +101,17 @@ export interface AllianceDiplomacyChronicleEntryRecord {
   occurredAt: Date;
 }
 
+/** A durable, post-commit system-message intent for a diplomacy transition. */
+export interface AllianceDiplomacyNotificationRecord {
+  id: number;
+  recipientUserId: number;
+  body: string;
+  /** Stable idempotency token used when creating the actual system message. */
+  deliveryKey: string;
+  createdAt: Date;
+  deliveredAt: Date | null;
+}
+
 export type AlliancePatch = Partial<
   Pick<
     AllianceRecord,
@@ -219,6 +230,15 @@ export interface AllianceStore {
     cursor: { occurredAt: Date; id: number } | null,
     limit: number,
   ): Promise<AllianceDiplomacyChronicleEntryRecord[]>;
+
+  /** Enqueued inside the same transaction as the diplomatic state change. */
+  enqueueDiplomacyNotifications(
+    notifications: Array<{ recipientUserId: number; body: string }>,
+  ): Promise<void>;
+  /** Pending intents are retried after their originating transaction committed. */
+  listPendingDiplomacyNotifications(): Promise<AllianceDiplomacyNotificationRecord[]>;
+  /** Returns false when another dispatcher already completed this intent. */
+  markDiplomacyNotificationDelivered(id: number): Promise<boolean>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Ordered by join time, oldest first. */

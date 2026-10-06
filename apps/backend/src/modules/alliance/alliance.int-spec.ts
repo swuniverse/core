@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   AllianceRelationshipType,
@@ -11,11 +12,19 @@ import {
   resetDatabase,
 } from '../../testing/integration/database';
 import { User } from '../auth/user.entity';
+import { Message } from '../messaging/entities/message.entity';
+import { MessagingService } from '../messaging/messaging.service';
 import { AllianceService } from './alliance.service';
 import { AllianceConstraintViolation } from './alliance.store';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 
 const { NONE, PRESIDENT, VICE } = AllianceRole;
+
+function silenceDiplomacyDeliveryErrors(service: AllianceService) {
+  jest
+    .spyOn((service as unknown as { logger: Logger }).logger, 'error')
+    .mockImplementation();
+}
 
 describe('alliance persistence (Postgres)', () => {
   let dataSource: DataSource;
@@ -56,6 +65,12 @@ describe('alliance persistence (Postgres)', () => {
       role: PRESIDENT,
     });
     return created;
+  }
+
+  function concurrentService() {
+    return new AllianceService(new TypeOrmAllianceStore(dataSource), {
+      sendSystem: jest.fn().mockResolvedValue(undefined),
+    } as never);
   }
 
   it('enforces a single active relationship for a canonical same-faction pair', async () => {
@@ -145,6 +160,33 @@ describe('alliance persistence (Postgres)', () => {
     ]);
   });
 
+  it('serializes simultaneous relationship proposals into one pending proposal and a domain error', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+
+    const results = await Promise.allSettled([
+      concurrentService().proposeRelationship(leia.id, rogue.id, {
+        recipientAllianceId: red.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+      }),
+      concurrentService().proposeRelationship(mon.id, red.id, {
+        recipientAllianceId: rogue.id,
+        type: AllianceRelationshipType.ALLIANCE,
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected?.reason).toMatchObject({
+      message: 'Für dieses Allianzpaar existiert bereits ein Beziehungsvorschlag',
+    });
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toHaveLength(1);
+  });
+
   it('keeps one pending relationship change confidential and atomically replaces the active state on acceptance', async () => {
     const leia = await rebel();
     const mon = await rebel();
@@ -185,6 +227,138 @@ describe('alliance persistence (Postgres)', () => {
       shareLivePositions: false,
     });
     await expect(store.findRelationshipChangeProposal(change.id)).resolves.toBeNull();
+  });
+
+  it('serializes two concurrent relationship changes into one pending change', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const proposal = await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.ALLIANCE,
+      permissions: { treatAsFriend: true, shareLivePositions: true },
+    });
+    await service.acceptRelationshipProposal(mon.id, proposal.id);
+    const [relationship] = await store.listActiveRelationships(rogue.id);
+
+    const results = await Promise.allSettled([
+      concurrentService().proposeRelationshipChange(leia.id, relationship.id, {
+        contract: 'Entwurf A',
+        permissions: { treatAsFriend: false, shareLivePositions: false },
+      }),
+      concurrentService().proposeRelationshipChange(mon.id, relationship.id, {
+        contract: 'Entwurf B',
+        permissions: { treatAsFriend: true, shareLivePositions: false },
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected?.reason).toMatchObject({
+      message: 'Für diese Beziehung existiert bereits ein Änderungsvorschlag',
+    });
+    await expect(store.listRelationshipChangeProposals(rogue.id)).resolves.toHaveLength(1);
+  });
+
+  it('serializes war against proposal acceptance into a single active war', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const proposal = await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.FRIENDSHIP,
+    });
+
+    const results = await Promise.allSettled([
+      concurrentService().declareWar(leia.id, rogue.id, red.id),
+      concurrentService().acceptRelationshipProposal(mon.id, proposal.id),
+    ]);
+
+    expect(results).toHaveLength(2);
+    await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([
+      expect.objectContaining({ type: AllianceRelationshipType.WAR }),
+    ]);
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual([]);
+  });
+
+  it('serializes two answers to one relationship proposal', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const proposal = await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.FRIENDSHIP,
+    });
+
+    const results = await Promise.allSettled([
+      concurrentService().acceptRelationshipProposal(mon.id, proposal.id),
+      concurrentService().declineRelationshipProposal(mon.id, proposal.id),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected?.reason).toMatchObject({
+      message: 'Der Beziehungsvorschlag ist nicht verfügbar',
+    });
+    const active = await store.listActiveRelationships(rogue.id);
+    expect(active.length).toBeLessThanOrEqual(1);
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual([]);
+  });
+
+  it('persists a failed post-commit diplomacy notification and retries its keyed physical message exactly once', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const messaging = new MessagingService(dataSource.getRepository(Message));
+    const failingService = new AllianceService(store, messaging);
+    const markDelivered = jest
+      .spyOn(store, 'markDiplomacyNotificationDelivered')
+      .mockRejectedValueOnce(new Error('acknowledgment unavailable'));
+    silenceDiplomacyDeliveryErrors(failingService);
+
+    await expect(
+      failingService.declareWar(leia.id, rogue.id, red.id),
+    ).resolves.toBeUndefined();
+    await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([
+      expect.objectContaining({ type: AllianceRelationshipType.WAR }),
+    ]);
+    const [notification] = await dataSource.query(
+      'SELECT "recipientUserId", "deliveryKey", "deliveredAt" FROM "alliance_diplomacy_notifications"',
+    );
+    expect(notification).toMatchObject({
+      recipientUserId: mon.id,
+      deliveryKey: expect.stringMatching(/^alliance-diplomacy-notification:/),
+      deliveredAt: null,
+    });
+    await expect(
+      dataSource.query(
+        'SELECT "deliveryKey" FROM "messages" WHERE "deliveryKey" = $1',
+        [notification.deliveryKey],
+      ),
+    ).resolves.toEqual([{ deliveryKey: notification.deliveryKey }]);
+
+    await failingService.retryDiplomacyNotifications();
+
+    expect(markDelivered).toHaveBeenCalledTimes(2);
+    await expect(
+      dataSource.query(
+        'SELECT "deliveryKey" FROM "messages" WHERE "deliveryKey" = $1',
+        [notification.deliveryKey],
+      ),
+    ).resolves.toEqual([{ deliveryKey: notification.deliveryKey }]);
+    await expect(
+      dataSource.query(
+        'SELECT "deliveredAt" FROM "alliance_diplomacy_notifications"',
+      ),
+    ).resolves.toEqual([expect.objectContaining({ deliveredAt: expect.any(Date) })]);
   });
 
   it('persists immutable public chronicle snapshots without contract text', async () => {
