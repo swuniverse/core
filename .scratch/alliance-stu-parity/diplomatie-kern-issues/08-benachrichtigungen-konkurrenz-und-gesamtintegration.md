@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Diplomatieverwaltung), 07 (Diplomatie-Chronik und Beziehungsplatzhalter)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Jeder erfolgreiche diplomatische Übergang erzeugt genau die vorgesehenen allianceweiten Benachrichtigungsaufträge für die Gegenpartei; ein Transaktionsrollback erzeugt keinen zustellbaren Auftrag.
 - [ ] Die Zustellung erfolgt erst nach Commit über einen zuverlässig wiederholbaren Mechanismus; ein Messaging-Fehler lässt den diplomatischen Zustand bestehen und kann ohne erneute Mutation nachgeholt werden.
@@ -18,3 +18,7 @@
 - [ ] Die aktivierte Etappe macht kenntlich, dass Beziehungsfreigaben gespeichert, aber noch nicht auf Kampf, Karte, Scan, Transfer oder Zugang angewandt werden; kein solcher Pfad wird teilweise umgestellt.
 - [ ] Build, Lint, normale Backend- und Frontendtests sowie die PostgreSQL-Integrationssuite bestehen gemeinsam.
 - [ ] Eine abschließende Anforderungsmatrix ordnet alle 88 User Stories der Spezifikation mindestens einem automatisierten Test oder einer nachweisbaren Akzeptanzprüfung zu.
+
+## Answer
+
+Implementiert in 9f27e0ae65e1d7ccba53cc0715cc21f5a70ea349; integriert als 01d25a1.
