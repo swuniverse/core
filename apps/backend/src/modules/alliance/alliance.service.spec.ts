@@ -127,6 +127,141 @@ describe('AllianceService', () => {
       );
     });
 
+    it('records a public chronicle entry when an alliance declares war', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+      ]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
+
+      await service.declareWar(1, rogue.id, red.id);
+
+      await expect(service.listDiplomacyChronicle(2, red.id)).resolves.toEqual({
+        entries: [
+          expect.objectContaining({
+            type: 'WAR_DECLARED',
+            actor: { userId: 1, name: 'Leia' },
+            firstAlliance: { id: rogue.id, name: 'Rogue Squadron' },
+            secondAlliance: { id: red.id, name: 'Red Squadron' },
+            relationship: { type: AllianceRelationshipType.WAR, vassalage: null },
+          }),
+        ],
+        nextCursor: null,
+      });
+    });
+
+    it('renders only active public relationships in the diplomatic-relations placeholder', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      const rogue = store.seedAlliance(
+        { name: 'Rogue Squadron', description: 'Beziehungen:\n$ALLIANCE_DIPLOMATIC_RELATIONS' },
+        [[1, PRESIDENT]],
+      );
+      const red = store.seedAlliance({ name: '[b]Red[/b] Squadron' }, []);
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: rogue.id,
+        secondAllianceId: red.id,
+        type: AllianceRelationshipType.VASSALAGE,
+        lordAllianceId: rogue.id,
+        vassalAllianceId: red.id,
+        contract: 'geheimer Entwurf',
+      });
+
+      const detail = await service.getDetail(1, rogue.id);
+
+      expect(detail.renderedDescription).toBe(
+        'Beziehungen:\nVasallenschaft: \\[b\\]Red\\[/b\\] Squadron (Lehnsherr)',
+      );
+      expect(detail.renderedDescription).not.toContain('geheimer Entwurf');
+    });
+
+    it('keeps historical names and paginates the newest chronicle entries first', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
+
+      const proposal = await service.proposeRelationship(1, rogue.id, {
+        recipientAllianceId: red.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+      });
+      await service.acceptRelationshipProposal(2, proposal.id);
+      await service.update(1, rogue.id, { name: 'Renegade Squadron' });
+      const relationship = (await service.getDetail(1, rogue.id)).relationships[0];
+      await service.endRelationship(1, relationship.id);
+
+      const first = await service.listDiplomacyChronicle(2, red.id, undefined, 1);
+      const second = await service.listDiplomacyChronicle(2, red.id, first.nextCursor ?? undefined, 1);
+
+      expect(first.entries).toHaveLength(1);
+      expect(first.entries[0]).toMatchObject({
+        type: 'RELATIONSHIP_ENDED',
+        firstAlliance: { id: rogue.id, name: 'Renegade Squadron' },
+      });
+      expect(first.nextCursor).toEqual(expect.any(String));
+      expect(second).toMatchObject({
+        entries: [
+          expect.objectContaining({
+            type: 'RELATIONSHIP_STARTED',
+            firstAlliance: { id: rogue.id, name: 'Rogue Squadron' },
+          }),
+        ],
+        nextCursor: null,
+      });
+    });
+
+    it('records accepted relationship changes with public vassalage metadata only', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: rogue.id,
+        secondAllianceId: red.id,
+        type: AllianceRelationshipType.VASSALAGE,
+        lordAllianceId: rogue.id,
+        vassalAllianceId: red.id,
+        contract: 'existing secret',
+      });
+
+      const change = await service.proposeRelationshipChange(1, relationship.id, {
+        contract: 'replacement secret',
+        permissions: { treatAsFriend: true },
+      });
+      await service.acceptRelationshipChange(2, change.id);
+
+      const entry = (await service.listDiplomacyChronicle(1, rogue.id)).entries[0];
+      expect(entry).toMatchObject({
+        type: 'RELATIONSHIP_CHANGED',
+        relationship: {
+          type: AllianceRelationshipType.VASSALAGE,
+          vassalage: { lordAllianceId: rogue.id, vassalAllianceId: red.id },
+        },
+      });
+      expect(JSON.stringify(entry)).not.toContain('secret');
+    });
+
+    it('does not write chronicle entries for proposals, declines, withdrawals, or contract-only changes', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
+
+      const proposal = await service.proposeRelationship(1, rogue.id, {
+        recipientAllianceId: red.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+        contract: 'confidential draft',
+      });
+      await service.withdrawRelationshipProposal(1, proposal.id);
+
+      expect((await service.listDiplomacyChronicle(2, red.id)).entries).toEqual([]);
+    });
+
     it('makes the founder president of a new alliance of their faction', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia', REBELS.id);

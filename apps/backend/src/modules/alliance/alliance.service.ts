@@ -7,6 +7,9 @@ import {
 } from '@nestjs/common';
 import {
   AllianceApplicationDto,
+  AllianceDiplomacyChronicleDto,
+  AllianceDiplomacyChronicleEntryDto,
+  AllianceDiplomacyChronicleEventType,
   AllianceDetailDto,
   AllianceDiplomacyManagementDto,
   AllianceDiplomacyCapabilitiesDto,
@@ -45,6 +48,7 @@ import {
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import type {
   AllianceConstraint,
+  AllianceDiplomacyChronicleEntryRecord,
   AlliancePatch,
   AllianceRecord,
   AllianceRelationshipChangeProposalRecord,
@@ -134,6 +138,32 @@ export class AllianceService {
     );
   }
 
+  async listDiplomacyChronicle(
+    viewerId: number,
+    allianceId: number,
+    cursor?: string,
+    limit?: number,
+  ): Promise<AllianceDiplomacyChronicleDto> {
+    await this.requireAlliance(allianceId);
+    await this.store.findPlayer(viewerId);
+    const pageSize = Math.min(Math.max(limit ?? 20, 1), 50);
+    const paginationCursor = this.parseChronicleCursor(cursor);
+    const entries = await this.store.listDiplomacyChronicleEntries(
+      allianceId,
+      paginationCursor,
+      pageSize + 1,
+    );
+    const page = entries.slice(0, pageSize);
+    const last = page.at(-1);
+    return {
+      entries: page.map((entry) => this.toChronicleEntry(entry)),
+      nextCursor:
+        entries.length > pageSize && last
+          ? this.encodeChronicleCursor(last)
+          : null,
+    };
+  }
+
   async getDetail(
     viewerId: number,
     allianceId: number,
@@ -185,7 +215,11 @@ export class AllianceService {
       ...this.toSummary(alliance, memberships.length, factions),
       homepage: alliance.homepage,
       description: alliance.description,
-      renderedDescription: this.renderDescription(alliance, members),
+      renderedDescription: this.renderDescription(
+        alliance,
+        members,
+        relationshipSummaries,
+      ),
       titles,
       members,
       relationships: relationshipSummaries,
@@ -271,6 +305,20 @@ export class AllianceService {
       }
       const actor = await tx.findPlayer(actorId);
       await tx.replaceRelationshipsWithWar(allianceId, targetAllianceId);
+      const relationship = (await tx.listActiveRelationships(allianceId)).find(
+        (entry) =>
+          entry.firstAllianceId === Math.min(allianceId, targetAllianceId) &&
+          entry.secondAllianceId === Math.max(allianceId, targetAllianceId),
+      );
+      if (!relationship) throw new Error('War relationship was not created');
+      await this.appendChronicleEntry(
+        tx,
+        AllianceDiplomacyChronicleEventType.WAR_DECLARED,
+        actorId,
+        relationship,
+        relationship.firstAllianceId === alliance.id ? alliance : target,
+        relationship.secondAllianceId === target.id ? target : alliance,
+      );
       const recipients = await tx.listMemberships(targetAllianceId);
       return recipients.map((member) => ({
         to: member.userId,
@@ -505,6 +553,15 @@ export class AllianceService {
       if (!relationship) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
+      const sender = await this.lockedAlliance(tx, proposal.senderAllianceId);
+      await this.appendChronicleEntry(
+        tx,
+        AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED,
+        actorId,
+        relationship,
+        relationship.firstAllianceId === recipient.id ? recipient : sender,
+        relationship.secondAllianceId === sender.id ? sender : recipient,
+      );
       const actor = await tx.findPlayer(actorId);
       const recipients = await tx.listMemberships(proposal.senderAllianceId);
       return recipients.map((member) => ({
@@ -673,9 +730,24 @@ export class AllianceService {
           ? relationship.secondAllianceId
           : relationship.firstAllianceId;
       await this.lockedAlliance(tx, counterpartAllianceId);
-      if (!(await tx.endNonWarRelationship(relationshipId))) {
+      const endedRelationship = await tx.endNonWarRelationship(relationshipId);
+      if (!endedRelationship) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
       }
+      const counterpartAlliance = await tx.findAlliance(counterpartAllianceId);
+      if (!counterpartAlliance) throw new NotFoundException(ERR.allianceNotFound);
+      await this.appendChronicleEntry(
+        tx,
+        AllianceDiplomacyChronicleEventType.RELATIONSHIP_ENDED,
+        actorId,
+        endedRelationship,
+        endedRelationship.firstAllianceId === actorAlliance.id
+          ? actorAlliance
+          : counterpartAlliance,
+        endedRelationship.secondAllianceId === counterpartAlliance.id
+          ? counterpartAlliance
+          : actorAlliance,
+      );
       const actor = await tx.findPlayer(actorId);
       const recipients = await tx.listMemberships(counterpartAllianceId);
       return recipients.map((member) => ({
@@ -715,6 +787,15 @@ export class AllianceService {
       const relationship = await tx.acceptRelationshipProposal(proposalId);
       if (!relationship)
         throw new NotFoundException(ERR.relationshipProposalNotFound);
+      const sender = await this.lockedAlliance(tx, proposal.senderAllianceId);
+      await this.appendChronicleEntry(
+        tx,
+        AllianceDiplomacyChronicleEventType.RELATIONSHIP_STARTED,
+        actorId,
+        relationship,
+        relationship.firstAllianceId === recipient.id ? recipient : sender,
+        relationship.secondAllianceId === sender.id ? sender : recipient,
+      );
       const actor = await tx.findPlayer(actorId);
       const recipients = await tx.listMemberships(proposal.senderAllianceId);
       return recipients.map((member) => ({
@@ -1502,6 +1583,79 @@ export class AllianceService {
     };
   }
 
+  private parseChronicleCursor(
+    cursor?: string,
+  ): { occurredAt: Date; id: number } | null {
+    if (!cursor) return null;
+    try {
+      const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
+        occurredAt?: unknown;
+        id?: unknown;
+      };
+      const occurredAt = new Date(String(decoded.occurredAt));
+      if (!Number.isInteger(decoded.id) || Number.isNaN(occurredAt.getTime())) {
+        throw new Error('invalid cursor');
+      }
+      return { occurredAt, id: decoded.id };
+    } catch {
+      throw new BadRequestException('Ungültiger Chronik-Cursor');
+    }
+  }
+
+  private encodeChronicleCursor(entry: AllianceDiplomacyChronicleEntryRecord): string {
+    return Buffer.from(
+      JSON.stringify({ occurredAt: entry.occurredAt.toISOString(), id: entry.id }),
+    ).toString('base64url');
+  }
+
+  private toChronicleEntry(
+    entry: AllianceDiplomacyChronicleEntryRecord,
+  ): AllianceDiplomacyChronicleEntryDto {
+    return {
+      id: entry.id,
+      type: entry.eventType,
+      actor: entry.actorUserId === null || entry.actorName === null
+        ? null
+        : { userId: entry.actorUserId, name: entry.actorName },
+      firstAlliance: { id: entry.firstAllianceId, name: entry.firstAllianceName },
+      secondAlliance: { id: entry.secondAllianceId, name: entry.secondAllianceName },
+      relationship: {
+        type: entry.relationshipType,
+        vassalage:
+          entry.lordAllianceId === null || entry.vassalAllianceId === null
+            ? null
+            : {
+                lordAllianceId: entry.lordAllianceId,
+                vassalAllianceId: entry.vassalAllianceId,
+              },
+      },
+      occurredAt: entry.occurredAt.toISOString(),
+    };
+  }
+
+  private async appendChronicleEntry(
+    tx: AllianceStore,
+    eventType: AllianceDiplomacyChronicleEventType,
+    actorId: number | null,
+    relationship: AllianceRelationshipRecord,
+    firstAlliance: AllianceRecord,
+    secondAlliance: AllianceRecord,
+  ): Promise<void> {
+    const actor = actorId === null ? null : await tx.findPlayer(actorId);
+    await tx.appendDiplomacyChronicleEntry({
+      eventType,
+      actorUserId: actor?.id ?? null,
+      actorName: actor?.name ?? null,
+      firstAllianceId: firstAlliance.id,
+      firstAllianceName: firstAlliance.name,
+      secondAllianceId: secondAlliance.id,
+      secondAllianceName: secondAlliance.name,
+      relationshipType: relationship.type,
+      lordAllianceId: relationship.lordAllianceId,
+      vassalAllianceId: relationship.vassalAllianceId,
+    });
+  }
+
   private titlesOf(alliance: AllianceRecord): AllianceTitlesDto {
     return {
       president: alliance.presidentTitle,
@@ -1530,6 +1684,7 @@ export class AllianceService {
   private renderDescription(
     alliance: AllianceRecord,
     members: Array<{ name: string; role: AllianceRole }>,
+    relationships: AllianceRelationshipSummaryDto[],
   ): string {
     const holder = (role: AllianceRole) =>
       members.find((m) => m.role === role)?.name ?? 'Unbesetzt';
@@ -1540,11 +1695,52 @@ export class AllianceService {
       $ALLIANCE_HOMEPAGE_LINK: alliance.homepage
         ? `[url=${alliance.homepage}]Zur Allianz-Homepage[/url]`
         : '',
+      $ALLIANCE_DIPLOMATIC_RELATIONS: this.renderDiplomaticRelations(
+        alliance.id,
+        relationships,
+      ),
     };
     return alliance.description.replace(
       /\$ALLIANCE_[A-Z_]+/g,
       (token) => values[token] ?? '',
     );
+  }
+
+  private renderDiplomaticRelations(
+    allianceId: number,
+    relationships: AllianceRelationshipSummaryDto[],
+  ): string {
+    return relationships
+      .map((relationship) => {
+        const direction = relationship.vassalage
+          ? relationship.vassalage.lordAllianceId === allianceId
+            ? ' (Lehnsherr)'
+            : ' (Vasall)'
+          : '';
+        return `${this.relationshipTypeLabel(relationship.type)}: ${this.escapeBbcodeText(relationship.counterparty.name)}${direction}`;
+      })
+      .join('\n');
+  }
+
+  private relationshipTypeLabel(type: AllianceRelationshipType): string {
+    switch (type) {
+      case AllianceRelationshipType.WAR:
+        return 'Krieg';
+      case AllianceRelationshipType.PEACE:
+        return 'Frieden';
+      case AllianceRelationshipType.FRIENDSHIP:
+        return 'Freundschaft';
+      case AllianceRelationshipType.ALLIANCE:
+        return 'Bündnis';
+      case AllianceRelationshipType.TRADE_AGREEMENT:
+        return 'Handelsabkommen';
+      case AllianceRelationshipType.VASSALAGE:
+        return 'Vasallenschaft';
+    }
+  }
+
+  private escapeBbcodeText(value: string): string {
+    return value.replace(/[\[\]]/g, (character) => `\\${character}`);
   }
 
   private validateName(raw: unknown): string {
