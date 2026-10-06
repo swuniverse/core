@@ -1005,20 +1005,9 @@ export function AllianceDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    let active = true;
-    if (!id || !alliance) return undefined;
-    void api
-      .get<AllianceDiplomacyChronicleDto>(`/alliances/${id}/diplomacy/chronicle`)
-      .then((response) => {
-        if (active) setChronicle(Array.isArray(response?.entries) ? response : null);
-      })
-      .catch(() => {
-        if (active) setChronicle(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [alliance, id]);
+    if (!alliance) return;
+    void reloadChronicle();
+  }, [alliance, reloadChronicle]);
 
   const reloadApplications = useCallback(async () => {
     if (!id || !canManageApplications) {
