@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Krieg erklären), 03 (Abkommen vorschlagen und beantworten), 04 (Frieden und Beziehungswechsel), 05 (Beziehungsfreigaben und Vertragswerk aushandeln)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Kriegserklärungen, angenommene Erstabkommen, angenommene Typwechsel einschließlich Frieden und beendete aktive Beziehungen erzeugen in derselben Transaktion einen öffentlichen Chronikeintrag.
 - [ ] Vorschläge, Ablehnungen, Rückzüge und reine Freigabe-/Vertragsänderungen erscheinen nicht in der öffentlichen Diplomatie-Chronik.
@@ -16,3 +16,7 @@
 - [ ] Der Platzhalter enthält Gegenpartei, Beziehungstyp und Vasallenschaftsrichtung, aber weder Beziehungsvorschläge noch ausstehende Freigaben oder Vertragsentwürfe.
 - [ ] Eine Beschreibung ohne aktive Beziehungen ersetzt den Platzhalter deterministisch durch eine leere beziehungsweise klar definierte sichere Darstellung.
 - [ ] Service-, Migrations-, PostgreSQL- und Frontendtests decken Ereignisauswahl, Atomarität, Unveränderlichkeit, Pagination, Namens-Snapshots und Geheimhaltung im Platzhalter ab.
+
+## Answer
+
+Implementiert in 0ffdb12 und integriert als e2ab89f; der zusammengeführte Frontend-Ladefehler wurde in be4d17f korrigiert.
