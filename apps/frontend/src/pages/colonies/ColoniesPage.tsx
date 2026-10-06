@@ -165,6 +165,13 @@ export function ColoniesPage() {
   // Zuletzt angeforderte Ziel-Kolonie: Hintergrund-Refreshs (Socket/Tick) fuer
   // eine andere Kolonie duerfen eine laufende Navigation nicht ueberschreiben.
   const targetColonyIdRef = useRef<number | null>(null);
+  // setSearchParams aendert in React Router 7 bei jeder URL-Aenderung seine
+  // Identitaet; ueber eine Ref bleiben loadColonyDetail/loadInitial stabil,
+  // sonst laeuft loadInitial erneut und springt zur Start-Kolonie zurueck.
+  const setSearchParamsRef = useRef(setSearchParams);
+  setSearchParamsRef.current = setSearchParams;
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const initialSelectedIdRef = useRef(Number(searchParams.get('selected')));
 
   const loadColonyOverview = useCallback(async () => {
@@ -184,7 +191,7 @@ export function ColoniesPage() {
       if (requestSequence !== detailRequestSequenceRef.current) return;
       setBuildingDefs(buildings);
       setSelected(detail);
-      setSearchParams({ selected: String(id) }, { replace: true });
+      setSearchParamsRef.current({ selected: String(id) }, { replace: true });
       setEnvironmentScan(null);
       setEnvironmentScanError(null);
       void colonyApi
@@ -200,7 +207,7 @@ export function ColoniesPage() {
           }
         });
     },
-    [setSearchParams],
+    [],
   );
 
   const loadAvailableBuildings = useCallback(async (colonyId?: number) => {
@@ -230,11 +237,11 @@ export function ColoniesPage() {
       const reqId = initialSelectedIdRef.current;
       if (reqId) await loadColonyDetail(reqId);
     } catch (error: unknown) {
-      toast.error(errorMessage(error));
+      toastRef.current.error(errorMessage(error));
     } finally {
       setLoading(false);
     }
-  }, [loadColonyDetail, loadColonyOverview, toast]);
+  }, [loadColonyDetail, loadColonyOverview]);
 
   useEffect(() => {
     void loadInitial();
