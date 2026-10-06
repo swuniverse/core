@@ -177,14 +177,19 @@ describe('alliance persistence (Postgres)', () => {
       }),
     ]);
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
     expect(rejected?.reason).toMatchObject({
-      message: 'Für dieses Allianzpaar existiert bereits ein Beziehungsvorschlag',
+      message:
+        'Für dieses Allianzpaar existiert bereits ein Beziehungsvorschlag',
     });
-    await expect(store.listRelationshipProposals(rogue.id)).resolves.toHaveLength(1);
+    await expect(
+      store.listRelationshipProposals(rogue.id),
+    ).resolves.toHaveLength(1);
   });
 
   it('keeps one pending relationship change confidential and atomically replaces the active state on acceptance', async () => {
@@ -192,7 +197,7 @@ describe('alliance persistence (Postgres)', () => {
     const mon = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
     const red = await alliance('Red Squadron', mon.id);
-    const proposal = await service.proposeRelationship( leia.id, rogue.id, {
+    const proposal = await service.proposeRelationship(leia.id, rogue.id, {
       recipientAllianceId: red.id,
       type: AllianceRelationshipType.ALLIANCE,
       contract: 'Bisheriges Vertragswerk',
@@ -201,10 +206,14 @@ describe('alliance persistence (Postgres)', () => {
     await service.acceptRelationshipProposal(mon.id, proposal.id);
     const [relationship] = await store.listActiveRelationships(rogue.id);
 
-    const change = await service.proposeRelationshipChange(leia.id, relationship.id, {
-      contract: 'Neues Vertragswerk',
-      permissions: { treatAsFriend: false, shareLivePositions: false },
-    });
+    const change = await service.proposeRelationshipChange(
+      leia.id,
+      relationship.id,
+      {
+        contract: 'Neues Vertragswerk',
+        permissions: { treatAsFriend: false, shareLivePositions: false },
+      },
+    );
     await expect(
       service.proposeRelationshipChange(mon.id, relationship.id, {
         contract: 'Doppelter Entwurf',
@@ -212,7 +221,9 @@ describe('alliance persistence (Postgres)', () => {
     ).rejects.toMatchObject({
       message: 'Für diese Beziehung existiert bereits ein Änderungsvorschlag',
     });
-    await expect(store.findActiveRelationship(relationship.id)).resolves.toMatchObject({
+    await expect(
+      store.findActiveRelationship(relationship.id),
+    ).resolves.toMatchObject({
       contract: 'Bisheriges Vertragswerk',
       treatAsFriend: true,
       shareLivePositions: true,
@@ -220,13 +231,17 @@ describe('alliance persistence (Postgres)', () => {
 
     await service.acceptRelationshipChange(mon.id, change.id);
 
-    await expect(store.findActiveRelationship(relationship.id)).resolves.toMatchObject({
+    await expect(
+      store.findActiveRelationship(relationship.id),
+    ).resolves.toMatchObject({
       id: relationship.id,
       contract: 'Neues Vertragswerk',
       treatAsFriend: false,
       shareLivePositions: false,
     });
-    await expect(store.findRelationshipChangeProposal(change.id)).resolves.toBeNull();
+    await expect(
+      store.findRelationshipChangeProposal(change.id),
+    ).resolves.toBeNull();
   });
 
   it('serializes two concurrent relationship changes into one pending change', async () => {
@@ -253,14 +268,18 @@ describe('alliance persistence (Postgres)', () => {
       }),
     ]);
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
     expect(rejected?.reason).toMatchObject({
       message: 'Für diese Beziehung existiert bereits ein Änderungsvorschlag',
     });
-    await expect(store.listRelationshipChangeProposals(rogue.id)).resolves.toHaveLength(1);
+    await expect(
+      store.listRelationshipChangeProposals(rogue.id),
+    ).resolves.toHaveLength(1);
   });
 
   it('serializes war against proposal acceptance into a single active war', async () => {
@@ -282,7 +301,9 @@ describe('alliance persistence (Postgres)', () => {
     await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([
       expect.objectContaining({ type: AllianceRelationshipType.WAR }),
     ]);
-    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual([]);
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual(
+      [],
+    );
   });
 
   it('serializes two answers to one relationship proposal', async () => {
@@ -300,7 +321,9 @@ describe('alliance persistence (Postgres)', () => {
       concurrentService().declineRelationshipProposal(mon.id, proposal.id),
     ]);
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
@@ -309,7 +332,9 @@ describe('alliance persistence (Postgres)', () => {
     });
     const active = await store.listActiveRelationships(rogue.id);
     expect(active.length).toBeLessThanOrEqual(1);
-    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual([]);
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual(
+      [],
+    );
   });
 
   it('persists a failed post-commit diplomacy notification and retries its keyed physical message exactly once', async () => {
@@ -358,7 +383,48 @@ describe('alliance persistence (Postgres)', () => {
       dataSource.query(
         'SELECT "deliveredAt" FROM "alliance_diplomacy_notifications"',
       ),
-    ).resolves.toEqual([expect.objectContaining({ deliveredAt: expect.any(Date) })]);
+    ).resolves.toEqual([
+      expect.objectContaining({ deliveredAt: expect.any(Date) }),
+    ]);
+  });
+
+  it('leases a pending notification to one dispatcher across service instances', async () => {
+    const mon = await rebel();
+    await store.enqueueDiplomacyNotifications([
+      { recipientUserId: mon.id, body: 'Eine Beziehung wurde geändert' },
+    ]);
+
+    let releaseFirstDelivery!: () => void;
+    let firstDeliveryFinished!: () => void;
+    const firstDeliveryStarted = new Promise<void>((resolve) => {
+      const first = new AllianceService(new TypeOrmAllianceStore(dataSource), {
+        sendSystem: jest.fn(async () => {
+          resolve();
+          await new Promise<void>((release) => {
+            releaseFirstDelivery = release;
+          });
+        }),
+      } as never);
+      void first.retryDiplomacyNotifications().finally(firstDeliveryFinished);
+    });
+    const firstDeliveryFinishedPromise = new Promise<void>((resolve) => {
+      firstDeliveryFinished = resolve;
+    });
+
+    await firstDeliveryStarted;
+    const secondMessaging = {
+      sendSystem: jest.fn().mockResolvedValue(undefined),
+    };
+    const second = new AllianceService(
+      new TypeOrmAllianceStore(dataSource),
+      secondMessaging as never,
+    );
+
+    await second.retryDiplomacyNotifications();
+
+    expect(secondMessaging.sendSystem).not.toHaveBeenCalled();
+    releaseFirstDelivery();
+    await firstDeliveryFinishedPromise;
   });
 
   it('persists immutable public chronicle snapshots without contract text', async () => {

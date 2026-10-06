@@ -33,4 +33,11 @@ export class AllianceDiplomacyNotification {
 
   @Column({ type: 'timestamp', nullable: true })
   deliveredAt: Date | null;
+
+  /** Cross-instance ownership token while a dispatcher is delivering this intent. */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  leaseToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  leaseExpiresAt: Date | null;
 }

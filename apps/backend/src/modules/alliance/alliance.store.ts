@@ -110,6 +110,7 @@ export interface AllianceDiplomacyNotificationRecord {
   deliveryKey: string;
   createdAt: Date;
   deliveredAt: Date | null;
+  leaseToken: string | null;
 }
 
 export type AlliancePatch = Partial<
@@ -223,7 +224,9 @@ export interface AllianceStore {
   /** Ends an active non-war relationship and removes pending proposals for its pair. */
   endNonWarRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
 
-  appendDiplomacyChronicleEntry(data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>): Promise<void>;
+  appendDiplomacyChronicleEntry(
+    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ): Promise<void>;
   /** Stable reverse chronological keyset pagination. */
   listDiplomacyChronicleEntries(
     allianceId: number,
@@ -235,10 +238,27 @@ export interface AllianceStore {
   enqueueDiplomacyNotifications(
     notifications: Array<{ recipientUserId: number; body: string }>,
   ): Promise<void>;
-  /** Pending intents are retried after their originating transaction committed. */
-  listPendingDiplomacyNotifications(): Promise<AllianceDiplomacyNotificationRecord[]>;
-  /** Returns false when another dispatcher already completed this intent. */
-  markDiplomacyNotificationDelivered(id: number): Promise<boolean>;
+  /** Returns pending intents for diagnostics and acceptance checks. */
+  listPendingDiplomacyNotifications(): Promise<
+    AllianceDiplomacyNotificationRecord[]
+  >;
+  /**
+   * Atomically leases pending intents to one dispatcher. Expired leases become
+   * eligible again after a dispatcher crash.
+   */
+  claimDiplomacyNotifications(
+    limit: number,
+  ): Promise<AllianceDiplomacyNotificationRecord[]>;
+  /** Completes an intent only when its active lease is still owned. */
+  markDiplomacyNotificationDelivered(
+    id: number,
+    leaseToken: string,
+  ): Promise<boolean>;
+  /** Makes a failed delivery eligible for immediate retry by another dispatcher. */
+  releaseDiplomacyNotificationClaim(
+    id: number,
+    leaseToken: string,
+  ): Promise<void>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Ordered by join time, oldest first. */
