@@ -4,15 +4,19 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/01-zentrale-beziehungsaufloesung.md`)
 
-- [ ] Der Server löst Freund, Feind und Neutral für Allianzmitglieder, allianzlose Spieler und Allianzparteien nach der festgelegten Priorität auf.
-- [ ] Mitglieder derselben Allianz bleiben Freunde; Krieg gilt ausschließlich zwischen zwei verschiedenen Allianzparteien.
-- [ ] Andere Fraktionen bleiben trotz persönlicher Kontakte oder Beziehungsfreigaben Feinde.
-- [ ] Nur aktive Beziehungen und aktive Beziehungsfreigaben wirken; ausstehende oder ungültige Zustände wirken nicht.
-- [ ] Die Resolver-Schnittstelle liefert die erforderlichen Fähigkeiten für bestehende Verbraucher, ohne Beziehungstypen in Verbrauchern zu interpretieren.
-- [ ] Fehlende oder inkonsistente Daten öffnen keinen Freundzugriff und keine Sichtbarkeitsfreigabe.
-- [ ] Verhaltenstests decken die vollständige Prioritäts- und Konfliktmatrix einschließlich des Drittallianz-Kriegs ab.
+- [x] Der Server löst Freund, Feind und Neutral für Allianzmitglieder, allianzlose Spieler und Allianzparteien nach der festgelegten Priorität auf.
+- [x] Mitglieder derselben Allianz bleiben Freunde; Krieg gilt ausschließlich zwischen zwei verschiedenen Allianzparteien.
+- [x] Andere Fraktionen bleiben trotz persönlicher Kontakte oder Beziehungsfreigaben Feinde.
+- [x] Nur aktive Beziehungen und aktive Beziehungsfreigaben wirken; ausstehende oder ungültige Zustände wirken nicht.
+- [x] Die Resolver-Schnittstelle liefert die erforderlichen Fähigkeiten für bestehende Verbraucher, ohne Beziehungstypen in Verbrauchern zu interpretieren.
+- [x] Fehlende oder inkonsistente Daten öffnen keinen Freundzugriff und keine Sichtbarkeitsfreigabe.
+- [x] Verhaltenstests decken die vollständige Prioritäts- und Konfliktmatrix einschließlich des Drittallianz-Kriegs ab.
+
+## Comments
+
+Implemented on `integration/beziehungswirkungen` in commit `489c5af`. Focused resolver tests and lint pass. The optional personal-contact-status port defaults to no marker; contact persistence and UI remain out of scope.
