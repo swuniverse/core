@@ -28,6 +28,7 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - [Nachfolge, Auflösung und Reset](issues/11-nachfolge-aufloesung-und-reset.md): Automatische Präsidentennachfolge ist deterministisch; Auflösung und Reset bereinigen den gesamten Allianzkontext.
 - [Siedler-Abkommen und Parteiewechsel](issues/12-siedler-abkommen-und-parteiwechsel.md): Das gemeinsame Modell umfasst allianzlose Spieler und beendet deren persönliche Beziehungen beim Allianzbeitritt endgültig.
 - [Grenzwerte, Benachrichtigungen und Auslieferung](issues/13-grenzwerte-benachrichtigungen-und-auslieferung.md): Sichere Limits, Post-Commit-Nachrichten und fähigkeitsbasierte Aktivierung gelten über alle Etappen.
+- [Vorhandene Zugangs- und Scanpfade](issues/05-vorhandene-zugangs-und-scanpfade.md): Historische Koloniescans werden dynamisch nur innerhalb der aktuellen Allianz geteilt; Docking, spielergesteuerte Wurmlochrechte und Handelsposten bleiben mangels vorhandener Zugangspfade benannte Integrationspunkte.
 
 ## Not yet specified
 
