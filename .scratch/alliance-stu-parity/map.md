@@ -30,6 +30,8 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - [Grenzwerte, Benachrichtigungen und Auslieferung](issues/13-grenzwerte-benachrichtigungen-und-auslieferung.md): Sichere Limits, Post-Commit-Nachrichten und fähigkeitsbasierte Aktivierung gelten über alle Etappen.
 - [Vorhandene Zugangs- und Scanpfade](issues/05-vorhandene-zugangs-und-scanpfade.md): Historische Koloniescans werden dynamisch nur innerhalb der aktuellen Allianz geteilt; Docking, spielergesteuerte Wurmlochrechte und Handelsposten bleiben mangels vorhandener Zugangspfade benannte Integrationspunkte.
 
+- [Alarm- und automatische Kampfreaktionen](issues/02-alarm-und-kampfreaktionen.md): SWU besitzt noch keinen alarmgesteuerten Kampftrigger; T-029 muss später Alarm Gelb über `mayReactAutomatically` und Alarm Rot über `!isFriend` an die zentrale Auflösung anbinden, ohne direkte Angriffe zu verändern.
+
 ## Not yet specified
 
 - Keine offenen Produktentscheidungen. Neu entdeckte spielerwirksame Allianzfunktionalität wird bei der Ausarbeitung der Etappen aufgenommen, sofern sie innerhalb der festgelegten Produktgrenze liegt; andernfalls wird sie als künftiger Integrationspunkt benannt.
