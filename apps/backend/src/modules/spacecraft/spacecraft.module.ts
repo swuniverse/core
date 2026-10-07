@@ -53,6 +53,7 @@ import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { AllianceModule } from '../alliance/alliance.module';
+import { LivePositionVisibilityService } from './live-position-visibility.service';
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { AllianceModule } from '../alliance/alliance.module';
     SpacecraftCommunicationService,
     SpacecraftEngineeringService,
     SpacecraftDestructionService,
+    LivePositionVisibilityService,
   ],
   exports: [
     SpacecraftService,

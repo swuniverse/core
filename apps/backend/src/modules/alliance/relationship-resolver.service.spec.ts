@@ -2,11 +2,17 @@ import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
 import {
   NoPersonalContactStatusPort,
   RelationshipResolverService,
+  type PersonalContactStatusPort,
 } from './relationship-resolver.service';
-import { InMemoryAllianceStore, EMPIRE } from './testing/in-memory-alliance.store';
+import {
+  InMemoryAllianceStore,
+  EMPIRE,
+} from './testing/in-memory-alliance.store';
 
-const resolverFor = (store: InMemoryAllianceStore) =>
-  new RelationshipResolverService(store, new NoPersonalContactStatusPort());
+const resolverFor = (
+  store: InMemoryAllianceStore,
+  personalContactStatus: PersonalContactStatusPort = new NoPersonalContactStatusPort(),
+) => new RelationshipResolverService(store, personalContactStatus);
 
 describe('RelationshipResolverService', () => {
   it('resolves the priority matrix and exposes only derived capabilities', async () => {
@@ -18,21 +24,16 @@ describe('RelationshipResolverService', () => {
     store.addPlayer(5, 'Rebel Five');
     store.addPlayer(6, 'Rebel Six');
 
-    const first = store.seedAlliance(
-      { name: 'First' },
-      [
-        [1, AllianceRole.PRESIDENT],
-        [2, AllianceRole.NONE],
-      ],
-    );
-    const second = store.seedAlliance(
-      { name: 'Second' },
-      [[4, AllianceRole.PRESIDENT]],
-    );
-    const third = store.seedAlliance(
-      { name: 'Third' },
-      [[5, AllianceRole.PRESIDENT]],
-    );
+    const first = store.seedAlliance({ name: 'First' }, [
+      [1, AllianceRole.PRESIDENT],
+      [2, AllianceRole.NONE],
+    ]);
+    const second = store.seedAlliance({ name: 'Second' }, [
+      [4, AllianceRole.PRESIDENT],
+    ]);
+    const third = store.seedAlliance({ name: 'Third' }, [
+      [5, AllianceRole.PRESIDENT],
+    ]);
 
     store.seedActiveAllianceRelationship({
       firstAllianceId: first.id,
@@ -89,6 +90,62 @@ describe('RelationshipResolverService', () => {
       mayProvisionProtectedShip: false,
       mayShareLivePosition: false,
       mayShareHistoricalScans: false,
+    });
+  });
+
+  it('shares live positions independently from friendship', async () => {
+    const store = new InMemoryAllianceStore();
+    store.addPlayer(1, 'Rebel One');
+    store.addPlayer(2, 'Rebel Two');
+    const first = store.seedAlliance({ name: 'First' }, [
+      [1, AllianceRole.PRESIDENT],
+    ]);
+    const second = store.seedAlliance({ name: 'Second' }, [
+      [2, AllianceRole.PRESIDENT],
+    ]);
+    store.seedActiveAllianceRelationship({
+      firstAllianceId: first.id,
+      secondAllianceId: second.id,
+      type: AllianceRelationshipType.ALLIANCE,
+      treatAsFriend: false,
+      shareLivePositions: true,
+    });
+
+    await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
+      status: 'NEUTRAL',
+      isFriend: false,
+      mayShareLivePosition: true,
+    });
+  });
+
+  it('preserves personal friendship beside a neutral alliance contract', async () => {
+    const store = new InMemoryAllianceStore();
+    store.addPlayer(1, 'Rebel One');
+    store.addPlayer(2, 'Rebel Two');
+    const first = store.seedAlliance({ name: 'First' }, [
+      [1, AllianceRole.PRESIDENT],
+    ]);
+    const second = store.seedAlliance({ name: 'Second' }, [
+      [2, AllianceRole.PRESIDENT],
+    ]);
+    store.seedActiveAllianceRelationship({
+      firstAllianceId: first.id,
+      secondAllianceId: second.id,
+      type: AllianceRelationshipType.ALLIANCE,
+      treatAsFriend: false,
+      shareLivePositions: true,
+    });
+
+    const personalContactStatus: PersonalContactStatusPort = {
+      isFriend: jest.fn().mockResolvedValue(true),
+    };
+
+    await expect(
+      resolverFor(store, personalContactStatus).resolve(1, 2),
+    ).resolves.toMatchObject({
+      status: 'FRIEND',
+      isFriend: true,
+      mayShareLivePosition: true,
     });
   });
 
