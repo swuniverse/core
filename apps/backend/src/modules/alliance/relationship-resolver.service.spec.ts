@@ -1,9 +1,12 @@
 import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
-import { RelationshipResolverService } from './relationship-resolver.service';
+import {
+  NoPersonalContactStatusPort,
+  RelationshipResolverService,
+} from './relationship-resolver.service';
 import { InMemoryAllianceStore, EMPIRE } from './testing/in-memory-alliance.store';
 
 const resolverFor = (store: InMemoryAllianceStore) =>
-  new RelationshipResolverService(store);
+  new RelationshipResolverService(store, new NoPersonalContactStatusPort());
 
 describe('RelationshipResolverService', () => {
   it('resolves the priority matrix and exposes only derived capabilities', async () => {
@@ -54,6 +57,7 @@ describe('RelationshipResolverService', () => {
       mayTransferSafely: false,
       mayProvisionProtectedShip: false,
       mayShareLivePosition: false,
+      mayShareHistoricalScans: false,
     });
     await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
       status: 'FRIEND',
@@ -62,16 +66,19 @@ describe('RelationshipResolverService', () => {
       mayReactAutomatically: false,
       mayTransferSafely: true,
       mayProvisionProtectedShip: true,
+      mayShareHistoricalScans: true,
     });
     await expect(resolver.resolve(1, 4)).resolves.toMatchObject({
       status: 'ENEMY',
       isEnemy: true,
       mayReactAutomatically: true,
+      mayShareHistoricalScans: false,
     });
     await expect(resolver.resolve(1, 5)).resolves.toMatchObject({
       status: 'FRIEND',
       isFriend: true,
       mayShareLivePosition: true,
+      mayShareHistoricalScans: false,
     });
     await expect(resolver.resolve(1, 6)).resolves.toMatchObject({
       status: 'NEUTRAL',
@@ -81,6 +88,7 @@ describe('RelationshipResolverService', () => {
       mayTransferSafely: false,
       mayProvisionProtectedShip: false,
       mayShareLivePosition: false,
+      mayShareHistoricalScans: false,
     });
   });
 
@@ -96,6 +104,7 @@ describe('RelationshipResolverService', () => {
       mayTransferSafely: false,
       mayProvisionProtectedShip: false,
       mayShareLivePosition: false,
+      mayShareHistoricalScans: false,
     });
   });
 });

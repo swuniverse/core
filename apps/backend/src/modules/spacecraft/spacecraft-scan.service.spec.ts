@@ -103,6 +103,11 @@ function createService() {
   };
   const systemTypeDiscoveryService = { discover: jest.fn() };
   const celestialClassDiscoveryService = { discover: jest.fn() };
+  const relationshipResolver = {
+    resolve: jest.fn(async (viewerId: number, ownerId: number) => ({
+      mayShareHistoricalScans: viewerId === ownerId,
+    })),
+  };
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,
@@ -120,6 +125,7 @@ function createService() {
     explorationService as any,
     systemTypeDiscoveryService as any,
     celestialClassDiscoveryService as any,
+    relationshipResolver as any,
   );
   return {
     service,
@@ -132,6 +138,7 @@ function createService() {
     gameData,
     spacecraftCrewService,
     celestialClassDiscoveryService,
+    relationshipResolver,
   };
 }
 
@@ -314,50 +321,77 @@ describe('SpacecraftScanService colonyScan', () => {
     );
   });
 
-  it('lists latest colony scans per colony for a user', async () => {
-    const { service, colonyScanRepo } = createService();
+  it('lists current alliance members scans without sharing allied, neutral, enemy, or failed resolutions', async () => {
+    const { service, colonyScanRepo, relationshipResolver } = createService();
+    const scan = (id: number, userId: number, colonyId: number) => ({
+      id,
+      userId,
+      colonyId,
+      colonyOwnerId: 20 + userId,
+      colonyName: `Kolonie ${colonyId}`,
+      colonyOwnerUsername: `Spieler ${userId}`,
+      starSystemId: 7,
+      celestialObjectId: 30 + colonyId,
+      colonyClassId: 3,
+      surfaceWidth: 4,
+      surfaceHeight: 3,
+      createdAt: new Date(`2026-07-${20 - id}T09:00:00.000Z`),
+      colony: { id: colonyId, userId: 20 + userId },
+    });
     colonyScanRepo.find.mockResolvedValue([
-      {
-        id: 7,
-        colonyId: 20,
-        colonyOwnerId: 2,
-        colonyName: 'Neu',
-        colonyOwnerUsername: 'Leia',
-        starSystemId: 7,
-        celestialObjectId: 30,
-        colonyClassId: 3,
-        surfaceWidth: 4,
-        surfaceHeight: 3,
-        createdAt: new Date('2026-07-16T09:00:00.000Z'),
-        colony: { id: 20, userId: 2 },
-      },
-      {
-        id: 6,
-        colonyId: 20,
-        colonyOwnerId: 2,
-        colonyName: 'Alt',
-        colonyOwnerUsername: 'Leia',
-        starSystemId: 7,
-        celestialObjectId: 30,
-        colonyClassId: 3,
-        surfaceWidth: 4,
-        surfaceHeight: 3,
-        createdAt: new Date('2026-07-15T09:00:00.000Z'),
-        colony: { id: 20, userId: 2 },
-      },
+      scan(7, 1, 20),
+      scan(6, 2, 21),
+      scan(5, 3, 22),
+      scan(4, 4, 23),
+      scan(3, 5, 24),
     ]);
+    relationshipResolver.resolve.mockImplementation(
+      async (_viewerId: number, ownerId: number) => {
+        if (ownerId === 5) throw new Error('resolver unavailable');
+        return {
+          mayShareHistoricalScans: ownerId === 1 || ownerId === 2,
+        };
+      },
+    );
 
     await expect(service.listColonyScans(1)).resolves.toEqual([
-      expect.objectContaining({
-        id: 7,
-        colonyId: 20,
-        abandoned: false,
-        history: expect.arrayContaining([
-          expect.objectContaining({ id: 7 }),
-          expect.objectContaining({ id: 6 }),
-        ]),
-      }),
+      expect.objectContaining({ id: 7, colonyId: 20 }),
+      expect.objectContaining({ id: 6, colonyId: 21 }),
     ]);
+  });
+
+  it('opens an alliance members scan but denies a friend without scan sharing', async () => {
+    const { service, colonyScanRepo, relationshipResolver } = createService();
+    colonyScanRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 2,
+      colonyId: 20,
+      colonyOwnerId: 3,
+      colonyName: 'Alderaan',
+      colonyOwnerUsername: 'Leia',
+      starSystemId: 7,
+      celestialObjectId: 30,
+      colonyClassId: 3,
+      surfaceWidth: 4,
+      surfaceHeight: 3,
+      surfaceFields: [{ index: 0 }],
+      createdAt: new Date('2026-07-16T09:00:00.000Z'),
+      colony: { id: 20, userId: 3 },
+    });
+    relationshipResolver.resolve.mockResolvedValue({
+      mayShareHistoricalScans: true,
+    });
+
+    await expect(service.getColonyScan(7, 1)).resolves.toEqual(
+      expect.objectContaining({ id: 7, colonyId: 20 }),
+    );
+
+    relationshipResolver.resolve.mockResolvedValue({
+      mayShareHistoricalScans: false,
+    });
+    await expect(service.getColonyScan(7, 1)).rejects.toThrow(
+      new NotFoundException('Colony scan not found'),
+    );
   });
 
   it('deletes own colony scans', async () => {

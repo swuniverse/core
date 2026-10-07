@@ -105,6 +105,7 @@ describe('Spacecraft sensor operations', () => {
       exploration as never,
       { discover: jest.fn() } as never,
       { discover: jest.fn() } as never,
+      { resolve: jest.fn() } as never,
     );
     return {
       service,

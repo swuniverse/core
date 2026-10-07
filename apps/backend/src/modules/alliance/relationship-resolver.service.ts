@@ -13,6 +13,7 @@ export interface ResolvedRelationship {
   mayTransferSafely: boolean;
   mayProvisionProtectedShip: boolean;
   mayShareLivePosition: boolean;
+  mayShareHistoricalScans: boolean;
 }
 
 /**
@@ -69,7 +70,7 @@ export class RelationshipResolverService {
         secondMembership &&
         firstMembership.allianceId === secondMembership.allianceId
       ) {
-        return resolved('FRIEND', false);
+        return resolved('FRIEND', false, true);
       }
 
       if (firstMembership && secondMembership) {
@@ -112,6 +113,7 @@ export class RelationshipResolverService {
 function resolved(
   status: RelationshipStatus,
   mayShareLivePosition: boolean,
+  mayShareHistoricalScans = false,
 ): ResolvedRelationship {
   const isFriend = status === 'FRIEND';
   const isEnemy = status === 'ENEMY';
@@ -123,5 +125,6 @@ function resolved(
     mayTransferSafely: isFriend,
     mayProvisionProtectedShip: isFriend,
     mayShareLivePosition: isFriend && mayShareLivePosition,
+    mayShareHistoricalScans: isFriend && mayShareHistoricalScans,
   };
 }
