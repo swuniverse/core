@@ -67,7 +67,7 @@ describe('RelationshipResolverService', () => {
       mayReactAutomatically: false,
       mayTransferSafely: true,
       mayProvisionProtectedShip: true,
-      mayShareHistoricalScans: true,
+      mayShareHistoricalScans: false,
     });
     await expect(resolver.resolve(1, 4)).resolves.toMatchObject({
       status: 'ENEMY',

@@ -125,7 +125,6 @@ function createService() {
     explorationService as any,
     systemTypeDiscoveryService as any,
     celestialClassDiscoveryService as any,
-    relationshipResolver as any,
   );
   return {
     service,
@@ -321,7 +320,7 @@ describe('SpacecraftScanService colonyScan', () => {
     );
   });
 
-  it('lists current alliance members scans without sharing allied, neutral, enemy, or failed resolutions', async () => {
+  it('lists only the viewer-owned scans regardless of relationship resolution', async () => {
     const { service, colonyScanRepo, relationshipResolver } = createService();
     const scan = (id: number, userId: number, colonyId: number) => ({
       id,
@@ -345,22 +344,16 @@ describe('SpacecraftScanService colonyScan', () => {
       scan(4, 4, 23),
       scan(3, 5, 24),
     ]);
-    relationshipResolver.resolve.mockImplementation(
-      async (_viewerId: number, ownerId: number) => {
-        if (ownerId === 5) throw new Error('resolver unavailable');
-        return {
-          mayShareHistoricalScans: ownerId === 1 || ownerId === 2,
-        };
-      },
-    );
+    relationshipResolver.resolve.mockResolvedValue({
+      mayShareHistoricalScans: true,
+    });
 
     await expect(service.listColonyScans(1)).resolves.toEqual([
       expect.objectContaining({ id: 7, colonyId: 20 }),
-      expect.objectContaining({ id: 6, colonyId: 21 }),
     ]);
   });
 
-  it('opens an alliance members scan but denies a friend without scan sharing', async () => {
+  it('denies every foreign scan even when the resolver reports sharing', async () => {
     const { service, colonyScanRepo, relationshipResolver } = createService();
     colonyScanRepo.findOne.mockResolvedValue({
       id: 7,
@@ -382,13 +375,6 @@ describe('SpacecraftScanService colonyScan', () => {
       mayShareHistoricalScans: true,
     });
 
-    await expect(service.getColonyScan(7, 1)).resolves.toEqual(
-      expect.objectContaining({ id: 7, colonyId: 20 }),
-    );
-
-    relationshipResolver.resolve.mockResolvedValue({
-      mayShareHistoricalScans: false,
-    });
     await expect(service.getColonyScan(7, 1)).rejects.toThrow(
       new NotFoundException('Colony scan not found'),
     );

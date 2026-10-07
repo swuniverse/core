@@ -35,7 +35,6 @@ import { findShieldedColonyObjectIds } from './shielded-colonies.util';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { resolveSpacecraftLocation } from './spacecraft-field';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
-import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 
 @Injectable()
 export class SpacecraftScanService {
@@ -65,7 +64,6 @@ export class SpacecraftScanService {
     private readonly explorationService: ExplorationService,
     private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
     private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
-    private readonly relationshipResolver: RelationshipResolverService,
   ) {}
 
   async sectorScan(
@@ -612,22 +610,7 @@ export class SpacecraftScanService {
       relations: ['colony'],
       order: { createdAt: 'DESC' },
     });
-    const accessByOwner = new Map<number, boolean>();
-    const scans: ColonyScan[] = [];
-    for (const scan of candidates) {
-      let mayRead = accessByOwner.get(scan.userId);
-      if (mayRead === undefined) {
-        try {
-          mayRead = (
-            await this.relationshipResolver.resolve(userId, scan.userId)
-          ).mayShareHistoricalScans;
-        } catch {
-          mayRead = false;
-        }
-        accessByOwner.set(scan.userId, mayRead);
-      }
-      if (mayRead) scans.push(scan);
-    }
+    const scans = candidates.filter((scan) => scan.userId === userId);
     const latestByColony = new Map<number, (typeof scans)[number]>();
     for (const scan of scans) {
       if (!latestByColony.has(scan.colonyId)) {
@@ -661,20 +644,8 @@ export class SpacecraftScanService {
       where: { id: scanId },
       relations: ['colony'],
     });
-    if (!scan) throw new NotFoundException('Colony scan not found');
-    if (scan.userId !== userId) {
-      try {
-        const relationship = await this.relationshipResolver.resolve(
-          userId,
-          scan.userId,
-        );
-        if (!relationship.mayShareHistoricalScans) {
-          throw new NotFoundException('Colony scan not found');
-        }
-      } catch {
-        throw new NotFoundException('Colony scan not found');
-      }
-    }
+    if (!scan || scan.userId !== userId)
+      throw new NotFoundException('Colony scan not found');
     return {
       id: scan.id,
       colonyId: scan.colonyId,

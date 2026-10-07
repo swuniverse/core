@@ -212,11 +212,11 @@ export class TransferService {
         : null);
     const crewTransferReason =
       commonReason ??
-      (targetProtected
-        ? 'Schilde müssen deaktiviert sein'
-        : !capabilities.mayTransferSafely
-          ? 'Schiffstransfer nur zwischen Freunden erlaubt'
-          : null);
+      (!(targetProtected
+        ? capabilities.mayProvisionProtectedShip
+        : capabilities.mayTransferSafely)
+        ? 'Schiffstransfer nur zwischen Freunden erlaubt'
+        : null);
     const [
       sourceCargo,
       targetCargo,

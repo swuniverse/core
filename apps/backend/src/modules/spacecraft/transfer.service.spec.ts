@@ -190,7 +190,7 @@ describe('TransferService ship transfers', () => {
     const quote = await service.getShipTransferQuote(1, 10, 2);
 
     expect(quote.available).toBe(true);
-    expect(quote.crewTransferAvailable).toBe(false);
+    expect(quote.crewTransferAvailable).toBe(true);
     expect(quote.torpedoTransferAvailable).toBe(true);
   });
 
