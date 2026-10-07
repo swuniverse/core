@@ -4,11 +4,16 @@ import { DataSource } from 'typeorm';
 
 export type DiplomacyRateLimitCommand = 'war' | 'proposal' | 'change';
 
-type ReserveAttempt = (
-  key: string,
-  now: number,
-  windowMs: number,
-) => Promise<number>;
+export type DiplomacyRateLimiterOptions = {
+  now?: () => number;
+  windowMs?: number;
+  maximumAttempts?: number;
+  reserveAttempt?: (
+    key: string,
+    now: number,
+    windowMs: number,
+  ) => Promise<number>;
+};
 
 /**
  * Short request-burst protection for diplomacy commands. Production reservations
@@ -20,14 +25,25 @@ type ReserveAttempt = (
 export class DiplomacyRateLimiterService {
   private readonly fallbackAttempts = new Map<string, number[]>();
 
-  constructor(
-    @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
-    private readonly now: () => number = () => Date.now(),
-    private readonly windowMs = 10_000,
-    private readonly maximumAttempts = 10,
-    private readonly reserveAttempt: ReserveAttempt = (key, now, windowMs) =>
-      this.reserveFallback(key, now, windowMs),
-  ) {}
+  constructor(@Optional() @InjectDataSource() private readonly dataSource?: DataSource) {}
+
+  static forTesting(
+    options: DiplomacyRateLimiterOptions,
+    dataSource?: DataSource,
+  ): DiplomacyRateLimiterService {
+    const limiter = new DiplomacyRateLimiterService(dataSource);
+    limiter.now = options.now ?? limiter.now;
+    limiter.windowMs = options.windowMs ?? limiter.windowMs;
+    limiter.maximumAttempts = options.maximumAttempts ?? limiter.maximumAttempts;
+    limiter.reserveAttempt = options.reserveAttempt ?? limiter.reserveAttempt;
+    return limiter;
+  }
+
+  private now = () => Date.now();
+  private windowMs = 10_000;
+  private maximumAttempts = 10;
+  private reserveAttempt = (key: string, now: number, windowMs: number) =>
+    this.reserveFallback(key, now, windowMs);
 
   async check(
     actorId: number,

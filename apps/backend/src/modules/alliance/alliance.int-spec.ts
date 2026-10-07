@@ -21,6 +21,7 @@ import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 const { NONE, PRESIDENT, VICE } = AllianceRole;
 
 function silenceDiplomacyDeliveryErrors(service: AllianceService) {
+  // SAFETY: tests replace the private logger only to silence expected delivery errors.
   jest
     .spyOn((service as unknown as { logger: Logger }).logger, 'error')
     .mockImplementation();
@@ -143,7 +144,7 @@ describe('alliance persistence (Postgres)', () => {
         treatAsFriend: false,
         shareLivePositions: false,
       }),
-    ).rejects.toMatchObject({ code: '23505' });
+    ).rejects.toBeInstanceOf(AllianceConstraintViolation);
 
     const accepted = await store.transaction((tx) =>
       tx.acceptRelationshipProposal(proposal.id),
@@ -306,6 +307,69 @@ describe('alliance persistence (Postgres)', () => {
     );
   });
 
+  it('keeps war active when war races with accepting a peace proposal', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+
+    await service.declareWar(leia.id, rogue.id, red.id);
+    const proposal = await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.PEACE,
+      contract: 'Waffenruhe',
+    });
+
+    const results = await Promise.allSettled([
+      concurrentService().declareWar(leia.id, rogue.id, red.id),
+      concurrentService().acceptRelationshipProposal(mon.id, proposal.id),
+    ]);
+
+    expect(results).toHaveLength(2);
+    await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([
+      expect.objectContaining({ type: AllianceRelationshipType.WAR }),
+    ]);
+    await expect(store.listRelationshipProposals(rogue.id)).resolves.toEqual(
+      [],
+    );
+  });
+
+  it('keeps war active when war races with accepting a relationship change', async () => {
+    const leia = await rebel();
+    const mon = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    const red = await alliance('Red Squadron', mon.id);
+    const proposal = await service.proposeRelationship(leia.id, rogue.id, {
+      recipientAllianceId: red.id,
+      type: AllianceRelationshipType.FRIENDSHIP,
+      contract: 'Bisheriges Vertragswerk',
+      permissions: { treatAsFriend: true, shareLivePositions: false },
+    });
+    await service.acceptRelationshipProposal(mon.id, proposal.id);
+    const [relationship] = await store.listActiveRelationships(rogue.id);
+    const change = await service.proposeRelationshipChange(
+      leia.id,
+      relationship.id,
+      {
+        contract: 'Neues Vertragswerk',
+        permissions: { treatAsFriend: false, shareLivePositions: false },
+      },
+    );
+
+    const results = await Promise.allSettled([
+      concurrentService().declareWar(leia.id, rogue.id, red.id),
+      concurrentService().acceptRelationshipChange(mon.id, change.id),
+    ]);
+
+    expect(results).toHaveLength(2);
+    await expect(store.listActiveRelationships(rogue.id)).resolves.toEqual([
+      expect.objectContaining({ type: AllianceRelationshipType.WAR }),
+    ]);
+    await expect(
+      store.findRelationshipChangeProposal(change.id),
+    ).resolves.toBeNull();
+  });
+
   it('serializes two answers to one relationship proposal', async () => {
     const leia = await rebel();
     const mon = await rebel();
@@ -396,22 +460,24 @@ describe('alliance persistence (Postgres)', () => {
 
     let releaseFirstDelivery!: () => void;
     let firstDeliveryFinished!: () => void;
-    const firstDeliveryStarted = new Promise<void>((resolve) => {
-      const first = new AllianceService(new TypeOrmAllianceStore(dataSource), {
-        sendSystem: jest.fn(async () => {
-          resolve();
-          await new Promise<void>((release) => {
-            releaseFirstDelivery = release;
-          });
-        }),
-      } as never);
-      void first.retryDiplomacyNotifications().finally(firstDeliveryFinished);
-    });
     const firstDeliveryFinishedPromise = new Promise<void>((resolve) => {
       firstDeliveryFinished = resolve;
     });
+    let firstDeliveryStarted!: () => void;
+    const firstDeliveryStartedPromise = new Promise<void>((resolve) => {
+      firstDeliveryStarted = resolve;
+    });
+    const first = new AllianceService(new TypeOrmAllianceStore(dataSource), {
+      sendSystem: jest.fn(async () => {
+        firstDeliveryStarted();
+        await new Promise<void>((release) => {
+          releaseFirstDelivery = release;
+        });
+      }),
+    } as never);
+    void first.retryDiplomacyNotifications().finally(firstDeliveryFinished);
 
-    await firstDeliveryStarted;
+    await firstDeliveryStartedPromise;
     const secondMessaging = {
       sendSystem: jest.fn().mockResolvedValue(undefined),
     };

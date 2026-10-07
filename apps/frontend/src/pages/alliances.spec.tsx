@@ -631,6 +631,18 @@ describe('AllianceDetailPage', () => {
             relationship: { type: AllianceRelationshipType.WAR, vassalage: null },
             occurredAt: '2026-10-03T12:00:00.000Z',
           },
+          {
+            id: 6,
+            type: 'RELATIONSHIP_STARTED',
+            actor: { userId: 2, name: 'Wedge' },
+            firstAlliance: { id: 1, name: 'Rogue Squadron' },
+            secondAlliance: { id: 2, name: 'Red Squadron' },
+            relationship: {
+              type: AllianceRelationshipType.FRIENDSHIP,
+              vassalage: null,
+            },
+            occurredAt: '2026-10-02T12:00:00.000Z',
+          },
         ],
         nextCursor: null,
       },
@@ -638,11 +650,69 @@ describe('AllianceDetailPage', () => {
 
     renderAt('/alliances/1');
 
-    expect(await screen.findByText('Diplomatie-Chronik')).toBeTruthy();
-    expect(screen.getByText(/Krieg erklärt: Rogue Squadron – Red Squadron/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Krieg erklärt: Rogue Squadron – Red Squadron/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Freundschaft begonnen: Rogue Squadron – Red Squadron/),
+    ).toBeTruthy();
     expect(screen.getByText(/Leia · 03\.10\.2026/)).toBeTruthy();
     expect(apiMocks.get).toHaveBeenCalledWith('/alliances/1/diplomacy/chronicle');
     expect(screen.queryByText('Vertraulicher Vertragsentwurf')).toBeNull();
+  });
+
+  it('loads older diplomacy chronicle entries with the returned cursor', async () => {
+    routeGet({
+      '/alliances/1': detail(),
+      '/alliances/1/diplomacy/chronicle': {
+        entries: [
+          {
+            id: 7,
+            type: 'WAR_DECLARED',
+            actor: { userId: 1, name: 'Leia' },
+            firstAlliance: { id: 1, name: 'Rogue Squadron' },
+            secondAlliance: { id: 2, name: 'Red Squadron' },
+            relationship: { type: AllianceRelationshipType.WAR, vassalage: null },
+            occurredAt: '2026-10-03T12:00:00.000Z',
+          },
+        ],
+        nextCursor: 'older page',
+      },
+      '/alliances/1/diplomacy/chronicle?cursor=older%20page': {
+        entries: [
+          {
+            id: 6,
+            type: 'RELATIONSHIP_STARTED',
+            actor: { userId: 2, name: 'Wedge' },
+            firstAlliance: { id: 1, name: 'Rogue Squadron' },
+            secondAlliance: { id: 2, name: 'Red Squadron' },
+            relationship: {
+              type: AllianceRelationshipType.FRIENDSHIP,
+              vassalage: null,
+            },
+            occurredAt: '2026-10-02T12:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    renderAt('/alliances/1');
+
+    await screen.findByText(/Krieg erklärt: Rogue Squadron – Red Squadron/);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Ältere Ereignisse laden' }),
+    );
+
+    expect(
+      await screen.findByText(/Freundschaft begonnen: Rogue Squadron – Red Squadron/),
+    ).toBeTruthy();
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/alliances/1/diplomacy/chronicle?cursor=older%20page',
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Ältere Ereignisse laden' }),
+    ).toBeNull();
   });
 
   it('does not execute HTML in the description', async () => {

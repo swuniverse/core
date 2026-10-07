@@ -4,12 +4,11 @@ import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
 describe('DiplomacyRateLimiterService', () => {
   it('limits request bursts without creating a diplomatic cooldown', async () => {
     let now = 0;
-    const limiter = new DiplomacyRateLimiterService(
-      undefined,
-      () => now,
-      1_000,
-      2,
-    );
+    const limiter = DiplomacyRateLimiterService.forTesting({
+      now: () => now,
+      windowMs: 1_000,
+      maximumAttempts: 2,
+    });
 
     await limiter.check(1, 'war');
     await limiter.check(1, 'war');
@@ -20,12 +19,11 @@ describe('DiplomacyRateLimiterService', () => {
   });
 
   it('tracks command types separately for the same actor', async () => {
-    const limiter = new DiplomacyRateLimiterService(
-      undefined,
-      () => 0,
-      1_000,
-      1,
-    );
+    const limiter = DiplomacyRateLimiterService.forTesting({
+      now: () => 0,
+      windowMs: 1_000,
+      maximumAttempts: 1,
+    });
 
     await limiter.check(1, 'war');
     await expect(limiter.check(1, 'proposal')).resolves.toBeUndefined();
@@ -41,20 +39,18 @@ describe('DiplomacyRateLimiterService', () => {
       attempts.set(key, recent);
       return recent.length;
     };
-    const first = new DiplomacyRateLimiterService(
-      undefined,
-      () => 0,
-      1_000,
-      1,
-      reserve,
-    );
-    const second = new DiplomacyRateLimiterService(
-      undefined,
-      () => 0,
-      1_000,
-      1,
-      reserve,
-    );
+    const first = DiplomacyRateLimiterService.forTesting({
+      now: () => 0,
+      windowMs: 1_000,
+      maximumAttempts: 1,
+      reserveAttempt: reserve,
+    });
+    const second = DiplomacyRateLimiterService.forTesting({
+      now: () => 0,
+      windowMs: 1_000,
+      maximumAttempts: 1,
+      reserveAttempt: reserve,
+    });
 
     await first.check(1, 'war');
 
@@ -63,11 +59,13 @@ describe('DiplomacyRateLimiterService', () => {
 
   it('uses one PostgreSQL upsert reservation per mutation', async () => {
     const query = jest.fn().mockResolvedValue([{ attempts: 1 }]);
-    const limiter = new DiplomacyRateLimiterService(
+    const limiter = DiplomacyRateLimiterService.forTesting(
+      {
+        now: () => 10_000,
+        windowMs: 1_000,
+        maximumAttempts: 1,
+      },
       { query } as never,
-      () => 10_000,
-      1_000,
-      1,
     );
 
     await limiter.check(42, 'proposal');

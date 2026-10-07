@@ -567,15 +567,6 @@ export class AllianceService {
       if (!relationship) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
-      const sender = await this.lockedAlliance(tx, proposal.senderAllianceId);
-      await this.appendChronicleEntry(
-        tx,
-        AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED,
-        actorId,
-        relationship,
-        relationship.firstAllianceId === recipient.id ? recipient : sender,
-        relationship.secondAllianceId === sender.id ? sender : recipient,
-      );
       const actor = await tx.findPlayer(actorId);
       const recipients = await tx.listMemberships(proposal.senderAllianceId);
       return recipients.map((member) => ({
@@ -804,7 +795,9 @@ export class AllianceService {
       const sender = await this.lockedAlliance(tx, proposal.senderAllianceId);
       await this.appendChronicleEntry(
         tx,
-        AllianceDiplomacyChronicleEventType.RELATIONSHIP_STARTED,
+        activeRelationship
+          ? AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED
+          : AllianceDiplomacyChronicleEventType.RELATIONSHIP_STARTED,
         actorId,
         relationship,
         relationship.firstAllianceId === recipient.id ? recipient : sender,
@@ -1269,13 +1262,19 @@ export class AllianceService {
    * domain errors. Returns the system messages to send after the commit.
    */
   private async mutate<T>(work: (tx: AllianceStore) => Promise<T>): Promise<T> {
-    try {
-      return await this.store.transaction(work);
-    } catch (error) {
-      if (error instanceof AllianceConstraintViolation) {
-        throw new BadRequestException(CONSTRAINT_ERRORS[error.constraint]);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.store.transaction(work);
+      } catch (error) {
+        if (error instanceof AllianceConstraintViolation) {
+          throw new BadRequestException(CONSTRAINT_ERRORS[error.constraint]);
+        }
+        const isDeadlock =
+          error instanceof Error &&
+          (error as Error & { driverError?: { code?: string } }).driverError
+            ?.code === '40P01';
+        if (!isDeadlock || attempt === 2) throw error;
       }
-      throw error;
     }
   }
 
@@ -1335,10 +1334,17 @@ export class AllianceService {
           notification.leaseToken,
         );
       } catch (error) {
-        await this.store.releaseDiplomacyNotificationClaim(
-          notification.id,
-          notification.leaseToken,
-        );
+        try {
+          await this.store.releaseDiplomacyNotificationClaim(
+            notification.id,
+            notification.leaseToken,
+          );
+        } catch (releaseError) {
+          this.logger.error(
+            'Failed to release alliance diplomacy notification lease',
+            releaseError instanceof Error ? releaseError.stack : releaseError,
+          );
+        }
         throw error;
       }
     }

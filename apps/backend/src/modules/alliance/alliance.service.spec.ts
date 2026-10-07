@@ -8,7 +8,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
+import {
+  AllianceDiplomacyChronicleEventType,
+  AllianceRelationshipType,
+  AllianceRole,
+} from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
 import { AllianceConstraintViolation } from './alliance.store';
 import { DiplomacyCapabilityService } from './diplomacy-capability.service';
@@ -247,26 +251,25 @@ describe('AllianceService', () => {
       });
     });
 
-    it('records accepted relationship changes with public vassalage metadata only', async () => {
+    it('records relationship replacements as public changes without contracts', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');
       store.addPlayer(2, 'Mon');
       const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
       const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
-      const relationship = store.seedActiveAllianceRelationship({
+      store.seedActiveAllianceRelationship({
         firstAllianceId: rogue.id,
         secondAllianceId: red.id,
-        type: AllianceRelationshipType.VASSALAGE,
-        lordAllianceId: rogue.id,
-        vassalAllianceId: red.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
         contract: 'existing secret',
       });
 
-      const change = await service.proposeRelationshipChange(1, relationship.id, {
+      const proposal = await service.proposeRelationship(1, rogue.id, {
+        recipientAllianceId: red.id,
+        type: AllianceRelationshipType.VASSALAGE,
         contract: 'replacement secret',
-        permissions: { treatAsFriend: true },
       });
-      await service.acceptRelationshipChange(2, change.id);
+      await service.acceptRelationshipProposal(2, proposal.id);
 
       const entry = (await service.listDiplomacyChronicle(1, rogue.id)).entries[0];
       expect(entry).toMatchObject({
@@ -279,7 +282,7 @@ describe('AllianceService', () => {
       expect(JSON.stringify(entry)).not.toContain('secret');
     });
 
-    it('does not write chronicle entries for proposals, declines, withdrawals, or contract-only changes', async () => {
+    it('does not write chronicle entries for proposals, declines, withdrawals, or accepted contract-only changes', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');
       store.addPlayer(2, 'Mon');
@@ -292,6 +295,16 @@ describe('AllianceService', () => {
         contract: 'confidential draft',
       });
       await service.withdrawRelationshipProposal(1, proposal.id);
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: rogue.id,
+        secondAllianceId: red.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+        contract: 'existing secret',
+      });
+      const change = await service.proposeRelationshipChange(1, relationship.id, {
+        contract: 'replacement secret',
+      });
+      await service.acceptRelationshipChange(2, change.id);
 
       expect((await service.listDiplomacyChronicle(2, red.id)).entries).toEqual([]);
     });
@@ -1334,6 +1347,19 @@ describe('AllianceService', () => {
           vassalAllianceId: null,
         }),
       ]);
+      await expect(
+        service.listDiplomacyChronicle(1, sender.id),
+      ).resolves.toMatchObject({
+        entries: [
+          expect.objectContaining({
+            type: AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED,
+            relationship: {
+              type: AllianceRelationshipType.PEACE,
+              vassalage: null,
+            },
+          }),
+        ],
+      });
 
       const noWar = scenario();
       await expectError(

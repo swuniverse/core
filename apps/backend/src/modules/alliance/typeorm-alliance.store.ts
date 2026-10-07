@@ -54,21 +54,23 @@ const CONSTRAINTS: Record<string, AllianceConstraint> = {
 };
 
 const UNIQUE_VIOLATION = '23505';
+function constraintViolation(error: unknown): AllianceConstraintViolation | null {
+  if (!(error instanceof QueryFailedError)) return null;
+  const driverError = error.driverError as {
+    code?: string;
+    constraint?: string;
+  };
+  const constraint = driverError.constraint
+    ? CONSTRAINTS[driverError.constraint]
+    : undefined;
+  if (driverError.code === UNIQUE_VIOLATION && constraint) {
+    return new AllianceConstraintViolation(constraint);
+  }
+  return null;
+}
 
 function translateConstraintError(error: unknown): never {
-  if (error instanceof QueryFailedError) {
-    const driverError = error.driverError as {
-      code?: string;
-      constraint?: string;
-    };
-    const constraint = driverError.constraint
-      ? CONSTRAINTS[driverError.constraint]
-      : undefined;
-    if (driverError.code === UNIQUE_VIOLATION && constraint) {
-      throw new AllianceConstraintViolation(constraint);
-    }
-  }
-  throw error;
+  throw constraintViolation(error) ?? error;
 }
 
 function escapeLike(value: string): string {
@@ -300,6 +302,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .where('party.allianceId IN (:...allianceIds)', {
         allianceIds: [firstAllianceIdCanonical, secondAllianceIdCanonical],
       })
+      .orderBy('party.allianceId', 'ASC')
       .setLock('pessimistic_write')
       .getMany();
     const partyByAllianceId = new Map(
@@ -388,13 +391,16 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       Math.min(data.senderAllianceId, data.recipientAllianceId),
       Math.max(data.senderAllianceId, data.recipientAllianceId),
     ];
-    const parties = await this.manager
+    const partyQuery = this.manager
       .createQueryBuilder(DiplomacyParty, 'party')
       .where('party.allianceId IN (:...allianceIds)', {
         allianceIds: [firstAllianceId, secondAllianceId],
       })
-      .setLock('pessimistic_write')
-      .getMany();
+      .orderBy('party.allianceId', 'ASC');
+    if (this.inTransaction) {
+      partyQuery.setLock('pessimistic_write');
+    }
+    const parties = await partyQuery.getMany();
     const partyByAllianceId = new Map(
       parties.map((party) => [party.allianceId, party]),
     );
@@ -427,7 +433,9 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
         throw new Error('Alliance relationship proposal was not created');
       return proposal;
     } catch (error) {
-      translateConstraintError(error);
+      const violation = constraintViolation(error);
+      if (violation) throw violation;
+      throw error;
     }
   }
 
@@ -452,6 +460,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .where('party.id IN (:...partyIds)', {
         partyIds: [proposal.firstPartyId, proposal.secondPartyId],
       })
+      .orderBy('party.id', 'ASC')
       .setLock('pessimistic_write')
       .getMany();
     await this.manager
@@ -533,6 +542,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .where('party.allianceId IN (:...allianceIds)', {
         allianceIds: [data.senderAllianceId, data.recipientAllianceId],
       })
+      .orderBy('party.allianceId', 'ASC')
       .setLock('pessimistic_write')
       .getMany();
     const partyByAllianceId = new Map(
@@ -572,7 +582,9 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       }
       return proposal;
     } catch (error) {
-      translateConstraintError(error);
+      const violation = constraintViolation(error);
+      if (violation) throw violation;
+      throw error;
     }
   }
 
@@ -585,24 +597,18 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async acceptRelationshipChangeProposal(id: number) {
-    const proposal = await this.manager
-      .createQueryBuilder(AllianceRelationshipChangeProposal, 'proposal')
-      .innerJoinAndSelect('proposal.relationship', 'relationship')
-      .innerJoinAndSelect('relationship.firstParty', 'firstParty')
-      .innerJoinAndSelect('relationship.secondParty', 'secondParty')
-      .leftJoinAndSelect('relationship.lordParty', 'lordParty')
-      .leftJoinAndSelect('relationship.vassalParty', 'vassalParty')
-      .innerJoinAndSelect('proposal.senderParty', 'senderParty')
-      .innerJoinAndSelect('proposal.recipientParty', 'recipientParty')
-      .where('proposal.id = :id', { id })
-      .setLock('pessimistic_write')
-      .getOne();
-    if (!proposal || proposal.relationship.endedAt !== null) return null;
-    await this.manager
-      .createQueryBuilder(AllianceRelationship, 'relationship')
-      .where('relationship.id = :id', { id: proposal.relationshipId })
-      .setLock('pessimistic_write')
-      .getOne();
+    const proposal = await this.manager.findOne(AllianceRelationshipChangeProposal, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!proposal) return null;
+
+    const relationship = await this.manager.findOne(AllianceRelationship, {
+      where: { id: proposal.relationshipId, endedAt: IsNull() },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!relationship) return null;
+
     const result = await this.manager
       .createQueryBuilder()
       .update(AllianceRelationship)
@@ -611,15 +617,16 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
         treatAsFriend: proposal.treatAsFriend,
         shareLivePositions: proposal.shareLivePositions,
       })
-      .where('id = :id', { id: proposal.relationshipId })
+      .where('id = :id', { id: relationship.id })
       .andWhere('"endedAt" IS NULL')
       .execute();
     if ((result.affected ?? 0) !== 1) return null;
     await this.manager.delete(AllianceRelationshipChangeProposal, id);
-    proposal.relationship.contract = proposal.contract;
-    proposal.relationship.treatAsFriend = proposal.treatAsFriend;
-    proposal.relationship.shareLivePositions = proposal.shareLivePositions;
-    return toRelationship(proposal.relationship);
+    const updatedRelationship = await this.findActiveRelationship(relationship.id);
+    if (!updatedRelationship) {
+      throw new Error('Alliance relationship change proposal was not accepted');
+    }
+    return updatedRelationship;
   }
 
   async appendDiplomacyChronicleEntry(
@@ -676,30 +683,37 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async claimDiplomacyNotifications(limit: number) {
-    const notifications = await this.manager.query(
-      `
-        WITH candidates AS (
-          SELECT "id"
-          FROM "alliance_diplomacy_notifications"
-          WHERE "deliveredAt" IS NULL
-            AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= CURRENT_TIMESTAMP)
-          ORDER BY "id" ASC
-          LIMIT $1
-          FOR UPDATE SKIP LOCKED
-        )
-        UPDATE "alliance_diplomacy_notifications" AS notification
-        SET
-          "leaseToken" = md5(random()::text || clock_timestamp()::text || notification."id"::text),
-          "leaseExpiresAt" = CURRENT_TIMESTAMP + INTERVAL '30 seconds'
-        FROM candidates
-        WHERE notification."id" = candidates."id"
-        RETURNING notification.*
-      `,
+    const candidates = await this.manager.query(
+      `SELECT "id"
+      FROM "alliance_diplomacy_notifications"
+      WHERE "deliveredAt" IS NULL
+        AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= CURRENT_TIMESTAMP)
+      ORDER BY "id" ASC
+      LIMIT $1
+      FOR UPDATE SKIP LOCKED`,
       [limit],
     );
-    return notifications.map((notification: AllianceDiplomacyNotification) =>
-      toNotification(notification),
-    );
+    const notifications: AllianceDiplomacyNotificationRecord[] = [];
+    for (const candidate of candidates as Array<{ id: number }>) {
+      const leaseToken = randomUUID();
+      const result = await this.manager
+        .createQueryBuilder()
+        .update(AllianceDiplomacyNotification)
+        .set({
+          leaseToken,
+          leaseExpiresAt: () => "CURRENT_TIMESTAMP + INTERVAL '30 seconds'",
+        })
+        .where('id = :id', { id: candidate.id })
+        .andWhere('"deliveredAt" IS NULL')
+        .andWhere(
+          '("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= CURRENT_TIMESTAMP)',
+        )
+        .returning('*')
+        .execute();
+      const notification = result.raw[0] as AllianceDiplomacyNotification | undefined;
+      if (notification) notifications.push(toNotification(notification));
+    }
+    return notifications;
   }
 
   async markDiplomacyNotificationDelivered(id: number, leaseToken: string) {
@@ -730,25 +744,21 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async endNonWarRelationship(id: number) {
-    const relationship = await this.manager
-      .createQueryBuilder(AllianceRelationship, 'relationship')
-      .innerJoinAndSelect('relationship.firstParty', 'firstParty')
-      .innerJoinAndSelect('relationship.secondParty', 'secondParty')
-      .leftJoinAndSelect('relationship.lordParty', 'lordParty')
-      .leftJoinAndSelect('relationship.vassalParty', 'vassalParty')
-      .where('relationship.id = :id', { id })
-      .andWhere('relationship.endedAt IS NULL')
-      .andWhere('relationship.type <> :war', {
-        war: AllianceRelationshipType.WAR,
-      })
-      .setLock('pessimistic_write')
-      .getOne();
+    const relationship = await this.manager.findOne(AllianceRelationship, {
+      where: {
+        id,
+        endedAt: IsNull(),
+        type: Not(AllianceRelationshipType.WAR),
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
     if (!relationship) return null;
     await this.manager
       .createQueryBuilder(DiplomacyParty, 'party')
       .where('party.id IN (:...partyIds)', {
         partyIds: [relationship.firstPartyId, relationship.secondPartyId],
       })
+      .orderBy('party.id', 'ASC')
       .setLock('pessimistic_write')
       .getMany();
     await this.manager
@@ -766,7 +776,11 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       relationshipId: relationship.id,
     });
     relationship.endedAt = new Date();
-    return toRelationship(relationship);
+    return toRelationship({
+      ...relationship,
+      firstParty: { allianceId: relationship.firstPartyId } as DiplomacyParty,
+      secondParty: { allianceId: relationship.secondPartyId } as DiplomacyParty,
+    });
   }
 
   async countMembers() {

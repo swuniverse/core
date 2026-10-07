@@ -111,6 +111,8 @@ function chronicleEventLabel(entry: AllianceDiplomacyChronicleEntryDto) {
       return `${relationshipTypeLabel(entry.relationship.type)} geändert`;
     case 'RELATIONSHIP_ENDED':
       return `${relationshipTypeLabel(entry.relationship.type)} beendet`;
+    default:
+      return entry.type;
   }
 }
 
@@ -920,6 +922,10 @@ export function AllianceDetailPage() {
   );
   const [chronicle, setChronicle] =
     useState<AllianceDiplomacyChronicleDto | null>(null);
+  const [loadingMoreChronicle, setLoadingMoreChronicle] = useState(false);
+  const [chronicleLoadMoreError, setChronicleLoadMoreError] = useState<
+    string | null
+  >(null);
   const [warTargetId, setWarTargetId] = useState('');
   const [proposalRecipientId, setProposalRecipientId] = useState('');
   const [proposalType, setProposalType] = useState<AllianceRelationshipType>(
@@ -1006,10 +1012,42 @@ export function AllianceDetailPage() {
         `/alliances/${id}/diplomacy/chronicle`,
       );
       setChronicle(Array.isArray(response?.entries) ? response : null);
+      setChronicleLoadMoreError(null);
     } catch {
       setChronicle(null);
     }
   }, [id]);
+
+  async function loadMoreChronicle() {
+    const cursor = chronicle?.nextCursor;
+    if (!id || !cursor || loadingMoreChronicle) return;
+
+    setLoadingMoreChronicle(true);
+    setChronicleLoadMoreError(null);
+    try {
+      const response = await api.get<AllianceDiplomacyChronicleDto>(
+        `/alliances/${id}/diplomacy/chronicle?cursor=${encodeURIComponent(cursor)}`,
+      );
+      if (!Array.isArray(response?.entries)) return;
+      setChronicle((current) =>
+        current
+          ? {
+              entries: [...current.entries, ...response.entries],
+              nextCursor: response.nextCursor,
+            }
+          : current,
+      );
+    } catch (err) {
+      setChronicleLoadMoreError(
+        getErrorMessage(
+          err,
+          'Weitere Chronik-Einträge konnten nicht geladen werden.',
+        ),
+      );
+    } finally {
+      setLoadingMoreChronicle(false);
+    }
+  }
 
   useEffect(() => {
     if (!alliance) return;
@@ -1371,6 +1409,23 @@ export function AllianceDetailPage() {
           <p className="text-sm italic text-swu-muted">
             Keine öffentlichen Diplomatieereignisse vorhanden
           </p>
+        )}
+        {chronicleLoadMoreError && (
+          <p role="alert" className="text-sm text-red-300">
+            {chronicleLoadMoreError}
+          </p>
+        )}
+        {chronicle?.nextCursor && (
+          <button
+            type="button"
+            disabled={loadingMoreChronicle}
+            className={buttonClass}
+            onClick={() => void loadMoreChronicle()}
+          >
+            {loadingMoreChronicle
+              ? 'Ältere Ereignisse werden geladen...'
+              : 'Ältere Ereignisse laden'}
+          </button>
         )}
       </section>
 
