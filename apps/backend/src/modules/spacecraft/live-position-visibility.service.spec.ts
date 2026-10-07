@@ -236,6 +236,7 @@ describe('LivePositionVisibilityService', () => {
         mayTransferSafely: true,
         mayProvisionProtectedShip: true,
         mayShareLivePosition: true,
+        mayShareHistoricalScans: false,
       }),
     );
 
