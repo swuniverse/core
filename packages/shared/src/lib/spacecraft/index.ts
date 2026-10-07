@@ -113,6 +113,15 @@ export interface SpacecraftDetailDto {
   actions?: Record<string, SpacecraftActionAvailabilityDto>;
 }
 
+export interface SharedLivePositionDto {
+  spacecraftId: number;
+  spacecraftName: string;
+  shipClassId: number;
+  ownerId: number;
+  ownerName: string | null;
+  location: SpaceLocationDto;
+}
+
 export interface SpacecraftEnergyFlowRowDto {
   systemKey: SpacecraftRuntimeSystemKey;
   label: string;

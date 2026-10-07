@@ -51,10 +51,7 @@ export class RelationshipResolverService {
         this.store.findPlayer(secondPlayerId),
       ]);
       if (!firstPlayer || !secondPlayer) return resolved('NEUTRAL', false);
-      if (
-        firstPlayer.factionId === null ||
-        secondPlayer.factionId === null
-      ) {
+      if (firstPlayer.factionId === null || secondPlayer.factionId === null) {
         return resolved('NEUTRAL', false);
       }
       if (firstPlayer.factionId !== secondPlayer.factionId) {
@@ -73,6 +70,7 @@ export class RelationshipResolverService {
         return resolved('FRIEND', false, true);
       }
 
+      let mayShareLivePosition = false;
       if (firstMembership && secondMembership) {
         const relationship = await this.findRelationship(
           firstMembership.allianceId,
@@ -81,23 +79,35 @@ export class RelationshipResolverService {
         if (relationship?.type === AllianceRelationshipType.WAR) {
           return resolved('ENEMY', false);
         }
-        if (relationship?.treatAsFriend) {
-          return resolved('FRIEND', relationship.shareLivePositions);
+        if (relationship) {
+          mayShareLivePosition = relationship.shareLivePositions;
+          if (relationship.treatAsFriend) {
+            return resolved('FRIEND', mayShareLivePosition);
+          }
         }
       }
 
-      if (await this.personalContactStatus.isFriend(firstPlayer.id, secondPlayer.id)) {
-        return resolved('FRIEND', false);
+      if (
+        await this.personalContactStatus.isFriend(
+          firstPlayer.id,
+          secondPlayer.id,
+        )
+      ) {
+        return resolved('FRIEND', mayShareLivePosition);
       }
-      return resolved('NEUTRAL', false);
+      return resolved('NEUTRAL', mayShareLivePosition);
     } catch {
       return resolved('NEUTRAL', false);
     }
   }
 
-  private async findRelationship(firstAllianceId: number, secondAllianceId: number) {
+  private async findRelationship(
+    firstAllianceId: number,
+    secondAllianceId: number,
+  ) {
     if (firstAllianceId === secondAllianceId) return null;
-    const relationships = await this.store.listActiveRelationships(firstAllianceId);
+    const relationships =
+      await this.store.listActiveRelationships(firstAllianceId);
     return (
       relationships.find(
         (relationship) =>
@@ -124,7 +134,7 @@ function resolved(
     mayReactAutomatically: isEnemy,
     mayTransferSafely: isFriend,
     mayProvisionProtectedShip: isFriend,
-    mayShareLivePosition: isFriend && mayShareLivePosition,
+    mayShareLivePosition,
     mayShareHistoricalScans: isFriend && mayShareHistoricalScans,
   };
 }

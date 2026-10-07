@@ -31,6 +31,7 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - [Vorhandene Zugangs- und Scanpfade](issues/05-vorhandene-zugangs-und-scanpfade.md): Historische Koloniescans werden dynamisch nur innerhalb der aktuellen Allianz geteilt; Docking, spielergesteuerte Wurmlochrechte und Handelsposten bleiben mangels vorhandener Zugangspfade benannte Integrationspunkte.
 
 - [Alarm- und automatische Kampfreaktionen](issues/02-alarm-und-kampfreaktionen.md): SWU besitzt noch keinen alarmgesteuerten Kampftrigger; T-029 muss später Alarm Gelb über `mayReactAutomatically` und Alarm Rot über `!isFriend` an die zentrale Auflösung anbinden, ohne direkte Angriffe zu verändern.
+- [Live-Positionsfreigabe](issues/04-live-positionsfreigabe.md): `GET /api/spacecraft/shared-live-positions` prüft serverseitig die zentrale Fähigkeit `mayShareLivePosition`; nur aktive same-faction-Freigaben werden sichtbar, während Vorschläge, beendete Beziehungen, Cross-Faction-Parteien und Fehler sicher ausgeschlossen bleiben. Historische Scans bleiben unabhängig.
 
 ## Not yet specified
 
