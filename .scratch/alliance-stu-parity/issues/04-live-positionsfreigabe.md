@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Zentrale Beziehungsauflösung
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/04-live-positionsfreigabe.md`)
