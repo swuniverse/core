@@ -36,6 +36,7 @@ import { CargoItem } from './entities/cargo-item.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { TransferService } from './transfer.service';
 
 const relationship = (status: 'FRIEND' | 'ENEMY' | 'NEUTRAL') => ({
@@ -429,6 +430,67 @@ describe('TransferService ship transfers', () => {
     await expect(
       service.transferShipCrew(1, 10, 2, 1, 'FROM_TARGET'),
     ).rejects.toThrow('Schiffstransfer nur zwischen Freunden erlaubt');
+  });
+
+  it('lets a friend supply crew to a protected foreign ship', async () => {
+    const sourceShip = {
+      id: 1,
+      userId: 10,
+      status: 'IDLE',
+      runtimeSystems: {},
+      locationId: 20,
+      location: { id: 20, kind: 'GALAXY_FIELD' },
+      crew: 2,
+      crewMax: 10,
+    };
+    const targetShip = {
+      id: 2,
+      userId: 11,
+      status: 'IDLE',
+      runtimeSystems: { SHIELDS: { active: true } },
+      locationId: 20,
+      location: { id: 20, kind: 'GALAXY_FIELD' },
+      crew: 0,
+      crewMax: 10,
+    };
+    const assignments = [
+      { spacecraftId: 1, crewId: 1 },
+      { spacecraftId: 1, crewId: 2 },
+    ];
+    const crewRepo = {
+      find: jest.fn().mockResolvedValue(assignments),
+      count: jest.fn().mockResolvedValue(0),
+      save: jest.fn(),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) =>
+        entity === Spacecraft
+          ? { find: jest.fn().mockResolvedValue([sourceShip, targetShip]) }
+          : entity === CrewAssignment
+            ? crewRepo
+            : {},
+      ),
+      save: jest.fn(),
+    };
+    const service = new TransferService(
+      {} as never,
+      { chargeEnergy: jest.fn() } as never,
+      { transaction: jest.fn(async (work) => work(manager)) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        resolve: jest.fn().mockResolvedValue({
+          ...relationship('FRIEND'),
+          mayTransferSafely: false,
+          mayProvisionProtectedShip: true,
+        }),
+      } as never,
+    );
+
+    await service.transferShipCrew(1, 10, 2, 1, 'TO_TARGET');
+
+    expect(assignments[0].spacecraftId).toBe(2);
   });
 });
 

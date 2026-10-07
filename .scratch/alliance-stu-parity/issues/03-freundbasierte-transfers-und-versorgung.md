@@ -18,4 +18,8 @@
 
 ## Answer
 
-Schiff-zu-Schiff-Transfers für Fracht, Crew und Torpedos fragen serverseitig die zentrale Beziehungsauflösung ab. Eigene Schiffe bleiben kompatibel; fremde Schiffe benötigen die passende Freundfähigkeit. Ausgehende Fracht- und Torpedoversorgung darf bei aktiven Zielschilden ausschließlich über `mayProvisionProtectedShip` erfolgen, während gewöhnliche und eingehende Transfers `mayTransferSafely` verlangen. Neutral, Feind und Auflösungsfehler werden sicher abgewiesen. Der Transfer-Quote-Pfad meldet dieselben Fähigkeiten und physischen Einschränkungen. Verhaltenstests decken Freund, Neutral, Feind/Cross-Faction, geschützte Versorgung und Fail-closed ab.
+Schiff-zu-Schiff-Transfers für Fracht, Crew und Torpedos fragen serverseitig die zentrale Beziehungsauflösung ab. Eigene Schiffe bleiben kompatibel; fremde Schiffe benötigen die passende Freundfähigkeit. Ausgehende Fracht-, Crew- und Torpedoversorgung darf bei aktiven Zielschilden ausschließlich über `mayProvisionProtectedShip` erfolgen, während gewöhnliche und eingehende Transfers `mayTransferSafely` verlangen. Neutral, Feind und Auflösungsfehler werden sicher abgewiesen. Der Transfer-Quote-Pfad meldet dieselben Fähigkeiten und physischen Einschränkungen. Verhaltenstests decken Freund, Neutral, Feind/Cross-Faction, geschützte Versorgung und Fail-closed ab.
+
+## Comments
+
+Die Crewversorgung eines geschützten fremden Schiffs wurde im Transferpfad an dieselbe `mayProvisionProtectedShip`-Seam wie Fracht und Torpedos angebunden. Aktive Zielschilde bleiben für befreundete Versorgung erlaubt; alle anderen Transferfälle verlangen weiterhin deaktivierte Schilde. Die neue Verhaltenstest-Seam prüft die erlaubte Freundversorgung.

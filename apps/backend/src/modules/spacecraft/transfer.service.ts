@@ -289,10 +289,18 @@ export class TransferService {
       const targetShip = ships.find((ship) => ship.id === targetShipId);
       if (!sourceShip || !targetShip)
         throw new BadRequestException('Schiff nicht gefunden');
-      await this.assertSafeShipTransfer(sourceShip, targetShip);
-      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
       const systems = (ship: Spacecraft) =>
         ship.runtimeSystems as Record<string, { active?: boolean }>;
+      const provisionsProtectedTarget =
+        direction === 'TO_TARGET' &&
+        sourceShip.userId !== targetShip.userId &&
+        systems(targetShip).SHIELDS?.active === true;
+      await this.assertSafeShipTransfer(
+        sourceShip,
+        targetShip,
+        provisionsProtectedTarget,
+      );
+      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
       if (
         !sameField ||
         sourceShip.status !== SpacecraftStatus.IDLE ||
@@ -308,7 +316,7 @@ export class TransferService {
         throw new BadRequestException('Hyperantrieb muss deaktiviert sein');
       if (
         systems(sourceShip).SHIELDS?.active ||
-        systems(targetShip).SHIELDS?.active
+        (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget)
       )
         throw new BadRequestException('Schilde müssen deaktiviert sein');
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
