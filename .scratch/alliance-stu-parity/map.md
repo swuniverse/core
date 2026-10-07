@@ -20,6 +20,7 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - [Ämter und Diplomatierechte](issues/03-aemter-und-diplomatierechte.md): Die drei festen Ämter erhalten eine serverseitig durchgesetzte, nicht konfigurierbare Zuständigkeitsmatrix.
 - [Beziehungsfreigaben und Vertragswerk](issues/04-beziehungsfreigaben-und-vertragswerk.md): Wirkungen und Vertragsänderungen werden unabhängig vom Beziehungstyp gemeinsam ausgehandelt.
 - [Freund-Feind-Auflösung und Spielwirkungen](issues/05-freund-feind-aufloesung-und-spielwirkungen.md): Eine zentrale, priorisierte Beziehungsauflösung steuert alle vorhandenen serverseitigen Spielwirkungen.
+- [Freundbasierte Transfers und Schiffsversorgung](issues/03-freundbasierte-transfers-und-versorgung.md): Schiffstransfers und geschützte Versorgung verwenden die zentral abgeleiteten Freundfähigkeiten und fallen bei Fehlern sicher geschlossen aus.
 - [Sternenkarte, Scans und Sichtbarkeit](issues/06-sternenkarte-scans-und-sichtbarkeit.md): Live-Positionen, Allianzobjekte, Scans und Farben folgen klar abgegrenzten dynamischen Sichtbarkeitsregeln.
 - [Zugangsprivilegien und Allianzdepots](issues/07-zugangsprivilegien-und-allianzdepots.md): Zugänge unterstützen Spieler-, Allianz- und Fraktionsziele; Depots bleiben Eigentum ihrer Besitzer.
 - [Mitgliederdaten und Allianzforum](issues/08-mitgliederdaten-und-allianzforum.md): Verwaltung zeigt nur operative Daten; das Mitgliederforum erhält vollständige serverseitige Autorisierung und sichere Moderation.
