@@ -95,9 +95,13 @@ export class StarmapVisibilityService {
     ]);
     if (!this.capability.enabled) return visibility;
 
-    const { alliance, mateIds } =
-      await this.relationships.allianceMapCandidates(viewerId);
-    const candidateIds = mateIds.filter((id) => !visibility.has(id));
+    const [{ alliance, mateIds }, partnerIds] = await Promise.all([
+      this.relationships.allianceMapCandidates(viewerId),
+      this.relationships.livePositionPartnerCandidates(viewerId),
+    ]);
+    const candidateIds = [...new Set([...mateIds, ...partnerIds])].filter(
+      (id) => !visibility.has(id),
+    );
     if (candidateIds.length === 0) return visibility;
 
     const stances = await this.relationships.resolveMany(
@@ -106,11 +110,17 @@ export class StarmapVisibilityService {
     );
     for (const ownerId of candidateIds) {
       const stance = stances.get(ownerId);
-      if (alliance && stance?.mayShareAllianceMap) {
+      if (!stance) continue;
+      if (alliance && stance.mayShareAllianceMap) {
         visibility.set(ownerId, {
           reason: 'ALLIANCE',
           stance: stance.status,
           alliance,
+        });
+      } else if (stance.mayShareLivePosition) {
+        visibility.set(ownerId, {
+          reason: 'SHARED_LIVE_POSITION',
+          stance: stance.status,
         });
       }
     }

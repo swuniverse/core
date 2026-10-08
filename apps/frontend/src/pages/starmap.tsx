@@ -50,6 +50,7 @@ export function StarmapPage() {
   const [contacts, setContacts] = useState<StarmapContactsDto | null>(null);
   const [showShips, setShowShips] = useState(true);
   const [showAllianceShips, setShowAllianceShips] = useState(true);
+  const [showPartnerShips, setShowPartnerShips] = useState(true);
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
   const [inlineSystemsVisible, setInlineSystemsVisible] = useState(false);
   const contactLayerIdRef = useRef<number | null>(null);
@@ -144,11 +145,13 @@ export function StarmapPage() {
     () =>
       bundleStarmapContacts(
         (contacts?.contacts ?? []).filter(
-          (contact) => contact.reason !== 'ALLIANCE' || showAllianceShips,
+          (contact) =>
+            (contact.reason !== 'ALLIANCE' || showAllianceShips) &&
+            (contact.reason !== 'SHARED_LIVE_POSITION' || showPartnerShips),
         ),
         openSystemGrids,
       ),
-    [contacts, openSystemGrids, showAllianceShips],
+    [contacts, openSystemGrids, showAllianceShips, showPartnerShips],
   );
   const selectedContactBundle =
     contactBundles.find((bundle) => bundle.key === selectedContactKey) ?? null;
@@ -340,6 +343,11 @@ export function StarmapPage() {
               allianceShips={
                 allianceContactsActive
                   ? { visible: showAllianceShips, onToggle: setShowAllianceShips }
+                  : undefined
+              }
+              partnerShips={
+                allianceContactsActive
+                  ? { visible: showPartnerShips, onToggle: setShowPartnerShips }
                   : undefined
               }
               selectedSector={selectedSector}

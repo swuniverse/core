@@ -131,6 +131,35 @@ export class RelationshipResolverService {
     }
   }
 
+  /**
+   * Candidates for shared live positions: current members of every alliance
+   * in an active relationship with the viewer's alliance, read fresh on every
+   * call. Whether their ships are shown is still decided by the
+   * `mayShareLivePosition` capability of the resolved stance. Never throws;
+   * on failure or without an alliance there are no candidates.
+   */
+  async livePositionPartnerCandidates(viewerId: number): Promise<number[]> {
+    try {
+      const membership = await this.store.findMembership(viewerId);
+      if (!membership) return [];
+      const partnerAllianceIds = new Set(
+        (await this.store.listActiveRelationships(membership.allianceId)).map(
+          (relationship) =>
+            relationship.firstAllianceId === membership.allianceId
+              ? relationship.secondAllianceId
+              : relationship.firstAllianceId,
+        ),
+      );
+      partnerAllianceIds.delete(membership.allianceId);
+      const memberships = await Promise.all(
+        [...partnerAllianceIds].map((id) => this.store.listMemberships(id)),
+      );
+      return memberships.flat().map((member) => member.userId);
+    } catch {
+      return [];
+    }
+  }
+
   /** Never throws; failures resolve to a closed Neutral without capabilities. */
   async resolve(
     firstPlayerId: number,

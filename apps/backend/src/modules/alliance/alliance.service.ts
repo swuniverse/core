@@ -48,6 +48,7 @@ import {
 } from './alliance-permissions';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
+import { AllianceInfrastructureCapabilityService } from './alliance-infrastructure-capability.service';
 import { DiplomacyCapabilityService } from './diplomacy-capability.service';
 import type {
   AllianceConstraint,
@@ -131,6 +132,7 @@ export class AllianceService {
     private readonly messaging: MessagingService,
     private readonly rateLimiter?: DiplomacyRateLimiterService,
     private readonly diplomacyCapability?: DiplomacyCapabilityService,
+    private readonly infrastructureCapability?: AllianceInfrastructureCapabilityService,
   ) {}
 
   // --- Queries ---
@@ -368,6 +370,7 @@ export class AllianceService {
     return {
       enabled: this.diplomacyEnabled,
       effectsApplied: this.diplomacyEnabled,
+      starmapDisplayActive: this.infrastructureCapability?.enabled ?? false,
       capabilities: { create: this.diplomacyEnabled },
       targets: alliances
         .filter(

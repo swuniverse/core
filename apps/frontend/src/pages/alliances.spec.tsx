@@ -114,6 +114,7 @@ function diplomacyManagement(): AllianceDiplomacyManagementDto {
   return {
     enabled: true,
     effectsApplied: true,
+    starmapDisplayActive: false,
     capabilities: { create: true },
     targets: [{ id: 2, name: 'Red Squadron', color: null }],
     relationships: [
@@ -407,6 +408,22 @@ describe('AllianceDiplomacyPage', () => {
     expect(screen.getByText(/^Beziehungsfreigaben sind aktiv\./)).toBeTruthy();
     expect(screen.getByText(/erst mit der Allianz-Kartenansicht/)).toBeTruthy();
     expect(screen.queryByText(/noch keine Spielwirkung/i)).toBeNull();
+  });
+
+  it('points to the starmap once the server reports the map display as active', async () => {
+    const management = diplomacyManagement();
+    management.starmapDisplayActive = true;
+    routeGet({ '/alliances/1/diplomacy': management });
+
+    renderAt('/alliances/1/diplomacy');
+
+    expect(
+      await screen.findByText(/^Beziehungsfreigaben sind aktiv\./),
+    ).toBeTruthy();
+    expect(screen.queryByText(/erst mit der Allianz-Kartenansicht/)).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Sternenkarte' }).getAttribute('href'),
+    ).toBe('/starmap');
   });
 
   it('does not render creation controls when the server denies create capability', async () => {

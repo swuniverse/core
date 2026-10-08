@@ -16,6 +16,7 @@ import {
 import { AllianceService } from './alliance.service';
 import { AllianceConstraintViolation } from './alliance.store';
 import { DiplomacyCapabilityService } from './diplomacy-capability.service';
+import { AllianceInfrastructureCapabilityService } from './alliance-infrastructure-capability.service';
 import {
   EMPIRE,
   InMemoryAllianceStore,
@@ -69,6 +70,35 @@ async function expectError(
 }
 
 describe('AllianceService', () => {
+  describe('starmap display of shared positions', () => {
+    it.each([
+      ['active', 'true', true],
+      ['inactive', undefined, false],
+    ] as const)(
+      'tells diplomatic officers whether the starmap display is %s',
+      async (_label, setting, expected) => {
+        const store = new InMemoryAllianceStore();
+        store.addPlayer(1, 'Leia');
+        const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [
+          [1, PRESIDENT],
+        ]);
+        const service = new AllianceService(
+          store,
+          { sendSystem: jest.fn() } as never,
+          undefined,
+          new DiplomacyCapabilityService({ get: () => 'true' } as never),
+          new AllianceInfrastructureCapabilityService({
+            get: () => setting,
+          } as never),
+        );
+
+        const management = await service.getDiplomacyManagement(1, rogue.id);
+
+        expect(management.starmapDisplayActive).toBe(expected);
+      },
+    );
+  });
+
   describe('diplomacy rollout capability', () => {
     it('rejects diplomatic mutations until the rollout capability is enabled', async () => {
       const store = new InMemoryAllianceStore();

@@ -167,6 +167,8 @@ export interface AllianceDiplomacyManagementDto {
   enabled: boolean;
   /** Whether accepted relationship permissions already affect gameplay on the server. */
   effectsApplied: boolean;
+  /** Whether shared partner positions are shown on the starmap. */
+  starmapDisplayActive: boolean;
   capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
   targets: AllianceRefDto[];
   relationships: AllianceDiplomacyRelationshipDto[];
