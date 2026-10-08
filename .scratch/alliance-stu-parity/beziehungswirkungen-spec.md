@@ -1,4 +1,9 @@
+# Beziehungswirkungen
+
 Status: ready-for-agent
+
+Tracker: local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-spec.md`)
+Triage label: ready-for-agent
 
 ## Problem Statement
 

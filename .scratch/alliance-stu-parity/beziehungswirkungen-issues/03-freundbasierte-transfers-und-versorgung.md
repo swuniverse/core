@@ -7,7 +7,7 @@
 **Status:** resolved
 
 **Triage label:** ready-for-agent
-**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/03-freundbasierte-transfers-und-versorgung.md`)
+**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-issues/03-freundbasierte-transfers-und-versorgung.md`)
 
 - [x] Sensible Transfers erlauben die bestehende Aktion nur für Freunde.
 - [x] Die Versorgung geschützter fremder Schiffe erlaubt die bestehende Aktion nur für Freunde.

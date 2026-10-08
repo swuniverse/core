@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Beziehungen öffentlich anzeigen)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Präsident und Diplomat dürfen Krieg erklären; Vize, Mitglied ohne Amt, Außenstehende und allianzlose Spieler werden serverseitig abgewiesen.
 - [ ] Der Server bietet nur andere Allianzen derselben Fraktion als gültige Ziele an und lehnt eigene sowie fraktionsfremde Allianzen ohne neue Beziehungsdaten ab.

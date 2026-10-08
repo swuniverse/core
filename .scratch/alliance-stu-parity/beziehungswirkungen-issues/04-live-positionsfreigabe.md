@@ -7,7 +7,7 @@
 **Status:** resolved
 
 **Triage label:** ready-for-agent
-**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/04-live-positionsfreigabe.md`)
+**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-issues/04-live-positionsfreigabe.md`)
 
 - [x] Eine aktive gültige Freigabe macht die vorgesehenen Live-Positionen sichtbar.
 - [x] Ausstehende, ungültige oder beendete Freigaben machen keine Positionen sichtbar.

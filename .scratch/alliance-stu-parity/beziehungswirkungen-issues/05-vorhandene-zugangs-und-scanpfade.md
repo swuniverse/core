@@ -7,7 +7,7 @@
 **Status:** resolved
 
 **Triage label:** ready-for-agent
-**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/05-vorhandene-zugangs-und-scanpfade.md`)
+**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-issues/05-vorhandene-zugangs-und-scanpfade.md`)
 
 - [x] Jeder vorhandene betroffene Zugangs- oder Scanpfad verwendet die zentrale Resolver-Seam.
 - [x] Kein Verbraucher rekonstruiert Freund, Feind oder Neutral lokal.

@@ -7,7 +7,7 @@
 **Status:** resolved
 
 **Triage label:** ready-for-agent
-**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/06-end-to-end-beziehungswirkungen.md`)
+**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-issues/06-end-to-end-beziehungswirkungen.md`)
 
 - [x] Annahme, Änderung und Beendigung einer aktiven Beziehung wirken ohne manuelle Synchronisierung auf die vorhandenen Verbraucher.
 - [x] Eine ausstehende Beziehung oder Freigabe bleibt ohne Spielwirkung.
@@ -29,3 +29,4 @@ Verifiziert mit den öffentlichen Service-Seams in den vorhandenen Resolver-, Tr
 
 - Baseline zunächst auf `origin/main` festgestellt; der Arbeitszweig enthielt danach den aktuellen `integration/beziehungswirkungen`-Stand per Merge-Commit `b750f0e`.
 - Vollständiger Repository-Testlauf wurde mit einem nicht unterstützten `--runInBand`-Flag für Vitest gestartet und brach im Frontend ab; der Backend-Teil lief weiter. Der korrekte gezielte Jest-Lauf ist erfolgreich. Fehlende `apps/backend/game-data`-Fixtures erzeugen in breiteren Läufen Warnungen, sind für die gezielten Suites nicht relevant.
+- Nachverifikation 2026-10-08: `50a158d` hatte das Teilen historischer Koloniescans innerhalb der Allianz entgegen der Entscheidung „Sternenkarte, Scans und Sichtbarkeit“ wieder entfernt. Der Scan-Teil dieses Commits wurde zurückgenommen; die Transferkorrektur bleibt bestehen. Vollständiger Lauf danach grün (Backend-, Frontend-, Postgres-Integrationstests und Lint).

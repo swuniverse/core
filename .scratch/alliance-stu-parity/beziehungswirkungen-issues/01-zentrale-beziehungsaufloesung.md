@@ -7,7 +7,7 @@
 **Status:** resolved
 
 **Triage label:** ready-for-agent
-**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/01-zentrale-beziehungsaufloesung.md`)
+**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-issues/01-zentrale-beziehungsaufloesung.md`)
 
 - [x] Der Server löst Freund, Feind und Neutral für Allianzmitglieder, allianzlose Spieler und Allianzparteien nach der festgelegten Priorität auf.
 - [x] Mitglieder derselben Allianz bleiben Freunde; Krieg gilt ausschließlich zwischen zwei verschiedenen Allianzparteien.

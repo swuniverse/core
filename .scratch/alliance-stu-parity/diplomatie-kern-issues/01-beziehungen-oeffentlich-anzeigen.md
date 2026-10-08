@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Die sechs Beziehungstypen Krieg, Frieden, Freundschaft, Bündnis, Handelsabkommen und Vasallenschaft sind gemeinsame Domänenwerte; nur Vasallenschaft wird mit Lehnsherr und Vasall gerichtet dargestellt.
 - [ ] Das persistierte Parteienmodell kann genau eine Allianz oder später genau einen allianzlosen Spieler referenzieren, ohne in dieser Etappe Spielerbeziehungen über API oder UI anzubieten.

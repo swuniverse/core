@@ -7,7 +7,7 @@
 **Status:** resolved
 
 **Triage label:** ready-for-agent
-**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/issues/02-alarm-und-kampfreaktionen.md`)
+**Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/beziehungswirkungen-issues/02-alarm-und-kampfreaktionen.md`)
 
 - [ ] Alarm Gelb reagiert auf Feinde gemäß der zentralen Auflösung.
 - [ ] Alarm Rot reagiert auf alle Nicht-Freunde gemäß der zentralen Auflösung.
