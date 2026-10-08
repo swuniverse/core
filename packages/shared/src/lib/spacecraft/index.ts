@@ -122,6 +122,66 @@ export interface SharedLivePositionDto {
   location: SpaceLocationDto;
 }
 
+/**
+ * Why a ship is visible on the viewer's starmap. Reasons are assigned in this
+ * priority order; a ship appears at most once, with its highest reason.
+ */
+export type StarmapContactReason = 'OWN' | 'ALLIANCE' | 'SHARED_LIVE_POSITION';
+
+/** Central stance of the viewer towards a contact's owner. */
+export type StarmapContactStance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
+
+export interface StarmapContactAllianceDto {
+  id: number;
+  name: string;
+  /** Validated hex color, or null when the alliance has none set. */
+  color: string | null;
+}
+
+/**
+ * Management details. Only delivered for the viewer's own ships and, for a
+ * president or vice, for alliance ships. Omitted entirely otherwise.
+ */
+export interface StarmapContactManagementDto {
+  status: string;
+  alertState: SpacecraftAlertState;
+  hull: number;
+  hullMax: number;
+  crew: number;
+  crewMax: number;
+}
+
+/** Galaxy cell a contact is drawn at; ships inside a system use the system cell. */
+export interface StarmapContactGalaxyCellDto {
+  layerId: number;
+  x: number;
+  y: number;
+}
+
+export interface StarmapContactDto {
+  spacecraftId: number;
+  spacecraftName: string;
+  shipClassId: number;
+  ownerId: number;
+  ownerName: string | null;
+  /** Resolved canonical position (galaxy or system coordinates). */
+  location: SpaceLocationDto;
+  galaxyCell: StarmapContactGalaxyCellDto;
+  reason: StarmapContactReason;
+  /** Omitted for the viewer's own ships. */
+  stance?: StarmapContactStance;
+  /** Present for contacts with reason ALLIANCE. */
+  alliance?: StarmapContactAllianceDto;
+  management?: StarmapContactManagementDto;
+}
+
+export interface StarmapContactsDto {
+  layerId: number;
+  /** Whether alliance and shared-partner contacts are active for this server. */
+  allianceContactsActive: boolean;
+  contacts: StarmapContactDto[];
+}
+
 export interface SpacecraftEnergyFlowRowDto {
   systemKey: SpacecraftRuntimeSystemKey;
   label: string;
