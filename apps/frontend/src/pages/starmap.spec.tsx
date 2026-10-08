@@ -25,7 +25,8 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
   const { forwardRef } = await import('react');
   return {
     StarmapCanvas: forwardRef<unknown, { worldOverlay?: ReactNode }>(
-      function StarmapCanvasMock({ worldOverlay }, _ref) {
+      function StarmapCanvasMock({ worldOverlay }, ref) {
+        void ref;
         return <div data-testid="starmap-canvas">{worldOverlay}</div>;
       },
     ),
