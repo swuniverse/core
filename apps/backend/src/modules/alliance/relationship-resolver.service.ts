@@ -67,7 +67,7 @@ export class RelationshipResolverService {
         secondMembership &&
         firstMembership.allianceId === secondMembership.allianceId
       ) {
-        return resolved('FRIEND', false);
+        return resolved('FRIEND', false, true);
       }
 
       let mayShareLivePosition = false;
@@ -123,6 +123,7 @@ export class RelationshipResolverService {
 function resolved(
   status: RelationshipStatus,
   mayShareLivePosition: boolean,
+  mayShareHistoricalScans = false,
 ): ResolvedRelationship {
   const isFriend = status === 'FRIEND';
   const isEnemy = status === 'ENEMY';
@@ -134,6 +135,6 @@ function resolved(
     mayTransferSafely: isFriend,
     mayProvisionProtectedShip: isFriend,
     mayShareLivePosition,
-    mayShareHistoricalScans: false,
+    mayShareHistoricalScans: isFriend && mayShareHistoricalScans,
   };
 }

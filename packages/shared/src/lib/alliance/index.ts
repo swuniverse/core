@@ -49,7 +49,7 @@ export interface AllianceMemberDto {
   actions: AllianceMemberActionsDto;
 }
 
-export interface AllianceWarTargetDto extends AllianceRefDto {}
+export type AllianceWarTargetDto = AllianceRefDto;
 
 /** Actions the viewer may perform on the alliance; computed by the server. */
 export interface AllianceViewerActionsDto {

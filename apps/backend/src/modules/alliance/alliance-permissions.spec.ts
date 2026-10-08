@@ -38,8 +38,12 @@ const ALLOWED_ALLIANCE_ACTIONS: Array<[AllianceRole, AllianceAction]> =
     [PRESIDENT, 'manageApplications'],
     [PRESIDENT, 'editDetails'],
     [PRESIDENT, 'dissolve'],
+    [PRESIDENT, 'declareWar'],
+    [PRESIDENT, 'manageDiplomacy'],
     [VICE, 'manageApplications'],
     [VICE, 'editDetails'],
+    [DIPLOMAT, 'declareWar'],
+    [DIPLOMAT, 'manageDiplomacy'],
   ];
 
 describe('mayActOnMember', () => {
