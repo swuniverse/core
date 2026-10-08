@@ -16,6 +16,7 @@ import { StarmapControlPanel } from '../components/starmap/StarmapControlPanel';
 import {
   StarmapShipOverlay,
   bundleStarmapContacts,
+  type StarmapOpenSystemGrid,
 } from '../components/starmap/StarmapShipOverlay';
 import { StarmapContactPanel } from '../components/starmap/StarmapContactPanel';
 import { canLoadInlineSystem } from '../lib/starmap-render';
@@ -50,6 +51,7 @@ export function StarmapPage() {
   const [showShips, setShowShips] = useState(true);
   const [showAllianceShips, setShowAllianceShips] = useState(true);
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
+  const [inlineSystemsVisible, setInlineSystemsVisible] = useState(false);
   const contactLayerIdRef = useRef<number | null>(null);
   const canvasRef = useRef<StarmapCanvasHandle>(null);
   const systemGridsRef = useRef<Map<number, SystemGrid>>(new Map());
@@ -125,6 +127,18 @@ export function StarmapPage() {
   useSocket(WsEventType.SHIP_MOVED, () => void loadContacts());
   useSocket(WsEventType.SPACECRAFT_EVENT, () => void loadContacts());
 
+  // While the zoom shows the system grids, ships in an opened system sit at
+  // their system position; otherwise they stay bundled at the system cell.
+  const openSystemGrids = useMemo(() => {
+    const open = new Map<number, StarmapOpenSystemGrid>();
+    if (!inlineSystemsVisible) return open;
+    for (const systemId of openedSystemIds) {
+      const grid = systemGrids.get(systemId);
+      const anchor = fields.find((field) => field.starSystem?.id === systemId)?.starSystem;
+      if (grid && anchor) open.set(systemId, { grid, anchor });
+    }
+    return open;
+  }, [fields, inlineSystemsVisible, openedSystemIds, systemGrids]);
   const allianceContactsActive = contacts?.allianceContactsActive ?? false;
   const contactBundles = useMemo(
     () =>
@@ -132,8 +146,9 @@ export function StarmapPage() {
         (contacts?.contacts ?? []).filter(
           (contact) => contact.reason !== 'ALLIANCE' || showAllianceShips,
         ),
+        openSystemGrids,
       ),
-    [contacts, showAllianceShips],
+    [contacts, openSystemGrids, showAllianceShips],
   );
   const selectedContactBundle =
     contactBundles.find((bundle) => bundle.key === selectedContactKey) ?? null;
@@ -296,6 +311,7 @@ export function StarmapPage() {
               selectedField={selectedField}
               selectedSector={selectedSector}
               showGrid={showGrid}
+              onInlineSystemsVisibleChange={setInlineSystemsVisible}
               worldOverlay={
                 showShips ? (
                   <StarmapShipOverlay
