@@ -584,10 +584,15 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     getFieldBuildRuleForFieldTypes: jest.fn(),
     getCategoriesForTerrainTile: jest.fn(() => []),
     isCategoryOpenToAnyBuilding: jest.fn(() => false),
-    getFieldCategoriesSummary: jest.fn(() => ({ tiles: {}, anyCategories: [] })),
-    getTerraforming: jest.fn((id: number) =>
-      id === 101201 || id === 111101 || id === 11110103
-        ? id === 101201
+    getFieldCategoriesSummary: jest.fn(() => ({
+      tiles: {},
+      anyCategories: [],
+    })),
+    getTerraforming: jest.fn((id: string | number) =>
+      String(id) === '101201' ||
+      String(id) === '111101' ||
+      String(id) === '11110103'
+        ? String(id) === '101201'
           ? {
               id: 101201,
               fromFieldType: '101',
@@ -598,9 +603,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
               costs: [{ commodityId: 2, amount: 4 }],
             }
           : {
-              id,
-              fromFieldType: id === 11110103 ? '11103' : '111',
-              toFieldType: id === 11110103 ? '10103' : '101',
+              id: Number(id),
+              fromFieldType: String(id) === '11110103' ? '11103' : '111',
+              toFieldType: String(id) === '11110103' ? '10103' : '101',
               energyCost: 5,
               duration: 60,
               researchId: null,
@@ -2301,7 +2306,7 @@ describe('colony tick calculations', () => {
       storage: [],
     });
 
-    await expect(service.terraformField(1, 1, 5, 101201)).rejects.toThrow(
+    await expect(service.terraformField(1, 1, 5, '101201')).rejects.toThrow(
       'field with a building',
     );
 
@@ -2322,7 +2327,7 @@ describe('colony tick calculations', () => {
       storage: [],
     });
 
-    await expect(service.terraformField(1, 1, 5, 999)).rejects.toThrow(
+    await expect(service.terraformField(1, 1, 5, '999')).rejects.toThrow(
       'Invalid terraforming option',
     );
   });
@@ -2357,7 +2362,7 @@ describe('colony tick calculations', () => {
     colonyRepo.findOne.mockResolvedValue(colony);
     storageRepo.findOne.mockResolvedValue(storage);
 
-    await service.terraformField(1, 1, 5, 101201);
+    await service.terraformField(1, 1, 5, '101201');
 
     expect(storage.amount).toBe(6);
     expect(colony.energy).toBe(45);
@@ -2368,7 +2373,7 @@ describe('colony tick calculations', () => {
     await service.checkBuildingCompletions(colony as any);
 
     expect(field.fieldType).toBe(201);
-    expect(field.terrainTileId).toBe("201");
+    expect(field.terrainTileId).toBe('201');
     expect(field.terraformingId).toBeNull();
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });
@@ -2406,7 +2411,7 @@ describe('colony tick calculations', () => {
       amount: 10,
     });
 
-    await service.terraformField(1, 1, 5, 111101);
+    await service.terraformField(1, 1, 5, '111101');
     expect(field.terraformingId).toBe(11110103);
 
     field.terraformingFinishesAt = new Date(Date.now() - 1000);
@@ -2453,7 +2458,7 @@ describe('colony tick calculations', () => {
         amount: 10,
       });
 
-      await service.terraformField(1, 1, 5, 101201);
+      await service.terraformField(1, 1, 5, '101201');
 
       expect(field).toMatchObject({
         terraformingId: 101201,
@@ -5995,6 +6000,7 @@ describe('main tick idempotency', () => {
       {} as any,
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
     );
 
     const result = await service.handleTick();
@@ -6079,7 +6085,9 @@ describe('main tick idempotency', () => {
 
     await service.handleTick(1);
 
-    expect(shipRepo.find).toHaveBeenCalledWith({
+    expect(shipRepo.find).toHaveBeenNthCalledWith(2, {
+      where: { id: expect.anything() },
+      order: { id: 'ASC' },
       relations: [
         'location',
         'location.galaxyField',
@@ -6145,8 +6153,6 @@ describe('main tick idempotency', () => {
       researchService as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
-      { recordSnapshot: jest.fn() } as any,
-      { recordSnapshot: jest.fn() } as any,
       { recordSnapshot: jest.fn() } as any,
     );
 
@@ -6328,8 +6334,6 @@ describe('main tick idempotency', () => {
       {} as any,
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
-      { recordSnapshot: jest.fn() } as any,
-      { recordSnapshot: jest.fn() } as any,
       { recordSnapshot: jest.fn() } as any,
     );
 
@@ -7174,7 +7178,7 @@ describe('airfield hangar loop', () => {
         isActive: true,
       },
     ],
-    storage: [],
+    storage: [] as Array<{ commodityId: number; amount: number }>,
     stats: { workless: 0, trainedCrew: 0, maxStorage: 100, maxEnergy: 100 },
   });
 
@@ -7332,7 +7336,10 @@ describe('airfield hangar loop', () => {
 
     expect(storage[21401].amount).toBe(4);
     expect(
-      colony.storage.find((item: any) => item.commodityId === 21401)?.amount,
+      colony.storage.find(
+        (item: { commodityId: number; amount: number }) =>
+          item.commodityId === 21401,
+      )?.amount,
     ).toBe(4);
   });
 
@@ -7457,7 +7464,6 @@ describe('airfield hangar loop', () => {
     shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
     gameData.getShipClassDefByKey.mockReturnValue({
       key: hangarShipClass.key,
-      stuRumpId: 1501,
       buildCosts: [],
     });
     gameData.hasFullyLoadedStart.mockReturnValue(true);

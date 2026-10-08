@@ -1,14 +1,30 @@
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('./entities/colony.entity', () => ({ Colony: class Colony {} }));
-jest.mock('./entities/colony-field.entity', () => ({ ColonyField: class ColonyField {} }));
-jest.mock('./entities/colony-stats.entity', () => ({ ColonyStats: class ColonyStats {} }));
+jest.mock('./entities/colony-field.entity', () => ({
+  ColonyField: class ColonyField {},
+}));
+jest.mock('./entities/colony-stats.entity', () => ({
+  ColonyStats: class ColonyStats {},
+}));
 jest.mock('./entities/crew.entity', () => ({ Crew: class Crew {} }));
-jest.mock('./entities/crew-assignment.entity', () => ({ CrewAssignment: class CrewAssignment {} }));
-jest.mock('./entities/colony-storage.entity', () => ({ ColonyStorage: class ColonyStorage {} }));
-jest.mock('./entities/colony-fabrication-queue.entity', () => ({ ColonyFabricationQueue: class A {} }));
-jest.mock('./entities/colony-crew-training-queue.entity', () => ({ ColonyCrewTrainingQueue: class B {} }));
-jest.mock('./entities/colony-ship-build-queue.entity', () => ({ ColonyShipBuildQueue: class C {} }));
-jest.mock('./entities/colony-orbit-assignment.entity', () => ({ ColonyOrbitAssignment: class D {} }));
+jest.mock('./entities/crew-assignment.entity', () => ({
+  CrewAssignment: class CrewAssignment {},
+}));
+jest.mock('./entities/colony-storage.entity', () => ({
+  ColonyStorage: class ColonyStorage {},
+}));
+jest.mock('./entities/colony-fabrication-queue.entity', () => ({
+  ColonyFabricationQueue: class A {},
+}));
+jest.mock('./entities/colony-crew-training-queue.entity', () => ({
+  ColonyCrewTrainingQueue: class B {},
+}));
+jest.mock('./entities/colony-ship-build-queue.entity', () => ({
+  ColonyShipBuildQueue: class C {},
+}));
+jest.mock('./entities/colony-orbit-assignment.entity', () => ({
+  ColonyOrbitAssignment: class D {},
+}));
 jest.mock('./colony-event.service', () => ({ ColonyEventService: class E {} }));
 jest.mock('./entities/colony-event.entity', () => ({
   ColonyEventSeverity: { WARNING: 'WARNING' },
@@ -24,13 +40,22 @@ import { getMappedStuClassIds } from '../starmap/generator/swu-stu-class-mapping
 
 function setup(object: Record<string, unknown>) {
   const queries: string[] = [];
-  const manager = {
+  type TransactionManager = {
+    query: (sql: string) => Promise<unknown[]>;
+    save: (value: unknown) => Promise<unknown>;
+    transaction: (
+      fn: (manager: TransactionManager) => unknown,
+    ) => Promise<unknown>;
+  };
+  const manager: TransactionManager = {
     query: jest.fn(async (sql: string) => {
       queries.push(sql);
       return [];
     }),
     save: jest.fn(async (o: unknown) => o),
-    transaction: jest.fn(async (fn: (m: unknown) => unknown) => fn(manager)),
+    transaction: jest.fn(async (fn: (m: TransactionManager) => unknown) =>
+      fn(manager),
+    ),
   };
   const colony = {
     id: 5,
@@ -41,7 +66,11 @@ function setup(object: Record<string, unknown>) {
     changeable: null,
     celestialObject: object,
   };
-  const colonyRepo = { findOne: jest.fn(async () => colony), save: jest.fn(), manager };
+  const colonyRepo = {
+    findOne: jest.fn(async () => colony),
+    save: jest.fn(),
+    manager,
+  };
   const service = new ColonyAbandonmentService(
     colonyRepo as never,
     { save: jest.fn() } as never,
@@ -52,7 +81,9 @@ function setup(object: Record<string, unknown>) {
     { delete: jest.fn() } as never,
     { find: jest.fn(async () => []), delete: jest.fn() } as never,
     { delete: jest.fn() } as never,
-    { findOneBy: jest.fn(async () => ({ id: 1, starterColonyId: null })) } as never,
+    {
+      findOneBy: jest.fn(async () => ({ id: 1, starterColonyId: null })),
+    } as never,
     { createActionEvent: jest.fn() } as never,
   );
   return { service, colony, colonyRepo, manager, queries };
@@ -76,7 +107,9 @@ describe('giveUpColony on a still-STU planet/moon', () => {
       colonyId: 5,
     });
 
-    expect(queries.some((q) => q.startsWith('DELETE FROM "colonies"'))).toBe(true);
+    expect(queries.some((q) => q.startsWith('DELETE FROM "colonies"'))).toBe(
+      true,
+    );
     expect(object.originalClassId).toBe(stuClassId);
     expect(object.classId).not.toBe(stuClassId);
     expect(manager.save).toHaveBeenCalledWith(object);

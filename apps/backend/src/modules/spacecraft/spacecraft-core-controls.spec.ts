@@ -218,7 +218,9 @@ describe('spacecraft core detail controls', () => {
   it('persists reactor split and automatic energy transfer together', async () => {
     const { service, ship, shipRepo } = createService();
 
-    await expect(service.setReactorDistribution(2, 1, 40, true)).resolves.toEqual({
+    await expect(
+      service.setReactorDistribution(2, 1, 40, true),
+    ).resolves.toEqual({
       reactorWarpSplit: 40,
       reactorAutoCarryOver: true,
     });
@@ -239,7 +241,7 @@ describe('spacecraft core detail controls', () => {
   it('allows Icarus sensor activation without crew when STU crew requirement is zero', async () => {
     const { service, ship } = createService();
     ship.crew = 0;
-    ship.crewRequired = 0;
+    Object.assign(ship, { crewRequired: 0 });
     ship.modules = [
       {
         moduleType: 'Sensorphalanx',
@@ -247,7 +249,7 @@ describe('spacecraft core detail controls', () => {
         level: 1,
         isActive: true,
         integrity: 100,
-      },
+      } as never,
     ];
     ship.runtimeSystems = {
       LONG_RANGE_SENSORS: { active: false, cooldown: 0, integrity: 100 },

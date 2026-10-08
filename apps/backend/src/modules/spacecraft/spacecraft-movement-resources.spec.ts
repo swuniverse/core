@@ -75,8 +75,8 @@ function createService() {
   const objectRepo = { findOne: jest.fn(), findOneBy: jest.fn() };
   const galaxyFieldRepo = { findOne: jest.fn() };
   const systemFieldRepo = { findOne: jest.fn() };
-  const locationRepo = {
-    findOne: jest.fn(async ({ where }: any) => ({
+  const locationRepo: { findOne: jest.Mock } = {
+    findOne: jest.fn(async ({ where }: { where: Record<string, number> }) => ({
       id: 91,
       kind: 'systemFieldId' in where ? 'SYSTEM_FIELD' : 'GALAXY_FIELD',
       systemFieldId: where.systemFieldId ?? null,
@@ -170,6 +170,10 @@ function createService() {
     destructionService as unknown as ConstructorParameters<
       typeof SpacecraftService
     >[22],
+    {} as ConstructorParameters<typeof SpacecraftService>[23],
+    {} as ConstructorParameters<typeof SpacecraftService>[24],
+    {} as ConstructorParameters<typeof SpacecraftService>[25],
+    {} as ConstructorParameters<typeof SpacecraftService>[26],
   );
 
   return {
@@ -220,7 +224,6 @@ describe('SpacecraftService movement resources', () => {
       service,
       shipRepo,
       systemRepo,
-      objectRepo,
       systemFieldRepo,
       locationRepo,
       runtimeState,
@@ -257,7 +260,9 @@ describe('SpacecraftService movement resources', () => {
     expect(systemRepo.findOne).toHaveBeenCalledWith({ where: { id: 3 } });
     expect(ship.energy).toBe(18);
     expect(ship.locationId).toBe(91);
-    expect(ship.location).toEqual(expect.objectContaining({ systemField: targetField }));
+    expect(ship.location).toEqual(
+      expect.objectContaining({ systemField: targetField }),
+    );
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
   });
 
@@ -345,24 +350,7 @@ describe('SpacecraftService movement resources', () => {
   it('uses warpdrive for galaxy flight and warp', async () => {
     const { service, shipRepo, galaxyFieldRepo, systemRepo, runtimeState } =
       createService();
-    const ship: {
-      id: number;
-      userId: number;
-      status: SpacecraftStatus;
-      inSystem: boolean;
-      currentLayerId: number;
-      starSystemId?: number;
-      currentSystemFieldX?: number;
-      currentSystemFieldY?: number;
-      warpCooldown?: number;
-      posX: number;
-      posY: number;
-      warpdrive: number;
-      runtimeSystems?: {
-        WARPDRIVE: { active: boolean; cooldown: number; integrity: number };
-      };
-      modules: never[];
-    } = {
+    const ship = {
       id: 7,
       userId: 1,
       status: SpacecraftStatus.IDLE,
@@ -383,8 +371,7 @@ describe('SpacecraftService movement resources', () => {
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
 
     ship.status = SpacecraftStatus.IDLE;
-    Object.assign(ship, systemLocation(11));
-    ship.warpCooldown = 0;
+    Object.assign(ship, systemLocation(11), { warpCooldown: 0 });
     systemRepo.findOne
       .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
       .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
