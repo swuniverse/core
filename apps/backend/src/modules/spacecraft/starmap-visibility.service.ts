@@ -108,7 +108,7 @@ export class StarmapVisibilityService {
       await this.relationships.starmapCandidates(viewerId);
     const managementDetails =
       viewerRole !== null &&
-      mayActOnAlliance(viewerRole, 'viewFleetManagementDetails');
+      mayActOnAlliance(viewerRole, 'viewShipManagementDetails');
     const candidateIds = [...new Set([...mateIds, ...partnerIds])].filter(
       (id) => !visibility.has(id),
     );
