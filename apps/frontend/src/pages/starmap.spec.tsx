@@ -410,6 +410,33 @@ describe('StarmapPage ship layer', () => {
       ).toEqual(['Auswahl schließen']);
     });
 
+    it('shows management details of an alliance ship when the server delivered them', async () => {
+      contactsByLayer[3] = [
+        allianceContact({
+          management: {
+            status: 'IN_FLIGHT',
+            alertState: 'RED',
+            hull: 40,
+            hullMax: 100,
+            crew: 3,
+            crewMax: 6,
+          },
+        }),
+      ];
+      renderPage();
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: /^Schiff Kranich/ }),
+      );
+
+      const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 8|9' });
+      expect(within(panel).getByText('Im Flug')).toBeTruthy();
+      expect(within(panel).getByText('Alarmstufe Rot')).toBeTruthy();
+      expect(within(panel).getByText('Hülle 40/100')).toBeTruthy();
+      expect(within(panel).getByText('Crew 3/6')).toBeTruthy();
+      expect(within(panel).queryByRole('link')).toBeNull();
+    });
+
     it('hides alliance ships with their own switch while own ships stay', async () => {
       renderPage();
       await screen.findByRole('button', { name: /^Schiff Kranich/ });

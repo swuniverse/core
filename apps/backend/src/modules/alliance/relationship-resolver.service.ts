@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AllianceRelationshipType } from '@swuniverse/shared';
+import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
 import type { AllianceStore } from './alliance.store';
 
@@ -31,6 +31,8 @@ export interface ResolvedStance {
 export interface AllianceMapCandidates {
   alliance: { id: number; name: string; color: string | null } | null;
   mateIds: number[];
+  /** The viewer's current office in that alliance; null without alliance. */
+  viewerRole: AllianceRole | null;
 }
 
 /**
@@ -107,7 +109,11 @@ export class RelationshipResolverService {
   async allianceMapCandidates(
     viewerId: number,
   ): Promise<AllianceMapCandidates> {
-    const none: AllianceMapCandidates = { alliance: null, mateIds: [] };
+    const none: AllianceMapCandidates = {
+      alliance: null,
+      mateIds: [],
+      viewerRole: null,
+    };
     try {
       const membership = await this.store.findMembership(viewerId);
       if (!membership) return none;
@@ -125,6 +131,7 @@ export class RelationshipResolverService {
         mateIds: memberships
           .map((member) => member.userId)
           .filter((memberId) => memberId !== viewerId),
+        viewerRole: membership.role,
       };
     } catch {
       return none;
