@@ -45,6 +45,12 @@ export function DashboardPage() {
           storageUsed: number;
           storageMax: number;
           locationLabel?: string;
+          colonyClassId?: number;
+          celestialObject?: {
+            classId: number | null;
+            name: string | null;
+            objectType: number;
+          } | null;
         }>
       >('/colonies'),
       api.get<

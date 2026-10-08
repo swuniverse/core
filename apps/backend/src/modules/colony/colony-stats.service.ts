@@ -17,28 +17,11 @@ import {
   getSwuZoneLetter,
   getSwuUndergroundMixin,
 } from '../starmap/generator/swu-archetype-registry';
+import { resolveBuildingEpsProc } from '@swuniverse/shared';
 import {
   resolveSwuInstance,
   type SwuZoneSlot,
 } from '../starmap/generator/swu-planet-archetypes.generator';
-
-/**
- * Solar-Gebaeude, deren Energie-Output am tatsaechlichen Solarertrag der
- * Kolonie haengt (colony.solarOutputTJ, siehe swu-solar.ts), statt an einer
- * festen epsProc aus dem Gebaeude-Katalog. Faktor = Multiplikator auf
- * solarOutputTJ/100 (Referenzwert: 1600 TJ Basisertrag == 16 Energie, die
- * alte STU-Pauschale - siehe SWU_SOLAR_BASE_OUTPUT_TJ). Ionensegel-Kollektor
- * und Orbital-Solarkollektor (Solarsatellit) sind baugleich (Faktor 1),
- * Solarfokus buendelt/verstaerkt auf das 4.5-fache (72 vs. 16 alte Pauschale).
- */
-const SWU_SOLAR_BUILDING_ENERGY_FACTOR: Record<number, number> = {
-  31010100: 1, // Ionensegel-Kollektor (Rebellen)
-  31010300: 1, // Ionensegel-Kollektor (Imperium)
-  31910100: 1, // Orbital-Solarkollektor / Solarsatellit (Rebellen)
-  31910300: 1, // Orbital-Solarkollektor / Solarsatellit (Imperium)
-  33020100: 4.5, // Solarfokus (Rebellen)
-  33020300: 4.5, // Solarfokus (Imperium)
-};
 
 export function getColonyChangeable(colony: Colony) {
   if (colony.changeable) {
@@ -541,10 +524,10 @@ export class ColonyStatsService {
     definition: BuildingDef,
     colony: Colony,
   ): number {
-    const factor = SWU_SOLAR_BUILDING_ENERGY_FACTOR[buildingId];
-    if (factor != null && colony.solarOutputTJ != null) {
-      return Math.floor((colony.solarOutputTJ / 100) * factor);
-    }
-    return definition.epsProc || 0;
+    return resolveBuildingEpsProc(
+      buildingId,
+      definition.epsProc,
+      colony.solarOutputTJ,
+    );
   }
 }

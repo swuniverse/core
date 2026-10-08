@@ -282,6 +282,9 @@ export function PanelInfo({
                 >
                   {deposit.name}
                 </span>
+                <span className="ml-auto text-swu-primary">
+                  {deposit.amountLeft.toLocaleString('de-DE')}
+                </span>
                 {deposit.delta !== 0 && (
                   <span
                     className={

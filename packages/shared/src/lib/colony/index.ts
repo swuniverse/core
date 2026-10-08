@@ -1,4 +1,5 @@
 export * from './asteroid.js';
+export * from './solar-buildings.js';
 
 export type ColonyTickEventType =
   | 'BUILDING_DEACTIVATED'

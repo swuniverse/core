@@ -523,7 +523,12 @@ export class ColonizationService {
     const [user, ship, target] = await Promise.all([
       this.getUser(userId),
       this.shipRepo.findOne({ where: { id: shipId, userId } }),
-      this.objectRepo.findOneBy({ id: celestialObjectId }),
+      // starSystem wird fuer computeSwuOrbitDistance (Solarertrag) gebraucht;
+      // ohne die Relation faellt die Distanz auf den neutralen Wert 0.5 zurueck.
+      this.objectRepo.findOne({
+        where: { id: celestialObjectId },
+        relations: ['starSystem'],
+      }),
     ]);
     if (!ship) throw new NotFoundException('Kolonieschiff nicht gefunden');
     if (!target) throw new NotFoundException('Ziel nicht gefunden');
