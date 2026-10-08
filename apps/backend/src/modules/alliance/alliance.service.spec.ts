@@ -1511,6 +1511,213 @@ describe('AllianceService', () => {
     });
   });
 
+  describe('diplomacy authorization by role', () => {
+    // Every diplomacy command is called directly on the server, bypassing any
+    // UI gating. Only the president and the diplomat of the acting alliance may
+    // succeed; everyone else is rejected without changing state.
+    const ACTORS = {
+      president: 1,
+      diplomat: 2,
+      vice: 3,
+      member: 4,
+      unaffiliated: 5,
+      otherFaction: 6,
+    } as const;
+    type Actor = keyof typeof ACTORS;
+    const AUTHORIZED: Actor[] = ['president', 'diplomat'];
+    const UNAUTHORIZED: Actor[] = [
+      'vice',
+      'member',
+      'unaffiliated',
+      'otherFaction',
+    ];
+
+    function scenario() {
+      const ctx = setup();
+      const { store } = ctx;
+      store.addPlayer(ACTORS.president, 'Leia');
+      store.addPlayer(ACTORS.diplomat, 'Mon');
+      store.addPlayer(ACTORS.vice, 'Wedge');
+      store.addPlayer(ACTORS.member, 'Biggs');
+      store.addPlayer(ACTORS.unaffiliated, 'Settler');
+      store.addPlayer(ACTORS.otherFaction, 'Vader', EMPIRE.id);
+      store.addPlayer(10, 'Counterpart');
+      const own = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [ACTORS.president, PRESIDENT],
+        [ACTORS.diplomat, DIPLOMAT],
+        [ACTORS.vice, VICE],
+        [ACTORS.member, NONE],
+      ]);
+      const counterpart = store.seedAlliance({ name: 'Red Squadron' }, [
+        [10, PRESIDENT],
+      ]);
+      const target = store.seedAlliance({ name: 'Gold Squadron' }, []);
+      store.seedAlliance({ name: 'Black Squadron', factionId: EMPIRE.id }, [
+        [ACTORS.otherFaction, PRESIDENT],
+      ]);
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: counterpart.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+      });
+      return { ...ctx, own, counterpart, target, relationship };
+    }
+
+    type Scenario = ReturnType<typeof scenario>;
+    const COMMANDS: Array<
+      [name: string, run: (ctx: Scenario, actorId: number) => Promise<unknown>]
+    > = [
+      [
+        'declare war',
+        ({ service, own, target }, actorId) =>
+          service.declareWar(actorId, own.id, target.id),
+      ],
+      [
+        'propose a relationship',
+        ({ service, own, target }, actorId) =>
+          service.proposeRelationship(actorId, own.id, {
+            recipientAllianceId: target.id,
+            type: AllianceRelationshipType.FRIENDSHIP,
+          }),
+      ],
+      [
+        'accept a received proposal',
+        async ({ store, service, own, target }, actorId) => {
+          const proposal = await store.insertRelationshipProposal({
+            senderAllianceId: target.id,
+            recipientAllianceId: own.id,
+            type: AllianceRelationshipType.FRIENDSHIP,
+            contract: '',
+            treatAsFriend: false,
+            shareLivePositions: false,
+          });
+          return service.acceptRelationshipProposal(actorId, proposal.id);
+        },
+      ],
+      [
+        'decline a received proposal',
+        async ({ store, service, own, target }, actorId) => {
+          const proposal = await store.insertRelationshipProposal({
+            senderAllianceId: target.id,
+            recipientAllianceId: own.id,
+            type: AllianceRelationshipType.FRIENDSHIP,
+            contract: '',
+            treatAsFriend: false,
+            shareLivePositions: false,
+          });
+          return service.declineRelationshipProposal(actorId, proposal.id);
+        },
+      ],
+      [
+        'withdraw a sent proposal',
+        async ({ store, service, own, target }, actorId) => {
+          const proposal = await store.insertRelationshipProposal({
+            senderAllianceId: own.id,
+            recipientAllianceId: target.id,
+            type: AllianceRelationshipType.FRIENDSHIP,
+            contract: '',
+            treatAsFriend: false,
+            shareLivePositions: false,
+          });
+          return service.withdrawRelationshipProposal(actorId, proposal.id);
+        },
+      ],
+      [
+        'propose a relationship change',
+        ({ service, relationship }, actorId) =>
+          service.proposeRelationshipChange(actorId, relationship.id, {
+            contract: 'Neu',
+          }),
+      ],
+      [
+        'accept a received change',
+        async ({ store, service, own, counterpart, relationship }, actorId) => {
+          const change = await store.insertRelationshipChangeProposal({
+            relationshipId: relationship.id,
+            senderAllianceId: counterpart.id,
+            recipientAllianceId: own.id,
+            contract: 'Neu',
+            treatAsFriend: false,
+            shareLivePositions: false,
+          });
+          return service.acceptRelationshipChange(actorId, change.id);
+        },
+      ],
+      [
+        'decline a received change',
+        async ({ store, service, own, counterpart, relationship }, actorId) => {
+          const change = await store.insertRelationshipChangeProposal({
+            relationshipId: relationship.id,
+            senderAllianceId: counterpart.id,
+            recipientAllianceId: own.id,
+            contract: 'Neu',
+            treatAsFriend: false,
+            shareLivePositions: false,
+          });
+          return service.declineRelationshipChange(actorId, change.id);
+        },
+      ],
+      [
+        'withdraw a sent change',
+        async ({ store, service, own, counterpart, relationship }, actorId) => {
+          const change = await store.insertRelationshipChangeProposal({
+            relationshipId: relationship.id,
+            senderAllianceId: own.id,
+            recipientAllianceId: counterpart.id,
+            contract: 'Neu',
+            treatAsFriend: false,
+            shareLivePositions: false,
+          });
+          return service.withdrawRelationshipChange(actorId, change.id);
+        },
+      ],
+      [
+        'end a relationship',
+        ({ service, relationship }, actorId) =>
+          service.endRelationship(actorId, relationship.id),
+      ],
+      [
+        'view diplomacy management',
+        ({ service, own }, actorId) =>
+          service.getDiplomacyManagement(actorId, own.id),
+      ],
+      [
+        'list relationship proposals',
+        ({ service, own }, actorId) =>
+          service.listRelationshipProposals(actorId, own.id),
+      ],
+      [
+        'list relationship changes',
+        ({ service, own }, actorId) =>
+          service.listRelationshipChangeProposals(actorId, own.id),
+      ],
+    ];
+
+    describe.each(COMMANDS)('%s', (_name, run) => {
+      it.each(AUTHORIZED)('is allowed for the %s', async (actor) => {
+        const ctx = scenario();
+        await expect(run(ctx, ACTORS[actor])).resolves.not.toThrow();
+      });
+
+      it.each(UNAUTHORIZED)(
+        'is rejected for the %s without changing state',
+        async (actor) => {
+          const fresh = scenario();
+          const before = fresh.store.snapshot();
+          await expectError(run(fresh, ACTORS[actor]), ForbiddenException);
+          const after = fresh.store.snapshot();
+          expect(after.relationships).toEqual(before.relationships);
+          expect(after.diplomacyChronicleEntries).toEqual(
+            before.diplomacyChronicleEntries,
+          );
+          expect(after.diplomacyNotifications).toEqual(
+            before.diplomacyNotifications,
+          );
+        },
+      );
+    });
+  });
+
   describe('applications', () => {
     function scenario() {
       const ctx = setup();

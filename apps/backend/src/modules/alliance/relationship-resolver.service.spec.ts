@@ -164,4 +164,326 @@ describe('RelationshipResolverService', () => {
       mayShareHistoricalScans: false,
     });
   });
+
+  describe('priority conflicts', () => {
+    const friendlyContact: PersonalContactStatusPort = {
+      isFriend: async () => true,
+    };
+
+    function twoAlliances() {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      const first = store.seedAlliance({ name: 'First' }, [
+        [1, AllianceRole.PRESIDENT],
+      ]);
+      const second = store.seedAlliance({ name: 'Second' }, [
+        [2, AllianceRole.PRESIDENT],
+      ]);
+      return { store, first, second };
+    }
+
+    it('keeps players of different factions enemies despite a personal friendship', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel');
+      store.addPlayer(2, 'Imperial', EMPIRE.id);
+
+      await expect(
+        resolverFor(store, friendlyContact).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'ENEMY', mayTransferSafely: false });
+    });
+
+    it('keeps cross-faction alliance members enemies regardless of any alliance state', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel');
+      store.addPlayer(2, 'Imperial', EMPIRE.id);
+      store.seedAlliance({ name: 'Rebels' }, [[1, AllianceRole.PRESIDENT]]);
+      store.seedAlliance({ name: 'Imperials', factionId: EMPIRE.id }, [
+        [2, AllianceRole.PRESIDENT],
+      ]);
+
+      await expect(
+        resolverFor(store, friendlyContact).resolve(1, 2),
+      ).resolves.toMatchObject({
+        status: 'ENEMY',
+        isFriend: false,
+        mayShareLivePosition: false,
+      });
+    });
+
+    it('lets a war between the alliances override a personal friendship', async () => {
+      const { store, first, second } = twoAlliances();
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: first.id,
+        secondAllianceId: second.id,
+        type: AllianceRelationshipType.WAR,
+      });
+
+      await expect(
+        resolverFor(store, friendlyContact).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'ENEMY', mayReactAutomatically: true });
+    });
+
+    it('keeps members of the same alliance friends while their alliance is at war with a third', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      store.addPlayer(3, 'Rebel Three');
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const enemy = store.seedAlliance({ name: 'Enemy' }, [
+        [3, AllianceRole.PRESIDENT],
+      ]);
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: enemy.id,
+        type: AllianceRelationshipType.WAR,
+      });
+      const resolver = resolverFor(store);
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'FRIEND',
+      });
+      await expect(resolver.resolve(2, 3)).resolves.toMatchObject({
+        status: 'ENEMY',
+      });
+    });
+
+    it('lets alliance membership decide before a personal contact is consulted', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const isFriend = jest.fn().mockResolvedValue(false);
+
+      await expect(
+        resolverFor(store, { isFriend }).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'FRIEND' });
+      expect(isFriend).not.toHaveBeenCalled();
+    });
+
+    it('resolves the same answer regardless of argument order', async () => {
+      const { store, first, second } = twoAlliances();
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: second.id,
+        secondAllianceId: first.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      const resolver = resolverFor(store);
+
+      await expect(resolver.resolve(1, 2)).resolves.toEqual(
+        await resolver.resolve(2, 1),
+      );
+    });
+  });
+
+  describe('only active relationships take effect', () => {
+    function twoAlliancesWithMembers() {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      const first = store.seedAlliance({ name: 'First' }, [
+        [1, AllianceRole.PRESIDENT],
+      ]);
+      const second = store.seedAlliance({ name: 'Second' }, [
+        [2, AllianceRole.PRESIDENT],
+      ]);
+      return { store, first, second, resolver: resolverFor(store) };
+    }
+
+    it('ignores a pending relationship proposal', async () => {
+      const { store, first, second, resolver } = twoAlliancesWithMembers();
+      await store.insertRelationshipProposal({
+        senderAllianceId: first.id,
+        recipientAllianceId: second.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: '',
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: false,
+      });
+    });
+
+    it('applies a pending change only after it is accepted', async () => {
+      const { store, first, second, resolver } = twoAlliancesWithMembers();
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: first.id,
+        secondAllianceId: second.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+        treatAsFriend: false,
+        shareLivePositions: false,
+      });
+      const change = await store.insertRelationshipChangeProposal({
+        relationshipId: relationship.id,
+        senderAllianceId: first.id,
+        recipientAllianceId: second.id,
+        contract: '',
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: false,
+      });
+
+      await store.acceptRelationshipChangeProposal(change.id);
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'FRIEND',
+        mayShareLivePosition: true,
+      });
+    });
+
+    it('withdraws friendship and live positions once the relationship ends', async () => {
+      const { store, first, second, resolver } = twoAlliancesWithMembers();
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: first.id,
+        secondAllianceId: second.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'FRIEND',
+        mayShareLivePosition: true,
+      });
+
+      await store.endNonWarRelationship(relationship.id);
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: false,
+      });
+    });
+
+    it('re-resolves dynamically when a member leaves the alliance', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const resolver = resolverFor(store);
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'FRIEND',
+        mayShareHistoricalScans: true,
+      });
+
+      await store.deleteMembership(own.id, 2);
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayShareHistoricalScans: false,
+      });
+    });
+  });
+
+  describe('players without an alliance', () => {
+    it('treats two unaffiliated players of the same faction as neutral', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Settler One');
+      store.addPlayer(2, 'Settler Two');
+
+      await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayTransferSafely: false,
+      });
+    });
+
+    it('treats an unaffiliated player and an alliance member as neutral, never applying alliance releases', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Member');
+      store.addPlayer(2, 'Settler');
+      store.seedAlliance({ name: 'Own' }, [[1, AllianceRole.PRESIDENT]]);
+
+      await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: false,
+        mayShareHistoricalScans: false,
+      });
+    });
+
+    it('lets a personal contact make unaffiliated players friends', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Settler One');
+      store.addPlayer(2, 'Settler Two');
+
+      await expect(
+        resolverFor(store, { isFriend: async () => true }).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'FRIEND', mayTransferSafely: true });
+    });
+
+    it('treats unaffiliated players of different factions as enemies', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel Settler');
+      store.addPlayer(2, 'Imperial Settler', EMPIRE.id);
+
+      await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
+        status: 'ENEMY',
+      });
+    });
+  });
+
+  describe('fails closed', () => {
+    const closed = {
+      status: 'NEUTRAL',
+      isFriend: false,
+      isEnemy: false,
+      mayReactAutomatically: false,
+      mayTransferSafely: false,
+      mayProvisionProtectedShip: false,
+      mayShareLivePosition: false,
+      mayShareHistoricalScans: false,
+    };
+
+    it('grants nothing when the store fails', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      jest
+        .spyOn(store, 'findMembership')
+        .mockRejectedValue(new Error('database unavailable'));
+
+      await expect(resolverFor(store).resolve(1, 2)).resolves.toEqual(closed);
+    });
+
+    it('grants nothing when the personal contact lookup fails', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+
+      await expect(
+        resolverFor(store, {
+          isFriend: () => Promise.reject(new Error('contacts unavailable')),
+        }).resolve(1, 2),
+      ).resolves.toEqual(closed);
+    });
+
+    it('grants nothing when a player has no faction', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Unassigned', null);
+
+      await expect(
+        resolverFor(store, { isFriend: async () => true }).resolve(1, 2),
+      ).resolves.toEqual(closed);
+    });
+  });
 });
