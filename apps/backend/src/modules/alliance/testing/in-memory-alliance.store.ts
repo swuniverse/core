@@ -5,10 +5,14 @@ import {
 } from '@swuniverse/shared';
 import {
   AllianceConstraintViolation,
+  AllianceDiplomacyChronicleEntryRecord,
+  AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
   AllianceStore,
   ApplicationRecord,
+  AllianceRelationshipProposalRecord,
+  AllianceRelationshipChangeProposalRecord,
   AllianceRelationshipRecord,
   FactionRecord,
   MembershipRecord,
@@ -23,6 +27,10 @@ interface State {
   memberships: MembershipRecord[];
   applications: ApplicationRecord[];
   relationships: AllianceRelationshipRecord[];
+  relationshipProposals: AllianceRelationshipProposalRecord[];
+  relationshipChangeProposals: AllianceRelationshipChangeProposalRecord[];
+  diplomacyChronicleEntries: AllianceDiplomacyChronicleEntryRecord[];
+  diplomacyNotifications: AllianceDiplomacyNotificationRecord[];
   nextId: number;
   clock: number;
 }
@@ -50,6 +58,10 @@ export class InMemoryAllianceStore implements AllianceStore {
     memberships: [],
     applications: [],
     relationships: [],
+    relationshipProposals: [],
+    relationshipChangeProposals: [],
+    diplomacyChronicleEntries: [],
+    diplomacyNotifications: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
@@ -170,12 +182,6 @@ export class InMemoryAllianceStore implements AllianceStore {
       shareLivePositions: data.shareLivePositions ?? false,
       lordAllianceId,
       vassalAllianceId,
-      ...data,
-      contract,
-      firstAllianceId,
-      secondAllianceId,
-      lordAllianceId,
-      vassalAllianceId,
     };
     this.state.relationships.push(relationship);
     return relationship;
@@ -268,6 +274,10 @@ export class InMemoryAllianceStore implements AllianceStore {
         relationship.firstAllianceId !== id &&
         relationship.secondAllianceId !== id,
     );
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) =>
+        proposal.firstAllianceId !== id && proposal.secondAllianceId !== id,
+    );
   }
 
   async listActiveRelationships(allianceId: number) {
@@ -322,6 +332,21 @@ export class InMemoryAllianceStore implements AllianceStore {
         relationship.endedAt = now;
       }
     }
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) =>
+        proposal.firstAllianceId !== first ||
+        proposal.secondAllianceId !== second,
+    );
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter((proposal) => {
+        const relationship = this.state.relationships.find(
+          (entry) => entry.id === proposal.relationshipId,
+        );
+        return (
+          relationship?.firstAllianceId !== first ||
+          relationship.secondAllianceId !== second
+        );
+      });
     this.state.relationships.push({
       id: this.nextId(),
       firstAllianceId: first,
@@ -335,6 +360,297 @@ export class InMemoryAllianceStore implements AllianceStore {
       lordAllianceId: null,
       vassalAllianceId: null,
     });
+  }
+
+  async listRelationshipProposals(allianceId: number) {
+    return this.state.relationshipProposals
+      .filter(
+        (proposal) =>
+          proposal.senderAllianceId === allianceId ||
+          proposal.recipientAllianceId === allianceId,
+      )
+      .sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+      )
+      .map((proposal) => ({ ...proposal }));
+  }
+
+  async findRelationshipProposal(id: number) {
+    const proposal = this.state.relationshipProposals.find(
+      (entry) => entry.id === id,
+    );
+    return proposal ? { ...proposal } : null;
+  }
+
+  async insertRelationshipProposal(data: {
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    type: AllianceRelationshipType;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }) {
+    const firstAllianceId = Math.min(
+      data.senderAllianceId,
+      data.recipientAllianceId,
+    );
+    const secondAllianceId = Math.max(
+      data.senderAllianceId,
+      data.recipientAllianceId,
+    );
+    if (
+      this.state.relationshipProposals.some(
+        (proposal) =>
+          proposal.firstAllianceId === firstAllianceId &&
+          proposal.secondAllianceId === secondAllianceId,
+      )
+    ) {
+      throw new AllianceConstraintViolation('relationship_proposal');
+    }
+    const proposal: AllianceRelationshipProposalRecord = {
+      id: this.nextId(),
+      firstAllianceId,
+      secondAllianceId,
+      ...data,
+      createdAt: this.now(),
+    };
+    this.state.relationshipProposals.push(proposal);
+    return { ...proposal };
+  }
+
+  async deleteRelationshipProposal(id: number) {
+    const before = this.state.relationshipProposals.length;
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) => proposal.id !== id,
+    );
+    return this.state.relationshipProposals.length !== before;
+  }
+
+  async acceptRelationshipProposal(id: number) {
+    const proposal = this.state.relationshipProposals.find(
+      (entry) => entry.id === id,
+    );
+    if (!proposal) return null;
+    const now = this.now();
+    for (const relationship of this.state.relationships) {
+      if (
+        relationship.endedAt === null &&
+        relationship.firstAllianceId === proposal.firstAllianceId &&
+        relationship.secondAllianceId === proposal.secondAllianceId
+      ) {
+        relationship.endedAt = now;
+      }
+    }
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (entry) => entry.id !== id,
+    );
+    const relationship: AllianceRelationshipRecord = {
+      id: this.nextId(),
+      firstAllianceId: proposal.firstAllianceId,
+      secondAllianceId: proposal.secondAllianceId,
+      type: proposal.type,
+      startedAt: now,
+      endedAt: null,
+      contract: proposal.contract,
+      treatAsFriend: proposal.treatAsFriend,
+      shareLivePositions: proposal.shareLivePositions,
+      lordAllianceId:
+        proposal.type === AllianceRelationshipType.VASSALAGE
+          ? proposal.senderAllianceId
+          : null,
+      vassalAllianceId:
+        proposal.type === AllianceRelationshipType.VASSALAGE
+          ? proposal.recipientAllianceId
+          : null,
+    };
+    this.state.relationships.push(relationship);
+    return { ...relationship };
+  }
+
+  async listRelationshipChangeProposals(allianceId: number) {
+    return this.state.relationshipChangeProposals
+      .filter(
+        (proposal) =>
+          proposal.senderAllianceId === allianceId ||
+          proposal.recipientAllianceId === allianceId,
+      )
+      .sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+      )
+      .map((proposal) => ({ ...proposal }));
+  }
+
+  async findRelationshipChangeProposal(id: number) {
+    const proposal = this.state.relationshipChangeProposals.find(
+      (entry) => entry.id === id,
+    );
+    return proposal ? { ...proposal } : null;
+  }
+
+  async insertRelationshipChangeProposal(data: {
+    relationshipId: number;
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }) {
+    if (
+      this.state.relationshipChangeProposals.some(
+        (proposal) => proposal.relationshipId === data.relationshipId,
+      )
+    ) {
+      throw new AllianceConstraintViolation('relationship_change_proposal');
+    }
+    const proposal: AllianceRelationshipChangeProposalRecord = {
+      id: this.nextId(),
+      ...data,
+      createdAt: this.now(),
+    };
+    this.state.relationshipChangeProposals.push(proposal);
+    return { ...proposal };
+  }
+
+  async deleteRelationshipChangeProposal(id: number) {
+    const before = this.state.relationshipChangeProposals.length;
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => proposal.id !== id,
+      );
+    return this.state.relationshipChangeProposals.length !== before;
+  }
+
+  async acceptRelationshipChangeProposal(id: number) {
+    const proposal = this.state.relationshipChangeProposals.find(
+      (entry) => entry.id === id,
+    );
+    if (!proposal) return null;
+    const relationship = this.state.relationships.find(
+      (entry) => entry.id === proposal.relationshipId && entry.endedAt === null,
+    );
+    if (!relationship) return null;
+    relationship.contract = proposal.contract;
+    relationship.treatAsFriend = proposal.treatAsFriend;
+    relationship.shareLivePositions = proposal.shareLivePositions;
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter((entry) => entry.id !== id);
+    return { ...relationship };
+  }
+
+  async endNonWarRelationship(id: number) {
+    const relationship = this.state.relationships.find(
+      (entry) => entry.id === id && entry.endedAt === null,
+    );
+    if (!relationship || relationship.type === AllianceRelationshipType.WAR) {
+      return null;
+    }
+    relationship.endedAt = this.now();
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) =>
+        proposal.firstAllianceId !== relationship.firstAllianceId ||
+        proposal.secondAllianceId !== relationship.secondAllianceId,
+    );
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => proposal.relationshipId !== relationship.id,
+      );
+    return { ...relationship };
+  }
+
+  async appendDiplomacyChronicleEntry(
+    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ) {
+    this.state.diplomacyChronicleEntries.push({
+      id: this.nextId(),
+      ...data,
+      occurredAt: this.now(),
+    });
+  }
+
+  async listDiplomacyChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ) {
+    return this.state.diplomacyChronicleEntries
+      .filter(
+        (entry) =>
+          entry.firstAllianceId === allianceId ||
+          entry.secondAllianceId === allianceId,
+      )
+      .filter(
+        (entry) =>
+          !cursor ||
+          entry.occurredAt < cursor.occurredAt ||
+          (entry.occurredAt.getTime() === cursor.occurredAt.getTime() &&
+            entry.id < cursor.id),
+      )
+      .sort(
+        (a, b) =>
+          b.occurredAt.getTime() - a.occurredAt.getTime() || b.id - a.id,
+      )
+      .slice(0, limit)
+      .map((entry) => ({ ...entry }));
+  }
+
+  async enqueueDiplomacyNotifications(
+    notifications: Array<{ recipientUserId: number; body: string }>,
+  ) {
+    for (const notification of notifications) {
+      const id = this.nextId();
+      this.state.diplomacyNotifications.push({
+        id,
+        ...notification,
+        deliveryKey: `alliance-diplomacy-notification:${id}`,
+        createdAt: this.now(),
+        deliveredAt: null,
+        leaseToken: null,
+      });
+    }
+  }
+
+  async listPendingDiplomacyNotifications() {
+    return this.state.diplomacyNotifications
+      .filter((notification) => notification.deliveredAt === null)
+      .sort((a, b) => a.id - b.id)
+      .map((notification) => ({ ...notification }));
+  }
+
+  async claimDiplomacyNotifications(limit: number) {
+    return this.state.diplomacyNotifications
+      .filter(
+        (notification) =>
+          notification.deliveredAt === null && notification.leaseToken === null,
+      )
+      .sort((a, b) => a.id - b.id)
+      .slice(0, limit)
+      .map((notification) => {
+        notification.leaseToken = `in-memory-lease:${notification.id}:${this.nextId()}`;
+        return { ...notification };
+      });
+  }
+
+  async markDiplomacyNotificationDelivered(id: number, leaseToken: string) {
+    const notification = this.state.diplomacyNotifications.find(
+      (entry) =>
+        entry.id === id &&
+        entry.deliveredAt === null &&
+        entry.leaseToken === leaseToken,
+    );
+    if (!notification) return false;
+    notification.deliveredAt = this.now();
+    notification.leaseToken = null;
+    return true;
+  }
+
+  async releaseDiplomacyNotificationClaim(id: number, leaseToken: string) {
+    const notification = this.state.diplomacyNotifications.find(
+      (entry) =>
+        entry.id === id &&
+        entry.deliveredAt === null &&
+        entry.leaseToken === leaseToken,
+    );
+    if (notification) notification.leaseToken = null;
   }
 
   async findMembership(userId: number) {

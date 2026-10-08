@@ -8,12 +8,15 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type {
   FoundAllianceRequest,
+  ProposeAllianceRelationshipChangeRequest,
+  ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
@@ -72,6 +75,149 @@ export class AllianceController {
     @Param('targetAllianceId', ParseIntPipe) targetAllianceId: number,
   ) {
     return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
+  }
+
+  @Get(':id/diplomacy/chronicle')
+  diplomacyChronicle(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.allianceService.listDiplomacyChronicle(
+      req.user.sub,
+      id,
+      cursor,
+      limit === undefined ? undefined : Number(limit),
+    );
+  }
+
+  @Get(':id/diplomacy')
+  getDiplomacyManagement(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.getDiplomacyManagement(req.user.sub, id);
+  }
+
+  @Get(':id/diplomacy/proposals')
+  listRelationshipProposals(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.listRelationshipProposals(req.user.sub, id);
+  }
+
+  @Post(':id/diplomacy/proposals')
+  proposeRelationship(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ProposeAllianceRelationshipRequest,
+  ) {
+    return this.allianceService.proposeRelationship(req.user.sub, id, {
+      recipientAllianceId: body?.recipientAllianceId,
+      type: body?.type,
+      contract: body?.contract,
+      permissions: body?.permissions,
+    });
+  }
+
+  @Get(':id/diplomacy/changes')
+  listRelationshipChangeProposals(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.listRelationshipChangeProposals(
+      req.user.sub,
+      id,
+    );
+  }
+
+  @Post('relationships/:relationshipId/changes')
+  proposeRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('relationshipId', ParseIntPipe) relationshipId: number,
+    @Body() body: ProposeAllianceRelationshipChangeRequest,
+  ) {
+    return this.allianceService.proposeRelationshipChange(
+      req.user.sub,
+      relationshipId,
+      { contract: body?.contract, permissions: body?.permissions },
+    );
+  }
+
+  @Post('diplomacy/changes/:proposalId/accept')
+  acceptRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.acceptRelationshipChange(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Post('diplomacy/changes/:proposalId/decline')
+  declineRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.declineRelationshipChange(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Delete('diplomacy/changes/:proposalId')
+  withdrawRelationshipChange(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.withdrawRelationshipChange(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Post('diplomacy/proposals/:proposalId/accept')
+  acceptRelationshipProposal(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.acceptRelationshipProposal(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Post('diplomacy/proposals/:proposalId/decline')
+  declineRelationshipProposal(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.declineRelationshipProposal(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Delete('diplomacy/proposals/:proposalId')
+  withdrawRelationshipProposal(
+    @Request() req: AuthRequest,
+    @Param('proposalId', ParseIntPipe) proposalId: number,
+  ) {
+    return this.allianceService.withdrawRelationshipProposal(
+      req.user.sub,
+      proposalId,
+    );
+  }
+
+  @Delete('relationships/:relationshipId')
+  endRelationship(
+    @Request() req: AuthRequest,
+    @Param('relationshipId', ParseIntPipe) relationshipId: number,
+  ) {
+    return this.allianceService.endRelationship(req.user.sub, relationshipId);
   }
 
   @Get(':id/relationships/:relationshipId/contract')

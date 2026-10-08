@@ -25,6 +25,7 @@ import {
 } from 'class-validator';
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
+import { LivePositionVisibilityService } from './live-position-visibility.service';
 import { TransferService } from './transfer.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
@@ -284,6 +285,7 @@ export class SpacecraftController {
     private readonly communicationService: SpacecraftCommunicationService,
     private readonly engineeringService: SpacecraftEngineeringService,
     private readonly destructionService: SpacecraftDestructionService,
+    private readonly livePositionVisibilityService: LivePositionVisibilityService,
   ) {}
 
   // Static routes first (before :id)
@@ -392,6 +394,11 @@ export class SpacecraftController {
   @Get()
   findAll(@Request() req: { user: { sub: number } }) {
     return this.spacecraftService.findAllByUser(req.user.sub);
+  }
+
+  @Get('shared-live-positions')
+  getSharedLivePositions(@Request() req: { user: { sub: number } }) {
+    return this.livePositionVisibilityService.listForViewer(req.user.sub);
   }
 
   @Get('colony-scans')

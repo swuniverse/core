@@ -7,11 +7,17 @@ import {
 } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  AllianceRelationshipType,
   AllianceRole,
+  type AllianceDiplomacyChronicleDto,
+  type AllianceDiplomacyChronicleEntryDto,
   type AllianceApplicationDto,
   type AllianceDetailDto,
+  type AllianceDiplomacyManagementDto,
   type AllianceMemberDto,
+  type AllianceRelationshipChangeProposalDto,
   type AllianceRelationshipContractDto,
+  type AllianceRelationshipProposalDto,
   type AllianceRelationshipSummaryDto,
   type AllianceSummaryDto,
   type MyAllianceDto,
@@ -93,6 +99,21 @@ function BackLink({ to, label }: { to: string; label: string }) {
       ← {label}
     </Link>
   );
+}
+
+function chronicleEventLabel(entry: AllianceDiplomacyChronicleEntryDto) {
+  switch (entry.type) {
+    case 'WAR_DECLARED':
+      return 'Krieg erklärt';
+    case 'RELATIONSHIP_STARTED':
+      return `${relationshipTypeLabel(entry.relationship.type)} begonnen`;
+    case 'RELATIONSHIP_CHANGED':
+      return `${relationshipTypeLabel(entry.relationship.type)} geändert`;
+    case 'RELATIONSHIP_ENDED':
+      return `${relationshipTypeLabel(entry.relationship.type)} beendet`;
+    default:
+      return entry.type;
+  }
 }
 
 // --- List ---
@@ -329,6 +350,547 @@ function useAllianceDetail(id: string | undefined) {
   return { alliance, loadError, reload };
 }
 
+export function AllianceDiplomacyPage() {
+  const { id } = useParams<{ id: string }>();
+  const [management, setManagement] =
+    useState<AllianceDiplomacyManagementDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [recipientAllianceId, setRecipientAllianceId] = useState('');
+  const [type, setType] = useState<AllianceRelationshipType>(
+    AllianceRelationshipType.FRIENDSHIP,
+  );
+  const [contract, setContract] = useState('');
+  const [treatAsFriend, setTreatAsFriend] = useState(false);
+  const [shareLivePositions, setShareLivePositions] = useState(false);
+  const [changeDrafts, setChangeDrafts] = useState<
+    Record<
+      number,
+      { contract: string; treatAsFriend: boolean; shareLivePositions: boolean }
+    >
+  >({});
+
+  const reload = useCallback(async () => {
+    if (!id) return;
+    setManagement(
+      await api.get<AllianceDiplomacyManagementDto>(
+        `/alliances/${id}/diplomacy`,
+      ),
+    );
+  }, [id]);
+
+  useEffect(() => {
+    void reload().catch((err) =>
+      setError(
+        getErrorMessage(
+          err,
+          'Die Diplomatieverwaltung konnte nicht geladen werden.',
+        ),
+      ),
+    );
+  }, [reload]);
+
+  const allowedPermissions = management?.permissions[type] ?? {
+    treatAsFriend: false,
+    shareLivePositions: false,
+  };
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await reload();
+    } catch (err) {
+      setError(
+        getErrorMessage(err, 'Die diplomatische Aktion ist fehlgeschlagen.'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!management && !error) {
+    return (
+      <p className="p-6 text-swu-muted">Diplomatieverwaltung wird geladen...</p>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl space-y-6 p-3 md:p-6">
+      <BackLink to={id ? `/alliances/${id}` : '/alliances'} label="Allianz" />
+      <PageTitle>Diplomatieverwaltung</PageTitle>
+      <ErrorMessage message={error} />
+      {!management ? null : (
+        <>
+          <p className="border border-swu-border bg-swu-bg/40 px-3 py-2 text-sm text-swu-muted">
+            {!management.enabled
+              ? 'Der Diplomatie-Kern ist noch nicht aktiviert.'
+              : management.effectsApplied
+                ? 'Beziehungsfreigaben sind aktiv.'
+                : 'Beziehungsfreigaben werden gespeichert, aber noch nicht auf Kampf, Karte, Scan, Transfer oder Zugang angewandt.'}
+          </p>
+          {management.capabilities.create && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="font-bold text-swu-accent">
+                Beziehung vorschlagen
+              </h2>
+              <p className="text-sm text-swu-muted">
+                Beziehungsfreigaben haben noch keine Spielwirkung. Sie werden
+                erst durch eine spätere Fähigkeit aktiviert.
+              </p>
+              <form
+                className="grid gap-3 md:grid-cols-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!id || !recipientAllianceId) return;
+                  void run(() =>
+                    api.post(`/alliances/${id}/diplomacy/proposals`, {
+                      recipientAllianceId: Number(recipientAllianceId),
+                      type,
+                      contract,
+                      permissions: { treatAsFriend, shareLivePositions },
+                    }),
+                  );
+                }}
+              >
+                <label className="space-y-1 text-sm">
+                  <span>Zielallianz</span>
+                  <select
+                    aria-label="Zielallianz"
+                    className={inputClass}
+                    value={recipientAllianceId}
+                    onChange={(event) =>
+                      setRecipientAllianceId(event.target.value)
+                    }
+                    disabled={busy}
+                  >
+                    <option value="">Bitte wählen</option>
+                    {management.targets.map((target) => (
+                      <option key={target.id} value={target.id}>
+                        {target.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span>Beziehungstyp</span>
+                  <select
+                    aria-label="Beziehungstyp"
+                    className={inputClass}
+                    value={type}
+                    onChange={(event) => {
+                      const next = event.target
+                        .value as AllianceRelationshipType;
+                      setType(next);
+                      setTreatAsFriend(false);
+                      setShareLivePositions(false);
+                    }}
+                    disabled={busy}
+                  >
+                    {Object.values(AllianceRelationshipType).map((value) => (
+                      <option key={value} value={value}>
+                        {relationshipTypeLabel(value)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm md:col-span-2">
+                  <span>Vertragsentwurf</span>
+                  <textarea
+                    aria-label="Vertragsentwurf"
+                    className={inputClass}
+                    value={contract}
+                    onChange={(event) => setContract(event.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                {allowedPermissions.treatAsFriend && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={treatAsFriend}
+                      onChange={(event) =>
+                        setTreatAsFriend(event.target.checked)
+                      }
+                      disabled={busy}
+                    />
+                    Als Freund behandeln
+                  </label>
+                )}
+                {allowedPermissions.shareLivePositions && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={shareLivePositions}
+                      onChange={(event) =>
+                        setShareLivePositions(event.target.checked)
+                      }
+                      disabled={busy}
+                    />
+                    Live-Positionen teilen
+                  </label>
+                )}
+                <button
+                  type="submit"
+                  disabled={busy || !recipientAllianceId}
+                  className={primaryButtonClass}
+                >
+                  Vorschlag senden
+                </button>
+              </form>
+            </section>
+          )}
+
+          <section className="space-y-3">
+            <h2 className="font-bold text-swu-accent">Aktive Beziehungen</h2>
+            {management.relationships.length === 0 ? (
+              <p className="text-sm text-swu-muted">
+                Keine aktiven Beziehungen.
+              </p>
+            ) : (
+              management.relationships.map(
+                ({ relationship, change, capabilities }) => (
+                  <article
+                    key={relationship.id}
+                    className="space-y-3 border border-swu-border bg-swu-surface p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-bold">
+                        {relationship.counterparty.name}:{' '}
+                        {relationshipTypeLabel(relationship.type)}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {capabilities.declareWar && id && (
+                          <button
+                            disabled={busy}
+                            className={dangerButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/${id}/relationships/${relationship.counterparty.id}/war`,
+                                  {},
+                                ),
+                              )
+                            }
+                          >
+                            Krieg erklären
+                          </button>
+                        )}
+                        {capabilities.offerPeace && id && (
+                          <button
+                            disabled={busy}
+                            className={buttonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/${id}/diplomacy/proposals`,
+                                  {
+                                    recipientAllianceId:
+                                      relationship.counterparty.id,
+                                    type: AllianceRelationshipType.PEACE,
+                                  },
+                                ),
+                              )
+                            }
+                          >
+                            Frieden anbieten
+                          </button>
+                        )}
+                        {capabilities.end && (
+                          <button
+                            disabled={busy}
+                            className={dangerButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.delete(
+                                  `/alliances/relationships/${relationship.id}`,
+                                ),
+                              )
+                            }
+                          >
+                            Beenden
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {relationship.contract && (
+                      <BbCodeText
+                        text={relationship.contract}
+                        className="text-sm"
+                      />
+                    )}
+                    {capabilities.change && !change && (
+                      <form
+                        className="grid gap-2 border-t border-swu-border/50 pt-3 md:grid-cols-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const draft = changeDrafts[relationship.id] ?? {
+                            contract: relationship.contract,
+                            treatAsFriend:
+                              relationship.permissions.treatAsFriend,
+                            shareLivePositions:
+                              relationship.permissions.shareLivePositions,
+                          };
+                          void run(() =>
+                            api.post(
+                              `/alliances/relationships/${relationship.id}/changes`,
+                              {
+                                contract: draft.contract,
+                                permissions: {
+                                  treatAsFriend: draft.treatAsFriend,
+                                  shareLivePositions: draft.shareLivePositions,
+                                },
+                              },
+                            ),
+                          );
+                        }}
+                      >
+                        <label className="space-y-1 text-sm md:col-span-2">
+                          <span>Änderungsentwurf</span>
+                          <textarea
+                            aria-label={`Änderungsentwurf ${relationship.counterparty.name}`}
+                            className={inputClass}
+                            value={
+                              changeDrafts[relationship.id]?.contract ??
+                              relationship.contract
+                            }
+                            onChange={(event) =>
+                              setChangeDrafts((drafts) => ({
+                                ...drafts,
+                                [relationship.id]: {
+                                  contract: event.target.value,
+                                  treatAsFriend:
+                                    drafts[relationship.id]?.treatAsFriend ??
+                                    relationship.permissions.treatAsFriend,
+                                  shareLivePositions:
+                                    drafts[relationship.id]
+                                      ?.shareLivePositions ??
+                                    relationship.permissions.shareLivePositions,
+                                },
+                              }))
+                            }
+                            disabled={busy}
+                          />
+                        </label>
+                        {management.permissions[relationship.type]
+                          .treatAsFriend && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={
+                                changeDrafts[relationship.id]?.treatAsFriend ??
+                                relationship.permissions.treatAsFriend
+                              }
+                              onChange={(event) =>
+                                setChangeDrafts((drafts) => ({
+                                  ...drafts,
+                                  [relationship.id]: {
+                                    contract:
+                                      drafts[relationship.id]?.contract ??
+                                      relationship.contract,
+                                    treatAsFriend: event.target.checked,
+                                    shareLivePositions:
+                                      drafts[relationship.id]
+                                        ?.shareLivePositions ??
+                                      relationship.permissions
+                                        .shareLivePositions,
+                                  },
+                                }))
+                              }
+                              disabled={busy}
+                            />
+                            Als Freund behandeln
+                          </label>
+                        )}
+                        {management.permissions[relationship.type]
+                          .shareLivePositions && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={
+                                changeDrafts[relationship.id]
+                                  ?.shareLivePositions ??
+                                relationship.permissions.shareLivePositions
+                              }
+                              onChange={(event) =>
+                                setChangeDrafts((drafts) => ({
+                                  ...drafts,
+                                  [relationship.id]: {
+                                    contract:
+                                      drafts[relationship.id]?.contract ??
+                                      relationship.contract,
+                                    treatAsFriend:
+                                      drafts[relationship.id]?.treatAsFriend ??
+                                      relationship.permissions.treatAsFriend,
+                                    shareLivePositions: event.target.checked,
+                                  },
+                                }))
+                              }
+                              disabled={busy}
+                            />
+                            Live-Positionen teilen
+                          </label>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={busy}
+                          className={buttonClass}
+                        >
+                          Änderung vorschlagen
+                        </button>
+                      </form>
+                    )}
+                    {change && (
+                      <div className="space-y-2 border-l-2 border-swu-accent pl-3">
+                        <p className="text-sm font-semibold">
+                          Ausstehende Änderung (
+                          {change.direction === 'SENT'
+                            ? 'gesendet'
+                            : 'empfangen'}
+                          )
+                        </p>
+                        <BbCodeText
+                          text={change.contract}
+                          className="text-sm"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {capabilities.accept && (
+                            <button
+                              disabled={busy}
+                              className={primaryButtonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.post(
+                                    `/alliances/diplomacy/changes/${change.id}/accept`,
+                                    {},
+                                  ),
+                                )
+                              }
+                            >
+                              Annehmen
+                            </button>
+                          )}
+                          {capabilities.decline && (
+                            <button
+                              disabled={busy}
+                              className={buttonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.post(
+                                    `/alliances/diplomacy/changes/${change.id}/decline`,
+                                    {},
+                                  ),
+                                )
+                              }
+                            >
+                              Ablehnen
+                            </button>
+                          )}
+                          {capabilities.withdraw && (
+                            <button
+                              disabled={busy}
+                              className={buttonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.delete(
+                                    `/alliances/diplomacy/changes/${change.id}`,
+                                  ),
+                                )
+                              }
+                            >
+                              Zurückziehen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ),
+              )
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="font-bold text-swu-accent">
+              Ausstehende Vorschläge
+            </h2>
+            {management.proposals.length === 0 ? (
+              <p className="text-sm text-swu-muted">
+                Keine ausstehenden Vorschläge.
+              </p>
+            ) : (
+              management.proposals.map(
+                ({ proposal, direction, capabilities }) => (
+                  <article
+                    key={proposal.id}
+                    className="space-y-2 border border-swu-border bg-swu-surface p-4"
+                  >
+                    <p className="font-semibold">
+                      {relationshipTypeLabel(proposal.type)} (
+                      {direction === 'SENT' ? 'gesendet' : 'empfangen'})
+                    </p>
+                    <BbCodeText text={proposal.contract} className="text-sm" />
+                    <div className="flex flex-wrap gap-2">
+                      {capabilities.accept && (
+                        <button
+                          disabled={busy}
+                          className={primaryButtonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.post(
+                                `/alliances/diplomacy/proposals/${proposal.id}/accept`,
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          Annehmen
+                        </button>
+                      )}
+                      {capabilities.decline && (
+                        <button
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.post(
+                                `/alliances/diplomacy/proposals/${proposal.id}/decline`,
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          Ablehnen
+                        </button>
+                      )}
+                      {capabilities.withdraw && (
+                        <button
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.delete(
+                                `/alliances/diplomacy/proposals/${proposal.id}`,
+                              ),
+                            )
+                          }
+                        >
+                          Zurückziehen
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ),
+              )
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AllianceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -336,16 +898,161 @@ export function AllianceDetailPage() {
   const [applications, setApplications] = useState<AllianceApplicationDto[]>(
     [],
   );
+  const [proposals, setProposals] = useState<AllianceRelationshipProposalDto[]>(
+    [],
+  );
+  const [changeProposals, setChangeProposals] = useState<
+    AllianceRelationshipChangeProposalDto[]
+  >([]);
+  const [changeDrafts, setChangeDrafts] = useState<
+    Record<
+      number,
+      {
+        contract: string;
+        treatAsFriend: boolean;
+        shareLivePositions: boolean;
+      }
+    >
+  >({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [contracts, setContracts] = useState<Record<number, string>>({});
   const [loadingContractId, setLoadingContractId] = useState<number | null>(
     null,
   );
+  const [chronicle, setChronicle] =
+    useState<AllianceDiplomacyChronicleDto | null>(null);
+  const [loadingMoreChronicle, setLoadingMoreChronicle] = useState(false);
+  const [chronicleLoadMoreError, setChronicleLoadMoreError] = useState<
+    string | null
+  >(null);
   const [warTargetId, setWarTargetId] = useState('');
+  const [proposalRecipientId, setProposalRecipientId] = useState('');
+  const [proposalType, setProposalType] = useState<AllianceRelationshipType>(
+    AllianceRelationshipType.FRIENDSHIP,
+  );
+  const [proposalContract, setProposalContract] = useState('');
+  const [proposalTreatAsFriend, setProposalTreatAsFriend] = useState(false);
+  const [proposalShareLivePositions, setProposalShareLivePositions] =
+    useState(false);
 
   const canManageApplications =
     alliance?.viewer.actions.manageApplications ?? false;
+  const canManageDiplomacy = alliance?.viewer.actions.manageDiplomacy ?? false;
+  const activeRelationshipByCounterparty = new Map(
+    (alliance?.relationships ?? []).map((relationship) => [
+      relationship.counterparty.id,
+      relationship,
+    ]),
+  );
+  const proposalTargets = [
+    ...(alliance?.viewer.actions.warTargets ?? []),
+    ...(alliance?.relationships.map(
+      (relationship) => relationship.counterparty,
+    ) ?? []),
+  ].filter(
+    (target, index, targets) =>
+      targets.findIndex((candidate) => candidate.id === target.id) === index,
+  );
+  const selectedRelationship = activeRelationshipByCounterparty.get(
+    Number(proposalRecipientId),
+  );
+  const allowedProposalTypes = selectedRelationship
+    ? selectedRelationship.type === AllianceRelationshipType.WAR
+      ? [AllianceRelationshipType.PEACE]
+      : [
+          AllianceRelationshipType.FRIENDSHIP,
+          AllianceRelationshipType.ALLIANCE,
+          AllianceRelationshipType.TRADE_AGREEMENT,
+          AllianceRelationshipType.VASSALAGE,
+        ].filter((type) => type !== selectedRelationship.type)
+    : [
+        AllianceRelationshipType.FRIENDSHIP,
+        AllianceRelationshipType.ALLIANCE,
+        AllianceRelationshipType.TRADE_AGREEMENT,
+        AllianceRelationshipType.VASSALAGE,
+      ];
+
+  const reloadProposals = useCallback(async () => {
+    if (!id || !canManageDiplomacy) {
+      setProposals([]);
+      return;
+    }
+    setProposals(
+      await api.get<AllianceRelationshipProposalDto[]>(
+        `/alliances/${id}/diplomacy/proposals`,
+      ),
+    );
+  }, [id, canManageDiplomacy]);
+
+  useEffect(() => {
+    void reloadProposals().catch(() => undefined);
+  }, [reloadProposals]);
+
+  const reloadChangeProposals = useCallback(async () => {
+    if (!id || !canManageDiplomacy) {
+      setChangeProposals([]);
+      return;
+    }
+    setChangeProposals(
+      await api.get<AllianceRelationshipChangeProposalDto[]>(
+        `/alliances/${id}/diplomacy/changes`,
+      ),
+    );
+  }, [id, canManageDiplomacy]);
+
+  useEffect(() => {
+    void reloadChangeProposals().catch(() => undefined);
+  }, [reloadChangeProposals]);
+
+  const reloadChronicle = useCallback(async () => {
+    if (!id) return;
+    try {
+      const response = await api.get<AllianceDiplomacyChronicleDto>(
+        `/alliances/${id}/diplomacy/chronicle`,
+      );
+      setChronicle(Array.isArray(response?.entries) ? response : null);
+      setChronicleLoadMoreError(null);
+    } catch {
+      setChronicle(null);
+    }
+  }, [id]);
+
+  async function loadMoreChronicle() {
+    const cursor = chronicle?.nextCursor;
+    if (!id || !cursor || loadingMoreChronicle) return;
+
+    setLoadingMoreChronicle(true);
+    setChronicleLoadMoreError(null);
+    try {
+      const response = await api.get<AllianceDiplomacyChronicleDto>(
+        `/alliances/${id}/diplomacy/chronicle?cursor=${encodeURIComponent(cursor)}`,
+      );
+      if (!Array.isArray(response?.entries)) return;
+      setChronicle((current) =>
+        current
+          ? {
+              entries: [...current.entries, ...response.entries],
+              nextCursor: response.nextCursor,
+            }
+          : current,
+      );
+    } catch (err) {
+      setChronicleLoadMoreError(
+        getErrorMessage(
+          err,
+          'Weitere Chronik-Einträge konnten nicht geladen werden.',
+        ),
+      );
+    } finally {
+      setLoadingMoreChronicle(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!alliance) return;
+    void reloadChronicle();
+  }, [alliance, reloadChronicle]);
 
   const reloadApplications = useCallback(async () => {
     if (!id || !canManageApplications) {
@@ -382,6 +1089,20 @@ export function AllianceDetailPage() {
     }
   }
 
+  useEffect(() => {
+    if (!canManageDiplomacy) return;
+    for (const relationship of alliance?.relationships ?? []) {
+      if (
+        relationship.type !== AllianceRelationshipType.WAR &&
+        relationship.type !== AllianceRelationshipType.PEACE &&
+        relationship.hasContract &&
+        contracts[relationship.id] === undefined
+      ) {
+        void loadContract(relationship);
+      }
+    }
+  }, [alliance?.relationships, canManageDiplomacy, contracts]);
+
   async function run(
     action: () => Promise<unknown>,
     after: 'reload' | 'list' = 'reload',
@@ -394,7 +1115,13 @@ export function AllianceDetailPage() {
         navigate('/alliances');
         return;
       }
-      await Promise.all([reload(), reloadApplications()]);
+      await Promise.all([
+        reload(),
+        reloadChronicle(),
+        reloadApplications(),
+        reloadProposals(),
+        reloadChangeProposals(),
+      ]);
     } catch (err) {
       setError(getErrorMessage(err, 'Die Aktion ist fehlgeschlagen.'));
     } finally {
@@ -537,6 +1264,11 @@ export function AllianceDetailPage() {
                 Bearbeiten
               </Link>
             )}
+            {actions.manageDiplomacy && (
+              <Link to={`${base}/diplomacy`} className={buttonClass}>
+                Diplomatieverwaltung
+              </Link>
+            )}
             {actions.declareWar && (
               <form
                 className="flex gap-2"
@@ -654,6 +1386,336 @@ export function AllianceDetailPage() {
         )}
       </section>
 
+      <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
+        <h2 className="text-sm font-bold text-swu-primary">Diplomatie-Chronik</h2>
+        {chronicle?.entries.length ? (
+          <ol className="space-y-2 text-sm">
+            {chronicle.entries.map((entry) => (
+              <li key={entry.id} className="border-l-2 border-swu-border pl-3">
+                <p className="font-medium text-swu-text">
+                  {chronicleEventLabel(entry)}: {entry.firstAlliance.name} –{' '}
+                  {entry.secondAlliance.name}
+                  {entry.relationship.vassalage &&
+                    ` (${entry.relationship.vassalage.lordAllianceId === alliance.id ? 'Lehnsherr' : 'Vasall'})`}
+                </p>
+                <p className="text-xs text-swu-muted">
+                  {entry.actor?.name ?? 'Unbekannt'} ·{' '}
+                  {dateFormatter.format(new Date(entry.occurredAt))}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm italic text-swu-muted">
+            Keine öffentlichen Diplomatieereignisse vorhanden
+          </p>
+        )}
+        {chronicleLoadMoreError && (
+          <p role="alert" className="text-sm text-red-300">
+            {chronicleLoadMoreError}
+          </p>
+        )}
+        {chronicle?.nextCursor && (
+          <button
+            type="button"
+            disabled={loadingMoreChronicle}
+            className={buttonClass}
+            onClick={() => void loadMoreChronicle()}
+          >
+            {loadingMoreChronicle
+              ? 'Ältere Ereignisse werden geladen...'
+              : 'Ältere Ereignisse laden'}
+          </button>
+        )}
+      </section>
+
+      {canManageDiplomacy && (
+        <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+          <h2 className="text-sm font-bold text-swu-primary">
+            Vertrauliche Beziehungsvorschläge
+          </h2>
+          <form
+            className="grid gap-3 border border-swu-border/60 bg-swu-bg/40 p-3 text-sm md:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!proposalRecipientId) return;
+              void run(async () => {
+                await api.post(`${base}/diplomacy/proposals`, {
+                  recipientAllianceId: Number(proposalRecipientId),
+                  type: proposalType,
+                  contract: proposalContract,
+                  permissions:
+                    proposalType === AllianceRelationshipType.PEACE
+                      ? { treatAsFriend: false, shareLivePositions: false }
+                      : {
+                          treatAsFriend: proposalTreatAsFriend,
+                          shareLivePositions:
+                            proposalType === 'ALLIANCE' &&
+                            proposalShareLivePositions,
+                        },
+                });
+                setProposalContract('');
+                setProposalTreatAsFriend(false);
+                setProposalShareLivePositions(false);
+              });
+            }}
+          >
+            <label className="space-y-1">
+              <span className="text-swu-muted">Empfängerallianz</span>
+              <select
+                value={proposalRecipientId}
+                disabled={busy}
+                onChange={(event) => {
+                  const recipientId = event.target.value;
+                  setProposalRecipientId(recipientId);
+                  const relationship = activeRelationshipByCounterparty.get(
+                    Number(recipientId),
+                  );
+                  setProposalType(
+                    relationship?.type === AllianceRelationshipType.WAR
+                      ? AllianceRelationshipType.PEACE
+                      : AllianceRelationshipType.FRIENDSHIP,
+                  );
+                  setProposalTreatAsFriend(false);
+                  setProposalShareLivePositions(false);
+                }}
+                className={inputClass}
+              >
+                <option value="">Zielallianz wählen</option>
+                {proposalTargets.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-swu-muted">Beziehungsart</span>
+              <select
+                value={proposalType}
+                disabled={busy}
+                onChange={(event) => {
+                  const type = event.target.value as AllianceRelationshipType;
+                  setProposalType(type);
+                  if (type !== 'ALLIANCE') setProposalShareLivePositions(false);
+                }}
+                className={inputClass}
+              >
+                {allowedProposalTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {relationshipTypeLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-swu-muted">Vertragstext</span>
+              <textarea
+                value={proposalContract}
+                disabled={busy}
+                maxLength={20_000}
+                rows={4}
+                onChange={(event) => setProposalContract(event.target.value)}
+                className={inputClass}
+              />
+            </label>
+            {proposalType !== AllianceRelationshipType.PEACE && (
+              <>
+                <label className="flex items-center gap-2 text-xs text-swu-muted">
+                  <input
+                    type="checkbox"
+                    checked={proposalTreatAsFriend}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setProposalTreatAsFriend(event.target.checked)
+                    }
+                  />
+                  Als Freund behandeln
+                </label>
+                <label className="flex items-center gap-2 text-xs text-swu-muted">
+                  <input
+                    type="checkbox"
+                    checked={proposalShareLivePositions}
+                    disabled={busy || proposalType !== 'ALLIANCE'}
+                    onChange={(event) =>
+                      setProposalShareLivePositions(event.target.checked)
+                    }
+                  />
+                  Live-Kartenpositionen teilen (nur Bündnis)
+                </label>
+              </>
+            )}
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                disabled={busy || !proposalRecipientId}
+                className={primaryButtonClass}
+              >
+                Vorschlag senden
+              </button>
+            </div>
+          </form>
+          {changeProposals.length > 0 && (
+            <div className="space-y-2 border-t border-swu-border/60 pt-3">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-swu-muted">
+                Ausstehende Beziehungsänderungen
+              </h3>
+              <ul className="divide-y divide-swu-border/40">
+                {changeProposals.map((proposal) => {
+                  const received = proposal.recipientAllianceId === alliance.id;
+                  return (
+                    <li key={proposal.id} className="space-y-2 py-3 text-sm">
+                      <p>
+                        {received ? 'Eingegangen' : 'Gesendet'}: Änderung des
+                        Vertragswerks und der Freigaben
+                      </p>
+                      {proposal.contract && (
+                        <BbCodeText
+                          text={proposal.contract}
+                          className="text-sm text-swu-text whitespace-pre-wrap"
+                        />
+                      )}
+                      <p className="text-xs text-swu-muted">
+                        {proposal.permissions.treatAsFriend
+                          ? 'Als Freund behandeln'
+                          : 'Nicht als Freund behandeln'}
+                        {' · '}
+                        {proposal.permissions.shareLivePositions
+                          ? 'Live-Kartenpositionen teilen'
+                          : 'Keine Live-Kartenpositionen teilen'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {received ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className={primaryButtonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.post(
+                                    `/alliances/diplomacy/changes/${proposal.id}/accept`,
+                                    {},
+                                  ),
+                                )
+                              }
+                            >
+                              Annehmen
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className={buttonClass}
+                              onClick={() =>
+                                void run(() =>
+                                  api.post(
+                                    `/alliances/diplomacy/changes/${proposal.id}/decline`,
+                                    {},
+                                  ),
+                                )
+                              }
+                            >
+                              Ablehnen
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className={buttonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.delete(
+                                  `/alliances/diplomacy/changes/${proposal.id}`,
+                                ),
+                              )
+                            }
+                          >
+                            Zurückziehen
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          {proposals.length > 0 && (
+            <ul className="divide-y divide-swu-border/40">
+              {proposals.map((proposal) => {
+                const received = proposal.recipientAllianceId === alliance.id;
+                return (
+                  <li key={proposal.id} className="space-y-2 py-3 text-sm">
+                    <p>
+                      {received ? 'Eingegangen' : 'Gesendet'}:{' '}
+                      {relationshipTypeLabel(proposal.type)}
+                    </p>
+                    {proposal.contract && (
+                      <BbCodeText
+                        text={proposal.contract}
+                        className="text-sm text-swu-text whitespace-pre-wrap"
+                      />
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {received ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className={primaryButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/diplomacy/proposals/${proposal.id}/accept`,
+                                  {},
+                                ),
+                              )
+                            }
+                          >
+                            Annehmen
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className={buttonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/diplomacy/proposals/${proposal.id}/decline`,
+                                  {},
+                                ),
+                              )
+                            }
+                          >
+                            Ablehnen
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.delete(
+                                `/alliances/diplomacy/proposals/${proposal.id}`,
+                              ),
+                            )
+                          }
+                        >
+                          Zurückziehen
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
       {alliance.relationships.length > 0 && (
         <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
           <h2 className="text-sm font-bold text-swu-primary">
@@ -705,6 +1767,142 @@ export function AllianceDetailPage() {
                       {labels.join(' · ')}
                     </p>
                   )}
+                  {canManageDiplomacy &&
+                    relationship.type !== AllianceRelationshipType.WAR &&
+                    relationship.type !== AllianceRelationshipType.PEACE &&
+                    (() => {
+                      const pending = changeProposals.find(
+                        (proposal) =>
+                          proposal.relationshipId === relationship.id,
+                      );
+                      const needsContract =
+                        relationship.hasContract &&
+                        contracts[relationship.id] === undefined;
+                      const draft = changeDrafts[relationship.id] ?? {
+                        contract: contracts[relationship.id] ?? '',
+                        treatAsFriend: relationship.permissions.treatAsFriend,
+                        shareLivePositions:
+                          relationship.permissions.shareLivePositions,
+                      };
+                      return pending ? null : needsContract ? (
+                        <p className="text-xs text-swu-muted">
+                          Vertragswerk wird für den Änderungsvorschlag
+                          geladen...
+                        </p>
+                      ) : (
+                        <form
+                          className="grid gap-2 border border-swu-border/60 bg-swu-bg/40 p-3 text-xs"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            void run(() =>
+                              api.post(
+                                `/alliances/relationships/${relationship.id}/changes`,
+                                {
+                                  contract: draft.contract,
+                                  permissions: {
+                                    treatAsFriend: draft.treatAsFriend,
+                                    shareLivePositions:
+                                      relationship.type ===
+                                        AllianceRelationshipType.ALLIANCE &&
+                                      draft.shareLivePositions,
+                                  },
+                                },
+                              ),
+                            );
+                          }}
+                        >
+                          <span className="font-bold text-swu-muted">
+                            Neues Vertragswerk und neue Freigaben aushandeln
+                          </span>
+                          <textarea
+                            aria-label={`Neues Vertragswerk mit ${relationship.counterparty.name}`}
+                            value={draft.contract}
+                            disabled={busy}
+                            maxLength={20_000}
+                            rows={3}
+                            onChange={(event) =>
+                              setChangeDrafts((current) => ({
+                                ...current,
+                                [relationship.id]: {
+                                  ...draft,
+                                  contract: event.target.value,
+                                },
+                              }))
+                            }
+                            className={inputClass}
+                          />
+                          <label className="flex items-center gap-2 text-swu-muted">
+                            <input
+                              type="checkbox"
+                              checked={draft.treatAsFriend}
+                              disabled={busy}
+                              onChange={(event) =>
+                                setChangeDrafts((current) => ({
+                                  ...current,
+                                  [relationship.id]: {
+                                    ...draft,
+                                    treatAsFriend: event.target.checked,
+                                  },
+                                }))
+                              }
+                            />
+                            Als Freund behandeln
+                          </label>
+                          {relationship.type ===
+                            AllianceRelationshipType.ALLIANCE && (
+                            <label className="flex items-center gap-2 text-swu-muted">
+                              <input
+                                type="checkbox"
+                                checked={draft.shareLivePositions}
+                                disabled={busy}
+                                onChange={(event) =>
+                                  setChangeDrafts((current) => ({
+                                    ...current,
+                                    [relationship.id]: {
+                                      ...draft,
+                                      shareLivePositions: event.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              Live-Kartenpositionen teilen
+                            </label>
+                          )}
+                          <div>
+                            <button
+                              type="submit"
+                              disabled={busy}
+                              className={primaryButtonClass}
+                            >
+                              Änderung vorschlagen
+                            </button>
+                          </div>
+                        </form>
+                      );
+                    })()}
+                  {canManageDiplomacy &&
+                    relationship.type !== AllianceRelationshipType.WAR && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className={dangerButtonClass}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Die Beziehung mit ${relationship.counterparty.name} wirklich beenden?`,
+                            )
+                          )
+                            return;
+                          void run(() =>
+                            api.delete(
+                              `/alliances/relationships/${relationship.id}`,
+                            ),
+                          );
+                        }}
+                      >
+                        Beziehung beenden
+                      </button>
+                    )}
                   {relationship.hasContract && (
                     <div className="space-y-2">
                       <button

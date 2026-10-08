@@ -1,4 +1,5 @@
 import type {
+  AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
   Faction,
@@ -61,6 +62,57 @@ export interface AllianceRelationshipRecord {
   vassalAllianceId: number | null;
 }
 
+export interface AllianceRelationshipProposalRecord {
+  id: number;
+  firstAllianceId: number;
+  secondAllianceId: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract: string;
+  treatAsFriend: boolean;
+  shareLivePositions: boolean;
+  createdAt: Date;
+}
+
+export interface AllianceRelationshipChangeProposalRecord {
+  id: number;
+  relationshipId: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  contract: string;
+  treatAsFriend: boolean;
+  shareLivePositions: boolean;
+  createdAt: Date;
+}
+
+export interface AllianceDiplomacyChronicleEntryRecord {
+  id: number;
+  eventType: AllianceDiplomacyChronicleEventType;
+  actorUserId: number | null;
+  actorName: string | null;
+  firstAllianceId: number;
+  firstAllianceName: string;
+  secondAllianceId: number;
+  secondAllianceName: string;
+  relationshipType: AllianceRelationshipType;
+  lordAllianceId: number | null;
+  vassalAllianceId: number | null;
+  occurredAt: Date;
+}
+
+/** A durable, post-commit system-message intent for a diplomacy transition. */
+export interface AllianceDiplomacyNotificationRecord {
+  id: number;
+  recipientUserId: number;
+  body: string;
+  /** Stable idempotency token used when creating the actual system message. */
+  deliveryKey: string;
+  createdAt: Date;
+  deliveredAt: Date | null;
+  leaseToken: string | null;
+}
+
 export type AlliancePatch = Partial<
   Pick<
     AllianceRecord,
@@ -80,7 +132,9 @@ export type AllianceConstraint =
   | 'alliance_name'
   | 'membership_user'
   | 'alliance_president'
-  | 'application';
+  | 'application'
+  | 'relationship_proposal'
+  | 'relationship_change_proposal';
 
 export class AllianceConstraintViolation extends Error {
   constructor(readonly constraint: AllianceConstraint) {
@@ -130,6 +184,80 @@ export interface AllianceStore {
   replaceRelationshipsWithWar(
     firstAllianceId: number,
     secondAllianceId: number,
+  ): Promise<void>;
+  listRelationshipProposals(
+    allianceId: number,
+  ): Promise<AllianceRelationshipProposalRecord[]>;
+  findRelationshipProposal(
+    id: number,
+  ): Promise<AllianceRelationshipProposalRecord | null>;
+  insertRelationshipProposal(data: {
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    type: AllianceRelationshipType;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }): Promise<AllianceRelationshipProposalRecord>;
+  deleteRelationshipProposal(id: number): Promise<boolean>;
+  acceptRelationshipProposal(
+    id: number,
+  ): Promise<AllianceRelationshipRecord | null>;
+  listRelationshipChangeProposals(
+    allianceId: number,
+  ): Promise<AllianceRelationshipChangeProposalRecord[]>;
+  findRelationshipChangeProposal(
+    id: number,
+  ): Promise<AllianceRelationshipChangeProposalRecord | null>;
+  insertRelationshipChangeProposal(data: {
+    relationshipId: number;
+    senderAllianceId: number;
+    recipientAllianceId: number;
+    contract: string;
+    treatAsFriend: boolean;
+    shareLivePositions: boolean;
+  }): Promise<AllianceRelationshipChangeProposalRecord>;
+  deleteRelationshipChangeProposal(id: number): Promise<boolean>;
+  acceptRelationshipChangeProposal(
+    id: number,
+  ): Promise<AllianceRelationshipRecord | null>;
+  /** Ends an active non-war relationship and removes pending proposals for its pair. */
+  endNonWarRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
+
+  appendDiplomacyChronicleEntry(
+    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ): Promise<void>;
+  /** Stable reverse chronological keyset pagination. */
+  listDiplomacyChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ): Promise<AllianceDiplomacyChronicleEntryRecord[]>;
+
+  /** Enqueued inside the same transaction as the diplomatic state change. */
+  enqueueDiplomacyNotifications(
+    notifications: Array<{ recipientUserId: number; body: string }>,
+  ): Promise<void>;
+  /** Returns pending intents for diagnostics and acceptance checks. */
+  listPendingDiplomacyNotifications(): Promise<
+    AllianceDiplomacyNotificationRecord[]
+  >;
+  /**
+   * Atomically leases pending intents to one dispatcher. Expired leases become
+   * eligible again after a dispatcher crash.
+   */
+  claimDiplomacyNotifications(
+    limit: number,
+  ): Promise<AllianceDiplomacyNotificationRecord[]>;
+  /** Completes an intent only when its active lease is still owned. */
+  markDiplomacyNotificationDelivered(
+    id: number,
+    leaseToken: string,
+  ): Promise<boolean>;
+  /** Makes a failed delivery eligible for immediate retry by another dispatcher. */
+  releaseDiplomacyNotificationClaim(
+    id: number,
+    leaseToken: string,
   ): Promise<void>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;

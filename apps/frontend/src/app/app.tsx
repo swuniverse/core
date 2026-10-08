@@ -26,6 +26,7 @@ import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
 import {
   AllianceDetailPage,
+  AllianceDiplomacyPage,
   AllianceEditPage,
   AllianceFoundPage,
   AllianceListPage,
@@ -139,6 +140,10 @@ export function App() {
             <Route path="/players/:id" element={<PlayerProfilePage />} />
             <Route path="/alliances" element={<AllianceListPage />} />
             <Route path="/alliances/new" element={<AllianceFoundPage />} />
+            <Route
+              path="/alliances/:id/diplomacy"
+              element={<AllianceDiplomacyPage />}
+            />
             <Route path="/alliances/:id" element={<AllianceDetailPage />} />
             <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />
             <Route path="/claim-colony" element={<OnboardingPage />} />

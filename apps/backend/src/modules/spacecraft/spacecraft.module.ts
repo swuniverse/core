@@ -52,6 +52,8 @@ import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { PrestigeModule } from '../prestige/prestige.module';
+import { AllianceModule } from '../alliance/alliance.module';
+import { LivePositionVisibilityService } from './live-position-visibility.service';
 
 @Module({
   imports: [
@@ -91,6 +93,7 @@ import { PrestigeModule } from '../prestige/prestige.module';
     MessagingModule,
     EventsModule,
     PrestigeModule,
+    AllianceModule,
   ],
   controllers: [SpacecraftController],
   providers: [
@@ -111,6 +114,7 @@ import { PrestigeModule } from '../prestige/prestige.module';
     SpacecraftCommunicationService,
     SpacecraftEngineeringService,
     SpacecraftDestructionService,
+    LivePositionVisibilityService,
   ],
   exports: [
     SpacecraftService,

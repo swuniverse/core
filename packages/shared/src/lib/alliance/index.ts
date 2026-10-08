@@ -49,7 +49,6 @@ export interface AllianceMemberDto {
   actions: AllianceMemberActionsDto;
 }
 
-/** Actions the viewer may perform on the alliance; computed by the server. */
 export interface AllianceWarTargetDto extends AllianceRefDto {}
 
 /** Actions the viewer may perform on the alliance; computed by the server. */
@@ -62,6 +61,7 @@ export interface AllianceViewerActionsDto {
   dissolve: boolean;
   declareWar: boolean;
   warTargets: AllianceWarTargetDto[];
+  manageDiplomacy: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -99,6 +99,109 @@ export interface AllianceRelationshipSummaryDto {
 export interface AllianceRelationshipContractDto {
   relationshipId: number;
   contract: string;
+}
+
+/** Confidential proposal, available only to diplomatic officers of a party. */
+export interface AllianceRelationshipProposalDto {
+  id: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract: string;
+  permissions: AllianceRelationshipPermissionsDto;
+  createdAt: string;
+}
+
+/** Confidential replacement state for an active relationship. */
+export interface AllianceRelationshipChangeProposalDto {
+  id: number;
+  relationshipId: number;
+  senderAllianceId: number;
+  recipientAllianceId: number;
+  contract: string;
+  permissions: AllianceRelationshipPermissionsDto;
+  createdAt: string;
+}
+
+export interface AllianceDiplomacyDto {
+  proposals: AllianceRelationshipProposalDto[];
+  changes: AllianceRelationshipChangeProposalDto[];
+}
+
+/** Direction of a confidential diplomatic proposal from the viewer's alliance. */
+export type AllianceDiplomacyDirection = 'SENT' | 'RECEIVED';
+
+/** Actions are authoritative server decisions, not frontend role inference. */
+export interface AllianceDiplomacyCapabilitiesDto {
+  create: boolean;
+  declareWar: boolean;
+  offerPeace: boolean;
+  accept: boolean;
+  decline: boolean;
+  withdraw: boolean;
+  change: boolean;
+  end: boolean;
+}
+
+/** Active relationship with its independent pending replacement, if any. */
+export interface AllianceDiplomacyRelationshipDto {
+  relationship: AllianceRelationshipSummaryDto & { contract: string };
+  change:
+    | (AllianceRelationshipChangeProposalDto & {
+        direction: AllianceDiplomacyDirection;
+      })
+    | null;
+  capabilities: AllianceDiplomacyCapabilitiesDto;
+}
+
+/** A proposal is kept separate from active relationships until it is accepted. */
+export interface AllianceDiplomacyProposalDto {
+  proposal: AllianceRelationshipProposalDto;
+  direction: AllianceDiplomacyDirection;
+  capabilities: AllianceDiplomacyCapabilitiesDto;
+}
+
+/** Complete confidential view for president and diplomat diplomacy administration. */
+export interface AllianceDiplomacyManagementDto {
+  /** Explicit rollout state; migrations must be deployed before this is enabled. */
+  enabled: boolean;
+  /** Permissions are stored only; gameplay effects remain intentionally inactive. */
+  effectsApplied: false;
+  capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
+  targets: AllianceRefDto[];
+  relationships: AllianceDiplomacyRelationshipDto[];
+  proposals: AllianceDiplomacyProposalDto[];
+  permissions: Record<
+    AllianceRelationshipType,
+    AllianceRelationshipPermissionsDto
+  >;
+}
+
+export enum AllianceDiplomacyChronicleEventType {
+  WAR_DECLARED = 'WAR_DECLARED',
+  RELATIONSHIP_STARTED = 'RELATIONSHIP_STARTED',
+  RELATIONSHIP_CHANGED = 'RELATIONSHIP_CHANGED',
+  RELATIONSHIP_ENDED = 'RELATIONSHIP_ENDED',
+}
+
+/** Immutable, public historical snapshot; it never exposes contracts or proposals. */
+export interface AllianceDiplomacyChronicleEntryDto {
+  id: number;
+  type: AllianceDiplomacyChronicleEventType;
+  actor: { userId: number; name: string } | null;
+  firstAlliance: { id: number; name: string };
+  secondAlliance: { id: number; name: string };
+  relationship: {
+    type: AllianceRelationshipType;
+    vassalage: AllianceVassalageDto | null;
+  };
+  occurredAt: string;
+}
+
+export interface AllianceDiplomacyChronicleDto {
+  entries: AllianceDiplomacyChronicleEntryDto[];
+  /** Opaque cursor for the next page, or null when there are no older entries. */
+  nextCursor: string | null;
 }
 
 export interface AllianceDetailDto extends AllianceSummaryDto {
@@ -144,6 +247,18 @@ export interface UpdateAllianceRequest {
 
 export interface SetAllianceRoleRequest {
   role: AllianceRole.VICE | AllianceRole.DIPLOMAT | AllianceRole.NONE;
+}
+
+export interface ProposeAllianceRelationshipRequest {
+  recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract?: string;
+  permissions?: Partial<AllianceRelationshipPermissionsDto>;
+}
+
+export interface ProposeAllianceRelationshipChangeRequest {
+  contract?: string;
+  permissions?: Partial<AllianceRelationshipPermissionsDto>;
 }
 
 export interface LeaveAllianceResponse {

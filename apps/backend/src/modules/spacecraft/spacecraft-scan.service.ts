@@ -606,11 +606,11 @@ export class SpacecraftScanService {
   }
 
   async listColonyScans(userId: number) {
-    const scans = await this.colonyScanRepo.find({
-      where: { userId },
+    const candidates = await this.colonyScanRepo.find({
       relations: ['colony'],
       order: { createdAt: 'DESC' },
     });
+    const scans = candidates.filter((scan) => scan.userId === userId);
     const latestByColony = new Map<number, (typeof scans)[number]>();
     for (const scan of scans) {
       if (!latestByColony.has(scan.colonyId)) {
@@ -641,10 +641,11 @@ export class SpacecraftScanService {
 
   async getColonyScan(scanId: number, userId: number) {
     const scan = await this.colonyScanRepo.findOne({
-      where: { id: scanId, userId },
+      where: { id: scanId },
       relations: ['colony'],
     });
-    if (!scan) throw new NotFoundException('Colony scan not found');
+    if (!scan || scan.userId !== userId)
+      throw new NotFoundException('Colony scan not found');
     return {
       id: scan.id,
       colonyId: scan.colonyId,
