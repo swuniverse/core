@@ -550,7 +550,7 @@ describe('RelationshipResolverService', () => {
       });
     });
 
-    it('names the viewer’s alliance and its current mates as map candidates', async () => {
+    it('names the viewer’s alliance, its current mates and the viewer’s office as map candidates', async () => {
       const store = new InMemoryAllianceStore();
       for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Rebel ${id}`);
       const own = store.seedAlliance({ name: 'Own', color: '#ff8800' }, [
@@ -563,16 +563,22 @@ describe('RelationshipResolverService', () => {
       await expect(resolver.allianceMapCandidates(1)).resolves.toEqual({
         alliance: { id: own.id, name: 'Own', color: '#ff8800' },
         mateIds: [2],
+        viewerRole: AllianceRole.PRESIDENT,
+      });
+      await expect(resolver.allianceMapCandidates(2)).resolves.toMatchObject({
+        viewerRole: AllianceRole.NONE,
       });
       await expect(resolver.allianceMapCandidates(4)).resolves.toEqual({
         alliance: null,
         mateIds: [],
+        viewerRole: null,
       });
 
       await store.deleteAlliance(own.id);
       await expect(resolver.allianceMapCandidates(1)).resolves.toEqual({
         alliance: null,
         mateIds: [],
+        viewerRole: null,
       });
     });
 
@@ -589,6 +595,7 @@ describe('RelationshipResolverService', () => {
       ).resolves.toEqual({
         alliance: null,
         mateIds: [],
+        viewerRole: null,
       });
     });
   });

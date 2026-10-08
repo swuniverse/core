@@ -10,6 +10,7 @@ import type {
 } from '@swuniverse/shared';
 import { In, Not, Repository } from 'typeorm';
 import { AllianceInfrastructureCapabilityService } from '../alliance/alliance-infrastructure-capability.service';
+import { mayActOnAlliance } from '../alliance/alliance-permissions';
 import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
@@ -24,6 +25,8 @@ interface OwnerVisibility {
   /** Central stance; absent for the viewer's own ships. */
   stance?: StarmapContactStance;
   alliance?: StarmapContactAllianceDto;
+  /** Viewer may see status, alert state, hull and crew of these ships. */
+  managementDetails?: boolean;
 }
 
 const SHIP_LOCATION_RELATIONS = [
@@ -95,10 +98,13 @@ export class StarmapVisibilityService {
     ]);
     if (!this.capability.enabled) return visibility;
 
-    const [{ alliance, mateIds }, partnerIds] = await Promise.all([
+    const [{ alliance, mateIds, viewerRole }, partnerIds] = await Promise.all([
       this.relationships.allianceMapCandidates(viewerId),
       this.relationships.livePositionPartnerCandidates(viewerId),
     ]);
+    const managementDetails =
+      viewerRole !== null &&
+      mayActOnAlliance(viewerRole, 'viewFleetManagementDetails');
     const candidateIds = [...new Set([...mateIds, ...partnerIds])].filter(
       (id) => !visibility.has(id),
     );
@@ -116,6 +122,7 @@ export class StarmapVisibilityService {
           reason: 'ALLIANCE',
           stance: stance.status,
           alliance,
+          managementDetails,
         });
       } else if (stance.mayShareLivePosition) {
         visibility.set(ownerId, {
@@ -133,7 +140,7 @@ export class StarmapVisibilityService {
    */
   private toContact(
     ship: Spacecraft,
-    { reason, stance, alliance }: OwnerVisibility,
+    { reason, stance, alliance, managementDetails }: OwnerVisibility,
     layerId: number,
   ): StarmapContactDto | null {
     if (ship.status === SpacecraftStatus.DESTROYED) return null;
@@ -156,7 +163,7 @@ export class StarmapVisibilityService {
       ...(stance ? { stance } : {}),
       ...(alliance ? { alliance: { ...alliance } } : {}),
     };
-    if (reason === 'OWN') {
+    if (reason === 'OWN' || (reason === 'ALLIANCE' && managementDetails)) {
       contact.management = {
         status: ship.status,
         alertState: ship.alertState,
