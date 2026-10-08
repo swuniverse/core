@@ -738,6 +738,26 @@ describe('StarmapVisibilityService.listContacts', () => {
       });
     });
 
+    it('answers from one membership snapshot when the viewer leaves mid-request', async () => {
+      const { store, alliance } = allianceWorld();
+      const findMembership = store.findMembership.bind(store);
+      jest.spyOn(store, 'findMembership').mockImplementation(async (userId) => {
+        const membership = await findMembership(userId);
+        // The viewer leaves right after the membership was read.
+        if (userId === 1) await store.deleteMembership(alliance.id, 1);
+        return membership;
+      });
+
+      const result = await serviceFor(store).listContacts(1, STARMAP_LAYER_ID);
+
+      expect(result.contacts.find((c) => c.spacecraftId === 20)).toMatchObject({
+        reason: 'ALLIANCE',
+        stance: 'FRIEND',
+        alliance: { id: alliance.id, name: 'Viewers' },
+        management: expect.any(Object),
+      });
+    });
+
     it.each([
       ['membership lookup', 'findMembership'],
       ['player lookup', 'findPlayer'],
@@ -1006,17 +1026,23 @@ describe('StarmapVisibilityService.listContacts', () => {
           new NoPersonalContactStatusPort(),
         );
         // The viewer and a mate also show up as partner candidates.
+        const starmapCandidates =
+          relationships.starmapCandidates.bind(relationships);
         jest
-          .spyOn(relationships, 'livePositionPartnerCandidates')
-          .mockResolvedValue([1, 2, 5, 6]);
+          .spyOn(relationships, 'starmapCandidates')
+          .mockImplementation(async (viewer) => ({
+            ...(await starmapCandidates(viewer)),
+            partnerIds: [1, 2, 5, 6],
+          }));
         jest
           .spyOn(relationships, 'resolveMany')
-          .mockImplementation(async (_viewer, ids) => {
+          .mockImplementation(async (_viewer, ids, options) => {
             const all =
               await RelationshipResolverService.prototype.resolveMany.call(
                 relationships,
                 1,
                 ids,
+                options,
               );
             for (const stance of all.values())
               stance.mayShareLivePosition = true;

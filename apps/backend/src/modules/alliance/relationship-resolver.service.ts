@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
+import {
+  AllianceRelationshipType,
+  AllianceRole,
+  type Stance,
+} from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
 import type {
   AllianceRelationshipRecord,
@@ -7,9 +11,6 @@ import type {
   MembershipRecord,
   PlayerRecord,
 } from './alliance.store';
-
-/** Freund, Feind or Neutral between two players (see CONTEXT.md). */
-export type Stance = 'FRIEND' | 'ENEMY' | 'NEUTRAL';
 
 /**
  * The stance between two players plus the capabilities derived from it.
@@ -29,15 +30,30 @@ export interface ResolvedStance {
 }
 
 /**
- * Candidates for the viewer's alliance map: the viewer's current alliance and
- * its other current members. Whether a mate's ships are shown is still decided
- * by the `mayShareAllianceMap` capability of the resolved stance.
+ * Candidates for the viewer's starmap, derived from one read of the viewer's
+ * membership. Whether a candidate's ships are shown is still decided by the
+ * capabilities of the resolved stance.
  */
-export interface AllianceMapCandidates {
+export interface StarmapCandidates {
+  /** The membership snapshot all other fields were derived from. */
+  viewerMembership: MembershipRecord | null;
+  /** The viewer's current alliance; null without one. */
   alliance: { id: number; name: string; color: string | null } | null;
+  /** Other current members of that alliance. */
   mateIds: number[];
   /** The viewer's current office in that alliance; null without alliance. */
   viewerRole: AllianceRole | null;
+  /** Current members of alliances in an active relationship with it. */
+  partnerIds: number[];
+}
+
+/** Options for {@link RelationshipResolverService.resolveMany}. */
+export interface ResolveManyOptions {
+  /**
+   * The viewer's membership as already read in this request (null for none).
+   * Used instead of a second read so one response stays consistent.
+   */
+  viewerMembership?: MembershipRecord | null;
 }
 
 /**
@@ -74,12 +90,13 @@ export class RelationshipResolverService {
   async resolveMany(
     viewerId: number,
     otherPlayerIds: Iterable<number>,
+    options: ResolveManyOptions = {},
   ): Promise<Map<number, ResolvedStance>> {
     const ids = [...new Set(otherPlayerIds)];
     if (ids.length === 0) return new Map();
     let context: StanceContext;
     try {
-      context = await this.loadStanceContext(viewerId, ids);
+      context = await this.loadStanceContext(viewerId, ids, options);
     } catch {
       return new Map(ids.map((id) => [id, resolved('NEUTRAL')]));
     }
@@ -102,7 +119,9 @@ export class RelationshipResolverService {
       const mateIds = (await this.store.listMemberships(membership.allianceId))
         .map((member) => member.userId)
         .filter((memberId) => memberId !== viewerId);
-      const stances = await this.resolveMany(viewerId, mateIds);
+      const stances = await this.resolveMany(viewerId, mateIds, {
+        viewerMembership: membership,
+      });
       return [
         viewerId,
         ...mateIds.filter(
@@ -115,26 +134,48 @@ export class RelationshipResolverService {
   }
 
   /**
-   * The viewer's current alliance and its other current members, read fresh
-   * on every call. Never throws; on failure or without an alliance there are
-   * no candidates.
+   * Candidates for the viewer's starmap, all derived from one read of the
+   * viewer's current membership: the alliance with its other current members
+   * and the viewer's office, plus the current members of every alliance in an
+   * active relationship with it. Whether a candidate's ships are shown is
+   * still decided by the capabilities of the resolved stance; pass
+   * `viewerMembership` on to `resolveMany` so both use the same snapshot.
+   * Never throws; on failure or without an alliance there are no candidates.
    */
-  async allianceMapCandidates(
-    viewerId: number,
-  ): Promise<AllianceMapCandidates> {
-    const none: AllianceMapCandidates = {
+  async starmapCandidates(viewerId: number): Promise<StarmapCandidates> {
+    const none: StarmapCandidates = {
+      viewerMembership: null,
       alliance: null,
       mateIds: [],
       viewerRole: null,
+      partnerIds: [],
     };
+    let membership: MembershipRecord | null;
     try {
-      const membership = await this.store.findMembership(viewerId);
-      if (!membership) return none;
+      membership = await this.store.findMembership(viewerId);
+    } catch {
+      return none;
+    }
+    if (!membership) return none;
+    const [allianceMap, partnerIds] = await Promise.all([
+      this.allianceMapOf(membership),
+      this.livePositionPartnersOf(membership),
+    ]);
+    return {
+      viewerMembership: membership,
+      ...(allianceMap ?? { alliance: null, mateIds: [], viewerRole: null }),
+      partnerIds,
+    };
+  }
+
+  /** The member's alliance and its other members; null when unavailable. */
+  private async allianceMapOf(membership: MembershipRecord) {
+    try {
       const [alliance, memberships] = await Promise.all([
         this.store.findAlliance(membership.allianceId),
         this.store.listMemberships(membership.allianceId),
       ]);
-      if (!alliance) return none;
+      if (!alliance) return null;
       return {
         alliance: {
           id: alliance.id,
@@ -143,25 +184,19 @@ export class RelationshipResolverService {
         },
         mateIds: memberships
           .map((member) => member.userId)
-          .filter((memberId) => memberId !== viewerId),
+          .filter((memberId) => memberId !== membership.userId),
         viewerRole: membership.role,
       };
     } catch {
-      return none;
+      return null;
     }
   }
 
-  /**
-   * Candidates for shared live positions: current members of every alliance
-   * in an active relationship with the viewer's alliance, read fresh on every
-   * call. Whether their ships are shown is still decided by the
-   * `mayShareLivePosition` capability of the resolved stance. Never throws;
-   * on failure or without an alliance there are no candidates.
-   */
-  async livePositionPartnerCandidates(viewerId: number): Promise<number[]> {
+  /** Members of alliances in an active relationship; empty when unavailable. */
+  private async livePositionPartnersOf(
+    membership: MembershipRecord,
+  ): Promise<number[]> {
     try {
-      const membership = await this.store.findMembership(viewerId);
-      if (!membership) return [];
       const partnerAllianceIds = new Set(
         (await this.store.listActiveRelationships(membership.allianceId)).map(
           (relationship) =>
@@ -189,20 +224,30 @@ export class RelationshipResolverService {
     return stances.get(secondPlayerId) ?? resolved('NEUTRAL');
   }
 
-  /** Players, memberships and the viewer alliance's active relationships. */
+  /**
+   * Players, memberships and the viewer alliance's active relationships. A
+   * viewer membership already read in this request is reused, not re-read.
+   */
   private async loadStanceContext(
     viewerId: number,
     otherPlayerIds: number[],
+    { viewerMembership: knownViewerMembership }: ResolveManyOptions,
   ): Promise<StanceContext> {
     const playerIds = [viewerId, ...otherPlayerIds];
+    const viewerKnown = knownViewerMembership !== undefined;
     const [players, memberships] = await Promise.all([
       this.store.findPlayers(playerIds),
-      this.store.findMemberships(playerIds),
+      this.store.findMemberships(viewerKnown ? otherPlayerIds : playerIds),
     ]);
     const membershipByPlayer = new Map(
-      memberships.map((membership) => [membership.userId, membership]),
+      memberships
+        .filter((membership) => membership.userId !== viewerId)
+        .map((membership) => [membership.userId, membership]),
     );
-    const viewerMembership = membershipByPlayer.get(viewerId);
+    const viewerMembership = viewerKnown
+      ? knownViewerMembership
+      : memberships.find((membership) => membership.userId === viewerId);
+    if (viewerMembership) membershipByPlayer.set(viewerId, viewerMembership);
     return {
       players: new Map(players.map((player) => [player.id, player])),
       memberships: membershipByPlayer,

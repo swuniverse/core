@@ -104,10 +104,8 @@ export class StarmapVisibilityService {
     ]);
     if (!this.capability.enabled) return visibility;
 
-    const [{ alliance, mateIds, viewerRole }, partnerIds] = await Promise.all([
-      this.relationships.allianceMapCandidates(viewerId),
-      this.relationships.livePositionPartnerCandidates(viewerId),
-    ]);
+    const { viewerMembership, alliance, mateIds, viewerRole, partnerIds } =
+      await this.relationships.starmapCandidates(viewerId);
     const managementDetails =
       viewerRole !== null &&
       mayActOnAlliance(viewerRole, 'viewFleetManagementDetails');
@@ -116,9 +114,11 @@ export class StarmapVisibilityService {
     );
     if (candidateIds.length === 0) return visibility;
 
+    // Resolve against the same membership snapshot the candidates came from.
     const stances = await this.relationships.resolveMany(
       viewerId,
       candidateIds,
+      { viewerMembership },
     );
     for (const ownerId of candidateIds) {
       const stance = stances.get(ownerId);
