@@ -261,6 +261,8 @@ export interface AllianceStore {
   ): Promise<void>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
+  /** Current memberships of the given players; players without one are absent. */
+  findMemberships(userIds: number[]): Promise<MembershipRecord[]>;
   /** Ordered by join time, oldest first. */
   listMemberships(allianceId: number): Promise<MembershipRecord[]>;
   insertMembership(data: {
