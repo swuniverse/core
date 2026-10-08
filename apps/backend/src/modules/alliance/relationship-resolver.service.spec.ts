@@ -15,6 +15,14 @@ const resolverFor = (
   personalContactStatus: PersonalContactStatusPort = new NoPersonalContactStatusPort(),
 ) => new RelationshipResolverService(store, personalContactStatus);
 
+const NO_CANDIDATES = {
+  viewerMembership: null,
+  alliance: null,
+  mateIds: [],
+  viewerRole: null,
+  partnerIds: [],
+};
+
 describe('RelationshipResolverService', () => {
   it('resolves the priority matrix and exposes only derived capabilities', async () => {
     const store = new InMemoryAllianceStore();
@@ -640,43 +648,87 @@ describe('RelationshipResolverService', () => {
       store.seedAlliance({ name: 'Other' }, [[3, AllianceRole.PRESIDENT]]);
       const resolver = resolverFor(store);
 
-      await expect(resolver.allianceMapCandidates(1)).resolves.toEqual({
+      await expect(resolver.starmapCandidates(1)).resolves.toEqual({
+        viewerMembership: expect.objectContaining({
+          allianceId: own.id,
+          userId: 1,
+        }),
         alliance: { id: own.id, name: 'Own', color: '#ff8800' },
         mateIds: [2],
         viewerRole: AllianceRole.PRESIDENT,
+        partnerIds: [],
       });
-      await expect(resolver.allianceMapCandidates(2)).resolves.toMatchObject({
+      await expect(resolver.starmapCandidates(2)).resolves.toMatchObject({
         viewerRole: AllianceRole.NONE,
       });
-      await expect(resolver.allianceMapCandidates(4)).resolves.toEqual({
-        alliance: null,
-        mateIds: [],
-        viewerRole: null,
-      });
+      await expect(resolver.starmapCandidates(4)).resolves.toEqual(
+        NO_CANDIDATES,
+      );
 
       await store.deleteAlliance(own.id);
-      await expect(resolver.allianceMapCandidates(1)).resolves.toEqual({
-        alliance: null,
-        mateIds: [],
-        viewerRole: null,
-      });
+      await expect(resolver.starmapCandidates(1)).resolves.toEqual(
+        NO_CANDIDATES,
+      );
     });
 
-    it('names no candidates when the store fails', async () => {
+    it.each(['findMembership', 'listMemberships'] as const)(
+      'names no candidates when %s fails',
+      async (method) => {
+        const store = new InMemoryAllianceStore();
+        store.addPlayer(1, 'Rebel One');
+        store.seedAlliance({ name: 'Own' }, [[1, AllianceRole.PRESIDENT]]);
+        jest
+          .spyOn(store, method)
+          .mockRejectedValue(new Error('database unavailable'));
+
+        await expect(
+          resolverFor(store).starmapCandidates(1),
+        ).resolves.toMatchObject({
+          alliance: null,
+          mateIds: [],
+          viewerRole: null,
+          partnerIds: [],
+        });
+      },
+    );
+
+    it('reads the viewer’s membership once for all candidates', async () => {
       const store = new InMemoryAllianceStore();
-      store.addPlayer(1, 'Rebel One');
-      store.seedAlliance({ name: 'Own' }, [[1, AllianceRole.PRESIDENT]]);
-      jest
-        .spyOn(store, 'listMemberships')
-        .mockRejectedValue(new Error('database unavailable'));
+      for (const id of [1, 2]) store.addPlayer(id, `Rebel ${id}`);
+      store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const findMembership = jest.spyOn(store, 'findMembership');
+
+      await resolverFor(store).starmapCandidates(1);
+
+      expect(findMembership).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('resolveMany with a known viewer membership', () => {
+    it('uses the given membership instead of reading it again', async () => {
+      const store = new InMemoryAllianceStore();
+      for (const id of [1, 2]) store.addPlayer(id, `Rebel ${id}`);
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const resolver = resolverFor(store);
+      const { viewerMembership } = await resolver.starmapCandidates(1);
+      await store.deleteMembership(own.id, 1);
 
       await expect(
-        resolverFor(store).allianceMapCandidates(1),
-      ).resolves.toEqual({
-        alliance: null,
-        mateIds: [],
-        viewerRole: null,
-      });
+        resolver.resolveMany(1, [2], { viewerMembership }),
+      ).resolves.toEqual(
+        new Map([[2, expect.objectContaining({ mayShareAllianceMap: true })]]),
+      );
+      await expect(
+        resolver.resolveMany(1, [2], { viewerMembership: null }),
+      ).resolves.toEqual(
+        new Map([[2, expect.objectContaining({ mayShareAllianceMap: false })]]),
+      );
     });
   });
 
@@ -711,25 +763,29 @@ describe('RelationshipResolverService', () => {
       });
       const resolver = resolverFor(store);
 
-      await expect(resolver.livePositionPartnerCandidates(1)).resolves.toEqual([
-        3, 4,
-      ]);
-      await expect(resolver.livePositionPartnerCandidates(6)).resolves.toEqual(
-        [],
-      );
+      await expect(resolver.starmapCandidates(1)).resolves.toMatchObject({
+        partnerIds: [3, 4],
+      });
+      await expect(resolver.starmapCandidates(6)).resolves.toMatchObject({
+        partnerIds: [],
+      });
     });
 
-    it('names no partner candidates when the store fails', async () => {
+    it('names no partner candidates but keeps the alliance when relationships fail', async () => {
       const store = new InMemoryAllianceStore();
       store.addPlayer(1, 'Rebel One');
-      store.seedAlliance({ name: 'Own' }, [[1, AllianceRole.PRESIDENT]]);
+      store.addPlayer(2, 'Rebel Two');
+      store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
       jest
         .spyOn(store, 'listActiveRelationships')
         .mockRejectedValue(new Error('database unavailable'));
 
       await expect(
-        resolverFor(store).livePositionPartnerCandidates(1),
-      ).resolves.toEqual([]);
+        resolverFor(store).starmapCandidates(1),
+      ).resolves.toMatchObject({ mateIds: [2], partnerIds: [] });
     });
   });
 

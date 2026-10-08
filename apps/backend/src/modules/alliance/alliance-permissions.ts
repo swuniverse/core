@@ -15,7 +15,7 @@ export const ALLIANCE_ACTIONS = [
   'dissolve',
   'declareWar',
   'manageDiplomacy',
-  'viewFleetManagementDetails',
+  'viewShipManagementDetails',
 ] as const;
 export type AllianceAction = (typeof ALLIANCE_ACTIONS)[number];
 

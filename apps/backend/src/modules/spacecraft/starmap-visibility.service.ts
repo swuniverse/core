@@ -62,11 +62,17 @@ export class StarmapVisibilityService {
     if (!layer) throw new NotFoundException('Layer not found');
 
     const visibility = await this.visibilityByOwner(viewerId);
+    const owned = {
+      userId: In([...visibility.keys()]),
+      status: Not(SpacecraftStatus.DESTROYED),
+    };
+    // Only ships on the requested layer: in open space, or inside a system
+    // that lies on the layer.
     const ships = await this.shipRepo.find({
-      where: {
-        userId: In([...visibility.keys()]),
-        status: Not(SpacecraftStatus.DESTROYED),
-      },
+      where: [
+        { ...owned, location: { galaxyField: { layerId } } },
+        { ...owned, location: { systemField: { starSystem: { layerId } } } },
+      ],
       relations: SHIP_LOCATION_RELATIONS,
       order: { id: 'ASC' },
     });
@@ -98,21 +104,21 @@ export class StarmapVisibilityService {
     ]);
     if (!this.capability.enabled) return visibility;
 
-    const [{ alliance, mateIds, viewerRole }, partnerIds] = await Promise.all([
-      this.relationships.allianceMapCandidates(viewerId),
-      this.relationships.livePositionPartnerCandidates(viewerId),
-    ]);
+    const { viewerMembership, alliance, mateIds, viewerRole, partnerIds } =
+      await this.relationships.starmapCandidates(viewerId);
     const managementDetails =
       viewerRole !== null &&
-      mayActOnAlliance(viewerRole, 'viewFleetManagementDetails');
+      mayActOnAlliance(viewerRole, 'viewShipManagementDetails');
     const candidateIds = [...new Set([...mateIds, ...partnerIds])].filter(
       (id) => !visibility.has(id),
     );
     if (candidateIds.length === 0) return visibility;
 
+    // Resolve against the same membership snapshot the candidates came from.
     const stances = await this.relationships.resolveMany(
       viewerId,
       candidateIds,
+      { viewerMembership },
     );
     for (const ownerId of candidateIds) {
       const stance = stances.get(ownerId);
@@ -144,16 +150,11 @@ export class StarmapVisibilityService {
     layerId: number,
   ): StarmapContactDto | null {
     if (ship.status === SpacecraftStatus.DESTROYED) return null;
-    const location = resolveSpacecraftLocation(ship);
+    const base = toBaseContact(ship);
     const galaxyCell = projectSpacecraftLocationToGalaxy(ship);
-    if (!location || !galaxyCell || galaxyCell.layerId !== layerId) return null;
+    if (!base || !galaxyCell || galaxyCell.layerId !== layerId) return null;
     const contact: StarmapContactDto = {
-      spacecraftId: ship.id,
-      spacecraftName: ship.name,
-      shipClassId: ship.shipClassId,
-      ownerId: ship.userId,
-      ownerName: ship.user?.username ?? null,
-      location,
+      ...base,
       galaxyCell: {
         layerId: galaxyCell.layerId,
         x: galaxyCell.x,
@@ -185,12 +186,7 @@ export class StarmapVisibilityService {
   ): Promise<SharedLivePositionDto[]> {
     const ships = await this.shipRepo.find({
       where: { userId: Not(viewerId), status: Not(SpacecraftStatus.DESTROYED) },
-      relations: [
-        'user',
-        'location',
-        'location.galaxyField',
-        'location.systemField',
-      ],
+      relations: SHIP_LOCATION_RELATIONS,
       order: { id: 'ASC' },
     });
 
@@ -198,22 +194,27 @@ export class StarmapVisibilityService {
       viewerId,
       ships.map((ship) => ship.userId),
     );
-    const positions = ships.map((ship): SharedLivePositionDto | null => {
-      if (!stances.get(ship.userId)?.mayShareLivePosition) return null;
-      const location = resolveSpacecraftLocation(ship);
-      if (!location) return null;
-      return {
-        spacecraftId: ship.id,
-        spacecraftName: ship.name,
-        shipClassId: ship.shipClassId,
-        ownerId: ship.userId,
-        ownerName: ship.user?.username ?? null,
-        location,
-      };
+    return ships.flatMap((ship) => {
+      if (!stances.get(ship.userId)?.mayShareLivePosition) return [];
+      const position = toBaseContact(ship);
+      return position ? [position] : [];
     });
-
-    return positions.filter(
-      (position): position is SharedLivePositionDto => position !== null,
-    );
   }
+}
+
+/**
+ * Identity, owner and resolved position of a ship: what every viewer who may
+ * see the ship at all gets. Null when the position cannot be resolved.
+ */
+function toBaseContact(ship: Spacecraft): SharedLivePositionDto | null {
+  const location = resolveSpacecraftLocation(ship);
+  if (!location) return null;
+  return {
+    spacecraftId: ship.id,
+    spacecraftName: ship.name,
+    shipClassId: ship.shipClassId,
+    ownerId: ship.userId,
+    ownerName: ship.user?.username ?? null,
+    location,
+  };
 }

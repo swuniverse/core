@@ -1,5 +1,8 @@
 import type { Faction } from '../auth/index.js';
 
+/** Freund, Feind or Neutral between two players (see CONTEXT.md). */
+export type Stance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
+
 /** Fixed offices inside an alliance (ADR 0001). NONE = member without office. */
 export enum AllianceRole {
   NONE = 'NONE',

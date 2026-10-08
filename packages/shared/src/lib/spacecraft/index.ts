@@ -1,3 +1,4 @@
+import type { Stance } from '../alliance/index.js';
 import type { SpaceLocationDto } from '../starmap/index.js';
 
 export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
@@ -129,7 +130,7 @@ export interface SharedLivePositionDto {
 export type StarmapContactReason = 'OWN' | 'ALLIANCE' | 'SHARED_LIVE_POSITION';
 
 /** Central stance of the viewer towards a contact's owner. */
-export type StarmapContactStance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
+export type StarmapContactStance = Stance;
 
 export interface StarmapContactAllianceDto {
   id: number;

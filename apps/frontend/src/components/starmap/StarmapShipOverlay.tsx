@@ -9,6 +9,11 @@ import {
   getInlineSystemPlacement,
   STARMAP_CELL_SIZE,
 } from '../../lib/starmap-render';
+import {
+  CONTACT_REASON_LABELS,
+  CONTACT_STANCE_LABELS,
+  CONTACT_STANCE_SYMBOLS,
+} from './starmap-contact-labels';
 
 /**
  * Contacts sharing one galaxy cell, or one system field while the system grid
@@ -29,25 +34,6 @@ export interface StarmapOpenSystemGrid {
   grid: Pick<StarmapSystemGridDto, 'system'>;
   anchor: Pick<StarmapSystemListItemDto, 'cx' | 'cy' | 'name'>;
 }
-
-export const CONTACT_REASON_LABELS: Record<StarmapContactReason, string> = {
-  OWN: 'Eigenes Schiff',
-  ALLIANCE: 'Allianzschiff',
-  SHARED_LIVE_POSITION: 'Geteilte Position',
-};
-
-export const CONTACT_STANCE_LABELS: Record<StarmapContactStance, string> = {
-  FRIEND: 'Freund',
-  NEUTRAL: 'Neutral',
-  ENEMY: 'Feind',
-};
-
-/** Stance symbols, so the stance is recognisable without colour perception. */
-export const CONTACT_STANCE_SYMBOLS: Record<StarmapContactStance, string> = {
-  FRIEND: '+',
-  NEUTRAL: '○',
-  ENEMY: '×',
-};
 
 const OWN_SHIP_COLOR = '#38bdf8';
 /** Uniform colour for alliance ships whose alliance has no colour set. */
@@ -112,21 +98,48 @@ export function bundleStarmapContacts(
   return [...bundles.values()];
 }
 
-function markerLabel(bundle: StarmapContactBundle) {
-  if (bundle.contacts.length > 1) {
-    return `${bundle.contacts.length} Schiffe bei ${bundle.label}`;
-  }
-  const [contact] = bundle.contacts;
-  const label = `Schiff ${contact.spacecraftName} bei ${bundle.label}`;
-  if (contact.reason === 'OWN') return label;
-  const origin = CONTACT_REASON_LABELS[contact.reason];
-  return contact.stance
-    ? `${label} (${origin}, ${CONTACT_STANCE_LABELS[contact.stance]})`
-    : `${label} (${origin})`;
+/** Symbol marking a bundle whose ships are visible for different reasons. */
+export const MIXED_ORIGIN_SYMBOL = '◆';
+
+const REASON_ORDER: StarmapContactReason[] = [
+  'OWN',
+  'ALLIANCE',
+  'SHARED_LIVE_POSITION',
+];
+const STANCE_ORDER: StarmapContactStance[] = ['FRIEND', 'NEUTRAL', 'ENEMY'];
+
+/** Origins and stances present in a bundle, in a fixed display order. */
+function bundleSummary(bundle: StarmapContactBundle) {
+  const reasons = new Set(bundle.contacts.map((contact) => contact.reason));
+  const stances = new Set(bundle.contacts.map((contact) => contact.stance));
+  return {
+    reasons: REASON_ORDER.filter((reason) => reasons.has(reason)),
+    stances: STANCE_ORDER.filter((stance) => stances.has(stance)),
+  };
 }
 
-function markerSymbol(contact: StarmapContactDto) {
-  return contact.stance ? CONTACT_STANCE_SYMBOLS[contact.stance] : '▲';
+/**
+ * Accessible marker name. Names origin and stances whenever they are not just
+ * the viewer's own ships, and flags bundles of mixed origin.
+ */
+function markerLabel(bundle: StarmapContactBundle) {
+  const { reasons, stances } = bundleSummary(bundle);
+  const count = bundle.contacts.length;
+  const label =
+    count > 1
+      ? `${count} Schiffe bei ${bundle.label}`
+      : `Schiff ${bundle.contacts[0].spacecraftName} bei ${bundle.label}`;
+  const stanceTexts = stances.map((stance) => CONTACT_STANCE_LABELS[stance]);
+  if (reasons.length > 1) {
+    const origins = reasons.map((reason) => CONTACT_REASON_LABELS[reason]);
+    const details = [origins.join(', '), stanceTexts.join(', ')].filter(
+      Boolean,
+    );
+    return `${label} (gemischt: ${details.join('; ')})`;
+  }
+  if (reasons[0] === 'OWN') return label;
+  const details = [CONTACT_REASON_LABELS[reasons[0]], ...stanceTexts];
+  return `${label} (${details.join(', ')})`;
 }
 
 interface StarmapShipOverlayProps {
@@ -152,16 +165,21 @@ export function StarmapShipOverlay({
         const selected = bundle.key === selectedKey;
         const count = bundle.contacts.length;
         const [first] = bundle.contacts;
+        const { reasons, stances } = bundleSummary(bundle);
+        const mixed = reasons.length > 1;
+        const stanceSymbols = stances
+          .map((stance) => CONTACT_STANCE_SYMBOLS[stance])
+          .join('');
         return (
           <button
             key={bundle.key}
             type="button"
             aria-label={markerLabel(bundle)}
             aria-pressed={selected}
-            data-reason={first.reason}
-            data-stance={count === 1 ? first.stance : undefined}
+            data-reason={mixed ? 'MIXED' : first.reason}
+            data-stance={stances.length > 0 ? stances.join(' ') : undefined}
             onClick={() => onSelect(bundle)}
-            className="pointer-events-auto absolute flex h-5 min-w-5 items-center justify-center rounded-full border-2 px-1 text-[10px] font-bold text-slate-950 shadow"
+            className="pointer-events-auto absolute flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full border-2 px-1 text-[10px] font-bold text-slate-950 shadow"
             style={{
               left: bundle.left,
               top: bundle.top,
@@ -173,10 +191,12 @@ export function StarmapShipOverlay({
                 first.reason === 'SHARED_LIVE_POSITION' ? 'dashed' : 'solid',
             }}
           >
-            {count > 1 ? (
-              <span>{count}</span>
+            {count > 1 && <span>{count}</span>}
+            {mixed && <span aria-hidden="true">{MIXED_ORIGIN_SYMBOL}</span>}
+            {stanceSymbols ? (
+              <span aria-hidden="true">{stanceSymbols}</span>
             ) : (
-              <span aria-hidden="true">{markerSymbol(first)}</span>
+              count === 1 && <span aria-hidden="true">▲</span>
             )}
           </button>
         );

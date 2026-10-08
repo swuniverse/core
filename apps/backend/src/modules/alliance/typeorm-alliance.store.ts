@@ -54,9 +54,7 @@ const CONSTRAINTS: Record<string, AllianceConstraint> = {
 };
 
 const UNIQUE_VIOLATION = '23505';
-function constraintViolation(
-  error: unknown,
-): AllianceConstraintViolation | null {
+function constraintViolation(error: unknown): AllianceConstraintViolation | null {
   if (!(error instanceof QueryFailedError)) return null;
   const driverError = error.driverError as {
     code?: string;
@@ -599,13 +597,10 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async acceptRelationshipChangeProposal(id: number) {
-    const proposal = await this.manager.findOne(
-      AllianceRelationshipChangeProposal,
-      {
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      },
-    );
+    const proposal = await this.manager.findOne(AllianceRelationshipChangeProposal, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
     if (!proposal) return null;
 
     const relationship = await this.manager.findOne(AllianceRelationship, {
@@ -627,9 +622,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .execute();
     if ((result.affected ?? 0) !== 1) return null;
     await this.manager.delete(AllianceRelationshipChangeProposal, id);
-    const updatedRelationship = await this.findActiveRelationship(
-      relationship.id,
-    );
+    const updatedRelationship = await this.findActiveRelationship(relationship.id);
     if (!updatedRelationship) {
       throw new Error('Alliance relationship change proposal was not accepted');
     }
@@ -717,9 +710,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
         )
         .returning('*')
         .execute();
-      const notification = result.raw[0] as
-        | AllianceDiplomacyNotification
-        | undefined;
+      const notification = result.raw[0] as AllianceDiplomacyNotification | undefined;
       if (notification) notifications.push(toNotification(notification));
     }
     return notifications;
