@@ -42,7 +42,23 @@ export const CONTACT_STANCE_LABELS: Record<StarmapContactStance, string> = {
   ENEMY: 'Feind',
 };
 
+/** Stance symbols, so the stance is recognisable without colour perception. */
+export const CONTACT_STANCE_SYMBOLS: Record<StarmapContactStance, string> = {
+  FRIEND: '+',
+  NEUTRAL: '○',
+  ENEMY: '×',
+};
+
 const OWN_SHIP_COLOR = '#38bdf8';
+/** Uniform colour for alliance ships whose alliance has no colour set. */
+export const DEFAULT_ALLIANCE_SHIP_COLOR = '#a78bfa';
+
+function contactColor(contact: StarmapContactDto) {
+  if (contact.reason === 'ALLIANCE') {
+    return contact.alliance?.color ?? DEFAULT_ALLIANCE_SHIP_COLOR;
+  }
+  return OWN_SHIP_COLOR;
+}
 
 function markerPosition(
   contact: StarmapContactDto,
@@ -92,9 +108,20 @@ export function bundleStarmapContacts(
 }
 
 function markerLabel(bundle: StarmapContactBundle) {
-  return bundle.contacts.length === 1
-    ? `Schiff ${bundle.contacts[0].spacecraftName} bei ${bundle.label}`
-    : `${bundle.contacts.length} Schiffe bei ${bundle.label}`;
+  if (bundle.contacts.length > 1) {
+    return `${bundle.contacts.length} Schiffe bei ${bundle.label}`;
+  }
+  const [contact] = bundle.contacts;
+  const label = `Schiff ${contact.spacecraftName} bei ${bundle.label}`;
+  if (contact.reason === 'OWN') return label;
+  const origin = CONTACT_REASON_LABELS[contact.reason];
+  return contact.stance
+    ? `${label} (${origin}, ${CONTACT_STANCE_LABELS[contact.stance]})`
+    : `${label} (${origin})`;
+}
+
+function markerSymbol(contact: StarmapContactDto) {
+  return contact.stance ? CONTACT_STANCE_SYMBOLS[contact.stance] : '▲';
 }
 
 interface StarmapShipOverlayProps {
@@ -119,13 +146,15 @@ export function StarmapShipOverlay({
       {bundles.map((bundle) => {
         const selected = bundle.key === selectedKey;
         const count = bundle.contacts.length;
+        const [first] = bundle.contacts;
         return (
           <button
             key={bundle.key}
             type="button"
             aria-label={markerLabel(bundle)}
             aria-pressed={selected}
-            data-reason={bundle.contacts[0].reason}
+            data-reason={first.reason}
+            data-stance={count === 1 ? first.stance : undefined}
             onClick={() => onSelect(bundle)}
             className="pointer-events-auto absolute flex h-5 min-w-5 items-center justify-center rounded-full border-2 px-1 text-[10px] font-bold text-slate-950 shadow"
             style={{
@@ -133,11 +162,15 @@ export function StarmapShipOverlay({
               top: bundle.top,
               transform:
                 'translate(-50%, -50%) scale(var(--starmap-inverse-scale, 1))',
-              backgroundColor: OWN_SHIP_COLOR,
+              backgroundColor: contactColor(first),
               borderColor: selected ? '#ffffff' : '#0f172a',
             }}
           >
-            {count > 1 ? <span>{count}</span> : <span aria-hidden="true">▲</span>}
+            {count > 1 ? (
+              <span>{count}</span>
+            ) : (
+              <span aria-hidden="true">{markerSymbol(first)}</span>
+            )}
           </button>
         );
       })}

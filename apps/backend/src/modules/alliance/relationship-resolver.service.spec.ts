@@ -162,6 +162,7 @@ describe('RelationshipResolverService', () => {
       mayProvisionProtectedShip: false,
       mayShareLivePosition: false,
       mayShareHistoricalScans: false,
+      mayShareAllianceMap: false,
     });
   });
 
@@ -221,7 +222,10 @@ describe('RelationshipResolverService', () => {
 
       await expect(
         resolverFor(store, friendlyContact).resolve(1, 2),
-      ).resolves.toMatchObject({ status: 'ENEMY', mayReactAutomatically: true });
+      ).resolves.toMatchObject({
+        status: 'ENEMY',
+        mayReactAutomatically: true,
+      });
     });
 
     it('keeps members of the same alliance friends while their alliance is at war with a third', async () => {
@@ -447,6 +451,7 @@ describe('RelationshipResolverService', () => {
       mayProvisionProtectedShip: false,
       mayShareLivePosition: false,
       mayShareHistoricalScans: false,
+      mayShareAllianceMap: false,
     };
 
     it('grants nothing when the store fails', async () => {
@@ -505,6 +510,86 @@ describe('RelationshipResolverService', () => {
       expect(resolve).toHaveBeenCalledTimes(2);
       expect(stances.get(2)).toEqual(await resolver.resolve(1, 2));
       expect(stances.get(3)?.status).toBe('ENEMY');
+    });
+  });
+
+  describe('alliance map', () => {
+    it('grants the alliance map only between current members of the same alliance', async () => {
+      const store = new InMemoryAllianceStore();
+      for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Rebel ${id}`);
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const other = store.seedAlliance({ name: 'Other' }, [
+        [3, AllianceRole.PRESIDENT],
+      ]);
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: other.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      const resolver = resolverFor(store);
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        mayShareAllianceMap: true,
+      });
+      await expect(resolver.resolve(1, 3)).resolves.toMatchObject({
+        status: 'FRIEND',
+        mayShareAllianceMap: false,
+      });
+      await expect(resolver.resolve(1, 4)).resolves.toMatchObject({
+        mayShareAllianceMap: false,
+      });
+
+      await store.deleteMembership(own.id, 2);
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        mayShareAllianceMap: false,
+      });
+    });
+
+    it('names the viewer’s alliance and its current mates as map candidates', async () => {
+      const store = new InMemoryAllianceStore();
+      for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Rebel ${id}`);
+      const own = store.seedAlliance({ name: 'Own', color: '#ff8800' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      store.seedAlliance({ name: 'Other' }, [[3, AllianceRole.PRESIDENT]]);
+      const resolver = resolverFor(store);
+
+      await expect(resolver.allianceMapCandidates(1)).resolves.toEqual({
+        alliance: { id: own.id, name: 'Own', color: '#ff8800' },
+        mateIds: [2],
+      });
+      await expect(resolver.allianceMapCandidates(4)).resolves.toEqual({
+        alliance: null,
+        mateIds: [],
+      });
+
+      await store.deleteAlliance(own.id);
+      await expect(resolver.allianceMapCandidates(1)).resolves.toEqual({
+        alliance: null,
+        mateIds: [],
+      });
+    });
+
+    it('names no candidates when the store fails', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.seedAlliance({ name: 'Own' }, [[1, AllianceRole.PRESIDENT]]);
+      jest
+        .spyOn(store, 'listMemberships')
+        .mockRejectedValue(new Error('database unavailable'));
+
+      await expect(
+        resolverFor(store).allianceMapCandidates(1),
+      ).resolves.toEqual({
+        alliance: null,
+        mateIds: [],
+      });
     });
   });
 

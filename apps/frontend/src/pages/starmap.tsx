@@ -49,6 +49,7 @@ export function StarmapPage() {
   const [showGrid, setShowGrid] = useState(true);
   const [contacts, setContacts] = useState<StarmapContactsDto | null>(null);
   const [showShips, setShowShips] = useState(true);
+  const [showAllianceShips, setShowAllianceShips] = useState(true);
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
   const [inlineSystemsVisible, setInlineSystemsVisible] = useState(false);
   const contactLayerIdRef = useRef<number | null>(null);
@@ -138,9 +139,16 @@ export function StarmapPage() {
     }
     return open;
   }, [fields, inlineSystemsVisible, openedSystemIds, systemGrids]);
+  const allianceContactsActive = contacts?.allianceContactsActive ?? false;
   const contactBundles = useMemo(
-    () => bundleStarmapContacts(contacts?.contacts ?? [], openSystemGrids),
-    [contacts, openSystemGrids],
+    () =>
+      bundleStarmapContacts(
+        (contacts?.contacts ?? []).filter(
+          (contact) => contact.reason !== 'ALLIANCE' || showAllianceShips,
+        ),
+        openSystemGrids,
+      ),
+    [contacts, openSystemGrids, showAllianceShips],
   );
   const selectedContactBundle =
     contactBundles.find((bundle) => bundle.key === selectedContactKey) ?? null;
@@ -329,6 +337,11 @@ export function StarmapPage() {
                 setShowShips(value);
                 if (!value) setSelectedContactKey(null);
               }}
+              allianceShips={
+                allianceContactsActive
+                  ? { visible: showAllianceShips, onToggle: setShowAllianceShips }
+                  : undefined
+              }
               selectedSector={selectedSector}
               onSelectSector={setSelectedSector}
               onZoomIn={() => canvasRef.current?.zoomIn()}
