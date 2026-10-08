@@ -600,6 +600,59 @@ describe('RelationshipResolverService', () => {
     });
   });
 
+  describe('live position partners', () => {
+    it('names current members of alliances in an active relationship as candidates', async () => {
+      const store = new InMemoryAllianceStore();
+      for (const id of [1, 2, 3, 4, 5, 6]) store.addPlayer(id, `Rebel ${id}`);
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const partner = store.seedAlliance({ name: 'Partner' }, [
+        [3, AllianceRole.PRESIDENT],
+        [4, AllianceRole.NONE],
+      ]);
+      const pending = store.seedAlliance({ name: 'Pending' }, [
+        [5, AllianceRole.PRESIDENT],
+      ]);
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: partner.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        shareLivePositions: true,
+      });
+      await store.insertRelationshipProposal({
+        senderAllianceId: own.id,
+        recipientAllianceId: pending.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: '',
+        treatAsFriend: false,
+        shareLivePositions: true,
+      });
+      const resolver = resolverFor(store);
+
+      await expect(resolver.livePositionPartnerCandidates(1)).resolves.toEqual(
+        [3, 4],
+      );
+      await expect(resolver.livePositionPartnerCandidates(6)).resolves.toEqual(
+        [],
+      );
+    });
+
+    it('names no partner candidates when the store fails', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.seedAlliance({ name: 'Own' }, [[1, AllianceRole.PRESIDENT]]);
+      jest
+        .spyOn(store, 'listActiveRelationships')
+        .mockRejectedValue(new Error('database unavailable'));
+
+      await expect(
+        resolverFor(store).livePositionPartnerCandidates(1),
+      ).resolves.toEqual([]);
+    });
+  });
+
   describe('historicalScanSharerIds', () => {
     it('returns the viewer and current alliance mates only', async () => {
       const store = new InMemoryAllianceStore();

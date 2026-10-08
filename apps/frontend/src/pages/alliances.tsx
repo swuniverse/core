@@ -424,11 +424,22 @@ export function AllianceDiplomacyPage() {
       {!management ? null : (
         <>
           <p className="border border-swu-border bg-swu-bg/40 px-3 py-2 text-sm text-swu-muted">
-            {!management.enabled
-              ? 'Der Diplomatie-Kern ist noch nicht aktiviert.'
-              : management.effectsApplied
-                ? 'Beziehungsfreigaben sind aktiv. Geteilte Live-Positionen erscheinen erst mit der Allianz-Kartenansicht auf der Sternenkarte.'
-                : 'Beziehungsfreigaben werden gespeichert, aber noch nicht auf Kampf, Karte, Scan, Transfer oder Zugang angewandt.'}
+            {!management.enabled ? (
+              'Der Diplomatie-Kern ist noch nicht aktiviert.'
+            ) : !management.effectsApplied ? (
+              'Beziehungsfreigaben werden gespeichert, aber noch nicht auf Kampf, Karte, Scan, Transfer oder Zugang angewandt.'
+            ) : management.starmapDisplayActive ? (
+              <>
+                Beziehungsfreigaben sind aktiv. Geteilte Live-Positionen von
+                Partnern siehst du auf der{' '}
+                <Link to="/starmap" className="text-swu-accent hover:underline">
+                  Sternenkarte
+                </Link>
+                .
+              </>
+            ) : (
+              'Beziehungsfreigaben sind aktiv. Geteilte Live-Positionen erscheinen erst mit der Allianz-Kartenansicht auf der Sternenkarte.'
+            )}
           </p>
           {management.capabilities.create && (
             <section className="space-y-3 border border-swu-border bg-swu-surface p-4">

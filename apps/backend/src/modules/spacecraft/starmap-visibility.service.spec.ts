@@ -459,9 +459,19 @@ describe('StarmapVisibilityService.listContacts', () => {
         { enabled },
       ).listContacts(1, STARMAP_LAYER_ID);
 
-      expect(result.contacts.map((contact) => contact.spacecraftId)).toEqual([
-        10,
-      ]);
+      expect(
+        result.contacts.map((contact) => [
+          contact.spacecraftId,
+          contact.reason,
+        ]),
+      ).toEqual(
+        enabled
+          ? [
+              [10, 'OWN'],
+              [20, 'SHARED_LIVE_POSITION'],
+            ]
+          : [[10, 'OWN']],
+      );
       expect(result.allianceContactsActive).toBe(enabled);
     },
   );
@@ -744,5 +754,287 @@ describe('StarmapVisibilityService.listContacts', () => {
         ]);
       },
     );
+
+    describe('partner ships', () => {
+      /**
+       * Viewer 1 presides "Viewers" with mate 2; player 5 presides "Partners"
+       * with member 6. The alliances are not related yet.
+       */
+      function partnerWorld() {
+        const { store, alliance } = allianceWorld();
+        store.addPlayer(5, 'Partner');
+        store.addPlayer(6, 'Partner Mate');
+        const partner = store.seedAlliance({ name: 'Partners' }, [
+          [5, AllianceRole.PRESIDENT],
+          [6, AllianceRole.NONE],
+        ]);
+        return { store, alliance, partner };
+      }
+
+      const partnerFleet = () => [
+        ...fleet(),
+        shipOf(50, 5, 'Partner'),
+        shipOf(60, 6, 'Partner Mate'),
+      ];
+
+      const relate = (
+        store: InMemoryAllianceStore,
+        first: { id: number },
+        second: { id: number },
+        overrides: {
+          type?: AllianceRelationshipType;
+          treatAsFriend?: boolean;
+          shareLivePositions?: boolean;
+        } = {},
+      ) =>
+        store.seedActiveAllianceRelationship({
+          firstAllianceId: first.id,
+          secondAllianceId: second.id,
+          type: AllianceRelationshipType.ALLIANCE,
+          treatAsFriend: false,
+          shareLivePositions: true,
+          ...overrides,
+        });
+
+      const partnerContactIds = (store: InMemoryAllianceStore, viewer = 1) =>
+        contactIds(serviceFor(store, partnerFleet()), viewer);
+
+      it('shows ships of all partner members with base data and a neutral stance', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+
+        const result = await serviceFor(store, partnerFleet()).listContacts(
+          1,
+          STARMAP_LAYER_ID,
+        );
+
+        expect(result.contacts.map((c) => [c.spacecraftId, c.reason])).toEqual([
+          [10, 'OWN'],
+          [20, 'ALLIANCE'],
+          [50, 'SHARED_LIVE_POSITION'],
+          [60, 'SHARED_LIVE_POSITION'],
+        ]);
+        expect(result.contacts[2]).toEqual({
+          spacecraftId: 50,
+          spacecraftName: 'Partner Ship',
+          shipClassId: 100,
+          ownerId: 5,
+          ownerName: 'Partner',
+          location: {
+            scope: 'GALAXY',
+            locationId: 50,
+            layerId: STARMAP_LAYER_ID,
+            x: 50,
+            y: 51,
+          },
+          galaxyCell: { layerId: STARMAP_LAYER_ID, x: 50, y: 51 },
+          reason: 'SHARED_LIVE_POSITION',
+          stance: 'NEUTRAL',
+        });
+      });
+
+      it('carries a friendly stance when the partners also treat each other as friends', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner, { treatAsFriend: true });
+
+        const result = await serviceFor(store, partnerFleet()).listContacts(
+          1,
+          STARMAP_LAYER_ID,
+        );
+
+        const partnerContact = result.contacts.find((c) => c.ownerId === 5);
+        expect(partnerContact).toMatchObject({
+          reason: 'SHARED_LIVE_POSITION',
+          stance: 'FRIEND',
+        });
+        expect(partnerContact).not.toHaveProperty('management');
+        expect(partnerContact).not.toHaveProperty('alliance');
+      });
+
+      it('shows the viewer to the partner side as well', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+
+        await expect(partnerContactIds(store, 6)).resolves.toEqual([
+          [10, 'SHARED_LIVE_POSITION'],
+          [20, 'SHARED_LIVE_POSITION'],
+          [50, 'ALLIANCE'],
+          [60, 'OWN'],
+        ]);
+      });
+
+      it('resolves all candidates in a single batched lookup', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+        const relationships = new RelationshipResolverService(
+          store,
+          new NoPersonalContactStatusPort(),
+        );
+        const resolveMany = jest.spyOn(relationships, 'resolveMany');
+        const service = new StarmapVisibilityService(
+          shipRepository(partnerFleet()),
+          relationships,
+          ...contactCollaborators({ enabled: true }),
+        );
+
+        await service.listContacts(1, STARMAP_LAYER_ID);
+
+        expect(resolveMany).toHaveBeenCalledTimes(1);
+        expect([...resolveMany.mock.calls[0][1]].sort()).toEqual([2, 5, 6]);
+      });
+
+      const withoutPartners = [
+        [10, 'OWN'],
+        [20, 'ALLIANCE'],
+      ];
+
+      it('shows no partner ships without a relationship', async () => {
+        const { store } = partnerWorld();
+
+        await expect(partnerContactIds(store)).resolves.toEqual(
+          withoutPartners,
+        );
+      });
+
+      it('shows no partner ships for a pending proposal', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        await store.insertRelationshipProposal({
+          senderAllianceId: alliance.id,
+          recipientAllianceId: partner.id,
+          type: AllianceRelationshipType.ALLIANCE,
+          contract: '',
+          treatAsFriend: false,
+          shareLivePositions: true,
+        });
+
+        await expect(partnerContactIds(store)).resolves.toEqual(
+          withoutPartners,
+        );
+      });
+
+      it('stops showing partner ships once the relationship ends', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        const relationship = relate(store, alliance, partner);
+
+        await store.endNonWarRelationship(relationship.id);
+
+        await expect(partnerContactIds(store)).resolves.toEqual(
+          withoutPartners,
+        );
+      });
+
+      it('stops showing partner ships once live position sharing is revoked', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        const relationship = relate(store, alliance, partner);
+        const change = await store.insertRelationshipChangeProposal({
+          relationshipId: relationship.id,
+          senderAllianceId: alliance.id,
+          recipientAllianceId: partner.id,
+          contract: '',
+          treatAsFriend: true,
+          shareLivePositions: false,
+        });
+
+        await expect(partnerContactIds(store)).resolves.toHaveLength(4);
+        await store.acceptRelationshipChangeProposal(change.id);
+
+        await expect(partnerContactIds(store)).resolves.toEqual(
+          withoutPartners,
+        );
+      });
+
+      it('shows no ships of an alliance at war', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+
+        await store.replaceRelationshipsWithWar(alliance.id, partner.id);
+
+        await expect(partnerContactIds(store)).resolves.toEqual(
+          withoutPartners,
+        );
+      });
+
+      it('shows no ships of a friend without live position sharing', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner, {
+          type: AllianceRelationshipType.FRIENDSHIP,
+          treatAsFriend: true,
+          shareLivePositions: false,
+        });
+
+        await expect(partnerContactIds(store)).resolves.toEqual(
+          withoutPartners,
+        );
+      });
+
+      it('never shows partner members of the other faction', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+        store.addPlayer(7, 'Imperial', EMPIRE.id);
+        await store.insertMembership({
+          allianceId: partner.id,
+          userId: 7,
+          role: AllianceRole.NONE,
+        });
+
+        await expect(
+          contactIds(
+            serviceFor(store, [...partnerFleet(), shipOf(70, 7, 'Imperial')]),
+          ),
+        ).resolves.toEqual([
+          [10, 'OWN'],
+          [20, 'ALLIANCE'],
+          [50, 'SHARED_LIVE_POSITION'],
+          [60, 'SHARED_LIVE_POSITION'],
+        ]);
+      });
+
+      it('shows no partner ships while the capability is disabled', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+
+        await expect(
+          contactIds(serviceFor(store, partnerFleet(), { enabled: false })),
+        ).resolves.toEqual([[10, 'OWN']]);
+      });
+
+      it('keeps the highest reason when an owner qualifies several times', async () => {
+        const { store, alliance, partner } = partnerWorld();
+        relate(store, alliance, partner);
+        const relationships = new RelationshipResolverService(
+          store,
+          new NoPersonalContactStatusPort(),
+        );
+        // The viewer and a mate also show up as partner candidates.
+        jest
+          .spyOn(relationships, 'livePositionPartnerCandidates')
+          .mockResolvedValue([1, 2, 5, 6]);
+        jest
+          .spyOn(relationships, 'resolveMany')
+          .mockImplementation(async (_viewer, ids) => {
+            const all =
+              await RelationshipResolverService.prototype.resolveMany.call(
+                relationships,
+                1,
+                ids,
+              );
+            for (const stance of all.values())
+              stance.mayShareLivePosition = true;
+            return all;
+          });
+        const service = new StarmapVisibilityService(
+          shipRepository(partnerFleet()),
+          relationships,
+          ...contactCollaborators({ enabled: true }),
+        );
+
+        await expect(contactIds(service)).resolves.toEqual([
+          [10, 'OWN'],
+          [20, 'ALLIANCE'],
+          [50, 'SHARED_LIVE_POSITION'],
+          [60, 'SHARED_LIVE_POSITION'],
+        ]);
+      });
+    });
   });
 });

@@ -52,10 +52,15 @@ export const CONTACT_STANCE_SYMBOLS: Record<StarmapContactStance, string> = {
 const OWN_SHIP_COLOR = '#38bdf8';
 /** Uniform colour for alliance ships whose alliance has no colour set. */
 export const DEFAULT_ALLIANCE_SHIP_COLOR = '#a78bfa';
+/** Partner ships with a shared live position; also drawn with a dashed rim. */
+export const SHARED_POSITION_SHIP_COLOR = '#2dd4bf';
 
 function contactColor(contact: StarmapContactDto) {
   if (contact.reason === 'ALLIANCE') {
     return contact.alliance?.color ?? DEFAULT_ALLIANCE_SHIP_COLOR;
+  }
+  if (contact.reason === 'SHARED_LIVE_POSITION') {
+    return SHARED_POSITION_SHIP_COLOR;
   }
   return OWN_SHIP_COLOR;
 }
@@ -164,6 +169,8 @@ export function StarmapShipOverlay({
                 'translate(-50%, -50%) scale(var(--starmap-inverse-scale, 1))',
               backgroundColor: contactColor(first),
               borderColor: selected ? '#ffffff' : '#0f172a',
+              borderStyle:
+                first.reason === 'SHARED_LIVE_POSITION' ? 'dashed' : 'solid',
             }}
           >
             {count > 1 ? (

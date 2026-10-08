@@ -450,6 +450,81 @@ describe('StarmapPage ship layer', () => {
     });
   });
 
+  describe('partner ships', () => {
+    const partnerContact = (
+      overrides: Partial<StarmapContactDto> = {},
+    ): StarmapContactDto => ({
+      spacecraftId: 50,
+      spacecraftName: 'Möwe',
+      shipClassId: 100,
+      ownerId: 5,
+      ownerName: 'Partner',
+      location: { scope: 'GALAXY', locationId: 5000, layerId: 3, x: 6, y: 7 },
+      galaxyCell: { layerId: 3, x: 6, y: 7 },
+      reason: 'SHARED_LIVE_POSITION',
+      stance: 'NEUTRAL',
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      allianceContactsActive = true;
+      contactsByLayer[3] = [ownContact(), allianceContact(), partnerContact()];
+    });
+
+    it('marks partner ships as shared positions, distinct from own and alliance ships', async () => {
+      renderPage();
+
+      const partner = await screen.findByRole('button', {
+        name: 'Schiff Möwe bei 6|7 (Geteilte Position, Neutral)',
+      });
+      const ally = screen.getByRole('button', { name: /^Schiff Kranich/ });
+      const own = screen.getByRole('button', { name: 'Schiff Falke bei 4|5' });
+      expect(partner.getAttribute('data-reason')).toBe('SHARED_LIVE_POSITION');
+      expect(partner.getAttribute('data-stance')).toBe('NEUTRAL');
+      expect(within(partner).getByText('○')).toBeTruthy();
+      expect(partner.style.backgroundColor).not.toBe(own.style.backgroundColor);
+      expect(partner.style.backgroundColor).not.toBe(ally.style.backgroundColor);
+      expect(partner.style.borderStyle).toBe('dashed');
+    });
+
+    it('shows only base data of a selected partner ship', async () => {
+      renderPage();
+
+      fireEvent.click(await screen.findByRole('button', { name: /^Schiff Möwe/ }));
+
+      const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 6|7' });
+      expect(within(panel).getByText('Möwe')).toBeTruthy();
+      expect(
+        within(panel).getByText('Geteilte Position · Neutral'),
+      ).toBeTruthy();
+      expect(within(panel).queryByText(/Hülle|Crew|Alarmstufe/)).toBeNull();
+    });
+
+    it('hides partner ships with their own switch while own and alliance ships stay', async () => {
+      renderPage();
+      await screen.findByRole('button', { name: /^Schiff Möwe/ });
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Partnerschiffe' }));
+
+      expect(screen.queryByRole('button', { name: /^Schiff Möwe/ })).toBeNull();
+      expect(screen.getByRole('button', { name: /^Schiff Kranich/ })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Schiff Falke bei 4|5' }),
+      ).toBeTruthy();
+    });
+
+    it('offers no partner switch while alliance contacts are inactive', async () => {
+      allianceContactsActive = false;
+      contactsByLayer[3] = [ownContact()];
+      renderPage();
+
+      await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
+      expect(
+        screen.queryByRole('checkbox', { name: 'Partnerschiffe' }),
+      ).toBeNull();
+    });
+  });
+
   describe('in the opened system grid', () => {
     const zoomIntoSystemGrid = async () => {
       await screen.findByRole('button', { name: '2 Schiffe bei 40|41' });
