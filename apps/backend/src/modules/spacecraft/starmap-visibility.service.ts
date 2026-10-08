@@ -62,11 +62,17 @@ export class StarmapVisibilityService {
     if (!layer) throw new NotFoundException('Layer not found');
 
     const visibility = await this.visibilityByOwner(viewerId);
+    const owned = {
+      userId: In([...visibility.keys()]),
+      status: Not(SpacecraftStatus.DESTROYED),
+    };
+    // Only ships on the requested layer: in open space, or inside a system
+    // that lies on the layer.
     const ships = await this.shipRepo.find({
-      where: {
-        userId: In([...visibility.keys()]),
-        status: Not(SpacecraftStatus.DESTROYED),
-      },
+      where: [
+        { ...owned, location: { galaxyField: { layerId } } },
+        { ...owned, location: { systemField: { starSystem: { layerId } } } },
+      ],
       relations: SHIP_LOCATION_RELATIONS,
       order: { id: 'ASC' },
     });
