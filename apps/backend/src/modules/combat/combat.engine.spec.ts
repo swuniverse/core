@@ -61,9 +61,7 @@ function combatFormulas(): CombatFormulas {
       CORVETTE: { damage: 1, speed: 1, hull: 1, evasion: 1 },
     },
     combat_flow: {
-      max_rounds: 1,
       initiative: { speed_weight: 0.6, sensor_weight: 0.4 },
-      escape: { base_chance: 0.3, speed_bonus: 0.05, damage_penalty: 0.1 },
     },
     ion_effects: {
       disable_chance: 0,
