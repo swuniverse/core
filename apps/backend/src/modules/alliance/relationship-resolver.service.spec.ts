@@ -4,13 +4,14 @@ import {
   RelationshipResolverService,
   type PersonalContactStatusPort,
 } from './relationship-resolver.service';
+import type { AllianceStore } from './alliance.store';
 import {
   InMemoryAllianceStore,
   EMPIRE,
 } from './testing/in-memory-alliance.store';
 
 const resolverFor = (
-  store: InMemoryAllianceStore,
+  store: AllianceStore,
   personalContactStatus: PersonalContactStatusPort = new NoPersonalContactStatusPort(),
 ) => new RelationshipResolverService(store, personalContactStatus);
 
@@ -493,23 +494,102 @@ describe('RelationshipResolverService', () => {
   });
 
   describe('resolveMany', () => {
-    it('resolves each distinct player once with the same answers as resolve', async () => {
+    it('resolves each distinct player with the same answers as resolve', async () => {
       const store = new InMemoryAllianceStore();
       store.addPlayer(1, 'Rebel One');
       store.addPlayer(2, 'Rebel Two');
       store.addPlayer(3, 'Imperial', EMPIRE.id);
+      store.addPlayer(4, 'Partner');
+      store.addPlayer(5, 'Enemy Rebel');
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const partner = store.seedAlliance({ name: 'Partner' }, [
+        [4, AllianceRole.PRESIDENT],
+      ]);
+      const enemy = store.seedAlliance({ name: 'Enemy' }, [
+        [5, AllianceRole.PRESIDENT],
+      ]);
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: partner.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: enemy.id,
+        type: AllianceRelationshipType.WAR,
+      });
+      const resolver = resolverFor(store);
+
+      const stances = await resolver.resolveMany(1, [2, 3, 2, 4, 5, 99, 3]);
+
+      expect([...stances.keys()]).toEqual([2, 3, 4, 5, 99]);
+      for (const id of [2, 3, 4, 5, 99]) {
+        expect(stances.get(id)).toEqual(await resolver.resolve(1, id));
+      }
+      expect(stances.get(2)).toMatchObject({ mayShareAllianceMap: true });
+      expect(stances.get(3)?.status).toBe('ENEMY');
+      expect(stances.get(4)).toMatchObject({
+        status: 'FRIEND',
+        mayShareLivePosition: true,
+      });
+      expect(stances.get(5)?.status).toBe('ENEMY');
+      expect(stances.get(99)?.status).toBe('NEUTRAL');
+    });
+
+    it('needs no more store lookups for more players', async () => {
+      const lookupsFor = async (players: number) => {
+        const store = new InMemoryAllianceStore();
+        const ids = Array.from({ length: players }, (_, index) => index + 2);
+        store.addPlayer(1, 'Viewer');
+        for (const id of ids) store.addPlayer(id, `Player ${id}`);
+        store.seedAlliance({ name: 'Own' }, [
+          [1, AllianceRole.PRESIDENT],
+          ...ids.map((id) => [id, AllianceRole.NONE] as [number, AllianceRole]),
+        ]);
+        // Counts only the resolver's own store calls: the proxy hands the
+        // unwrapped store to each method, so internal delegation is invisible.
+        let lookups = 0;
+        const counted = new Proxy(store, {
+          get(target, property) {
+            const value = Reflect.get(target, property, target);
+            if (typeof value !== 'function') return value;
+            return (...args: unknown[]) => {
+              lookups += 1;
+              return value.apply(target, args);
+            };
+          },
+        });
+        await resolverFor(counted).resolveMany(1, ids);
+        return lookups;
+      };
+
+      expect(await lookupsFor(50)).toBe(await lookupsFor(2));
+    });
+
+    it('resolves to closed Neutral for everyone when the store fails', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
       store.seedAlliance({ name: 'Own' }, [
         [1, AllianceRole.PRESIDENT],
         [2, AllianceRole.NONE],
       ]);
-      const resolver = resolverFor(store);
-      const resolve = jest.spyOn(resolver, 'resolve');
+      jest
+        .spyOn(store, 'findMemberships')
+        .mockRejectedValue(new Error('database unavailable'));
 
-      const stances = await resolver.resolveMany(1, [2, 3, 2, 3]);
+      const stances = await resolverFor(store).resolveMany(1, [2]);
 
-      expect(resolve).toHaveBeenCalledTimes(2);
-      expect(stances.get(2)).toEqual(await resolver.resolve(1, 2));
-      expect(stances.get(3)?.status).toBe('ENEMY');
+      expect(stances.get(2)).toMatchObject({
+        status: 'NEUTRAL',
+        mayShareAllianceMap: false,
+        mayShareLivePosition: false,
+      });
     });
   });
 
@@ -631,9 +711,9 @@ describe('RelationshipResolverService', () => {
       });
       const resolver = resolverFor(store);
 
-      await expect(resolver.livePositionPartnerCandidates(1)).resolves.toEqual(
-        [3, 4],
-      );
+      await expect(resolver.livePositionPartnerCandidates(1)).resolves.toEqual([
+        3, 4,
+      ]);
       await expect(resolver.livePositionPartnerCandidates(6)).resolves.toEqual(
         [],
       );

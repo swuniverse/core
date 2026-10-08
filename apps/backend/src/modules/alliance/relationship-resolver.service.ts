@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
-import type { AllianceStore } from './alliance.store';
+import type {
+  AllianceRelationshipRecord,
+  AllianceStore,
+  MembershipRecord,
+  PlayerRecord,
+} from './alliance.store';
 
 /** Freund, Feind or Neutral between two players (see CONTEXT.md). */
 export type Stance = 'FRIEND' | 'ENEMY' | 'NEUTRAL';
@@ -62,16 +67,24 @@ export class RelationshipResolverService {
   ) {}
 
   /**
-   * Resolves the viewer's stance towards several players at once, one lookup
-   * per distinct player. Never throws; failures resolve to a closed Neutral.
+   * Resolves the viewer's stance towards several players at once with a
+   * fixed number of store lookups, however many players are asked for.
+   * Never throws; failures resolve to a closed Neutral.
    */
   async resolveMany(
     viewerId: number,
     otherPlayerIds: Iterable<number>,
   ): Promise<Map<number, ResolvedStance>> {
     const ids = [...new Set(otherPlayerIds)];
+    if (ids.length === 0) return new Map();
+    let context: StanceContext;
+    try {
+      context = await this.loadStanceContext(viewerId, ids);
+    } catch {
+      return new Map(ids.map((id) => [id, resolved('NEUTRAL')]));
+    }
     const stances = await Promise.all(
-      ids.map((id) => this.resolve(viewerId, id)),
+      ids.map((id) => this.stanceWithin(context, viewerId, id)),
     );
     return new Map(ids.map((id, index) => [id, stances[index]]));
   }
@@ -172,11 +185,42 @@ export class RelationshipResolverService {
     firstPlayerId: number,
     secondPlayerId: number,
   ): Promise<ResolvedStance> {
+    const stances = await this.resolveMany(firstPlayerId, [secondPlayerId]);
+    return stances.get(secondPlayerId) ?? resolved('NEUTRAL');
+  }
+
+  /** Players, memberships and the viewer alliance's active relationships. */
+  private async loadStanceContext(
+    viewerId: number,
+    otherPlayerIds: number[],
+  ): Promise<StanceContext> {
+    const playerIds = [viewerId, ...otherPlayerIds];
+    const [players, memberships] = await Promise.all([
+      this.store.findPlayers(playerIds),
+      this.store.findMemberships(playerIds),
+    ]);
+    const membershipByPlayer = new Map(
+      memberships.map((membership) => [membership.userId, membership]),
+    );
+    const viewerMembership = membershipByPlayer.get(viewerId);
+    return {
+      players: new Map(players.map((player) => [player.id, player])),
+      memberships: membershipByPlayer,
+      viewerRelationships: viewerMembership
+        ? await this.store.listActiveRelationships(viewerMembership.allianceId)
+        : [],
+    };
+  }
+
+  /** The priority matrix for one pair; never throws. */
+  private async stanceWithin(
+    context: StanceContext,
+    viewerId: number,
+    otherPlayerId: number,
+  ): Promise<ResolvedStance> {
     try {
-      const [firstPlayer, secondPlayer] = await Promise.all([
-        this.store.findPlayer(firstPlayerId),
-        this.store.findPlayer(secondPlayerId),
-      ]);
+      const firstPlayer = context.players.get(viewerId);
+      const secondPlayer = context.players.get(otherPlayerId);
       if (!firstPlayer || !secondPlayer) return resolved('NEUTRAL');
       if (firstPlayer.factionId === null || secondPlayer.factionId === null) {
         return resolved('NEUTRAL');
@@ -185,10 +229,8 @@ export class RelationshipResolverService {
         return resolved('ENEMY');
       }
 
-      const [firstMembership, secondMembership] = await Promise.all([
-        this.store.findMembership(firstPlayer.id),
-        this.store.findMembership(secondPlayer.id),
-      ]);
+      const firstMembership = context.memberships.get(firstPlayer.id);
+      const secondMembership = context.memberships.get(secondPlayer.id);
       if (
         firstMembership &&
         secondMembership &&
@@ -202,7 +244,8 @@ export class RelationshipResolverService {
 
       let mayShareLivePosition = false;
       if (firstMembership && secondMembership) {
-        const relationship = await this.findRelationship(
+        const relationship = relationshipBetween(
+          context.viewerRelationships,
           firstMembership.allianceId,
           secondMembership.allianceId,
         );
@@ -230,24 +273,31 @@ export class RelationshipResolverService {
       return resolved('NEUTRAL');
     }
   }
+}
 
-  private async findRelationship(
-    firstAllianceId: number,
-    secondAllianceId: number,
-  ) {
-    if (firstAllianceId === secondAllianceId) return null;
-    const relationships =
-      await this.store.listActiveRelationships(firstAllianceId);
-    return (
-      relationships.find(
-        (relationship) =>
-          (relationship.firstAllianceId === firstAllianceId &&
-            relationship.secondAllianceId === secondAllianceId) ||
-          (relationship.firstAllianceId === secondAllianceId &&
-            relationship.secondAllianceId === firstAllianceId),
-      ) ?? null
-    );
-  }
+/** What the stances of one viewer towards a batch of players depend on. */
+interface StanceContext {
+  players: Map<number, PlayerRecord>;
+  memberships: Map<number, MembershipRecord>;
+  /** Active relationships of the viewer's alliance; empty without one. */
+  viewerRelationships: AllianceRelationshipRecord[];
+}
+
+function relationshipBetween(
+  relationships: AllianceRelationshipRecord[],
+  firstAllianceId: number,
+  secondAllianceId: number,
+): AllianceRelationshipRecord | null {
+  if (firstAllianceId === secondAllianceId) return null;
+  return (
+    relationships.find(
+      (relationship) =>
+        (relationship.firstAllianceId === firstAllianceId &&
+          relationship.secondAllianceId === secondAllianceId) ||
+        (relationship.firstAllianceId === secondAllianceId &&
+          relationship.secondAllianceId === firstAllianceId),
+    ) ?? null
+  );
 }
 
 function resolved(
