@@ -113,7 +113,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
 function diplomacyManagement(): AllianceDiplomacyManagementDto {
   return {
     enabled: true,
-    effectsApplied: false,
+    effectsApplied: true,
     capabilities: { create: true },
     targets: [{ id: 2, name: 'Red Squadron', color: null }],
     relationships: [
@@ -404,7 +404,8 @@ describe('AllianceDiplomacyPage', () => {
     expect(screen.getAllByRole('button', { name: 'Annehmen' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Ablehnen' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Zurückziehen' })).toBeTruthy();
-    expect(screen.getByText(/haben noch keine Spielwirkung/i)).toBeTruthy();
+    expect(screen.getByText('Beziehungsfreigaben sind aktiv.')).toBeTruthy();
+    expect(screen.queryByText(/noch keine Spielwirkung/i)).toBeNull();
   });
 
   it('does not render creation controls when the server denies create capability', async () => {

@@ -494,6 +494,111 @@ describe('TransferService ship transfers', () => {
   });
 });
 
+describe('TransferService ship transfer quote matches the transfer action', () => {
+  function shieldedTarget(
+    status: 'FRIEND' | 'NEUTRAL',
+    targetUserId: number,
+    direction?: 'TO_TARGET' | 'FROM_TARGET',
+  ) {
+    const ship = (id: number, userId: number, shields: boolean) => ({
+      id,
+      userId,
+      status: 'IDLE',
+      runtimeSystems: shields ? { SHIELDS: { active: true } } : {},
+      cargoMax: 10,
+      crewMax: 10,
+      locationId: 20,
+      location: { id: 20, kind: 'GALAXY_FIELD' },
+    });
+    const sourceShip = ship(1, 10, false);
+    const targetShip = ship(2, targetUserId, true);
+    const spacecraftRepo = {
+      findOne: jest
+        .fn()
+        .mockResolvedValueOnce(sourceShip)
+        .mockResolvedValueOnce(targetShip),
+      find: jest.fn().mockResolvedValue([sourceShip, targetShip]),
+    };
+    const dataSource = {
+      getRepository: jest.fn((entity) =>
+        entity === Spacecraft
+          ? spacecraftRepo
+          : {
+              count: jest.fn().mockResolvedValue(0),
+              findOneBy: jest.fn().mockResolvedValue(null),
+            },
+      ),
+      transaction: jest.fn(async (work) =>
+        work({ getRepository: () => spacecraftRepo }),
+      ),
+    };
+    const cargoRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      createQueryBuilder: jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+      })),
+    };
+    const service = new TransferService(
+      cargoRepo as never,
+      {} as never,
+      dataSource as never,
+      {} as never,
+      {} as never,
+      { getCommodity: jest.fn() } as never,
+      { resolve: jest.fn().mockResolvedValue(relationship(status)) } as never,
+    );
+    return {
+      quote: () => service.getShipTransferQuote(1, 10, 2, direction),
+      service,
+    };
+  }
+
+  it('reports shields as blocking a transfer to an own shielded ship', async () => {
+    const { quote } = shieldedTarget('FRIEND', 10, 'TO_TARGET');
+
+    await expect(quote()).resolves.toMatchObject({
+      available: false,
+      reason: 'Schilde müssen deaktiviert sein',
+      crewTransferAvailable: false,
+      torpedoTransferAvailable: false,
+    });
+  });
+
+  it('reports shields as blocking a withdrawal from a shielded friend', async () => {
+    const { quote, service } = shieldedTarget('FRIEND', 11, 'FROM_TARGET');
+
+    await expect(quote()).resolves.toMatchObject({
+      available: false,
+      reason: 'Schilde müssen deaktiviert sein',
+    });
+    await expect(
+      service.transferShipCrew(1, 10, 2, 1, 'FROM_TARGET'),
+    ).rejects.toThrow('Schilde müssen deaktiviert sein');
+  });
+
+  it('offers provisioning a shielded friend', async () => {
+    const { quote } = shieldedTarget('FRIEND', 11, 'TO_TARGET');
+
+    await expect(quote()).resolves.toMatchObject({
+      available: true,
+      reason: null,
+      crewTransferAvailable: true,
+      torpedoTransferAvailable: true,
+    });
+  });
+
+  it('rejects provisioning a shielded neutral ship in the quote', async () => {
+    const { quote } = shieldedTarget('NEUTRAL', 11, 'TO_TARGET');
+
+    await expect(quote()).resolves.toMatchObject({
+      available: false,
+      reason: 'Schiffstransfer nur zwischen Freunden erlaubt',
+    });
+  });
+});
+
 describe('TransferService wreck recovery', () => {
   it('rejects different canonical locations', async () => {
     const ship = {

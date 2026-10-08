@@ -165,8 +165,8 @@ export interface AllianceDiplomacyProposalDto {
 export interface AllianceDiplomacyManagementDto {
   /** Explicit rollout state; migrations must be deployed before this is enabled. */
   enabled: boolean;
-  /** Permissions are stored only; gameplay effects remain intentionally inactive. */
-  effectsApplied: false;
+  /** Whether accepted relationship permissions already affect gameplay on the server. */
+  effectsApplied: boolean;
   capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
   targets: AllianceRefDto[];
   relationships: AllianceDiplomacyRelationshipDto[];

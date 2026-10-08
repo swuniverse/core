@@ -91,6 +91,8 @@ describe('AllianceService', () => {
       expect((await service.getDetail(1, rogue.id)).viewer.actions.declareWar).toBe(
         false,
       );
+      const management = await service.getDiplomacyManagement(1, rogue.id);
+      expect(management).toMatchObject({ enabled: false, effectsApplied: false });
     });
   });
 
@@ -1052,6 +1054,7 @@ describe('AllianceService', () => {
 
       const management = await service.getDiplomacyManagement(2, own.id);
 
+      expect(management.effectsApplied).toBe(true);
       expect(management.capabilities).toEqual({ create: true });
       expect(management.targets).toEqual([
         { id: counterparty.id, name: 'Red Squadron', color: null },

@@ -14,6 +14,25 @@ import { ShipColonyContextService } from './ship-colony-context.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { sameSpacecraftLocation } from './spacecraft-field';
 
+type ShipTransferDirection = 'TO_TARGET' | 'FROM_TARGET';
+
+/** Supplying a foreign ship whose shields are up; only friends may do this. */
+function isProtectedProvisioning(
+  sourceShip: Spacecraft,
+  targetShip: Spacecraft,
+  direction: ShipTransferDirection,
+): boolean {
+  const targetSystems = targetShip.runtimeSystems as Record<
+    string,
+    { active?: boolean }
+  >;
+  return (
+    direction === 'TO_TARGET' &&
+    sourceShip.userId !== targetShip.userId &&
+    targetSystems.SHIELDS?.active === true
+  );
+}
+
 @Injectable()
 export class TransferService {
   constructor(
@@ -153,6 +172,7 @@ export class TransferService {
     shipId: number,
     userId: number,
     targetShipId: number,
+    direction: ShipTransferDirection = 'TO_TARGET',
   ): Promise<{
     available: boolean;
     reason: string | null;
@@ -202,21 +222,20 @@ export class TransferService {
             : systems(sourceShip).SHIELDS?.active
               ? 'Schilde müssen deaktiviert sein'
               : null;
-    const targetProtected = systems(targetShip).SHIELDS?.active === true;
+    const provisionsProtectedTarget = isProtectedProvisioning(
+      sourceShip,
+      targetShip,
+      direction,
+    );
     const reason =
       commonReason ??
-      (!(targetProtected
-        ? capabilities.mayProvisionProtectedShip
-        : capabilities.mayTransferSafely)
-        ? 'Schiffstransfer nur zwischen Freunden erlaubt'
-        : null);
-    const crewTransferReason =
-      commonReason ??
-      (!(targetProtected
-        ? capabilities.mayProvisionProtectedShip
-        : capabilities.mayTransferSafely)
-        ? 'Schiffstransfer nur zwischen Freunden erlaubt'
-        : null);
+      (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget
+        ? 'Schilde müssen deaktiviert sein'
+        : !(provisionsProtectedTarget
+              ? capabilities.mayProvisionProtectedShip
+              : capabilities.mayTransferSafely)
+          ? 'Schiffstransfer nur zwischen Freunden erlaubt'
+          : null);
     const [
       sourceCargo,
       targetCargo,
@@ -263,8 +282,8 @@ export class TransferService {
       sourceCrewMax: sourceShip.crewMax,
       targetCrew,
       targetCrewMax: targetShip.crewMax,
-      crewTransferAvailable: crewTransferReason === null,
-      crewTransferReason,
+      crewTransferAvailable: reason === null,
+      crewTransferReason: reason,
       sourceTorpedoes,
       targetTorpedoes,
       torpedoTransferAvailable: reason === null,
@@ -277,7 +296,7 @@ export class TransferService {
     userId: number,
     targetShipId: number,
     amount: number,
-    direction: 'TO_TARGET' | 'FROM_TARGET',
+    direction: ShipTransferDirection,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
@@ -291,10 +310,11 @@ export class TransferService {
         throw new BadRequestException('Schiff nicht gefunden');
       const systems = (ship: Spacecraft) =>
         ship.runtimeSystems as Record<string, { active?: boolean }>;
-      const provisionsProtectedTarget =
-        direction === 'TO_TARGET' &&
-        sourceShip.userId !== targetShip.userId &&
-        systems(targetShip).SHIELDS?.active === true;
+      const provisionsProtectedTarget = isProtectedProvisioning(
+        sourceShip,
+        targetShip,
+        direction,
+      );
       await this.assertSafeShipTransfer(
         sourceShip,
         targetShip,
@@ -350,7 +370,7 @@ export class TransferService {
     userId: number,
     targetShipId: number,
     amount: number,
-    direction: 'TO_TARGET' | 'FROM_TARGET',
+    direction: ShipTransferDirection,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
@@ -364,10 +384,11 @@ export class TransferService {
         throw new BadRequestException('Schiff nicht gefunden');
       const systems = (ship: Spacecraft) =>
         ship.runtimeSystems as Record<string, { active?: boolean }>;
-      const provisionsProtectedTarget =
-        direction === 'TO_TARGET' &&
-        sourceShip.userId !== targetShip.userId &&
-        systems(targetShip).SHIELDS?.active === true;
+      const provisionsProtectedTarget = isProtectedProvisioning(
+        sourceShip,
+        targetShip,
+        direction,
+      );
       await this.assertSafeShipTransfer(
         sourceShip,
         targetShip,
@@ -437,7 +458,7 @@ export class TransferService {
     targetShipId: number,
     commodityId: number,
     amount: number,
-    direction: 'TO_TARGET' | 'FROM_TARGET',
+    direction: ShipTransferDirection,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
@@ -451,10 +472,11 @@ export class TransferService {
         throw new BadRequestException('Schiff nicht gefunden');
       const systems = (ship: Spacecraft) =>
         ship.runtimeSystems as Record<string, { active?: boolean }>;
-      const provisionsProtectedTarget =
-        direction === 'TO_TARGET' &&
-        sourceShip.userId !== targetShip.userId &&
-        systems(targetShip).SHIELDS?.active === true;
+      const provisionsProtectedTarget = isProtectedProvisioning(
+        sourceShip,
+        targetShip,
+        direction,
+      );
       await this.assertSafeShipTransfer(
         sourceShip,
         targetShip,

@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  ParseEnumPipe,
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -1026,11 +1027,14 @@ export class SpacecraftController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
     @Query('targetShipId', ParseIntPipe) targetShipId: number,
+    @Query('direction', new ParseEnumPipe(['TO_TARGET', 'FROM_TARGET']))
+    direction: 'TO_TARGET' | 'FROM_TARGET',
   ) {
     return this.transferService.getShipTransferQuote(
       id,
       req.user.sub,
       targetShipId,
+      direction,
     );
   }
 

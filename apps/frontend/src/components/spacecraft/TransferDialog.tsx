@@ -65,7 +65,7 @@ export function TransferDialog({
   const refresh = useCallback(async () => {
     if (isShipTransfer) {
       const nextQuote = await api.get<typeof shipQuote>(
-        `/spacecraft/${shipId}/cargo/ship-transfer-quote?targetShipId=${targetShipId}`,
+        `/spacecraft/${shipId}/cargo/ship-transfer-quote?targetShipId=${targetShipId}&direction=${direction}`,
       );
       setShipQuote(nextQuote);
       setShipCargo(nextQuote?.sourceCargo ?? []);
@@ -78,7 +78,7 @@ export function TransferDialog({
     setQuote(nextQuote);
     setShipCargo(nextQuote.shipCargo);
     setColonyCargo(nextQuote.colonyCargo);
-  }, [colonyId, isShipTransfer, shipId, targetShipId]);
+  }, [colonyId, direction, isShipTransfer, shipId, targetShipId]);
 
   useEffect(() => {
     void refresh().catch((err: unknown) =>

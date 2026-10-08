@@ -367,7 +367,7 @@ export class AllianceService {
 
     return {
       enabled: this.diplomacyEnabled,
-      effectsApplied: false,
+      effectsApplied: this.diplomacyEnabled,
       capabilities: { create: this.diplomacyEnabled },
       targets: alliances
         .filter(

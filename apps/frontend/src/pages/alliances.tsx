@@ -435,10 +435,12 @@ export function AllianceDiplomacyPage() {
               <h2 className="font-bold text-swu-accent">
                 Beziehung vorschlagen
               </h2>
-              <p className="text-sm text-swu-muted">
-                Beziehungsfreigaben haben noch keine Spielwirkung. Sie werden
-                erst durch eine spätere Fähigkeit aktiviert.
-              </p>
+              {!management.effectsApplied && (
+                <p className="text-sm text-swu-muted">
+                  Beziehungsfreigaben haben noch keine Spielwirkung. Sie werden
+                  erst durch eine spätere Fähigkeit aktiviert.
+                </p>
+              )}
               <form
                 className="grid gap-3 md:grid-cols-2"
                 onSubmit={(event) => {
