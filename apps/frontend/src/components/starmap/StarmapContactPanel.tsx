@@ -43,7 +43,7 @@ export function StarmapContactPanel({
   systemName,
   onClose,
 }: StarmapContactPanelProps) {
-  const title = `Schiffe auf Feld ${bundle.key}`;
+  const title = `Schiffe auf Feld ${bundle.label}`;
   return (
     <section
       aria-label={title}

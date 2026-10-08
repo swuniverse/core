@@ -24,12 +24,35 @@ vi.mock('../hooks/use-socket', () => ({
 vi.mock('../components/starmap/StarmapCanvas', async () => {
   const { forwardRef } = await import('react');
   return {
-    StarmapCanvas: forwardRef<unknown, { worldOverlay?: ReactNode }>(
-      function StarmapCanvasMock({ worldOverlay }, ref) {
-        void ref;
-        return <div data-testid="starmap-canvas">{worldOverlay}</div>;
-      },
-    ),
+    StarmapCanvas: forwardRef<
+      unknown,
+      {
+        worldOverlay?: ReactNode;
+        onInlineSystemsVisibleChange?: (visible: boolean) => void;
+      }
+    >(function StarmapCanvasMock(
+      { worldOverlay, onInlineSystemsVisibleChange },
+      ref,
+    ) {
+      void ref;
+      return (
+        <div data-testid="starmap-canvas">
+          <button
+            type="button"
+            onClick={() => onInlineSystemsVisibleChange?.(true)}
+          >
+            Test: Systemraster zoomen
+          </button>
+          <button
+            type="button"
+            onClick={() => onInlineSystemsVisibleChange?.(false)}
+          >
+            Test: Galaxie zoomen
+          </button>
+          {worldOverlay}
+        </div>
+      );
+    }),
   };
 });
 
@@ -62,9 +85,42 @@ function ownContact(overrides: Partial<StarmapContactDto> = {}): StarmapContactD
 
 let contactsByLayer: Record<number, StarmapContactDto[]>;
 
+const kessel = {
+  id: 7,
+  name: 'Kessel',
+  cx: 40,
+  cy: 41,
+  maxX: 20,
+  maxY: 20,
+  systemTypeId: 1,
+};
+
+const layerThreeFields = [
+  {
+    id: 500,
+    cx: 40,
+    cy: 41,
+    fieldTypeId: 1,
+    systemTypeId: 1,
+    factionZone: 'NEUTRAL',
+    adminRegionKey: null,
+    starSystemId: 7,
+    regionId: null,
+    borderTypeId: null,
+    effects: null,
+    passableOverride: null,
+    fieldType: { key: 'EMPTY_SPACE' },
+    starSystem: kessel,
+  },
+];
+
 function mockApi() {
   apiMocks.get.mockImplementation((path: string) => {
     if (path === '/starmap/layers') return Promise.resolve(layers);
+    if (path === '/starmap/layers/3/fields') return Promise.resolve(layerThreeFields);
+    if (path === '/starmap/systems/7/grid') {
+      return Promise.resolve({ system: kessel, fields: [], celestialObjects: [] });
+    }
     const contacts = path.match(/^\/spacecraft\/starmap-contacts\?layerId=(\d+)$/);
     if (contacts) {
       const layerId = Number(contacts[1]);
@@ -171,7 +227,7 @@ describe('StarmapPage ship layer', () => {
     const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 40|41' });
     expect(within(panel).getByRole('link', { name: 'Adler' })).toBeTruthy();
     expect(within(panel).getByRole('link', { name: 'Sperber' })).toBeTruthy();
-    expect(within(panel).getByText('System 7 · 12|13')).toBeTruthy();
+    expect(within(panel).getByText('Kessel · 12|13')).toBeTruthy();
   });
 
   it('hides the ship layer with the control panel switch', async () => {
@@ -257,5 +313,130 @@ describe('StarmapPage ship layer', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('in the opened system grid', () => {
+    const zoomIntoSystemGrid = async () => {
+      await screen.findByRole('button', { name: '2 Schiffe bei 40|41' });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Test: Systemraster zoomen' }),
+      );
+    };
+    const worldPosition = (marker: HTMLElement) => ({
+      left: parseFloat(marker.style.left),
+      top: parseFloat(marker.style.top),
+    });
+
+    it('places contacts with a system position at their system coordinates', async () => {
+      renderPage();
+      await zoomIntoSystemGrid();
+
+      const adler = await screen.findByRole('button', {
+        name: 'Schiff Adler bei Kessel 12|13',
+      });
+      const sperber = screen.getByRole('button', {
+        name: 'Schiff Sperber bei Kessel 2|2',
+      });
+      expect(
+        screen.queryByRole('button', { name: '2 Schiffe bei 40|41' }),
+      ).toBeNull();
+      // Both lie inside the system cell 40|41 (cell size 30 px) ...
+      for (const marker of [adler, sperber]) {
+        const { left, top } = worldPosition(marker);
+        expect(left).toBeGreaterThan(39 * 30);
+        expect(left).toBeLessThan(40 * 30);
+        expect(top).toBeGreaterThan(40 * 30);
+        expect(top).toBeLessThan(41 * 30);
+      }
+      // ... and Adler (12|13) lies right of and below Sperber (2|2).
+      expect(worldPosition(adler).left).toBeGreaterThan(worldPosition(sperber).left);
+      expect(worldPosition(adler).top).toBeGreaterThan(worldPosition(sperber).top);
+      // Galaxy contacts stay on their galaxy cell.
+      expect(
+        screen.getByRole('button', { name: 'Schiff Falke bei 4|5' }),
+      ).toBeTruthy();
+    });
+
+    it('bundles the same contacts at the system cell again on the galaxy map', async () => {
+      renderPage();
+      await zoomIntoSystemGrid();
+      await screen.findByRole('button', { name: 'Schiff Adler bei Kessel 12|13' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Test: Galaxie zoomen' }));
+
+      expect(
+        screen.getByRole('button', { name: '2 Schiffe bei 40|41' }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole('button', { name: 'Schiff Adler bei Kessel 12|13' }),
+      ).toBeNull();
+    });
+
+    it('bundles contacts on the same system field with a count', async () => {
+      contactsByLayer[3].push(
+        ownContact({
+          spacecraftId: 13,
+          spacecraftName: 'Habicht',
+          location: { scope: 'SYSTEM', locationId: 1100, systemId: 7, x: 12, y: 13 },
+          galaxyCell: { layerId: 3, x: 40, y: 41 },
+        }),
+      );
+      renderPage();
+      await screen.findByRole('button', { name: '3 Schiffe bei 40|41' });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Test: Systemraster zoomen' }),
+      );
+
+      const bundle = screen.getByRole('button', {
+        name: '2 Schiffe bei Kessel 12|13',
+      });
+      expect(within(bundle).getByText('2')).toBeTruthy();
+    });
+
+    it('keeps contacts of a system without a loaded grid at the system cell', async () => {
+      contactsByLayer[3] = [
+        ownContact({
+          spacecraftId: 14,
+          spacecraftName: 'Kranich',
+          location: { scope: 'SYSTEM', locationId: 1400, systemId: 8, x: 3, y: 4 },
+          galaxyCell: { layerId: 3, x: 60, y: 61 },
+        }),
+      ];
+      renderPage();
+      await screen.findByRole('button', { name: 'Schiff Kranich bei 60|61' });
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Test: Systemraster zoomen' }),
+      );
+
+      expect(
+        screen.getByRole('button', { name: 'Schiff Kranich bei 60|61' }),
+      ).toBeTruthy();
+    });
+
+    it('opens the selection panel for a system marker and hides it with the switch', async () => {
+      renderPage();
+      await zoomIntoSystemGrid();
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Schiff Adler bei Kessel 12|13' }),
+      );
+
+      const panel = screen.getByRole('region', {
+        name: 'Schiffe auf Feld Kessel 12|13',
+      });
+      expect(within(panel).getByRole('link', { name: 'Adler' })).toBeTruthy();
+      expect(within(panel).getByText('Kessel · 12|13')).toBeTruthy();
+      expect(within(panel).getByText('Hülle 80/120')).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Schiffe' }));
+
+      expect(
+        screen.queryByRole('button', { name: 'Schiff Adler bei Kessel 12|13' }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole('region', { name: 'Schiffe auf Feld Kessel 12|13' }),
+      ).toBeNull();
+    });
   });
 });
