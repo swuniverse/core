@@ -6,6 +6,8 @@ interface StarmapControlPanelProps {
   onToggleGrid: (value: boolean) => void;
   showShips: boolean;
   onToggleShips: (value: boolean) => void;
+  /** Alliance switch; only offered while the server reports alliance contacts as active. */
+  allianceShips?: { visible: boolean; onToggle: (value: boolean) => void };
   selectedSector: { x: number; y: number } | null;
   onSelectSector: (sector: { x: number; y: number } | null) => void;
   onZoomIn: () => void;
@@ -29,6 +31,7 @@ export function StarmapControlPanel({
   onToggleGrid,
   showShips,
   onToggleShips,
+  allianceShips,
   selectedSector,
   onSelectSector,
   onZoomIn,
@@ -68,6 +71,17 @@ export function StarmapControlPanel({
         <input type="checkbox" checked={showShips} onChange={(event) => onToggleShips(event.target.checked)} />
         Schiffe
       </label>
+      {allianceShips && (
+        <label className="flex items-center gap-2 pl-4 text-xs text-swu-muted">
+          <input
+            type="checkbox"
+            checked={allianceShips.visible}
+            disabled={!showShips}
+            onChange={(event) => allianceShips.onToggle(event.target.checked)}
+          />
+          Allianzschiffe
+        </label>
+      )}
       <div className="flex items-center gap-2">
         <span className="text-xs text-swu-muted">Sektor</span>
         <select

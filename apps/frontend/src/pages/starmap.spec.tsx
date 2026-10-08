@@ -60,7 +60,26 @@ function ownContact(overrides: Partial<StarmapContactDto> = {}): StarmapContactD
   };
 }
 
+function allianceContact(
+  overrides: Partial<StarmapContactDto> = {},
+): StarmapContactDto {
+  return {
+    spacecraftId: 30,
+    spacecraftName: 'Kranich',
+    shipClassId: 100,
+    ownerId: 2,
+    ownerName: 'Mate',
+    location: { scope: 'GALAXY', locationId: 3000, layerId: 3, x: 8, y: 9 },
+    galaxyCell: { layerId: 3, x: 8, y: 9 },
+    reason: 'ALLIANCE',
+    stance: 'FRIEND',
+    alliance: { id: 5, name: 'Rote Schwadron', color: '#ff8800' },
+    ...overrides,
+  };
+}
+
 let contactsByLayer: Record<number, StarmapContactDto[]>;
+let allianceContactsActive: boolean;
 
 function mockApi() {
   apiMocks.get.mockImplementation((path: string) => {
@@ -70,7 +89,7 @@ function mockApi() {
       const layerId = Number(contacts[1]);
       return Promise.resolve({
         layerId,
-        allianceContactsActive: false,
+        allianceContactsActive,
         contacts: contactsByLayer[layerId] ?? [],
       } satisfies StarmapContactsDto);
     }
@@ -95,6 +114,7 @@ describe('StarmapPage ship layer', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
     socketHandlers.clear();
+    allianceContactsActive = false;
     contactsByLayer = {
       3: [
         ownContact(),
@@ -257,5 +277,93 @@ describe('StarmapPage ship layer', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('alliance ships', () => {
+    beforeEach(() => {
+      allianceContactsActive = true;
+      contactsByLayer[3] = [
+        ownContact(),
+        allianceContact(),
+        allianceContact({
+          spacecraftId: 31,
+          spacecraftName: 'Reiher',
+          location: { scope: 'GALAXY', locationId: 3100, layerId: 3, x: 9, y: 9 },
+          galaxyCell: { layerId: 3, x: 9, y: 9 },
+          stance: 'NEUTRAL',
+          alliance: { id: 6, name: 'Graue Staffel', color: null },
+        }),
+      ];
+    });
+
+    it('distinguishes alliance markers from own markers and names the stance', async () => {
+      renderPage();
+
+      const own = await screen.findByRole('button', {
+        name: 'Schiff Falke bei 4|5',
+      });
+      const ally = screen.getByRole('button', {
+        name: 'Schiff Kranich bei 8|9 (Allianzschiff, Freund)',
+      });
+      expect(own.getAttribute('data-reason')).toBe('OWN');
+      expect(ally.getAttribute('data-reason')).toBe('ALLIANCE');
+      expect(ally.getAttribute('data-stance')).toBe('FRIEND');
+      expect(within(ally).getByText('+')).toBeTruthy();
+      expect(
+        within(
+          screen.getByRole('button', {
+            name: 'Schiff Reiher bei 9|9 (Allianzschiff, Neutral)',
+          }),
+        ).getByText('○'),
+      ).toBeTruthy();
+    });
+
+    it('paints alliance markers in the alliance color or the default alliance color', async () => {
+      renderPage();
+
+      const colored = await screen.findByRole('button', {
+        name: /^Schiff Kranich/,
+      });
+      const uncolored = screen.getByRole('button', { name: /^Schiff Reiher/ });
+      const own = screen.getByRole('button', { name: 'Schiff Falke bei 4|5' });
+      expect(colored.style.backgroundColor).toBe('rgb(255, 136, 0)');
+      expect(uncolored.style.backgroundColor).toBe('rgb(167, 139, 250)');
+      expect(own.style.backgroundColor).not.toBe(
+        uncolored.style.backgroundColor,
+      );
+    });
+
+    it('shows only base data of a selected alliance ship and offers no actions', async () => {
+      renderPage();
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: /^Schiff Kranich/ }),
+      );
+
+      const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 8|9' });
+      expect(within(panel).getByText('Kranich')).toBeTruthy();
+      expect(within(panel).getByText('Allianzschiff · Freund')).toBeTruthy();
+      expect(within(panel).getByText('Mate')).toBeTruthy();
+      expect(within(panel).getByText('Rote Schwadron')).toBeTruthy();
+      expect(within(panel).queryByText(/Hülle|Crew|Alarmstufe/)).toBeNull();
+      expect(within(panel).queryByRole('link')).toBeNull();
+      expect(
+        within(panel)
+          .getAllByRole('button')
+          .map((button) => button.getAttribute('aria-label')),
+      ).toEqual(['Auswahl schließen']);
+    });
+
+    it('hides alliance ships with their own switch while own ships stay', async () => {
+      renderPage();
+      await screen.findByRole('button', { name: /^Schiff Kranich/ });
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Allianzschiffe' }));
+
+      expect(screen.queryByRole('button', { name: /^Schiff Kranich/ })).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Schiff Falke bei 4|5' }),
+      ).toBeTruthy();
+    });
   });
 });

@@ -379,10 +379,7 @@ describe('StarmapVisibilityService.listContacts', () => {
       'ships without a resolvable position',
       { location: { id: 1000, kind: 'GALAXY_FIELD', galaxyField: null } },
     ],
-    [
-      'ships on another layer',
-      { location: galaxyLocation(1000, 4, 4, 5) },
-    ],
+    ['ships on another layer', { location: galaxyLocation(1000, 4, 4, 5) }],
   ])('omits %s', async (_label, overrides) => {
     await expect(
       contactsService([ownShip(overrides)]).listContacts(1, STARMAP_LAYER_ID),
@@ -447,7 +444,7 @@ describe('StarmapVisibilityService.listContacts', () => {
   });
 
   it.each([false, true])(
-    'shows only own ships while alliance contacts are not built (capability %s)',
+    'never shows a partner from another alliance as alliance contact (capability %s)',
     async (enabled) => {
       const result = await contactsService(
         [
@@ -468,4 +465,194 @@ describe('StarmapVisibilityService.listContacts', () => {
       expect(result.allianceContactsActive).toBe(enabled);
     },
   );
+
+  describe('alliance ships', () => {
+    /** Viewer 1 presides "Viewers" (#ff8800) with member 2; 3 is unaffiliated. */
+    function allianceWorld({ color = '#ff8800' as string | null } = {}) {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Viewer');
+      store.addPlayer(2, 'Mate');
+      store.addPlayer(3, 'Loner');
+      const alliance = store.seedAlliance({ name: 'Viewers', color }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      return { store, alliance };
+    }
+
+    const shipOf = (id: number, userId: number, username: string) =>
+      ownShip({
+        id,
+        name: `${username} Ship`,
+        userId,
+        user: { id: userId, username },
+        location: galaxyLocation(id, STARMAP_LAYER_ID, id, id + 1),
+      });
+
+    const fleet = () => [
+      ownShip(),
+      shipOf(20, 2, 'Mate'),
+      shipOf(30, 3, 'Loner'),
+    ];
+
+    const serviceFor = (
+      store: InMemoryAllianceStore,
+      ships: Spacecraft[] = fleet(),
+      { enabled = true } = {},
+    ) =>
+      new StarmapVisibilityService(
+        shipRepository(ships),
+        new RelationshipResolverService(
+          store,
+          new NoPersonalContactStatusPort(),
+        ),
+        ...contactCollaborators({ enabled }),
+      );
+
+    const contactIds = async (service: StarmapVisibilityService, viewer = 1) =>
+      (await service.listContacts(viewer, STARMAP_LAYER_ID)).contacts.map(
+        (contact) => [contact.spacecraftId, contact.reason],
+      );
+
+    it('shows ships of all current alliance members with base data, stance and alliance', async () => {
+      const { store, alliance } = allianceWorld();
+
+      const result = await serviceFor(store).listContacts(1, STARMAP_LAYER_ID);
+
+      expect(result.allianceContactsActive).toBe(true);
+      expect(result.contacts).toEqual([
+        expect.objectContaining({ spacecraftId: 10, reason: 'OWN' }),
+        {
+          spacecraftId: 20,
+          spacecraftName: 'Mate Ship',
+          shipClassId: 100,
+          ownerId: 2,
+          ownerName: 'Mate',
+          location: {
+            scope: 'GALAXY',
+            locationId: 20,
+            layerId: STARMAP_LAYER_ID,
+            x: 20,
+            y: 21,
+          },
+          galaxyCell: { layerId: STARMAP_LAYER_ID, x: 20, y: 21 },
+          reason: 'ALLIANCE',
+          stance: 'FRIEND',
+          alliance: { id: alliance.id, name: 'Viewers', color: '#ff8800' },
+        },
+      ]);
+    });
+
+    it('keeps own ships as OWN without stance or alliance and lists each ship once', async () => {
+      const { store } = allianceWorld();
+
+      const result = await serviceFor(store).listContacts(1, STARMAP_LAYER_ID);
+
+      const own = result.contacts.filter((contact) => contact.ownerId === 1);
+      expect(own).toHaveLength(1);
+      expect(own[0].reason).toBe('OWN');
+      expect(own[0]).not.toHaveProperty('stance');
+      expect(own[0]).not.toHaveProperty('alliance');
+    });
+
+    it('passes on an unset alliance color as null', async () => {
+      const { store } = allianceWorld({ color: null });
+
+      const result = await serviceFor(store).listContacts(1, STARMAP_LAYER_ID);
+
+      expect(result.contacts[1].alliance?.color).toBeNull();
+    });
+
+    it('shows a player without alliance only their own ships', async () => {
+      const { store } = allianceWorld();
+
+      await expect(contactIds(serviceFor(store), 3)).resolves.toEqual([
+        [30, 'OWN'],
+      ]);
+    });
+
+    it('shows only own ships while the capability is disabled', async () => {
+      const { store } = allianceWorld();
+      const service = serviceFor(store, fleet(), { enabled: false });
+
+      const result = await service.listContacts(1, STARMAP_LAYER_ID);
+
+      expect(result.allianceContactsActive).toBe(false);
+      expect(result.contacts.map((contact) => contact.spacecraftId)).toEqual([
+        10,
+      ]);
+    });
+
+    it('applies joining, leaving and kicking with the next request', async () => {
+      const { store, alliance } = allianceWorld();
+      const service = serviceFor(store);
+
+      await store.insertMembership({
+        allianceId: alliance.id,
+        userId: 3,
+        role: AllianceRole.NONE,
+      });
+      await expect(contactIds(service)).resolves.toEqual([
+        [10, 'OWN'],
+        [20, 'ALLIANCE'],
+        [30, 'ALLIANCE'],
+      ]);
+      await expect(contactIds(service, 3)).resolves.toEqual([
+        [10, 'ALLIANCE'],
+        [20, 'ALLIANCE'],
+        [30, 'OWN'],
+      ]);
+
+      await store.deleteMembership(alliance.id, 2);
+      await expect(contactIds(service)).resolves.toEqual([
+        [10, 'OWN'],
+        [30, 'ALLIANCE'],
+      ]);
+      await expect(contactIds(service, 2)).resolves.toEqual([[20, 'OWN']]);
+    });
+
+    it('leaves no alliance view behind after dissolution', async () => {
+      const { store, alliance } = allianceWorld();
+      const service = serviceFor(store);
+
+      await store.deleteAlliance(alliance.id);
+
+      await expect(contactIds(service)).resolves.toEqual([[10, 'OWN']]);
+      await expect(contactIds(service, 2)).resolves.toEqual([[20, 'OWN']]);
+    });
+
+    it('never shows a member of the other faction as alliance contact', async () => {
+      const { store, alliance } = allianceWorld();
+      store.addPlayer(4, 'Imperial', EMPIRE.id);
+      await store.insertMembership({
+        allianceId: alliance.id,
+        userId: 4,
+        role: AllianceRole.NONE,
+      });
+
+      await expect(
+        contactIds(serviceFor(store, [...fleet(), shipOf(40, 4, 'Imperial')])),
+      ).resolves.toEqual([
+        [10, 'OWN'],
+        [20, 'ALLIANCE'],
+      ]);
+    });
+
+    it.each([
+      ['membership lookup', 'findMembership'],
+      ['player lookup', 'findPlayer'],
+    ] as const)(
+      'shows only own ships when the %s fails',
+      async (_label, method) => {
+        const { store } = allianceWorld();
+        jest
+          .spyOn(store, method)
+          .mockRejectedValue(new Error('database unavailable'));
+
+        await expect(contactIds(serviceFor(store))).resolves.toEqual([
+          [10, 'OWN'],
+        ]);
+      },
+    );
+  });
 });

@@ -19,6 +19,18 @@ export interface ResolvedStance {
   mayProvisionProtectedShip: boolean;
   mayShareLivePosition: boolean;
   mayShareHistoricalScans: boolean;
+  /** Same-alliance only: the other player's ships appear on the alliance map. */
+  mayShareAllianceMap: boolean;
+}
+
+/**
+ * Candidates for the viewer's alliance map: the viewer's current alliance and
+ * its other current members. Whether a mate's ships are shown is still decided
+ * by the `mayShareAllianceMap` capability of the resolved stance.
+ */
+export interface AllianceMapCandidates {
+  alliance: { id: number; name: string; color: string | null } | null;
+  mateIds: number[];
 }
 
 /**
@@ -87,6 +99,38 @@ export class RelationshipResolverService {
     }
   }
 
+  /**
+   * The viewer's current alliance and its other current members, read fresh
+   * on every call. Never throws; on failure or without an alliance there are
+   * no candidates.
+   */
+  async allianceMapCandidates(
+    viewerId: number,
+  ): Promise<AllianceMapCandidates> {
+    const none: AllianceMapCandidates = { alliance: null, mateIds: [] };
+    try {
+      const membership = await this.store.findMembership(viewerId);
+      if (!membership) return none;
+      const [alliance, memberships] = await Promise.all([
+        this.store.findAlliance(membership.allianceId),
+        this.store.listMemberships(membership.allianceId),
+      ]);
+      if (!alliance) return none;
+      return {
+        alliance: {
+          id: alliance.id,
+          name: alliance.name,
+          color: alliance.color,
+        },
+        mateIds: memberships
+          .map((member) => member.userId)
+          .filter((memberId) => memberId !== viewerId),
+      };
+    } catch {
+      return none;
+    }
+  }
+
   /** Never throws; failures resolve to a closed Neutral without capabilities. */
   async resolve(
     firstPlayerId: number,
@@ -114,7 +158,10 @@ export class RelationshipResolverService {
         secondMembership &&
         firstMembership.allianceId === secondMembership.allianceId
       ) {
-        return resolved('FRIEND', { mayShareHistoricalScans: true });
+        return resolved('FRIEND', {
+          mayShareHistoricalScans: true,
+          mayShareAllianceMap: true,
+        });
       }
 
       let mayShareLivePosition = false;
@@ -172,7 +219,12 @@ function resolved(
   {
     mayShareLivePosition = false,
     mayShareHistoricalScans = false,
-  }: { mayShareLivePosition?: boolean; mayShareHistoricalScans?: boolean } = {},
+    mayShareAllianceMap = false,
+  }: {
+    mayShareLivePosition?: boolean;
+    mayShareHistoricalScans?: boolean;
+    mayShareAllianceMap?: boolean;
+  } = {},
 ): ResolvedStance {
   const isFriend = status === 'FRIEND';
   const isEnemy = status === 'ENEMY';
@@ -185,5 +237,6 @@ function resolved(
     mayProvisionProtectedShip: isFriend,
     mayShareLivePosition,
     mayShareHistoricalScans: isFriend && mayShareHistoricalScans,
+    mayShareAllianceMap: isFriend && mayShareAllianceMap,
   };
 }

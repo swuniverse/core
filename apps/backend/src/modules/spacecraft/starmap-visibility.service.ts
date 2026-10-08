@@ -2,8 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type {
   SharedLivePositionDto,
+  StarmapContactAllianceDto,
   StarmapContactDto,
   StarmapContactReason,
+  StarmapContactStance,
   StarmapContactsDto,
 } from '@swuniverse/shared';
 import { In, Not, Repository } from 'typeorm';
@@ -15,6 +17,14 @@ import {
   projectSpacecraftLocationToGalaxy,
   resolveSpacecraftLocation,
 } from './spacecraft-field';
+
+/** Why and how the viewer sees the ships of one owner. */
+interface OwnerVisibility {
+  reason: StarmapContactReason;
+  /** Central stance; absent for the viewer's own ships. */
+  stance?: StarmapContactStance;
+  alliance?: StarmapContactAllianceDto;
+}
 
 const SHIP_LOCATION_RELATIONS = [
   'user',
@@ -48,10 +58,10 @@ export class StarmapVisibilityService {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) throw new NotFoundException('Layer not found');
 
-    const reasons = this.contactReasonsByOwner(viewerId);
+    const visibility = await this.visibilityByOwner(viewerId);
     const ships = await this.shipRepo.find({
       where: {
-        userId: In([...reasons.keys()]),
+        userId: In([...visibility.keys()]),
         status: Not(SpacecraftStatus.DESTROYED),
       },
       relations: SHIP_LOCATION_RELATIONS,
@@ -59,8 +69,8 @@ export class StarmapVisibilityService {
     });
 
     const contacts = ships.flatMap((ship) => {
-      const reason = reasons.get(ship.userId);
-      const contact = reason ? this.toContact(ship, reason, layerId) : null;
+      const owner = visibility.get(ship.userId);
+      const contact = owner ? this.toContact(ship, owner, layerId) : null;
       return contact ? [contact] : [];
     });
 
@@ -72,13 +82,39 @@ export class StarmapVisibilityService {
   }
 
   /**
-   * Visibility reason per ship owner, highest priority first
-   * (OWN before ALLIANCE before SHARED_LIVE_POSITION).
+   * Visibility per ship owner. Each owner gets exactly one reason, highest
+   * priority first (OWN before ALLIANCE before SHARED_LIVE_POSITION); the
+   * stances of all candidates are resolved in one batched `resolveMany`.
+   * Membership and relationships are read fresh on every request.
    */
-  private contactReasonsByOwner(
+  private async visibilityByOwner(
     viewerId: number,
-  ): Map<number, StarmapContactReason> {
-    return new Map([[viewerId, 'OWN']]);
+  ): Promise<Map<number, OwnerVisibility>> {
+    const visibility = new Map<number, OwnerVisibility>([
+      [viewerId, { reason: 'OWN' }],
+    ]);
+    if (!this.capability.enabled) return visibility;
+
+    const { alliance, mateIds } =
+      await this.relationships.allianceMapCandidates(viewerId);
+    const candidateIds = mateIds.filter((id) => !visibility.has(id));
+    if (candidateIds.length === 0) return visibility;
+
+    const stances = await this.relationships.resolveMany(
+      viewerId,
+      candidateIds,
+    );
+    for (const ownerId of candidateIds) {
+      const stance = stances.get(ownerId);
+      if (alliance && stance?.mayShareAllianceMap) {
+        visibility.set(ownerId, {
+          reason: 'ALLIANCE',
+          stance: stance.status,
+          alliance,
+        });
+      }
+    }
+    return visibility;
   }
 
   /**
@@ -87,7 +123,7 @@ export class StarmapVisibilityService {
    */
   private toContact(
     ship: Spacecraft,
-    reason: StarmapContactReason,
+    { reason, stance, alliance }: OwnerVisibility,
     layerId: number,
   ): StarmapContactDto | null {
     if (ship.status === SpacecraftStatus.DESTROYED) return null;
@@ -107,6 +143,8 @@ export class StarmapVisibilityService {
         y: galaxyCell.y,
       },
       reason,
+      ...(stance ? { stance } : {}),
+      ...(alliance ? { alliance: { ...alliance } } : {}),
     };
     if (reason === 'OWN') {
       contact.management = {
