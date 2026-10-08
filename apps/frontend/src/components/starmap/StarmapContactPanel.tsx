@@ -6,8 +6,8 @@ import type {
 import {
   CONTACT_REASON_LABELS,
   CONTACT_STANCE_LABELS,
-  type StarmapContactBundle,
-} from './StarmapShipOverlay';
+} from './starmap-contact-labels';
+import type { StarmapContactBundle } from './StarmapShipOverlay';
 
 const ALERT_LABELS: Record<SpacecraftAlertState, string> = {
   GREEN: 'Grün',
