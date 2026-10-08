@@ -26,7 +26,7 @@ import {
 } from 'class-validator';
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
-import { LivePositionVisibilityService } from './live-position-visibility.service';
+import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
@@ -286,7 +286,7 @@ export class SpacecraftController {
     private readonly communicationService: SpacecraftCommunicationService,
     private readonly engineeringService: SpacecraftEngineeringService,
     private readonly destructionService: SpacecraftDestructionService,
-    private readonly livePositionVisibilityService: LivePositionVisibilityService,
+    private readonly starmapVisibilityService: StarmapVisibilityService,
   ) {}
 
   // Static routes first (before :id)
@@ -399,7 +399,16 @@ export class SpacecraftController {
 
   @Get('shared-live-positions')
   getSharedLivePositions(@Request() req: { user: { sub: number } }) {
-    return this.livePositionVisibilityService.listForViewer(req.user.sub);
+    return this.starmapVisibilityService.listSharedLivePositions(req.user.sub);
+  }
+
+  /** Starmap contacts of the viewer on one map layer (required `layerId`). */
+  @Get('starmap-contacts')
+  getStarmapContacts(
+    @Query('layerId', ParseIntPipe) layerId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.starmapVisibilityService.listContacts(req.user.sub, layerId);
   }
 
   @Get('colony-scans')

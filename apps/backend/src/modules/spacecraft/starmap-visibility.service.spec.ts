@@ -4,6 +4,7 @@ jest.mock('./entities/spacecraft.entity', () => ({
 }));
 
 import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
+import { NotFoundException } from '@nestjs/common';
 import {
   NoPersonalContactStatusPort,
   RelationshipResolverService,
@@ -14,12 +15,32 @@ import {
 } from '../alliance/testing/in-memory-alliance.store';
 import type { Repository } from 'typeorm';
 import { Spacecraft } from './entities/spacecraft.entity';
-import { LivePositionVisibilityService } from './live-position-visibility.service';
+import { StarmapVisibilityService } from './starmap-visibility.service';
+import { AllianceInfrastructureCapabilityService } from '../alliance/alliance-infrastructure-capability.service';
+import type { Layer } from '../starmap/entities/layer.entity';
 
 const shipRepository = (ships: Spacecraft[]) =>
   ({
     find: jest.fn().mockResolvedValue(ships),
   }) as unknown as Repository<Spacecraft>;
+
+const layerRepository = (layers: Array<Pick<Layer, 'id'>>) =>
+  ({
+    findOneBy: jest.fn(({ id }: { id: number }) =>
+      Promise.resolve(layers.find((layer) => layer.id === id) ?? null),
+    ),
+  }) as unknown as Repository<Layer>;
+
+const STARMAP_LAYER_ID = 3;
+
+/** Layer repository and rollout capability used for starmap contacts. */
+const contactCollaborators = ({ enabled = false } = {}) =>
+  [
+    layerRepository([{ id: STARMAP_LAYER_ID }]),
+    new AllianceInfrastructureCapabilityService({
+      get: () => (enabled ? 'true' : undefined),
+    } as never),
+  ] as const;
 
 const galaxyLocation = (id: number, layerId: number, x: number, y: number) => ({
   id,
@@ -48,7 +69,7 @@ function viewerInSharingAlliance() {
   return store;
 }
 
-describe('LivePositionVisibilityService', () => {
+describe('StarmapVisibilityService', () => {
   it('shows current ship positions shared by an active alliance relationship', async () => {
     const allianceStore = new InMemoryAllianceStore();
     allianceStore.addPlayer(1, 'Viewer');
@@ -85,15 +106,16 @@ describe('LivePositionVisibilityService', () => {
         location: galaxyLocation(2000, 3, 8, 9),
       },
     ] as Spacecraft[];
-    const service = new LivePositionVisibilityService(
+    const service = new StarmapVisibilityService(
       shipRepository(ships),
       new RelationshipResolverService(
         allianceStore,
         new NoPersonalContactStatusPort(),
       ),
+      ...contactCollaborators(),
     );
 
-    await expect(service.listForViewer(1)).resolves.toEqual([
+    await expect(service.listSharedLivePositions(1)).resolves.toEqual([
       {
         spacecraftId: 20,
         spacecraftName: 'Shared Ship',
@@ -127,7 +149,7 @@ describe('LivePositionVisibilityService', () => {
       type: AllianceRelationshipType.ALLIANCE,
       shareLivePositions: true,
     });
-    const service = new LivePositionVisibilityService(
+    const service = new StarmapVisibilityService(
       shipRepository([
         {
           id: 20,
@@ -148,9 +170,10 @@ describe('LivePositionVisibilityService', () => {
         allianceStore,
         new NoPersonalContactStatusPort(),
       ),
+      ...contactCollaborators(),
     );
 
-    await expect(service.listForViewer(1)).resolves.toEqual([
+    await expect(service.listSharedLivePositions(1)).resolves.toEqual([
       expect.objectContaining({
         spacecraftId: 20,
         location: {
@@ -208,7 +231,7 @@ describe('LivePositionVisibilityService', () => {
         .spyOn(allianceStore, 'listActiveRelationships')
         .mockResolvedValue([]);
     }
-    const service = new LivePositionVisibilityService(
+    const service = new StarmapVisibilityService(
       shipRepository([
         {
           id: 20,
@@ -224,13 +247,14 @@ describe('LivePositionVisibilityService', () => {
         allianceStore,
         new NoPersonalContactStatusPort(),
       ),
+      ...contactCollaborators(),
     );
 
-    await expect(service.listForViewer(1)).resolves.toEqual([]);
+    await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
   });
 
   it('does not return the viewer’s own positions', async () => {
-    const service = new LivePositionVisibilityService(
+    const service = new StarmapVisibilityService(
       shipRepository([
         {
           id: 10,
@@ -246,9 +270,10 @@ describe('LivePositionVisibilityService', () => {
         viewerInSharingAlliance(),
         new NoPersonalContactStatusPort(),
       ),
+      ...contactCollaborators(),
     );
 
-    await expect(service.listForViewer(1)).resolves.toEqual([]);
+    await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
   });
 
   it('fails closed when relationship resolution fails', async () => {
@@ -260,7 +285,7 @@ describe('LivePositionVisibilityService', () => {
       store,
       new NoPersonalContactStatusPort(),
     );
-    const service = new LivePositionVisibilityService(
+    const service = new StarmapVisibilityService(
       shipRepository([
         {
           id: 20,
@@ -273,8 +298,174 @@ describe('LivePositionVisibilityService', () => {
         } as Spacecraft,
       ]),
       relationships,
+      ...contactCollaborators(),
     );
 
-    await expect(service.listForViewer(1)).resolves.toEqual([]);
+    await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
   });
+});
+
+describe('StarmapVisibilityService.listContacts', () => {
+  const ownShip = (overrides: Record<string, unknown> = {}) =>
+    ({
+      id: 10,
+      name: 'Viewer Ship',
+      shipClassId: 100,
+      userId: 1,
+      user: { id: 1, username: 'Viewer' },
+      status: 'IDLE',
+      alertState: 'YELLOW',
+      hull: 80,
+      hullMax: 120,
+      crew: 9,
+      crewMax: 12,
+      locationId: 1000,
+      location: galaxyLocation(1000, 3, 4, 5),
+      ...overrides,
+    }) as unknown as Spacecraft;
+
+  function contactsService(
+    ships: Spacecraft[],
+    { enabled = false }: { enabled?: boolean } = {},
+  ) {
+    return new StarmapVisibilityService(
+      shipRepository(ships),
+      new RelationshipResolverService(
+        viewerInSharingAlliance(),
+        new NoPersonalContactStatusPort(),
+      ),
+      ...contactCollaborators({ enabled }),
+    );
+  }
+
+  it('shows the viewer’s own ships on the layer with management details', async () => {
+    await expect(
+      contactsService([ownShip()]).listContacts(1, STARMAP_LAYER_ID),
+    ).resolves.toEqual({
+      layerId: 3,
+      allianceContactsActive: false,
+      contacts: [
+        {
+          spacecraftId: 10,
+          spacecraftName: 'Viewer Ship',
+          shipClassId: 100,
+          ownerId: 1,
+          ownerName: 'Viewer',
+          location: {
+            scope: 'GALAXY',
+            locationId: 1000,
+            layerId: 3,
+            x: 4,
+            y: 5,
+          },
+          galaxyCell: { layerId: 3, x: 4, y: 5 },
+          reason: 'OWN',
+          management: {
+            status: 'IDLE',
+            alertState: 'YELLOW',
+            hull: 80,
+            hullMax: 120,
+            crew: 9,
+            crewMax: 12,
+          },
+        },
+      ],
+    });
+  });
+
+  it.each([
+    ['destroyed ships', { status: 'DESTROYED' }],
+    [
+      'ships without a resolvable position',
+      { location: { id: 1000, kind: 'GALAXY_FIELD', galaxyField: null } },
+    ],
+    [
+      'ships on another layer',
+      { location: galaxyLocation(1000, 4, 4, 5) },
+    ],
+  ])('omits %s', async (_label, overrides) => {
+    await expect(
+      contactsService([ownShip(overrides)]).listContacts(1, STARMAP_LAYER_ID),
+    ).resolves.toMatchObject({ contacts: [] });
+  });
+
+  it('rejects an unknown layer as not found', async () => {
+    await expect(
+      contactsService([ownShip()]).listContacts(1, 99),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('places ships inside a system at the system’s galaxy cell', async () => {
+    const result = await contactsService([
+      ownShip({
+        location: {
+          id: 1000,
+          kind: 'SYSTEM_FIELD',
+          galaxyField: null,
+          systemField: {
+            starSystemId: 7,
+            sx: 12,
+            sy: 13,
+            starSystem: { layerId: 3, cx: 40, cy: 41 },
+          },
+        },
+      }),
+    ]).listContacts(1, STARMAP_LAYER_ID);
+
+    expect(result.contacts).toEqual([
+      expect.objectContaining({
+        location: {
+          scope: 'SYSTEM',
+          locationId: 1000,
+          systemId: 7,
+          x: 12,
+          y: 13,
+        },
+        galaxyCell: { layerId: 3, x: 40, y: 41 },
+      }),
+    ]);
+  });
+
+  it('omits system ships whose system lies on another layer', async () => {
+    const result = await contactsService([
+      ownShip({
+        location: {
+          id: 1000,
+          kind: 'SYSTEM_FIELD',
+          galaxyField: null,
+          systemField: {
+            starSystemId: 7,
+            sx: 12,
+            sy: 13,
+            starSystem: { layerId: 4, cx: 40, cy: 41 },
+          },
+        },
+      }),
+    ]).listContacts(1, STARMAP_LAYER_ID);
+
+    expect(result.contacts).toEqual([]);
+  });
+
+  it.each([false, true])(
+    'shows only own ships while alliance contacts are not built (capability %s)',
+    async (enabled) => {
+      const result = await contactsService(
+        [
+          ownShip(),
+          ownShip({
+            id: 20,
+            name: 'Shared Ship',
+            userId: 2,
+            user: { id: 2, username: 'Sharer' },
+          }),
+        ],
+        { enabled },
+      ).listContacts(1, STARMAP_LAYER_ID);
+
+      expect(result.contacts.map((contact) => contact.spacecraftId)).toEqual([
+        10,
+      ]);
+      expect(result.allianceContactsActive).toBe(enabled);
+    },
+  );
 });
