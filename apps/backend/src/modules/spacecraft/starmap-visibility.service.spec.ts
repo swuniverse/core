@@ -539,6 +539,8 @@ describe('StarmapVisibilityService.listContacts', () => {
           reason: 'ALLIANCE',
           stance: 'FRIEND',
           alliance: { id: alliance.id, name: 'Viewers', color: '#ff8800' },
+          // The viewer presides the alliance, see 'management details'.
+          management: expect.any(Object),
         },
       ]);
     });
@@ -636,6 +638,94 @@ describe('StarmapVisibilityService.listContacts', () => {
         [10, 'OWN'],
         [20, 'ALLIANCE'],
       ]);
+    });
+
+    describe('management details', () => {
+      const MANAGEMENT = {
+        status: 'IDLE',
+        alertState: 'YELLOW',
+        hull: 80,
+        hullMax: 120,
+        crew: 9,
+        crewMax: 12,
+      };
+
+      /** Viewer 2 holds `role`; mate 1 presides unless 2 is president. */
+      async function mateContactSeenAs(role: AllianceRole) {
+        const { store, alliance } = allianceWorld();
+        if (role === AllianceRole.PRESIDENT) {
+          await store.setRole(alliance.id, 1, AllianceRole.NONE);
+        }
+        await store.setRole(alliance.id, 2, role);
+        const result = await serviceFor(store).listContacts(
+          2,
+          STARMAP_LAYER_ID,
+        );
+        return result.contacts.find((contact) => contact.spacecraftId === 10);
+      }
+
+      it.each([AllianceRole.PRESIDENT, AllianceRole.VICE])(
+        'gives the %s management details for alliance ships',
+        async (role) => {
+          const contact = await mateContactSeenAs(role);
+
+          expect(contact).toMatchObject({ reason: 'ALLIANCE' });
+          expect(contact?.management).toEqual(MANAGEMENT);
+        },
+      );
+
+      it.each([AllianceRole.DIPLOMAT, AllianceRole.NONE])(
+        'does not transmit management details to a viewer with role %s',
+        async (role) => {
+          const contact = await mateContactSeenAs(role);
+
+          expect(contact).toMatchObject({ reason: 'ALLIANCE' });
+          expect(contact).not.toHaveProperty('management');
+        },
+      );
+
+      it('never transmits cargo, modules, logs or other private ship data', async () => {
+        const contact = await mateContactSeenAs(AllianceRole.PRESIDENT);
+
+        expect(Object.keys(contact ?? {}).sort()).toEqual(
+          [
+            'alliance',
+            'galaxyCell',
+            'location',
+            'management',
+            'ownerId',
+            'ownerName',
+            'reason',
+            'shipClassId',
+            'spacecraftId',
+            'spacecraftName',
+            'stance',
+          ].sort(),
+        );
+        expect(Object.keys(contact?.management ?? {}).sort()).toEqual(
+          Object.keys(MANAGEMENT).sort(),
+        );
+      });
+
+      it('applies losing an office and handing over the presidency with the next request', async () => {
+        const { store, alliance } = allianceWorld();
+        await store.setRole(alliance.id, 2, AllianceRole.VICE);
+        const service = serviceFor(store);
+        const mateManagement = async (viewer: number, shipId: number) =>
+          (await service.listContacts(viewer, STARMAP_LAYER_ID)).contacts.find(
+            (contact) => contact.spacecraftId === shipId,
+          )?.management;
+
+        await expect(mateManagement(2, 10)).resolves.toEqual(MANAGEMENT);
+
+        await store.setRole(alliance.id, 2, AllianceRole.NONE);
+        await expect(mateManagement(2, 10)).resolves.toBeUndefined();
+
+        await store.setRole(alliance.id, 1, AllianceRole.NONE);
+        await store.setRole(alliance.id, 2, AllianceRole.PRESIDENT);
+        await expect(mateManagement(2, 10)).resolves.toEqual(MANAGEMENT);
+        await expect(mateManagement(1, 20)).resolves.toBeUndefined();
+      });
     });
 
     it.each([
