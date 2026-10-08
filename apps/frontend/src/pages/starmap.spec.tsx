@@ -513,6 +513,49 @@ describe('StarmapPage ship layer', () => {
       ).toBeTruthy();
     });
 
+    it('names origin and stance of a bundle whose ships share both', async () => {
+      contactsByLayer[3] = [
+        allianceContact(),
+        allianceContact({ spacecraftId: 32, spacecraftName: 'Storch' }),
+      ];
+      renderPage();
+
+      const bundle = await screen.findByRole('button', {
+        name: '2 Schiffe bei 8|9 (Allianzschiff, Freund)',
+      });
+      expect(bundle.getAttribute('data-reason')).toBe('ALLIANCE');
+      expect(bundle.getAttribute('data-stance')).toBe('FRIEND');
+      expect(within(bundle).getByText('+')).toBeTruthy();
+    });
+
+    it('marks a bundle of mixed origins and shows every stance in it without opening it', async () => {
+      const atKranich = {
+        location: {
+          scope: 'GALAXY',
+          locationId: 3000,
+          layerId: 3,
+          x: 8,
+          y: 9,
+        },
+        galaxyCell: { layerId: 3, x: 8, y: 9 },
+      } as const;
+      contactsByLayer[3] = [
+        ownContact(atKranich),
+        allianceContact(),
+        partnerContact({ ...atKranich, stance: 'ENEMY' }),
+      ];
+      renderPage();
+
+      const bundle = await screen.findByRole('button', {
+        name: '3 Schiffe bei 8|9 (gemischt: Eigenes Schiff, Allianzschiff, Geteilte Position; Freund, Feind)',
+      });
+      expect(bundle.getAttribute('data-reason')).toBe('MIXED');
+      expect(bundle.getAttribute('data-stance')).toBe('FRIEND ENEMY');
+      expect(within(bundle).getByText('3')).toBeTruthy();
+      expect(within(bundle).getByText('◆')).toBeTruthy();
+      expect(within(bundle).getByText('+×')).toBeTruthy();
+    });
+
     it('offers no partner switch while alliance contacts are inactive', async () => {
       allianceContactsActive = false;
       contactsByLayer[3] = [ownContact()];
