@@ -2,15 +2,32 @@ import type {
   StarmapContactDto,
   StarmapContactReason,
   StarmapContactStance,
+  StarmapSystemGridDto,
+  StarmapSystemListItemDto,
 } from '@swuniverse/shared';
-import { STARMAP_CELL_SIZE } from '../../lib/starmap-render';
+import {
+  getInlineSystemPlacement,
+  STARMAP_CELL_SIZE,
+} from '../../lib/starmap-render';
 
-/** Contacts sharing one galaxy cell, drawn as a single marker. */
+/**
+ * Contacts sharing one galaxy cell, or one system field while the system grid
+ * is shown, drawn as a single marker.
+ */
 export interface StarmapContactBundle {
   key: string;
-  x: number;
-  y: number;
+  /** Position text, e.g. `40|41` or `Kessel 12|13`. */
+  label: string;
+  /** Marker centre in starmap world pixels. */
+  left: number;
+  top: number;
   contacts: StarmapContactDto[];
+}
+
+/** A system whose grid is currently drawn on the starmap. */
+export interface StarmapOpenSystemGrid {
+  grid: Pick<StarmapSystemGridDto, 'system'>;
+  anchor: Pick<StarmapSystemListItemDto, 'cx' | 'cy' | 'name'>;
 }
 
 export const CONTACT_REASON_LABELS: Record<StarmapContactReason, string> = {
@@ -27,24 +44,57 @@ export const CONTACT_STANCE_LABELS: Record<StarmapContactStance, string> = {
 
 const OWN_SHIP_COLOR = '#38bdf8';
 
+function markerPosition(
+  contact: StarmapContactDto,
+  openSystems: ReadonlyMap<number, StarmapOpenSystemGrid>,
+): Omit<StarmapContactBundle, 'contacts'> {
+  const { location } = contact;
+  const open =
+    location.scope === 'SYSTEM' ? openSystems.get(location.systemId) : undefined;
+  if (location.scope === 'SYSTEM' && open) {
+    const { grid, fieldPixelSize } = getInlineSystemPlacement(
+      open.grid,
+      open.anchor,
+    );
+    const position = `${location.x}|${location.y}`;
+    return {
+      key: `system:${location.systemId}:${position}`,
+      label: `${open.anchor.name} ${position}`,
+      left: grid.x + (location.x - 0.5) * fieldPixelSize,
+      top: grid.y + (location.y - 0.5) * fieldPixelSize,
+    };
+  }
+  const { x, y } = contact.galaxyCell;
+  return {
+    key: `${x}|${y}`,
+    label: `${x}|${y}`,
+    left: (x - 0.5) * STARMAP_CELL_SIZE,
+    top: (y - 0.5) * STARMAP_CELL_SIZE,
+  };
+}
+
+/**
+ * Bundles contacts per galaxy cell. Contacts inside a system listed in
+ * `openSystems` are bundled per system field at their system position instead.
+ */
 export function bundleStarmapContacts(
   contacts: StarmapContactDto[],
+  openSystems: ReadonlyMap<number, StarmapOpenSystemGrid> = new Map(),
 ): StarmapContactBundle[] {
   const bundles = new Map<string, StarmapContactBundle>();
   for (const contact of contacts) {
-    const { x, y } = contact.galaxyCell;
-    const key = `${x}|${y}`;
-    const bundle = bundles.get(key) ?? { key, x, y, contacts: [] };
+    const position = markerPosition(contact, openSystems);
+    const bundle = bundles.get(position.key) ?? { ...position, contacts: [] };
     bundle.contacts.push(contact);
-    bundles.set(key, bundle);
+    bundles.set(position.key, bundle);
   }
   return [...bundles.values()];
 }
 
 function markerLabel(bundle: StarmapContactBundle) {
   return bundle.contacts.length === 1
-    ? `Schiff ${bundle.contacts[0].spacecraftName} bei ${bundle.key}`
-    : `${bundle.contacts.length} Schiffe bei ${bundle.key}`;
+    ? `Schiff ${bundle.contacts[0].spacecraftName} bei ${bundle.label}`
+    : `${bundle.contacts.length} Schiffe bei ${bundle.label}`;
 }
 
 interface StarmapShipOverlayProps {
@@ -79,8 +129,8 @@ export function StarmapShipOverlay({
             onClick={() => onSelect(bundle)}
             className="pointer-events-auto absolute flex h-5 min-w-5 items-center justify-center rounded-full border-2 px-1 text-[10px] font-bold text-slate-950 shadow"
             style={{
-              left: (bundle.x - 0.5) * STARMAP_CELL_SIZE,
-              top: (bundle.y - 0.5) * STARMAP_CELL_SIZE,
+              left: bundle.left,
+              top: bundle.top,
               transform:
                 'translate(-50%, -50%) scale(var(--starmap-inverse-scale, 1))',
               backgroundColor: OWN_SHIP_COLOR,

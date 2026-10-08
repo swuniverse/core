@@ -74,6 +74,8 @@ interface StarmapCanvasProps {
    * It follows pan and zoom; `--starmap-inverse-scale` keeps markers readable.
    */
   worldOverlay?: ReactNode;
+  /** Reports whether the zoom level currently shows the opened system grids. */
+  onInlineSystemsVisibleChange?: (visible: boolean) => void;
 }
 
 const FIELD_TYPE_COLORS: Record<string, number> = {
@@ -105,6 +107,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       selectedSector,
       showGrid = true,
       worldOverlay,
+      onInlineSystemsVisibleChange,
     },
     ref,
   ) {
@@ -145,6 +148,8 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const selectedFieldRef = useRef(selectedField);
     const selectedSectorRef = useRef(selectedSector);
     const showGridRef = useRef(showGrid);
+    const onInlineSystemsVisibleChangeRef = useRef(onInlineSystemsVisibleChange);
+    const inlineSystemsVisibleRef = useRef<boolean | null>(null);
 
     useEffect(() => { fieldsRef.current = fields; }, [fields]);
     useEffect(() => { selectedSystemRef.current = selectedSystem; }, [selectedSystem]);
@@ -157,6 +162,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     useEffect(() => { selectedFieldRef.current = selectedField; }, [selectedField]);
     useEffect(() => { selectedSectorRef.current = selectedSector; }, [selectedSector]);
     useEffect(() => { showGridRef.current = showGrid; }, [showGrid]);
+    useEffect(() => { onInlineSystemsVisibleChangeRef.current = onInlineSystemsVisibleChange; }, [onInlineSystemsVisibleChange]);
 
     const getFieldAt = useCallback((worldX: number, worldY: number) => {
       const cx = Math.floor(worldX / CELL_SIZE) + 1;
@@ -223,8 +229,13 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         worldOverlayElement.style.setProperty('--starmap-inverse-scale', String(1 / state.scale));
       }
       if (gridRef.current) gridRef.current.visible = showGridRef.current && state.scale * CELL_SIZE >= 14;
+      const inlineSystemsVisible = state.scale >= INLINE_SYSTEM_SCALE;
       if (inlineSystemsRef.current) {
-        inlineSystemsRef.current.visible = state.scale >= INLINE_SYSTEM_SCALE;
+        inlineSystemsRef.current.visible = inlineSystemsVisible;
+      }
+      if (inlineSystemsVisibleRef.current !== inlineSystemsVisible) {
+        inlineSystemsVisibleRef.current = inlineSystemsVisible;
+        onInlineSystemsVisibleChangeRef.current?.(inlineSystemsVisible);
       }
       if (sectorRef.current) sectorRef.current.visible = showGridRef.current && state.scale * CELL_SIZE >= 7;
       drawOverlay();
