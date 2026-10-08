@@ -21,3 +21,7 @@
 Der vorhandene Sichtbarkeitspfad ist jetzt serverseitig an die aktive Beziehungsfreigabe `shareLivePositions` angebunden. `LivePositionVisibilityService` lädt nicht zerstörte Schiffe mit ihrer aktuellen Position, löst die Beziehung des Betrachters zum Besitzer zentral auf und gibt nur bei `mayShareLivePosition` die Position zurück. Aktive Freigaben wirken damit auch bei neutralem Beziehungsstatus; Freundschaft, historische Scans und Live-Positionen bleiben getrennte Fähigkeiten. Ausstehende Vorschläge, beendete Beziehungen, fehlende oder inkonsistente Parteien, Cross-Faction-Beziehungen und Resolver-Fehler fallen sicher auf keine Sichtbarkeit zurück. Die neue authentifizierte Route lautet `GET /api/spacecraft/shared-live-positions`.
 
 Verhaltenstests prüfen aktive Freigaben für Galaxy- und Systempositionen, fehlende, ausstehende und beendete Freigaben, Cross-Faction-Parteien, das Ausblenden eigener Schiffe und den sicheren Fehlerfall. Der Scanpfad wird nicht verändert und durch die Live-Freigabe nicht aktiviert.
+
+## Comments
+
+- Review 2026-10-08: Es gibt keinen vorhandenen Sternenkartenpfad, der fremde Schiffe zeigt; die Serverroute hat noch keinen Frontend-Verbraucher. Entscheidung des Nutzers: Die Kartenanzeige wird in der Etappe Allianz-Infrastruktur zusammen mit den Allianzschiffen gebaut. Bis dahin kennzeichnet die Diplomatieverwaltung, dass geteilte Live-Positionen erst mit der Allianz-Kartenansicht erscheinen. Integrationspunkte stehen in `docs/alliance-relationship-effects.md`.

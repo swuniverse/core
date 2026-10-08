@@ -1076,6 +1076,8 @@ Prioritäten:
 
 **Ziel:** Red Alert greift bei Feld-Eintritt an.
 
+**Allianz-Anbindung:** Der Trigger fragt die **Haltung** über `RelationshipResolverService` ab und rekonstruiert Freund/Feind nicht selbst. Alarm Gelb reagiert auf `mayReactAutomatically` (Feind), Alarm Rot auf `!isFriend` (Feind oder Neutral). Freunde lösen nie eine automatische Reaktion aus; bewusste direkte Angriffe bleiben unverändert. Siehe `docs/alliance-relationship-effects.md`.
+
 ### T-030 P2 Introduce `CombatSession`, `CombatParticipant`, `CombatRound`
 
 **Ziel:** Kämpfe persistent nachvollziehbar.

@@ -35,6 +35,8 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - [End-to-end Beziehungswirkungen](beziehungswirkungen-issues/06-end-to-end-beziehungswirkungen.md): Die vorhandenen Verbraucher verwenden die aktive zentrale Auflösung dynamisch und geschlossen; fehlende Alarm-, Docking-, Wurmloch- und Handelspostenpfade bleiben spätere Integrationspunkte.
 - [Live-Positionsfreigabe](beziehungswirkungen-issues/04-live-positionsfreigabe.md): `GET /api/spacecraft/shared-live-positions` prüft serverseitig die zentrale Fähigkeit `mayShareLivePosition`; nur aktive same-faction-Freigaben werden sichtbar, während Vorschläge, beendete Beziehungen, Cross-Faction-Parteien und Fehler sicher ausgeschlossen bleiben. Historische Scans bleiben unabhängig.
 
+- [Live-Positionsfreigabe](beziehungswirkungen-issues/04-live-positionsfreigabe.md), Nachtrag nach dem Review: SWU besitzt keinen vorhandenen Kartenpfad mit fremden Schiffen. Die Kartenanzeige geteilter Live-Positionen wird deshalb gemeinsam mit den Allianzschiffen auf der Sternenkarte in der Etappe Allianz-Infrastruktur gebaut; bis dahin weist die Diplomatieverwaltung darauf hin.
+
 ## Not yet specified
 
 - Keine offenen Produktentscheidungen. Neu entdeckte spielerwirksame Allianzfunktionalität wird bei der Ausarbeitung der Etappen aufgenommen, sofern sie innerhalb der festgelegten Produktgrenze liegt; andernfalls wird sie als künftiger Integrationspunkt benannt.

@@ -42,7 +42,11 @@ Das endgültige Ende einer Allianz, durch den Präsidenten oder durch den Austri
 Ein Spieler der jeweils anderen **Fraktion**. Diese Feindschaft ist grundsätzlich und hängt nicht von Diplomatie ab.
 
 **Freund**:
-Ein Spieler, der derselben **Allianz** angehört.
+Ein Spieler derselben **Fraktion**, der derselben **Allianz** angehört, dessen Allianz mit der eigenen eine aktive **Beziehung** mit der **Beziehungsfreigabe** „Als Freund behandeln“ hat oder den ein persönlicher Kontakt als Freund markiert. Ein Allianzkrieg hat Vorrang vor Freigabe und Kontakt, nicht aber vor derselben Allianz.
+
+**Haltung**:
+Ob ein Spieler für einen anderen **Freund**, **Feind** oder **Neutral** ist. Sie wird bei jeder Anfrage zentral aus Fraktion, Allianz, aktiven **Beziehungen** und persönlichem Kontakt abgeleitet und nie gespeichert. Anders als eine **Beziehung** besteht sie zwischen zwei Spielern, nicht zwischen Parteien.
+_Avoid_: Beziehungsstatus, Relationship
 
 **Neutral**:
 Ein Spieler derselben **Fraktion**, der weder **Freund** noch **Feind** ist.
