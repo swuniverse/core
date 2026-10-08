@@ -38,6 +38,11 @@ import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { TransferService } from './transfer.service';
+import {
+  NoPersonalContactStatusPort,
+  RelationshipResolverService,
+} from '../alliance/relationship-resolver.service';
+import { InMemoryAllianceStore } from '../alliance/testing/in-memory-alliance.store';
 
 const relationship = (status: 'FRIEND' | 'ENEMY' | 'NEUTRAL') => ({
   status,
@@ -51,7 +56,7 @@ const relationship = (status: 'FRIEND' | 'ENEMY' | 'NEUTRAL') => ({
 
 function cargoTransfer(
   status: 'FRIEND' | 'ENEMY' | 'NEUTRAL',
-  resolverError?: Error,
+  resolver?: RelationshipResolverService,
   targetShieldsActive = false,
 ) {
   const sourceShip = {
@@ -115,11 +120,9 @@ function cargoTransfer(
     {} as never,
     {} as never,
     {} as never,
-    {
-      resolve: resolverError
-        ? jest.fn().mockRejectedValue(resolverError)
-        : jest.fn().mockResolvedValue(relationship(status)),
-    } as never,
+    (resolver ?? {
+      resolve: jest.fn().mockResolvedValue(relationship(status)),
+    }) as never,
   );
 
   return { service, targetCargo };
@@ -267,7 +270,7 @@ describe('TransferService ship transfers', () => {
 
     await expect(
       service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
-    ).rejects.toThrow('Schiffstransfer nur zwischen Freunden erlaubt');
+    ).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
 
     expect(targetCargo.amount).toBe(0);
   });
@@ -289,20 +292,24 @@ describe('TransferService ship transfers', () => {
 
     await expect(
       service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
-    ).rejects.toThrow('Schiffstransfer nur zwischen Freunden erlaubt');
+    ).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
 
     expect(targetCargo.amount).toBe(0);
   });
 
   it('fails closed when relationship resolution fails', async () => {
+    const store = new InMemoryAllianceStore();
+    jest
+      .spyOn(store, 'findPlayer')
+      .mockRejectedValue(new Error('database unavailable'));
     const { service, targetCargo } = cargoTransfer(
       'NEUTRAL',
-      new Error('resolver unavailable'),
+      new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
     );
 
     await expect(
       service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
-    ).rejects.toThrow('Schiffstransfer nur zwischen Freunden erlaubt');
+    ).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
 
     expect(targetCargo.amount).toBe(0);
   });
@@ -386,7 +393,7 @@ describe('TransferService ship transfers', () => {
 
     await expect(
       service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
-    ).rejects.toThrow('Schiffstransfer nur zwischen Freunden erlaubt');
+    ).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
 
     expect(targetCargo.amount).toBe(0);
   });
@@ -429,7 +436,7 @@ describe('TransferService ship transfers', () => {
 
     await expect(
       service.transferShipCrew(1, 10, 2, 1, 'FROM_TARGET'),
-    ).rejects.toThrow('Schiffstransfer nur zwischen Freunden erlaubt');
+    ).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
   });
 
   it('lets a friend supply crew to a protected foreign ship', async () => {
@@ -594,7 +601,7 @@ describe('TransferService ship transfer quote matches the transfer action', () =
 
     await expect(quote()).resolves.toMatchObject({
       available: false,
-      reason: 'Schiffstransfer nur zwischen Freunden erlaubt',
+      reason: 'Transfer nur zwischen Freunden erlaubt',
     });
   });
 });

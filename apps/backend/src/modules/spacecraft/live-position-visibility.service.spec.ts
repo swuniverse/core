@@ -13,7 +13,6 @@ import {
   InMemoryAllianceStore,
 } from '../alliance/testing/in-memory-alliance.store';
 import type { Repository } from 'typeorm';
-import type { ResolvedRelationship } from '../alliance/relationship-resolver.service';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { LivePositionVisibilityService } from './live-position-visibility.service';
 
@@ -22,17 +21,32 @@ const shipRepository = (ships: Spacecraft[]) =>
     find: jest.fn().mockResolvedValue(ships),
   }) as unknown as Repository<Spacecraft>;
 
-const relationshipResolver = (relationship: ResolvedRelationship) =>
-  ({
-    resolve: jest.fn().mockResolvedValue(relationship),
-  }) as unknown as RelationshipResolverService;
-
 const galaxyLocation = (id: number, layerId: number, x: number, y: number) => ({
   id,
   kind: 'GALAXY_FIELD' as const,
   galaxyField: { layerId, cx: x, cy: y },
   systemField: null,
 });
+
+/** Viewer 1 and player 2 belong to alliances that share live positions. */
+function viewerInSharingAlliance() {
+  const store = new InMemoryAllianceStore();
+  store.addPlayer(1, 'Viewer');
+  store.addPlayer(2, 'Sharer');
+  const viewerAlliance = store.seedAlliance({ name: 'Viewers' }, [
+    [1, AllianceRole.PRESIDENT],
+  ]);
+  const sharingAlliance = store.seedAlliance({ name: 'Sharers' }, [
+    [2, AllianceRole.PRESIDENT],
+  ]);
+  store.seedActiveAllianceRelationship({
+    firstAllianceId: viewerAlliance.id,
+    secondAllianceId: sharingAlliance.id,
+    type: AllianceRelationshipType.ALLIANCE,
+    shareLivePositions: true,
+  });
+  return store;
+}
 
 describe('LivePositionVisibilityService', () => {
   it('shows current ship positions shared by an active alliance relationship', async () => {
@@ -228,25 +242,24 @@ describe('LivePositionVisibilityService', () => {
           location: galaxyLocation(1000, 3, 4, 5),
         } as Spacecraft,
       ]),
-      relationshipResolver({
-        status: 'FRIEND',
-        isFriend: true,
-        isEnemy: false,
-        mayReactAutomatically: false,
-        mayTransferSafely: true,
-        mayProvisionProtectedShip: true,
-        mayShareLivePosition: true,
-        mayShareHistoricalScans: false,
-      }),
+      new RelationshipResolverService(
+        viewerInSharingAlliance(),
+        new NoPersonalContactStatusPort(),
+      ),
     );
 
     await expect(service.listForViewer(1)).resolves.toEqual([]);
   });
 
   it('fails closed when relationship resolution fails', async () => {
-    const relationships = {
-      resolve: jest.fn().mockRejectedValue(new Error('unavailable')),
-    } as unknown as RelationshipResolverService;
+    const store = viewerInSharingAlliance();
+    jest
+      .spyOn(store, 'findMembership')
+      .mockRejectedValue(new Error('database unavailable'));
+    const relationships = new RelationshipResolverService(
+      store,
+      new NoPersonalContactStatusPort(),
+    );
     const service = new LivePositionVisibilityService(
       shipRepository([
         {

@@ -5,7 +5,10 @@ import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyCrewService } from '../colony/colony-crew.service';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
-import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
+import {
+  RelationshipResolverService,
+  type ResolvedStance,
+} from '../alliance/relationship-resolver.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
@@ -203,39 +206,11 @@ export class TransferService {
     });
     if (!sourceShip || !targetShip)
       throw new BadRequestException('Schiff nicht gefunden');
-    const sameField = sameSpacecraftLocation(sourceShip, targetShip);
-    const systems = (ship: Spacecraft) =>
-      ship.runtimeSystems as Record<string, { active?: boolean }>;
-    const capabilities = await this.shipTransferCapabilities(
-      sourceShip,
-      targetShip,
-    );
-    const commonReason =
-      sourceShip.status !== SpacecraftStatus.IDLE ||
-      targetShip.status !== SpacecraftStatus.IDLE
-        ? 'Beide Schiffe müssen im Raum stehen'
-        : !sameField
-          ? 'Schiffe müssen sich auf demselben Feld befinden'
-          : systems(sourceShip).WARPDRIVE?.active ||
-              systems(targetShip).WARPDRIVE?.active
-            ? 'Hyperantrieb muss deaktiviert sein'
-            : systems(sourceShip).SHIELDS?.active
-              ? 'Schilde müssen deaktiviert sein'
-              : null;
-    const provisionsProtectedTarget = isProtectedProvisioning(
+    const reason = await this.shipTransferBlockReason(
       sourceShip,
       targetShip,
       direction,
     );
-    const reason =
-      commonReason ??
-      (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget
-        ? 'Schilde müssen deaktiviert sein'
-        : !(provisionsProtectedTarget
-              ? capabilities.mayProvisionProtectedShip
-              : capabilities.mayTransferSafely)
-          ? 'Schiffstransfer nur zwischen Freunden erlaubt'
-          : null);
     const [
       sourceCargo,
       targetCargo,
@@ -304,41 +279,12 @@ export class TransferService {
         relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
-      const sourceShip = ships.find((ship) => ship.id === shipId);
-      const targetShip = ships.find((ship) => ship.id === targetShipId);
-      if (!sourceShip || !targetShip)
-        throw new BadRequestException('Schiff nicht gefunden');
-      const systems = (ship: Spacecraft) =>
-        ship.runtimeSystems as Record<string, { active?: boolean }>;
-      const provisionsProtectedTarget = isProtectedProvisioning(
-        sourceShip,
-        targetShip,
+      const { sourceShip, targetShip } = await this.assertShipTransferAllowed(
+        ships,
+        shipId,
+        targetShipId,
         direction,
       );
-      await this.assertSafeShipTransfer(
-        sourceShip,
-        targetShip,
-        provisionsProtectedTarget,
-      );
-      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
-      if (
-        !sameField ||
-        sourceShip.status !== SpacecraftStatus.IDLE ||
-        targetShip.status !== SpacecraftStatus.IDLE
-      )
-        throw new BadRequestException(
-          'Schiffe müssen sich auf demselben Feld befinden',
-        );
-      if (
-        systems(sourceShip).WARPDRIVE?.active ||
-        systems(targetShip).WARPDRIVE?.active
-      )
-        throw new BadRequestException('Hyperantrieb muss deaktiviert sein');
-      if (
-        systems(sourceShip).SHIELDS?.active ||
-        (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget)
-      )
-        throw new BadRequestException('Schilde müssen deaktiviert sein');
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
       if (direction === 'TO_TARGET')
@@ -378,41 +324,12 @@ export class TransferService {
         relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
-      const sourceShip = ships.find((ship) => ship.id === shipId);
-      const targetShip = ships.find((ship) => ship.id === targetShipId);
-      if (!sourceShip || !targetShip)
-        throw new BadRequestException('Schiff nicht gefunden');
-      const systems = (ship: Spacecraft) =>
-        ship.runtimeSystems as Record<string, { active?: boolean }>;
-      const provisionsProtectedTarget = isProtectedProvisioning(
-        sourceShip,
-        targetShip,
+      const { sourceShip, targetShip } = await this.assertShipTransferAllowed(
+        ships,
+        shipId,
+        targetShipId,
         direction,
       );
-      await this.assertSafeShipTransfer(
-        sourceShip,
-        targetShip,
-        provisionsProtectedTarget,
-      );
-      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
-      if (
-        !sameField ||
-        sourceShip.status !== SpacecraftStatus.IDLE ||
-        targetShip.status !== SpacecraftStatus.IDLE
-      )
-        throw new BadRequestException(
-          'Schiffe müssen sich auf demselben Feld befinden',
-        );
-      if (
-        systems(sourceShip).WARPDRIVE?.active ||
-        systems(targetShip).WARPDRIVE?.active
-      )
-        throw new BadRequestException('Hyperantrieb muss deaktiviert sein');
-      if (
-        systems(sourceShip).SHIELDS?.active ||
-        (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget)
-      )
-        throw new BadRequestException('Schilde müssen deaktiviert sein');
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
       if (direction === 'TO_TARGET')
@@ -466,42 +383,12 @@ export class TransferService {
         relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
-      const sourceShip = ships.find((ship) => ship.id === shipId);
-      const targetShip = ships.find((ship) => ship.id === targetShipId);
-      if (!sourceShip || !targetShip)
-        throw new BadRequestException('Schiff nicht gefunden');
-      const systems = (ship: Spacecraft) =>
-        ship.runtimeSystems as Record<string, { active?: boolean }>;
-      const provisionsProtectedTarget = isProtectedProvisioning(
-        sourceShip,
-        targetShip,
+      const { sourceShip, targetShip } = await this.assertShipTransferAllowed(
+        ships,
+        shipId,
+        targetShipId,
         direction,
       );
-      await this.assertSafeShipTransfer(
-        sourceShip,
-        targetShip,
-        provisionsProtectedTarget,
-      );
-      if (
-        sourceShip.status !== SpacecraftStatus.IDLE ||
-        targetShip.status !== SpacecraftStatus.IDLE
-      )
-        throw new BadRequestException('Beide Schiffe müssen im Raum stehen');
-      const sameField = sameSpacecraftLocation(sourceShip, targetShip);
-      if (!sameField)
-        throw new BadRequestException(
-          'Schiffe müssen sich auf demselben Feld befinden',
-        );
-      if (
-        systems(sourceShip).WARPDRIVE?.active ||
-        systems(targetShip).WARPDRIVE?.active
-      )
-        throw new BadRequestException('Hyperantrieb muss deaktiviert sein');
-      if (
-        systems(sourceShip).SHIELDS?.active ||
-        (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget)
-      )
-        throw new BadRequestException('Schilde müssen deaktiviert sein');
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
       if (direction === 'TO_TARGET')
@@ -634,48 +521,84 @@ export class TransferService {
     );
   }
 
-  private async assertSafeShipTransfer(
+  /**
+   * The one rule set every ship-to-ship transfer action checks; the quote
+   * mirrors it via shipTransferBlockReason so both always agree.
+   */
+  private async assertShipTransferAllowed(
+    ships: Spacecraft[],
+    shipId: number,
+    targetShipId: number,
+    direction: ShipTransferDirection,
+  ): Promise<{ sourceShip: Spacecraft; targetShip: Spacecraft }> {
+    const sourceShip = ships.find((ship) => ship.id === shipId);
+    const targetShip = ships.find((ship) => ship.id === targetShipId);
+    if (!sourceShip || !targetShip)
+      throw new BadRequestException('Schiff nicht gefunden');
+    const reason = await this.shipTransferBlockReason(
+      sourceShip,
+      targetShip,
+      direction,
+    );
+    if (reason) throw new BadRequestException(reason);
+    return { sourceShip, targetShip };
+  }
+
+  private async shipTransferBlockReason(
     sourceShip: Spacecraft,
     targetShip: Spacecraft,
-    provisionProtectedTarget = false,
-  ): Promise<void> {
+    direction: ShipTransferDirection,
+  ): Promise<string | null> {
+    const systems = (ship: Spacecraft) =>
+      ship.runtimeSystems as Record<string, { active?: boolean }>;
+    const provisionsProtectedTarget = isProtectedProvisioning(
+      sourceShip,
+      targetShip,
+      direction,
+    );
     const capabilities = await this.shipTransferCapabilities(
       sourceShip,
       targetShip,
     );
-    const allowed = provisionProtectedTarget
-      ? capabilities.mayProvisionProtectedShip
-      : capabilities.mayTransferSafely;
-    if (!allowed) {
-      throw new BadRequestException(
-        'Schiffstransfer nur zwischen Freunden erlaubt',
-      );
-    }
+    if (
+      !(provisionsProtectedTarget
+        ? capabilities.mayProvisionProtectedShip
+        : capabilities.mayTransferSafely)
+    )
+      return 'Transfer nur zwischen Freunden erlaubt';
+    if (
+      sourceShip.status !== SpacecraftStatus.IDLE ||
+      targetShip.status !== SpacecraftStatus.IDLE
+    )
+      return 'Beide Schiffe müssen im Raum stehen';
+    if (!sameSpacecraftLocation(sourceShip, targetShip))
+      return 'Schiffe müssen sich auf demselben Feld befinden';
+    if (
+      systems(sourceShip).WARPDRIVE?.active ||
+      systems(targetShip).WARPDRIVE?.active
+    )
+      return 'Hyperantrieb muss deaktiviert sein';
+    if (
+      systems(sourceShip).SHIELDS?.active ||
+      (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget)
+    )
+      return 'Schilde müssen deaktiviert sein';
+    return null;
   }
 
   private async shipTransferCapabilities(
     sourceShip: Spacecraft,
     targetShip: Spacecraft,
-  ): Promise<{
-    mayTransferSafely: boolean;
-    mayProvisionProtectedShip: boolean;
-  }> {
+  ): Promise<
+    Pick<ResolvedStance, 'mayTransferSafely' | 'mayProvisionProtectedShip'>
+  > {
     if (sourceShip.userId === targetShip.userId) {
-      return {
-        mayTransferSafely: true,
-        mayProvisionProtectedShip: true,
-      };
+      return { mayTransferSafely: true, mayProvisionProtectedShip: true };
     }
-    return this.relationshipResolver
-      .resolve(sourceShip.userId, targetShip.userId)
-      .then(({ mayTransferSafely, mayProvisionProtectedShip }) => ({
-        mayTransferSafely,
-        mayProvisionProtectedShip,
-      }))
-      .catch(() => ({
-        mayTransferSafely: false,
-        mayProvisionProtectedShip: false,
-      }));
+    return this.relationshipResolver.resolve(
+      sourceShip.userId,
+      targetShip.userId,
+    );
   }
 
   private async getCargoUsed(

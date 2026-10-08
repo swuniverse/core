@@ -404,7 +404,8 @@ describe('AllianceDiplomacyPage', () => {
     expect(screen.getAllByRole('button', { name: 'Annehmen' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Ablehnen' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Zurückziehen' })).toBeTruthy();
-    expect(screen.getByText('Beziehungsfreigaben sind aktiv.')).toBeTruthy();
+    expect(screen.getByText(/^Beziehungsfreigaben sind aktiv\./)).toBeTruthy();
+    expect(screen.getByText(/erst mit der Allianz-Kartenansicht/)).toBeTruthy();
     expect(screen.queryByText(/noch keine Spielwirkung/i)).toBeNull();
   });
 

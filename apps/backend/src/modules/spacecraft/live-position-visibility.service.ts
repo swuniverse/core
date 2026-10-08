@@ -26,35 +26,23 @@ export class LivePositionVisibilityService {
       order: { id: 'ASC' },
     });
 
-    const visibilityByOwner = new Map<number, Promise<boolean>>();
-    const mayView = (ownerId: number) => {
-      let permission = visibilityByOwner.get(ownerId);
-      if (!permission) {
-        permission = this.relationships
-          .resolve(viewerId, ownerId)
-          .then((relationship) => relationship.mayShareLivePosition)
-          .catch(() => false);
-        visibilityByOwner.set(ownerId, permission);
-      }
-      return permission;
-    };
-
-    const positions = await Promise.all(
-      ships.map(async (ship): Promise<SharedLivePositionDto | null> => {
-        if (ship.userId === viewerId || !(await mayView(ship.userId)))
-          return null;
-        const location = resolveSpacecraftLocation(ship);
-        if (!location) return null;
-        return {
-          spacecraftId: ship.id,
-          spacecraftName: ship.name,
-          shipClassId: ship.shipClassId,
-          ownerId: ship.userId,
-          ownerName: ship.user?.username ?? null,
-          location,
-        };
-      }),
+    const stances = await this.relationships.resolveMany(
+      viewerId,
+      ships.map((ship) => ship.userId),
     );
+    const positions = ships.map((ship): SharedLivePositionDto | null => {
+      if (!stances.get(ship.userId)?.mayShareLivePosition) return null;
+      const location = resolveSpacecraftLocation(ship);
+      if (!location) return null;
+      return {
+        spacecraftId: ship.id,
+        spacecraftName: ship.name,
+        shipClassId: ship.shipClassId,
+        ownerId: ship.userId,
+        ownerName: ship.user?.username ?? null,
+        location,
+      };
+    });
 
     return positions.filter(
       (position): position is SharedLivePositionDto => position !== null,

@@ -3,10 +3,15 @@ import { AllianceRelationshipType } from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
 import type { AllianceStore } from './alliance.store';
 
-export type RelationshipStatus = 'FRIEND' | 'ENEMY' | 'NEUTRAL';
+/** Freund, Feind or Neutral between two players (see CONTEXT.md). */
+export type Stance = 'FRIEND' | 'ENEMY' | 'NEUTRAL';
 
-export interface ResolvedRelationship {
-  status: RelationshipStatus;
+/**
+ * The stance between two players plus the capabilities derived from it.
+ * Consumers ask for a capability instead of interpreting relationship types.
+ */
+export interface ResolvedStance {
+  status: Stance;
   isFriend: boolean;
   isEnemy: boolean;
   mayReactAutomatically: boolean;
@@ -17,8 +22,9 @@ export interface ResolvedRelationship {
 }
 
 /**
- * Extension seam for personal contact markers. It deliberately has no
- * persistence implementation in this stage, so it safely returns no marker.
+ * Extension seam for the lowest-priority rule: a personal contact marking
+ * another player as Freund. SWU has no contact list yet, so the default
+ * implementation never reports one; the Siedler-Abkommen stage plugs in here.
  */
 export interface PersonalContactStatusPort {
   isFriend(firstPlayerId: number, secondPlayerId: number): Promise<boolean>;
@@ -41,21 +47,62 @@ export class RelationshipResolverService {
     private readonly personalContactStatus: PersonalContactStatusPort,
   ) {}
 
+  /**
+   * Resolves the viewer's stance towards several players at once, one lookup
+   * per distinct player. Never throws; failures resolve to a closed Neutral.
+   */
+  async resolveMany(
+    viewerId: number,
+    otherPlayerIds: Iterable<number>,
+  ): Promise<Map<number, ResolvedStance>> {
+    const ids = [...new Set(otherPlayerIds)];
+    const stances = await Promise.all(
+      ids.map((id) => this.resolve(viewerId, id)),
+    );
+    return new Map(ids.map((id, index) => [id, stances[index]]));
+  }
+
+  /**
+   * Players whose historical scans the viewer may read: the viewer and every
+   * player granting mayShareHistoricalScans. Only current alliance mates can
+   * grant it, so they are the only candidates. Never throws; on failure only
+   * the viewer's own scans remain readable.
+   */
+  async historicalScanSharerIds(viewerId: number): Promise<number[]> {
+    try {
+      const membership = await this.store.findMembership(viewerId);
+      if (!membership) return [viewerId];
+      const mateIds = (await this.store.listMemberships(membership.allianceId))
+        .map((member) => member.userId)
+        .filter((memberId) => memberId !== viewerId);
+      const stances = await this.resolveMany(viewerId, mateIds);
+      return [
+        viewerId,
+        ...mateIds.filter(
+          (mateId) => stances.get(mateId)?.mayShareHistoricalScans,
+        ),
+      ];
+    } catch {
+      return [viewerId];
+    }
+  }
+
+  /** Never throws; failures resolve to a closed Neutral without capabilities. */
   async resolve(
     firstPlayerId: number,
     secondPlayerId: number,
-  ): Promise<ResolvedRelationship> {
+  ): Promise<ResolvedStance> {
     try {
       const [firstPlayer, secondPlayer] = await Promise.all([
         this.store.findPlayer(firstPlayerId),
         this.store.findPlayer(secondPlayerId),
       ]);
-      if (!firstPlayer || !secondPlayer) return resolved('NEUTRAL', false);
+      if (!firstPlayer || !secondPlayer) return resolved('NEUTRAL');
       if (firstPlayer.factionId === null || secondPlayer.factionId === null) {
-        return resolved('NEUTRAL', false);
+        return resolved('NEUTRAL');
       }
       if (firstPlayer.factionId !== secondPlayer.factionId) {
-        return resolved('ENEMY', false);
+        return resolved('ENEMY');
       }
 
       const [firstMembership, secondMembership] = await Promise.all([
@@ -67,7 +114,7 @@ export class RelationshipResolverService {
         secondMembership &&
         firstMembership.allianceId === secondMembership.allianceId
       ) {
-        return resolved('FRIEND', false, true);
+        return resolved('FRIEND', { mayShareHistoricalScans: true });
       }
 
       let mayShareLivePosition = false;
@@ -77,12 +124,12 @@ export class RelationshipResolverService {
           secondMembership.allianceId,
         );
         if (relationship?.type === AllianceRelationshipType.WAR) {
-          return resolved('ENEMY', false);
+          return resolved('ENEMY');
         }
         if (relationship) {
           mayShareLivePosition = relationship.shareLivePositions;
           if (relationship.treatAsFriend) {
-            return resolved('FRIEND', mayShareLivePosition);
+            return resolved('FRIEND', { mayShareLivePosition });
           }
         }
       }
@@ -93,11 +140,11 @@ export class RelationshipResolverService {
           secondPlayer.id,
         )
       ) {
-        return resolved('FRIEND', mayShareLivePosition);
+        return resolved('FRIEND', { mayShareLivePosition });
       }
-      return resolved('NEUTRAL', mayShareLivePosition);
+      return resolved('NEUTRAL', { mayShareLivePosition });
     } catch {
-      return resolved('NEUTRAL', false);
+      return resolved('NEUTRAL');
     }
   }
 
@@ -121,10 +168,12 @@ export class RelationshipResolverService {
 }
 
 function resolved(
-  status: RelationshipStatus,
-  mayShareLivePosition: boolean,
-  mayShareHistoricalScans = false,
-): ResolvedRelationship {
+  status: Stance,
+  {
+    mayShareLivePosition = false,
+    mayShareHistoricalScans = false,
+  }: { mayShareLivePosition?: boolean; mayShareHistoricalScans?: boolean } = {},
+): ResolvedStance {
   const isFriend = status === 'FRIEND';
   const isEnemy = status === 'ENEMY';
   return {

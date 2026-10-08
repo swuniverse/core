@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import type {
   SpacecraftScanPageDto,
   SpacecraftScanResultDto,
@@ -608,26 +608,15 @@ export class SpacecraftScanService {
   }
 
   async listColonyScans(userId: number) {
-    const candidates = await this.colonyScanRepo.find({
+    const scans = await this.colonyScanRepo.find({
+      where: {
+        userId: In(
+          await this.relationshipResolver.historicalScanSharerIds(userId),
+        ),
+      },
       relations: ['colony'],
       order: { createdAt: 'DESC' },
     });
-    const accessByOwner = new Map<number, boolean>();
-    const scans: ColonyScan[] = [];
-    for (const scan of candidates) {
-      let mayRead = accessByOwner.get(scan.userId);
-      if (mayRead === undefined) {
-        try {
-          mayRead = (
-            await this.relationshipResolver.resolve(userId, scan.userId)
-          ).mayShareHistoricalScans;
-        } catch {
-          mayRead = false;
-        }
-        accessByOwner.set(scan.userId, mayRead);
-      }
-      if (mayRead) scans.push(scan);
-    }
     const latestByColony = new Map<number, (typeof scans)[number]>();
     for (const scan of scans) {
       if (!latestByColony.has(scan.colonyId)) {
@@ -661,20 +650,13 @@ export class SpacecraftScanService {
       where: { id: scanId },
       relations: ['colony'],
     });
-    if (!scan) throw new NotFoundException('Colony scan not found');
-    if (scan.userId !== userId) {
-      try {
-        const relationship = await this.relationshipResolver.resolve(
-          userId,
-          scan.userId,
-        );
-        if (!relationship.mayShareHistoricalScans) {
-          throw new NotFoundException('Colony scan not found');
-        }
-      } catch {
-        throw new NotFoundException('Colony scan not found');
-      }
-    }
+    if (
+      !scan ||
+      (scan.userId !== userId &&
+        !(await this.relationshipResolver.resolve(userId, scan.userId))
+          .mayShareHistoricalScans)
+    )
+      throw new NotFoundException('Colony scan not found');
     return {
       id: scan.id,
       colonyId: scan.colonyId,

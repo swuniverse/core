@@ -427,7 +427,7 @@ export function AllianceDiplomacyPage() {
             {!management.enabled
               ? 'Der Diplomatie-Kern ist noch nicht aktiviert.'
               : management.effectsApplied
-                ? 'Beziehungsfreigaben sind aktiv.'
+                ? 'Beziehungsfreigaben sind aktiv. Geteilte Live-Positionen erscheinen erst mit der Allianz-Kartenansicht auf der Sternenkarte.'
                 : 'Beziehungsfreigaben werden gespeichert, aber noch nicht auf Kampf, Karte, Scan, Transfer oder Zugang angewandt.'}
           </p>
           {management.capabilities.create && (

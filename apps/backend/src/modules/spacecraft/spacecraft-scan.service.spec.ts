@@ -47,6 +47,15 @@ jest.mock('./spacecraft-crew.service', () => ({
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { SpacecraftStatus } from './entities/spacecraft.entity';
+import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
+import {
+  NoPersonalContactStatusPort,
+  RelationshipResolverService,
+} from '../alliance/relationship-resolver.service';
+import {
+  EMPIRE,
+  InMemoryAllianceStore,
+} from '../alliance/testing/in-memory-alliance.store';
 
 const activeScanner = {
   moduleType: 'Matrixsensoren',
@@ -56,7 +65,7 @@ const activeScanner = {
   isActive: true,
 };
 
-function createService() {
+function createService(resolver?: RelationshipResolverService) {
   const shipRepo = { findOne: jest.fn() };
   const moduleRepo = { find: jest.fn() };
   const objectRepo = { findOneBy: jest.fn() };
@@ -103,11 +112,12 @@ function createService() {
   };
   const systemTypeDiscoveryService = { discover: jest.fn() };
   const celestialClassDiscoveryService = { discover: jest.fn() };
-  const relationshipResolver = {
+  const stubResolver = {
     resolve: jest.fn(async (viewerId: number, ownerId: number) => ({
       mayShareHistoricalScans: viewerId === ownerId,
     })),
   };
+  const relationshipResolver = resolver ?? stubResolver;
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,
@@ -129,6 +139,7 @@ function createService() {
   );
   return {
     service,
+    relationshipResolver: stubResolver,
     shipRepo,
     moduleRepo,
     objectRepo,
@@ -138,7 +149,6 @@ function createService() {
     gameData,
     spacecraftCrewService,
     celestialClassDiscoveryService,
-    relationshipResolver,
   };
 }
 
@@ -321,8 +331,27 @@ describe('SpacecraftScanService colonyScan', () => {
     );
   });
 
-  it('lists current alliance members scans without sharing allied, neutral, enemy, or failed resolutions', async () => {
-    const { service, colonyScanRepo, relationshipResolver } = createService();
+  it('lists the scans of current alliance members only', async () => {
+    const store = new InMemoryAllianceStore();
+    for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Spieler ${id}`);
+    store.addPlayer(5, 'Imperial', EMPIRE.id);
+    const own = store.seedAlliance({ name: 'Own' }, [
+      [1, AllianceRole.PRESIDENT],
+      [2, AllianceRole.NONE],
+    ]);
+    const befriended = store.seedAlliance({ name: 'Befriended' }, [
+      [3, AllianceRole.PRESIDENT],
+    ]);
+    store.seedActiveAllianceRelationship({
+      firstAllianceId: own.id,
+      secondAllianceId: befriended.id,
+      type: AllianceRelationshipType.ALLIANCE,
+      treatAsFriend: true,
+      shareLivePositions: true,
+    });
+    const { service, colonyScanRepo } = createService(
+      new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
+    );
     const scan = (id: number, userId: number, colonyId: number) => ({
       id,
       userId,
@@ -338,26 +367,49 @@ describe('SpacecraftScanService colonyScan', () => {
       createdAt: new Date(`2026-07-${20 - id}T09:00:00.000Z`),
       colony: { id: colonyId, userId: 20 + userId },
     });
-    colonyScanRepo.find.mockResolvedValue([
+    const allScans = [
       scan(7, 1, 20),
       scan(6, 2, 21),
       scan(5, 3, 22),
       scan(4, 4, 23),
       scan(3, 5, 24),
-    ]);
-    relationshipResolver.resolve.mockImplementation(
-      async (_viewerId: number, ownerId: number) => {
-        if (ownerId === 5) throw new Error('resolver unavailable');
-        return {
-          mayShareHistoricalScans: ownerId === 1 || ownerId === 2,
-        };
-      },
+    ];
+    colonyScanRepo.find.mockImplementation(
+      async ({ where }: { where: { userId: { value: number[] } } }) =>
+        allScans.filter((candidate) =>
+          where.userId.value.includes(candidate.userId),
+        ),
     );
 
     await expect(service.listColonyScans(1)).resolves.toEqual([
       expect.objectContaining({ id: 7, colonyId: 20 }),
       expect.objectContaining({ id: 6, colonyId: 21 }),
     ]);
+
+    await store.deleteMembership(own.id, 2);
+    await expect(service.listColonyScans(1)).resolves.toEqual([
+      expect.objectContaining({ id: 7, colonyId: 20 }),
+    ]);
+  });
+
+  it('lists only own scans when alliance data is unavailable', async () => {
+    const store = new InMemoryAllianceStore();
+    store.addPlayer(1, 'Spieler 1');
+    jest
+      .spyOn(store, 'findMembership')
+      .mockRejectedValue(new Error('database unavailable'));
+    const { service, colonyScanRepo } = createService(
+      new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
+    );
+    colonyScanRepo.find.mockResolvedValue([]);
+
+    await service.listColonyScans(1);
+
+    expect(colonyScanRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: expect.objectContaining({ value: [1] }) },
+      }),
+    );
   });
 
   it('opens an alliance members scan but denies a friend without scan sharing', async () => {

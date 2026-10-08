@@ -486,4 +486,52 @@ describe('RelationshipResolverService', () => {
       ).resolves.toEqual(closed);
     });
   });
+
+  describe('resolveMany', () => {
+    it('resolves each distinct player once with the same answers as resolve', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      store.addPlayer(3, 'Imperial', EMPIRE.id);
+      store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const resolver = resolverFor(store);
+      const resolve = jest.spyOn(resolver, 'resolve');
+
+      const stances = await resolver.resolveMany(1, [2, 3, 2, 3]);
+
+      expect(resolve).toHaveBeenCalledTimes(2);
+      expect(stances.get(2)).toEqual(await resolver.resolve(1, 2));
+      expect(stances.get(3)?.status).toBe('ENEMY');
+    });
+  });
+
+  describe('historicalScanSharerIds', () => {
+    it('returns the viewer and current alliance mates only', async () => {
+      const store = new InMemoryAllianceStore();
+      for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Rebel ${id}`);
+      const own = store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const other = store.seedAlliance({ name: 'Other' }, [
+        [3, AllianceRole.PRESIDENT],
+      ]);
+      store.seedActiveAllianceRelationship({
+        firstAllianceId: own.id,
+        secondAllianceId: other.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        treatAsFriend: true,
+      });
+
+      await expect(
+        resolverFor(store).historicalScanSharerIds(1),
+      ).resolves.toEqual([1, 2]);
+      await expect(
+        resolverFor(store).historicalScanSharerIds(4),
+      ).resolves.toEqual([4]);
+    });
+  });
 });
