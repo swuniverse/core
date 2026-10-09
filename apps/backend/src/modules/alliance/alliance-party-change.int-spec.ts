@@ -58,6 +58,7 @@ describe('alliance party change (Postgres)', () => {
       description: '',
       factionId: rebels,
     });
+    await store.updateAlliance(created.id, { acceptsApplications: true });
     await store.insertMembership({
       allianceId: created.id,
       userId: president.id,
@@ -92,7 +93,7 @@ describe('alliance party change (Postgres)', () => {
     await service.declareSettlerWar(han.id, chewie.id);
     await service.proposeSettlerRelationship(chewie.id, {
       recipientPlayerId: han.id,
-      type: FRIENDSHIP,
+      type: AllianceRelationshipType.PEACE,
     });
   }
 
@@ -157,8 +158,12 @@ describe('alliance party change (Postgres)', () => {
     const chewie = await rebel('Chewie');
     await giveDiplomacy(han, lando, chewie);
     sendSystem.mockClear();
+    // The method lives on the session base class that transactions use.
+    const sessionPrototype = Object.getPrototypeOf(
+      TypeOrmAllianceStore.prototype,
+    );
     const spy = jest
-      .spyOn(TypeOrmAllianceStore.prototype, 'endPlayerPartyDiplomacy')
+      .spyOn(sessionPrototype, 'endPlayerPartyDiplomacy')
       .mockRejectedValueOnce(new Error('boom'));
 
     await expect(
