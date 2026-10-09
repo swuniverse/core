@@ -4,11 +4,11 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Vorschlag, Annahme, Ablehnung, Rückzug; Vasallenrichtung (Absender Lehnsherr); höchstens eine aktive Beziehung und ein Vorschlag je Paar
-- [ ] Freigabengültigkeit („Als Freund behandeln“ nicht bei Krieg/Frieden, Live-Positionen nur Bündnis); unveränderte Vorschläge abgewiesen
-- [ ] Vertragswerk 0–20.000 Zeichen nach Trim; Entwürfe nur für die beiden Beteiligten sichtbar, aktives Vertragswerk öffentlich
-- [ ] Änderungsvorschläge für Typ, Freigaben, Vertragswerk mit Zustimmung; bis dahin bleibt der alte Zustand wirksam
-- [ ] Chronik: akzeptierter Vertrag, Typwechsel, Beendigung; Frontend-Dialoge wiederverwendet
-- [ ] „Als Freund behandeln“ zwischen Siedlern macht sie über die Auflösung zu Freunden
+- [x] Vorschlag, Annahme, Ablehnung, Rückzug; Vasallenrichtung (Absender Lehnsherr); höchstens eine aktive Beziehung und ein Vorschlag je Paar
+- [x] Freigabengültigkeit („Als Freund behandeln“ nicht bei Krieg/Frieden, Live-Positionen nur Bündnis); unveränderte Vorschläge abgewiesen
+- [x] Vertragswerk 0–20.000 Zeichen nach Trim; Entwürfe nur für die beiden Beteiligten sichtbar, aktives Vertragswerk öffentlich
+- [x] Änderungsvorschläge für Typ, Freigaben, Vertragswerk mit Zustimmung; bis dahin bleibt der alte Zustand wirksam
+- [x] Chronik: akzeptierter Vertrag, Typwechsel, Beendigung; Frontend-Dialoge wiederverwendet
+- [x] „Als Freund behandeln“ zwischen Siedlern macht sie über die Auflösung zu Freunden

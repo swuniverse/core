@@ -129,7 +129,10 @@ describe('Siedler war and peace', () => {
       store.renamePlayer(2, 'Lando Calrissian');
 
       for (const viewer of [1, 3]) {
-        const chronicle = await service.listSettlerDiplomacyChronicle(viewer, 2);
+        const chronicle = await service.listSettlerDiplomacyChronicle(
+          viewer,
+          2,
+        );
         expect(chronicle.entries).toEqual([
           expect.objectContaining({
             type: AllianceDiplomacyChronicleEventType.WAR_DECLARED,
@@ -318,8 +321,10 @@ describe('Siedler war and peace', () => {
       const { service, store } = ctx;
       const proposalId = await declareWarAndProposePeace(ctx);
       const answers = [
-        (actor: number) => service.acceptRelationshipProposal(actor, proposalId),
-        (actor: number) => service.declineRelationshipProposal(actor, proposalId),
+        (actor: number) =>
+          service.acceptRelationshipProposal(actor, proposalId),
+        (actor: number) =>
+          service.declineRelationshipProposal(actor, proposalId),
       ];
       for (const answer of answers) {
         for (const actor of [10, 11, 12, 13, 3, 4, 999, 1]) {
@@ -332,9 +337,9 @@ describe('Siedler war and peace', () => {
           ForbiddenException,
         );
       }
-      expect(await store.listRelationshipProposals(playerParty(1))).toHaveLength(
-        1,
-      );
+      expect(
+        await store.listRelationshipProposals(playerParty(1)),
+      ).toHaveLength(1);
     });
 
     it('does not let a player who joined an alliance answer for the player party', async () => {
@@ -365,7 +370,7 @@ describe('Siedler war and peace', () => {
       });
 
       const own = await service.getSettlerDiplomacy(1);
-      expect(own.capabilities).toEqual({ declareWar: true });
+      expect(own.capabilities).toEqual({ create: true, declareWar: true });
       const byName = Object.fromEntries(
         own.relationships.map((entry) => [
           entry.relationship.counterparty.name,

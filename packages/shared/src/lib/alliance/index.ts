@@ -214,7 +214,7 @@ export interface AllianceDiplomacyManagementDto {
 
 /** Complete confidential diplomacy view of an alliance-less player (Siedler). */
 export interface SettlerDiplomacyManagementDto {
-  capabilities: { declareWar: boolean };
+  capabilities: { create: boolean; declareWar: boolean };
   relationships: AllianceDiplomacyRelationshipDto[];
   proposals: AllianceDiplomacyProposalDto[];
   permissions: AllianceDiplomacyManagementDto['permissions'];
