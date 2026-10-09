@@ -1,6 +1,6 @@
 # Lebenszyklus und Restparität
 
-Status: ready-for-agent
+Status: implemented (Tickets 01–08, Gesamtintegration nachgewiesen; siehe map.md)
 
 Etappe 5 von 6 der Route [map.md](map.md). Grundlagen: `CONTEXT.md`, ADR 0001, die Entscheidungen 07, 09, 10, 11 und 13 der Map sowie die Offene-Punkte-Liste der [Internen Zusammenarbeit](interne-zusammenarbeit-spec.md).
 

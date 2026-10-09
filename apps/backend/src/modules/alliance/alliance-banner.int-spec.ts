@@ -242,8 +242,47 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
     expect(assets.size).toBe(0);
   });
 
+  it('never lets a manipulated id reach a foreign alliance, in the path or in the form', async () => {
+    const png = makePng(10, 10);
+    // The own president aims at the other alliance.
+    expect((await upload('president', redId, png)).status).toBe(403);
+    expect(await remove('president', redId)).toBe(403);
+    // Ids that are no ids at all.
+    const base = `${await app.getUrl()}/api/alliances`;
+    for (const id of ['abc', '1.5', '-1', '0']) {
+      const form = new FormData();
+      form.append('file', new Blob([new Uint8Array(png)]), 'banner.png');
+      const response = await fetch(`${base}/${id}/banner`, {
+        method: 'POST',
+        headers: authorization('president'),
+        body: form,
+      });
+      expect([400, 404]).toContain(response.status);
+    }
+    // Smuggled ids and actor fields in the form are ignored.
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(png)]), 'banner.png');
+    form.append('allianceId', String(redId));
+    form.append('userId', String(users.foreignPresident.id));
+    const smuggled = await fetch(`${base}/${rogueId}/banner`, {
+      method: 'POST',
+      headers: authorization('member'),
+      body: form,
+    });
+    expect(smuggled.status).toBe(403);
+    expect(await bannerKeyOf(redId)).toBeNull();
+    expect(await bannerKeyOf(rogueId)).toBeNull();
+    expect(assets.size).toBe(0);
+    // Removal without a banner and in unknown alliances is a plain error.
+    expect(await remove('president', rogueId)).toBe(400);
+    expect(await remove('president', 99999)).toBe(404);
+    expect(await remove('loner', rogueId)).toBe(403);
+  });
+
   it('answers unknown alliances with 404 and a missing file with a clear message', async () => {
-    expect((await upload('president', 99999, makePng(10, 10))).status).toBe(404);
+    expect((await upload('president', 99999, makePng(10, 10))).status).toBe(
+      404,
+    );
     const missing = await upload('president', rogueId, null);
     expect(missing.status).toBe(400);
     expect(JSON.parse(missing.text).message).toBe(
@@ -254,7 +293,11 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
   it('decides by content: disguised files are refused whatever name and type say', async () => {
     const cases: Array<[Buffer, string, string]> = [
       [Buffer.from('<svg onload="alert(1)"/>'), 'banner.png', 'image/png'],
-      [Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]), 'banner.png', 'image/png'],
+      [
+        Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]),
+        'banner.png',
+        'image/png',
+      ],
       [
         Buffer.concat([makePng(10, 10), Buffer.from('<script>x</script>')]),
         'banner.png',
@@ -325,8 +368,12 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
       new RegExp(`^/api/alliances/${rogueId}/banner\\?v=\\d+$`),
     );
     expect(asVice.viewer.actions.manageBanner).toBe(true);
-    expect(((await detail('diplomat')) as any).viewer.actions.manageBanner).toBe(false);
-    expect(((await detail('member')) as any).viewer.actions.manageBanner).toBe(false);
+    expect(
+      ((await detail('diplomat')) as any).viewer.actions.manageBanner,
+    ).toBe(false);
+    expect(((await detail('member')) as any).viewer.actions.manageBanner).toBe(
+      false,
+    );
   });
 
   it('persists the chronicle with small metadata and the actor', async () => {
