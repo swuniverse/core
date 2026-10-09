@@ -37,6 +37,9 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 
 - [Live-Positionsfreigabe](beziehungswirkungen-issues/04-live-positionsfreigabe.md), Nachtrag nach dem Review: SWU besitzt keinen vorhandenen Kartenpfad mit fremden Schiffen. Die Kartenanzeige geteilter Live-Positionen wird deshalb gemeinsam mit den Allianzschiffen auf der Sternenkarte in der Etappe Allianz-Infrastruktur gebaut; bis dahin weist die Diplomatieverwaltung darauf hin.
 
+- [Allianz-Infrastruktur](allianz-infrastruktur-spec.md), umgesetzt in den [Tickets 01–07](allianz-infrastruktur-issues/): Die Sternenkarte zeigt eigene, Allianz- und geteilte Partnerschiffe aus einem serverseitigen Sichtbarkeitsdienst, der Mitgliedschaft, Amt und Beziehung bei jeder Anfrage neu und gebündelt auflöst; Verwaltungsdetails erhalten nur Präsident und Vize. Allianzdepots, Zugangsprivilegien und Territorialfarbe sind nur als Integrationsverträge festgelegt.
+- Fähigkeitsschalter entfernt (Nutzerentscheidung vom 2026-10-09): `DIPLOMACY_CORE_ENABLED` und `ALLIANCE_INFRASTRUCTURE_ENABLED` entfallen; Diplomatie-Kern und Allianz-Infrastruktur sind immer aktiv, weil die Pipeline Migrationen stets ausrollt.
+
 ## Not yet specified
 
 - Keine offenen Produktentscheidungen. Neu entdeckte spielerwirksame Allianzfunktionalität wird bei der Ausarbeitung der Etappen aufgenommen, sofern sie innerhalb der festgelegten Produktgrenze liegt; andernfalls wird sie als künftiger Integrationspunkt benannt.

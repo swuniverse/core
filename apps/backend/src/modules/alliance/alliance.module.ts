@@ -6,7 +6,6 @@ import { AllianceService } from './alliance.service';
 import { ALLIANCE_STORE } from './alliance.store';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
-import { DiplomacyCapabilityService } from './diplomacy-capability.service';
 import {
   NoPersonalContactStatusPort,
   PERSONAL_CONTACT_STATUS,
@@ -48,7 +47,6 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       provide: DIPLOMACY_NOTIFICATION_RETRY,
       useExisting: AllianceService,
     },
-    DiplomacyCapabilityService,
     RelationshipResolverService,
     {
       provide: PERSONAL_CONTACT_STATUS,

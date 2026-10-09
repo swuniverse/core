@@ -1,5 +1,8 @@
 import type { Faction } from '../auth/index.js';
 
+/** Freund, Feind or Neutral between two players (see CONTEXT.md). */
+export type Stance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
+
 /** Fixed offices inside an alliance (ADR 0001). NONE = member without office. */
 export enum AllianceRole {
   NONE = 'NONE',
@@ -163,10 +166,6 @@ export interface AllianceDiplomacyProposalDto {
 
 /** Complete confidential view for president and diplomat diplomacy administration. */
 export interface AllianceDiplomacyManagementDto {
-  /** Explicit rollout state; migrations must be deployed before this is enabled. */
-  enabled: boolean;
-  /** Whether accepted relationship permissions already affect gameplay on the server. */
-  effectsApplied: boolean;
   capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
   targets: AllianceRefDto[];
   relationships: AllianceDiplomacyRelationshipDto[];

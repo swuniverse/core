@@ -15,7 +15,6 @@ import {
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
 import { AllianceConstraintViolation } from './alliance.store';
-import { DiplomacyCapabilityService } from './diplomacy-capability.service';
 import {
   EMPIRE,
   InMemoryAllianceStore,
@@ -44,8 +43,7 @@ function setup() {
       sent.push({ to, subject, body });
     }),
   };
-  const capability = new DiplomacyCapabilityService({ get: () => 'true' } as never);
-  const service = new AllianceService(store, messaging as never, undefined, capability);
+  const service = new AllianceService(store, messaging as never);
   return { store, sent, service };
 }
 
@@ -69,33 +67,6 @@ async function expectError(
 }
 
 describe('AllianceService', () => {
-  describe('diplomacy rollout capability', () => {
-    it('rejects diplomatic mutations until the rollout capability is enabled', async () => {
-      const store = new InMemoryAllianceStore();
-      const service = new AllianceService(
-        store,
-        { sendSystem: jest.fn() } as never,
-        undefined,
-        new DiplomacyCapabilityService({ get: () => undefined } as never),
-      );
-      store.addPlayer(1, 'Leia');
-      store.addPlayer(2, 'Mon');
-      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
-      const red = store.seedAlliance({ name: 'Red Squadron' }, [[2, PRESIDENT]]);
-
-      await expectError(
-        service.declareWar(1, rogue.id, red.id),
-        BadRequestException,
-        'Diplomatie-Kern ist noch nicht aktiviert',
-      );
-      expect((await service.getDetail(1, rogue.id)).viewer.actions.declareWar).toBe(
-        false,
-      );
-      const management = await service.getDiplomacyManagement(1, rogue.id);
-      expect(management).toMatchObject({ enabled: false, effectsApplied: false });
-    });
-  });
-
   describe('found', () => {
     it('returns public active relationship summaries and contracts', async () => {
       const { store, service } = setup();
@@ -1054,7 +1025,6 @@ describe('AllianceService', () => {
 
       const management = await service.getDiplomacyManagement(2, own.id);
 
-      expect(management.effectsApplied).toBe(true);
       expect(management.capabilities).toEqual({ create: true });
       expect(management.targets).toEqual([
         { id: counterparty.id, name: 'Red Squadron', color: null },

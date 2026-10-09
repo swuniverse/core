@@ -13,6 +13,18 @@ import { DiplomacyParty } from '../../modules/alliance/entities/diplomacy-party.
 import { AllianceDiplomacyChronicleEntry } from '../../modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from '../../modules/alliance/entities/alliance-diplomacy-notification.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
+import { Layer } from '../../modules/starmap/entities/layer.entity';
+import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
+import { CelestialObject } from '../../modules/starmap/entities/celestial-object.entity';
+import { GalaxyFieldType } from '../../modules/starmap/entities/galaxy-field-type.entity';
+import { GalaxyField } from '../../modules/starmap/entities/galaxy-field.entity';
+import { SystemField } from '../../modules/starmap/entities/system-field.entity';
+import { SpaceLocation } from '../../modules/starmap/entities/space-location.entity';
+import { MapRegion } from '../../modules/starmap/entities/map-region.entity';
+import { BorderType } from '../../modules/starmap/entities/border-type.entity';
+import { Spacecraft } from '../../modules/spacecraft/entities/spacecraft.entity';
+import { SpacecraftModule } from '../../modules/spacecraft/entities/spacecraft-module.entity';
+import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -29,6 +41,18 @@ export const INTEGRATION_ENTITIES = [
   AllianceDiplomacyChronicleEntry,
   AllianceDiplomacyNotification,
   Message,
+  Layer,
+  StarSystem,
+  CelestialObject,
+  GalaxyFieldType,
+  GalaxyField,
+  SystemField,
+  SpaceLocation,
+  MapRegion,
+  BorderType,
+  Spacecraft,
+  SpacecraftModule,
+  Fleet,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

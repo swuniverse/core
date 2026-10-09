@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  WsEventType,
   type HyperspaceRouteDto,
   type StarmapGalaxyFieldDto,
   type StarmapLayerDto,
   type StarmapSystemGridDto,
   type StarmapSystemListItemDto,
+  type StarmapContactsDto,
   type StarmapWormholeDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
+import { useSocket } from '../hooks/use-socket';
 import { StarmapCanvas, type StarmapCanvasHandle } from '../components/starmap/StarmapCanvas';
 import { StarmapControlPanel } from '../components/starmap/StarmapControlPanel';
+import {
+  StarmapShipOverlay,
+  bundleStarmapContacts,
+  type StarmapOpenSystemGrid,
+} from '../components/starmap/StarmapShipOverlay';
+import { StarmapContactPanel } from '../components/starmap/StarmapContactPanel';
 import { canLoadInlineSystem } from '../lib/starmap-render';
 
 type Layer = Pick<
@@ -20,6 +29,9 @@ type GalaxyField = StarmapGalaxyFieldDto;
 type StarSystem = StarmapSystemListItemDto;
 type SystemGrid = StarmapSystemGridDto;
 type HyperspaceRoute = HyperspaceRouteDto;
+
+/** Ship contacts are refreshed in this interval while the page is visible. */
+const CONTACT_REFRESH_MS = 30_000;
 
 export function StarmapPage() {
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -35,6 +47,13 @@ export function StarmapPage() {
   const [selectedField, setSelectedField] = useState<GalaxyField | null>(null);
   const [selectedSector, setSelectedSector] = useState<{ x: number; y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(true);
+  const [contacts, setContacts] = useState<StarmapContactsDto | null>(null);
+  const [showShips, setShowShips] = useState(true);
+  const [showAllianceShips, setShowAllianceShips] = useState(true);
+  const [showPartnerShips, setShowPartnerShips] = useState(true);
+  const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
+  const [inlineSystemsVisible, setInlineSystemsVisible] = useState(false);
+  const contactLayerIdRef = useRef<number | null>(null);
   const canvasRef = useRef<StarmapCanvasHandle>(null);
   const systemGridsRef = useRef<Map<number, SystemGrid>>(new Map());
   const openingSystemsRef = useRef<Map<number, Promise<SystemGrid>>>(new Map());
@@ -75,7 +94,72 @@ export function StarmapPage() {
     setFields(loadedFields);
     setHyperspaceRoutes(loadedRoutes);
     setWormholes(loadedWormholes);
+    setLoading(false);
   }
+
+  const selectedLayerId = selectedLayer?.id ?? null;
+
+  const loadContacts = useCallback(async () => {
+    const layerId = contactLayerIdRef.current;
+    if (layerId === null) return;
+    try {
+      const loaded = await api.get<StarmapContactsDto>(
+        `/spacecraft/starmap-contacts?layerId=${layerId}`,
+      );
+      // Ignore answers for a layer that is no longer displayed.
+      if (contactLayerIdRef.current === layerId) setContacts(loaded);
+    } catch {
+      // Keep the last known contacts; the next refresh retries.
+    }
+  }, []);
+
+  useEffect(() => {
+    contactLayerIdRef.current = selectedLayerId;
+    setContacts(null);
+    setSelectedContactKey(null);
+    if (selectedLayerId === null) return undefined;
+    void loadContacts();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadContacts();
+    }, CONTACT_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, [loadContacts, selectedLayerId]);
+
+  useSocket(WsEventType.SHIP_MOVED, () => void loadContacts());
+  useSocket(WsEventType.SPACECRAFT_EVENT, () => void loadContacts());
+
+  // While the zoom shows the system grids, ships in an opened system sit at
+  // their system position; otherwise they stay bundled at the system cell.
+  const openSystemGrids = useMemo(() => {
+    const open = new Map<number, StarmapOpenSystemGrid>();
+    if (!inlineSystemsVisible) return open;
+    for (const systemId of openedSystemIds) {
+      const grid = systemGrids.get(systemId);
+      const anchor = fields.find((field) => field.starSystem?.id === systemId)?.starSystem;
+      if (grid && anchor) open.set(systemId, { grid, anchor });
+    }
+    return open;
+  }, [fields, inlineSystemsVisible, openedSystemIds, systemGrids]);
+  const contactBundles = useMemo(
+    () =>
+      bundleStarmapContacts(
+        (contacts?.contacts ?? []).filter(
+          (contact) =>
+            (contact.reason !== 'ALLIANCE' || showAllianceShips) &&
+            (contact.reason !== 'SHARED_LIVE_POSITION' || showPartnerShips),
+        ),
+        openSystemGrids,
+      ),
+    [contacts, openSystemGrids, showAllianceShips, showPartnerShips],
+  );
+  const isAllianceMember = contacts?.viewerAlliance != null;
+  const selectedContactBundle =
+    contactBundles.find((bundle) => bundle.key === selectedContactKey) ?? null;
+  const systemName = useCallback(
+    (systemId: number) =>
+      fields.find((field) => field.starSystem?.id === systemId)?.starSystem?.name ?? null,
+    [fields],
+  );
 
   function selectSystem(system: StarSystem) {
     setSelectedSystem(system);
@@ -182,6 +266,7 @@ export function StarmapPage() {
       <div className="flex items-center gap-2 shrink-0">
         {layers.length > 1 ? (
           <select
+            aria-label="Kartenebene"
             className="bg-swu-bg border border-swu-border text-swu-primary text-xs rounded px-2 py-1"
             value={selectedLayer?.id ?? ''}
             onChange={(e) => {
@@ -229,6 +314,16 @@ export function StarmapPage() {
               selectedField={selectedField}
               selectedSector={selectedSector}
               showGrid={showGrid}
+              onInlineSystemsVisibleChange={setInlineSystemsVisible}
+              worldOverlay={
+                showShips ? (
+                  <StarmapShipOverlay
+                    bundles={contactBundles}
+                    selectedKey={selectedContactKey}
+                    onSelect={(bundle) => setSelectedContactKey(bundle.key)}
+                  />
+                ) : null
+              }
             />
           )}
         </div>
@@ -240,6 +335,18 @@ export function StarmapPage() {
               layer={selectedLayer}
               showGrid={showGrid}
               onToggleGrid={setShowGrid}
+              showShips={showShips}
+              onToggleShips={(value) => {
+                setShowShips(value);
+                if (!value) setSelectedContactKey(null);
+              }}
+              // Alliance and partner ships only exist for alliance members.
+              allianceShips={
+                isAllianceMember ? { visible: showAllianceShips, onToggle: setShowAllianceShips } : undefined
+              }
+              partnerShips={
+                isAllianceMember ? { visible: showPartnerShips, onToggle: setShowPartnerShips } : undefined
+              }
               selectedSector={selectedSector}
               onSelectSector={setSelectedSector}
               onZoomIn={() => canvasRef.current?.zoomIn()}
@@ -247,6 +354,13 @@ export function StarmapPage() {
               selectedField={selectedField}
               selectedSystem={selectedSystem}
               onOpenSystem={() => selectedSystem && void openSystem(selectedSystem)}
+            />
+          )}
+          {showShips && selectedContactBundle && (
+            <StarmapContactPanel
+              bundle={selectedContactBundle}
+              systemName={systemName}
+              onClose={() => setSelectedContactKey(null)}
             />
           )}
           {/* Hyperspace routes */}

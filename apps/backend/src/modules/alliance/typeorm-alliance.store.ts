@@ -834,6 +834,14 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return membership ? toMembership(membership) : null;
   }
 
+  async findMemberships(userIds: number[]) {
+    if (!userIds.length) return [];
+    const memberships = await this.manager.findBy(AllianceMembership, {
+      userId: In(userIds),
+    });
+    return memberships.map(toMembership);
+  }
+
   async listMemberships(allianceId: number) {
     const memberships = await this.manager.find(AllianceMembership, {
       where: { allianceId },

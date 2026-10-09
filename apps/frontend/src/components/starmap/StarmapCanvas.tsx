@@ -5,6 +5,7 @@ import {
   useRef,
   forwardRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type {
@@ -68,6 +69,13 @@ interface StarmapCanvasProps {
   selectedSector?: { x: number; y: number } | null;
   showGrid?: boolean;
   colonizationHints?: Record<number, ColonizationTargetHint>;
+  /**
+   * DOM content positioned in world pixels (cell size {@link STARMAP_CELL_SIZE}).
+   * It follows pan and zoom; `--starmap-inverse-scale` keeps markers readable.
+   */
+  worldOverlay?: ReactNode;
+  /** Reports whether the zoom level currently shows the opened system grids. */
+  onInlineSystemsVisibleChange?: (visible: boolean) => void;
 }
 
 const FIELD_TYPE_COLORS: Record<string, number> = {
@@ -98,12 +106,15 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       selectedField,
       selectedSector,
       showGrid = true,
+      worldOverlay,
+      onInlineSystemsVisibleChange,
     },
     ref,
   ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const overlayRef = useRef<HTMLCanvasElement>(null);
     const tooltipRef = useRef<HTMLDivElement>(null);
+    const worldOverlayRef = useRef<HTMLDivElement>(null);
     const appRef = useRef<Application | null>(null);
     const galaxyRef = useRef<Container | null>(null);
     const routeRef = useRef<Graphics | null>(null);
@@ -137,6 +148,8 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const selectedFieldRef = useRef(selectedField);
     const selectedSectorRef = useRef(selectedSector);
     const showGridRef = useRef(showGrid);
+    const onInlineSystemsVisibleChangeRef = useRef(onInlineSystemsVisibleChange);
+    const inlineSystemsVisibleRef = useRef<boolean | null>(null);
 
     useEffect(() => { fieldsRef.current = fields; }, [fields]);
     useEffect(() => { selectedSystemRef.current = selectedSystem; }, [selectedSystem]);
@@ -149,6 +162,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     useEffect(() => { selectedFieldRef.current = selectedField; }, [selectedField]);
     useEffect(() => { selectedSectorRef.current = selectedSector; }, [selectedSector]);
     useEffect(() => { showGridRef.current = showGrid; }, [showGrid]);
+    useEffect(() => { onInlineSystemsVisibleChangeRef.current = onInlineSystemsVisibleChange; }, [onInlineSystemsVisibleChange]);
 
     const getFieldAt = useCallback((worldX: number, worldY: number) => {
       const cx = Math.floor(worldX / CELL_SIZE) + 1;
@@ -209,9 +223,19 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       state.viewY = mapHeight <= viewHeight ? -(viewHeight - mapHeight) / 2 : clamp(state.viewY, 0, mapHeight - viewHeight);
       container.position.set(AXIS_SIZE - state.viewX * state.scale, AXIS_SIZE - state.viewY * state.scale);
       container.scale.set(state.scale);
+      const worldOverlayElement = worldOverlayRef.current;
+      if (worldOverlayElement) {
+        worldOverlayElement.style.transform = `translate(${AXIS_SIZE - state.viewX * state.scale}px, ${AXIS_SIZE - state.viewY * state.scale}px) scale(${state.scale})`;
+        worldOverlayElement.style.setProperty('--starmap-inverse-scale', String(1 / state.scale));
+      }
       if (gridRef.current) gridRef.current.visible = showGridRef.current && state.scale * CELL_SIZE >= 14;
+      const inlineSystemsVisible = state.scale >= INLINE_SYSTEM_SCALE;
       if (inlineSystemsRef.current) {
-        inlineSystemsRef.current.visible = state.scale >= INLINE_SYSTEM_SCALE;
+        inlineSystemsRef.current.visible = inlineSystemsVisible;
+      }
+      if (inlineSystemsVisibleRef.current !== inlineSystemsVisible) {
+        inlineSystemsVisibleRef.current = inlineSystemsVisible;
+        onInlineSystemsVisibleChangeRef.current?.(inlineSystemsVisible);
       }
       if (sectorRef.current) sectorRef.current.visible = showGridRef.current && state.scale * CELL_SIZE >= 7;
       drawOverlay();
@@ -595,6 +619,13 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
 
     return (
       <div ref={containerRef} className="relative w-full h-[calc(100vh-160px)] min-h-[400px] rounded-lg border border-swu-border overflow-hidden bg-black">
+        <div
+          ref={worldOverlayRef}
+          className="absolute left-0 top-0 z-10 pointer-events-none origin-top-left"
+          style={{ width: layer.width * CELL_SIZE, height: layer.height * CELL_SIZE }}
+        >
+          {worldOverlay}
+        </div>
         <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none z-10" />
         <div ref={tooltipRef} className="absolute z-20 pointer-events-none hidden rounded bg-black/90 border border-swu-border px-2 py-1 text-[11px] text-swu-primary whitespace-nowrap" />
       </div>

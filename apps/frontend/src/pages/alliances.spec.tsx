@@ -112,8 +112,6 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
 
 function diplomacyManagement(): AllianceDiplomacyManagementDto {
   return {
-    enabled: true,
-    effectsApplied: true,
     capabilities: { create: true },
     targets: [{ id: 2, name: 'Red Squadron', color: null }],
     relationships: [
@@ -404,9 +402,8 @@ describe('AllianceDiplomacyPage', () => {
     expect(screen.getAllByRole('button', { name: 'Annehmen' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Ablehnen' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Zurückziehen' })).toBeTruthy();
-    expect(screen.getByText(/^Beziehungsfreigaben sind aktiv\./)).toBeTruthy();
-    expect(screen.getByText(/erst mit der Allianz-Kartenansicht/)).toBeTruthy();
-    expect(screen.queryByText(/noch keine Spielwirkung/i)).toBeNull();
+    expect(screen.queryByText(/Beziehungsfreigaben/)).toBeNull();
+    expect(screen.queryByText(/Diplomatie-Kern/)).toBeNull();
   });
 
   it('does not render creation controls when the server denies create capability', async () => {
@@ -420,20 +417,6 @@ describe('AllianceDiplomacyPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Vorschlag senden' }),
     ).toBeNull();
-  });
-
-  it('identifies an inactive rollout and does not offer proposal creation', async () => {
-    const management = diplomacyManagement();
-    management.enabled = false;
-    management.capabilities.create = false;
-    routeGet({ '/alliances/1/diplomacy': management });
-
-    renderAt('/alliances/1/diplomacy');
-
-    expect(
-      await screen.findByText('Der Diplomatie-Kern ist noch nicht aktiviert.'),
-    ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Vorschlag senden' })).toBeNull();
   });
 
   it('submits a relationship change draft only when the server grants change capability', async () => {

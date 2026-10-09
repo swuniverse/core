@@ -209,8 +209,13 @@ export class InMemoryAllianceStore implements AllianceStore {
     return this.state.players.find((p) => p.id === id) ?? null;
   }
 
+  // Batch lookups go through the single lookups so that tests can make
+  // either fail with one spy.
   async findPlayers(ids: number[]) {
-    return this.state.players.filter((p) => ids.includes(p.id));
+    const players = await Promise.all(
+      [...new Set(ids)].map((id) => this.findPlayer(id)),
+    );
+    return players.filter((player) => player !== null);
   }
 
   async listFactions() {
@@ -656,6 +661,13 @@ export class InMemoryAllianceStore implements AllianceStore {
   async findMembership(userId: number) {
     const membership = this.state.memberships.find((m) => m.userId === userId);
     return membership ? { ...membership } : null;
+  }
+
+  async findMemberships(userIds: number[]) {
+    const memberships = await Promise.all(
+      [...new Set(userIds)].map((userId) => this.findMembership(userId)),
+    );
+    return memberships.filter((membership) => membership !== null);
   }
 
   async listMemberships(allianceId: number) {

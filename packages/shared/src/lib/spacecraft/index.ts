@@ -1,3 +1,4 @@
+import type { Stance } from '../alliance/index.js';
 import type { SpaceLocationDto } from '../starmap/index.js';
 
 export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
@@ -120,6 +121,69 @@ export interface SharedLivePositionDto {
   ownerId: number;
   ownerName: string | null;
   location: SpaceLocationDto;
+}
+
+/**
+ * Why a ship is visible on the viewer's starmap. Reasons are assigned in this
+ * priority order; a ship appears at most once, with its highest reason.
+ */
+export type StarmapContactReason = 'OWN' | 'ALLIANCE' | 'SHARED_LIVE_POSITION';
+
+/** Central stance of the viewer towards a contact's owner. */
+export type StarmapContactStance = Stance;
+
+export interface StarmapContactAllianceDto {
+  id: number;
+  name: string;
+  /** Validated hex color, or null when the alliance has none set. */
+  color: string | null;
+}
+
+/**
+ * Management details. Only delivered for the viewer's own ships and, for a
+ * president or vice, for alliance ships. Omitted entirely otherwise.
+ */
+export interface StarmapContactManagementDto {
+  status: string;
+  alertState: SpacecraftAlertState;
+  hull: number;
+  hullMax: number;
+  crew: number;
+  crewMax: number;
+}
+
+/** Galaxy cell a contact is drawn at; ships inside a system use the system cell. */
+export interface StarmapContactGalaxyCellDto {
+  layerId: number;
+  x: number;
+  y: number;
+}
+
+export interface StarmapContactDto {
+  spacecraftId: number;
+  spacecraftName: string;
+  shipClassId: number;
+  ownerId: number;
+  ownerName: string | null;
+  /** Resolved canonical position (galaxy or system coordinates). */
+  location: SpaceLocationDto;
+  galaxyCell: StarmapContactGalaxyCellDto;
+  reason: StarmapContactReason;
+  /** Omitted for the viewer's own ships. */
+  stance?: StarmapContactStance;
+  /** Present for contacts with reason ALLIANCE. */
+  alliance?: StarmapContactAllianceDto;
+  management?: StarmapContactManagementDto;
+}
+
+export interface StarmapContactsDto {
+  layerId: number;
+  contacts: StarmapContactDto[];
+  /**
+   * Alliance the viewer currently belongs to; null when the viewer has none
+   * or it cannot be resolved.
+   */
+  viewerAlliance: StarmapContactAllianceDto | null;
 }
 
 export interface SpacecraftEnergyFlowRowDto {
