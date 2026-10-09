@@ -354,4 +354,43 @@ export function diplomacyPartyStoreContract(
       ]);
     });
   });
+
+  describe('settler search', () => {
+    it('lists alliance-less players of one faction by ID, literal and bounded', async () => {
+      const me = await world.player();
+      const other = await world.player();
+      const third = await world.player();
+      await world.player('EMPIRE');
+      await world.alliance();
+
+      const found = await world.store.searchSettlers({
+        factionId: (await world.store.findPlayer(me))!.factionId!,
+        excludeUserId: me,
+        query: '',
+        afterId: 0,
+        limit: 100,
+      });
+
+      // Alliance presidents and the other faction are excluded.
+      expect(found.map((player) => player.id)).toEqual([other, third]);
+      expect(Object.keys(found[0]).sort()).toEqual(['id', 'name']);
+      const paged = await world.store.searchSettlers({
+        factionId: (await world.store.findPlayer(me))!.factionId!,
+        excludeUserId: me,
+        query: '',
+        afterId: other,
+        limit: 1,
+      });
+      expect(paged.map((player) => player.id)).toEqual([third]);
+      expect(
+        await world.store.searchSettlers({
+          factionId: (await world.store.findPlayer(me))!.factionId!,
+          excludeUserId: me,
+          query: '%',
+          afterId: 0,
+          limit: 10,
+        }),
+      ).toEqual([]);
+    });
+  });
 }

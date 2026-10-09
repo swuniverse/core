@@ -24,6 +24,9 @@ import {
   type AllianceSummaryDto,
   type AllianceTitlesDto,
   type MyAllianceDto,
+  type SettlerCounterpartyDto,
+  type SettlerCounterpartyPageDto,
+  type SettlerDiplomacyManagementDto,
   type UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { BbCodeText } from '../components/BbCodeText';
@@ -124,6 +127,7 @@ function chronicleEventLabel(entry: AllianceDiplomacyChronicleEntryDto) {
 export function AllianceListPage() {
   const [alliances, setAlliances] = useState<AllianceSummaryDto[] | null>(null);
   const [mine, setMine] = useState<MyAllianceDto['alliance']>(null);
+  const [canSettlerDiplomacy, setCanSettlerDiplomacy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -136,6 +140,7 @@ export function AllianceListPage() {
         if (cancelled) return;
         setAlliances(list);
         setMine(own.alliance);
+        setCanSettlerDiplomacy(own.actions?.settlerDiplomacy === true);
       })
       .catch((err) => {
         if (!cancelled)
@@ -152,16 +157,23 @@ export function AllianceListPage() {
     <div className="space-y-4 p-3 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTitle>Allianzen</PageTitle>
-        {alliances &&
-          (mine ? (
-            <Link to={`/alliances/${mine.id}`} className={primaryButtonClass}>
-              Meine Allianz
+        <div className="flex flex-wrap gap-2">
+          {alliances && canSettlerDiplomacy && (
+            <Link to="/alliances/settlers/diplomacy" className={buttonClass}>
+              Siedler-Diplomatie
             </Link>
-          ) : (
-            <Link to="/alliances/new" className={primaryButtonClass}>
-              Allianz gründen
-            </Link>
-          ))}
+          )}
+          {alliances &&
+            (mine ? (
+              <Link to={`/alliances/${mine.id}`} className={primaryButtonClass}>
+                Meine Allianz
+              </Link>
+            ) : (
+              <Link to="/alliances/new" className={primaryButtonClass}>
+                Allianz gründen
+              </Link>
+            ))}
+        </div>
       </div>
       <ErrorMessage message={error} />
       {!alliances && !error && (
@@ -983,6 +995,325 @@ export function AllianceDiplomacyPage() {
                           )}
                         </div>
                       </div>
+                    )}
+                  </article>
+                ),
+              )
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="font-bold text-swu-accent">
+              Ausstehende Vorschläge
+            </h2>
+            {management.proposals.length === 0 ? (
+              <p className="text-sm text-swu-muted">
+                Keine ausstehenden Vorschläge.
+              </p>
+            ) : (
+              management.proposals.map(
+                ({ proposal, direction, capabilities }) => (
+                  <article
+                    key={proposal.id}
+                    className="space-y-2 border border-swu-border bg-swu-surface p-4"
+                  >
+                    <p className="font-semibold">
+                      {relationshipTypeLabel(proposal.type)} (
+                      {direction === 'SENT' ? 'gesendet' : 'empfangen'})
+                    </p>
+                    <BbCodeText text={proposal.contract} className="text-sm" />
+                    <div className="flex flex-wrap gap-2">
+                      {capabilities.accept && (
+                        <button
+                          disabled={busy}
+                          className={primaryButtonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.post(
+                                `/alliances/diplomacy/proposals/${proposal.id}/accept`,
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          Annehmen
+                        </button>
+                      )}
+                      {capabilities.decline && (
+                        <button
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.post(
+                                `/alliances/diplomacy/proposals/${proposal.id}/decline`,
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          Ablehnen
+                        </button>
+                      )}
+                      {capabilities.withdraw && (
+                        <button
+                          disabled={busy}
+                          className={buttonClass}
+                          onClick={() =>
+                            void run(() =>
+                              api.delete(
+                                `/alliances/diplomacy/proposals/${proposal.id}`,
+                              ),
+                            )
+                          }
+                        >
+                          Zurückziehen
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ),
+              )
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Siedler diplomacy ---
+
+/** Diplomacy area of an alliance-less player; the server derives the party. */
+export function SettlerDiplomacyPage() {
+  const [management, setManagement] =
+    useState<SettlerDiplomacyManagementDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
+  const [searched, setSearched] = useState<string | null>(null);
+  const [results, setResults] = useState<SettlerCounterpartyDto[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    setManagement(
+      await api.get<SettlerDiplomacyManagementDto>(
+        '/alliances/settlers/diplomacy',
+      ),
+    );
+  }, []);
+
+  useEffect(() => {
+    void reload().catch((err) =>
+      setError(
+        getErrorMessage(
+          err,
+          'Die Siedler-Diplomatie konnte nicht geladen werden.',
+        ),
+      ),
+    );
+  }, [reload]);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await reload();
+    } catch (err) {
+      setError(
+        getErrorMessage(err, 'Die diplomatische Aktion ist fehlgeschlagen.'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function search(text: string, cursor: string | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ q: text });
+      if (cursor) params.set('cursor', cursor);
+      const page = await api.get<SettlerCounterpartyPageDto>(
+        `/alliances/settlers/counterparties?${params.toString()}`,
+      );
+      setSearched(text);
+      setResults((current) =>
+        cursor ? [...current, ...page.players] : page.players,
+      );
+      setNextCursor(page.nextCursor);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Die Suche ist fehlgeschlagen.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!management && !error) {
+    return (
+      <p className="p-6 text-swu-muted">Siedler-Diplomatie wird geladen...</p>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl space-y-6 p-3 md:p-6">
+      <BackLink to="/alliances" label="Allianzen" />
+      <PageTitle>Siedler-Diplomatie</PageTitle>
+      <ErrorMessage message={error} />
+      {!management ? null : (
+        <>
+          {management.capabilities.declareWar && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="font-bold text-swu-accent">Gegenpartei wählen</h2>
+              <form
+                className="flex flex-wrap items-end gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void search(query.trim(), null);
+                }}
+              >
+                <label className="space-y-1 text-sm">
+                  <span>Siedler suchen</span>
+                  <input
+                    aria-label="Siedler suchen"
+                    className={inputClass}
+                    value={query}
+                    maxLength={40}
+                    onChange={(event) => setQuery(event.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className={primaryButtonClass}
+                >
+                  Suchen
+                </button>
+              </form>
+              {searched !== null && results.length === 0 && (
+                <p className="text-sm text-swu-muted">
+                  Keine Siedler gefunden.
+                </p>
+              )}
+              <ul className="space-y-1 text-sm">
+                {results.map((player) => (
+                  <li
+                    key={player.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span>{player.name}</span>
+                    <button
+                      disabled={busy}
+                      aria-label={`Krieg erklären: ${player.name}`}
+                      className={dangerButtonClass}
+                      onClick={() =>
+                        void run(async () => {
+                          await api.post(
+                            `/alliances/settlers/${player.id}/war`,
+                            {},
+                          );
+                          setResults([]);
+                          setSearched(null);
+                          setNextCursor(null);
+                        })
+                      }
+                    >
+                      Krieg erklären
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {nextCursor && (
+                <button
+                  disabled={busy}
+                  className={buttonClass}
+                  onClick={() => void search(searched ?? '', nextCursor)}
+                >
+                  Mehr laden
+                </button>
+              )}
+            </section>
+          )}
+
+          <section className="space-y-3">
+            <h2 className="font-bold text-swu-accent">Aktive Beziehungen</h2>
+            {management.relationships.length === 0 ? (
+              <p className="text-sm text-swu-muted">
+                Keine aktiven Beziehungen.
+              </p>
+            ) : (
+              management.relationships.map(
+                ({ relationship, capabilities }) => (
+                  <article
+                    key={relationship.id}
+                    className="space-y-3 border border-swu-border bg-swu-surface p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-bold">
+                        {relationship.counterparty.name}:{' '}
+                        {relationshipTypeLabel(relationship.type)}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {capabilities.declareWar && (
+                          <button
+                            disabled={busy}
+                            className={dangerButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  `/alliances/settlers/${relationship.counterparty.id}/war`,
+                                  {},
+                                ),
+                              )
+                            }
+                          >
+                            Krieg erklären
+                          </button>
+                        )}
+                        {capabilities.offerPeace && (
+                          <button
+                            disabled={busy}
+                            className={buttonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.post(
+                                  '/alliances/settlers/diplomacy/proposals',
+                                  {
+                                    recipientPlayerId:
+                                      relationship.counterparty.id,
+                                    type: AllianceRelationshipType.PEACE,
+                                  },
+                                ),
+                              )
+                            }
+                          >
+                            Frieden anbieten
+                          </button>
+                        )}
+                        {capabilities.end && (
+                          <button
+                            disabled={busy}
+                            className={dangerButtonClass}
+                            onClick={() =>
+                              void run(() =>
+                                api.delete(
+                                  `/alliances/relationships/${relationship.id}`,
+                                ),
+                              )
+                            }
+                          >
+                            Beenden
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {relationship.contract && (
+                      <BbCodeText
+                        text={relationship.contract}
+                        className="text-sm"
+                      />
                     )}
                   </article>
                 ),

@@ -28,7 +28,10 @@ import {
   AllianceRefDto,
   AllianceRelationshipType,
   AllianceRole,
-  DiplomacyPartyType,
+  type MyAllianceDto,
+  type ProposeSettlerRelationshipRequest,
+  type SettlerCounterpartyPageDto,
+  type SettlerDiplomacyManagementDto,
   AllianceSummaryDto,
   AllianceTitlesDto,
   FoundAllianceRequest,
@@ -42,6 +45,9 @@ import { MessagingService } from '../messaging/messaging.service';
 import {
   ALLIANCE_CHRONICLE_PAGE_DEFAULT,
   ALLIANCE_CHRONICLE_PAGE_MAX,
+  SETTLER_SEARCH_PAGE_DEFAULT,
+  SETTLER_SEARCH_PAGE_MAX,
+  SETTLER_SEARCH_QUERY_MAX,
   ALLIANCE_DESCRIPTION_MAX,
   ALLIANCE_HOMEPAGE_MAX,
   ALLIANCE_NAME_MAX,
@@ -66,6 +72,7 @@ import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import {
   allianceParty,
   isAllianceParty,
+  playerParty,
   isPair,
   otherParty,
   samePartyRef,
@@ -124,6 +131,9 @@ const ERR = {
     'Für diese Beziehung existiert bereits ein Änderungsvorschlag',
   invalidRelationshipProposal: 'Dies ist kein gültiger Beziehungsvorschlag',
   memberNotFound: 'Der Siedler ist kein Mitglied dieser Allianz',
+  invalidSettlerTarget: 'Dieser Siedler ist kein gültiges Ziel',
+  invalidSearchCursor: 'Ungültiger Such-Cursor',
+  invalidSearchQuery: 'Der Suchbegriff ist zu lang',
   forbidden: 'Dazu fehlt Dir die Berechtigung',
   applicantTaken: 'Der Siedler ist bereits Mitglied einer Allianz',
   alreadyApplied: 'Du hast Dich bei dieser Allianz bereits beworben',
@@ -141,9 +151,51 @@ const CONSTRAINT_ERRORS: Record<AllianceConstraint, string> = {
   relationship_change_proposal: ERR.relationshipChangeProposalExists,
 };
 
+/** Which negotiable permissions each relationship type may carry. */
+const RELATIONSHIP_PERMISSIONS: Record<
+  AllianceRelationshipType,
+  { treatAsFriend: boolean; shareLivePositions: boolean }
+> = {
+  [AllianceRelationshipType.WAR]: {
+    treatAsFriend: false,
+    shareLivePositions: false,
+  },
+  [AllianceRelationshipType.PEACE]: {
+    treatAsFriend: false,
+    shareLivePositions: false,
+  },
+  [AllianceRelationshipType.FRIENDSHIP]: {
+    treatAsFriend: true,
+    shareLivePositions: false,
+  },
+  [AllianceRelationshipType.ALLIANCE]: {
+    treatAsFriend: true,
+    shareLivePositions: true,
+  },
+  [AllianceRelationshipType.TRADE_AGREEMENT]: {
+    treatAsFriend: true,
+    shareLivePositions: false,
+  },
+  [AllianceRelationshipType.VASSALAGE]: {
+    treatAsFriend: true,
+    shareLivePositions: false,
+  },
+};
+
 interface OutgoingMessage {
   to: number;
   body: string;
+}
+
+/**
+ * A diplomacy party loaded inside a transaction: the alliance or alliance-less
+ * player that stands on one side, with everyone who is informed about it.
+ */
+interface PartyContext {
+  ref: PartyRef;
+  name: string;
+  factionId: number | null;
+  recipientIds: number[];
 }
 
 @Injectable()
@@ -185,13 +237,39 @@ export class AllianceService {
   ): Promise<AllianceDiplomacyChronicleDto> {
     await this.requireAlliance(allianceId);
     await this.store.findPlayer(viewerId);
+    return this.diplomacyChronicleOf(
+      allianceParty(allianceId),
+      cursor,
+      limit,
+    );
+  }
+
+  /** Public diplomacy chronicle of an alliance-less player. */
+  async listSettlerDiplomacyChronicle(
+    viewerId: number,
+    playerId: number,
+    cursor?: string,
+    limit?: number,
+  ): Promise<AllianceDiplomacyChronicleDto> {
+    if (!(await this.store.findPlayer(playerId))) {
+      throw new NotFoundException(ERR.invalidSettlerTarget);
+    }
+    await this.store.findPlayer(viewerId);
+    return this.diplomacyChronicleOf(playerParty(playerId), cursor, limit);
+  }
+
+  private async diplomacyChronicleOf(
+    party: PartyRef,
+    cursor?: string,
+    limit?: number,
+  ): Promise<AllianceDiplomacyChronicleDto> {
     const pageSize = Math.min(
       Math.max(limit ?? ALLIANCE_CHRONICLE_PAGE_DEFAULT, 1),
       ALLIANCE_CHRONICLE_PAGE_MAX,
     );
     const paginationCursor = this.parseChronicleCursor(cursor);
     const entries = await this.store.listDiplomacyChronicleEntries(
-      allianceId,
+      party,
       paginationCursor,
       pageSize + 1,
     );
@@ -356,6 +434,268 @@ export class AllianceService {
     return { relationshipId: relationship.id, contract: relationship.contract };
   }
 
+  /** The player's alliance and the capabilities the server grants them. */
+  async getMyAlliance(userId: number): Promise<MyAllianceDto> {
+    const [alliance, player] = await Promise.all([
+      this.getRef(userId),
+      this.store.findPlayer(userId),
+    ]);
+    return {
+      alliance,
+      actions: {
+        settlerDiplomacy:
+          alliance === null && !!player && player.factionId !== null,
+      },
+    };
+  }
+
+  /**
+   * The requester as their own diplomacy party. Alliance members act for their
+   * alliance only, so they never get a player party; the party is never chosen
+   * by the client.
+   */
+  private async requireSettler(
+    tx: AllianceStore,
+    actorId: number,
+  ): Promise<PartyContext> {
+    const actor = await tx.findPlayer(actorId);
+    if (
+      !actor ||
+      actor.factionId === null ||
+      (await tx.findMembership(actorId))
+    ) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    return {
+      ref: playerParty(actor.id),
+      name: actor.name,
+      factionId: actor.factionId,
+      recipientIds: [actor.id],
+    };
+  }
+
+  /** A valid counterparty: another alliance-less player of the same faction. */
+  private async requireSettlerCounterparty(
+    tx: AllianceStore,
+    actor: PartyContext,
+    targetId: unknown,
+  ): Promise<PartyContext> {
+    if (!Number.isInteger(targetId) || targetId === actor.ref.id) {
+      throw new BadRequestException(ERR.invalidSettlerTarget);
+    }
+    const target = await tx.findPlayer(targetId as number);
+    if (
+      !target ||
+      target.factionId === null ||
+      target.factionId !== actor.factionId ||
+      (await tx.findMembership(target.id))
+    ) {
+      throw new BadRequestException(ERR.invalidSettlerTarget);
+    }
+    return {
+      ref: playerParty(target.id),
+      name: target.name,
+      factionId: target.factionId,
+      recipientIds: [target.id],
+    };
+  }
+
+  async declareSettlerWar(actorId: number, targetPlayerId: number) {
+    await this.rateLimiter?.check(actorId, 'war');
+    await this.mutateDiplomacy(async (tx) => {
+      const actor = await this.requireSettler(tx, actorId);
+      const target = await this.requireSettlerCounterparty(
+        tx,
+        actor,
+        targetPlayerId,
+      );
+      await tx.replaceRelationshipsWithWar(actor.ref, target.ref);
+      const relationship = (await tx.listActiveRelationships(actor.ref)).find(
+        (entry) =>
+          isPair(entry.firstParty, entry.secondParty, actor.ref, target.ref),
+      );
+      if (!relationship) throw new Error('War relationship was not created');
+      await this.appendPartyChronicleEntry(
+        tx,
+        AllianceDiplomacyChronicleEventType.WAR_DECLARED,
+        actorId,
+        relationship,
+        this.partyOf(relationship.firstParty, [actor, target]),
+        this.partyOf(relationship.secondParty, [actor, target]),
+      );
+      return this.partyMessages(tx, actorId, actor, target, 'den Krieg erklärt');
+    });
+  }
+
+  async proposeSettlerRelationship(
+    actorId: number,
+    request: ProposeSettlerRelationshipRequest,
+  ): Promise<{ id: number }> {
+    await this.rateLimiter?.check(actorId, 'proposal');
+    const result = await this.mutateDiplomacy(
+      async (tx) => {
+        const sender = await this.requireSettler(tx, actorId);
+        const recipient = await this.requireSettlerCounterparty(
+          tx,
+          sender,
+          request?.recipientPlayerId,
+        );
+        // Only peace is negotiable in this stage; other types follow later.
+        if (request?.type !== AllianceRelationshipType.PEACE) {
+          throw new BadRequestException(ERR.invalidRelationshipProposal);
+        }
+        const active = (await tx.listActiveRelationships(sender.ref)).find(
+          (relationship) =>
+            isPair(
+              relationship.firstParty,
+              relationship.secondParty,
+              sender.ref,
+              recipient.ref,
+            ),
+        );
+        if (active?.type !== AllianceRelationshipType.WAR) {
+          throw new BadRequestException(ERR.invalidRelationshipProposal);
+        }
+        const contract = this.validateRelationshipContract(request.contract);
+        const proposal = await tx.insertRelationshipProposal({
+          senderParty: sender.ref,
+          recipientParty: recipient.ref,
+          type: request.type,
+          contract,
+          treatAsFriend: false,
+          shareLivePositions: false,
+        });
+        const messages = await this.partyMessages(
+          tx,
+          actorId,
+          sender,
+          recipient,
+          'einen Beziehungsvorschlag gesendet',
+        );
+        return { id: proposal.id, messages };
+      },
+      (result) => result.messages,
+    );
+    return { id: result.id };
+  }
+
+  /** Confidential diplomacy view of an alliance-less player. */
+  async getSettlerDiplomacy(
+    actorId: number,
+  ): Promise<SettlerDiplomacyManagementDto> {
+    const actor = await this.requireSettler(this.store, actorId);
+    const [relationships, proposals, changes] = await Promise.all([
+      this.store.listActiveRelationships(actor.ref),
+      this.store.listRelationshipProposals(actor.ref),
+      this.store.listRelationshipChangeProposals(actor.ref),
+    ]);
+    const changesByRelationship = new Map(
+      changes.map((change) => [change.relationshipId, change]),
+    );
+    const summaries = await this.relationshipSummaries(
+      actor.ref,
+      relationships,
+    );
+    const hasPendingProposal = (relationship: AllianceRelationshipRecord) =>
+      proposals.some((proposal) =>
+        isPair(
+          proposal.firstParty,
+          proposal.secondParty,
+          relationship.firstParty,
+          relationship.secondParty,
+        ),
+      );
+    return {
+      capabilities: { declareWar: true },
+      relationships: summaries.map((summary) => {
+        const relationship = relationships.find(
+          (candidate) => candidate.id === summary.id,
+        )!;
+        const change = changesByRelationship.get(relationship.id);
+        const direction = change
+          ? samePartyRef(change.senderParty, actor.ref)
+            ? 'SENT'
+            : 'RECEIVED'
+          : null;
+        const isWar = relationship.type === AllianceRelationshipType.WAR;
+        return {
+          relationship: { ...summary, contract: relationship.contract },
+          change:
+            change && direction
+              ? { ...this.toChangeProposalDto(change), direction }
+              : null,
+          capabilities: {
+            create: false,
+            declareWar: !isWar,
+            offerPeace: isWar && !hasPendingProposal(relationship),
+            accept: false,
+            decline: false,
+            withdraw: false,
+            change: false,
+            end: false,
+          },
+        };
+      }),
+      proposals: proposals.map((proposal) => {
+        const direction = samePartyRef(proposal.senderParty, actor.ref)
+          ? 'SENT'
+          : 'RECEIVED';
+        return {
+          proposal: this.toProposalDto(proposal),
+          direction,
+          capabilities: this.diplomacyCapabilities(
+            proposal.type,
+            direction,
+            false,
+          ),
+        };
+      }),
+      permissions: RELATIONSHIP_PERMISSIONS,
+    };
+  }
+
+  /** Alliance-less players of the requester's faction, for the picker. */
+  async searchSettlerCounterparties(
+    actorId: number,
+    query?: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<SettlerCounterpartyPageDto> {
+    const actor = await this.requireSettler(this.store, actorId);
+    const text = (query ?? '').trim();
+    if (Array.from(text).length > SETTLER_SEARCH_QUERY_MAX) {
+      throw new BadRequestException(ERR.invalidSearchQuery);
+    }
+    const requested = Number.isFinite(limit)
+      ? Math.floor(limit as number)
+      : SETTLER_SEARCH_PAGE_DEFAULT;
+    const pageSize = Math.min(Math.max(requested, 1), SETTLER_SEARCH_PAGE_MAX);
+    let afterId = 0;
+    if (cursor) {
+      const decoded = Number(Buffer.from(cursor, 'base64url').toString('utf8'));
+      if (!Number.isInteger(decoded) || decoded < 0) {
+        throw new BadRequestException(ERR.invalidSearchCursor);
+      }
+      afterId = decoded;
+    }
+    const found = await this.store.searchSettlers({
+      factionId: actor.factionId as number,
+      excludeUserId: actorId,
+      query: text,
+      afterId,
+      limit: pageSize + 1,
+    });
+    const page = found.slice(0, pageSize);
+    const last = page.at(-1);
+    return {
+      players: page.map(({ id, name }) => ({ id, name })),
+      nextCursor:
+        found.length > pageSize && last
+          ? Buffer.from(String(last.id)).toString('base64url')
+          : null,
+    };
+  }
+
   async getRef(userId: number): Promise<AllianceRefDto | null> {
     const membership = await this.store.findMembership(userId);
     if (!membership) return null;
@@ -494,32 +834,7 @@ export class AllianceService {
           ),
         };
       }),
-      permissions: {
-        [AllianceRelationshipType.WAR]: {
-          treatAsFriend: false,
-          shareLivePositions: false,
-        },
-        [AllianceRelationshipType.PEACE]: {
-          treatAsFriend: false,
-          shareLivePositions: false,
-        },
-        [AllianceRelationshipType.FRIENDSHIP]: {
-          treatAsFriend: true,
-          shareLivePositions: false,
-        },
-        [AllianceRelationshipType.ALLIANCE]: {
-          treatAsFriend: true,
-          shareLivePositions: true,
-        },
-        [AllianceRelationshipType.TRADE_AGREEMENT]: {
-          treatAsFriend: true,
-          shareLivePositions: false,
-        },
-        [AllianceRelationshipType.VASSALAGE]: {
-          treatAsFriend: true,
-          shareLivePositions: false,
-        },
-      },
+      permissions: RELATIONSHIP_PERMISSIONS,
     };
   }
 
@@ -854,10 +1169,10 @@ export class AllianceService {
   ): Promise<void> {
     await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipProposal(tx, proposalId);
-      const recipient = await this.lockedAllianceRight(
+      const recipient = await this.actingParty(
         tx,
         actorId,
-        this.allianceIdOfParty(proposal.recipientParty),
+        proposal.recipientParty,
         'manageDiplomacy',
       );
       const activeRelationship = (
@@ -880,26 +1195,24 @@ export class AllianceService {
       const relationship = await tx.acceptRelationshipProposal(proposalId);
       if (!relationship)
         throw new NotFoundException(ERR.relationshipProposalNotFound);
-      const sender = await this.lockedAlliance(
-        tx,
-        this.allianceIdOfParty(proposal.senderParty),
-      );
-      await this.appendChronicleEntry(
+      const sender = await this.loadParty(tx, proposal.senderParty);
+      await this.appendPartyChronicleEntry(
         tx,
         activeRelationship
           ? AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED
           : AllianceDiplomacyChronicleEventType.RELATIONSHIP_STARTED,
         actorId,
         relationship,
-        this.allianceForParty(relationship.firstParty, [recipient, sender]),
-        this.allianceForParty(relationship.secondParty, [recipient, sender]),
+        this.partyOf(relationship.firstParty, [recipient, sender]),
+        this.partyOf(relationship.secondParty, [recipient, sender]),
       );
-      const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(sender.id);
-      return recipients.map((member) => ({
-        to: member.userId,
-        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} den Beziehungsvorschlag angenommen`,
-      }));
+      return this.partyMessages(
+        tx,
+        actorId,
+        recipient,
+        sender,
+        'den Beziehungsvorschlag angenommen',
+      );
     });
   }
 
@@ -909,23 +1222,23 @@ export class AllianceService {
   ): Promise<void> {
     await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipProposal(tx, proposalId);
-      const recipient = await this.lockedAllianceRight(
+      const recipient = await this.actingParty(
         tx,
         actorId,
-        this.allianceIdOfParty(proposal.recipientParty),
+        proposal.recipientParty,
         'manageDiplomacy',
       );
       if (!(await tx.deleteRelationshipProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
       }
-      const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(
-        this.allianceIdOfParty(proposal.senderParty),
+      const sender = await this.loadParty(tx, proposal.senderParty);
+      return this.partyMessages(
+        tx,
+        actorId,
+        recipient,
+        sender,
+        'den Beziehungsvorschlag abgelehnt',
       );
-      return recipients.map((member) => ({
-        to: member.userId,
-        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} den Beziehungsvorschlag abgelehnt`,
-      }));
     });
   }
 
@@ -935,23 +1248,23 @@ export class AllianceService {
   ): Promise<void> {
     await this.mutateDiplomacy(async (tx) => {
       const proposal = await this.requireRelationshipProposal(tx, proposalId);
-      const sender = await this.lockedAllianceRight(
+      const sender = await this.actingParty(
         tx,
         actorId,
-        this.allianceIdOfParty(proposal.senderParty),
+        proposal.senderParty,
         'manageDiplomacy',
       );
       if (!(await tx.deleteRelationshipProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
       }
-      const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(
-        this.allianceIdOfParty(proposal.recipientParty),
+      const recipient = await this.loadParty(tx, proposal.recipientParty);
+      return this.partyMessages(
+        tx,
+        actorId,
+        sender,
+        recipient,
+        'den Beziehungsvorschlag zurückgezogen',
       );
-      return recipients.map((member) => ({
-        to: member.userId,
-        body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} den Beziehungsvorschlag zurückgezogen`,
-      }));
     });
   }
 
@@ -1681,18 +1994,28 @@ export class AllianceService {
   }
 
   private async relationshipSummaries(
-    allianceId: number,
+    allianceId: number | PartyRef,
     relationships: AllianceRelationshipRecord[],
   ): Promise<AllianceRelationshipSummaryDto[]> {
+    const viewerParty =
+      typeof allianceId === 'number' ? allianceParty(allianceId) : allianceId;
     const counterparties = await Promise.all(
-      relationships.map((relationship) => {
-        const counterparty = otherParty(
-          relationship,
-          allianceParty(allianceId),
-        );
-        // Player counterparties are not shown before the settler stages.
-        return isAllianceParty(counterparty)
-          ? this.store.findAlliance(counterparty.id)
+      relationships.map(async (relationship) => {
+        const counterparty = otherParty(relationship, viewerParty);
+        if (isAllianceParty(counterparty)) {
+          const alliance = await this.store.findAlliance(counterparty.id);
+          return alliance
+            ? {
+                ref: counterparty,
+                id: alliance.id,
+                name: alliance.name,
+                color: alliance.color,
+              }
+            : null;
+        }
+        const player = await this.store.findPlayer(counterparty.id);
+        return player
+          ? { ref: counterparty, id: player.id, name: player.name, color: null }
           : null;
       }),
     );
@@ -1708,7 +2031,7 @@ export class AllianceService {
             name: counterparty.name,
             color: counterparty.color,
           },
-          counterpartyType: DiplomacyPartyType.ALLIANCE,
+          counterpartyType: counterparty.ref.type,
           type: relationship.type,
           startedAt: relationship.startedAt.toISOString(),
           permissions: {
@@ -2157,6 +2480,106 @@ export class AllianceService {
       firstPartyName: firstAlliance.name,
       secondParty: allianceParty(secondAlliance.id),
       secondPartyName: secondAlliance.name,
+      relationshipType: relationship.type,
+      lordParty: relationship.lordParty,
+      vassalParty: relationship.vassalParty,
+    });
+  }
+
+  /** Loads the party behind `ref`, locking an alliance for the transaction. */
+  private async loadParty(
+    tx: AllianceStore,
+    ref: PartyRef,
+  ): Promise<PartyContext> {
+    if (isAllianceParty(ref)) {
+      const alliance = await this.lockedAlliance(tx, ref.id);
+      const members = await tx.listMemberships(alliance.id);
+      return {
+        ref,
+        name: alliance.name,
+        factionId: alliance.factionId,
+        recipientIds: members.map((member) => member.userId),
+      };
+    }
+    const player = await tx.findPlayer(ref.id);
+    if (!player) throw new NotFoundException(ERR.invalidSettlerTarget);
+    return {
+      ref,
+      name: player.name,
+      factionId: player.factionId,
+      recipientIds: [player.id],
+    };
+  }
+
+  /**
+   * The party the requester may act for. An alliance party needs the office
+   * right; a player party is only ever the requester themselves, and never
+   * while they are an alliance member (members act for their alliance only).
+   */
+  private async actingParty(
+    tx: AllianceStore,
+    actorId: number,
+    ref: PartyRef,
+    action: AllianceAction,
+  ): Promise<PartyContext> {
+    if (isAllianceParty(ref)) {
+      await this.lockedAllianceRight(tx, actorId, ref.id, action);
+    } else if (ref.id !== actorId || (await tx.findMembership(actorId))) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    return this.loadParty(tx, ref);
+  }
+
+  private partyOf(ref: PartyRef, candidates: PartyContext[]): PartyContext {
+    const party = candidates.find((candidate) =>
+      samePartyRef(candidate.ref, ref),
+    );
+    if (!party) throw new Error('Diplomacy party was not loaded');
+    return party;
+  }
+
+  /** "Name hat im Namen der Allianz X <verb>" or, for a settler, "Name hat <verb>". */
+  private actedText(
+    actorName: string | undefined,
+    party: PartyContext,
+    verb: string,
+  ): string {
+    const name = actorName ?? UNKNOWN_NAME;
+    return isAllianceParty(party.ref)
+      ? `${name} hat im Namen der Allianz ${party.name} ${verb}`
+      : `${name} hat ${verb}`;
+  }
+
+  /** Message intents for everyone informed about `to`, naming the acting party. */
+  private async partyMessages(
+    tx: AllianceStore,
+    actorId: number,
+    from: PartyContext,
+    to: PartyContext,
+    verb: string,
+  ): Promise<OutgoingMessage[]> {
+    const actor = await tx.findPlayer(actorId);
+    const body = this.actedText(actor?.name, from, verb);
+    return to.recipientIds.map((recipientId) => ({ to: recipientId, body }));
+  }
+
+  private async appendPartyChronicleEntry(
+    tx: AllianceStore,
+    eventType: AllianceDiplomacyChronicleEventType,
+    actorId: number | null,
+    relationship: AllianceRelationshipRecord,
+    first: PartyContext,
+    second: PartyContext,
+  ): Promise<void> {
+    const actor = actorId === null ? null : await tx.findPlayer(actorId);
+    await tx.appendDiplomacyChronicleEntry({
+      eventType,
+      actorUserId: actor?.id ?? null,
+      actorName: actor?.name ?? null,
+      firstParty: first.ref,
+      firstPartyName: first.name,
+      secondParty: second.ref,
+      secondPartyName: second.name,
       relationshipType: relationship.type,
       lordParty: relationship.lordParty,
       vassalParty: relationship.vassalParty,

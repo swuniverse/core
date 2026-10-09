@@ -23,6 +23,7 @@ import type {
   RenameForumTopicRequest,
   SetForumTopicImportantRequest,
   ProposeAllianceRelationshipRequest,
+  ProposeSettlerRelationshipRequest,
   SetAllianceRoleRequest,
   UpdateForumPostRequest,
   UpdateAllianceRequest,
@@ -53,8 +54,67 @@ export class AllianceController {
   }
 
   @Get('mine')
-  async mine(@Request() req: AuthRequest) {
-    return { alliance: await this.allianceService.getRef(req.user.sub) };
+  mine(@Request() req: AuthRequest) {
+    return this.allianceService.getMyAlliance(req.user.sub);
+  }
+
+  // Settler (alliance-less player) diplomacy. The acting party is always the
+  // requester; no endpoint accepts a sender party from the client.
+
+  @Get('settlers/diplomacy')
+  getSettlerDiplomacy(@Request() req: AuthRequest) {
+    return this.allianceService.getSettlerDiplomacy(req.user.sub);
+  }
+
+  @Get('settlers/counterparties')
+  searchSettlerCounterparties(
+    @Request() req: AuthRequest,
+    @Query('q') query?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.allianceService.searchSettlerCounterparties(
+      req.user.sub,
+      typeof query === 'string' ? query : undefined,
+      typeof cursor === 'string' ? cursor : undefined,
+      optionalNumber(limit),
+    );
+  }
+
+  @Post('settlers/diplomacy/proposals')
+  proposeSettlerRelationship(
+    @Request() req: AuthRequest,
+    @Body() body: ProposeSettlerRelationshipRequest,
+  ) {
+    return this.allianceService.proposeSettlerRelationship(req.user.sub, {
+      recipientPlayerId: body?.recipientPlayerId,
+      type: body?.type,
+      contract: body?.contract,
+      permissions: body?.permissions,
+    });
+  }
+
+  @Post('settlers/:playerId/war')
+  declareSettlerWar(
+    @Request() req: AuthRequest,
+    @Param('playerId', ParseIntPipe) playerId: number,
+  ) {
+    return this.allianceService.declareSettlerWar(req.user.sub, playerId);
+  }
+
+  @Get('settlers/:playerId/diplomacy/chronicle')
+  settlerDiplomacyChronicle(
+    @Request() req: AuthRequest,
+    @Param('playerId', ParseIntPipe) playerId: number,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.allianceService.listSettlerDiplomacyChronicle(
+      req.user.sub,
+      playerId,
+      cursor,
+      optionalNumber(limit),
+    );
   }
 
   @Post()

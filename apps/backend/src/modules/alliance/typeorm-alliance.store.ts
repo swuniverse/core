@@ -307,6 +307,37 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return users.map(toPlayer);
   }
 
+  async searchSettlers(criteria: {
+    factionId: number;
+    excludeUserId: number;
+    query: string;
+    afterId: number;
+    limit: number;
+  }) {
+    const name = `COALESCE(NULLIF(u."displayName", ''), u.username)`;
+    const query = this.manager
+      .createQueryBuilder(User, 'u')
+      .select(['u.id', 'u.username', 'u.displayName'])
+      .where('u.factionId = :factionId', { factionId: criteria.factionId })
+      .andWhere('u.id != :excludeUserId', {
+        excludeUserId: criteria.excludeUserId,
+      })
+      .andWhere('u.id > :afterId', { afterId: criteria.afterId })
+      .andWhere(
+        'NOT EXISTS (SELECT 1 FROM alliance_memberships membership WHERE membership."userId" = u.id)',
+      );
+    if (criteria.query) {
+      query.andWhere(`${name} ILIKE :pattern`, {
+        pattern: `%${escapeLike(criteria.query)}%`,
+      });
+    }
+    const users = await query
+      .orderBy('u.id', 'ASC')
+      .limit(criteria.limit)
+      .getMany();
+    return users.map((user) => ({ id: user.id, name: toPlayer(user).name }));
+  }
+
   async listFactions(): Promise<FactionRecord[]> {
     const factions = await this.manager.find(FactionEntity, {
       order: { id: 'ASC' },

@@ -4,11 +4,11 @@
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Vertretende Partei wird serverseitig aus dem Anfragenden abgeleitet, nie vom Client gewählt; Allianzmitglieder, Spieler der Gegenfraktion und fremde IDs werden abgewiesen
-- [ ] Paginierte, begrenzte Gegenparteisuche liefert nur Kennung und Anzeigename allianzloser Spieler der eigenen Fraktion, ohne die eigene Person
-- [ ] Krieg ersetzt sofort alles des Paars; Frieden nur aus Krieg; Krieg endet nur durch angenommenen Frieden
-- [ ] Diplomatie-Chronik-Einträge mit Spielernamen zum Ereigniszeitpunkt; Nachrichten nach Commit, wiederholbar; Ratenbegrenzung
-- [ ] Frontend: Siedler-Bereich nur für Allianzlose mit servergelieferten Aktionen, Spielersuche, Deaktivierung während Requests, Reload
-- [ ] Service-Tests (In-Memory), Autorisierungstests, Frontendtests
+- [x] Vertretende Partei wird serverseitig aus dem Anfragenden abgeleitet, nie vom Client gewählt; Allianzmitglieder, Spieler der Gegenfraktion und fremde IDs werden abgewiesen
+- [x] Paginierte, begrenzte Gegenparteisuche liefert nur Kennung und Anzeigename allianzloser Spieler der eigenen Fraktion, ohne die eigene Person
+- [x] Krieg ersetzt sofort alles des Paars; Frieden nur aus Krieg; Krieg endet nur durch angenommenen Frieden
+- [x] Diplomatie-Chronik-Einträge mit Spielernamen zum Ereigniszeitpunkt; Nachrichten nach Commit, wiederholbar; Ratenbegrenzung
+- [x] Frontend: Siedler-Bereich nur für Allianzlose mit servergelieferten Aktionen, Spielersuche, Deaktivierung während Requests, Reload
+- [x] Service-Tests (In-Memory), Autorisierungstests, Frontendtests

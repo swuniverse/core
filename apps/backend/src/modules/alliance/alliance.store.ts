@@ -246,6 +246,18 @@ export interface AllianceStore {
 
   findPlayer(id: number): Promise<PlayerRecord | null>;
   findPlayers(ids: number[]): Promise<PlayerRecord[]>;
+  /**
+   * Alliance-less players of one faction by ascending ID after `afterId`,
+   * excluding one player. `query` matches the display name as a
+   * case-insensitive literal substring. Identity and name only.
+   */
+  searchSettlers(criteria: {
+    factionId: number;
+    excludeUserId: number;
+    query: string;
+    afterId: number;
+    limit: number;
+  }): Promise<Array<{ id: number; name: string }>>;
   listFactions(): Promise<FactionRecord[]>;
 
   findAlliance(id: number): Promise<AllianceRecord | null>;

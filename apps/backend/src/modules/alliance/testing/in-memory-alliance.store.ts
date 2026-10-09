@@ -269,6 +269,28 @@ export class InMemoryAllianceStore implements AllianceStore {
     return players.filter((player) => player !== null);
   }
 
+  async searchSettlers(criteria: {
+    factionId: number;
+    excludeUserId: number;
+    query: string;
+    afterId: number;
+    limit: number;
+  }) {
+    const needle = criteria.query.toLowerCase();
+    return this.state.players
+      .filter(
+        (player) =>
+          player.factionId === criteria.factionId &&
+          player.id !== criteria.excludeUserId &&
+          player.id > criteria.afterId &&
+          !this.state.memberships.some((m) => m.userId === player.id) &&
+          player.name.toLowerCase().includes(needle),
+      )
+      .sort((a, b) => a.id - b.id)
+      .slice(0, criteria.limit)
+      .map(({ id, name }) => ({ id, name }));
+  }
+
   async listFactions() {
     return [...this.state.factions];
   }

@@ -212,6 +212,26 @@ export interface AllianceDiplomacyManagementDto {
   >;
 }
 
+/** Complete confidential diplomacy view of an alliance-less player (Siedler). */
+export interface SettlerDiplomacyManagementDto {
+  capabilities: { declareWar: boolean };
+  relationships: AllianceDiplomacyRelationshipDto[];
+  proposals: AllianceDiplomacyProposalDto[];
+  permissions: AllianceDiplomacyManagementDto['permissions'];
+}
+
+/** A selectable counterparty: identity and display name only. */
+export interface SettlerCounterpartyDto {
+  id: number;
+  name: string;
+}
+
+export interface SettlerCounterpartyPageDto {
+  players: SettlerCounterpartyDto[];
+  /** Opaque cursor for the next page, or null at the end. */
+  nextCursor: string | null;
+}
+
 export enum AllianceDiplomacyChronicleEventType {
   WAR_DECLARED = 'WAR_DECLARED',
   RELATIONSHIP_STARTED = 'RELATIONSHIP_STARTED',
@@ -325,6 +345,13 @@ export interface AllianceApplicationDto {
 
 export interface MyAllianceDto {
   alliance: AllianceRefDto | null;
+  /** Server-computed capabilities of the player; absent on older servers. */
+  actions?: MyAllianceActionsDto;
+}
+
+export interface MyAllianceActionsDto {
+  /** Alliance-less players of a faction may open the Siedler diplomacy area. */
+  settlerDiplomacy: boolean;
 }
 
 export interface FoundAllianceRequest {
@@ -347,6 +374,14 @@ export interface SetAllianceRoleRequest {
 
 export interface ProposeAllianceRelationshipRequest {
   recipientAllianceId: number;
+  type: AllianceRelationshipType;
+  contract?: string;
+  permissions?: Partial<AllianceRelationshipPermissionsDto>;
+}
+
+/** The proposing party is always derived from the requester, never sent. */
+export interface ProposeSettlerRelationshipRequest {
+  recipientPlayerId: number;
   type: AllianceRelationshipType;
   contract?: string;
   permissions?: Partial<AllianceRelationshipPermissionsDto>;

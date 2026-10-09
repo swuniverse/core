@@ -14,3 +14,8 @@ export const ALLIANCE_TITLE_MAX = 30;
 /** Page size of the diplomacy and the internal alliance chronicle. */
 export const ALLIANCE_CHRONICLE_PAGE_DEFAULT = 20;
 export const ALLIANCE_CHRONICLE_PAGE_MAX = 50;
+
+/** Counterparty search of the Siedler diplomacy: bounded page and query. */
+export const SETTLER_SEARCH_PAGE_DEFAULT = 20;
+export const SETTLER_SEARCH_PAGE_MAX = 50;
+export const SETTLER_SEARCH_QUERY_MAX = 40;

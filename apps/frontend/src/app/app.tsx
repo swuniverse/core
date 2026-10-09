@@ -32,6 +32,7 @@ import {
   AllianceEditPage,
   AllianceFoundPage,
   AllianceListPage,
+  SettlerDiplomacyPage,
 } from '../pages/alliances';
 import {
   AllianceForumBoardPage,
@@ -147,6 +148,10 @@ export function App() {
             <Route path="/players/:id" element={<PlayerProfilePage />} />
             <Route path="/alliances" element={<AllianceListPage />} />
             <Route path="/alliances/new" element={<AllianceFoundPage />} />
+            <Route
+              path="/alliances/settlers/diplomacy"
+              element={<SettlerDiplomacyPage />}
+            />
             <Route
               path="/alliances/:id/diplomacy"
               element={<AllianceDiplomacyPage />}
