@@ -1,3 +1,4 @@
+import type { AllianceTransactionHandle } from './alliance-context-cleanup';
 import type {
   AllianceChronicleEventType,
   AllianceDiplomacyChronicleEventType,
@@ -19,6 +20,9 @@ export interface AllianceRecord {
   presidentTitle: string;
   viceTitle: string;
   diplomatTitle: string;
+  /** Opaque asset key of the banner, or null without banner. */
+  bannerKey: string | null;
+  bannerUpdatedAt: Date | null;
   foundedAt: Date;
 }
 
@@ -41,6 +45,8 @@ export interface PlayerRecord {
   id: number;
   name: string;
   factionId: number | null;
+  /** Last recorded activity; empty counts as the oldest value. */
+  lastActiveAt: Date | null;
 }
 
 export interface FactionRecord {
@@ -127,6 +133,14 @@ export interface AllianceDiplomacyNotificationRecord {
   leaseToken: string | null;
 }
 
+/** A durable retry task for deleting a physical alliance asset. */
+export interface AllianceAssetDeletionRecord {
+  id: number;
+  assetKey: string;
+  attempts: number;
+  nextAttemptAt: Date;
+}
+
 export type AlliancePatch = Partial<
   Pick<
     AllianceRecord,
@@ -138,6 +152,8 @@ export type AlliancePatch = Partial<
     | 'presidentTitle'
     | 'viceTitle'
     | 'diplomatTitle'
+    | 'bannerKey'
+    | 'bannerUpdatedAt'
   >
 >;
 
@@ -165,6 +181,8 @@ export class AllianceConstraintViolation extends Error {
  */
 export interface AllianceStore {
   transaction<T>(work: (store: AllianceStore) => Promise<T>): Promise<T>;
+  /** Opaque handle of the surrounding transaction (the EntityManager for TypeORM), for cleanup consumers. */
+  transactionHandle(): AllianceTransactionHandle;
   /**
    * Inside a transaction: lock the alliance row until commit so concurrent
    * changes to the same alliance run one after another. Returns the fresh
@@ -284,6 +302,33 @@ export interface AllianceStore {
     id: number,
     leaseToken: string,
   ): Promise<void>;
+
+  /**
+   * Persists the intent to delete an asset file. Called inside the transaction
+   * that unreferences the asset; enqueueing a known key is a no-op.
+   */
+  enqueueAssetDeletion(assetKey: string): Promise<void>;
+  /** All unfinished deletion tasks, oldest first (diagnostics, acceptance). */
+  listPendingAssetDeletions(): Promise<AllianceAssetDeletionRecord[]>;
+  /**
+   * Atomically claims tasks due at `now`: counts the attempt and pushes
+   * `nextAttemptAt` out by `backoffMs(attempts)`, so concurrent workers skip
+   * them and a failed attempt is retried only after the backoff.
+   */
+  claimDueAssetDeletions(
+    limit: number,
+    now: Date,
+    backoffMs: (attempts: number) => number,
+  ): Promise<AllianceAssetDeletionRecord[]>;
+  /** Removes a finished task. */
+  completeAssetDeletion(id: number): Promise<void>;
+
+  /**
+   * Removes every alliance, party, relationship, proposal, chronicle (public
+   * and internal), forum, notification intent and pending asset deletion task.
+   * Identity counters keep counting, so removed ids are never reused.
+   */
+  deleteAllAllianceData(): Promise<void>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Current memberships of the given players; players without one are absent. */

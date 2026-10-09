@@ -5,11 +5,20 @@ import { GameGateway } from '../websocket/game.gateway';
 import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
+import { AllianceBannerController } from './alliance-banner.controller';
+import { AllianceBannerService } from './alliance-banner.service';
+import { ALLIANCE_ASSET_STORAGE } from './alliance-asset.port';
+import { AllianceResetService } from './alliance-reset.service';
+import { FileSystemAssetStorage } from './file-system-asset-storage';
 import { AllianceService } from './alliance.service';
 import { MemberOverviewService } from './member-overview.service';
 import { MEMBER_OPERATIONS_READER } from './member-operations.port';
 import { TypeOrmMemberOperationsReader } from './typeorm-member-operations.reader';
 import { ColonyModule } from '../colony/colony.module';
+import {
+  ALLIANCE_CONTEXT_CLEANUP,
+  AllianceContextCleanup,
+} from './alliance-context-cleanup';
 import { ALLIANCE_STORE } from './alliance.store';
 import { ForumService } from './forum.service';
 import { FORUM_STORE } from './forum.store';
@@ -37,6 +46,7 @@ import { AllianceRelationshipChangeProposal } from './entities/alliance-relation
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import { AllianceChronicleEntry } from './entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceAssetDeletion } from './entities/alliance-asset-deletion.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 
 @Module({
@@ -52,6 +62,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceChronicleEntry,
       AllianceDiplomacyChronicleEntry,
       AllianceDiplomacyNotification,
+      AllianceAssetDeletion,
       ForumBoard,
       ForumTopic,
       ForumPost,
@@ -60,9 +71,12 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     WebsocketModule,
     ColonyModule,
   ],
-  controllers: [AllianceController],
+  controllers: [AllianceController, AllianceBannerController],
   providers: [
     AllianceService,
+    AllianceBannerService,
+    AllianceResetService,
+    { provide: ALLIANCE_ASSET_STORAGE, useClass: FileSystemAssetStorage },
     MemberOverviewService,
     {
       provide: MEMBER_OPERATIONS_READER,
@@ -80,6 +94,10 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     DiplomacyNotificationDispatcherService,
     AllianceRateLimiterService,
     {
+      provide: ALLIANCE_CONTEXT_CLEANUP,
+      useClass: AllianceContextCleanup,
+    },
+    {
       provide: ONLINE_PLAYERS,
       inject: [GameGateway],
       useFactory: (gateway: GameGateway) => ({
@@ -90,6 +108,12 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     ForumService,
     { provide: FORUM_STORE, useClass: TypeOrmForumStore },
   ],
-  exports: [AllianceService, ForumService, RelationshipResolverService],
+  exports: [
+    AllianceService,
+    AllianceResetService,
+    ForumService,
+    RelationshipResolverService,
+    ALLIANCE_CONTEXT_CLEANUP,
+  ],
 })
 export class AllianceModule {}

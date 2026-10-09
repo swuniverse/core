@@ -159,6 +159,11 @@ Allianzdepots, allianzbezogene Zugangsprivilegien und die Territorialfarbe werde
 - Das erste künftige Zugangssystem baut das gemeinsame Modell. Weitere Systeme verwenden es wieder, statt eigene Regeln zu definieren.
 - Die Integrationspunkte werden in der vorhandenen Dokumentation der Beziehungswirkungen nachgeführt.
 
+### Integrationsvertrag: Bereinigung beim Allianzkontext-Ende
+
+- Depot- und Zugangssysteme registrieren sich am Port `AllianceContextCleanup` (`apps/backend/src/modules/alliance/alliance-context-cleanup.ts`, Token `ALLIANCE_CONTEXT_CLEANUP`, vom Allianz-Modul exportiert) mit den Rückrufen `allianceDissolved`, `memberRemoved` und `reset`. Spezifikation: [Lebenszyklus und Restparität](lebenszyklus-und-restparitaet-spec.md).
+- Austritt und Rauswurf rufen `memberRemoved`, jede Auflösung ruft `allianceDissolved` genau einmal in der Transaktion des Ereignisses auf. Verbraucher schreiben über das gelieferte Transaktionshandle; ein Fehler rollt das Ereignis zurück. Ohne Verbraucher ist der Port ein No-Op. `reset` wird vom späteren Reset-Einstieg aufgerufen.
+
 ### Integrationsvertrag: Territorialfarbe
 
 - SWU besitzt keinen spielereigenen Einfluss. Die vorhandenen Einflussgebiete sind adminberechnete Weltdaten ohne Spielerbezug, und es gibt keine persönlichen Spielerfarben.

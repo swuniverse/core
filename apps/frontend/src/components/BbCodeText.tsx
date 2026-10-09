@@ -1,9 +1,16 @@
 import { useState, type ReactNode } from 'react';
+import { ALLIANCE_BANNER_URL_PATTERN } from '@swuniverse/shared';
 
 export type BbCodeTextProps = {
   text: string | null | undefined;
   className?: string;
   as?: 'div' | 'p' | 'span';
+  /**
+   * Renders `[img]` banner URLs as images. Opt-in for the one place that
+   * receives the server-rendered banner placeholder (alliance description);
+   * everywhere else `[img]` stays literal text.
+   */
+  allowBannerImages?: boolean;
 };
 
 type Tag =
@@ -16,6 +23,7 @@ type Tag =
   | 'quote'
   | 'code'
   | 'url'
+  | 'img'
   | 'translate';
 
 type Part = {
@@ -33,7 +41,7 @@ type Frame = {
 };
 
 const TAG_PATTERN =
-  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|translate|translation)(?:=([^\]]+))?\]/gi;
+  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|img|translate|translation)(?:=([^\]]+))?\]/gi;
 
 function textPart(text: string): Part {
   return { literal: text, node: text };
@@ -92,7 +100,12 @@ function TranslationText({
   );
 }
 
-function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): Part {
+function renderFrame(
+  frame: Frame,
+  endLiteral: string,
+  nextKey: () => string,
+  allowBannerImages: boolean,
+): Part {
   const translationLiteral = frame.translationChildren
     ? `[translation]${partsLiteral(frame.translationChildren)}`
     : '';
@@ -183,6 +196,23 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
         ),
       };
     }
+    case 'img': {
+      const src = partsLiteral(frame.children).trim();
+      if (!allowBannerImages || !ALLIANCE_BANNER_URL_PATTERN.test(src)) {
+        return textPart(literal);
+      }
+      return {
+        literal,
+        node: (
+          <img
+            key={nextKey()}
+            src={src}
+            alt="Allianzbanner"
+            className="my-2 h-auto max-w-full"
+          />
+        ),
+      };
+    }
     case 'translate': {
       const translated = frame.translationChildren;
       if (!translated || translated.length === 0) return textPart(literal);
@@ -200,7 +230,7 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
   }
 }
 
-function parseBbCode(text: string): ReactNode[] {
+function parseBbCode(text: string, allowBannerImages: boolean): ReactNode[] {
   const root: Part[] = [];
   const stack: Frame[] = [];
   let lastIndex = 0;
@@ -236,7 +266,7 @@ function parseBbCode(text: string): ReactNode[] {
       if (closingSlash) {
         if (top?.tag === tag) {
           const frame = stack.pop()!;
-          appendPart(stack, root, renderFrame(frame, token, nextKey));
+          appendPart(stack, root, renderFrame(frame, token, nextKey, allowBannerImages));
         } else {
           appendPart(stack, root, textPart(token));
         }
@@ -265,8 +295,17 @@ function parseBbCode(text: string): ReactNode[] {
   return partsNodes(root);
 }
 
-export function BbCodeText({ text, className, as = 'div' }: BbCodeTextProps) {
+export function BbCodeText({
+  text,
+  className,
+  as = 'div',
+  allowBannerImages = false,
+}: BbCodeTextProps) {
   const Component = as;
 
-  return <Component className={className}>{parseBbCode(text ?? '')}</Component>;
+  return (
+    <Component className={className}>
+      {parseBbCode(text ?? '', allowBannerImages)}
+    </Component>
+  );
 }

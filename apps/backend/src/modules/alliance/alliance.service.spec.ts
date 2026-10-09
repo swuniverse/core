@@ -15,6 +15,10 @@ import {
   AllianceRole,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
+import {
+  AllianceContextCleanup,
+  type AllianceContextCleanupConsumer,
+} from './alliance-context-cleanup';
 import { AllianceConstraintViolation } from './alliance.store';
 import {
   EMPIRE,
@@ -639,6 +643,7 @@ describe('AllianceService', () => {
             readForum: false,
             viewMemberOperations: false,
             viewChronicle: false,
+            manageBanner: false,
           },
         });
         expect(
@@ -702,6 +707,7 @@ describe('AllianceService', () => {
             readForum: true,
             viewMemberOperations: true,
             viewChronicle: true,
+            manageBanner: true,
           },
         });
         const byName = Object.fromEntries(
@@ -793,6 +799,7 @@ describe('AllianceService', () => {
             readForum: true,
             viewMemberOperations: false,
             viewChronicle: true,
+            manageBanner: false,
           });
           expect(
             members.every((m) => Object.values(m.actions).every((a) => !a)),
@@ -865,11 +872,39 @@ describe('AllianceService', () => {
 
       it('removes unknown $ALLIANCE_ placeholders', async () => {
         const detail = await withDescription(
-          'A $ALLIANCE_BANNER B $ALLIANCE_DIPLOMATIC_RELATIONS C $OTHER',
+          'A $ALLIANCE_UNKNOWN B $ALLIANCE_DIPLOMATIC_RELATIONS C $OTHER',
           [[1, PRESIDENT]],
         );
 
         expect(detail.renderedDescription).toBe('A  B  C $OTHER');
+      });
+
+      it('renders $ALLIANCE_BANNER as an image reference when a banner exists', async () => {
+        const ctx = setup();
+        ctx.store.addPlayer(1, 'Leia');
+        const alliance = ctx.store.seedAlliance(
+          {
+            name: 'Rogue Squadron',
+            description: 'A $ALLIANCE_BANNER B',
+            bannerKey: 'k',
+            bannerUpdatedAt: new Date(1234),
+          },
+          [[1, PRESIDENT]],
+        );
+
+        const detail = await ctx.service.getDetail(1, alliance.id);
+
+        expect(detail.renderedDescription).toBe(
+          `A [img]/api/alliances/${alliance.id}/banner?v=1234[/img] B`,
+        );
+      });
+
+      it('renders $ALLIANCE_BANNER as empty text without a banner', async () => {
+        const detail = await withDescription('A $ALLIANCE_BANNER B', [
+          [1, PRESIDENT],
+        ]);
+
+        expect(detail.renderedDescription).toBe('A  B');
       });
     });
   });
@@ -2384,6 +2419,7 @@ describe('AllianceService', () => {
         expect(await store.findMembership(5)).toBeNull();
         expect(store.snapshot().applications).toHaveLength(0);
         expect(sent).toHaveLength(0);
+        expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
       });
 
       it('fails without alliance', async () => {
@@ -2394,6 +2430,106 @@ describe('AllianceService', () => {
           BadRequestException,
           'Du bist in keiner Allianz',
         );
+      });
+    });
+
+    describe('context cleanup consumers', () => {
+      function withConsumer(
+        ctx: ReturnType<typeof scenario>,
+        override: Partial<AllianceContextCleanupConsumer> = {},
+      ) {
+        const registry = new AllianceContextCleanup();
+        const consumer = {
+          allianceDissolved: jest.fn(async () => undefined),
+          memberRemoved: jest.fn(async () => undefined),
+          ...override,
+        };
+        registry.register(consumer);
+        const service = new AllianceService(
+          ctx.store,
+          { sendSystem: jest.fn() } as never,
+          undefined,
+          undefined,
+          registry,
+        );
+        return { service, consumer };
+      }
+
+      it('informs the consumer once when a member leaves', async () => {
+        const ctx = scenario();
+        const { service, consumer } = withConsumer(ctx);
+        await service.leave(4);
+        expect(consumer.memberRemoved).toHaveBeenCalledTimes(1);
+        expect(consumer.memberRemoved).toHaveBeenCalledWith(
+          { allianceId: ctx.alliance.id, userId: 4 },
+          expect.anything(),
+        );
+        expect(consumer.allianceDissolved).not.toHaveBeenCalled();
+      });
+
+      it('informs the consumer once when a member is kicked', async () => {
+        const ctx = scenario();
+        const { service, consumer } = withConsumer(ctx);
+        await service.kick(1, ctx.alliance.id, 4);
+        expect(consumer.memberRemoved).toHaveBeenCalledTimes(1);
+        expect(consumer.memberRemoved).toHaveBeenCalledWith(
+          { allianceId: ctx.alliance.id, userId: 4 },
+          expect.anything(),
+        );
+      });
+
+      it('informs the consumer once on dissolution by the president and by the last member', async () => {
+        const ctx = scenario();
+        const { service, consumer } = withConsumer(ctx);
+        await service.dissolve(1, ctx.alliance.id);
+        await service.leave(5);
+        expect(consumer.allianceDissolved).toHaveBeenCalledTimes(2);
+        expect(consumer.allianceDissolved).toHaveBeenNthCalledWith(
+          1,
+          {
+            allianceId: ctx.alliance.id,
+            memberUserIds: expect.arrayContaining([1, 2, 3, 4, 6]),
+          },
+          expect.anything(),
+        );
+        expect(consumer.memberRemoved).not.toHaveBeenCalled();
+      });
+
+      it('rolls everything back when the consumer fails', async () => {
+        const ctx = scenario();
+        const boom = jest.fn(async () => {
+          throw new Error('consumer failed');
+        });
+        const { service } = withConsumer(ctx, {
+          memberRemoved: boom,
+          allianceDissolved: boom,
+        });
+        await expect(service.leave(4)).rejects.toThrow('consumer failed');
+        await expect(service.kick(1, ctx.alliance.id, 3)).rejects.toThrow(
+          'consumer failed',
+        );
+        await expect(service.dissolve(1, ctx.alliance.id)).rejects.toThrow(
+          'consumer failed',
+        );
+        expect(await ctx.store.findMembership(4)).not.toBeNull();
+        expect(await ctx.store.findMembership(3)).not.toBeNull();
+        expect(await ctx.store.findAlliance(ctx.alliance.id)).not.toBeNull();
+      });
+
+      it('behaves unchanged without consumers', async () => {
+        const ctx = scenario();
+        const registry = new AllianceContextCleanup();
+        const service = new AllianceService(
+          ctx.store,
+          { sendSystem: jest.fn() } as never,
+          undefined,
+          undefined,
+          registry,
+        );
+        await service.leave(4);
+        await service.kick(1, ctx.alliance.id, 3);
+        expect(await ctx.store.findMembership(4)).toBeNull();
+        expect(await ctx.store.findMembership(3)).toBeNull();
       });
     });
 
@@ -2466,7 +2602,7 @@ describe('AllianceService', () => {
     });
 
     describe('dissolve', () => {
-      it('dissolves the alliance and informs every member', async () => {
+      it('dissolves the alliance and informs every remaining member except the trigger', async () => {
         const { store, service, sent, alliance } = scenario();
         store.addPlayer(7, 'Ackbar');
         store.seedApplication(alliance.id, 7);
@@ -2476,12 +2612,52 @@ describe('AllianceService', () => {
         expect(await store.findAlliance(alliance.id)).toBeNull();
         for (const member of [1, 2, 3, 4, 6]) {
           expect(await store.findMembership(member)).toBeNull();
+        }
+        for (const member of [2, 3, 4, 6]) {
           expect(messagesTo(sent, member)).toEqual([
             'Die Allianz Rogue Squadron wurde aufgelöst',
           ]);
         }
+        expect(messagesTo(sent, 1)).toEqual([]);
         expect(store.snapshot().applications).toHaveLength(0);
         expect(messagesTo(sent, 7)).toEqual([]);
+      });
+
+      it('keeps the dissolution when delivery fails and delivers later exactly once', async () => {
+        const { store, sent, alliance } = scenario();
+        const delivered = new Map<string, SentMessage>();
+        const messaging = {
+          sendSystem: jest
+            .fn()
+            .mockRejectedValueOnce(new Error('messaging unavailable'))
+            .mockImplementation(
+              async (
+                to: number,
+                subject: string,
+                body: string,
+                key: string,
+              ) => {
+                delivered.set(key, { to, subject, body });
+              },
+            ),
+        };
+        const retrying = new AllianceService(store, messaging as never);
+        silenceDiplomacyDeliveryErrors(retrying);
+
+        await expect(
+          retrying.dissolve(1, alliance.id),
+        ).resolves.toBeUndefined();
+        expect(await store.findAlliance(alliance.id)).toBeNull();
+        expect(await store.listPendingDiplomacyNotifications()).not.toEqual([]);
+
+        await retrying.retryDiplomacyNotifications();
+        await retrying.retryDiplomacyNotifications();
+
+        expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
+        expect(
+          [...delivered.values()].map((m) => m.to).sort((a, b) => a - b),
+        ).toEqual([2, 3, 4, 6]);
+        expect(sent).toEqual([]);
       });
 
       it('is forbidden for vices and everyone else', async () => {
@@ -3206,6 +3382,194 @@ describe('AllianceService', () => {
       expect(
         (await service.getDetail(7, alliance.id)).viewer.actions.viewChronicle,
       ).toBe(false);
+    });
+  });
+  describe('removeAccount', () => {
+    const day = (d: number) => new Date(Date.UTC(2026, 9, d));
+
+    function scenario() {
+      const ctx = setup();
+      const { store } = ctx;
+      for (const [id, name] of [
+        [1, 'Leia'],
+        [2, 'Wedge'],
+        [3, 'Mon'],
+        [4, 'Biggs'],
+        [5, 'Han'],
+      ] as const) {
+        store.addPlayer(id, name);
+      }
+      const alliance = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+        [2, VICE],
+        [3, DIPLOMAT],
+        [4, NONE],
+      ]);
+      return { ...ctx, alliance };
+    }
+
+    const chronicleOf = async (
+      service: AllianceService,
+      allianceId: number,
+      viewer = 2,
+    ) => (await service.listChronicle(viewer, allianceId)).entries;
+
+    it('is a no-op for a player without membership', async () => {
+      const { store, service, sent } = scenario();
+      const before = store.snapshot();
+
+      await service.removeAccount(5);
+
+      expect(store.snapshot()).toEqual(before);
+      expect(sent).toHaveLength(0);
+    });
+
+    it('removes pending applications of a player without membership', async () => {
+      const { store, service, alliance } = scenario();
+      store.seedApplication(alliance.id, 5);
+
+      await service.removeAccount(5);
+
+      expect(store.snapshot().applications).toHaveLength(0);
+    });
+
+    it('runs the leave flow for a non-president', async () => {
+      const { store, service, sent, alliance } = scenario();
+      store.seedApplication(alliance.id + 1, 4);
+
+      await service.removeAccount(4);
+
+      expect(await store.findMembership(4)).toBeNull();
+      const text = 'Der Siedler Biggs hat die Allianz verlassen';
+      expect(messagesTo(sent, 1)).toEqual([text]);
+      expect(messagesTo(sent, 2)).toEqual([text]);
+      expect(sent).toHaveLength(2);
+      const [entry] = await chronicleOf(service, alliance.id);
+      expect(entry).toEqual(
+        expect.objectContaining({
+          type: AllianceChronicleEventType.MEMBER_LEFT,
+          actor: { userId: 4, name: 'Biggs' },
+        }),
+      );
+    });
+
+    it('is idempotent', async () => {
+      const { store, service, sent } = scenario();
+
+      await service.removeAccount(4);
+      const after = store.snapshot();
+      await service.removeAccount(4);
+
+      expect(store.snapshot()).toEqual(after);
+      expect(sent).toHaveLength(2);
+    });
+
+    it('hands the presidency to the most recently active vice', async () => {
+      const { store, service, sent, alliance } = scenario();
+      store.setLastActive(2, day(3));
+      store.setLastActive(3, day(9));
+
+      await service.removeAccount(1);
+
+      const members = await store.listMemberships(alliance.id);
+      expect(members.map((m) => [m.userId, m.role])).toEqual([
+        [2, PRESIDENT],
+        [3, DIPLOMAT],
+        [4, NONE],
+      ]);
+      const text =
+        'Der Präsident Leia ist ausgeschieden. Wedge ist neuer Präsident der Allianz Rogue Squadron';
+      for (const member of [2, 3, 4]) {
+        expect(messagesTo(sent, member)).toEqual([text]);
+      }
+      expect(sent).toHaveLength(3);
+    });
+
+    it('falls back to a diplomat, then to a plain member', async () => {
+      const { store, service, alliance } = scenario();
+      await store.setRole(alliance.id, 2, NONE);
+      store.setLastActive(4, day(9));
+      store.setLastActive(3, day(1));
+
+      await service.removeAccount(1);
+
+      expect((await store.findMembership(3))?.role).toBe(PRESIDENT);
+
+      await service.removeAccount(3);
+
+      expect((await store.findMembership(2))?.role).toBe(NONE);
+      expect((await store.findMembership(4))?.role).toBe(PRESIDENT);
+    });
+
+    it('elects someone when every activity is empty, by longest membership', async () => {
+      const { store, service } = scenario();
+      await store.setRole(1, 2, NONE);
+      await store.setRole(1, 3, NONE);
+
+      await service.removeAccount(1);
+
+      expect((await store.findMembership(2))?.role).toBe(PRESIDENT);
+    });
+
+    it('ranks a vice without activity above an active member', async () => {
+      const { store, service } = scenario();
+      store.setLastActive(4, day(9));
+
+      await service.removeAccount(1);
+
+      expect((await store.findMembership(2))?.role).toBe(PRESIDENT);
+    });
+
+    it('records the automatic succession without a diplomacy entry', async () => {
+      const { store, service, alliance } = scenario();
+
+      await service.removeAccount(1);
+
+      const [entry] = await chronicleOf(service, alliance.id);
+      expect(entry).toEqual(
+        expect.objectContaining({
+          type: AllianceChronicleEventType.AUTOMATIC_SUCCESSION,
+          actor: null,
+          subject: { userId: 2, name: 'Wedge' },
+          metadata: { previousPresidentId: 1, previousPresidentName: 'Leia' },
+        }),
+      );
+      expect(store.snapshot().diplomacyChronicleEntries).toEqual([]);
+    });
+
+    it('keeps the recorded name of the former president after a rename', async () => {
+      const { store, service, alliance } = scenario();
+
+      await service.removeAccount(1);
+      store.renamePlayer(1, 'Prinzessin');
+
+      const [entry] = await chronicleOf(service, alliance.id);
+      expect(entry.metadata).toEqual(
+        expect.objectContaining({ previousPresidentName: 'Leia' }),
+      );
+    });
+
+    it('dissolves the alliance when the president is the only member', async () => {
+      const { store, service, sent } = scenario();
+      store.addPlayer(7, 'Ackbar');
+      const solo = store.seedAlliance({ name: 'Red Squadron' }, [[7, PRESIDENT]]);
+
+      await service.removeAccount(7);
+
+      expect(await store.findAlliance(solo.id)).toBeNull();
+      expect(await store.findMembership(7)).toBeNull();
+      expect(sent).toHaveLength(0);
+    });
+
+    it('still lets a president with other members not leave voluntarily', async () => {
+      const { store, service } = scenario();
+
+      await expectError(
+        service.leave(1),
+        BadRequestException,
+        /Präsidentenamt zuerst übergeben/,
+      );
+      expect((await store.findMembership(1))?.role).toBe(PRESIDENT);
     });
   });
 });

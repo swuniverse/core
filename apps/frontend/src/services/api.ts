@@ -36,8 +36,11 @@ async function request<T>(
 ): Promise<T> {
   const { accessToken } = useAuthStore.getState();
 
+  // The browser sets the multipart boundary itself for FormData bodies.
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData
+      ? {}
+      : { 'Content-Type': 'application/json' }),
     ...((options.headers as Record<string, string>) || {}),
   };
 
@@ -82,6 +85,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T, B = unknown>(path: string, body: B) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  postForm: <T>(path: string, body: FormData) =>
+    request<T>(path, { method: 'POST', body }),
   put: <T, B = unknown>(path: string, body: B) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: <T, B = unknown>(path: string, body: B) =>

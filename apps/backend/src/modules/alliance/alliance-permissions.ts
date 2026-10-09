@@ -18,6 +18,7 @@ export const ALLIANCE_ACTIONS = [
   'viewShipManagementDetails',
   'moderateForum',
   'viewMemberOperations',
+  'manageBanner',
 ] as const;
 export type AllianceAction = (typeof ALLIANCE_ACTIONS)[number];
 

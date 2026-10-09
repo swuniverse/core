@@ -1,3 +1,4 @@
+import type { AllianceTransactionHandle } from './alliance-context-cleanup';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -27,12 +28,14 @@ import { AllianceRelationshipChangeProposal } from './entities/alliance-relation
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import { AllianceChronicleEntry } from './entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceAssetDeletion } from './entities/alliance-asset-deletion.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 import {
   AllianceConstraint,
   AllianceConstraintViolation,
   AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
+  AllianceAssetDeletionRecord,
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
@@ -87,6 +90,7 @@ function toPlayer(user: User): PlayerRecord {
     id: user.id,
     name: user.displayName || user.username,
     factionId: user.factionId,
+    lastActiveAt: user.lastActiveAt,
   };
 }
 
@@ -102,6 +106,8 @@ function toAlliance(alliance: Alliance): AllianceRecord {
     presidentTitle: alliance.presidentTitle,
     viceTitle: alliance.viceTitle,
     diplomatTitle: alliance.diplomatTitle,
+    bannerKey: alliance.bannerKey,
+    bannerUpdatedAt: alliance.bannerUpdatedAt,
     foundedAt: alliance.foundedAt,
   };
 }
@@ -174,6 +180,15 @@ function toNotification(
   };
 }
 
+function toAssetDeletion(task: AllianceAssetDeletion): AllianceAssetDeletionRecord {
+  return {
+    id: task.id,
+    assetKey: task.assetKey,
+    attempts: task.attempts,
+    nextAttemptAt: task.nextAttemptAt,
+  };
+}
+
 function toRelationship(
   relationship: AllianceRelationship,
 ): AllianceRelationshipRecord {
@@ -235,6 +250,10 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return this.manager.transaction((manager) =>
       work(new TypeOrmAllianceStoreSession(manager, true)),
     );
+  }
+
+  transactionHandle(): AllianceTransactionHandle {
+    return this.manager;
   }
 
   async lockAlliance(id: number) {
@@ -800,6 +819,56 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .execute();
   }
 
+  async enqueueAssetDeletion(assetKey: string) {
+    await this.manager
+      .createQueryBuilder()
+      .insert()
+      .into(AllianceAssetDeletion)
+      .values({ assetKey, attempts: 0, nextAttemptAt: () => 'now()' })
+      .orIgnore()
+      .execute();
+  }
+
+  async listPendingAssetDeletions() {
+    const tasks = await this.manager.find(AllianceAssetDeletion, {
+      order: { id: 'ASC' },
+    });
+    return tasks.map(toAssetDeletion);
+  }
+
+  async claimDueAssetDeletions(
+    limit: number,
+    now: Date,
+    backoffMs: (attempts: number) => number,
+  ) {
+    // One transaction so that the row locks hold until the claim is stored.
+    return this.manager.transaction(async (manager) => {
+      const candidates: Array<{ id: number }> = await manager.query(
+        `SELECT "id" FROM "alliance_asset_deletions"
+        WHERE "nextAttemptAt" <= $1
+        ORDER BY "id" ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED`,
+        [now, limit],
+      );
+      const claimed: AllianceAssetDeletionRecord[] = [];
+      for (const { id } of candidates) {
+        const task = await manager.findOneByOrFail(AllianceAssetDeletion, {
+          id,
+        });
+        task.attempts += 1;
+        task.nextAttemptAt = new Date(now.getTime() + backoffMs(task.attempts));
+        await manager.save(task);
+        claimed.push(toAssetDeletion(task));
+      }
+      return claimed;
+    });
+  }
+
+  async completeAssetDeletion(id: number) {
+    await this.manager.delete(AllianceAssetDeletion, { id });
+  }
+
   async endNonWarRelationship(id: number) {
     const relationship = await this.manager.findOne(AllianceRelationship, {
       where: {
@@ -882,6 +951,28 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
 
   async deleteAlliance(id: number) {
     await this.manager.delete(Alliance, { id });
+  }
+
+  async deleteAllAllianceData() {
+    // No RESTART IDENTITY: sequences keep counting so removed ids are never
+    // reused. Alliances cascade to memberships, applications, forum and
+    // internal chronicle. The public chronicle is immutable by row trigger
+    // (DELETE is rejected); TRUNCATE does not fire row triggers, is
+    // transactional and nothing references that table.
+    await this.manager.query(
+      'TRUNCATE TABLE "alliance_diplomacy_chronicle_entries"',
+    );
+    for (const entity of [
+      AllianceRelationshipChangeProposal,
+      AllianceRelationshipProposal,
+      AllianceRelationship,
+      DiplomacyParty,
+      AllianceDiplomacyNotification,
+      AllianceAssetDeletion,
+      Alliance,
+    ]) {
+      await this.manager.createQueryBuilder().delete().from(entity).execute();
+    }
   }
 
   async findMembership(userId: number) {

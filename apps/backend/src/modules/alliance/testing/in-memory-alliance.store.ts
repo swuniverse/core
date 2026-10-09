@@ -1,3 +1,4 @@
+import type { AllianceTransactionHandle } from '../alliance-context-cleanup';
 import {
   AllianceRelationshipType,
   AllianceRole,
@@ -7,6 +8,7 @@ import {
   AllianceConstraintViolation,
   AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
+  AllianceAssetDeletionRecord,
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
@@ -33,6 +35,7 @@ interface State {
   diplomacyChronicleEntries: AllianceDiplomacyChronicleEntryRecord[];
   allianceChronicleEntries: AllianceChronicleEntryRecord[];
   diplomacyNotifications: AllianceDiplomacyNotificationRecord[];
+  assetDeletions: AllianceAssetDeletionRecord[];
   nextId: number;
   clock: number;
 }
@@ -65,12 +68,19 @@ export class InMemoryAllianceStore implements AllianceStore {
     diplomacyChronicleEntries: [],
     allianceChronicleEntries: [],
     diplomacyNotifications: [],
+    assetDeletions: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
 
   addPlayer(id: number, name: string, factionId: number | null = REBELS.id) {
-    this.state.players.push({ id, name, factionId });
+    this.state.players.push({ id, name, factionId, lastActiveAt: null });
+  }
+
+  /** Test helper: the player's last recorded activity. */
+  setLastActive(id: number, at: Date | null) {
+    const player = this.state.players.find((p) => p.id === id);
+    if (player) player.lastActiveAt = at;
   }
 
   /** Test helper: a later rename must not alter recorded chronicle names. */
@@ -94,6 +104,8 @@ export class InMemoryAllianceStore implements AllianceStore {
       presidentTitle: DEFAULT_ALLIANCE_TITLES.president,
       viceTitle: DEFAULT_ALLIANCE_TITLES.vice,
       diplomatTitle: DEFAULT_ALLIANCE_TITLES.diplomat,
+      bannerKey: null,
+      bannerUpdatedAt: null,
       foundedAt: this.now(),
       ...data,
     };
@@ -210,6 +222,10 @@ export class InMemoryAllianceStore implements AllianceStore {
     }
   }
 
+  transactionHandle(): AllianceTransactionHandle {
+    return this;
+  }
+
   async lockAlliance(id: number) {
     return this.findAlliance(id);
   }
@@ -296,6 +312,26 @@ export class InMemoryAllianceStore implements AllianceStore {
       (proposal) =>
         proposal.firstAllianceId !== id && proposal.secondAllianceId !== id,
     );
+  }
+
+  async deleteAllAllianceData() {
+    const { players, factions, nextId, clock } = this.state;
+    this.state = {
+      players,
+      factions,
+      alliances: [],
+      memberships: [],
+      applications: [],
+      relationships: [],
+      relationshipProposals: [],
+      relationshipChangeProposals: [],
+      diplomacyChronicleEntries: [],
+      allianceChronicleEntries: [],
+      diplomacyNotifications: [],
+      assetDeletions: [],
+      nextId,
+      clock,
+    };
   }
 
   async listActiveRelationships(allianceId: number) {
@@ -701,6 +737,41 @@ export class InMemoryAllianceStore implements AllianceStore {
         entry.leaseToken === leaseToken,
     );
     if (notification) notification.leaseToken = null;
+  }
+
+  async enqueueAssetDeletion(assetKey: string) {
+    if (this.state.assetDeletions.some((t) => t.assetKey === assetKey)) return;
+    this.state.assetDeletions.push({
+      id: this.nextId(),
+      assetKey,
+      attempts: 0,
+      nextAttemptAt: new Date(0),
+    });
+  }
+
+  async listPendingAssetDeletions() {
+    return this.state.assetDeletions.map((task) => ({ ...task }));
+  }
+
+  async claimDueAssetDeletions(
+    limit: number,
+    now: Date,
+    backoffMs: (attempts: number) => number,
+  ) {
+    return this.state.assetDeletions
+      .filter((task) => task.nextAttemptAt <= now)
+      .slice(0, limit)
+      .map((task) => {
+        task.attempts += 1;
+        task.nextAttemptAt = new Date(now.getTime() + backoffMs(task.attempts));
+        return { ...task };
+      });
+  }
+
+  async completeAssetDeletion(id: number) {
+    this.state.assetDeletions = this.state.assetDeletions.filter(
+      (task) => task.id !== id,
+    );
   }
 
   async findMembership(userId: number) {
