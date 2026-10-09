@@ -31,6 +31,7 @@ import {
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
+  postForm: vi.fn(),
   patch: vi.fn(),
   put: vi.fn(),
   delete: vi.fn(),
@@ -288,6 +289,7 @@ function routeGet(routes: Record<string, unknown>) {
 beforeEach(() => {
   for (const mock of Object.values(apiMocks)) mock.mockReset();
   apiMocks.post.mockResolvedValue({});
+  apiMocks.postForm.mockResolvedValue({});
   apiMocks.patch.mockResolvedValue({});
   apiMocks.put.mockResolvedValue({});
   apiMocks.delete.mockResolvedValue({});
@@ -774,6 +776,168 @@ describe('AllianceDetailPage', () => {
     await screen.findByRole('heading', { name: 'Rogue Squadron' });
     expect(container.querySelector('img')).toBeNull();
     expect(container.textContent).toContain('<img src=x onerror=alert(1)>');
+  });
+
+  describe('banner', () => {
+    const banner = {
+      url: '/api/alliances/1/banner?v=1700000000000',
+      updatedAt: '2026-10-01T12:00:00.000Z',
+    };
+    const manager = (withBanner: boolean) => {
+      const d = detail({ banner: withBanner ? banner : null });
+      d.viewer.actions.manageBanner = true;
+      return d;
+    };
+    const pngFile = () =>
+      new File([new Uint8Array([137, 80, 78, 71])], 'banner.png', {
+        type: 'image/png',
+      });
+
+    it('shows the banner as a fixed header image', async () => {
+      routeGet({ '/alliances/1': detail({ banner }) });
+
+      renderAt('/alliances/1');
+
+      const img = await screen.findByRole('img', { name: 'Banner von Rogue Squadron' });
+      expect(img.getAttribute('src')).toBe(banner.url);
+    });
+
+    it('shows neither header nor placeholder image without a banner', async () => {
+      routeGet({
+        '/alliances/1': detail({
+          renderedDescription: 'Hallo  Welt',
+          banner: null,
+        }),
+      });
+
+      const { container } = renderAt('/alliances/1');
+
+      await screen.findByRole('heading', { name: 'Rogue Squadron' });
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.textContent).toContain('Hallo  Welt');
+    });
+
+    it('renders the banner placeholder in the description as an image', async () => {
+      routeGet({
+        '/alliances/1': detail({
+          banner,
+          renderedDescription: `Vor [img]${banner.url}[/img] Nach`,
+        }),
+      });
+
+      renderAt('/alliances/1');
+
+      await screen.findByRole('heading', { name: 'Rogue Squadron' });
+      expect(screen.getAllByRole('img')).toHaveLength(2);
+      expect(screen.getByText(/Vor/).textContent).not.toContain('[img]');
+    });
+
+    it('keeps image tags with foreign or unsafe sources literal', async () => {
+      routeGet({
+        '/alliances/1': detail({
+          renderedDescription:
+            '[img]https://evil.example/x.png[/img] [img]javascript:alert(1)[/img]',
+        }),
+      });
+
+      const { container } = renderAt('/alliances/1');
+
+      await screen.findByRole('heading', { name: 'Rogue Squadron' });
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.textContent).toContain('[img]https://evil.example/x.png[/img]');
+    });
+
+    it('offers banner management only when the server allows it', async () => {
+      routeGet({ '/alliances/1': detail({ banner }) });
+      const { unmount } = renderAt('/alliances/1');
+      await screen.findByRole('heading', { name: 'Rogue Squadron' });
+      expect(screen.queryByLabelText('Banner hochladen')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Banner entfernen' })).toBeNull();
+      unmount();
+
+      routeGet({ '/alliances/1': manager(true) });
+      renderAt('/alliances/1');
+      expect(await screen.findByLabelText('Banner ersetzen')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Banner entfernen' })).toBeTruthy();
+    });
+
+    it('offers only upload when managing an alliance without banner', async () => {
+      routeGet({ '/alliances/1': manager(false) });
+
+      renderAt('/alliances/1');
+
+      expect(await screen.findByLabelText('Banner hochladen')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Banner entfernen' })).toBeNull();
+    });
+
+    it('uploads the chosen file as multipart form data and reloads', async () => {
+      routeGet({ '/alliances/1': manager(false) });
+      renderAt('/alliances/1');
+      const input = await screen.findByLabelText('Banner hochladen');
+
+      fireEvent.change(input, { target: { files: [pngFile()] } });
+
+      await waitFor(() => expect(apiMocks.postForm).toHaveBeenCalledTimes(1));
+      const [path, form] = apiMocks.postForm.mock.calls[0] as [string, FormData];
+      expect(path).toBe('/alliances/1/banner');
+      expect((form.get('file') as File).name).toBe('banner.png');
+      await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(4));
+    });
+
+    it('shows the server message when the upload is rejected', async () => {
+      apiMocks.postForm.mockRejectedValue(
+        new ApiError(400, 'Das Banner darf höchstens 200 KB groß sein'),
+      );
+      routeGet({ '/alliances/1': manager(true) });
+      renderAt('/alliances/1');
+      const input = await screen.findByLabelText('Banner ersetzen');
+
+      fireEvent.change(input, { target: { files: [pngFile()] } });
+
+      expect(
+        await screen.findByText('Das Banner darf höchstens 200 KB groß sein'),
+      ).toBeTruthy();
+    });
+
+    it('removes the banner after confirmation and reports failures', async () => {
+      apiMocks.delete.mockRejectedValueOnce(new ApiError(403, 'Keine Berechtigung'));
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      routeGet({ '/alliances/1': manager(true) });
+      renderAt('/alliances/1');
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Banner entfernen' }));
+
+      expect(await screen.findByText('Keine Berechtigung')).toBeTruthy();
+      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/banner');
+    });
+
+    it('shows readable chronicle texts for banner events', async () => {
+      const bannerEntry = (id: number, type: string, replaced?: boolean) => ({
+        id,
+        type,
+        actor: { userId: 1, name: 'Leia' },
+        subject: null,
+        metadata: replaced === undefined ? null : { width: 600, height: 150, replaced },
+        occurredAt: '2026-10-05T12:00:00.000Z',
+      });
+      routeGet({
+        '/alliances/1': detail(),
+        '/alliances/1/chronicle': {
+          entries: [
+            bannerEntry(3, 'BANNER_REMOVED'),
+            bannerEntry(2, 'BANNER_SET', true),
+            bannerEntry(1, 'BANNER_SET', false),
+          ],
+          nextCursor: null,
+        },
+      });
+
+      renderAt('/alliances/1/chronicle');
+
+      expect(await screen.findByText('Leia hat das Banner entfernt')).toBeTruthy();
+      expect(screen.getByText('Leia hat das Banner ersetzt')).toBeTruthy();
+      expect(screen.getByText('Leia hat ein Banner gesetzt')).toBeTruthy();
+    });
   });
 
   it('shows no action buttons when the server allows none', async () => {

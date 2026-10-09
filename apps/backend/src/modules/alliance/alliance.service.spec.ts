@@ -872,11 +872,39 @@ describe('AllianceService', () => {
 
       it('removes unknown $ALLIANCE_ placeholders', async () => {
         const detail = await withDescription(
-          'A $ALLIANCE_BANNER B $ALLIANCE_DIPLOMATIC_RELATIONS C $OTHER',
+          'A $ALLIANCE_UNKNOWN B $ALLIANCE_DIPLOMATIC_RELATIONS C $OTHER',
           [[1, PRESIDENT]],
         );
 
         expect(detail.renderedDescription).toBe('A  B  C $OTHER');
+      });
+
+      it('renders $ALLIANCE_BANNER as an image reference when a banner exists', async () => {
+        const ctx = setup();
+        ctx.store.addPlayer(1, 'Leia');
+        const alliance = ctx.store.seedAlliance(
+          {
+            name: 'Rogue Squadron',
+            description: 'A $ALLIANCE_BANNER B',
+            bannerKey: 'k',
+            bannerUpdatedAt: new Date(1234),
+          },
+          [[1, PRESIDENT]],
+        );
+
+        const detail = await ctx.service.getDetail(1, alliance.id);
+
+        expect(detail.renderedDescription).toBe(
+          `A [img]/api/alliances/${alliance.id}/banner?v=1234[/img] B`,
+        );
+      });
+
+      it('renders $ALLIANCE_BANNER as empty text without a banner', async () => {
+        const detail = await withDescription('A $ALLIANCE_BANNER B', [
+          [1, PRESIDENT],
+        ]);
+
+        expect(detail.renderedDescription).toBe('A  B');
       });
     });
   });

@@ -2018,7 +2018,9 @@ export class AllianceService {
   ): string {
     const holder = (role: AllianceRole) =>
       members.find((m) => m.role === role)?.name ?? 'Unbesetzt';
+    const banner = this.bannerDto(alliance);
     const values: Record<string, string> = {
+      $ALLIANCE_BANNER: banner ? `[img]${banner.url}[/img]` : '',
       $ALLIANCE_PRESIDENT: holder(PRESIDENT),
       $ALLIANCE_VICEPRESIDENT: holder(VICE),
       $ALLIANCE_FOREIGNMINISTER: holder(DIPLOMAT),
