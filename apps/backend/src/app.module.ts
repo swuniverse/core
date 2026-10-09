@@ -94,6 +94,7 @@ import { AllianceRelationshipChangeProposal } from './modules/alliance/entities/
 import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.entity';
 import { AllianceChronicleEntry } from './modules/alliance/entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceAssetDeletion } from './modules/alliance/entities/alliance-asset-deletion.entity';
 import { AllianceDiplomacyNotification } from './modules/alliance/entities/alliance-diplomacy-notification.entity';
 import { ForumBoard } from './modules/alliance/entities/forum-board.entity';
 import { ForumTopic } from './modules/alliance/entities/forum-topic.entity';
@@ -182,6 +183,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           AllianceChronicleEntry,
           AllianceDiplomacyChronicleEntry,
           AllianceDiplomacyNotification,
+          AllianceAssetDeletion,
           ForumBoard,
           ForumTopic,
           ForumPost,

@@ -12,6 +12,8 @@ import {
   resetDatabase,
 } from '../../testing/integration/database';
 import { User } from '../auth/user.entity';
+import { AllianceBannerService } from './alliance-banner.service';
+import { InMemoryAssetStorage } from './testing/in-memory-asset-storage';
 import { AllianceService } from './alliance.service';
 import { AllianceContextCleanup } from './alliance-context-cleanup';
 import { ForumService } from './forum.service';
@@ -535,6 +537,81 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       const dashboard = await forum.listRecentTopics(leia.id);
       expect(dashboard.map((t) => t.title)).toEqual(['Alt', 'Neu']);
       expect(await forum.listRecentTopics((await rebel('lando')).id)).toEqual([]);
+    });
+  });
+
+  describe('durable banner file deletion', () => {
+    const FAR_FUTURE = new Date(Date.UTC(2100, 0, 1));
+
+    it('persists the task with the dissolution, survives a failing adapter and deletes idempotently', async () => {
+      const assets = new InMemoryAssetStorage();
+      const banners = new AllianceBannerService(store, assets);
+      const leia = await rebel('leia');
+      const created = await alliance('Rogue Squadron', leia);
+      await assets.save('abc123', Buffer.from('png'));
+      await store.updateAlliance(created.id, {
+        bannerKey: 'abc123',
+        bannerUpdatedAt: new Date(),
+      });
+
+      await allianceService.dissolve(leia.id, created.id);
+
+      expect(await count('alliances')).toBe(0);
+      expect(await count('alliance_asset_deletions')).toBe(1);
+      assets.failNextDelete = true;
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+      expect(assets.keys()).toEqual(['abc123']);
+      expect(await count('alliance_asset_deletions')).toBe(1);
+
+      const later = new Date(FAR_FUTURE.getTime() + 2 * 3_600_000);
+      await banners.retryAssetDeletions({ now: later });
+      await banners.retryAssetDeletions({ now: later });
+      expect(assets.size).toBe(0);
+      expect(await count('alliance_asset_deletions')).toBe(0);
+    });
+
+    it('persists no task when the dissolution rolls back', async () => {
+      const registry = new AllianceContextCleanup();
+      registry.register({
+        allianceDissolved: async () => {
+          throw new Error('consumer failed');
+        },
+      });
+      const service = new AllianceService(
+        store,
+        { sendSystem } as never,
+        undefined,
+        undefined,
+        registry,
+      );
+      const leia = await rebel('leia');
+      const created = await alliance('Rogue Squadron', leia);
+      await store.updateAlliance(created.id, {
+        bannerKey: 'abc123',
+        bannerUpdatedAt: new Date(),
+      });
+
+      await expect(service.dissolve(leia.id, created.id)).rejects.toThrow(
+        'consumer failed',
+      );
+
+      expect(await count('alliance_asset_deletions')).toBe(0);
+      expect(await count('alliances')).toBe(1);
+    });
+
+    it('lets two concurrent workers claim a task only once', async () => {
+      await store.enqueueAssetDeletion('abc123');
+      await store.enqueueAssetDeletion('abc123');
+      const claim = () =>
+        new TypeOrmAllianceStore(dataSource).claimDueAssetDeletions(
+          10,
+          FAR_FUTURE,
+          () => 60_000,
+        );
+
+      const results = await Promise.all([claim(), claim()]);
+
+      expect(results.flat()).toHaveLength(1);
     });
   });
 });
