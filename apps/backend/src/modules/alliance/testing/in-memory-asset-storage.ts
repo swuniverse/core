@@ -30,6 +30,10 @@ export class InMemoryAssetStorage implements AllianceAssetStorage {
     this.files.delete(key);
   }
 
+  async list(): Promise<string[]> {
+    return this.keys();
+  }
+
   async read(key: string): Promise<Buffer | null> {
     return this.files.get(key) ?? null;
   }

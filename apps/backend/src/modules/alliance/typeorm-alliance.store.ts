@@ -952,6 +952,28 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     await this.manager.delete(Alliance, { id });
   }
 
+  async deleteAllAllianceData() {
+    // No RESTART IDENTITY: sequences keep counting so removed ids are never
+    // reused. Alliances cascade to memberships, applications, forum and
+    // internal chronicle. The public chronicle is immutable by row trigger
+    // (DELETE is rejected); TRUNCATE does not fire row triggers, is
+    // transactional and nothing references that table.
+    await this.manager.query(
+      'TRUNCATE TABLE "alliance_diplomacy_chronicle_entries"',
+    );
+    for (const entity of [
+      AllianceRelationshipChangeProposal,
+      AllianceRelationshipProposal,
+      AllianceRelationship,
+      DiplomacyParty,
+      AllianceDiplomacyNotification,
+      AllianceAssetDeletion,
+      Alliance,
+    ]) {
+      await this.manager.createQueryBuilder().delete().from(entity).execute();
+    }
+  }
+
   async findMembership(userId: number) {
     const membership = await this.manager.findOneBy(AllianceMembership, {
       userId,
