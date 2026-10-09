@@ -2130,6 +2130,17 @@ export function AllianceDetailPage() {
                   {member.roleTitle}
                 </span>
               )}
+              {member.online !== undefined && (
+                <span
+                  className={
+                    member.online
+                      ? 'text-[10px] uppercase tracking-wider text-green-400'
+                      : 'text-[10px] uppercase tracking-wider text-swu-muted'
+                  }
+                >
+                  {member.online ? 'Online' : 'Offline'}
+                </span>
+              )}
               <span className="ml-auto flex flex-wrap gap-2">
                 {memberActions(member)}
               </span>

@@ -50,6 +50,8 @@ export interface AllianceMemberDto {
   roleTitle: string | null;
   joinedAt: string;
   actions: AllianceMemberActionsDto;
+  /** Only present when the viewer is a member of the same alliance. */
+  online?: boolean;
 }
 
 export type AllianceWarTargetDto = AllianceRefDto;

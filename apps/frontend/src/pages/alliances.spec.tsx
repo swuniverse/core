@@ -608,6 +608,31 @@ describe('AllianceDetailPage', () => {
     ).toContain('color: rgb(255, 0, 0)');
   });
 
+  it('shows member online status only when the server provides it', async () => {
+    routeGet({
+      '/alliances/1': detail({
+        members: detail().members.map((m) => ({
+          ...m,
+          online: m.userId === 2,
+        })),
+      }),
+    });
+    const first = renderAt('/alliances/1');
+    const leia = (await screen.findByRole('link', { name: 'Leia' })).closest(
+      'li',
+    )!;
+    expect(within(leia).getByText('Offline')).toBeTruthy();
+    const wedge = screen.getByRole('link', { name: 'Wedge' }).closest('li')!;
+    expect(within(wedge).getByText('Online')).toBeTruthy();
+    first.unmount();
+
+    routeGet({ '/alliances/1': detail() });
+    renderAt('/alliances/1');
+    await screen.findByRole('link', { name: 'Leia' });
+    expect(screen.queryByText('Online')).toBeNull();
+    expect(screen.queryByText('Offline')).toBeNull();
+  });
+
   it('shows the public diplomacy chronicle without confidential proposal data', async () => {
     routeGet({
       '/alliances/1': detail(),

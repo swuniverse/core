@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { WebsocketModule } from '../websocket/websocket.module';
+import { GameGateway } from '../websocket/game.gateway';
+import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
 import { ALLIANCE_STORE } from './alliance.store';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
-import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
+import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import {
   NoPersonalContactStatusPort,
   PERSONAL_CONTACT_STATUS,
@@ -41,6 +44,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceDiplomacyNotification,
     ]),
     MessagingModule,
+    WebsocketModule,
   ],
   controllers: [AllianceController],
   providers: [
@@ -55,7 +59,14 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       useClass: NoPersonalContactStatusPort,
     },
     DiplomacyNotificationDispatcherService,
-    DiplomacyRateLimiterService,
+    AllianceRateLimiterService,
+    {
+      provide: ONLINE_PLAYERS,
+      inject: [GameGateway],
+      useFactory: (gateway: GameGateway) => ({
+        onlineUserIds: () => gateway.onlineUserIds,
+      }),
+    },
     { provide: ALLIANCE_STORE, useClass: TypeOrmAllianceStore },
   ],
   exports: [AllianceService, RelationshipResolverService],
