@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import type { AllianceRefDto } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
+import { SettlerPublicDiplomacy } from './alliances';
 
 interface PlayerProfile {
   id: number;
@@ -183,6 +184,8 @@ export function PlayerProfilePage() {
           value={player.onboardingCompleted ? 'aktiv' : 'im Aufbau'}
         />
       </section>
+
+      {!player.alliance && <SettlerPublicDiplomacy playerId={player.id} />}
     </div>
   );
 }

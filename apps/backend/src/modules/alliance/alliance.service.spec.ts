@@ -3614,7 +3614,9 @@ describe('AllianceService', () => {
     it('dissolves the alliance when the president is the only member', async () => {
       const { store, service, sent } = scenario();
       store.addPlayer(7, 'Ackbar');
-      const solo = store.seedAlliance({ name: 'Red Squadron' }, [[7, PRESIDENT]]);
+      const solo = store.seedAlliance({ name: 'Red Squadron' }, [
+        [7, PRESIDENT],
+      ]);
 
       await service.removeAccount(7);
 

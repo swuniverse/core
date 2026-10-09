@@ -34,6 +34,7 @@ import {
   type ProposeSettlerRelationshipRequest,
   type SettlerCounterpartyPageDto,
   type SettlerDiplomacyManagementDto,
+  type SettlerPublicDiplomacyDto,
   AllianceSummaryDto,
   AllianceTitlesDto,
   FoundAllianceRequest,
@@ -249,6 +250,23 @@ export class AllianceService {
     await this.requireAlliance(allianceId);
     await this.store.findPlayer(viewerId);
     return this.diplomacyChronicleOf(allianceParty(allianceId), cursor, limit);
+  }
+
+  /** Public view of a Siedler: active relationships, never proposals or drafts. */
+  async getPublicSettlerDiplomacy(
+    viewerId: number,
+    playerId: number,
+  ): Promise<SettlerPublicDiplomacyDto> {
+    const player = await this.store.findPlayer(playerId);
+    if (!player) throw new NotFoundException(ERR.invalidSettlerTarget);
+    await this.store.findPlayer(viewerId);
+    const ref = playerParty(playerId);
+    const relationships = await this.store.listActiveRelationships(ref);
+    return {
+      playerId,
+      name: player.name,
+      relationships: await this.relationshipSummaries(ref, relationships),
+    };
   }
 
   /** Public diplomacy chronicle of an alliance-less player. */

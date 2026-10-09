@@ -15,7 +15,9 @@ export interface DiplomacyNotificationRetry {
  */
 @Injectable()
 export class DiplomacyNotificationDispatcherService {
-  private readonly logger = new Logger(DiplomacyNotificationDispatcherService.name);
+  private readonly logger = new Logger(
+    DiplomacyNotificationDispatcherService.name,
+  );
   private dispatching = false;
 
   constructor(

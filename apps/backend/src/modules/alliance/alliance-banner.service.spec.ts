@@ -13,9 +13,7 @@ import { AllianceBannerService } from './alliance-banner.service';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import { AllianceContextCleanup } from './alliance-context-cleanup';
 import { AllianceService } from './alliance.service';
-import {
-  InMemoryAllianceStore,
-} from './testing/in-memory-alliance.store';
+import { InMemoryAllianceStore } from './testing/in-memory-alliance.store';
 import { InMemoryAssetStorage } from './testing/in-memory-asset-storage';
 import { makePng } from './testing/png-fixtures';
 
@@ -64,21 +62,24 @@ describe('AllianceBannerService', () => {
     it.each([
       ['president', 1],
       ['vice', 2],
-    ])('lets the %s set a banner shown in the alliance detail', async (_, actor) => {
-      const { banners, alliances, assets, rogue } = setup();
+    ])(
+      'lets the %s set a banner shown in the alliance detail',
+      async (_, actor) => {
+        const { banners, alliances, assets, rogue } = setup();
 
-      await banners.upload(actor, rogue.id, makePng(600, 150));
+        await banners.upload(actor, rogue.id, makePng(600, 150));
 
-      const detail = await alliances.getDetail(actor, rogue.id);
-      expect(detail.banner).toEqual({
-        url: expect.stringMatching(
-          new RegExp(`^/api/alliances/${rogue.id}/banner\\?v=\\d+$`),
-        ),
-        updatedAt: expect.any(String),
-      });
-      expect(detail.viewer.actions.manageBanner).toBe(true);
-      expect(assets.size).toBe(1);
-    });
+        const detail = await alliances.getDetail(actor, rogue.id);
+        expect(detail.banner).toEqual({
+          url: expect.stringMatching(
+            new RegExp(`^/api/alliances/${rogue.id}/banner\\?v=\\d+$`),
+          ),
+          updatedAt: expect.any(String),
+        });
+        expect(detail.viewer.actions.manageBanner).toBe(true);
+        expect(assets.size).toBe(1);
+      },
+    );
 
     it.each([
       ['diplomat', 3],
@@ -228,7 +229,11 @@ describe('AllianceBannerService', () => {
         assets,
         AllianceRateLimiterService.forTesting({
           commands: {
-            banner: { windowMs: 1000, maximumAttempts: 1, message: 'zu schnell' },
+            banner: {
+              windowMs: 1000,
+              maximumAttempts: 1,
+              message: 'zu schnell',
+            },
           },
         }),
       );

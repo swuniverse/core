@@ -46,7 +46,9 @@ describe('DiplomacyNotificationDispatcherService', () => {
       .mockRejectedValueOnce(new Error('messaging unavailable'))
       .mockResolvedValueOnce(undefined);
     const dispatcher = dispatcherWith(retryDiplomacyNotifications);
-    const error = jest.spyOn(loggerOf(dispatcher), 'error').mockImplementation();
+    const error = jest
+      .spyOn(loggerOf(dispatcher), 'error')
+      .mockImplementation();
 
     await expect(dispatcher.dispatch()).resolves.toBeUndefined();
     await expect(dispatcher.dispatch()).resolves.toBeUndefined();

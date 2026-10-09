@@ -33,26 +33,25 @@ const ALLOWED_MEMBER_ACTIONS: Array<
   [VICE, 'dismiss', DIPLOMAT],
 ];
 
-const ALLOWED_ALLIANCE_ACTIONS: Array<[AllianceRole, AllianceAction]> =
-  [
-    [PRESIDENT, 'manageApplications'],
-    [PRESIDENT, 'editDetails'],
-    [PRESIDENT, 'dissolve'],
-    [PRESIDENT, 'declareWar'],
-    [PRESIDENT, 'manageDiplomacy'],
-    [VICE, 'manageApplications'],
-    [VICE, 'editDetails'],
-    [PRESIDENT, 'viewShipManagementDetails'],
-    [PRESIDENT, 'moderateForum'],
-    [VICE, 'moderateForum'],
-    [VICE, 'viewShipManagementDetails'],
-    [PRESIDENT, 'viewMemberOperations'],
-    [VICE, 'viewMemberOperations'],
-    [PRESIDENT, 'manageBanner'],
-    [VICE, 'manageBanner'],
-    [DIPLOMAT, 'declareWar'],
-    [DIPLOMAT, 'manageDiplomacy'],
-  ];
+const ALLOWED_ALLIANCE_ACTIONS: Array<[AllianceRole, AllianceAction]> = [
+  [PRESIDENT, 'manageApplications'],
+  [PRESIDENT, 'editDetails'],
+  [PRESIDENT, 'dissolve'],
+  [PRESIDENT, 'declareWar'],
+  [PRESIDENT, 'manageDiplomacy'],
+  [VICE, 'manageApplications'],
+  [VICE, 'editDetails'],
+  [PRESIDENT, 'viewShipManagementDetails'],
+  [PRESIDENT, 'moderateForum'],
+  [VICE, 'moderateForum'],
+  [VICE, 'viewShipManagementDetails'],
+  [PRESIDENT, 'viewMemberOperations'],
+  [VICE, 'viewMemberOperations'],
+  [PRESIDENT, 'manageBanner'],
+  [VICE, 'manageBanner'],
+  [DIPLOMAT, 'declareWar'],
+  [DIPLOMAT, 'manageDiplomacy'],
+];
 
 describe('mayActOnMember', () => {
   for (const actor of ROLES) {

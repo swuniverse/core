@@ -495,8 +495,11 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
     );
     expect(unchanged.text).toBe('Erster Beitrag');
     expect(
-      (await call('member', 'PATCH', path(rogue.id, own.postId), { text: 'Neu' }))
-        .status,
+      (
+        await call('member', 'PATCH', path(rogue.id, own.postId), {
+          text: 'Neu',
+        })
+      ).status,
     ).toBe(200);
   });
 
@@ -524,14 +527,42 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
     );
 
     for (const [method, path, body] of [
-      ['PATCH', `/alliances/${rogue.id}/forum/boards/${foreign.boardId}`, { name: 'Gehackt' }],
-      ['PATCH', `/alliances/${red.id}/forum/boards/${own.boardId}`, { name: 'Gehackt' }],
-      ['DELETE', `/alliances/${rogue.id}/forum/boards/${foreign.boardId}`, undefined],
-      ['PATCH', `/alliances/${rogue.id}/forum/topics/${foreign.topicId}`, { title: 'Gehackt' }],
-      ['PUT', `/alliances/${rogue.id}/forum/topics/${foreign.topicId}/important`, { important: true }],
-      ['DELETE', `/alliances/${rogue.id}/forum/topics/${foreign.topicId}`, undefined],
+      [
+        'PATCH',
+        `/alliances/${rogue.id}/forum/boards/${foreign.boardId}`,
+        { name: 'Gehackt' },
+      ],
+      [
+        'PATCH',
+        `/alliances/${red.id}/forum/boards/${own.boardId}`,
+        { name: 'Gehackt' },
+      ],
+      [
+        'DELETE',
+        `/alliances/${rogue.id}/forum/boards/${foreign.boardId}`,
+        undefined,
+      ],
+      [
+        'PATCH',
+        `/alliances/${rogue.id}/forum/topics/${foreign.topicId}`,
+        { title: 'Gehackt' },
+      ],
+      [
+        'PUT',
+        `/alliances/${rogue.id}/forum/topics/${foreign.topicId}/important`,
+        { important: true },
+      ],
+      [
+        'DELETE',
+        `/alliances/${rogue.id}/forum/topics/${foreign.topicId}`,
+        undefined,
+      ],
       ['DELETE', `/alliances/${red.id}/forum/topics/${own.topicId}`, undefined],
-      ['DELETE', `/alliances/${rogue.id}/forum/posts/${foreign.postId}`, undefined],
+      [
+        'DELETE',
+        `/alliances/${rogue.id}/forum/posts/${foreign.postId}`,
+        undefined,
+      ],
       ['DELETE', `/alliances/${red.id}/forum/posts/${own.postId}`, undefined],
     ] as const) {
       const result = await call('president', method, path, body);
@@ -561,10 +592,18 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
       call(a, 'DELETE', `/alliances/${rogue.id}/forum/posts/${second.postId}`),
     );
     await expectStatuses({ ...denied, president: 200 }, (a) =>
-      call(a, 'DELETE', `/alliances/${rogue.id}/forum/topics/${second.topicId}`),
+      call(
+        a,
+        'DELETE',
+        `/alliances/${rogue.id}/forum/topics/${second.topicId}`,
+      ),
     );
     await expectStatuses({ ...denied, vice: 200 }, (a) =>
-      call(a, 'DELETE', `/alliances/${rogue.id}/forum/boards/${second.boardId}`),
+      call(
+        a,
+        'DELETE',
+        `/alliances/${rogue.id}/forum/boards/${second.boardId}`,
+      ),
     );
   });
 
@@ -575,7 +614,8 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
       call(a, 'GET', `/alliances/${w.rogue.id}/chronicle`),
     );
     expect(
-      (await call('president', 'GET', `/alliances/${w.red.id}/chronicle`)).status,
+      (await call('president', 'GET', `/alliances/${w.red.id}/chronicle`))
+        .status,
     ).toBe(404);
     expect(
       (
@@ -594,8 +634,13 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
     expect(diplomacy.status).toBe(200);
     expect(diplomacy.body.entries).toEqual([]);
     expect(
-      (await call('anonymous', 'GET', `/alliances/${w.rogue.id}/diplomacy/chronicle`))
-        .status,
+      (
+        await call(
+          'anonymous',
+          'GET',
+          `/alliances/${w.rogue.id}/diplomacy/chronicle`,
+        )
+      ).status,
     ).toBe(401);
   });
 
@@ -603,7 +648,14 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
 
   it('shows the member overview only to president and vice of exactly this alliance', async () => {
     await expectStatuses(
-      { president: 200, vice: 200, diplomat: 403, member: 403, ...OUTSIDERS, ...ANON },
+      {
+        president: 200,
+        vice: 200,
+        diplomat: 403,
+        member: 403,
+        ...OUTSIDERS,
+        ...ANON,
+      },
       (a) => call(a, 'GET', `/alliances/${w.rogue.id}/member-overview`),
     );
     expect(
@@ -629,10 +681,21 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
     const stock = (alliance: number, colony: number) =>
       `/alliances/${alliance}/member-overview/colonies/${colony}/stock`;
     await expectStatuses(
-      { president: 200, vice: 200, diplomat: 403, member: 403, ...OUTSIDERS, ...ANON },
+      {
+        president: 200,
+        vice: 200,
+        diplomat: 403,
+        member: 403,
+        ...OUTSIDERS,
+        ...ANON,
+      },
       (a) => call(a, 'GET', stock(rogue.id, colonies.member.id)),
     );
-    const ok = await call('president', 'GET', stock(rogue.id, colonies.member.id));
+    const ok = await call(
+      'president',
+      'GET',
+      stock(rogue.id, colonies.member.id),
+    );
     expect(ok.body.items).toEqual([
       expect.objectContaining({ commodityId: 1, amount: 7 }),
     ]);
@@ -693,11 +756,16 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
       ),
     ).toBe(true);
     expect(
-      (await call('loner', 'GET', `/dashboard/forum-topics?allianceId=${rogue.id}`))
-        .body,
+      (
+        await call(
+          'loner',
+          'GET',
+          `/dashboard/forum-topics?allianceId=${rogue.id}`,
+        )
+      ).body,
     ).toEqual([]);
-    expect((await call('anonymous', 'GET', '/dashboard/forum-topics')).status).toBe(
-      401,
-    );
+    expect(
+      (await call('anonymous', 'GET', '/dashboard/forum-topics')).status,
+    ).toBe(401);
   });
 });
