@@ -1121,7 +1121,7 @@ export class AllianceService {
     const player = await this.store.findPlayer(userId);
 
     let dissolved = false;
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const alliance = await this.lockedAlliance(tx, membership.allianceId);
       const members = await tx.listMemberships(alliance.id);
       const own = members.find((m) => m.userId === userId);
@@ -1133,9 +1133,8 @@ export class AllianceService {
             'Du musst das Präsidentenamt zuerst übergeben, bevor Du die Allianz verlassen kannst',
           );
         }
-        await tx.deleteAlliance(alliance.id);
         dissolved = true;
-        return [];
+        return this.dissolveAlliance(tx, alliance, members, userId);
       }
 
       await tx.deleteMembership(alliance.id, userId);
@@ -1154,7 +1153,6 @@ export class AllianceService {
           body: `Der Siedler ${player?.name ?? UNKNOWN_NAME} hat die Allianz verlassen`,
         }));
     });
-    await this.send(messages);
     return { dissolved };
   }
 
@@ -1195,7 +1193,7 @@ export class AllianceService {
   }
 
   async dissolve(actorId: number, allianceId: number): Promise<void> {
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
       const alliance = await this.lockedAllianceRight(
         tx,
         actorId,
@@ -1203,13 +1201,30 @@ export class AllianceService {
         'dissolve',
       );
       const members = await tx.listMemberships(allianceId);
-      await tx.deleteAlliance(allianceId);
-      return members.map((m) => ({
+      return this.dissolveAlliance(tx, alliance, members, actorId);
+    });
+  }
+
+  /**
+   * The single dissolution procedure shared by every path that ends an
+   * alliance. Runs inside the caller's transaction: relational cleanup happens
+   * through the store, and the returned system messages (remaining members
+   * except the trigger) are persisted as durable intents by `mutateDiplomacy`
+   * and delivered only after the commit.
+   */
+  private async dissolveAlliance(
+    tx: AllianceStore,
+    alliance: AllianceRecord,
+    members: MembershipRecord[],
+    triggerUserId: number,
+  ): Promise<OutgoingMessage[]> {
+    await tx.deleteAlliance(alliance.id);
+    return members
+      .filter((m) => m.userId !== triggerUserId)
+      .map((m) => ({
         to: m.userId,
         body: `Die Allianz ${alliance.name} wurde aufgelöst`,
       }));
-    });
-    await this.send(messages);
   }
 
   // --- Offices ---
@@ -1435,6 +1450,9 @@ export class AllianceService {
   /** Replays exclusively claimed committed notification intents. */
   async retryDiplomacyNotifications(): Promise<void> {
     const notifications = await this.store.claimDiplomacyNotifications(100);
+    // One failing recipient must not keep the other claimed intents leased.
+    let firstError: unknown;
+    let failed = false;
     for (const notification of notifications) {
       if (!notification.leaseToken) continue;
       try {
@@ -1460,9 +1478,11 @@ export class AllianceService {
             releaseError instanceof Error ? releaseError.stack : releaseError,
           );
         }
-        throw error;
+        if (!failed) firstError = error;
+        failed = true;
       }
     }
+    if (failed) throw firstError;
   }
 
   private async relationshipSummaries(
