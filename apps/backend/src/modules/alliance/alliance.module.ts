@@ -4,6 +4,9 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
 import { ALLIANCE_STORE } from './alliance.store';
+import { ForumService } from './forum.service';
+import { FORUM_STORE } from './forum.store';
+import { TypeOrmForumStore } from './typeorm-forum.store';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import {
@@ -16,6 +19,9 @@ import {
   DiplomacyNotificationDispatcherService,
 } from './diplomacy-notification-dispatcher.service';
 import { Alliance } from './entities/alliance.entity';
+import { ForumBoard } from './entities/forum-board.entity';
+import { ForumTopic } from './entities/forum-topic.entity';
+import { ForumPost } from './entities/forum-post.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
 import { AllianceApplication } from './entities/alliance-application.entity';
 import { AllianceRelationship } from './entities/alliance-relationship.entity';
@@ -37,6 +43,9 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceRelationshipChangeProposal,
       AllianceDiplomacyChronicleEntry,
       AllianceDiplomacyNotification,
+      ForumBoard,
+      ForumTopic,
+      ForumPost,
     ]),
     MessagingModule,
   ],
@@ -55,7 +64,9 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     DiplomacyNotificationDispatcherService,
     AllianceRateLimiterService,
     { provide: ALLIANCE_STORE, useClass: TypeOrmAllianceStore },
+    ForumService,
+    { provide: FORUM_STORE, useClass: TypeOrmForumStore },
   ],
-  exports: [AllianceService, RelationshipResolverService],
+  exports: [AllianceService, ForumService, RelationshipResolverService],
 })
 export class AllianceModule {}

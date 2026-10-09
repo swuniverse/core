@@ -94,6 +94,9 @@ import { AllianceRelationshipChangeProposal } from './modules/alliance/entities/
 import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.entity';
 import { AllianceDiplomacyChronicleEntry } from './modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from './modules/alliance/entities/alliance-diplomacy-notification.entity';
+import { ForumBoard } from './modules/alliance/entities/forum-board.entity';
+import { ForumTopic } from './modules/alliance/entities/forum-topic.entity';
+import { ForumPost } from './modules/alliance/entities/forum-post.entity';
 
 @Module({
   imports: [
@@ -177,6 +180,9 @@ import { AllianceDiplomacyNotification } from './modules/alliance/entities/allia
           AllianceRelationshipChangeProposal,
           AllianceDiplomacyChronicleEntry,
           AllianceDiplomacyNotification,
+          ForumBoard,
+          ForumTopic,
+          ForumPost,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',

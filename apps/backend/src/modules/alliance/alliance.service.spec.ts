@@ -537,6 +537,7 @@ describe('AllianceService', () => {
             declareWar: false,
             warTargets: [],
             manageDiplomacy: false,
+            readForum: false,
           },
         });
         expect(
@@ -597,6 +598,7 @@ describe('AllianceService', () => {
             declareWar: true,
             warTargets: [],
             manageDiplomacy: true,
+            readForum: true,
           },
         });
         const byName = Object.fromEntries(
@@ -684,6 +686,7 @@ describe('AllianceService', () => {
             declareWar,
             warTargets: [],
             manageDiplomacy,
+            readForum: true,
           });
           expect(
             members.every((m) => Object.values(m.actions).every((a) => !a)),

@@ -12,6 +12,9 @@ import { AllianceRelationshipChangeProposal } from '../../modules/alliance/entit
 import { DiplomacyParty } from '../../modules/alliance/entities/diplomacy-party.entity';
 import { AllianceDiplomacyChronicleEntry } from '../../modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from '../../modules/alliance/entities/alliance-diplomacy-notification.entity';
+import { ForumBoard } from '../../modules/alliance/entities/forum-board.entity';
+import { ForumTopic } from '../../modules/alliance/entities/forum-topic.entity';
+import { ForumPost } from '../../modules/alliance/entities/forum-post.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
 import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
@@ -40,6 +43,9 @@ export const INTEGRATION_ENTITIES = [
   AllianceRelationshipChangeProposal,
   AllianceDiplomacyChronicleEntry,
   AllianceDiplomacyNotification,
+  ForumBoard,
+  ForumTopic,
+  ForumPost,
   Message,
   Layer,
   StarSystem,

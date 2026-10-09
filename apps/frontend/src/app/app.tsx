@@ -31,6 +31,11 @@ import {
   AllianceFoundPage,
   AllianceListPage,
 } from '../pages/alliances';
+import {
+  AllianceForumBoardPage,
+  AllianceForumPage,
+  AllianceForumTopicPage,
+} from '../pages/alliance-forum';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -143,6 +148,15 @@ export function App() {
             <Route
               path="/alliances/:id/diplomacy"
               element={<AllianceDiplomacyPage />}
+            />
+            <Route path="/alliances/:id/forum" element={<AllianceForumPage />} />
+            <Route
+              path="/alliances/:id/forum/boards/:boardId"
+              element={<AllianceForumBoardPage />}
+            />
+            <Route
+              path="/alliances/:id/forum/topics/:topicId"
+              element={<AllianceForumTopicPage />}
             />
             <Route path="/alliances/:id" element={<AllianceDetailPage />} />
             <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />

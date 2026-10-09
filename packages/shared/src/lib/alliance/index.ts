@@ -65,6 +65,8 @@ export interface AllianceViewerActionsDto {
   declareWar: boolean;
   warTargets: AllianceWarTargetDto[];
   manageDiplomacy: boolean;
+  /** Current members may open the internal forum. */
+  readForum: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -262,4 +264,150 @@ export interface ProposeAllianceRelationshipChangeRequest {
 
 export interface LeaveAllianceResponse {
   dissolved: boolean;
+}
+
+// --- Forum ---
+
+/** Shown instead of the author when the account no longer exists. */
+export const FORUM_DELETED_AUTHOR_NAME = 'Gelöschter Siedler';
+export const FORUM_PAGE_SIZE = 20;
+export const FORUM_BOARD_NAME_MIN = 5;
+export const FORUM_BOARD_NAME_MAX = 80;
+export const FORUM_TOPIC_TITLE_MIN = 1;
+export const FORUM_TOPIC_TITLE_MAX = 120;
+export const FORUM_POST_MIN = 1;
+export const FORUM_POST_MAX = 20000;
+export const FORUM_MAX_BOARDS = 50;
+
+export interface ForumPaginationDto {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+/** Server-computed forum-level capabilities of the viewer. */
+export interface ForumCapabilitiesDto {
+  manageBoards: boolean;
+}
+
+export interface ForumBoardCapabilitiesDto {
+  rename: boolean;
+  delete: boolean;
+}
+
+export interface ForumTopicCapabilitiesDto {
+  rename: boolean;
+  setImportant: boolean;
+  delete: boolean;
+}
+
+export interface ForumPostCapabilitiesDto {
+  edit: boolean;
+  delete: boolean;
+}
+
+/** Author as displayed; `userId` is null once the account is gone. */
+export interface ForumAuthorDto {
+  userId: number | null;
+  name: string;
+  factionName: string | null;
+  roleTitle: string | null;
+}
+
+export interface ForumLastPostDto {
+  topicId: number;
+  topicTitle: string;
+  author: ForumAuthorDto;
+  createdAt: string;
+}
+
+export interface ForumBoardDto {
+  id: number;
+  name: string;
+  topicCount: number;
+  postCount: number;
+  lastPost: ForumLastPostDto | null;
+  lastActivityAt: string;
+  capabilities: ForumBoardCapabilitiesDto;
+}
+
+export interface ForumOverviewDto {
+  allianceId: number;
+  boards: ForumBoardDto[];
+  capabilities: ForumCapabilitiesDto;
+}
+
+export interface ForumTopicSummaryDto {
+  id: number;
+  title: string;
+  important: boolean;
+  author: ForumAuthorDto;
+  createdAt: string;
+  lastActivityAt: string;
+  postCount: number;
+  capabilities: ForumTopicCapabilitiesDto;
+}
+
+export interface ForumBoardPageDto {
+  allianceId: number;
+  board: { id: number; name: string; capabilities: ForumBoardCapabilitiesDto };
+  topics: ForumTopicSummaryDto[];
+  pagination: ForumPaginationDto;
+  capabilities: ForumCapabilitiesDto;
+}
+
+/** Present for a moderated post; its text is never delivered. */
+export interface ForumPostDeletionDto {
+  deletedAt: string;
+  moderatorName: string | null;
+}
+
+export interface ForumPostDto {
+  id: number;
+  author: ForumAuthorDto;
+  /** BBCode; null for a deleted post. */
+  text: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  deleted: ForumPostDeletionDto | null;
+  capabilities: ForumPostCapabilitiesDto;
+}
+
+export interface ForumTopicPageDto {
+  allianceId: number;
+  board: { id: number; name: string };
+  topic: {
+    id: number;
+    title: string;
+    important: boolean;
+    capabilities: ForumTopicCapabilitiesDto;
+  };
+  posts: ForumPostDto[];
+  pagination: ForumPaginationDto;
+}
+
+export interface CreateForumBoardRequest {
+  name: string;
+}
+
+export interface CreateForumTopicRequest {
+  title: string;
+  text: string;
+}
+
+export interface CreateForumPostRequest {
+  text: string;
+}
+
+export interface CreateForumTopicResponse {
+  topicId: number;
+  /** Page of the topic that contains the new post. */
+  page: number;
+}
+
+export interface CreateForumPostResponse {
+  postId: number;
+  /** Page of the topic that contains the new post. */
+  page: number;
 }
