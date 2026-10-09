@@ -29,6 +29,8 @@ import {
   type ForumPaginationDto,
   type ForumPostDto,
   type ForumTopicPageDto,
+  type UpdateForumPostRequest,
+  type UpdateForumPostResponse,
 } from '@swuniverse/shared';
 import { mayActOnAlliance } from './alliance-permissions';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
@@ -307,6 +309,37 @@ export class ForumService {
     });
   }
 
+  async updatePost(
+    viewerId: number,
+    allianceId: number,
+    postId: number,
+    request: UpdateForumPostRequest,
+  ): Promise<UpdateForumPostResponse> {
+    const viewer = await this.requireMember(viewerId, allianceId);
+    await this.requireEditablePost(this.store, viewer, postId);
+    const text = this.validated(
+      request?.text,
+      FORUM_POST_MIN,
+      FORUM_POST_MAX,
+      ERR.postLength,
+    );
+    await this.rateLimiter?.check(viewerId, 'forum-edit');
+    return this.store.transaction(async (store) => {
+      // Lock order: board, then topic. Re-check under lock so a concurrently
+      // deleted post, topic or board is never edited.
+      const initial = await store.findPost(postId);
+      const topic = initial && (await store.findTopic(initial.topicId));
+      if (topic) {
+        await store.lockBoard(topic.boardId);
+        await store.lockTopic(topic.id);
+      }
+      await this.requireEditablePost(store, viewer, postId);
+      const editedAt = this.now();
+      await store.updatePostText(postId, text, editedAt);
+      return { postId, text, editedAt: editedAt.toISOString() };
+    });
+  }
+
   // --- Authorization helpers (reused by moderation and editing tickets) ---
 
   /** Current member of exactly this alliance, else NotFound. */
@@ -344,6 +377,24 @@ export class ForumService {
     }
     const board = await this.requireBoard(store, viewer, topic.boardId);
     return { topic, board };
+  }
+
+  /**
+   * Only the author may edit, and only a live post in a live topic and board.
+   * Other members of the alliance get Forbidden; everything else NotFound.
+   */
+  protected async requireEditablePost(
+    store: ForumStore,
+    viewer: ForumMemberRecord,
+    postId: number,
+  ): Promise<ForumPostRecord> {
+    const post = await store.findPost(postId);
+    if (!post || post.deletedAt) throw new NotFoundException(ERR.notFound);
+    await this.requireTopic(store, viewer, post.topicId);
+    if (post.authorUserId !== viewer.userId) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
+    return post;
   }
 
   protected mayModerate(viewer: ForumMemberRecord): boolean {

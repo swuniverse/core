@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { AllianceRole, Faction } from '@swuniverse/shared';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -88,6 +88,32 @@ describe('alliance forum persistence (Postgres)', () => {
     expect(topics.topics.map((t) => t.id)).toEqual([first.topicId, second.topicId]);
     const topic = await service.getTopic(han.id, rogue.id, first.topicId);
     expect(topic.posts.map((p) => p.text)).toEqual(['Hallo', 'Antwort']);
+  });
+
+  it('persists an edit by the author without touching topic activity', async () => {
+    const leia = await rebel();
+    const han = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id, [han.id]);
+    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
+    const { topicId } = await service.createTopic(han.id, rogue.id, board.id, {
+      title: 'Erstes',
+      text: 'Alt',
+    });
+    const before = await service.getTopic(han.id, rogue.id, topicId);
+    const postId = before.posts[0].id;
+    const topicActivity = async () =>
+      (await dataSource.query('SELECT "lastActivityAt" FROM alliance_forum_topics WHERE id = $1', [topicId]))[0];
+
+    const activity = await topicActivity();
+    await expect(service.updatePost(leia.id, rogue.id, postId, { text: 'Hack' })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await service.updatePost(han.id, rogue.id, postId, { text: ' Neu ' });
+
+    const after = await service.getTopic(han.id, rogue.id, topicId);
+    expect(after.posts[0].text).toBe('Neu');
+    expect(after.posts[0].editedAt).not.toBeNull();
+    expect(await topicActivity()).toEqual(activity);
   });
 
   it('hides the forum from outsiders and other alliances', async () => {

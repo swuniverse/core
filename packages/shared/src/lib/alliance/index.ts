@@ -434,6 +434,16 @@ export interface CreateForumPostRequest {
   text: string;
 }
 
+export interface UpdateForumPostRequest {
+  text: string;
+}
+
+export interface UpdateForumPostResponse {
+  postId: number;
+  text: string;
+  editedAt: string;
+}
+
 export interface CreateForumTopicResponse {
   topicId: number;
   /** Page of the topic that contains the new post. */

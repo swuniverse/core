@@ -271,4 +271,17 @@ export class InMemoryForumStore implements ForumStore {
   async countPosts(topicId: number) {
     return this.state.posts.filter((p) => p.topicId === topicId).length;
   }
+
+  async findPost(id: number) {
+    const post = this.state.posts.find((p) => p.id === id);
+    return post ? { ...post } : null;
+  }
+
+  async updatePostText(id: number, text: string, editedAt: Date) {
+    const post = this.state.posts.find((p) => p.id === id);
+    if (post) {
+      post.text = text;
+      post.editedAt = editedAt;
+    }
+  }
 }

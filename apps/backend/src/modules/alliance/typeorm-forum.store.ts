@@ -325,6 +325,15 @@ class TypeOrmForumStoreSession implements ForumStore {
   async countPosts(topicId: number) {
     return this.manager.countBy(ForumPost, { topicId });
   }
+
+  async findPost(id: number) {
+    const post = await this.manager.findOneBy(ForumPost, { id });
+    return post ? toPost(post) : null;
+  }
+
+  async updatePostText(id: number, text: string, editedAt: Date) {
+    await this.manager.update(ForumPost, { id }, { text, editedAt });
+  }
 }
 
 @Injectable()

@@ -144,4 +144,8 @@ export interface ForumStore {
     limit: number,
   ): Promise<ForumPostRecord[]>;
   countPosts(topicId: number): Promise<number>;
+  /** Includes moderated posts; null if it does not exist. */
+  findPost(id: number): Promise<ForumPostRecord | null>;
+  /** Replaces the text and sets the edit time; touches no activity. */
+  updatePostText(id: number, text: string, editedAt: Date): Promise<void>;
 }

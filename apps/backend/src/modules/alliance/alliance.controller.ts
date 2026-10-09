@@ -21,6 +21,7 @@ import type {
   ProposeAllianceRelationshipChangeRequest,
   ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
+  UpdateForumPostRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
@@ -158,6 +159,18 @@ export class AllianceController {
     @Body() body: CreateForumPostRequest,
   ) {
     return this.forumService.createPost(req.user.sub, id, topicId, {
+      text: body?.text,
+    });
+  }
+
+  @Patch(':id/forum/posts/:postId')
+  updateForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('postId', ParseIntPipe) postId: number,
+    @Body() body: UpdateForumPostRequest,
+  ) {
+    return this.forumService.updatePost(req.user.sub, id, postId, {
       text: body?.text,
     });
   }

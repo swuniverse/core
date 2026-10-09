@@ -386,3 +386,66 @@ describe('AllianceForumTopicPage', () => {
     );
   });
 });
+
+describe('AllianceForumTopicPage editing', () => {
+  const own = (text = 'Alt') =>
+    post({ text, capabilities: { edit: true, delete: false } });
+
+  it('offers editing only with the server capability and shows the edit note', async () => {
+    apiMocks.get.mockResolvedValue(
+      topicPage([
+        post({
+          id: 1,
+          text: 'Mein Text',
+          editedAt: '2026-10-09T10:30:00.000Z',
+          capabilities: { edit: true, delete: false },
+        }),
+        post({ id: 2, text: 'Fremd', capabilities: { edit: false, delete: true } }),
+      ]),
+    );
+    renderAt('/alliances/1/forum/topics/9');
+
+    await screen.findByText('Mein Text');
+    expect(screen.getAllByRole('button', { name: 'Bearbeiten' })).toHaveLength(1);
+    expect(screen.getAllByText(/zuletzt bearbeitet/)).toHaveLength(1);
+  });
+
+  it('edits inline, sends the text and reloads', async () => {
+    apiMocks.get.mockResolvedValue(topicPage([own()]));
+    apiMocks.patch.mockResolvedValue({ postId: 1, text: 'Neu', editedAt: '2026-10-09T11:00:00.000Z' });
+    renderAt('/alliances/1/forum/topics/9');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    const editor = screen.getByLabelText('Beitrag bearbeiten') as HTMLTextAreaElement;
+    expect(editor.value).toBe('Alt');
+    fireEvent.change(editor, { target: { value: 'Neu' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/forum/posts/1', { text: 'Neu' }),
+    );
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByLabelText('Beitrag bearbeiten')).toBeNull());
+  });
+
+  it('shows the server error and keeps the editor open', async () => {
+    apiMocks.get.mockResolvedValue(topicPage([own()]));
+    apiMocks.patch.mockRejectedValue(new ApiError(400, 'Zu viele Änderungen'));
+    renderAt('/alliances/1/forum/topics/9');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(await screen.findByText('Zu viele Änderungen')).toBeTruthy();
+    expect(screen.getByLabelText('Beitrag bearbeiten')).toBeTruthy();
+  });
+
+  it('cancels without sending', async () => {
+    apiMocks.get.mockResolvedValue(topicPage([own()]));
+    renderAt('/alliances/1/forum/topics/9');
+    fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
+    expect(screen.queryByLabelText('Beitrag bearbeiten')).toBeNull();
+    expect(apiMocks.patch).not.toHaveBeenCalled();
+  });
+});

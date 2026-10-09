@@ -287,6 +287,82 @@ describe('ForumService', () => {
     });
   });
 
+  describe('editing own posts', () => {
+    async function firstPostId(ctx: ReturnType<typeof setup>, topicId: number) {
+      return (await ctx.service.getTopic(1, ctx.rogue.id, topicId)).posts[0].id;
+    }
+
+    it('lets the author edit, sets editedAt and keeps topic and board activity', async () => {
+      const ctx = setup();
+      const { topicId } = await boardWithTopic(ctx);
+      const postId = await firstPostId(ctx, topicId);
+      const boardBefore = (await ctx.service.listBoards(1, ctx.rogue.id)).boards[0].lastActivityAt;
+      const topicBefore = (await ctx.service.listTopics(1, ctx.rogue.id, (await ctx.service.getTopic(1, ctx.rogue.id, topicId)).board.id)).topics[0].lastActivityAt;
+      const result = await ctx.service.updatePost(4, ctx.rogue.id, postId, { text: '  Neu  ' });
+      expect(result.text).toBe('Neu');
+      const page = await ctx.service.getTopic(1, ctx.rogue.id, topicId);
+      expect(page.posts[0].text).toBe('Neu');
+      expect(page.posts[0].editedAt).toBe(result.editedAt);
+      expect(page.posts[0].editedAt).not.toBeNull();
+      const boardAfter = await ctx.service.listBoards(1, ctx.rogue.id);
+      expect(boardAfter.boards[0].lastActivityAt).toBe(boardBefore);
+      const topics = await ctx.service.listTopics(1, ctx.rogue.id, page.board.id);
+      expect(topics.topics[0].lastActivityAt).toBe(topicBefore);
+    });
+
+    it('forbids other members of the alliance, including president and vice', async () => {
+      const ctx = setup();
+      const { topicId } = await boardWithTopic(ctx);
+      const postId = await firstPostId(ctx, topicId);
+      for (const userId of [1, 2, 3]) {
+        await expectError(ctx.service.updatePost(userId, ctx.rogue.id, postId, { text: 'Hack' }), ForbiddenException);
+      }
+      expect((await ctx.service.getTopic(1, ctx.rogue.id, topicId)).posts[0].text).toBe('Hallo [b]Welt[/b]');
+    });
+
+    it('hides posts from other alliances, non-members and former members', async () => {
+      const ctx = setup();
+      const { topicId } = await boardWithTopic(ctx);
+      const postId = await firstPostId(ctx, topicId);
+      await expectError(ctx.service.updatePost(5, ctx.other.id, postId, { text: 'x' }), NotFoundException);
+      await expectError(ctx.service.updatePost(5, ctx.rogue.id, postId, { text: 'x' }), NotFoundException);
+      await expectError(ctx.service.updatePost(6, ctx.rogue.id, postId, { text: 'x' }), NotFoundException);
+      await expectError(ctx.service.updatePost(4, ctx.rogue.id, 9999, { text: 'x' }), NotFoundException);
+    });
+
+    it('rejects a former member', async () => {
+      const ctx = setup();
+      const { topicId } = await boardWithTopic(ctx);
+      const postId = await firstPostId(ctx, topicId);
+      await ctx.alliances.deleteMembership(ctx.rogue.id, 4);
+      await expectError(ctx.service.updatePost(4, ctx.rogue.id, postId, { text: 'x' }), NotFoundException);
+    });
+
+    it('validates 1 to 20000 characters after trimming', async () => {
+      const ctx = setup();
+      const { topicId } = await boardWithTopic(ctx);
+      const postId = await firstPostId(ctx, topicId);
+      await expectError(ctx.service.updatePost(4, ctx.rogue.id, postId, { text: '   ' }), BadRequestException);
+      await expectError(ctx.service.updatePost(4, ctx.rogue.id, postId, { text: '😀'.repeat(20001) }), BadRequestException);
+      await ctx.service.updatePost(4, ctx.rogue.id, postId, { text: '😀'.repeat(20000) });
+      await ctx.service.updatePost(4, ctx.rogue.id, postId, { text: ' a ' });
+    });
+
+    it('is rate limited with its own command', async () => {
+      const limiter = AllianceRateLimiterService.forTesting({
+        commands: {
+          'forum-topic': { windowMs: 60_000, maximumAttempts: 99, message: 'x' },
+          'forum-edit': { windowMs: 60_000, maximumAttempts: 1, message: 'Zu viele Änderungen' } },
+      });
+      const ctx = setup(limiter);
+      const { topicId } = await boardWithTopic(ctx);
+      const postId = await firstPostId(ctx, topicId);
+      await ctx.service.updatePost(4, ctx.rogue.id, postId, { text: 'a' });
+      await expect(ctx.service.updatePost(4, ctx.rogue.id, postId, { text: 'b' })).rejects.toThrow('Zu viele Änderungen');
+      expect(AllianceRateLimiterService.defaultCommands['forum-edit'].message).toMatch(/bearbeitest/);
+    });
+  });
+
   describe('rate limiting', () => {
     it('limits topic creation and posting per member with German messages', async () => {
       const limiter = AllianceRateLimiterService.forTesting({
