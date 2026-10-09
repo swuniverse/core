@@ -17,6 +17,7 @@ import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
 import { DatabasePage } from '../pages/database';
 import { PlayerProfilePage } from '../pages/player-profile';
+import { AllianceMemberOverviewPage } from '../pages/alliance-member-overview';
 import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
@@ -143,6 +144,10 @@ export function App() {
             <Route
               path="/alliances/:id/diplomacy"
               element={<AllianceDiplomacyPage />}
+            />
+            <Route
+              path="/alliances/:id/member-overview"
+              element={<AllianceMemberOverviewPage />}
             />
             <Route path="/alliances/:id" element={<AllianceDetailPage />} />
             <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />

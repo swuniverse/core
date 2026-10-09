@@ -1,4 +1,5 @@
 import type { Faction } from '../auth/index.js';
+import type { SpaceLocationDto } from '../starmap/index.js';
 
 /** Freund, Feind or Neutral between two players (see CONTEXT.md). */
 export type Stance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
@@ -67,6 +68,8 @@ export interface AllianceViewerActionsDto {
   declareWar: boolean;
   warTargets: AllianceWarTargetDto[];
   manageDiplomacy: boolean;
+  /** Mitgliederübersicht öffnen (Präsident und Vize). */
+  viewMemberOperations: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -264,4 +267,48 @@ export interface ProposeAllianceRelationshipChangeRequest {
 
 export interface LeaveAllianceResponse {
   dissolved: boolean;
+}
+
+/** Colony of a member as shown in the member overview (operational data only). */
+export interface AllianceMemberColonyDto {
+  id: number;
+  name: string;
+  location: SpaceLocationDto | null;
+  energy: number;
+  energyMax: number;
+  storageUsed: number;
+  storageMax: number;
+  population: number;
+  populationMax: number;
+}
+
+export interface AllianceMemberShipDto {
+  id: number;
+  name: string;
+  location: SpaceLocationDto | null;
+}
+
+export interface AllianceMemberShipGroupDto {
+  shipClassId: number;
+  shipClassName: string;
+  ships: AllianceMemberShipDto[];
+}
+
+export interface AllianceMemberOperationsDto {
+  userId: number;
+  name: string;
+  faction: Faction | null;
+  factionName: string | null;
+  role: AllianceRole;
+  roleTitle: string | null;
+  /** ISO timestamp; null when the player has no recorded activity. */
+  lastActiveAt: string | null;
+  crew: { assigned: number; limit: number };
+  colonies: AllianceMemberColonyDto[];
+  shipGroups: AllianceMemberShipGroupDto[];
+}
+
+export interface AllianceMemberOverviewDto {
+  allianceId: number;
+  members: AllianceMemberOperationsDto[];
 }

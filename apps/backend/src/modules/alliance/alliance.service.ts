@@ -258,6 +258,7 @@ export class AllianceService {
           dissolve: may('dissolve'),
           declareWar: may('declareWar'),
           manageDiplomacy: may('manageDiplomacy'),
+          viewMemberOperations: may('viewMemberOperations'),
           warTargets: may('declareWar')
             ? alliances
                 .filter(

@@ -21,13 +21,17 @@ import type {
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
+import { MemberOverviewService } from './member-overview.service';
 
 type AuthRequest = { user: { sub: number } };
 
 @Controller('alliances')
 @UseGuards(AuthGuard('jwt'))
 export class AllianceController {
-  constructor(private readonly allianceService: AllianceService) {}
+  constructor(
+    private readonly allianceService: AllianceService,
+    private readonly memberOverview: MemberOverviewService,
+  ) {}
 
   @Get()
   list() {
@@ -229,6 +233,14 @@ export class AllianceController {
       id,
       relationshipId,
     );
+  }
+
+  @Get(':id/member-overview')
+  memberOverviewOf(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.memberOverview.getOverview(req.user.sub, id);
   }
 
   @Get(':id')

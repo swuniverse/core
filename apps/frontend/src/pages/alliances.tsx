@@ -1253,6 +1253,11 @@ export function AllianceDetailPage() {
                 Bearbeiten
               </Link>
             )}
+            {actions.viewMemberOperations && (
+              <Link to={`${base}/member-overview`} className={buttonClass}>
+                Mitgliederübersicht öffnen
+              </Link>
+            )}
             {actions.manageDiplomacy && (
               <Link to={`${base}/diplomacy`} className={buttonClass}>
                 Diplomatieverwaltung

@@ -31,8 +31,13 @@ type Tab = 'inbox' | 'sent' | 'system' | 'compose';
 export function MessagesPage() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
+  const initialRecipientId = Number(searchParams.get('to'));
+  const startsCompose =
+    initialTab === 'compose' &&
+    Number.isInteger(initialRecipientId) &&
+    initialRecipientId > 0;
   const [tab, setTab] = useState<Tab>(
-    initialTab === 'system' ? 'system' : 'inbox',
+    startsCompose ? 'compose' : initialTab === 'system' ? 'system' : 'inbox',
   );
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [selected, setSelected] = useState<MessageDetail | null>(null);
@@ -42,11 +47,13 @@ export function MessagesPage() {
   const limit = 20;
 
   const [compose, setCompose] = useState({
-    recipientName: '',
+    recipientName: startsCompose ? (searchParams.get('name') ?? '') : '',
     subject: '',
     body: '',
   });
-  const [recipientId, setRecipientId] = useState<number | null>(null);
+  const [recipientId, setRecipientId] = useState<number | null>(
+    startsCompose ? initialRecipientId : null,
+  );
   const [suggestions, setSuggestions] = useState<
     { id: number; username: string }[]
   >([]);
@@ -80,6 +87,7 @@ export function MessagesPage() {
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
+    if (requestedTab === 'compose' && startsCompose) return;
     setTab(requestedTab === 'system' ? 'system' : 'inbox');
     setPage(1);
     setSelected(null);
