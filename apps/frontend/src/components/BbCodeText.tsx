@@ -16,6 +16,7 @@ type Tag =
   | 'quote'
   | 'code'
   | 'url'
+  | 'img'
   | 'translate';
 
 type Part = {
@@ -33,7 +34,7 @@ type Frame = {
 };
 
 const TAG_PATTERN =
-  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|translate|translation)(?:=([^\]]+))?\]/gi;
+  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|img|translate|translation)(?:=([^\]]+))?\]/gi;
 
 function textPart(text: string): Part {
   return { literal: text, node: text };
@@ -57,6 +58,9 @@ function isSafeUrl(value: string): boolean {
     return false;
   }
 }
+
+/** Only the alliance banner endpoint may be embedded as an image. */
+const BANNER_IMAGE_PATH = /^\/api\/alliances\/\d+\/banner(\?v=\d+)?$/;
 
 function frameChildren(frame: Frame): Part[] {
   if (frame.tag === 'translate' && frame.inTranslation) {
@@ -180,6 +184,21 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
           >
             {children}
           </a>
+        ),
+      };
+    }
+    case 'img': {
+      const src = partsLiteral(frame.children).trim();
+      if (!BANNER_IMAGE_PATH.test(src)) return textPart(literal);
+      return {
+        literal,
+        node: (
+          <img
+            key={nextKey()}
+            src={src}
+            alt="Allianzbanner"
+            className="my-2 h-auto max-w-full"
+          />
         ),
       };
     }
