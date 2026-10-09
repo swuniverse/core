@@ -10,6 +10,10 @@ import { MemberOverviewService } from './member-overview.service';
 import { MEMBER_OPERATIONS_READER } from './member-operations.port';
 import { TypeOrmMemberOperationsReader } from './typeorm-member-operations.reader';
 import { ColonyModule } from '../colony/colony.module';
+import {
+  ALLIANCE_CONTEXT_CLEANUP,
+  AllianceContextCleanup,
+} from './alliance-context-cleanup';
 import { ALLIANCE_STORE } from './alliance.store';
 import { ForumService } from './forum.service';
 import { FORUM_STORE } from './forum.store';
@@ -80,6 +84,10 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     DiplomacyNotificationDispatcherService,
     AllianceRateLimiterService,
     {
+      provide: ALLIANCE_CONTEXT_CLEANUP,
+      useClass: AllianceContextCleanup,
+    },
+    {
       provide: ONLINE_PLAYERS,
       inject: [GameGateway],
       useFactory: (gateway: GameGateway) => ({
@@ -90,6 +98,11 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     ForumService,
     { provide: FORUM_STORE, useClass: TypeOrmForumStore },
   ],
-  exports: [AllianceService, ForumService, RelationshipResolverService],
+  exports: [
+    AllianceService,
+    ForumService,
+    RelationshipResolverService,
+    ALLIANCE_CONTEXT_CLEANUP,
+  ],
 })
 export class AllianceModule {}

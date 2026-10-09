@@ -54,6 +54,10 @@ import {
 } from './alliance-permissions';
 import { ONLINE_PLAYERS } from './online-players.port';
 import type { OnlinePlayersPort } from './online-players.port';
+import {
+  ALLIANCE_CONTEXT_CLEANUP,
+  AllianceContextCleanup,
+} from './alliance-context-cleanup';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import type {
@@ -140,6 +144,9 @@ export class AllianceService {
     @Optional()
     @Inject(ONLINE_PLAYERS)
     private readonly onlinePlayers?: OnlinePlayersPort,
+    @Optional()
+    @Inject(ALLIANCE_CONTEXT_CLEANUP)
+    private readonly contextCleanup?: AllianceContextCleanup,
   ) {}
 
   // --- Queries ---
@@ -1138,6 +1145,10 @@ export class AllianceService {
       }
 
       await tx.deleteMembership(alliance.id, userId);
+      await this.contextCleanup?.memberRemoved(
+        { allianceId: alliance.id, userId },
+        { transaction: tx.transactionHandle() },
+      );
       await this.appendAllianceChronicle(
         tx,
         alliance.id,
@@ -1175,6 +1186,10 @@ export class AllianceService {
         'kick',
       );
       await tx.deleteMembership(allianceId, targetId);
+      await this.contextCleanup?.memberRemoved(
+        { allianceId, userId: targetId },
+        { transaction: tx.transactionHandle() },
+      );
       await this.appendAllianceChronicle(
         tx,
         allianceId,
@@ -1218,6 +1233,13 @@ export class AllianceService {
     members: MembershipRecord[],
     triggerUserId: number,
   ): Promise<OutgoingMessage[]> {
+    await this.contextCleanup?.allianceDissolved(
+      {
+        allianceId: alliance.id,
+        memberUserIds: members.map((m) => m.userId),
+      },
+      { transaction: tx.transactionHandle() },
+    );
     await tx.deleteAlliance(alliance.id);
     return members
       .filter((m) => m.userId !== triggerUserId)
