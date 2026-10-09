@@ -237,6 +237,10 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     );
   }
 
+  transactionHandle(): unknown {
+    return this.manager;
+  }
+
   async lockAlliance(id: number) {
     const alliance = await this.manager.findOne(Alliance, {
       where: { id },
