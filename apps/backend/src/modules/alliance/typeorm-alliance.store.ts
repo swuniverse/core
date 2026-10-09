@@ -87,6 +87,7 @@ function toPlayer(user: User): PlayerRecord {
     id: user.id,
     name: user.displayName || user.username,
     factionId: user.factionId,
+    lastActiveAt: user.lastActiveAt,
   };
 }
 

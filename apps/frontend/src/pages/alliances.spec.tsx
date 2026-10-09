@@ -1589,7 +1589,7 @@ describe('AllianceEditPage', () => {
       const withMeta = (
         id: number,
         type: string,
-        actor: string,
+        actor: string | null,
         subject: string | null,
         metadata: Record<string, unknown>,
       ) => ({
@@ -1604,6 +1604,10 @@ describe('AllianceEditPage', () => {
               fields: ['name', 'homepage', 'titles'],
               previousName: 'Rogue Squadron',
               newName: 'Renegade Squadron',
+            }),
+            withMeta(7, 'AUTOMATIC_SUCCESSION', null, 'Wedge', {
+              previousPresidentId: 1,
+              previousPresidentName: 'Leia',
             }),
             withMeta(5, 'PRESIDENCY_TRANSFERRED', 'Leia', 'Wedge', {
               previousRole: 'VICE',
@@ -1625,6 +1629,11 @@ describe('AllianceEditPage', () => {
 
       expect(
         await screen.findByText('Leia hat Biggs zum Diplomat ernannt'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Wedge ist automatisch Präsident geworden, nachdem Leia ausgeschieden ist',
+        ),
       ).toBeTruthy();
       expect(
         screen.getByText('Leia hat Han vom Amt Vize-Präsident abgesetzt'),

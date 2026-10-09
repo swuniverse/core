@@ -221,6 +221,7 @@ export enum AllianceChronicleEventType {
   ROLE_CHANGED = 'ROLE_CHANGED',
   PRESIDENCY_TRANSFERRED = 'PRESIDENCY_TRANSFERRED',
   DETAILS_CHANGED = 'DETAILS_CHANGED',
+  AUTOMATIC_SUCCESSION = 'AUTOMATIC_SUCCESSION',
 }
 
 /** Immutable internal history entry with names as of the event time. */
