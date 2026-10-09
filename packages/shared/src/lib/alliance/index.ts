@@ -223,6 +223,7 @@ export enum AllianceChronicleEventType {
   ROLE_CHANGED = 'ROLE_CHANGED',
   PRESIDENCY_TRANSFERRED = 'PRESIDENCY_TRANSFERRED',
   DETAILS_CHANGED = 'DETAILS_CHANGED',
+  AUTOMATIC_SUCCESSION = 'AUTOMATIC_SUCCESSION',
   /** Banner uploaded or replaced; metadata: width, height, replaced. */
   BANNER_SET = 'BANNER_SET',
   BANNER_REMOVED = 'BANNER_REMOVED',

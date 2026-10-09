@@ -400,6 +400,14 @@ function allianceChronicleText(
         : `${actor} hat ein Banner gesetzt`;
     case 'BANNER_REMOVED':
       return `${actor} hat das Banner entfernt`;
+    case 'AUTOMATIC_SUCCESSION': {
+      const { previousPresidentName } = chronicleMeta(entry);
+      const previous =
+        typeof previousPresidentName === 'string'
+          ? previousPresidentName
+          : 'dem bisherigen Präsidenten';
+      return `${subject} ist automatisch Präsident geworden, nachdem ${previous} ausgeschieden ist`;
+    }
     case 'DETAILS_CHANGED': {
       const { fields, previousName, newName } = chronicleMeta(entry);
       const labels = (Array.isArray(fields) ? fields : [])
