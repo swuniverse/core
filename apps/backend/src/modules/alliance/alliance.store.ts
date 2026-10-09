@@ -19,6 +19,9 @@ export interface AllianceRecord {
   presidentTitle: string;
   viceTitle: string;
   diplomatTitle: string;
+  /** Opaque asset key of the banner, or null without banner. */
+  bannerKey: string | null;
+  bannerUpdatedAt: Date | null;
   foundedAt: Date;
 }
 
@@ -140,6 +143,8 @@ export type AlliancePatch = Partial<
     | 'presidentTitle'
     | 'viceTitle'
     | 'diplomatTitle'
+    | 'bannerKey'
+    | 'bannerUpdatedAt'
   >
 >;
 
@@ -167,6 +172,8 @@ export class AllianceConstraintViolation extends Error {
  */
 export interface AllianceStore {
   transaction<T>(work: (store: AllianceStore) => Promise<T>): Promise<T>;
+  /** Opaque handle of the surrounding transaction (the EntityManager for TypeORM), for cleanup consumers. */
+  transactionHandle(): unknown;
   /**
    * Inside a transaction: lock the alliance row until commit so concurrent
    * changes to the same alliance run one after another. Returns the fresh

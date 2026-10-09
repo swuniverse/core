@@ -74,6 +74,8 @@ export interface AllianceViewerActionsDto {
   viewMemberOperations: boolean;
   /** Read the internal alliance chronicle; true for current members only. */
   viewChronicle: boolean;
+  /** Upload, replace and remove the banner (president and vice). */
+  manageBanner: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -222,6 +224,9 @@ export enum AllianceChronicleEventType {
   PRESIDENCY_TRANSFERRED = 'PRESIDENCY_TRANSFERRED',
   DETAILS_CHANGED = 'DETAILS_CHANGED',
   AUTOMATIC_SUCCESSION = 'AUTOMATIC_SUCCESSION',
+  /** Banner uploaded or replaced; metadata: width, height, replaced. */
+  BANNER_SET = 'BANNER_SET',
+  BANNER_REMOVED = 'BANNER_REMOVED',
 }
 
 /** Immutable internal history entry with names as of the event time. */
@@ -240,7 +245,15 @@ export interface AllianceChronicleDto {
   nextCursor: string | null;
 }
 
+/** Banner of an alliance; the image is delivered from `url`, never inlined. */
+export interface AllianceBannerDto {
+  url: string;
+  updatedAt: string;
+}
+
 export interface AllianceDetailDto extends AllianceSummaryDto {
+  /** Null while the alliance has no banner. */
+  banner: AllianceBannerDto | null;
   homepage: string;
   /** Raw BBCode description as stored, for the edit form. */
   description: string;

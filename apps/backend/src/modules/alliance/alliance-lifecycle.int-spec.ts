@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import {
   AllianceRelationshipType,
   AllianceRole,
@@ -13,6 +13,7 @@ import {
 } from '../../testing/integration/database';
 import { User } from '../auth/user.entity';
 import { AllianceService } from './alliance.service';
+import { AllianceContextCleanup } from './alliance-context-cleanup';
 import { ForumService } from './forum.service';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 import { TypeOrmForumStore } from './typeorm-forum.store';
@@ -114,6 +115,56 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
     'alliance_forum_topics',
     'alliance_forum_posts',
   ];
+
+  describe('context cleanup consumers', () => {
+    it('joins the lifecycle transaction and rolls back with a failing consumer', async () => {
+      const registry = new AllianceContextCleanup();
+      const seen: string[] = [];
+      let fail = true;
+      registry.register({
+        allianceDissolved: async ({ allianceId }, { transaction }) => {
+          // The handle is the transaction's manager; a failure reverts all.
+          const rows = await (transaction as EntityManager).query(
+            'SELECT id FROM alliances WHERE id = $1',
+            [allianceId],
+          );
+          seen.push(`dissolved:${allianceId}:${rows.length}`);
+          if (fail) throw new Error('consumer failed');
+        },
+        memberRemoved: async ({ userId }) => {
+          seen.push(`removed:${userId}`);
+          if (fail) throw new Error('consumer failed');
+        },
+      });
+      const service = new AllianceService(
+        store,
+        { sendSystem } as never,
+        undefined,
+        undefined,
+        registry,
+      );
+      const leia = await rebel('leia');
+      const han = await rebel('han');
+      const created = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+
+      await expect(service.leave(han.id)).rejects.toThrow('consumer failed');
+      await expect(service.kick(leia.id, created.id, han.id)).rejects.toThrow(
+        'consumer failed',
+      );
+      await expect(service.dissolve(leia.id, created.id)).rejects.toThrow(
+        'consumer failed',
+      );
+      expect(await count('alliances')).toBe(1);
+      expect(await count('alliance_memberships')).toBe(2);
+
+      fail = false;
+      seen.length = 0;
+      await service.leave(han.id);
+      await service.leave(leia.id);
+      expect(seen).toEqual([`removed:${han.id}`, `dissolved:${created.id}:1`]);
+      expect(await count('alliances')).toBe(0);
+    });
+  });
 
   describe('shared dissolution procedure', () => {
     async function relationshipsOf(leia: User, rogue: { id: number }) {

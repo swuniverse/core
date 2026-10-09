@@ -55,6 +55,13 @@ export class Alliance {
   })
   diplomatTitle: string;
 
+  /** Opaque key of the banner asset; the image itself is never stored here. */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  bannerKey: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  bannerUpdatedAt: Date | null;
+
   @CreateDateColumn()
   foundedAt: Date;
 }

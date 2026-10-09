@@ -4,9 +4,9 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Ein Testverbraucher wird bei Austritt, Rauswurf und Auflösung genau einmal informiert
-- [ ] Ein Fehler des Verbrauchers rollt die Transaktion zurück (kein Teilzustand)
-- [ ] Ohne registrierte Verbraucher ändert sich kein Verhalten
-- [ ] Der Integrationsvertrag ist in der Doku der Allianz-Infrastruktur-Etappe verlinkt
+- [x] Ein Testverbraucher wird bei Austritt, Rauswurf und Auflösung genau einmal informiert
+- [x] Ein Fehler des Verbrauchers rollt die Transaktion zurück (kein Teilzustand)
+- [x] Ohne registrierte Verbraucher ändert sich kein Verhalten
+- [x] Der Integrationsvertrag ist in der Doku der Allianz-Infrastruktur-Etappe verlinkt

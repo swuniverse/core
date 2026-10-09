@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import {
   AllianceApplicationDto,
+  AllianceBannerDto,
   AllianceChronicleDto,
   AllianceChronicleEntryDto,
   AllianceChronicleEventType,
@@ -55,6 +56,10 @@ import {
 } from './alliance-permissions';
 import { ONLINE_PLAYERS } from './online-players.port';
 import type { OnlinePlayersPort } from './online-players.port';
+import {
+  ALLIANCE_CONTEXT_CLEANUP,
+  AllianceContextCleanup,
+} from './alliance-context-cleanup';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import type {
@@ -141,6 +146,9 @@ export class AllianceService {
     @Optional()
     @Inject(ONLINE_PLAYERS)
     private readonly onlinePlayers?: OnlinePlayersPort,
+    @Optional()
+    @Inject(ALLIANCE_CONTEXT_CLEANUP)
+    private readonly contextCleanup?: AllianceContextCleanup,
   ) {}
 
   // --- Queries ---
@@ -273,6 +281,7 @@ export class AllianceService {
 
     return {
       ...this.toSummary(alliance, memberships.length, factions),
+      banner: this.bannerDto(alliance),
       homepage: alliance.homepage,
       description: alliance.description,
       renderedDescription: this.renderDescription(
@@ -303,6 +312,7 @@ export class AllianceService {
           readForum: ownRole !== null,
           viewMemberOperations: may('viewMemberOperations'),
           viewChronicle: ownRole !== null,
+          manageBanner: may('manageBanner'),
           warTargets: may('declareWar')
             ? alliances
                 .filter(
@@ -1162,6 +1172,10 @@ export class AllianceService {
         'kick',
       );
       await tx.deleteMembership(allianceId, targetId);
+      await this.contextCleanup?.memberRemoved(
+        { allianceId, userId: targetId },
+        { transaction: tx.transactionHandle() },
+      );
       await this.appendAllianceChronicle(
         tx,
         allianceId,
@@ -1205,6 +1219,13 @@ export class AllianceService {
     members: MembershipRecord[],
     triggerUserId: number,
   ): Promise<OutgoingMessage[]> {
+    await this.contextCleanup?.allianceDissolved(
+      {
+        allianceId: alliance.id,
+        memberUserIds: members.map((m) => m.userId),
+      },
+      { transaction: tx.transactionHandle() },
+    );
     await tx.deleteAlliance(alliance.id);
     return members
       .filter((m) => m.userId !== triggerUserId)
@@ -1223,6 +1244,10 @@ export class AllianceService {
     name: string | undefined,
   ): Promise<OutgoingMessage[]> {
     await tx.deleteMembership(alliance.id, userId);
+    await this.contextCleanup?.memberRemoved(
+      { allianceId: alliance.id, userId },
+      { transaction: tx.transactionHandle() },
+    );
     await this.appendAllianceChronicle(
       tx,
       alliance.id,
@@ -1290,6 +1315,10 @@ export class AllianceService {
       // Release the single-president slot first, then the successor takes it
       // and drops its former office.
       await tx.deleteMembership(alliance.id, userId);
+      await this.contextCleanup?.memberRemoved(
+        { allianceId: alliance.id, userId },
+        { transaction: tx.transactionHandle() },
+      );
       await tx.setRole(alliance.id, successorId, PRESIDENT);
       const successorName =
         players.find((p) => p.id === successorId)?.name ?? UNKNOWN_NAME;
@@ -2060,6 +2089,14 @@ export class AllianceService {
   }
 
   /** STU §9.3: placeholders are replaced on read; unknown ones are removed. */
+  private bannerDto(alliance: AllianceRecord): AllianceBannerDto | null {
+    if (!alliance.bannerKey || !alliance.bannerUpdatedAt) return null;
+    return {
+      url: `/api/alliances/${alliance.id}/banner?v=${alliance.bannerUpdatedAt.getTime()}`,
+      updatedAt: alliance.bannerUpdatedAt.toISOString(),
+    };
+  }
+
   private renderDescription(
     alliance: AllianceRecord,
     members: Array<{ name: string; role: AllianceRole }>,

@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Direkte Requests je Amt: Diplomat und Mitglied werden abgelehnt, manipulierte Allianz-IDs ebenso
-- [ ] Getarnte Dateien (falsche Endung/Content-Type, Polyglotts), 200 KB ± 1 und 600 × 150 ± 1 werden korrekt entschieden, mit klaren Fehlermeldungen
-- [ ] Bannerdaten und Fähigkeit erscheinen in den gemeinsamen DTOs
-- [ ] Ersetzen speichert zuerst das neue Asset, dann Referenz und Chronik transaktional
-- [ ] Ratenbegrenzung über die vorhandene dauerhafte Begrenzung
-- [ ] Migrationstest nach vorhandenem Muster
+- [x] Direkte Requests je Amt: Diplomat und Mitglied werden abgelehnt, manipulierte Allianz-IDs ebenso
+- [x] Getarnte Dateien (falsche Endung/Content-Type, Polyglotts), 200 KB ± 1 und 600 × 150 ± 1 werden korrekt entschieden, mit klaren Fehlermeldungen
+- [x] Bannerdaten und Fähigkeit erscheinen in den gemeinsamen DTOs
+- [x] Ersetzen speichert zuerst das neue Asset, dann Referenz und Chronik transaktional
+- [x] Ratenbegrenzung über die vorhandene dauerhafte Begrenzung
+- [x] Migrationstest nach vorhandenem Muster

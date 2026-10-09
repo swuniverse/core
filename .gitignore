@@ -47,6 +47,8 @@ Thumbs.db
 .env.production
 
 # Local infra data
+/data/alliance-assets/
+/apps/backend/data/
 /infra/postgres-data/
 /infra/postgres-data-dev/
 

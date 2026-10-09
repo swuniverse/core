@@ -103,6 +103,8 @@ function toAlliance(alliance: Alliance): AllianceRecord {
     presidentTitle: alliance.presidentTitle,
     viceTitle: alliance.viceTitle,
     diplomatTitle: alliance.diplomatTitle,
+    bannerKey: alliance.bannerKey,
+    bannerUpdatedAt: alliance.bannerUpdatedAt,
     foundedAt: alliance.foundedAt,
   };
 }
@@ -236,6 +238,10 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return this.manager.transaction((manager) =>
       work(new TypeOrmAllianceStoreSession(manager, true)),
     );
+  }
+
+  transactionHandle(): unknown {
+    return this.manager;
   }
 
   async lockAlliance(id: number) {
