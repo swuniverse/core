@@ -71,4 +71,27 @@ describe('BbCodeText', () => {
     expect(code?.textContent).toBe('[b]nicht fett[/b]');
     expect(code?.querySelector('strong')).toBeNull();
   });
+
+  describe('banner images', () => {
+    const text = '[img]/api/alliances/1/banner?v=1700000000000[/img]';
+
+    it('keeps [img] literal unless banner images are enabled (forum, messages)', () => {
+      const { container } = render(<BbCodeText text={text} />);
+
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.textContent).toBe(text);
+    });
+
+    it('renders only banner URLs as images when enabled', () => {
+      const { container } = render(
+        <BbCodeText
+          allowBannerImages
+          text={`${text} [img]https://evil.example/x.png[/img]`}
+        />,
+      );
+
+      expect(container.querySelectorAll('img')).toHaveLength(1);
+      expect(container.textContent).toContain('[img]https://evil.example/x.png[/img]');
+    });
+  });
 });

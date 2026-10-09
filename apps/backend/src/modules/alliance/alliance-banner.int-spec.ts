@@ -334,6 +334,15 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
     );
   });
 
+  it('answers an upload beyond the transport cap with the German size message', async () => {
+    const huge = Buffer.alloc(3 * 1024 * 1024, 1);
+    const result = await upload('president', rogueId, huge);
+    expect(result.status).toBe(400);
+    expect(JSON.parse(result.text).message).toBe(
+      'Das Banner darf höchstens 200 KB groß sein',
+    );
+  });
+
   it('serves the banner publicly as image/png with nosniff, and 404 without banner', async () => {
     const url = `${await app.getUrl()}/api/alliances/${rogueId}/banner`;
     expect((await fetch(url)).status).toBe(404);
@@ -345,9 +354,14 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
       expect(response.status).toBe(200);
       expect(response.headers.get('content-type')).toBe('image/png');
       expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+      expect(response.headers.get('cache-control')).toBe('no-cache');
       const bytes = Buffer.from(await response.arrayBuffer());
       expect(bytes.subarray(1, 4).toString()).toBe('PNG');
     }
+    const versioned = await fetch(`${url}?v=123`);
+    expect(versioned.headers.get('cache-control')).toBe(
+      'public, max-age=31536000, immutable',
+    );
     expect(
       (await fetch(`${await app.getUrl()}/api/alliances/${redId}/banner`))
         .status,

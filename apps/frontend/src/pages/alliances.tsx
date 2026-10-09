@@ -1616,6 +1616,7 @@ export function AllianceDetailPage() {
         {alliance.renderedDescription.trim() ? (
           <BbCodeText
             text={alliance.renderedDescription}
+            allowBannerImages
             className="text-sm text-swu-text whitespace-pre-wrap"
           />
         ) : (

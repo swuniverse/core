@@ -9,7 +9,10 @@ export interface AllianceAssetStorage {
   save(key: string, data: Buffer): Promise<void>;
   /** Deleting a missing asset succeeds. */
   delete(key: string): Promise<void>;
-  /** Keys of all stored assets, referenced or not (full reset). */
+  /**
+   * Keys of everything the adapter holds, referenced or not, including
+   * leftovers of interrupted saves (full reset deletes each key).
+   */
   list(): Promise<string[]>;
   /** Null when the asset does not exist. */
   read(key: string): Promise<Buffer | null>;
