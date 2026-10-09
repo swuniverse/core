@@ -100,9 +100,11 @@ const ofHan = async (ctx: Ctx) => ({
 describe.each([
   [
     'founding an alliance',
-    (ctx: Ctx) => ctx.service.found(1, { name: 'Neue Hoffnung' }),
+    (ctx: Ctx) =>
+      ctx.service.found(1, { name: 'Neue Hoffnung', description: '' }),
     async () => undefined,
-    (ctx: Ctx) => ctx.service.found(1, { name: 'Neue Hoffnung' }),
+    (ctx: Ctx) =>
+      ctx.service.found(1, { name: 'Neue Hoffnung', description: '' }),
   ],
   [
     'acceptance of an application',

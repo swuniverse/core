@@ -107,7 +107,7 @@ describe('alliance party change (Postgres)', () => {
     } as never);
     sendSystem.mockClear();
 
-    await service.found(han.id, { name: 'Neue Hoffnung' });
+    await service.found(han.id, { name: 'Neue Hoffnung', description: '' });
 
     expect(await activeOf(han)).toEqual([]);
     expect(await proposalsOf(han)).toEqual([]);
@@ -162,7 +162,7 @@ describe('alliance party change (Postgres)', () => {
       .mockRejectedValueOnce(new Error('boom'));
 
     await expect(
-      service.found(han.id, { name: 'Neue Hoffnung' }),
+      service.found(han.id, { name: 'Neue Hoffnung', description: '' }),
     ).rejects.toThrow('boom');
     spy.mockRestore();
 
@@ -179,7 +179,7 @@ describe('alliance party change (Postgres)', () => {
       const chewie = await rebel(`Chewie${round}`);
 
       const results = await outcomes([
-        service.found(han.id, { name: `Allianz ${round}` }),
+        service.found(han.id, { name: `Allianz ${round}`, description: '' }),
         service.declareSettlerWar(chewie.id, han.id),
       ]);
 
@@ -201,7 +201,7 @@ describe('alliance party change (Postgres)', () => {
       );
 
       const results = await outcomes([
-        service.found(han.id, { name: `Allianz ${round}` }),
+        service.found(han.id, { name: `Allianz ${round}`, description: '' }),
         service.acceptRelationshipProposal(han.id, proposalId),
         service.proposeSettlerRelationship(chewie.id, {
           recipientPlayerId: han.id,
