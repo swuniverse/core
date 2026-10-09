@@ -4,10 +4,10 @@
 
 **Blocked by:** 03, 05, 07
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Konkurrenzfälle: Auflösung gegen Beitritt, Nachfolge gegen Austritt
-- [ ] End-to-End über alle Wege (Präsident löst auf, letzter Austritt, Kontolöschung mit und ohne Kandidat, Reset)
-- [ ] Controller-Autorisierung für Banner mit direkten Requests je Amt
-- [ ] Typecheck, Lint und Tests der betroffenen Pakete grün
-- [ ] `CONTEXT.md` (Banner, Nachfolge, falls Begriffe fehlen) und `map.md` aktualisiert; Integrationspunkte Kontolöschungsausführung und Spielreset benannt
+- [x] Konkurrenzfälle: Auflösung gegen Beitritt, Nachfolge gegen Austritt
+- [x] End-to-End über alle Wege (Präsident löst auf, letzter Austritt, Kontolöschung mit und ohne Kandidat, Reset)
+- [x] Controller-Autorisierung für Banner mit direkten Requests je Amt
+- [x] Typecheck, Lint und Tests der betroffenen Pakete grün
+- [x] `CONTEXT.md` (Banner, Nachfolge, falls Begriffe fehlen) und `map.md` aktualisiert; Integrationspunkte Kontolöschungsausführung und Spielreset benannt
