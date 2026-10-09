@@ -20,9 +20,12 @@ export interface NormalizedBanner {
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+export const BANNER_TOO_LARGE_MESSAGE =
+  'Das Banner darf höchstens 200 KB groß sein';
+
 const ERR = {
   notPng: 'Das Banner muss eine PNG-Datei sein',
-  tooLarge: 'Das Banner darf höchstens 200 KB groß sein',
+  tooLarge: BANNER_TOO_LARGE_MESSAGE,
   tooBig: 'Das Banner darf höchstens 600 × 150 Pixel groß sein',
   corrupt: 'Die PNG-Datei ist beschädigt',
   trailing: 'Die PNG-Datei enthält zusätzliche Daten hinter dem Bildende',
