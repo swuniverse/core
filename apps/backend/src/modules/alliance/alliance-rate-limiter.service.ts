@@ -14,6 +14,18 @@ const DIPLOMACY_POLICY: AllianceRateLimitPolicy = {
   message: 'Zu viele diplomatische Aktionen. Bitte versuche es gleich erneut',
 };
 
+const FORUM_TOPIC_POLICY: AllianceRateLimitPolicy = {
+  windowMs: 60_000,
+  maximumAttempts: 5,
+  message: 'Du legst zu schnell neue Themen an. Bitte warte einen Moment',
+};
+
+const FORUM_POST_POLICY: AllianceRateLimitPolicy = {
+  windowMs: 60_000,
+  maximumAttempts: 10,
+  message: 'Du schreibst zu schnell Beiträge. Bitte warte einen Moment',
+};
+
 /**
  * Limits per command group. Command names are persisted in a varchar(16)
  * column, so keep them at 16 characters or fewer. New alliance commands are
@@ -23,6 +35,8 @@ export const ALLIANCE_RATE_LIMIT_COMMANDS = {
   war: DIPLOMACY_POLICY,
   proposal: DIPLOMACY_POLICY,
   change: DIPLOMACY_POLICY,
+  'forum-topic': FORUM_TOPIC_POLICY,
+  'forum-post': FORUM_POST_POLICY,
 } satisfies Record<string, AllianceRateLimitPolicy>;
 
 export type AllianceRateLimitCommand = keyof typeof ALLIANCE_RATE_LIMIT_COMMANDS;

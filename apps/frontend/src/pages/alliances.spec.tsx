@@ -105,6 +105,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         declareWar: false,
         warTargets: [],
         manageDiplomacy: false,
+        readForum: false,
         viewMemberOperations: false,
         viewChronicle: false,
       },
@@ -529,6 +530,23 @@ describe('AllianceDetailPage', () => {
       );
     });
     expect(apiMocks.get).toHaveBeenCalledTimes(4);
+  });
+
+  it('links the forum only when the server grants readForum', async () => {
+    routeGet({
+      '/alliances/1': withViewer(detail(), AllianceRole.NONE, {
+        readForum: true,
+      }),
+    });
+    const first = renderAt('/alliances/1');
+    const link = await screen.findByRole('link', { name: 'Forum' });
+    expect(link.getAttribute('href')).toBe('/alliances/1/forum');
+    first.unmount();
+
+    routeGet({ '/alliances/1': detail() });
+    renderAt('/alliances/1');
+    await screen.findByRole('heading', { name: 'Rogue Squadron' });
+    expect(screen.queryByRole('link', { name: 'Forum' })).toBeNull();
   });
 
   it('hides war declaration without the server capability', async () => {

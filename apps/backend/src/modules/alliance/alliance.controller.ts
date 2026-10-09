@@ -14,6 +14,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type {
+  CreateForumBoardRequest,
+  CreateForumPostRequest,
+  CreateForumTopicRequest,
   FoundAllianceRequest,
   ProposeAllianceRelationshipChangeRequest,
   ProposeAllianceRelationshipRequest,
@@ -21,6 +24,7 @@ import type {
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
+import { ForumService } from './forum.service';
 import { MemberOverviewService } from './member-overview.service';
 
 type AuthRequest = { user: { sub: number } };
@@ -30,6 +34,7 @@ type AuthRequest = { user: { sub: number } };
 export class AllianceController {
   constructor(
     private readonly allianceService: AllianceService,
+    private readonly forumService: ForumService,
     private readonly memberOverview: MemberOverviewService,
   ) {}
 
@@ -79,6 +84,82 @@ export class AllianceController {
     @Param('targetAllianceId', ParseIntPipe) targetAllianceId: number,
   ) {
     return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
+  }
+
+  // --- Forum ---
+
+  @Get(':id/forum/boards')
+  forumBoards(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.forumService.listBoards(req.user.sub, id);
+  }
+
+  @Post(':id/forum/boards')
+  createForumBoard(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: CreateForumBoardRequest,
+  ) {
+    return this.forumService.createBoard(req.user.sub, id, {
+      name: body?.name,
+    });
+  }
+
+  @Get(':id/forum/boards/:boardId/topics')
+  forumTopics(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query('page') page?: string,
+  ) {
+    return this.forumService.listTopics(
+      req.user.sub,
+      id,
+      boardId,
+      page === undefined ? undefined : Number(page),
+    );
+  }
+
+  @Post(':id/forum/boards/:boardId/topics')
+  createForumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() body: CreateForumTopicRequest,
+  ) {
+    return this.forumService.createTopic(req.user.sub, id, boardId, {
+      title: body?.title,
+      text: body?.text,
+    });
+  }
+
+  @Get(':id/forum/topics/:topicId')
+  forumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Query('page') page?: string,
+  ) {
+    return this.forumService.getTopic(
+      req.user.sub,
+      id,
+      topicId,
+      page === undefined ? undefined : Number(page),
+    );
+  }
+
+  @Post(':id/forum/topics/:topicId/posts')
+  createForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Body() body: CreateForumPostRequest,
+  ) {
+    return this.forumService.createPost(req.user.sub, id, topicId, {
+      text: body?.text,
+    });
   }
 
   @Get(':id/chronicle')

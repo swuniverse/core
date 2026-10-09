@@ -636,6 +636,7 @@ describe('AllianceService', () => {
             declareWar: false,
             warTargets: [],
             manageDiplomacy: false,
+            readForum: false,
             viewMemberOperations: false,
             viewChronicle: false,
           },
@@ -698,6 +699,7 @@ describe('AllianceService', () => {
             declareWar: true,
             warTargets: [],
             manageDiplomacy: true,
+            readForum: true,
             viewMemberOperations: true,
             viewChronicle: true,
           },
@@ -788,6 +790,7 @@ describe('AllianceService', () => {
             declareWar,
             warTargets: [],
             manageDiplomacy,
+            readForum: true,
             viewMemberOperations: false,
             viewChronicle: true,
           });
