@@ -1547,6 +1547,66 @@ describe('AllianceEditPage', () => {
       expect(screen.getByText('04.10.2026')).toBeTruthy();
     });
 
+    it('shows offices, handover and changed details', async () => {
+      const withMeta = (
+        id: number,
+        type: string,
+        actor: string,
+        subject: string | null,
+        metadata: Record<string, unknown>,
+      ) => ({
+        ...entry(id, type, actor, subject, '2026-10-05T12:00:00.000Z'),
+        metadata,
+      });
+      routeGet({
+        '/alliances/1/chronicle': {
+          entries: [
+            withMeta(6, 'DETAILS_CHANGED', 'Leia', null, {
+              fields: ['name', 'homepage', 'titles'],
+              previousName: 'Rogue Squadron',
+              newName: 'Renegade Squadron',
+            }),
+            withMeta(5, 'PRESIDENCY_TRANSFERRED', 'Leia', 'Wedge', {
+              previousRole: 'VICE',
+              previousTitle: 'Vize',
+            }),
+            withMeta(4, 'ROLE_CHANGED', 'Leia', 'Biggs', {
+              previousRole: 'NONE',
+              newRole: 'DIPLOMAT',
+              previousTitle: null,
+              newTitle: 'Botschafter',
+            }),
+            withMeta(3, 'ROLE_CHANGED', 'Leia', 'Han', {
+              previousRole: 'VICE',
+              newRole: 'NONE',
+              previousTitle: 'Vize',
+              newTitle: null,
+            }),
+          ],
+          nextCursor: null,
+        },
+      });
+
+      renderAt('/alliances/1/chronicle');
+
+      expect(
+        await screen.findByText('Leia hat Biggs zum Botschafter ernannt'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText('Leia hat Han vom Amt Vize abgesetzt'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Leia hat die Präsidentschaft an Wedge übergeben (zuvor Vize)',
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Leia hat Allianzdetails geändert: Name, Homepage, Amtstitel; Name von „Rogue Squadron“ zu „Renegade Squadron“',
+        ),
+      ).toBeTruthy();
+    });
+
     it('loads older entries with the returned cursor', async () => {
       routeGet({
         '/alliances/1/chronicle': {

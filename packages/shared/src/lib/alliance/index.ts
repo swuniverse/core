@@ -213,6 +213,9 @@ export enum AllianceChronicleEventType {
   MEMBER_JOINED = 'MEMBER_JOINED',
   MEMBER_LEFT = 'MEMBER_LEFT',
   MEMBER_KICKED = 'MEMBER_KICKED',
+  ROLE_CHANGED = 'ROLE_CHANGED',
+  PRESIDENCY_TRANSFERRED = 'PRESIDENCY_TRANSFERRED',
+  DETAILS_CHANGED = 'DETAILS_CHANGED',
 }
 
 /** Immutable internal history entry with names as of the event time. */

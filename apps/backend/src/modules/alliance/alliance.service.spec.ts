@@ -2839,6 +2839,140 @@ describe('AllianceService', () => {
     });
   });
 
+  describe('alliance chronicle: offices, handover and details', () => {
+    function scenario() {
+      const ctx = setup();
+      const { store } = ctx;
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Wedge');
+      store.addPlayer(3, 'Biggs');
+      const alliance = store.seedAlliance(
+        { name: 'Rogue Squadron', acceptsApplications: true },
+        [
+          [1, PRESIDENT],
+          [2, VICE],
+          [3, NONE],
+        ],
+      );
+      return { ...ctx, alliance };
+    }
+    const entries = async (service: AllianceService, allianceId: number) =>
+      (await service.listChronicle(1, allianceId)).entries;
+
+    it('records an appointment with old and new office', async () => {
+      const { service, alliance } = scenario();
+
+      await service.setRole(1, alliance.id, 3, DIPLOMAT);
+
+      expect(await entries(service, alliance.id)).toEqual([
+        expect.objectContaining({
+          type: AllianceChronicleEventType.ROLE_CHANGED,
+          actor: { userId: 1, name: 'Leia' },
+          subject: { userId: 3, name: 'Biggs' },
+          metadata: expect.objectContaining({
+            previousRole: NONE,
+            newRole: DIPLOMAT,
+          }),
+        }),
+      ]);
+    });
+
+    it('records a dismissal with old and new office', async () => {
+      const { service, alliance } = scenario();
+
+      await service.setRole(1, alliance.id, 2, NONE);
+
+      expect((await entries(service, alliance.id))[0]).toEqual(
+        expect.objectContaining({
+          type: AllianceChronicleEventType.ROLE_CHANGED,
+          metadata: expect.objectContaining({
+            previousRole: VICE,
+            newRole: NONE,
+          }),
+        }),
+      );
+    });
+
+    it('records a presidency handover as exactly one entry', async () => {
+      const { service, alliance } = scenario();
+
+      await service.transferPresidency(1, alliance.id, 2);
+
+      expect(await entries(service, alliance.id)).toEqual([
+        expect.objectContaining({
+          type: AllianceChronicleEventType.PRESIDENCY_TRANSFERRED,
+          actor: { userId: 1, name: 'Leia' },
+          subject: { userId: 2, name: 'Wedge' },
+          metadata: expect.objectContaining({ previousRole: VICE }),
+        }),
+      ]);
+    });
+
+    it('records only the changed fields and the name change', async () => {
+      const { service, alliance } = scenario();
+
+      await service.update(1, alliance.id, {
+        name: 'Renegade Squadron',
+        description: 'geheim',
+        homepage: '',
+        acceptsApplications: false,
+      });
+
+      const [entry] = await entries(service, alliance.id);
+      expect(entry.type).toBe(AllianceChronicleEventType.DETAILS_CHANGED);
+      expect(entry.actor).toEqual({ userId: 1, name: 'Leia' });
+      expect(entry.metadata).toEqual({
+        fields: ['name', 'description', 'acceptsApplications'],
+        previousName: 'Rogue Squadron',
+        newName: 'Renegade Squadron',
+      });
+      expect(JSON.stringify(entry.metadata)).not.toContain('geheim');
+    });
+
+    it('records title changes without copying the title texts', async () => {
+      const { service, alliance } = scenario();
+
+      await service.update(1, alliance.id, {
+        titles: { president: 'Boss', vice: 'Vize', diplomat: 'Diplomat' },
+      });
+
+      const [entry] = await entries(service, alliance.id);
+      expect(entry.metadata).toEqual({ fields: ['titles'] });
+    });
+
+    it('records no entry for an update without actual change', async () => {
+      const { store, service, alliance } = scenario();
+      const current = (await store.findAlliance(alliance.id))!;
+
+      await service.update(1, alliance.id, {
+        name: current.name,
+        description: current.description,
+        acceptsApplications: current.acceptsApplications,
+      });
+
+      expect(await entries(service, alliance.id)).toEqual([]);
+    });
+
+    it('records nothing when the action fails', async () => {
+      const { store, service, alliance } = scenario();
+
+      await expectError(
+        service.setRole(3, alliance.id, 2, NONE),
+        ForbiddenException,
+      );
+      await expectError(
+        service.transferPresidency(2, alliance.id, 3),
+        ForbiddenException,
+      );
+      await expectError(
+        service.update(3, alliance.id, { name: 'Nope Squadron' }),
+        ForbiddenException,
+      );
+
+      expect(store.snapshot().allianceChronicleEntries).toEqual([]);
+    });
+  });
+
   describe('alliance chronicle', () => {
     function scenario() {
       const ctx = setup();

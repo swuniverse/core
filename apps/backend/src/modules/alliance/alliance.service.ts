@@ -1227,7 +1227,24 @@ export class AllianceService {
         targetId,
         action,
       );
+      const previous = await tx.findMembership(targetId);
       await tx.setRole(allianceId, targetId, role);
+      await this.appendAllianceChronicle(
+        tx,
+        allianceId,
+        AllianceChronicleEventType.ROLE_CHANGED,
+        actorId,
+        targetId,
+        {
+          previousRole: previous?.role ?? NONE,
+          newRole: role,
+          previousTitle: this.roleTitle(
+            this.titlesOf(alliance),
+            previous?.role ?? NONE,
+          ),
+          newTitle: this.roleTitle(this.titlesOf(alliance), role),
+        },
+      );
       return [
         {
           to: targetId,
@@ -1257,9 +1274,18 @@ export class AllianceService {
         targetId,
         'transferPresidency',
       );
+      const previous = await tx.findMembership(targetId);
       // Demote first: the partial unique index allows one president only.
       await tx.setRole(allianceId, actorId, NONE);
       await tx.setRole(allianceId, targetId, PRESIDENT);
+      await this.appendAllianceChronicle(
+        tx,
+        allianceId,
+        AllianceChronicleEventType.PRESIDENCY_TRANSFERRED,
+        actorId,
+        targetId,
+        { previousRole: previous?.role ?? NONE },
+      );
       return [
         {
           to: targetId,
@@ -1315,6 +1341,22 @@ export class AllianceService {
         throw new BadRequestException(ERR.nameTaken);
       }
       await tx.updateAlliance(allianceId, patch);
+      const changed = this.changedDetailFields(alliance, patch);
+      if (changed.length > 0) {
+        await this.appendAllianceChronicle(
+          tx,
+          allianceId,
+          AllianceChronicleEventType.DETAILS_CHANGED,
+          actorId,
+          null,
+          {
+            fields: changed,
+            ...(changed.includes('name')
+              ? { previousName: alliance.name, newName: patch.name }
+              : {}),
+          },
+        );
+      }
       if (patch.acceptsApplications !== false) return [];
       const open = await tx.listApplicationsForAlliance(allianceId);
       await tx.deleteApplications(open.map((a) => a.id));
@@ -1819,6 +1861,24 @@ export class AllianceService {
       metadata: entry.metadata,
       occurredAt: entry.occurredAt.toISOString(),
     };
+  }
+
+  /** Names of the detail fields a patch actually changes. */
+  private changedDetailFields(
+    alliance: AllianceRecord,
+    patch: AlliancePatch,
+  ): string[] {
+    const differs = (keys: Array<keyof AlliancePatch>) =>
+      keys.some((k) => patch[k] !== undefined && patch[k] !== alliance[k]);
+    const fields: Array<[string, Array<keyof AlliancePatch>]> = [
+      ['name', ['name']],
+      ['description', ['description']],
+      ['homepage', ['homepage']],
+      ['color', ['color']],
+      ['titles', ['presidentTitle', 'viceTitle', 'diplomatTitle']],
+      ['acceptsApplications', ['acceptsApplications']],
+    ];
+    return fields.filter(([, keys]) => differs(keys)).map(([name]) => name);
   }
 
   /** Writes an internal chronicle entry inside the caller's transaction. */

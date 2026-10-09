@@ -365,9 +365,48 @@ function allianceChronicleText(entry: AllianceChronicleEntryDto): string {
       return `${actor} hat die Allianz verlassen`;
     case 'MEMBER_KICKED':
       return `${actor} hat ${subject} aus der Allianz geworfen`;
+    case 'ROLE_CHANGED': {
+      const { newTitle, previousTitle } = chronicleMeta(entry);
+      return newTitle
+        ? `${actor} hat ${subject} zum ${newTitle} ernannt`
+        : `${actor} hat ${subject} vom Amt ${previousTitle ?? 'unbekannt'} abgesetzt`;
+    }
+    case 'PRESIDENCY_TRANSFERRED': {
+      const { previousTitle } = chronicleMeta(entry);
+      return `${actor} hat die Präsidentschaft an ${subject} übergeben${
+        previousTitle ? ` (zuvor ${previousTitle})` : ''
+      }`;
+    }
+    case 'DETAILS_CHANGED': {
+      const { fields, previousName, newName } = chronicleMeta(entry);
+      const labels = (Array.isArray(fields) ? fields : [])
+        .map((f) => DETAIL_FIELD_LABELS[String(f)])
+        .filter(Boolean)
+        .join(', ');
+      const rename =
+        typeof previousName === 'string' && typeof newName === 'string'
+          ? `; Name von „${previousName}“ zu „${newName}“`
+          : '';
+      return `${actor} hat Allianzdetails geändert${labels ? `: ${labels}` : ''}${rename}`;
+    }
     default:
       return 'Unbekanntes Ereignis';
   }
+}
+
+const DETAIL_FIELD_LABELS: Record<string, string> = {
+  name: 'Name',
+  description: 'Beschreibung',
+  homepage: 'Homepage',
+  color: 'Farbe',
+  titles: 'Amtstitel',
+  acceptsApplications: 'Bewerbungsannahme',
+};
+
+function chronicleMeta(
+  entry: AllianceChronicleEntryDto,
+): Record<string, unknown> {
+  return entry.metadata ?? {};
 }
 
 export function AllianceChroniclePage() {
