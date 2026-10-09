@@ -81,6 +81,25 @@ async function declareWarAndProposePeace(ctx: ReturnType<typeof world>) {
 }
 
 describe('Siedler war and peace', () => {
+  describe('read paths', () => {
+    it('do not create a diplomacy party row', async () => {
+      const { service, store } = world();
+
+      await service.getSettlerDiplomacy(1);
+      await service.searchSettlerCounterparties(1);
+
+      expect(store.lockedPlayerPartyIds()).toEqual([]);
+    });
+
+    it('still create the party on a mutation', async () => {
+      const { service, store } = world();
+
+      await service.declareSettlerWar(1, 2);
+
+      expect(store.lockedPlayerPartyIds().sort()).toEqual([1, 2]);
+    });
+  });
+
   describe('declareSettlerWar', () => {
     it('makes war active at once, replaces the pair state and tells the target', async () => {
       const ctx = world();

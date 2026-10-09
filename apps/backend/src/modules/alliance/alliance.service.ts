@@ -248,18 +248,16 @@ export class AllianceService {
     limit?: number,
   ): Promise<AllianceDiplomacyChronicleDto> {
     await this.requireAlliance(allianceId);
-    await this.store.findPlayer(viewerId);
     return this.diplomacyChronicleOf(allianceParty(allianceId), cursor, limit);
   }
 
   /** Public view of a Siedler: active relationships, never proposals or drafts. */
   async getPublicSettlerDiplomacy(
-    viewerId: number,
+    _viewerId: number,
     playerId: number,
   ): Promise<SettlerPublicDiplomacyDto> {
     const player = await this.store.findPlayer(playerId);
     if (!player) throw new NotFoundException(ERR.invalidSettlerTarget);
-    await this.store.findPlayer(viewerId);
     const ref = playerParty(playerId);
     const relationships = await this.store.listActiveRelationships(ref);
     return {
@@ -271,7 +269,7 @@ export class AllianceService {
 
   /** Public diplomacy chronicle of an alliance-less player. */
   async listSettlerDiplomacyChronicle(
-    viewerId: number,
+    _viewerId: number,
     playerId: number,
     cursor?: string,
     limit?: number,
@@ -279,7 +277,6 @@ export class AllianceService {
     if (!(await this.store.findPlayer(playerId))) {
       throw new NotFoundException(ERR.invalidSettlerTarget);
     }
-    await this.store.findPlayer(viewerId);
     return this.diplomacyChronicleOf(playerParty(playerId), cursor, limit);
   }
 
@@ -497,9 +494,11 @@ export class AllianceService {
   private async requireSettler(
     tx: AllianceStore,
     actorId: number,
+    { lock = true }: { lock?: boolean } = {},
   ): Promise<PartyContext> {
     // Lock first: a concurrent join then commits before the membership check.
-    await tx.lockPlayerParty(actorId);
+    // Reads pass `lock: false`: they must not create the party row.
+    if (lock) await tx.lockPlayerParty(actorId);
     const actor = await tx.findPlayer(actorId);
     if (
       !actor ||
@@ -719,7 +718,9 @@ export class AllianceService {
   async getSettlerDiplomacy(
     actorId: number,
   ): Promise<SettlerDiplomacyManagementDto> {
-    const actor = await this.requireSettler(this.store, actorId);
+    const actor = await this.requireSettler(this.store, actorId, {
+      lock: false,
+    });
     const [relationships, proposals, changes, alliances] = await Promise.all([
       this.store.listActiveRelationships(actor.ref),
       this.store.listRelationshipProposals(actor.ref),
@@ -796,7 +797,9 @@ export class AllianceService {
     cursor?: string,
     limit?: number,
   ): Promise<SettlerCounterpartyPageDto> {
-    const actor = await this.requireSettler(this.store, actorId);
+    const actor = await this.requireSettler(this.store, actorId, {
+      lock: false,
+    });
     return this.searchSettlersFor(
       actor.factionId as number,
       actorId,
@@ -921,13 +924,15 @@ export class AllianceService {
           ),
       );
       if (!relationship) throw new Error('War relationship was not created');
-      await this.appendChronicleEntry(
+      const own = await this.loadParty(tx, allianceParty(allianceId));
+      const other = await this.loadParty(tx, allianceParty(targetAllianceId));
+      await this.appendPartyChronicleEntry(
         tx,
         AllianceDiplomacyChronicleEventType.WAR_DECLARED,
         actorId,
         relationship,
-        this.allianceForParty(relationship.firstParty, [alliance, target]),
-        this.allianceForParty(relationship.secondParty, [alliance, target]),
+        this.partyOf(relationship.firstParty, [own, other]),
+        this.partyOf(relationship.secondParty, [own, other]),
       );
       const recipients = await tx.listMemberships(targetAllianceId);
       return recipients.map((member) => ({
@@ -2687,29 +2692,6 @@ export class AllianceService {
     });
   }
 
-  private async appendChronicleEntry(
-    tx: AllianceStore,
-    eventType: AllianceDiplomacyChronicleEventType,
-    actorId: number | null,
-    relationship: AllianceRelationshipRecord,
-    firstAlliance: AllianceRecord,
-    secondAlliance: AllianceRecord,
-  ): Promise<void> {
-    const actor = actorId === null ? null : await tx.findPlayer(actorId);
-    await tx.appendDiplomacyChronicleEntry({
-      eventType,
-      actorUserId: actor?.id ?? null,
-      actorName: actor?.name ?? null,
-      firstParty: allianceParty(firstAlliance.id),
-      firstPartyName: firstAlliance.name,
-      secondParty: allianceParty(secondAlliance.id),
-      secondPartyName: secondAlliance.name,
-      relationshipType: relationship.type,
-      lordParty: relationship.lordParty,
-      vassalParty: relationship.vassalParty,
-    });
-  }
-
   /** Loads the party behind `ref`, locking an alliance for the transaction. */
   private async loadParty(
     tx: AllianceStore,
@@ -2808,27 +2790,6 @@ export class AllianceService {
       lordParty: relationship.lordParty,
       vassalParty: relationship.vassalParty,
     });
-  }
-
-  /** The alliance ID of an alliance party; settler parties arrive with later stages. */
-  private allianceIdOfParty(party: PartyRef): number {
-    if (!isAllianceParty(party)) {
-      throw new Error('Player diplomacy parties are not supported here yet');
-    }
-    return party.id;
-  }
-
-  /** The loaded alliance that stands behind `party`. */
-  private allianceForParty(
-    party: PartyRef,
-    candidates: AllianceRecord[],
-  ): AllianceRecord {
-    const allianceId = this.allianceIdOfParty(party);
-    const alliance = candidates.find(
-      (candidate) => candidate.id === allianceId,
-    );
-    if (!alliance) throw new Error('Diplomacy party alliance was not loaded');
-    return alliance;
   }
 
   private isSentBy(sender: PartyRef, allianceId: number): boolean {

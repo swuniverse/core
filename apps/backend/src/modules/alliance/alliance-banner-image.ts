@@ -99,10 +99,7 @@ function rawLength(
  * and anything after the image end are never stored or delivered.
  */
 export function normalizeBannerPng(input: Buffer): NormalizedBanner {
-  if (
-    input.length < SIGNATURE.length ||
-    !input.subarray(0, 8).equals(SIGNATURE)
-  ) {
+  if (input.length < SIGNATURE.length || !input.subarray(0, 8).equals(SIGNATURE)) {
     throw new BannerImageError(ERR.notPng);
   }
   if (input.length > BANNER_MAX_BYTES) throw new BannerImageError(ERR.tooLarge);
@@ -190,9 +187,7 @@ export function normalizeBannerPng(input: Buffer): NormalizedBanner {
   );
   let raw: Buffer;
   try {
-    raw = inflateSync(Buffer.concat(pixelData), {
-      maxOutputLength: expected + 1,
-    });
+    raw = inflateSync(Buffer.concat(pixelData), { maxOutputLength: expected + 1 });
   } catch {
     throw new BannerImageError(ERR.corrupt);
   }

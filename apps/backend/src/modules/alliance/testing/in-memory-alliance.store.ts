@@ -454,8 +454,16 @@ export class InMemoryAllianceStore implements AllianceStore {
     );
   }
 
-  async lockPlayerParty() {
-    // Single-threaded: nothing to serialise.
+  private readonly lockedPlayerParties = new Set<number>();
+
+  /** Player parties a mutation created or locked; reads must not add any. */
+  lockedPlayerPartyIds(): number[] {
+    return [...this.lockedPlayerParties];
+  }
+
+  async lockPlayerParty(userId: number) {
+    // Single-threaded: nothing to serialise, only record the party row.
+    this.lockedPlayerParties.add(userId);
   }
 
   async endPlayerPartyDiplomacy(userId: number) {

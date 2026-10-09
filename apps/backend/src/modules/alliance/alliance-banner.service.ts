@@ -109,8 +109,7 @@ export class AllianceBannerService {
         actorId,
         allianceId,
       );
-      if (!alliance.bannerKey)
-        throw new BadRequestException(ERR.bannerNotFound);
+      if (!alliance.bannerKey) throw new BadRequestException(ERR.bannerNotFound);
       await tx.updateAlliance(allianceId, {
         bannerKey: null,
         bannerUpdatedAt: null,

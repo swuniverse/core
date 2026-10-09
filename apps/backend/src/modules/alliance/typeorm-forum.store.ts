@@ -119,8 +119,7 @@ class TypeOrmForumStoreSession implements ForumStore {
       name: displayName(user),
       factionName: user.factionRef?.name ?? null,
       allianceId: membershipOf.get(user.id)?.allianceId ?? null,
-      role:
-        (membershipOf.get(user.id)?.role as AllianceRole | undefined) ?? null,
+      role: (membershipOf.get(user.id)?.role as AllianceRole | undefined) ?? null,
     }));
   }
 
@@ -228,11 +227,7 @@ class TypeOrmForumStoreSession implements ForumStore {
   }
 
   async setBoardActivity(boardId: number, at: Date) {
-    await this.manager.update(
-      ForumBoard,
-      { id: boardId },
-      { lastActivityAt: at },
-    );
+    await this.manager.update(ForumBoard, { id: boardId }, { lastActivityAt: at });
   }
 
   async listTopics(boardId: number, offset: number, limit: number) {
@@ -321,11 +316,7 @@ class TypeOrmForumStoreSession implements ForumStore {
   }
 
   async setTopicActivity(topicId: number, at: Date) {
-    await this.manager.update(
-      ForumTopic,
-      { id: topicId },
-      { lastActivityAt: at },
-    );
+    await this.manager.update(ForumTopic, { id: topicId }, { lastActivityAt: at });
   }
 
   async insertPost(data: {
