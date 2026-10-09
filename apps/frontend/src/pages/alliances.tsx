@@ -22,6 +22,7 @@ import {
   type AllianceRelationshipProposalDto,
   type AllianceRelationshipSummaryDto,
   type AllianceSummaryDto,
+  type AllianceTitlesDto,
   type MyAllianceDto,
   type UpdateAllianceRequest,
 } from '@swuniverse/shared';
@@ -353,7 +354,22 @@ function useAllianceDetail(id: string | undefined) {
 }
 
 /** German sentence for one internal chronicle entry. */
-function allianceChronicleText(entry: AllianceChronicleEntryDto): string {
+function allianceChronicleText(
+  entry: AllianceChronicleEntryDto,
+  titles?: AllianceTitlesDto,
+): string {
+  const officeName = (role: unknown): string | null => {
+    switch (role) {
+      case 'PRESIDENT':
+        return titles?.president ?? 'Präsident';
+      case 'VICE':
+        return titles?.vice ?? 'Vize-Präsident';
+      case 'DIPLOMAT':
+        return titles?.diplomat ?? 'Diplomat';
+      default:
+        return null;
+    }
+  };
   const actor = entry.actor?.name ?? 'Ein Siedler';
   const subject = entry.subject?.name ?? 'ein Siedler';
   switch (entry.type) {
@@ -366,15 +382,16 @@ function allianceChronicleText(entry: AllianceChronicleEntryDto): string {
     case 'MEMBER_KICKED':
       return `${actor} hat ${subject} aus der Allianz geworfen`;
     case 'ROLE_CHANGED': {
-      const { newTitle, previousTitle } = chronicleMeta(entry);
-      return newTitle
-        ? `${actor} hat ${subject} zum ${newTitle} ernannt`
-        : `${actor} hat ${subject} vom Amt ${previousTitle ?? 'unbekannt'} abgesetzt`;
+      const { newRole, previousRole } = chronicleMeta(entry);
+      const newOffice = officeName(newRole);
+      return newOffice
+        ? `${actor} hat ${subject} zum ${newOffice} ernannt`
+        : `${actor} hat ${subject} vom Amt ${officeName(previousRole) ?? 'unbekannt'} abgesetzt`;
     }
     case 'PRESIDENCY_TRANSFERRED': {
-      const { previousTitle } = chronicleMeta(entry);
+      const previousOffice = officeName(chronicleMeta(entry).previousRole);
       return `${actor} hat die Präsidentschaft an ${subject} übergeben${
-        previousTitle ? ` (zuvor ${previousTitle})` : ''
+        previousOffice ? ` (zuvor ${previousOffice})` : ''
       }`;
     }
     case 'DETAILS_CHANGED': {
@@ -411,6 +428,8 @@ function chronicleMeta(
 
 export function AllianceChroniclePage() {
   const { id } = useParams<{ id: string }>();
+  // Office names come from the alliance's current titles, not from the entry.
+  const { alliance } = useAllianceDetail(id);
   const [chronicle, setChronicle] = useState<AllianceChronicleDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -476,7 +495,7 @@ export function AllianceChroniclePage() {
                   className="border-l-2 border-swu-border pl-3"
                 >
                   <p className="font-medium text-swu-text">
-                    {allianceChronicleText(entry)}
+                    {allianceChronicleText(entry, alliance?.titles)}
                   </p>
                   <p className="text-xs text-swu-muted">
                     {dateFormatter.format(new Date(entry.occurredAt))}

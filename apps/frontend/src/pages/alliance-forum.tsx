@@ -14,15 +14,7 @@ import type {
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { getErrorMessage } from '../lib/errors';
-
-const dateTimeFormatter = new Intl.DateTimeFormat('de-DE', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-const formatDateTime = (iso: string) => dateTimeFormatter.format(new Date(iso));
+import { formatDateTime } from '../lib/format';
 
 const inputClass =
   'w-full border border-swu-border bg-swu-bg px-2 py-1.5 text-sm text-swu-text focus:border-swu-accent focus:outline-none';

@@ -34,6 +34,7 @@ const SPACE_FIELD_TYPE_ID = 1;
 describe('member operations reader (Postgres)', () => {
   let dataSource: DataSource;
   let reader: TypeOrmMemberOperationsReader;
+  let crewService: ColonyCrewService;
   let rebels: number;
 
   beforeAll(async () => {
@@ -41,7 +42,7 @@ describe('member operations reader (Postgres)', () => {
     const gameData = new GameDataService();
     gameData.onModuleInit();
     const stats = new ColonyStatsService(gameData);
-    const crew = new ColonyCrewService(
+    const crew = (crewService = new ColonyCrewService(
       dataSource.getRepository(Colony),
       dataSource.getRepository(ColonyChangeable),
       dataSource.getRepository(ColonyCrewTrainingQueue),
@@ -50,7 +51,7 @@ describe('member operations reader (Postgres)', () => {
       dataSource.getRepository(Spacecraft),
       stats,
       new ColonySocialService(gameData),
-    );
+    ));
     reader = new TypeOrmMemberOperationsReader(
       dataSource,
       crew,
@@ -191,7 +192,9 @@ describe('member operations reader (Postgres)', () => {
     const [l, h] = result;
     expect(l.lastActiveAt?.toISOString()).toBe('2026-10-08T10:00:00.000Z');
     expect(l.crew.assigned).toBe(3);
-    expect(typeof l.crew.limit).toBe('number');
+    // Same semantics as the colony module's global crew limit.
+    expect(l.crew.limit).toBe(await crewService.getGlobalCrewLimit(leia.id));
+    expect(h.crew.limit).toBe(await crewService.getGlobalCrewLimit(han.id));
     expect(l.colonies.map((c) => c.name)).toEqual(['Hoth Base']);
     expect(l.colonies[0]).toMatchObject({
       location: { scope: 'SYSTEM', systemId: starSystem.id, x: 2, y: 5 },

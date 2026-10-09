@@ -36,6 +36,8 @@ import {
 } from '@swuniverse/shared';
 import { MessagingService } from '../messaging/messaging.service';
 import {
+  ALLIANCE_CHRONICLE_PAGE_DEFAULT,
+  ALLIANCE_CHRONICLE_PAGE_MAX,
   ALLIANCE_DESCRIPTION_MAX,
   ALLIANCE_HOMEPAGE_MAX,
   ALLIANCE_NAME_MAX,
@@ -161,7 +163,10 @@ export class AllianceService {
   ): Promise<AllianceDiplomacyChronicleDto> {
     await this.requireAlliance(allianceId);
     await this.store.findPlayer(viewerId);
-    const pageSize = Math.min(Math.max(limit ?? 20, 1), 50);
+    const pageSize = Math.min(
+      Math.max(limit ?? ALLIANCE_CHRONICLE_PAGE_DEFAULT, 1),
+      ALLIANCE_CHRONICLE_PAGE_MAX,
+    );
     const paginationCursor = this.parseChronicleCursor(cursor);
     const entries = await this.store.listDiplomacyChronicleEntries(
       allianceId,
@@ -190,7 +195,10 @@ export class AllianceService {
     if (!membership || membership.allianceId !== allianceId) {
       throw new NotFoundException(ERR.allianceNotFound);
     }
-    const pageSize = Math.min(Math.max(limit ?? 20, 1), 50);
+    const pageSize = Math.min(
+      Math.max(limit ?? ALLIANCE_CHRONICLE_PAGE_DEFAULT, 1),
+      ALLIANCE_CHRONICLE_PAGE_MAX,
+    );
     const paginationCursor = this.parseChronicleCursor(cursor);
     const entries = await this.store.listAllianceChronicleEntries(
       allianceId,
@@ -1240,11 +1248,6 @@ export class AllianceService {
         {
           previousRole: previous?.role ?? NONE,
           newRole: role,
-          previousTitle: this.roleTitle(
-            this.titlesOf(alliance),
-            previous?.role ?? NONE,
-          ),
-          newTitle: this.roleTitle(this.titlesOf(alliance), role),
         },
       );
       return [

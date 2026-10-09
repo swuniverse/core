@@ -33,6 +33,11 @@ import { MemberOverviewService } from './member-overview.service';
 
 type AuthRequest = { user: { sub: number } };
 
+/** Parses an optional numeric query parameter; absent stays undefined. */
+function optionalNumber(value?: string): number | undefined {
+  return value === undefined ? undefined : Number(value);
+}
+
 @Controller('alliances')
 @UseGuards(AuthGuard('jwt'))
 export class AllianceController {
@@ -122,7 +127,7 @@ export class AllianceController {
       req.user.sub,
       id,
       boardId,
-      page === undefined ? undefined : Number(page),
+      optionalNumber(page),
     );
   }
 
@@ -150,7 +155,7 @@ export class AllianceController {
       req.user.sub,
       id,
       topicId,
-      page === undefined ? undefined : Number(page),
+      optionalNumber(page),
     );
   }
 
@@ -255,7 +260,7 @@ export class AllianceController {
       req.user.sub,
       id,
       cursor,
-      limit === undefined ? undefined : Number(limit),
+      optionalNumber(limit),
     );
   }
 
@@ -270,7 +275,7 @@ export class AllianceController {
       req.user.sub,
       id,
       cursor,
-      limit === undefined ? undefined : Number(limit),
+      optionalNumber(limit),
     );
   }
 

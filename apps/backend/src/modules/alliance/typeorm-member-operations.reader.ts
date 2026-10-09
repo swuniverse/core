@@ -66,7 +66,7 @@ export class TypeOrmMemberOperationsReader implements MemberOperationsReader {
     const [users, colonies, ships, assignments] = await Promise.all([
       manager.find(User, { where: { id: In(ids) } }),
       manager.find(Colony, {
-        where: { userId: In(ids), isAbandoned: false },
+        where: { userId: In(ids) },
         relations: ['fields', 'changeable', 'systemField'],
         order: { id: 'ASC' },
       }),
@@ -95,16 +95,16 @@ export class TypeOrmMemberOperationsReader implements MemberOperationsReader {
     const userById = new Map(users.map((u) => [u.id, u]));
 
     return ids.map((userId) => {
-      const own = colonies.filter((c) => c.userId === userId);
+      // Like ColonyCrewService.getGlobalCrewLimit, the limit covers every
+      // colony of the owner; the overview lists only the active ones.
+      const allOwn = colonies.filter((c) => c.userId === userId);
+      const own = allOwn.filter((c) => !c.isAbandoned);
       return {
         userId,
         lastActiveAt: userById.get(userId)?.lastActiveAt ?? null,
         crew: {
           assigned: assigned.get(userId) ?? 0,
-          limit: own.reduce(
-            (sum, c) => sum + this.crew.getLocalCrewLimit(c),
-            0,
-          ),
+          limit: this.crew.sumLocalCrewLimits(allOwn),
         },
         colonies: own.map((colony) => {
           const state = this.stats.calculateSummary(colony).effectiveState;

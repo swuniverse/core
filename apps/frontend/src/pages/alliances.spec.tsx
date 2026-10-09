@@ -1597,6 +1597,7 @@ describe('AllianceEditPage', () => {
         metadata,
       });
       routeGet({
+        '/alliances/1': detail(),
         '/alliances/1/chronicle': {
           entries: [
             withMeta(6, 'DETAILS_CHANGED', 'Leia', null, {
@@ -1606,19 +1607,14 @@ describe('AllianceEditPage', () => {
             }),
             withMeta(5, 'PRESIDENCY_TRANSFERRED', 'Leia', 'Wedge', {
               previousRole: 'VICE',
-              previousTitle: 'Vize',
             }),
             withMeta(4, 'ROLE_CHANGED', 'Leia', 'Biggs', {
               previousRole: 'NONE',
               newRole: 'DIPLOMAT',
-              previousTitle: null,
-              newTitle: 'Botschafter',
             }),
             withMeta(3, 'ROLE_CHANGED', 'Leia', 'Han', {
               previousRole: 'VICE',
               newRole: 'NONE',
-              previousTitle: 'Vize',
-              newTitle: null,
             }),
           ],
           nextCursor: null,
@@ -1628,14 +1624,14 @@ describe('AllianceEditPage', () => {
       renderAt('/alliances/1/chronicle');
 
       expect(
-        await screen.findByText('Leia hat Biggs zum Botschafter ernannt'),
+        await screen.findByText('Leia hat Biggs zum Diplomat ernannt'),
       ).toBeTruthy();
       expect(
-        screen.getByText('Leia hat Han vom Amt Vize abgesetzt'),
+        screen.getByText('Leia hat Han vom Amt Vize-Präsident abgesetzt'),
       ).toBeTruthy();
       expect(
         screen.getByText(
-          'Leia hat die Präsidentschaft an Wedge übergeben (zuvor Vize)',
+          'Leia hat die Präsidentschaft an Wedge übergeben (zuvor Vize-Präsident)',
         ),
       ).toBeTruthy();
       expect(

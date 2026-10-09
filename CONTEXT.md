@@ -79,6 +79,30 @@ _Avoid_: Allianz-Historie, Log
 Die nur für Mitglieder sichtbare, unveränderliche Folge interner Ereignisse einer **Allianz**, beispielsweise Beitritte, Austritte, Amtswechsel und automatische Nachfolge.
 _Avoid_: Diplomatie-Chronik, Allianz-Historie, Log
 
+**Allianzforum**:
+Das nur für Mitglieder einer **Allianz** sichtbare Diskussionsforum. Es gliedert sich in **Boards**, **Themen** und **Beiträge**.
+_Avoid_: Allianz-Chat, Forum (ohne Allianzbezug)
+
+**Board**:
+Ein Bereich des **Allianzforums**, der zusammengehörige **Themen** bündelt. Die Verwaltung der Boards liegt bei den Ämtern mit Verwaltungsrechten.
+_Avoid_: Unterforum, Kategorie
+
+**Thema**:
+Eine Diskussion in einem **Board**, eröffnet mit dem ersten **Beitrag** und fortgeführt durch weitere Beiträge.
+_Avoid_: Thread, Topic
+
+**Beitrag**:
+Ein einzelner Text innerhalb eines **Themas**. Sein Autor darf ihn bearbeiten.
+_Avoid_: Post, Kommentar
+
+**Mitgliederübersicht**:
+Die nur für Mitglieder sichtbare Übersicht einer **Allianz** über Kolonien, Schiffe, Crew und **Online-Status** ihrer Mitglieder.
+_Avoid_: Mitgliederliste, Memberlist
+
+**Online-Status**:
+Die Angabe, ob ein Mitglied zuletzt kürzlich aktiv war. Sie ist nur für Mitglieder derselben **Allianz** sichtbar.
+_Avoid_: Präsenz
+
 **Allianzdepot**:
 Eine geeignete Depotstation, die ihr Eigentümer organisatorisch seiner **Allianz** zuordnet. Die Zuordnung überträgt weder Eigentum noch Entnahmerechte.
 _Avoid_: Allianz-Lager
