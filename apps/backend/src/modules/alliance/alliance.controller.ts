@@ -19,6 +19,9 @@ import type {
   CreateForumTopicRequest,
   FoundAllianceRequest,
   ProposeAllianceRelationshipChangeRequest,
+  RenameForumBoardRequest,
+  RenameForumTopicRequest,
+  SetForumTopicImportantRequest,
   ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
   UpdateAllianceRequest,
@@ -160,6 +163,72 @@ export class AllianceController {
     return this.forumService.createPost(req.user.sub, id, topicId, {
       text: body?.text,
     });
+  }
+
+  @Patch(':id/forum/boards/:boardId')
+  async renameForumBoard(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() body: RenameForumBoardRequest,
+  ) {
+    await this.forumService.renameBoard(req.user.sub, id, boardId, {
+      name: body?.name,
+    });
+  }
+
+  @Delete(':id/forum/boards/:boardId')
+  async deleteForumBoard(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    await this.forumService.deleteBoard(req.user.sub, id, boardId);
+  }
+
+  @Patch(':id/forum/topics/:topicId')
+  async renameForumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Body() body: RenameForumTopicRequest,
+  ) {
+    await this.forumService.renameTopic(req.user.sub, id, topicId, {
+      title: body?.title,
+    });
+  }
+
+  @Put(':id/forum/topics/:topicId/important')
+  async setForumTopicImportant(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Body() body: SetForumTopicImportantRequest,
+  ) {
+    await this.forumService.setTopicImportant(
+      req.user.sub,
+      id,
+      topicId,
+      body?.important === true,
+    );
+  }
+
+  @Delete(':id/forum/topics/:topicId')
+  async deleteForumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+  ) {
+    await this.forumService.deleteTopic(req.user.sub, id, topicId);
+  }
+
+  @Delete(':id/forum/posts/:postId')
+  async deleteForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('postId', ParseIntPipe) postId: number,
+  ) {
+    await this.forumService.deletePost(req.user.sub, id, postId);
   }
 
   @Get(':id/chronicle')

@@ -137,6 +137,40 @@ function pageParam(params: URLSearchParams): number {
   return Number.isInteger(page) && page >= 1 ? page : 1;
 }
 
+/** Runs a moderation request, then `after`; shows a failure as an alert. */
+function useModeration(after: () => void | Promise<void>) {
+  const [error, setError] = useState<string | null>(null);
+  /** `leaves`: the request navigates away itself, so skip the reload. */
+  async function run(
+    request: () => Promise<unknown>,
+    fallback: string,
+    leaves = false,
+  ) {
+    setError(null);
+    try {
+      await request();
+      if (!leaves) await after();
+    } catch (err) {
+      setError(getErrorMessage(err, fallback));
+    }
+  }
+  return { error, run };
+}
+
+function ActionButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={buttonClass} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
 // --- Forum (board list) ---
 
 export function AllianceForumPage() {
@@ -153,6 +187,24 @@ export function AllianceForumPage() {
   const [name, setName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const moderation = useModeration(reload);
+
+  function renameBoard(boardId: number, current: string) {
+    const next = window.prompt('Neuer Boardname', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/boards/${boardId}`, { name: next }),
+      'Das Board konnte nicht umbenannt werden.',
+    );
+  }
+
+  function deleteBoard(boardId: number) {
+    if (!window.confirm('Board samt allen Themen und Beiträgen löschen?')) return;
+    void moderation.run(
+      () => api.delete(`${base}/forum/boards/${boardId}`),
+      'Das Board konnte nicht gelöscht werden.',
+    );
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -174,6 +226,7 @@ export function AllianceForumPage() {
       <BackLink to={base} label="Zur Allianz" />
       <Title>Allianzforum</Title>
       <ErrorMessage message={error} />
+      <ErrorMessage message={moderation.error} />
       {data && (
         <>
           {data.boards.length === 0 ? (
@@ -211,6 +264,18 @@ export function AllianceForumPage() {
                       </>
                     ) : (
                       'Noch keine Beiträge'
+                    )}
+                    {board.capabilities.rename && (
+                      <ActionButton
+                        label="Umbenennen"
+                        onClick={() => renameBoard(board.id, board.name)}
+                      />
+                    )}
+                    {board.capabilities.delete && (
+                      <ActionButton
+                        label="Löschen"
+                        onClick={() => deleteBoard(board.id)}
+                      />
                     )}
                   </div>
                 </li>
@@ -255,7 +320,56 @@ export function AllianceForumBoardPage() {
       ),
     [base, boardId, page],
   );
-  const { data, error } = useLoad(load, 'Das Board konnte nicht geladen werden.');
+  const { data, error, reload } = useLoad(
+    load,
+    'Das Board konnte nicht geladen werden.',
+  );
+  const moderation = useModeration(reload);
+
+  function renameTopic(topicId: number, current: string) {
+    const next = window.prompt('Neuer Titel', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/topics/${topicId}`, { title: next }),
+      'Das Thema konnte nicht umbenannt werden.',
+    );
+  }
+
+  function setImportant(topicId: number, important: boolean) {
+    void moderation.run(
+      () => api.put(`${base}/forum/topics/${topicId}/important`, { important }),
+      'Die Markierung konnte nicht geändert werden.',
+    );
+  }
+
+  function deleteTopic(topicId: number) {
+    if (!window.confirm('Thema samt allen Beiträgen löschen?')) return;
+    void moderation.run(
+      () => api.delete(`${base}/forum/topics/${topicId}`),
+      'Das Thema konnte nicht gelöscht werden.',
+    );
+  }
+
+  function renameBoard(current: string) {
+    const next = window.prompt('Neuer Boardname', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/boards/${boardId}`, { name: next }),
+      'Das Board konnte nicht umbenannt werden.',
+    );
+  }
+
+  function deleteBoard() {
+    if (!window.confirm('Board samt allen Themen und Beiträgen löschen?')) return;
+    void moderation.run(
+      async () => {
+        await api.delete(`${base}/forum/boards/${boardId}`);
+        navigate(`${base}/forum`);
+      },
+      'Das Board konnte nicht gelöscht werden.',
+      true,
+    );
+  }
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -282,7 +396,17 @@ export function AllianceForumBoardPage() {
     <div className="space-y-4">
       <BackLink to={`${base}/forum`} label="Zum Forum" />
       {data && <Title>{data.board.name}</Title>}
+      {data?.board.capabilities.rename && (
+        <ActionButton
+          label="Board umbenennen"
+          onClick={() => renameBoard(data.board.name)}
+        />
+      )}
+      {data?.board.capabilities.delete && (
+        <ActionButton label="Board löschen" onClick={deleteBoard} />
+      )}
       <ErrorMessage message={error} />
+      <ErrorMessage message={moderation.error} />
       {data && (
         <>
           {data.topics.length === 0 ? (
@@ -314,6 +438,24 @@ export function AllianceForumBoardPage() {
                   <div className="text-xs text-swu-muted">
                     {topic.postCount} Beiträge, zuletzt{' '}
                     {formatDateTime(topic.lastActivityAt)}
+                    {topic.capabilities.rename && (
+                      <ActionButton
+                        label="Umbenennen"
+                        onClick={() => renameTopic(topic.id, topic.title)}
+                      />
+                    )}
+                    {topic.capabilities.setImportant && (
+                      <ActionButton
+                        label={topic.important ? 'Markierung entfernen' : 'Als wichtig markieren'}
+                        onClick={() => setImportant(topic.id, !topic.important)}
+                      />
+                    )}
+                    {topic.capabilities.delete && (
+                      <ActionButton
+                        label="Löschen"
+                        onClick={() => deleteTopic(topic.id)}
+                      />
+                    )}
                   </div>
                 </li>
               ))}
@@ -376,6 +518,44 @@ export function AllianceForumTopicPage() {
   const [text, setText] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+  const moderation = useModeration(reload);
+
+  function renameTopic(current: string) {
+    const next = window.prompt('Neuer Titel', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/topics/${topicId}`, { title: next }),
+      'Das Thema konnte nicht umbenannt werden.',
+    );
+  }
+
+  function setImportant(important: boolean) {
+    void moderation.run(
+      () => api.put(`${base}/forum/topics/${topicId}/important`, { important }),
+      'Die Markierung konnte nicht geändert werden.',
+    );
+  }
+
+  function deleteTopic(boardId: number) {
+    if (!window.confirm('Thema samt allen Beiträgen löschen?')) return;
+    void moderation.run(
+      async () => {
+        await api.delete(`${base}/forum/topics/${topicId}`);
+        navigate(`${base}/forum/boards/${boardId}`);
+      },
+      'Das Thema konnte nicht gelöscht werden.',
+      true,
+    );
+  }
+
+  function deletePost(postId: number) {
+    if (!window.confirm('Beitrag löschen?')) return;
+    void moderation.run(
+      () => api.delete(`${base}/forum/posts/${postId}`),
+      'Der Beitrag konnte nicht gelöscht werden.',
+    );
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -412,7 +592,26 @@ export function AllianceForumTopicPage() {
           {data.topic.title}
         </Title>
       )}
+      {data?.topic.capabilities.rename && (
+        <ActionButton
+          label="Thema umbenennen"
+          onClick={() => renameTopic(data.topic.title)}
+        />
+      )}
+      {data?.topic.capabilities.setImportant && (
+        <ActionButton
+          label={data.topic.important ? 'Markierung entfernen' : 'Als wichtig markieren'}
+          onClick={() => setImportant(!data.topic.important)}
+        />
+      )}
+      {data?.topic.capabilities.delete && (
+        <ActionButton
+          label="Thema löschen"
+          onClick={() => deleteTopic(data.board.id)}
+        />
+      )}
       <ErrorMessage message={error} />
+      <ErrorMessage message={moderation.error} />
       {data && (
         <>
           <ul className="space-y-3">
@@ -436,6 +635,12 @@ export function AllianceForumTopicPage() {
                   </p>
                 ) : (
                   <BbCodeText text={post.text} className="text-sm" />
+                )}
+                {post.capabilities.delete && (
+                  <ActionButton
+                    label="Beitrag löschen"
+                    onClick={() => deletePost(post.id)}
+                  />
                 )}
               </li>
             ))}

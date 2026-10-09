@@ -386,3 +386,116 @@ describe('AllianceForumTopicPage', () => {
     );
   });
 });
+
+describe('forum moderation actions', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('shows no moderation actions without the server capabilities', async () => {
+    apiMocks.get.mockResolvedValue(
+      topicPage([post({ capabilities: { edit: false, delete: false } })]),
+    );
+    renderAt('/alliances/1/forum/topics/9');
+    await screen.findByText('Angriffsplan');
+    for (const label of [
+      'Thema umbenennen',
+      'Als wichtig markieren',
+      'Thema löschen',
+      'Beitrag löschen',
+    ]) {
+      expect(screen.queryByRole('button', { name: label })).toBeNull();
+    }
+  });
+
+  it('deletes a post only after confirmation and reloads', async () => {
+    const page = topicPage([post({ capabilities: { edit: false, delete: true } })]);
+    apiMocks.get.mockResolvedValue(page);
+    apiMocks.delete.mockResolvedValue(undefined);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    renderAt('/alliances/1/forum/topics/9');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag löschen' }));
+    expect(apiMocks.delete).not.toHaveBeenCalled();
+
+    confirm.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Beitrag löschen' }));
+    await waitFor(() =>
+      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/forum/posts/1'),
+    );
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
+  });
+
+  it('renames, marks and deletes a topic from the topic page', async () => {
+    const page = topicPage([post()]);
+    page.topic.capabilities = { rename: true, setImportant: true, delete: true };
+    apiMocks.get.mockImplementation(async (url: string) =>
+      url.includes('/forum/boards/') ? boardPage() : page,
+    );
+    apiMocks.patch.mockResolvedValue(undefined);
+    apiMocks.put.mockResolvedValue(undefined);
+    apiMocks.delete.mockResolvedValue(undefined);
+    vi.spyOn(window, 'prompt').mockReturnValue('Neuer Plan');
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderAt('/alliances/1/forum/topics/9');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Thema umbenennen' }));
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/forum/topics/9', {
+        title: 'Neuer Plan',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Als wichtig markieren' }));
+    await waitFor(() =>
+      expect(apiMocks.put).toHaveBeenCalledWith('/alliances/1/forum/topics/9/important', {
+        important: true,
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Thema löschen' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location').textContent).toBe('/alliances/1/forum/boards/7'),
+    );
+    expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/forum/topics/9');
+  });
+
+  it('shows board actions only with capability and confirms deletion', async () => {
+    const data = overview(true);
+    data.boards[0].capabilities = { rename: true, delete: true };
+    apiMocks.get.mockResolvedValue(data);
+    apiMocks.delete.mockResolvedValue(undefined);
+    apiMocks.patch.mockResolvedValue(undefined);
+    vi.spyOn(window, 'prompt').mockReturnValue('Taktik neu');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    renderAt('/alliances/1/forum');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Umbenennen' }));
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/forum/boards/7', {
+        name: 'Taktik neu',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+    expect(apiMocks.delete).not.toHaveBeenCalled();
+    confirm.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+    await waitFor(() =>
+      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/forum/boards/7'),
+    );
+  });
+
+  it('shows topic list actions only with capability and surfaces server errors', async () => {
+    apiMocks.get.mockResolvedValue(boardPage());
+    const first = renderAt('/alliances/1/forum/boards/7');
+    await screen.findByText('Angriffsplan');
+    expect(screen.queryByRole('button', { name: 'Markierung entfernen' })).toBeNull();
+    first.unmount();
+
+    const page = boardPage();
+    page.topics[0].capabilities = { rename: true, setImportant: true, delete: true };
+    apiMocks.get.mockResolvedValue(page);
+    apiMocks.put.mockRejectedValue(new ApiError(403, 'Dazu fehlt Dir die Berechtigung'));
+    renderAt('/alliances/1/forum/boards/7');
+    fireEvent.click(await screen.findByRole('button', { name: 'Markierung entfernen' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Dazu fehlt Dir die Berechtigung',
+    );
+  });
+});

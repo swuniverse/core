@@ -22,6 +22,8 @@ import {
   type CreateForumPostResponse,
   type CreateForumTopicRequest,
   type CreateForumTopicResponse,
+  type RenameForumBoardRequest,
+  type RenameForumTopicRequest,
   type ForumAuthorDto,
   type ForumBoardDto,
   type ForumBoardPageDto,
@@ -307,6 +309,95 @@ export class ForumService {
     });
   }
 
+  // --- Moderation ---
+
+  async renameBoard(
+    viewerId: number,
+    allianceId: number,
+    boardId: number,
+    request: RenameForumBoardRequest,
+  ): Promise<void> {
+    const viewer = await this.requireModerator(viewerId, allianceId);
+    const name = this.validated(
+      request?.name,
+      FORUM_BOARD_NAME_MIN,
+      FORUM_BOARD_NAME_MAX,
+      ERR.boardNameLength,
+    );
+    await this.store.transaction(async (store) => {
+      const board = await this.lockLiveBoard(store, viewer, boardId);
+      await store.renameBoard(board.id, name);
+    });
+  }
+
+  async deleteBoard(
+    viewerId: number,
+    allianceId: number,
+    boardId: number,
+  ): Promise<void> {
+    const viewer = await this.requireModerator(viewerId, allianceId);
+    await this.store.transaction(async (store) => {
+      const board = await this.lockLiveBoard(store, viewer, boardId);
+      await store.deleteBoard(board.id, this.stamp(viewer));
+    });
+  }
+
+  async renameTopic(
+    viewerId: number,
+    allianceId: number,
+    topicId: number,
+    request: RenameForumTopicRequest,
+  ): Promise<void> {
+    const viewer = await this.requireModerator(viewerId, allianceId);
+    const title = this.validated(
+      request?.title,
+      FORUM_TOPIC_TITLE_MIN,
+      FORUM_TOPIC_TITLE_MAX,
+      ERR.topicTitleLength,
+    );
+    await this.store.transaction(async (store) => {
+      const { topic } = await this.lockLiveTopic(store, viewer, topicId);
+      await store.renameTopic(topic.id, title);
+    });
+  }
+
+  async setTopicImportant(
+    viewerId: number,
+    allianceId: number,
+    topicId: number,
+    important: boolean,
+  ): Promise<void> {
+    const viewer = await this.requireModerator(viewerId, allianceId);
+    await this.store.transaction(async (store) => {
+      const { topic } = await this.lockLiveTopic(store, viewer, topicId);
+      await store.setTopicImportant(topic.id, important === true);
+    });
+  }
+
+  async deleteTopic(
+    viewerId: number,
+    allianceId: number,
+    topicId: number,
+  ): Promise<void> {
+    const viewer = await this.requireModerator(viewerId, allianceId);
+    await this.store.transaction(async (store) => {
+      const { topic } = await this.lockLiveTopic(store, viewer, topicId);
+      await store.deleteTopic(topic.id, this.stamp(viewer));
+    });
+  }
+
+  async deletePost(
+    viewerId: number,
+    allianceId: number,
+    postId: number,
+  ): Promise<void> {
+    const viewer = await this.requireModerator(viewerId, allianceId);
+    await this.store.transaction(async (store) => {
+      const { post } = await this.lockLivePost(store, viewer, postId);
+      await store.deletePost(post.id, this.stamp(viewer));
+    });
+  }
+
   // --- Authorization helpers (reused by moderation and editing tickets) ---
 
   /** Current member of exactly this alliance, else NotFound. */
@@ -344,6 +435,63 @@ export class ForumService {
     }
     const board = await this.requireBoard(store, viewer, topic.boardId);
     return { topic, board };
+  }
+
+  /** Member of this alliance with `moderateForum`; others get NotFound or Forbidden. */
+  protected async requireModerator(
+    userId: number,
+    allianceId: number,
+  ): Promise<ForumMemberRecord> {
+    const viewer = await this.requireMember(userId, allianceId);
+    if (!this.mayModerate(viewer)) throw new ForbiddenException(ERR.forbidden);
+    return viewer;
+  }
+
+  /**
+   * Write-path locking: board, then topic, re-checked under lock so that
+   * objects deleted concurrently are NotFound. Reused by every write that
+   * must not touch deleted content.
+   */
+  protected async lockLiveBoard(
+    store: ForumStore,
+    viewer: ForumMemberRecord,
+    boardId: number,
+  ): Promise<ForumBoardRecord> {
+    await store.lockBoard(boardId);
+    return this.requireBoard(store, viewer, boardId);
+  }
+
+  protected async lockLiveTopic(
+    store: ForumStore,
+    viewer: ForumMemberRecord,
+    topicId: number,
+  ): Promise<{ topic: ForumTopicRecord; board: ForumBoardRecord }> {
+    const initial = await store.findTopic(topicId);
+    if (initial) await store.lockBoard(initial.boardId);
+    await store.lockTopic(topicId);
+    return this.requireTopic(store, viewer, topicId);
+  }
+
+  /** Locks board and topic of the post; moderated posts count as not found. */
+  protected async lockLivePost(
+    store: ForumStore,
+    viewer: ForumMemberRecord,
+    postId: number,
+  ): Promise<{
+    post: ForumPostRecord;
+    topic: ForumTopicRecord;
+    board: ForumBoardRecord;
+  }> {
+    const initial = await store.findPost(postId);
+    if (!initial) throw new NotFoundException(ERR.notFound);
+    const locked = await this.lockLiveTopic(store, viewer, initial.topicId);
+    const post = await store.findPost(postId);
+    if (!post || post.deletedAt) throw new NotFoundException(ERR.notFound);
+    return { post, ...locked };
+  }
+
+  private stamp(viewer: ForumMemberRecord) {
+    return { userId: viewer.userId, name: viewer.name, at: this.now() };
   }
 
   protected mayModerate(viewer: ForumMemberRecord): boolean {

@@ -13,6 +13,7 @@ import type {
   ForumBoardRecord,
   ForumBoardSummaryRecord,
   ForumMemberRecord,
+  ForumModerationStamp,
   ForumPostRecord,
   ForumStore,
   ForumTopicRecord,
@@ -324,6 +325,73 @@ class TypeOrmForumStoreSession implements ForumStore {
 
   async countPosts(topicId: number) {
     return this.manager.countBy(ForumPost, { topicId });
+  }
+
+  async renameBoard(boardId: number, name: string) {
+    await this.manager.update(ForumBoard, { id: boardId }, { name });
+  }
+
+  async renameTopic(topicId: number, title: string) {
+    await this.manager.update(ForumTopic, { id: topicId }, { title });
+  }
+
+  async setTopicImportant(topicId: number, important: boolean) {
+    await this.manager.update(ForumTopic, { id: topicId }, { important });
+  }
+
+  async findPost(id: number) {
+    const post = await this.manager.findOneBy(ForumPost, { id });
+    return post ? toPost(post) : null;
+  }
+
+  async deletePost(postId: number, moderator: ForumModerationStamp) {
+    await this.manager.update(
+      ForumPost,
+      { id: postId, deletedAt: IsNull() },
+      this.stamp(moderator, { text: '' }),
+    );
+  }
+
+  async deleteTopic(topicId: number, moderator: ForumModerationStamp) {
+    await this.manager.update(
+      ForumPost,
+      { topicId, deletedAt: IsNull() },
+      this.stamp(moderator, { text: '' }),
+    );
+    await this.manager.update(
+      ForumTopic,
+      { id: topicId, deletedAt: IsNull() },
+      this.stamp(moderator, {}),
+    );
+  }
+
+  async deleteBoard(boardId: number, moderator: ForumModerationStamp) {
+    await this.manager.query(
+      `UPDATE "alliance_forum_posts" SET "text" = '', "deletedAt" = $2,
+         "deletedByUserId" = $3, "deletedByName" = $4
+       WHERE "deletedAt" IS NULL
+         AND "topicId" IN (SELECT "id" FROM "alliance_forum_topics" WHERE "boardId" = $1)`,
+      [boardId, moderator.at, moderator.userId, moderator.name],
+    );
+    await this.manager.update(
+      ForumTopic,
+      { boardId, deletedAt: IsNull() },
+      this.stamp(moderator, {}),
+    );
+    await this.manager.update(
+      ForumBoard,
+      { id: boardId, deletedAt: IsNull() },
+      this.stamp(moderator, {}),
+    );
+  }
+
+  private stamp<T extends object>(moderator: ForumModerationStamp, extra: T) {
+    return {
+      ...extra,
+      deletedAt: moderator.at,
+      deletedByUserId: moderator.userId,
+      deletedByName: moderator.name,
+    };
   }
 }
 

@@ -41,6 +41,13 @@ export interface ForumPostRecord extends ForumDeletionFields {
   editedAt: Date | null;
 }
 
+/** Who moderated and when; written to the deletion fields. */
+export interface ForumModerationStamp {
+  userId: number;
+  name: string;
+  at: Date;
+}
+
 /** The requesting player with their current alliance membership. */
 export interface ForumMemberRecord {
   userId: number;
@@ -144,4 +151,18 @@ export interface ForumStore {
     limit: number,
   ): Promise<ForumPostRecord[]>;
   countPosts(topicId: number): Promise<number>;
+
+  // --- Moderation ---
+
+  renameBoard(boardId: number, name: string): Promise<void>;
+  renameTopic(topicId: number, title: string): Promise<void>;
+  setTopicImportant(topicId: number, important: boolean): Promise<void>;
+  /** The post even if moderated; null if it does not exist. */
+  findPost(id: number): Promise<ForumPostRecord | null>;
+  /** Soft-deletes one post: blanks its text and records the moderator. */
+  deletePost(postId: number, moderator: ForumModerationStamp): Promise<void>;
+  /** Soft-deletes the topic and blanks every not yet moderated post in it. */
+  deleteTopic(topicId: number, moderator: ForumModerationStamp): Promise<void>;
+  /** Soft-deletes the board, its topics and blanks all their posts. */
+  deleteBoard(boardId: number, moderator: ForumModerationStamp): Promise<void>;
 }

@@ -425,6 +425,18 @@ export interface CreateForumBoardRequest {
   name: string;
 }
 
+export interface RenameForumBoardRequest {
+  name: string;
+}
+
+export interface RenameForumTopicRequest {
+  title: string;
+}
+
+export interface SetForumTopicImportantRequest {
+  important: boolean;
+}
+
 export interface CreateForumTopicRequest {
   title: string;
   text: string;

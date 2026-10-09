@@ -4,6 +4,7 @@ import type {
   ForumBoardRecord,
   ForumBoardSummaryRecord,
   ForumMemberRecord,
+  ForumModerationStamp,
   ForumPostRecord,
   ForumStore,
   ForumTopicRecord,
@@ -44,12 +45,6 @@ export class InMemoryForumStore implements ForumStore {
     for (const board of this.state.boards) {
       if (board.deletedByUserId === userId) board.deletedByUserId = null;
     }
-  }
-
-  /** Test helper until the moderation ticket adds the real operation. */
-  markImportantForTest(topicId: number) {
-    const topic = this.state.topics.find((t) => t.id === topicId);
-    if (topic) topic.important = true;
   }
 
   snapshot() {
@@ -270,5 +265,69 @@ export class InMemoryForumStore implements ForumStore {
 
   async countPosts(topicId: number) {
     return this.state.posts.filter((p) => p.topicId === topicId).length;
+  }
+
+  async renameBoard(boardId: number, name: string) {
+    const board = this.state.boards.find((b) => b.id === boardId);
+    if (board) board.name = name;
+  }
+
+  async renameTopic(topicId: number, title: string) {
+    const topic = this.state.topics.find((t) => t.id === topicId);
+    if (topic) topic.title = title;
+  }
+
+  async setTopicImportant(topicId: number, important: boolean) {
+    const topic = this.state.topics.find((t) => t.id === topicId);
+    if (topic) topic.important = important;
+  }
+
+  async findPost(id: number) {
+    const post = this.state.posts.find((p) => p.id === id);
+    return post ? { ...post } : null;
+  }
+
+  async deletePost(postId: number, moderator: ForumModerationStamp) {
+    this.stampPosts(
+      this.state.posts.filter((p) => p.id === postId),
+      moderator,
+    );
+  }
+
+  async deleteTopic(topicId: number, moderator: ForumModerationStamp) {
+    const topic = this.state.topics.find((t) => t.id === topicId);
+    if (!topic) return;
+    this.stamp(topic, moderator);
+    this.stampPosts(
+      this.state.posts.filter((p) => p.topicId === topicId),
+      moderator,
+    );
+  }
+
+  async deleteBoard(boardId: number, moderator: ForumModerationStamp) {
+    const board = this.state.boards.find((b) => b.id === boardId);
+    if (!board) return;
+    this.stamp(board, moderator);
+    for (const topic of this.state.topics.filter((t) => t.boardId === boardId)) {
+      await this.deleteTopic(topic.id, moderator);
+    }
+  }
+
+  private stamp(
+    row: { deletedAt: Date | null; deletedByUserId: number | null; deletedByName: string | null },
+    moderator: ForumModerationStamp,
+  ) {
+    if (row.deletedAt) return;
+    row.deletedAt = moderator.at;
+    row.deletedByUserId = moderator.userId;
+    row.deletedByName = moderator.name;
+  }
+
+  private stampPosts(posts: ForumPostRecord[], moderator: ForumModerationStamp) {
+    for (const post of posts) {
+      if (post.deletedAt) continue;
+      this.stamp(post, moderator);
+      post.text = '';
+    }
   }
 }

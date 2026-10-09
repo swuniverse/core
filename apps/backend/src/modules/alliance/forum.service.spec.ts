@@ -247,10 +247,7 @@ describe('ForumService', () => {
       await ctx.service.createTopic(4, ctx.rogue.id, board.id, { title: 'Neu', text: 'x' });
       const topics = (await ctx.service.listTopics(1, ctx.rogue.id, board.id)).topics;
       const alt = topics.find((t) => t.title === 'Alt')!;
-      // Mark important through the store (moderation arrives in a later ticket).
-      const snapshot = ctx.forumStore.snapshot();
-      expect(snapshot.topics).toHaveLength(2);
-      ctx.forumStore.markImportantForTest(alt.id);
+      await ctx.service.setTopicImportant(1, ctx.rogue.id, alt.id, true);
       const sorted = (await ctx.service.listTopics(1, ctx.rogue.id, board.id)).topics;
       expect(sorted.map((t) => t.title)).toEqual(['Alt', 'Neu']);
       expect(sorted[0].important).toBe(true);
@@ -284,6 +281,146 @@ describe('ForumService', () => {
       expect(asVice.topic.capabilities).toEqual({ rename: true, setImportant: true, delete: true });
       const asDiplomat = await ctx.service.getTopic(3, ctx.rogue.id, topicId);
       expect(asDiplomat.posts[0].capabilities).toEqual({ edit: false, delete: false });
+    });
+  });
+
+  describe('moderation', () => {
+    async function twoPosts(ctx: ReturnType<typeof setup>) {
+      const { board, topicId } = await boardWithTopic(ctx, 'Geheim');
+      await ctx.service.createPost(1, ctx.rogue.id, topicId, { text: 'Zweiter' });
+      const page = await ctx.service.getTopic(1, ctx.rogue.id, topicId);
+      return { board, topicId, postIds: page.posts.map((p) => p.id) };
+    }
+
+    it('lets president and vice, but not diplomat or plain member, moderate', async () => {
+      const ctx = setup();
+      const { board, topicId, postIds } = await twoPosts(ctx);
+      const { service, rogue } = ctx;
+      for (const userId of [1, 2]) {
+        await service.renameBoard(userId, rogue.id, board.id, { name: `Board ${userId}0` });
+        await service.renameTopic(userId, rogue.id, topicId, { title: `Titel ${userId}` });
+        await service.setTopicImportant(userId, rogue.id, topicId, true);
+        await service.setTopicImportant(userId, rogue.id, topicId, false);
+      }
+      for (const userId of [3, 4]) {
+        await expectError(service.renameBoard(userId, rogue.id, board.id, { name: 'Neuer Name' }), ForbiddenException);
+        await expectError(service.renameTopic(userId, rogue.id, topicId, { title: 'x' }), ForbiddenException);
+        await expectError(service.setTopicImportant(userId, rogue.id, topicId, true), ForbiddenException);
+        await expectError(service.deletePost(userId, rogue.id, postIds[0]), ForbiddenException);
+        await expectError(service.deleteTopic(userId, rogue.id, topicId), ForbiddenException);
+        await expectError(service.deleteBoard(userId, rogue.id, board.id), ForbiddenException);
+      }
+      const page = await service.getTopic(1, rogue.id, topicId);
+      expect(page.topic.title).toBe('Titel 2');
+      expect(page.topic.important).toBe(false);
+      expect((await service.listBoards(1, rogue.id)).boards[0].name).toBe('Board 20');
+    });
+
+    it('hides moderation on foreign alliances behind NotFound', async () => {
+      const ctx = setup();
+      const { board, topicId, postIds } = await twoPosts(ctx);
+      const { service, rogue, other } = ctx;
+      await expectError(service.renameBoard(5, rogue.id, board.id, { name: 'Neuer Name' }), NotFoundException);
+      await expectError(service.deleteTopic(5, rogue.id, topicId), NotFoundException);
+      // Own alliance id, but objects of another alliance.
+      await expectError(service.deleteTopic(5, other.id, topicId), NotFoundException);
+      await expectError(service.deletePost(5, other.id, postIds[0]), NotFoundException);
+      await expectError(service.deleteBoard(5, other.id, board.id), NotFoundException);
+      await expectError(service.deletePost(1, rogue.id, 9999), NotFoundException);
+    });
+
+    it('validates rename lengths after trimming', async () => {
+      const ctx = setup();
+      const { board, topicId } = await twoPosts(ctx);
+      const { service, rogue } = ctx;
+      await expectError(service.renameBoard(1, rogue.id, board.id, { name: ' abcd ' }), BadRequestException);
+      await expectError(service.renameBoard(1, rogue.id, board.id, { name: 'a'.repeat(81) }), BadRequestException);
+      await service.renameBoard(1, rogue.id, board.id, { name: 'abcde' });
+      await service.renameBoard(1, rogue.id, board.id, { name: '😀'.repeat(80) });
+      await expectError(service.renameTopic(1, rogue.id, topicId, { title: '   ' }), BadRequestException);
+      await expectError(service.renameTopic(1, rogue.id, topicId, { title: 'a'.repeat(121) }), BadRequestException);
+      await service.renameTopic(1, rogue.id, topicId, { title: 'a' });
+      await service.renameTopic(1, rogue.id, topicId, { title: '😀'.repeat(120) });
+    });
+
+    it('soft-deletes a post: no text, but author, time and moderator remain in sequence', async () => {
+      const ctx = setup();
+      const { topicId, postIds } = await twoPosts(ctx);
+      await ctx.service.deletePost(2, ctx.rogue.id, postIds[0]);
+      const page = await ctx.service.getTopic(4, ctx.rogue.id, topicId);
+      expect(page.posts.map((p) => p.id)).toEqual(postIds);
+      expect(page.posts[0]).toMatchObject({
+        text: null,
+        author: { name: 'Mon' },
+        deleted: { moderatorName: 'Han' },
+        capabilities: { edit: false, delete: false },
+      });
+      expect(page.posts[0].deleted?.deletedAt).toEqual(expect.any(String));
+      expect(page.posts[1].text).toBe('Zweiter');
+      expect(JSON.stringify(page)).not.toContain('Geheim');
+      expect(ctx.forumStore.snapshot().posts[0].text).toBe('');
+      // Already moderated: gone for further moderation.
+      await expectError(ctx.service.deletePost(1, ctx.rogue.id, postIds[0]), NotFoundException);
+      // Deleting a post leaves the topic and its other posts in the statistics.
+      expect((await ctx.service.listBoards(1, ctx.rogue.id)).boards[0].postCount).toBe(1);
+    });
+
+    it('deletes a topic with all its posts', async () => {
+      const ctx = setup();
+      const { board, topicId, postIds } = await twoPosts(ctx);
+      await ctx.service.deleteTopic(1, ctx.rogue.id, topicId);
+      expect((await ctx.service.listTopics(1, ctx.rogue.id, board.id)).topics).toEqual([]);
+      expect((await ctx.service.listBoards(1, ctx.rogue.id)).boards[0]).toMatchObject({
+        topicCount: 0,
+        postCount: 0,
+        lastPost: null,
+      });
+      await expectError(ctx.service.getTopic(1, ctx.rogue.id, topicId), NotFoundException);
+      await expectError(ctx.service.createPost(1, ctx.rogue.id, topicId, { text: 'x' }), NotFoundException);
+      await expectError(ctx.service.renameTopic(1, ctx.rogue.id, topicId, { title: 'x' }), NotFoundException);
+      await expectError(ctx.service.deletePost(1, ctx.rogue.id, postIds[1]), NotFoundException);
+      const snapshot = ctx.forumStore.snapshot();
+      expect(snapshot.posts.every((p) => p.text === '' && p.deletedByName === 'Leia')).toBe(true);
+      expect(snapshot.topics[0]).toMatchObject({ deletedByUserId: 1, deletedByName: 'Leia' });
+      expect(snapshot.topics[0].deletedAt).not.toBeNull();
+    });
+
+    it('deletes a board with topics and posts, frees the limit and never auto-deletes empties', async () => {
+      const ctx = setup();
+      const { board, topicId } = await twoPosts(ctx);
+      const { service, rogue } = ctx;
+      for (let i = 0; i < 49; i += 1) {
+        await service.createBoard(1, rogue.id, { name: `Board ${i + 10}` });
+      }
+      await expectError(service.createBoard(1, rogue.id, { name: 'Zu viel' }), BadRequestException);
+      await service.deleteBoard(2, rogue.id, board.id);
+      await service.createBoard(1, rogue.id, { name: 'Wieder frei' });
+      expect((await service.listBoards(1, rogue.id)).boards.map((b) => b.id)).not.toContain(board.id);
+      await expectError(service.listTopics(1, rogue.id, board.id), NotFoundException);
+      await expectError(service.getTopic(1, rogue.id, topicId), NotFoundException);
+      await expectError(service.createTopic(1, rogue.id, board.id, { title: 'x', text: 'x' }), NotFoundException);
+      await expectError(service.renameBoard(1, rogue.id, board.id, { name: 'Neuer Name' }), NotFoundException);
+      expect(ctx.forumStore.snapshot().posts.every((p) => p.text === '')).toBe(true);
+    });
+
+    it('keeps empty topics and boards after deleting all their posts', async () => {
+      const ctx = setup();
+      const { board, topicId, postIds } = await twoPosts(ctx);
+      for (const id of postIds) await ctx.service.deletePost(1, ctx.rogue.id, id);
+      const page = await ctx.service.getTopic(1, ctx.rogue.id, topicId);
+      expect(page.posts.every((p) => p.deleted)).toBe(true);
+      expect((await ctx.service.listTopics(1, ctx.rogue.id, board.id)).topics).toHaveLength(1);
+    });
+
+    it('ends moderation rights with the next request after losing office', async () => {
+      const ctx = setup();
+      const { topicId } = await twoPosts(ctx);
+      await ctx.service.setTopicImportant(2, ctx.rogue.id, topicId, true);
+      await ctx.alliances.setRole(ctx.rogue.id, 2, NONE);
+      await expectError(ctx.service.setTopicImportant(2, ctx.rogue.id, topicId, false), ForbiddenException);
+      await expectError(ctx.service.deleteTopic(2, ctx.rogue.id, topicId), ForbiddenException);
+      const page = await ctx.service.getTopic(2, ctx.rogue.id, topicId);
+      expect(page.topic.capabilities).toEqual({ rename: false, setImportant: false, delete: false });
     });
   });
 
