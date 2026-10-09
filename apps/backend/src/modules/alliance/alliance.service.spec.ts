@@ -498,6 +498,66 @@ describe('AllianceService', () => {
       ]);
     });
 
+    describe('online status', () => {
+      function onlineScenario(online: number[]) {
+        const store = new InMemoryAllianceStore();
+        const messaging = { sendSystem: jest.fn() };
+        const service = new AllianceService(
+          store,
+          messaging as never,
+          undefined,
+          { onlineUserIds: () => online },
+        );
+        store.addPlayer(1, 'Leia');
+        store.addPlayer(2, 'Wedge');
+        store.addPlayer(3, 'Mon');
+        store.addPlayer(4, 'Biggs');
+        const alliance = store.seedAlliance({ name: 'Rogue Squadron' }, [
+          [1, PRESIDENT],
+          [2, NONE],
+        ]);
+        store.seedAlliance({ name: 'Gold Squadron' }, [[3, PRESIDENT]]);
+        return { store, service, alliance };
+      }
+
+      it('shows each member online status to a member of the alliance', async () => {
+        const { service, alliance } = onlineScenario([2]);
+
+        const { members } = await service.getDetail(1, alliance.id);
+
+        expect(members.map((m) => [m.name, m.online])).toEqual([
+          ['Leia', false],
+          ['Wedge', true],
+        ]);
+      });
+
+      it('omits the field for a member of another alliance', async () => {
+        const { service, alliance } = onlineScenario([1, 2, 3]);
+
+        const { members } = await service.getDetail(3, alliance.id);
+
+        for (const m of members) expect(m).not.toHaveProperty('online');
+      });
+
+      it('omits the field for a player without alliance', async () => {
+        const { service, alliance } = onlineScenario([1, 2]);
+
+        const { members } = await service.getDetail(4, alliance.id);
+
+        for (const m of members) expect(m).not.toHaveProperty('online');
+      });
+
+      it('omits the field for a former member', async () => {
+        const { service, store, alliance } = onlineScenario([1, 2]);
+        await service.leave(2);
+        expect(await store.findMembership(2)).toBeNull();
+
+        const { members } = await service.getDetail(2, alliance.id);
+
+        for (const m of members) expect(m).not.toHaveProperty('online');
+      });
+    });
+
     describe('viewer actions', () => {
       function scenario() {
         const ctx = setup();
