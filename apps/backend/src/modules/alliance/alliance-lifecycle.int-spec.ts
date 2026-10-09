@@ -185,9 +185,13 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       );
       await allianceService.acceptRelationshipProposal(mon.id, proposal.id);
       const [relationship] = await store.listActiveRelationships(rogue.id);
-      await allianceService.proposeRelationshipChange(leia.id, relationship.id, {
-        contract: 'Neuer Vertrag',
-      });
+      await allianceService.proposeRelationshipChange(
+        leia.id,
+        relationship.id,
+        {
+          contract: 'Neuer Vertrag',
+        },
+      );
       await allianceService.proposeRelationship(leia.id, rogue.id, {
         recipientAllianceId: gold.id,
         type: AllianceRelationshipType.ALLIANCE,
@@ -260,8 +264,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       const leia = await rebel('leia');
       const han = await rebel('han');
       const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
-      const logger = (allianceService as unknown as { logger: Logger })
-        .logger;
+      const logger = (allianceService as unknown as { logger: Logger }).logger;
       jest.spyOn(logger, 'error').mockImplementation();
       const delivered = new Set<string>();
       sendSystem.mockRejectedValueOnce(new Error('messaging unavailable'));
@@ -472,7 +475,9 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
         [rogue.id, eventType, actorName],
       );
     await expect(insertEntry('E'.repeat(33), null)).rejects.toThrow();
-    await expect(insertEntry('MEMBER_JOINED', 'n'.repeat(256))).rejects.toThrow();
+    await expect(
+      insertEntry('MEMBER_JOINED', 'n'.repeat(256)),
+    ).rejects.toThrow();
     await expect(
       insertEntry('E'.repeat(32), 'n'.repeat(255)),
     ).resolves.toBeDefined();
@@ -494,10 +499,15 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
         title: 'Alt',
         text: 'x',
       });
-      const deletedTopic = await forum.createTopic(leia.id, rogue.id, strategy.id, {
-        title: 'Weg',
-        text: 'x',
-      });
+      const deletedTopic = await forum.createTopic(
+        leia.id,
+        rogue.id,
+        strategy.id,
+        {
+          title: 'Weg',
+          text: 'x',
+        },
+      );
       await forum.createTopic(leia.id, rogue.id, gone.id, {
         title: 'Im geloeschten Board',
         text: 'x',
@@ -516,7 +526,9 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       await forum.deleteTopic(leia.id, rogue.id, deletedTopic.topicId);
       await forum.deleteBoard(leia.id, rogue.id, gone.id);
       // A reply bumps the old topic to the top.
-      await forum.createPost(leia.id, rogue.id, old.topicId, { text: 'Antwort' });
+      await forum.createPost(leia.id, rogue.id, old.topicId, {
+        text: 'Antwort',
+      });
 
       const recent = await new TypeOrmForumStore(dataSource).listRecentTopics(
         rogue.id,
@@ -536,7 +548,9 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
 
       const dashboard = await forum.listRecentTopics(leia.id);
       expect(dashboard.map((t) => t.title)).toEqual(['Alt', 'Neu']);
-      expect(await forum.listRecentTopics((await rebel('lando')).id)).toEqual([]);
+      expect(await forum.listRecentTopics((await rebel('lando')).id)).toEqual(
+        [],
+      );
     });
   });
 
@@ -615,6 +629,240 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
     });
   });
 
+  describe('concurrency', () => {
+    const settle = (...work: Promise<unknown>[]) =>
+      Promise.allSettled(work).then((results) => results.map((r) => r.status));
+
+    it.each([
+      ['apply', 0],
+      ['accepted application', 1],
+    ])(
+      'dissolution against a joining player (%s) leaves no trace of the alliance either way',
+      async (path) => {
+        const leia = await rebel('leia');
+        const han = await rebel('han');
+        const lando = await rebel('lando');
+        const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+        const application = await store.insertApplication({
+          allianceId: rogue.id,
+          userId: path === 'apply' ? han.id : lando.id,
+        });
+        if (path === 'apply') {
+          await store.deleteApplications([application.id]);
+          await store.deleteMembership(rogue.id, han.id);
+        }
+        const join =
+          path === 'apply'
+            ? allianceService.apply(lando.id, rogue.id)
+            : allianceService.acceptApplication(leia.id, application.id);
+
+        await settle(join, allianceService.dissolve(leia.id, rogue.id));
+
+        expect(await count('alliances')).toBe(0);
+        expect(await count('alliance_memberships')).toBe(0);
+        expect(await count('alliance_applications')).toBe(0);
+        expect(await count('alliance_chronicle_entries')).toBe(0);
+        // Whoever lost the race got an error, never a half joined state.
+        expect(
+          await dataSource.query(
+            `SELECT 1 FROM alliance_memberships WHERE "userId" = $1`,
+            [lando.id],
+          ),
+        ).toEqual([]);
+      },
+    );
+
+    it('dissolution against a leaving member ends the alliance exactly once', async () => {
+      const leia = await rebel('leia');
+      const han = await rebel('han');
+      const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+
+      const outcome = await settle(
+        allianceService.leave(han.id),
+        allianceService.dissolve(leia.id, rogue.id),
+      );
+
+      expect(outcome).toContain('fulfilled');
+      expect(await count('alliances')).toBe(0);
+      expect(await count('alliance_memberships')).toBe(0);
+    });
+
+    it.each([
+      ['vice leaves', 'vice'],
+      ['member leaves', 'member'],
+    ])(
+      'succession against the successor candidate who %s keeps exactly one president',
+      async (_label, who) => {
+        const leia = await rebel('leia');
+        const wedge = await rebel('wedge', {
+          lastActiveAt: new Date('2026-10-05T00:00:00Z'),
+        });
+        const han = await rebel('han');
+        const rogue = await alliance('Rogue Squadron', leia, [
+          [wedge, who === 'vice' ? VICE : NONE],
+          [han, NONE],
+        ]);
+
+        await settle(
+          allianceService.removeAccount(leia.id),
+          allianceService.leave(wedge.id),
+        );
+
+        const members = await dataSource.query(
+          `SELECT "userId", "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+          [rogue.id],
+        );
+        const presidents = members.filter(
+          (m: { role: string }) => m.role === PRESIDENT,
+        );
+        // Either wedge left first (han inherits) or wedge became president and
+        // the departure was refused (the president must hand over).
+        expect(presidents).toHaveLength(1);
+        expect(members.length).toBeGreaterThanOrEqual(2);
+        expect(await count('alliances')).toBe(1);
+        const entries = await dataSource.query(
+          `SELECT "eventType" FROM alliance_chronicle_entries WHERE "allianceId" = $1`,
+          [rogue.id],
+        );
+        expect(
+          entries.filter(
+            (e: { eventType: string }) =>
+              e.eventType === 'AUTOMATIC_SUCCESSION',
+          ),
+        ).toHaveLength(1);
+      },
+    );
+
+    it('succession against a kick of the successor keeps exactly one president', async () => {
+      const leia = await rebel('leia');
+      const mon = await rebel('mon');
+      const wedge = await rebel('wedge');
+      const han = await rebel('han');
+      const rogue = await alliance('Rogue Squadron', leia, [
+        [mon, VICE],
+        [wedge, VICE],
+        [han, NONE],
+      ]);
+
+      await settle(
+        allianceService.removeAccount(leia.id),
+        allianceService.kick(mon.id, rogue.id, wedge.id),
+      );
+
+      const members = await dataSource.query(
+        `SELECT "userId", "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+        [rogue.id],
+      );
+      expect(
+        members.filter((m: { role: string }) => m.role === PRESIDENT),
+      ).toHaveLength(1);
+    });
+
+    it('succession against the last remaining member leaving leaves nothing or one president', async () => {
+      const leia = await rebel('leia');
+      const han = await rebel('han');
+      const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+
+      await settle(
+        allianceService.removeAccount(leia.id),
+        allianceService.leave(han.id),
+      );
+
+      const alliances = await count('alliances');
+      if (alliances === 1) {
+        const presidents = await dataSource.query(
+          `SELECT 1 FROM alliance_memberships WHERE "allianceId" = $1 AND "role" = $2`,
+          [rogue.id, PRESIDENT],
+        );
+        expect(presidents).toHaveLength(1);
+      }
+    });
+  });
+
+  describe('end to end over every path', () => {
+    const FAR_FUTURE = new Date(Date.UTC(2100, 0, 1));
+    const KEY = 'e'.repeat(32);
+
+    async function withBanner(
+      allianceId: number,
+      assets: InMemoryAssetStorage,
+    ) {
+      await assets.save(KEY, Buffer.from('png'));
+      await store.updateAlliance(allianceId, {
+        bannerKey: KEY,
+        bannerUpdatedAt: new Date(),
+      });
+    }
+
+    it.each([
+      'president dissolves',
+      'last member leaves',
+      'account removal without candidate',
+    ])(
+      'cleans relations, forum, chronicle and banner file, and informs the remaining members (%s)',
+      async (path) => {
+        const assets = new InMemoryAssetStorage();
+        const banners = new AllianceBannerService(store, assets);
+        const leia = await rebel('leia');
+        const han = await rebel('han');
+        const rogue = await alliance(
+          'Rogue Squadron',
+          leia,
+          path === 'president dissolves' ? [[han, NONE]] : [],
+        );
+        const red = await alliance('Red Squadron', await rebel('mon'));
+        await withBanner(rogue.id, assets);
+        await fillForumAndChronicle(rogue.id, leia);
+        await allianceService.declareWar(leia.id, rogue.id, red.id);
+        sendSystem.mockClear();
+
+        if (path === 'president dissolves') {
+          await allianceService.dissolve(leia.id, rogue.id);
+        } else if (path === 'last member leaves') {
+          await allianceService.leave(leia.id);
+        } else {
+          await allianceService.removeAccount(leia.id);
+        }
+        await banners.retryAssetDeletions({ now: FAR_FUTURE });
+
+        expect(await store.findAlliance(rogue.id)).toBeNull();
+        expect(assets.size).toBe(0);
+        expect(await count('alliance_asset_deletions')).toBe(0);
+        expect(await count('alliance_chronicle_entries')).toBe(0);
+        for (const table of FORUM_TABLES) expect(await count(table)).toBe(0);
+        expect(await store.listActiveRelationships(red.id)).toEqual([]);
+        const recipients = sendSystem.mock.calls.map((call) => call[0]);
+        expect(recipients).toEqual(
+          path === 'president dissolves' ? [han.id] : [],
+        );
+      },
+    );
+
+    it('account removal with a candidate keeps alliance, banner and relations and informs the members', async () => {
+      const assets = new InMemoryAssetStorage();
+      const leia = await rebel('leia');
+      const han = await rebel('han');
+      const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+      const red = await alliance('Red Squadron', await rebel('mon'));
+      await withBanner(rogue.id, assets);
+      await allianceService.declareWar(leia.id, rogue.id, red.id);
+      sendSystem.mockClear();
+
+      await allianceService.removeAccount(leia.id);
+
+      expect(await store.findAlliance(rogue.id)).not.toBeNull();
+      expect(assets.size).toBe(1);
+      expect(await count('alliance_asset_deletions')).toBe(0);
+      expect(await store.listActiveRelationships(rogue.id)).toHaveLength(1);
+      expect(sendSystem.mock.calls.map((call) => call[0])).toEqual([han.id]);
+      const [member] = await dataSource.query(
+        `SELECT "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+        [rogue.id],
+      );
+      expect(member.role).toBe(PRESIDENT);
+    });
+  });
+
   describe('account removal and automatic succession', () => {
     it('promotes the successor, keeps posts and chronicle, shows deleted authors', async () => {
       const leia = await rebel('leia');
@@ -638,14 +886,16 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
         { userId: wedge.id, role: PRESIDENT },
         { userId: han.id, role: NONE },
       ]);
-      const [entry] = (
-        await allianceService.listChronicle(wedge.id, rogue.id)
-      ).entries;
+      const [entry] = (await allianceService.listChronicle(wedge.id, rogue.id))
+        .entries;
       expect(entry).toMatchObject({
         type: 'AUTOMATIC_SUCCESSION',
         actor: null,
         subject: { userId: wedge.id, name: 'wedge' },
-        metadata: { previousPresidentId: leia.id, previousPresidentName: 'leia' },
+        metadata: {
+          previousPresidentId: leia.id,
+          previousPresidentName: 'leia',
+        },
       });
       const thread = await forum.getTopic(wedge.id, rogue.id, topicId);
       expect(thread.posts[0].author).toMatchObject({
