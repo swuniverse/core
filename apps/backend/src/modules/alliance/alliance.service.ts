@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -46,6 +47,8 @@ import {
   mayActOnAlliance,
   mayActOnMember,
 } from './alliance-permissions';
+import { ONLINE_PLAYERS } from './online-players.port';
+import type { OnlinePlayersPort } from './online-players.port';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
 import type {
@@ -128,6 +131,9 @@ export class AllianceService {
     @Inject(ALLIANCE_STORE) private readonly store: AllianceStore,
     private readonly messaging: MessagingService,
     private readonly rateLimiter?: DiplomacyRateLimiterService,
+    @Optional()
+    @Inject(ONLINE_PLAYERS)
+    private readonly onlinePlayers?: OnlinePlayersPort,
   ) {}
 
   // --- Queries ---
@@ -202,6 +208,12 @@ export class AllianceService {
         ? viewerMembership.role
         : null;
 
+    // Online status is internal: only members of this very alliance see it.
+    const onlineIds =
+      ownRole !== null
+        ? new Set(this.onlinePlayers?.onlineUserIds() ?? [])
+        : null;
+
     const members = [...memberships]
       .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
       .map((m) => ({
@@ -211,6 +223,7 @@ export class AllianceService {
         roleTitle: this.roleTitle(titles, m.role),
         joinedAt: m.joinedAt.toISOString(),
         actions: this.memberActions(ownRole, viewerId, m),
+        ...(onlineIds ? { online: onlineIds.has(m.userId) } : {}),
       }));
 
     const may = (action: AllianceAction) =>

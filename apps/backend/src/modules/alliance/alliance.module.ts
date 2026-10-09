@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { WebsocketModule } from '../websocket/websocket.module';
+import { GameGateway } from '../websocket/game.gateway';
+import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
@@ -39,6 +42,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceDiplomacyNotification,
     ]),
     MessagingModule,
+    WebsocketModule,
   ],
   controllers: [AllianceController],
   providers: [
@@ -54,6 +58,13 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     },
     DiplomacyNotificationDispatcherService,
     DiplomacyRateLimiterService,
+    {
+      provide: ONLINE_PLAYERS,
+      inject: [GameGateway],
+      useFactory: (gateway: GameGateway) => ({
+        onlineUserIds: () => gateway.onlineUserIds,
+      }),
+    },
     { provide: ALLIANCE_STORE, useClass: TypeOrmAllianceStore },
   ],
   exports: [AllianceService, RelationshipResolverService],
