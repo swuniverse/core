@@ -10,6 +10,7 @@ import { AllianceRelationship } from '../../modules/alliance/entities/alliance-r
 import { AllianceRelationshipProposal } from '../../modules/alliance/entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from '../../modules/alliance/entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from '../../modules/alliance/entities/diplomacy-party.entity';
+import { AllianceChronicleEntry } from '../../modules/alliance/entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from '../../modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from '../../modules/alliance/entities/alliance-diplomacy-notification.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
@@ -47,6 +48,7 @@ export const INTEGRATION_ENTITIES = [
   AllianceRelationship,
   AllianceRelationshipProposal,
   AllianceRelationshipChangeProposal,
+  AllianceChronicleEntry,
   AllianceDiplomacyChronicleEntry,
   AllianceDiplomacyNotification,
   Message,

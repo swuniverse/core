@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/02-allianzchronik-gruendung-und-mitgliedschaft.md`)
@@ -20,3 +20,7 @@
 - [ ] Die Chronikseite zeigt Einträge mit verständlichen deutschen Texten und lädt ältere Einträge nach.
 - [ ] `AllianceService`-Verhaltenstests (In-Memory-Store): genau ein erwarteter Eintrag je Aktion mit Namen zum Ereigniszeitpunkt; keine Einträge bei scheiternden Aktionen; Zugriff nur für aktuelle Mitglieder, Verlust nach Austritt und Rauswurf; Paginierung.
 - [ ] Frontend-Seitentests mit gemockter API: Einträge, Nachladen, Link nur bei Fähigkeit.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `alliance_chronicle_entries` table, `AllianceService.appendAllianceChronicle(tx, ...)`, `GET /alliances/:id/chronicle`, frontend `AllianceChroniclePage`.

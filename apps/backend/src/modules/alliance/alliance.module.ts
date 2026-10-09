@@ -29,6 +29,7 @@ import { AllianceRelationship } from './entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from './entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
+import { AllianceChronicleEntry } from './entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 
@@ -42,6 +43,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceRelationship,
       AllianceRelationshipProposal,
       AllianceRelationshipChangeProposal,
+      AllianceChronicleEntry,
       AllianceDiplomacyChronicleEntry,
       AllianceDiplomacyNotification,
     ]),

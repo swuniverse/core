@@ -70,6 +70,8 @@ export interface AllianceViewerActionsDto {
   manageDiplomacy: boolean;
   /** Mitgliederübersicht öffnen (Präsident und Vize). */
   viewMemberOperations: boolean;
+  /** Read the internal alliance chronicle; true for current members only. */
+  viewChronicle: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -204,6 +206,33 @@ export interface AllianceDiplomacyChronicleEntryDto {
 
 export interface AllianceDiplomacyChronicleDto {
   entries: AllianceDiplomacyChronicleEntryDto[];
+  /** Opaque cursor for the next page, or null when there are no older entries. */
+  nextCursor: string | null;
+}
+
+/** Event types of the internal alliance chronicle; extended by later stages. */
+export enum AllianceChronicleEventType {
+  FOUNDED = 'FOUNDED',
+  MEMBER_JOINED = 'MEMBER_JOINED',
+  MEMBER_LEFT = 'MEMBER_LEFT',
+  MEMBER_KICKED = 'MEMBER_KICKED',
+  ROLE_CHANGED = 'ROLE_CHANGED',
+  PRESIDENCY_TRANSFERRED = 'PRESIDENCY_TRANSFERRED',
+  DETAILS_CHANGED = 'DETAILS_CHANGED',
+}
+
+/** Immutable internal history entry with names as of the event time. */
+export interface AllianceChronicleEntryDto {
+  id: number;
+  type: AllianceChronicleEventType;
+  actor: { userId: number | null; name: string } | null;
+  subject: { userId: number | null; name: string } | null;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string;
+}
+
+export interface AllianceChronicleDto {
+  entries: AllianceChronicleEntryDto[];
   /** Opaque cursor for the next page, or null when there are no older entries. */
   nextCursor: string | null;
 }

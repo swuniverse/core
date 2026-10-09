@@ -27,6 +27,7 @@ import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
 import {
   AllianceDetailPage,
+  AllianceChroniclePage,
   AllianceDiplomacyPage,
   AllianceEditPage,
   AllianceFoundPage,
@@ -148,6 +149,10 @@ export function App() {
             <Route
               path="/alliances/:id/member-overview"
               element={<AllianceMemberOverviewPage />}
+            />
+            <Route
+              path="/alliances/:id/chronicle"
+              element={<AllianceChroniclePage />}
             />
             <Route path="/alliances/:id" element={<AllianceDetailPage />} />
             <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />

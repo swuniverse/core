@@ -20,6 +20,7 @@ import {
 import { ApiError } from '../services/api';
 import type * as ApiModule from '../services/api';
 import {
+  AllianceChroniclePage,
   AllianceDetailPage,
   AllianceDiplomacyPage,
   AllianceEditPage,
@@ -105,6 +106,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         warTargets: [],
         manageDiplomacy: false,
         viewMemberOperations: false,
+        viewChronicle: false,
       },
     },
     ...overrides,
@@ -244,6 +246,10 @@ function renderAt(path: string) {
         <Route
           path="/alliances/:id/diplomacy"
           element={<AllianceDiplomacyPage />}
+        />
+        <Route
+          path="/alliances/:id/chronicle"
+          element={<AllianceChroniclePage />}
         />
         <Route path="/alliances/:id" element={<AllianceDetailPage />} />
         <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />
@@ -639,7 +645,10 @@ describe('AllianceDetailPage', () => {
             actor: { userId: 1, name: 'Leia' },
             firstAlliance: { id: 1, name: 'Rogue Squadron' },
             secondAlliance: { id: 2, name: 'Red Squadron' },
-            relationship: { type: AllianceRelationshipType.WAR, vassalage: null },
+            relationship: {
+              type: AllianceRelationshipType.WAR,
+              vassalage: null,
+            },
             occurredAt: '2026-10-03T12:00:00.000Z',
           },
           {
@@ -668,7 +677,9 @@ describe('AllianceDetailPage', () => {
       screen.getByText(/Freundschaft begonnen: Rogue Squadron – Red Squadron/),
     ).toBeTruthy();
     expect(screen.getByText(/Leia · 03\.10\.2026/)).toBeTruthy();
-    expect(apiMocks.get).toHaveBeenCalledWith('/alliances/1/diplomacy/chronicle');
+    expect(apiMocks.get).toHaveBeenCalledWith(
+      '/alliances/1/diplomacy/chronicle',
+    );
     expect(screen.queryByText('Vertraulicher Vertragsentwurf')).toBeNull();
   });
 
@@ -683,7 +694,10 @@ describe('AllianceDetailPage', () => {
             actor: { userId: 1, name: 'Leia' },
             firstAlliance: { id: 1, name: 'Rogue Squadron' },
             secondAlliance: { id: 2, name: 'Red Squadron' },
-            relationship: { type: AllianceRelationshipType.WAR, vassalage: null },
+            relationship: {
+              type: AllianceRelationshipType.WAR,
+              vassalage: null,
+            },
             occurredAt: '2026-10-03T12:00:00.000Z',
           },
         ],
@@ -716,7 +730,9 @@ describe('AllianceDetailPage', () => {
     );
 
     expect(
-      await screen.findByText(/Freundschaft begonnen: Rogue Squadron – Red Squadron/),
+      await screen.findByText(
+        /Freundschaft begonnen: Rogue Squadron – Red Squadron/,
+      ),
     ).toBeTruthy();
     expect(apiMocks.get).toHaveBeenCalledWith(
       '/alliances/1/diplomacy/chronicle?cursor=older%20page',
@@ -1480,5 +1496,186 @@ describe('AllianceEditPage', () => {
       await screen.findByText('Du darfst diese Allianz nicht bearbeiten.'),
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Speichern' })).toBeNull();
+  });
+
+  describe('alliance chronicle', () => {
+    const entry = (
+      id: number,
+      type: string,
+      actor: string | null,
+      subject: string | null,
+      occurredAt: string,
+    ) => ({
+      id,
+      type,
+      actor: actor ? { userId: 1, name: actor } : null,
+      subject: subject ? { userId: 2, name: subject } : null,
+      metadata: null,
+      occurredAt,
+    });
+
+    it('links the chronicle from the detail page only when the server allows it', async () => {
+      const allowed = detail();
+      allowed.viewer.actions.viewChronicle = true;
+      routeGet({ '/alliances/1': allowed });
+      const { unmount } = renderAt('/alliances/1');
+      const link = await screen.findByRole('link', { name: 'Chronik lesen' });
+      expect(link.getAttribute('href')).toBe('/alliances/1/chronicle');
+      unmount();
+
+      routeGet({ '/alliances/1': detail() });
+      renderAt('/alliances/1');
+      await screen.findByRole('heading', { name: 'Rogue Squadron' });
+      expect(screen.queryByRole('link', { name: 'Chronik lesen' })).toBeNull();
+    });
+
+    it('shows entries with readable German texts', async () => {
+      routeGet({
+        '/alliances/1/chronicle': {
+          entries: [
+            entry(
+              4,
+              'MEMBER_KICKED',
+              'Leia',
+              'Biggs',
+              '2026-10-04T12:00:00.000Z',
+            ),
+            entry(3, 'MEMBER_LEFT', 'Han', 'Han', '2026-10-03T12:00:00.000Z'),
+            entry(
+              2,
+              'MEMBER_JOINED',
+              'Leia',
+              'Han',
+              '2026-10-02T12:00:00.000Z',
+            ),
+            entry(1, 'FOUNDED', 'Leia', null, '2026-10-01T12:00:00.000Z'),
+          ],
+          nextCursor: null,
+        },
+      });
+
+      renderAt('/alliances/1/chronicle');
+
+      expect(
+        await screen.findByText('Leia hat Biggs aus der Allianz geworfen'),
+      ).toBeTruthy();
+      expect(screen.getByText('Han hat die Allianz verlassen')).toBeTruthy();
+      expect(
+        screen.getByText('Leia hat Han in die Allianz aufgenommen'),
+      ).toBeTruthy();
+      expect(screen.getByText('Leia hat die Allianz gegründet')).toBeTruthy();
+      expect(screen.getByText('04.10.2026')).toBeTruthy();
+    });
+
+    it('shows offices, handover and changed details', async () => {
+      const withMeta = (
+        id: number,
+        type: string,
+        actor: string,
+        subject: string | null,
+        metadata: Record<string, unknown>,
+      ) => ({
+        ...entry(id, type, actor, subject, '2026-10-05T12:00:00.000Z'),
+        metadata,
+      });
+      routeGet({
+        '/alliances/1/chronicle': {
+          entries: [
+            withMeta(6, 'DETAILS_CHANGED', 'Leia', null, {
+              fields: ['name', 'homepage', 'titles'],
+              previousName: 'Rogue Squadron',
+              newName: 'Renegade Squadron',
+            }),
+            withMeta(5, 'PRESIDENCY_TRANSFERRED', 'Leia', 'Wedge', {
+              previousRole: 'VICE',
+              previousTitle: 'Vize',
+            }),
+            withMeta(4, 'ROLE_CHANGED', 'Leia', 'Biggs', {
+              previousRole: 'NONE',
+              newRole: 'DIPLOMAT',
+              previousTitle: null,
+              newTitle: 'Botschafter',
+            }),
+            withMeta(3, 'ROLE_CHANGED', 'Leia', 'Han', {
+              previousRole: 'VICE',
+              newRole: 'NONE',
+              previousTitle: 'Vize',
+              newTitle: null,
+            }),
+          ],
+          nextCursor: null,
+        },
+      });
+
+      renderAt('/alliances/1/chronicle');
+
+      expect(
+        await screen.findByText('Leia hat Biggs zum Botschafter ernannt'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText('Leia hat Han vom Amt Vize abgesetzt'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Leia hat die Präsidentschaft an Wedge übergeben (zuvor Vize)',
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Leia hat Allianzdetails geändert: Name, Homepage, Amtstitel; Name von „Rogue Squadron“ zu „Renegade Squadron“',
+        ),
+      ).toBeTruthy();
+    });
+
+    it('loads older entries with the returned cursor', async () => {
+      routeGet({
+        '/alliances/1/chronicle': {
+          entries: [
+            entry(
+              2,
+              'MEMBER_JOINED',
+              'Leia',
+              'Han',
+              '2026-10-02T12:00:00.000Z',
+            ),
+          ],
+          nextCursor: 'older page',
+        },
+        '/alliances/1/chronicle?cursor=older%20page': {
+          entries: [
+            entry(1, 'FOUNDED', 'Leia', null, '2026-10-01T12:00:00.000Z'),
+          ],
+          nextCursor: null,
+        },
+      });
+
+      renderAt('/alliances/1/chronicle');
+      await screen.findByText('Leia hat Han in die Allianz aufgenommen');
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Ältere Einträge laden' }),
+      );
+
+      expect(
+        await screen.findByText('Leia hat die Allianz gegründet'),
+      ).toBeTruthy();
+      expect(apiMocks.get).toHaveBeenCalledWith(
+        '/alliances/1/chronicle?cursor=older%20page',
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Ältere Einträge laden' }),
+      ).toBeNull();
+    });
+
+    it('shows an error when the chronicle is not available', async () => {
+      apiMocks.get.mockRejectedValue(
+        new ApiError(404, 'Die Allianz existiert nicht'),
+      );
+
+      renderAt('/alliances/1/chronicle');
+
+      expect(
+        await screen.findByText('Die Allianz existiert nicht'),
+      ).toBeTruthy();
+    });
   });
 });

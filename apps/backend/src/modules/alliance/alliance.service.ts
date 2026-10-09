@@ -9,6 +9,9 @@ import {
 } from '@nestjs/common';
 import {
   AllianceApplicationDto,
+  AllianceChronicleDto,
+  AllianceChronicleEntryDto,
+  AllianceChronicleEventType,
   AllianceDiplomacyChronicleDto,
   AllianceDiplomacyChronicleEntryDto,
   AllianceDiplomacyChronicleEventType,
@@ -53,6 +56,7 @@ import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import type {
   AllianceConstraint,
+  AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
   AlliancePatch,
   AllianceRecord,
@@ -175,6 +179,35 @@ export class AllianceService {
     };
   }
 
+  /** Internal chronicle: current members of the alliance only, else Not Found. */
+  async listChronicle(
+    viewerId: number,
+    allianceId: number,
+    cursor?: string,
+    limit?: number,
+  ): Promise<AllianceChronicleDto> {
+    const membership = await this.store.findMembership(viewerId);
+    if (!membership || membership.allianceId !== allianceId) {
+      throw new NotFoundException(ERR.allianceNotFound);
+    }
+    const pageSize = Math.min(Math.max(limit ?? 20, 1), 50);
+    const paginationCursor = this.parseChronicleCursor(cursor);
+    const entries = await this.store.listAllianceChronicleEntries(
+      allianceId,
+      paginationCursor,
+      pageSize + 1,
+    );
+    const page = entries.slice(0, pageSize);
+    const last = page.at(-1);
+    return {
+      entries: page.map((entry) => this.toAllianceChronicleEntry(entry)),
+      nextCursor:
+        entries.length > pageSize && last
+          ? this.encodeChronicleCursor(last)
+          : null,
+    };
+  }
+
   async getDetail(
     viewerId: number,
     allianceId: number,
@@ -259,6 +292,7 @@ export class AllianceService {
           declareWar: may('declareWar'),
           manageDiplomacy: may('manageDiplomacy'),
           viewMemberOperations: may('viewMemberOperations'),
+          viewChronicle: ownRole !== null,
           warTargets: may('declareWar')
             ? alliances
                 .filter(
@@ -924,6 +958,13 @@ export class AllianceService {
           userId,
           role: PRESIDENT,
         });
+        await this.appendAllianceChronicle(
+          tx,
+          created.id,
+          AllianceChronicleEventType.FOUNDED,
+          userId,
+          null,
+        );
         const own = await tx.listApplicationsOfPlayer(userId);
         await tx.deleteApplications(own.map((a) => a.id));
         return created;
@@ -1014,6 +1055,13 @@ export class AllianceService {
         userId: application.userId,
         role: NONE,
       });
+      await this.appendAllianceChronicle(
+        tx,
+        alliance.id,
+        AllianceChronicleEventType.MEMBER_JOINED,
+        actorId,
+        application.userId,
+      );
       await tx.deleteApplications(all.map((a) => a.id));
 
       const out: OutgoingMessage[] = [
@@ -1082,6 +1130,13 @@ export class AllianceService {
       }
 
       await tx.deleteMembership(alliance.id, userId);
+      await this.appendAllianceChronicle(
+        tx,
+        alliance.id,
+        AllianceChronicleEventType.MEMBER_LEFT,
+        userId,
+        userId,
+      );
       return members
         .filter((m) => m.role === PRESIDENT || m.role === VICE)
         .filter((m) => m.userId !== userId)
@@ -1113,6 +1168,13 @@ export class AllianceService {
         'kick',
       );
       await tx.deleteMembership(allianceId, targetId);
+      await this.appendAllianceChronicle(
+        tx,
+        allianceId,
+        AllianceChronicleEventType.MEMBER_KICKED,
+        actorId,
+        targetId,
+      );
       return [
         {
           to: targetId,
@@ -1166,7 +1228,24 @@ export class AllianceService {
         targetId,
         action,
       );
+      const previous = await tx.findMembership(targetId);
       await tx.setRole(allianceId, targetId, role);
+      await this.appendAllianceChronicle(
+        tx,
+        allianceId,
+        AllianceChronicleEventType.ROLE_CHANGED,
+        actorId,
+        targetId,
+        {
+          previousRole: previous?.role ?? NONE,
+          newRole: role,
+          previousTitle: this.roleTitle(
+            this.titlesOf(alliance),
+            previous?.role ?? NONE,
+          ),
+          newTitle: this.roleTitle(this.titlesOf(alliance), role),
+        },
+      );
       return [
         {
           to: targetId,
@@ -1196,9 +1275,18 @@ export class AllianceService {
         targetId,
         'transferPresidency',
       );
+      const previous = await tx.findMembership(targetId);
       // Demote first: the partial unique index allows one president only.
       await tx.setRole(allianceId, actorId, NONE);
       await tx.setRole(allianceId, targetId, PRESIDENT);
+      await this.appendAllianceChronicle(
+        tx,
+        allianceId,
+        AllianceChronicleEventType.PRESIDENCY_TRANSFERRED,
+        actorId,
+        targetId,
+        { previousRole: previous?.role ?? NONE },
+      );
       return [
         {
           to: targetId,
@@ -1254,6 +1342,22 @@ export class AllianceService {
         throw new BadRequestException(ERR.nameTaken);
       }
       await tx.updateAlliance(allianceId, patch);
+      const changed = this.changedDetailFields(alliance, patch);
+      if (changed.length > 0) {
+        await this.appendAllianceChronicle(
+          tx,
+          allianceId,
+          AllianceChronicleEventType.DETAILS_CHANGED,
+          actorId,
+          null,
+          {
+            fields: changed,
+            ...(changed.includes('name')
+              ? { previousName: alliance.name, newName: patch.name }
+              : {}),
+          },
+        );
+      }
       if (patch.acceptsApplications !== false) return [];
       const open = await tx.listApplicationsForAlliance(allianceId);
       await tx.deleteApplications(open.map((a) => a.id));
@@ -1697,9 +1801,10 @@ export class AllianceService {
     }
   }
 
-  private encodeChronicleCursor(
-    entry: AllianceDiplomacyChronicleEntryRecord,
-  ): string {
+  private encodeChronicleCursor(entry: {
+    occurredAt: Date;
+    id: number;
+  }): string {
     return Buffer.from(
       JSON.stringify({
         occurredAt: entry.occurredAt.toISOString(),
@@ -1738,6 +1843,67 @@ export class AllianceService {
       },
       occurredAt: entry.occurredAt.toISOString(),
     };
+  }
+
+  private toAllianceChronicleEntry(
+    entry: AllianceChronicleEntryRecord,
+  ): AllianceChronicleEntryDto {
+    return {
+      id: entry.id,
+      type: entry.eventType,
+      actor:
+        entry.actorName === null
+          ? null
+          : { userId: entry.actorUserId, name: entry.actorName },
+      subject:
+        entry.subjectName === null
+          ? null
+          : { userId: entry.subjectUserId, name: entry.subjectName },
+      metadata: entry.metadata,
+      occurredAt: entry.occurredAt.toISOString(),
+    };
+  }
+
+  /** Names of the detail fields a patch actually changes. */
+  private changedDetailFields(
+    alliance: AllianceRecord,
+    patch: AlliancePatch,
+  ): string[] {
+    const differs = (keys: Array<keyof AlliancePatch>) =>
+      keys.some((k) => patch[k] !== undefined && patch[k] !== alliance[k]);
+    const fields: Array<[string, Array<keyof AlliancePatch>]> = [
+      ['name', ['name']],
+      ['description', ['description']],
+      ['homepage', ['homepage']],
+      ['color', ['color']],
+      ['titles', ['presidentTitle', 'viceTitle', 'diplomatTitle']],
+      ['acceptsApplications', ['acceptsApplications']],
+    ];
+    return fields.filter(([, keys]) => differs(keys)).map(([name]) => name);
+  }
+
+  /** Writes an internal chronicle entry inside the caller's transaction. */
+  private async appendAllianceChronicle(
+    tx: AllianceStore,
+    allianceId: number,
+    eventType: AllianceChronicleEventType,
+    actorId: number | null,
+    subjectId: number | null,
+    metadata: Record<string, unknown> | null = null,
+  ): Promise<void> {
+    const [actor, subject] = await Promise.all([
+      actorId === null ? null : tx.findPlayer(actorId),
+      subjectId === null ? null : tx.findPlayer(subjectId),
+    ]);
+    await tx.appendAllianceChronicleEntry({
+      allianceId,
+      eventType,
+      actorUserId: actor?.id ?? null,
+      actorName: actor?.name ?? null,
+      subjectUserId: subject?.id ?? null,
+      subjectName: subject?.name ?? null,
+      metadata,
+    });
   }
 
   private async appendChronicleEntry(
