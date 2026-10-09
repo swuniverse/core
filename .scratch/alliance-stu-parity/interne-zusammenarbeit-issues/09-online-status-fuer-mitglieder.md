@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/09-online-status-fuer-mitglieder.md`)
@@ -15,3 +15,7 @@
 - [ ] Shared DTO erweitert um das optionale Feld.
 - [ ] Die Detailseite zeigt den Status nur bei geliefertem Feld.
 - [ ] `AllianceService`-Verhaltenstests für Mitglied, Mitglied einer anderen Allianz, allianzlosen Spieler und ehemaliges Mitglied; Frontend-Seitentest für Anzeige nur bei geliefertem Feld.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `OnlinePlayersPort` bound to `GameGateway.onlineUserIds`; `online?` only for same-alliance members.
