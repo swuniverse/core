@@ -13,6 +13,7 @@ import {
   AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
+  DiplomacyPartyType,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
 import {
@@ -109,6 +110,67 @@ describe('AllianceService', () => {
       ).resolves.toEqual({
         relationshipId: relationship.id,
         contract: '[b]Gemeinsam[/b]',
+      });
+    });
+
+    it('tags every party in the diplomacy DTOs with its party type without changing alliance-only values', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+      ]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [
+        [2, PRESIDENT],
+      ]);
+      const alliance = DiplomacyPartyType.ALLIANCE;
+
+      const proposal = await service.proposeRelationship(1, rogue.id, {
+        recipientAllianceId: red.id,
+        type: AllianceRelationshipType.VASSALAGE,
+      });
+      expect(await service.listRelationshipProposals(1, rogue.id)).toEqual([
+        expect.objectContaining({
+          senderAllianceId: rogue.id,
+          recipientAllianceId: red.id,
+          senderPartyType: alliance,
+          recipientPartyType: alliance,
+        }),
+      ]);
+      await service.acceptRelationshipProposal(2, proposal.id);
+
+      const detail = await service.getDetail(1, rogue.id);
+      expect(detail.relationships[0]).toMatchObject({
+        counterparty: { id: red.id },
+        counterpartyType: alliance,
+        vassalage: {
+          lordAllianceId: rogue.id,
+          vassalAllianceId: red.id,
+          lordPartyType: alliance,
+          vassalPartyType: alliance,
+        },
+      });
+      const change = await service.proposeRelationshipChange(
+        1,
+        detail.relationships[0].id,
+        { contract: 'neu' },
+      );
+      expect(await service.listRelationshipChangeProposals(2, red.id)).toEqual([
+        expect.objectContaining({
+          id: change.id,
+          senderPartyType: alliance,
+          recipientPartyType: alliance,
+        }),
+      ]);
+      expect(
+        (await service.listDiplomacyChronicle(1, rogue.id)).entries[0],
+      ).toMatchObject({
+        firstPartyType: alliance,
+        secondPartyType: alliance,
+        endReason: null,
+        relationship: {
+          vassalage: { lordPartyType: alliance, vassalPartyType: alliance },
+        },
       });
     });
 

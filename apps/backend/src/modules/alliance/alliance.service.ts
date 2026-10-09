@@ -28,6 +28,7 @@ import {
   AllianceRefDto,
   AllianceRelationshipType,
   AllianceRole,
+  DiplomacyPartyType,
   AllianceSummaryDto,
   AllianceTitlesDto,
   FoundAllianceRequest,
@@ -62,6 +63,14 @@ import {
   AllianceContextCleanup,
 } from './alliance-context-cleanup';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
+import {
+  allianceParty,
+  isAllianceParty,
+  isPair,
+  otherParty,
+  samePartyRef,
+  type PartyRef,
+} from './diplomacy-party';
 import { AllianceBannerService } from './alliance-banner.service';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import type {
@@ -339,8 +348,7 @@ export class AllianceService {
       await this.store.findActiveRelationship(relationshipId);
     if (
       !relationship ||
-      (relationship.firstAllianceId !== allianceId &&
-        relationship.secondAllianceId !== allianceId) ||
+      !this.isPartyOf(relationship, allianceParty(allianceId)) ||
       !relationship.contract
     ) {
       throw new NotFoundException(ERR.relationshipContractNotFound);
@@ -385,8 +393,12 @@ export class AllianceService {
       await tx.replaceRelationshipsWithWar(allianceId, targetAllianceId);
       const relationship = (await tx.listActiveRelationships(allianceId)).find(
         (entry) =>
-          entry.firstAllianceId === Math.min(allianceId, targetAllianceId) &&
-          entry.secondAllianceId === Math.max(allianceId, targetAllianceId),
+          isPair(
+            entry.firstParty,
+            entry.secondParty,
+            allianceParty(allianceId),
+            allianceParty(targetAllianceId),
+          ),
       );
       if (!relationship) throw new Error('War relationship was not created');
       await this.appendChronicleEntry(
@@ -394,8 +406,8 @@ export class AllianceService {
         AllianceDiplomacyChronicleEventType.WAR_DECLARED,
         actorId,
         relationship,
-        relationship.firstAllianceId === alliance.id ? alliance : target,
-        relationship.secondAllianceId === target.id ? target : alliance,
+        this.allianceForParty(relationship.firstParty, [alliance, target]),
+        this.allianceForParty(relationship.secondParty, [alliance, target]),
       );
       const recipients = await tx.listMemberships(targetAllianceId);
       return recipients.map((member) => ({
@@ -452,13 +464,14 @@ export class AllianceService {
           change: change
             ? {
                 ...this.toChangeProposalDto(change),
-                direction:
-                  change.senderAllianceId === allianceId ? 'SENT' : 'RECEIVED',
+                direction: this.isSentBy(change.senderParty, allianceId)
+                  ? 'SENT'
+                  : 'RECEIVED',
               }
             : null,
           capabilities: this.diplomacyCapabilities(
             relationship.type,
-            change?.senderAllianceId === allianceId
+            change && this.isSentBy(change.senderParty, allianceId)
               ? 'SENT'
               : change
                 ? 'RECEIVED'
@@ -468,8 +481,9 @@ export class AllianceService {
         };
       }),
       proposals: proposals.map((proposal) => {
-        const direction =
-          proposal.senderAllianceId === allianceId ? 'SENT' : 'RECEIVED';
+        const direction = this.isSentBy(proposal.senderParty, allianceId)
+          ? 'SENT'
+          : 'RECEIVED';
         return {
           proposal: this.toProposalDto(proposal),
           direction,
@@ -563,8 +577,7 @@ export class AllianceService {
         const membership = await tx.findMembership(actorId);
         if (
           !membership ||
-          (membership.allianceId !== relationship.firstAllianceId &&
-            membership.allianceId !== relationship.secondAllianceId)
+          !this.isPartyOf(relationship, allianceParty(membership.allianceId))
         ) {
           throw new ForbiddenException(ERR.forbidden);
         }
@@ -574,10 +587,9 @@ export class AllianceService {
           membership.allianceId,
           'manageDiplomacy',
         );
-        const recipientAllianceId =
-          relationship.firstAllianceId === sender.id
-            ? relationship.secondAllianceId
-            : relationship.firstAllianceId;
+        const recipientAllianceId = this.allianceIdOfParty(
+          otherParty(relationship, allianceParty(sender.id)),
+        );
         await this.lockedAlliance(tx, recipientAllianceId);
         const contract = this.validateRelationshipContract(request?.contract);
         const permissions = this.validateRelationshipPermissions(
@@ -593,8 +605,8 @@ export class AllianceService {
         }
         const proposal = await tx.insertRelationshipChangeProposal({
           relationshipId,
-          senderAllianceId: sender.id,
-          recipientAllianceId,
+          senderParty: allianceParty(sender.id),
+          recipientParty: allianceParty(recipientAllianceId),
           contract,
           ...permissions,
         });
@@ -625,7 +637,7 @@ export class AllianceService {
       const recipient = await this.lockedAllianceRight(
         tx,
         actorId,
-        proposal.recipientAllianceId,
+        this.allianceIdOfParty(proposal.recipientParty),
         'manageDiplomacy',
       );
       const relationship =
@@ -634,7 +646,9 @@ export class AllianceService {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
       const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(proposal.senderAllianceId);
+      const recipients = await tx.listMemberships(
+        this.allianceIdOfParty(proposal.senderParty),
+      );
       return recipients.map((member) => ({
         to: member.userId,
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} die Beziehungsänderung angenommen`,
@@ -654,14 +668,16 @@ export class AllianceService {
       const recipient = await this.lockedAllianceRight(
         tx,
         actorId,
-        proposal.recipientAllianceId,
+        this.allianceIdOfParty(proposal.recipientParty),
         'manageDiplomacy',
       );
       if (!(await tx.deleteRelationshipChangeProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
       const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(proposal.senderAllianceId);
+      const recipients = await tx.listMemberships(
+        this.allianceIdOfParty(proposal.senderParty),
+      );
       return recipients.map((member) => ({
         to: member.userId,
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} die Beziehungsänderung abgelehnt`,
@@ -681,14 +697,16 @@ export class AllianceService {
       const sender = await this.lockedAllianceRight(
         tx,
         actorId,
-        proposal.senderAllianceId,
+        this.allianceIdOfParty(proposal.senderParty),
         'manageDiplomacy',
       );
       if (!(await tx.deleteRelationshipChangeProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
       const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(proposal.recipientAllianceId);
+      const recipients = await tx.listMemberships(
+        this.allianceIdOfParty(proposal.recipientParty),
+      );
       return recipients.map((member) => ({
         to: member.userId,
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} die Beziehungsänderung zurückgezogen`,
@@ -724,12 +742,13 @@ export class AllianceService {
         const type = request?.type;
         const activeRelationship = (
           await tx.listActiveRelationships(allianceId)
-        ).find(
-          (relationship) =>
-            relationship.firstAllianceId ===
-              Math.min(allianceId, recipientAllianceId) &&
-            relationship.secondAllianceId ===
-              Math.max(allianceId, recipientAllianceId),
+        ).find((relationship) =>
+          isPair(
+            relationship.firstParty,
+            relationship.secondParty,
+            allianceParty(allianceId),
+            allianceParty(recipientAllianceId),
+          ),
         );
         const isOrdinaryType = [
           AllianceRelationshipType.FRIENDSHIP,
@@ -752,8 +771,8 @@ export class AllianceService {
             ? { treatAsFriend: false, shareLivePositions: false }
             : this.validateRelationshipPermissions(type, request?.permissions);
         const proposal = await tx.insertRelationshipProposal({
-          senderAllianceId: allianceId,
-          recipientAllianceId,
+          senderParty: allianceParty(allianceId),
+          recipientParty: allianceParty(recipientAllianceId),
           type,
           contract,
           ...permissions,
@@ -785,8 +804,7 @@ export class AllianceService {
       const membership = await tx.findMembership(actorId);
       if (
         !membership ||
-        (membership.allianceId !== relationship.firstAllianceId &&
-          membership.allianceId !== relationship.secondAllianceId)
+        !this.isPartyOf(relationship, allianceParty(membership.allianceId))
       ) {
         throw new ForbiddenException(ERR.forbidden);
       }
@@ -796,10 +814,9 @@ export class AllianceService {
         membership.allianceId,
         'manageDiplomacy',
       );
-      const counterpartAllianceId =
-        relationship.firstAllianceId === actorAlliance.id
-          ? relationship.secondAllianceId
-          : relationship.firstAllianceId;
+      const counterpartAllianceId = this.allianceIdOfParty(
+        otherParty(relationship, allianceParty(actorAlliance.id)),
+      );
       await this.lockedAlliance(tx, counterpartAllianceId);
       const endedRelationship = await tx.endNonWarRelationship(relationshipId);
       if (!endedRelationship) {
@@ -813,12 +830,14 @@ export class AllianceService {
         AllianceDiplomacyChronicleEventType.RELATIONSHIP_ENDED,
         actorId,
         endedRelationship,
-        endedRelationship.firstAllianceId === actorAlliance.id
-          ? actorAlliance
-          : counterpartAlliance,
-        endedRelationship.secondAllianceId === counterpartAlliance.id
-          ? counterpartAlliance
-          : actorAlliance,
+        this.allianceForParty(endedRelationship.firstParty, [
+          actorAlliance,
+          counterpartAlliance,
+        ]),
+        this.allianceForParty(endedRelationship.secondParty, [
+          actorAlliance,
+          counterpartAlliance,
+        ]),
       );
       const actor = await tx.findPlayer(actorId);
       const recipients = await tx.listMemberships(counterpartAllianceId);
@@ -838,15 +857,18 @@ export class AllianceService {
       const recipient = await this.lockedAllianceRight(
         tx,
         actorId,
-        proposal.recipientAllianceId,
+        this.allianceIdOfParty(proposal.recipientParty),
         'manageDiplomacy',
       );
       const activeRelationship = (
-        await tx.listActiveRelationships(proposal.senderAllianceId)
-      ).find(
-        (relationship) =>
-          relationship.firstAllianceId === proposal.firstAllianceId &&
-          relationship.secondAllianceId === proposal.secondAllianceId,
+        await tx.listActiveRelationships(proposal.senderParty)
+      ).find((relationship) =>
+        isPair(
+          relationship.firstParty,
+          relationship.secondParty,
+          proposal.firstParty,
+          proposal.secondParty,
+        ),
       );
       const proposalIsStillApplicable =
         proposal.type === AllianceRelationshipType.PEACE
@@ -858,7 +880,10 @@ export class AllianceService {
       const relationship = await tx.acceptRelationshipProposal(proposalId);
       if (!relationship)
         throw new NotFoundException(ERR.relationshipProposalNotFound);
-      const sender = await this.lockedAlliance(tx, proposal.senderAllianceId);
+      const sender = await this.lockedAlliance(
+        tx,
+        this.allianceIdOfParty(proposal.senderParty),
+      );
       await this.appendChronicleEntry(
         tx,
         activeRelationship
@@ -866,11 +891,11 @@ export class AllianceService {
           : AllianceDiplomacyChronicleEventType.RELATIONSHIP_STARTED,
         actorId,
         relationship,
-        relationship.firstAllianceId === recipient.id ? recipient : sender,
-        relationship.secondAllianceId === sender.id ? sender : recipient,
+        this.allianceForParty(relationship.firstParty, [recipient, sender]),
+        this.allianceForParty(relationship.secondParty, [recipient, sender]),
       );
       const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(proposal.senderAllianceId);
+      const recipients = await tx.listMemberships(sender.id);
       return recipients.map((member) => ({
         to: member.userId,
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} den Beziehungsvorschlag angenommen`,
@@ -887,14 +912,16 @@ export class AllianceService {
       const recipient = await this.lockedAllianceRight(
         tx,
         actorId,
-        proposal.recipientAllianceId,
+        this.allianceIdOfParty(proposal.recipientParty),
         'manageDiplomacy',
       );
       if (!(await tx.deleteRelationshipProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
       }
       const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(proposal.senderAllianceId);
+      const recipients = await tx.listMemberships(
+        this.allianceIdOfParty(proposal.senderParty),
+      );
       return recipients.map((member) => ({
         to: member.userId,
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${recipient.name} den Beziehungsvorschlag abgelehnt`,
@@ -911,14 +938,16 @@ export class AllianceService {
       const sender = await this.lockedAllianceRight(
         tx,
         actorId,
-        proposal.senderAllianceId,
+        this.allianceIdOfParty(proposal.senderParty),
         'manageDiplomacy',
       );
       if (!(await tx.deleteRelationshipProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
       }
       const actor = await tx.findPlayer(actorId);
-      const recipients = await tx.listMemberships(proposal.recipientAllianceId);
+      const recipients = await tx.listMemberships(
+        this.allianceIdOfParty(proposal.recipientParty),
+      );
       return recipients.map((member) => ({
         to: member.userId,
         body: `${actor?.name ?? UNKNOWN_NAME} hat im Namen der Allianz ${sender.name} den Beziehungsvorschlag zurückgezogen`,
@@ -1655,13 +1684,17 @@ export class AllianceService {
     allianceId: number,
     relationships: AllianceRelationshipRecord[],
   ): Promise<AllianceRelationshipSummaryDto[]> {
-    const counterpartyIds = relationships.map((relationship) =>
-      relationship.firstAllianceId === allianceId
-        ? relationship.secondAllianceId
-        : relationship.firstAllianceId,
-    );
     const counterparties = await Promise.all(
-      counterpartyIds.map((id) => this.store.findAlliance(id)),
+      relationships.map((relationship) => {
+        const counterparty = otherParty(
+          relationship,
+          allianceParty(allianceId),
+        );
+        // Player counterparties are not shown before the settler stages.
+        return isAllianceParty(counterparty)
+          ? this.store.findAlliance(counterparty.id)
+          : null;
+      }),
     );
 
     return relationships.flatMap((relationship, index) => {
@@ -1675,6 +1708,7 @@ export class AllianceService {
             name: counterparty.name,
             color: counterparty.color,
           },
+          counterpartyType: DiplomacyPartyType.ALLIANCE,
           type: relationship.type,
           startedAt: relationship.startedAt.toISOString(),
           permissions: {
@@ -1683,11 +1717,12 @@ export class AllianceService {
           },
           vassalage:
             relationship.type === AllianceRelationshipType.VASSALAGE &&
-            relationship.lordAllianceId !== null &&
-            relationship.vassalAllianceId !== null
+            relationship.lordParty !== null && relationship.vassalParty !== null
               ? {
-                  lordAllianceId: relationship.lordAllianceId,
-                  vassalAllianceId: relationship.vassalAllianceId,
+                  lordAllianceId: relationship.lordParty.id,
+                  vassalAllianceId: relationship.vassalParty.id,
+                  lordPartyType: relationship.lordParty.type,
+                  vassalPartyType: relationship.vassalParty.type,
                 }
               : null,
           hasContract: relationship.contract.length > 0,
@@ -1702,8 +1737,10 @@ export class AllianceService {
     return {
       id: proposal.id,
       relationshipId: proposal.relationshipId,
-      senderAllianceId: proposal.senderAllianceId,
-      recipientAllianceId: proposal.recipientAllianceId,
+      senderAllianceId: proposal.senderParty.id,
+      recipientAllianceId: proposal.recipientParty.id,
+      senderPartyType: proposal.senderParty.type,
+      recipientPartyType: proposal.recipientParty.type,
       contract: proposal.contract,
       permissions: {
         treatAsFriend: proposal.treatAsFriend,
@@ -1718,8 +1755,10 @@ export class AllianceService {
   ): AllianceRelationshipProposalDto {
     return {
       id: proposal.id,
-      senderAllianceId: proposal.senderAllianceId,
-      recipientAllianceId: proposal.recipientAllianceId,
+      senderAllianceId: proposal.senderParty.id,
+      recipientAllianceId: proposal.recipientParty.id,
+      senderPartyType: proposal.senderParty.type,
+      recipientPartyType: proposal.recipientParty.type,
       type: proposal.type,
       contract: proposal.contract,
       permissions: {
@@ -2014,21 +2053,26 @@ export class AllianceService {
           ? null
           : { userId: entry.actorUserId, name: entry.actorName },
       firstAlliance: {
-        id: entry.firstAllianceId,
-        name: entry.firstAllianceName,
+        id: entry.firstParty.id,
+        name: entry.firstPartyName,
       },
       secondAlliance: {
-        id: entry.secondAllianceId,
-        name: entry.secondAllianceName,
+        id: entry.secondParty.id,
+        name: entry.secondPartyName,
       },
+      firstPartyType: entry.firstParty.type,
+      secondPartyType: entry.secondParty.type,
+      endReason: entry.endReason,
       relationship: {
         type: entry.relationshipType,
         vassalage:
-          entry.lordAllianceId === null || entry.vassalAllianceId === null
+          entry.lordParty === null || entry.vassalParty === null
             ? null
             : {
-                lordAllianceId: entry.lordAllianceId,
-                vassalAllianceId: entry.vassalAllianceId,
+                lordAllianceId: entry.lordParty.id,
+                vassalAllianceId: entry.vassalParty.id,
+                lordPartyType: entry.lordParty.type,
+                vassalPartyType: entry.vassalParty.type,
               },
       },
       occurredAt: entry.occurredAt.toISOString(),
@@ -2109,14 +2153,47 @@ export class AllianceService {
       eventType,
       actorUserId: actor?.id ?? null,
       actorName: actor?.name ?? null,
-      firstAllianceId: firstAlliance.id,
-      firstAllianceName: firstAlliance.name,
-      secondAllianceId: secondAlliance.id,
-      secondAllianceName: secondAlliance.name,
+      firstParty: allianceParty(firstAlliance.id),
+      firstPartyName: firstAlliance.name,
+      secondParty: allianceParty(secondAlliance.id),
+      secondPartyName: secondAlliance.name,
       relationshipType: relationship.type,
-      lordAllianceId: relationship.lordAllianceId,
-      vassalAllianceId: relationship.vassalAllianceId,
+      lordParty: relationship.lordParty,
+      vassalParty: relationship.vassalParty,
     });
+  }
+
+  /** The alliance ID of an alliance party; settler parties arrive with later stages. */
+  private allianceIdOfParty(party: PartyRef): number {
+    if (!isAllianceParty(party)) {
+      throw new Error('Player diplomacy parties are not supported here yet');
+    }
+    return party.id;
+  }
+
+  /** The loaded alliance that stands behind `party`. */
+  private allianceForParty(
+    party: PartyRef,
+    candidates: AllianceRecord[],
+  ): AllianceRecord {
+    const allianceId = this.allianceIdOfParty(party);
+    const alliance = candidates.find((candidate) => candidate.id === allianceId);
+    if (!alliance) throw new Error('Diplomacy party alliance was not loaded');
+    return alliance;
+  }
+
+  private isSentBy(sender: PartyRef, allianceId: number): boolean {
+    return samePartyRef(sender, allianceParty(allianceId));
+  }
+
+  private isPartyOf(
+    pair: { firstParty: PartyRef; secondParty: PartyRef },
+    party: PartyRef,
+  ): boolean {
+    return (
+      samePartyRef(pair.firstParty, party) ||
+      samePartyRef(pair.secondParty, party)
+    );
   }
 
   private titlesOf(alliance: AllianceRecord): AllianceTitlesDto {

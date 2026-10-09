@@ -5,6 +5,7 @@ import {
   type Stance,
 } from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
+import { allianceParty, isPair, otherParty, isAllianceParty } from './diplomacy-party';
 import type {
   AllianceRelationshipRecord,
   AllianceStore,
@@ -198,12 +199,13 @@ export class RelationshipResolverService {
   ): Promise<number[]> {
     try {
       const partnerAllianceIds = new Set(
-        (await this.store.listActiveRelationships(membership.allianceId)).map(
-          (relationship) =>
-            relationship.firstAllianceId === membership.allianceId
-              ? relationship.secondAllianceId
-              : relationship.firstAllianceId,
-        ),
+        (await this.store.listActiveRelationships(membership.allianceId))
+          .map((relationship) =>
+            otherParty(relationship, allianceParty(membership.allianceId)),
+          )
+          // Settler partners arrive with the settler-agreement stage.
+          .filter(isAllianceParty)
+          .map((party) => party.id),
       );
       partnerAllianceIds.delete(membership.allianceId);
       const memberships = await Promise.all(
@@ -334,13 +336,11 @@ function relationshipBetween(
   secondAllianceId: number,
 ): AllianceRelationshipRecord | null {
   if (firstAllianceId === secondAllianceId) return null;
+  const first = allianceParty(firstAllianceId);
+  const second = allianceParty(secondAllianceId);
   return (
-    relationships.find(
-      (relationship) =>
-        (relationship.firstAllianceId === firstAllianceId &&
-          relationship.secondAllianceId === secondAllianceId) ||
-        (relationship.firstAllianceId === secondAllianceId &&
-          relationship.secondAllianceId === firstAllianceId),
+    relationships.find((relationship) =>
+      isPair(relationship.firstParty, relationship.secondParty, first, second),
     ) ?? null
   );
 }

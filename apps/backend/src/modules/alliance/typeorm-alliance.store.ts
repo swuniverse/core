@@ -15,6 +15,7 @@ import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialE
 import {
   AllianceRelationshipType,
   AllianceRole,
+  DiplomacyPartyType,
   Faction,
 } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
@@ -46,8 +47,20 @@ import {
   ApplicationRecord,
   FactionRecord,
   MembershipRecord,
+  NewDiplomacyChronicleEntry,
   PlayerRecord,
+  ProposalParties,
+  chronicleEntryParties,
+  proposalParties,
+  relationshipRecordOf,
 } from './alliance.store';
+import {
+  allianceParty,
+  playerParty,
+  toPartyRef,
+  type PartyInput,
+  type PartyRef,
+} from './diplomacy-party';
 
 const CONSTRAINTS: Record<string, AllianceConstraint> = {
   UQ_alliances_name_lower: 'alliance_name',
@@ -131,6 +144,16 @@ function toApplication(application: AllianceApplication): ApplicationRecord {
   };
 }
 
+function partyRefOf(party: DiplomacyParty): PartyRef {
+  if (party.allianceId !== null) return allianceParty(party.allianceId);
+  if (party.userId !== null) return playerParty(party.userId);
+  throw new Error('Diplomacy party has neither alliance nor user');
+}
+
+function chronicleParty(type: DiplomacyPartyType, id: number): PartyRef {
+  return { type, id };
+}
+
 function toChronicleEntry(
   entry: AllianceDiplomacyChronicleEntry,
 ): AllianceDiplomacyChronicleEntryRecord {
@@ -139,13 +162,20 @@ function toChronicleEntry(
     eventType: entry.eventType,
     actorUserId: entry.actorUserId,
     actorName: entry.actorName,
-    firstAllianceId: entry.firstAllianceId,
-    firstAllianceName: entry.firstAllianceName,
-    secondAllianceId: entry.secondAllianceId,
-    secondAllianceName: entry.secondAllianceName,
+    firstParty: chronicleParty(entry.firstPartyType, entry.firstAllianceId),
+    firstPartyName: entry.firstAllianceName,
+    secondParty: chronicleParty(entry.secondPartyType, entry.secondAllianceId),
+    secondPartyName: entry.secondAllianceName,
     relationshipType: entry.relationshipType,
-    lordAllianceId: entry.lordAllianceId,
-    vassalAllianceId: entry.vassalAllianceId,
+    lordParty:
+      entry.lordAllianceId === null
+        ? null
+        : chronicleParty(entry.lordPartyType, entry.lordAllianceId),
+    vassalParty:
+      entry.vassalAllianceId === null
+        ? null
+        : chronicleParty(entry.vassalPartyType, entry.vassalAllianceId),
+    endReason: entry.endReason,
     occurredAt: entry.occurredAt,
   };
 }
@@ -192,19 +222,21 @@ function toAssetDeletion(task: AllianceAssetDeletion): AllianceAssetDeletionReco
 function toRelationship(
   relationship: AllianceRelationship,
 ): AllianceRelationshipRecord {
-  return {
+  return relationshipRecordOf({
     id: relationship.id,
-    firstAllianceId: relationship.firstParty.allianceId!,
-    secondAllianceId: relationship.secondParty.allianceId!,
+    firstParty: partyRefOf(relationship.firstParty),
+    secondParty: partyRefOf(relationship.secondParty),
     type: relationship.type,
     startedAt: relationship.startedAt,
     endedAt: relationship.endedAt,
     contract: relationship.contract,
     treatAsFriend: relationship.treatAsFriend,
     shareLivePositions: relationship.shareLivePositions,
-    lordAllianceId: relationship.lordParty?.allianceId ?? null,
-    vassalAllianceId: relationship.vassalParty?.allianceId ?? null,
-  };
+    lordParty: relationship.lordParty ? partyRefOf(relationship.lordParty) : null,
+    vassalParty: relationship.vassalParty
+      ? partyRefOf(relationship.vassalParty)
+      : null,
+  });
 }
 
 function toProposal(
@@ -212,10 +244,10 @@ function toProposal(
 ): AllianceRelationshipProposalRecord {
   return {
     id: proposal.id,
-    firstAllianceId: proposal.firstParty.allianceId!,
-    secondAllianceId: proposal.secondParty.allianceId!,
-    senderAllianceId: proposal.senderParty.allianceId!,
-    recipientAllianceId: proposal.recipientParty.allianceId!,
+    firstParty: partyRefOf(proposal.firstParty),
+    secondParty: partyRefOf(proposal.secondParty),
+    senderParty: partyRefOf(proposal.senderParty),
+    recipientParty: partyRefOf(proposal.recipientParty),
     type: proposal.type,
     contract: proposal.contract,
     treatAsFriend: proposal.treatAsFriend,
@@ -230,8 +262,8 @@ function toChangeProposal(
   return {
     id: proposal.id,
     relationshipId: proposal.relationshipId,
-    senderAllianceId: proposal.senderParty.allianceId!,
-    recipientAllianceId: proposal.recipientParty.allianceId!,
+    senderParty: partyRefOf(proposal.senderParty),
+    recipientParty: partyRefOf(proposal.recipientParty),
     contract: proposal.contract,
     treatAsFriend: proposal.treatAsFriend,
     shareLivePositions: proposal.shareLivePositions,
@@ -298,7 +330,81 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return alliances.map(toAlliance);
   }
 
-  async listActiveRelationships(allianceId: number) {
+  /**
+   * Resolves parties to their persistence rows, ordered by row ID and (inside
+   * a transaction) locked in that order so concurrent writers on the same
+   * pair serialize without deadlocking. With `create`, missing player
+   * parties are created first; concurrent creators converge on one row.
+   */
+  private async partyRows(
+    refs: PartyRef[],
+    { create }: { create: boolean },
+  ): Promise<Map<string, DiplomacyParty>> {
+    const unique = [
+      ...new Map(refs.map((ref) => [`${ref.type}:${ref.id}`, ref])).values(),
+    ];
+    const players = unique.filter(
+      (ref) => ref.type === DiplomacyPartyType.PLAYER,
+    );
+    const alliances = unique.filter(
+      (ref) => ref.type === DiplomacyPartyType.ALLIANCE,
+    );
+    if (create) {
+      for (const ref of players) {
+        await this.manager.query(
+          'INSERT INTO "diplomacy_parties" ("userId") VALUES ($1) ON CONFLICT ("userId") WHERE "userId" IS NOT NULL DO NOTHING',
+          [ref.id],
+        );
+      }
+    }
+    const query = this.manager
+      .createQueryBuilder(DiplomacyParty, 'party')
+      .where('1 = 0');
+    if (alliances.length) {
+      query.orWhere('party.allianceId IN (:...allianceIds)', {
+        allianceIds: alliances.map((ref) => ref.id),
+      });
+    }
+    if (players.length) {
+      query.orWhere('party.userId IN (:...userIds)', {
+        userIds: players.map((ref) => ref.id),
+      });
+    }
+    query.orderBy('party.id', 'ASC');
+    if (this.inTransaction) query.setLock('pessimistic_write');
+    const rows = await query.getMany();
+    return new Map(
+      rows.map((row) => {
+        const ref = partyRefOf(row);
+        return [`${ref.type}:${ref.id}`, row];
+      }),
+    );
+  }
+
+  private requiredParty(
+    rows: Map<string, DiplomacyParty>,
+    ref: PartyRef,
+  ): DiplomacyParty {
+    const row = rows.get(`${ref.type}:${ref.id}`);
+    if (!row) throw new Error('Diplomacy parties are missing');
+    return row;
+  }
+
+  /** SQL condition: the party row aliased `alias` is `ref`. */
+  private partyCondition(alias: string, ref: PartyRef, parameter: string) {
+    return {
+      sql:
+        ref.type === DiplomacyPartyType.ALLIANCE
+          ? `${alias}.allianceId = :${parameter}`
+          : `${alias}.userId = :${parameter}`,
+      parameters: { [parameter]: ref.id },
+    };
+  }
+
+  async listActiveRelationships(partyInput: PartyInput) {
+    const ref = toPartyRef(partyInput);
+    const first = this.partyCondition('firstParty', ref, 'id');
+    const second = this.partyCondition('secondParty', ref, 'id');
     const relationships = await this.manager
       .createQueryBuilder(AllianceRelationship, 'relationship')
       .innerJoinAndSelect('relationship.firstParty', 'firstParty')
@@ -306,10 +412,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .leftJoinAndSelect('relationship.lordParty', 'lordParty')
       .leftJoinAndSelect('relationship.vassalParty', 'vassalParty')
       .where('relationship.endedAt IS NULL')
-      .andWhere(
-        '(firstParty.allianceId = :allianceId OR secondParty.allianceId = :allianceId)',
-        { allianceId },
-      )
+      .andWhere(`(${first.sql} OR ${second.sql})`, first.parameters)
       .orderBy('relationship.startedAt', 'DESC')
       .addOrderBy('relationship.id', 'DESC')
       .getMany();
@@ -330,29 +433,17 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async replaceRelationshipsWithWar(
-    firstAllianceId: number,
-    secondAllianceId: number,
+    firstInput: PartyInput,
+    secondInput: PartyInput,
   ) {
-    const [firstAllianceIdCanonical, secondAllianceIdCanonical] = [
-      Math.min(firstAllianceId, secondAllianceId),
-      Math.max(firstAllianceId, secondAllianceId),
-    ];
-    const parties = await this.manager
-      .createQueryBuilder(DiplomacyParty, 'party')
-      .where('party.allianceId IN (:...allianceIds)', {
-        allianceIds: [firstAllianceIdCanonical, secondAllianceIdCanonical],
-      })
-      .orderBy('party.allianceId', 'ASC')
-      .setLock('pessimistic_write')
-      .getMany();
-    const partyByAllianceId = new Map(
-      parties.map((party) => [party.allianceId, party]),
+    const rows = await this.partyRows(
+      [toPartyRef(firstInput), toPartyRef(secondInput)],
+      { create: true },
     );
-    const firstParty = partyByAllianceId.get(firstAllianceIdCanonical);
-    const secondParty = partyByAllianceId.get(secondAllianceIdCanonical);
-    if (!firstParty || !secondParty) {
-      throw new Error('Alliance diplomacy parties are missing');
-    }
+    const [firstParty, secondParty] = [
+      this.requiredParty(rows, toPartyRef(firstInput)),
+      this.requiredParty(rows, toPartyRef(secondInput)),
+    ].sort((a, b) => a.id - b.id);
     await this.manager
       .createQueryBuilder()
       .update(AllianceRelationship)
@@ -390,17 +481,17 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     });
   }
 
-  async listRelationshipProposals(allianceId: number) {
+  async listRelationshipProposals(partyInput: PartyInput) {
+    const ref = toPartyRef(partyInput);
+    const sender = this.partyCondition('senderParty', ref, 'id');
+    const recipient = this.partyCondition('recipientParty', ref, 'id');
     const proposals = await this.manager
       .createQueryBuilder(AllianceRelationshipProposal, 'proposal')
       .innerJoinAndSelect('proposal.firstParty', 'firstParty')
       .innerJoinAndSelect('proposal.secondParty', 'secondParty')
       .innerJoinAndSelect('proposal.senderParty', 'senderParty')
       .innerJoinAndSelect('proposal.recipientParty', 'recipientParty')
-      .where(
-        '(senderParty.allianceId = :allianceId OR recipientParty.allianceId = :allianceId)',
-        { allianceId },
-      )
+      .where(`(${sender.sql} OR ${recipient.sql})`, sender.parameters)
       .orderBy('proposal.createdAt', 'DESC')
       .addOrderBy('proposal.id', 'DESC')
       .getMany();
@@ -419,38 +510,22 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return proposal ? toProposal(proposal) : null;
   }
 
-  async insertRelationshipProposal(data: {
-    senderAllianceId: number;
-    recipientAllianceId: number;
-    type: AllianceRelationshipType;
-    contract: string;
-    treatAsFriend: boolean;
-    shareLivePositions: boolean;
-  }) {
-    const [firstAllianceId, secondAllianceId] = [
-      Math.min(data.senderAllianceId, data.recipientAllianceId),
-      Math.max(data.senderAllianceId, data.recipientAllianceId),
-    ];
-    const partyQuery = this.manager
-      .createQueryBuilder(DiplomacyParty, 'party')
-      .where('party.allianceId IN (:...allianceIds)', {
-        allianceIds: [firstAllianceId, secondAllianceId],
-      })
-      .orderBy('party.allianceId', 'ASC');
-    if (this.inTransaction) {
-      partyQuery.setLock('pessimistic_write');
-    }
-    const parties = await partyQuery.getMany();
-    const partyByAllianceId = new Map(
-      parties.map((party) => [party.allianceId, party]),
+  async insertRelationshipProposal(
+    data: ProposalParties & {
+      type: AllianceRelationshipType;
+      contract: string;
+      treatAsFriend: boolean;
+      shareLivePositions: boolean;
+    },
+  ) {
+    const { senderParty: sender, recipientParty: recipient } =
+      proposalParties(data);
+    const rows = await this.partyRows([sender, recipient], { create: true });
+    const senderParty = this.requiredParty(rows, sender);
+    const recipientParty = this.requiredParty(rows, recipient);
+    const [firstParty, secondParty] = [senderParty, recipientParty].sort(
+      (a, b) => a.id - b.id,
     );
-    const firstParty = partyByAllianceId.get(firstAllianceId);
-    const secondParty = partyByAllianceId.get(secondAllianceId);
-    const senderParty = partyByAllianceId.get(data.senderAllianceId);
-    const recipientParty = partyByAllianceId.get(data.recipientAllianceId);
-    if (!firstParty || !secondParty || !senderParty || !recipientParty) {
-      throw new Error('Alliance diplomacy parties are missing');
-    }
     try {
       const result = await this.manager
         .createQueryBuilder()
@@ -544,15 +619,15 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return relationship;
   }
 
-  async listRelationshipChangeProposals(allianceId: number) {
+  async listRelationshipChangeProposals(partyInput: PartyInput) {
+    const ref = toPartyRef(partyInput);
+    const sender = this.partyCondition('senderParty', ref, 'id');
+    const recipient = this.partyCondition('recipientParty', ref, 'id');
     const proposals = await this.manager
       .createQueryBuilder(AllianceRelationshipChangeProposal, 'proposal')
       .innerJoinAndSelect('proposal.senderParty', 'senderParty')
       .innerJoinAndSelect('proposal.recipientParty', 'recipientParty')
-      .where(
-        '(senderParty.allianceId = :allianceId OR recipientParty.allianceId = :allianceId)',
-        { allianceId },
-      )
+      .where(`(${sender.sql} OR ${recipient.sql})`, sender.parameters)
       .orderBy('proposal.createdAt', 'DESC')
       .addOrderBy('proposal.id', 'DESC')
       .getMany();
@@ -569,30 +644,19 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return proposal ? toChangeProposal(proposal) : null;
   }
 
-  async insertRelationshipChangeProposal(data: {
-    relationshipId: number;
-    senderAllianceId: number;
-    recipientAllianceId: number;
-    contract: string;
-    treatAsFriend: boolean;
-    shareLivePositions: boolean;
-  }) {
-    const parties = await this.manager
-      .createQueryBuilder(DiplomacyParty, 'party')
-      .where('party.allianceId IN (:...allianceIds)', {
-        allianceIds: [data.senderAllianceId, data.recipientAllianceId],
-      })
-      .orderBy('party.allianceId', 'ASC')
-      .setLock('pessimistic_write')
-      .getMany();
-    const partyByAllianceId = new Map(
-      parties.map((party) => [party.allianceId, party]),
-    );
-    const senderParty = partyByAllianceId.get(data.senderAllianceId);
-    const recipientParty = partyByAllianceId.get(data.recipientAllianceId);
-    if (!senderParty || !recipientParty) {
-      throw new Error('Alliance diplomacy parties are missing');
-    }
+  async insertRelationshipChangeProposal(
+    data: ProposalParties & {
+      relationshipId: number;
+      contract: string;
+      treatAsFriend: boolean;
+      shareLivePositions: boolean;
+    },
+  ) {
+    const { senderParty: sender, recipientParty: recipient } =
+      proposalParties(data);
+    const rows = await this.partyRows([sender, recipient], { create: false });
+    const senderParty = this.requiredParty(rows, sender);
+    const recipientParty = this.requiredParty(rows, recipient);
     await this.manager.findOne(AllianceRelationship, {
       where: { id: data.relationshipId },
       lock: { mode: 'pessimistic_write' },
@@ -674,10 +738,25 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     return updatedRelationship;
   }
 
-  async appendDiplomacyChronicleEntry(
-    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
-  ) {
-    await this.manager.insert(AllianceDiplomacyChronicleEntry, data);
+  async appendDiplomacyChronicleEntry(data: NewDiplomacyChronicleEntry) {
+    const parties = chronicleEntryParties(data);
+    await this.manager.insert(AllianceDiplomacyChronicleEntry, {
+      eventType: data.eventType,
+      actorUserId: data.actorUserId,
+      actorName: data.actorName,
+      firstPartyType: parties.firstParty.type,
+      firstAllianceId: parties.firstParty.id,
+      firstAllianceName: parties.firstPartyName,
+      secondPartyType: parties.secondParty.type,
+      secondAllianceId: parties.secondParty.id,
+      secondAllianceName: parties.secondPartyName,
+      relationshipType: data.relationshipType,
+      lordPartyType: parties.lordParty?.type ?? DiplomacyPartyType.ALLIANCE,
+      lordAllianceId: parties.lordParty?.id ?? null,
+      vassalPartyType: parties.vassalParty?.type ?? DiplomacyPartyType.ALLIANCE,
+      vassalAllianceId: parties.vassalParty?.id ?? null,
+      endReason: data.endReason ?? null,
+    });
   }
 
   async appendAllianceChronicleEntry(
@@ -710,15 +789,16 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
   }
 
   async listDiplomacyChronicleEntries(
-    allianceId: number,
+    partyInput: PartyInput,
     cursor: { occurredAt: Date; id: number } | null,
     limit: number,
   ) {
+    const ref = toPartyRef(partyInput);
     const query = this.manager
       .createQueryBuilder(AllianceDiplomacyChronicleEntry, 'entry')
       .where(
-        '(entry.firstAllianceId = :allianceId OR entry.secondAllianceId = :allianceId)',
-        { allianceId },
+        '((entry.firstPartyType = :partyType AND entry.firstAllianceId = :partyId) OR (entry.secondPartyType = :partyType AND entry.secondAllianceId = :partyId))',
+        { partyType: ref.type, partyId: ref.id },
       )
       .orderBy('entry.occurredAt', 'DESC')
       .addOrderBy('entry.id', 'DESC')
@@ -901,12 +981,15 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     await this.manager.delete(AllianceRelationshipChangeProposal, {
       relationshipId: relationship.id,
     });
-    relationship.endedAt = new Date();
-    return toRelationship({
-      ...relationship,
-      firstParty: { allianceId: relationship.firstPartyId } as DiplomacyParty,
-      secondParty: { allianceId: relationship.secondPartyId } as DiplomacyParty,
-    });
+    const ended = await this.manager
+      .createQueryBuilder(AllianceRelationship, 'relationship')
+      .innerJoinAndSelect('relationship.firstParty', 'firstParty')
+      .innerJoinAndSelect('relationship.secondParty', 'secondParty')
+      .leftJoinAndSelect('relationship.lordParty', 'lordParty')
+      .leftJoinAndSelect('relationship.vassalParty', 'vassalParty')
+      .where('relationship.id = :id', { id })
+      .getOneOrFail();
+    return toRelationship(ended);
   }
 
   async countMembers() {

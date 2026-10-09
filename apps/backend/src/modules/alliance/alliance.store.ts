@@ -1,11 +1,20 @@
 import type { AllianceTransactionHandle } from './alliance-context-cleanup';
 import type {
   AllianceChronicleEventType,
+  AllianceDiplomacyChronicleEndReason,
   AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
   Faction,
 } from '@swuniverse/shared';
+
+import {
+  allianceIdOf,
+  allianceParty,
+  toPartyRef,
+  type PartyInput,
+  type PartyRef,
+} from './diplomacy-party';
 
 export const ALLIANCE_STORE = Symbol('ALLIANCE_STORE');
 
@@ -55,26 +64,36 @@ export interface FactionRecord {
   name: string;
 }
 
+/**
+ * An active or ended relationship between two parties. `firstParty` /
+ * `secondParty` are in canonical order. The `*AllianceId` fields are the
+ * alliance-ID view of the parties: the alliance ID for an alliance party and
+ * null for a player party.
+ */
 export interface AllianceRelationshipRecord {
   id: number;
-  firstAllianceId: number;
-  secondAllianceId: number;
+  firstParty: PartyRef;
+  secondParty: PartyRef;
+  firstAllianceId: number | null;
+  secondAllianceId: number | null;
   type: AllianceRelationshipType;
   startedAt: Date;
   endedAt: Date | null;
   contract: string;
   treatAsFriend: boolean;
   shareLivePositions: boolean;
+  lordParty: PartyRef | null;
+  vassalParty: PartyRef | null;
   lordAllianceId: number | null;
   vassalAllianceId: number | null;
 }
 
 export interface AllianceRelationshipProposalRecord {
   id: number;
-  firstAllianceId: number;
-  secondAllianceId: number;
-  senderAllianceId: number;
-  recipientAllianceId: number;
+  firstParty: PartyRef;
+  secondParty: PartyRef;
+  senderParty: PartyRef;
+  recipientParty: PartyRef;
   type: AllianceRelationshipType;
   contract: string;
   treatAsFriend: boolean;
@@ -85,8 +104,8 @@ export interface AllianceRelationshipProposalRecord {
 export interface AllianceRelationshipChangeProposalRecord {
   id: number;
   relationshipId: number;
-  senderAllianceId: number;
-  recipientAllianceId: number;
+  senderParty: PartyRef;
+  recipientParty: PartyRef;
   contract: string;
   treatAsFriend: boolean;
   shareLivePositions: boolean;
@@ -98,15 +117,50 @@ export interface AllianceDiplomacyChronicleEntryRecord {
   eventType: AllianceDiplomacyChronicleEventType;
   actorUserId: number | null;
   actorName: string | null;
-  firstAllianceId: number;
-  firstAllianceName: string;
-  secondAllianceId: number;
-  secondAllianceName: string;
+  firstParty: PartyRef;
+  /** Party name at event time. */
+  firstPartyName: string;
+  secondParty: PartyRef;
+  secondPartyName: string;
   relationshipType: AllianceRelationshipType;
-  lordAllianceId: number | null;
-  vassalAllianceId: number | null;
+  lordParty: PartyRef | null;
+  vassalParty: PartyRef | null;
+  /** Why the relationship ended without a party's own action, if so. */
+  endReason: AllianceDiplomacyChronicleEndReason | null;
   occurredAt: Date;
 }
+
+/** A chronicle entry to append; `endReason` defaults to none. */
+export type NewDiplomacyChronicleEntry = {
+  eventType: AllianceDiplomacyChronicleEventType;
+  actorUserId: number | null;
+  actorName: string | null;
+  relationshipType: AllianceRelationshipType;
+  endReason?: AllianceDiplomacyChronicleEndReason | null;
+} & (
+  | {
+      firstParty: PartyRef;
+      firstPartyName: string;
+      secondParty: PartyRef;
+      secondPartyName: string;
+      lordParty: PartyRef | null;
+      vassalParty: PartyRef | null;
+    }
+  | {
+      /** Alliance-only shorthand. */
+      firstAllianceId: number;
+      firstAllianceName: string;
+      secondAllianceId: number;
+      secondAllianceName: string;
+      lordAllianceId: number | null;
+      vassalAllianceId: number | null;
+    }
+);
+
+/** Sender and recipient of a proposal; bare alliance IDs are shorthand. */
+export type ProposalParties =
+  | { senderParty: PartyInput; recipientParty: PartyInput }
+  | { senderAllianceId: number; recipientAllianceId: number };
 
 /** Immutable internal chronicle entry; names are as of the event time. */
 export interface AllianceChronicleEntryRecord {
@@ -206,49 +260,56 @@ export interface AllianceStore {
   updateAlliance(id: number, patch: AlliancePatch): Promise<void>;
   deleteAlliance(id: number): Promise<void>;
 
-  /** Active relationships involving an alliance, newest first. */
+  /**
+   * Active relationships involving a party, newest first. A bare number is
+   * the alliance with that ID.
+   */
   listActiveRelationships(
-    allianceId: number,
+    party: PartyInput,
   ): Promise<AllianceRelationshipRecord[]>;
   findActiveRelationship(
     id: number,
   ): Promise<AllianceRelationshipRecord | null>;
+  /**
+   * Replaces everything between two parties (relationship, proposal, pending
+   * changes) with an active war. Creates missing player parties.
+   */
   replaceRelationshipsWithWar(
-    firstAllianceId: number,
-    secondAllianceId: number,
+    first: PartyInput,
+    second: PartyInput,
   ): Promise<void>;
   listRelationshipProposals(
-    allianceId: number,
+    party: PartyInput,
   ): Promise<AllianceRelationshipProposalRecord[]>;
   findRelationshipProposal(
     id: number,
   ): Promise<AllianceRelationshipProposalRecord | null>;
-  insertRelationshipProposal(data: {
-    senderAllianceId: number;
-    recipientAllianceId: number;
-    type: AllianceRelationshipType;
-    contract: string;
-    treatAsFriend: boolean;
-    shareLivePositions: boolean;
-  }): Promise<AllianceRelationshipProposalRecord>;
+  insertRelationshipProposal(
+    data: ProposalParties & {
+      type: AllianceRelationshipType;
+      contract: string;
+      treatAsFriend: boolean;
+      shareLivePositions: boolean;
+    },
+  ): Promise<AllianceRelationshipProposalRecord>;
   deleteRelationshipProposal(id: number): Promise<boolean>;
   acceptRelationshipProposal(
     id: number,
   ): Promise<AllianceRelationshipRecord | null>;
   listRelationshipChangeProposals(
-    allianceId: number,
+    party: PartyInput,
   ): Promise<AllianceRelationshipChangeProposalRecord[]>;
   findRelationshipChangeProposal(
     id: number,
   ): Promise<AllianceRelationshipChangeProposalRecord | null>;
-  insertRelationshipChangeProposal(data: {
-    relationshipId: number;
-    senderAllianceId: number;
-    recipientAllianceId: number;
-    contract: string;
-    treatAsFriend: boolean;
-    shareLivePositions: boolean;
-  }): Promise<AllianceRelationshipChangeProposalRecord>;
+  insertRelationshipChangeProposal(
+    data: ProposalParties & {
+      relationshipId: number;
+      contract: string;
+      treatAsFriend: boolean;
+      shareLivePositions: boolean;
+    },
+  ): Promise<AllianceRelationshipChangeProposalRecord>;
   deleteRelationshipChangeProposal(id: number): Promise<boolean>;
   acceptRelationshipChangeProposal(
     id: number,
@@ -257,11 +318,11 @@ export interface AllianceStore {
   endNonWarRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
 
   appendDiplomacyChronicleEntry(
-    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
+    data: NewDiplomacyChronicleEntry,
   ): Promise<void>;
   /** Stable reverse chronological keyset pagination. */
   listDiplomacyChronicleEntries(
-    allianceId: number,
+    party: PartyInput,
     cursor: { occurredAt: Date; id: number } | null,
     limit: number,
   ): Promise<AllianceDiplomacyChronicleEntryRecord[]>;
@@ -363,4 +424,72 @@ export interface AllianceStore {
   }): Promise<ApplicationRecord>;
   /** Returns the number of applications actually deleted. */
   deleteApplications(ids: number[]): Promise<number>;
+}
+
+/** Normalizes the alliance-ID shorthand of proposal parties. */
+export function proposalParties(data: ProposalParties): {
+  senderParty: PartyRef;
+  recipientParty: PartyRef;
+} {
+  return 'senderParty' in data
+    ? {
+        senderParty: toPartyRef(data.senderParty),
+        recipientParty: toPartyRef(data.recipientParty),
+      }
+    : {
+        senderParty: allianceParty(data.senderAllianceId),
+        recipientParty: allianceParty(data.recipientAllianceId),
+      };
+}
+
+/** Normalizes a chronicle entry to its party form. */
+export function chronicleEntryParties(data: NewDiplomacyChronicleEntry): {
+  firstParty: PartyRef;
+  firstPartyName: string;
+  secondParty: PartyRef;
+  secondPartyName: string;
+  lordParty: PartyRef | null;
+  vassalParty: PartyRef | null;
+} {
+  if ('firstParty' in data) {
+    return {
+      firstParty: data.firstParty,
+      firstPartyName: data.firstPartyName,
+      secondParty: data.secondParty,
+      secondPartyName: data.secondPartyName,
+      lordParty: data.lordParty,
+      vassalParty: data.vassalParty,
+    };
+  }
+  return {
+    firstParty: allianceParty(data.firstAllianceId),
+    firstPartyName: data.firstAllianceName,
+    secondParty: allianceParty(data.secondAllianceId),
+    secondPartyName: data.secondAllianceName,
+    lordParty:
+      data.lordAllianceId === null ? null : allianceParty(data.lordAllianceId),
+    vassalParty:
+      data.vassalAllianceId === null
+        ? null
+        : allianceParty(data.vassalAllianceId),
+  };
+}
+
+/** Derives the alliance-ID view of a relationship from its parties. */
+export function relationshipRecordOf(
+  base: Omit<
+    AllianceRelationshipRecord,
+    | 'firstAllianceId'
+    | 'secondAllianceId'
+    | 'lordAllianceId'
+    | 'vassalAllianceId'
+  >,
+): AllianceRelationshipRecord {
+  return {
+    ...base,
+    firstAllianceId: allianceIdOf(base.firstParty),
+    secondAllianceId: allianceIdOf(base.secondParty),
+    lordAllianceId: allianceIdOf(base.lordParty),
+    vassalAllianceId: allianceIdOf(base.vassalParty),
+  };
 }

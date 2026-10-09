@@ -2,8 +2,19 @@ import type { AllianceTransactionHandle } from '../alliance-context-cleanup';
 import {
   AllianceRelationshipType,
   AllianceRole,
+  DiplomacyPartyType,
   Faction,
 } from '@swuniverse/shared';
+import {
+  allianceParty,
+  comparePartyRefs,
+  involvesParty,
+  isPair,
+  samePartyRef,
+  toPartyRef,
+  type PartyInput,
+  type PartyRef,
+} from '../diplomacy-party';
 import {
   AllianceConstraintViolation,
   AllianceChronicleEntryRecord,
@@ -19,7 +30,12 @@ import {
   AllianceRelationshipRecord,
   FactionRecord,
   MembershipRecord,
+  NewDiplomacyChronicleEntry,
   PlayerRecord,
+  ProposalParties,
+  chronicleEntryParties,
+  proposalParties,
+  relationshipRecordOf,
 } from '../alliance.store';
 import { DEFAULT_ALLIANCE_TITLES } from '../alliance.constants';
 
@@ -137,41 +153,45 @@ export class InMemoryAllianceStore implements AllianceStore {
   seedActiveAllianceRelationship(
     data: Omit<
       Partial<AllianceRelationshipRecord>,
-      'id' | 'firstAllianceId' | 'secondAllianceId' | 'startedAt' | 'endedAt'
+      | 'id'
+      | 'firstAllianceId'
+      | 'secondAllianceId'
+      | 'firstParty'
+      | 'secondParty'
+      | 'lordParty'
+      | 'vassalParty'
+      | 'startedAt'
+      | 'endedAt'
     > & {
-      firstAllianceId: number;
-      secondAllianceId: number;
+      /** Alliance-ID shorthand for two alliance parties. */
+      firstAllianceId?: number;
+      secondAllianceId?: number;
+      /** Explicit parties; take precedence over the shorthand. */
+      firstParty?: PartyRef;
+      secondParty?: PartyRef;
+      lordParty?: PartyRef | null;
+      vassalParty?: PartyRef | null;
       type: AllianceRelationshipType;
     },
   ): AllianceRelationshipRecord {
-    const firstAllianceId = Math.min(
-      data.firstAllianceId,
-      data.secondAllianceId,
-    );
-    const secondAllianceId = Math.max(
-      data.firstAllianceId,
-      data.secondAllianceId,
-    );
-    if (firstAllianceId === secondAllianceId) {
-      throw new Error('Alliance relationships need two distinct alliances');
+    const [firstParty, secondParty] = [
+      data.firstParty ?? allianceParty(data.firstAllianceId!),
+      data.secondParty ?? allianceParty(data.secondAllianceId!),
+    ].sort(comparePartyRefs);
+    if (samePartyRef(firstParty, secondParty)) {
+      throw new Error('Alliance relationships need two distinct parties');
     }
-    const first = this.state.alliances.find(
-      (alliance) => alliance.id === firstAllianceId,
-    );
-    const second = this.state.alliances.find(
-      (alliance) => alliance.id === secondAllianceId,
-    );
-    if (!first || !second || first.factionId !== second.factionId) {
-      throw new Error(
-        'Alliance relationships need alliances from the same faction',
-      );
-    }
+    this.assertSameFaction(firstParty, secondParty);
     if (
       this.state.relationships.some(
         (relationship) =>
           relationship.endedAt === null &&
-          relationship.firstAllianceId === firstAllianceId &&
-          relationship.secondAllianceId === secondAllianceId,
+          isPair(
+            relationship.firstParty,
+            relationship.secondParty,
+            firstParty,
+            secondParty,
+          ),
       )
     ) {
       throw new Error('Alliance relationship already active for this pair');
@@ -180,30 +200,36 @@ export class InMemoryAllianceStore implements AllianceStore {
       data.type,
       data.contract,
     );
-    const lordAllianceId = data.lordAllianceId ?? null;
-    const vassalAllianceId = data.vassalAllianceId ?? null;
+    const lordParty =
+      data.lordParty ??
+      (data.lordAllianceId == null ? null : allianceParty(data.lordAllianceId));
+    const vassalParty =
+      data.vassalParty ??
+      (data.vassalAllianceId == null
+        ? null
+        : allianceParty(data.vassalAllianceId));
     this.assertRelationshipShape({
       type: data.type,
-      firstAllianceId,
-      secondAllianceId,
+      firstParty,
+      secondParty,
       treatAsFriend: data.treatAsFriend ?? false,
       shareLivePositions: data.shareLivePositions ?? false,
-      lordAllianceId,
-      vassalAllianceId,
+      lordParty,
+      vassalParty,
     });
-    const relationship: AllianceRelationshipRecord = {
+    const relationship = relationshipRecordOf({
       id: this.nextId(),
-      firstAllianceId,
-      secondAllianceId,
+      firstParty,
+      secondParty,
       type: data.type,
       startedAt: this.now(),
       endedAt: null,
       contract,
       treatAsFriend: data.treatAsFriend ?? false,
       shareLivePositions: data.shareLivePositions ?? false,
-      lordAllianceId,
-      vassalAllianceId,
-    };
+      lordParty,
+      vassalParty,
+    });
     this.state.relationships.push(relationship);
     return relationship;
   }
@@ -303,15 +329,22 @@ export class InMemoryAllianceStore implements AllianceStore {
       this.state.allianceChronicleEntries.filter(
         (entry) => entry.allianceId !== id,
       );
+    const party = allianceParty(id);
+    const goneRelationshipIds = new Set(
+      this.state.relationships
+        .filter((relationship) => involvesParty(relationship, party))
+        .map((relationship) => relationship.id),
+    );
     this.state.relationships = this.state.relationships.filter(
-      (relationship) =>
-        relationship.firstAllianceId !== id &&
-        relationship.secondAllianceId !== id,
+      (relationship) => !goneRelationshipIds.has(relationship.id),
     );
     this.state.relationshipProposals = this.state.relationshipProposals.filter(
-      (proposal) =>
-        proposal.firstAllianceId !== id && proposal.secondAllianceId !== id,
+      (proposal) => !involvesParty(proposal, party),
     );
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => !goneRelationshipIds.has(proposal.relationshipId),
+      );
   }
 
   async deleteAllAllianceData() {
@@ -334,13 +367,12 @@ export class InMemoryAllianceStore implements AllianceStore {
     };
   }
 
-  async listActiveRelationships(allianceId: number) {
+  async listActiveRelationships(partyInput: PartyInput) {
+    const party = toPartyRef(partyInput);
     return this.state.relationships
       .filter(
         (relationship) =>
-          relationship.endedAt === null &&
-          (relationship.firstAllianceId === allianceId ||
-            relationship.secondAllianceId === allianceId),
+          relationship.endedAt === null && involvesParty(relationship, party),
       )
       .sort(
         (a, b) => b.startedAt.getTime() - a.startedAt.getTime() || b.id - a.id,
@@ -356,73 +388,54 @@ export class InMemoryAllianceStore implements AllianceStore {
   }
 
   async replaceRelationshipsWithWar(
-    firstAllianceId: number,
-    secondAllianceId: number,
+    firstInput: PartyInput,
+    secondInput: PartyInput,
   ) {
-    const first = Math.min(firstAllianceId, secondAllianceId);
-    const second = Math.max(firstAllianceId, secondAllianceId);
-    const firstAlliance = this.state.alliances.find(
-      (alliance) => alliance.id === first,
-    );
-    const secondAlliance = this.state.alliances.find(
-      (alliance) => alliance.id === second,
-    );
-    if (
-      !firstAlliance ||
-      !secondAlliance ||
-      firstAlliance.factionId !== secondAlliance.factionId
-    ) {
-      throw new Error(
-        'Alliance relationships need alliances from the same faction',
-      );
-    }
+    const [first, second] = [
+      toPartyRef(firstInput),
+      toPartyRef(secondInput),
+    ].sort(comparePartyRefs);
+    this.assertSameFaction(first, second);
     const now = this.now();
+    const replaced = new Set<number>();
     for (const relationship of this.state.relationships) {
       if (
         relationship.endedAt === null &&
-        relationship.firstAllianceId === first &&
-        relationship.secondAllianceId === second
+        isPair(relationship.firstParty, relationship.secondParty, first, second)
       ) {
         relationship.endedAt = now;
+        replaced.add(relationship.id);
       }
     }
     this.state.relationshipProposals = this.state.relationshipProposals.filter(
       (proposal) =>
-        proposal.firstAllianceId !== first ||
-        proposal.secondAllianceId !== second,
+        !isPair(proposal.firstParty, proposal.secondParty, first, second),
     );
     this.state.relationshipChangeProposals =
-      this.state.relationshipChangeProposals.filter((proposal) => {
-        const relationship = this.state.relationships.find(
-          (entry) => entry.id === proposal.relationshipId,
-        );
-        return (
-          relationship?.firstAllianceId !== first ||
-          relationship.secondAllianceId !== second
-        );
-      });
-    this.state.relationships.push({
-      id: this.nextId(),
-      firstAllianceId: first,
-      secondAllianceId: second,
-      type: AllianceRelationshipType.WAR,
-      startedAt: now,
-      endedAt: null,
-      contract: '',
-      treatAsFriend: false,
-      shareLivePositions: false,
-      lordAllianceId: null,
-      vassalAllianceId: null,
-    });
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => !replaced.has(proposal.relationshipId),
+      );
+    this.state.relationships.push(
+      relationshipRecordOf({
+        id: this.nextId(),
+        firstParty: first,
+        secondParty: second,
+        type: AllianceRelationshipType.WAR,
+        startedAt: now,
+        endedAt: null,
+        contract: '',
+        treatAsFriend: false,
+        shareLivePositions: false,
+        lordParty: null,
+        vassalParty: null,
+      }),
+    );
   }
 
-  async listRelationshipProposals(allianceId: number) {
+  async listRelationshipProposals(partyInput: PartyInput) {
+    const party = toPartyRef(partyInput);
     return this.state.relationshipProposals
-      .filter(
-        (proposal) =>
-          proposal.senderAllianceId === allianceId ||
-          proposal.recipientAllianceId === allianceId,
-      )
+      .filter((proposal) => involvesParty(proposal, party))
       .sort(
         (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
       )
@@ -436,36 +449,41 @@ export class InMemoryAllianceStore implements AllianceStore {
     return proposal ? { ...proposal } : null;
   }
 
-  async insertRelationshipProposal(data: {
-    senderAllianceId: number;
-    recipientAllianceId: number;
-    type: AllianceRelationshipType;
-    contract: string;
-    treatAsFriend: boolean;
-    shareLivePositions: boolean;
-  }) {
-    const firstAllianceId = Math.min(
-      data.senderAllianceId,
-      data.recipientAllianceId,
+  async insertRelationshipProposal(
+    data: ProposalParties & {
+      type: AllianceRelationshipType;
+      contract: string;
+      treatAsFriend: boolean;
+      shareLivePositions: boolean;
+    },
+  ) {
+    const { senderParty, recipientParty } = proposalParties(data);
+    const [firstParty, secondParty] = [senderParty, recipientParty].sort(
+      comparePartyRefs,
     );
-    const secondAllianceId = Math.max(
-      data.senderAllianceId,
-      data.recipientAllianceId,
-    );
+    this.assertSameFaction(firstParty, secondParty);
     if (
-      this.state.relationshipProposals.some(
-        (proposal) =>
-          proposal.firstAllianceId === firstAllianceId &&
-          proposal.secondAllianceId === secondAllianceId,
+      this.state.relationshipProposals.some((proposal) =>
+        isPair(
+          proposal.firstParty,
+          proposal.secondParty,
+          firstParty,
+          secondParty,
+        ),
       )
     ) {
       throw new AllianceConstraintViolation('relationship_proposal');
     }
     const proposal: AllianceRelationshipProposalRecord = {
       id: this.nextId(),
-      firstAllianceId,
-      secondAllianceId,
-      ...data,
+      firstParty,
+      secondParty,
+      senderParty,
+      recipientParty,
+      type: data.type,
+      contract: data.contract,
+      treatAsFriend: data.treatAsFriend,
+      shareLivePositions: data.shareLivePositions,
       createdAt: this.now(),
     };
     this.state.relationshipProposals.push(proposal);
@@ -489,8 +507,12 @@ export class InMemoryAllianceStore implements AllianceStore {
     for (const relationship of this.state.relationships) {
       if (
         relationship.endedAt === null &&
-        relationship.firstAllianceId === proposal.firstAllianceId &&
-        relationship.secondAllianceId === proposal.secondAllianceId
+        isPair(
+          relationship.firstParty,
+          relationship.secondParty,
+          proposal.firstParty,
+          proposal.secondParty,
+        )
       ) {
         relationship.endedAt = now;
       }
@@ -498,35 +520,31 @@ export class InMemoryAllianceStore implements AllianceStore {
     this.state.relationshipProposals = this.state.relationshipProposals.filter(
       (entry) => entry.id !== id,
     );
-    const relationship: AllianceRelationshipRecord = {
+    const isVassalage = proposal.type === AllianceRelationshipType.VASSALAGE;
+    const relationship = relationshipRecordOf({
       id: this.nextId(),
-      firstAllianceId: proposal.firstAllianceId,
-      secondAllianceId: proposal.secondAllianceId,
+      firstParty: proposal.firstParty,
+      secondParty: proposal.secondParty,
       type: proposal.type,
       startedAt: now,
       endedAt: null,
       contract: proposal.contract,
       treatAsFriend: proposal.treatAsFriend,
       shareLivePositions: proposal.shareLivePositions,
-      lordAllianceId:
-        proposal.type === AllianceRelationshipType.VASSALAGE
-          ? proposal.senderAllianceId
-          : null,
-      vassalAllianceId:
-        proposal.type === AllianceRelationshipType.VASSALAGE
-          ? proposal.recipientAllianceId
-          : null,
-    };
+      lordParty: isVassalage ? proposal.senderParty : null,
+      vassalParty: isVassalage ? proposal.recipientParty : null,
+    });
     this.state.relationships.push(relationship);
     return { ...relationship };
   }
 
-  async listRelationshipChangeProposals(allianceId: number) {
+  async listRelationshipChangeProposals(partyInput: PartyInput) {
+    const party = toPartyRef(partyInput);
     return this.state.relationshipChangeProposals
       .filter(
         (proposal) =>
-          proposal.senderAllianceId === allianceId ||
-          proposal.recipientAllianceId === allianceId,
+          samePartyRef(proposal.senderParty, party) ||
+          samePartyRef(proposal.recipientParty, party),
       )
       .sort(
         (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
@@ -541,14 +559,14 @@ export class InMemoryAllianceStore implements AllianceStore {
     return proposal ? { ...proposal } : null;
   }
 
-  async insertRelationshipChangeProposal(data: {
-    relationshipId: number;
-    senderAllianceId: number;
-    recipientAllianceId: number;
-    contract: string;
-    treatAsFriend: boolean;
-    shareLivePositions: boolean;
-  }) {
+  async insertRelationshipChangeProposal(
+    data: ProposalParties & {
+      relationshipId: number;
+      contract: string;
+      treatAsFriend: boolean;
+      shareLivePositions: boolean;
+    },
+  ) {
     if (
       this.state.relationshipChangeProposals.some(
         (proposal) => proposal.relationshipId === data.relationshipId,
@@ -556,9 +574,15 @@ export class InMemoryAllianceStore implements AllianceStore {
     ) {
       throw new AllianceConstraintViolation('relationship_change_proposal');
     }
+    const { senderParty, recipientParty } = proposalParties(data);
     const proposal: AllianceRelationshipChangeProposalRecord = {
       id: this.nextId(),
-      ...data,
+      relationshipId: data.relationshipId,
+      senderParty,
+      recipientParty,
+      contract: data.contract,
+      treatAsFriend: data.treatAsFriend,
+      shareLivePositions: data.shareLivePositions,
       createdAt: this.now(),
     };
     this.state.relationshipChangeProposals.push(proposal);
@@ -601,8 +625,12 @@ export class InMemoryAllianceStore implements AllianceStore {
     relationship.endedAt = this.now();
     this.state.relationshipProposals = this.state.relationshipProposals.filter(
       (proposal) =>
-        proposal.firstAllianceId !== relationship.firstAllianceId ||
-        proposal.secondAllianceId !== relationship.secondAllianceId,
+        !isPair(
+          proposal.firstParty,
+          proposal.secondParty,
+          relationship.firstParty,
+          relationship.secondParty,
+        ),
     );
     this.state.relationshipChangeProposals =
       this.state.relationshipChangeProposals.filter(
@@ -611,12 +639,15 @@ export class InMemoryAllianceStore implements AllianceStore {
     return { ...relationship };
   }
 
-  async appendDiplomacyChronicleEntry(
-    data: Omit<AllianceDiplomacyChronicleEntryRecord, 'id' | 'occurredAt'>,
-  ) {
+  async appendDiplomacyChronicleEntry(data: NewDiplomacyChronicleEntry) {
     this.state.diplomacyChronicleEntries.push({
       id: this.nextId(),
-      ...data,
+      eventType: data.eventType,
+      actorUserId: data.actorUserId,
+      actorName: data.actorName,
+      relationshipType: data.relationshipType,
+      ...chronicleEntryParties(data),
+      endReason: data.endReason ?? null,
       occurredAt: this.now(),
     });
   }
@@ -654,16 +685,13 @@ export class InMemoryAllianceStore implements AllianceStore {
   }
 
   async listDiplomacyChronicleEntries(
-    allianceId: number,
+    partyInput: PartyInput,
     cursor: { occurredAt: Date; id: number } | null,
     limit: number,
   ) {
+    const party = toPartyRef(partyInput);
     return this.state.diplomacyChronicleEntries
-      .filter(
-        (entry) =>
-          entry.firstAllianceId === allianceId ||
-          entry.secondAllianceId === allianceId,
-      )
+      .filter((entry) => involvesParty(entry, party))
       .filter(
         (entry) =>
           !cursor ||
@@ -884,28 +912,51 @@ export class InMemoryAllianceStore implements AllianceStore {
     return normalized;
   }
 
+  /** Mirrors the database: both parties exist and share one faction. */
+  private assertSameFaction(first: PartyRef, second: PartyRef) {
+    const factionOf = (party: PartyRef) =>
+      party.type === DiplomacyPartyType.ALLIANCE
+        ? this.state.alliances.find((alliance) => alliance.id === party.id)
+            ?.factionId
+        : this.state.players.find((player) => player.id === party.id)
+            ?.factionId;
+    const firstFaction = factionOf(first);
+    const secondFaction = factionOf(second);
+    if (
+      firstFaction === undefined ||
+      firstFaction === null ||
+      firstFaction !== secondFaction
+    ) {
+      throw new Error(
+        'Alliance relationships need parties from the same faction',
+      );
+    }
+  }
+
   private assertRelationshipShape(data: {
     type: AllianceRelationshipType;
-    firstAllianceId: number;
-    secondAllianceId: number;
+    firstParty: PartyRef;
+    secondParty: PartyRef;
     treatAsFriend: boolean;
     shareLivePositions: boolean;
-    lordAllianceId: number | null;
-    vassalAllianceId: number | null;
+    lordParty: PartyRef | null;
+    vassalParty: PartyRef | null;
   }) {
-    const validParties = (id: number | null) =>
-      id === data.firstAllianceId || id === data.secondAllianceId;
+    const validParties = (party: PartyRef | null) =>
+      party !== null &&
+      (samePartyRef(party, data.firstParty) ||
+        samePartyRef(party, data.secondParty));
     if (data.type === AllianceRelationshipType.VASSALAGE) {
       if (
-        data.lordAllianceId === null ||
-        data.vassalAllianceId === null ||
-        data.lordAllianceId === data.vassalAllianceId ||
-        !validParties(data.lordAllianceId) ||
-        !validParties(data.vassalAllianceId)
+        data.lordParty === null ||
+        data.vassalParty === null ||
+        samePartyRef(data.lordParty, data.vassalParty) ||
+        !validParties(data.lordParty) ||
+        !validParties(data.vassalParty)
       ) {
         throw new Error('Vassalage needs two distinct relationship parties');
       }
-    } else if (data.lordAllianceId !== null || data.vassalAllianceId !== null) {
+    } else if (data.lordParty !== null || data.vassalParty !== null) {
       throw new Error('Only vassalage has a directional relationship');
     }
     if (

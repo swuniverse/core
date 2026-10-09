@@ -87,6 +87,15 @@ export enum AllianceRelationshipType {
   VASSALAGE = 'VASSALAGE',
 }
 
+/**
+ * What kind of party stands on one side of a diplomatic relationship: an
+ * alliance, or an alliance-less player representing themselves.
+ */
+export enum DiplomacyPartyType {
+  ALLIANCE = 'ALLIANCE',
+  PLAYER = 'PLAYER',
+}
+
 /** Negotiated diplomatic state; it has no gameplay effect yet. */
 export interface AllianceRelationshipPermissionsDto {
   treatAsFriend: boolean;
@@ -95,14 +104,20 @@ export interface AllianceRelationshipPermissionsDto {
 
 /** Present only for the directional Vassalage relationship type. */
 export interface AllianceVassalageDto {
+  /** ID of the lord party; an alliance or user ID, see `lordPartyType`. */
   lordAllianceId: number;
+  /** ID of the vassal party; an alliance or user ID, see `vassalPartyType`. */
   vassalAllianceId: number;
+  lordPartyType: DiplomacyPartyType;
+  vassalPartyType: DiplomacyPartyType;
 }
 
 /** Public projection of an active relationship. Contract text is fetched separately. */
 export interface AllianceRelationshipSummaryDto {
   id: number;
+  /** For a player counterparty `id` is the user ID, see `counterpartyType`. */
   counterparty: AllianceRefDto;
+  counterpartyType: DiplomacyPartyType;
   type: AllianceRelationshipType;
   startedAt: string;
   permissions: AllianceRelationshipPermissionsDto;
@@ -118,8 +133,12 @@ export interface AllianceRelationshipContractDto {
 /** Confidential proposal, available only to diplomatic officers of a party. */
 export interface AllianceRelationshipProposalDto {
   id: number;
+  /** Alliance or user ID of the sender party, see `senderPartyType`. */
   senderAllianceId: number;
+  /** Alliance or user ID of the recipient party, see `recipientPartyType`. */
   recipientAllianceId: number;
+  senderPartyType: DiplomacyPartyType;
+  recipientPartyType: DiplomacyPartyType;
   type: AllianceRelationshipType;
   contract: string;
   permissions: AllianceRelationshipPermissionsDto;
@@ -130,8 +149,12 @@ export interface AllianceRelationshipProposalDto {
 export interface AllianceRelationshipChangeProposalDto {
   id: number;
   relationshipId: number;
+  /** Alliance or user ID of the sender party, see `senderPartyType`. */
   senderAllianceId: number;
+  /** Alliance or user ID of the recipient party, see `recipientPartyType`. */
   recipientAllianceId: number;
+  senderPartyType: DiplomacyPartyType;
+  recipientPartyType: DiplomacyPartyType;
   contract: string;
   permissions: AllianceRelationshipPermissionsDto;
   createdAt: string;
@@ -194,13 +217,24 @@ export enum AllianceDiplomacyChronicleEventType {
   RELATIONSHIP_ENDED = 'RELATIONSHIP_ENDED',
 }
 
+/** Why a relationship ended without either party ending it. */
+export enum AllianceDiplomacyChronicleEndReason {
+  /** The player party founded or joined an alliance. */
+  PARTY_JOINED_ALLIANCE = 'PARTY_JOINED_ALLIANCE',
+}
+
 /** Immutable, public historical snapshot; it never exposes contracts or proposals. */
 export interface AllianceDiplomacyChronicleEntryDto {
   id: number;
   type: AllianceDiplomacyChronicleEventType;
   actor: { userId: number; name: string } | null;
+  /** Alliance or user ID and the name at event time, see `firstPartyType`. */
   firstAlliance: { id: number; name: string };
   secondAlliance: { id: number; name: string };
+  firstPartyType: DiplomacyPartyType;
+  secondPartyType: DiplomacyPartyType;
+  /** Set only on RELATIONSHIP_ENDED entries not caused by a party's own action. */
+  endReason: AllianceDiplomacyChronicleEndReason | null;
   relationship: {
     type: AllianceRelationshipType;
     vassalage: AllianceVassalageDto | null;
