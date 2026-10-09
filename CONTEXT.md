@@ -14,6 +14,10 @@ _Avoid_: Allianz (für die Fraktion), Rebellion
 Ein von Spielern gegründeter Zusammenschluss. Alle Mitglieder gehören derselben **Fraktion** an. Ein Spieler ist in höchstens einer Allianz.
 _Avoid_: Clan, Gilde, Verband
 
+**Siedler**:
+Ein **Spieler** ohne **Allianz**, der als eigene Partei Beziehungen zu anderen Siedlern und zu **Allianzen** derselben **Fraktion** führen kann. Gründet er eine Allianz oder tritt er einer bei, enden seine persönlichen Beziehungen und Vorschläge endgültig.
+_Avoid_: Einzelspieler, Solo
+
 **Amt**:
 Eine feste Rolle innerhalb einer **Allianz**, nämlich **Präsident**, **Vize** oder **Diplomat**. Jedes Mitglied hat höchstens ein Amt. Die Allianz darf den angezeigten Titel eines Amts umbenennen. Ein Mitglied ohne Amt hat keine Verwaltungsrechte.
 _Avoid_: Job, Posten, Rang

@@ -215,5 +215,159 @@ describe('diplomacy party model (Postgres)', () => {
         [],
       );
     });
+
+    /** Party rows for a Siedler and an alliance of the same faction, lower id first. */
+    async function mixedPair() {
+      const settler = await user();
+      const group = await allianceOf();
+      await dataSource.query(
+        'INSERT INTO "diplomacy_parties" ("userId") VALUES ($1)',
+        [settler.id],
+      );
+      const [{ id: allianceRow }] = await dataSource.query(
+        'SELECT "id" FROM "diplomacy_parties" WHERE "allianceId" = $1',
+        [group],
+      );
+      const settlerRow = (await partyRowId(settler.id))!;
+      const [low, high] = [settlerRow, allianceRow as number].sort(
+        (a, b) => a - b,
+      );
+      return {
+        settler,
+        group,
+        settlerRow,
+        allianceRow: allianceRow as number,
+        low,
+        high,
+      };
+    }
+
+    const insertRelationship = (
+      first: number,
+      second: number,
+      type: string,
+      extra: { lord?: number; vassal?: number } = {},
+    ) =>
+      dataSource.query(
+        `INSERT INTO "alliance_relationships" ("firstPartyId", "secondPartyId", "type", "lordPartyId", "vassalPartyId") VALUES ($1, $2, $3, $4, $5)`,
+        [first, second, type, extra.lord ?? null, extra.vassal ?? null],
+      );
+
+    it('allows one active relationship per mixed pair and a new one after it ended', async () => {
+      const { low, high } = await mixedPair();
+      await insertRelationship(low, high, 'FRIENDSHIP');
+
+      await expect(insertRelationship(low, high, 'WAR')).rejects.toMatchObject({
+        code: '23505',
+      });
+
+      await dataSource.query(
+        'UPDATE "alliance_relationships" SET "endedAt" = now()',
+      );
+      await insertRelationship(low, high, 'WAR');
+    });
+
+    it('keeps vassalage consistent for a Siedler and an alliance', async () => {
+      const { settlerRow, allianceRow, low, high } = await mixedPair();
+
+      // No lord / vassal, or both on the same side, or a stranger: invalid.
+      await expect(
+        insertRelationship(low, high, 'VASSALAGE'),
+      ).rejects.toMatchObject({ code: '23514' });
+      await expect(
+        insertRelationship(low, high, 'VASSALAGE', {
+          lord: settlerRow,
+          vassal: settlerRow,
+        }),
+      ).rejects.toMatchObject({ code: '23514' });
+      await expect(
+        insertRelationship(low, high, 'FRIENDSHIP', {
+          lord: settlerRow,
+          vassal: allianceRow,
+        }),
+      ).rejects.toMatchObject({ code: '23514' });
+
+      await insertRelationship(low, high, 'VASSALAGE', {
+        lord: allianceRow,
+        vassal: settlerRow,
+      });
+    });
+
+    it('rejects a proposal between a Siedler and an alliance of the other faction and a self-proposal', async () => {
+      const rebel = await user('REBELS');
+      const imperialGroup = await allianceOf('EMPIRE');
+
+      await expect(
+        store.insertRelationshipProposal({
+          senderParty: playerParty(rebel.id),
+          recipientParty: allianceParty(imperialGroup),
+          type: FRIENDSHIP,
+          contract: '',
+          ...noPermissions,
+        }),
+      ).rejects.toThrow();
+      await expect(
+        store.insertRelationshipProposal({
+          senderParty: playerParty(rebel.id),
+          recipientParty: playerParty(rebel.id),
+          type: FRIENDSHIP,
+          contract: '',
+          ...noPermissions,
+        }),
+      ).rejects.toThrow();
+      expect(
+        await store.listRelationshipProposals(playerParty(rebel.id)),
+      ).toEqual([]);
+    });
+
+    it('account deletion removes the party with relationships, proposals and change proposals but keeps the chronicle', async () => {
+      const leia = await user();
+      const mon = await user();
+      const wedge = await user();
+      const proposal = await propose(leia.id, mon.id);
+      const friendship = await store.transaction((tx) =>
+        tx.acceptRelationshipProposal(proposal.id),
+      );
+      await store.insertRelationshipChangeProposal({
+        relationshipId: friendship!.id,
+        senderParty: playerParty(mon.id),
+        recipientParty: playerParty(leia.id),
+        contract: 'neu',
+        ...noPermissions,
+      });
+      await propose(wedge.id, leia.id);
+      await store.appendDiplomacyChronicleEntry({
+        eventType: 'RELATIONSHIP_STARTED' as never,
+        actorUserId: leia.id,
+        actorName: 'Leia',
+        firstParty: playerParty(leia.id),
+        firstPartyName: 'Leia',
+        secondParty: playerParty(mon.id),
+        secondPartyName: 'Mon',
+        relationshipType: FRIENDSHIP,
+        lordParty: null,
+        vassalParty: null,
+        endReason: null,
+      });
+
+      await dataSource.getRepository(User).delete({ id: leia.id });
+
+      expect(await partyRowId(leia.id)).toBeUndefined();
+      const rows = (table: string) =>
+        dataSource.query(`SELECT 1 FROM "${table}"`);
+      expect(await rows('alliance_relationships')).toHaveLength(0);
+      expect(await rows('alliance_relationship_proposals')).toHaveLength(0);
+      expect(await rows('alliance_relationship_change_proposals')).toHaveLength(
+        0,
+      );
+      expect(
+        await store.listRelationshipProposals(playerParty(wedge.id)),
+      ).toEqual([]);
+      expect(await rows('alliance_diplomacy_chronicle_entries')).toHaveLength(
+        1,
+      );
+      // Other parties stay untouched and still usable.
+      expect(await partyRowId(mon.id)).toBeDefined();
+    });
   });
 });

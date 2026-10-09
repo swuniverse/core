@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   AllianceDiplomacyChronicleEndReason,
@@ -239,5 +240,62 @@ describe('alliance party change (Postgres)', () => {
       expect(results[0]).toBe('fulfilled');
       expect(await activeOf(han)).toEqual([]);
     }
+  });
+  it('two simultaneous Siedler proposals for one pair leave exactly one pending proposal and no raw database error', async () => {
+    for (let round = 0; round < 5; round += 1) {
+      await reset();
+      const han = await rebel(`Han${round}`);
+      const lando = await rebel(`Lando${round}`);
+
+      const results = await Promise.allSettled([
+        service.proposeSettlerRelationship(han.id, {
+          recipientPlayerId: lando.id,
+          type: FRIENDSHIP,
+        }),
+        service.proposeSettlerRelationship(lando.id, {
+          recipientPlayerId: han.id,
+          type: FRIENDSHIP,
+        }),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const [rejected] = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      expect(rejected.reason).toBeInstanceOf(BadRequestException);
+      expect(await proposalsOf(han)).toHaveLength(1);
+      expect(await proposalsOf(lando)).toHaveLength(1);
+      expect(await count('alliance_relationship_proposals')).toBe(1);
+    }
+  });
+
+  it('a dissolved alliance leaves its former members without personal relationships', async () => {
+    const han = await rebel('Han');
+    const lando = await rebel('Lando');
+    const chewie = await rebel('Chewie');
+    await friends(han, lando);
+    await service.declareSettlerWar(lando.id, chewie.id);
+    const { id: allianceId } = await service.found(han.id, {
+      name: 'Neue Hoffnung',
+      description: '',
+    });
+    await store.updateAlliance(allianceId, { acceptsApplications: true });
+    await service.apply(lando.id, allianceId);
+    const [application] = await store.listApplicationsForAlliance(allianceId);
+    await service.acceptApplication(han.id, application.id);
+
+    await service.dissolve(han.id, allianceId);
+
+    expect(await store.findMembership(han.id)).toBeNull();
+    expect(await store.findMembership(lando.id)).toBeNull();
+    expect(await activeOf(han)).toEqual([]);
+    expect(await activeOf(lando)).toEqual([]);
+    expect(await proposalsOf(han)).toEqual([]);
+    // Chewie's war with Lando ended when Lando joined; nothing was restored.
+    expect(await activeOf(chewie)).toEqual([]);
+    const [{ n }] = await dataSource.query(
+      'SELECT COUNT(*) AS n FROM "alliance_relationships" WHERE "endedAt" IS NULL',
+    );
+    expect(Number(n)).toBe(0);
   });
 });

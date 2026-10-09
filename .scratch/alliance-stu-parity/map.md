@@ -72,3 +72,9 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 ## Siedler-Abkommen: spezifiziert (2026-10-09)
 
 - [Siedler-Abkommen und Parteiwechsel](siedler-abkommen-spec.md), spezifiziert (ready-for-agent): gemeinsames Beziehungsmodell für Allianz↔Allianz, Allianz↔Siedler und Siedler↔Siedler; persönliche Beziehungen enden atomar bei Gründung oder Aufnahme; zentrale Auflösung und Chronik werden für Spielerparteien verallgemeinert. Kontaktlisten bleiben benannter Integrationspunkt.
+
+## Siedler-Abkommen: umgesetzt (2026-10-09)
+
+- [Siedler-Abkommen und Parteiwechsel](siedler-abkommen-spec.md) ist in den [Tickets 01–08](siedler-abkommen-issues/) umgesetzt: allianzlose Spieler (Siedler) sind Parteien im gemeinsamen Beziehungsmodell und verhandeln Krieg, Frieden, Freundschaft, Bündnis, Handel und Vasallenschaft mit Siedlern und Allianzen derselben Fraktion; die zentrale Auflösung und die Diplomatie-Chronik kennen Spielerparteien; die Siedlerdiplomatie ist im Spielerprofil öffentlich sichtbar; gründet ein Siedler eine Allianz oder tritt er bei, enden seine persönlichen Beziehungen, Vorschläge und Änderungen in derselben Transaktion (Chronik mit Beendigungsgrund, ohne Vertragswerk). Nachgewiesen gegen Postgres (Konkurrenz: Beitritt gegen Annahme, Kriegserklärung und Vorschlag, zwei gleichzeitige Siedlervorschläge; gemischte Parteitypen, Kontolöschung mit bleibender Chronik, aufgelöste Allianz ohne persönliche Beziehungen) und je Verbraucher Ende-zu-Ende (Transfers, Versorgung geschützter Schiffe, geteilte Live-Positionen).
+- Weiterhin benannte Integrationspunkte: die persönliche Kontaktliste (der Resolver-Port `PersonalContactStatusPort` bleibt ein No-Op); Alarm-, Docking-, Wurmloch- und Handelspostenpfade; Kontolöschungsausführung (`AllianceService.removeAccount`) und Spielreset-Aufrufer. Persönliche Beziehungen werden nach Austritt oder Auflösung nicht wiederhergestellt.
+- Damit sind alle sechs Etappen der Map umgesetzt.
