@@ -68,3 +68,7 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
   - Spielreset-Aufrufer: ruft `AllianceResetService.resetAllianceData()` auf; es gibt bewusst keinen Endpunkt.
   - Allianzdepots und Zugangsprivilegien: künftige Verbraucher registrieren sich im Port `AllianceContextCleanup` (`allianceDissolved`, `memberRemoved`, `reset`); ohne Verbraucher ist er ein No-Op, Fehler eines Verbrauchers rollen die auslösende Transaktion zurück.
 - Weiterhin offen außerhalb dieser Etappe: Siedler-Abkommen und Parteiwechsel (Etappe 6), Objektspeicher-Adapter für Banner (bisher Dateisystem und In-Memory), Forum-Export und -Archivierung.
+
+## Siedler-Abkommen: spezifiziert (2026-10-09)
+
+- [Siedler-Abkommen und Parteiwechsel](siedler-abkommen-spec.md), spezifiziert (ready-for-agent): gemeinsames Beziehungsmodell für Allianz↔Allianz, Allianz↔Siedler und Siedler↔Siedler; persönliche Beziehungen enden atomar bei Gründung oder Aufnahme; zentrale Auflösung und Chronik werden für Spielerparteien verallgemeinert. Kontaktlisten bleiben benannter Integrationspunkt.
