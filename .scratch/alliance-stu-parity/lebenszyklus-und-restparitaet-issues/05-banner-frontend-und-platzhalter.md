@@ -4,8 +4,8 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Serverseitiger Platzhalterersatz: mit Banner Bildverweis, ohne Banner leerer Text
-- [ ] Frontendtests (gemockte API): Kopfbereich, Platzhalter, fehlendes Banner, Fähigkeitssteuerung, Fehlermeldungen
-- [ ] Chroniktexte für „Banner gesetzt/ersetzt“ und „Banner entfernt“
+- [x] Serverseitiger Platzhalterersatz: mit Banner Bildverweis, ohne Banner leerer Text
+- [x] Frontendtests (gemockte API): Kopfbereich, Platzhalter, fehlendes Banner, Fähigkeitssteuerung, Fehlermeldungen
+- [x] Chroniktexte für „Banner gesetzt/ersetzt“ und „Banner entfernt“

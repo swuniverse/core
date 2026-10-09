@@ -73,7 +73,13 @@ export class InMemoryAllianceStore implements AllianceStore {
   };
 
   addPlayer(id: number, name: string, factionId: number | null = REBELS.id) {
-    this.state.players.push({ id, name, factionId });
+    this.state.players.push({ id, name, factionId, lastActiveAt: null });
+  }
+
+  /** Test helper: the player's last recorded activity. */
+  setLastActive(id: number, at: Date | null) {
+    const player = this.state.players.find((p) => p.id === id);
+    if (player) player.lastActiveAt = at;
   }
 
   /** Test helper: a later rename must not alter recorded chronicle names. */

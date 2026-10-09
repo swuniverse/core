@@ -394,6 +394,20 @@ function allianceChronicleText(
         previousOffice ? ` (zuvor ${previousOffice})` : ''
       }`;
     }
+    case 'BANNER_SET':
+      return chronicleMeta(entry).replaced === true
+        ? `${actor} hat das Banner ersetzt`
+        : `${actor} hat ein Banner gesetzt`;
+    case 'BANNER_REMOVED':
+      return `${actor} hat das Banner entfernt`;
+    case 'AUTOMATIC_SUCCESSION': {
+      const { previousPresidentName } = chronicleMeta(entry);
+      const previous =
+        typeof previousPresidentName === 'string'
+          ? previousPresidentName
+          : 'dem bisherigen Präsidenten';
+      return `${subject} ist automatisch Präsident geworden, nachdem ${previous} ausgeschieden ist`;
+    }
     case 'DETAILS_CHANGED': {
       const { fields, previousName, newName } = chronicleMeta(entry);
       const labels = (Array.isArray(fields) ? fields : [])
@@ -1396,6 +1410,14 @@ export function AllianceDetailPage() {
     <div className="space-y-4 p-3 md:p-6">
       <BackLink to="/alliances" label="Allianzen" />
 
+      {alliance.banner && (
+        <img
+          src={alliance.banner.url}
+          alt={`Banner von ${alliance.name}`}
+          className="mx-auto h-auto max-w-full border border-swu-border"
+        />
+      )}
+
       <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <PageTitle color={alliance.color}>{alliance.name}</PageTitle>
@@ -1485,6 +1507,43 @@ export function AllianceDetailPage() {
                   Krieg erklären
                 </button>
               </form>
+            )}
+            {actions.manageBanner && (
+              <>
+                <label className={`${buttonClass} cursor-pointer`}>
+                  {alliance.banner ? 'Banner ersetzen' : 'Banner hochladen'}
+                  <input
+                    type="file"
+                    accept="image/png"
+                    className="sr-only"
+                    disabled={busy}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (!file) return;
+                      const form = new FormData();
+                      form.append('file', file);
+                      void run(() =>
+                        api.postForm(`${base}/banner`, form),
+                      );
+                    }}
+                  />
+                </label>
+                {alliance.banner && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() => {
+                      if (!window.confirm('Das Banner wirklich entfernen?'))
+                        return;
+                      void run(() => api.delete(`${base}/banner`));
+                    }}
+                  >
+                    Banner entfernen
+                  </button>
+                )}
+              </>
             )}
             {actions.leave && (
               <button

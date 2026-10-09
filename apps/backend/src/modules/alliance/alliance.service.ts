@@ -35,6 +35,7 @@ import {
   ProposeAllianceRelationshipRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
+import { chooseSuccessor } from './presidential-succession';
 import { MessagingService } from '../messaging/messaging.service';
 import {
   ALLIANCE_CHRONICLE_PAGE_DEFAULT,
@@ -1147,25 +1148,7 @@ export class AllianceService {
         return this.dissolveAlliance(tx, alliance, members, userId);
       }
 
-      await tx.deleteMembership(alliance.id, userId);
-      await this.contextCleanup?.memberRemoved(
-        { allianceId: alliance.id, userId },
-        { transaction: tx.transactionHandle() },
-      );
-      await this.appendAllianceChronicle(
-        tx,
-        alliance.id,
-        AllianceChronicleEventType.MEMBER_LEFT,
-        userId,
-        userId,
-      );
-      return members
-        .filter((m) => m.role === PRESIDENT || m.role === VICE)
-        .filter((m) => m.userId !== userId)
-        .map((m) => ({
-          to: m.userId,
-          body: `Der Siedler ${player?.name ?? UNKNOWN_NAME} hat die Allianz verlassen`,
-        }));
+      return this.memberLeaves(tx, alliance, members, userId, player?.name);
     });
     return { dissolved };
   }
@@ -1253,6 +1236,109 @@ export class AllianceService {
         to: m.userId,
         body: `Die Allianz ${alliance.name} wurde aufgelöst`,
       }));
+  }
+
+  /** Ends a non-president membership: chronicle entry and notice to the leaders. */
+  private async memberLeaves(
+    tx: AllianceStore,
+    alliance: AllianceRecord,
+    members: MembershipRecord[],
+    userId: number,
+    name: string | undefined,
+  ): Promise<OutgoingMessage[]> {
+    await tx.deleteMembership(alliance.id, userId);
+    await this.contextCleanup?.memberRemoved(
+      { allianceId: alliance.id, userId },
+      { transaction: tx.transactionHandle() },
+    );
+    await this.appendAllianceChronicle(
+      tx,
+      alliance.id,
+      AllianceChronicleEventType.MEMBER_LEFT,
+      userId,
+      userId,
+    );
+    return members
+      .filter((m) => m.role === PRESIDENT || m.role === VICE)
+      .filter((m) => m.userId !== userId)
+      .map((m) => ({
+        to: m.userId,
+        body: `Der Siedler ${name ?? UNKNOWN_NAME} hat die Allianz verlassen`,
+      }));
+  }
+
+  /**
+   * Alliance-side entry point for an account that is being removed (the
+   * deletion executor itself does not exist yet). Ends the membership and
+   * pending applications; a president is replaced by the succession rule or,
+   * without candidates, the alliance is dissolved. Idempotent: a player
+   * without membership is a no-op.
+   */
+  async removeAccount(userId: number): Promise<void> {
+    const membership = await this.store.findMembership(userId);
+    if (!membership) {
+      await this.mutate(async (tx) => {
+        await tx.deleteApplications(
+          (await tx.listApplicationsOfPlayer(userId)).map((a) => a.id),
+        );
+      });
+      return;
+    }
+
+    await this.mutateDiplomacy(async (tx) => {
+      const alliance = await tx.lockAlliance(membership.allianceId);
+      if (!alliance) return [];
+      const members = await tx.listMemberships(alliance.id);
+      const own = members.find((m) => m.userId === userId);
+      // A concurrent departure already ended this membership.
+      if (!own) return [];
+      const player = await tx.findPlayer(userId);
+      await tx.deleteApplications(
+        (await tx.listApplicationsOfPlayer(userId)).map((a) => a.id),
+      );
+
+      if (own.role !== PRESIDENT) {
+        return this.memberLeaves(tx, alliance, members, userId, player?.name);
+      }
+      const remaining = members.filter((m) => m.userId !== userId);
+      const players = await tx.findPlayers(remaining.map((m) => m.userId));
+      const activity = new Map(players.map((p) => [p.id, p.lastActiveAt]));
+      const successorId = chooseSuccessor(
+        remaining.map((m) => ({
+          userId: m.userId,
+          role: m.role,
+          lastActiveAt: activity.get(m.userId) ?? null,
+          joinedAt: m.joinedAt,
+        })),
+      );
+      if (successorId === null) {
+        return this.dissolveAlliance(tx, alliance, members, userId);
+      }
+
+      // Release the single-president slot first, then the successor takes it
+      // and drops its former office.
+      await tx.deleteMembership(alliance.id, userId);
+      await this.contextCleanup?.memberRemoved(
+        { allianceId: alliance.id, userId },
+        { transaction: tx.transactionHandle() },
+      );
+      await tx.setRole(alliance.id, successorId, PRESIDENT);
+      const successorName =
+        players.find((p) => p.id === successorId)?.name ?? UNKNOWN_NAME;
+      const previousName = player?.name ?? UNKNOWN_NAME;
+      await this.appendAllianceChronicle(
+        tx,
+        alliance.id,
+        AllianceChronicleEventType.AUTOMATIC_SUCCESSION,
+        null,
+        successorId,
+        { previousPresidentId: userId, previousPresidentName: previousName },
+      );
+      return remaining.map((m) => ({
+        to: m.userId,
+        body: `Der ${alliance.presidentTitle} ${previousName} ist ausgeschieden. ${successorName} ist neuer ${alliance.presidentTitle} der Allianz ${alliance.name}`,
+      }));
+    });
   }
 
   // --- Offices ---
@@ -2021,7 +2107,9 @@ export class AllianceService {
   ): string {
     const holder = (role: AllianceRole) =>
       members.find((m) => m.role === role)?.name ?? 'Unbesetzt';
+    const banner = this.bannerDto(alliance);
     const values: Record<string, string> = {
+      $ALLIANCE_BANNER: banner ? `[img]${banner.url}[/img]` : '',
       $ALLIANCE_PRESIDENT: holder(PRESIDENT),
       $ALLIANCE_VICEPRESIDENT: holder(VICE),
       $ALLIANCE_FOREIGNMINISTER: holder(DIPLOMAT),
