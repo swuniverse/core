@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: Forum – Boards, Themen und Beiträge
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/06-forum-moderation.md`)
@@ -20,3 +20,7 @@
 - [ ] Forumsdienst-Verhaltenstests: Präsident und Vize dürfen, Diplomat und Mitglied ohne Amt erhalten Forbidden, fremde Allianzen Not Found; weiche Löschung liefert keinen Text; gelöschte Themen und Boards samt Inhalt verschwinden; Amtsverlust; Grenzwerte beim Umbenennen.
 - [ ] Postgres-Integrationstest: ein gleichzeitig gelöschtes Thema erhält keinen neuen Beitrag; das Board-Limit hält bei gleichzeitigem Anlegen.
 - [ ] Frontend-Seitentests für Aktionen nur bei Fähigkeit, Bestätigung und Löschhinweis.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. Moderation methods in ForumService/ForumStore (rename, important, soft-delete with text blanking), `lockLive*` helpers, routes PATCH/DELETE on boards/topics/posts and PUT topics/:id/important, frontend actions gated by capabilities with delete confirmation.
