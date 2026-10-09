@@ -1,4 +1,4 @@
-import type { GameEventDto } from '@swuniverse/shared';
+import type { DashboardForumTopicDto, GameEventDto } from '@swuniverse/shared';
 
 export interface ActiveResearch {
   name: string;
@@ -195,4 +195,6 @@ export interface DashboardData {
   currentObjective: CurrentObjective | null;
   baustelleAlerts: BaustelleAlert[];
   distressSignals?: DistressSignal[];
+  /** Empty for players without an alliance. */
+  forumTopics?: DashboardForumTopicDto[];
 }

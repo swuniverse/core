@@ -352,6 +352,15 @@ export class AllianceController {
     return this.memberOverview.getOverview(req.user.sub, id);
   }
 
+  @Get(':id/member-overview/colonies/:colonyId/stock')
+  colonyStockOf(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('colonyId', ParseIntPipe) colonyId: number,
+  ) {
+    return this.memberOverview.getColonyStock(req.user.sub, id, colonyId);
+  }
+
   @Get(':id')
   detail(@Request() req: AuthRequest, @Param('id', ParseIntPipe) id: number) {
     return this.allianceService.getDetail(req.user.sub, id);

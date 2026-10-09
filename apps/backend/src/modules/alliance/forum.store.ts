@@ -74,6 +74,11 @@ export interface ForumBoardSummaryRecord {
   } | null;
 }
 
+export interface ForumRecentTopicRecord {
+  topic: ForumTopicRecord;
+  boardName: string;
+}
+
 export interface ForumTopicSummaryRecord {
   topic: ForumTopicRecord;
   /** Non-deleted posts only. */
@@ -148,4 +153,13 @@ export interface ForumStore {
   findPost(id: number): Promise<ForumPostRecord | null>;
   /** Replaces the text and sets the edit time; touches no activity. */
   updatePostText(id: number, text: string, editedAt: Date): Promise<void>;
+
+  /**
+   * Non-deleted topics in non-deleted boards of the alliance, latest activity
+   * first, then newest.
+   */
+  listRecentTopics(
+    allianceId: number,
+    limit: number,
+  ): Promise<ForumRecentTopicRecord[]>;
 }

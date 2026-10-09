@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   AllianceRole,
+  DASHBOARD_FORUM_TOPIC_LIMIT,
   FORUM_BOARD_NAME_MAX,
   FORUM_BOARD_NAME_MIN,
   FORUM_DELETED_AUTHOR_NAME,
@@ -19,6 +20,7 @@ import {
   FORUM_TOPIC_TITLE_MIN,
   type CreateForumBoardRequest,
   type CreateForumPostRequest,
+  type DashboardForumTopicDto,
   type CreateForumPostResponse,
   type CreateForumTopicRequest,
   type CreateForumTopicResponse,
@@ -71,6 +73,28 @@ export class ForumService {
   ) {}
 
   // --- Reads ---
+
+  /**
+   * Latest active topics of the player's current alliance for the dashboard;
+   * empty for players without an alliance. Membership is read live.
+   */
+  async listRecentTopics(viewerId: number): Promise<DashboardForumTopicDto[]> {
+    const member = await this.store.findMember(viewerId);
+    if (!member) return [];
+    const recent = await this.store.listRecentTopics(
+      member.allianceId,
+      DASHBOARD_FORUM_TOPIC_LIMIT,
+    );
+    return recent.map(({ topic, boardName }) => ({
+      topicId: topic.id,
+      title: topic.title,
+      boardId: topic.boardId,
+      boardName,
+      allianceId: topic.allianceId,
+      lastActivityAt: topic.lastActivityAt.toISOString(),
+      linkTo: `/alliances/${topic.allianceId}/forum/topics/${topic.id}`,
+    }));
+  }
 
   async listBoards(
     viewerId: number,

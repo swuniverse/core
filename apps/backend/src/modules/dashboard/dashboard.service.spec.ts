@@ -21,6 +21,10 @@ jest.mock('../alliance/alliance.service', () => ({
   AllianceService: class AllianceService {},
 }));
 
+jest.mock('../alliance/forum.service', () => ({
+  ForumService: class ForumService {},
+}));
+
 import { DashboardService } from './dashboard.service';
 
 describe('DashboardService header', () => {
@@ -60,6 +64,7 @@ describe('DashboardService header', () => {
       {} as never,
       { getTech: jest.fn(() => ({ name: 'Hyperraumtheorie' })) } as never,
       { getRef: jest.fn(async () => null) } as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({
@@ -110,9 +115,33 @@ describe('DashboardService header', () => {
       {} as never,
       { getTech: jest.fn() } as never,
       allianceService as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({ alliance });
     expect(allianceService.getRef).toHaveBeenCalledWith(4);
+  });
+});
+
+describe('DashboardService forum topics', () => {
+  it('delegates to the forum service for the requesting player', async () => {
+    const topics = [
+      {
+        topicId: 7,
+        title: 'Plan',
+        boardId: 2,
+        boardName: 'Allgemein',
+        allianceId: 1,
+        lastActivityAt: '2026-10-09T10:00:00.000Z',
+        linkTo: '/alliances/1/forum/topics/7',
+      },
+    ];
+    const forum = { listRecentTopics: jest.fn(async () => topics) };
+    const service = new DashboardService(
+      ...(Array(10).fill({}) as [never, never, never, never, never, never, never, never, never, never]),
+      forum as never,
+    );
+    await expect(service.getForumTopics(4)).resolves.toEqual(topics);
+    expect(forum.listRecentTopics).toHaveBeenCalledWith(4);
   });
 });

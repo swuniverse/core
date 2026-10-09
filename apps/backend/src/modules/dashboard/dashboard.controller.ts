@@ -17,6 +17,11 @@ export class DashboardController {
     return this.dashboardService.getHeader(req.user.sub);
   }
 
+  @Get('forum-topics')
+  getForumTopics(@Request() req: { user: { sub: number } }) {
+    return this.dashboardService.getForumTopics(req.user.sub);
+  }
+
   @Get('statistics')
   getStatistics(@Query('period') period?: string) {
     return this.dashboardService.getSnapshots(Number(period) || 1);

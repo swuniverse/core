@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: Forum – Boards, Themen und Beiträge
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/07-forum-letzte-themen-im-dashboard.md`)
@@ -15,3 +15,7 @@
 - [ ] Das Dashboard zeigt den Abschnitt nur bei nicht leerer Liste bzw. Mitgliedschaft; jeder Eintrag verlinkt das Thema.
 - [ ] Austritt oder Rauswurf entfernt den Abschnitt mit der nächsten Anfrage.
 - [ ] Verhaltenstests für Auswahl, Reihenfolge, gelöschte Inhalte und allianzlose Spieler; Frontend-Test für Anzeige nur bei Mitgliedschaft und Verlinkung.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `ForumStore.listRecentTopics`, `ForumService.listRecentTopics`, `GET /dashboard/forum-topics`, frontend `DashboardForum`. TypeORM query not yet covered by a Postgres integration test (to be checked in ticket 12).

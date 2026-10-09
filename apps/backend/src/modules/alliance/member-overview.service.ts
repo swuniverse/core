@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AllianceColonyStockDto,
   AllianceMemberOperationsDto,
   AllianceMemberOverviewDto,
   AllianceMemberShipGroupDto,
@@ -23,6 +24,7 @@ const { PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 
 const ERR = {
   allianceNotFound: 'Die Allianz existiert nicht',
+  colonyNotFound: 'Die Kolonie existiert nicht',
   forbidden: 'Dazu fehlt Dir die Berechtigung',
 } as const;
 
@@ -98,6 +100,28 @@ export class MemberOverviewService {
         };
       });
     return { allianceId, members };
+  }
+
+  async getColonyStock(
+    viewerId: number,
+    allianceId: number,
+    colonyId: number,
+  ): Promise<AllianceColonyStockDto> {
+    await this.requireViewableAlliance(viewerId, allianceId);
+    const stock = await this.reader.colonyStock(colonyId);
+    const memberships = await this.store.listMemberships(allianceId);
+    if (!stock || !memberships.some((m) => m.userId === stock.userId)) {
+      throw new NotFoundException(ERR.colonyNotFound);
+    }
+    return {
+      allianceId,
+      colonyId: stock.colonyId,
+      items: stock.items.map((i) => ({
+        commodityId: i.commodityId,
+        name: i.name,
+        amount: i.amount,
+      })),
+    };
   }
 
   /** Not Found for outsiders, Forbidden for members without the right. */
