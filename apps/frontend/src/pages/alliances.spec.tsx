@@ -69,6 +69,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
     homepage: 'https://rogue.example',
     description: '[b]Wir[/b] fliegen',
     renderedDescription: '[b]Wir[/b] fliegen',
+    banner: null,
     titles: {
       president: 'Großadmiral',
       vice: 'Vize-Präsident',
@@ -108,6 +109,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         readForum: false,
         viewMemberOperations: false,
         viewChronicle: false,
+        manageBanner: false,
       },
     },
     ...overrides,

@@ -102,6 +102,8 @@ function toAlliance(alliance: Alliance): AllianceRecord {
     presidentTitle: alliance.presidentTitle,
     viceTitle: alliance.viceTitle,
     diplomatTitle: alliance.diplomatTitle,
+    bannerKey: alliance.bannerKey,
+    bannerUpdatedAt: alliance.bannerUpdatedAt,
     foundedAt: alliance.foundedAt,
   };
 }

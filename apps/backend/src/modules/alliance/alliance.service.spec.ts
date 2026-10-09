@@ -643,6 +643,7 @@ describe('AllianceService', () => {
             readForum: false,
             viewMemberOperations: false,
             viewChronicle: false,
+            manageBanner: false,
           },
         });
         expect(
@@ -706,6 +707,7 @@ describe('AllianceService', () => {
             readForum: true,
             viewMemberOperations: true,
             viewChronicle: true,
+            manageBanner: true,
           },
         });
         const byName = Object.fromEntries(
@@ -797,6 +799,7 @@ describe('AllianceService', () => {
             readForum: true,
             viewMemberOperations: false,
             viewChronicle: true,
+            manageBanner: false,
           });
           expect(
             members.every((m) => Object.values(m.actions).every((a) => !a)),
