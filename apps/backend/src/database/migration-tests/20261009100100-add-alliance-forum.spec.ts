@@ -1,5 +1,5 @@
 import { QueryRunner } from 'typeorm';
-import { AddAllianceForum20261009100000 } from '../migrations/20261009100000-add-alliance-forum';
+import { AddAllianceForum20261009100100 } from '../migrations/20261009100100-add-alliance-forum';
 
 const compact = (sql: string): string => sql.replace(/\s+/g, ' ').trim();
 
@@ -13,11 +13,11 @@ function recordingQueryRunner() {
   return { queries, queryRunner };
 }
 
-describe('AddAllianceForum20261009100000 migration', () => {
+describe('AddAllianceForum20261009100100 migration', () => {
   it('creates cascading board, topic and post tables with soft-delete and edit columns', async () => {
     const { queries, queryRunner } = recordingQueryRunner();
 
-    await new AddAllianceForum20261009100000().up(queryRunner);
+    await new AddAllianceForum20261009100100().up(queryRunner);
 
     const sql = queries.join('\n');
     expect(sql).toContain('CREATE TABLE "alliance_forum_boards"');
@@ -50,7 +50,7 @@ describe('AddAllianceForum20261009100000 migration', () => {
   it('adds indexes for topic lists, post pages and recent topics', async () => {
     const { queries, queryRunner } = recordingQueryRunner();
 
-    await new AddAllianceForum20261009100000().up(queryRunner);
+    await new AddAllianceForum20261009100100().up(queryRunner);
 
     const sql = queries.join('\n');
     expect(sql).toContain('IDX_alliance_forum_topics_board_order');
@@ -61,7 +61,7 @@ describe('AddAllianceForum20261009100000 migration', () => {
   it('mirrors the business length limits in CHECK constraints', async () => {
     const { queries, queryRunner } = recordingQueryRunner();
 
-    await new AddAllianceForum20261009100000().up(queryRunner);
+    await new AddAllianceForum20261009100100().up(queryRunner);
 
     const sql = queries.join('\n');
     expect(sql).toContain('char_length("name") BETWEEN 5 AND 80');
@@ -72,7 +72,7 @@ describe('AddAllianceForum20261009100000 migration', () => {
   it('drops children before parents', async () => {
     const { queries, queryRunner } = recordingQueryRunner();
 
-    await new AddAllianceForum20261009100000().down(queryRunner);
+    await new AddAllianceForum20261009100100().down(queryRunner);
 
     expect(queries).toEqual([
       'DROP TABLE "alliance_forum_posts"',

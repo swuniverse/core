@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAllianceForum20261009100000 implements MigrationInterface {
-  name = 'AddAllianceForum20261009100000';
+export class AddAllianceForum20261009100100 implements MigrationInterface {
+  name = 'AddAllianceForum20261009100100';
 
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
