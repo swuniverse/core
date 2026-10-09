@@ -26,6 +26,12 @@ const FORUM_POST_POLICY: AllianceRateLimitPolicy = {
   message: 'Du schreibst zu schnell Beiträge. Bitte warte einen Moment',
 };
 
+const FORUM_EDIT_POLICY: AllianceRateLimitPolicy = {
+  windowMs: 60_000,
+  maximumAttempts: 20,
+  message: 'Du bearbeitest zu schnell Beiträge. Bitte warte einen Moment',
+};
+
 /**
  * Limits per command group. Command names are persisted in a varchar(16)
  * column, so keep them at 16 characters or fewer. New alliance commands are
@@ -37,6 +43,7 @@ export const ALLIANCE_RATE_LIMIT_COMMANDS = {
   change: DIPLOMACY_POLICY,
   'forum-topic': FORUM_TOPIC_POLICY,
   'forum-post': FORUM_POST_POLICY,
+  'forum-edit': FORUM_EDIT_POLICY,
 } satisfies Record<string, AllianceRateLimitPolicy>;
 
 export type AllianceRateLimitCommand = keyof typeof ALLIANCE_RATE_LIMIT_COMMANDS;

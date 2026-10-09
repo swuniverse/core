@@ -332,6 +332,14 @@ export class InMemoryForumStore implements ForumStore {
     }
   }
 
+  async updatePostText(id: number, text: string, editedAt: Date) {
+    const post = this.state.posts.find((p) => p.id === id);
+    if (post) {
+      post.text = text;
+      post.editedAt = editedAt;
+    }
+  }
+
   async listRecentTopics(
     allianceId: number,
     limit: number,

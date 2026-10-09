@@ -156,14 +156,16 @@ export interface ForumStore {
     limit: number,
   ): Promise<ForumPostRecord[]>;
   countPosts(topicId: number): Promise<number>;
+  /** Includes moderated posts; null if it does not exist. */
+  findPost(id: number): Promise<ForumPostRecord | null>;
+  /** Replaces the text and sets the edit time; touches no activity. */
+  updatePostText(id: number, text: string, editedAt: Date): Promise<void>;
 
   // --- Moderation ---
 
   renameBoard(boardId: number, name: string): Promise<void>;
   renameTopic(topicId: number, title: string): Promise<void>;
   setTopicImportant(topicId: number, important: boolean): Promise<void>;
-  /** The post even if moderated; null if it does not exist. */
-  findPost(id: number): Promise<ForumPostRecord | null>;
   /** Soft-deletes one post: blanks its text and records the moderator. */
   deletePost(postId: number, moderator: ForumModerationStamp): Promise<void>;
   /** Soft-deletes the topic and blanks every not yet moderated post in it. */

@@ -7,7 +7,9 @@ import type {
   ForumBoardPageDto,
   ForumOverviewDto,
   ForumPaginationDto,
+  ForumPostDto,
   ForumTopicPageDto,
+  UpdateForumPostResponse,
 } from '@swuniverse/shared';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
@@ -499,6 +501,65 @@ export function AllianceForumBoardPage() {
 
 // --- Topic (posts) ---
 
+function PostEditor({
+  base,
+  post,
+  onDone,
+}: {
+  base: string;
+  post: ForumPostDto;
+  onDone: (saved: boolean) => void;
+}) {
+  const [text, setText] = useState(post.text ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch<UpdateForumPostResponse>(
+        `${base}/forum/posts/${post.id}`,
+        { text },
+      );
+      onDone(true);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Der Beitrag konnte nicht gespeichert werden.'));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-2">
+      <label htmlFor={`forum-edit-${post.id}`} className="sr-only">
+        Beitrag bearbeiten
+      </label>
+      <textarea
+        id={`forum-edit-${post.id}`}
+        rows={5}
+        className={inputClass}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+      />
+      <ErrorMessage message={error} />
+      <div className="flex gap-2">
+        <button type="submit" className={primaryButtonClass} disabled={busy}>
+          Speichern
+        </button>
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={busy}
+          onClick={() => onDone(false)}
+        >
+          Abbrechen
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function AllianceForumTopicPage() {
   const { id, topicId } = useParams<{ id: string; topicId: string }>();
   const base = `/alliances/${id}`;
@@ -556,6 +617,8 @@ export function AllianceForumTopicPage() {
       'Der Beitrag konnte nicht gelöscht werden.',
     );
   }
+
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -633,6 +696,15 @@ export function AllianceForumTopicPage() {
                     {!post.deleted.moderatorName &&
                       ` (${formatDateTime(post.deleted.deletedAt)})`}
                   </p>
+                ) : editingId === post.id ? (
+                  <PostEditor
+                    base={base}
+                    post={post}
+                    onDone={(saved) => {
+                      setEditingId(null);
+                      if (saved) void reload();
+                    }}
+                  />
                 ) : (
                   <BbCodeText text={post.text} className="text-sm" />
                 )}
@@ -641,6 +713,15 @@ export function AllianceForumTopicPage() {
                     label="Beitrag löschen"
                     onClick={() => deletePost(post.id)}
                   />
+                )}
+                {post.capabilities.edit && editingId !== post.id && (
+                  <button
+                    type="button"
+                    className={buttonClass}
+                    onClick={() => setEditingId(post.id)}
+                  >
+                    Bearbeiten
+                  </button>
                 )}
               </li>
             ))}

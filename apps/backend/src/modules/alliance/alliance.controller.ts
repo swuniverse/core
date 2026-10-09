@@ -24,6 +24,7 @@ import type {
   SetForumTopicImportantRequest,
   ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
+  UpdateForumPostRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
@@ -229,6 +230,18 @@ export class AllianceController {
     @Param('postId', ParseIntPipe) postId: number,
   ) {
     await this.forumService.deletePost(req.user.sub, id, postId);
+  }
+
+  @Patch(':id/forum/posts/:postId')
+  updateForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('postId', ParseIntPipe) postId: number,
+    @Body() body: UpdateForumPostRequest,
+  ) {
+    return this.forumService.updatePost(req.user.sub, id, postId, {
+      text: body?.text,
+    });
   }
 
   @Get(':id/chronicle')

@@ -418,6 +418,10 @@ class TypeOrmForumStoreSession implements ForumStore {
       deletedByName: moderator.name,
     };
   }
+
+  async updatePostText(id: number, text: string, editedAt: Date) {
+    await this.manager.update(ForumPost, { id }, { text, editedAt });
+  }
 }
 
 @Injectable()
