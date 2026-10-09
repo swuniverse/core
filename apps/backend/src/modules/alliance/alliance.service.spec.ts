@@ -15,6 +15,10 @@ import {
   AllianceRole,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
+import {
+  AllianceContextCleanup,
+  type AllianceContextCleanupConsumer,
+} from './alliance-context-cleanup';
 import { AllianceConstraintViolation } from './alliance.store';
 import {
   EMPIRE,
@@ -2398,6 +2402,106 @@ describe('AllianceService', () => {
       });
     });
 
+    describe('context cleanup consumers', () => {
+      function withConsumer(
+        ctx: ReturnType<typeof scenario>,
+        override: Partial<AllianceContextCleanupConsumer> = {},
+      ) {
+        const registry = new AllianceContextCleanup();
+        const consumer = {
+          allianceDissolved: jest.fn(async () => undefined),
+          memberRemoved: jest.fn(async () => undefined),
+          ...override,
+        };
+        registry.register(consumer);
+        const service = new AllianceService(
+          ctx.store,
+          { sendSystem: jest.fn() } as never,
+          undefined,
+          undefined,
+          registry,
+        );
+        return { service, consumer };
+      }
+
+      it('informs the consumer once when a member leaves', async () => {
+        const ctx = scenario();
+        const { service, consumer } = withConsumer(ctx);
+        await service.leave(4);
+        expect(consumer.memberRemoved).toHaveBeenCalledTimes(1);
+        expect(consumer.memberRemoved).toHaveBeenCalledWith(
+          { allianceId: ctx.alliance.id, userId: 4 },
+          expect.anything(),
+        );
+        expect(consumer.allianceDissolved).not.toHaveBeenCalled();
+      });
+
+      it('informs the consumer once when a member is kicked', async () => {
+        const ctx = scenario();
+        const { service, consumer } = withConsumer(ctx);
+        await service.kick(1, ctx.alliance.id, 4);
+        expect(consumer.memberRemoved).toHaveBeenCalledTimes(1);
+        expect(consumer.memberRemoved).toHaveBeenCalledWith(
+          { allianceId: ctx.alliance.id, userId: 4 },
+          expect.anything(),
+        );
+      });
+
+      it('informs the consumer once on dissolution by the president and by the last member', async () => {
+        const ctx = scenario();
+        const { service, consumer } = withConsumer(ctx);
+        await service.dissolve(1, ctx.alliance.id);
+        await service.leave(5);
+        expect(consumer.allianceDissolved).toHaveBeenCalledTimes(2);
+        expect(consumer.allianceDissolved).toHaveBeenNthCalledWith(
+          1,
+          {
+            allianceId: ctx.alliance.id,
+            memberUserIds: expect.arrayContaining([1, 2, 3, 4, 6]),
+          },
+          expect.anything(),
+        );
+        expect(consumer.memberRemoved).not.toHaveBeenCalled();
+      });
+
+      it('rolls everything back when the consumer fails', async () => {
+        const ctx = scenario();
+        const boom = jest.fn(async () => {
+          throw new Error('consumer failed');
+        });
+        const { service } = withConsumer(ctx, {
+          memberRemoved: boom,
+          allianceDissolved: boom,
+        });
+        await expect(service.leave(4)).rejects.toThrow('consumer failed');
+        await expect(service.kick(1, ctx.alliance.id, 3)).rejects.toThrow(
+          'consumer failed',
+        );
+        await expect(service.dissolve(1, ctx.alliance.id)).rejects.toThrow(
+          'consumer failed',
+        );
+        expect(await ctx.store.findMembership(4)).not.toBeNull();
+        expect(await ctx.store.findMembership(3)).not.toBeNull();
+        expect(await ctx.store.findAlliance(ctx.alliance.id)).not.toBeNull();
+      });
+
+      it('behaves unchanged without consumers', async () => {
+        const ctx = scenario();
+        const registry = new AllianceContextCleanup();
+        const service = new AllianceService(
+          ctx.store,
+          { sendSystem: jest.fn() } as never,
+          undefined,
+          undefined,
+          registry,
+        );
+        await service.leave(4);
+        await service.kick(1, ctx.alliance.id, 3);
+        expect(await ctx.store.findMembership(4)).toBeNull();
+        expect(await ctx.store.findMembership(3)).toBeNull();
+      });
+    });
+
     describe('kick', () => {
       it('lets the president kick anyone else and informs them', async () => {
         const { store, service, sent, alliance } = scenario();
@@ -2513,9 +2617,7 @@ describe('AllianceService', () => {
           retrying.dissolve(1, alliance.id),
         ).resolves.toBeUndefined();
         expect(await store.findAlliance(alliance.id)).toBeNull();
-        expect(await store.listPendingDiplomacyNotifications()).not.toEqual(
-          [],
-        );
+        expect(await store.listPendingDiplomacyNotifications()).not.toEqual([]);
 
         await retrying.retryDiplomacyNotifications();
         await retrying.retryDiplomacyNotifications();
