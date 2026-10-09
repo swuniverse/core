@@ -1,4 +1,4 @@
-import type { BuildingDef } from './types';
+import type { BuildingDef, ColonyStorageItem } from './types';
 import {
   canAfford,
   getTerraformingOptionsForField,
@@ -8,8 +8,8 @@ import {
 const building = {
   epsCost: 5,
   resourceCosts: [{ commodityId: 2, amount: 4 }],
-} as BuildingDef;
-const storage = [{ commodityId: 2, amount: 12 }];
+} as unknown as BuildingDef;
+const storage = [{ commodityId: 2, amount: 12 }] as ColonyStorageItem[];
 
 describe('colony build affordability', () => {
   it('requires construction energy in addition to resources', () => {
@@ -22,16 +22,16 @@ describe('colony build affordability', () => {
   });
 
   it('handles buildings with only an energy cost', () => {
-    const energyOnly = { epsCost: 5, resourceCosts: [] } as BuildingDef;
+    const energyOnly = { epsCost: 5, resourceCosts: [] } as unknown as BuildingDef;
 
-    expect(maxAffordable(energyOnly, [], 4)).toBe(0);
-    expect(maxAffordable(energyOnly, [], 10)).toBe(2);
+    expect(maxAffordable(energyOnly, [] as ColonyStorageItem[], 4)).toBe(0);
+    expect(maxAffordable(energyOnly, [] as ColonyStorageItem[], 10)).toBe(2);
   });
 
   it('keeps unlimited affordability for buildings without costs', () => {
-    const freeBuilding = { epsCost: 0, resourceCosts: [] } as BuildingDef;
+    const freeBuilding = { epsCost: 0, resourceCosts: [] } as unknown as BuildingDef;
 
-    expect(maxAffordable(freeBuilding, [], 0)).toBe(Infinity);
+    expect(maxAffordable(freeBuilding, [] as ColonyStorageItem[], 0)).toBe(Infinity);
   });
 
   it('prefers a bonus-specific terraforming option over its generic variant', () => {

@@ -52,3 +52,9 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - `[translate]`-Blöcke und BBCode in Allianznamen.
 - Export oder Archivierung des Allianzforums.
 - Eigenständige, in SWU fehlende Spielsysteme, die nur als Träger einer Allianzregel gebaut würden.
+
+## Interne Zusammenarbeit: umgesetzt (2026-10-09)
+
+- [Interne Zusammenarbeit](interne-zusammenarbeit-spec.md) ist in den [Tickets 01–12](interne-zusammenarbeit-issues/) umgesetzt: Allianzforum mit Boards, Themen, Beiträgen, Bearbeiten und weicher Moderation durch Präsident und Vize, letzte Themen im Dashboard, erfasste letzte Aktivität, Online-Status nur für Mitglieder, Mitgliederübersicht mit Koloniebestand für Präsident und Vize sowie interne Allianzchronik für Gründung, Mitgliedschaft, Ämter und Details. Autorisierung ist auf Controller-Ebene mit direkten Requests je Rolle und mit manipulierten IDs, die Lebenszyklen (Auflösung auf beiden Wegen, Kontolöschung) sind auf Postgres nachgewiesen.
+- Offene Punkte für die Etappe „Lebenszyklus und Restparität“: Chronikereignisse für Präsidentennachfolge und Banner; Nachfolge über die letzte Aktivität, wobei ein leerer Wert (`lastActiveAt` null) als älteste Aktivität gilt; Banner selbst.
+- Weiterhin benannte Integrationspunkte: spielereigene Stationen in der Klassengruppierung der Mitgliederübersicht (siehe Nachtrag in `beziehungswirkungen-spec.md`); Forum-Export und -Archivierung bleiben außerhalb des Umfangs.

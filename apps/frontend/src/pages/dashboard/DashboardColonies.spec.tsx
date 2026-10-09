@@ -21,7 +21,7 @@ describe('DashboardColonies', () => {
         },
       ],
       warnings: [],
-    } as DashboardData;
+    } as unknown as DashboardData;
 
     render(
       <MemoryRouter>
