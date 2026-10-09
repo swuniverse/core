@@ -11,6 +11,7 @@ import {
 import { AllianceChronicleEventType, AllianceRole } from '@swuniverse/shared';
 import { AllianceBannerService } from './alliance-banner.service';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
+import { AllianceContextCleanup } from './alliance-context-cleanup';
 import { AllianceService } from './alliance.service';
 import {
   InMemoryAllianceStore,
@@ -19,6 +20,7 @@ import { InMemoryAssetStorage } from './testing/in-memory-asset-storage';
 import { makePng } from './testing/png-fixtures';
 
 const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
+const FAR_FUTURE = new Date(Date.UTC(2100, 0, 1));
 
 function setup() {
   const store = new InMemoryAllianceStore();
@@ -300,6 +302,108 @@ describe('AllianceBannerService', () => {
       );
 
       expect(flags).toEqual([true, true, false, false, false]);
+    });
+  });
+
+  describe('durable asset deletion', () => {
+    it('keeps a replaced asset as a pending task when deletion fails and removes it on retry', async () => {
+      const { banners, assets, store, rogue } = setup();
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      const oldKey = (await store.findAlliance(rogue.id))!.bannerKey!;
+
+      assets.failNextDelete = true;
+      await banners.upload(1, rogue.id, makePng(20, 10));
+
+      expect((await store.findAlliance(rogue.id))?.bannerKey).not.toBe(oldKey);
+      expect(assets.keys()).toContain(oldKey);
+      const pending = await store.listPendingAssetDeletions();
+      expect(pending.map((task) => task.assetKey)).toEqual([oldKey]);
+      expect(pending[0].attempts).toBe(1);
+
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+
+      expect(assets.keys()).not.toContain(oldKey);
+      expect(await store.listPendingAssetDeletions()).toEqual([]);
+    });
+
+    it('keeps a removed banner as a pending task when deletion fails', async () => {
+      const { banners, assets, store, rogue } = setup();
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      const key = (await store.findAlliance(rogue.id))!.bannerKey!;
+
+      assets.failNextDelete = true;
+      await banners.remove(1, rogue.id);
+
+      expect((await store.findAlliance(rogue.id))?.bannerKey).toBeNull();
+      expect(assets.keys()).toEqual([key]);
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+      expect(assets.size).toBe(0);
+    });
+
+    it('waits for the backoff before retrying a failed deletion', async () => {
+      const { banners, assets, store, rogue } = setup();
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      assets.failNextDelete = true;
+      await banners.remove(1, rogue.id);
+
+      await banners.retryAssetDeletions();
+
+      expect(assets.size).toBe(1);
+      expect(await store.listPendingAssetDeletions()).toHaveLength(1);
+    });
+
+    it('persists the banner deletion when the alliance is dissolved and deletes it on retry', async () => {
+      const { banners, alliances, assets, store, rogue } = setup();
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      const key = (await store.findAlliance(rogue.id))!.bannerKey!;
+
+      await alliances.dissolve(1, rogue.id);
+
+      expect(await store.findAlliance(rogue.id)).toBeNull();
+      expect(
+        (await store.listPendingAssetDeletions()).map((t) => t.assetKey),
+      ).toEqual([key]);
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+      expect(assets.size).toBe(0);
+      expect(await store.listPendingAssetDeletions()).toEqual([]);
+    });
+
+    it('treats an already missing asset as deleted and a repeated retry as a no-op', async () => {
+      const { banners, assets, store, alliances, rogue } = setup();
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      const key = (await store.findAlliance(rogue.id))!.bannerKey!;
+      await alliances.dissolve(1, rogue.id);
+      await assets.delete(key);
+
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+
+      expect(await store.listPendingAssetDeletions()).toEqual([]);
+    });
+
+    it('does not persist a deletion task when the dissolution rolls back', async () => {
+      const { banners, store, rogue } = setup();
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      const registry = new AllianceContextCleanup();
+      registry.register({
+        allianceDissolved: async () => {
+          throw new Error('consumer failed');
+        },
+      });
+      const failing = new AllianceService(
+        store,
+        { sendSystem: jest.fn() } as never,
+        undefined,
+        undefined,
+        registry,
+      );
+
+      await expect(failing.dissolve(1, rogue.id)).rejects.toThrow(
+        'consumer failed',
+      );
+
+      expect(await store.listPendingAssetDeletions()).toEqual([]);
+      expect((await store.findAlliance(rogue.id))?.bannerKey).not.toBeNull();
     });
   });
 });

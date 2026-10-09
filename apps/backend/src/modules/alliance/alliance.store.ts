@@ -132,6 +132,14 @@ export interface AllianceDiplomacyNotificationRecord {
   leaseToken: string | null;
 }
 
+/** A durable retry task for deleting a physical alliance asset. */
+export interface AllianceAssetDeletionRecord {
+  id: number;
+  assetKey: string;
+  attempts: number;
+  nextAttemptAt: Date;
+}
+
 export type AlliancePatch = Partial<
   Pick<
     AllianceRecord,
@@ -293,6 +301,26 @@ export interface AllianceStore {
     id: number,
     leaseToken: string,
   ): Promise<void>;
+
+  /**
+   * Persists the intent to delete an asset file. Called inside the transaction
+   * that unreferences the asset; enqueueing a known key is a no-op.
+   */
+  enqueueAssetDeletion(assetKey: string): Promise<void>;
+  /** All unfinished deletion tasks, oldest first (diagnostics, acceptance). */
+  listPendingAssetDeletions(): Promise<AllianceAssetDeletionRecord[]>;
+  /**
+   * Atomically claims tasks due at `now`: counts the attempt and pushes
+   * `nextAttemptAt` out by `backoffMs(attempts)`, so concurrent workers skip
+   * them and a failed attempt is retried only after the backoff.
+   */
+  claimDueAssetDeletions(
+    limit: number,
+    now: Date,
+    backoffMs: (attempts: number) => number,
+  ): Promise<AllianceAssetDeletionRecord[]>;
+  /** Removes a finished task. */
+  completeAssetDeletion(id: number): Promise<void>;
 
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Current memberships of the given players; players without one are absent. */

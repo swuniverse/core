@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import { AllianceChronicleEventType } from '@swuniverse/shared';
 import { randomBytes } from 'node:crypto';
 import { BannerImageError, normalizeBannerPng } from './alliance-banner-image';
@@ -15,7 +16,15 @@ import type { AllianceAssetStorage } from './alliance-asset.port';
 import { mayActOnAlliance } from './alliance-permissions';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import { ALLIANCE_STORE } from './alliance.store';
-import type { AllianceRecord, AllianceStore } from './alliance.store';
+import type {
+  AllianceAssetDeletionRecord,
+  AllianceRecord,
+  AllianceStore,
+} from './alliance.store';
+
+/** Exponential backoff, 1 min doubling up to 1 h. */
+const ASSET_DELETION_BACKOFF_MS = (attempts: number): number =>
+  Math.min(60_000 * 2 ** Math.max(0, attempts - 1), 3_600_000);
 
 const ERR = {
   allianceNotFound: 'Die Allianz existiert nicht',
@@ -32,6 +41,7 @@ const ERR = {
 @Injectable()
 export class AllianceBannerService {
   private readonly logger = new Logger(AllianceBannerService.name);
+  private dispatching = false;
 
   constructor(
     @Inject(ALLIANCE_STORE) private readonly store: AllianceStore,
@@ -54,9 +64,8 @@ export class AllianceBannerService {
     const key = randomBytes(16).toString('hex');
     await this.assets.save(key, image.data);
 
-    let previousKey: string | null;
     try {
-      previousKey = await this.store.transaction(async (tx) => {
+      await this.store.transaction(async (tx) => {
         const alliance = await this.lockedAllianceWithRight(
           tx,
           actorId,
@@ -77,19 +86,24 @@ export class AllianceBannerService {
             replaced: alliance.bannerKey !== null,
           },
         );
-        return alliance.bannerKey;
+        if (alliance.bannerKey) {
+          await tx.enqueueAssetDeletion(alliance.bannerKey);
+        }
       });
     } catch (error) {
-      await this.deleteQuietly(key);
+      // The new asset was never referenced: queue it so a failing adapter
+      // cannot leave it behind either.
+      await this.store.enqueueAssetDeletion(key).catch(() => undefined);
+      await this.retryAssetDeletions();
       throw error;
     }
-    if (previousKey) await this.deleteQuietly(previousKey);
+    await this.retryAssetDeletions();
   }
 
   async remove(actorId: number, allianceId: number): Promise<void> {
     await this.requireRight(actorId, allianceId);
     await this.rateLimiter?.check(actorId, 'banner');
-    const previousKey = await this.store.transaction(async (tx) => {
+    await this.store.transaction(async (tx) => {
       const alliance = await this.lockedAllianceWithRight(
         tx,
         actorId,
@@ -107,9 +121,9 @@ export class AllianceBannerService {
         actorId,
         null,
       );
-      return alliance.bannerKey;
+      await tx.enqueueAssetDeletion(alliance.bannerKey);
     });
-    await this.deleteQuietly(previousKey);
+    await this.retryAssetDeletions();
   }
 
   /** Public: alliance pages are public, so no membership is required. */
@@ -189,18 +203,46 @@ export class AllianceBannerService {
   }
 
   /**
-   * A committed change stays successful when the file cannot be removed now;
-   * a leftover file is unreferenced and harmless (durable retry is a
-   * separate follow-up).
+   * Executes due deletion tasks. Failures never propagate to the committed
+   * change; the task stays with a growing backoff. A missing asset counts as
+   * deleted, so repeating the run is harmless.
    */
-  private async deleteQuietly(key: string): Promise<void> {
+  async retryAssetDeletions(options: { now?: Date } = {}): Promise<void> {
+    let tasks: AllianceAssetDeletionRecord[];
     try {
-      await this.assets.delete(key);
+      tasks = await this.store.claimDueAssetDeletions(
+        100,
+        options.now ?? new Date(),
+        ASSET_DELETION_BACKOFF_MS,
+      );
     } catch (error) {
       this.logger.error(
-        `Failed to delete banner asset ${key}`,
+        'Failed to claim banner asset deletions',
         error instanceof Error ? error.stack : error,
       );
+      return;
+    }
+    for (const task of tasks) {
+      try {
+        await this.assets.delete(task.assetKey);
+        await this.store.completeAssetDeletion(task.id);
+      } catch (error) {
+        this.logger.error(
+          `Failed to delete banner asset ${task.assetKey} (attempt ${task.attempts})`,
+          error instanceof Error ? error.stack : error,
+        );
+      }
+    }
+  }
+
+  @Interval(60_000)
+  async dispatchAssetDeletions(): Promise<void> {
+    if (this.dispatching) return;
+    this.dispatching = true;
+    try {
+      await this.retryAssetDeletions();
+    } finally {
+      this.dispatching = false;
     }
   }
 }

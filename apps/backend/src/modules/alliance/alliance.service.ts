@@ -1226,6 +1226,9 @@ export class AllianceService {
       },
       { transaction: tx.transactionHandle() },
     );
+    // Persist the file deletion as a task in this very transaction; the
+    // banner service executes it after the commit and retries on failure.
+    if (alliance.bannerKey) await tx.enqueueAssetDeletion(alliance.bannerKey);
     await tx.deleteAlliance(alliance.id);
     return members
       .filter((m) => m.userId !== triggerUserId)

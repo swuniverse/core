@@ -45,6 +45,7 @@ import { AllianceRelationshipChangeProposal } from './entities/alliance-relation
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import { AllianceChronicleEntry } from './entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceAssetDeletion } from './entities/alliance-asset-deletion.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 
 @Module({
@@ -60,6 +61,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceChronicleEntry,
       AllianceDiplomacyChronicleEntry,
       AllianceDiplomacyNotification,
+      AllianceAssetDeletion,
       ForumBoard,
       ForumTopic,
       ForumPost,

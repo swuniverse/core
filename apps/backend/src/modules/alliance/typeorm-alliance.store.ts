@@ -27,12 +27,14 @@ import { AllianceRelationshipChangeProposal } from './entities/alliance-relation
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
 import { AllianceChronicleEntry } from './entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
+import { AllianceAssetDeletion } from './entities/alliance-asset-deletion.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 import {
   AllianceConstraint,
   AllianceConstraintViolation,
   AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
+  AllianceAssetDeletionRecord,
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
@@ -174,6 +176,15 @@ function toNotification(
     createdAt: notification.createdAt,
     deliveredAt: notification.deliveredAt,
     leaseToken: notification.leaseToken,
+  };
+}
+
+function toAssetDeletion(task: AllianceAssetDeletion): AllianceAssetDeletionRecord {
+  return {
+    id: task.id,
+    assetKey: task.assetKey,
+    attempts: task.attempts,
+    nextAttemptAt: task.nextAttemptAt,
   };
 }
 
@@ -805,6 +816,56 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .andWhere('"deliveredAt" IS NULL')
       .andWhere('"leaseToken" = :leaseToken', { leaseToken })
       .execute();
+  }
+
+  async enqueueAssetDeletion(assetKey: string) {
+    await this.manager
+      .createQueryBuilder()
+      .insert()
+      .into(AllianceAssetDeletion)
+      .values({ assetKey, attempts: 0, nextAttemptAt: () => 'now()' })
+      .orIgnore()
+      .execute();
+  }
+
+  async listPendingAssetDeletions() {
+    const tasks = await this.manager.find(AllianceAssetDeletion, {
+      order: { id: 'ASC' },
+    });
+    return tasks.map(toAssetDeletion);
+  }
+
+  async claimDueAssetDeletions(
+    limit: number,
+    now: Date,
+    backoffMs: (attempts: number) => number,
+  ) {
+    // One transaction so that the row locks hold until the claim is stored.
+    return this.manager.transaction(async (manager) => {
+      const candidates: Array<{ id: number }> = await manager.query(
+        `SELECT "id" FROM "alliance_asset_deletions"
+        WHERE "nextAttemptAt" <= $1
+        ORDER BY "id" ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED`,
+        [now, limit],
+      );
+      const claimed: AllianceAssetDeletionRecord[] = [];
+      for (const { id } of candidates) {
+        const task = await manager.findOneByOrFail(AllianceAssetDeletion, {
+          id,
+        });
+        task.attempts += 1;
+        task.nextAttemptAt = new Date(now.getTime() + backoffMs(task.attempts));
+        await manager.save(task);
+        claimed.push(toAssetDeletion(task));
+      }
+      return claimed;
+    });
+  }
+
+  async completeAssetDeletion(id: number) {
+    await this.manager.delete(AllianceAssetDeletion, { id });
   }
 
   async endNonWarRelationship(id: number) {

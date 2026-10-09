@@ -7,6 +7,7 @@ import {
   AllianceConstraintViolation,
   AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
+  AllianceAssetDeletionRecord,
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
@@ -33,6 +34,7 @@ interface State {
   diplomacyChronicleEntries: AllianceDiplomacyChronicleEntryRecord[];
   allianceChronicleEntries: AllianceChronicleEntryRecord[];
   diplomacyNotifications: AllianceDiplomacyNotificationRecord[];
+  assetDeletions: AllianceAssetDeletionRecord[];
   nextId: number;
   clock: number;
 }
@@ -65,6 +67,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     diplomacyChronicleEntries: [],
     allianceChronicleEntries: [],
     diplomacyNotifications: [],
+    assetDeletions: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
   };
@@ -713,6 +716,41 @@ export class InMemoryAllianceStore implements AllianceStore {
         entry.leaseToken === leaseToken,
     );
     if (notification) notification.leaseToken = null;
+  }
+
+  async enqueueAssetDeletion(assetKey: string) {
+    if (this.state.assetDeletions.some((t) => t.assetKey === assetKey)) return;
+    this.state.assetDeletions.push({
+      id: this.nextId(),
+      assetKey,
+      attempts: 0,
+      nextAttemptAt: new Date(0),
+    });
+  }
+
+  async listPendingAssetDeletions() {
+    return this.state.assetDeletions.map((task) => ({ ...task }));
+  }
+
+  async claimDueAssetDeletions(
+    limit: number,
+    now: Date,
+    backoffMs: (attempts: number) => number,
+  ) {
+    return this.state.assetDeletions
+      .filter((task) => task.nextAttemptAt <= now)
+      .slice(0, limit)
+      .map((task) => {
+        task.attempts += 1;
+        task.nextAttemptAt = new Date(now.getTime() + backoffMs(task.attempts));
+        return { ...task };
+      });
+  }
+
+  async completeAssetDeletion(id: number) {
+    this.state.assetDeletions = this.state.assetDeletions.filter(
+      (task) => task.id !== id,
+    );
   }
 
   async findMembership(userId: number) {
