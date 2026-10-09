@@ -1,3 +1,4 @@
+import type { AllianceTransactionHandle } from './alliance-context-cleanup';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -251,7 +252,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     );
   }
 
-  transactionHandle(): unknown {
+  transactionHandle(): AllianceTransactionHandle {
     return this.manager;
   }
 

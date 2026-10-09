@@ -368,6 +368,64 @@ describe('AllianceBannerService', () => {
       expect(await store.listPendingAssetDeletions()).toEqual([]);
     });
 
+    it('deletes the banner file right after the dissolution commit when the banner service is wired', async () => {
+      const { banners, assets, store, rogue } = setup();
+      const wired = new AllianceService(
+        store,
+        { sendSystem: jest.fn() } as never,
+        undefined,
+        undefined,
+        undefined,
+        banners,
+      );
+      await banners.upload(1, rogue.id, makePng(10, 10));
+
+      await wired.dissolve(1, rogue.id);
+
+      expect(assets.size).toBe(0);
+      expect(await store.listPendingAssetDeletions()).toEqual([]);
+    });
+
+    it('keeps a dissolution successful when the immediate file deletion fails', async () => {
+      const { banners, assets, store, rogue } = setup();
+      const wired = new AllianceService(
+        store,
+        { sendSystem: jest.fn() } as never,
+        undefined,
+        undefined,
+        undefined,
+        banners,
+      );
+      await banners.upload(1, rogue.id, makePng(10, 10));
+      assets.failNextDelete = true;
+
+      await expect(wired.dissolve(1, rogue.id)).resolves.toBeUndefined();
+
+      expect(await store.findAlliance(rogue.id)).toBeNull();
+      expect(await store.listPendingAssetDeletions()).toHaveLength(1);
+      await banners.retryAssetDeletions({ now: FAR_FUTURE });
+      expect(assets.size).toBe(0);
+    });
+
+    it('does not let a throwing banner service affect the dissolution result', async () => {
+      const { store, rogue } = setup();
+      const wired = new AllianceService(
+        store,
+        { sendSystem: jest.fn() } as never,
+        undefined,
+        undefined,
+        undefined,
+        {
+          retryAssetDeletions: async () => {
+            throw new Error('boom');
+          },
+        } as never,
+      );
+
+      await expect(wired.dissolve(1, rogue.id)).resolves.toBeUndefined();
+      expect(await store.findAlliance(rogue.id)).toBeNull();
+    });
+
     it('treats an already missing asset as deleted and a repeated retry as a no-op', async () => {
       const { banners, assets, store, alliances, rogue } = setup();
       await banners.upload(1, rogue.id, makePng(10, 10));

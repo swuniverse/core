@@ -216,6 +216,13 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
           userId: applicant.id,
         });
         const { red } = await relationshipsOf(leia, rogue);
+        // The cascade assertions below are only meaningful with rows to lose.
+        expect(await count('alliance_relationship_proposals')).toBeGreaterThan(
+          0,
+        );
+        expect(
+          await count('alliance_relationship_change_proposals'),
+        ).toBeGreaterThan(0);
         await allianceService.declareWar(leia.id, rogue.id, red.id);
         await fillForumAndChronicle(rogue.id, leia);
         const publicEntries = await count(

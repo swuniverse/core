@@ -9,20 +9,32 @@
  * no-op. Contract: `.scratch/alliance-stu-parity/allianz-infrastruktur-spec.md`
  * ("Integrationsvertrag: Allianzdepots" and "Zugangsprivilegien").
  */
+/** Handle of the surrounding transaction; opaque to the alliance module. */
+export type AllianceTransactionHandle = unknown;
+
 export interface AllianceContextCleanupContext {
-  /** Handle of the surrounding transaction; opaque to the alliance module. */
-  transaction: unknown;
+  transaction: AllianceTransactionHandle;
+}
+
+export interface AllianceDissolvedEvent {
+  allianceId: number;
+  memberUserIds: number[];
+}
+
+export interface AllianceMemberRemovedEvent {
+  allianceId: number;
+  userId: number;
 }
 
 export interface AllianceContextCleanupConsumer {
   /** The alliance is being dissolved; all its members lose the context. */
   allianceDissolved?(
-    event: { allianceId: number; memberUserIds: number[] },
+    event: AllianceDissolvedEvent,
     context: AllianceContextCleanupContext,
   ): Promise<void>;
   /** One member left or was kicked (not called per member on dissolution). */
   memberRemoved?(
-    event: { allianceId: number; userId: number },
+    event: AllianceMemberRemovedEvent,
     context: AllianceContextCleanupContext,
   ): Promise<void>;
   /** All alliance data is being reset. */
@@ -40,14 +52,14 @@ export class AllianceContextCleanup {
   }
 
   async allianceDissolved(
-    event: { allianceId: number; memberUserIds: number[] },
+    event: AllianceDissolvedEvent,
     context: AllianceContextCleanupContext,
   ): Promise<void> {
     for (const c of this.consumers) await c.allianceDissolved?.(event, context);
   }
 
   async memberRemoved(
-    event: { allianceId: number; userId: number },
+    event: AllianceMemberRemovedEvent,
     context: AllianceContextCleanupContext,
   ): Promise<void> {
     for (const c of this.consumers) await c.memberRemoved?.(event, context);

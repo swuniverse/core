@@ -1,3 +1,4 @@
+import type { AllianceTransactionHandle } from './alliance-context-cleanup';
 import type {
   AllianceChronicleEventType,
   AllianceDiplomacyChronicleEventType,
@@ -181,7 +182,7 @@ export class AllianceConstraintViolation extends Error {
 export interface AllianceStore {
   transaction<T>(work: (store: AllianceStore) => Promise<T>): Promise<T>;
   /** Opaque handle of the surrounding transaction (the EntityManager for TypeORM), for cleanup consumers. */
-  transactionHandle(): unknown;
+  transactionHandle(): AllianceTransactionHandle;
   /**
    * Inside a transaction: lock the alliance row until commit so concurrent
    * changes to the same alliance run one after another. Returns the fresh

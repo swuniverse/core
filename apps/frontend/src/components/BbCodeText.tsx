@@ -1,9 +1,16 @@
 import { useState, type ReactNode } from 'react';
+import { ALLIANCE_BANNER_URL_PATTERN } from '@swuniverse/shared';
 
 export type BbCodeTextProps = {
   text: string | null | undefined;
   className?: string;
   as?: 'div' | 'p' | 'span';
+  /**
+   * Renders `[img]` banner URLs as images. Opt-in for the one place that
+   * receives the server-rendered banner placeholder (alliance description);
+   * everywhere else `[img]` stays literal text.
+   */
+  allowBannerImages?: boolean;
 };
 
 type Tag =
@@ -59,9 +66,6 @@ function isSafeUrl(value: string): boolean {
   }
 }
 
-/** Only the alliance banner endpoint may be embedded as an image. */
-const BANNER_IMAGE_PATH = /^\/api\/alliances\/\d+\/banner(\?v=\d+)?$/;
-
 function frameChildren(frame: Frame): Part[] {
   if (frame.tag === 'translate' && frame.inTranslation) {
     frame.translationChildren ??= [];
@@ -96,7 +100,12 @@ function TranslationText({
   );
 }
 
-function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): Part {
+function renderFrame(
+  frame: Frame,
+  endLiteral: string,
+  nextKey: () => string,
+  allowBannerImages: boolean,
+): Part {
   const translationLiteral = frame.translationChildren
     ? `[translation]${partsLiteral(frame.translationChildren)}`
     : '';
@@ -189,7 +198,9 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
     }
     case 'img': {
       const src = partsLiteral(frame.children).trim();
-      if (!BANNER_IMAGE_PATH.test(src)) return textPart(literal);
+      if (!allowBannerImages || !ALLIANCE_BANNER_URL_PATTERN.test(src)) {
+        return textPart(literal);
+      }
       return {
         literal,
         node: (
@@ -219,7 +230,7 @@ function renderFrame(frame: Frame, endLiteral: string, nextKey: () => string): P
   }
 }
 
-function parseBbCode(text: string): ReactNode[] {
+function parseBbCode(text: string, allowBannerImages: boolean): ReactNode[] {
   const root: Part[] = [];
   const stack: Frame[] = [];
   let lastIndex = 0;
@@ -255,7 +266,7 @@ function parseBbCode(text: string): ReactNode[] {
       if (closingSlash) {
         if (top?.tag === tag) {
           const frame = stack.pop()!;
-          appendPart(stack, root, renderFrame(frame, token, nextKey));
+          appendPart(stack, root, renderFrame(frame, token, nextKey, allowBannerImages));
         } else {
           appendPart(stack, root, textPart(token));
         }
@@ -284,8 +295,17 @@ function parseBbCode(text: string): ReactNode[] {
   return partsNodes(root);
 }
 
-export function BbCodeText({ text, className, as = 'div' }: BbCodeTextProps) {
+export function BbCodeText({
+  text,
+  className,
+  as = 'div',
+  allowBannerImages = false,
+}: BbCodeTextProps) {
   const Component = as;
 
-  return <Component className={className}>{parseBbCode(text ?? '')}</Component>;
+  return (
+    <Component className={className}>
+      {parseBbCode(text ?? '', allowBannerImages)}
+    </Component>
+  );
 }

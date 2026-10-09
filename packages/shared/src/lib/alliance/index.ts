@@ -251,6 +251,17 @@ export interface AllianceBannerDto {
   updatedAt: string;
 }
 
+/** Shape of the banner delivery URL: `/api/alliances/<id>/banner?v=<updatedAt ms>`. */
+export const ALLIANCE_BANNER_URL_PATTERN =
+  /^\/api\/alliances\/\d+\/banner(\?v=\d+)?$/;
+
+export function allianceBannerUrl(
+  allianceId: number,
+  updatedAtMs: number,
+): string {
+  return `/api/alliances/${allianceId}/banner?v=${updatedAtMs}`;
+}
+
 export interface AllianceDetailDto extends AllianceSummaryDto {
   /** Null while the alliance has no banner. */
   banner: AllianceBannerDto | null;

@@ -1,3 +1,4 @@
+import type { AllianceTransactionHandle } from '../alliance-context-cleanup';
 import {
   AllianceRelationshipType,
   AllianceRole,
@@ -221,7 +222,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     }
   }
 
-  transactionHandle(): unknown {
+  transactionHandle(): AllianceTransactionHandle {
     return this;
   }
 

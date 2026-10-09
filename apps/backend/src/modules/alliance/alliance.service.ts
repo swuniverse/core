@@ -10,6 +10,7 @@ import {
 import {
   AllianceApplicationDto,
   AllianceBannerDto,
+  allianceBannerUrl,
   AllianceChronicleDto,
   AllianceChronicleEntryDto,
   AllianceChronicleEventType,
@@ -61,6 +62,7 @@ import {
   AllianceContextCleanup,
 } from './alliance-context-cleanup';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
+import { AllianceBannerService } from './alliance-banner.service';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import type {
   AllianceConstraint,
@@ -149,6 +151,8 @@ export class AllianceService {
     @Optional()
     @Inject(ALLIANCE_CONTEXT_CLEANUP)
     private readonly contextCleanup?: AllianceContextCleanup,
+    @Optional()
+    private readonly banners?: AllianceBannerService,
   ) {}
 
   // --- Queries ---
@@ -1150,6 +1154,7 @@ export class AllianceService {
 
       return this.memberLeaves(tx, alliance, members, userId, player?.name);
     });
+    if (dissolved) await this.tryBannerDeletion();
     return { dissolved };
   }
 
@@ -1171,11 +1176,7 @@ export class AllianceService {
         targetId,
         'kick',
       );
-      await tx.deleteMembership(allianceId, targetId);
-      await this.contextCleanup?.memberRemoved(
-        { allianceId, userId: targetId },
-        { transaction: tx.transactionHandle() },
-      );
+      await this.endMembership(tx, allianceId, targetId);
       await this.appendAllianceChronicle(
         tx,
         allianceId,
@@ -1204,6 +1205,24 @@ export class AllianceService {
       const members = await tx.listMemberships(allianceId);
       return this.dissolveAlliance(tx, alliance, members, actorId);
     });
+    await this.tryBannerDeletion();
+  }
+
+  /**
+   * After a dissolution commit the queued banner file deletion runs at once
+   * instead of waiting for the periodic retry. Failures never reach the
+   * caller: the committed dissolution stays successful and the task stays
+   * queued.
+   */
+  private async tryBannerDeletion(): Promise<void> {
+    try {
+      await this.banners?.retryAssetDeletions();
+    } catch (error) {
+      this.logger.error(
+        'Failed to delete banner assets after alliance dissolution',
+        error instanceof Error ? error.stack : error,
+      );
+    }
   }
 
   /**
@@ -1238,6 +1257,19 @@ export class AllianceService {
       }));
   }
 
+  /** Deletes the membership and lets cleanup consumers drop the member's context. */
+  private async endMembership(
+    tx: AllianceStore,
+    allianceId: number,
+    userId: number,
+  ): Promise<void> {
+    await tx.deleteMembership(allianceId, userId);
+    await this.contextCleanup?.memberRemoved(
+      { allianceId, userId },
+      { transaction: tx.transactionHandle() },
+    );
+  }
+
   /** Ends a non-president membership: chronicle entry and notice to the leaders. */
   private async memberLeaves(
     tx: AllianceStore,
@@ -1246,11 +1278,7 @@ export class AllianceService {
     userId: number,
     name: string | undefined,
   ): Promise<OutgoingMessage[]> {
-    await tx.deleteMembership(alliance.id, userId);
-    await this.contextCleanup?.memberRemoved(
-      { allianceId: alliance.id, userId },
-      { transaction: tx.transactionHandle() },
-    );
+    await this.endMembership(tx, alliance.id, userId);
     await this.appendAllianceChronicle(
       tx,
       alliance.id,
@@ -1277,15 +1305,13 @@ export class AllianceService {
   async removeAccount(userId: number): Promise<void> {
     const membership = await this.store.findMembership(userId);
     if (!membership) {
-      await this.mutate(async (tx) => {
-        await tx.deleteApplications(
-          (await tx.listApplicationsOfPlayer(userId)).map((a) => a.id),
-        );
-      });
+      await this.mutate((tx) => this.deleteApplicationsOf(tx, userId));
       return;
     }
 
+    let dissolved = false;
     await this.mutateDiplomacy(async (tx) => {
+      dissolved = false;
       const alliance = await tx.lockAlliance(membership.allianceId);
       if (!alliance) return [];
       const members = await tx.listMemberships(alliance.id);
@@ -1293,52 +1319,78 @@ export class AllianceService {
       // A concurrent departure already ended this membership.
       if (!own) return [];
       const player = await tx.findPlayer(userId);
-      await tx.deleteApplications(
-        (await tx.listApplicationsOfPlayer(userId)).map((a) => a.id),
-      );
+      await this.deleteApplicationsOf(tx, userId);
 
       if (own.role !== PRESIDENT) {
         return this.memberLeaves(tx, alliance, members, userId, player?.name);
       }
-      const remaining = members.filter((m) => m.userId !== userId);
-      const players = await tx.findPlayers(remaining.map((m) => m.userId));
-      const activity = new Map(players.map((p) => [p.id, p.lastActiveAt]));
-      const successorId = chooseSuccessor(
-        remaining.map((m) => ({
-          userId: m.userId,
-          role: m.role,
-          lastActiveAt: activity.get(m.userId) ?? null,
-          joinedAt: m.joinedAt,
-        })),
-      );
-      if (successorId === null) {
-        return this.dissolveAlliance(tx, alliance, members, userId);
-      }
-
-      // Release the single-president slot first, then the successor takes it
-      // and drops its former office.
-      await tx.deleteMembership(alliance.id, userId);
-      await this.contextCleanup?.memberRemoved(
-        { allianceId: alliance.id, userId },
-        { transaction: tx.transactionHandle() },
-      );
-      await tx.setRole(alliance.id, successorId, PRESIDENT);
-      const successorName =
-        players.find((p) => p.id === successorId)?.name ?? UNKNOWN_NAME;
-      const previousName = player?.name ?? UNKNOWN_NAME;
-      await this.appendAllianceChronicle(
+      const messages = await this.succeedPresident(
         tx,
-        alliance.id,
-        AllianceChronicleEventType.AUTOMATIC_SUCCESSION,
-        null,
-        successorId,
-        { previousPresidentId: userId, previousPresidentName: previousName },
+        alliance,
+        members,
+        userId,
+        player?.name,
       );
-      return remaining.map((m) => ({
-        to: m.userId,
-        body: `Der ${alliance.presidentTitle} ${previousName} ist ausgeschieden. ${successorName} ist neuer ${alliance.presidentTitle} der Allianz ${alliance.name}`,
-      }));
+      dissolved = !(await tx.findAlliance(alliance.id));
+      return messages;
     });
+    if (dissolved) await this.tryBannerDeletion();
+  }
+
+  private async deleteApplicationsOf(
+    tx: AllianceStore,
+    userId: number,
+  ): Promise<void> {
+    await tx.deleteApplications(
+      (await tx.listApplicationsOfPlayer(userId)).map((a) => a.id),
+    );
+  }
+
+  /**
+   * The president is gone without a manual handover: the successor rule picks
+   * the new one, or the alliance is dissolved when nobody remains.
+   */
+  private async succeedPresident(
+    tx: AllianceStore,
+    alliance: AllianceRecord,
+    members: MembershipRecord[],
+    presidentId: number,
+    presidentName: string | undefined,
+  ): Promise<OutgoingMessage[]> {
+    const remaining = members.filter((m) => m.userId !== presidentId);
+    const players = await tx.findPlayers(remaining.map((m) => m.userId));
+    const activity = new Map(players.map((p) => [p.id, p.lastActiveAt]));
+    const successorId = chooseSuccessor(
+      remaining.map((m) => ({
+        userId: m.userId,
+        role: m.role,
+        lastActiveAt: activity.get(m.userId) ?? null,
+        joinedAt: m.joinedAt,
+      })),
+    );
+    if (successorId === null) {
+      return this.dissolveAlliance(tx, alliance, members, presidentId);
+    }
+
+    // Release the single-president slot first, then the successor takes it
+    // and drops its former office.
+    await this.endMembership(tx, alliance.id, presidentId);
+    await tx.setRole(alliance.id, successorId, PRESIDENT);
+    const successorName =
+      players.find((p) => p.id === successorId)?.name ?? UNKNOWN_NAME;
+    const previousName = presidentName ?? UNKNOWN_NAME;
+    await this.appendAllianceChronicle(
+      tx,
+      alliance.id,
+      AllianceChronicleEventType.AUTOMATIC_SUCCESSION,
+      null,
+      successorId,
+      { previousPresidentId: presidentId, previousPresidentName: previousName },
+    );
+    return remaining.map((m) => ({
+      to: m.userId,
+      body: `Der ${alliance.presidentTitle} ${previousName} ist ausgeschieden. ${successorName} ist neuer ${alliance.presidentTitle} der Allianz ${alliance.name}`,
+    }));
   }
 
   // --- Offices ---
@@ -2091,15 +2143,15 @@ export class AllianceService {
     }
   }
 
-  /** STU §9.3: placeholders are replaced on read; unknown ones are removed. */
   private bannerDto(alliance: AllianceRecord): AllianceBannerDto | null {
     if (!alliance.bannerKey || !alliance.bannerUpdatedAt) return null;
     return {
-      url: `/api/alliances/${alliance.id}/banner?v=${alliance.bannerUpdatedAt.getTime()}`,
+      url: allianceBannerUrl(alliance.id, alliance.bannerUpdatedAt.getTime()),
       updatedAt: alliance.bannerUpdatedAt.toISOString(),
     };
   }
 
+  /** STU §9.3: placeholders are replaced on read; unknown ones are removed. */
   private renderDescription(
     alliance: AllianceRecord,
     members: Array<{ name: string; role: AllianceRole }>,
