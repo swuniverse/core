@@ -152,6 +152,7 @@ export function StarmapPage() {
       ),
     [contacts, openSystemGrids, showAllianceShips, showPartnerShips],
   );
+  const isAllianceMember = contacts?.viewerAlliance != null;
   const selectedContactBundle =
     contactBundles.find((bundle) => bundle.key === selectedContactKey) ?? null;
   const systemName = useCallback(
@@ -339,8 +340,13 @@ export function StarmapPage() {
                 setShowShips(value);
                 if (!value) setSelectedContactKey(null);
               }}
-              allianceShips={{ visible: showAllianceShips, onToggle: setShowAllianceShips }}
-              partnerShips={{ visible: showPartnerShips, onToggle: setShowPartnerShips }}
+              // Alliance and partner ships only exist for alliance members.
+              allianceShips={
+                isAllianceMember ? { visible: showAllianceShips, onToggle: setShowAllianceShips } : undefined
+              }
+              partnerShips={
+                isAllianceMember ? { visible: showPartnerShips, onToggle: setShowPartnerShips } : undefined
+              }
               selectedSector={selectedSector}
               onSelectSector={setSelectedSector}
               onZoomIn={() => canvasRef.current?.zoomIn()}

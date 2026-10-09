@@ -102,6 +102,7 @@ function allianceContact(
 }
 
 let contactsByLayer: Record<number, StarmapContactDto[]>;
+let viewerAlliance: StarmapContactsDto['viewerAlliance'];
 
 const kessel = {
   id: 7,
@@ -145,6 +146,7 @@ function mockApi() {
       return Promise.resolve({
         layerId,
         contacts: contactsByLayer[layerId] ?? [],
+        viewerAlliance,
       } satisfies StarmapContactsDto);
     }
     return Promise.resolve([]);
@@ -168,6 +170,7 @@ describe('StarmapPage ship layer', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
     socketHandlers.clear();
+    viewerAlliance = { id: 5, name: 'Rote Schwadron', color: '#ff8800' };
     contactsByLayer = {
       3: [
         ownContact(),
@@ -258,12 +261,23 @@ describe('StarmapPage ship layer', () => {
     ).toBeNull();
   });
 
-  it('always offers the alliance and partner switches, even with only own ships', async () => {
+  it('offers the alliance and partner switches to an alliance member, even with only own ships', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
 
+    expect(screen.getByRole('checkbox', { name: 'Schiffe' })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Allianzschiffe' })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Partnerschiffe' })).toBeTruthy();
+  });
+
+  it('offers only the ship switch to a player without alliance', async () => {
+    viewerAlliance = null;
+    renderPage();
+    await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
+
+    expect(screen.getByRole('checkbox', { name: 'Schiffe' })).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: 'Allianzschiffe' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'Partnerschiffe' })).toBeNull();
   });
 
   it('reloads the contacts when the layer changes', async () => {

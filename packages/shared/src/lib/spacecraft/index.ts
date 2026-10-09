@@ -179,6 +179,11 @@ export interface StarmapContactDto {
 export interface StarmapContactsDto {
   layerId: number;
   contacts: StarmapContactDto[];
+  /**
+   * Alliance the viewer currently belongs to; null when the viewer has none
+   * or it cannot be resolved.
+   */
+  viewerAlliance: StarmapContactAllianceDto | null;
 }
 
 export interface SpacecraftEnergyFlowRowDto {

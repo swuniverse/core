@@ -359,6 +359,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           },
         },
       ],
+      viewerAlliance: expect.objectContaining({ name: 'Viewers' }),
     });
   });
 
@@ -735,6 +736,70 @@ describe('StarmapVisibilityService.listContacts', () => {
         ]);
       },
     );
+
+    describe('viewer alliance', () => {
+      it('names the alliance the viewer currently belongs to', async () => {
+        const { store, alliance } = allianceWorld();
+
+        const result = await serviceFor(store).listContacts(
+          1,
+          STARMAP_LAYER_ID,
+        );
+
+        expect(result.viewerAlliance).toEqual({
+          id: alliance.id,
+          name: 'Viewers',
+          color: '#ff8800',
+        });
+      });
+
+      it('names the alliance of a member without alliance mates', async () => {
+        const store = new InMemoryAllianceStore();
+        store.addPlayer(1, 'Viewer');
+        const alliance = store.seedAlliance({ name: 'Solo', color: null }, [
+          [1, AllianceRole.PRESIDENT],
+        ]);
+
+        const result = await serviceFor(store).listContacts(
+          1,
+          STARMAP_LAYER_ID,
+        );
+
+        expect(result.viewerAlliance).toEqual({
+          id: alliance.id,
+          name: 'Solo',
+          color: null,
+        });
+      });
+
+      it('is null for a player without alliance', async () => {
+        const { store } = allianceWorld();
+
+        const result = await serviceFor(store).listContacts(
+          3,
+          STARMAP_LAYER_ID,
+        );
+
+        expect(result.viewerAlliance).toBeNull();
+      });
+
+      it.each([
+        ['membership lookup', 'findMembership'],
+        ['alliance lookup', 'findAlliance'],
+      ] as const)('is null when the %s fails', async (_label, method) => {
+        const { store } = allianceWorld();
+        jest
+          .spyOn(store, method)
+          .mockRejectedValue(new Error('database unavailable'));
+
+        const result = await serviceFor(store).listContacts(
+          1,
+          STARMAP_LAYER_ID,
+        );
+
+        expect(result.viewerAlliance).toBeNull();
+      });
+    });
 
     describe('partner ships', () => {
       /**
