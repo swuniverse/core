@@ -25,7 +25,9 @@ import {
   type AllianceRelationshipProposalDto,
   type AllianceRelationshipSummaryDto,
   type AllianceSummaryDto,
+  type AllianceRefDto,
   type AllianceTitlesDto,
+  DiplomacyPartyType,
   type MyAllianceDto,
   type SettlerCounterpartyDto,
   type SettlerCounterpartyPageDto,
@@ -557,8 +559,26 @@ export function AllianceChroniclePage() {
 
 /** Actions of a diplomacy area that differ between alliances and Siedler. */
 interface RelationshipActions {
-  declareWar: (counterpartyId: number) => Promise<unknown>;
-  offerPeace: (counterpartyId: number) => Promise<unknown>;
+  declareWar: (
+    counterpartyId: number,
+    counterpartyType: DiplomacyPartyType,
+  ) => Promise<unknown>;
+  offerPeace: (
+    counterpartyId: number,
+    counterpartyType: DiplomacyPartyType,
+  ) => Promise<unknown>;
+}
+
+function partyTypeOf(
+  relationship: AllianceRelationshipSummaryDto,
+): DiplomacyPartyType {
+  return relationship.counterpartyType ?? DiplomacyPartyType.ALLIANCE;
+}
+
+function partyTypeLabel(type: DiplomacyPartyType | undefined) {
+  if (type === DiplomacyPartyType.PLAYER) return ' (Siedler)';
+  if (type === DiplomacyPartyType.ALLIANCE) return ' (Allianz)';
+  return '';
 }
 
 /** Active relationships with change drafts and end/consent actions, as granted by the server. */
@@ -594,7 +614,8 @@ function DiplomacyRelationships({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-bold">
-                {relationship.counterparty.name}:{' '}
+                {relationship.counterparty.name}
+                {partyTypeLabel(relationship.counterpartyType)}:{' '}
                 {relationshipTypeLabel(relationship.type)}
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -604,7 +625,10 @@ function DiplomacyRelationships({
                     className={dangerButtonClass}
                     onClick={() =>
                       void run(() =>
-                        actions.declareWar(relationship.counterparty.id),
+                        actions.declareWar(
+                          relationship.counterparty.id,
+                          partyTypeOf(relationship),
+                        ),
                       )
                     }
                   >
@@ -617,7 +641,10 @@ function DiplomacyRelationships({
                     className={buttonClass}
                     onClick={() =>
                       void run(() =>
-                        actions.offerPeace(relationship.counterparty.id),
+                        actions.offerPeace(
+                          relationship.counterparty.id,
+                          partyTypeOf(relationship),
+                        ),
                       )
                     }
                   >
@@ -1007,6 +1034,149 @@ function DiplomacyProposalForm({
   );
 }
 
+interface CounterpartyTarget {
+  type: DiplomacyPartyType;
+  id: number;
+  name: string;
+}
+
+/** Search for alliance-less players of the viewer's faction (id and name only), plus optional alliances. */
+function SettlerPicker({
+  searchPath,
+  busy,
+  onError,
+  setBusy,
+  actions,
+  alliances = [],
+}: {
+  searchPath: string;
+  busy: boolean;
+  onError: (message: string | null) => void;
+  setBusy: (busy: boolean) => void;
+  actions: {
+    negotiate: (target: CounterpartyTarget) => void;
+    declareWar: (target: CounterpartyTarget) => Promise<unknown>;
+  };
+  alliances?: AllianceRefDto[];
+}) {
+  const [query, setQuery] = useState('');
+  const [searched, setSearched] = useState<string | null>(null);
+  const [results, setResults] = useState<SettlerCounterpartyDto[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  async function search(text: string, cursor: string | null) {
+    setBusy(true);
+    onError(null);
+    try {
+      const params = new URLSearchParams({ q: text });
+      if (cursor) params.set('cursor', cursor);
+      const page = await api.get<SettlerCounterpartyPageDto>(
+        `${searchPath}?${params.toString()}`,
+      );
+      setSearched(text);
+      setResults((current) =>
+        cursor ? [...current, ...page.players] : page.players,
+      );
+      setNextCursor(page.nextCursor);
+    } catch (err) {
+      onError(getErrorMessage(err, 'Die Suche ist fehlgeschlagen.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const rows: CounterpartyTarget[] = [
+    ...alliances.map((alliance) => ({
+      type: DiplomacyPartyType.ALLIANCE,
+      id: alliance.id,
+      name: alliance.name,
+    })),
+    ...results.map((player) => ({
+      type: DiplomacyPartyType.PLAYER,
+      id: player.id,
+      name: player.name,
+    })),
+  ];
+
+  return (
+    <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+      <h2 className="font-bold text-swu-accent">Gegenpartei wählen</h2>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void search(query.trim(), null);
+        }}
+      >
+        <label className="space-y-1 text-sm">
+          <span>Siedler suchen</span>
+          <input
+            aria-label="Siedler suchen"
+            className={inputClass}
+            value={query}
+            maxLength={40}
+            onChange={(event) => setQuery(event.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <button type="submit" disabled={busy} className={primaryButtonClass}>
+          Suchen
+        </button>
+      </form>
+      {searched !== null && results.length === 0 && (
+        <p className="text-sm text-swu-muted">Keine Siedler gefunden.</p>
+      )}
+      <ul className="space-y-1 text-sm">
+        {rows.map((target) => {
+          const label =
+            target.type === DiplomacyPartyType.ALLIANCE
+              ? `Allianz ${target.name}`
+              : target.name;
+          return (
+            <li
+              key={`${target.type}-${target.id}`}
+              className="flex items-center justify-between gap-2"
+            >
+              <span>{label}</span>
+              <button
+                disabled={busy}
+                aria-label={`Verhandeln: ${label}`}
+                className={buttonClass}
+                onClick={() => actions.negotiate(target)}
+              >
+                Verhandeln
+              </button>
+              <button
+                disabled={busy}
+                aria-label={`Krieg erklären: ${label}`}
+                className={dangerButtonClass}
+                onClick={() => {
+                  void actions.declareWar(target).then(() => {
+                    setResults([]);
+                    setSearched(null);
+                    setNextCursor(null);
+                  });
+                }}
+              >
+                Krieg erklären
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {nextCursor && (
+        <button
+          disabled={busy}
+          className={buttonClass}
+          onClick={() => void search(searched ?? '', nextCursor)}
+        >
+          Mehr laden
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function AllianceDiplomacyPage() {
   const { id } = useParams<{ id: string }>();
   const [management, setManagement] =
@@ -1014,6 +1184,9 @@ export function AllianceDiplomacyPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [recipientAllianceId, setRecipientAllianceId] = useState('');
+  const [negotiateWith, setNegotiateWith] = useState<CounterpartyTarget | null>(
+    null,
+  );
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -1063,7 +1236,7 @@ export function AllianceDiplomacyPage() {
       <ErrorMessage message={error} />
       {!management ? null : (
         <>
-          {management.capabilities.create && (
+          {management.capabilities.create && !negotiateWith && (
             <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
               <h2 className="font-bold text-swu-accent">
                 Beziehung vorschlagen
@@ -1105,20 +1278,80 @@ export function AllianceDiplomacyPage() {
             </section>
           )}
 
+          {management.capabilities.create && negotiateWith && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="font-bold text-swu-accent">
+                Beziehung vorschlagen
+              </h2>
+              <DiplomacyProposalForm
+                permissions={management.permissions}
+                busy={busy}
+                canSubmit={!!id}
+                onSubmit={(proposal) =>
+                  void run(async () => {
+                    await api.post(`/alliances/${id}/diplomacy/proposals`, {
+                      recipientPlayerId: negotiateWith.id,
+                      ...proposal,
+                    });
+                    setNegotiateWith(null);
+                  })
+                }
+                picker={
+                  <div className="space-y-1 text-sm md:col-span-2">
+                    <p>
+                      Gegenpartei (Siedler):{' '}
+                      <strong>{negotiateWith.name}</strong>
+                    </p>
+                    <button
+                      type="button"
+                      className={buttonClass}
+                      onClick={() => setNegotiateWith(null)}
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                }
+              />
+            </section>
+          )}
+
+          {management.capabilities.create && id && (
+            <SettlerPicker
+              searchPath={`/alliances/${id}/diplomacy/counterparties`}
+              busy={busy}
+              onError={setError}
+              setBusy={setBusy}
+              actions={{
+                negotiate: setNegotiateWith,
+                declareWar: (target) =>
+                  run(() =>
+                    api.post(
+                      `/alliances/${id}/relationships/players/${target.id}/war`,
+                      {},
+                    ),
+                  ),
+              }}
+            />
+          )}
+
           <DiplomacyRelationships
             relationships={management.relationships}
             permissions={management.permissions}
             busy={busy}
             run={run}
             actions={{
-              declareWar: (counterpartyId) =>
+              declareWar: (counterpartyId, type) =>
                 api.post(
-                  `/alliances/${id}/relationships/${counterpartyId}/war`,
+                  type === DiplomacyPartyType.PLAYER
+                    ? `/alliances/${id}/relationships/players/${counterpartyId}/war`
+                    : `/alliances/${id}/relationships/${counterpartyId}/war`,
                   {},
                 ),
-              offerPeace: (counterpartyId) =>
+              offerPeace: (counterpartyId, type) =>
                 api.post(`/alliances/${id}/diplomacy/proposals`, {
-                  recipientAllianceId: counterpartyId,
+                  ...(type === DiplomacyPartyType.PLAYER
+                    ? { recipientPlayerId: counterpartyId }
+                    : { recipientAllianceId: counterpartyId }),
                   type: AllianceRelationshipType.PEACE,
                 }),
             }}
@@ -1143,12 +1376,9 @@ export function SettlerDiplomacyPage() {
     useState<SettlerDiplomacyManagementDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [query, setQuery] = useState('');
-  const [searched, setSearched] = useState<string | null>(null);
-  const [results, setResults] = useState<SettlerCounterpartyDto[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [negotiateWith, setNegotiateWith] =
-    useState<SettlerCounterpartyDto | null>(null);
+  const [negotiateWith, setNegotiateWith] = useState<CounterpartyTarget | null>(
+    null,
+  );
 
   const reload = useCallback(async () => {
     setManagement(
@@ -1184,27 +1414,6 @@ export function SettlerDiplomacyPage() {
     }
   }
 
-  async function search(text: string, cursor: string | null) {
-    setBusy(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ q: text });
-      if (cursor) params.set('cursor', cursor);
-      const page = await api.get<SettlerCounterpartyPageDto>(
-        `/alliances/settlers/counterparties?${params.toString()}`,
-      );
-      setSearched(text);
-      setResults((current) =>
-        cursor ? [...current, ...page.players] : page.players,
-      );
-      setNextCursor(page.nextCursor);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Die Suche ist fehlgeschlagen.'));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!management && !error) {
     return (
       <p className="p-6 text-swu-muted">Siedler-Diplomatie wird geladen...</p>
@@ -1219,85 +1428,25 @@ export function SettlerDiplomacyPage() {
       {!management ? null : (
         <>
           {management.capabilities.declareWar && (
-            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-              <h2 className="font-bold text-swu-accent">Gegenpartei wählen</h2>
-              <form
-                className="flex flex-wrap items-end gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void search(query.trim(), null);
-                }}
-              >
-                <label className="space-y-1 text-sm">
-                  <span>Siedler suchen</span>
-                  <input
-                    aria-label="Siedler suchen"
-                    className={inputClass}
-                    value={query}
-                    maxLength={40}
-                    onChange={(event) => setQuery(event.target.value)}
-                    disabled={busy}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className={primaryButtonClass}
-                >
-                  Suchen
-                </button>
-              </form>
-              {searched !== null && results.length === 0 && (
-                <p className="text-sm text-swu-muted">
-                  Keine Siedler gefunden.
-                </p>
-              )}
-              <ul className="space-y-1 text-sm">
-                {results.map((player) => (
-                  <li
-                    key={player.id}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span>{player.name}</span>
-                    <button
-                      disabled={busy}
-                      aria-label={`Verhandeln: ${player.name}`}
-                      className={buttonClass}
-                      onClick={() => setNegotiateWith(player)}
-                    >
-                      Verhandeln
-                    </button>
-                    <button
-                      disabled={busy}
-                      aria-label={`Krieg erklären: ${player.name}`}
-                      className={dangerButtonClass}
-                      onClick={() =>
-                        void run(async () => {
-                          await api.post(
-                            `/alliances/settlers/${player.id}/war`,
-                            {},
-                          );
-                          setResults([]);
-                          setSearched(null);
-                          setNextCursor(null);
-                        })
-                      }
-                    >
-                      Krieg erklären
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {nextCursor && (
-                <button
-                  disabled={busy}
-                  className={buttonClass}
-                  onClick={() => void search(searched ?? '', nextCursor)}
-                >
-                  Mehr laden
-                </button>
-              )}
-            </section>
+            <SettlerPicker
+              searchPath="/alliances/settlers/counterparties"
+              busy={busy}
+              onError={setError}
+              setBusy={setBusy}
+              alliances={management.targets ?? []}
+              actions={{
+                negotiate: setNegotiateWith,
+                declareWar: (target) =>
+                  run(() =>
+                    api.post(
+                      target.type === DiplomacyPartyType.ALLIANCE
+                        ? `/alliances/settlers/alliances/${target.id}/war`
+                        : `/alliances/settlers/${target.id}/war`,
+                      {},
+                    ),
+                  ),
+              }}
+            />
           )}
 
           {management.capabilities.create && negotiateWith && (
@@ -1312,7 +1461,9 @@ export function SettlerDiplomacyPage() {
                 onSubmit={(proposal) =>
                   void run(async () => {
                     await api.post('/alliances/settlers/diplomacy/proposals', {
-                      recipientPlayerId: negotiateWith.id,
+                      ...(negotiateWith.type === DiplomacyPartyType.ALLIANCE
+                        ? { recipientAllianceId: negotiateWith.id }
+                        : { recipientPlayerId: negotiateWith.id }),
                       ...proposal,
                     });
                     setNegotiateWith(null);
@@ -1320,7 +1471,12 @@ export function SettlerDiplomacyPage() {
                 }
                 picker={
                   <p className="text-sm md:col-span-2">
-                    Gegenpartei: <strong>{negotiateWith.name}</strong>
+                    Gegenpartei:{' '}
+                    <strong>
+                      {negotiateWith.type === DiplomacyPartyType.ALLIANCE
+                        ? `Allianz ${negotiateWith.name}`
+                        : negotiateWith.name}
+                    </strong>
                   </p>
                 }
               />
@@ -1333,11 +1489,18 @@ export function SettlerDiplomacyPage() {
             busy={busy}
             run={run}
             actions={{
-              declareWar: (counterpartyId) =>
-                api.post(`/alliances/settlers/${counterpartyId}/war`, {}),
-              offerPeace: (counterpartyId) =>
+              declareWar: (counterpartyId, type) =>
+                api.post(
+                  type === DiplomacyPartyType.ALLIANCE
+                    ? `/alliances/settlers/alliances/${counterpartyId}/war`
+                    : `/alliances/settlers/${counterpartyId}/war`,
+                  {},
+                ),
+              offerPeace: (counterpartyId, type) =>
                 api.post('/alliances/settlers/diplomacy/proposals', {
-                  recipientPlayerId: counterpartyId,
+                  ...(type === DiplomacyPartyType.ALLIANCE
+                    ? { recipientAllianceId: counterpartyId }
+                    : { recipientPlayerId: counterpartyId }),
                   type: AllianceRelationshipType.PEACE,
                 }),
             }}
@@ -1353,6 +1516,7 @@ export function SettlerDiplomacyPage() {
     </div>
   );
 }
+
 export function AllianceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

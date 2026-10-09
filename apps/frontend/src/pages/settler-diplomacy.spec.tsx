@@ -40,6 +40,7 @@ function management(
   const none = { treatAsFriend: false, shareLivePositions: false };
   return {
     capabilities: { create: true, declareWar: true },
+    targets: [],
     relationships: [
       {
         relationship: {
@@ -158,7 +159,7 @@ describe('SettlerDiplomacyPage', () => {
     routeGet({ '/alliances/settlers/diplomacy': management() });
     renderAt('/alliances/settlers/diplomacy');
 
-    expect(await screen.findByText('Lando: Krieg')).toBeTruthy();
+    expect(await screen.findByText('Lando (Siedler): Krieg')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Frieden anbieten' }),
     ).toBeTruthy();
@@ -177,7 +178,7 @@ describe('SettlerDiplomacyPage', () => {
       }),
     });
     renderAt('/alliances/settlers/diplomacy');
-    await screen.findByText('Lando: Krieg');
+    await screen.findByText('Lando (Siedler): Krieg');
     expect(screen.queryByLabelText('Siedler suchen')).toBeNull();
   });
 
@@ -367,6 +368,90 @@ describe('Siedler negotiations in the shared dialogs', () => {
     await waitFor(() =>
       expect(apiMocks.delete).toHaveBeenCalledWith(
         '/alliances/relationships/10',
+      ),
+    );
+  });
+});
+
+describe('Allianz as counterparty of a Siedler', () => {
+  const PERMISSIONS = {
+    FRIENDSHIP: { treatAsFriend: true, shareLivePositions: false },
+    PEACE: { treatAsFriend: false, shareLivePositions: false },
+  } as unknown as SettlerDiplomacyManagementDto['permissions'];
+  const targets = [{ id: 7, name: 'Rogue Squadron', color: null }];
+
+  it('proposes to a picked alliance with recipientAllianceId', async () => {
+    routeGet({
+      '/alliances/settlers/diplomacy': management({
+        permissions: PERMISSIONS,
+        targets,
+      }),
+    });
+    renderAt('/alliances/settlers/diplomacy');
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Verhandeln: Allianz Rogue Squadron',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Vorschlag senden' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/settlers/diplomacy/proposals',
+        expect.objectContaining({
+          recipientAllianceId: 7,
+          type: AllianceRelationshipType.FRIENDSHIP,
+        }),
+      ),
+    );
+    const body = apiMocks.post.mock.calls[0][1];
+    expect(body).not.toHaveProperty('recipientPlayerId');
+  });
+
+  it('declares war on an alliance through the alliance endpoint', async () => {
+    routeGet({
+      '/alliances/settlers/diplomacy': management({
+        permissions: PERMISSIONS,
+        targets,
+      }),
+    });
+    renderAt('/alliances/settlers/diplomacy');
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Krieg erklären: Allianz Rogue Squadron',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/settlers/alliances/7/war',
+        {},
+      ),
+    );
+  });
+
+  it('offers peace to an alliance counterparty with recipientAllianceId and labels the party type', async () => {
+    const base = management({ permissions: PERMISSIONS, targets });
+    base.relationships[0].relationship.counterpartyType =
+      DiplomacyPartyType.ALLIANCE;
+    base.relationships[0].relationship.counterparty = {
+      id: 7,
+      name: 'Rogue Squadron',
+      color: null,
+    };
+    routeGet({ '/alliances/settlers/diplomacy': base });
+    renderAt('/alliances/settlers/diplomacy');
+
+    expect(
+      await screen.findByText(/Allianz/, { selector: 'h3 *, h3' }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Frieden anbieten' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/settlers/diplomacy/proposals',
+        { recipientAllianceId: 7, type: AllianceRelationshipType.PEACE },
       ),
     );
   });

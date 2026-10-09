@@ -9,6 +9,7 @@ import {
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import {
   AllianceRelationshipType,
+  DiplomacyPartyType,
   AllianceRole,
   Faction,
   type AllianceDetailDto,
@@ -511,6 +512,91 @@ describe('AllianceDiplomacyPage', () => {
   });
 });
 
+describe('AllianceDiplomacyPage with Siedler counterparties', () => {
+  const permissions = {
+    FRIENDSHIP: { treatAsFriend: true, shareLivePositions: false },
+    PEACE: { treatAsFriend: false, shareLivePositions: false },
+  } as unknown as AllianceDiplomacyManagementDto['permissions'];
+
+  function withSettlerWar(): AllianceDiplomacyManagementDto {
+    const base = diplomacyManagement();
+    base.permissions = permissions;
+    base.relationships[0].relationship.counterpartyType =
+      DiplomacyPartyType.PLAYER;
+    base.relationships[0].relationship.counterparty = {
+      id: 5,
+      name: 'Han',
+      color: null,
+    };
+    base.relationships[0].relationship.type = AllianceRelationshipType.WAR;
+    base.relationships[0].capabilities = {
+      create: false,
+      declareWar: false,
+      offerPeace: true,
+      accept: false,
+      decline: false,
+      withdraw: false,
+      change: false,
+      end: false,
+    };
+    base.relationships[0].change = null;
+    return base;
+  }
+
+  it('searches Siedler by name, proposes to the picked player and declares war on them', async () => {
+    routeGet({
+      '/alliances/1/diplomacy': withSettlerWar(),
+      '/alliances/1/diplomacy/counterparties?q=Han': {
+        players: [{ id: 5, name: 'Han' }],
+        nextCursor: null,
+      },
+    });
+    renderAt('/alliances/1/diplomacy');
+
+    fireEvent.change(await screen.findByLabelText('Siedler suchen'), {
+      target: { value: 'Han' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Suchen' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Verhandeln: Han' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Vorschlag senden' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/1/diplomacy/proposals',
+        expect.objectContaining({ recipientPlayerId: 5 }),
+      ),
+    );
+    expect(apiMocks.post.mock.calls[0][1]).not.toHaveProperty(
+      'recipientAllianceId',
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Krieg erklären: Han' }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/1/relationships/players/5/war',
+        {},
+      ),
+    );
+  });
+
+  it('shows a Siedler counterparty and offers peace to them by player ID', async () => {
+    routeGet({ '/alliances/1/diplomacy': withSettlerWar() });
+    renderAt('/alliances/1/diplomacy');
+
+    expect(await screen.findByText('Han (Siedler): Krieg')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Frieden anbieten' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/1/diplomacy/proposals',
+        { recipientPlayerId: 5, type: AllianceRelationshipType.PEACE },
+      ),
+    );
+  });
+});
+
 describe('AllianceDetailPage', () => {
   it('shows server-provided war targets only and reloads after a declaration', async () => {
     routeGet({
@@ -798,7 +884,9 @@ describe('AllianceDetailPage', () => {
 
       renderAt('/alliances/1');
 
-      const img = await screen.findByRole('img', { name: 'Banner von Rogue Squadron' });
+      const img = await screen.findByRole('img', {
+        name: 'Banner von Rogue Squadron',
+      });
       expect(img.getAttribute('src')).toBe(banner.url);
     });
 
@@ -844,7 +932,9 @@ describe('AllianceDetailPage', () => {
 
       await screen.findByRole('heading', { name: 'Rogue Squadron' });
       expect(container.querySelector('img')).toBeNull();
-      expect(container.textContent).toContain('[img]https://evil.example/x.png[/img]');
+      expect(container.textContent).toContain(
+        '[img]https://evil.example/x.png[/img]',
+      );
     });
 
     it('offers banner management only when the server allows it', async () => {
@@ -852,13 +942,17 @@ describe('AllianceDetailPage', () => {
       const { unmount } = renderAt('/alliances/1');
       await screen.findByRole('heading', { name: 'Rogue Squadron' });
       expect(screen.queryByLabelText('Banner hochladen')).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Banner entfernen' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Banner entfernen' }),
+      ).toBeNull();
       unmount();
 
       routeGet({ '/alliances/1': manager(true) });
       renderAt('/alliances/1');
       expect(await screen.findByLabelText('Banner ersetzen')).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Banner entfernen' })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Banner entfernen' }),
+      ).toBeTruthy();
     });
 
     it('offers only upload when managing an alliance without banner', async () => {
@@ -867,7 +961,9 @@ describe('AllianceDetailPage', () => {
       renderAt('/alliances/1');
 
       expect(await screen.findByLabelText('Banner hochladen')).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Banner entfernen' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Banner entfernen' }),
+      ).toBeNull();
     });
 
     it('uploads the chosen file as multipart form data and reloads', async () => {
@@ -878,7 +974,10 @@ describe('AllianceDetailPage', () => {
       fireEvent.change(input, { target: { files: [pngFile()] } });
 
       await waitFor(() => expect(apiMocks.postForm).toHaveBeenCalledTimes(1));
-      const [path, form] = apiMocks.postForm.mock.calls[0] as [string, FormData];
+      const [path, form] = apiMocks.postForm.mock.calls[0] as [
+        string,
+        FormData,
+      ];
       expect(path).toBe('/alliances/1/banner');
       expect((form.get('file') as File).name).toBe('banner.png');
       await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(4));
@@ -900,12 +999,16 @@ describe('AllianceDetailPage', () => {
     });
 
     it('removes the banner after confirmation and reports failures', async () => {
-      apiMocks.delete.mockRejectedValueOnce(new ApiError(403, 'Keine Berechtigung'));
+      apiMocks.delete.mockRejectedValueOnce(
+        new ApiError(403, 'Keine Berechtigung'),
+      );
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       routeGet({ '/alliances/1': manager(true) });
       renderAt('/alliances/1');
 
-      fireEvent.click(await screen.findByRole('button', { name: 'Banner entfernen' }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Banner entfernen' }),
+      );
 
       expect(await screen.findByText('Keine Berechtigung')).toBeTruthy();
       expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/banner');
@@ -917,7 +1020,8 @@ describe('AllianceDetailPage', () => {
         type,
         actor: { userId: 1, name: 'Leia' },
         subject: null,
-        metadata: replaced === undefined ? null : { width: 600, height: 150, replaced },
+        metadata:
+          replaced === undefined ? null : { width: 600, height: 150, replaced },
         occurredAt: '2026-10-05T12:00:00.000Z',
       });
       routeGet({
@@ -934,7 +1038,9 @@ describe('AllianceDetailPage', () => {
 
       renderAt('/alliances/1/chronicle');
 
-      expect(await screen.findByText('Leia hat das Banner entfernt')).toBeTruthy();
+      expect(
+        await screen.findByText('Leia hat das Banner entfernt'),
+      ).toBeTruthy();
       expect(screen.getByText('Leia hat das Banner ersetzt')).toBeTruthy();
       expect(screen.getByText('Leia hat ein Banner gesetzt')).toBeTruthy();
     });

@@ -88,10 +88,22 @@ export class AllianceController {
   ) {
     return this.allianceService.proposeSettlerRelationship(req.user.sub, {
       recipientPlayerId: body?.recipientPlayerId,
+      recipientAllianceId: body?.recipientAllianceId,
       type: body?.type,
       contract: body?.contract,
       permissions: body?.permissions,
     });
+  }
+
+  @Post('settlers/alliances/:allianceId/war')
+  declareSettlerWarOnAlliance(
+    @Request() req: AuthRequest,
+    @Param('allianceId', ParseIntPipe) allianceId: number,
+  ) {
+    return this.allianceService.declareSettlerWarOnAlliance(
+      req.user.sub,
+      allianceId,
+    );
   }
 
   @Post('settlers/:playerId/war')
@@ -155,6 +167,15 @@ export class AllianceController {
     @Param('applicationId', ParseIntPipe) applicationId: number,
   ) {
     return this.allianceService.declineApplication(req.user.sub, applicationId);
+  }
+
+  @Post(':id/relationships/players/:playerId/war')
+  declareWarOnSettler(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('playerId', ParseIntPipe) playerId: number,
+  ) {
+    return this.allianceService.declareWarOnSettler(req.user.sub, id, playerId);
   }
 
   @Post(':id/relationships/:targetAllianceId/war')
@@ -374,10 +395,28 @@ export class AllianceController {
   ) {
     return this.allianceService.proposeRelationship(req.user.sub, id, {
       recipientAllianceId: body?.recipientAllianceId,
+      recipientPlayerId: body?.recipientPlayerId,
       type: body?.type,
       contract: body?.contract,
       permissions: body?.permissions,
     });
+  }
+
+  @Get(':id/diplomacy/counterparties')
+  searchAllianceCounterparties(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('q') query?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.allianceService.searchAllianceCounterparties(
+      req.user.sub,
+      id,
+      typeof query === 'string' ? query : undefined,
+      typeof cursor === 'string' ? cursor : undefined,
+      optionalNumber(limit),
+    );
   }
 
   @Get(':id/diplomacy/changes')

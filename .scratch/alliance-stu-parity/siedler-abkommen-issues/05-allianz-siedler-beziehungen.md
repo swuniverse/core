@@ -4,10 +4,10 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Allianzseite handelt nur mit Präsident-/Diplomatenrecht; Vize und Mitglieder serverseitig abgewiesen; Siedler kann Allianzen wählen, Allianz kann Siedler wählen
-- [ ] Nachrichten gehen an alle Mitglieder der Allianzseite, bei Siedlern an den Spieler
-- [ ] Krieg Allianz↔Siedler macht den Siedler zum Feind aller Mitglieder; „Als Freund behandeln“ zum Freund aller Mitglieder; Live-Positionen nur im Bündnis
-- [ ] Fraktionsgrenze: Beziehungen über Fraktionen hinweg unmöglich
-- [ ] Service-, Resolver- und Autorisierungstests, Frontend der Allianzverwaltung zeigt Siedler als Gegenpartei
+- [x] Allianzseite handelt nur mit Präsident-/Diplomatenrecht; Vize und Mitglieder serverseitig abgewiesen; Siedler kann Allianzen wählen, Allianz kann Siedler wählen
+- [x] Nachrichten gehen an alle Mitglieder der Allianzseite, bei Siedlern an den Spieler
+- [x] Krieg Allianz↔Siedler macht den Siedler zum Feind aller Mitglieder; „Als Freund behandeln“ zum Freund aller Mitglieder; Live-Positionen nur im Bündnis
+- [x] Fraktionsgrenze: Beziehungen über Fraktionen hinweg unmöglich
+- [x] Service-, Resolver- und Autorisierungstests, Frontend der Allianzverwaltung zeigt Siedler als Gegenpartei

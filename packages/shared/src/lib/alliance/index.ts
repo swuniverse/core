@@ -215,6 +215,8 @@ export interface AllianceDiplomacyManagementDto {
 /** Complete confidential diplomacy view of an alliance-less player (Siedler). */
 export interface SettlerDiplomacyManagementDto {
   capabilities: { create: boolean; declareWar: boolean };
+  /** Alliances of the viewer's faction that can be picked as counterparty. */
+  targets: AllianceRefDto[];
   relationships: AllianceDiplomacyRelationshipDto[];
   proposals: AllianceDiplomacyProposalDto[];
   permissions: AllianceDiplomacyManagementDto['permissions'];
@@ -372,8 +374,10 @@ export interface SetAllianceRoleRequest {
   role: AllianceRole.VICE | AllianceRole.DIPLOMAT | AllianceRole.NONE;
 }
 
+/** Exactly one of `recipientAllianceId` and `recipientPlayerId` is set. */
 export interface ProposeAllianceRelationshipRequest {
-  recipientAllianceId: number;
+  recipientAllianceId?: number;
+  recipientPlayerId?: number;
   type: AllianceRelationshipType;
   contract?: string;
   permissions?: Partial<AllianceRelationshipPermissionsDto>;
@@ -381,7 +385,9 @@ export interface ProposeAllianceRelationshipRequest {
 
 /** The proposing party is always derived from the requester, never sent. */
 export interface ProposeSettlerRelationshipRequest {
-  recipientPlayerId: number;
+  /** Exactly one of `recipientPlayerId` and `recipientAllianceId` is set. */
+  recipientPlayerId?: number;
+  recipientAllianceId?: number;
   type: AllianceRelationshipType;
   contract?: string;
   permissions?: Partial<AllianceRelationshipPermissionsDto>;
