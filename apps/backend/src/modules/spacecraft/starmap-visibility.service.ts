@@ -59,7 +59,8 @@ export class StarmapVisibilityService {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) throw new NotFoundException('Layer not found');
 
-    const visibility = await this.visibilityByOwner(viewerId);
+    const { visibility, viewerAlliance } =
+      await this.visibilityByOwner(viewerId);
     const owned = {
       userId: In([...visibility.keys()]),
       status: Not(SpacecraftStatus.DESTROYED),
@@ -84,6 +85,7 @@ export class StarmapVisibilityService {
     return {
       layerId,
       contacts,
+      viewerAlliance: viewerAlliance ? { ...viewerAlliance } : null,
     };
   }
 
@@ -91,11 +93,13 @@ export class StarmapVisibilityService {
    * Visibility per ship owner. Each owner gets exactly one reason, highest
    * priority first (OWN before ALLIANCE before SHARED_LIVE_POSITION); the
    * stances of all candidates are resolved in one batched `resolveMany`.
-   * Membership and relationships are read fresh on every request.
+   * Membership and relationships are read fresh on every request. Also
+   * returns the viewer's current alliance (null without one or on failure).
    */
-  private async visibilityByOwner(
-    viewerId: number,
-  ): Promise<Map<number, OwnerVisibility>> {
+  private async visibilityByOwner(viewerId: number): Promise<{
+    visibility: Map<number, OwnerVisibility>;
+    viewerAlliance: StarmapContactAllianceDto | null;
+  }> {
     const visibility = new Map<number, OwnerVisibility>([
       [viewerId, { reason: 'OWN' }],
     ]);
@@ -107,7 +111,9 @@ export class StarmapVisibilityService {
     const candidateIds = [...new Set([...mateIds, ...partnerIds])].filter(
       (id) => !visibility.has(id),
     );
-    if (candidateIds.length === 0) return visibility;
+    if (candidateIds.length === 0) {
+      return { visibility, viewerAlliance: alliance };
+    }
 
     // Resolve against the same membership snapshot the candidates came from.
     const stances = await this.relationships.resolveMany(
@@ -132,7 +138,7 @@ export class StarmapVisibilityService {
         });
       }
     }
-    return visibility;
+    return { visibility, viewerAlliance: alliance };
   }
 
   /**

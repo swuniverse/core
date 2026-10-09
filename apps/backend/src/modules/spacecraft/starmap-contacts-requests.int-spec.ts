@@ -254,6 +254,7 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
       rogue,
       core,
       outer,
+      red,
     };
   }
 
@@ -310,6 +311,32 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
         ...ROGUE_SHIPS.map((name) => `${name}:SHARED_LIVE_POSITION`),
         'wedge-ship:OWN+details',
       ]);
+    });
+
+    it('names the viewer’s current alliance and none for alliance-less viewers', async () => {
+      const w = await world();
+      const viewerAlliance = async (viewer: User) => {
+        const { status, body } = await request<StarmapContactsDto>(
+          app,
+          viewer,
+          `/spacecraft/starmap-contacts?layerId=${w.core.id}`,
+        );
+        expect(status).toBe(200);
+        return body.viewerAlliance;
+      };
+
+      expect(await viewerAlliance(w.member)).toEqual({
+        id: w.rogue.id,
+        name: 'Rogue Squadron',
+        color: '#ff8800',
+      });
+      expect(await viewerAlliance(w.partner)).toEqual({
+        id: w.red.id,
+        name: 'Red Squadron',
+        color: null,
+      });
+      expect(await viewerAlliance(w.loner)).toBeNull();
+      expect(await viewerAlliance(w.imperial)).toBeNull();
     });
 
     it('never transmits private ship data or details beyond the level', async () => {
