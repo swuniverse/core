@@ -16,6 +16,7 @@ import {
   AllianceChronicleEventType,
   AllianceDiplomacyChronicleDto,
   AllianceDiplomacyChronicleEntryDto,
+  AllianceDiplomacyChronicleEndReason,
   AllianceDiplomacyChronicleEventType,
   AllianceDetailDto,
   AllianceDiplomacyManagementDto,
@@ -143,6 +144,15 @@ const ERR = {
 } as const;
 
 /** Domain error for a constraint that rejected a write (last line of defence). */
+const RELATIONSHIP_TYPE_LABEL: Record<AllianceRelationshipType, string> = {
+  [AllianceRelationshipType.WAR]: 'Krieg',
+  [AllianceRelationshipType.PEACE]: 'Frieden',
+  [AllianceRelationshipType.FRIENDSHIP]: 'Freundschaft',
+  [AllianceRelationshipType.ALLIANCE]: 'Bündnis',
+  [AllianceRelationshipType.TRADE_AGREEMENT]: 'Handelsabkommen',
+  [AllianceRelationshipType.VASSALAGE]: 'Vasallenschaft',
+};
+
 const CONSTRAINT_ERRORS: Record<AllianceConstraint, string> = {
   alliance_name: ERR.nameTaken,
   membership_user: ERR.applicantTaken,
@@ -470,6 +480,8 @@ export class AllianceService {
     tx: AllianceStore,
     actorId: number,
   ): Promise<PartyContext> {
+    // Lock first: a concurrent join then commits before the membership check.
+    await tx.lockPlayerParty(actorId);
     const actor = await tx.findPlayer(actorId);
     if (
       !actor ||
@@ -498,6 +510,7 @@ export class AllianceService {
     ) {
       throw new BadRequestException(ERR.invalidSettlerTarget);
     }
+    await tx.lockPlayerParty(targetId as number);
     const target = await tx.findPlayer(targetId as number);
     if (
       !target ||
@@ -1377,24 +1390,33 @@ export class AllianceService {
     if (!player.factionId) throw new BadRequestException(ERR.noFaction);
     const factionId = player.factionId;
 
-    try {
-      const alliance = await this.store.transaction(async (tx) => {
+    const result = await this.mutateDiplomacy(
+      async (tx) => {
+        await tx.lockPlayerParty(userId);
         if (await tx.findMembership(userId)) {
           throw new BadRequestException(ERR.alreadyMember);
         }
         if (await tx.isNameTaken(name)) {
           throw new BadRequestException(ERR.nameTaken);
         }
-        const created = await tx.insertAlliance({
-          name,
-          description,
-          factionId,
-        });
-        await tx.insertMembership({
-          allianceId: created.id,
-          userId,
-          role: PRESIDENT,
-        });
+        let created: AllianceRecord;
+        try {
+          created = await tx.insertAlliance({ name, description, factionId });
+          await tx.insertMembership({
+            allianceId: created.id,
+            userId,
+            role: PRESIDENT,
+          });
+        } catch (error) {
+          if (error instanceof AllianceConstraintViolation) {
+            throw new BadRequestException(
+              error.constraint === 'membership_user'
+                ? ERR.alreadyMember
+                : CONSTRAINT_ERRORS[error.constraint],
+            );
+          }
+          throw error;
+        }
         await this.appendAllianceChronicle(
           tx,
           created.id,
@@ -1404,19 +1426,16 @@ export class AllianceService {
         );
         const own = await tx.listApplicationsOfPlayer(userId);
         await tx.deleteApplications(own.map((a) => a.id));
-        return created;
-      });
-      return { id: alliance.id };
-    } catch (error) {
-      if (error instanceof AllianceConstraintViolation) {
-        throw new BadRequestException(
-          error.constraint === 'membership_user'
-            ? ERR.alreadyMember
-            : CONSTRAINT_ERRORS[error.constraint],
+        const messages = await this.endPlayerPartyDiplomacy(
+          tx,
+          player,
+          created.name,
         );
-      }
-      throw error;
-    }
+        return { id: created.id, messages };
+      },
+      (value) => value.messages,
+    );
+    return { id: result.id };
   }
 
   // --- Applications ---
@@ -1472,7 +1491,10 @@ export class AllianceService {
     const applicant = await this.store.findPlayer(application.userId);
     const applicantName = applicant?.name ?? UNKNOWN_NAME;
 
-    const messages = await this.mutate(async (tx) => {
+    await this.mutateDiplomacy(async (tx) => {
+      // Player party before alliance, like every diplomacy path, so a
+      // concurrent war/proposal of the applicant serialises with the join.
+      await tx.lockPlayerParty(application.userId);
       const alliance = await this.lockedAllianceRight(
         tx,
         actorId,
@@ -1506,6 +1528,11 @@ export class AllianceService {
           to: application.userId,
           body: `Deine Bewerbung wurde akzeptiert - Du bist jetzt Mitglied der Allianz ${alliance.name}`,
         },
+        ...(await this.endPlayerPartyDiplomacy(
+          tx,
+          { id: application.userId, name: applicantName },
+          alliance.name,
+        )),
       ];
       for (const dropped of all) {
         if (dropped.allianceId === alliance.id) continue;
@@ -1518,7 +1545,7 @@ export class AllianceService {
       }
       return out;
     });
-    await this.send(messages);
+    // Delivered after the commit by mutateDiplomacy.
   }
 
   async declineApplication(
@@ -1668,6 +1695,72 @@ export class AllianceService {
         to: m.userId,
         body: `Die Allianz ${alliance.name} wurde aufgelöst`,
       }));
+  }
+
+  /**
+   * Party change: a player who founds or joins an alliance no longer has a
+   * personal diplomacy party. In the caller's transaction, every active
+   * relationship (including war), proposal in both directions and pending
+   * change of the player party ends. The chronicle keeps the ended
+   * relationships (type, names, end reason, no contract); dropped proposals
+   * leave no public trace. Returns notices for the counterparties only.
+   */
+  private async endPlayerPartyDiplomacy(
+    tx: AllianceStore,
+    player: { id: number; name: string },
+    allianceName: string,
+  ): Promise<OutgoingMessage[]> {
+    const ended = await tx.endPlayerPartyDiplomacy(player.id);
+    const self = playerParty(player.id);
+    const notices = new Map<string, OutgoingMessage>();
+    const notify = async (counterparty: PartyRef, text: string) => {
+      const recipients = isAllianceParty(counterparty)
+        ? (await tx.listMemberships(counterparty.id)).map((m) => m.userId)
+        : [counterparty.id];
+      for (const to of recipients) {
+        if (to === player.id) continue;
+        notices.set(`${to}:${text}`, { to, body: text });
+      }
+    };
+    const nameOf = async (party: PartyRef): Promise<string> =>
+      isAllianceParty(party)
+        ? ((await tx.findAlliance(party.id))?.name ?? UNKNOWN_NAME)
+        : ((await tx.findPlayer(party.id))?.name ?? UNKNOWN_NAME);
+    const reason = `Der Siedler ${player.name} ist der Allianz ${allianceName} beigetreten`;
+    for (const relationship of ended.relationships) {
+      const names = new Map<string, string>();
+      for (const party of [relationship.firstParty, relationship.secondParty]) {
+        names.set(
+          `${party.type}:${party.id}`,
+          samePartyRef(party, self) ? player.name : await nameOf(party),
+        );
+      }
+      const name = (party: PartyRef) => names.get(`${party.type}:${party.id}`)!;
+      await tx.appendDiplomacyChronicleEntry({
+        eventType: AllianceDiplomacyChronicleEventType.RELATIONSHIP_ENDED,
+        actorUserId: player.id,
+        actorName: player.name,
+        firstParty: relationship.firstParty,
+        firstPartyName: name(relationship.firstParty),
+        secondParty: relationship.secondParty,
+        secondPartyName: name(relationship.secondParty),
+        relationshipType: relationship.type,
+        lordParty: relationship.lordParty,
+        vassalParty: relationship.vassalParty,
+        endReason: AllianceDiplomacyChronicleEndReason.PARTY_JOINED_ALLIANCE,
+      });
+      await notify(
+        otherParty(relationship, self),
+        `${reason}. Eure Beziehung (${RELATIONSHIP_TYPE_LABEL[relationship.type]}) wurde dadurch beendet`,
+      );
+    }
+    for (const proposal of ended.proposals) {
+      await notify(
+        otherParty(proposal, self),
+        `${reason}. Ein offener Beziehungsvorschlag (${RELATIONSHIP_TYPE_LABEL[proposal.type]}) ist dadurch entfallen`,
+      );
+    }
+    return [...notices.values()];
   }
 
   /** Deletes the membership and lets cleanup consumers drop the member's context. */

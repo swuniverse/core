@@ -210,7 +210,9 @@ function toNotification(
   };
 }
 
-function toAssetDeletion(task: AllianceAssetDeletion): AllianceAssetDeletionRecord {
+function toAssetDeletion(
+  task: AllianceAssetDeletion,
+): AllianceAssetDeletionRecord {
   return {
     id: task.id,
     assetKey: task.assetKey,
@@ -232,7 +234,9 @@ function toRelationship(
     contract: relationship.contract,
     treatAsFriend: relationship.treatAsFriend,
     shareLivePositions: relationship.shareLivePositions,
-    lordParty: relationship.lordParty ? partyRefOf(relationship.lordParty) : null,
+    lordParty: relationship.lordParty
+      ? partyRefOf(relationship.lordParty)
+      : null,
     vassalParty: relationship.vassalParty
       ? partyRefOf(relationship.vassalParty)
       : null,
@@ -510,6 +514,37 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       lordPartyId: null,
       vassalPartyId: null,
     });
+  }
+
+  async lockPlayerParty(userId: number) {
+    await this.partyRows([playerParty(userId)], { create: true });
+  }
+
+  async endPlayerPartyDiplomacy(userId: number) {
+    const ref = playerParty(userId);
+    const rows = await this.partyRows([ref], { create: false });
+    if (!rows.size) return { relationships: [], proposals: [] };
+    const relationships = await this.listActiveRelationships(ref);
+    const proposals = await this.listRelationshipProposals(ref);
+    if (relationships.length) {
+      const ids = relationships.map((relationship) => relationship.id);
+      await this.manager.delete(AllianceRelationshipChangeProposal, {
+        relationshipId: In(ids),
+      });
+      await this.manager
+        .createQueryBuilder()
+        .update(AllianceRelationship)
+        .set({ endedAt: () => 'CURRENT_TIMESTAMP' })
+        .where('id IN (:...ids)', { ids })
+        .andWhere('endedAt IS NULL')
+        .execute();
+    }
+    if (proposals.length) {
+      await this.manager.delete(AllianceRelationshipProposal, {
+        id: In(proposals.map((proposal) => proposal.id)),
+      });
+    }
+    return { relationships, proposals };
   }
 
   async listRelationshipProposals(partyInput: PartyInput) {

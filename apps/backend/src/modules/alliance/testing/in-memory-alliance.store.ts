@@ -454,6 +454,36 @@ export class InMemoryAllianceStore implements AllianceStore {
     );
   }
 
+  async lockPlayerParty() {
+    // Single-threaded: nothing to serialise.
+  }
+
+  async endPlayerPartyDiplomacy(userId: number) {
+    const party = toPartyRef({ type: DiplomacyPartyType.PLAYER, id: userId });
+    const now = this.now();
+    const relationships = this.state.relationships.filter(
+      (relationship) =>
+        relationship.endedAt === null && involvesParty(relationship, party),
+    );
+    const proposals = this.state.relationshipProposals.filter((proposal) =>
+      involvesParty(proposal, party),
+    );
+    const ended = new Set(relationships.map((relationship) => relationship.id));
+    const result = {
+      relationships: relationships.map((relationship) => ({ ...relationship })),
+      proposals: proposals.map((proposal) => ({ ...proposal })),
+    };
+    for (const relationship of relationships) relationship.endedAt = now;
+    this.state.relationshipProposals = this.state.relationshipProposals.filter(
+      (proposal) => !involvesParty(proposal, party),
+    );
+    this.state.relationshipChangeProposals =
+      this.state.relationshipChangeProposals.filter(
+        (proposal) => !ended.has(proposal.relationshipId),
+      );
+    return result;
+  }
+
   async listRelationshipProposals(partyInput: PartyInput) {
     const party = toPartyRef(partyInput);
     return this.state.relationshipProposals

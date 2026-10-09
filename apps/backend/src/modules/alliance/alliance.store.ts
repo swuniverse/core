@@ -290,6 +290,21 @@ export interface AllianceStore {
     first: PartyInput,
     second: PartyInput,
   ): Promise<void>;
+  /**
+   * Inside a transaction: creates the player party row if missing and locks it
+   * until commit. Diplomacy mutations and the party change of one player
+   * serialise on this lock.
+   */
+  lockPlayerParty(userId: number): Promise<void>;
+  /**
+   * Party change: ends every active relationship of the player party
+   * (including war) and deletes its proposals in both directions and the
+   * pending changes of those relationships. Returns what was ended/dropped.
+   */
+  endPlayerPartyDiplomacy(userId: number): Promise<{
+    relationships: AllianceRelationshipRecord[];
+    proposals: AllianceRelationshipProposalRecord[];
+  }>;
   listRelationshipProposals(
     party: PartyInput,
   ): Promise<AllianceRelationshipProposalRecord[]>;
