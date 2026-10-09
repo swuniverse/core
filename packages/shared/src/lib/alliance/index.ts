@@ -89,7 +89,9 @@ export enum AllianceRelationshipType {
 
 /**
  * What kind of party stands on one side of a diplomatic relationship: an
- * alliance, or an alliance-less player representing themselves.
+ * alliance, or an alliance-less player representing themselves. The `*PartyType`
+ * DTO fields are optional for backward compatibility: the backend always fills
+ * them, consumers treat absent as `ALLIANCE`.
  */
 export enum DiplomacyPartyType {
   ALLIANCE = 'ALLIANCE',
@@ -108,8 +110,8 @@ export interface AllianceVassalageDto {
   lordAllianceId: number;
   /** ID of the vassal party; an alliance or user ID, see `vassalPartyType`. */
   vassalAllianceId: number;
-  lordPartyType: DiplomacyPartyType;
-  vassalPartyType: DiplomacyPartyType;
+  lordPartyType?: DiplomacyPartyType;
+  vassalPartyType?: DiplomacyPartyType;
 }
 
 /** Public projection of an active relationship. Contract text is fetched separately. */
@@ -117,7 +119,7 @@ export interface AllianceRelationshipSummaryDto {
   id: number;
   /** For a player counterparty `id` is the user ID, see `counterpartyType`. */
   counterparty: AllianceRefDto;
-  counterpartyType: DiplomacyPartyType;
+  counterpartyType?: DiplomacyPartyType;
   type: AllianceRelationshipType;
   startedAt: string;
   permissions: AllianceRelationshipPermissionsDto;
@@ -137,8 +139,8 @@ export interface AllianceRelationshipProposalDto {
   senderAllianceId: number;
   /** Alliance or user ID of the recipient party, see `recipientPartyType`. */
   recipientAllianceId: number;
-  senderPartyType: DiplomacyPartyType;
-  recipientPartyType: DiplomacyPartyType;
+  senderPartyType?: DiplomacyPartyType;
+  recipientPartyType?: DiplomacyPartyType;
   type: AllianceRelationshipType;
   contract: string;
   permissions: AllianceRelationshipPermissionsDto;
@@ -153,8 +155,8 @@ export interface AllianceRelationshipChangeProposalDto {
   senderAllianceId: number;
   /** Alliance or user ID of the recipient party, see `recipientPartyType`. */
   recipientAllianceId: number;
-  senderPartyType: DiplomacyPartyType;
-  recipientPartyType: DiplomacyPartyType;
+  senderPartyType?: DiplomacyPartyType;
+  recipientPartyType?: DiplomacyPartyType;
   contract: string;
   permissions: AllianceRelationshipPermissionsDto;
   createdAt: string;
