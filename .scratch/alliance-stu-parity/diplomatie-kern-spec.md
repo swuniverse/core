@@ -180,3 +180,4 @@ Zusätzliche **Beziehungsfreigaben** werden ausdrücklich ausgehandelt: „Als F
 - “Bündnis” is the German domain label for the relationship type named “Allianz” in some STU material, avoiding confusion with the party **Allianz** itself.
 - No STU defect is copied: pending text has access control; all actions are server-authorized; duplicate peace offers and multiple active/pending states are prevented; and partial writes on validation errors are forbidden.
 - The accepted testing seams are: alliance service with the in-memory store, focused real-PostgreSQL integration tests and frontend component tests with a mocked API.
+- Nachtrag 2026-10-09: The capability gate `DIPLOMACY_CORE_ENABLED` was removed by user decision; the diplomacy core is always active because the pipeline always rolls out migrations.

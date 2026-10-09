@@ -140,7 +140,6 @@ export function StarmapPage() {
     }
     return open;
   }, [fields, inlineSystemsVisible, openedSystemIds, systemGrids]);
-  const allianceContactsActive = contacts?.allianceContactsActive ?? false;
   const contactBundles = useMemo(
     () =>
       bundleStarmapContacts(
@@ -340,16 +339,8 @@ export function StarmapPage() {
                 setShowShips(value);
                 if (!value) setSelectedContactKey(null);
               }}
-              allianceShips={
-                allianceContactsActive
-                  ? { visible: showAllianceShips, onToggle: setShowAllianceShips }
-                  : undefined
-              }
-              partnerShips={
-                allianceContactsActive
-                  ? { visible: showPartnerShips, onToggle: setShowPartnerShips }
-                  : undefined
-              }
+              allianceShips={{ visible: showAllianceShips, onToggle: setShowAllianceShips }}
+              partnerShips={{ visible: showPartnerShips, onToggle: setShowPartnerShips }}
               selectedSector={selectedSector}
               onSelectSector={setSelectedSector}
               onZoomIn={() => canvasRef.current?.zoomIn()}

@@ -16,7 +16,6 @@ import {
 import type { Repository } from 'typeorm';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { StarmapVisibilityService } from './starmap-visibility.service';
-import { AllianceInfrastructureCapabilityService } from '../alliance/alliance-infrastructure-capability.service';
 import type { Layer } from '../starmap/entities/layer.entity';
 
 const shipRepository = (ships: Spacecraft[]) =>
@@ -33,14 +32,8 @@ const layerRepository = (layers: Array<Pick<Layer, 'id'>>) =>
 
 const STARMAP_LAYER_ID = 3;
 
-/** Layer repository and rollout capability used for starmap contacts. */
-const contactCollaborators = ({ enabled = false } = {}) =>
-  [
-    layerRepository([{ id: STARMAP_LAYER_ID }]),
-    new AllianceInfrastructureCapabilityService({
-      get: () => (enabled ? 'true' : undefined),
-    } as never),
-  ] as const;
+/** Layer repository used for starmap contacts. */
+const starmapLayers = () => layerRepository([{ id: STARMAP_LAYER_ID }]);
 
 const galaxyLocation = (id: number, layerId: number, x: number, y: number) => ({
   id,
@@ -112,7 +105,7 @@ describe('StarmapVisibilityService', () => {
         allianceStore,
         new NoPersonalContactStatusPort(),
       ),
-      ...contactCollaborators(),
+      starmapLayers(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([
@@ -170,7 +163,7 @@ describe('StarmapVisibilityService', () => {
         allianceStore,
         new NoPersonalContactStatusPort(),
       ),
-      ...contactCollaborators(),
+      starmapLayers(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([
@@ -247,7 +240,7 @@ describe('StarmapVisibilityService', () => {
         allianceStore,
         new NoPersonalContactStatusPort(),
       ),
-      ...contactCollaborators(),
+      starmapLayers(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
@@ -270,7 +263,7 @@ describe('StarmapVisibilityService', () => {
         viewerInSharingAlliance(),
         new NoPersonalContactStatusPort(),
       ),
-      ...contactCollaborators(),
+      starmapLayers(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
@@ -298,7 +291,7 @@ describe('StarmapVisibilityService', () => {
         } as Spacecraft,
       ]),
       relationships,
-      ...contactCollaborators(),
+      starmapLayers(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
@@ -324,17 +317,14 @@ describe('StarmapVisibilityService.listContacts', () => {
       ...overrides,
     }) as unknown as Spacecraft;
 
-  function contactsService(
-    ships: Spacecraft[],
-    { enabled = false }: { enabled?: boolean } = {},
-  ) {
+  function contactsService(ships: Spacecraft[]) {
     return new StarmapVisibilityService(
       shipRepository(ships),
       new RelationshipResolverService(
         viewerInSharingAlliance(),
         new NoPersonalContactStatusPort(),
       ),
-      ...contactCollaborators({ enabled }),
+      starmapLayers(),
     );
   }
 
@@ -343,7 +333,6 @@ describe('StarmapVisibilityService.listContacts', () => {
       contactsService([ownShip()]).listContacts(1, STARMAP_LAYER_ID),
     ).resolves.toEqual({
       layerId: 3,
-      allianceContactsActive: false,
       contacts: [
         {
           spacecraftId: 10,
@@ -443,38 +432,24 @@ describe('StarmapVisibilityService.listContacts', () => {
     expect(result.contacts).toEqual([]);
   });
 
-  it.each([false, true])(
-    'never shows a partner from another alliance as alliance contact (capability %s)',
-    async (enabled) => {
-      const result = await contactsService(
-        [
-          ownShip(),
-          ownShip({
-            id: 20,
-            name: 'Shared Ship',
-            userId: 2,
-            user: { id: 2, username: 'Sharer' },
-          }),
-        ],
-        { enabled },
-      ).listContacts(1, STARMAP_LAYER_ID);
+  it('never shows a partner from another alliance as alliance contact', async () => {
+    const result = await contactsService([
+      ownShip(),
+      ownShip({
+        id: 20,
+        name: 'Shared Ship',
+        userId: 2,
+        user: { id: 2, username: 'Sharer' },
+      }),
+    ]).listContacts(1, STARMAP_LAYER_ID);
 
-      expect(
-        result.contacts.map((contact) => [
-          contact.spacecraftId,
-          contact.reason,
-        ]),
-      ).toEqual(
-        enabled
-          ? [
-              [10, 'OWN'],
-              [20, 'SHARED_LIVE_POSITION'],
-            ]
-          : [[10, 'OWN']],
-      );
-      expect(result.allianceContactsActive).toBe(enabled);
-    },
-  );
+    expect(
+      result.contacts.map((contact) => [contact.spacecraftId, contact.reason]),
+    ).toEqual([
+      [10, 'OWN'],
+      [20, 'SHARED_LIVE_POSITION'],
+    ]);
+  });
 
   describe('alliance ships', () => {
     /** Viewer 1 presides "Viewers" (#ff8800) with member 2; 3 is unaffiliated. */
@@ -508,7 +483,6 @@ describe('StarmapVisibilityService.listContacts', () => {
     const serviceFor = (
       store: InMemoryAllianceStore,
       ships: Spacecraft[] = fleet(),
-      { enabled = true } = {},
     ) =>
       new StarmapVisibilityService(
         shipRepository(ships),
@@ -516,7 +490,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           store,
           new NoPersonalContactStatusPort(),
         ),
-        ...contactCollaborators({ enabled }),
+        starmapLayers(),
       );
 
     const contactIds = async (service: StarmapVisibilityService, viewer = 1) =>
@@ -529,7 +503,6 @@ describe('StarmapVisibilityService.listContacts', () => {
 
       const result = await serviceFor(store).listContacts(1, STARMAP_LAYER_ID);
 
-      expect(result.allianceContactsActive).toBe(true);
       expect(result.contacts).toEqual([
         expect.objectContaining({ spacecraftId: 10, reason: 'OWN' }),
         {
@@ -580,18 +553,6 @@ describe('StarmapVisibilityService.listContacts', () => {
 
       await expect(contactIds(serviceFor(store), 3)).resolves.toEqual([
         [30, 'OWN'],
-      ]);
-    });
-
-    it('shows only own ships while the capability is disabled', async () => {
-      const { store } = allianceWorld();
-      const service = serviceFor(store, fleet(), { enabled: false });
-
-      const result = await service.listContacts(1, STARMAP_LAYER_ID);
-
-      expect(result.allianceContactsActive).toBe(false);
-      expect(result.contacts.map((contact) => contact.spacecraftId)).toEqual([
-        10,
       ]);
     });
 
@@ -894,7 +855,7 @@ describe('StarmapVisibilityService.listContacts', () => {
         const service = new StarmapVisibilityService(
           shipRepository(partnerFleet()),
           relationships,
-          ...contactCollaborators({ enabled: true }),
+          starmapLayers(),
         );
 
         await service.listContacts(1, STARMAP_LAYER_ID);
@@ -1009,15 +970,6 @@ describe('StarmapVisibilityService.listContacts', () => {
         ]);
       });
 
-      it('shows no partner ships while the capability is disabled', async () => {
-        const { store, alliance, partner } = partnerWorld();
-        relate(store, alliance, partner);
-
-        await expect(
-          contactIds(serviceFor(store, partnerFleet(), { enabled: false })),
-        ).resolves.toEqual([[10, 'OWN']]);
-      });
-
       it('keeps the highest reason when an owner qualifies several times', async () => {
         const { store, alliance, partner } = partnerWorld();
         relate(store, alliance, partner);
@@ -1051,7 +1003,7 @@ describe('StarmapVisibilityService.listContacts', () => {
         const service = new StarmapVisibilityService(
           shipRepository(partnerFleet()),
           relationships,
-          ...contactCollaborators({ enabled: true }),
+          starmapLayers(),
         );
 
         await expect(contactIds(service)).resolves.toEqual([

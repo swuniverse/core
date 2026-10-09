@@ -102,7 +102,6 @@ function allianceContact(
 }
 
 let contactsByLayer: Record<number, StarmapContactDto[]>;
-let allianceContactsActive: boolean;
 
 const kessel = {
   id: 7,
@@ -145,7 +144,6 @@ function mockApi() {
       const layerId = Number(contacts[1]);
       return Promise.resolve({
         layerId,
-        allianceContactsActive,
         contacts: contactsByLayer[layerId] ?? [],
       } satisfies StarmapContactsDto);
     }
@@ -170,7 +168,6 @@ describe('StarmapPage ship layer', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
     socketHandlers.clear();
-    allianceContactsActive = false;
     contactsByLayer = {
       3: [
         ownContact(),
@@ -261,12 +258,12 @@ describe('StarmapPage ship layer', () => {
     ).toBeNull();
   });
 
-  it('does not offer alliance or partner switches while alliance contacts are inactive', async () => {
+  it('always offers the alliance and partner switches, even with only own ships', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
 
-    expect(screen.queryByRole('checkbox', { name: 'Allianzschiffe' })).toBeNull();
-    expect(screen.queryByRole('checkbox', { name: 'Partnerschiffe' })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Allianzschiffe' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Partnerschiffe' })).toBeTruthy();
   });
 
   it('reloads the contacts when the layer changes', async () => {
@@ -337,7 +334,6 @@ describe('StarmapPage ship layer', () => {
 
   describe('alliance ships', () => {
     beforeEach(() => {
-      allianceContactsActive = true;
       contactsByLayer[3] = [
         ownContact(),
         allianceContact(),
@@ -467,7 +463,6 @@ describe('StarmapPage ship layer', () => {
     });
 
     beforeEach(() => {
-      allianceContactsActive = true;
       contactsByLayer[3] = [ownContact(), allianceContact(), partnerContact()];
     });
 
@@ -554,17 +549,6 @@ describe('StarmapPage ship layer', () => {
       expect(within(bundle).getByText('3')).toBeTruthy();
       expect(within(bundle).getByText('◆')).toBeTruthy();
       expect(within(bundle).getByText('+×')).toBeTruthy();
-    });
-
-    it('offers no partner switch while alliance contacts are inactive', async () => {
-      allianceContactsActive = false;
-      contactsByLayer[3] = [ownContact()];
-      renderPage();
-
-      await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
-      expect(
-        screen.queryByRole('checkbox', { name: 'Partnerschiffe' }),
-      ).toBeNull();
     });
   });
 

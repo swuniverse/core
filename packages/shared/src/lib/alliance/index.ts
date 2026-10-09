@@ -166,12 +166,6 @@ export interface AllianceDiplomacyProposalDto {
 
 /** Complete confidential view for president and diplomat diplomacy administration. */
 export interface AllianceDiplomacyManagementDto {
-  /** Explicit rollout state; migrations must be deployed before this is enabled. */
-  enabled: boolean;
-  /** Whether accepted relationship permissions already affect gameplay on the server. */
-  effectsApplied: boolean;
-  /** Whether shared partner positions are shown on the starmap. */
-  starmapDisplayActive: boolean;
   capabilities: Pick<AllianceDiplomacyCapabilitiesDto, 'create'>;
   targets: AllianceRefDto[];
   relationships: AllianceDiplomacyRelationshipDto[];

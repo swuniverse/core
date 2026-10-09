@@ -10,10 +10,7 @@ import {
   AllianceRole,
   Faction,
 } from '@swuniverse/shared';
-import type {
-  AllianceDiplomacyManagementDto,
-  StarmapContactsDto,
-} from '@swuniverse/shared';
+import type { StarmapContactsDto } from '@swuniverse/shared';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -22,11 +19,7 @@ import {
 } from '../../testing/integration/database';
 import { User } from '../auth/user.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
-import { AllianceController } from '../alliance/alliance.controller';
-import { AllianceInfrastructureCapabilityService } from '../alliance/alliance-infrastructure-capability.service';
-import { AllianceService } from '../alliance/alliance.service';
 import { ALLIANCE_STORE } from '../alliance/alliance.store';
-import { DiplomacyCapabilityService } from '../alliance/diplomacy-capability.service';
 import {
   NoPersonalContactStatusPort,
   PERSONAL_CONTACT_STATUS,
@@ -35,7 +28,6 @@ import {
 import { TypeOrmAllianceStore } from '../alliance/typeorm-alliance.store';
 import { ColonizationService } from '../colonization/colonization.service';
 import { GameDataService } from '../game-data/game-data.service';
-import { MessagingService } from '../messaging/messaging.service';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
@@ -88,24 +80,20 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
     empire = await factionId(dataSource, Faction.GALACTIC_EMPIRE);
   });
 
-  async function startApp({ enabled }: { enabled: boolean }) {
+  async function startApp() {
     const config = {
       get: (key: string) =>
         ({
           JWT_SECRET,
-          ALLIANCE_INFRASTRUCTURE_ENABLED: enabled ? 'true' : undefined,
-          DIPLOMACY_CORE_ENABLED: 'true',
         })[key],
     };
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule],
-      controllers: [SpacecraftController, AllianceController],
+      controllers: [SpacecraftController],
       providers: [
         { provide: ConfigService, useValue: config },
         JwtStrategy,
         StarmapVisibilityService,
-        AllianceInfrastructureCapabilityService,
-        DiplomacyCapabilityService,
         RelationshipResolverService,
         {
           provide: PERSONAL_CONTACT_STATUS,
@@ -114,28 +102,6 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
         {
           provide: ALLIANCE_STORE,
           useFactory: () => new TypeOrmAllianceStore(dataSource),
-        },
-        {
-          provide: AllianceService,
-          inject: [
-            ALLIANCE_STORE,
-            DiplomacyCapabilityService,
-            AllianceInfrastructureCapabilityService,
-          ],
-          useFactory: (
-            store: TypeOrmAllianceStore,
-            diplomacy: DiplomacyCapabilityService,
-            infrastructure: AllianceInfrastructureCapabilityService,
-          ) =>
-            new AllianceService(
-              store,
-              {
-                sendSystem: jest.fn().mockResolvedValue(undefined),
-              } as unknown as MessagingService,
-              undefined,
-              diplomacy,
-              infrastructure,
-            ),
         },
         {
           provide: getRepositoryToken(Spacecraft),
@@ -303,10 +269,10 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
 
   const ROGUE_SHIPS = ['bail-ship', 'han-ship', 'leia-ship', 'mon-ship'];
 
-  describe('with the capability enabled', () => {
+  describe('with a running app', () => {
     let app: INestApplication;
     beforeEach(async () => {
-      app = await startApp({ enabled: true });
+      app = await startApp();
     });
     afterEach(() => app.close());
 
@@ -319,7 +285,6 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
           `/spacecraft/starmap-contacts?layerId=${w.core.id}`,
         );
         expect(status).toBe(200);
-        expect(body.allianceContactsActive).toBe(true);
         return summary(body);
       };
       const allianceView = (own: string, details: boolean) => [
@@ -448,63 +413,6 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
       expect(body.map((position) => position.spacecraftName)).toEqual([
         'wedge-ship',
       ]);
-    });
-
-    it('points the diplomacy management to the starmap', async () => {
-      const w = await world();
-      const { body } = await request<AllianceDiplomacyManagementDto>(
-        app,
-        w.president,
-        `/alliances/${w.rogue.id}/diplomacy`,
-      );
-      expect(body.starmapDisplayActive).toBe(true);
-    });
-  });
-
-  describe('with the capability disabled', () => {
-    let app: INestApplication;
-    beforeEach(async () => {
-      app = await startApp({ enabled: false });
-    });
-    afterEach(() => app.close());
-
-    it('delivers only own ships to every role', async () => {
-      const w = await world();
-      for (const viewer of [
-        w.president,
-        w.vice,
-        w.diplomat,
-        w.member,
-        w.loner,
-        w.imperial,
-        w.partner,
-      ]) {
-        const { body } = await request<StarmapContactsDto>(
-          app,
-          viewer,
-          `/spacecraft/starmap-contacts?layerId=${w.core.id}`,
-        );
-        expect(body.allianceContactsActive).toBe(false);
-        expect(summary(body)).toEqual([`${viewer.username}-ship:OWN+details`]);
-      }
-    });
-
-    it('keeps the shared live position route and the diplomacy notice as before', async () => {
-      const w = await world();
-      const shared = await request<Array<{ spacecraftName: string }>>(
-        app,
-        w.president,
-        '/spacecraft/shared-live-positions',
-      );
-      expect(shared.body.map((position) => position.spacecraftName)).toEqual([
-        'wedge-ship',
-      ]);
-      const { body } = await request<AllianceDiplomacyManagementDto>(
-        app,
-        w.president,
-        `/alliances/${w.rogue.id}/diplomacy`,
-      );
-      expect(body.starmapDisplayActive).toBe(false);
     });
   });
 });
