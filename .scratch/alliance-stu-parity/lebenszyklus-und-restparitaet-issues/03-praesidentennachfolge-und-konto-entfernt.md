@@ -4,12 +4,12 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Alle Prioritätsstufen, Gleichstand, ausschließlich leere Aktivität, gemischt leere Aktivität und kein Kandidat sind getestet
-- [ ] Neuer Präsident hat nur das Präsidentenamt; genau ein Präsident auch bei zwei gleichzeitigen Wegfällen (Postgres-Konkurrenztest)
-- [ ] Chroniktyp „automatische Nachfolge“ (Akteur leer, betroffen = neuer Präsident, Metadaten: früherer Präsident); kein Eintrag in der Diplomatie-Chronik
-- [ ] Nichtpräsident: Austrittsablauf mit Chronik und Verwaltungsnachricht; Spieler ohne Mitgliedschaft: No-Op
-- [ ] Beiträge und Chronik bleiben, Autoren erscheinen als „Gelöschter Siedler“
-- [ ] Freiwilliger Präsidentenaustritt mit weiteren Mitgliedern bleibt ein Fehler
-- [ ] Frontendtest für den Chroniktext
+- [x] Alle Prioritätsstufen, Gleichstand, ausschließlich leere Aktivität, gemischt leere Aktivität und kein Kandidat sind getestet
+- [x] Neuer Präsident hat nur das Präsidentenamt; genau ein Präsident auch bei zwei gleichzeitigen Wegfällen (Postgres-Konkurrenztest)
+- [x] Chroniktyp „automatische Nachfolge“ (Akteur leer, betroffen = neuer Präsident, Metadaten: früherer Präsident); kein Eintrag in der Diplomatie-Chronik
+- [x] Nichtpräsident: Austrittsablauf mit Chronik und Verwaltungsnachricht; Spieler ohne Mitgliedschaft: No-Op
+- [x] Beiträge und Chronik bleiben, Autoren erscheinen als „Gelöschter Siedler“
+- [x] Freiwilliger Präsidentenaustritt mit weiteren Mitgliedern bleibt ein Fehler
+- [x] Frontendtest für den Chroniktext
