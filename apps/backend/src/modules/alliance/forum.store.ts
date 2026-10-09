@@ -74,6 +74,11 @@ export interface ForumBoardSummaryRecord {
   } | null;
 }
 
+export interface ForumRecentTopicRecord {
+  topic: ForumTopicRecord;
+  boardName: string;
+}
+
 export interface ForumTopicSummaryRecord {
   topic: ForumTopicRecord;
   /** Non-deleted posts only. */
@@ -144,4 +149,13 @@ export interface ForumStore {
     limit: number,
   ): Promise<ForumPostRecord[]>;
   countPosts(topicId: number): Promise<number>;
+
+  /**
+   * Non-deleted topics in non-deleted boards of the alliance, latest activity
+   * first, then newest.
+   */
+  listRecentTopics(
+    allianceId: number,
+    limit: number,
+  ): Promise<ForumRecentTopicRecord[]>;
 }

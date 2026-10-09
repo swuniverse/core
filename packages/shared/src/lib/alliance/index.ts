@@ -489,3 +489,17 @@ export interface AllianceMemberOverviewDto {
   allianceId: number;
   members: AllianceMemberOperationsDto[];
 }
+
+/** Dashboard entry for a recently active forum topic of the player's alliance. */
+export interface DashboardForumTopicDto {
+  topicId: number;
+  title: string;
+  boardId: number;
+  boardName: string;
+  allianceId: number;
+  lastActivityAt: string;
+  /** Frontend route of the topic. */
+  linkTo: string;
+}
+
+export const DASHBOARD_FORUM_TOPIC_LIMIT = 3;
