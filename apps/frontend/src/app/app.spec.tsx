@@ -388,7 +388,7 @@ function renderColonyDetail(
   overrides: Partial<React.ComponentProps<typeof ColonyDetail>> = {},
 ) {
   const colony = createColony(detail);
-  const props: React.ComponentProps<typeof ColonyDetail> = {
+  const props = {
     colony,
     commodities: [],
     buildingDefs: [],
@@ -439,7 +439,7 @@ function renderColonyDetail(
     onActivateBuildings: noopPromise,
     onDeactivateBuildings: noopPromise,
     ...overrides,
-  };
+  } as React.ComponentProps<typeof ColonyDetail>;
   const result = render(<ColonyDetail {...props} />);
   return {
     ...result,
@@ -839,7 +839,7 @@ describe('ColonyDetail', () => {
           isActive: true,
           buildProgress: 0,
           buildFinishesAt: null,
-          terraformingId: 101201,
+          terraformingId: '101201',
           availableUpgrades: [],
         },
       ],

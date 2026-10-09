@@ -38,6 +38,7 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - [Live-Positionsfreigabe](beziehungswirkungen-issues/04-live-positionsfreigabe.md), Nachtrag nach dem Review: SWU besitzt keinen vorhandenen Kartenpfad mit fremden Schiffen. Die Kartenanzeige geteilter Live-Positionen wird deshalb gemeinsam mit den Allianzschiffen auf der Sternenkarte in der Etappe Allianz-Infrastruktur gebaut; bis dahin weist die Diplomatieverwaltung darauf hin.
 
 - [Allianz-Infrastruktur](allianz-infrastruktur-spec.md), umgesetzt in den [Tickets 01–07](allianz-infrastruktur-issues/): Die Sternenkarte zeigt eigene, Allianz- und geteilte Partnerschiffe aus einem serverseitigen Sichtbarkeitsdienst, der Mitgliedschaft, Amt und Beziehung bei jeder Anfrage neu und gebündelt auflöst; Verwaltungsdetails erhalten nur Präsident und Vize. Allianzdepots, Zugangsprivilegien und Territorialfarbe sind nur als Integrationsverträge festgelegt.
+- [Interne Zusammenarbeit](interne-zusammenarbeit-spec.md), spezifiziert (ready-for-agent): Allianzforum mit serverseitiger Moderation durch Präsident und Vize sowie weicher Löschung, Mitgliederübersicht mit neu erfasster letzter Aktivität, Online-Status nur für Mitglieder, interne Allianzchronik für Gründung, Mitgliedschaft, Ämter und Details. Banner und Nachfolge gehören zu Lebenszyklus und Restparität. Zerlegt in die [Tickets 01–12](interne-zusammenarbeit-issues/).
 - Fähigkeitsschalter entfernt (Nutzerentscheidung vom 2026-10-09): `DIPLOMACY_CORE_ENABLED` und `ALLIANCE_INFRASTRUCTURE_ENABLED` entfallen; Diplomatie-Kern und Allianz-Infrastruktur sind immer aktiv, weil die Pipeline Migrationen stets ausrollt.
 
 ## Not yet specified
@@ -51,3 +52,9 @@ Sechs aufeinander abgestimmte Etappen-Spezifikationen beschreiben die noch fehle
 - `[translate]`-Blöcke und BBCode in Allianznamen.
 - Export oder Archivierung des Allianzforums.
 - Eigenständige, in SWU fehlende Spielsysteme, die nur als Träger einer Allianzregel gebaut würden.
+
+## Interne Zusammenarbeit: umgesetzt (2026-10-09)
+
+- [Interne Zusammenarbeit](interne-zusammenarbeit-spec.md) ist in den [Tickets 01–12](interne-zusammenarbeit-issues/) umgesetzt: Allianzforum mit Boards, Themen, Beiträgen, Bearbeiten und weicher Moderation durch Präsident und Vize, letzte Themen im Dashboard, erfasste letzte Aktivität, Online-Status nur für Mitglieder, Mitgliederübersicht mit Koloniebestand für Präsident und Vize sowie interne Allianzchronik für Gründung, Mitgliedschaft, Ämter und Details. Autorisierung ist auf Controller-Ebene mit direkten Requests je Rolle und mit manipulierten IDs, die Lebenszyklen (Auflösung auf beiden Wegen, Kontolöschung) sind auf Postgres nachgewiesen.
+- Offene Punkte für die Etappe „Lebenszyklus und Restparität“: Chronikereignisse für Präsidentennachfolge und Banner; Nachfolge über die letzte Aktivität, wobei ein leerer Wert (`lastActiveAt` null) als älteste Aktivität gilt; Banner selbst.
+- Weiterhin benannte Integrationspunkte: spielereigene Stationen in der Klassengruppierung der Mitgliederübersicht (siehe Nachtrag in `beziehungswirkungen-spec.md`); Forum-Export und -Archivierung bleiben außerhalb des Umfangs.

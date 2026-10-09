@@ -10,8 +10,12 @@ import { AllianceRelationship } from '../../modules/alliance/entities/alliance-r
 import { AllianceRelationshipProposal } from '../../modules/alliance/entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from '../../modules/alliance/entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from '../../modules/alliance/entities/diplomacy-party.entity';
+import { AllianceChronicleEntry } from '../../modules/alliance/entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from '../../modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from '../../modules/alliance/entities/alliance-diplomacy-notification.entity';
+import { ForumBoard } from '../../modules/alliance/entities/forum-board.entity';
+import { ForumTopic } from '../../modules/alliance/entities/forum-topic.entity';
+import { ForumPost } from '../../modules/alliance/entities/forum-post.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
 import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
@@ -25,6 +29,15 @@ import { BorderType } from '../../modules/starmap/entities/border-type.entity';
 import { Spacecraft } from '../../modules/spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../../modules/spacecraft/entities/spacecraft-module.entity';
 import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
+import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.entity';
+import { Colony } from '../../modules/colony/entities/colony.entity';
+import { ColonyField } from '../../modules/colony/entities/colony-field.entity';
+import { ColonyStorage } from '../../modules/colony/entities/colony-storage.entity';
+import { ColonyStats } from '../../modules/colony/entities/colony-stats.entity';
+import { ColonyChangeable } from '../../modules/colony/entities/colony-changeable.entity';
+import { ColonyCrewTrainingQueue } from '../../modules/colony/entities/colony-crew-training-queue.entity';
+import { Crew } from '../../modules/colony/entities/crew.entity';
+import { CrewAssignment } from '../../modules/colony/entities/crew-assignment.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -38,8 +51,12 @@ export const INTEGRATION_ENTITIES = [
   AllianceRelationship,
   AllianceRelationshipProposal,
   AllianceRelationshipChangeProposal,
+  AllianceChronicleEntry,
   AllianceDiplomacyChronicleEntry,
   AllianceDiplomacyNotification,
+  ForumBoard,
+  ForumTopic,
+  ForumPost,
   Message,
   Layer,
   StarSystem,
@@ -53,6 +70,15 @@ export const INTEGRATION_ENTITIES = [
   Spacecraft,
   SpacecraftModule,
   Fleet,
+  ShipClassDef,
+  Colony,
+  ColonyField,
+  ColonyStorage,
+  ColonyStats,
+  ColonyChangeable,
+  ColonyCrewTrainingQueue,
+  Crew,
+  CrewAssignment,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

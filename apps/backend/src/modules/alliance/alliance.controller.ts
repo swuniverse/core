@@ -14,20 +14,38 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type {
+  CreateForumBoardRequest,
+  CreateForumPostRequest,
+  CreateForumTopicRequest,
   FoundAllianceRequest,
   ProposeAllianceRelationshipChangeRequest,
+  RenameForumBoardRequest,
+  RenameForumTopicRequest,
+  SetForumTopicImportantRequest,
   ProposeAllianceRelationshipRequest,
   SetAllianceRoleRequest,
+  UpdateForumPostRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
+import { ForumService } from './forum.service';
+import { MemberOverviewService } from './member-overview.service';
 
 type AuthRequest = { user: { sub: number } };
+
+/** Parses an optional numeric query parameter; absent stays undefined. */
+function optionalNumber(value?: string): number | undefined {
+  return value === undefined ? undefined : Number(value);
+}
 
 @Controller('alliances')
 @UseGuards(AuthGuard('jwt'))
 export class AllianceController {
-  constructor(private readonly allianceService: AllianceService) {}
+  constructor(
+    private readonly allianceService: AllianceService,
+    private readonly forumService: ForumService,
+    private readonly memberOverview: MemberOverviewService,
+  ) {}
 
   @Get()
   list() {
@@ -77,6 +95,175 @@ export class AllianceController {
     return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
   }
 
+  // --- Forum ---
+
+  @Get(':id/forum/boards')
+  forumBoards(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.forumService.listBoards(req.user.sub, id);
+  }
+
+  @Post(':id/forum/boards')
+  createForumBoard(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: CreateForumBoardRequest,
+  ) {
+    return this.forumService.createBoard(req.user.sub, id, {
+      name: body?.name,
+    });
+  }
+
+  @Get(':id/forum/boards/:boardId/topics')
+  forumTopics(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query('page') page?: string,
+  ) {
+    return this.forumService.listTopics(
+      req.user.sub,
+      id,
+      boardId,
+      optionalNumber(page),
+    );
+  }
+
+  @Post(':id/forum/boards/:boardId/topics')
+  createForumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() body: CreateForumTopicRequest,
+  ) {
+    return this.forumService.createTopic(req.user.sub, id, boardId, {
+      title: body?.title,
+      text: body?.text,
+    });
+  }
+
+  @Get(':id/forum/topics/:topicId')
+  forumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Query('page') page?: string,
+  ) {
+    return this.forumService.getTopic(
+      req.user.sub,
+      id,
+      topicId,
+      optionalNumber(page),
+    );
+  }
+
+  @Post(':id/forum/topics/:topicId/posts')
+  createForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Body() body: CreateForumPostRequest,
+  ) {
+    return this.forumService.createPost(req.user.sub, id, topicId, {
+      text: body?.text,
+    });
+  }
+
+  @Patch(':id/forum/boards/:boardId')
+  async renameForumBoard(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body() body: RenameForumBoardRequest,
+  ) {
+    await this.forumService.renameBoard(req.user.sub, id, boardId, {
+      name: body?.name,
+    });
+  }
+
+  @Delete(':id/forum/boards/:boardId')
+  async deleteForumBoard(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    await this.forumService.deleteBoard(req.user.sub, id, boardId);
+  }
+
+  @Patch(':id/forum/topics/:topicId')
+  async renameForumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Body() body: RenameForumTopicRequest,
+  ) {
+    await this.forumService.renameTopic(req.user.sub, id, topicId, {
+      title: body?.title,
+    });
+  }
+
+  @Put(':id/forum/topics/:topicId/important')
+  async setForumTopicImportant(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+    @Body() body: SetForumTopicImportantRequest,
+  ) {
+    await this.forumService.setTopicImportant(
+      req.user.sub,
+      id,
+      topicId,
+      body?.important === true,
+    );
+  }
+
+  @Delete(':id/forum/topics/:topicId')
+  async deleteForumTopic(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('topicId', ParseIntPipe) topicId: number,
+  ) {
+    await this.forumService.deleteTopic(req.user.sub, id, topicId);
+  }
+
+  @Delete(':id/forum/posts/:postId')
+  async deleteForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('postId', ParseIntPipe) postId: number,
+  ) {
+    await this.forumService.deletePost(req.user.sub, id, postId);
+  }
+
+  @Patch(':id/forum/posts/:postId')
+  updateForumPost(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('postId', ParseIntPipe) postId: number,
+    @Body() body: UpdateForumPostRequest,
+  ) {
+    return this.forumService.updatePost(req.user.sub, id, postId, {
+      text: body?.text,
+    });
+  }
+
+  @Get(':id/chronicle')
+  chronicle(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.allianceService.listChronicle(
+      req.user.sub,
+      id,
+      cursor,
+      optionalNumber(limit),
+    );
+  }
+
   @Get(':id/diplomacy/chronicle')
   diplomacyChronicle(
     @Request() req: AuthRequest,
@@ -88,7 +275,7 @@ export class AllianceController {
       req.user.sub,
       id,
       cursor,
-      limit === undefined ? undefined : Number(limit),
+      optionalNumber(limit),
     );
   }
 
@@ -229,6 +416,23 @@ export class AllianceController {
       id,
       relationshipId,
     );
+  }
+
+  @Get(':id/member-overview')
+  memberOverviewOf(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.memberOverview.getOverview(req.user.sub, id);
+  }
+
+  @Get(':id/member-overview/colonies/:colonyId/stock')
+  colonyStockOf(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('colonyId', ParseIntPipe) colonyId: number,
+  ) {
+    return this.memberOverview.getColonyStock(req.user.sub, id, colonyId);
   }
 
   @Get(':id')

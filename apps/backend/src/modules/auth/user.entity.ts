@@ -52,6 +52,9 @@ export class User {
   @Column({ type: 'int', nullable: true })
   lastActiveTick: number | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  lastActiveAt: Date | null;
+
   @Column({ default: 0 })
   prestige: number;
 

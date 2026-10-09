@@ -50,6 +50,14 @@ export class ColonyCrewService {
       where: { userId },
       relations: ['fields', 'changeable'],
     });
+    return this.sumLocalCrewLimits(colonies);
+  }
+
+  /**
+   * Global crew limit of already loaded colonies of one owner. Shares the
+   * formula of getGlobalCrewLimit so callers can bundle the colony loading.
+   */
+  sumLocalCrewLimits(colonies: Colony[]): number {
     return colonies.reduce(
       (sum, colony) => sum + this.getLocalCrewLimit(colony),
       0,

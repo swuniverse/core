@@ -1,0 +1,745 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import type {
+  CreateForumPostResponse,
+  CreateForumTopicResponse,
+  ForumAuthorDto,
+  ForumBoardPageDto,
+  ForumOverviewDto,
+  ForumPaginationDto,
+  ForumPostDto,
+  ForumTopicPageDto,
+  UpdateForumPostResponse,
+} from '@swuniverse/shared';
+import { BbCodeText } from '../components/BbCodeText';
+import { api } from '../services/api';
+import { getErrorMessage } from '../lib/errors';
+import { formatDateTime } from '../lib/format';
+
+const inputClass =
+  'w-full border border-swu-border bg-swu-bg px-2 py-1.5 text-sm text-swu-text focus:border-swu-accent focus:outline-none';
+const buttonClass =
+  'border border-swu-border px-3 py-1 text-xs text-swu-muted hover:text-swu-primary disabled:opacity-40';
+const primaryButtonClass =
+  'border border-swu-accent bg-swu-accent/10 px-3 py-1 text-xs text-swu-accent hover:bg-swu-accent/20 disabled:opacity-40';
+
+function Title({ children }: { children: React.ReactNode }) {
+  return (
+    <h1
+      className="text-2xl font-bold text-swu-accent"
+      style={{ fontFamily: 'var(--font-swu-display)' }}
+    >
+      {children}
+    </h1>
+  );
+}
+
+function ErrorMessage({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <p
+      role="alert"
+      className="border border-swu-danger/60 bg-swu-danger/10 px-3 py-2 text-sm text-red-300"
+    >
+      {message}
+    </p>
+  );
+}
+
+function BackLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link to={to} className="text-xs text-swu-muted hover:text-swu-accent">
+      ← {label}
+    </Link>
+  );
+}
+
+function AuthorLine({ author }: { author: ForumAuthorDto }) {
+  const meta = [author.factionName, author.roleTitle].filter(Boolean);
+  return (
+    <span>
+      {author.userId === null ? (
+        <span className="text-swu-muted">{author.name}</span>
+      ) : (
+        <Link
+          to={`/players/${author.userId}`}
+          className="text-swu-accent hover:underline"
+        >
+          {author.name}
+        </Link>
+      )}
+      {meta.length > 0 && (
+        <span className="text-swu-muted"> ({meta.join(', ')})</span>
+      )}
+    </span>
+  );
+}
+
+function Pagination({
+  pagination,
+  onPage,
+}: {
+  pagination: ForumPaginationDto;
+  onPage: (page: number) => void;
+}) {
+  if (pagination.totalPages <= 1) return null;
+  return (
+    <nav aria-label="Seiten" className="flex items-center gap-3 text-xs">
+      <button
+        type="button"
+        className={buttonClass}
+        disabled={pagination.page <= 1}
+        onClick={() => onPage(pagination.page - 1)}
+      >
+        Zurück
+      </button>
+      <span className="text-swu-muted">
+        Seite {pagination.page} von {pagination.totalPages}
+      </span>
+      <button
+        type="button"
+        className={buttonClass}
+        disabled={pagination.page >= pagination.totalPages}
+        onClick={() => onPage(pagination.page + 1)}
+      >
+        Weiter
+      </button>
+    </nav>
+  );
+}
+
+function useLoad<T>(load: () => Promise<T>, fallback: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(async () => {
+    try {
+      setData(await load());
+      setError(null);
+    } catch (err) {
+      setData(null);
+      setError(getErrorMessage(err, fallback));
+    }
+  }, [load, fallback]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  return { data, error, reload };
+}
+
+function pageParam(params: URLSearchParams): number {
+  const page = Number(params.get('page'));
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+}
+
+/** Runs a moderation request, then `after`; shows a failure as an alert. */
+function useModeration(after: () => void | Promise<void>) {
+  const [error, setError] = useState<string | null>(null);
+  /** `leaves`: the request navigates away itself, so skip the reload. */
+  async function run(
+    request: () => Promise<unknown>,
+    fallback: string,
+    leaves = false,
+  ) {
+    setError(null);
+    try {
+      await request();
+      if (!leaves) await after();
+    } catch (err) {
+      setError(getErrorMessage(err, fallback));
+    }
+  }
+  return { error, run };
+}
+
+function ActionButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={buttonClass} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
+// --- Forum (board list) ---
+
+export function AllianceForumPage() {
+  const { id } = useParams<{ id: string }>();
+  const base = `/alliances/${id}`;
+  const load = useCallback(
+    () => api.get<ForumOverviewDto>(`${base}/forum/boards`),
+    [base],
+  );
+  const { data, error, reload } = useLoad(
+    load,
+    'Das Forum konnte nicht geladen werden.',
+  );
+  const [name, setName] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const moderation = useModeration(reload);
+
+  function renameBoard(boardId: number, current: string) {
+    const next = window.prompt('Neuer Boardname', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/boards/${boardId}`, { name: next }),
+      'Das Board konnte nicht umbenannt werden.',
+    );
+  }
+
+  function deleteBoard(boardId: number) {
+    if (!window.confirm('Board samt allen Themen und Beiträgen löschen?')) return;
+    void moderation.run(
+      () => api.delete(`${base}/forum/boards/${boardId}`),
+      'Das Board konnte nicht gelöscht werden.',
+    );
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    try {
+      await api.post(`${base}/forum/boards`, { name });
+      setName('');
+      await reload();
+    } catch (err) {
+      setFormError(getErrorMessage(err, 'Das Board konnte nicht angelegt werden.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <BackLink to={base} label="Zur Allianz" />
+      <Title>Allianzforum</Title>
+      <ErrorMessage message={error} />
+      <ErrorMessage message={moderation.error} />
+      {data && (
+        <>
+          {data.boards.length === 0 ? (
+            <p className="text-sm text-swu-muted">Noch keine Boards vorhanden.</p>
+          ) : (
+            <ul className="space-y-2">
+              {data.boards.map((board) => (
+                <li
+                  key={board.id}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border border-swu-border p-3"
+                >
+                  <div>
+                    <Link
+                      to={`${base}/forum/boards/${board.id}`}
+                      className="font-semibold text-swu-accent hover:underline"
+                    >
+                      {board.name}
+                    </Link>
+                    <p className="text-xs text-swu-muted">
+                      {board.topicCount} Themen, {board.postCount} Beiträge
+                    </p>
+                  </div>
+                  <div className="text-xs text-swu-muted">
+                    {board.lastPost ? (
+                      <>
+                        Letzter Beitrag:{' '}
+                        <Link
+                          to={`${base}/forum/topics/${board.lastPost.topicId}`}
+                          className="hover:text-swu-accent"
+                        >
+                          {board.lastPost.topicTitle}
+                        </Link>{' '}
+                        von <AuthorLine author={board.lastPost.author} />,{' '}
+                        {formatDateTime(board.lastPost.createdAt)}
+                      </>
+                    ) : (
+                      'Noch keine Beiträge'
+                    )}
+                    {board.capabilities.rename && (
+                      <ActionButton
+                        label="Umbenennen"
+                        onClick={() => renameBoard(board.id, board.name)}
+                      />
+                    )}
+                    {board.capabilities.delete && (
+                      <ActionButton
+                        label="Löschen"
+                        onClick={() => deleteBoard(board.id)}
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {data.capabilities.manageBoards && (
+            <form onSubmit={submit} className="space-y-2 border border-swu-border p-3">
+              <label htmlFor="forum-board-name" className="text-xs text-swu-muted">
+                Neues Board
+              </label>
+              <input
+                id="forum-board-name"
+                className={inputClass}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+              <ErrorMessage message={formError} />
+              <button type="submit" className={primaryButtonClass} disabled={busy}>
+                Board anlegen
+              </button>
+            </form>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Board (topic list) ---
+
+export function AllianceForumBoardPage() {
+  const { id, boardId } = useParams<{ id: string; boardId: string }>();
+  const base = `/alliances/${id}`;
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const page = pageParam(params);
+  const load = useCallback(
+    () =>
+      api.get<ForumBoardPageDto>(
+        `${base}/forum/boards/${boardId}/topics?page=${page}`,
+      ),
+    [base, boardId, page],
+  );
+  const { data, error, reload } = useLoad(
+    load,
+    'Das Board konnte nicht geladen werden.',
+  );
+  const moderation = useModeration(reload);
+
+  function renameTopic(topicId: number, current: string) {
+    const next = window.prompt('Neuer Titel', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/topics/${topicId}`, { title: next }),
+      'Das Thema konnte nicht umbenannt werden.',
+    );
+  }
+
+  function setImportant(topicId: number, important: boolean) {
+    void moderation.run(
+      () => api.put(`${base}/forum/topics/${topicId}/important`, { important }),
+      'Die Markierung konnte nicht geändert werden.',
+    );
+  }
+
+  function deleteTopic(topicId: number) {
+    if (!window.confirm('Thema samt allen Beiträgen löschen?')) return;
+    void moderation.run(
+      () => api.delete(`${base}/forum/topics/${topicId}`),
+      'Das Thema konnte nicht gelöscht werden.',
+    );
+  }
+
+  function renameBoard(current: string) {
+    const next = window.prompt('Neuer Boardname', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/boards/${boardId}`, { name: next }),
+      'Das Board konnte nicht umbenannt werden.',
+    );
+  }
+
+  function deleteBoard() {
+    if (!window.confirm('Board samt allen Themen und Beiträgen löschen?')) return;
+    void moderation.run(
+      async () => {
+        await api.delete(`${base}/forum/boards/${boardId}`);
+        navigate(`${base}/forum`);
+      },
+      'Das Board konnte nicht gelöscht werden.',
+      true,
+    );
+  }
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    try {
+      const created = await api.post<CreateForumTopicResponse>(
+        `${base}/forum/boards/${boardId}/topics`,
+        { title, text },
+      );
+      navigate(`${base}/forum/topics/${created.topicId}?page=${created.page}`);
+    } catch (err) {
+      setFormError(getErrorMessage(err, 'Das Thema konnte nicht angelegt werden.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <BackLink to={`${base}/forum`} label="Zum Forum" />
+      {data && <Title>{data.board.name}</Title>}
+      {data?.board.capabilities.rename && (
+        <ActionButton
+          label="Board umbenennen"
+          onClick={() => renameBoard(data.board.name)}
+        />
+      )}
+      {data?.board.capabilities.delete && (
+        <ActionButton label="Board löschen" onClick={deleteBoard} />
+      )}
+      <ErrorMessage message={error} />
+      <ErrorMessage message={moderation.error} />
+      {data && (
+        <>
+          {data.topics.length === 0 ? (
+            <p className="text-sm text-swu-muted">Noch keine Themen vorhanden.</p>
+          ) : (
+            <ul className="space-y-2">
+              {data.topics.map((topic) => (
+                <li
+                  key={topic.id}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border border-swu-border p-3"
+                >
+                  <div>
+                    {topic.important && (
+                      <span className="mr-2 border border-swu-accent px-1 text-xs text-swu-accent">
+                        Wichtig
+                      </span>
+                    )}
+                    <Link
+                      to={`${base}/forum/topics/${topic.id}`}
+                      className="font-semibold text-swu-accent hover:underline"
+                    >
+                      {topic.title}
+                    </Link>
+                    <p className="text-xs text-swu-muted">
+                      von <AuthorLine author={topic.author} />,{' '}
+                      {formatDateTime(topic.createdAt)}
+                    </p>
+                  </div>
+                  <div className="text-xs text-swu-muted">
+                    {topic.postCount} Beiträge, zuletzt{' '}
+                    {formatDateTime(topic.lastActivityAt)}
+                    {topic.capabilities.rename && (
+                      <ActionButton
+                        label="Umbenennen"
+                        onClick={() => renameTopic(topic.id, topic.title)}
+                      />
+                    )}
+                    {topic.capabilities.setImportant && (
+                      <ActionButton
+                        label={topic.important ? 'Markierung entfernen' : 'Als wichtig markieren'}
+                        onClick={() => setImportant(topic.id, !topic.important)}
+                      />
+                    )}
+                    {topic.capabilities.delete && (
+                      <ActionButton
+                        label="Löschen"
+                        onClick={() => deleteTopic(topic.id)}
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Pagination
+            pagination={data.pagination}
+            onPage={(next) => setParams({ page: String(next) })}
+          />
+          <form onSubmit={submit} className="space-y-2 border border-swu-border p-3">
+            <h2 className="text-sm font-semibold text-swu-text">Neues Thema</h2>
+            <label htmlFor="forum-topic-title" className="text-xs text-swu-muted">
+              Titel
+            </label>
+            <input
+              id="forum-topic-title"
+              className={inputClass}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+            <label htmlFor="forum-topic-text" className="text-xs text-swu-muted">
+              Beitrag
+            </label>
+            <textarea
+              id="forum-topic-text"
+              rows={6}
+              className={inputClass}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+            />
+            <ErrorMessage message={formError} />
+            <button type="submit" className={primaryButtonClass} disabled={busy}>
+              Thema anlegen
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Topic (posts) ---
+
+function PostEditor({
+  base,
+  post,
+  onDone,
+}: {
+  base: string;
+  post: ForumPostDto;
+  onDone: (saved: boolean) => void;
+}) {
+  const [text, setText] = useState(post.text ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch<UpdateForumPostResponse>(
+        `${base}/forum/posts/${post.id}`,
+        { text },
+      );
+      onDone(true);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Der Beitrag konnte nicht gespeichert werden.'));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-2">
+      <label htmlFor={`forum-edit-${post.id}`} className="sr-only">
+        Beitrag bearbeiten
+      </label>
+      <textarea
+        id={`forum-edit-${post.id}`}
+        rows={5}
+        className={inputClass}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+      />
+      <ErrorMessage message={error} />
+      <div className="flex gap-2">
+        <button type="submit" className={primaryButtonClass} disabled={busy}>
+          Speichern
+        </button>
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={busy}
+          onClick={() => onDone(false)}
+        >
+          Abbrechen
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function AllianceForumTopicPage() {
+  const { id, topicId } = useParams<{ id: string; topicId: string }>();
+  const base = `/alliances/${id}`;
+  const [params, setParams] = useSearchParams();
+  const page = pageParam(params);
+  const load = useCallback(
+    () =>
+      api.get<ForumTopicPageDto>(
+        `${base}/forum/topics/${topicId}?page=${page}`,
+      ),
+    [base, topicId, page],
+  );
+  const { data, error, reload } = useLoad(
+    load,
+    'Das Thema konnte nicht geladen werden.',
+  );
+  const [text, setText] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+  const moderation = useModeration(reload);
+
+  function renameTopic(current: string) {
+    const next = window.prompt('Neuer Titel', current);
+    if (next === null) return;
+    void moderation.run(
+      () => api.patch(`${base}/forum/topics/${topicId}`, { title: next }),
+      'Das Thema konnte nicht umbenannt werden.',
+    );
+  }
+
+  function setImportant(important: boolean) {
+    void moderation.run(
+      () => api.put(`${base}/forum/topics/${topicId}/important`, { important }),
+      'Die Markierung konnte nicht geändert werden.',
+    );
+  }
+
+  function deleteTopic(boardId: number) {
+    if (!window.confirm('Thema samt allen Beiträgen löschen?')) return;
+    void moderation.run(
+      async () => {
+        await api.delete(`${base}/forum/topics/${topicId}`);
+        navigate(`${base}/forum/boards/${boardId}`);
+      },
+      'Das Thema konnte nicht gelöscht werden.',
+      true,
+    );
+  }
+
+  function deletePost(postId: number) {
+    if (!window.confirm('Beitrag löschen?')) return;
+    void moderation.run(
+      () => api.delete(`${base}/forum/posts/${postId}`),
+      'Der Beitrag konnte nicht gelöscht werden.',
+    );
+  }
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    try {
+      const created = await api.post<CreateForumPostResponse>(
+        `${base}/forum/topics/${topicId}/posts`,
+        { text },
+      );
+      setText('');
+      if (created.page === page) await reload();
+      else setParams({ page: String(created.page) });
+    } catch (err) {
+      setFormError(getErrorMessage(err, 'Der Beitrag konnte nicht gesendet werden.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {data && (
+        <BackLink
+          to={`${base}/forum/boards/${data.board.id}`}
+          label={data.board.name}
+        />
+      )}
+      {data && (
+        <Title>
+          {data.topic.important && (
+            <span className="mr-2 text-sm">[Wichtig]</span>
+          )}
+          {data.topic.title}
+        </Title>
+      )}
+      {data?.topic.capabilities.rename && (
+        <ActionButton
+          label="Thema umbenennen"
+          onClick={() => renameTopic(data.topic.title)}
+        />
+      )}
+      {data?.topic.capabilities.setImportant && (
+        <ActionButton
+          label={data.topic.important ? 'Markierung entfernen' : 'Als wichtig markieren'}
+          onClick={() => setImportant(!data.topic.important)}
+        />
+      )}
+      {data?.topic.capabilities.delete && (
+        <ActionButton
+          label="Thema löschen"
+          onClick={() => deleteTopic(data.board.id)}
+        />
+      )}
+      <ErrorMessage message={error} />
+      <ErrorMessage message={moderation.error} />
+      {data && (
+        <>
+          <ul className="space-y-3">
+            {data.posts.map((post) => (
+              <li key={post.id} className="space-y-2 border border-swu-border p-3">
+                <div className="flex flex-wrap justify-between gap-2 text-xs">
+                  <AuthorLine author={post.author} />
+                  <span className="text-swu-muted">
+                    {formatDateTime(post.createdAt)}
+                    {post.editedAt &&
+                      ` (zuletzt bearbeitet ${formatDateTime(post.editedAt)})`}
+                  </span>
+                </div>
+                {post.deleted ? (
+                  <p className="text-sm italic text-swu-muted">
+                    Beitrag von der Moderation entfernt
+                    {post.deleted.moderatorName &&
+                      ` (${post.deleted.moderatorName}, ${formatDateTime(post.deleted.deletedAt)})`}
+                    {!post.deleted.moderatorName &&
+                      ` (${formatDateTime(post.deleted.deletedAt)})`}
+                  </p>
+                ) : editingId === post.id ? (
+                  <PostEditor
+                    base={base}
+                    post={post}
+                    onDone={(saved) => {
+                      setEditingId(null);
+                      if (saved) void reload();
+                    }}
+                  />
+                ) : (
+                  <BbCodeText text={post.text} className="text-sm" />
+                )}
+                {post.capabilities.delete && (
+                  <ActionButton
+                    label="Beitrag löschen"
+                    onClick={() => deletePost(post.id)}
+                  />
+                )}
+                {post.capabilities.edit && editingId !== post.id && (
+                  <button
+                    type="button"
+                    className={buttonClass}
+                    onClick={() => setEditingId(post.id)}
+                  >
+                    Bearbeiten
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <Pagination
+            pagination={data.pagination}
+            onPage={(next) => setParams({ page: String(next) })}
+          />
+          <form onSubmit={submit} className="space-y-2 border border-swu-border p-3">
+            <label htmlFor="forum-reply" className="text-xs text-swu-muted">
+              Antworten
+            </label>
+            <textarea
+              id="forum-reply"
+              rows={5}
+              className={inputClass}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+            />
+            <ErrorMessage message={formError} />
+            <button type="submit" className={primaryButtonClass} disabled={busy}>
+              Antwort senden
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}

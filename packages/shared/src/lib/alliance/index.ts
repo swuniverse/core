@@ -1,4 +1,5 @@
 import type { Faction } from '../auth/index.js';
+import type { SpaceLocationDto } from '../starmap/index.js';
 
 /** Freund, Feind or Neutral between two players (see CONTEXT.md). */
 export type Stance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
@@ -50,6 +51,8 @@ export interface AllianceMemberDto {
   roleTitle: string | null;
   joinedAt: string;
   actions: AllianceMemberActionsDto;
+  /** Only present when the viewer is a member of the same alliance. */
+  online?: boolean;
 }
 
 export type AllianceWarTargetDto = AllianceRefDto;
@@ -65,6 +68,12 @@ export interface AllianceViewerActionsDto {
   declareWar: boolean;
   warTargets: AllianceWarTargetDto[];
   manageDiplomacy: boolean;
+  /** Current members may open the internal forum. */
+  readForum: boolean;
+  /** Mitgliederübersicht öffnen (Präsident und Vize). */
+  viewMemberOperations: boolean;
+  /** Read the internal alliance chronicle; true for current members only. */
+  viewChronicle: boolean;
 }
 
 export enum AllianceRelationshipType {
@@ -203,6 +212,33 @@ export interface AllianceDiplomacyChronicleDto {
   nextCursor: string | null;
 }
 
+/** Event types of the internal alliance chronicle; extended by later stages. */
+export enum AllianceChronicleEventType {
+  FOUNDED = 'FOUNDED',
+  MEMBER_JOINED = 'MEMBER_JOINED',
+  MEMBER_LEFT = 'MEMBER_LEFT',
+  MEMBER_KICKED = 'MEMBER_KICKED',
+  ROLE_CHANGED = 'ROLE_CHANGED',
+  PRESIDENCY_TRANSFERRED = 'PRESIDENCY_TRANSFERRED',
+  DETAILS_CHANGED = 'DETAILS_CHANGED',
+}
+
+/** Immutable internal history entry with names as of the event time. */
+export interface AllianceChronicleEntryDto {
+  id: number;
+  type: AllianceChronicleEventType;
+  actor: { userId: number | null; name: string } | null;
+  subject: { userId: number | null; name: string } | null;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string;
+}
+
+export interface AllianceChronicleDto {
+  entries: AllianceChronicleEntryDto[];
+  /** Opaque cursor for the next page, or null when there are no older entries. */
+  nextCursor: string | null;
+}
+
 export interface AllianceDetailDto extends AllianceSummaryDto {
   homepage: string;
   /** Raw BBCode description as stored, for the edit form. */
@@ -262,4 +298,243 @@ export interface ProposeAllianceRelationshipChangeRequest {
 
 export interface LeaveAllianceResponse {
   dissolved: boolean;
+}
+
+// --- Forum ---
+
+/** Shown instead of the author when the account no longer exists. */
+export const FORUM_DELETED_AUTHOR_NAME = 'Gelöschter Siedler';
+export const FORUM_PAGE_SIZE = 20;
+export const FORUM_BOARD_NAME_MIN = 5;
+export const FORUM_BOARD_NAME_MAX = 80;
+export const FORUM_TOPIC_TITLE_MIN = 1;
+export const FORUM_TOPIC_TITLE_MAX = 120;
+export const FORUM_POST_MIN = 1;
+export const FORUM_POST_MAX = 20000;
+export const FORUM_MAX_BOARDS = 50;
+
+export interface ForumPaginationDto {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+/** Server-computed forum-level capabilities of the viewer. */
+export interface ForumCapabilitiesDto {
+  manageBoards: boolean;
+}
+
+export interface ForumBoardCapabilitiesDto {
+  rename: boolean;
+  delete: boolean;
+}
+
+export interface ForumTopicCapabilitiesDto {
+  rename: boolean;
+  setImportant: boolean;
+  delete: boolean;
+}
+
+export interface ForumPostCapabilitiesDto {
+  edit: boolean;
+  delete: boolean;
+}
+
+/** Author as displayed; `userId` is null once the account is gone. */
+export interface ForumAuthorDto {
+  userId: number | null;
+  name: string;
+  factionName: string | null;
+  roleTitle: string | null;
+}
+
+export interface ForumLastPostDto {
+  topicId: number;
+  topicTitle: string;
+  author: ForumAuthorDto;
+  createdAt: string;
+}
+
+export interface ForumBoardDto {
+  id: number;
+  name: string;
+  topicCount: number;
+  postCount: number;
+  lastPost: ForumLastPostDto | null;
+  lastActivityAt: string;
+  capabilities: ForumBoardCapabilitiesDto;
+}
+
+export interface ForumOverviewDto {
+  allianceId: number;
+  boards: ForumBoardDto[];
+  capabilities: ForumCapabilitiesDto;
+}
+
+export interface ForumTopicSummaryDto {
+  id: number;
+  title: string;
+  important: boolean;
+  author: ForumAuthorDto;
+  createdAt: string;
+  lastActivityAt: string;
+  postCount: number;
+  capabilities: ForumTopicCapabilitiesDto;
+}
+
+export interface ForumBoardPageDto {
+  allianceId: number;
+  board: { id: number; name: string; capabilities: ForumBoardCapabilitiesDto };
+  topics: ForumTopicSummaryDto[];
+  pagination: ForumPaginationDto;
+  capabilities: ForumCapabilitiesDto;
+}
+
+/** Present for a moderated post; its text is never delivered. */
+export interface ForumPostDeletionDto {
+  deletedAt: string;
+  moderatorName: string | null;
+}
+
+export interface ForumPostDto {
+  id: number;
+  author: ForumAuthorDto;
+  /** BBCode; null for a deleted post. */
+  text: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  deleted: ForumPostDeletionDto | null;
+  capabilities: ForumPostCapabilitiesDto;
+}
+
+export interface ForumTopicPageDto {
+  allianceId: number;
+  board: { id: number; name: string };
+  topic: {
+    id: number;
+    title: string;
+    important: boolean;
+    capabilities: ForumTopicCapabilitiesDto;
+  };
+  posts: ForumPostDto[];
+  pagination: ForumPaginationDto;
+}
+
+export interface CreateForumBoardRequest {
+  name: string;
+}
+
+export interface RenameForumBoardRequest {
+  name: string;
+}
+
+export interface RenameForumTopicRequest {
+  title: string;
+}
+
+export interface SetForumTopicImportantRequest {
+  important: boolean;
+}
+
+export interface CreateForumTopicRequest {
+  title: string;
+  text: string;
+}
+
+export interface CreateForumPostRequest {
+  text: string;
+}
+
+export interface UpdateForumPostRequest {
+  text: string;
+}
+
+export interface UpdateForumPostResponse {
+  postId: number;
+  text: string;
+  editedAt: string;
+}
+
+export interface CreateForumTopicResponse {
+  topicId: number;
+  /** Page of the topic that contains the new post. */
+  page: number;
+}
+
+export interface CreateForumPostResponse {
+  postId: number;
+  /** Page of the topic that contains the new post. */
+  page: number;
+}
+
+/** Colony of a member as shown in the member overview (operational data only). */
+export interface AllianceMemberColonyDto {
+  id: number;
+  name: string;
+  location: SpaceLocationDto | null;
+  energy: number;
+  energyMax: number;
+  storageUsed: number;
+  storageMax: number;
+  population: number;
+  populationMax: number;
+}
+
+export interface AllianceMemberShipDto {
+  id: number;
+  name: string;
+  location: SpaceLocationDto | null;
+}
+
+export interface AllianceMemberShipGroupDto {
+  shipClassId: number;
+  shipClassName: string;
+  ships: AllianceMemberShipDto[];
+}
+
+export interface AllianceMemberOperationsDto {
+  userId: number;
+  name: string;
+  faction: Faction | null;
+  factionName: string | null;
+  role: AllianceRole;
+  roleTitle: string | null;
+  /** ISO timestamp; null when the player has no recorded activity. */
+  lastActiveAt: string | null;
+  crew: { assigned: number; limit: number };
+  colonies: AllianceMemberColonyDto[];
+  shipGroups: AllianceMemberShipGroupDto[];
+}
+
+export interface AllianceMemberOverviewDto {
+  allianceId: number;
+  members: AllianceMemberOperationsDto[];
+}
+
+/** Dashboard entry for a recently active forum topic of the player's alliance. */
+export interface DashboardForumTopicDto {
+  topicId: number;
+  title: string;
+  boardId: number;
+  boardName: string;
+  allianceId: number;
+  lastActivityAt: string;
+  /** Frontend route of the topic. */
+  linkTo: string;
+}
+
+export const DASHBOARD_FORUM_TOPIC_LIMIT = 3;
+
+export interface AllianceColonyStockItemDto {
+  commodityId: number;
+  name: string;
+  amount: number;
+}
+
+/** Stock of one member colony, shown on expanding it in the member overview. */
+export interface AllianceColonyStockDto {
+  allianceId: number;
+  colonyId: number;
+  items: AllianceColonyStockItemDto[];
 }

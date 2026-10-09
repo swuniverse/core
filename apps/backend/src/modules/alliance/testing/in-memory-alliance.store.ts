@@ -5,6 +5,7 @@ import {
 } from '@swuniverse/shared';
 import {
   AllianceConstraintViolation,
+  AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
@@ -30,6 +31,7 @@ interface State {
   relationshipProposals: AllianceRelationshipProposalRecord[];
   relationshipChangeProposals: AllianceRelationshipChangeProposalRecord[];
   diplomacyChronicleEntries: AllianceDiplomacyChronicleEntryRecord[];
+  allianceChronicleEntries: AllianceChronicleEntryRecord[];
   diplomacyNotifications: AllianceDiplomacyNotificationRecord[];
   nextId: number;
   clock: number;
@@ -61,6 +63,7 @@ export class InMemoryAllianceStore implements AllianceStore {
     relationshipProposals: [],
     relationshipChangeProposals: [],
     diplomacyChronicleEntries: [],
+    allianceChronicleEntries: [],
     diplomacyNotifications: [],
     nextId: 1,
     clock: Date.UTC(2026, 9, 1),
@@ -68,6 +71,12 @@ export class InMemoryAllianceStore implements AllianceStore {
 
   addPlayer(id: number, name: string, factionId: number | null = REBELS.id) {
     this.state.players.push({ id, name, factionId });
+  }
+
+  /** Test helper: a later rename must not alter recorded chronicle names. */
+  renamePlayer(id: number, name: string) {
+    const player = this.state.players.find((p) => p.id === id);
+    if (player) player.name = name;
   }
 
   /** Test setup shortcut: alliance with the given members, bypassing rules. */
@@ -274,6 +283,10 @@ export class InMemoryAllianceStore implements AllianceStore {
     this.state.applications = this.state.applications.filter(
       (a) => a.allianceId !== id,
     );
+    this.state.allianceChronicleEntries =
+      this.state.allianceChronicleEntries.filter(
+        (entry) => entry.allianceId !== id,
+      );
     this.state.relationships = this.state.relationships.filter(
       (relationship) =>
         relationship.firstAllianceId !== id &&
@@ -570,6 +583,38 @@ export class InMemoryAllianceStore implements AllianceStore {
       ...data,
       occurredAt: this.now(),
     });
+  }
+
+  async appendAllianceChronicleEntry(
+    data: Omit<AllianceChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ) {
+    this.state.allianceChronicleEntries.push({
+      id: this.nextId(),
+      ...data,
+      occurredAt: this.now(),
+    });
+  }
+
+  async listAllianceChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ) {
+    return this.state.allianceChronicleEntries
+      .filter((entry) => entry.allianceId === allianceId)
+      .filter(
+        (entry) =>
+          !cursor ||
+          entry.occurredAt < cursor.occurredAt ||
+          (entry.occurredAt.getTime() === cursor.occurredAt.getTime() &&
+            entry.id < cursor.id),
+      )
+      .sort(
+        (a, b) =>
+          b.occurredAt.getTime() - a.occurredAt.getTime() || b.id - a.id,
+      )
+      .slice(0, limit)
+      .map((entry) => ({ ...entry }));
   }
 
   async listDiplomacyChronicleEntries(

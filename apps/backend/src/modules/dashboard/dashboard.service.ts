@@ -13,8 +13,12 @@ import { DashboardSnapshot } from './entities/dashboard-snapshot.entity';
 import { Message } from '../messaging/entities/message.entity';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { GameDataService } from '../game-data/game-data.service';
-import type { GlobalHeaderStatusDto } from '@swuniverse/shared';
+import type {
+  DashboardForumTopicDto,
+  GlobalHeaderStatusDto,
+} from '@swuniverse/shared';
 import { AllianceService } from '../alliance/alliance.service';
+import { ForumService } from '../alliance/forum.service';
 
 @Injectable()
 export class DashboardService {
@@ -34,7 +38,13 @@ export class DashboardService {
     private readonly gateway: GameGateway,
     private readonly gameData: GameDataService,
     private readonly allianceService: AllianceService,
+    private readonly forumService: ForumService,
   ) {}
+
+  /** Latest forum topics of the player's alliance; empty without membership. */
+  getForumTopics(userId: number): Promise<DashboardForumTopicDto[]> {
+    return this.forumService.listRecentTopics(userId);
+  }
 
   async getHeader(userId: number): Promise<GlobalHeaderStatusDto> {
     const [user, colonies, messages, system, research, alliance] =
