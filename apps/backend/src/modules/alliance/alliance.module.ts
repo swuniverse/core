@@ -5,7 +5,7 @@ import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
 import { ALLIANCE_STORE } from './alliance.store';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
-import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
+import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import {
   NoPersonalContactStatusPort,
   PERSONAL_CONTACT_STATUS,
@@ -53,7 +53,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       useClass: NoPersonalContactStatusPort,
     },
     DiplomacyNotificationDispatcherService,
-    DiplomacyRateLimiterService,
+    AllianceRateLimiterService,
     { provide: ALLIANCE_STORE, useClass: TypeOrmAllianceStore },
   ],
   exports: [AllianceService, RelationshipResolverService],
