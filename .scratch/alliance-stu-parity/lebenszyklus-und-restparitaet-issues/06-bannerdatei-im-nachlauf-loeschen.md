@@ -4,9 +4,9 @@
 
 **Blocked by:** 01, 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Ein fehlerhafter Adapter rollt keine abgeschlossene Auflösung, Ersetzung oder Entfernung zurück
-- [ ] Nach Wiederholung ist die Datei gelöscht; erneute Wiederholung ist wirkungslos
-- [ ] Aufgabe wird in derselben Transaktion wie die Auflösung persistiert, auch bei Absturz vor dem Commit-Nachlauf
-- [ ] Migration rückwärtskompatibel mit Migrationstest
+- [x] Ein fehlerhafter Adapter rollt keine abgeschlossene Auflösung, Ersetzung oder Entfernung zurück
+- [x] Nach Wiederholung ist die Datei gelöscht; erneute Wiederholung ist wirkungslos
+- [x] Aufgabe wird in derselben Transaktion wie die Auflösung persistiert, auch bei Absturz vor dem Commit-Nachlauf
+- [x] Migration rückwärtskompatibel mit Migrationstest
