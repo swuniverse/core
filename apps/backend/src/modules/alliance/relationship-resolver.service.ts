@@ -5,7 +5,14 @@ import {
   type Stance,
 } from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
-import { allianceParty, isPair, otherParty, isAllianceParty } from './diplomacy-party';
+import {
+  allianceParty,
+  isAllianceParty,
+  isPair,
+  otherParty,
+  playerParty,
+  type PartyRef,
+} from './diplomacy-party';
 import type {
   AllianceRelationshipRecord,
   AllianceStore,
@@ -157,10 +164,9 @@ export class RelationshipResolverService {
     } catch {
       return none;
     }
-    if (!membership) return none;
     const [allianceMap, partnerIds] = await Promise.all([
-      this.allianceMapOf(membership),
-      this.livePositionPartnersOf(membership),
+      membership ? this.allianceMapOf(membership) : null,
+      this.livePositionPartnersOf(viewerId, membership),
     ]);
     return {
       viewerMembership: membership,
@@ -193,25 +199,36 @@ export class RelationshipResolverService {
     }
   }
 
-  /** Members of alliances in an active relationship; empty when unavailable. */
+  /**
+   * Players in an active relationship with the viewer's party (alliance, or
+   * the viewer as settler): settler partners and the current members of
+   * alliance partners. Empty when unavailable.
+   */
   private async livePositionPartnersOf(
-    membership: MembershipRecord,
+    viewerId: number,
+    membership: MembershipRecord | null,
   ): Promise<number[]> {
     try {
-      const partnerAllianceIds = new Set(
-        (await this.store.listActiveRelationships(membership.allianceId))
-          .map((relationship) =>
-            otherParty(relationship, allianceParty(membership.allianceId)),
-          )
-          // Settler partners arrive with the settler-agreement stage.
-          .filter(isAllianceParty)
-          .map((party) => party.id),
+      const own = partyOf(viewerId, membership);
+      const partners = (await this.store.listActiveRelationships(own)).map(
+        (relationship) => otherParty(relationship, own),
       );
-      partnerAllianceIds.delete(membership.allianceId);
+      const settlerIds = partners
+        .filter((party) => !isAllianceParty(party))
+        .map((party) => party.id);
+      const allianceIds = new Set(
+        partners.filter(isAllianceParty).map((party) => party.id),
+      );
+      if (isAllianceParty(own)) allianceIds.delete(own.id);
       const memberships = await Promise.all(
-        [...partnerAllianceIds].map((id) => this.store.listMemberships(id)),
+        [...allianceIds].map((id) => this.store.listMemberships(id)),
       );
-      return memberships.flat().map((member) => member.userId);
+      return [
+        ...new Set([
+          ...settlerIds,
+          ...memberships.flat().map((member) => member.userId),
+        ]),
+      ].filter((id) => id !== viewerId);
     } catch {
       return [];
     }
@@ -253,9 +270,9 @@ export class RelationshipResolverService {
     return {
       players: new Map(players.map((player) => [player.id, player])),
       memberships: membershipByPlayer,
-      viewerRelationships: viewerMembership
-        ? await this.store.listActiveRelationships(viewerMembership.allianceId)
-        : [],
+      viewerRelationships: await this.store.listActiveRelationships(
+        partyOf(viewerId, viewerMembership),
+      ),
     };
   }
 
@@ -290,20 +307,18 @@ export class RelationshipResolverService {
       }
 
       let mayShareLivePosition = false;
-      if (firstMembership && secondMembership) {
-        const relationship = relationshipBetween(
-          context.viewerRelationships,
-          firstMembership.allianceId,
-          secondMembership.allianceId,
-        );
-        if (relationship?.type === AllianceRelationshipType.WAR) {
-          return resolved('ENEMY');
-        }
-        if (relationship) {
-          mayShareLivePosition = relationship.shareLivePositions;
-          if (relationship.treatAsFriend) {
-            return resolved('FRIEND', { mayShareLivePosition });
-          }
+      const relationship = relationshipBetween(
+        context.viewerRelationships,
+        partyOf(firstPlayer.id, firstMembership),
+        partyOf(secondPlayer.id, secondMembership),
+      );
+      if (relationship?.type === AllianceRelationshipType.WAR) {
+        return resolved('ENEMY');
+      }
+      if (relationship) {
+        mayShareLivePosition = relationship.shareLivePositions;
+        if (relationship.treatAsFriend) {
+          return resolved('FRIEND', { mayShareLivePosition });
         }
       }
 
@@ -326,18 +341,25 @@ export class RelationshipResolverService {
 interface StanceContext {
   players: Map<number, PlayerRecord>;
   memberships: Map<number, MembershipRecord>;
-  /** Active relationships of the viewer's alliance; empty without one. */
+  /** Active relationships of the viewer's party (alliance or settler). */
   viewerRelationships: AllianceRelationshipRecord[];
+}
+
+/** A player's party: their alliance when a member, otherwise themselves. */
+function partyOf(
+  playerId: number,
+  membership: MembershipRecord | null | undefined,
+): PartyRef {
+  return membership
+    ? allianceParty(membership.allianceId)
+    : playerParty(playerId);
 }
 
 function relationshipBetween(
   relationships: AllianceRelationshipRecord[],
-  firstAllianceId: number,
-  secondAllianceId: number,
+  first: PartyRef,
+  second: PartyRef,
 ): AllianceRelationshipRecord | null {
-  if (firstAllianceId === secondAllianceId) return null;
-  const first = allianceParty(firstAllianceId);
-  const second = allianceParty(secondAllianceId);
   return (
     relationships.find((relationship) =>
       isPair(relationship.firstParty, relationship.secondParty, first, second),

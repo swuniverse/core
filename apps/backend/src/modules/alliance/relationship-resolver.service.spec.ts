@@ -5,6 +5,7 @@ import {
   type PersonalContactStatusPort,
 } from './relationship-resolver.service';
 import type { AllianceStore } from './alliance.store';
+import { allianceParty, playerParty } from './diplomacy-party';
 import {
   InMemoryAllianceStore,
   EMPIRE,
@@ -446,6 +447,253 @@ describe('RelationshipResolverService', () => {
 
       await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
         status: 'ENEMY',
+      });
+    });
+  });
+
+  describe('settler parties', () => {
+    const settlerPair = () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Settler One');
+      store.addPlayer(2, 'Settler Two');
+      return store;
+    };
+    interface Terms {
+      type: AllianceRelationshipType;
+      treatAsFriend?: boolean;
+      shareLivePositions?: boolean;
+    }
+    const seedSettlers = (store: InMemoryAllianceStore, terms: Terms) =>
+      store.seedActiveAllianceRelationship({
+        firstParty: playerParty(1),
+        secondParty: playerParty(2),
+        ...terms,
+      });
+
+    it('resolves war between two settlers as enemy in both directions', async () => {
+      const store = settlerPair();
+      seedSettlers(store, { type: AllianceRelationshipType.WAR });
+      const resolver = resolverFor(store);
+
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'ENEMY',
+        mayReactAutomatically: true,
+      });
+      await expect(resolver.resolve(2, 1)).resolves.toMatchObject({
+        status: 'ENEMY',
+      });
+    });
+
+    it('resolves treat-as-friend between two settlers as friend without alliance releases', async () => {
+      const store = settlerPair();
+      seedSettlers(store, {
+        type: AllianceRelationshipType.ALLIANCE,
+        treatAsFriend: true,
+        shareLivePositions: true,
+      });
+      const resolver = resolverFor(store);
+
+      for (const [from, to] of [
+        [1, 2],
+        [2, 1],
+      ]) {
+        await expect(resolver.resolve(from, to)).resolves.toMatchObject({
+          status: 'FRIEND',
+          mayTransferSafely: true,
+          mayShareLivePosition: true,
+          mayShareHistoricalScans: false,
+          mayShareAllianceMap: false,
+        });
+      }
+    });
+
+    it('stays neutral between settlers without war or friend treatment, yet shares live positions', async () => {
+      const store = settlerPair();
+      seedSettlers(store, {
+        type: AllianceRelationshipType.ALLIANCE,
+        shareLivePositions: true,
+      });
+
+      await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: true,
+      });
+    });
+
+    describe.each([
+      ['settler to alliance member', 1, 2],
+      ['alliance member to settler', 2, 1],
+    ])('%s', (_label, viewer, other) => {
+      const mixed = (terms: Terms) => {
+        const store = settlerPair();
+        const alliance = store.seedAlliance({ name: 'Group' }, [
+          [2, AllianceRole.PRESIDENT],
+        ]);
+        store.seedActiveAllianceRelationship({
+          firstParty: playerParty(1),
+          secondParty: allianceParty(alliance.id),
+          ...terms,
+        });
+        return store;
+      };
+
+      it('resolves war as enemy', async () => {
+        const store = mixed({ type: AllianceRelationshipType.WAR });
+        await expect(
+          resolverFor(store).resolve(viewer, other),
+        ).resolves.toMatchObject({ status: 'ENEMY' });
+      });
+
+      it('resolves treat-as-friend as friend with live positions but no scans', async () => {
+        const store = mixed({
+          type: AllianceRelationshipType.ALLIANCE,
+          treatAsFriend: true,
+          shareLivePositions: true,
+        });
+        await expect(
+          resolverFor(store).resolve(viewer, other),
+        ).resolves.toMatchObject({
+          status: 'FRIEND',
+          mayShareLivePosition: true,
+          mayShareHistoricalScans: false,
+          mayShareAllianceMap: false,
+        });
+      });
+
+      it('resolves an unflagged relationship as neutral', async () => {
+        const store = mixed({ type: AllianceRelationshipType.ALLIANCE });
+        await expect(
+          resolverFor(store).resolve(viewer, other),
+        ).resolves.toMatchObject({ status: 'NEUTRAL' });
+      });
+    });
+
+    it('keeps the priority order: faction first, war before personal contact', async () => {
+      const store = settlerPair();
+      store.addPlayer(3, 'Imperial Settler', EMPIRE.id);
+      seedSettlers(store, { type: AllianceRelationshipType.WAR });
+      const friendlyContact = { isFriend: async () => true };
+
+      await expect(
+        resolverFor(store, friendlyContact).resolve(1, 3),
+      ).resolves.toMatchObject({ status: 'ENEMY' });
+      await expect(
+        resolverFor(store, friendlyContact).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'ENEMY' });
+    });
+
+    it('lets the personal contact make a related neutral pair friends', async () => {
+      const store = settlerPair();
+      seedSettlers(store, { type: AllianceRelationshipType.ALLIANCE });
+
+      await expect(
+        resolverFor(store, { isFriend: async () => true }).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'FRIEND' });
+    });
+
+    it('honours membership changes on every request', async () => {
+      const store = settlerPair();
+      seedSettlers(store, { type: AllianceRelationshipType.WAR });
+      const resolver = resolverFor(store);
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'ENEMY',
+      });
+
+      const group = store.seedAlliance({ name: 'Group' }, [
+        [2, AllianceRole.PRESIDENT],
+      ]);
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+      });
+
+      await store.insertMembership({
+        allianceId: group.id,
+        userId: 1,
+        role: AllianceRole.NONE,
+      } as never);
+      await expect(resolver.resolve(1, 2)).resolves.toMatchObject({
+        status: 'FRIEND',
+        mayShareAllianceMap: true,
+      });
+    });
+
+    it('fails closed to neutral when relationships cannot be read', async () => {
+      const store = settlerPair();
+      seedSettlers(store, { type: AllianceRelationshipType.WAR });
+      jest
+        .spyOn(store, 'listActiveRelationships')
+        .mockRejectedValue(new Error('database unavailable'));
+
+      await expect(resolverFor(store).resolve(1, 2)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+        isEnemy: false,
+      });
+    });
+
+    describe('live position candidates', () => {
+      it('names settler partners and members of alliance partners for a settler', async () => {
+        const store = settlerPair();
+        for (const id of [3, 4, 5]) store.addPlayer(id, `Rebel ${id}`);
+        const group = store.seedAlliance({ name: 'Group' }, [
+          [3, AllianceRole.PRESIDENT],
+          [4, AllianceRole.NONE],
+        ]);
+        seedSettlers(store, {
+          type: AllianceRelationshipType.ALLIANCE,
+          shareLivePositions: true,
+        });
+        store.seedActiveAllianceRelationship({
+          firstParty: playerParty(1),
+          secondParty: allianceParty(group.id),
+          type: AllianceRelationshipType.ALLIANCE,
+          shareLivePositions: true,
+        });
+
+        const candidates = await resolverFor(store).starmapCandidates(1);
+
+        expect(candidates).toMatchObject({
+          viewerMembership: null,
+          alliance: null,
+          mateIds: [],
+          viewerRole: null,
+        });
+        expect([...candidates.partnerIds].sort()).toEqual([2, 3, 4]);
+      });
+
+      it('names settler partners for an alliance member', async () => {
+        const store = settlerPair();
+        store.addPlayer(3, 'Member');
+        const group = store.seedAlliance({ name: 'Group' }, [
+          [3, AllianceRole.PRESIDENT],
+        ]);
+        store.seedActiveAllianceRelationship({
+          firstParty: playerParty(1),
+          secondParty: allianceParty(group.id),
+          type: AllianceRelationshipType.ALLIANCE,
+          shareLivePositions: true,
+        });
+
+        await expect(
+          resolverFor(store).starmapCandidates(3),
+        ).resolves.toMatchObject({ partnerIds: [1] });
+      });
+
+      it('names no candidates for a settler without active relationships', async () => {
+        const none = await resolverFor(settlerPair()).starmapCandidates(1);
+        expect(none.partnerIds).toEqual([]);
+      });
+
+      it('keeps historical scans alliance-only despite settler partners', async () => {
+        const store = settlerPair();
+        seedSettlers(store, {
+          type: AllianceRelationshipType.ALLIANCE,
+          treatAsFriend: true,
+          shareLivePositions: true,
+        });
+
+        await expect(
+          resolverFor(store).historicalScanSharerIds(1),
+        ).resolves.toEqual([1]);
       });
     });
   });

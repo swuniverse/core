@@ -4,10 +4,10 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Aktiver Krieg → Feind; „Als Freund behandeln“ → Freund; sonst Neutral, gemäß unveränderter Prioritätsreihenfolge (Fraktion, gleiche Allianz, Krieg, Freigabe, Kontakt-No-Op)
-- [ ] Mitgliedschaftswechsel werden bei jeder Anfrage neu berücksichtigt; Fehler fallen geschlossen auf Neutral
-- [ ] „Live-Kartenpositionen teilen“ wirkt nur im aktiven Bündnis; Kandidatenpfad der Sternenkarte liefert Siedlerpartner und Mitglieder von Allianzpartnern
-- [ ] Historische Koloniescans bleiben an die aktuelle Allianz gebunden
-- [ ] Resolver-Tests mit direkt geseedeten Beziehungen decken alle Kombinationen ab
+- [x] Aktiver Krieg → Feind; „Als Freund behandeln“ → Freund; sonst Neutral, gemäß unveränderter Prioritätsreihenfolge (Fraktion, gleiche Allianz, Krieg, Freigabe, Kontakt-No-Op)
+- [x] Mitgliedschaftswechsel werden bei jeder Anfrage neu berücksichtigt; Fehler fallen geschlossen auf Neutral
+- [x] „Live-Kartenpositionen teilen“ wirkt nur im aktiven Bündnis; Kandidatenpfad der Sternenkarte liefert Siedlerpartner und Mitglieder von Allianzpartnern
+- [x] Historische Koloniescans bleiben an die aktuelle Allianz gebunden
+- [x] Resolver-Tests mit direkt geseedeten Beziehungen decken alle Kombinationen ab
