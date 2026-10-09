@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/01-allianz-ratenbegrenzung-verallgemeinern.md`)
@@ -15,3 +15,7 @@
 - [ ] Die vorhandene Ratenbegrenzungstabelle wird weiterverwendet; eine Migration entsteht nur, falls die Befehlsspalte für künftige Befehlsnamen zu kurz ist (dann rückwärtskompatibel mit Migrationstest).
 - [ ] Alle bestehenden Tests der Diplomatie-Ratenbegrenzung und der Diplomatieaktionen bleiben unverändert grün.
 - [ ] Ein Verhaltenstest belegt, dass zwei verschiedene Befehle getrennte Budgets haben.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit (6caded3). Rate limiter generalized to `AllianceRateLimiterService` with per-group policies in `ALLIANCE_RATE_LIMIT_COMMANDS`; command names must be <=16 chars (varchar(16)); no migration.
