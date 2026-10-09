@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
+  type AllianceColonyStockDto,
   type AllianceMemberColonyDto,
   type AllianceMemberOperationsDto,
   type AllianceMemberOverviewDto,
@@ -29,25 +30,104 @@ function formatLastActive(lastActiveAt: string | null): string {
     : 'unbekannt';
 }
 
-function ColonyRow({ colony }: { colony: AllianceMemberColonyDto }) {
+function ColonyStock({
+  allianceId,
+  colonyId,
+}: {
+  allianceId: number;
+  colonyId: number;
+}) {
+  const [stock, setStock] = useState<AllianceColonyStockDto | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<AllianceColonyStockDto>(
+        `/alliances/${allianceId}/member-overview/colonies/${colonyId}/stock`,
+      )
+      .then((result) => {
+        if (!cancelled) setStock(result);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [allianceId, colonyId]);
+
+  if (failed) {
+    return (
+      <p role="alert" className="text-xs text-red-300">
+        Der Lagerbestand konnte nicht geladen werden.
+      </p>
+    );
+  }
+  if (!stock) {
+    return (
+      <p className="text-xs text-swu-muted">Lagerbestand wird geladen …</p>
+    );
+  }
+  if (stock.items.length === 0) {
+    return <p className="text-xs text-swu-muted">Das Lager ist leer.</p>;
+  }
   return (
-    <li className="flex flex-wrap gap-x-4 gap-y-1 py-1 text-xs">
-      <span className="font-bold text-swu-primary">{colony.name}</span>
-      <span>{formatLocation(colony.location)}</span>
-      <span>
-        Energie {colony.energy}/{colony.energyMax}
-      </span>
-      <span>
-        Lager {colony.storageUsed}/{colony.storageMax}
-      </span>
-      <span>
-        Bevölkerung {colony.population}/{colony.populationMax}
-      </span>
+    <ul className="text-xs">
+      {stock.items.map((item) => (
+        <li key={item.commodityId} className="flex gap-3">
+          <span>{item.name}</span>
+          <span>{item.amount}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ColonyRow({
+  allianceId,
+  colony,
+}: {
+  allianceId: number;
+  colony: AllianceMemberColonyDto;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="py-1 text-xs">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full flex-wrap gap-x-4 gap-y-1 text-left"
+      >
+        <span className="font-bold text-swu-primary">{colony.name}</span>
+        <span>{formatLocation(colony.location)}</span>
+        <span>
+          Energie {colony.energy}/{colony.energyMax}
+        </span>
+        <span>
+          Lager {colony.storageUsed}/{colony.storageMax}
+        </span>
+        <span>
+          Bevölkerung {colony.population}/{colony.populationMax}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-1 border-l border-swu-border pl-3">
+          <ColonyStock allianceId={allianceId} colonyId={colony.id} />
+        </div>
+      )}
     </li>
   );
 }
 
-function MemberRow({ member }: { member: AllianceMemberOperationsDto }) {
+function MemberRow({
+  allianceId,
+  member,
+}: {
+  allianceId: number;
+  member: AllianceMemberOperationsDto;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <li className="py-2 text-sm">
@@ -77,7 +157,11 @@ function MemberRow({ member }: { member: AllianceMemberOperationsDto }) {
             ) : (
               <ul>
                 {member.colonies.map((colony) => (
-                  <ColonyRow key={colony.id} colony={colony} />
+                  <ColonyRow
+                    key={colony.id}
+                    allianceId={allianceId}
+                    colony={colony}
+                  />
                 ))}
               </ul>
             )}
@@ -185,7 +269,11 @@ export function AllianceMemberOverviewPage() {
       {overview && (
         <ul className="divide-y divide-swu-border border border-swu-border px-3">
           {overview.members.map((member) => (
-            <MemberRow key={member.userId} member={member} />
+            <MemberRow
+              key={member.userId}
+              allianceId={overview.allianceId}
+              member={member}
+            />
           ))}
         </ul>
       )}
