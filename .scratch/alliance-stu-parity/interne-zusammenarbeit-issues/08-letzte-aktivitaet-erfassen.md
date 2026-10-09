@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/08-letzte-aktivitaet-erfassen.md`)
@@ -15,3 +15,7 @@
 - [ ] Fehler der Aktualisierung lassen die eigentliche Anfrage nie scheitern und werden protokolliert.
 - [ ] Verhaltenstests über die öffentliche Seam des Mechanismus: erste Anfrage setzt den Zeitstempel, eine weitere innerhalb von fünf Minuten nicht, nach fünf Minuten wieder; ein Fehler lässt die Anfrage gelingen.
 - [ ] Postgres-Integrationstest: die bedingte Aktualisierung drosselt bei gleichzeitigen Anfragen.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. Column `users.lastActiveAt` (nullable TIMESTAMP); `LastActivityService.record` with SQL-conditional 5-min throttle; global `LastActivityInterceptor`.

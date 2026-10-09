@@ -1,4 +1,5 @@
 import type {
+  AllianceChronicleEventType,
   AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
@@ -98,6 +99,19 @@ export interface AllianceDiplomacyChronicleEntryRecord {
   relationshipType: AllianceRelationshipType;
   lordAllianceId: number | null;
   vassalAllianceId: number | null;
+  occurredAt: Date;
+}
+
+/** Immutable internal chronicle entry; names are as of the event time. */
+export interface AllianceChronicleEntryRecord {
+  id: number;
+  allianceId: number;
+  eventType: AllianceChronicleEventType;
+  actorUserId: number | null;
+  actorName: string | null;
+  subjectUserId: number | null;
+  subjectName: string | null;
+  metadata: Record<string, unknown> | null;
   occurredAt: Date;
 }
 
@@ -233,6 +247,17 @@ export interface AllianceStore {
     cursor: { occurredAt: Date; id: number } | null,
     limit: number,
   ): Promise<AllianceDiplomacyChronicleEntryRecord[]>;
+
+  /** Called inside the transaction of the action that causes the event. */
+  appendAllianceChronicleEntry(
+    data: Omit<AllianceChronicleEntryRecord, 'id' | 'occurredAt'>,
+  ): Promise<void>;
+  /** Stable reverse chronological keyset pagination. */
+  listAllianceChronicleEntries(
+    allianceId: number,
+    cursor: { occurredAt: Date; id: number } | null,
+    limit: number,
+  ): Promise<AllianceChronicleEntryRecord[]>;
 
   /** Enqueued inside the same transaction as the diplomatic state change. */
   enqueueDiplomacyNotifications(

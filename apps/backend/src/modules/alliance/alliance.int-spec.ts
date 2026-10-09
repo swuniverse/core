@@ -715,6 +715,43 @@ describe('alliance persistence (Postgres)', () => {
     expect(applications).toBe(0);
   });
 
+  it('persists chronicle entries, keeps names after account deletion and cascades on dissolution', async () => {
+    const leia = await rebel();
+    const wedge = await rebel();
+    const rogue = await alliance('Rogue Squadron', leia.id);
+    await store.updateAlliance(rogue.id, { acceptsApplications: true });
+    await service.apply(wedge.id, rogue.id);
+    const [application] = await store.listApplicationsForAlliance(rogue.id);
+    await service.acceptApplication(leia.id, application.id);
+    await service.kick(leia.id, rogue.id, wedge.id);
+    await service.declareWar(
+      leia.id,
+      rogue.id,
+      (await alliance('Red Squadron', (await rebel()).id)).id,
+    );
+
+    const chronicle = await service.listChronicle(leia.id, rogue.id);
+    expect(chronicle.entries.map((e) => e.type)).toEqual([
+      'MEMBER_KICKED',
+      'MEMBER_JOINED',
+    ]);
+
+    await dataSource.query('DELETE FROM "users" WHERE "id" = $1', [wedge.id]);
+    const kicked = (await service.listChronicle(leia.id, rogue.id)).entries[0];
+    expect(kicked.subject).toEqual({ userId: null, name: wedge.username });
+    expect(kicked.actor).toEqual({ userId: leia.id, name: leia.username });
+
+    await service.dissolve(leia.id, rogue.id);
+    const [{ count }] = await dataSource.query(
+      'SELECT COUNT(*)::int AS count FROM alliance_chronicle_entries',
+    );
+    expect(count).toBe(0);
+    const [{ count: diplomacy }] = await dataSource.query(
+      'SELECT COUNT(*)::int AS count FROM alliance_diplomacy_chronicle_entries',
+    );
+    expect(diplomacy).toBe(1);
+  });
+
   it('accepts exactly one of two concurrent acceptances of the same applicant', async () => {
     const leia = await rebel();
     const mon = await rebel();

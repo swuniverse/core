@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { WebsocketModule } from '../websocket/websocket.module';
+import { GameGateway } from '../websocket/game.gateway';
+import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
@@ -28,6 +31,7 @@ import { AllianceRelationship } from './entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from './entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './entities/diplomacy-party.entity';
+import { AllianceChronicleEntry } from './entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-notification.entity';
 
@@ -41,6 +45,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       AllianceRelationship,
       AllianceRelationshipProposal,
       AllianceRelationshipChangeProposal,
+      AllianceChronicleEntry,
       AllianceDiplomacyChronicleEntry,
       AllianceDiplomacyNotification,
       ForumBoard,
@@ -48,6 +53,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       ForumPost,
     ]),
     MessagingModule,
+    WebsocketModule,
   ],
   controllers: [AllianceController],
   providers: [
@@ -63,6 +69,13 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     },
     DiplomacyNotificationDispatcherService,
     AllianceRateLimiterService,
+    {
+      provide: ONLINE_PLAYERS,
+      inject: [GameGateway],
+      useFactory: (gateway: GameGateway) => ({
+        onlineUserIds: () => gateway.onlineUserIds,
+      }),
+    },
     { provide: ALLIANCE_STORE, useClass: TypeOrmAllianceStore },
     ForumService,
     { provide: FORUM_STORE, useClass: TypeOrmForumStore },

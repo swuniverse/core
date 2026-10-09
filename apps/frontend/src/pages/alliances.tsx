@@ -9,6 +9,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AllianceRelationshipType,
   AllianceRole,
+  type AllianceChronicleDto,
+  type AllianceChronicleEntryDto,
   type AllianceDiplomacyChronicleDto,
   type AllianceDiplomacyChronicleEntryDto,
   type AllianceApplicationDto,
@@ -348,6 +350,161 @@ function useAllianceDetail(id: string | undefined) {
   }, [reload]);
 
   return { alliance, loadError, reload };
+}
+
+/** German sentence for one internal chronicle entry. */
+function allianceChronicleText(entry: AllianceChronicleEntryDto): string {
+  const actor = entry.actor?.name ?? 'Ein Siedler';
+  const subject = entry.subject?.name ?? 'ein Siedler';
+  switch (entry.type) {
+    case 'FOUNDED':
+      return `${actor} hat die Allianz gegründet`;
+    case 'MEMBER_JOINED':
+      return `${actor} hat ${subject} in die Allianz aufgenommen`;
+    case 'MEMBER_LEFT':
+      return `${actor} hat die Allianz verlassen`;
+    case 'MEMBER_KICKED':
+      return `${actor} hat ${subject} aus der Allianz geworfen`;
+    case 'ROLE_CHANGED': {
+      const { newTitle, previousTitle } = chronicleMeta(entry);
+      return newTitle
+        ? `${actor} hat ${subject} zum ${newTitle} ernannt`
+        : `${actor} hat ${subject} vom Amt ${previousTitle ?? 'unbekannt'} abgesetzt`;
+    }
+    case 'PRESIDENCY_TRANSFERRED': {
+      const { previousTitle } = chronicleMeta(entry);
+      return `${actor} hat die Präsidentschaft an ${subject} übergeben${
+        previousTitle ? ` (zuvor ${previousTitle})` : ''
+      }`;
+    }
+    case 'DETAILS_CHANGED': {
+      const { fields, previousName, newName } = chronicleMeta(entry);
+      const labels = (Array.isArray(fields) ? fields : [])
+        .map((f) => DETAIL_FIELD_LABELS[String(f)])
+        .filter(Boolean)
+        .join(', ');
+      const rename =
+        typeof previousName === 'string' && typeof newName === 'string'
+          ? `; Name von „${previousName}“ zu „${newName}“`
+          : '';
+      return `${actor} hat Allianzdetails geändert${labels ? `: ${labels}` : ''}${rename}`;
+    }
+    default:
+      return 'Unbekanntes Ereignis';
+  }
+}
+
+const DETAIL_FIELD_LABELS: Record<string, string> = {
+  name: 'Name',
+  description: 'Beschreibung',
+  homepage: 'Homepage',
+  color: 'Farbe',
+  titles: 'Amtstitel',
+  acceptsApplications: 'Bewerbungsannahme',
+};
+
+function chronicleMeta(
+  entry: AllianceChronicleEntryDto,
+): Record<string, unknown> {
+  return entry.metadata ?? {};
+}
+
+export function AllianceChroniclePage() {
+  const { id } = useParams<{ id: string }>();
+  const [chronicle, setChronicle] = useState<AllianceChronicleDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    api
+      .get<AllianceChronicleDto>(`/alliances/${id}/chronicle`)
+      .then((response) => {
+        if (!cancelled) setChronicle(response);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(
+            getErrorMessage(err, 'Die Chronik konnte nicht geladen werden.'),
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  async function loadMore() {
+    const cursor = chronicle?.nextCursor;
+    if (!id || !cursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await api.get<AllianceChronicleDto>(
+        `/alliances/${id}/chronicle?cursor=${encodeURIComponent(cursor)}`,
+      );
+      setChronicle((current) =>
+        current
+          ? {
+              entries: [...current.entries, ...response.entries],
+              nextCursor: response.nextCursor,
+            }
+          : response,
+      );
+    } catch (err) {
+      setError(
+        getErrorMessage(err, 'Ältere Einträge konnten nicht geladen werden.'),
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 p-3 md:p-6">
+      <BackLink to={`/alliances/${id}`} label="Allianz" />
+      <h1 className="text-lg font-bold text-swu-primary">Allianzchronik</h1>
+      <ErrorMessage message={error} />
+      {chronicle && (
+        <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
+          {chronicle.entries.length ? (
+            <ol className="space-y-2 text-sm">
+              {chronicle.entries.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="border-l-2 border-swu-border pl-3"
+                >
+                  <p className="font-medium text-swu-text">
+                    {allianceChronicleText(entry)}
+                  </p>
+                  <p className="text-xs text-swu-muted">
+                    {dateFormatter.format(new Date(entry.occurredAt))}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm italic text-swu-muted">
+              Noch keine Einträge vorhanden
+            </p>
+          )}
+          {chronicle.nextCursor && (
+            <button
+              type="button"
+              disabled={loadingMore}
+              className={buttonClass}
+              onClick={() => void loadMore()}
+            >
+              {loadingMore
+                ? 'Ältere Einträge werden geladen...'
+                : 'Ältere Einträge laden'}
+            </button>
+          )}
+        </section>
+      )}
+    </div>
+  );
 }
 
 export function AllianceDiplomacyPage() {
@@ -1258,6 +1415,11 @@ export function AllianceDetailPage() {
                 Forum
               </Link>
             )}
+            {actions.viewChronicle && (
+              <Link to={`${base}/chronicle`} className={buttonClass}>
+                Chronik lesen
+              </Link>
+            )}
             {actions.manageDiplomacy && (
               <Link to={`${base}/diplomacy`} className={buttonClass}>
                 Diplomatieverwaltung
@@ -1381,7 +1543,9 @@ export function AllianceDetailPage() {
       </section>
 
       <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
-        <h2 className="text-sm font-bold text-swu-primary">Diplomatie-Chronik</h2>
+        <h2 className="text-sm font-bold text-swu-primary">
+          Diplomatie-Chronik
+        </h2>
         {chronicle?.entries.length ? (
           <ol className="space-y-2 text-sm">
             {chronicle.entries.map((entry) => (
@@ -2008,6 +2172,17 @@ export function AllianceDetailPage() {
               {member.roleTitle && (
                 <span className="border border-swu-accent/50 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-swu-accent">
                   {member.roleTitle}
+                </span>
+              )}
+              {member.online !== undefined && (
+                <span
+                  className={
+                    member.online
+                      ? 'text-[10px] uppercase tracking-wider text-green-400'
+                      : 'text-[10px] uppercase tracking-wider text-swu-muted'
+                  }
+                >
+                  {member.online ? 'Online' : 'Offline'}
                 </span>
               )}
               <span className="ml-auto flex flex-wrap gap-2">
