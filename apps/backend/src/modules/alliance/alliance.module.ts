@@ -8,6 +8,7 @@ import { AllianceController } from './alliance.controller';
 import { AllianceBannerController } from './alliance-banner.controller';
 import { AllianceBannerService } from './alliance-banner.service';
 import { ALLIANCE_ASSET_STORAGE } from './alliance-asset.port';
+import { AllianceResetService } from './alliance-reset.service';
 import { FileSystemAssetStorage } from './file-system-asset-storage';
 import { AllianceService } from './alliance.service';
 import { MemberOverviewService } from './member-overview.service';
@@ -74,6 +75,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
   providers: [
     AllianceService,
     AllianceBannerService,
+    AllianceResetService,
     { provide: ALLIANCE_ASSET_STORAGE, useClass: FileSystemAssetStorage },
     MemberOverviewService,
     {
@@ -108,6 +110,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
   ],
   exports: [
     AllianceService,
+    AllianceResetService,
     ForumService,
     RelationshipResolverService,
     ALLIANCE_CONTEXT_CLEANUP,

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AllianceAssetStorage } from './alliance-asset.port';
 
@@ -22,6 +22,18 @@ export class FileSystemAssetStorage implements AllianceAssetStorage {
 
   async delete(key: string): Promise<void> {
     await rm(this.pathOf(key), { force: true });
+  }
+
+  async list(): Promise<string[]> {
+    try {
+      const names = await readdir(this.directory);
+      return names
+        .map((name) => /^([0-9a-f]{32})\.png$/.exec(name)?.[1])
+        .filter((key): key is string => key !== undefined);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
   }
 
   async read(key: string): Promise<Buffer | null> {

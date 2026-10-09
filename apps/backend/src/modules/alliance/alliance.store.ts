@@ -322,6 +322,13 @@ export interface AllianceStore {
   /** Removes a finished task. */
   completeAssetDeletion(id: number): Promise<void>;
 
+  /**
+   * Removes every alliance, party, relationship, proposal, chronicle (public
+   * and internal), forum, notification intent and pending asset deletion task.
+   * Identity counters keep counting, so removed ids are never reused.
+   */
+  deleteAllAllianceData(): Promise<void>;
+
   findMembership(userId: number): Promise<MembershipRecord | null>;
   /** Current memberships of the given players; players without one are absent. */
   findMemberships(userIds: number[]): Promise<MembershipRecord[]>;

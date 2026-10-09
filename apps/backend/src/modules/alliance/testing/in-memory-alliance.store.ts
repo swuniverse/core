@@ -313,6 +313,26 @@ export class InMemoryAllianceStore implements AllianceStore {
     );
   }
 
+  async deleteAllAllianceData() {
+    const { players, factions, nextId, clock } = this.state;
+    this.state = {
+      players,
+      factions,
+      alliances: [],
+      memberships: [],
+      applications: [],
+      relationships: [],
+      relationshipProposals: [],
+      relationshipChangeProposals: [],
+      diplomacyChronicleEntries: [],
+      allianceChronicleEntries: [],
+      diplomacyNotifications: [],
+      assetDeletions: [],
+      nextId,
+      clock,
+    };
+  }
+
   async listActiveRelationships(allianceId: number) {
     return this.state.relationships
       .filter(
