@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 03, 04, 05, 06, 07, 09, 10, 11
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/12-gesamtintegration.md`)
@@ -17,3 +17,7 @@
 - [ ] Der Integrationspunkt „spielereigene Stationen erscheinen in der Klassengruppierung der Mitgliederübersicht“ ist in der Dokumentation der Beziehungswirkungen nachgeführt.
 - [ ] Die Etappe ist in `.scratch/alliance-stu-parity/map.md` als umgesetzt vermerkt; offene Punkte für „Lebenszyklus und Restparität“ (Chronikereignisse für Nachfolge und Banner, Nachfolge über die letzte Aktivität mit leeren Werten als älteste Aktivität) sind dort festgehalten.
 - [ ] Gesamter Testlauf, Lint und Typecheck von Backend, Frontend und Shared sind grün.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. alliance-requests.int-spec.ts (HTTP authorization matrix), alliance-lifecycle.int-spec.ts (cascades, account deletion, length checks, listRecentTopics); docs and map.md updated.
