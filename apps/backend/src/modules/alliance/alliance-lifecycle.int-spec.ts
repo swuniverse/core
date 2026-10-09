@@ -1,5 +1,10 @@
+import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { AllianceRole, Faction } from '@swuniverse/shared';
+import {
+  AllianceRelationshipType,
+  AllianceRole,
+  Faction,
+} from '@swuniverse/shared';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -22,6 +27,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
   let dataSource: DataSource;
   let store: TypeOrmAllianceStore;
   let allianceService: AllianceService;
+  let sendSystem: jest.Mock;
   let forum: ForumService;
   let rebels: number;
 
@@ -34,9 +40,8 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
     await resetDatabase(dataSource);
     rebels = await factionId(dataSource, Faction.REBEL_ALLIANCE);
     store = new TypeOrmAllianceStore(dataSource);
-    allianceService = new AllianceService(store, {
-      sendSystem: jest.fn().mockResolvedValue(undefined),
-    } as never);
+    sendSystem = jest.fn().mockResolvedValue(undefined);
+    allianceService = new AllianceService(store, { sendSystem } as never);
     forum = new ForumService(new TypeOrmForumStore(dataSource));
   });
 
@@ -109,6 +114,122 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
     'alliance_forum_topics',
     'alliance_forum_posts',
   ];
+
+  describe('shared dissolution procedure', () => {
+    async function relationshipsOf(leia: User, rogue: { id: number }) {
+      const mon = await rebel('mon');
+      const red = await alliance('Red Squadron', mon);
+      const gold = await alliance('Gold Squadron', await rebel('jon'));
+      const proposal = await allianceService.proposeRelationship(
+        leia.id,
+        rogue.id,
+        {
+          recipientAllianceId: red.id,
+          type: AllianceRelationshipType.ALLIANCE,
+          contract: 'Vertrag',
+          permissions: { treatAsFriend: true, shareLivePositions: true },
+        },
+      );
+      await allianceService.acceptRelationshipProposal(mon.id, proposal.id);
+      const [relationship] = await store.listActiveRelationships(rogue.id);
+      await allianceService.proposeRelationshipChange(leia.id, relationship.id, {
+        contract: 'Neuer Vertrag',
+      });
+      await allianceService.proposeRelationship(leia.id, rogue.id, {
+        recipientAllianceId: gold.id,
+        type: AllianceRelationshipType.ALLIANCE,
+        contract: 'Offen',
+      });
+      return { red, gold };
+    }
+
+    it.each(['president dissolves', 'last member leaves'])(
+      'removes alliance, memberships, applications, relationships, proposals, changes, forum and internal chronicle but keeps the public diplomacy chronicle (%s)',
+      async (path) => {
+        const leia = await rebel('leia');
+        const han = await rebel('han');
+        const applicant = await rebel('lando');
+        const rogue = await alliance(
+          'Rogue Squadron',
+          leia,
+          path === 'president dissolves' ? [[han, NONE]] : [],
+        );
+        await store.insertApplication({
+          allianceId: rogue.id,
+          userId: applicant.id,
+        });
+        const { red } = await relationshipsOf(leia, rogue);
+        await allianceService.declareWar(leia.id, rogue.id, red.id);
+        await fillForumAndChronicle(rogue.id, leia);
+        const publicEntries = await count(
+          'alliance_diplomacy_chronicle_entries',
+        );
+        expect(publicEntries).toBeGreaterThan(0);
+
+        if (path === 'president dissolves') {
+          await allianceService.dissolve(leia.id, rogue.id);
+        } else {
+          await allianceService.leave(leia.id);
+        }
+
+        expect(await store.findAlliance(rogue.id)).toBeNull();
+        expect(await count('alliance_memberships')).toBe(2);
+        expect(await count('alliance_applications')).toBe(0);
+        expect(await count('alliance_relationship_proposals')).toBe(0);
+        expect(await count('alliance_relationship_change_proposals')).toBe(0);
+        expect(await count('alliance_relationships')).toBe(0);
+        for (const table of FORUM_TABLES) expect(await count(table)).toBe(0);
+        expect(await count('alliance_chronicle_entries')).toBe(0);
+        expect(await count('alliance_diplomacy_chronicle_entries')).toBe(
+          publicEntries,
+        );
+      },
+    );
+
+    it('notifies remaining members only after the commit and not the trigger', async () => {
+      const leia = await rebel('leia');
+      const han = await rebel('han');
+      const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+
+      await allianceService.dissolve(leia.id, rogue.id);
+
+      expect(sendSystem).toHaveBeenCalledTimes(1);
+      expect(sendSystem).toHaveBeenCalledWith(
+        han.id,
+        'Allianz',
+        'Die Allianz Rogue Squadron wurde aufgelöst',
+        expect.any(String),
+      );
+      expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
+    });
+
+    it('keeps the dissolution when delivery fails and retries it without duplicates', async () => {
+      const leia = await rebel('leia');
+      const han = await rebel('han');
+      const rogue = await alliance('Rogue Squadron', leia, [[han, NONE]]);
+      const logger = (allianceService as unknown as { logger: Logger })
+        .logger;
+      jest.spyOn(logger, 'error').mockImplementation();
+      const delivered = new Set<string>();
+      sendSystem.mockRejectedValueOnce(new Error('messaging unavailable'));
+      sendSystem.mockImplementation(
+        async (_to: number, _s: string, _b: string, key: string) => {
+          delivered.add(key);
+        },
+      );
+
+      await allianceService.dissolve(leia.id, rogue.id);
+
+      expect(await store.findAlliance(rogue.id)).toBeNull();
+      expect(await store.listPendingDiplomacyNotifications()).toHaveLength(1);
+
+      await allianceService.retryDiplomacyNotifications();
+      await allianceService.retryDiplomacyNotifications();
+
+      expect(delivered.size).toBe(1);
+      expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
+    });
+  });
 
   it('removes forum and alliance chronicle when the president dissolves, and keeps the diplomacy chronicle', async () => {
     const leia = await rebel('leia');

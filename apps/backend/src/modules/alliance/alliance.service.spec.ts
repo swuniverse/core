@@ -2384,6 +2384,7 @@ describe('AllianceService', () => {
         expect(await store.findMembership(5)).toBeNull();
         expect(store.snapshot().applications).toHaveLength(0);
         expect(sent).toHaveLength(0);
+        expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
       });
 
       it('fails without alliance', async () => {
@@ -2466,7 +2467,7 @@ describe('AllianceService', () => {
     });
 
     describe('dissolve', () => {
-      it('dissolves the alliance and informs every member', async () => {
+      it('dissolves the alliance and informs every remaining member except the trigger', async () => {
         const { store, service, sent, alliance } = scenario();
         store.addPlayer(7, 'Ackbar');
         store.seedApplication(alliance.id, 7);
@@ -2476,12 +2477,54 @@ describe('AllianceService', () => {
         expect(await store.findAlliance(alliance.id)).toBeNull();
         for (const member of [1, 2, 3, 4, 6]) {
           expect(await store.findMembership(member)).toBeNull();
+        }
+        for (const member of [2, 3, 4, 6]) {
           expect(messagesTo(sent, member)).toEqual([
             'Die Allianz Rogue Squadron wurde aufgelöst',
           ]);
         }
+        expect(messagesTo(sent, 1)).toEqual([]);
         expect(store.snapshot().applications).toHaveLength(0);
         expect(messagesTo(sent, 7)).toEqual([]);
+      });
+
+      it('keeps the dissolution when delivery fails and delivers later exactly once', async () => {
+        const { store, sent, alliance } = scenario();
+        const delivered = new Map<string, SentMessage>();
+        const messaging = {
+          sendSystem: jest
+            .fn()
+            .mockRejectedValueOnce(new Error('messaging unavailable'))
+            .mockImplementation(
+              async (
+                to: number,
+                subject: string,
+                body: string,
+                key: string,
+              ) => {
+                delivered.set(key, { to, subject, body });
+              },
+            ),
+        };
+        const retrying = new AllianceService(store, messaging as never);
+        silenceDiplomacyDeliveryErrors(retrying);
+
+        await expect(
+          retrying.dissolve(1, alliance.id),
+        ).resolves.toBeUndefined();
+        expect(await store.findAlliance(alliance.id)).toBeNull();
+        expect(await store.listPendingDiplomacyNotifications()).not.toEqual(
+          [],
+        );
+
+        await retrying.retryDiplomacyNotifications();
+        await retrying.retryDiplomacyNotifications();
+
+        expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
+        expect(
+          [...delivered.values()].map((m) => m.to).sort((a, b) => a - b),
+        ).toEqual([2, 3, 4, 6]);
+        expect(sent).toEqual([]);
       });
 
       it('is forbidden for vices and everyone else', async () => {
