@@ -114,6 +114,17 @@ export class AllianceController {
     return this.allianceService.declareSettlerWar(req.user.sub, playerId);
   }
 
+  @Get('settlers/:playerId/diplomacy')
+  settlerPublicDiplomacy(
+    @Request() req: AuthRequest,
+    @Param('playerId', ParseIntPipe) playerId: number,
+  ) {
+    return this.allianceService.getPublicSettlerDiplomacy(
+      req.user.sub,
+      playerId,
+    );
+  }
+
   @Get('settlers/:playerId/relationships/:relationshipId/contract')
   settlerRelationshipContract(
     @Param('playerId', ParseIntPipe) playerId: number,

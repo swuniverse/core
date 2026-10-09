@@ -407,26 +407,36 @@ describe('forum moderation actions', () => {
   });
 
   it('deletes a post only after confirmation and reloads', async () => {
-    const page = topicPage([post({ capabilities: { edit: false, delete: true } })]);
+    const page = topicPage([
+      post({ capabilities: { edit: false, delete: true } }),
+    ]);
     apiMocks.get.mockResolvedValue(page);
     apiMocks.delete.mockResolvedValue(undefined);
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
     renderAt('/alliances/1/forum/topics/9');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag löschen' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Beitrag löschen' }),
+    );
     expect(apiMocks.delete).not.toHaveBeenCalled();
 
     confirm.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole('button', { name: 'Beitrag löschen' }));
     await waitFor(() =>
-      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/forum/posts/1'),
+      expect(apiMocks.delete).toHaveBeenCalledWith(
+        '/alliances/1/forum/posts/1',
+      ),
     );
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
   });
 
   it('renames, marks and deletes a topic from the topic page', async () => {
     const page = topicPage([post()]);
-    page.topic.capabilities = { rename: true, setImportant: true, delete: true };
+    page.topic.capabilities = {
+      rename: true,
+      setImportant: true,
+      delete: true,
+    };
     apiMocks.get.mockImplementation(async (url: string) =>
       url.includes('/forum/boards/') ? boardPage() : page,
     );
@@ -437,21 +447,33 @@ describe('forum moderation actions', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAt('/alliances/1/forum/topics/9');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Thema umbenennen' }));
-    await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/forum/topics/9', {
-        title: 'Neuer Plan',
-      }),
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Thema umbenennen' }),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Als wichtig markieren' }));
     await waitFor(() =>
-      expect(apiMocks.put).toHaveBeenCalledWith('/alliances/1/forum/topics/9/important', {
-        important: true,
-      }),
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/alliances/1/forum/topics/9',
+        {
+          title: 'Neuer Plan',
+        },
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Als wichtig markieren' }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.put).toHaveBeenCalledWith(
+        '/alliances/1/forum/topics/9/important',
+        {
+          important: true,
+        },
+      ),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Thema löschen' }));
     await waitFor(() =>
-      expect(screen.getByTestId('location').textContent).toBe('/alliances/1/forum/boards/7'),
+      expect(screen.getByTestId('location').textContent).toBe(
+        '/alliances/1/forum/boards/7',
+      ),
     );
     expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/forum/topics/9');
   });
@@ -468,16 +490,21 @@ describe('forum moderation actions', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Umbenennen' }));
     await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/forum/boards/7', {
-        name: 'Taktik neu',
-      }),
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/alliances/1/forum/boards/7',
+        {
+          name: 'Taktik neu',
+        },
+      ),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
     expect(apiMocks.delete).not.toHaveBeenCalled();
     confirm.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
     await waitFor(() =>
-      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/forum/boards/7'),
+      expect(apiMocks.delete).toHaveBeenCalledWith(
+        '/alliances/1/forum/boards/7',
+      ),
     );
   });
 
@@ -485,15 +512,25 @@ describe('forum moderation actions', () => {
     apiMocks.get.mockResolvedValue(boardPage());
     const first = renderAt('/alliances/1/forum/boards/7');
     await screen.findByText('Angriffsplan');
-    expect(screen.queryByRole('button', { name: 'Markierung entfernen' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Markierung entfernen' }),
+    ).toBeNull();
     first.unmount();
 
     const page = boardPage();
-    page.topics[0].capabilities = { rename: true, setImportant: true, delete: true };
+    page.topics[0].capabilities = {
+      rename: true,
+      setImportant: true,
+      delete: true,
+    };
     apiMocks.get.mockResolvedValue(page);
-    apiMocks.put.mockRejectedValue(new ApiError(403, 'Dazu fehlt Dir die Berechtigung'));
+    apiMocks.put.mockRejectedValue(
+      new ApiError(403, 'Dazu fehlt Dir die Berechtigung'),
+    );
     renderAt('/alliances/1/forum/boards/7');
-    fireEvent.click(await screen.findByRole('button', { name: 'Markierung entfernen' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Markierung entfernen' }),
+    );
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Dazu fehlt Dir die Berechtigung',
     );
@@ -513,32 +550,49 @@ describe('AllianceForumTopicPage editing', () => {
           editedAt: '2026-10-09T10:30:00.000Z',
           capabilities: { edit: true, delete: false },
         }),
-        post({ id: 2, text: 'Fremd', capabilities: { edit: false, delete: true } }),
+        post({
+          id: 2,
+          text: 'Fremd',
+          capabilities: { edit: false, delete: true },
+        }),
       ]),
     );
     renderAt('/alliances/1/forum/topics/9');
 
     await screen.findByText('Mein Text');
-    expect(screen.getAllByRole('button', { name: 'Bearbeiten' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Bearbeiten' })).toHaveLength(
+      1,
+    );
     expect(screen.getAllByText(/zuletzt bearbeitet/)).toHaveLength(1);
   });
 
   it('edits inline, sends the text and reloads', async () => {
     apiMocks.get.mockResolvedValue(topicPage([own()]));
-    apiMocks.patch.mockResolvedValue({ postId: 1, text: 'Neu', editedAt: '2026-10-09T11:00:00.000Z' });
+    apiMocks.patch.mockResolvedValue({
+      postId: 1,
+      text: 'Neu',
+      editedAt: '2026-10-09T11:00:00.000Z',
+    });
     renderAt('/alliances/1/forum/topics/9');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
-    const editor = screen.getByLabelText('Beitrag bearbeiten') as HTMLTextAreaElement;
+    const editor = screen.getByLabelText(
+      'Beitrag bearbeiten',
+    ) as HTMLTextAreaElement;
     expect(editor.value).toBe('Alt');
     fireEvent.change(editor, { target: { value: 'Neu' } });
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/forum/posts/1', { text: 'Neu' }),
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/alliances/1/forum/posts/1',
+        { text: 'Neu' },
+      ),
     );
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByLabelText('Beitrag bearbeiten')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Beitrag bearbeiten')).toBeNull(),
+    );
   });
 
   it('shows the server error and keeps the editor open', async () => {

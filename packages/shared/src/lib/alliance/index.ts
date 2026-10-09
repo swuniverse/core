@@ -222,6 +222,13 @@ export interface SettlerDiplomacyManagementDto {
   permissions: AllianceDiplomacyManagementDto['permissions'];
 }
 
+/** Public view of an alliance-less player: active relationships only. */
+export interface SettlerPublicDiplomacyDto {
+  playerId: number;
+  name: string;
+  relationships: AllianceRelationshipSummaryDto[];
+}
+
 /** A selectable counterparty: identity and display name only. */
 export interface SettlerCounterpartyDto {
   id: number;

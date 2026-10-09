@@ -204,7 +204,9 @@ describe('diplomacy party model (Postgres)', () => {
       const leia = await user();
       const mon = await user();
       const proposal = await propose(leia.id, mon.id);
-      await store.transaction((tx) => tx.acceptRelationshipProposal(proposal.id));
+      await store.transaction((tx) =>
+        tx.acceptRelationshipProposal(proposal.id),
+      );
 
       await dataSource.getRepository(User).delete({ id: leia.id });
 

@@ -192,7 +192,9 @@ describe('HolonetPage routing', () => {
     fireEvent.click(screen.getByRole('button', { name: '> Roleplay' }));
 
     await waitFor(() => {
-      expect(apiMocks.get).toHaveBeenCalledWith('/holonet?category=ROLEPLAY&page=1');
+      expect(apiMocks.get).toHaveBeenCalledWith(
+        '/holonet?category=ROLEPLAY&page=1',
+      );
     });
     expect(await screen.findByText('Second Transmission')).toBeTruthy();
     expect(screen.queryByText('Widget Report')).toBeNull();
@@ -318,12 +320,14 @@ describe('HolonetPage routing', () => {
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    apiMocks.post.mockImplementation((url: string, body: { value?: number }) => {
-      if (url === '/holonet/1/rate' && body.value === 1) {
-        return Promise.resolve({ rating: 1 });
-      }
-      throw new Error(`Unexpected POST ${url}`);
-    });
+    apiMocks.post.mockImplementation(
+      (url: string, body: { value?: number }) => {
+        if (url === '/holonet/1/rate' && body.value === 1) {
+          return Promise.resolve({ rating: 1 });
+        }
+        throw new Error(`Unexpected POST ${url}`);
+      },
+    );
 
     render(
       <MemoryRouter initialEntries={['/holonet']}>
@@ -340,7 +344,9 @@ describe('HolonetPage routing', () => {
     fireEvent.click(plusButton);
 
     await waitFor(() => {
-      expect(apiMocks.post).toHaveBeenCalledWith('/holonet/1/rate', { value: 1 });
+      expect(apiMocks.post).toHaveBeenCalledWith('/holonet/1/rate', {
+        value: 1,
+      });
     });
     expect(plusButton.hasAttribute('disabled')).toBe(true);
     expect(minusButton.hasAttribute('disabled')).toBe(true);

@@ -61,7 +61,9 @@ const layers = [
   { id: 4, name: 'Unbekannte Regionen', width: 50, height: 50, sectorSize: 10 },
 ];
 
-function ownContact(overrides: Partial<StarmapContactDto> = {}): StarmapContactDto {
+function ownContact(
+  overrides: Partial<StarmapContactDto> = {},
+): StarmapContactDto {
   return {
     spacecraftId: 10,
     spacecraftName: 'Falke',
@@ -136,11 +138,18 @@ const layerThreeFields = [
 function mockApi() {
   apiMocks.get.mockImplementation((path: string) => {
     if (path === '/starmap/layers') return Promise.resolve(layers);
-    if (path === '/starmap/layers/3/fields') return Promise.resolve(layerThreeFields);
+    if (path === '/starmap/layers/3/fields')
+      return Promise.resolve(layerThreeFields);
     if (path === '/starmap/systems/7/grid') {
-      return Promise.resolve({ system: kessel, fields: [], celestialObjects: [] });
+      return Promise.resolve({
+        system: kessel,
+        fields: [],
+        celestialObjects: [],
+      });
     }
-    const contacts = path.match(/^\/spacecraft\/starmap-contacts\?layerId=(\d+)$/);
+    const contacts = path.match(
+      /^\/spacecraft\/starmap-contacts\?layerId=(\d+)$/,
+    );
     if (contacts) {
       const layerId = Number(contacts[1]);
       return Promise.resolve({
@@ -177,13 +186,25 @@ describe('StarmapPage ship layer', () => {
         ownContact({
           spacecraftId: 11,
           spacecraftName: 'Adler',
-          location: { scope: 'SYSTEM', locationId: 1100, systemId: 7, x: 12, y: 13 },
+          location: {
+            scope: 'SYSTEM',
+            locationId: 1100,
+            systemId: 7,
+            x: 12,
+            y: 13,
+          },
           galaxyCell: { layerId: 3, x: 40, y: 41 },
         }),
         ownContact({
           spacecraftId: 12,
           spacecraftName: 'Sperber',
-          location: { scope: 'SYSTEM', locationId: 1200, systemId: 7, x: 2, y: 2 },
+          location: {
+            scope: 'SYSTEM',
+            locationId: 1200,
+            systemId: 7,
+            x: 2,
+            y: 2,
+          },
           galaxyCell: { layerId: 3, x: 40, y: 41 },
         }),
       ],
@@ -191,7 +212,13 @@ describe('StarmapPage ship layer', () => {
         ownContact({
           spacecraftId: 20,
           spacecraftName: 'Rabe',
-          location: { scope: 'GALAXY', locationId: 2000, layerId: 4, x: 7, y: 8 },
+          location: {
+            scope: 'GALAXY',
+            locationId: 2000,
+            layerId: 4,
+            x: 7,
+            y: 8,
+          },
           galaxyCell: { layerId: 4, x: 7, y: 8 },
         }),
       ],
@@ -244,7 +271,9 @@ describe('StarmapPage ship layer', () => {
       await screen.findByRole('button', { name: '2 Schiffe bei 40|41' }),
     );
 
-    const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 40|41' });
+    const panel = screen.getByRole('region', {
+      name: 'Schiffe auf Feld 40|41',
+    });
     expect(within(panel).getByRole('link', { name: 'Adler' })).toBeTruthy();
     expect(within(panel).getByRole('link', { name: 'Sperber' })).toBeTruthy();
     expect(within(panel).getByText('Kessel · 12|13')).toBeTruthy();
@@ -266,8 +295,12 @@ describe('StarmapPage ship layer', () => {
     await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
 
     expect(screen.getByRole('checkbox', { name: 'Schiffe' })).toBeTruthy();
-    expect(screen.getByRole('checkbox', { name: 'Allianzschiffe' })).toBeTruthy();
-    expect(screen.getByRole('checkbox', { name: 'Partnerschiffe' })).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', { name: 'Allianzschiffe' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', { name: 'Partnerschiffe' }),
+    ).toBeTruthy();
   });
 
   it('offers only the ship switch to a player without alliance', async () => {
@@ -276,8 +309,12 @@ describe('StarmapPage ship layer', () => {
     await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
 
     expect(screen.getByRole('checkbox', { name: 'Schiffe' })).toBeTruthy();
-    expect(screen.queryByRole('checkbox', { name: 'Allianzschiffe' })).toBeNull();
-    expect(screen.queryByRole('checkbox', { name: 'Partnerschiffe' })).toBeNull();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Allianzschiffe' }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Partnerschiffe' }),
+    ).toBeNull();
   });
 
   it('reloads the contacts when the layer changes', async () => {
@@ -306,7 +343,13 @@ describe('StarmapPage ship layer', () => {
       await screen.findByRole('button', { name: 'Schiff Falke bei 4|5' });
       contactsByLayer[3] = [
         ownContact({
-          location: { scope: 'GALAXY', locationId: 1001, layerId: 3, x: 6, y: 5 },
+          location: {
+            scope: 'GALAXY',
+            locationId: 1001,
+            layerId: 3,
+            x: 6,
+            y: 5,
+          },
           galaxyCell: { layerId: 3, x: 6, y: 5 },
         }),
       ];
@@ -354,7 +397,13 @@ describe('StarmapPage ship layer', () => {
         allianceContact({
           spacecraftId: 31,
           spacecraftName: 'Reiher',
-          location: { scope: 'GALAXY', locationId: 3100, layerId: 3, x: 9, y: 9 },
+          location: {
+            scope: 'GALAXY',
+            locationId: 3100,
+            layerId: 3,
+            x: 9,
+            y: 9,
+          },
           galaxyCell: { layerId: 3, x: 9, y: 9 },
           stance: 'NEUTRAL',
           alliance: { id: 6, name: 'Graue Staffel', color: null },
@@ -406,7 +455,9 @@ describe('StarmapPage ship layer', () => {
         await screen.findByRole('button', { name: /^Schiff Kranich/ }),
       );
 
-      const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 8|9' });
+      const panel = screen.getByRole('region', {
+        name: 'Schiffe auf Feld 8|9',
+      });
       expect(within(panel).getByText('Kranich')).toBeTruthy();
       expect(within(panel).getByText('Allianzschiff · Freund')).toBeTruthy();
       expect(within(panel).getByText('Mate')).toBeTruthy();
@@ -439,7 +490,9 @@ describe('StarmapPage ship layer', () => {
         await screen.findByRole('button', { name: /^Schiff Kranich/ }),
       );
 
-      const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 8|9' });
+      const panel = screen.getByRole('region', {
+        name: 'Schiffe auf Feld 8|9',
+      });
       expect(within(panel).getByText('Im Flug')).toBeTruthy();
       expect(within(panel).getByText('Alarmstufe Rot')).toBeTruthy();
       expect(within(panel).getByText('Hülle 40/100')).toBeTruthy();
@@ -453,7 +506,9 @@ describe('StarmapPage ship layer', () => {
 
       fireEvent.click(screen.getByRole('checkbox', { name: 'Allianzschiffe' }));
 
-      expect(screen.queryByRole('button', { name: /^Schiff Kranich/ })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /^Schiff Kranich/ }),
+      ).toBeNull();
       expect(
         screen.getByRole('button', { name: 'Schiff Falke bei 4|5' }),
       ).toBeTruthy();
@@ -492,16 +547,22 @@ describe('StarmapPage ship layer', () => {
       expect(partner.getAttribute('data-stance')).toBe('NEUTRAL');
       expect(within(partner).getByText('○')).toBeTruthy();
       expect(partner.style.backgroundColor).not.toBe(own.style.backgroundColor);
-      expect(partner.style.backgroundColor).not.toBe(ally.style.backgroundColor);
+      expect(partner.style.backgroundColor).not.toBe(
+        ally.style.backgroundColor,
+      );
       expect(partner.style.borderStyle).toBe('dashed');
     });
 
     it('shows only base data of a selected partner ship', async () => {
       renderPage();
 
-      fireEvent.click(await screen.findByRole('button', { name: /^Schiff Möwe/ }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: /^Schiff Möwe/ }),
+      );
 
-      const panel = screen.getByRole('region', { name: 'Schiffe auf Feld 6|7' });
+      const panel = screen.getByRole('region', {
+        name: 'Schiffe auf Feld 6|7',
+      });
       expect(within(panel).getByText('Möwe')).toBeTruthy();
       expect(
         within(panel).getByText('Geteilte Position · Neutral'),
@@ -516,7 +577,9 @@ describe('StarmapPage ship layer', () => {
       fireEvent.click(screen.getByRole('checkbox', { name: 'Partnerschiffe' }));
 
       expect(screen.queryByRole('button', { name: /^Schiff Möwe/ })).toBeNull();
-      expect(screen.getByRole('button', { name: /^Schiff Kranich/ })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: /^Schiff Kranich/ }),
+      ).toBeTruthy();
       expect(
         screen.getByRole('button', { name: 'Schiff Falke bei 4|5' }),
       ).toBeTruthy();
@@ -600,8 +663,12 @@ describe('StarmapPage ship layer', () => {
         expect(top).toBeLessThan(41 * 30);
       }
       // ... and Adler (12|13) lies right of and below Sperber (2|2).
-      expect(worldPosition(adler).left).toBeGreaterThan(worldPosition(sperber).left);
-      expect(worldPosition(adler).top).toBeGreaterThan(worldPosition(sperber).top);
+      expect(worldPosition(adler).left).toBeGreaterThan(
+        worldPosition(sperber).left,
+      );
+      expect(worldPosition(adler).top).toBeGreaterThan(
+        worldPosition(sperber).top,
+      );
       // Galaxy contacts stay on their galaxy cell.
       expect(
         screen.getByRole('button', { name: 'Schiff Falke bei 4|5' }),
@@ -611,9 +678,13 @@ describe('StarmapPage ship layer', () => {
     it('bundles the same contacts at the system cell again on the galaxy map', async () => {
       renderPage();
       await zoomIntoSystemGrid();
-      await screen.findByRole('button', { name: 'Schiff Adler bei Kessel 12|13' });
+      await screen.findByRole('button', {
+        name: 'Schiff Adler bei Kessel 12|13',
+      });
 
-      fireEvent.click(screen.getByRole('button', { name: 'Test: Galaxie zoomen' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Test: Galaxie zoomen' }),
+      );
 
       expect(
         screen.getByRole('button', { name: '2 Schiffe bei 40|41' }),
@@ -628,7 +699,13 @@ describe('StarmapPage ship layer', () => {
         ownContact({
           spacecraftId: 13,
           spacecraftName: 'Habicht',
-          location: { scope: 'SYSTEM', locationId: 1100, systemId: 7, x: 12, y: 13 },
+          location: {
+            scope: 'SYSTEM',
+            locationId: 1100,
+            systemId: 7,
+            x: 12,
+            y: 13,
+          },
           galaxyCell: { layerId: 3, x: 40, y: 41 },
         }),
       );
@@ -649,7 +726,13 @@ describe('StarmapPage ship layer', () => {
         ownContact({
           spacecraftId: 14,
           spacecraftName: 'Kranich',
-          location: { scope: 'SYSTEM', locationId: 1400, systemId: 8, x: 3, y: 4 },
+          location: {
+            scope: 'SYSTEM',
+            locationId: 1400,
+            systemId: 8,
+            x: 3,
+            y: 4,
+          },
           galaxyCell: { layerId: 3, x: 60, y: 61 },
         }),
       ];
@@ -670,7 +753,9 @@ describe('StarmapPage ship layer', () => {
       await zoomIntoSystemGrid();
 
       fireEvent.click(
-        await screen.findByRole('button', { name: 'Schiff Adler bei Kessel 12|13' }),
+        await screen.findByRole('button', {
+          name: 'Schiff Adler bei Kessel 12|13',
+        }),
       );
 
       const panel = screen.getByRole('region', {

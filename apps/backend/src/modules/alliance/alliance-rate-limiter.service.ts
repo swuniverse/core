@@ -53,7 +53,8 @@ export const ALLIANCE_RATE_LIMIT_COMMANDS = {
   banner: BANNER_POLICY,
 } satisfies Record<string, AllianceRateLimitPolicy>;
 
-export type AllianceRateLimitCommand = keyof typeof ALLIANCE_RATE_LIMIT_COMMANDS;
+export type AllianceRateLimitCommand =
+  keyof typeof ALLIANCE_RATE_LIMIT_COMMANDS;
 
 export type AllianceRateLimiterOptions = {
   now?: () => number;
@@ -80,7 +81,9 @@ export type AllianceRateLimiterOptions = {
 export class AllianceRateLimiterService {
   private readonly fallbackAttempts = new Map<string, number[]>();
 
-  constructor(@Optional() @InjectDataSource() private readonly dataSource?: DataSource) {}
+  constructor(
+    @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
+  ) {}
 
   static readonly defaultCommands: Record<string, AllianceRateLimitPolicy> =
     ALLIANCE_RATE_LIMIT_COMMANDS;

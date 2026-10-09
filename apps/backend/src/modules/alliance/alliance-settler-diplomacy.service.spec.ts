@@ -2,8 +2,13 @@ jest.mock('../messaging/messaging.service', () => ({
   MessagingService: class MessagingService {},
 }));
 
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
   DiplomacyPartyType,
@@ -460,6 +465,93 @@ describe('Allianz↔Siedler relationships', () => {
         false,
       );
       expect((await ctx.resolver.starmapCandidates(13)).partnerIds).toEqual([]);
+    });
+  });
+
+  describe('public Siedler view', () => {
+    it('shows active relationships to any player and hides proposals and drafts', async () => {
+      const ctx = world();
+      await hanToAlliance(ctx, FRIENDSHIP);
+      await ctx.service.proposeSettlerRelationship(1, {
+        recipientPlayerId: 2,
+        type: TRADE_AGREEMENT,
+        contract: 'geheimer Entwurf',
+      });
+      const view = await ctx.service.getPublicSettlerDiplomacy(3, 1);
+      expect(view).toMatchObject({ playerId: 1, name: 'Han' });
+      expect(view.relationships).toHaveLength(1);
+      expect(view.relationships[0]).toMatchObject({
+        type: FRIENDSHIP,
+        counterpartyType: DiplomacyPartyType.ALLIANCE,
+        counterparty: { name: 'Rogue Squadron' },
+      });
+      expect(JSON.stringify(view)).not.toContain('geheimer Entwurf');
+    });
+
+    it('lists player partners on the alliance page and renders their names as plain text', async () => {
+      const ctx = world();
+      ctx.store.addPlayer(5, '[url=http://evil]Han[/url]');
+      await ctx.service.update(10, ctx.rogue.id, {
+        description: 'Partner:\n$ALLIANCE_DIPLOMATIC_RELATIONS',
+      });
+      const { id } = await ctx.service.proposeRelationship(10, ctx.rogue.id, {
+        recipientPlayerId: 5,
+        type: FRIENDSHIP,
+        contract: 'geheim',
+      });
+      await ctx.service.acceptRelationshipProposal(5, id);
+      await ctx.service.proposeRelationship(10, ctx.rogue.id, {
+        recipientPlayerId: 2,
+        type: TRADE_AGREEMENT,
+      });
+
+      const detail = await ctx.service.getDetail(3, ctx.rogue.id);
+
+      expect(detail.relationships).toEqual([
+        expect.objectContaining({
+          counterpartyType: DiplomacyPartyType.PLAYER,
+          counterparty: expect.objectContaining({ id: 5 }),
+        }),
+      ]);
+      expect(detail.renderedDescription).toBe(
+        'Partner:\nFreundschaft: \\[url=http://evil\\]Han\\[/url\\]',
+      );
+    });
+
+    it('answers Not Found for an unknown player', async () => {
+      const ctx = world();
+      expect(
+        await rejects(ctx.service.getPublicSettlerDiplomacy(1, 99)),
+      ).toBeInstanceOf(NotFoundException);
+    });
+
+    it('serves the public contract and a newest-first chronicle of an active relationship', async () => {
+      const ctx = world();
+      const proposal = await ctx.service.proposeSettlerRelationship(1, {
+        recipientAllianceId: ctx.rogue.id,
+        type: FRIENDSHIP,
+        contract: 'Offener Vertrag',
+      });
+      await ctx.service.acceptRelationshipProposal(10, proposal.id);
+      const [relationship] = (await ctx.service.getPublicSettlerDiplomacy(3, 1))
+        .relationships;
+      await expect(
+        ctx.service.getPublicSettlerRelationshipContract(1, relationship.id),
+      ).resolves.toMatchObject({
+        relationshipId: relationship.id,
+        contract: 'Offener Vertrag',
+      });
+      await ctx.service.declareSettlerWar(1, 2);
+      const first = await ctx.service.listSettlerDiplomacyChronicle(
+        3,
+        1,
+        undefined,
+        1,
+      );
+      expect(first.entries[0].type).toBe(
+        AllianceDiplomacyChronicleEventType.WAR_DECLARED,
+      );
+      expect(first.nextCursor).not.toBeNull();
     });
   });
 

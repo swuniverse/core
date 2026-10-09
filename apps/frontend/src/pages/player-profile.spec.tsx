@@ -53,6 +53,15 @@ describe('PlayerProfilePage', () => {
           alliance: null,
         });
       }
+      if (url.startsWith('/alliances/settlers/1/diplomacy')) {
+        return Promise.resolve({
+          playerId: 1,
+          name: 'Vader',
+          relationships: [],
+          entries: [],
+          nextCursor: null,
+        });
+      }
       throw new Error(`Unexpected URL ${url}`);
     });
 

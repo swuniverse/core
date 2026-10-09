@@ -1,6 +1,10 @@
 import { DataSource } from 'typeorm';
 import { AllianceRole, Faction } from '@swuniverse/shared';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -39,7 +43,11 @@ describe('alliance forum persistence (Postgres)', () => {
       ...overrides,
     });
 
-  async function alliance(name: string, presidentId: number, members: number[] = []) {
+  async function alliance(
+    name: string,
+    presidentId: number,
+    members: number[] = [],
+  ) {
     const created = await allianceStore.insertAlliance({
       name,
       description: '',
@@ -61,13 +69,17 @@ describe('alliance forum persistence (Postgres)', () => {
   }
 
   const count = async (table: string) =>
-    Number((await dataSource.query(`SELECT COUNT(*) AS n FROM "${table}"`))[0].n);
+    Number(
+      (await dataSource.query(`SELECT COUNT(*) AS n FROM "${table}"`))[0].n,
+    );
 
   it('creates boards, topics and posts and reads them back with statistics and order', async () => {
     const leia = await rebel();
     const han = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id, [han.id]);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
     const first = await service.createTopic(han.id, rogue.id, board.id, {
       title: 'Erstes',
       text: 'Hallo',
@@ -76,16 +88,24 @@ describe('alliance forum persistence (Postgres)', () => {
       title: 'Zweites',
       text: 'Hallo',
     });
-    await service.createPost(leia.id, rogue.id, first.topicId, { text: 'Antwort' });
+    await service.createPost(leia.id, rogue.id, first.topicId, {
+      text: 'Antwort',
+    });
 
     const overview = await service.listBoards(han.id, rogue.id);
     expect(overview.boards[0]).toMatchObject({
       topicCount: 2,
       postCount: 3,
-      lastPost: { topicId: first.topicId, author: { name: expect.any(String) } },
+      lastPost: {
+        topicId: first.topicId,
+        author: { name: expect.any(String) },
+      },
     });
     const topics = await service.listTopics(han.id, rogue.id, board.id);
-    expect(topics.topics.map((t) => t.id)).toEqual([first.topicId, second.topicId]);
+    expect(topics.topics.map((t) => t.id)).toEqual([
+      first.topicId,
+      second.topicId,
+    ]);
     const topic = await service.getTopic(han.id, rogue.id, first.topicId);
     expect(topic.posts.map((p) => p.text)).toEqual(['Hallo', 'Antwort']);
   });
@@ -94,7 +114,9 @@ describe('alliance forum persistence (Postgres)', () => {
     const leia = await rebel();
     const han = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id, [han.id]);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
     const { topicId } = await service.createTopic(han.id, rogue.id, board.id, {
       title: 'Erstes',
       text: 'Alt',
@@ -102,12 +124,17 @@ describe('alliance forum persistence (Postgres)', () => {
     const before = await service.getTopic(han.id, rogue.id, topicId);
     const postId = before.posts[0].id;
     const topicActivity = async () =>
-      (await dataSource.query('SELECT "lastActivityAt" FROM alliance_forum_topics WHERE id = $1', [topicId]))[0];
+      (
+        await dataSource.query(
+          'SELECT "lastActivityAt" FROM alliance_forum_topics WHERE id = $1',
+          [topicId],
+        )
+      )[0];
 
     const activity = await topicActivity();
-    await expect(service.updatePost(leia.id, rogue.id, postId, { text: 'Hack' })).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.updatePost(leia.id, rogue.id, postId, { text: 'Hack' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     await service.updatePost(han.id, rogue.id, postId, { text: ' Neu ' });
 
     const after = await service.getTopic(han.id, rogue.id, topicId);
@@ -121,16 +148,27 @@ describe('alliance forum persistence (Postgres)', () => {
     const outsider = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
     const red = await alliance('Red Squadron', outsider.id);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
-    await expect(service.listBoards(outsider.id, rogue.id)).rejects.toBeInstanceOf(NotFoundException);
-    await expect(service.listTopics(outsider.id, red.id, board.id)).rejects.toBeInstanceOf(NotFoundException);
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
+    await expect(
+      service.listBoards(outsider.id, rogue.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.listTopics(outsider.id, red.id, board.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('cascades alliance dissolution to boards, topics and posts', async () => {
     const leia = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
-    await service.createTopic(leia.id, rogue.id, board.id, { title: 'T', text: 'x' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
+    await service.createTopic(leia.id, rogue.id, board.id, {
+      title: 'T',
+      text: 'x',
+    });
     expect(await count('alliance_forum_posts')).toBe(1);
 
     await allianceStore.deleteAlliance(rogue.id);
@@ -144,7 +182,9 @@ describe('alliance forum persistence (Postgres)', () => {
     const leia = await rebel();
     const han = await rebel({ displayName: 'Han Solo' });
     const rogue = await alliance('Rogue Squadron', leia.id, [han.id]);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
     const { topicId } = await service.createTopic(han.id, rogue.id, board.id, {
       title: 'T',
       text: 'x',
@@ -172,7 +212,9 @@ describe('alliance forum persistence (Postgres)', () => {
         [rogue.id, 'abcd'],
       ),
     ).rejects.toThrow(/CHK_alliance_forum_boards_name/);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
     await expect(
       dataSource.query(
         `INSERT INTO "alliance_forum_topics" ("boardId", "allianceId", "title", "authorName") VALUES ($1, $2, '', 'x')`,
@@ -208,7 +250,9 @@ describe('alliance forum persistence (Postgres)', () => {
     );
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(2);
     for (const rejected of results.filter((r) => r.status === 'rejected')) {
-      expect((rejected as PromiseRejectedResult).reason).toBeInstanceOf(BadRequestException);
+      expect((rejected as PromiseRejectedResult).reason).toBeInstanceOf(
+        BadRequestException,
+      );
     }
     expect(await count('alliance_forum_boards')).toBe(50);
   });
@@ -216,7 +260,9 @@ describe('alliance forum persistence (Postgres)', () => {
   it('never adds a post to a topic that was deleted concurrently', async () => {
     const leia = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
     const { topicId } = await service.createTopic(leia.id, rogue.id, board.id, {
       title: 'T',
       text: 'x',
@@ -225,8 +271,13 @@ describe('alliance forum persistence (Postgres)', () => {
     const runner = dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
-    await runner.query('SELECT 1 FROM "alliance_forum_topics" WHERE "id" = $1 FOR UPDATE', [topicId]);
-    const reply = service.createPost(leia.id, rogue.id, topicId, { text: 'zu spät' });
+    await runner.query(
+      'SELECT 1 FROM "alliance_forum_topics" WHERE "id" = $1 FOR UPDATE',
+      [topicId],
+    );
+    const reply = service.createPost(leia.id, rogue.id, topicId, {
+      text: 'zu spät',
+    });
     await new Promise((resolve) => setTimeout(resolve, 200));
     await runner.query(
       'UPDATE "alliance_forum_topics" SET "deletedAt" = now() WHERE "id" = $1',
@@ -242,47 +293,96 @@ describe('alliance forum persistence (Postgres)', () => {
     const leia = await rebel({ displayName: 'Leia Organa' });
     const han = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id, [han.id]);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
-    const keep = await service.createTopic(han.id, rogue.id, board.id, { title: 'Bleibt', text: 'a' });
-    const gone = await service.createTopic(han.id, rogue.id, board.id, { title: 'Weg', text: 'b' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
+    const keep = await service.createTopic(han.id, rogue.id, board.id, {
+      title: 'Bleibt',
+      text: 'a',
+    });
+    const gone = await service.createTopic(han.id, rogue.id, board.id, {
+      title: 'Weg',
+      text: 'b',
+    });
     await service.createPost(han.id, rogue.id, gone.topicId, { text: 'c' });
     const page = await service.getTopic(leia.id, rogue.id, keep.topicId);
 
     await service.deletePost(leia.id, rogue.id, page.posts[0].id);
     const moderated = await service.getTopic(han.id, rogue.id, keep.topicId);
-    expect(moderated.posts[0]).toMatchObject({ text: null, deleted: { moderatorName: 'Leia Organa' } });
-    const row = (await dataSource.query('SELECT * FROM "alliance_forum_posts" WHERE "id" = $1', [page.posts[0].id]))[0];
-    expect(row).toMatchObject({ text: '', deletedByUserId: leia.id, deletedByName: 'Leia Organa' });
+    expect(moderated.posts[0]).toMatchObject({
+      text: null,
+      deleted: { moderatorName: 'Leia Organa' },
+    });
+    const row = (
+      await dataSource.query(
+        'SELECT * FROM "alliance_forum_posts" WHERE "id" = $1',
+        [page.posts[0].id],
+      )
+    )[0];
+    expect(row).toMatchObject({
+      text: '',
+      deletedByUserId: leia.id,
+      deletedByName: 'Leia Organa',
+    });
 
     await service.deleteTopic(leia.id, rogue.id, gone.topicId);
-    await expect(service.getTopic(han.id, rogue.id, gone.topicId)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.getTopic(han.id, rogue.id, gone.topicId),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(await count('alliance_forum_posts')).toBe(3);
     expect(
-      Number((await dataSource.query(`SELECT COUNT(*) AS n FROM "alliance_forum_posts" WHERE "text" <> ''`))[0].n),
+      Number(
+        (
+          await dataSource.query(
+            `SELECT COUNT(*) AS n FROM "alliance_forum_posts" WHERE "text" <> ''`,
+          )
+        )[0].n,
+      ),
     ).toBe(0);
 
     await service.deleteBoard(leia.id, rogue.id, board.id);
-    await expect(service.listTopics(han.id, rogue.id, board.id)).rejects.toBeInstanceOf(NotFoundException);
-    await expect(service.getTopic(han.id, rogue.id, keep.topicId)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.listTopics(han.id, rogue.id, board.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.getTopic(han.id, rogue.id, keep.topicId),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect((await service.listBoards(han.id, rogue.id)).boards).toEqual([]);
-    const topics = await dataSource.query('SELECT "deletedAt", "deletedByName" FROM "alliance_forum_topics"');
-    expect(topics.every((t: { deletedAt: Date | null }) => t.deletedAt)).toBe(true);
+    const topics = await dataSource.query(
+      'SELECT "deletedAt", "deletedByName" FROM "alliance_forum_topics"',
+    );
+    expect(topics.every((t: { deletedAt: Date | null }) => t.deletedAt)).toBe(
+      true,
+    );
   });
 
   it('refuses a post and a post deletion on a topic whose board is deleted concurrently', async () => {
     const leia = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
-    const { topicId } = await service.createTopic(leia.id, rogue.id, board.id, { title: 'T', text: 'x' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
+    const { topicId } = await service.createTopic(leia.id, rogue.id, board.id, {
+      title: 'T',
+      text: 'x',
+    });
     const [post] = (await service.getTopic(leia.id, rogue.id, topicId)).posts;
     const runner = dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
-    await runner.query('SELECT 1 FROM "alliance_forum_boards" WHERE "id" = $1 FOR UPDATE', [board.id]);
-    const reply = service.createPost(leia.id, rogue.id, topicId, { text: 'zu spät' });
+    await runner.query(
+      'SELECT 1 FROM "alliance_forum_boards" WHERE "id" = $1 FOR UPDATE',
+      [board.id],
+    );
+    const reply = service.createPost(leia.id, rogue.id, topicId, {
+      text: 'zu spät',
+    });
     const moderate = service.deletePost(leia.id, rogue.id, post.id);
     await new Promise((resolve) => setTimeout(resolve, 200));
-    await runner.query('UPDATE "alliance_forum_boards" SET "deletedAt" = now() WHERE "id" = $1', [board.id]);
+    await runner.query(
+      'UPDATE "alliance_forum_boards" SET "deletedAt" = now() WHERE "id" = $1',
+      [board.id],
+    );
     await runner.commitTransaction();
     await runner.release();
     await expect(reply).rejects.toBeInstanceOf(NotFoundException);
@@ -293,14 +393,21 @@ describe('alliance forum persistence (Postgres)', () => {
   it('serialises a concurrent topic deletion with a reply: no live post survives in a deleted topic', async () => {
     const leia = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
-    const board = await service.createBoard(leia.id, rogue.id, { name: 'Strategie' });
-    const { topicId } = await service.createTopic(leia.id, rogue.id, board.id, { title: 'T', text: 'x' });
+    const board = await service.createBoard(leia.id, rogue.id, {
+      name: 'Strategie',
+    });
+    const { topicId } = await service.createTopic(leia.id, rogue.id, board.id, {
+      title: 'T',
+      text: 'x',
+    });
     const make = () => new ForumService(new TypeOrmForumStore(dataSource));
     await Promise.allSettled([
       make().createPost(leia.id, rogue.id, topicId, { text: 'y' }),
       make().deleteTopic(leia.id, rogue.id, topicId),
     ]);
-    const live = await dataSource.query(`SELECT COUNT(*) AS n FROM "alliance_forum_posts" WHERE "text" <> ''`);
+    const live = await dataSource.query(
+      `SELECT COUNT(*) AS n FROM "alliance_forum_posts" WHERE "text" <> ''`,
+    );
     expect(Number(live[0].n)).toBe(0);
   });
 });

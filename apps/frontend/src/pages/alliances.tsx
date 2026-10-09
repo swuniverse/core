@@ -32,6 +32,7 @@ import {
   type SettlerCounterpartyDto,
   type SettlerCounterpartyPageDto,
   type SettlerDiplomacyManagementDto,
+  type SettlerPublicDiplomacyDto,
   type UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { BbCodeText } from '../components/BbCodeText';
@@ -2426,7 +2427,12 @@ export function AllianceDetailPage() {
                 <li key={relationship.id} className="space-y-2 py-3 text-sm">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <Link
-                      to={`/alliances/${relationship.counterparty.id}`}
+                      to={
+                        relationship.counterpartyType ===
+                        DiplomacyPartyType.PLAYER
+                          ? `/players/${relationship.counterparty.id}`
+                          : `/alliances/${relationship.counterparty.id}`
+                      }
                       className="font-bold text-swu-primary hover:text-swu-accent"
                       style={{
                         color: relationship.counterparty.color ?? undefined,
@@ -2918,5 +2924,202 @@ export function AllianceEditPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+// --- Public Siedler diplomacy (part of the player profile) ---
+
+/** Public active relationships, Vertragswerk and chronicle of an alliance-less player. */
+export function SettlerPublicDiplomacy({ playerId }: { playerId: number }) {
+  const [view, setView] = useState<SettlerPublicDiplomacyDto | null>(null);
+  const [chronicle, setChronicle] =
+    useState<AllianceDiplomacyChronicleDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [contracts, setContracts] = useState<Record<number, string>>({});
+  const [contractError, setContractError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const base = `/alliances/settlers/${playerId}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      api.get<SettlerPublicDiplomacyDto>(`${base}/diplomacy`),
+      api.get<AllianceDiplomacyChronicleDto>(`${base}/diplomacy/chronicle`),
+    ])
+      .then(([diplomacy, history]) => {
+        if (cancelled) return;
+        setView(diplomacy);
+        setChronicle(history);
+        setError(null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setView(null);
+        setError('Diplomatie konnte nicht geladen werden.');
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [base]);
+
+  async function loadMore() {
+    const cursor = chronicle?.nextCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const response = await api.get<AllianceDiplomacyChronicleDto>(
+        `${base}/diplomacy/chronicle?cursor=${encodeURIComponent(cursor)}`,
+      );
+      setChronicle((current) =>
+        current
+          ? {
+              entries: [...current.entries, ...response.entries],
+              nextCursor: response.nextCursor,
+            }
+          : current,
+      );
+    } catch (err) {
+      setLoadMoreError(
+        getErrorMessage(
+          err,
+          'Weitere Chronik-Einträge konnten nicht geladen werden.',
+        ),
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function loadContract(relationshipId: number) {
+    setContractError(null);
+    try {
+      const result = await api.get<AllianceRelationshipContractDto>(
+        `${base}/relationships/${relationshipId}/contract`,
+      );
+      setContracts((current) => ({
+        ...current,
+        [relationshipId]: result.contract,
+      }));
+    } catch (err) {
+      setContractError(
+        getErrorMessage(err, 'Das Vertragswerk konnte nicht geladen werden.'),
+      );
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-swu-muted">Diplomatie wird geladen...</p>;
+  }
+  if (error || !view) {
+    return (
+      <p role="alert" className="text-sm text-red-300">
+        {error ?? 'Diplomatie konnte nicht geladen werden.'}
+      </p>
+    );
+  }
+
+  return (
+    <section className="space-y-3 rounded-lg border border-swu-border bg-swu-surface p-4">
+      <h2 className="text-sm font-bold text-swu-primary">Diplomatie</h2>
+      {view.relationships.length === 0 ? (
+        <p className="text-sm italic text-swu-muted">
+          Keine aktiven Beziehungen
+        </p>
+      ) : (
+        <ul className="divide-y divide-swu-border/40">
+          {view.relationships.map((relationship) => (
+            <li key={relationship.id} className="space-y-2 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Link
+                  to={
+                    relationship.counterpartyType === DiplomacyPartyType.PLAYER
+                      ? `/players/${relationship.counterparty.id}`
+                      : `/alliances/${relationship.counterparty.id}`
+                  }
+                  className="font-bold text-swu-primary hover:text-swu-accent"
+                  style={{
+                    color: relationship.counterparty.color ?? undefined,
+                  }}
+                >
+                  {relationship.counterparty.name}
+                </Link>
+                <span>{relationshipTypeLabel(relationship.type)}</span>
+                <span className="text-xs text-swu-muted">
+                  seit {dateFormatter.format(new Date(relationship.startedAt))}
+                </span>
+              </div>
+              {relationship.hasContract && (
+                <div className="space-y-2">
+                  {contracts[relationship.id] === undefined ? (
+                    <button
+                      type="button"
+                      className={buttonClass}
+                      onClick={() => void loadContract(relationship.id)}
+                    >
+                      Vertragswerk anzeigen
+                    </button>
+                  ) : (
+                    <BbCodeText
+                      text={contracts[relationship.id]}
+                      className="border border-swu-border/60 bg-swu-bg/50 p-3 text-sm whitespace-pre-wrap"
+                    />
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {contractError && (
+        <p role="alert" className="text-sm text-red-300">
+          {contractError}
+        </p>
+      )}
+
+      <h3 className="text-sm font-bold text-swu-primary">Diplomatie-Chronik</h3>
+      {chronicle?.entries.length ? (
+        <ol className="space-y-2 text-sm">
+          {chronicle.entries.map((entry) => (
+            <li key={entry.id} className="border-l-2 border-swu-border pl-3">
+              <p className="font-medium text-swu-text">
+                {chronicleEventLabel(entry)}: {entry.firstAlliance.name} –{' '}
+                {entry.secondAlliance.name}
+              </p>
+              <p className="text-xs text-swu-muted">
+                {entry.actor?.name ?? 'Unbekannt'} ·{' '}
+                {dateFormatter.format(new Date(entry.occurredAt))}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-sm italic text-swu-muted">
+          Keine öffentlichen Diplomatieereignisse vorhanden
+        </p>
+      )}
+      {loadMoreError && (
+        <p role="alert" className="text-sm text-red-300">
+          {loadMoreError}
+        </p>
+      )}
+      {chronicle?.nextCursor && (
+        <button
+          type="button"
+          disabled={loadingMore}
+          className={buttonClass}
+          onClick={() => void loadMore()}
+        >
+          {loadingMore
+            ? 'Ältere Ereignisse werden geladen...'
+            : 'Ältere Ereignisse laden'}
+        </button>
+      )}
+    </section>
   );
 }

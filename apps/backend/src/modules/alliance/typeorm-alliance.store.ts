@@ -210,7 +210,9 @@ function toNotification(
   };
 }
 
-function toAssetDeletion(task: AllianceAssetDeletion): AllianceAssetDeletionRecord {
+function toAssetDeletion(
+  task: AllianceAssetDeletion,
+): AllianceAssetDeletionRecord {
   return {
     id: task.id,
     assetKey: task.assetKey,
@@ -232,7 +234,9 @@ function toRelationship(
     contract: relationship.contract,
     treatAsFriend: relationship.treatAsFriend,
     shareLivePositions: relationship.shareLivePositions,
-    lordParty: relationship.lordParty ? partyRefOf(relationship.lordParty) : null,
+    lordParty: relationship.lordParty
+      ? partyRefOf(relationship.lordParty)
+      : null,
     vassalParty: relationship.vassalParty
       ? partyRefOf(relationship.vassalParty)
       : null,

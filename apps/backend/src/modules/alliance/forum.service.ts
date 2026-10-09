@@ -70,8 +70,9 @@ export class ForumService {
   constructor(
     @Inject(FORUM_STORE) private readonly store: ForumStore,
     private readonly rateLimiter?: AllianceRateLimiterService,
-    @Optional() @Inject(FORUM_CLOCK) private readonly now: ForumClock = () =>
-      new Date(),
+    @Optional()
+    @Inject(FORUM_CLOCK)
+    private readonly now: ForumClock = () => new Date(),
   ) {}
 
   // --- Reads ---
@@ -150,7 +151,9 @@ export class ForumService {
       FORUM_PAGE_SIZE,
     );
     const authors = await this.authorsOf(
-      topics.flatMap((t) => (t.topic.authorUserId ? [t.topic.authorUserId] : [])),
+      topics.flatMap((t) =>
+        t.topic.authorUserId ? [t.topic.authorUserId] : [],
+      ),
     );
     const moderate = this.mayModerate(viewer);
     return {
@@ -585,7 +588,12 @@ export class ForumService {
     const deleted = post.deletedAt !== null;
     return {
       id: post.id,
-      author: this.authorDto(viewer, authors, post.authorUserId, post.authorName),
+      author: this.authorDto(
+        viewer,
+        authors,
+        post.authorUserId,
+        post.authorName,
+      ),
       // The stored text of a deleted post is already empty; never deliver it.
       text: deleted ? null : post.text,
       createdAt: post.createdAt.toISOString(),
