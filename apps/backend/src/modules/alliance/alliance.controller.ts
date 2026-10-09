@@ -77,6 +77,21 @@ export class AllianceController {
     return this.allianceService.declareWar(req.user.sub, id, targetAllianceId);
   }
 
+  @Get(':id/chronicle')
+  chronicle(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.allianceService.listChronicle(
+      req.user.sub,
+      id,
+      cursor,
+      limit === undefined ? undefined : Number(limit),
+    );
+  }
+
   @Get(':id/diplomacy/chronicle')
   diplomacyChronicle(
     @Request() req: AuthRequest,

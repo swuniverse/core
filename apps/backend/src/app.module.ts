@@ -92,6 +92,7 @@ import { AllianceRelationship } from './modules/alliance/entities/alliance-relat
 import { AllianceRelationshipProposal } from './modules/alliance/entities/alliance-relationship-proposal.entity';
 import { AllianceRelationshipChangeProposal } from './modules/alliance/entities/alliance-relationship-change-proposal.entity';
 import { DiplomacyParty } from './modules/alliance/entities/diplomacy-party.entity';
+import { AllianceChronicleEntry } from './modules/alliance/entities/alliance-chronicle-entry.entity';
 import { AllianceDiplomacyChronicleEntry } from './modules/alliance/entities/alliance-diplomacy-chronicle-entry.entity';
 import { AllianceDiplomacyNotification } from './modules/alliance/entities/alliance-diplomacy-notification.entity';
 
@@ -175,6 +176,7 @@ import { AllianceDiplomacyNotification } from './modules/alliance/entities/allia
           AllianceRelationship,
           AllianceRelationshipProposal,
           AllianceRelationshipChangeProposal,
+          AllianceChronicleEntry,
           AllianceDiplomacyChronicleEntry,
           AllianceDiplomacyNotification,
         ],

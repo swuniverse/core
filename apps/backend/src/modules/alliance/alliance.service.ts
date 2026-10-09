@@ -8,6 +8,9 @@ import {
 } from '@nestjs/common';
 import {
   AllianceApplicationDto,
+  AllianceChronicleDto,
+  AllianceChronicleEntryDto,
+  AllianceChronicleEventType,
   AllianceDiplomacyChronicleDto,
   AllianceDiplomacyChronicleEntryDto,
   AllianceDiplomacyChronicleEventType,
@@ -50,6 +53,7 @@ import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
 import type {
   AllianceConstraint,
+  AllianceChronicleEntryRecord,
   AllianceDiplomacyChronicleEntryRecord,
   AlliancePatch,
   AllianceRecord,
@@ -169,6 +173,35 @@ export class AllianceService {
     };
   }
 
+  /** Internal chronicle: current members of the alliance only, else Not Found. */
+  async listChronicle(
+    viewerId: number,
+    allianceId: number,
+    cursor?: string,
+    limit?: number,
+  ): Promise<AllianceChronicleDto> {
+    const membership = await this.store.findMembership(viewerId);
+    if (!membership || membership.allianceId !== allianceId) {
+      throw new NotFoundException(ERR.allianceNotFound);
+    }
+    const pageSize = Math.min(Math.max(limit ?? 20, 1), 50);
+    const paginationCursor = this.parseChronicleCursor(cursor);
+    const entries = await this.store.listAllianceChronicleEntries(
+      allianceId,
+      paginationCursor,
+      pageSize + 1,
+    );
+    const page = entries.slice(0, pageSize);
+    const last = page.at(-1);
+    return {
+      entries: page.map((entry) => this.toAllianceChronicleEntry(entry)),
+      nextCursor:
+        entries.length > pageSize && last
+          ? this.encodeChronicleCursor(last)
+          : null,
+    };
+  }
+
   async getDetail(
     viewerId: number,
     allianceId: number,
@@ -245,6 +278,7 @@ export class AllianceService {
           dissolve: may('dissolve'),
           declareWar: may('declareWar'),
           manageDiplomacy: may('manageDiplomacy'),
+          viewChronicle: ownRole !== null,
           warTargets: may('declareWar')
             ? alliances
                 .filter(
@@ -910,6 +944,13 @@ export class AllianceService {
           userId,
           role: PRESIDENT,
         });
+        await this.appendAllianceChronicle(
+          tx,
+          created.id,
+          AllianceChronicleEventType.FOUNDED,
+          userId,
+          null,
+        );
         const own = await tx.listApplicationsOfPlayer(userId);
         await tx.deleteApplications(own.map((a) => a.id));
         return created;
@@ -1000,6 +1041,13 @@ export class AllianceService {
         userId: application.userId,
         role: NONE,
       });
+      await this.appendAllianceChronicle(
+        tx,
+        alliance.id,
+        AllianceChronicleEventType.MEMBER_JOINED,
+        actorId,
+        application.userId,
+      );
       await tx.deleteApplications(all.map((a) => a.id));
 
       const out: OutgoingMessage[] = [
@@ -1068,6 +1116,13 @@ export class AllianceService {
       }
 
       await tx.deleteMembership(alliance.id, userId);
+      await this.appendAllianceChronicle(
+        tx,
+        alliance.id,
+        AllianceChronicleEventType.MEMBER_LEFT,
+        userId,
+        userId,
+      );
       return members
         .filter((m) => m.role === PRESIDENT || m.role === VICE)
         .filter((m) => m.userId !== userId)
@@ -1099,6 +1154,13 @@ export class AllianceService {
         'kick',
       );
       await tx.deleteMembership(allianceId, targetId);
+      await this.appendAllianceChronicle(
+        tx,
+        allianceId,
+        AllianceChronicleEventType.MEMBER_KICKED,
+        actorId,
+        targetId,
+      );
       return [
         {
           to: targetId,
@@ -1683,9 +1745,10 @@ export class AllianceService {
     }
   }
 
-  private encodeChronicleCursor(
-    entry: AllianceDiplomacyChronicleEntryRecord,
-  ): string {
+  private encodeChronicleCursor(entry: {
+    occurredAt: Date;
+    id: number;
+  }): string {
     return Buffer.from(
       JSON.stringify({
         occurredAt: entry.occurredAt.toISOString(),
@@ -1724,6 +1787,49 @@ export class AllianceService {
       },
       occurredAt: entry.occurredAt.toISOString(),
     };
+  }
+
+  private toAllianceChronicleEntry(
+    entry: AllianceChronicleEntryRecord,
+  ): AllianceChronicleEntryDto {
+    return {
+      id: entry.id,
+      type: entry.eventType,
+      actor:
+        entry.actorName === null
+          ? null
+          : { userId: entry.actorUserId, name: entry.actorName },
+      subject:
+        entry.subjectName === null
+          ? null
+          : { userId: entry.subjectUserId, name: entry.subjectName },
+      metadata: entry.metadata,
+      occurredAt: entry.occurredAt.toISOString(),
+    };
+  }
+
+  /** Writes an internal chronicle entry inside the caller's transaction. */
+  private async appendAllianceChronicle(
+    tx: AllianceStore,
+    allianceId: number,
+    eventType: AllianceChronicleEventType,
+    actorId: number | null,
+    subjectId: number | null,
+    metadata: Record<string, unknown> | null = null,
+  ): Promise<void> {
+    const [actor, subject] = await Promise.all([
+      actorId === null ? null : tx.findPlayer(actorId),
+      subjectId === null ? null : tx.findPlayer(subjectId),
+    ]);
+    await tx.appendAllianceChronicleEntry({
+      allianceId,
+      eventType,
+      actorUserId: actor?.id ?? null,
+      actorName: actor?.name ?? null,
+      subjectUserId: subject?.id ?? null,
+      subjectName: subject?.name ?? null,
+      metadata,
+    });
   }
 
   private async appendChronicleEntry(
