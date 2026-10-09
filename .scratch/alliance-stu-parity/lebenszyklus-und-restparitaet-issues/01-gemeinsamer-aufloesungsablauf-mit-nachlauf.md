@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Beide Auflösungswege verwenden denselben Ablauf und dieselbe Bereinigung (Spec: Auflösung und Reset)
-- [ ] Nachrichtenabsichten werden transaktional persistiert, ohne Fremdschlüssel auf die aufgelöste Allianz; Migration rückwärtskompatibel mit Migrationstest
-- [ ] Ein fehlgeschlagener Versand lässt die Auflösung bestehen und wird später nachgeholt; doppelte Wiederholung stellt nichts doppelt zu
-- [ ] Postgres-Test: Kaskaden entfernen Allianz, Mitgliedschaften, Bewerbungen, Beziehungen/Vorschläge, Freigaben samt Änderungen, Forum, interne Chronik; öffentliche Diplomatie-Chronik bleibt
-- [ ] Service-Tests mit In-Memory-Store für Adressaten und Nachrichtentexte
+- [x] Beide Auflösungswege verwenden denselben Ablauf und dieselbe Bereinigung (Spec: Auflösung und Reset)
+- [x] Nachrichtenabsichten werden transaktional persistiert, ohne Fremdschlüssel auf die aufgelöste Allianz; Migration rückwärtskompatibel mit Migrationstest
+- [x] Ein fehlgeschlagener Versand lässt die Auflösung bestehen und wird später nachgeholt; doppelte Wiederholung stellt nichts doppelt zu
+- [x] Postgres-Test: Kaskaden entfernen Allianz, Mitgliedschaften, Bewerbungen, Beziehungen/Vorschläge, Freigaben samt Änderungen, Forum, interne Chronik; öffentliche Diplomatie-Chronik bleibt
+- [x] Service-Tests mit In-Memory-Store für Adressaten und Nachrichtentexte

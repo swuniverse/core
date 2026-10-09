@@ -212,6 +212,10 @@ export class InMemoryAllianceStore implements AllianceStore {
     }
   }
 
+  transactionHandle(): unknown {
+    return this;
+  }
+
   async lockAlliance(id: number) {
     return this.findAlliance(id);
   }
