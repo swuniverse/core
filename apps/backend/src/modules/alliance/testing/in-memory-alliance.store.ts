@@ -253,6 +253,7 @@ export class InMemoryAllianceStore implements AllianceStore {
   }
 
   async lockAlliance(id: number) {
+    this.lockOrder.push(`alliance:${id}`);
     return this.findAlliance(id);
   }
 
@@ -455,6 +456,16 @@ export class InMemoryAllianceStore implements AllianceStore {
   }
 
   private readonly lockedPlayerParties = new Set<number>();
+  private readonly lockOrder: string[] = [];
+
+  /** Locks in the order taken, e.g. `player:1`, `alliance:2`. */
+  lockSequence(): string[] {
+    return [...this.lockOrder];
+  }
+
+  clearLockSequence(): void {
+    this.lockOrder.length = 0;
+  }
 
   /** Player parties a mutation created or locked; reads must not add any. */
   lockedPlayerPartyIds(): number[] {
@@ -464,6 +475,7 @@ export class InMemoryAllianceStore implements AllianceStore {
   async lockPlayerParty(userId: number) {
     // Single-threaded: nothing to serialise, only record the party row.
     this.lockedPlayerParties.add(userId);
+    this.lockOrder.push(`player:${userId}`);
   }
 
   async endPlayerPartyDiplomacy(userId: number) {

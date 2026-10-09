@@ -122,6 +122,37 @@ async function hanToAlliance(
 }
 
 describe('Allianz↔Siedler relationships', () => {
+  describe('lock order', () => {
+    // A join locks the applicant's player party first, then the alliance.
+    // Every path touching both must take them in that order or the two can
+    // deadlock.
+    const playerBeforeAlliance = (store: InMemoryAllianceStore) => {
+      const sequence = store.lockSequence();
+      const player = sequence.indexOf('player:1');
+      const alliance = sequence.findIndex((lock) =>
+        lock.startsWith('alliance:'),
+      );
+      expect(player).toBeGreaterThanOrEqual(0);
+      expect(alliance).toBeGreaterThanOrEqual(0);
+      expect(player).toBeLessThan(alliance);
+    };
+
+    it('an alliance declaring war on a Siedler locks the Siedler before the alliance', async () => {
+      const ctx = world();
+      await ctx.service.declareWarOnSettler(10, ctx.rogue.id, 1);
+      playerBeforeAlliance(ctx.store);
+    });
+
+    it('an alliance proposing to a Siedler locks the Siedler before the alliance', async () => {
+      const ctx = world();
+      await ctx.service.proposeRelationship(10, ctx.rogue.id, {
+        recipientPlayerId: 1,
+        type: FRIENDSHIP,
+      });
+      playerBeforeAlliance(ctx.store);
+    });
+  });
+
   describe('the alliance proposes to a Siedler', () => {
     it.each([10, 11])(
       'lets office holder %i propose, notifies the Siedler and lets them accept',
@@ -403,6 +434,110 @@ describe('Allianz↔Siedler relationships', () => {
       await ctx.service.acceptRelationshipChange(11, id);
       const [changed] = await ofHan(ctx);
       expect(changed.treatAsFriend).toBe(true);
+    });
+  });
+
+  describe('answering negotiations of a Siedler', () => {
+    // Which alliance members may bind the alliance, and which outsiders may
+    // answer on a Siedler's behalf, for every response to a pending item.
+    const REFUSED_ON_ALLIANCE_SIDE = [12, 13, 20, 2];
+
+    it('lets only president and diplomat accept, decline or withdraw proposals of the alliance side', async () => {
+      const ctx = world();
+      const propose = async (actor: number, to: number, type = FRIENDSHIP) =>
+        (
+          await (actor === 1
+            ? ctx.service.proposeSettlerRelationship(1, {
+                recipientAllianceId: ctx.rogue.id,
+                type,
+              })
+            : ctx.service.proposeRelationship(actor, ctx.rogue.id, {
+                recipientPlayerId: to,
+                type,
+              }))
+        ).id;
+
+      // The Siedler proposes; the alliance side answers.
+      const toAlliance = await propose(1, 0);
+      for (const actor of REFUSED_ON_ALLIANCE_SIDE) {
+        await expectForbidden(
+          ctx.service.acceptRelationshipProposal(actor, toAlliance),
+        );
+        await expectForbidden(
+          ctx.service.declineRelationshipProposal(actor, toAlliance),
+        );
+      }
+      // A member cannot withdraw the Siedler's own proposal either.
+      for (const actor of [10, 11, 12, 13, 20, 2]) {
+        await expectForbidden(
+          ctx.service.withdrawRelationshipProposal(actor, toAlliance),
+        );
+      }
+      await ctx.service.declineRelationshipProposal(11, toAlliance);
+
+      // The alliance proposes; the Siedler and the alliance side respond.
+      const toHan = await propose(10, 1);
+      for (const actor of [10, 11, 12, 13, 20, 2]) {
+        await expectForbidden(
+          ctx.service.acceptRelationshipProposal(actor, toHan),
+        );
+        await expectForbidden(
+          ctx.service.declineRelationshipProposal(actor, toHan),
+        );
+      }
+      for (const actor of [12, 13, 20, 2, 1]) {
+        await expectForbidden(
+          ctx.service.withdrawRelationshipProposal(actor, toHan),
+        );
+      }
+      await ctx.service.withdrawRelationshipProposal(11, toHan);
+    });
+
+    it('lets only the representatives answer a change', async () => {
+      const ctx = world();
+      await allianceToHan(ctx, ALLIANCE);
+      const [relationship] = await ofHan(ctx);
+
+      const fromHan = (
+        await ctx.service.proposeRelationshipChange(1, relationship.id, {
+          permissions: { treatAsFriend: true },
+        })
+      ).id;
+      for (const actor of REFUSED_ON_ALLIANCE_SIDE) {
+        await expectForbidden(
+          ctx.service.acceptRelationshipChange(actor, fromHan),
+        );
+        await expectForbidden(
+          ctx.service.declineRelationshipChange(actor, fromHan),
+        );
+      }
+      for (const actor of [10, 11, 12, 13, 20, 2]) {
+        await expectForbidden(
+          ctx.service.withdrawRelationshipChange(actor, fromHan),
+        );
+      }
+      await ctx.service.declineRelationshipChange(10, fromHan);
+
+      const fromAlliance = (
+        await ctx.service.proposeRelationshipChange(11, relationship.id, {
+          permissions: { treatAsFriend: true },
+        })
+      ).id;
+      for (const actor of [10, 11, 12, 13, 20, 2]) {
+        await expectForbidden(
+          ctx.service.acceptRelationshipChange(actor, fromAlliance),
+        );
+        await expectForbidden(
+          ctx.service.declineRelationshipChange(actor, fromAlliance),
+        );
+      }
+      for (const actor of [12, 13, 20, 2, 1]) {
+        await expectForbidden(
+          ctx.service.withdrawRelationshipChange(actor, fromAlliance),
+        );
+      }
+      await ctx.service.acceptRelationshipChange(1, fromAlliance);
+      expect((await ofHan(ctx))[0].treatAsFriend).toBe(true);
     });
   });
 

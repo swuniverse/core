@@ -144,7 +144,7 @@ const ERR = {
     'Die Allianz wurde gerade geändert. Bitte lade die Seite neu und versuche es erneut',
 } as const;
 
-/** Domain error for a constraint that rejected a write (last line of defence). */
+/** German label of each relationship type for system messages. */
 const RELATIONSHIP_TYPE_LABEL: Record<AllianceRelationshipType, string> = {
   [AllianceRelationshipType.WAR]: 'Krieg',
   [AllianceRelationshipType.PEACE]: 'Frieden',
@@ -154,6 +154,7 @@ const RELATIONSHIP_TYPE_LABEL: Record<AllianceRelationshipType, string> = {
   [AllianceRelationshipType.VASSALAGE]: 'Vasallenschaft',
 };
 
+/** Domain error for a constraint that rejected a write (last line of defence). */
 const CONSTRAINT_ERRORS: Record<AllianceConstraint, string> = {
   alliance_name: ERR.nameTaken,
   membership_user: ERR.applicantTaken,
@@ -515,6 +516,18 @@ export class AllianceService {
     };
   }
 
+  /**
+   * Locks a Siedler counterparty ahead of the alliance. Invalid ids are left to
+   * `requireSettlerCounterparty`, which rejects them.
+   */
+  private async lockSettlerTarget(
+    tx: AllianceStore,
+    targetId: unknown,
+  ): Promise<void> {
+    if (Number.isInteger(targetId))
+      await tx.lockPlayerParty(targetId as number);
+  }
+
   /** A valid counterparty: another alliance-less player of the same faction. */
   private async requireSettlerCounterparty(
     tx: AllianceStore,
@@ -580,6 +593,8 @@ export class AllianceService {
   ) {
     await this.rateLimiter?.check(actorId, 'war');
     await this.mutateDiplomacy(async (tx) => {
+      // Player party before alliance, like a join, so the two cannot deadlock.
+      await this.lockSettlerTarget(tx, targetPlayerId);
       await this.lockedAllianceRight(tx, actorId, allianceId, 'declareWar');
       const actor = await this.loadParty(tx, allianceParty(allianceId));
       const target = await this.requireSettlerCounterparty(
@@ -1214,6 +1229,8 @@ export class AllianceService {
     await this.rateLimiter?.check(actorId, 'proposal');
     const result = await this.mutateDiplomacy(
       async (tx) => {
+        // Player party before alliance, like a join, so the two cannot deadlock.
+        await this.lockSettlerTarget(tx, request?.recipientPlayerId);
         await this.lockedAllianceRight(
           tx,
           actorId,
@@ -1515,7 +1532,7 @@ export class AllianceService {
     const applicantName = applicant?.name ?? UNKNOWN_NAME;
 
     await this.mutateDiplomacy(async (tx) => {
-      // Player party before alliance, like every diplomacy path, so a
+      // Player party before alliance, like every path touching both, so a
       // concurrent war/proposal of the applicant serialises with the join.
       await tx.lockPlayerParty(application.userId);
       const alliance = await this.lockedAllianceRight(

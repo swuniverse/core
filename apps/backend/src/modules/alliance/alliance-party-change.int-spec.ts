@@ -222,7 +222,7 @@ describe('alliance party change (Postgres)', () => {
   });
 
   it('serialises acceptance of an application against a war declared by another alliance', async () => {
-    for (let round = 0; round < 5; round += 1) {
+    for (let round = 0; round < 10; round += 1) {
       await reset();
       const han = await rebel(`Han${round}`);
       const leia = await rebel(`Leia${round}`);
@@ -241,6 +241,33 @@ describe('alliance party change (Postgres)', () => {
       expect(await activeOf(han)).toEqual([]);
     }
   });
+
+  it('serialises acceptance of an application against a proposal by another alliance without deadlocking', async () => {
+    for (let round = 0; round < 10; round += 1) {
+      await reset();
+      const han = await rebel(`Han${round}`);
+      const leia = await rebel(`Leia${round}`);
+      const ackbar = await rebel(`Ackbar${round}`);
+      const rogue = await alliance(`Rogue ${round}`, leia);
+      const phoenix = await alliance(`Phoenix ${round}`, ackbar);
+      await service.apply(han.id, rogue.id);
+      const [application] = await store.listApplicationsForAlliance(rogue.id);
+
+      const results = await outcomes([
+        service.acceptApplication(leia.id, application.id),
+        service.proposeRelationship(ackbar.id, phoenix.id, {
+          recipientPlayerId: han.id,
+          type: FRIENDSHIP,
+        }),
+      ]);
+
+      expect(results[0]).toBe('fulfilled');
+      expect(await store.findMembership(han.id)).not.toBeNull();
+      expect(await activeOf(han)).toEqual([]);
+      expect(await proposalsOf(han)).toEqual([]);
+    }
+  });
+
   it('two simultaneous Siedler proposals for one pair leave exactly one pending proposal and no raw database error', async () => {
     for (let round = 0; round < 5; round += 1) {
       await reset();
