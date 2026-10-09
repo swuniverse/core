@@ -46,6 +46,8 @@ const ALLOWED_ALLIANCE_ACTIONS: Array<[AllianceRole, AllianceAction]> =
     [PRESIDENT, 'moderateForum'],
     [VICE, 'moderateForum'],
     [VICE, 'viewShipManagementDetails'],
+    [PRESIDENT, 'viewMemberOperations'],
+    [VICE, 'viewMemberOperations'],
     [DIPLOMAT, 'declareWar'],
     [DIPLOMAT, 'manageDiplomacy'],
   ];

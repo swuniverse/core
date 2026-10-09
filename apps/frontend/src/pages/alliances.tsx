@@ -1415,6 +1415,11 @@ export function AllianceDetailPage() {
                 Forum
               </Link>
             )}
+            {actions.viewMemberOperations && (
+              <Link to={`${base}/member-overview`} className={buttonClass}>
+                Mitgliederübersicht öffnen
+              </Link>
+            )}
             {actions.viewChronicle && (
               <Link to={`${base}/chronicle`} className={buttonClass}>
                 Chronik lesen

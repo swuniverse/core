@@ -6,6 +6,10 @@ import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
+import { MemberOverviewService } from './member-overview.service';
+import { MEMBER_OPERATIONS_READER } from './member-operations.port';
+import { TypeOrmMemberOperationsReader } from './typeorm-member-operations.reader';
+import { ColonyModule } from '../colony/colony.module';
 import { ALLIANCE_STORE } from './alliance.store';
 import { ForumService } from './forum.service';
 import { FORUM_STORE } from './forum.store';
@@ -54,10 +58,16 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     ]),
     MessagingModule,
     WebsocketModule,
+    ColonyModule,
   ],
   controllers: [AllianceController],
   providers: [
     AllianceService,
+    MemberOverviewService,
+    {
+      provide: MEMBER_OPERATIONS_READER,
+      useClass: TypeOrmMemberOperationsReader,
+    },
     {
       provide: DIPLOMACY_NOTIFICATION_RETRY,
       useExisting: AllianceService,

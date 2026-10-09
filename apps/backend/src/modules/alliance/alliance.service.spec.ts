@@ -637,6 +637,7 @@ describe('AllianceService', () => {
             warTargets: [],
             manageDiplomacy: false,
             readForum: false,
+            viewMemberOperations: false,
             viewChronicle: false,
           },
         });
@@ -699,6 +700,7 @@ describe('AllianceService', () => {
             warTargets: [],
             manageDiplomacy: true,
             readForum: true,
+            viewMemberOperations: true,
             viewChronicle: true,
           },
         });
@@ -753,6 +755,7 @@ describe('AllianceService', () => {
           declareWar: false,
           warTargets: [],
           manageDiplomacy: false,
+          viewMemberOperations: true,
         });
         const byName = Object.fromEntries(
           members.map((m) => [m.name, m.actions]),
@@ -788,6 +791,7 @@ describe('AllianceService', () => {
             warTargets: [],
             manageDiplomacy,
             readForum: true,
+            viewMemberOperations: false,
             viewChronicle: true,
           });
           expect(

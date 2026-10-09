@@ -25,6 +25,7 @@ import type {
 } from '@swuniverse/shared';
 import { AllianceService } from './alliance.service';
 import { ForumService } from './forum.service';
+import { MemberOverviewService } from './member-overview.service';
 
 type AuthRequest = { user: { sub: number } };
 
@@ -34,6 +35,7 @@ export class AllianceController {
   constructor(
     private readonly allianceService: AllianceService,
     private readonly forumService: ForumService,
+    private readonly memberOverview: MemberOverviewService,
   ) {}
 
   @Get()
@@ -327,6 +329,14 @@ export class AllianceController {
       id,
       relationshipId,
     );
+  }
+
+  @Get(':id/member-overview')
+  memberOverviewOf(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.memberOverview.getOverview(req.user.sub, id);
   }
 
   @Get(':id')

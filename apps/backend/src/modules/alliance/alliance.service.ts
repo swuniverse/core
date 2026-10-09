@@ -292,6 +292,7 @@ export class AllianceService {
           declareWar: may('declareWar'),
           manageDiplomacy: may('manageDiplomacy'),
           readForum: ownRole !== null,
+          viewMemberOperations: may('viewMemberOperations'),
           viewChronicle: ownRole !== null,
           warTargets: may('declareWar')
             ? alliances

@@ -106,6 +106,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         warTargets: [],
         manageDiplomacy: false,
         readForum: false,
+        viewMemberOperations: false,
         viewChronicle: false,
       },
     },
@@ -791,6 +792,25 @@ describe('AllianceDetailPage', () => {
     }
     expect(screen.queryByRole('link', { name: 'Bearbeiten' })).toBeNull();
     expect(screen.queryByText('Bewerbungen')).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Mitgliederübersicht öffnen' }),
+    ).toBeNull();
+  });
+
+  it('links the member overview only when the server grants viewMemberOperations', async () => {
+    routeGet({
+      '/alliances/1': withViewer(detail(), AllianceRole.VICE, {
+        viewMemberOperations: true,
+      }),
+      '/alliances/1/applications': [],
+      '/alliances/1/diplomacy/proposals': [],
+    });
+    renderAt('/alliances/1');
+    expect(
+      (
+        await screen.findByRole('link', { name: 'Mitgliederübersicht öffnen' })
+      ).getAttribute('href'),
+    ).toBe('/alliances/1/member-overview');
   });
 
   it('applies and withdraws an application', async () => {
