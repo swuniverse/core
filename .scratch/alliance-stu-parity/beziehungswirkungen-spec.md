@@ -134,3 +134,4 @@ Nicht vorhandene eigenständige Spielsysteme werden nicht nur für diese Etappe 
 - Die zentrale Auflösung ist absichtlich die einzige neue fachliche Seam. Verbraucher sollen keine lokale Ersatzlogik erhalten.
 - Die bestätigte Parteiensemantik verhindert den widersprüchlichen Zustand „Mitglieder derselben Allianz sind durch einen Allianzkrieg Feinde“: Krieg wird ausschließlich zwischen zwei verschiedenen Allianzparteien geprüft.
 - Die Wirkungsschicht aktiviert nur vorhandene Spielpfade. Fehlende Systeme werden als spätere Integrationspunkte vermerkt, nicht als versteckte Zusatzanforderungen.
+- Nachtrag 2026-10-09: Der Fähigkeitsschalter des Diplomatie-Kerns (`DIPLOMACY_CORE_ENABLED`) wurde auf Nutzerentscheidung entfernt; Beziehungswirkungen gelten immer, weil die Pipeline Migrationen stets ausrollt.

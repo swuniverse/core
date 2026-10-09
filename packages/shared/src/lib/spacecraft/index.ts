@@ -178,8 +178,6 @@ export interface StarmapContactDto {
 
 export interface StarmapContactsDto {
   layerId: number;
-  /** Whether alliance and shared-partner contacts are active for this server. */
-  allianceContactsActive: boolean;
   contacts: StarmapContactDto[];
 }
 

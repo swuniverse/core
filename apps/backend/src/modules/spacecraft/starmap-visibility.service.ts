@@ -9,7 +9,6 @@ import type {
   StarmapContactsDto,
 } from '@swuniverse/shared';
 import { In, Not, Repository } from 'typeorm';
-import { AllianceInfrastructureCapabilityService } from '../alliance/alliance-infrastructure-capability.service';
 import { mayActOnAlliance } from '../alliance/alliance-permissions';
 import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import { Layer } from '../starmap/entities/layer.entity';
@@ -50,7 +49,6 @@ export class StarmapVisibilityService {
     private readonly relationships: RelationshipResolverService,
     @InjectRepository(Layer)
     private readonly layerRepo: Repository<Layer>,
-    private readonly capability: AllianceInfrastructureCapabilityService,
   ) {}
 
   /** Starmap contacts of the viewer on one map layer. */
@@ -85,7 +83,6 @@ export class StarmapVisibilityService {
 
     return {
       layerId,
-      allianceContactsActive: this.capability.enabled,
       contacts,
     };
   }
@@ -102,8 +99,6 @@ export class StarmapVisibilityService {
     const visibility = new Map<number, OwnerVisibility>([
       [viewerId, { reason: 'OWN' }],
     ]);
-    if (!this.capability.enabled) return visibility;
-
     const { viewerMembership, alliance, mateIds, viewerRole, partnerIds } =
       await this.relationships.starmapCandidates(viewerId);
     const managementDetails =

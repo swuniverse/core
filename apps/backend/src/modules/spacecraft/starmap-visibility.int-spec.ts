@@ -12,7 +12,6 @@ import {
   resetDatabase,
 } from '../../testing/integration/database';
 import { User } from '../auth/user.entity';
-import { AllianceInfrastructureCapabilityService } from '../alliance/alliance-infrastructure-capability.service';
 import { AllianceService } from '../alliance/alliance.service';
 import {
   NoPersonalContactStatusPort,
@@ -170,14 +169,11 @@ describe('starmap contacts (Postgres)', () => {
     await alliances.acceptRelationshipProposal(acceptor.id, id);
   }
 
-  function visibility({ enabled = true } = {}) {
+  function visibility() {
     return new StarmapVisibilityService(
       dataSource.getRepository(Spacecraft),
       new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
       dataSource.getRepository(Layer),
-      new AllianceInfrastructureCapabilityService({
-        get: () => (enabled ? 'true' : undefined),
-      } as never),
     );
   }
 
@@ -226,7 +222,6 @@ describe('starmap contacts (Postgres)', () => {
 
     const result = await visibility().listContacts(leia.id, core.id);
 
-    expect(result.allianceContactsActive).toBe(true);
     expect(summary(result.contacts)).toEqual([
       'Falcon:ALLIANCE:FRIEND+details',
       'Red Five:SHARED_LIVE_POSITION:NEUTRAL',

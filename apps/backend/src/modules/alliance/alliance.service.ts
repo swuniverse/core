@@ -48,8 +48,6 @@ import {
 } from './alliance-permissions';
 import { ALLIANCE_STORE, AllianceConstraintViolation } from './alliance.store';
 import { DiplomacyRateLimiterService } from './diplomacy-rate-limiter.service';
-import { AllianceInfrastructureCapabilityService } from './alliance-infrastructure-capability.service';
-import { DiplomacyCapabilityService } from './diplomacy-capability.service';
 import type {
   AllianceConstraint,
   AllianceDiplomacyChronicleEntryRecord,
@@ -105,7 +103,6 @@ const ERR = {
   alreadyApplied: 'Du hast Dich bei dieser Allianz bereits beworben',
   concurrentChange:
     'Die Allianz wurde gerade geändert. Bitte lade die Seite neu und versuche es erneut',
-  diplomacyUnavailable: 'Der Diplomatie-Kern ist noch nicht aktiviert',
 } as const;
 
 /** Domain error for a constraint that rejected a write (last line of defence). */
@@ -131,8 +128,6 @@ export class AllianceService {
     @Inject(ALLIANCE_STORE) private readonly store: AllianceStore,
     private readonly messaging: MessagingService,
     private readonly rateLimiter?: DiplomacyRateLimiterService,
-    private readonly diplomacyCapability?: DiplomacyCapabilityService,
-    private readonly infrastructureCapability?: AllianceInfrastructureCapabilityService,
   ) {}
 
   // --- Queries ---
@@ -248,18 +243,17 @@ export class AllianceService {
           editDetails: may('editDetails'),
           manageApplications: may('manageApplications'),
           dissolve: may('dissolve'),
-          declareWar: this.diplomacyEnabled && may('declareWar'),
-          manageDiplomacy: this.diplomacyEnabled && may('manageDiplomacy'),
-          warTargets:
-            this.diplomacyEnabled && may('declareWar')
-              ? alliances
-                  .filter(
-                    (candidate) =>
-                      candidate.id !== allianceId &&
-                      candidate.factionId === alliance.factionId,
-                  )
-                  .map(({ id, name, color }) => ({ id, name, color }))
-              : [],
+          declareWar: may('declareWar'),
+          manageDiplomacy: may('manageDiplomacy'),
+          warTargets: may('declareWar')
+            ? alliances
+                .filter(
+                  (candidate) =>
+                    candidate.id !== allianceId &&
+                    candidate.factionId === alliance.factionId,
+                )
+                .map(({ id, name, color }) => ({ id, name, color }))
+            : [],
         },
       },
     };
@@ -368,10 +362,7 @@ export class AllianceService {
     );
 
     return {
-      enabled: this.diplomacyEnabled,
-      effectsApplied: this.diplomacyEnabled,
-      starmapDisplayActive: this.infrastructureCapability?.enabled ?? false,
-      capabilities: { create: this.diplomacyEnabled },
+      capabilities: { create: true },
       targets: alliances
         .filter(
           (candidate) =>
@@ -400,7 +391,7 @@ export class AllianceService {
               : change
                 ? 'RECEIVED'
                 : null,
-            this.diplomacyEnabled,
+            true,
           ),
         };
       }),
@@ -1290,7 +1281,6 @@ export class AllianceService {
     messagesOf: (result: T) => OutgoingMessage[] = (result) =>
       result as OutgoingMessage[],
   ): Promise<T> {
-    this.requireDiplomacyEnabled();
     const result = await this.mutate(async (tx) => {
       const value = await work(tx);
       await tx.enqueueDiplomacyNotifications(
@@ -1350,16 +1340,6 @@ export class AllianceService {
         }
         throw error;
       }
-    }
-  }
-
-  private get diplomacyEnabled(): boolean {
-    return this.diplomacyCapability?.enabled ?? true;
-  }
-
-  private requireDiplomacyEnabled(): void {
-    if (!this.diplomacyEnabled) {
-      throw new BadRequestException(ERR.diplomacyUnavailable);
     }
   }
 
