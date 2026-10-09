@@ -503,3 +503,16 @@ export interface DashboardForumTopicDto {
 }
 
 export const DASHBOARD_FORUM_TOPIC_LIMIT = 3;
+
+export interface AllianceColonyStockItemDto {
+  commodityId: number;
+  name: string;
+  amount: number;
+}
+
+/** Stock of one member colony, shown on expanding it in the member overview. */
+export interface AllianceColonyStockDto {
+  allianceId: number;
+  colonyId: number;
+  items: AllianceColonyStockItemDto[];
+}

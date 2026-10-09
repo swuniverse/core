@@ -33,11 +33,25 @@ export interface MemberOperationsRecord {
   ships: MemberShipRecord[];
 }
 
+export interface ColonyStockItemRecord {
+  commodityId: number;
+  name: string;
+  amount: number;
+}
+
+/** Stock of one active colony; the owner lets callers check membership. */
+export interface ColonyStockRecord {
+  colonyId: number;
+  userId: number;
+  items: ColonyStockItemRecord[];
+}
+
 /**
  * Narrow read view onto colony, ship, crew and activity data of many players
  * at once. Implementations load the data bundled, not once per player.
- * Further read methods (e.g. `colonyStock`) are added here.
  */
 export interface MemberOperationsReader {
   memberOperations(userIds: number[]): Promise<MemberOperationsRecord[]>;
+  /** Stock (amount > 0) of an active colony; null when missing or abandoned. */
+  colonyStock(colonyId: number): Promise<ColonyStockRecord | null>;
 }

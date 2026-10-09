@@ -3,6 +3,7 @@ import { AllianceRole } from '@swuniverse/shared';
 import { InMemoryAllianceStore } from './testing/in-memory-alliance.store';
 import { MemberOverviewService } from './member-overview.service';
 import type {
+  ColonyStockRecord,
   MemberOperationsReader,
   MemberOperationsRecord,
 } from './member-operations.port';
@@ -12,6 +13,11 @@ const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 class FakeReader implements MemberOperationsReader {
   calls: number[][] = [];
   data = new Map<number, Partial<MemberOperationsRecord>>();
+  stocks = new Map<number, ColonyStockRecord>();
+
+  async colonyStock(colonyId: number) {
+    return this.stocks.get(colonyId) ?? null;
+  }
 
   async memberOperations(userIds: number[]) {
     this.calls.push(userIds);
@@ -231,5 +237,59 @@ describe('MemberOverviewService', () => {
     ]) {
       expect(text).not.toContain(leaked);
     }
+  });
+
+  describe('colony stock', () => {
+    const stock = (userId: number): ColonyStockRecord => ({
+      colonyId: 9,
+      userId,
+      items: [{ commodityId: 1, name: 'Deuterium', amount: 40 }],
+    });
+
+    it.each([
+      ['president', 1],
+      ['vice', 2],
+    ])('gives the %s the stock of a member colony', async (_n, viewer) => {
+      const { service, alliance, reader } = setup();
+      reader.stocks.set(9, stock(4));
+      expect(await service.getColonyStock(viewer, alliance.id, 9)).toEqual({
+        allianceId: alliance.id,
+        colonyId: 9,
+        items: [{ commodityId: 1, name: 'Deuterium', amount: 40 }],
+      });
+    });
+
+    it('refuses diplomat and member without office with Forbidden', async () => {
+      const { service, alliance, reader } = setup();
+      reader.stocks.set(9, stock(4));
+      for (const viewer of [3, 4]) {
+        await expect(
+          service.getColonyStock(viewer, alliance.id, 9),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      }
+    });
+
+    it('hides the alliance from outsiders', async () => {
+      const { service, alliance, other, reader } = setup();
+      reader.stocks.set(9, stock(4));
+      await expect(
+        service.getColonyStock(5, alliance.id, 9),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.getColonyStock(1, other.id, 9),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('answers Not Found for colonies of outsiders, former members and unknown or abandoned colonies', async () => {
+      const { service, alliance, reader, store } = setup();
+      store.addPlayer(6, 'Former');
+      reader.stocks.set(10, { ...stock(5), colonyId: 10 });
+      reader.stocks.set(11, { ...stock(6), colonyId: 11 });
+      for (const colonyId of [10, 11, 999]) {
+        await expect(
+          service.getColonyStock(1, alliance.id, colonyId),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      }
+    });
   });
 });
