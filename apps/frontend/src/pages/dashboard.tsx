@@ -10,6 +10,7 @@ import type {
 import { DashboardAttention } from './dashboard/DashboardAttention';
 import { DashboardFleet } from './dashboard/DashboardFleet';
 import { DashboardColonies } from './dashboard/DashboardColonies';
+import { DashboardForum } from './dashboard/DashboardForum';
 import { DashboardProcesses } from './dashboard/DashboardProcesses';
 import {
   RecentEvents,
@@ -33,6 +34,7 @@ export function DashboardPage() {
       tickData,
       distressSignals,
       recentEvents,
+      forumTopics,
     ] = await Promise.all([
       api.get<
         Array<{
@@ -133,6 +135,11 @@ export function DashboardPage() {
         )
         .catch(() => []),
       api.get<DashboardData['recentEvents']>('/events/recent').catch(() => []),
+      api
+        .get<NonNullable<DashboardData['forumTopics']>>(
+          '/dashboard/forum-topics',
+        )
+        .catch(() => []),
     ]);
 
     const activeResearch =
@@ -416,6 +423,7 @@ export function DashboardPage() {
       currentObjective,
       baustelleAlerts,
       distressSignals,
+      forumTopics,
     });
     setLoading(false);
   }, []);
@@ -450,6 +458,7 @@ export function DashboardPage() {
         <DashboardProcesses data={data} />
       </div>
       <DashboardMessages data={data} />
+      <DashboardForum data={data} />
       <RecentEvents data={data} />
     </div>
   );

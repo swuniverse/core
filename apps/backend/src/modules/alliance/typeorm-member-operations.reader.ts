@@ -12,7 +12,10 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { resolveSpacecraftLocation } from '../spacecraft/spacecraft-field';
+import { GameDataService } from '../game-data/game-data.service';
+import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import type {
+  ColonyStockRecord,
   MemberOperationsReader,
   MemberOperationsRecord,
 } from './member-operations.port';
@@ -28,7 +31,33 @@ export class TypeOrmMemberOperationsReader implements MemberOperationsReader {
     private readonly dataSource: DataSource,
     private readonly crew: ColonyCrewService,
     private readonly stats: ColonyStatsService,
+    private readonly gameData: GameDataService,
   ) {}
+
+  async colonyStock(colonyId: number): Promise<ColonyStockRecord | null> {
+    const manager = this.dataSource.manager;
+    const colony = await manager.findOne(Colony, {
+      where: { id: colonyId, isAbandoned: false },
+    });
+    if (!colony || colony.userId == null) return null;
+    const rows = await manager.find(ColonyStorage, {
+      where: { colonyId },
+      order: { commodityId: 'ASC' },
+    });
+    return {
+      colonyId,
+      userId: colony.userId,
+      items: rows
+        .filter((row) => row.amount > 0)
+        .map((row) => ({
+          commodityId: row.commodityId,
+          name:
+            this.gameData.getCommodity(row.commodityId)?.name ??
+            `Ware ${row.commodityId}`,
+          amount: row.amount,
+        })),
+    };
+  }
 
   async memberOperations(userIds: number[]): Promise<MemberOperationsRecord[]> {
     const ids = [...new Set(userIds)];

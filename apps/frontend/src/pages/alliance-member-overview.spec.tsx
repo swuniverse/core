@@ -126,4 +126,43 @@ describe('AllianceMemberOverviewPage', () => {
       ),
     );
   });
+
+  describe('colony stock', () => {
+    const stock = {
+      allianceId: 1,
+      colonyId: 9,
+      items: [{ commodityId: 1, name: 'Deuterium', amount: 40 }],
+    };
+
+    async function openColony() {
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: /Leia/ }));
+    }
+
+    it('loads the stock only when a colony is expanded', async () => {
+      apiMocks.get.mockImplementation(async (url: string) =>
+        url.endsWith('/stock') ? stock : overview,
+      );
+      await openColony();
+      expect(apiMocks.get).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole('button', { name: /Hoth Base/ }));
+      expect(screen.getByText('Lagerbestand wird geladen …')).toBeTruthy();
+      await screen.findByText('Deuterium');
+      expect(screen.getByText('40')).toBeTruthy();
+      expect(apiMocks.get).toHaveBeenCalledWith(
+        '/alliances/1/member-overview/colonies/9/stock',
+      );
+    });
+
+    it('shows an error when the stock cannot be loaded', async () => {
+      apiMocks.get.mockImplementation(async (url: string) => {
+        if (url.endsWith('/stock')) throw new Error('boom');
+        return overview;
+      });
+      await openColony();
+      fireEvent.click(screen.getByRole('button', { name: /Hoth Base/ }));
+      await screen.findByText('Der Lagerbestand konnte nicht geladen werden.');
+    });
+  });
 });

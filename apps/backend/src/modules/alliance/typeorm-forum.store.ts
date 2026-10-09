@@ -15,6 +15,7 @@ import type {
   ForumMemberRecord,
   ForumModerationStamp,
   ForumPostRecord,
+  ForumRecentTopicRecord,
   ForumStore,
   ForumTopicRecord,
   ForumTopicSummaryRecord,
@@ -253,6 +254,30 @@ class TypeOrmForumStoreSession implements ForumStore {
       postCount: Number(counts.find((c) => c.topicId === topic.id)?.posts ?? 0),
     }));
     return { topics: summaries, total };
+  }
+
+  async listRecentTopics(
+    allianceId: number,
+    limit: number,
+  ): Promise<ForumRecentTopicRecord[]> {
+    const topics = await this.manager
+      .createQueryBuilder(ForumTopic, 'topic')
+      .innerJoin(ForumBoard, 'board', 'board.id = topic.boardId')
+      .where('board.allianceId = :allianceId', { allianceId })
+      .andWhere('board.deletedAt IS NULL')
+      .andWhere('topic.deletedAt IS NULL')
+      .orderBy('topic.lastActivityAt', 'DESC')
+      .addOrderBy('topic.id', 'DESC')
+      .limit(limit)
+      .getMany();
+    if (!topics.length) return [];
+    const boards = await this.manager.findBy(ForumBoard, {
+      id: In([...new Set(topics.map((t) => t.boardId))]),
+    });
+    return topics.map((topic) => ({
+      topic: toTopic(topic),
+      boardName: boards.find((b) => b.id === topic.boardId)?.name ?? '',
+    }));
   }
 
   async findTopic(id: number) {

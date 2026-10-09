@@ -456,4 +456,64 @@ describe('ForumService', () => {
       expect(limiter).toBeDefined();
     });
   });
+
+  describe('recent topics for the dashboard', () => {
+    it('returns an empty list for players without an alliance', async () => {
+      const { service } = setup();
+      await expect(service.listRecentTopics(6)).resolves.toEqual([]);
+    });
+
+    it('returns the three most recently active topics with board and target', async () => {
+      const ctx = setup();
+      const board = await ctx.service.createBoard(1, ctx.rogue.id, { name: 'Allgemein' });
+      const ids: number[] = [];
+      for (const title of ['Eins', 'Zwei', 'Drei', 'Vier']) {
+        const { topicId } = await ctx.service.createTopic(4, ctx.rogue.id, board.id, {
+          title,
+          text: 'x',
+        });
+        ids.push(topicId);
+      }
+      // A new post lifts the oldest topic to the top.
+      await ctx.service.createPost(2, ctx.rogue.id, ids[0], { text: 'neu' });
+
+      const recent = await ctx.service.listRecentTopics(4);
+      expect(recent.map((t) => t.title)).toEqual(['Eins', 'Vier', 'Drei']);
+      expect(recent[0]).toMatchObject({
+        topicId: ids[0],
+        boardId: board.id,
+        boardName: 'Allgemein',
+        allianceId: ctx.rogue.id,
+        linkTo: `/alliances/${ctx.rogue.id}/forum/topics/${ids[0]}`,
+      });
+      expect(typeof recent[0].lastActivityAt).toBe('string');
+    });
+
+    it('ignores topics of other alliances', async () => {
+      const ctx = setup();
+      await boardWithTopic(ctx);
+      await expect(ctx.service.listRecentTopics(5)).resolves.toEqual([]);
+    });
+
+    it('leaves out deleted topics and topics in deleted boards', async () => {
+      const ctx = setup();
+      const a = await boardWithTopic(ctx);
+      const board2 = await ctx.service.createBoard(1, ctx.rogue.id, { name: 'Zweit' });
+      const t2 = await ctx.service.createTopic(4, ctx.rogue.id, board2.id, { title: 'Weg', text: 'x' });
+      const t3 = await ctx.service.createTopic(4, ctx.rogue.id, a.board.id, { title: 'Auch weg', text: 'x' });
+      await ctx.service.deleteBoard(1, ctx.rogue.id, board2.id);
+      await ctx.service.deleteTopic(1, ctx.rogue.id, t3.topicId);
+      const recent = await ctx.service.listRecentTopics(4);
+      expect(recent.map((t) => t.topicId)).toEqual([a.topicId]);
+      expect(t2.topicId).toBeDefined();
+    });
+
+    it('drops the section as soon as the player leaves the alliance', async () => {
+      const ctx = setup();
+      await boardWithTopic(ctx);
+      expect(await ctx.service.listRecentTopics(4)).toHaveLength(1);
+      await ctx.alliances.deleteMembership(ctx.rogue.id, 4);
+      expect(await ctx.service.listRecentTopics(4)).toEqual([]);
+    });
+  });
 });

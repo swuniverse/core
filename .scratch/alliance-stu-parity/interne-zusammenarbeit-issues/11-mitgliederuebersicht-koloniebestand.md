@@ -4,7 +4,7 @@
 
 **Blocked by:** 10: Mitgliederübersicht
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/11-mitgliederuebersicht-koloniebestand.md`)
@@ -16,3 +16,7 @@
 - [ ] Die Mitgliederübersicht lädt den Bestand erst beim Aufklappen einer Kolonie und zeigt Lade- und Fehlerzustand.
 - [ ] Verhaltenstests: Bestand für Kolonien eigener Mitglieder; Not Found für Kolonien Allianzfremder, ehemaliger Mitglieder, aufgegebene und nicht existierende Kolonien; Forbidden für Diplomat und Mitglied ohne Amt der eigenen Allianz.
 - [ ] Frontend-Seitentest für das Nachladen beim Aufklappen.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `MemberOperationsReader.colonyStock`, `MemberOverviewService.getColonyStock`, route `GET /alliances/:id/member-overview/colonies/:colonyId/stock`, lazy-loaded in the overview page.

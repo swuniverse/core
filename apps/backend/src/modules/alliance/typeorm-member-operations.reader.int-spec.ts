@@ -11,6 +11,7 @@ import { ColonyCrewService } from '../colony/colony-crew.service';
 import { ColonySocialService } from '../colony/colony-social.service';
 import { ColonyStatsService } from '../colony/colony-stats.service';
 import { Colony } from '../colony/entities/colony.entity';
+import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { ColonyCrewTrainingQueue } from '../colony/entities/colony-crew-training-queue.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
@@ -50,7 +51,12 @@ describe('member operations reader (Postgres)', () => {
       stats,
       new ColonySocialService(gameData),
     );
-    reader = new TypeOrmMemberOperationsReader(dataSource, crew, stats);
+    reader = new TypeOrmMemberOperationsReader(
+      dataSource,
+      crew,
+      stats,
+      gameData,
+    );
   });
   afterAll(() => dataSource.destroy());
 
@@ -204,5 +210,29 @@ describe('member operations reader (Postgres)', () => {
 
   it('returns an empty list for no players', async () => {
     await expect(reader.memberOperations([])).resolves.toEqual([]);
+  });
+
+  it('reads the stock of an active colony and nothing for abandoned or missing ones', async () => {
+    const { starSystem } = await world();
+    const leia = await rebel({ username: 'leia' });
+    const active = await colony(leia.id, starSystem.id);
+    const gone = await colony(leia.id, starSystem.id, { isAbandoned: true });
+    const storage = dataSource.getRepository(ColonyStorage);
+    await storage.save([
+      { colonyId: active.id, commodityId: 2, amount: 30 },
+      { colonyId: active.id, commodityId: 1, amount: 5 },
+      { colonyId: active.id, commodityId: 3, amount: 0 },
+      { colonyId: gone.id, commodityId: 1, amount: 9 },
+    ]);
+
+    const stock = await reader.colonyStock(active.id);
+    expect(stock).toMatchObject({ colonyId: active.id, userId: leia.id });
+    expect(stock?.items.map((i) => [i.commodityId, i.amount])).toEqual([
+      [1, 5],
+      [2, 30],
+    ]);
+    expect(stock?.items[0].name).toEqual(expect.any(String));
+    await expect(reader.colonyStock(gone.id)).resolves.toBeNull();
+    await expect(reader.colonyStock(999999)).resolves.toBeNull();
   });
 });

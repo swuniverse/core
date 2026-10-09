@@ -6,6 +6,7 @@ import type {
   ForumMemberRecord,
   ForumModerationStamp,
   ForumPostRecord,
+  ForumRecentTopicRecord,
   ForumStore,
   ForumTopicRecord,
   ForumTopicSummaryRecord,
@@ -329,5 +330,26 @@ export class InMemoryForumStore implements ForumStore {
       this.stamp(post, moderator);
       post.text = '';
     }
+  }
+
+  async listRecentTopics(
+    allianceId: number,
+    limit: number,
+  ): Promise<ForumRecentTopicRecord[]> {
+    const boards = this.state.boards.filter(
+      (b) => b.allianceId === allianceId && !b.deletedAt,
+    );
+    return this.state.topics
+      .filter((t) => !t.deletedAt && boards.some((b) => b.id === t.boardId))
+      .sort(
+        (a, b) =>
+          b.lastActivityAt.getTime() - a.lastActivityAt.getTime() ||
+          b.id - a.id,
+      )
+      .slice(0, limit)
+      .map((topic) => ({
+        topic: { ...topic },
+        boardName: boards.find((b) => b.id === topic.boardId)!.name,
+      }));
   }
 }
