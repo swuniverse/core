@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Allianz-Ratenbegrenzung verallgemeinern
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/04-forum-boards-themen-und-beitraege.md`)
@@ -23,3 +23,7 @@
 - [ ] Die Betrachteraktionen der Detailansicht erhalten „Forum lesen“; die Detailseite verlinkt das Forum nur bei gesetzter Fähigkeit. Neue Seiten Forum (Boardliste mit Anlageformular bei Fähigkeit), Board (Themenliste, neues Thema) und Thema (Beiträge, Paginierung, Antwortformular); nach dem Absenden landet der Spieler auf der Seite mit seinem Beitrag; Servervalidierungsfehler werden angezeigt.
 - [ ] Forumsdienst-Verhaltenstests: Lesen, Anlegen und Antworten durch jedes Mitglied; Board-Anlage nur durch Präsident und Vize; Not Found für Nichtmitglieder und fremde IDs; sofortiger Zugriffsverlust nach Austritt und Rauswurf; neues Mitglied sieht das bisherige Forum; Längengrenzen inkl. Emoji und kombinierender Zeichen; Board-Limit; Sortierung und Paginierung; „Gelöschter Siedler“; Ratenbegrenzung.
 - [ ] Frontend-Seitentests mit gemockter API für Boardliste, Themenliste, Themenansicht, Paginierung, Fähigkeiten und Fehlermeldungen.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `ForumService` + `FORUM_STORE` port (forum.store.ts), TypeORM and in-memory stores, migration 20261009100000-add-alliance-forum, routes under `/alliances/:id/forum/...`, frontend alliance-forum.tsx. Controller-level authorization tests deferred to ticket 12.
