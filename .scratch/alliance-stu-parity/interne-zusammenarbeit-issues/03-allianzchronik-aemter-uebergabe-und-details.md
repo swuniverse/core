@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Allianzchronik – Gründung und Mitgliedschaft
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/03-allianzchronik-aemter-uebergabe-und-details.md`)
@@ -17,3 +17,7 @@
 - [ ] Alle Einträge entstehen in der Transaktion der auslösenden Aktion; Verhalten, Rechte und Nachrichten der Aktionen bleiben unverändert.
 - [ ] Die Chronikseite stellt die neuen Ereignistypen mit Amtstiteln bzw. geänderten Feldern verständlich dar.
 - [ ] `AllianceService`-Verhaltenstests für jeden Ereignistyp, für die No-op-Änderung und für scheiternde Aktionen; Frontend-Seitentests für die Darstellung.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. ROLE_CHANGED, PRESIDENCY_TRANSFERRED, DETAILS_CHANGED written in the action transactions; frontend renders them in German.
