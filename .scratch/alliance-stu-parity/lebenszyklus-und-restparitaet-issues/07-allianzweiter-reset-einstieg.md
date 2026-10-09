@@ -4,9 +4,9 @@
 
 **Blocked by:** 02, 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Zweimaliger Aufruf und abgebrochener, wiederholter Reset enden im selben sauberen Zustand
-- [ ] Nach dem Reset zeigen keine Rechte, Zugänge oder Zuordnungen auf neu vergebene IDs (Postgres-Test mit neuer Allianz)
-- [ ] Unreferenzierte Bannerdateien werden entfernt
-- [ ] Bereinigungs-Port erhält das Reset-Ereignis
+- [x] Zweimaliger Aufruf und abgebrochener, wiederholter Reset enden im selben sauberen Zustand
+- [x] Nach dem Reset zeigen keine Rechte, Zugänge oder Zuordnungen auf neu vergebene IDs (Postgres-Test mit neuer Allianz)
+- [x] Unreferenzierte Bannerdateien werden entfernt
+- [x] Bereinigungs-Port erhält das Reset-Ereignis
