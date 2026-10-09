@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: Forum – Boards, Themen und Beiträge
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/05-forum-eigene-beitraege-bearbeiten.md`)
@@ -16,3 +16,7 @@
 - [ ] Fremde Beiträge der eigenen Allianz liefern Forbidden, fremde Allianzen Not Found.
 - [ ] Jeder Beitrag trägt die servergelieferte Fähigkeit „bearbeiten“; die Themenansicht zeigt die Aktion nur dann und zeigt „zuletzt bearbeitet“ an.
 - [ ] Forumsdienst-Verhaltenstests für Autor, fremdes Mitglied, Präsident, Vize, ehemaliges Mitglied, Grenzwerte und unveränderte Themenaktivität; Frontend-Seitentests für Inline-Bearbeitung, Fähigkeit und Bearbeitungshinweis.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `ForumService.updatePost`, `PATCH /alliances/:id/forum/posts/:postId`, rate-limit command `forum-edit`, inline editor in alliance-forum.tsx.
