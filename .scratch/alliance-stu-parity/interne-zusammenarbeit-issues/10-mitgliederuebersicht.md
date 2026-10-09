@@ -4,7 +4,7 @@
 
 **Blocked by:** 08: Letzte Aktivität erfassen
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Triage label:** ready-for-agent
 **Tracker:** local Markdown issue tracker (`.scratch/alliance-stu-parity/interne-zusammenarbeit-issues/10-mitgliederuebersicht.md`)
@@ -20,3 +20,7 @@
 - [ ] Verhaltenstests mit Testimplementierung des Lese-Ports: Präsident und Vize erhalten die Übersicht, Diplomat, Mitglied ohne Amt, Nichtmitglied und Mitglied einer anderen Allianz nicht; nur aktuelle Mitglieder; ausgeschlossene Daten fehlen; zerstörte Schiffe und aufgegebene Kolonien fehlen.
 - [ ] Postgres-Integrationstest der Lese-Port-Implementierung für mehrere Spieler gebündelt.
 - [ ] Frontend-Seitentests für Übersicht, Aufklappen, Link nur bei Fähigkeit und „unbekannt“.
+
+## Answer
+
+Merged on integration/interne-zusammenarbeit. `MemberOverviewService`, port `MemberOperationsReader` (token `MEMBER_OPERATIONS_READER`), route `GET /alliances/:id/member-overview`, frontend `alliance-member-overview.tsx`.
