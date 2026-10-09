@@ -19,6 +19,9 @@ export interface AllianceRecord {
   presidentTitle: string;
   viceTitle: string;
   diplomatTitle: string;
+  /** Opaque asset key of the banner, or null without banner. */
+  bannerKey: string | null;
+  bannerUpdatedAt: Date | null;
   foundedAt: Date;
 }
 
@@ -138,6 +141,8 @@ export type AlliancePatch = Partial<
     | 'presidentTitle'
     | 'viceTitle'
     | 'diplomatTitle'
+    | 'bannerKey'
+    | 'bannerUpdatedAt'
   >
 >;
 

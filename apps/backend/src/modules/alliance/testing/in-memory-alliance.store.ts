@@ -94,6 +94,8 @@ export class InMemoryAllianceStore implements AllianceStore {
       presidentTitle: DEFAULT_ALLIANCE_TITLES.president,
       viceTitle: DEFAULT_ALLIANCE_TITLES.vice,
       diplomatTitle: DEFAULT_ALLIANCE_TITLES.diplomat,
+      bannerKey: null,
+      bannerUpdatedAt: null,
       foundedAt: this.now(),
       ...data,
     };

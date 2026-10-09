@@ -5,6 +5,10 @@ import { GameGateway } from '../websocket/game.gateway';
 import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
 import { AllianceController } from './alliance.controller';
+import { AllianceBannerController } from './alliance-banner.controller';
+import { AllianceBannerService } from './alliance-banner.service';
+import { ALLIANCE_ASSET_STORAGE } from './alliance-asset.port';
+import { FileSystemAssetStorage } from './file-system-asset-storage';
 import { AllianceService } from './alliance.service';
 import { MemberOverviewService } from './member-overview.service';
 import { MEMBER_OPERATIONS_READER } from './member-operations.port';
@@ -60,9 +64,11 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     WebsocketModule,
     ColonyModule,
   ],
-  controllers: [AllianceController],
+  controllers: [AllianceController, AllianceBannerController],
   providers: [
     AllianceService,
+    AllianceBannerService,
+    { provide: ALLIANCE_ASSET_STORAGE, useClass: FileSystemAssetStorage },
     MemberOverviewService,
     {
       provide: MEMBER_OPERATIONS_READER,
