@@ -28,6 +28,8 @@ import { SpaceLocation } from '../../modules/starmap/entities/space-location.ent
 import { MapRegion } from '../../modules/starmap/entities/map-region.entity';
 import { BorderType } from '../../modules/starmap/entities/border-type.entity';
 import { Spacecraft } from '../../modules/spacecraft/entities/spacecraft.entity';
+import { CargoItem } from '../../modules/spacecraft/entities/cargo-item.entity';
+import { SpacecraftTorpedoStorage } from '../../modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftModule } from '../../modules/spacecraft/entities/spacecraft-module.entity';
 import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
 import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.entity';
@@ -70,6 +72,8 @@ export const INTEGRATION_ENTITIES = [
   MapRegion,
   BorderType,
   Spacecraft,
+  CargoItem,
+  SpacecraftTorpedoStorage,
   SpacecraftModule,
   Fleet,
   ShipClassDef,

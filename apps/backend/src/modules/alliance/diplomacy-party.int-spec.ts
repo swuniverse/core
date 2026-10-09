@@ -328,13 +328,15 @@ describe('diplomacy party model (Postgres)', () => {
       const friendship = await store.transaction((tx) =>
         tx.acceptRelationshipProposal(proposal.id),
       );
-      await store.insertRelationshipChangeProposal({
-        relationshipId: friendship!.id,
-        senderParty: playerParty(mon.id),
-        recipientParty: playerParty(leia.id),
-        contract: 'neu',
-        ...noPermissions,
-      });
+      await store.transaction((tx) =>
+        tx.insertRelationshipChangeProposal({
+          relationshipId: friendship!.id,
+          senderParty: playerParty(mon.id),
+          recipientParty: playerParty(leia.id),
+          contract: 'neu',
+          ...noPermissions,
+        }),
+      );
       await propose(wedge.id, leia.id);
       await store.appendDiplomacyChronicleEntry({
         eventType: 'RELATIONSHIP_STARTED' as never,
