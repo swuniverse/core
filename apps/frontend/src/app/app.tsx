@@ -26,11 +26,13 @@ import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
 import {
+  AllianceApplicationsPage,
   AllianceDetailPage,
   AllianceChroniclePage,
   AllianceDiplomacyPage,
   AllianceEditPage,
   AllianceFoundPage,
+  AllianceIndexPage,
   AllianceListPage,
   SettlerDiplomacyPage,
 } from '../pages/alliances';
@@ -146,7 +148,8 @@ export function App() {
             <Route path="/holonet/:id" element={<HolonetPage />} />
             <Route path="/database" element={<DatabasePage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
-            <Route path="/alliances" element={<AllianceListPage />} />
+            <Route path="/alliances" element={<AllianceIndexPage />} />
+            <Route path="/alliances/list" element={<AllianceListPage />} />
             <Route path="/alliances/new" element={<AllianceFoundPage />} />
             <Route
               path="/alliances/settlers/diplomacy"
@@ -156,7 +159,10 @@ export function App() {
               path="/alliances/:id/diplomacy"
               element={<AllianceDiplomacyPage />}
             />
-            <Route path="/alliances/:id/forum" element={<AllianceForumPage />} />
+            <Route
+              path="/alliances/:id/forum"
+              element={<AllianceForumPage />}
+            />
             <Route
               path="/alliances/:id/forum/boards/:boardId"
               element={<AllianceForumBoardPage />}
@@ -174,6 +180,10 @@ export function App() {
               element={<AllianceChroniclePage />}
             />
             <Route path="/alliances/:id" element={<AllianceDetailPage />} />
+            <Route
+              path="/alliances/:id/applications"
+              element={<AllianceApplicationsPage />}
+            />
             <Route path="/alliances/:id/edit" element={<AllianceEditPage />} />
             <Route path="/claim-colony" element={<OnboardingPage />} />
             <Route path="/notes" element={<NotesPage />} />
