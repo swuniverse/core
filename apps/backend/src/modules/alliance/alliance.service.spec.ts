@@ -533,7 +533,13 @@ describe('AllianceService', () => {
     it('lists alliances of both factions with member count and status', async () => {
       const { store, service } = setup();
       store.seedAlliance(
-        { name: 'Rogue Squadron', color: '#ff0000', acceptsApplications: true },
+        {
+          name: 'Rogue Squadron',
+          color: '#ff0000',
+          acceptsApplications: true,
+          bannerKey: 'rogue-banner',
+          bannerUpdatedAt: new Date(1234),
+        },
         [
           [1, PRESIDENT],
           [2, NONE],
@@ -558,6 +564,10 @@ describe('AllianceService', () => {
           memberCount: 2,
           color: '#ff0000',
           acceptsApplications: true,
+          banner: {
+            url: '/api/alliances/1/banner?v=1234',
+            updatedAt: '1970-01-01T00:00:01.234Z',
+          },
         }),
         expect.objectContaining({
           name: 'Black Squadron',
@@ -566,6 +576,7 @@ describe('AllianceService', () => {
           memberCount: 1,
           color: null,
           acceptsApplications: false,
+          banner: null,
         }),
       ]);
     });

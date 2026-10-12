@@ -32,6 +32,8 @@ export interface AllianceSummaryDto {
   factionName: string;
   memberCount: number;
   acceptsApplications: boolean;
+  /** Null while the alliance has no banner. */
+  banner: AllianceBannerDto | null;
   foundedAt: string;
 }
 
@@ -328,8 +330,6 @@ export function allianceBannerUrl(
 }
 
 export interface AllianceDetailDto extends AllianceSummaryDto {
-  /** Null while the alliance has no banner. */
-  banner: AllianceBannerDto | null;
   homepage: string;
   /** Raw BBCode description as stored, for the edit form. */
   description: string;

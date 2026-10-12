@@ -63,6 +63,7 @@ const summary = (
   factionName: 'Rebellenallianz',
   memberCount: 2,
   acceptsApplications: true,
+  banner: null,
   foundedAt: '2026-10-01T12:00:00.000Z',
   ...overrides,
 });
@@ -334,10 +335,9 @@ describe('AllianceIndexPage', () => {
 });
 
 describe('AllianceListPage', () => {
-  it('lists alliances of both factions with members and application status', async () => {
+  it('groups open alliances before closed alliances while retaining their list data', async () => {
     routeGet({
       '/alliances': [
-        summary(),
         summary({
           id: 2,
           name: 'Black Squadron',
@@ -347,27 +347,92 @@ describe('AllianceListPage', () => {
           memberCount: 5,
           acceptsApplications: false,
         }),
+        summary(),
       ],
       '/alliances/mine': { alliance: null },
     });
 
     renderAt('/alliances/list');
 
-    const rogue = (
-      await screen.findByRole('link', { name: 'Rogue Squadron' })
-    ).closest('tr')!;
+    const open = (
+      await screen.findByRole('heading', {
+        name: 'Offene Allianzen',
+      })
+    ).parentElement!;
+    const closed = screen.getByRole('heading', {
+      name: 'Geschlossene Allianzen',
+    }).parentElement!;
+    expect(
+      open.compareDocumentPosition(closed) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const rogue = within(open)
+      .getByRole('link', { name: 'Rogue Squadron' })
+      .closest('tr')!;
     expect(rogue.getAttribute('data-alliance-color')).toBe('#ff0000');
     expect(within(rogue).getByText('Rebellenallianz')).toBeTruthy();
     expect(within(rogue).getByText('2')).toBeTruthy();
     expect(within(rogue).getByText('offen')).toBeTruthy();
-    const black = screen
+    expect(
+      within(open)
+        .getByRole('link', { name: 'Rogue Squadron' })
+        .getAttribute('href'),
+    ).toBe('/alliances/1');
+
+    const black = within(closed)
       .getByRole('link', { name: 'Black Squadron' })
       .closest('tr')!;
     expect(within(black).getByText('Galaktisches Imperium')).toBeTruthy();
     expect(within(black).getByText('geschlossen')).toBeTruthy();
+  });
+
+  it('shows a configured banner as a full-width link and omits banner space otherwise', async () => {
+    routeGet({
+      '/alliances': [
+        summary({
+          banner: {
+            url: '/api/alliances/1/banner?v=1234',
+            updatedAt: '1970-01-01T00:00:01.234Z',
+          },
+        }),
+        summary({
+          id: 2,
+          name: 'Red Squadron',
+          color: null,
+        }),
+      ],
+      '/alliances/mine': { alliance: null },
+    });
+
+    renderAt('/alliances/list');
+
+    const banner = await screen.findByRole('img', {
+      name: 'Banner von Rogue Squadron',
+    });
+    expect(banner.getAttribute('src')).toBe('/api/alliances/1/banner?v=1234');
+    expect(banner.closest('a')?.getAttribute('href')).toBe('/alliances/1');
+    expect(banner.closest('td')?.getAttribute('colspan')).toBe('4');
+    expect(banner.classList.contains('w-full')).toBe(true);
     expect(
-      screen.getByRole('link', { name: 'Rogue Squadron' }).getAttribute('href'),
-    ).toBe('/alliances/1');
+      screen.queryByRole('img', { name: 'Banner von Red Squadron' }),
+    ).toBeNull();
+    expect(screen.getAllByRole('row')).toHaveLength(4);
+  });
+
+  it('omits an empty alliance group', async () => {
+    routeGet({
+      '/alliances': [summary()],
+      '/alliances/mine': { alliance: null },
+    });
+
+    renderAt('/alliances/list');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Offene Allianzen' }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Geschlossene Allianzen' }),
+    ).toBeNull();
   });
 
   it('offers founding only to alliance-less players', async () => {
@@ -812,7 +877,7 @@ describe('AllianceDetailPage', () => {
       name: 'Leitung',
     }).parentElement!;
     const members = screen.getByRole('heading', {
-      name: 'Mitglieder (2)',
+      name: 'Mitglieder',
     }).parentElement!;
     expect(within(leadership).getByRole('link', { name: 'Leia' })).toBeTruthy();
     expect(

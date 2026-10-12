@@ -172,6 +172,86 @@ export function AllianceIndexPage() {
   );
 }
 
+function AllianceListSection({
+  title,
+  alliances,
+}: {
+  title: string;
+  alliances: AllianceSummaryDto[];
+}) {
+  if (alliances.length === 0) return null;
+
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-bold text-swu-primary">{title}</h2>
+      <div className="overflow-x-auto border border-swu-border bg-swu-surface">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-swu-border text-xs uppercase tracking-wider text-swu-muted">
+            <tr>
+              <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Fraktion</th>
+              <th className="px-3 py-2 text-right">Mitglieder</th>
+              <th className="px-3 py-2">Aufnahme</th>
+            </tr>
+          </thead>
+          {alliances.map((alliance) => (
+            <tbody key={alliance.id}>
+              <tr
+                data-alliance-color={alliance.color ?? undefined}
+                className="border-b border-swu-border/40"
+              >
+                <td className="px-3 py-2">
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="size-2.5 shrink-0 rounded-full border border-swu-border"
+                      style={{
+                        backgroundColor: alliance.color ?? 'transparent',
+                      }}
+                    />
+                    <Link
+                      to={`/alliances/${alliance.id}`}
+                      className="font-bold text-swu-primary hover:text-swu-accent"
+                      style={{ color: alliance.color ?? undefined }}
+                    >
+                      {alliance.name}
+                    </Link>
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-swu-muted">
+                  {alliance.factionName}
+                </td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {alliance.memberCount}
+                </td>
+                <td className="px-3 py-2 text-swu-muted">
+                  {alliance.acceptsApplications ? 'offen' : 'geschlossen'}
+                </td>
+              </tr>
+              {alliance.banner && (
+                <tr className="border-b border-swu-border/40">
+                  <td colSpan={4}>
+                    <Link
+                      to={`/alliances/${alliance.id}`}
+                      className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent"
+                    >
+                      <img
+                        src={alliance.banner.url}
+                        alt={`Banner von ${alliance.name}`}
+                        className="h-auto max-h-[150px] w-full object-contain"
+                      />
+                    </Link>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          ))}
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function AllianceListPage() {
   const [alliances, setAlliances] = useState<AllianceSummaryDto[] | null>(null);
   const [mine, setMine] = useState<MyAllianceDto['alliance']>(null);
@@ -233,54 +313,19 @@ export function AllianceListPage() {
         </p>
       )}
       {alliances && alliances.length > 0 && (
-        <div className="overflow-x-auto border border-swu-border bg-swu-surface">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-swu-border text-xs uppercase tracking-wider text-swu-muted">
-              <tr>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Fraktion</th>
-                <th className="px-3 py-2 text-right">Mitglieder</th>
-                <th className="px-3 py-2">Aufnahme</th>
-              </tr>
-            </thead>
-            <tbody>
-              {alliances.map((alliance) => (
-                <tr
-                  key={alliance.id}
-                  data-alliance-color={alliance.color ?? undefined}
-                  className="border-b border-swu-border/40 last:border-0"
-                >
-                  <td className="px-3 py-2">
-                    <span className="flex items-center gap-2">
-                      <span
-                        aria-hidden
-                        className="size-2.5 shrink-0 rounded-full border border-swu-border"
-                        style={{
-                          backgroundColor: alliance.color ?? 'transparent',
-                        }}
-                      />
-                      <Link
-                        to={`/alliances/${alliance.id}`}
-                        className="font-bold text-swu-primary hover:text-swu-accent"
-                        style={{ color: alliance.color ?? undefined }}
-                      >
-                        {alliance.name}
-                      </Link>
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-swu-muted">
-                    {alliance.factionName}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {alliance.memberCount}
-                  </td>
-                  <td className="px-3 py-2 text-swu-muted">
-                    {alliance.acceptsApplications ? 'offen' : 'geschlossen'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          <AllianceListSection
+            title="Offene Allianzen"
+            alliances={alliances.filter(
+              (alliance) => alliance.acceptsApplications,
+            )}
+          />
+          <AllianceListSection
+            title="Geschlossene Allianzen"
+            alliances={alliances.filter(
+              (alliance) => !alliance.acceptsApplications,
+            )}
+          />
         </div>
       )}
     </div>
@@ -2002,7 +2047,7 @@ export function AllianceDetailPage() {
         )}
       />
       <AllianceMembersSection
-        title={`Mitglieder (${alliance.memberCount})`}
+        title="Mitglieder"
         members={alliance.members.filter(
           (member) => member.role === AllianceRole.NONE,
         )}

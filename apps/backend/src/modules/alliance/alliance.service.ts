@@ -395,7 +395,6 @@ export class AllianceService {
 
     return {
       ...this.toSummary(alliance, memberships.length, factions),
-      banner: this.bannerDto(alliance),
       homepage: alliance.homepage,
       description: alliance.description,
       renderedDescription: this.renderDescription(
@@ -2570,6 +2569,7 @@ export class AllianceService {
       factionName: faction?.name ?? UNKNOWN_NAME,
       memberCount,
       acceptsApplications: alliance.acceptsApplications,
+      banner: this.bannerDto(alliance),
       foundedAt: alliance.foundedAt.toISOString(),
     };
   }
