@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import type { ColonyTickEvent } from '@swuniverse/shared';
 import { EntityManager, QueryDeepPartialEntity, Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
@@ -11,7 +12,10 @@ import {
 
 @Injectable()
 export class ColonyEventService {
-  constructor(private readonly messageRepo: Repository<Message>) {}
+  constructor(
+    @InjectRepository(Message)
+    private readonly messageRepo: Repository<Message>,
+  ) {}
 
   async createTickEvents(
     colonyId: number,
