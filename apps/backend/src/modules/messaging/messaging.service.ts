@@ -2,6 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
+import {
+  IncomingMessageFolder,
+  MessageFolder,
+  MESSAGE_FOLDERS,
+} from './message-folder';
 
 @Injectable()
 export class MessagingService {
@@ -22,16 +27,79 @@ export class MessagingService {
     return { data, total, page, limit };
   }
 
+  async getFolder(
+    userId: number,
+    folder: MessageFolder,
+    page = 1,
+    limit = 20,
+  ) {
+    const normalizedPage = Math.max(1, page);
+    if (folder === MessageFolder.OUTBOX) {
+      return this.getSent(userId, normalizedPage, limit);
+    }
+
+    const [data, total] = await this.messageRepo.findAndCount({
+      where: {
+        recipientId: userId,
+        folder: folder as IncomingMessageFolder,
+        deletedByRecipient: false,
+      },
+      relations: ['sender'],
+      order: { createdAt: 'DESC' },
+      skip: (normalizedPage - 1) * limit,
+      take: limit,
+    });
+
+    return { data, total, page: normalizedPage, limit };
+  }
+
+  async getFolderSummary(userId: number) {
+    const received = await this.messageRepo
+      .createQueryBuilder('message')
+      .select('message.folder', 'folder')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE message."isRead" = false)',
+        'unread',
+      )
+      .where('message."recipientId" = :userId', { userId })
+      .andWhere('message."deletedByRecipient" = false')
+      .groupBy('message.folder')
+      .getRawMany<{ folder: MessageFolder; total: string; unread: string }>();
+    const sent = await this.messageRepo
+      .createQueryBuilder('message')
+      .select('COUNT(*)', 'total')
+      .where('message."senderId" = :userId', { userId })
+      .andWhere('message."deletedBySender" = false')
+      .getRawOne<{ total: string }>();
+    const counts = new Map(
+      received.map((row) => [
+        row.folder,
+        { total: Number(row.total), unread: Number(row.unread) },
+      ]),
+    );
+    counts.set(MessageFolder.OUTBOX, {
+      total: Number(sent?.total ?? 0),
+      unread: 0,
+    });
+
+    return MESSAGE_FOLDERS.map((folder) => ({
+      folder,
+      ...(counts.get(folder) ?? { unread: 0, total: 0 }),
+    }));
+  }
+
   async getSent(userId: number, page = 1, limit = 20) {
+    const normalizedPage = Math.max(1, page);
     const [data, total] = await this.messageRepo.findAndCount({
       where: { senderId: userId, deletedBySender: false },
       relations: ['recipient'],
       order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
+      skip: (normalizedPage - 1) * limit,
       take: limit,
     });
 
-    return { data, total, page, limit };
+    return { data, total, page: normalizedPage, limit };
   }
 
   async getOne(messageId: number, userId: number): Promise<Message> {
@@ -58,6 +126,7 @@ export class MessagingService {
       recipientId,
       subject,
       body,
+      folder: MessageFolder.PERSONAL,
     });
     return this.messageRepo.save(message);
   }
@@ -75,6 +144,7 @@ export class MessagingService {
         subject,
         body,
         isSystem: true,
+        folder: MessageFolder.SYSTEM,
       });
       return this.messageRepo.save(message);
     }
@@ -89,6 +159,7 @@ export class MessagingService {
         subject,
         body,
         isSystem: true,
+        folder: MessageFolder.SYSTEM,
         deliveryKey,
       })
       .orIgnore()
