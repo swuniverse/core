@@ -257,6 +257,11 @@ html:has(.swu-page--landing) {
 
 /* === Hero — Asymmetric Split === */
 
+.swu-game-status {
+  position: relative;
+  z-index: 2;
+}
+
 .swu-hero {
   position: relative;
   z-index: 2;

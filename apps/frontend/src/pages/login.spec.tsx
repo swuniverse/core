@@ -50,6 +50,9 @@ describe('LoginPage', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Wartung läuft')).toBeTruthy());
+    expect(screen.getByLabelText('Spielstatus').className).toContain(
+      'swu-game-status',
+    );
     expect(screen.getByText('Update läuft.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Registrieren' })).toBeNull();
   });

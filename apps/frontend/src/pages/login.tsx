@@ -245,7 +245,7 @@ export function LoginPage() {
       </nav>
 
       <section
-        className={`mx-auto mt-24 w-[min(92%,1180px)] border px-4 py-3 text-sm ${
+        className={`swu-game-status mx-auto mt-24 w-[min(92%,1180px)] border px-4 py-3 text-sm ${
           gameStatus.status === 'ONLINE'
             ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
             : gameStatus.status === 'MAINTENANCE_ANNOUNCED'
