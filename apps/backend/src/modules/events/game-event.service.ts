@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { GameEvent, GameEventType } from './entities/game-event.entity';
 import {
   resolveSpacecraftField,
@@ -31,24 +31,55 @@ export class GameEventService {
     );
   }
 
-  async recent(limit = 20) {
-    const events = await this.events.find({
-      relations: ['location', 'location.galaxyField', 'location.systemField'],
-      order: { createdAt: 'DESC' },
-      take: Math.min(Math.max(limit, 1), 50),
-    });
-    return events.map((event) => ({
-      id: event.id,
-      type: event.type,
-      text: event.text,
-      scope: event.scope,
-      layerId: event.layerId,
-      systemId: event.systemId,
-      x: event.x,
-      y: event.y,
-      locationId: event.locationId,
-      location: resolveSpaceLocation(event.location),
-      createdAt: event.createdAt.toISOString(),
-    }));
+  async recent({
+    limit = 20,
+    type,
+    search,
+  }: {
+    limit?: number;
+    type?: string;
+    search?: string;
+  } = {}) {
+    const where = {
+      ...(Object.values(GameEventType).includes(type as GameEventType)
+        ? { type: type as GameEventType }
+        : {}),
+      ...(search?.trim() ? { text: ILike(`%${search.trim()}%`) } : {}),
+    };
+    const [events, counts] = await Promise.all([
+      this.events.find({
+        where,
+        relations: ['location', 'location.galaxyField', 'location.systemField'],
+        order: { createdAt: 'DESC' },
+        take: Math.min(Math.max(limit, 1), 50),
+      }),
+      this.events
+        .createQueryBuilder('event')
+        .select('event.type', 'type')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('event.type')
+        .getRawMany<{ type: GameEventType; count: string }>(),
+    ]);
+    return {
+      events: events.map((event) => ({
+        id: event.id,
+        type: event.type,
+        text: event.text,
+        scope: event.scope,
+        layerId: event.layerId,
+        systemId: event.systemId,
+        x: event.x,
+        y: event.y,
+        locationId: event.locationId,
+        location: resolveSpaceLocation(event.location),
+        createdAt: event.createdAt.toISOString(),
+      })),
+      counts: Object.fromEntries(
+        Object.values(GameEventType).map((eventType) => [
+          eventType,
+          Number(counts.find((count) => count.type === eventType)?.count ?? 0),
+        ]),
+      ) as Record<GameEventType, number>,
+    };
   }
 }
