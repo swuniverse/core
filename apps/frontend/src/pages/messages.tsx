@@ -19,6 +19,41 @@ interface MessageDetail extends MessageSummary {
   recipientId: number;
 }
 
+interface FolderSummary {
+  folder: MessageFolder;
+  unread: number;
+  total: number;
+}
+
+type MessageFolder =
+  | 'PERSONAL'
+  | 'SHIP'
+  | 'COLONY'
+  | 'TRADE'
+  | 'SYSTEM'
+  | 'OUTBOX'
+  | 'STATION';
+
+const MESSAGE_FOLDERS: Array<{
+  folder: MessageFolder;
+  label: string;
+  route: string;
+  icon: string;
+}> = [
+  { folder: 'PERSONAL', label: 'Persönlich', route: 'personal', icon: '✉' },
+  { folder: 'SHIP', label: 'Schiffe', route: 'ship', icon: '▲' },
+  { folder: 'COLONY', label: 'Kolonien', route: 'colony', icon: '◉' },
+  { folder: 'TRADE', label: 'Handel', route: 'trade', icon: '↔' },
+  { folder: 'SYSTEM', label: 'System', route: 'system', icon: '◆' },
+  { folder: 'OUTBOX', label: 'Postausgang', route: 'outbox', icon: '↗' },
+  { folder: 'STATION', label: 'Station', route: 'station', icon: '▣' },
+];
+
+function parseFolder(value: string | null): MessageFolder {
+  const selected = MESSAGE_FOLDERS.find((folder) => folder.route === value);
+  return selected?.folder ?? 'PERSONAL';
+}
+
 interface InboxResponse {
   data: MessageSummary[];
   total: number;
@@ -26,19 +61,21 @@ interface InboxResponse {
   limit: number;
 }
 
-type Tab = 'inbox' | 'sent' | 'system' | 'compose';
+type Tab = 'folders' | 'compose';
 
 export function MessagesPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const initialRecipientId = Number(searchParams.get('to'));
   const startsCompose =
     initialTab === 'compose' &&
     Number.isInteger(initialRecipientId) &&
     initialRecipientId > 0;
-  const [tab, setTab] = useState<Tab>(
-    startsCompose ? 'compose' : initialTab === 'system' ? 'system' : 'inbox',
+  const [tab, setTab] = useState<Tab>(startsCompose ? 'compose' : 'folders');
+  const [folder, setFolder] = useState<MessageFolder>(() =>
+    parseFolder(searchParams.get('folder')),
   );
+  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [selected, setSelected] = useState<MessageDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,48 +97,72 @@ export function MessagesPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadMessages = async (t: Tab, p: number) => {
+  const refreshFolders = async () => {
+    const response = await api.get<FolderSummary[]>('/messages/folders');
+    setFolders(response);
+  };
+
+  const loadMessages = async (selectedFolder: MessageFolder, p: number) => {
     setLoading(true);
-    if (t === 'system') {
-      const res = await api.get<InboxResponse>(`/messages/inbox?page=${p}`);
-      const systemMsgs = res.data.filter((m) => m.isSystem);
-      setMessages(systemMsgs);
-      setTotal(systemMsgs.length);
-    } else if (t === 'inbox') {
-      const res = await api.get<InboxResponse>(`/messages/inbox?page=${p}`);
-      setMessages(res.data.filter((m) => !m.isSystem));
-      setTotal(res.total);
-    } else if (t === 'sent') {
-      const res = await api.get<InboxResponse>(`/messages/sent?page=${p}`);
-      setMessages(res.data);
-      setTotal(res.total);
+    try {
+      const response = await api.get<InboxResponse>(
+        `/messages/folders/${selectedFolder.toLowerCase()}?page=${p}`,
+      );
+      setMessages(response.data);
+      setTotal(response.total);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    if (tab !== 'compose') {
-      loadMessages(tab, page);
-    }
-  }, [tab, page]);
+    void refreshFolders().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'folders') void loadMessages(folder, page);
+  }, [folder, page, tab]);
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
     if (requestedTab === 'compose' && startsCompose) return;
-    setTab(requestedTab === 'system' ? 'system' : 'inbox');
+    setTab(requestedTab === 'compose' ? 'compose' : 'folders');
+    setFolder(parseFolder(searchParams.get('folder')));
     setPage(1);
     setSelected(null);
-  }, [searchParams]);
+  }, [searchParams, startsCompose]);
 
-  const switchTab = (t: Tab) => {
-    setTab(t);
+  const switchFolder = (nextFolder: MessageFolder) => {
+    setFolder(nextFolder);
+    setTab('folders');
     setPage(1);
     setSelected(null);
+    setSearchParams({ folder: nextFolder.toLowerCase() });
+  };
+
+  const switchToCompose = () => {
+    setTab('compose');
+    setSelected(null);
+    setSearchParams({ tab: 'compose' });
   };
 
   const openMessage = async (id: number) => {
     const msg = await api.get<MessageDetail>(`/messages/${id}`);
     setSelected(msg);
+    if (!msg.isRead && folder !== 'OUTBOX') {
+      setMessages((current) =>
+        current.map((entry) =>
+          entry.id === id ? { ...entry, isRead: true } : entry,
+        ),
+      );
+      setFolders((current) =>
+        current.map((entry) =>
+          entry.folder === folder
+            ? { ...entry, unread: Math.max(0, entry.unread - 1) }
+            : entry,
+        ),
+      );
+    }
   };
 
   const deleteMessage = async (id: number) => {
@@ -120,7 +181,7 @@ export function MessagesPage() {
       body: '',
     });
     setRecipientId(selected.senderId);
-    setTab('compose');
+    switchToCompose();
   };
 
   const searchUser = (query: string) => {
@@ -156,10 +217,13 @@ export function MessagesPage() {
     });
     setCompose({ recipientName: '', subject: '', body: '' });
     setRecipientId(null);
-    switchTab('sent');
+    switchFolder('OUTBOX');
   };
 
   const totalPages = Math.ceil(total / limit);
+  const currentFolder = MESSAGE_FOLDERS.find(
+    (entry) => entry.folder === folder,
+  )!;
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -182,26 +246,51 @@ export function MessagesPage() {
         Nachrichten
       </h1>
 
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {(['inbox', 'sent', 'system', 'compose'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => switchTab(t)}
-            className={`px-3 py-1 text-sm rounded border transition-colors ${
-              tab === t
-                ? 'border-swu-accent text-swu-accent bg-swu-accent/10'
-                : 'border-swu-border text-swu-muted hover:border-swu-primary'
-            }`}
-          >
-            {t === 'inbox'
-              ? 'Posteingang'
-              : t === 'sent'
-                ? 'Gesendet'
-                : t === 'system'
-                  ? 'System'
-                  : 'Verfassen'}
-          </button>
-        ))}
+      <div
+        className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-swu-border bg-swu-surface p-1"
+        aria-label="Nachrichtenordner"
+      >
+        {MESSAGE_FOLDERS.map((entry) => {
+          const summary = folders.find(
+            (item) => item.folder === entry.folder,
+          ) ?? {
+            unread: 0,
+            total: 0,
+          };
+          return (
+            <button
+              key={entry.folder}
+              type="button"
+              onClick={() => switchFolder(entry.folder)}
+              aria-pressed={tab === 'folders' && folder === entry.folder}
+              className={`shrink-0 rounded px-2 py-1 text-left text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent ${
+                tab === 'folders' && folder === entry.folder
+                  ? 'bg-swu-accent/15 text-swu-accent'
+                  : 'text-swu-muted hover:bg-swu-bg hover:text-swu-primary'
+              }`}
+            >
+              <span aria-hidden="true" className="mr-1">
+                {entry.icon}
+              </span>
+              <span>{entry.label}</span>
+              <span className="ml-1 font-mono text-[10px]">
+                {summary.unread}/{summary.total}
+              </span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={switchToCompose}
+          aria-pressed={tab === 'compose'}
+          className={`shrink-0 rounded px-2 py-1 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent ${
+            tab === 'compose'
+              ? 'bg-swu-accent/15 text-swu-accent'
+              : 'text-swu-muted hover:bg-swu-bg hover:text-swu-primary'
+          }`}
+        >
+          Verfassen
+        </button>
       </div>
 
       {tab === 'compose' ? (
@@ -259,6 +348,7 @@ export function MessagesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4 md:flex-row">
+          <h2 className="sr-only">{currentFolder.label}</h2>
           <div className="flex-1 bg-swu-surface border border-swu-border rounded-lg overflow-hidden">
             {loading ? (
               <div className="p-4 text-swu-muted text-sm">Laden...</div>
@@ -273,7 +363,7 @@ export function MessagesPage() {
                     key={msg.id}
                     className={`flex items-center hover:bg-swu-bg/50 transition-colors ${
                       selected?.id === msg.id ? 'bg-swu-bg/50' : ''
-                    } ${!msg.isRead && tab === 'inbox' ? 'border-l-2 border-l-swu-accent' : ''}`}
+                    } ${!msg.isRead && folder !== 'OUTBOX' ? 'border-l-2 border-l-swu-accent' : ''}`}
                   >
                     <button
                       onClick={() => openMessage(msg.id)}
@@ -282,7 +372,7 @@ export function MessagesPage() {
                       <div className="flex items-center justify-between">
                         <span
                           className={`text-sm ${
-                            !msg.isRead && tab === 'inbox'
+                            !msg.isRead && folder !== 'OUTBOX'
                               ? 'font-bold text-swu-primary'
                               : 'text-swu-muted'
                           }`}
@@ -294,7 +384,7 @@ export function MessagesPage() {
                         </span>
                       </div>
                       <p className="text-[10px] text-swu-muted mt-0.5">
-                        {tab === 'sent'
+                        {folder === 'OUTBOX'
                           ? `An: ${msg.recipient?.username}`
                           : msg.isSystem
                             ? 'System'
@@ -349,7 +439,7 @@ export function MessagesPage() {
                 text={selected.body}
                 className="text-sm text-swu-muted whitespace-pre-wrap mb-4"
               />
-              {!selected.isSystem && tab !== 'sent' && (
+              {!selected.isSystem && folder !== 'OUTBOX' && (
                 <button
                   onClick={replyTo}
                   className="px-3 py-1 text-xs bg-swu-accent/20 border border-swu-accent text-swu-accent rounded hover:bg-swu-accent/30 transition-colors"
