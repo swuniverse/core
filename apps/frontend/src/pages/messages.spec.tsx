@@ -90,14 +90,133 @@ describe('MessagesPage folders', () => {
     expect(await screen.findByText('Keine Nachrichten.')).toBeTruthy();
   });
 
-  it('opens a received message through the API and updates its local unread state', async () => {
+  it('refreshes the folder summary after reading a received message', async () => {
+    const refreshedFolders = folders.map((entry) =>
+      entry.folder === 'PERSONAL' ? { ...entry, unread: 0, total: 2 } : entry,
+    );
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') {
+        return Promise.resolve(
+          api.get.mock.calls.filter(([path]) => path === url).length === 1
+            ? folders
+            : refreshedFolders,
+        );
+      }
+      if (url === '/messages/folders/personal?page=1') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 11,
+              subject: 'Private Nachricht',
+              isRead: false,
+              isSystem: false,
+              createdAt: '2026-10-13T12:00:00.000Z',
+              sender: { username: 'Leia' },
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+        });
+      }
+      if (url === '/messages/11') {
+        return Promise.resolve({
+          id: 11,
+          subject: 'Private Nachricht',
+          body: 'Bitte antworten.',
+          isRead: false,
+          isSystem: false,
+          createdAt: '2026-10-13T12:00:00.000Z',
+          sender: { username: 'Leia' },
+          senderId: 7,
+          recipientId: 1,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+
     renderPage();
     fireEvent.click(await screen.findByText('Private Nachricht'));
 
-    expect(await screen.findByText('Bitte antworten.')).toBeTruthy();
-    expect(api.get).toHaveBeenCalledWith('/messages/11');
-    expect(
-      screen.getByRole('button', { name: /Persönlich/ }).textContent,
-    ).toContain('0/2');
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /Persönlich/ }).textContent,
+      ).toContain('0/2'),
+    );
+  });
+
+  it('refreshes the folder summary after deleting a message', async () => {
+    const refreshedFolders = folders.map((entry) =>
+      entry.folder === 'PERSONAL' ? { ...entry, unread: 0, total: 1 } : entry,
+    );
+    api.delete.mockResolvedValue(undefined);
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') {
+        return Promise.resolve(
+          api.get.mock.calls.filter(([path]) => path === url).length === 1
+            ? folders
+            : refreshedFolders,
+        );
+      }
+      if (url === '/messages/folders/personal?page=1') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 11,
+              subject: 'Private Nachricht',
+              isRead: false,
+              isSystem: false,
+              createdAt: '2026-10-13T12:00:00.000Z',
+              sender: { username: 'Leia' },
+            },
+          ],
+          total: 2,
+          page: 1,
+          limit: 20,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByTitle('Loeschen'));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /Persönlich/ }).textContent,
+      ).toContain('0/1'),
+    );
+  });
+
+  it('refreshes the folder summary after sending a message', async () => {
+    const refreshedFolders = folders.map((entry) =>
+      entry.folder === 'OUTBOX' ? { ...entry, total: 1 } : entry,
+    );
+    api.post.mockResolvedValue(undefined);
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') {
+        return Promise.resolve(
+          api.get.mock.calls.filter(([path]) => path === url).length === 1
+            ? folders
+            : refreshedFolders,
+        );
+      }
+      if (url === '/messages/folders/outbox?page=1') {
+        return Promise.resolve({ data: [], total: 1, page: 1, limit: 20 });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+    renderPage('/messages?tab=compose&to=7&name=Leia');
+
+    fireEvent.change(screen.getAllByRole('textbox')[1], {
+      target: { value: 'Status' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Senden' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /Postausgang/ }).textContent,
+      ).toContain('0/1'),
+    );
   });
 });
