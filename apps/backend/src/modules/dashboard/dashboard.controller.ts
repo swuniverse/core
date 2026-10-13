@@ -1,8 +1,10 @@
 import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

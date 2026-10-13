@@ -9,9 +9,11 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { SettingsService } from './settings.service';
 
 @Controller('user')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}

@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { StarmapService } from './starmap.service';
 import { PlanetGeneratorService } from './generator/planet-generator.service';
@@ -23,6 +24,7 @@ import type {
 } from '@swuniverse/shared';
 
 @Controller('starmap')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class PlanetSurfacesController {
   constructor(

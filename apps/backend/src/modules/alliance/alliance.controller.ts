@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import type {
   CreateForumBoardRequest,
   CreateForumPostRequest,
@@ -40,6 +41,7 @@ function optionalNumber(value?: string): number | undefined {
 }
 
 @Controller('alliances')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class AllianceController {
   constructor(

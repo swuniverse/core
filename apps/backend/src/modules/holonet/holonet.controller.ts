@@ -12,11 +12,13 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { HolonetService } from './holonet.service';
 import { PostCategory } from './entities/holonet-post.entity';
 import { AdminGuard } from '../auth/admin.guard';
 
 @Controller('holonet')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class HolonetController {
   constructor(private readonly holonetService: HolonetService) {}

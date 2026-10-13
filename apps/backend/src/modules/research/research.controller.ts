@@ -9,6 +9,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Min } from 'class-validator';
 import { Faction } from '@swuniverse/shared';
@@ -44,6 +45,7 @@ class QueuePreviewQueryDto {
 }
 
 @Controller('research')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class ResearchController {
   constructor(private readonly researchService: ResearchService) {}

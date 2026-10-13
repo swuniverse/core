@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { PermissionGuard, RequirePermission } from '../auth/permission.guard';
 import { Permission } from '../auth/permissions';
@@ -70,6 +71,7 @@ import type {
 } from '@swuniverse/shared';
 
 @Controller('starmap')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class StarmapController {
   constructor(
@@ -81,7 +83,10 @@ export class StarmapController {
     private readonly wormholeService: WormholeService,
   ) {}
 
-  private bypassFog(user: { isAdmin?: boolean; permissions?: string[] }): boolean {
+  private bypassFog(user: {
+    isAdmin?: boolean;
+    permissions?: string[];
+  }): boolean {
     return !!user.isAdmin || (user.permissions ?? []).includes('MAP_EDITOR');
   }
 
@@ -100,7 +105,8 @@ export class StarmapController {
   @Get('layers/:layerId/hyperspace-routes')
   getHyperspaceRoutes(
     @Param('layerId', ParseIntPipe) layerId: number,
-    @Req() req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<HyperspaceRouteDto[]> {
     if (this.bypassFog(req.user))
       return this.starmapQueryService.getHyperspaceRoutes(layerId);
@@ -114,7 +120,8 @@ export class StarmapController {
   @Get('layers/:layerId/fields')
   async getAllFields(
     @Param('layerId', ParseIntPipe) layerId: number,
-    @Req() req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapGalaxyFieldDto[]> {
     if (this.bypassFog(req.user)) {
       return this.starmapQueryService.getAllLayerFields(layerId);
@@ -129,9 +136,11 @@ export class StarmapController {
   @Get('layers/:layerId/sectors')
   getSectorsInLayer(
     @Param('layerId', ParseIntPipe) layerId: number,
-    @Req() req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapSectorDto[]> {
-    if (this.bypassFog(req.user)) return this.starmapService.getSectorsInLayer(layerId);
+    if (this.bypassFog(req.user))
+      return this.starmapService.getSectorsInLayer(layerId);
     return this.starmapQueryService.getExploredGalaxySectors(
       req.user.sub,
       layerId,
@@ -144,7 +153,8 @@ export class StarmapController {
     @Param('layerId', ParseIntPipe) layerId: number,
     @Param('sectorX', ParseIntPipe) sectorX: number,
     @Param('sectorY', ParseIntPipe) sectorY: number,
-    @Req() req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapGalaxyFieldDto[]> {
     if (this.bypassFog(req.user)) {
       return this.starmapQueryService.getGalaxySectorFields(
@@ -188,7 +198,8 @@ export class StarmapController {
 
   @Get('layers/:layerId/explored-sector/:sectorX/:sectorY')
   async getExploredSectorFields(
-    @Req() req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
     @Param('layerId', ParseIntPipe) layerId: number,
     @Param('sectorX', ParseIntPipe) sectorX: number,
     @Param('sectorY', ParseIntPipe) sectorY: number,

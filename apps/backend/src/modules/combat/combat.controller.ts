@@ -1,8 +1,10 @@
 import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { CombatService } from './combat.service';
 
 @Controller('combat')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class CombatController {
   constructor(private readonly combatService: CombatService) {}

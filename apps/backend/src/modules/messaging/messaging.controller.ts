@@ -11,9 +11,11 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { MessagingService } from './messaging.service';
 
 @Controller('messages')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class MessagingController {
   constructor(private readonly messagingService: MessagingService) {}

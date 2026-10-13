@@ -14,6 +14,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -274,6 +275,7 @@ class ShipCargoTransferDto {
 }
 
 @Controller('spacecraft')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class SpacecraftController {
   constructor(

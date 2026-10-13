@@ -23,6 +23,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { BANNER_TOO_LARGE_MESSAGE } from './alliance-banner-image';
 import { AllianceBannerService } from './alliance-banner.service';
 
@@ -80,6 +81,7 @@ export class AllianceBannerController {
 
   @Post()
   @HttpCode(204)
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   @UseFilters(UploadTooLargeFilter)
   @UseInterceptors(
@@ -95,6 +97,7 @@ export class AllianceBannerController {
 
   @Delete()
   @HttpCode(204)
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   async remove(
     @Request() req: AuthRequest,

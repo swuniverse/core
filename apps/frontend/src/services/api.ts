@@ -64,6 +64,10 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 403 && body.code === 'GAME_MAINTENANCE') {
+      const params = new URLSearchParams({ maintenance: body.message });
+      window.location.assign(`/?${params}`);
+    }
     throw new ApiError(res.status, body.message || res.statusText);
   }
 

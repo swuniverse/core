@@ -9,6 +9,11 @@ import type { UserProfile } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/auth.store';
 
+type GameStatus = {
+  status: 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
+  message: string;
+};
+
 function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   const first = payload.events[0];
   const suffix =
@@ -31,6 +36,7 @@ function formatColonyTickReport(payload: ColonyTickReportPayload): string {
 
 export function AppShell() {
   const [tickReports, setTickReports] = useState<string[]>([]);
+  const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const location = useLocation();
@@ -42,6 +48,10 @@ export function AppShell() {
       .then(setUser)
       .catch(() => undefined);
   }, [setUser]);
+
+  useEffect(() => {
+    void api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (
@@ -66,6 +76,22 @@ export function AppShell() {
       <Header />
       <Sidebar />
       <BottomNav />
+      {gameStatus?.status !== 'ONLINE' && (
+        <div
+          className={`fixed inset-x-0 top-[58px] z-40 border-b px-3 py-2 text-center text-xs md:top-[86px] ${
+            gameStatus?.status === 'MAINTENANCE'
+              ? 'border-red-400/40 bg-red-950/95 text-red-100'
+              : 'border-amber-400/40 bg-amber-950/95 text-amber-100'
+          }`}
+        >
+          <strong>
+            {gameStatus?.status === 'MAINTENANCE'
+              ? 'Wartung läuft'
+              : 'Wartung angekündigt'}
+          </strong>
+          {gameStatus?.message && ` — ${gameStatus.message}`}
+        </div>
+      )}
       {tickReports.length > 0 && (
         <div className="fixed right-3 top-[66px] z-50 w-[min(360px,calc(100vw-24px))] space-y-2 md:top-[94px]">
           {tickReports.map((report) => (

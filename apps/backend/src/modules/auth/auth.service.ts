@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,6 +22,8 @@ import {
   JwtPayload,
 } from '@swuniverse/shared';
 import { MailService } from '../mail/mail.service';
+import { GameStatusService } from '../game-status/game-status.service';
+import { GAME_MAINTENANCE_ERROR_CODE } from '../game-status/game-status.guard';
 
 const INITIAL_INVITE_QUOTA = 2;
 const INVITE_KEY_BYTES = 15;
@@ -68,6 +71,7 @@ export class AuthService {
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    private readonly gameStatusService: GameStatusService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -173,6 +177,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    await this.assertGameAccess(user);
     return this.generateTokens(user);
   }
 
@@ -184,6 +189,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    await this.assertGameAccess(user);
     return this.generateTokens(user);
   }
 
@@ -469,6 +475,18 @@ export class AuthService {
 
   async updatePermissions(userId: number, permissions: string[]) {
     await this.userRepo.update(userId, { permissions });
+  }
+
+  private async assertGameAccess(user: User): Promise<void> {
+    if (user.isAdmin || !(await this.gameStatusService.isMaintenance())) {
+      return;
+    }
+
+    const status = await this.gameStatusService.getPublicStatus();
+    throw new ForbiddenException({
+      code: GAME_MAINTENANCE_ERROR_CODE,
+      message: status.message,
+    });
   }
 
   private async generateTokens(user: User): Promise<AuthResponse> {

@@ -9,6 +9,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto } from './dto/register.dto';
 import { LoginRequestDto } from './dto/login.dto';
@@ -33,30 +34,35 @@ export class AuthController {
     return this.authService.refresh(refreshToken);
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   getProfile(@Request() req: { user: { sub: number } }) {
     return this.authService.getProfile(req.user.sub);
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   @Get('invites')
   getMyInvites(@Request() req: { user: { sub: number } }) {
     return this.authService.getMyInvites(req.user.sub);
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   @Post('invites')
   createMyInvite(@Request() req: { user: { sub: number } }) {
     return this.authService.createMyInvite(req.user.sub);
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('admin/invites')
   getAdminInvites() {
     return this.authService.getAdminInvites();
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/invites')
   adminCreateInvites(
@@ -67,12 +73,14 @@ export class AuthController {
     return this.authService.adminCreateInvites(req.user.sub, body ?? {});
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('admin/users')
   listUsers() {
     return this.authService.listUsers();
   }
 
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Patch('admin/users/:id/permissions')
   updatePermissions(

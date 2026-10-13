@@ -13,6 +13,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -135,6 +136,7 @@ class TerraformFieldDto {
 }
 
 @Controller('colonies')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class ColonyController {
   constructor(

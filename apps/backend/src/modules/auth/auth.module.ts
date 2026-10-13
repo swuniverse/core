@@ -18,6 +18,7 @@ import { FactionEntity } from '../faction/entities/faction.entity';
 import { ColonyModule } from '../colony/colony.module';
 import { FactionModule } from '../faction/faction.module';
 import { MailModule } from '../mail/mail.module';
+import { GameStatusModule } from '../game-status/game-status.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { MailModule } from '../mail/mail.module';
     ColonyModule,
     FactionModule,
     MailModule,
+    GameStatusModule,
   ],
   controllers: [AuthController],
   providers: [

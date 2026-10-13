@@ -10,9 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { ColonizationService } from './colonization.service';
 
 @Controller('colonization')
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class ColonizationController {
   constructor(private readonly colonizationService: ColonizationService) {}

@@ -1,9 +1,14 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
 import type { AuthResponse } from '@swuniverse/shared';
+
+interface GameStatus {
+  status: 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
+  message: string;
+}
 
 interface GalaxyStats {
   settlers: number;
@@ -131,8 +136,14 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<GalaxyStats | null>(null);
+  const [gameStatus, setGameStatus] = useState<GameStatus>({
+    status: 'ONLINE',
+    message: '',
+  });
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const maintenanceMessage = searchParams.get('maintenance');
 
   const scrollTo = (id: string) =>
     document
@@ -144,6 +155,7 @@ export function LoginPage() {
       .get<GalaxyStats>('/database/overview')
       .then(setStats)
       .catch(() => undefined);
+    api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -205,13 +217,15 @@ export function LoginPage() {
           <button type="button" onClick={() => scrollTo('join')}>
             Start
           </button>
-          <button
-            className="swu-nav__login"
-            type="button"
-            onClick={() => setLoginOpen(true)}
-          >
-            Login
-          </button>
+          {gameStatus.status !== 'MAINTENANCE' && (
+            <button
+              className="swu-nav__login"
+              type="button"
+              onClick={() => setLoginOpen(true)}
+            >
+              Login
+            </button>
+          )}
           <a
             href="https://wiki.swuniverse.net"
             target="_blank"
@@ -230,6 +244,28 @@ export function LoginPage() {
         </div>
       </nav>
 
+      <section
+        className={`mx-auto mt-24 w-[min(92%,1180px)] border px-4 py-3 text-sm ${
+          gameStatus.status === 'ONLINE'
+            ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+            : gameStatus.status === 'MAINTENANCE_ANNOUNCED'
+              ? 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+              : 'border-red-400/40 bg-red-500/10 text-red-100'
+        }`}
+        aria-label="Spielstatus"
+      >
+        <strong>
+          {gameStatus.status === 'ONLINE'
+            ? 'Online'
+            : gameStatus.status === 'MAINTENANCE_ANNOUNCED'
+              ? 'Wartung angekündigt'
+              : 'Wartung läuft'}
+        </strong>
+        {(maintenanceMessage || gameStatus.message) && (
+          <p className="mt-1">{maintenanceMessage || gameStatus.message}</p>
+        )}
+      </section>
+
       {/* Hero — asymmetric split */}
       <section className="swu-hero" id="top" aria-labelledby="hero-title">
         <div className="swu-hero__content">
@@ -243,16 +279,20 @@ export function LoginPage() {
             Star Wars Universum.
           </p>
           <div className="swu-hero__actions">
-            <Link className="swu-btn swu-btn--primary" to="/register">
-              Registrieren
-            </Link>
-            <button
-              className="swu-btn swu-btn--ghost"
-              type="button"
-              onClick={() => setLoginOpen(true)}
-            >
-              Login
-            </button>
+            {gameStatus.status !== 'MAINTENANCE' && (
+              <Link className="swu-btn swu-btn--primary" to="/register">
+                Registrieren
+              </Link>
+            )}
+            {gameStatus.status !== 'MAINTENANCE' && (
+              <button
+                className="swu-btn swu-btn--ghost"
+                type="button"
+                onClick={() => setLoginOpen(true)}
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
 
@@ -397,9 +437,11 @@ export function LoginPage() {
             >
               Wiki
             </a>
-            <Link className="swu-btn swu-btn--ghost" to="/register">
-              Key eingeben
-            </Link>
+            {gameStatus.status !== 'MAINTENANCE' && (
+              <Link className="swu-btn swu-btn--ghost" to="/register">
+                Key eingeben
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -427,18 +469,20 @@ export function LoginPage() {
       </footer>
 
       {/* Mobile Sticky CTA */}
-      <div className="swu-mobile-cta">
-        <button
-          className="swu-mobile-cta__login"
-          type="button"
-          onClick={() => setLoginOpen(true)}
-        >
-          Login
-        </button>
-        <Link className="swu-mobile-cta__register" to="/register">
-          Registrieren
-        </Link>
-      </div>
+      {gameStatus.status !== 'MAINTENANCE' && (
+        <div className="swu-mobile-cta">
+          <button
+            className="swu-mobile-cta__login"
+            type="button"
+            onClick={() => setLoginOpen(true)}
+          >
+            Login
+          </button>
+          <Link className="swu-mobile-cta__register" to="/register">
+            Registrieren
+          </Link>
+        </div>
+      )}
 
       {/* Login Drawer */}
       <div
@@ -509,9 +553,11 @@ export function LoginPage() {
             {loading ? 'Anmeldung...' : 'Login'}
           </button>
           <div className="swu-login__meta">
-            <Link to="/register" tabIndex={loginOpen ? 0 : -1}>
-              Registrieren
-            </Link>
+            {gameStatus.status !== 'MAINTENANCE' && (
+              <Link to="/register" tabIndex={loginOpen ? 0 : -1}>
+                Registrieren
+              </Link>
+            )}
             <a
               href="https://discord.com/invite/vvUwR6UZbB"
               target="_blank"

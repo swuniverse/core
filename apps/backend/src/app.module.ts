@@ -19,6 +19,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { MailModule } from './modules/mail/mail.module';
 import { EventsModule } from './modules/events/events.module';
+import { GameStatusModule } from './modules/game-status/game-status.module';
 import { User } from './modules/auth/user.entity';
 import { InviteKey } from './modules/auth/invite-key.entity';
 import { InviteQuota } from './modules/auth/invite-quota.entity';
@@ -80,6 +81,7 @@ import { HolonetCheckpoint } from './modules/holonet/entities/holonet-checkpoint
 import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
 import { UserSetting } from './modules/settings/entities/user-setting.entity';
 import { GameEvent } from './modules/events/entities/game-event.entity';
+import { GameStatus } from './modules/game-status/entities/game-status.entity';
 import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-history-entry.entity';
 import { PrestigeModule } from './modules/prestige/prestige.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -171,6 +173,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           GameTickState,
           UserSetting,
           GameEvent,
+          GameStatus,
           PrestigeHistoryEntry,
           DashboardSnapshot,
           Alliance,
@@ -194,6 +197,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
     }),
     GameDataModule,
     FactionModule,
+    GameStatusModule,
     AuthModule,
     OnboardingModule,
     ColonyModule,

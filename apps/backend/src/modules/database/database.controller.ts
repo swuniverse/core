@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
 
 @Controller('database')
@@ -26,36 +27,42 @@ export class DatabaseController {
   }
 
   @Get('settlers')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getSettlers() {
     return this.databaseService.getSettlers();
   }
 
   @Get('settlers/:id')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getSettler(@Param('id', ParseIntPipe) id: number) {
     return this.databaseService.getSettler(id);
   }
 
   @Get('system-types')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getSystemTypes(@Request() req: { user: { sub: number } }) {
     return this.databaseService.getSystemTypes(req.user.sub);
   }
 
   @Get('ship-classes')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getShipClasses(@Request() req: { user: { sub: number } }) {
     return this.databaseService.getShipClasses(req.user.sub);
   }
 
   @Get('planet-types')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getPlanetTypes(@Request() req: { user: { sub: number } }) {
     return this.databaseService.getPlanetTypes(req.user.sub);
   }
 
   @Get('ship-classes/:key')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getShipClassDetail(
     @Request() req: { user: { sub: number } },
@@ -65,27 +72,34 @@ export class DatabaseController {
   }
 
   @Get('modules')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getModules() {
     return this.databaseService.getModules();
   }
 
   @Get('commodities')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getCommodities() {
     return this.databaseService.getCommodities();
   }
 
   @Get('prestige-history')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getPrestigeHistory(
     @Request() req: { user: { sub: number } },
     @Query('limit') limit?: string,
   ) {
-    return this.databaseService.getPrestigeHistory(req.user.sub, Number(limit) || 50);
+    return this.databaseService.getPrestigeHistory(
+      req.user.sub,
+      Number(limit) || 50,
+    );
   }
 
   @Get('rankings/:key')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getRanking(
     @Request() req: { user: { sub: number } },
@@ -109,6 +123,7 @@ export class DatabaseController {
   }
 
   @Get('rankings')
+  @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
   getRankings() {
     return this.databaseService.getRankings();

@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Faction } from '@swuniverse/shared';
@@ -54,6 +55,7 @@ class ClaimHomeworldDto {
   zoneSlot?: number;
 }
 
+@RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 @Controller('onboarding')
 export class OnboardingController {

@@ -41,6 +41,7 @@ import { ColonyChangeable } from '../../modules/colony/entities/colony-changeabl
 import { ColonyCrewTrainingQueue } from '../../modules/colony/entities/colony-crew-training-queue.entity';
 import { Crew } from '../../modules/colony/entities/crew.entity';
 import { CrewAssignment } from '../../modules/colony/entities/crew-assignment.entity';
+import { GameStatus } from '../../modules/game-status/entities/game-status.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -85,6 +86,7 @@ export const INTEGRATION_ENTITIES = [
   ColonyCrewTrainingQueue,
   Crew,
   CrewAssignment,
+  GameStatus,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {
