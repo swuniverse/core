@@ -94,7 +94,6 @@ function createDetail(
       },
       functions: { present: [], active: [], groups: {} },
     },
-    eventSummary: { unreadCount: 0, latest: [] },
     energy: { current: energyCurrent, max: 20, delta: 0 },
     storage: { current: 2, max: 10, delta: 0 },
     options: {

@@ -184,12 +184,14 @@ export function MessagesPage() {
         ),
       );
     }
+    await refreshFolders();
   };
 
   const deleteMessage = async (id: number) => {
     await api.delete(`/messages/${id}`);
     setMessages((prev) => prev.filter((m) => m.id !== id));
     if (selected?.id === id) setSelected(null);
+    await refreshFolders();
   };
 
   const replyTo = () => {
@@ -239,6 +241,7 @@ export function MessagesPage() {
     setCompose({ recipientName: '', subject: '', body: '' });
     setRecipientId(null);
     switchFolder('OUTBOX');
+    await refreshFolders();
   };
 
   const totalPages = Math.ceil(total / limit);
