@@ -134,7 +134,10 @@ export function DashboardPage() {
           '/spacecraft/distress-signals/active',
         )
         .catch(() => []),
-      api.get<DashboardData['recentEvents']>('/events/recent').catch(() => []),
+      api
+        .get<{ events: DashboardData['recentEvents'] }>('/events/recent?limit=10')
+        .then((response) => response.events)
+        .catch(() => []),
       api
         .get<NonNullable<DashboardData['forumTopics']>>(
           '/dashboard/forum-topics',
