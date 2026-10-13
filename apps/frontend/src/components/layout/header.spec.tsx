@@ -9,6 +9,16 @@ import { MemoryRouter } from 'react-router-dom';
 import { Header } from './header';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
+
+const messageFolders = [
+  { folder: 'PERSONAL', unread: 2, total: 4 },
+  { folder: 'SHIP', unread: 1, total: 1 },
+  { folder: 'COLONY', unread: 0, total: 0 },
+  { folder: 'TRADE', unread: 0, total: 0 },
+  { folder: 'SYSTEM', unread: 1, total: 2 },
+  { folder: 'OUTBOX', unread: 0, total: 3 },
+  { folder: 'STATION', unread: 0, total: 0 },
+];
 const socketHandlers = vi.hoisted(
   () => new Map<string, (payload: unknown) => void>(),
 );
@@ -28,7 +38,9 @@ describe('Global status header', () => {
   beforeEach(() => {
     socketHandlers.clear();
     apiMocks.get.mockReset();
-    apiMocks.get.mockResolvedValue({
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(messageFolders);
+      return Promise.resolve({
       user: {
         id: 4,
         name: 'Nuriud',
@@ -56,6 +68,7 @@ describe('Global status header', () => {
         },
       ],
     });
+    });
   });
 
   it('shows identity, three message channels, research and colonies', async () => {
@@ -76,13 +89,13 @@ describe('Global status header', () => {
         .querySelector('img')
         ?.getAttribute('src'),
     ).toBe('/assets/avatars/alliance-rebel-default.png');
-    expect(screen.getByTitle('Nachrichten').textContent).toContain('2');
+    expect(screen.getByTitle('Persönlich').textContent).toContain('2');
     expect(screen.getByTitle('System').textContent).toContain('1');
-    expect(screen.getByTitle('Nachrichten').getAttribute('href')).toBe(
-      '/messages?folder=PERSONAL',
+    expect(screen.getByTitle('Persönlich').getAttribute('href')).toBe(
+      '/messages?folder=personal',
     );
     expect(screen.getByTitle('System').getAttribute('href')).toBe(
-      '/messages?folder=SYSTEM',
+      '/messages?folder=system',
     );
     expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');
     expect(screen.getByText('Hyperraumtheorie')).toBeTruthy();
@@ -113,23 +126,36 @@ describe('Global status header', () => {
     expect(
       screen.getByTitle('Ausloggen').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/navigation/menu_logout0.png');
-    expect(screen.getByTitle('Nachrichten').textContent?.trim()).toBe('2');
-    expect(screen.getByTitle('System').textContent?.trim()).toBe('1');
-    expect(
-      screen
-        .getByTitle('Nachrichten')
-        .querySelector('img')
-        ?.getAttribute('src'),
-    ).toBe('/assets/buttons/pmnavlet_1_1.png');
+    expect(screen.getByTitle('Persönlich').textContent?.trim()).toBe('✉2/4');
+    expect(screen.getByTitle('System').textContent?.trim()).toBe('◆1/2');
     expect(
       screen
         .getByTitle('Schiffsnachrichten')
         .querySelector('img')
         ?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_2_0.png');
-    expect(
-      screen.getByTitle('System').querySelector('img')?.getAttribute('src'),
-    ).toBe('/assets/buttons/pmnavlet_5_1.png');
+  });
+
+  it('shows a direct, counted icon link for every mailbox folder', async () => {
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    for (const [label, folder, unread] of [
+      ['Persönlich', 'personal', '2'],
+      ['Schiffe', 'ship', '1'],
+      ['Kolonien', 'colony', '0'],
+      ['Handel', 'trade', '0'],
+      ['System', 'system', '1'],
+      ['Postausgang', 'outbox', '0'],
+      ['Station', 'station', '0'],
+    ]) {
+      const link = await screen.findByTitle(label);
+      expect(link.getAttribute('href')).toBe(`/messages?folder=${folder}`);
+      expect(link.textContent).toContain(unread);
+    }
   });
 
   it('collects spacecraft events in the ship message popover', async () => {
@@ -175,9 +201,12 @@ describe('Global status header', () => {
 
   it('links the own alliance in its color', async () => {
     const status = await apiMocks.get.getMockImplementation()?.('/dashboard/header');
-    apiMocks.get.mockResolvedValue({
-      ...status,
-      alliance: { id: 3, name: 'Rogue Squadron', color: '#ff0000' },
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(messageFolders);
+      return Promise.resolve({
+        ...status,
+        alliance: { id: 3, name: 'Rogue Squadron', color: '#ff0000' },
+      });
     });
 
     render(

@@ -13,6 +13,36 @@ import { useSocket } from '../../hooks/use-socket';
 
 type ShipNotice = SpacecraftEventPayload & { id: number };
 
+type MessageFolderSummary = {
+  folder: MessageFolder;
+  unread: number;
+  total: number;
+};
+
+type MessageFolder =
+  | 'PERSONAL'
+  | 'SHIP'
+  | 'COLONY'
+  | 'TRADE'
+  | 'SYSTEM'
+  | 'OUTBOX'
+  | 'STATION';
+
+const MESSAGE_FOLDERS: Array<{
+  folder: MessageFolder;
+  label: string;
+  route: string;
+  icon: string;
+}> = [
+  { folder: 'PERSONAL', label: 'Persönlich', route: 'personal', icon: '✉' },
+  { folder: 'SHIP', label: 'Schiffe', route: 'ship', icon: '▲' },
+  { folder: 'COLONY', label: 'Kolonien', route: 'colony', icon: '◉' },
+  { folder: 'TRADE', label: 'Handel', route: 'trade', icon: '↔' },
+  { folder: 'SYSTEM', label: 'System', route: 'system', icon: '◆' },
+  { folder: 'OUTBOX', label: 'Postausgang', route: 'outbox', icon: '↗' },
+  { folder: 'STATION', label: 'Station', route: 'station', icon: '▣' },
+];
+
 export function Header() {
   const fallbackUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -21,6 +51,9 @@ export function Header() {
   const [shipNotices, setShipNotices] = useState<ShipNotice[]>([]);
   const [unreadShipNotices, setUnreadShipNotices] = useState(0);
   const [shipOpen, setShipOpen] = useState(false);
+  const [messageFolders, setMessageFolders] = useState<MessageFolderSummary[]>(
+    [],
+  );
   const noticeId = useRef(0);
 
   const refresh = useCallback(() => {
@@ -39,6 +72,17 @@ export function Header() {
       window.removeEventListener('focus', refresh);
     };
   }, [refresh]);
+  useEffect(() => {
+    const refreshMessageFolders = () => {
+      void api
+        .get<MessageFolderSummary[]>('/messages/folders')
+        .then(setMessageFolders)
+        .catch(() => undefined);
+    };
+    refreshMessageFolders();
+    window.addEventListener('focus', refreshMessageFolders);
+    return () => window.removeEventListener('focus', refreshMessageFolders);
+  }, []);
   useSocket('TICK', refresh);
   useSocket('COLONY_UPDATED', refresh);
   useSocket('SPACECRAFT_EVENT', (payload) => {
@@ -143,13 +187,25 @@ export function Header() {
           </Link>
         </div>
 
-        <div className="flex shrink-0 border-r border-swu-border">
-          <StatusLink
-            to="/messages?folder=PERSONAL"
-            label="Nachrichten"
-            count={status?.notifications.messages ?? 0}
-            icon="pmnavlet_1"
-          />
+        <div
+          className="flex min-w-0 shrink border-r border-swu-border overflow-x-auto"
+          aria-label="Nachrichtenordner"
+        >
+          {MESSAGE_FOLDERS.map((folder) => {
+            const summary = messageFolders.find(
+              (entry) => entry.folder === folder.folder,
+            );
+            return (
+              <MailboxFolderLink
+                key={folder.folder}
+                to={`/messages?folder=${folder.route}`}
+                label={folder.label}
+                icon={folder.icon}
+                unread={summary?.unread ?? 0}
+                total={summary?.total ?? 0}
+              />
+            );
+          })}
           <div className="relative">
             <StatusButton
               label="Schiffsnachrichten"
@@ -185,13 +241,6 @@ export function Header() {
               </div>
             )}
           </div>
-          <StatusLink
-            to="/messages?folder=SYSTEM"
-            label="System"
-            count={status?.notifications.system ?? 0}
-            icon="pmnavlet_5"
-            critical={(status?.notifications.system ?? 0) > 0}
-          />
         </div>
 
         <Link
@@ -257,6 +306,11 @@ export function Header() {
 
         <div className="ml-auto flex shrink-0 items-stretch">
           <NavigationLink
+            to="/events"
+            label="Ereignishistory"
+            icon="menu_doku"
+          />
+          <NavigationLink
             to="/settings"
             label="Einstellungen"
             icon="menu_option"
@@ -302,32 +356,25 @@ export function Header() {
   );
 }
 
-function StatusLink(props: {
+function MailboxFolderLink(props: {
   to: string;
   label: string;
-  count: number;
   icon: string;
-  critical?: boolean;
+  unread: number;
+  total: number;
 }) {
   return (
     <Link
       to={props.to}
       title={props.label}
-      className="relative flex w-12 items-center justify-center border-r border-swu-border text-swu-muted hover:bg-white/[0.03] hover:text-swu-accent md:w-14"
+      aria-label={`${props.label}: ${props.unread} ungelesen von ${props.total}`}
+      className="relative flex h-full w-10 shrink-0 flex-col items-center justify-center border-r border-swu-border px-1 text-swu-muted hover:bg-white/[0.03] hover:text-swu-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent md:w-12"
     >
-      <img
-        src={`/assets/buttons/${props.icon}_${props.count > 0 ? 1 : 0}.png`}
-        alt=""
-        className="size-6 object-contain md:size-[30px]"
-      />
-      <span
-        className={`absolute bottom-1 right-1 min-w-3 text-center text-[8px] ${
-          props.critical
-            ? 'font-mono text-red-400'
-            : 'font-mono text-swu-primary'
-        }`}
-      >
-        {props.count}
+      <span aria-hidden="true" className="text-base leading-none md:text-lg">
+        {props.icon}
+      </span>
+      <span className="mt-0.5 font-mono text-[8px] text-swu-primary">
+        {props.unread}/{props.total}
       </span>
     </Link>
   );
