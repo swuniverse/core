@@ -63,7 +63,7 @@ describe('STU-style Maindesk overview', () => {
     const data = {
       recentEvents: Array.from({ length: 11 }, (_, index) => ({
         id: index + 1,
-        type: 'SHIP_DESTROYED',
+        type: 'SHIP',
         text: `Ereignis ${index + 1}`,
         scope: 'GALAXY',
         layerId: 3,

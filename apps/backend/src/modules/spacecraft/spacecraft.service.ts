@@ -65,8 +65,6 @@ import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
-import { GameEventService } from '../events/game-event.service';
-import { GameEventType } from '../events/entities/game-event.entity';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import {
   projectSpacecraftLocationToGalaxy,
@@ -116,7 +114,6 @@ export class SpacecraftService {
     private readonly destructionService: SpacecraftDestructionService,
     private readonly shipClassDiscoveryService: ShipClassDiscoveryService,
     private readonly hyperdriveDisruptionService: HyperdriveDisruptionService,
-    private readonly gameEvents: GameEventService,
     private readonly spacecraftAlertService: SpacecraftAlertService,
   ) {}
 
@@ -1651,12 +1648,6 @@ export class SpacecraftService {
       starSystemId: galaxyField.starSystemId,
       source: 'ENTER',
     });
-    await this.gameEvents.recordSpacecraft(
-      GameEventType.SYSTEM_ENTERED,
-      `${ship.name} ist in das Sternensystem ${system.name} eingeflogen.`,
-      ship,
-    );
-
     return ship;
   }
 

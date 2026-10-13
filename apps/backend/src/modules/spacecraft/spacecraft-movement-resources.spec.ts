@@ -173,7 +173,6 @@ function createService() {
     {} as ConstructorParameters<typeof SpacecraftService>[23],
     {} as ConstructorParameters<typeof SpacecraftService>[24],
     {} as ConstructorParameters<typeof SpacecraftService>[25],
-    {} as ConstructorParameters<typeof SpacecraftService>[26],
   );
 
   return {

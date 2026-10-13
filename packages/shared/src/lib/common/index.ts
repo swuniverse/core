@@ -33,9 +33,25 @@ export interface ShipMovedPayload {
   location: SpaceLocationDto | null;
 }
 
+export const GAME_EVENT_TYPES = [
+  'SHIP',
+  'STATION',
+  'COLONY',
+  'ALLIANCE',
+  'OTHER',
+] as const;
+
+export enum GameEventType {
+  SHIP = 'SHIP',
+  STATION = 'STATION',
+  COLONY = 'COLONY',
+  ALLIANCE = 'ALLIANCE',
+  OTHER = 'OTHER',
+}
+
 export interface GameEventDto {
   id: number;
-  type: string;
+  type: GameEventType;
   text: string;
   scope: 'GALAXY' | 'SYSTEM' | null;
   layerId: number | null;

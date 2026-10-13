@@ -81,7 +81,7 @@ export class SpacecraftDestructionService {
           location,
         });
         await this.gameEvents.recordSpacecraft(
-          GameEventType.SPACECRAFT_DESTROYED,
+          GameEventType.SHIP,
           `${ship.name} hat sich in Sektor ${coordinates?.x ?? '?'}|${coordinates?.y ?? '?'} selbst zerstört.`,
           ship,
         );
@@ -131,7 +131,7 @@ export class SpacecraftDestructionService {
         .findOneBy({ id: shipId });
       if (ship)
         await this.gameEvents.recordSpacecraft(
-          GameEventType.SPACECRAFT_DESTROYED,
+          GameEventType.SHIP,
           `${ship.name} wurde im Kampf zerstört.`,
           ship,
         );

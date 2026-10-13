@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { ILike, In, Repository } from 'typeorm';
 import { ExplorationService } from '../starmap/exploration.service';
 import { GameEvent, GameEventType } from './entities/game-event.entity';
 import {
@@ -44,10 +44,12 @@ export class GameEventService {
     type?: string;
     search?: string;
   }) {
+    const eventTypes = Object.values(GameEventType);
+    const selectedType = eventTypes.includes(type as GameEventType)
+      ? (type as GameEventType)
+      : undefined;
     const where = {
-      ...(Object.values(GameEventType).includes(type as GameEventType)
-        ? { type: type as GameEventType }
-        : {}),
+      type: selectedType ?? In(eventTypes),
       ...(search?.trim() ? { text: ILike(`%${search.trim()}%`) } : {}),
     };
     const [events, counts] = await Promise.all([
@@ -61,6 +63,7 @@ export class GameEventService {
         .createQueryBuilder('event')
         .select('event.type', 'type')
         .addSelect('COUNT(*)', 'count')
+        .where('event.type IN (:...eventTypes)', { eventTypes })
         .groupBy('event.type')
         .getRawMany<{ type: GameEventType; count: string }>(),
     ]);

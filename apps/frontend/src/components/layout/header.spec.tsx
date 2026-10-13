@@ -71,7 +71,7 @@ describe('Global status header', () => {
     });
   });
 
-  it('shows identity, three message channels, research and colonies', async () => {
+  it('shows identity, the five STU-style message folders, research and colonies', async () => {
     render(
       <MemoryRouter>
         <Header />
@@ -89,12 +89,24 @@ describe('Global status header', () => {
         .querySelector('img')
         ?.getAttribute('src'),
     ).toBe('/assets/avatars/alliance-rebel-default.png');
-    expect(screen.getByTitle('Persönlich').textContent).toContain('2');
-    expect(screen.getByTitle('System').textContent).toContain('1');
-    expect(screen.getByTitle('Persönlich').getAttribute('href')).toBe(
+    expect(screen.getByTitle('Posteingang').textContent).toContain('2');
+    expect(screen.getByTitle('Schiffe').textContent).toContain('1');
+    expect(screen.getByTitle('Kolonien').textContent).toContain('0');
+    expect(screen.getByTitle('Handel').textContent).toContain('0');
+    expect(screen.getByTitle('Systemmeldungen').textContent).toContain('1');
+    expect(screen.getByTitle('Posteingang').getAttribute('href')).toBe(
       '/messages?folder=personal',
     );
-    expect(screen.getByTitle('System').getAttribute('href')).toBe(
+    expect(screen.getByTitle('Schiffe').getAttribute('href')).toBe(
+      '/messages?folder=ship',
+    );
+    expect(screen.getByTitle('Kolonien').getAttribute('href')).toBe(
+      '/messages?folder=colony',
+    );
+    expect(screen.getByTitle('Handel').getAttribute('href')).toBe(
+      '/messages?folder=trade',
+    );
+    expect(screen.getByTitle('Systemmeldungen').getAttribute('href')).toBe(
       '/messages?folder=system',
     );
     expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');
@@ -126,13 +138,10 @@ describe('Global status header', () => {
     expect(
       screen.getByTitle('Ausloggen').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/navigation/menu_logout0.png');
-    expect(screen.getByTitle('Persönlich').textContent?.trim()).toBe('✉2/4');
-    expect(screen.getByTitle('System').textContent?.trim()).toBe('◆1/2');
+    expect(screen.getByTitle('Posteingang').textContent?.trim()).toBe('2');
+    expect(screen.getByTitle('Systemmeldungen').textContent?.trim()).toBe('1');
     expect(
-      screen
-        .getByTitle('Schiffsnachrichten')
-        .querySelector('img')
-        ?.getAttribute('src'),
+      screen.getByTitle('Schiffe').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_2_0.png');
   });
 
@@ -144,13 +153,11 @@ describe('Global status header', () => {
     );
 
     for (const [label, folder, unread] of [
-      ['Persönlich', 'personal', '2'],
+      ['Posteingang', 'personal', '2'],
       ['Schiffe', 'ship', '1'],
       ['Kolonien', 'colony', '0'],
       ['Handel', 'trade', '0'],
-      ['System', 'system', '1'],
-      ['Postausgang', 'outbox', '0'],
-      ['Station', 'station', '0'],
+      ['Systemmeldungen', 'system', '1'],
     ]) {
       const link = await screen.findByTitle(label);
       expect(link.getAttribute('href')).toBe(`/messages?folder=${folder}`);

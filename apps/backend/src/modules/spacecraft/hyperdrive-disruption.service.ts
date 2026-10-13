@@ -86,7 +86,7 @@ export class HyperdriveDisruptionService {
     await this.shipRepo.save(target);
     const detail = `${target.name} wurde aus dem Hyperraum gezwungen`;
     await this.gameEvents.recordSpacecraft(
-      GameEventType.HYPERSPACE_INTERCEPTED,
+      GameEventType.SHIP,
       interceptor
         ? `${target.name} wurde von ${interceptor.name} aus dem Hyperraum gezwungen.`
         : detail,

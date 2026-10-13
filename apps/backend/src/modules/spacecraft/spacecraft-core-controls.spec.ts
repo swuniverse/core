@@ -165,7 +165,6 @@ function createService() {
     { saveUnlessDestroyed: jest.fn(async () => true) } as any,
     {} as any,
     {} as any,
-    {} as any,
     {
       apply: jest.fn(() => ({
         applied: true,

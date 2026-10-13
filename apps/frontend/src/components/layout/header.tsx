@@ -29,18 +29,34 @@ type MessageFolder =
   | 'STATION';
 
 const MESSAGE_FOLDERS: Array<{
-  folder: MessageFolder;
+  folder: Extract<
+    MessageFolder,
+    'PERSONAL' | 'SHIP' | 'COLONY' | 'TRADE' | 'SYSTEM'
+  >;
   label: string;
   route: string;
-  icon: string;
+  asset: string;
 }> = [
-  { folder: 'PERSONAL', label: 'Persönlich', route: 'personal', icon: '✉' },
-  { folder: 'SHIP', label: 'Schiffe', route: 'ship', icon: '▲' },
-  { folder: 'COLONY', label: 'Kolonien', route: 'colony', icon: '◉' },
-  { folder: 'TRADE', label: 'Handel', route: 'trade', icon: '↔' },
-  { folder: 'SYSTEM', label: 'System', route: 'system', icon: '◆' },
-  { folder: 'OUTBOX', label: 'Postausgang', route: 'outbox', icon: '↗' },
-  { folder: 'STATION', label: 'Station', route: 'station', icon: '▣' },
+  {
+    folder: 'PERSONAL',
+    label: 'Posteingang',
+    route: 'personal',
+    asset: 'pmnavlet_1_0',
+  },
+  {
+    folder: 'SHIP',
+    label: 'Schiffe',
+    route: 'ship',
+    asset: 'pmnavlet_2_0',
+  },
+  { folder: 'COLONY', label: 'Kolonien', route: 'colony', asset: 'msg1' },
+  { folder: 'TRADE', label: 'Handel', route: 'trade', asset: 'transfer' },
+  {
+    folder: 'SYSTEM',
+    label: 'Systemmeldungen',
+    route: 'system',
+    asset: 'pmnavlet_5_0',
+  },
 ];
 
 export function Header() {
@@ -200,9 +216,8 @@ export function Header() {
                 key={folder.folder}
                 to={`/messages?folder=${folder.route}`}
                 label={folder.label}
-                icon={folder.icon}
+                asset={folder.asset}
                 unread={summary?.unread ?? 0}
-                total={summary?.total ?? 0}
               />
             );
           })}
@@ -306,11 +321,6 @@ export function Header() {
 
         <div className="ml-auto flex shrink-0 items-stretch">
           <NavigationLink
-            to="/events"
-            label="Ereignishistory"
-            icon="menu_doku"
-          />
-          <NavigationLink
             to="/settings"
             label="Einstellungen"
             icon="menu_option"
@@ -359,22 +369,23 @@ export function Header() {
 function MailboxFolderLink(props: {
   to: string;
   label: string;
-  icon: string;
+  asset: string;
   unread: number;
-  total: number;
 }) {
   return (
     <Link
       to={props.to}
       title={props.label}
-      aria-label={`${props.label}: ${props.unread} ungelesen von ${props.total}`}
+      aria-label={`${props.label}: ${props.unread} ungelesen`}
       className="relative flex h-full w-10 shrink-0 flex-col items-center justify-center border-r border-swu-border px-1 text-swu-muted hover:bg-white/[0.03] hover:text-swu-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent md:w-12"
     >
-      <span aria-hidden="true" className="text-base leading-none md:text-lg">
-        {props.icon}
-      </span>
+      <img
+        src={`/assets/buttons/${props.asset}.png`}
+        alt=""
+        className="size-6 object-contain md:size-[30px]"
+      />
       <span className="mt-0.5 font-mono text-[8px] text-swu-primary">
-        {props.unread}/{props.total}
+        {props.unread}
       </span>
     </Link>
   );

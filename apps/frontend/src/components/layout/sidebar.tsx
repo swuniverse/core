@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: 'Allianzen', path: '/alliances', icon: NavIconAlliances },
   { label: 'Forschung', path: '/research', icon: NavIconResearch },
   { label: 'Datenbank', path: '/database', icon: NavIconDatabase },
+  { label: 'Ereignisse', path: '/events', icon: NavIconEvents },
   { label: 'Karte', path: '/starmap', icon: NavIconMap },
 ];
 
@@ -118,6 +119,28 @@ function NavIconColonies() {
       <path d="M12 3a15 15 0 0 1 0 18" />
       <path d="M12 3a15 15 0 0 0 0 18" />
       <path d="M3 12h18" />
+    </svg>
+  );
+}
+
+function NavIconEvents() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 5h16" />
+      <path d="M4 12h16" />
+      <path d="M4 19h16" />
+      <circle cx="7" cy="5" r="1" fill="currentColor" />
+      <circle cx="7" cy="12" r="1" fill="currentColor" />
+      <circle cx="7" cy="19" r="1" fill="currentColor" />
     </svg>
   );
 }

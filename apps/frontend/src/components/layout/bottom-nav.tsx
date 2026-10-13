@@ -16,6 +16,7 @@ const moreItems = [
   { label: 'HoloNet', path: '/holonet', icon: '▣' },
   { label: 'Allianzen', path: '/alliances', icon: '⛨' },
   { label: 'Datenbank', path: '/database', icon: '▤' },
+  { label: 'Ereignisse', path: '/events', icon: '☷' },
   { label: 'Einstellungen', path: '/settings', icon: '⚙' },
 ];
 
@@ -91,6 +92,8 @@ export function BottomNav() {
             </NavLink>
           ))}
           <button
+            type="button"
+            aria-label="Mehr"
             onClick={() => setMoreOpen(!moreOpen)}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] transition-colors ${
               moreOpen ? 'text-swu-accent' : 'text-swu-muted'

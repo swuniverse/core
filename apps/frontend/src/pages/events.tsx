@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  GAME_EVENT_TYPES,
+  type GameEventType,
+} from '@swuniverse/shared';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 
-const EVENT_TYPES = [
-  'SPACECRAFT_DESTROYED',
-  'HYPERSPACE_INTERCEPTED',
-  'SYSTEM_ENTERED',
-] as const;
-
-type EventType = (typeof EVENT_TYPES)[number];
+const EVENT_TYPES = GAME_EVENT_TYPES;
 
 type GameEvent = {
   id: number;
-  type: EventType;
+  type: GameEventType;
   text: string;
   scope: 'GALAXY' | 'SYSTEM' | null;
   layerId: number | null;
@@ -32,19 +30,21 @@ type GameEvent = {
 
 type EventsResponse = {
   events: GameEvent[];
-  counts: Record<EventType, number>;
+  counts: Record<GameEventType, number>;
 };
 
-const TYPE_LABELS: Record<EventType, string> = {
-  SPACECRAFT_DESTROYED: 'Zerstörte Schiffe',
-  HYPERSPACE_INTERCEPTED: 'Hyperraum-Abfänge',
-  SYSTEM_ENTERED: 'Systemeintritte',
+const TYPE_LABELS: Record<GameEventType, string> = {
+  SHIP: 'Schiffe',
+  STATION: 'Station',
+  COLONY: 'Kolonie',
+  ALLIANCE: 'Diplomatie',
+  OTHER: 'Sonstiges',
 };
 
 const LIMITS = [10, 20, 50] as const;
 
-function selectedType(value: string | null): EventType | '' {
-  return EVENT_TYPES.includes(value as EventType) ? (value as EventType) : '';
+function selectedType(value: string | null): GameEventType | '' {
+  return EVENT_TYPES.includes(value as GameEventType) ? (value as GameEventType) : '';
 }
 
 function selectedLimit(value: string | null): (typeof LIMITS)[number] {
@@ -133,7 +133,7 @@ export function EventsPage() {
     };
   }, [requestPath]);
 
-  function update(next: { type?: EventType | ''; q?: string; limit?: number }) {
+  function update(next: { type?: GameEventType | ''; q?: string; limit?: number }) {
     const values = {
       type,
       q: query,

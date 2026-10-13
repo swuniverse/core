@@ -11,7 +11,7 @@ const eventResponse = {
   events: [
     {
       id: 7,
-      type: 'SPACECRAFT_DESTROYED',
+      type: 'SHIP',
       text: 'Imperial corvette destroyed',
       scope: 'GALAXY',
       layerId: 3,
@@ -22,24 +22,13 @@ const eventResponse = {
       location: null,
       createdAt: '2026-10-13T10:00:00.000Z',
     },
-    {
-      id: 8,
-      type: 'SYSTEM_ENTERED',
-      text: 'Scout entered a system',
-      scope: 'SYSTEM',
-      layerId: null,
-      systemId: 9,
-      x: 2,
-      y: 5,
-      locationId: null,
-      location: null,
-      createdAt: '2026-10-13T09:00:00.000Z',
-    },
   ],
   counts: {
-    SPACECRAFT_DESTROYED: 2,
-    HYPERSPACE_INTERCEPTED: 1,
-    SYSTEM_ENTERED: 1,
+    SHIP: 3,
+    STATION: 0,
+    COLONY: 0,
+    ALLIANCE: 0,
+    OTHER: 0,
   },
 };
 
@@ -65,26 +54,29 @@ describe('EventsPage', () => {
   });
 
   it('loads stable URL filters, counts, and event results', async () => {
-    renderPage('/events?type=SPACECRAFT_DESTROYED&q=imperial&limit=50');
+    renderPage('/events?type=SHIP&q=imperial&limit=50');
 
     await waitFor(() =>
       expect(apiMocks.get).toHaveBeenCalledWith(
-        '/events/recent?type=SPACECRAFT_DESTROYED&search=imperial&limit=50',
+        '/events/recent?type=SHIP&search=imperial&limit=50',
       ),
     );
 
     expect(screen.getByLabelText('Ereignistyp')).toHaveProperty(
       'value',
-      'SPACECRAFT_DESTROYED',
+      'SHIP',
     );
     expect(screen.getByLabelText('Suche')).toHaveProperty('value', 'imperial');
     expect(screen.getByLabelText('Ergebnislimit')).toHaveProperty(
       'value',
       '50',
     );
-    expect(screen.getByText('Zerstörte Schiffe: 2')).toBeTruthy();
-    expect(screen.getByText('Hyperraum-Abfänge: 1')).toBeTruthy();
-    expect(screen.getByText('Systemeintritte: 1')).toBeTruthy();
+    expect(screen.getByText('Schiffe: 3')).toBeTruthy();
+    expect(screen.getByText('Station: 0')).toBeTruthy();
+    expect(screen.getByText('Kolonie: 0')).toBeTruthy();
+    expect(screen.getByText('Diplomatie: 0')).toBeTruthy();
+    expect(screen.getByText('Sonstiges: 0')).toBeTruthy();
+    expect(screen.queryByText('Systemeintritte: 1')).toBeNull();
     expect(screen.getByText('Imperial corvette destroyed')).toBeTruthy();
   });
 
@@ -93,7 +85,7 @@ describe('EventsPage', () => {
 
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(1));
     fireEvent.change(screen.getByLabelText('Ereignistyp'), {
-      target: { value: 'SYSTEM_ENTERED' },
+      target: { value: 'SHIP' },
     });
     fireEvent.change(screen.getByLabelText('Suche'), {
       target: { value: 'scout' },
@@ -104,7 +96,7 @@ describe('EventsPage', () => {
 
     await waitFor(() =>
       expect(apiMocks.get).toHaveBeenLastCalledWith(
-        '/events/recent?type=SYSTEM_ENTERED&search=scout&limit=50',
+        '/events/recent?type=SHIP&search=scout&limit=50',
       ),
     );
   });
@@ -123,12 +115,10 @@ describe('EventsPage', () => {
     ).toBeTruthy();
   });
 
-  it('only offers safe galaxy targets and never deep-links system events', async () => {
+  it('only offers safe galaxy targets', async () => {
     renderPage();
 
     const galaxyLink = await screen.findByRole('link', { name: '4|8' });
     expect(galaxyLink.getAttribute('href')).toBe('/starmap?layer=3&x=4&y=8');
-    expect(screen.queryByRole('link', { name: '2|5' })).toBeNull();
-    expect(screen.getByText('Systemort 2|5')).toBeTruthy();
   });
 });

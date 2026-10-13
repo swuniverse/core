@@ -133,7 +133,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
 
   it('requires authentication before returning global events', async () => {
     await createEvent({
-      type: GameEventType.SYSTEM_ENTERED,
+      type: GameEventType.SHIP,
       text: 'Hidden event',
       createdAt: new Date('2026-10-13T10:00:00.000Z'),
     });
@@ -165,7 +165,12 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
 
   it('filters, searches, limits, sorts, counts and only exposes explored locations', async () => {
     await createEvent({
-      type: GameEventType.SPACECRAFT_DESTROYED,
+      type: 'SYSTEM_ENTERED' as GameEventType,
+      text: 'Legacy system entry',
+      createdAt: new Date('2026-10-13T11:00:00.000Z'),
+    });
+    await createEvent({
+      type: GameEventType.SHIP,
       text: 'Rebel frigate destroyed',
       createdAt: new Date('2026-10-13T08:00:00.000Z'),
       scope: 'GALAXY',
@@ -174,7 +179,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       y: 8,
     });
     await createEvent({
-      type: GameEventType.HYPERSPACE_INTERCEPTED,
+      type: GameEventType.SHIP,
       text: 'Imperial fleet intercepted',
       createdAt: new Date('2026-10-13T09:00:00.000Z'),
       scope: 'SYSTEM',
@@ -183,7 +188,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       y: 5,
     });
     await createEvent({
-      type: GameEventType.SPACECRAFT_DESTROYED,
+      type: GameEventType.SHIP,
       text: 'Imperial corvette destroyed',
       createdAt: new Date('2026-10-13T10:00:00.000Z'),
       scope: 'GALAXY',
@@ -201,7 +206,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
 
     const filtered = await call(
       'player',
-      '?type=SPACECRAFT_DESTROYED&search=imperial&limit=1',
+      '?type=SHIP&search=imperial&limit=1',
     );
 
     expect(filtered).toMatchObject({
@@ -209,7 +214,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       body: {
         events: [
           {
-            type: GameEventType.SPACECRAFT_DESTROYED,
+            type: GameEventType.SHIP,
             text: 'Imperial corvette destroyed',
             scope: 'GALAXY',
             layerId: 8,
@@ -222,9 +227,11 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
           },
         ],
         counts: {
-          [GameEventType.SPACECRAFT_DESTROYED]: 2,
-          [GameEventType.HYPERSPACE_INTERCEPTED]: 1,
-          [GameEventType.SYSTEM_ENTERED]: 0,
+          [GameEventType.SHIP]: 3,
+          [GameEventType.STATION]: 0,
+          [GameEventType.COLONY]: 0,
+          [GameEventType.ALLIANCE]: 0,
+          [GameEventType.OTHER]: 0,
         },
       },
     });
@@ -236,7 +243,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
         events: [
           {
             id: expect.any(Number),
-            type: GameEventType.SPACECRAFT_DESTROYED,
+            type: GameEventType.SHIP,
             text: 'Rebel frigate destroyed',
             scope: null,
             layerId: null,
@@ -249,9 +256,11 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
           },
         ],
         counts: {
-          [GameEventType.SPACECRAFT_DESTROYED]: 2,
-          [GameEventType.HYPERSPACE_INTERCEPTED]: 1,
-          [GameEventType.SYSTEM_ENTERED]: 0,
+          [GameEventType.SHIP]: 3,
+          [GameEventType.STATION]: 0,
+          [GameEventType.COLONY]: 0,
+          [GameEventType.ALLIANCE]: 0,
+          [GameEventType.OTHER]: 0,
         },
       },
     });
@@ -262,9 +271,11 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       body: {
         events: [],
         counts: {
-          [GameEventType.SPACECRAFT_DESTROYED]: 2,
-          [GameEventType.HYPERSPACE_INTERCEPTED]: 1,
-          [GameEventType.SYSTEM_ENTERED]: 0,
+          [GameEventType.SHIP]: 3,
+          [GameEventType.STATION]: 0,
+          [GameEventType.COLONY]: 0,
+          [GameEventType.ALLIANCE]: 0,
+          [GameEventType.OTHER]: 0,
         },
       },
     });

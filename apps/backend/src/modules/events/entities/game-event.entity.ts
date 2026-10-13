@@ -1,3 +1,4 @@
+import type { GameEventType as SharedGameEventType } from '@swuniverse/shared';
 import {
   Column,
   CreateDateColumn,
@@ -9,11 +10,7 @@ import {
 } from 'typeorm';
 import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 
-export enum GameEventType {
-  SPACECRAFT_DESTROYED = 'SPACECRAFT_DESTROYED',
-  HYPERSPACE_INTERCEPTED = 'HYPERSPACE_INTERCEPTED',
-  SYSTEM_ENTERED = 'SYSTEM_ENTERED',
-}
+export { GameEventType } from '@swuniverse/shared';
 
 @Entity('game_events')
 @Index(['createdAt'])
@@ -23,7 +20,7 @@ export class GameEvent {
   id: number;
 
   @Column({ type: 'varchar', length: 48 })
-  type: GameEventType;
+  type: SharedGameEventType;
 
   @Column({ type: 'text' })
   text: string;
