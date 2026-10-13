@@ -3,12 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 
+type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+
 interface MessageSummary {
   id: number;
   subject: string;
   isRead: boolean;
   isSystem: boolean;
   createdAt: string;
+  originSeverity?: OriginSeverity | null;
   sender?: { username: string };
   recipient?: { username: string };
 }
@@ -52,6 +55,24 @@ const MESSAGE_FOLDERS: Array<{
 function parseFolder(value: string | null): MessageFolder {
   const selected = MESSAGE_FOLDERS.find((folder) => folder.route === value);
   return selected?.folder ?? 'PERSONAL';
+}
+
+const severityStyles: Record<OriginSeverity, string> = {
+  INFO: 'border-sky-400/60 bg-sky-950/50 text-sky-200',
+  WARNING: 'border-amber-400/60 bg-amber-950/50 text-amber-200',
+  CRITICAL: 'border-red-400/60 bg-red-950/50 text-red-200',
+};
+
+function OriginSeverityBadge({ severity }: { severity: OriginSeverity | null | undefined }) {
+  if (!severity) return null;
+  return (
+    <span
+      className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-bold ${severityStyles[severity]}`}
+      aria-label={`Schweregrad: ${severity}`}
+    >
+      {severity}
+    </span>
+  );
 }
 
 interface InboxResponse {
@@ -372,7 +393,7 @@ export function MessagesPage() {
                       onClick={() => openMessage(msg.id)}
                       className="flex-1 text-left p-3"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <span
                           className={`text-sm ${
                             !msg.isRead && folder !== 'OUTBOX'
@@ -382,9 +403,12 @@ export function MessagesPage() {
                         >
                           {msg.subject}
                         </span>
-                        <span className="text-[10px] text-swu-muted">
-                          {timeAgo(msg.createdAt)}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <OriginSeverityBadge severity={msg.originSeverity} />
+                          <span className="text-[10px] text-swu-muted">
+                            {timeAgo(msg.createdAt)}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-[10px] text-swu-muted mt-0.5">
                         {folder === 'OUTBOX'
@@ -431,9 +455,12 @@ export function MessagesPage() {
 
           {selected && (
             <div className="w-full bg-swu-surface border border-swu-border rounded-lg p-4 md:w-96">
-              <h3 className="font-bold text-swu-primary mb-1">
-                {selected.subject}
-              </h3>
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="font-bold text-swu-primary">
+                  {selected.subject}
+                </h3>
+                <OriginSeverityBadge severity={selected.originSeverity} />
+              </div>
               <p className="text-[10px] text-swu-muted mb-3">
                 {selected.sender?.username || 'System'} ·{' '}
                 {timeAgo(selected.createdAt)}

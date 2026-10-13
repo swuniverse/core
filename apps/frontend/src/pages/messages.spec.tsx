@@ -90,6 +90,50 @@ describe('MessagesPage folders', () => {
     expect(await screen.findByText('Keine Nachrichten.')).toBeTruthy();
   });
 
+  it('shows a COLONY message severity in the list and its detail', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/colony?page=1') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 12,
+              subject: 'Schildgenerator ausgefallen',
+              isRead: false,
+              isSystem: true,
+              createdAt: '2026-10-13T12:00:00.000Z',
+              originSeverity: 'CRITICAL',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+        });
+      }
+      if (url === '/messages/12') {
+        return Promise.resolve({
+          id: 12,
+          subject: 'Schildgenerator ausgefallen',
+          body: 'Sofortiger Einsatz erforderlich.',
+          isRead: false,
+          isSystem: true,
+          createdAt: '2026-10-13T12:00:00.000Z',
+          senderId: 0,
+          recipientId: 1,
+          originSeverity: 'CRITICAL',
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+
+    renderPage('/messages?folder=colony');
+
+    expect(await screen.findByText('CRITICAL')).toBeTruthy();
+    fireEvent.click(screen.getByText('Schildgenerator ausgefallen'));
+    expect(await screen.findByText('Sofortiger Einsatz erforderlich.')).toBeTruthy();
+    expect(screen.getAllByText('CRITICAL')).toHaveLength(2);
+  });
+
   it('refreshes the folder summary after reading a received message', async () => {
     const refreshedFolders = folders.map((entry) =>
       entry.folder === 'PERSONAL' ? { ...entry, unread: 0, total: 2 } : entry,
