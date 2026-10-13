@@ -1,14 +1,3 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  CreateDateColumn,
-  Index,
-} from 'typeorm';
-import { Colony } from './colony.entity';
-
 export enum ColonyEventSeverity {
   INFO = 'INFO',
   WARNING = 'WARNING',
@@ -51,46 +40,13 @@ export enum ColonyEventType {
   SHUTTLES_TRANSFERRED = 'SHUTTLES_TRANSFERRED',
 }
 
-@Entity('colony_events')
-@Index(['colonyId', 'createdAt'])
-@Index(['userId', 'readAt'])
-@Index(['colonyId', 'readAt'])
-@Index(['type'])
-export class ColonyEvent {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column()
+export interface CreateColonyEventInput {
   colonyId: number;
-
-  @ManyToOne(() => Colony, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'colonyId' })
-  colony: Colony;
-
-  @Column()
   userId: number;
-
-  @Column({ type: 'varchar', length: 64 })
   type: ColonyEventType;
-
-  @Column({ type: 'varchar', length: 16, default: ColonyEventSeverity.INFO })
-  severity: ColonyEventSeverity;
-
-  @Column({ length: 255 })
+  severity?: ColonyEventSeverity;
   title: string;
-
-  @Column({ type: 'text' })
   message: string;
-
-  @Column({ type: 'jsonb', default: () => "'{}'" })
-  payload: Record<string, unknown>;
-
-  @Column({ type: 'bigint', nullable: true })
-  tickId: number | null;
-
-  @Column({ type: 'timestamp', nullable: true })
-  readAt: Date | null;
-
-  @CreateDateColumn()
-  createdAt: Date;
+  payload?: Record<string, unknown>;
+  tickId?: number | null;
 }

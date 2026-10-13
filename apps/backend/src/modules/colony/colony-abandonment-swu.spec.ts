@@ -25,8 +25,10 @@ jest.mock('./entities/colony-ship-build-queue.entity', () => ({
 jest.mock('./entities/colony-orbit-assignment.entity', () => ({
   ColonyOrbitAssignment: class D {},
 }));
-jest.mock('./colony-event.service', () => ({ ColonyEventService: class E {} }));
-jest.mock('./entities/colony-event.entity', () => ({
+jest.mock('../messaging/colony-event.service', () => ({
+  ColonyEventService: class E {},
+}));
+jest.mock('../messaging/colony-event.types', () => ({
   ColonyEventSeverity: { WARNING: 'WARNING' },
   ColonyEventType: { COLONY_ABANDONED: 'COLONY_ABANDONED' },
 }));

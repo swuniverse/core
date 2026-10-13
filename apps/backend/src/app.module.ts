@@ -34,7 +34,6 @@ import { ColonyShipBuildQueue } from './modules/colony/entities/colony-ship-buil
 import { ColonyFabricationQueue } from './modules/colony/entities/colony-fabrication-queue.entity';
 import { ColonyCrewTrainingQueue } from './modules/colony/entities/colony-crew-training-queue.entity';
 import { ColonyShipBuildplan } from './modules/colony/entities/colony-ship-buildplan.entity';
-import { ColonyEvent } from './modules/colony/entities/colony-event.entity';
 import { ColonyOrbitAssignment } from './modules/colony/entities/colony-orbit-assignment.entity';
 import { Crew } from './modules/colony/entities/crew.entity';
 import { CrewAssignment } from './modules/colony/entities/crew-assignment.entity';
@@ -126,7 +125,6 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           ColonyFabricationQueue,
           ColonyCrewTrainingQueue,
           ColonyShipBuildplan,
-          ColonyEvent,
           ColonyOrbitAssignment,
           Crew,
           CrewAssignment,

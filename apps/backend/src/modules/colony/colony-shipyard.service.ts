@@ -25,7 +25,7 @@ import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-run
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyCrewService } from './colony-crew.service';
-import { ColonyEventService } from './colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import {
@@ -42,7 +42,7 @@ import {
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from './entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import type { ShipModuleSelection } from '@swuniverse/shared';

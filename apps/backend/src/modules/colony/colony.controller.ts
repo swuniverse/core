@@ -189,38 +189,6 @@ export class ColonyController {
     return this.colonyService.getCurrentObjective(req.user.sub);
   }
 
-  @Get(':id/events')
-  getEvents(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-    @Query('limit') limit?: string,
-    @Query('unreadOnly') unreadOnly?: string,
-  ) {
-    return this.colonyService.getEvents(
-      id,
-      req.user.sub,
-      Number(limit) || 50,
-      unreadOnly === 'true',
-    );
-  }
-
-  @Post(':id/events/read-all')
-  markAllEventsRead(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.colonyService.markAllEventsRead(id, req.user.sub);
-  }
-
-  @Post(':id/events/:eventId/read')
-  markEventRead(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('eventId', ParseIntPipe) eventId: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.colonyService.markEventRead(id, req.user.sub, eventId);
-  }
-
   @Get(':id/environment-scan')
   getEnvironmentScan(
     @Param('id', ParseIntPipe) id: number,

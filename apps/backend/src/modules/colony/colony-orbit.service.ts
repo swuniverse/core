@@ -16,7 +16,7 @@ import {
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { ColonyDefenseService } from './colony-defense.service';
-import { ColonyEventService } from './colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import {
   ColonyStatsService,
@@ -27,7 +27,7 @@ import { ColonyChangeable } from './entities/colony-changeable.entity';
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from './entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import {
   ColonyOrbitAssignment,
   ColonyOrbitAssignmentMode,

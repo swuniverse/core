@@ -16,6 +16,7 @@ import { JwtStrategy } from '../auth/jwt.strategy';
 import { MessagingController } from './messaging.controller';
 import { MessagingService } from './messaging.service';
 import { Message } from './entities/message.entity';
+import { MessageFolder } from './message-folder';
 
 const JWT_SECRET = 'integration-secret';
 
@@ -105,7 +106,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         { folder: 'SHIP', unread: 0, total: 0 },
         { folder: 'COLONY', unread: 0, total: 0 },
         { folder: 'TRADE', unread: 0, total: 0 },
-        { folder: 'SYSTEM', unread: 0, total: 0 },
+        { folder: MessageFolder.SYSTEM, unread: 0, total: 0 },
         { folder: 'OUTBOX', unread: 0, total: 0 },
         { folder: 'STATION', unread: 0, total: 0 },
       ],
@@ -134,7 +135,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         subject: 'System',
         body: 'Systemmeldung',
         isSystem: true,
-        folder: 'SYSTEM',
+        folder: MessageFolder.SYSTEM,
       }),
       messages.create({
         senderId: users.leia.id,
@@ -153,7 +154,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         { folder: 'SHIP', unread: 0, total: 0 },
         { folder: 'COLONY', unread: 0, total: 0 },
         { folder: 'TRADE', unread: 0, total: 0 },
-        { folder: 'SYSTEM', unread: 1, total: 1 },
+        { folder: MessageFolder.SYSTEM, unread: 1, total: 1 },
         { folder: 'OUTBOX', unread: 0, total: 2 },
         { folder: 'STATION', unread: 0, total: 0 },
       ],
@@ -183,7 +184,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         subject: 'Systemnachricht',
         body: 'system',
         isSystem: true,
-        folder: 'SYSTEM',
+        folder: MessageFolder.SYSTEM,
       }),
     ]);
 
@@ -250,7 +251,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         subject: 'Systemnachricht',
         body: 'system',
         isSystem: true,
-        folder: 'SYSTEM',
+        folder: MessageFolder.SYSTEM,
       }),
     );
 

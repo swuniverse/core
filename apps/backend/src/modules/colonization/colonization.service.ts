@@ -24,11 +24,11 @@ import {
   SWU_AURODIUM_DEPOSIT_MAX,
   SWU_AURODIUM_DEPOSIT_MIN,
 } from '../colony/colony-seed.service';
-import { ColonyEventService } from '../colony/colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from '../colony/entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import {
   CelestialObject,
   CelestialObjectType,

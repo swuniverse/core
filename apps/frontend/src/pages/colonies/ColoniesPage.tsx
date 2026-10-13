@@ -8,7 +8,6 @@ import type {
   BuildingDef,
   BuildingMassActionResult,
   Colony,
-  ColonyEventDto,
   ColonyField,
   ColonyFieldUpgrade,
   ColonyStorageItem,
@@ -572,23 +571,6 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onLoadColonyEvents={async (unreadOnly = false) =>
-        api.get<ColonyEventDto[]>(
-          `/colonies/${selected.id}/events?limit=50&unreadOnly=${unreadOnly}`,
-        )
-      }
-      onMarkColonyEventRead={(eventId) =>
-        act(async () => {
-          await api.post(`/colonies/${selected.id}/events/${eventId}/read`, {});
-          loadColonyDetail(selected.id);
-        })
-      }
-      onMarkAllColonyEventsRead={() =>
-        act(async () => {
-          await api.post(`/colonies/${selected.id}/events/read-all`, {});
-          loadColonyDetail(selected.id);
-        })
-      }
       onRenameColony={(name) =>
         act(async () => {
           await api.put(`/colonies/${selected.id}`, { name });
@@ -704,9 +686,6 @@ export function ColonyDetail({
   onLoadColonyShields,
   onSetShieldFrequency,
   onSetDefenseTorpedoType,
-  onLoadColonyEvents,
-  onMarkColonyEventRead,
-  onMarkAllColonyEventsRead,
   onRenameColony,
   onSetPopulationLimit,
   onSetImmigration,
@@ -784,9 +763,6 @@ export function ColonyDetail({
   onLoadColonyShields: (amount: number) => Promise<void> | void;
   onSetShieldFrequency: (frequency: number) => Promise<void> | void;
   onSetDefenseTorpedoType: (commodityId: number | null) => Promise<void> | void;
-  onLoadColonyEvents: (unreadOnly?: boolean) => Promise<ColonyEventDto[]>;
-  onMarkColonyEventRead: (eventId: number) => Promise<void> | void;
-  onMarkAllColonyEventsRead: () => Promise<void> | void;
   onRenameColony: (name: string) => Promise<void> | void;
   onSetPopulationLimit: (limit: number) => Promise<void> | void;
   onSetImmigration: (enabled: boolean) => Promise<void> | void;
@@ -1260,12 +1236,6 @@ export function ColonyDetail({
                 onBlockadeShip: onBlockadeOrbitShip,
                 onClearOrbitOrder,
                 onTransferShuttles: onTransferOrbitShipShuttles,
-              }}
-              eventProps={{
-                initialEvents: detail?.eventSummary?.latest ?? [],
-                onLoadEvents: onLoadColonyEvents,
-                onMarkRead: onMarkColonyEventRead,
-                onMarkAllRead: onMarkAllColonyEventsRead,
               }}
             />
           )}

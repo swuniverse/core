@@ -165,7 +165,6 @@ export function DashboardPage() {
     > = [];
     let crewInfo: { assigned: number; globalLimit: number } | null = null;
     const warnings: DashboardData['warnings'] = [];
-    const colonyEvents: DashboardData['colonyEvents'] = [];
 
     if (colonies.length > 0) {
       const details = await Promise.all(
@@ -182,39 +181,6 @@ export function DashboardPage() {
             }>(`/colonies/${c.id}`)
             .catch(() => null),
         ),
-      );
-
-      const eventResults = await Promise.all(
-        colonies.map((c) =>
-          api
-            .get<
-              Array<{
-                id: number;
-                type: string;
-                severity: string;
-                title: string;
-                message: string;
-                createdAt: string;
-              }>
-            >(`/colonies/${c.id}/events?limit=10&unreadOnly=false`)
-            .catch(() => []),
-        ),
-      );
-      for (let i = 0; i < eventResults.length; i++) {
-        for (const ev of eventResults[i]) {
-          if (ev.severity === 'CRITICAL' || ev.severity === 'WARNING') {
-            colonyEvents.push({
-              ...ev,
-              severity: ev.severity as 'INFO' | 'WARNING' | 'CRITICAL',
-              colonyName: colonies[i].name,
-              colonyId: colonies[i].id,
-            });
-          }
-        }
-      }
-      colonyEvents.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
       for (let i = 0; i < details.length; i++) {
@@ -419,7 +385,6 @@ export function DashboardPage() {
       researchCompleted,
       unreadMessages: unreadData,
       warnings,
-      colonyEvents,
       recentEvents,
       inboxMessages: inboxRes.data,
       tickStatus: tickData,

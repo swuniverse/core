@@ -103,17 +103,6 @@ export interface ColonyWarning {
 
 export type RecentGameEvent = GameEventDto;
 
-export interface ColonyEvent {
-  id: number;
-  type: string;
-  severity: 'INFO' | 'WARNING' | 'CRITICAL';
-  title: string;
-  message: string;
-  createdAt: string;
-  colonyName?: string;
-  colonyId?: number;
-}
-
 export interface RankingEntry {
   username: string;
   value: number;
@@ -188,7 +177,6 @@ export interface DashboardData {
   researchCompleted: number;
   unreadMessages: number;
   warnings: ColonyWarning[];
-  colonyEvents: ColonyEvent[];
   recentEvents: RecentGameEvent[];
   inboxMessages: InboxMessage[];
   tickStatus: TickStatus | null;

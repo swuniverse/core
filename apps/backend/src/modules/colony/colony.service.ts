@@ -46,7 +46,7 @@ import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
-import { ColonyEventService } from './colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import { ColonyAbandonmentService } from './colony-abandonment.service';
@@ -64,7 +64,7 @@ import { SystemField } from '../starmap/entities/system-field.entity';
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from './entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import {
   ColonyOrbitAssignment,
   ColonyOrbitAssignmentMode,
@@ -139,29 +139,6 @@ export class ColonyService {
       userId,
       confirmation,
     );
-  }
-
-  async getEvents(
-    colonyId: number,
-    userId: number,
-    limit = 50,
-    unreadOnly = false,
-  ) {
-    await this.colonyOwnershipService.findOwnedColony(colonyId, userId);
-    return this.colonyEventService.listForColony(colonyId, userId, {
-      limit,
-      unreadOnly,
-    });
-  }
-
-  async markEventRead(colonyId: number, userId: number, eventId: number) {
-    await this.colonyOwnershipService.findOwnedColony(colonyId, userId);
-    return this.colonyEventService.markRead(colonyId, userId, eventId);
-  }
-
-  async markAllEventsRead(colonyId: number, userId: number) {
-    await this.colonyOwnershipService.findOwnedColony(colonyId, userId);
-    return this.colonyEventService.markAllRead(colonyId, userId);
   }
 
   async activateBuildings(

@@ -19,7 +19,7 @@ import { ColonyStats } from '../colony/entities/colony-stats.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
 import { ColonyDefenseService } from '../colony/colony-defense.service';
 import { GameDataService } from '../game-data/game-data.service';
-import { ColonyEventService } from '../colony/colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import {
   ColonyDamageService,
   DamagedColonyFieldResult,
@@ -27,7 +27,7 @@ import {
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from '../colony/entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import {
   deductColonyEnergy,
   getColonyChangeable,
