@@ -18,6 +18,9 @@ import { GameStatusGuard } from '../game-status/game-status.guard';
 import { GameStatusService } from '../game-status/game-status.service';
 import { EventsController } from './events.controller';
 import { GameEvent, GameEventType } from './entities/game-event.entity';
+import { ExplorationState } from '../starmap/entities/exploration-state.entity';
+import { SystemExploration } from '../starmap/entities/system-exploration.entity';
+import { ExplorationService } from '../starmap/exploration.service';
 import { GameEventService } from './game-event.service';
 
 const JWT_SECRET = 'integration-secret';
@@ -40,9 +43,18 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
         JwtStrategy,
         {
-          provide: GameEventService,
+          provide: ExplorationService,
           useFactory: () =>
-            new GameEventService(dataSource.getRepository(GameEvent)),
+            new ExplorationService(
+              dataSource.getRepository(ExplorationState),
+              dataSource.getRepository(SystemExploration),
+            ),
+        },
+        {
+          provide: GameEventService,
+          useFactory: (exploration: ExplorationService) =>
+            new GameEventService(dataSource.getRepository(GameEvent), exploration),
+          inject: [ExplorationService],
         },
         {
           provide: GameStatusService,
@@ -65,8 +77,8 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
-    await dataSource.destroy();
+    await app?.close();
+    await dataSource?.destroy();
   });
 
   beforeEach(async () => {
@@ -151,7 +163,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
     });
   });
 
-  it('filters, searches, limits, sorts, counts and preserves navigation fields', async () => {
+  it('filters, searches, limits, sorts, counts and only exposes explored locations', async () => {
     await createEvent({
       type: GameEventType.SPACECRAFT_DESTROYED,
       text: 'Rebel frigate destroyed',
@@ -180,6 +192,13 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       y: 3,
     });
 
+    await dataSource.getRepository(ExplorationState).save({
+      userId: player.id,
+      layerId: 8,
+      cx: 1,
+      cy: 3,
+    });
+
     const filtered = await call(
       'player',
       '?type=SPACECRAFT_DESTROYED&search=imperial&limit=1',
@@ -200,6 +219,33 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
             locationId: null,
             location: null,
             createdAt: '2026-10-13T10:00:00.000Z',
+          },
+        ],
+        counts: {
+          [GameEventType.SPACECRAFT_DESTROYED]: 2,
+          [GameEventType.HYPERSPACE_INTERCEPTED]: 1,
+          [GameEventType.SYSTEM_ENTERED]: 0,
+        },
+      },
+    });
+
+    const hidden = await call('player', '?search=frigate');
+    expect(hidden).toEqual({
+      status: 200,
+      body: {
+        events: [
+          {
+            id: expect.any(Number),
+            type: GameEventType.SPACECRAFT_DESTROYED,
+            text: 'Rebel frigate destroyed',
+            scope: null,
+            layerId: null,
+            systemId: null,
+            x: null,
+            y: null,
+            locationId: null,
+            location: null,
+            createdAt: '2026-10-13T08:00:00.000Z',
           },
         ],
         counts: {

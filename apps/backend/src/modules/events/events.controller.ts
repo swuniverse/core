@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { GameEventService } from './game-event.service';
@@ -11,10 +11,16 @@ export class EventsController {
 
   @Get('recent')
   recent(
+    @Request() req: { user: { sub: number } },
     @Query('limit') limit?: string,
     @Query('type') type?: string,
     @Query('search') search?: string,
   ) {
-    return this.events.recent({ limit: Number(limit) || 20, type, search });
+    return this.events.recent({
+      viewerId: req.user.sub,
+      limit: Number(limit) || 20,
+      type,
+      search,
+    });
   }
 }
