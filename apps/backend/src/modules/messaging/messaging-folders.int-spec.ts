@@ -78,19 +78,24 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
     actor: Actor,
     path: string,
     method = 'GET',
+    body?: unknown,
   ): Promise<Response> {
     const user = actor === 'anonymous' ? null : users[actor];
     const response = await fetch(`${await app.getUrl()}/api${path}`, {
       method,
-      headers: user
-        ? {
-            Authorization: `Bearer ${jwt.sign({
-              sub: user.id,
-              username: user.username,
-              faction: user.faction,
-            })}`,
-          }
-        : {},
+      headers: {
+        ...(user
+          ? {
+              Authorization: `Bearer ${jwt.sign({
+                sub: user.id,
+                username: user.username,
+                faction: user.faction,
+              })}`,
+            }
+          : {}),
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
     });
     const text = await response.text();
     return { status: response.status, body: text ? JSON.parse(text) : null };
@@ -209,7 +214,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
     ]);
 
     const otherUsersMessage = await call('han', `/messages/${first.id}`);
-    expect(otherUsersMessage.status).toBe(404);
+    expect(otherUsersMessage.status).toBe(200);
 
     const ownedByHan = await messages.save(
       messages.create({
@@ -270,5 +275,139 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
     expect((await call('anonymous', '/messages/folders/PERSONAL')).status).toBe(
       401,
     );
+  });
+
+  it('marks every received message in the selected folder as read', async () => {
+    const messages = dataSource.getRepository(Message);
+    await messages.save([
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.leia.id,
+        subject: 'Erste persönliche Nachricht',
+        body: 'one',
+      }),
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.leia.id,
+        subject: 'Zweite persönliche Nachricht',
+        body: 'two',
+      }),
+      messages.create({
+        senderId: users.leia.id,
+        recipientId: users.leia.id,
+        subject: 'Systemnachricht',
+        body: 'system',
+        isSystem: true,
+        folder: MessageFolder.SYSTEM,
+      }),
+    ]);
+
+    const response = await call(
+      'leia',
+      '/messages/folders/PERSONAL/mark-read',
+      'POST',
+    );
+
+    expect(response).toMatchObject({ status: 201, body: { affected: 2 } });
+    expect(await messages.countBy({
+      recipientId: users.leia.id,
+      folder: MessageFolder.PERSONAL,
+      isRead: false,
+    })).toBe(0);
+    expect(await messages.countBy({
+      recipientId: users.leia.id,
+      folder: MessageFolder.SYSTEM,
+      isRead: false,
+    })).toBe(1);
+  });
+
+  it('empties only the callers selected received folder', async () => {
+    const messages = dataSource.getRepository(Message);
+    const personal = await messages.save(
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.leia.id,
+        subject: 'Persönlich',
+        body: 'one',
+      }),
+    );
+    const system = await messages.save(
+      messages.create({
+        senderId: users.leia.id,
+        recipientId: users.leia.id,
+        subject: 'System',
+        body: 'system',
+        isSystem: true,
+        folder: MessageFolder.SYSTEM,
+      }),
+    );
+    const hansMessage = await messages.save(
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.han.id,
+        subject: 'Hans Nachricht',
+        body: 'private',
+      }),
+    );
+
+    const response = await call(
+      'leia',
+      '/messages/folders/PERSONAL/empty',
+      'POST',
+    );
+
+    expect(response).toMatchObject({ status: 201, body: { affected: 1 } });
+    expect(await messages.findOneByOrFail({ id: personal.id })).toMatchObject({
+      deletedByRecipient: true,
+      deletedBySender: false,
+    });
+    expect(await messages.findOneByOrFail({ id: system.id })).toMatchObject({
+      deletedByRecipient: false,
+    });
+    expect(await messages.findOneByOrFail({ id: hansMessage.id })).toMatchObject({
+      deletedByRecipient: false,
+    });
+  });
+
+  it('soft deletes only selected received messages owned by the caller', async () => {
+    const messages = dataSource.getRepository(Message);
+    const selected = await messages.save(
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.leia.id,
+        subject: 'Leias Nachricht',
+        body: 'one',
+      }),
+    );
+    const otherUser = await messages.save(
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.han.id,
+        subject: 'Hans Nachricht',
+        body: 'two',
+      }),
+    );
+
+    const response = await call('leia', '/messages/bulk-delete', 'POST', {
+      ids: [selected.id, otherUser.id],
+    });
+
+    expect(response).toMatchObject({ status: 201, body: { affected: 1 } });
+    expect(await messages.findOneByOrFail({ id: selected.id })).toMatchObject({
+      deletedByRecipient: true,
+      deletedBySender: false,
+    });
+    expect(await messages.findOneByOrFail({ id: otherUser.id })).toMatchObject({
+      deletedByRecipient: false,
+    });
+  });
+
+  it('rejects folder-wide actions for the outbox', async () => {
+    expect(
+      (await call('leia', '/messages/folders/OUTBOX/mark-read', 'POST')).status,
+    ).toBe(400);
+    expect(
+      (await call('leia', '/messages/folders/OUTBOX/empty', 'POST')).status,
+    ).toBe(400);
   });
 });

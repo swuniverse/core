@@ -27,19 +27,52 @@ export class MessagingController {
     return this.messagingService.getFolderSummary(req.user.sub);
   }
 
+  @Post('folders/:folder/mark-read')
+  markFolderRead(
+    @Param('folder') folder: string,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.messagingService.markFolderRead(
+      req.user.sub,
+      this.parseIncomingFolder(folder),
+    );
+  }
+
+  @Post('folders/:folder/empty')
+  emptyFolder(
+    @Param('folder') folder: string,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.messagingService.emptyFolder(
+      req.user.sub,
+      this.parseIncomingFolder(folder),
+    );
+  }
+
+  @Post('bulk-delete')
+  bulkDelete(
+    @Body('ids') ids: unknown,
+    @Request() req: { user: { sub: number } },
+  ) {
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      ids.some((id) => !Number.isInteger(id) || id < 1)
+    ) {
+      throw new BadRequestException('Message ids must be positive integers');
+    }
+    return this.messagingService.bulkDelete(req.user.sub, ids);
+  }
+
   @Get('folders/:folder')
   folder(
     @Param('folder') folder: string,
     @Request() req: { user: { sub: number } },
     @Query('page') page?: string,
   ) {
-    const parsedFolder = folder.toUpperCase() as MessageFolder;
-    if (!MESSAGE_FOLDERS.includes(parsedFolder)) {
-      throw new BadRequestException('Unknown message folder');
-    }
     return this.messagingService.getFolder(
       req.user.sub,
-      parsedFolder,
+      this.parseFolder(folder),
       Number(page) || 1,
     );
   }
@@ -89,5 +122,21 @@ export class MessagingController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.messagingService.delete(id, req.user.sub);
+  }
+
+  private parseFolder(folder: string): MessageFolder {
+    const parsedFolder = folder.toUpperCase() as MessageFolder;
+    if (!MESSAGE_FOLDERS.includes(parsedFolder)) {
+      throw new BadRequestException('Unknown message folder');
+    }
+    return parsedFolder;
+  }
+
+  private parseIncomingFolder(folder: string): Exclude<MessageFolder, MessageFolder.OUTBOX> {
+    const parsedFolder = this.parseFolder(folder);
+    if (parsedFolder === MessageFolder.OUTBOX) {
+      throw new BadRequestException('Outbox does not support folder actions');
+    }
+    return parsedFolder;
   }
 }

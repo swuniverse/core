@@ -181,6 +181,47 @@ export class MessagingService {
     });
   }
 
+  async bulkDelete(userId: number, ids: number[]) {
+    const messageIds = [...new Set(ids)];
+    const result = await this.messageRepo
+      .createQueryBuilder()
+      .update(Message)
+      .set({ deletedByRecipient: true })
+      .where('id IN (:...messageIds)', { messageIds })
+      .andWhere('"recipientId" = :userId', { userId })
+      .andWhere('"deletedByRecipient" = false')
+      .execute();
+
+    return { affected: result.affected ?? 0 };
+  }
+
+  async markFolderRead(userId: number, folder: IncomingMessageFolder) {
+    const result = await this.messageRepo
+      .createQueryBuilder()
+      .update(Message)
+      .set({ isRead: true })
+      .where('"recipientId" = :userId', { userId })
+      .andWhere('folder = :folder', { folder })
+      .andWhere('"deletedByRecipient" = false')
+      .andWhere('"isRead" = false')
+      .execute();
+
+    return { affected: result.affected ?? 0 };
+  }
+
+  async emptyFolder(userId: number, folder: IncomingMessageFolder) {
+    const result = await this.messageRepo
+      .createQueryBuilder()
+      .update(Message)
+      .set({ deletedByRecipient: true })
+      .where('"recipientId" = :userId', { userId })
+      .andWhere('folder = :folder', { folder })
+      .andWhere('"deletedByRecipient" = false')
+      .execute();
+
+    return { affected: result.affected ?? 0 };
+  }
+
   async delete(messageId: number, userId: number): Promise<void> {
     const message = await this.messageRepo.findOne({
       where: [

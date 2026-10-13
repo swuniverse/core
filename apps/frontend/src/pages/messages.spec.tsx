@@ -90,6 +90,16 @@ describe('MessagesPage folders', () => {
     expect(await screen.findByText('Keine Nachrichten.')).toBeTruthy();
   });
 
+  it('shows a desktop action rail with compose, notes and folder navigation', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('complementary', {
+      name: 'Nachrichtenaktionen',
+    })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Nachricht verfassen' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Notizzettel öffnen' }).getAttribute('href')).toBe('/notes');
+  });
+
   it('shows a COLONY message severity in the list and its detail', async () => {
     api.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(folders);
@@ -230,6 +240,141 @@ describe('MessagesPage folders', () => {
         screen.getByRole('button', { name: /Persönlich/ }).textContent,
       ).toContain('0/1'),
     );
+  });
+
+  it('marks the active incoming folder as read and refreshes it', async () => {
+    api.post.mockResolvedValue({ affected: 1 });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', {
+      name: 'Ordner als gelesen markieren',
+    }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/messages/folders/personal/mark-read',
+        {},
+      ),
+    );
+  });
+
+  it('does not offer received-message bulk actions in the outbox', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/outbox?page=1') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 13,
+              subject: 'Gesendete Nachricht',
+              isRead: true,
+              isSystem: false,
+              createdAt: '2026-10-13T12:00:00.000Z',
+              recipient: { username: 'Han' },
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+
+    renderPage('/messages?folder=outbox');
+
+    expect(await screen.findByText('Gesendete Nachricht')).toBeTruthy();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Alle selektierten löschen/ }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Ordner als gelesen markieren' }),
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ordner leeren' })).toBeNull();
+  });
+
+  it('deletes multiple selected messages only after confirmation', async () => {
+    api.post.mockResolvedValue({ affected: 2 });
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/personal?page=1') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 11,
+              subject: 'Private Nachricht',
+              isRead: false,
+              isSystem: false,
+              createdAt: '2026-10-13T12:00:00.000Z',
+              sender: { username: 'Leia' },
+            },
+            {
+              id: 12,
+              subject: 'Zweite Nachricht',
+              isRead: false,
+              isSystem: false,
+              createdAt: '2026-10-13T12:00:00.000Z',
+              sender: { username: 'Leia' },
+            },
+          ],
+          total: 2,
+          page: 1,
+          limit: 20,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('checkbox', {
+      name: 'Nachricht Private Nachricht auswählen',
+    }));
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: 'Nachricht Zweite Nachricht auswählen',
+    }));
+    fireEvent.click(screen.getByRole('button', {
+      name: /Alle selektierten löschen/,
+    }));
+
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    expect(api.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Nachrichten löschen bestätigen',
+    }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/messages/bulk-delete', {
+        ids: [11, 12],
+      }),
+    );
+  });
+
+  it('confirms before emptying the active incoming folder', async () => {
+    api.post.mockResolvedValue({ affected: 1 });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ordner leeren' }));
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    expect(api.post).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ordner leeren bestätigen' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/messages/folders/personal/empty', {}),
+    );
+  });
+
+  it('focuses and dismisses a confirmation dialog with Escape', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ordner leeren' }));
+    const cancel = screen.getByRole('button', { name: 'Abbrechen' });
+
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it('refreshes the folder summary after sending a message', async () => {
