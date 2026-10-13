@@ -66,6 +66,16 @@ describe('Global status header', () => {
     );
 
     expect(await screen.findByText('Nuriud')).toBeTruthy();
+    expect(screen.getByTitle('Zum Maindesk').getAttribute('href')).toBe('/');
+    expect(screen.getByTitle('Zum Spielerprofil').getAttribute('href')).toBe(
+      '/players/4',
+    );
+    expect(
+      screen
+        .getByTitle('Zum Spielerprofil')
+        .querySelector('img')
+        ?.getAttribute('src'),
+    ).toBe('/assets/avatars/alliance-rebel-default.png');
     expect(screen.getByTitle('Nachrichten').textContent).toContain('2');
     expect(screen.getByTitle('System').textContent).toContain('1');
     expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');

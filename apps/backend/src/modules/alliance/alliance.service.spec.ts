@@ -606,6 +606,23 @@ describe('AllianceService', () => {
       ]);
     });
 
+    it('uses the legacy faction when a member faction ID cannot resolve', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia', null, null, REBELS.key);
+      store.seedAlliance({ name: 'Rogue Squadron' }, [[1, PRESIDENT]]);
+
+      const list = await service.list();
+
+      expect(list[0].members).toEqual([
+        {
+          userId: 1,
+          name: 'Leia',
+          avatar: null,
+          faction: REBELS.key,
+        },
+      ]);
+    });
+
     it('loads all list members in bulk', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');

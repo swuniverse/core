@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type {
-  GlobalHeaderStatusDto,
-  SpacecraftEventPayload,
+import {
+  Faction,
+  type GlobalHeaderStatusDto,
+  type SpacecraftEventPayload,
 } from '@swuniverse/shared';
 import { useAuthStore } from '../../stores/auth.store';
 import { api } from '../../services/api';
 import { PlanetImg } from '../PlanetImg';
+import { PlayerAvatar } from '../PlayerAvatar';
 import { useSocket } from '../../hooks/use-socket';
 
 type ShipNotice = SpacecraftEventPayload & { id: number };
@@ -69,24 +71,40 @@ export function Header() {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-swu-border bg-[#0d0e1b] text-[10px]">
       <div className="flex h-[58px] min-w-0 items-stretch md:h-[86px]">
         <div className="flex min-w-0 items-center border-r border-swu-border sm:w-[220px] xl:w-[255px]">
+          {user?.id ? (
+            <Link
+              to={`/players/${user.id}`}
+              title="Zum Spielerprofil"
+              className="shrink-0 px-2 py-1 hover:bg-white/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent md:px-3"
+            >
+              <PlayerAvatar
+                name={user.name}
+                avatar={user.avatar}
+                faction={
+                  user.faction === 'REBEL_ALLIANCE'
+                    ? Faction.REBEL_ALLIANCE
+                    : user.faction === 'GALACTIC_EMPIRE'
+                      ? Faction.GALACTIC_EMPIRE
+                      : null
+                }
+                decorative
+                className="size-9 border-swu-border bg-black/30 text-base text-swu-accent md:size-12"
+              />
+            </Link>
+          ) : (
+            <PlayerAvatar
+              name="Kommandant"
+              avatar={null}
+              faction={null}
+              decorative
+              className="mx-2 size-9 border-swu-border bg-black/30 text-base text-swu-accent md:mx-3 md:size-12"
+            />
+          )}
           <Link
             to="/"
-            className="flex min-w-0 flex-1 items-center gap-2 px-2 hover:bg-white/[0.03] md:px-3"
+            className="min-w-0 flex-1 py-1 pr-2 hover:bg-white/[0.03] md:pr-3"
             title="Zum Maindesk"
           >
-            <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-swu-border bg-black/30 md:size-12">
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt=""
-                  className="size-full object-cover"
-                />
-              ) : (
-                <span className="text-base font-bold text-swu-accent">
-                  {user?.name?.slice(0, 1).toUpperCase() ?? '?'}
-                </span>
-              )}
-            </div>
             <div className="min-w-0 leading-tight">
               <div className="truncate text-xs font-bold text-swu-primary">
                 {user?.name ?? 'Kommandant'}

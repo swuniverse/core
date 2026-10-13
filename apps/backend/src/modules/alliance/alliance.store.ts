@@ -54,6 +54,7 @@ export interface PlayerRecord {
   id: number;
   name: string;
   avatar: string | null;
+  faction: Faction | null;
   factionId: number | null;
   /** Last recorded activity; empty counts as the oldest value. */
   lastActiveAt: Date | null;

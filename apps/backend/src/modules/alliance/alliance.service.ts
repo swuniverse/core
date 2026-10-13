@@ -401,12 +401,11 @@ export class AllianceService {
       .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
       .map((m) => {
         const player = playersById.get(m.userId);
-        const faction = factions.find((item) => item.id === player?.factionId);
         return {
           userId: m.userId,
           name: player?.name ?? UNKNOWN_NAME,
           avatar: player?.avatar ?? null,
-          faction: faction?.key ?? null,
+          faction: this.playerFaction(player, factions),
           role: m.role,
         roleTitle: this.roleTitle(titles, m.role),
         joinedAt: m.joinedAt.toISOString(),
@@ -2532,6 +2531,17 @@ export class AllianceService {
     return new Map(players.map((player) => [player.id, player]));
   }
 
+  private playerFaction(
+    player: PlayerRecord | undefined,
+    factions: FactionRecord[],
+  ) {
+    return (
+      factions.find((item) => item.id === player?.factionId)?.key ??
+      player?.faction ??
+      null
+    );
+  }
+
   /** President and all vices: recipients of applications and departures. */
   private async leaderIds(
     allianceId: number,
@@ -2594,14 +2604,11 @@ export class AllianceService {
       memberCount,
       members: members.map((member) => {
         const player = playersById.get(member.userId);
-        const memberFaction = factions.find(
-          (item) => item.id === player?.factionId,
-        );
         return {
           userId: member.userId,
           name: player?.name ?? UNKNOWN_NAME,
           avatar: player?.avatar ?? null,
-          faction: memberFaction?.key ?? null,
+          faction: this.playerFaction(player, factions),
         };
       }),
       acceptsApplications: alliance.acceptsApplications,

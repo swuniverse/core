@@ -406,7 +406,7 @@ describe('AllianceListPage', () => {
     expect(screen.queryByRole('columnheader', { name: 'Aufnahme' })).toBeNull();
   });
 
-  it('shows a compact banner and linked members without reserving space for missing banners', async () => {
+  it('shows a banner beside a visible member gallery without reserving space for missing banners', async () => {
     routeGet({
       '/alliances': [
         summary({
@@ -449,18 +449,25 @@ describe('AllianceListPage', () => {
     expect(banner.classList.contains('w-auto')).toBe(true);
     const bannerAndMembers = banner.closest('.sm\\:flex-row');
     expect(bannerAndMembers).not.toBeNull();
-    expect(within(bannerAndMembers as HTMLElement).getByText('Mitglieder:')).toBeTruthy();
     expect(
-      within(bannerAndMembers as HTMLElement).getByRole('link', { name: 'Leia' }),
+      within(bannerAndMembers as HTMLElement).getByRole('heading', {
+        name: 'Mitglieder',
+      }),
     ).toBeTruthy();
+    const leia = within(bannerAndMembers as HTMLElement).getByRole('link', {
+      name: 'Leia',
+    });
+    expect(leia).toBeTruthy();
     expect(
       within(bannerAndMembers as HTMLElement).getByRole('link', { name: 'Wedge' }),
     ).toBeTruthy();
     expect(screen.queryByRole('img', { name: 'Banner von Red Squadron' })).toBeNull();
     expect(screen.queryByTestId('alliance-banner-placeholder-2')).toBeNull();
-    expect(
-      screen.getByRole('link', { name: 'Leia' }).getAttribute('href'),
-    ).toBe('/players/1');
+    expect(leia.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/avatars/alliance-rebel-default.png',
+    );
+    expect(leia.querySelector('.size-12')).toBeTruthy();
+    expect(leia.getAttribute('href')).toBe('/players/1');
     expect(
       screen.getByRole('link', { name: 'Wedge' }).getAttribute('href'),
     ).toBe('/players/2');

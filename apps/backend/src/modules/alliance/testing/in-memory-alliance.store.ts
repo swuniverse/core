@@ -94,8 +94,17 @@ export class InMemoryAllianceStore implements AllianceStore {
     name: string,
     factionId: number | null = REBELS.id,
     avatar: string | null = null,
+    faction: Faction | null =
+      this.state.factions.find((item) => item.id === factionId)?.key ?? null,
   ) {
-    this.state.players.push({ id, name, avatar, factionId, lastActiveAt: null });
+    this.state.players.push({
+      id,
+      name,
+      avatar,
+      faction,
+      factionId,
+      lastActiveAt: null,
+    });
   }
 
   /** Test helper: the player's last recorded activity. */

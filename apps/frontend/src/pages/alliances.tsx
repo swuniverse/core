@@ -178,29 +178,33 @@ function AllianceListMembers({
 }: {
   members: AllianceSummaryDto['members'];
 }) {
+  if (members.length === 0) {
+    return <p className="text-xs italic text-swu-muted">Keine Mitglieder</p>;
+  }
+
   return (
-    <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
-      <span className="text-swu-muted">Mitglieder:</span>
-      {members.length === 0 ? (
-        <span className="italic text-swu-muted">Keine</span>
-      ) : (
-        members.map((member) => (
-          <Link
-            key={member.userId}
-            to={`/players/${member.userId}`}
-            className="flex items-center gap-1 font-bold text-swu-primary hover:text-swu-accent"
-          >
-            <PlayerAvatar
-              name={member.name}
-              avatar={member.avatar}
-              faction={member.faction}
-              decorative
-              className="size-5 border-0 text-[9px]"
-            />
+    <div
+      aria-label="Mitglieder"
+      className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-2"
+    >
+      {members.map((member) => (
+        <Link
+          key={member.userId}
+          to={`/players/${member.userId}`}
+          className="group flex min-w-0 flex-col items-center gap-1 border border-swu-border bg-black/20 p-1.5 text-center hover:border-swu-accent hover:bg-white/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent"
+        >
+          <PlayerAvatar
+            name={member.name}
+            avatar={member.avatar}
+            faction={member.faction}
+            decorative
+            className="size-12 text-lg sm:size-14"
+          />
+          <span className="w-full truncate text-xs font-bold text-swu-primary group-hover:text-swu-accent">
             {member.name}
-          </Link>
-        ))
-      )}
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }
@@ -258,15 +262,19 @@ function AllianceListSection({
                   <img
                     src={alliance.banner.url}
                     alt={`Banner von ${alliance.name}`}
-                    className="max-h-[150px] max-w-full w-auto"
+                    className="max-h-[150px] max-w-full w-auto sm:max-w-[360px]"
                   />
                 </Link>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <h3 className="text-xs font-bold text-swu-muted">Mitglieder</h3>
                   <AllianceListMembers members={alliance.members} />
                 </div>
               </div>
             ) : (
-              <AllianceListMembers members={alliance.members} />
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-bold text-swu-muted">Mitglieder</h3>
+                <AllianceListMembers members={alliance.members} />
+              </div>
             )}
           </li>
         ))}
