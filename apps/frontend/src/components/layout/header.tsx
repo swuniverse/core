@@ -257,6 +257,11 @@ export function Header() {
 
         <div className="ml-auto flex shrink-0 items-stretch">
           <NavigationLink
+            to="/events"
+            label="Ereignishistory"
+            icon="menu_doku"
+          />
+          <NavigationLink
             to="/settings"
             label="Einstellungen"
             icon="menu_option"
