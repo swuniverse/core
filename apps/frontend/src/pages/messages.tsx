@@ -19,54 +19,68 @@ interface MessageDetail extends MessageSummary {
   recipientId: number;
 }
 
-interface MessageListResponse {
+interface FolderSummary {
+  folder: MessageFolder;
+  unread: number;
+  total: number;
+}
+
+type MessageFolder =
+  | 'PERSONAL'
+  | 'SHIP'
+  | 'COLONY'
+  | 'TRADE'
+  | 'SYSTEM'
+  | 'OUTBOX'
+  | 'STATION';
+
+const MESSAGE_FOLDERS: Array<{
+  folder: MessageFolder;
+  label: string;
+  route: string;
+  icon: string;
+}> = [
+  { folder: 'PERSONAL', label: 'Persönlich', route: 'personal', icon: '✉' },
+  { folder: 'SHIP', label: 'Schiffe', route: 'ship', icon: '▲' },
+  { folder: 'COLONY', label: 'Kolonien', route: 'colony', icon: '◉' },
+  { folder: 'TRADE', label: 'Handel', route: 'trade', icon: '↔' },
+  { folder: 'SYSTEM', label: 'System', route: 'system', icon: '◆' },
+  { folder: 'OUTBOX', label: 'Postausgang', route: 'outbox', icon: '↗' },
+  { folder: 'STATION', label: 'Station', route: 'station', icon: '▣' },
+];
+
+function parseFolder(value: string | null): MessageFolder {
+  const selected = MESSAGE_FOLDERS.find((folder) => folder.route === value);
+  return selected?.folder ?? 'PERSONAL';
+}
+
+interface InboxResponse {
   data: MessageSummary[];
   total: number;
   page: number;
   limit: number;
 }
 
-const FOLDERS = [
-  ['PERSONAL', 'Persoenlich'],
-  ['SHIP', 'Schiff'],
-  ['COLONY', 'Kolonie'],
-  ['TRADE', 'Handel'],
-  ['SYSTEM', 'System'],
-  ['OUTBOX', 'Postausgang'],
-  ['STATION', 'Station'],
-] as const;
-
-type Folder = (typeof FOLDERS)[number][0];
-type Tab = Folder | 'compose';
-
-interface FolderSummary {
-  folder: Folder;
-  unread: number;
-  total: number;
-}
+type Tab = 'folders' | 'compose';
 
 export function MessagesPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
-  const initialFolder = searchParams.get('folder')?.toUpperCase() as Folder;
   const initialRecipientId = Number(searchParams.get('to'));
   const startsCompose =
     initialTab === 'compose' &&
     Number.isInteger(initialRecipientId) &&
     initialRecipientId > 0;
-  const [tab, setTab] = useState<Tab>(
-    startsCompose
-      ? 'compose'
-      : FOLDERS.some(([folder]) => folder === initialFolder)
-        ? initialFolder
-        : 'PERSONAL',
+  const [tab, setTab] = useState<Tab>(startsCompose ? 'compose' : 'folders');
+  const [folder, setFolder] = useState<MessageFolder>(() =>
+    parseFolder(searchParams.get('folder')),
   );
+  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [selected, setSelected] = useState<MessageDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const limit = 20;
 
   const [compose, setCompose] = useState({
@@ -83,68 +97,72 @@ export function MessagesPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadMessages = async (folder: Folder, p: number) => {
+  const refreshFolders = async () => {
+    const response = await api.get<FolderSummary[]>('/messages/folders');
+    setFolders(response);
+  };
+
+  const loadMessages = async (selectedFolder: MessageFolder, p: number) => {
     setLoading(true);
     try {
-      const res = await api.get<MessageListResponse>(
-        `/messages/folders/${folder}?page=${p}`,
+      const response = await api.get<InboxResponse>(
+        `/messages/folders/${selectedFolder.toLowerCase()}?page=${p}`,
       );
-      setMessages(res.data);
-      setTotal(res.total);
+      setMessages(response.data);
+      setTotal(response.total);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadFolders = async () => {
-    const summary = await api.get<FolderSummary[]>('/messages/folders');
-    setFolders(summary);
-  };
-
   useEffect(() => {
-    void loadFolders().catch(() => undefined);
+    void refreshFolders().catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    if (tab !== 'compose') {
-      void loadMessages(tab, page).catch(() => undefined);
-    }
-  }, [tab, page]);
+    if (tab === 'folders') void loadMessages(folder, page);
+  }, [folder, page, tab]);
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
-    const requestedFolder = searchParams.get('folder')?.toUpperCase() as Folder;
     if (requestedTab === 'compose' && startsCompose) return;
-    setTab(
-      FOLDERS.some(([folder]) => folder === requestedFolder)
-        ? requestedFolder
-        : 'PERSONAL',
-    );
+    setTab(requestedTab === 'compose' ? 'compose' : 'folders');
+    setFolder(parseFolder(searchParams.get('folder')));
     setPage(1);
     setSelected(null);
   }, [searchParams, startsCompose]);
 
-  const switchTab = (t: Tab) => {
-    setTab(t);
+  const switchFolder = (nextFolder: MessageFolder) => {
+    setFolder(nextFolder);
+    setTab('folders');
     setPage(1);
     setSelected(null);
+    setSearchParams({ folder: nextFolder.toLowerCase() });
+  };
+
+  const switchToCompose = () => {
+    setTab('compose');
+    setSelected(null);
+    setSearchParams({ tab: 'compose' });
   };
 
   const openMessage = async (id: number) => {
     const msg = await api.get<MessageDetail>(`/messages/${id}`);
     setSelected(msg);
-    setMessages((current) =>
-      current.map((message) =>
-        message.id === id ? { ...message, isRead: true } : message,
-      ),
-    );
-    setFolders((current) =>
-      current.map((folder) =>
-        folder.folder === tab && !msg.isSystem
-          ? { ...folder, unread: Math.max(0, folder.unread - 1) }
-          : folder,
-      ),
-    );
+    if (!msg.isRead && folder !== 'OUTBOX') {
+      setMessages((current) =>
+        current.map((entry) =>
+          entry.id === id ? { ...entry, isRead: true } : entry,
+        ),
+      );
+      setFolders((current) =>
+        current.map((entry) =>
+          entry.folder === folder
+            ? { ...entry, unread: Math.max(0, entry.unread - 1) }
+            : entry,
+        ),
+      );
+    }
   };
 
   const deleteMessage = async (id: number) => {
@@ -163,7 +181,7 @@ export function MessagesPage() {
       body: '',
     });
     setRecipientId(selected.senderId);
-    setTab('compose');
+    switchToCompose();
   };
 
   const searchUser = (query: string) => {
@@ -199,10 +217,13 @@ export function MessagesPage() {
     });
     setCompose({ recipientName: '', subject: '', body: '' });
     setRecipientId(null);
-    switchTab('OUTBOX');
+    switchFolder('OUTBOX');
   };
 
   const totalPages = Math.ceil(total / limit);
+  const currentFolder = MESSAGE_FOLDERS.find(
+    (entry) => entry.folder === folder,
+  )!;
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -226,40 +247,46 @@ export function MessagesPage() {
       </h1>
 
       <div
-        className="mb-4 flex gap-2 overflow-x-auto pb-1"
-        role="navigation"
+        className="mb-4 flex gap-1 overflow-x-auto rounded-lg border border-swu-border bg-swu-surface p-1"
         aria-label="Nachrichtenordner"
       >
-        {FOLDERS.map(([folder, label]) => {
-          const count = folders.find((entry) => entry.folder === folder) ?? {
+        {MESSAGE_FOLDERS.map((entry) => {
+          const summary = folders.find(
+            (item) => item.folder === entry.folder,
+          ) ?? {
             unread: 0,
             total: 0,
           };
           return (
             <button
-              key={folder}
-              onClick={() => switchTab(folder)}
-              aria-pressed={tab === folder}
-              className={`min-w-max rounded border px-3 py-1 text-sm transition-colors ${
-                tab === folder
-                  ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-                  : 'border-swu-border text-swu-muted hover:border-swu-primary'
+              key={entry.folder}
+              type="button"
+              onClick={() => switchFolder(entry.folder)}
+              aria-pressed={tab === 'folders' && folder === entry.folder}
+              className={`shrink-0 rounded px-2 py-1 text-left text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent ${
+                tab === 'folders' && folder === entry.folder
+                  ? 'bg-swu-accent/15 text-swu-accent'
+                  : 'text-swu-muted hover:bg-swu-bg hover:text-swu-primary'
               }`}
             >
-              {label}{' '}
-              <span className="text-xs">
-                {count.unread}/{count.total}
+              <span aria-hidden="true" className="mr-1">
+                {entry.icon}
+              </span>
+              <span>{entry.label}</span>
+              <span className="ml-1 font-mono text-[10px]">
+                {summary.unread}/{summary.total}
               </span>
             </button>
           );
         })}
         <button
-          onClick={() => switchTab('compose')}
+          type="button"
+          onClick={switchToCompose}
           aria-pressed={tab === 'compose'}
-          className={`min-w-max rounded border px-3 py-1 text-sm transition-colors ${
+          className={`shrink-0 rounded px-2 py-1 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent ${
             tab === 'compose'
-              ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-              : 'border-swu-border text-swu-muted hover:border-swu-primary'
+              ? 'bg-swu-accent/15 text-swu-accent'
+              : 'text-swu-muted hover:bg-swu-bg hover:text-swu-primary'
           }`}
         >
           Verfassen
@@ -321,6 +348,7 @@ export function MessagesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4 md:flex-row">
+          <h2 className="sr-only">{currentFolder.label}</h2>
           <div className="flex-1 bg-swu-surface border border-swu-border rounded-lg overflow-hidden">
             {loading ? (
               <div className="p-4 text-swu-muted text-sm">Laden...</div>
@@ -335,16 +363,16 @@ export function MessagesPage() {
                     key={msg.id}
                     className={`flex items-center hover:bg-swu-bg/50 transition-colors ${
                       selected?.id === msg.id ? 'bg-swu-bg/50' : ''
-                    } ${!msg.isRead && tab !== 'OUTBOX' ? 'border-l-2 border-l-swu-accent' : ''}`}
+                    } ${!msg.isRead && folder !== 'OUTBOX' ? 'border-l-2 border-l-swu-accent' : ''}`}
                   >
                     <button
-                      onClick={() => void openMessage(msg.id)}
+                      onClick={() => openMessage(msg.id)}
                       className="flex-1 text-left p-3"
                     >
                       <div className="flex items-center justify-between">
                         <span
                           className={`text-sm ${
-                            !msg.isRead && tab !== 'OUTBOX'
+                            !msg.isRead && folder !== 'OUTBOX'
                               ? 'font-bold text-swu-primary'
                               : 'text-swu-muted'
                           }`}
@@ -356,7 +384,7 @@ export function MessagesPage() {
                         </span>
                       </div>
                       <p className="text-[10px] text-swu-muted mt-0.5">
-                        {tab === 'OUTBOX'
+                        {folder === 'OUTBOX'
                           ? `An: ${msg.recipient?.username}`
                           : msg.isSystem
                             ? 'System'
@@ -411,7 +439,7 @@ export function MessagesPage() {
                 text={selected.body}
                 className="text-sm text-swu-muted whitespace-pre-wrap mb-4"
               />
-              {!selected.isSystem && tab !== 'OUTBOX' && (
+              {!selected.isSystem && folder !== 'OUTBOX' && (
                 <button
                   onClick={replyTo}
                   className="px-3 py-1 text-xs bg-swu-accent/20 border border-swu-accent text-swu-accent rounded hover:bg-swu-accent/30 transition-colors"
