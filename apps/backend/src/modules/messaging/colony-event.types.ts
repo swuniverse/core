@@ -41,6 +41,8 @@ export enum ColonyEventType {
 }
 
 export interface CreateColonyEventInput {
+  /** Stable id from the durable event origin, when one exists. */
+  originEventId?: number | null;
   colonyId: number;
   userId: number;
   type: ColonyEventType;

@@ -58,6 +58,10 @@ export class Message {
   @Column({ type: 'varchar', length: 32, nullable: true })
   originKind: string | null;
 
+  /** Stable identifier of the durable event that originated this message. */
+  @Column({ type: 'integer', nullable: true })
+  originEventId: number | null;
+
   @Column({ type: 'varchar', length: 64, nullable: true })
   originEventType: string | null;
 

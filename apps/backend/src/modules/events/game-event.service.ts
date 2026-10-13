@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
+import { ExplorationService } from '../starmap/exploration.service';
 import { GameEvent, GameEventType } from './entities/game-event.entity';
 import {
   resolveSpacecraftField,
@@ -12,6 +13,7 @@ import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 export class GameEventService {
   constructor(
     @InjectRepository(GameEvent) private readonly events: Repository<GameEvent>,
+    private readonly exploration: ExplorationService,
   ) {}
 
   async recordSpacecraft(type: GameEventType, text: string, ship: Spacecraft) {
@@ -32,14 +34,16 @@ export class GameEventService {
   }
 
   async recent({
+    viewerId,
     limit = 20,
     type,
     search,
   }: {
+    viewerId: number;
     limit?: number;
     type?: string;
     search?: string;
-  } = {}) {
+  }) {
     const where = {
       ...(Object.values(GameEventType).includes(type as GameEventType)
         ? { type: type as GameEventType }
@@ -60,20 +64,73 @@ export class GameEventService {
         .groupBy('event.type')
         .getRawMany<{ type: GameEventType; count: string }>(),
     ]);
+    const galaxyLayerIds = [
+      ...new Set(
+        events
+          .filter((event) => event.scope === 'GALAXY')
+          .map((event) => event.layerId)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const systemIds = [
+      ...new Set(
+        events
+          .filter((event) => event.scope === 'SYSTEM')
+          .map((event) => event.systemId)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const exploredGalaxyFields = new Set(
+      (
+        await Promise.all(
+          galaxyLayerIds.map((layerId) =>
+            this.exploration.getExploredFields(viewerId, layerId),
+          ),
+        )
+      ).flatMap((fields) =>
+        fields.map((field) => `${field.layerId}:${field.cx}:${field.cy}`),
+      ),
+    );
+    const exploredSystems = new Set(
+      (
+        await Promise.all(
+          systemIds.map(async (systemId) => ({
+            systemId,
+            isExplored: await this.exploration.isSystemExplored(
+              viewerId,
+              systemId,
+            ),
+          })),
+        )
+      )
+        .filter(({ isExplored }) => isExplored)
+        .map(({ systemId }) => systemId),
+    );
     return {
-      events: events.map((event) => ({
-        id: event.id,
-        type: event.type,
-        text: event.text,
-        scope: event.scope,
-        layerId: event.layerId,
-        systemId: event.systemId,
-        x: event.x,
-        y: event.y,
-        locationId: event.locationId,
-        location: resolveSpaceLocation(event.location),
-        createdAt: event.createdAt.toISOString(),
-      })),
+      events: events.map((event) => {
+        const isVisible =
+          (event.scope === 'GALAXY' &&
+            event.layerId != null &&
+            event.x != null &&
+            event.y != null &&
+            exploredGalaxyFields.has(`${event.layerId}:${event.x}:${event.y}`)) ||
+          (event.scope === 'SYSTEM' &&
+            event.systemId != null &&
+            exploredSystems.has(event.systemId));
+        return {
+          id: event.id,
+          type: event.type,
+          text: event.text,
+          scope: isVisible ? event.scope : null,
+          layerId: isVisible ? event.layerId : null,
+          systemId: isVisible ? event.systemId : null,
+          x: isVisible ? event.x : null,
+          y: isVisible ? event.y : null,
+          locationId: isVisible ? event.locationId : null,
+          location: isVisible ? resolveSpaceLocation(event.location) : null,
+          createdAt: event.createdAt.toISOString(),
+        };
+      }),
       counts: Object.fromEntries(
         Object.values(GameEventType).map((eventType) => [
           eventType,

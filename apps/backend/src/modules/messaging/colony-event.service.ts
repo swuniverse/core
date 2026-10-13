@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ColonyTickEvent } from '@swuniverse/shared';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, QueryDeepPartialEntity, Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { MessageFolder } from './message-folder';
 import {
@@ -33,27 +33,51 @@ export class ColonyEventService {
     return created;
   }
 
-  createActionEvent(
+  async createActionEvent(
     input: CreateColonyEventInput,
     manager?: EntityManager,
   ): Promise<Message> {
     const repository = manager?.getRepository(Message) ?? this.messageRepo;
-    return repository.save(
-      repository.create({
-        senderId: input.userId,
-        recipientId: input.userId,
-        subject: input.title,
-        body: input.message,
-        isSystem: true,
-        folder: MessageFolder.COLONY,
-        originKind: 'COLONY_EVENT',
-        originEventType: input.type,
-        originSeverity: input.severity ?? ColonyEventSeverity.INFO,
-        originColonyId: input.colonyId,
-        originPayload: input.payload ?? {},
-        originTickId: input.tickId ?? null,
-      }),
-    );
+    const deliveryKey =
+      input.originEventId == null
+        ? null
+        : `colony-event:${input.originEventId}`;
+    const values = {
+      senderId: input.userId,
+      recipientId: input.userId,
+      subject: input.title,
+      body: input.message,
+      isSystem: true,
+      folder: MessageFolder.COLONY,
+      deliveryKey,
+      originKind: 'COLONY_EVENT',
+      originEventId: input.originEventId ?? null,
+      originEventType: input.type,
+      originSeverity: input.severity ?? ColonyEventSeverity.INFO,
+      originColonyId: input.colonyId,
+      originPayload: input.payload ?? {},
+      originTickId: input.tickId ?? null,
+    };
+    if (!deliveryKey) return repository.save(repository.create(values));
+
+    const inserted = await repository
+      .createQueryBuilder()
+      .insert()
+      .into(Message)
+      .values(values as QueryDeepPartialEntity<Message>)
+      .orIgnore()
+      .returning('*')
+      .execute();
+    const insertedId = inserted.identifiers[0]?.id as number | undefined;
+    if (insertedId !== undefined) {
+      const message = await repository.findOneBy({ id: insertedId });
+      if (message) return message;
+    }
+    const existing = await repository.findOneBy({ deliveryKey });
+    if (!existing) {
+      throw new Error('Colony event delivery key was not persisted');
+    }
+    return existing;
   }
 
   private formatTickEvent(
