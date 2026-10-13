@@ -13,8 +13,6 @@ import { ColonyField } from '../colony/entities/colony-field.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { ColonyDefenseService } from '../colony/colony-defense.service';
-import { ColonyEvent } from '../colony/entities/colony-event.entity';
-import { ColonyEventService } from '../colony/colony-event.service';
 import { ColonyDamageService } from '../colony/colony-damage.service';
 import { CombatReportFormatter } from './combat-report.formatter';
 
@@ -27,7 +25,6 @@ import { CombatReportFormatter } from './combat-report.formatter';
       ColonyStats,
       ColonyField,
       ColonyStorage,
-      ColonyEvent,
     ]),
     WebsocketModule,
     SpacecraftModule,
@@ -39,7 +36,6 @@ import { CombatReportFormatter } from './combat-report.formatter';
     ColonyStorageService,
     ColonyDefenseService,
     ColonyDamageService,
-    ColonyEventService,
     CombatReportFormatter,
   ],
   exports: [CombatService],

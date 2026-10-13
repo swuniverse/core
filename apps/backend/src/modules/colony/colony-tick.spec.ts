@@ -1282,7 +1282,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyEconomyService,
     colonyCrewService as any,
     colonyDefenseService as any,
-    colonyEventService as any,
     colonySocialService as any,
     orbitService as any,
   );

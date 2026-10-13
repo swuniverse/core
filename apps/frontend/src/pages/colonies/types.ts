@@ -1,10 +1,6 @@
-import type {
-  ColonyEventDto,
-  ShipModuleSelection,
-  SpaceLocationDto,
-} from '@swuniverse/shared';
+import type { ShipModuleSelection, SpaceLocationDto } from '@swuniverse/shared';
 
-export type { ColonyEventDto, ShipModuleSelection };
+export type { ShipModuleSelection };
 
 export interface ColonyFieldUpgrade {
   id: number;
@@ -274,7 +270,6 @@ export type ShipyardType =
 
 export interface ColonyDetailV2 {
   featureAccess?: ColonyFeatureAccess;
-  eventSummary?: { unreadCount: number; latest: ColonyEventDto[] };
   activeFunctions?: ColonyEffectiveFunction[];
   effectiveState?: ColonyEffectiveState;
   surface?: {

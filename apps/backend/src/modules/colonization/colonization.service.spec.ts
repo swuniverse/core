@@ -25,7 +25,7 @@ jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ColonizationService } from './colonization.service';
-import { ColonyEventType } from '../colony/entities/colony-event.entity';
+import { ColonyEventType } from '../messaging/colony-event.types';
 import { buildSwuTestClassId } from '../starmap/generator/swu-system-generator';
 import { solarOutputTJ } from '../starmap/generator/swu-solar';
 

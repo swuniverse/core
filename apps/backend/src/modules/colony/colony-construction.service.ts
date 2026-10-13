@@ -13,7 +13,7 @@ import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import { ColonyBuildingManagementService } from './colony-building-management.service';
 import { BuildingMassActionMode } from './colony-building-management.types';
-import { ColonyEventService } from './colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import {
   ColonyStatsService,
@@ -27,7 +27,7 @@ import { COLONY_BUILDING_ID_SETS } from './colony.constants';
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from './entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';

@@ -55,6 +55,24 @@ export class Message {
   @Column({ type: 'varchar', length: 100, nullable: true })
   deliveryKey: string | null;
 
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  originKind: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  originEventType: string | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  originSeverity: string | null;
+
+  @Column({ type: 'integer', nullable: true })
+  originColonyId: number | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  originPayload: Record<string, unknown> | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  originTickId: number | null;
+
   @Column({ default: false })
   deletedBySender: boolean;
 

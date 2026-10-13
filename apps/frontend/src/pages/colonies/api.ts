@@ -10,7 +10,6 @@ import type {
   BuildingRepairPreview,
   BuildingRepairResult,
   Colony,
-  ColonyEventDto,
   CommodityDef,
   FieldCategoriesSummary,
   ShipClassDef,
@@ -180,13 +179,4 @@ export const colonyApi = {
     api.post(`/colonies/${colonyId}/shields/frequency`, { frequency }),
   setDefenseTorpedoType: (colonyId: number, commodityId: number | null) =>
     api.post(`/colonies/${colonyId}/defense/torpedo-type`, { commodityId }),
-
-  fetchEvents: (colonyId: number, unreadOnly = false) =>
-    api.get<ColonyEventDto[]>(
-      `/colonies/${colonyId}/events?limit=50&unreadOnly=${unreadOnly}`,
-    ),
-  markEventRead: (colonyId: number, eventId: number) =>
-    api.post(`/colonies/${colonyId}/events/${eventId}/read`, {}),
-  markAllEventsRead: (colonyId: number) =>
-    api.post(`/colonies/${colonyId}/events/read-all`, {}),
 };

@@ -17,7 +17,6 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEconomyService } from './colony-economy.service';
-import { ColonyEventService } from './colony-event.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonySocialService } from './colony-social.service';
 import {
@@ -213,7 +212,6 @@ export class ColonyProjectionService {
     private readonly colonyEconomyService: ColonyEconomyService,
     private readonly colonyCrewService: ColonyCrewService,
     private readonly colonyDefenseService: ColonyDefenseService,
-    private readonly colonyEventService: ColonyEventService,
     private readonly colonySocialService: ColonySocialService,
     private readonly colonyOrbitService: ColonyOrbitService,
   ) {}
@@ -463,10 +461,6 @@ export class ColonyProjectionService {
     const activeFabricationFunctionIdSet = new Set(
       activeFabricationFunctionIds,
     );
-    const [eventUnreadCount, latestEvents] = await Promise.all([
-      this.colonyEventService.getUnreadCountForColony(colony.id, userId),
-      this.colonyEventService.getLatestForColony(colony.id, userId, 3),
-    ]);
     const hangarInventory = await this.getHangarInventory(colony);
     const startableHangarShips = await this.getStartableHangarShips(
       userId,
@@ -606,18 +600,6 @@ export class ColonyProjectionService {
       storageItemCount: storage.length,
       detailV2: {
         featureAccess,
-        eventSummary: {
-          unreadCount: eventUnreadCount,
-          latest: latestEvents.map((event) => ({
-            id: event.id,
-            type: event.type,
-            severity: event.severity,
-            title: event.title,
-            message: event.message,
-            createdAt: event.createdAt,
-            readAt: event.readAt,
-          })),
-        },
         activeFunctions: effectiveState.functions.active,
         effectiveState,
         surface: this.buildSurfaceInfo(colony, fields),

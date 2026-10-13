@@ -11,10 +11,7 @@ import {
 import { isColonyShielded, type Colony, type ColonyDetailV2 } from '../types';
 import type { SwuColonyEcosystem } from '../useSwuColonyEcosystem';
 import { formatSignedAmount } from '../utils';
-import { PanelEvents } from './PanelEvents';
 import { PanelOrbit } from './PanelOrbit';
-
-type PanelEventsProps = React.ComponentProps<typeof PanelEvents>;
 
 type PanelInfoProps = {
   colony: Colony;
@@ -24,7 +21,6 @@ type PanelInfoProps = {
   /** Nur SWU-Kolonien (siehe useSwuColonyEcosystem). */
   ecosystem?: SwuColonyEcosystem | null;
   onOpenOrbitManagement: () => void;
-  eventProps: PanelEventsProps;
   orbitProps: Omit<
     React.ComponentProps<typeof PanelOrbit>,
     | 'colonyId'
@@ -46,7 +42,6 @@ export function PanelInfo({
   environmentScanError,
   ecosystem,
   onOpenOrbitManagement,
-  eventProps,
   orbitProps,
 }: PanelInfoProps) {
   const storageIds = new Set(
@@ -319,11 +314,6 @@ export function PanelInfo({
           </div>
         </section>
       )}
-
-      <section className={sectionClass}>
-        <h3 className={headingClass}>Ereignisse</h3>
-        <PanelEvents {...eventProps} />
-      </section>
     </div>
   );
 }

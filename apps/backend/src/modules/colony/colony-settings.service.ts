@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameDataService } from '../game-data/game-data.service';
-import { ColonyEventService } from './colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -11,7 +11,7 @@ import { Colony } from './entities/colony.entity';
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from './entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import { COLONY_FUNCTION_IDS } from './colony.constants';
 
 @Injectable()

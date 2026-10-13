@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { ColonyTickEvent } from '@swuniverse/shared';
 import { ColonyService } from '../colony/colony.service';
-import { ColonyEventService } from '../colony/colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';

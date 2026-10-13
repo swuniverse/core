@@ -6,11 +6,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
-import { ColonyEventService } from './colony-event.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
 import {
   ColonyEventSeverity,
   ColonyEventType,
-} from './entities/colony-event.entity';
+} from '../messaging/colony-event.types';
 import { ColonyFabricationQueue } from './entities/colony-fabrication-queue.entity';
 import { ColonyCrewTrainingQueue } from './entities/colony-crew-training-queue.entity';
 import { ColonyShipBuildQueue } from './entities/colony-ship-build-queue.entity';
