@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
-import type { AllianceRefDto } from '@swuniverse/shared';
+import { PlayerAvatar } from '../components/PlayerAvatar';
+import { Faction, type AllianceRefDto } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { SettlerPublicDiplomacy } from './alliances';
 
@@ -106,19 +107,19 @@ export function PlayerProfilePage() {
 
       <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-swu-border bg-swu-bg">
-            {player.avatar ? (
-              <img
-                src={player.avatar}
-                alt={`${name} Profilbild`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-3xl font-bold text-swu-muted">
-                {name[0].toUpperCase()}
-              </span>
-            )}
-          </div>
+          <PlayerAvatar
+            name={name}
+            avatar={player.avatar}
+            faction={
+              player.faction === 'REBEL_ALLIANCE'
+                ? Faction.REBEL_ALLIANCE
+                : player.faction === 'GALACTIC_EMPIRE'
+                  ? Faction.GALACTIC_EMPIRE
+                  : null
+            }
+            alt={`${name} Profilbild`}
+            className="size-24 text-3xl"
+          />
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1

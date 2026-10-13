@@ -53,6 +53,7 @@ export interface ApplicationRecord {
 export interface PlayerRecord {
   id: number;
   name: string;
+  avatar: string | null;
   factionId: number | null;
   /** Last recorded activity; empty counts as the oldest value. */
   lastActiveAt: Date | null;
@@ -423,6 +424,10 @@ export interface AllianceStore {
   findMemberships(userIds: number[]): Promise<MembershipRecord[]>;
   /** Ordered by join time, oldest first. */
   listMemberships(allianceId: number): Promise<MembershipRecord[]>;
+  /** Ordered by alliance ID, then join time, oldest first. */
+  listMembershipsForAlliances(
+    allianceIds: number[],
+  ): Promise<MembershipRecord[]>;
   insertMembership(data: {
     allianceId: number;
     userId: number;

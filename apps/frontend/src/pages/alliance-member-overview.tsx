@@ -7,6 +7,7 @@ import {
   type AllianceMemberOverviewDto,
   type SpaceLocationDto,
 } from '@swuniverse/shared';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 import { ApiError, api } from '../services/api';
 
 const dateTimeFormatter = new Intl.DateTimeFormat('de-DE', {
@@ -137,6 +138,13 @@ function MemberRow({
         onClick={() => setOpen((value) => !value)}
         className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-left"
       >
+        <PlayerAvatar
+          name={member.name}
+          avatar={member.avatar}
+          faction={member.faction}
+          decorative
+          className="size-9 text-sm"
+        />
         <span className="font-bold text-swu-primary">{member.name}</span>
         {member.roleTitle && (
           <span className="text-xs text-swu-muted">{member.roleTitle}</span>

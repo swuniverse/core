@@ -171,7 +171,53 @@ describe('SettlerDiplomacyPage', () => {
     ).toHaveLength(1);
   });
 
-  it('hides war declaration without the server capability', async () => {
+  it('keeps negotiation available without the war capability', async () => {
+    routeGet({
+      '/alliances/settlers/diplomacy': management({
+        capabilities: { create: true, declareWar: false },
+      }),
+      '/alliances/settlers/counterparties?q=Chew': {
+        players: [{ id: 3, name: 'Chewie' }],
+        nextCursor: null,
+      },
+    });
+    renderAt('/alliances/settlers/diplomacy');
+
+    expect(
+      await screen.findByText('Siedler als Gegenpartei wählen'),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Es werden nur Siedler ohne Allianz derselben Fraktion angezeigt.',
+      ),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Siedler suchen'), {
+      target: { value: 'Chew' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Suchen' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Verhandeln: Chewie' }),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Krieg erklären: Chewie' }),
+    ).toBeNull();
+    fireEvent.change(screen.getByLabelText('Beziehungstyp'), {
+      target: { value: AllianceRelationshipType.TRADE_AGREEMENT },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Vorschlag senden' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/alliances/settlers/diplomacy/proposals',
+        expect.objectContaining({
+          recipientPlayerId: 3,
+          type: AllianceRelationshipType.TRADE_AGREEMENT,
+        }),
+      ),
+    );
+  });
+
+  it('hides the counterparty picker without usable actions', async () => {
     routeGet({
       '/alliances/settlers/diplomacy': management({
         capabilities: { create: false, declareWar: false },

@@ -44,6 +44,10 @@ Das endgültige Ende einer Allianz, durch den Präsidenten, durch den Austritt d
 Der deterministische Übergang des Präsidentenamts, wenn der Präsident ohne manuelle Übergabe wegfällt, etwa durch Kontolöschung. Es rückt der zuletzt aktive Vize nach, sonst der zuletzt aktive Diplomat, sonst das zuletzt aktive übrige Mitglied; bei Gleichstand entscheiden die längste Mitgliedschaft und die niedrigste User-ID, eine leere letzte Aktivität gilt als älteste. Ohne Kandidaten wird die **Allianz** aufgelöst. Der freiwillige Austritt eines Präsidenten mit weiteren Mitgliedern löst sie nicht aus.
 _Avoid_: Erbfolge, Präsidentenwahl
 
+**Avatar**:
+Das öffentliche persönliche Bild eines **Spielers**. Fehlt es oder kann es nicht geladen werden, erscheint stattdessen das Bild seiner **Fraktion**, danach seine Namensinitiale. Ein Avatar ist kein **Banner**.
+_Avoid_: Profilbanner, Wappen
+
 **Banner**:
 Das PNG-Bild einer **Allianz**, das Präsident und Vize hochladen, ersetzen und entfernen. Es erscheint als fester Kopfbereich der Allianzseite und über den Platzhalter `$ALLIANCE_BANNER` in der Beschreibung. Die Allianz hält nur eine Referenz, das Bild liegt hinter einer austauschbaren Asset-Schnittstelle.
 _Avoid_: Logo, Wappen

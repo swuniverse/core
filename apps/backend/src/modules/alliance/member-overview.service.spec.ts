@@ -216,6 +216,7 @@ describe('MemberOverviewService', () => {
     const overview = await service.getOverview(1, alliance.id);
     expect(overview.members[0].lastActiveAt).toBeNull();
     expect(Object.keys(overview.members[1]).sort()).toEqual([
+      'avatar',
       'colonies',
       'crew',
       'faction',

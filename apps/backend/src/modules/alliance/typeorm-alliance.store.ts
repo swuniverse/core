@@ -102,6 +102,7 @@ function toPlayer(user: User): PlayerRecord {
   return {
     id: user.id,
     name: user.displayName || user.username,
+    avatar: user.avatar,
     factionId: user.factionId,
     lastActiveAt: user.lastActiveAt,
   };
@@ -1143,6 +1144,15 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     const memberships = await this.manager.find(AllianceMembership, {
       where: { allianceId },
       order: { joinedAt: 'ASC', id: 'ASC' },
+    });
+    return memberships.map(toMembership);
+  }
+
+  async listMembershipsForAlliances(allianceIds: number[]) {
+    if (!allianceIds.length) return [];
+    const memberships = await this.manager.find(AllianceMembership, {
+      where: { allianceId: In(allianceIds) },
+      order: { allianceId: 'ASC', joinedAt: 'ASC', id: 'ASC' },
     });
     return memberships.map(toMembership);
   }

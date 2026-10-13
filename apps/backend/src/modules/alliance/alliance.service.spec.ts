@@ -532,6 +532,9 @@ describe('AllianceService', () => {
   describe('list', () => {
     it('lists alliances of both factions with member count and status', async () => {
       const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Wedge');
+      store.addPlayer(3, 'Vader', EMPIRE.id);
       store.seedAlliance(
         {
           name: 'Rogue Squadron',
@@ -562,6 +565,20 @@ describe('AllianceService', () => {
           faction: REBELS.key,
           factionName: 'Rebellenallianz',
           memberCount: 2,
+          members: [
+            {
+              userId: 1,
+              name: 'Leia',
+              avatar: null,
+              faction: REBELS.key,
+            },
+            {
+              userId: 2,
+              name: 'Wedge',
+              avatar: null,
+              faction: REBELS.key,
+            },
+          ],
           color: '#ff0000',
           acceptsApplications: true,
           banner: {
@@ -574,11 +591,46 @@ describe('AllianceService', () => {
           faction: EMPIRE.key,
           factionName: 'Galaktisches Imperium',
           memberCount: 1,
+          members: [
+            {
+              userId: 3,
+              name: 'Vader',
+              avatar: null,
+              faction: EMPIRE.key,
+            },
+          ],
           color: null,
           acceptsApplications: false,
           banner: null,
         }),
       ]);
+    });
+
+    it('loads all list members in bulk', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Wedge');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+        [2, NONE],
+      ]);
+      const empty = store.seedAlliance({ name: 'Empty Squadron' }, []);
+      const listMemberships = jest.spyOn(store, 'listMembershipsForAlliances');
+      const findPlayers = jest.spyOn(store, 'findPlayers');
+
+      const list = await service.list();
+
+      expect(listMemberships).toHaveBeenCalledWith([rogue.id, empty.id]);
+      expect(findPlayers).toHaveBeenCalledWith([1, 2]);
+      expect(list).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: empty.id,
+            memberCount: 0,
+            members: [],
+          }),
+        ]),
+      );
     });
   });
 
@@ -710,8 +762,6 @@ describe('AllianceService', () => {
             editDetails: false,
             manageApplications: false,
             dissolve: false,
-            declareWar: false,
-            warTargets: [],
             manageDiplomacy: false,
             readForum: false,
             viewMemberOperations: false,
@@ -774,8 +824,6 @@ describe('AllianceService', () => {
             editDetails: true,
             manageApplications: true,
             dissolve: true,
-            declareWar: true,
-            warTargets: [],
             manageDiplomacy: true,
             readForum: true,
             viewMemberOperations: true,
@@ -831,8 +879,6 @@ describe('AllianceService', () => {
           editDetails: true,
           manageApplications: true,
           dissolve: false,
-          declareWar: false,
-          warTargets: [],
           manageDiplomacy: false,
           viewMemberOperations: true,
         });
@@ -848,12 +894,12 @@ describe('AllianceService', () => {
         });
       });
 
-      it('gives diplomats war declaration and plain members only leave', async () => {
+      it('gives diplomats diplomacy management and plain members only leave', async () => {
         const { service, alliance } = scenario();
 
-        for (const [userId, declareWar, manageDiplomacy] of [
-          [3, true, true],
-          [4, false, false],
+        for (const [userId, manageDiplomacy] of [
+          [3, true],
+          [4, false],
         ] as const) {
           const { viewer, members } = await service.getDetail(
             userId,
@@ -866,8 +912,6 @@ describe('AllianceService', () => {
             editDetails: false,
             manageApplications: false,
             dissolve: false,
-            declareWar,
-            warTargets: [],
             manageDiplomacy,
             readForum: true,
             viewMemberOperations: false,

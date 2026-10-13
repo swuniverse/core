@@ -34,6 +34,7 @@ import {
   type UpdateAllianceRequest,
 } from '@swuniverse/shared';
 import { BbCodeText } from '../components/BbCodeText';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 import { ApiError, api } from '../services/api';
 import { getErrorMessage } from '../lib/errors';
 
@@ -172,6 +173,38 @@ export function AllianceIndexPage() {
   );
 }
 
+function AllianceListMembers({
+  members,
+}: {
+  members: AllianceSummaryDto['members'];
+}) {
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
+      <span className="text-swu-muted">Mitglieder:</span>
+      {members.length === 0 ? (
+        <span className="italic text-swu-muted">Keine</span>
+      ) : (
+        members.map((member) => (
+          <Link
+            key={member.userId}
+            to={`/players/${member.userId}`}
+            className="flex items-center gap-1 font-bold text-swu-primary hover:text-swu-accent"
+          >
+            <PlayerAvatar
+              name={member.name}
+              avatar={member.avatar}
+              faction={member.faction}
+              decorative
+              className="size-5 border-0 text-[9px]"
+            />
+            {member.name}
+          </Link>
+        ))
+      )}
+    </div>
+  );
+}
+
 function AllianceListSection({
   title,
   alliances,
@@ -184,70 +217,60 @@ function AllianceListSection({
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-bold text-swu-primary">{title}</h2>
-      <div className="overflow-x-auto border border-swu-border bg-swu-surface">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-swu-border text-xs uppercase tracking-wider text-swu-muted">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Fraktion</th>
-              <th className="px-3 py-2 text-right">Mitglieder</th>
-              <th className="px-3 py-2">Aufnahme</th>
-            </tr>
-          </thead>
-          {alliances.map((alliance) => (
-            <tbody key={alliance.id}>
-              <tr
-                data-alliance-color={alliance.color ?? undefined}
-                className="border-b border-swu-border/40"
-              >
-                <td className="px-3 py-2">
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className="size-2.5 shrink-0 rounded-full border border-swu-border"
-                      style={{
-                        backgroundColor: alliance.color ?? 'transparent',
-                      }}
-                    />
-                    <Link
-                      to={`/alliances/${alliance.id}`}
-                      className="font-bold text-swu-primary hover:text-swu-accent"
-                      style={{ color: alliance.color ?? undefined }}
-                    >
-                      {alliance.name}
-                    </Link>
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-swu-muted">
+      <ul className="divide-y divide-swu-border border border-swu-border bg-swu-surface text-sm">
+        {alliances.map((alliance) => (
+          <li
+            key={alliance.id}
+            data-alliance-color={alliance.color ?? undefined}
+            className="space-y-2 px-3 py-2"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0">
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="size-2.5 shrink-0 rounded-full border border-swu-border"
+                    style={{ backgroundColor: alliance.color ?? 'transparent' }}
+                  />
+                  <Link
+                    to={`/alliances/${alliance.id}`}
+                    className="font-bold text-swu-primary hover:text-swu-accent"
+                    style={{ color: alliance.color ?? undefined }}
+                  >
+                    {alliance.name}
+                  </Link>
+                </span>
+                <p className="pl-[18px] text-xs text-swu-muted">
                   {alliance.factionName}
-                </td>
-                <td className="px-3 py-2 text-right font-mono">
-                  {alliance.memberCount}
-                </td>
-                <td className="px-3 py-2 text-swu-muted">
-                  {alliance.acceptsApplications ? 'offen' : 'geschlossen'}
-                </td>
-              </tr>
-              {alliance.banner && (
-                <tr className="border-b border-swu-border/40">
-                  <td colSpan={4}>
-                    <Link
-                      to={`/alliances/${alliance.id}`}
-                      className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent"
-                    >
-                      <img
-                        src={alliance.banner.url}
-                        alt={`Banner von ${alliance.name}`}
-                        className="h-auto max-h-[150px] w-full object-contain"
-                      />
-                    </Link>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          ))}
-        </table>
-      </div>
+                </p>
+              </div>
+              <span className="font-mono text-xs text-swu-muted">
+                {alliance.memberCount} Mitglieder
+              </span>
+            </div>
+            {alliance.banner ? (
+              <div className="flex flex-col items-start gap-3 sm:flex-row">
+                <Link
+                  to={`/alliances/${alliance.id}`}
+                  aria-label={`Allianz ${alliance.name} öffnen`}
+                  className="block shrink-0 w-fit max-w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent"
+                >
+                  <img
+                    src={alliance.banner.url}
+                    alt={`Banner von ${alliance.name}`}
+                    className="max-h-[150px] max-w-full w-auto"
+                  />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <AllianceListMembers members={alliance.members} />
+                </div>
+              </div>
+            ) : (
+              <AllianceListMembers members={alliance.members} />
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -455,8 +478,15 @@ function AllianceMembersSection({
             >
               <Link
                 to={`/players/${member.userId}`}
-                className="font-bold text-swu-primary hover:text-swu-accent"
+                className="flex items-center gap-2 font-bold text-swu-primary hover:text-swu-accent"
               >
+                <PlayerAvatar
+                  name={member.name}
+                  avatar={member.avatar}
+                  faction={member.faction}
+                  decorative
+                  className="size-9 text-sm"
+                />
                 {member.name}
               </Link>
               {member.roleTitle && (
@@ -1792,7 +1822,8 @@ export function AllianceDetailPage() {
   return (
     <div className="space-y-4 p-3 md:p-6">
       <BackLink to="/alliances/list" label="Allianzen" />
-
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        <main className="min-w-0 space-y-4">
       {alliance.banner && (
         <img
           src={alliance.banner.url}
@@ -1872,29 +1903,6 @@ export function AllianceDetailPage() {
             )}
           </div>
         </div>
-        <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
-          <dt className="text-swu-muted">Fraktion</dt>
-          <dd className="text-swu-primary">{alliance.factionName}</dd>
-          <dt className="text-swu-muted">Gegründet</dt>
-          <dd>{dateFormatter.format(new Date(alliance.foundedAt))}</dd>
-          <dt className="text-swu-muted">Aufnahme</dt>
-          <dd>{alliance.acceptsApplications ? 'offen' : 'geschlossen'}</dd>
-          {alliance.homepage && (
-            <>
-              <dt className="text-swu-muted">Homepage</dt>
-              <dd className="truncate">
-                <a
-                  href={alliance.homepage}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-swu-accent underline hover:text-swu-primary"
-                >
-                  {alliance.homepage}
-                </a>
-              </dd>
-            </>
-          )}
-        </dl>
         <ErrorMessage message={error} />
       </section>
 
@@ -2040,18 +2048,51 @@ export function AllianceDetailPage() {
         </section>
       )}
 
-      <AllianceMembersSection
-        title="Leitung"
-        members={alliance.members.filter(
-          (member) => member.role !== AllianceRole.NONE,
-        )}
-      />
-      <AllianceMembersSection
-        title="Mitglieder"
-        members={alliance.members.filter(
-          (member) => member.role === AllianceRole.NONE,
-        )}
-      />
+        </main>
+
+        <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+          <AllianceMembersSection
+            title="Leitung"
+            members={alliance.members.filter(
+              (member) => member.role !== AllianceRole.NONE,
+            )}
+          />
+          <AllianceMembersSection
+            title="Mitglieder"
+            members={alliance.members.filter(
+              (member) => member.role === AllianceRole.NONE,
+            )}
+          />
+          <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
+            <h2 className="text-sm font-bold text-swu-primary">Fakten</h2>
+            <dl className="grid gap-x-3 gap-y-1 text-sm grid-cols-[auto_1fr]">
+              <dt className="text-swu-muted">Fraktion</dt>
+              <dd className="text-swu-primary">{alliance.factionName}</dd>
+              <dt className="text-swu-muted">Gegründet</dt>
+              <dd>{dateFormatter.format(new Date(alliance.foundedAt))}</dd>
+              <dt className="text-swu-muted">Mitglieder</dt>
+              <dd>{alliance.memberCount}</dd>
+              <dt className="text-swu-muted">Aufnahme</dt>
+              <dd>{alliance.acceptsApplications ? 'offen' : 'geschlossen'}</dd>
+              {alliance.homepage && (
+                <>
+                  <dt className="text-swu-muted">Homepage</dt>
+                  <dd className="truncate">
+                    <a
+                      href={alliance.homepage}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-swu-accent underline hover:text-swu-primary"
+                    >
+                      {alliance.homepage}
+                    </a>
+                  </dd>
+                </>
+              )}
+            </dl>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

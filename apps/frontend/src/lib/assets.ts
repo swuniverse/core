@@ -5,6 +5,19 @@ import {
 
 const ASSET_BASE = import.meta.env.VITE_ASSET_BASE_URL || '/assets';
 
+export function factionAvatarImage(
+  faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null | undefined,
+): string | null {
+  switch (faction) {
+    case 'REBEL_ALLIANCE':
+      return `${ASSET_BASE}/avatars/alliance-rebel-default.png`;
+    case 'GALACTIC_EMPIRE':
+      return `${ASSET_BASE}/avatars/alliance-imperial-default.png`;
+    default:
+      return null;
+  }
+}
+
 const PNG_PLANET_IMAGES = new Set([
   701, 702, 703, 704, 705, 706, 707, 708, 709, 716, 717, 718,
 ]);

@@ -25,7 +25,7 @@ Spieler können eine **Allianz** gründen, die an ihre **Fraktion** gebunden ist
 8. Als Spieler ohne gewählte Fraktion möchte ich keine Allianz gründen können, weil die Allianz eine Fraktion braucht.
 
 ### Liste und Detailseite
-9. Als Spieler möchte ich eine Liste aller Allianzen beider Fraktionen mit Fraktion, Mitgliederzahl und Bewerbungsstatus sehen, damit ich weiß, wer im Spiel unterwegs ist.
+9. Als Spieler möchte ich eine Liste aller Allianzen beider Fraktionen mit Fraktion, Mitgliederzahl und verlinkten Mitgliedern sehen, damit ich weiß, wer im Spiel unterwegs ist. Ob Bewerbungen möglich sind, vermittelt die Einordnung in die Bereiche „Offene Allianzen“ und „Geschlossene Allianzen“.
 10. Als Spieler möchte ich die Detailseite jeder Allianz öffnen können, damit ich Beschreibung, Homepage, Gründungsdatum und Fraktion lesen kann.
 11. Als Spieler möchte ich auf der Detailseite alle Mitglieder mit ihren Ämtern sehen, damit ich weiß, wen ich ansprechen kann.
 12. Als Spieler möchte ich, dass die Ämter mit den Titeln angezeigt werden, die die Allianz gewählt hat, damit die Allianz ihr eigenes Flair hat.

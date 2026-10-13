@@ -79,6 +79,7 @@ export class MemberOverviewService {
         return {
           userId: m.userId,
           name: info?.name ?? 'Unbekannt',
+          avatar: info?.avatar ?? null,
           faction: faction?.key ?? null,
           factionName: faction?.name ?? null,
           role: m.role,

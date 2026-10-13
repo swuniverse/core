@@ -96,6 +96,7 @@ import type {
   ApplicationRecord,
   FactionRecord,
   MembershipRecord,
+  PlayerRecord,
 } from './alliance.store';
 
 const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
@@ -232,14 +233,32 @@ export class AllianceService {
   // --- Queries ---
 
   async list(): Promise<AllianceSummaryDto[]> {
-    const [alliances, counts, factions] = await Promise.all([
+    const [alliances, factions] = await Promise.all([
       this.store.listAlliances(),
-      this.store.countMembers(),
       this.store.listFactions(),
     ]);
-    return alliances.map((alliance) =>
-      this.toSummary(alliance, counts.get(alliance.id) ?? 0, factions),
+    const memberships = await this.store.listMembershipsForAlliances(
+      alliances.map((alliance) => alliance.id),
     );
+    const playersById = await this.playersById(
+      memberships.map((membership) => membership.userId),
+    );
+    const membersByAlliance = new Map<number, MembershipRecord[]>();
+    for (const membership of memberships) {
+      const members = membersByAlliance.get(membership.allianceId) ?? [];
+      members.push(membership);
+      membersByAlliance.set(membership.allianceId, members);
+    }
+    return alliances.map((alliance) => {
+      const members = membersByAlliance.get(alliance.id) ?? [];
+      return this.toSummary(
+        alliance,
+        members.length,
+        factions,
+        members,
+        playersById,
+      );
+    });
   }
 
   async listDiplomacyChronicle(
@@ -351,7 +370,6 @@ export class AllianceService {
       viewerMembership,
       application,
       relationships,
-      alliances,
     ] = await Promise.all([
       this.store.listMemberships(allianceId),
       this.store.listFactions(),
@@ -359,9 +377,10 @@ export class AllianceService {
       this.store.findMembership(viewerId),
       this.store.findApplicationOf(allianceId, viewerId),
       this.store.listActiveRelationships(allianceId),
-      this.store.listAlliances(),
     ]);
-    const nameOf = await this.namesOf(memberships.map((m) => m.userId));
+    const playersById = await this.playersById(
+      memberships.map((membership) => membership.userId),
+    );
     const titles = this.titlesOf(alliance);
     const relationshipSummaries = await this.relationshipSummaries(
       allianceId,
@@ -380,21 +399,33 @@ export class AllianceService {
 
     const members = [...memberships]
       .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
-      .map((m) => ({
-        userId: m.userId,
-        name: nameOf(m.userId),
-        role: m.role,
+      .map((m) => {
+        const player = playersById.get(m.userId);
+        const faction = factions.find((item) => item.id === player?.factionId);
+        return {
+          userId: m.userId,
+          name: player?.name ?? UNKNOWN_NAME,
+          avatar: player?.avatar ?? null,
+          faction: faction?.key ?? null,
+          role: m.role,
         roleTitle: this.roleTitle(titles, m.role),
         joinedAt: m.joinedAt.toISOString(),
         actions: this.memberActions(ownRole, viewerId, m),
-        ...(onlineIds ? { online: onlineIds.has(m.userId) } : {}),
-      }));
+          ...(onlineIds ? { online: onlineIds.has(m.userId) } : {}),
+        };
+      });
 
     const may = (action: AllianceAction) =>
       ownRole !== null && mayActOnAlliance(ownRole, action);
 
     return {
-      ...this.toSummary(alliance, memberships.length, factions),
+      ...this.toSummary(
+        alliance,
+        memberships.length,
+        factions,
+        memberships,
+        playersById,
+      ),
       homepage: alliance.homepage,
       description: alliance.description,
       renderedDescription: this.renderDescription(
@@ -420,21 +451,11 @@ export class AllianceService {
           editDetails: may('editDetails'),
           manageApplications: may('manageApplications'),
           dissolve: may('dissolve'),
-          declareWar: may('declareWar'),
           manageDiplomacy: may('manageDiplomacy'),
           readForum: ownRole !== null,
           viewMemberOperations: may('viewMemberOperations'),
           viewChronicle: ownRole !== null,
           manageBanner: may('manageBanner'),
-          warTargets: may('declareWar')
-            ? alliances
-                .filter(
-                  (candidate) =>
-                    candidate.id !== allianceId &&
-                    candidate.factionId === alliance.factionId,
-                )
-                .map(({ id, name, color }) => ({ id, name, color }))
-            : [],
         },
       },
     };
@@ -1406,11 +1427,13 @@ export class AllianceService {
     }
     const applications =
       await this.store.listApplicationsForAlliance(allianceId);
-    const nameOf = await this.namesOf(applications.map((a) => a.userId));
+    const playersById = await this.playersById(
+      applications.map((application) => application.userId),
+    );
     return applications.map((a) => ({
       id: a.id,
       userId: a.userId,
-      name: nameOf(a.userId),
+      name: playersById.get(a.userId)?.name ?? UNKNOWN_NAME,
       createdAt: a.createdAt.toISOString(),
     }));
   }
@@ -2504,10 +2527,9 @@ export class AllianceService {
     return alliance;
   }
 
-  private async namesOf(ids: number[]): Promise<(id: number) => string> {
+  private async playersById(ids: number[]): Promise<Map<number, PlayerRecord>> {
     const players = await this.store.findPlayers(ids);
-    const names = new Map(players.map((p) => [p.id, p.name]));
-    return (id) => names.get(id) ?? UNKNOWN_NAME;
+    return new Map(players.map((player) => [player.id, player]));
   }
 
   /** President and all vices: recipients of applications and departures. */
@@ -2559,6 +2581,8 @@ export class AllianceService {
     alliance: AllianceRecord,
     memberCount: number,
     factions: FactionRecord[],
+    members: MembershipRecord[] = [],
+    playersById: Map<number, PlayerRecord> = new Map(),
   ): AllianceSummaryDto {
     const faction = factions.find((f) => f.id === alliance.factionId);
     return {
@@ -2568,6 +2592,18 @@ export class AllianceService {
       faction: faction?.key as AllianceSummaryDto['faction'],
       factionName: faction?.name ?? UNKNOWN_NAME,
       memberCount,
+      members: members.map((member) => {
+        const player = playersById.get(member.userId);
+        const memberFaction = factions.find(
+          (item) => item.id === player?.factionId,
+        );
+        return {
+          userId: member.userId,
+          name: player?.name ?? UNKNOWN_NAME,
+          avatar: player?.avatar ?? null,
+          faction: memberFaction?.key ?? null,
+        };
+      }),
       acceptsApplications: alliance.acceptsApplications,
       banner: this.bannerDto(alliance),
       foundedAt: alliance.foundedAt.toISOString(),

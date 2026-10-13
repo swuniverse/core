@@ -53,6 +53,7 @@ const NO_MEMBER_ACTIONS: AllianceMemberActionsDto = {
   transferPresidency: false,
 };
 
+// Alliance list/detail are public seams: member identity includes avatar fallback data.
 const summary = (
   overrides: Partial<AllianceSummaryDto> = {},
 ): AllianceSummaryDto => ({
@@ -62,6 +63,20 @@ const summary = (
   faction: Faction.REBEL_ALLIANCE,
   factionName: 'Rebellenallianz',
   memberCount: 2,
+  members: [
+    {
+      userId: 1,
+      name: 'Leia',
+      avatar: null,
+      faction: Faction.REBEL_ALLIANCE,
+    },
+    {
+      userId: 2,
+      name: 'Wedge',
+      avatar: null,
+      faction: Faction.REBEL_ALLIANCE,
+    },
+  ],
   acceptsApplications: true,
   banner: null,
   foundedAt: '2026-10-01T12:00:00.000Z',
@@ -84,6 +99,8 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
       {
         userId: 1,
         name: 'Leia',
+        avatar: null,
+        faction: Faction.REBEL_ALLIANCE,
         role: AllianceRole.PRESIDENT,
         roleTitle: 'Großadmiral',
         joinedAt: '2026-10-01T12:00:00.000Z',
@@ -92,6 +109,8 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
       {
         userId: 2,
         name: 'Wedge',
+        avatar: null,
+        faction: Faction.REBEL_ALLIANCE,
         role: AllianceRole.NONE,
         roleTitle: null,
         joinedAt: '2026-10-02T12:00:00.000Z',
@@ -368,11 +387,11 @@ describe('AllianceListPage', () => {
 
     const rogue = within(open)
       .getByRole('link', { name: 'Rogue Squadron' })
-      .closest('tr')!;
+      .closest('li')!;
     expect(rogue.getAttribute('data-alliance-color')).toBe('#ff0000');
     expect(within(rogue).getByText('Rebellenallianz')).toBeTruthy();
-    expect(within(rogue).getByText('2')).toBeTruthy();
-    expect(within(rogue).getByText('offen')).toBeTruthy();
+    expect(within(rogue).getByText('2 Mitglieder')).toBeTruthy();
+    expect(within(open).queryByText('offen')).toBeNull();
     expect(
       within(open)
         .getByRole('link', { name: 'Rogue Squadron' })
@@ -381,12 +400,13 @@ describe('AllianceListPage', () => {
 
     const black = within(closed)
       .getByRole('link', { name: 'Black Squadron' })
-      .closest('tr')!;
+      .closest('li')!;
     expect(within(black).getByText('Galaktisches Imperium')).toBeTruthy();
-    expect(within(black).getByText('geschlossen')).toBeTruthy();
+    expect(within(closed).queryByText('geschlossen')).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Aufnahme' })).toBeNull();
   });
 
-  it('shows a configured banner as a full-width link and omits banner space otherwise', async () => {
+  it('shows a compact banner and linked members without reserving space for missing banners', async () => {
     routeGet({
       '/alliances': [
         summary({
@@ -399,6 +419,20 @@ describe('AllianceListPage', () => {
           id: 2,
           name: 'Red Squadron',
           color: null,
+          members: [
+            {
+              userId: 3,
+              name: 'Luke',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+            {
+              userId: 4,
+              name: 'Han',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+          ],
         }),
       ],
       '/alliances/mine': { alliance: null },
@@ -411,12 +445,31 @@ describe('AllianceListPage', () => {
     });
     expect(banner.getAttribute('src')).toBe('/api/alliances/1/banner?v=1234');
     expect(banner.closest('a')?.getAttribute('href')).toBe('/alliances/1');
-    expect(banner.closest('td')?.getAttribute('colspan')).toBe('4');
-    expect(banner.classList.contains('w-full')).toBe(true);
+    expect(banner.classList.contains('max-h-[150px]')).toBe(true);
+    expect(banner.classList.contains('w-auto')).toBe(true);
+    const bannerAndMembers = banner.closest('.sm\\:flex-row');
+    expect(bannerAndMembers).not.toBeNull();
+    expect(within(bannerAndMembers as HTMLElement).getByText('Mitglieder:')).toBeTruthy();
     expect(
-      screen.queryByRole('img', { name: 'Banner von Red Squadron' }),
-    ).toBeNull();
-    expect(screen.getAllByRole('row')).toHaveLength(4);
+      within(bannerAndMembers as HTMLElement).getByRole('link', { name: 'Leia' }),
+    ).toBeTruthy();
+    expect(
+      within(bannerAndMembers as HTMLElement).getByRole('link', { name: 'Wedge' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('img', { name: 'Banner von Red Squadron' })).toBeNull();
+    expect(screen.queryByTestId('alliance-banner-placeholder-2')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Leia' }).getAttribute('href'),
+    ).toBe('/players/1');
+    expect(
+      screen.getByRole('link', { name: 'Wedge' }).getAttribute('href'),
+    ).toBe('/players/2');
+    expect(
+      screen.getByRole('link', { name: 'Luke' }).getAttribute('href'),
+    ).toBe('/players/3');
+    expect(
+      screen.getByRole('link', { name: 'Han' }).getAttribute('href'),
+    ).toBe('/players/4');
   });
 
   it('omits an empty alliance group', async () => {
@@ -1054,7 +1107,7 @@ describe('AllianceDetailPage', () => {
     const { container } = renderAt('/alliances/1');
 
     await screen.findByRole('heading', { name: 'Rogue Squadron' });
-    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('img[alt^="Banner von"]')).toBeNull();
     expect(container.textContent).toContain('<img src=x onerror=alert(1)>');
   });
 
@@ -1095,7 +1148,7 @@ describe('AllianceDetailPage', () => {
       const { container } = renderAt('/alliances/1');
 
       await screen.findByRole('heading', { name: 'Rogue Squadron' });
-      expect(container.querySelector('img')).toBeNull();
+      expect(container.querySelector('img[alt^="Banner von"]')).toBeNull();
       expect(container.textContent).toContain('Hallo  Welt');
     });
 
@@ -1125,7 +1178,7 @@ describe('AllianceDetailPage', () => {
       const { container } = renderAt('/alliances/1');
 
       await screen.findByRole('heading', { name: 'Rogue Squadron' });
-      expect(container.querySelector('img')).toBeNull();
+      expect(container.querySelector('img[alt^="Banner von"]')).toBeNull();
       expect(container.textContent).toContain(
         '[img]https://evil.example/x.png[/img]',
       );
@@ -1330,6 +1383,8 @@ describe('AllianceDetailPage', () => {
             {
               userId: 1,
               name: 'Leia',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
               role: AllianceRole.PRESIDENT,
               roleTitle: 'Großadmiral',
               joinedAt: '2026-10-01T12:00:00.000Z',
@@ -1338,6 +1393,8 @@ describe('AllianceDetailPage', () => {
             {
               userId: 2,
               name: 'Wedge',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
               role: AllianceRole.VICE,
               roleTitle: 'Vize-Präsident',
               joinedAt: '2026-10-02T12:00:00.000Z',
@@ -1352,6 +1409,8 @@ describe('AllianceDetailPage', () => {
             {
               userId: 3,
               name: 'Biggs',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
               role: AllianceRole.NONE,
               roleTitle: null,
               joinedAt: '2026-10-03T12:00:00.000Z',

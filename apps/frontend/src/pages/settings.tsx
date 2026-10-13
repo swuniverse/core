@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 import { getErrorMessage } from '../lib/errors';
 import { formatDate, formatInviteStatus, type InviteStatus } from '../lib/format';
 
@@ -142,7 +143,7 @@ function ProfileTab() {
       await api.patch('/user/avatar', { avatar: null });
       setAvatar(null);
       if (user) setUser({ ...user, avatar: null });
-      setMsg('Avatar entfernt');
+      setMsg('Persönlicher Avatar entfernt. Der Fraktionsstandard wird wiederhergestellt.');
     } catch (error: unknown) {
       setMsg(getErrorMessage(error, 'Fehler'));
     }
@@ -152,13 +153,13 @@ function ProfileTab() {
     <div className="space-y-4 max-w-lg">
       <Section title="Avatar">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full border border-swu-border bg-swu-bg flex items-center justify-center overflow-hidden">
-            {avatar ? (
-              <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-2xl text-swu-muted">{(displayName || user?.username || '?')[0].toUpperCase()}</span>
-            )}
-          </div>
+          <PlayerAvatar
+            name={displayName || user?.username || '?'}
+            avatar={avatar}
+            faction={user?.faction}
+            alt="Dein Avatar"
+            className="size-20 text-2xl"
+          />
           <div className="flex flex-col gap-2">
             <label className="px-3 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-semibold rounded hover:bg-swu-accent/30 transition-colors cursor-pointer">
               Bild hochladen

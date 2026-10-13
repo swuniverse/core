@@ -89,8 +89,13 @@ export class InMemoryAllianceStore implements AllianceStore {
     clock: Date.UTC(2026, 9, 1),
   };
 
-  addPlayer(id: number, name: string, factionId: number | null = REBELS.id) {
-    this.state.players.push({ id, name, factionId, lastActiveAt: null });
+  addPlayer(
+    id: number,
+    name: string,
+    factionId: number | null = REBELS.id,
+    avatar: string | null = null,
+  ) {
+    this.state.players.push({ id, name, avatar, factionId, lastActiveAt: null });
   }
 
   /** Test helper: the player's last recorded activity. */
@@ -891,6 +896,19 @@ export class InMemoryAllianceStore implements AllianceStore {
       .filter((m) => m.allianceId === allianceId)
       .sort(
         (a, b) => a.joinedAt.getTime() - b.joinedAt.getTime() || a.id - b.id,
+      )
+      .map((m) => ({ ...m }));
+  }
+
+  async listMembershipsForAlliances(allianceIds: number[]) {
+    const ids = new Set(allianceIds);
+    return this.state.memberships
+      .filter((m) => ids.has(m.allianceId))
+      .sort(
+        (a, b) =>
+          a.allianceId - b.allianceId ||
+          a.joinedAt.getTime() - b.joinedAt.getTime() ||
+          a.id - b.id,
       )
       .map((m) => ({ ...m }));
   }

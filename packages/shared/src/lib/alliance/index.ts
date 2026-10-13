@@ -24,6 +24,13 @@ export interface AllianceTitlesDto {
   diplomat: string;
 }
 
+export interface AllianceSummaryMemberDto {
+  userId: number;
+  name: string;
+  avatar: string | null;
+  faction: Faction | null;
+}
+
 export interface AllianceSummaryDto {
   id: number;
   name: string;
@@ -31,6 +38,7 @@ export interface AllianceSummaryDto {
   faction: Faction;
   factionName: string;
   memberCount: number;
+  members: AllianceSummaryMemberDto[];
   acceptsApplications: boolean;
   /** Null while the alliance has no banner. */
   banner: AllianceBannerDto | null;
@@ -49,6 +57,8 @@ export interface AllianceMemberActionsDto {
 export interface AllianceMemberDto {
   userId: number;
   name: string;
+  avatar: string | null;
+  faction: Faction | null;
   role: AllianceRole;
   roleTitle: string | null;
   joinedAt: string;
@@ -56,8 +66,6 @@ export interface AllianceMemberDto {
   /** Only present when the viewer is a member of the same alliance. */
   online?: boolean;
 }
-
-export type AllianceWarTargetDto = AllianceRefDto;
 
 /** Actions the viewer may perform on the alliance; computed by the server. */
 export interface AllianceViewerActionsDto {
@@ -67,8 +75,6 @@ export interface AllianceViewerActionsDto {
   editDetails: boolean;
   manageApplications: boolean;
   dissolve: boolean;
-  declareWar: boolean;
-  warTargets: AllianceWarTargetDto[];
   manageDiplomacy: boolean;
   /** Current members may open the internal forum. */
   readForum: boolean;
@@ -605,6 +611,7 @@ export interface AllianceMemberShipGroupDto {
 export interface AllianceMemberOperationsDto {
   userId: number;
   name: string;
+  avatar: string | null;
   faction: Faction | null;
   factionName: string | null;
   role: AllianceRole;

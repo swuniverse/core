@@ -368,6 +368,76 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
     ).toBe(404);
   });
 
+  it('exposes uploaded banner data through the alliance list', async () => {
+    expect((await upload('vice', rogueId, makePng(30, 15))).status).toBe(204);
+
+    const list = (await (
+      await fetch(`${await app.getUrl()}/api/alliances`, {
+        headers: authorization('member'),
+      })
+    ).json()) as Array<{
+      id: number;
+      banner: { url: string } | null;
+      members: Array<{
+        userId: number;
+        name: string;
+        avatar: string | null;
+        faction: Faction | null;
+      }>;
+    }>;
+
+    expect(list).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: rogueId,
+          banner: expect.objectContaining({
+            url: expect.stringMatching(
+              new RegExp(`^/api/alliances/${rogueId}/banner\\?v=\\d+$`),
+            ),
+          }),
+          members: [
+            {
+              userId: users.president.id,
+              name: 'leia',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+            {
+              userId: users.vice.id,
+              name: 'mon',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+            {
+              userId: users.diplomat.id,
+              name: 'bail',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+            {
+              userId: users.member.id,
+              name: 'han',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+          ],
+        }),
+        expect.objectContaining({
+          id: redId,
+          banner: null,
+          members: [
+            {
+              userId: users.foreignPresident.id,
+              name: 'wedge',
+              avatar: null,
+              faction: Faction.REBEL_ALLIANCE,
+            },
+          ],
+        }),
+      ]),
+    );
+  });
+
   it('exposes banner data and the capability in the shared detail DTO', async () => {
     await upload('vice', rogueId, makePng(30, 15));
     const detail = async (actor: Actor) =>

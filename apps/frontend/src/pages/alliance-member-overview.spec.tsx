@@ -23,6 +23,7 @@ const overview: AllianceMemberOverviewDto = {
     {
       userId: 1,
       name: 'Leia',
+      avatar: null,
       faction: Faction.REBEL_ALLIANCE,
       factionName: 'Rebellenallianz',
       role: AllianceRole.PRESIDENT,
@@ -53,6 +54,7 @@ const overview: AllianceMemberOverviewDto = {
     {
       userId: 2,
       name: 'Han',
+      avatar: null,
       faction: Faction.REBEL_ALLIANCE,
       factionName: 'Rebellenallianz',
       role: AllianceRole.NONE,
