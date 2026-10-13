@@ -53,6 +53,7 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText('Spielstatus').className).toContain(
       'swu-game-status',
     );
+    expect(screen.getByText('Spielstatus')).toBeTruthy();
     expect(screen.getByText('Update läuft.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Registrieren' })).toBeNull();
   });

@@ -254,13 +254,16 @@ export function LoginPage() {
         }`}
         aria-label="Spielstatus"
       >
-        <strong>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] opacity-75">
+          Spielstatus
+        </h2>
+        <p className="mt-1 font-semibold">
           {gameStatus.status === 'ONLINE'
             ? 'Online'
             : gameStatus.status === 'MAINTENANCE_ANNOUNCED'
               ? 'Wartung angekündigt'
               : 'Wartung läuft'}
-        </strong>
+        </p>
         {(maintenanceMessage || gameStatus.message) && (
           <p className="mt-1">{maintenanceMessage || gameStatus.message}</p>
         )}
