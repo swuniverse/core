@@ -1,17 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  Faction,
-  type GlobalHeaderStatusDto,
-  type SpacecraftEventPayload,
-} from '@swuniverse/shared';
+import { Faction, type GlobalHeaderStatusDto } from '@swuniverse/shared';
 import { useAuthStore } from '../../stores/auth.store';
 import { api } from '../../services/api';
 import { PlanetImg } from '../PlanetImg';
 import { PlayerAvatar } from '../PlayerAvatar';
 import { useSocket } from '../../hooks/use-socket';
-
-type ShipNotice = SpacecraftEventPayload & { id: number };
 
 type MessageFolderSummary = {
   folder: MessageFolder;
@@ -49,8 +43,18 @@ const MESSAGE_FOLDERS: Array<{
     route: 'ship',
     asset: 'pmnavlet_2_0',
   },
-  { folder: 'COLONY', label: 'Kolonien', route: 'colony', asset: 'msg1' },
-  { folder: 'TRADE', label: 'Handel', route: 'trade', asset: 'transfer' },
+  {
+    folder: 'COLONY',
+    label: 'Kolonien',
+    route: 'colony',
+    asset: 'pmnavlet_3_0',
+  },
+  {
+    folder: 'TRADE',
+    label: 'Handel',
+    route: 'trade',
+    asset: 'pmnavlet_4_0',
+  },
   {
     folder: 'SYSTEM',
     label: 'Systemmeldungen',
@@ -64,13 +68,9 @@ export function Header() {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const [status, setStatus] = useState<GlobalHeaderStatusDto | null>(null);
-  const [shipNotices, setShipNotices] = useState<ShipNotice[]>([]);
-  const [unreadShipNotices, setUnreadShipNotices] = useState(0);
-  const [shipOpen, setShipOpen] = useState(false);
   const [messageFolders, setMessageFolders] = useState<MessageFolderSummary[]>(
     [],
   );
-  const noticeId = useRef(0);
 
   const refresh = useCallback(() => {
     void api
@@ -101,14 +101,6 @@ export function Header() {
   }, []);
   useSocket('TICK', refresh);
   useSocket('COLONY_UPDATED', refresh);
-  useSocket('SPACECRAFT_EVENT', (payload) => {
-    const event = payload as SpacecraftEventPayload;
-    noticeId.current += 1;
-    setUnreadShipNotices((count) => count + 1);
-    setShipNotices((current) =>
-      [{ ...event, id: noticeId.current }, ...current].slice(0, 5),
-    );
-  });
 
   const user =
     status?.user ??
@@ -221,41 +213,6 @@ export function Header() {
               />
             );
           })}
-          <div className="relative">
-            <StatusButton
-              label="Schiffsnachrichten"
-              count={unreadShipNotices}
-              icon="pmnavlet_2"
-              onClick={() => {
-                setShipOpen((open) => !open);
-                setUnreadShipNotices(0);
-              }}
-            />
-            {shipOpen && (
-              <div className="absolute left-0 top-full z-50 mt-px w-72 border border-swu-border bg-swu-surface shadow-xl">
-                <div className="border-b border-swu-border px-2 py-1 font-bold text-swu-primary">
-                  Schiffsnachrichten
-                </div>
-                {shipNotices.length ? (
-                  shipNotices.map((notice) => (
-                    <Link
-                      key={notice.id}
-                      to={`/spacecraft/${notice.shipId}`}
-                      onClick={() => setShipOpen(false)}
-                      className="block border-b border-swu-border/40 px-2 py-1.5 hover:bg-white/5"
-                    >
-                      <b className="text-swu-primary">{notice.type}</b>
-                      <div className="text-swu-muted">{notice.detail}</div>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="px-2 py-3 text-swu-muted">
-                    Keine neuen Schiffsnachrichten.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
         <Link
@@ -388,31 +345,6 @@ function MailboxFolderLink(props: {
         {props.unread}
       </span>
     </Link>
-  );
-}
-
-function StatusButton(props: {
-  label: string;
-  count: number;
-  icon: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      title={props.label}
-      onClick={props.onClick}
-      className="relative flex h-full w-12 items-center justify-center border-r border-swu-border text-swu-muted hover:bg-white/[0.03] hover:text-swu-accent md:w-14"
-    >
-      <img
-        src={`/assets/buttons/${props.icon}_${props.count > 0 ? 1 : 0}.png`}
-        alt=""
-        className="size-6 object-contain md:size-[30px]"
-      />
-      <span className="absolute bottom-1 right-1 min-w-3 text-center font-mono text-[8px] text-swu-primary">
-        {props.count}
-      </span>
-    </button>
   );
 }
 

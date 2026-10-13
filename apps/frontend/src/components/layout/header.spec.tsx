@@ -1,10 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Header } from './header';
 
@@ -19,16 +13,8 @@ const messageFolders = [
   { folder: 'OUTBOX', unread: 0, total: 3 },
   { folder: 'STATION', unread: 0, total: 0 },
 ];
-const socketHandlers = vi.hoisted(
-  () => new Map<string, (payload: unknown) => void>(),
-);
-
 vi.mock('../../services/api', () => ({ api: apiMocks }));
-vi.mock('../../hooks/use-socket', () => ({
-  useSocket: (event?: string, handler?: (payload: unknown) => void) => {
-    if (event && handler) socketHandlers.set(event, handler);
-  },
-}));
+vi.mock('../../hooks/use-socket', () => ({ useSocket: vi.fn() }));
 vi.mock('../../stores/auth.store', () => ({
   useAuthStore: (selector: (state: object) => unknown) =>
     selector({ user: null, logout: vi.fn() }),
@@ -36,7 +22,6 @@ vi.mock('../../stores/auth.store', () => ({
 
 describe('Global status header', () => {
   beforeEach(() => {
-    socketHandlers.clear();
     apiMocks.get.mockReset();
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(messageFolders);
@@ -109,7 +94,6 @@ describe('Global status header', () => {
     expect(screen.getByTitle('Systemmeldungen').getAttribute('href')).toBe(
       '/messages?folder=system',
     );
-    expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');
     expect(screen.getByText('Hyperraumtheorie')).toBeTruthy();
     expect(screen.getByText('Alpha')).toBeTruthy();
     expect(screen.queryByText('Kolonien 1')).toBeNull();
@@ -143,6 +127,12 @@ describe('Global status header', () => {
     expect(
       screen.getByTitle('Schiffe').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_2_0.png');
+    expect(
+      screen.getByTitle('Kolonien').querySelector('img')?.getAttribute('src'),
+    ).toBe('/assets/buttons/pmnavlet_3_0.png');
+    expect(
+      screen.getByTitle('Handel').querySelector('img')?.getAttribute('src'),
+    ).toBe('/assets/buttons/pmnavlet_4_0.png');
   });
 
   it('shows a direct, counted icon link for every mailbox folder', async () => {
@@ -163,36 +153,6 @@ describe('Global status header', () => {
       expect(link.getAttribute('href')).toBe(`/messages?folder=${folder}`);
       expect(link.textContent).toContain(unread);
     }
-  });
-
-  it('collects spacecraft events in the ship message popover', async () => {
-    render(
-      <MemoryRouter>
-        <Header />
-      </MemoryRouter>,
-    );
-    await screen.findByText('Nuriud');
-
-    act(() => {
-      socketHandlers.get('SPACECRAFT_EVENT')?.({
-        shipId: 7,
-        type: 'BROWNOUT',
-        detail: 'Reaktor ausgefallen',
-      });
-    });
-    expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('1');
-    expect(
-      screen
-        .getByTitle('Schiffsnachrichten')
-        .querySelector('img')
-        ?.getAttribute('src'),
-    ).toBe('/assets/buttons/pmnavlet_2_1.png');
-    fireEvent.click(screen.getByTitle('Schiffsnachrichten'));
-
-    await waitFor(() =>
-      expect(screen.getByText('Reaktor ausgefallen')).toBeTruthy(),
-    );
-    expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');
   });
 
   it('shows no alliance for alliance-less players', async () => {
