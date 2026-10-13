@@ -146,12 +146,16 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
 
     const response = await call('leia', '/messages/folders');
 
-    expect(response).toMatchObject({
+    expect(response).toEqual({
       status: 200,
       body: [
         { folder: 'PERSONAL', unread: 1, total: 2 },
+        { folder: 'SHIP', unread: 0, total: 0 },
+        { folder: 'COLONY', unread: 0, total: 0 },
+        { folder: 'TRADE', unread: 0, total: 0 },
         { folder: 'SYSTEM', unread: 1, total: 1 },
         { folder: 'OUTBOX', unread: 0, total: 2 },
+        { folder: 'STATION', unread: 0, total: 0 },
       ],
     });
   });
@@ -205,6 +209,20 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
 
     const otherUsersMessage = await call('han', `/messages/${first.id}`);
     expect(otherUsersMessage.status).toBe(404);
+
+    const ownedByHan = await messages.save(
+      messages.create({
+        senderId: users.han.id,
+        recipientId: users.han.id,
+        subject: 'Hans persönliche Nachricht',
+        body: 'private',
+      }),
+    );
+    const leiaCannotOpenHansMessage = await call(
+      'leia',
+      `/messages/${ownedByHan.id}`,
+    );
+    expect(leiaCannotOpenHansMessage.status).toBe(404);
 
     const opened = await call('leia', `/messages/${first.id}`);
     expect(opened).toMatchObject({ status: 200, body: { isRead: true } });

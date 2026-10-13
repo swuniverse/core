@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { DashboardLimits, DashboardMessages } from './DashboardLowerSections';
+import {
+  DashboardLimits,
+  DashboardMessages,
+  RecentEvents,
+} from './DashboardLowerSections';
 import type { DashboardData } from './types';
 
 describe('STU-style Maindesk overview', () => {
@@ -53,5 +57,48 @@ describe('STU-style Maindesk overview', () => {
     expect(screen.getByTitle('Globales Crewlimit').getAttribute('src')).toBe(
       '/assets/bev/bev_free_5_1.png',
     );
+  });
+
+  it('shows at most ten recent global events with their date, time, location, and history link', () => {
+    const data = {
+      recentEvents: Array.from({ length: 11 }, (_, index) => ({
+        id: index + 1,
+        type: 'SHIP_DESTROYED',
+        text: `Ereignis ${index + 1}`,
+        scope: 'GALAXY',
+        layerId: 3,
+        systemId: null,
+        x: index + 10,
+        y: index + 20,
+        locationId: null,
+        location: null,
+        createdAt: '2026-10-13T14:30:00.000Z',
+      })),
+    } as DashboardData;
+
+    render(
+      <MemoryRouter>
+        <RecentEvents data={data} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Ereignis 10')).toBeTruthy();
+    expect(screen.queryByText('Ereignis 11')).toBeNull();
+    expect(screen.getAllByText(/13\.10\.2026/)).toHaveLength(10);
+    expect(screen.getAllByText(/16:30/)).toHaveLength(10);
+    expect(screen.getByText('Ebene 3 · 10|20')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Alle Ereignisse' }).getAttribute('href'),
+    ).toBe('/events');
+  });
+
+  it('explains when no recent global events exist', () => {
+    render(
+      <MemoryRouter>
+        <RecentEvents data={{ recentEvents: [] } as unknown as DashboardData} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Keine aktuellen Ereignisse.')).toBeTruthy();
   });
 });

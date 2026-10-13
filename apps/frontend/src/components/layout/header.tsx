@@ -51,7 +51,9 @@ export function Header() {
   const [shipNotices, setShipNotices] = useState<ShipNotice[]>([]);
   const [unreadShipNotices, setUnreadShipNotices] = useState(0);
   const [shipOpen, setShipOpen] = useState(false);
-  const [messageFolders, setMessageFolders] = useState<MessageFolderSummary[]>([]);
+  const [messageFolders, setMessageFolders] = useState<MessageFolderSummary[]>(
+    [],
+  );
   const noticeId = useRef(0);
 
   const refresh = useCallback(() => {
@@ -303,6 +305,11 @@ export function Header() {
         </div>
 
         <div className="ml-auto flex shrink-0 items-stretch">
+          <NavigationLink
+            to="/events"
+            label="Ereignishistory"
+            icon="menu_doku"
+          />
           <NavigationLink
             to="/settings"
             label="Einstellungen"

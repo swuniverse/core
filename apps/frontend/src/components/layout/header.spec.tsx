@@ -91,6 +91,12 @@ describe('Global status header', () => {
     ).toBe('/assets/avatars/alliance-rebel-default.png');
     expect(screen.getByTitle('Persönlich').textContent).toContain('2');
     expect(screen.getByTitle('System').textContent).toContain('1');
+    expect(screen.getByTitle('Nachrichten').getAttribute('href')).toBe(
+      '/messages?folder=PERSONAL',
+    );
+    expect(screen.getByTitle('System').getAttribute('href')).toBe(
+      '/messages?folder=SYSTEM',
+    );
     expect(screen.getByTitle('Schiffsnachrichten').textContent).toContain('0');
     expect(screen.getByText('Hyperraumtheorie')).toBeTruthy();
     expect(screen.getByText('Alpha')).toBeTruthy();
