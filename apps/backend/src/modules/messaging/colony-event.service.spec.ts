@@ -9,21 +9,31 @@ describe('ColonyEventService', () => {
     const repository = {
       create: jest.fn((value) => value),
       save: jest.fn(async (value) => value),
-      createQueryBuilder: jest.fn(() => ({
-        insert: jest.fn().mockReturnThis(),
-        into: jest.fn().mockReturnThis(),
-        values: jest.fn((value) => {
-          pendingValues = value;
-          return repository.createQueryBuilder.mock.results.at(-1)?.value;
-        }),
-        orIgnore: jest.fn().mockReturnThis(),
-        returning: jest.fn().mockReturnThis(),
-        execute: jest.fn(async () => {
-          if (saved.length) return { identifiers: [] };
-          saved.push({ ...pendingValues, id: 31 });
-          return { identifiers: [{ id: 31 }] };
-        }),
-      })),
+      createQueryBuilder: jest.fn(() => {
+        const queryBuilder = {
+          insert: jest.fn().mockReturnThis(),
+          into: jest.fn().mockReturnThis(),
+          values: jest.fn((value) => {
+            pendingValues = value;
+            return queryBuilder;
+          }),
+          orIgnore: jest.fn().mockReturnThis(),
+          returning: jest.fn().mockReturnThis(),
+          execute: jest.fn(async () => {
+            if (saved.length) return { identifiers: [] };
+            saved.push({ ...pendingValues, id: 31 });
+            return { identifiers: [{ id: 31 }] };
+          }),
+        } as {
+          insert: () => unknown;
+          into: () => unknown;
+          values: (value: Partial<Message>) => typeof queryBuilder;
+          orIgnore: () => unknown;
+          returning: () => unknown;
+          execute: () => Promise<{ identifiers: Array<{ id?: number }> }>;
+        };
+        return queryBuilder;
+      }),
       findOneBy: jest.fn(async (where: Partial<Message>) => {
         if (where.id === 31 || where.deliveryKey === 'colony-event:91') {
           return saved[0] as Message;
