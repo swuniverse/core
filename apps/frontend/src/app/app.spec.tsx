@@ -29,7 +29,6 @@ function createDetail(): ColonyDetailV2 {
       },
       functions: { present: [], active: [], groups: {} },
     },
-    eventSummary: { unreadCount: 0, latest: [] },
     energy: { current: 0, max: 0, delta: 0 },
     storage: { current: 0, max: 0, delta: 0 },
     options: {

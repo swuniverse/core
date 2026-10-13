@@ -108,19 +108,6 @@ const detail = {
       canManage: false,
     },
   ],
-  eventSummary: {
-    unreadCount: 1,
-    latest: [
-      {
-        id: 3,
-        type: 'BUILDING_FINISHED',
-        severity: 'INFO',
-        title: 'Bau abgeschlossen',
-        message: 'Das Gebäude ist bereit.',
-        createdAt: '2026-09-24T12:00:00.000Z',
-      },
-    ],
-  },
 } as ColonyDetailV2;
 
 const environmentScan = {
@@ -160,13 +147,6 @@ const environmentScan = {
   >;
 };
 
-const eventProps = {
-  initialEvents: detail.eventSummary!.latest,
-  onLoadEvents: vi.fn().mockResolvedValue(detail.eventSummary!.latest),
-  onMarkRead: vi.fn(),
-  onMarkAllRead: vi.fn(),
-};
-
 const orbitProps = {
   commodityMap: {},
   onDisassembleShip: vi.fn(),
@@ -189,7 +169,6 @@ describe('PanelInfo', () => {
           environmentScanError={null}
           onOpenOrbitManagement={onOpenOrbitManagement}
           orbitProps={orbitProps}
-          eventProps={eventProps}
         />
       </MemoryRouter>,
     );
@@ -230,7 +209,7 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Sternensystem')).toBeTruthy();
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Effekte')).toBeTruthy();
-    expect(screen.getByText('Ereignisse')).toBeTruthy();
+    expect(screen.queryByText('Ereignisse')).toBeNull();
     const sectionHeadings = [
       'Schiffe im Orbit',
       'Planet',
@@ -238,7 +217,6 @@ describe('PanelInfo', () => {
       'Sternensystem',
       'Bevölkerung',
       'Effekte',
-      'Ereignisse',
     ].map((heading) => screen.getByRole('heading', { name: heading }));
     for (let index = 1; index < sectionHeadings.length; index += 1) {
       expect(
@@ -306,7 +284,6 @@ describe('PanelInfo', () => {
           environmentScanError="Umgebungsscan nicht verfügbar"
           onOpenOrbitManagement={vi.fn()}
           orbitProps={orbitProps}
-          eventProps={eventProps}
         />
       </MemoryRouter>,
     );
@@ -314,7 +291,7 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Planet')).toBeTruthy();
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Effekte')).toBeTruthy();
-    expect(screen.getByText('Ereignisse')).toBeTruthy();
+    expect(screen.queryByText('Ereignisse')).toBeNull();
     const scan = screen.getByText('Umgebungsscan').closest('section');
     expect(scan).toBeTruthy();
     expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
@@ -340,7 +317,6 @@ describe('PanelInfo', () => {
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
           orbitProps={orbitProps}
-          eventProps={eventProps}
         />
       </MemoryRouter>,
     );
@@ -358,7 +334,6 @@ describe('PanelInfo', () => {
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
           orbitProps={orbitProps}
-          eventProps={eventProps}
         />
       </MemoryRouter>,
     );
@@ -374,7 +349,6 @@ describe('PanelInfo', () => {
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
           orbitProps={orbitProps}
-          eventProps={eventProps}
         />
       </MemoryRouter>,
     );
@@ -429,7 +403,6 @@ describe('PanelInfo', () => {
           environmentScanError={null}
           onOpenOrbitManagement={vi.fn()}
           orbitProps={orbitProps}
-          eventProps={eventProps}
         />
       </MemoryRouter>,
     );
