@@ -4,19 +4,48 @@ import type { DashboardData } from './types';
 export function RecentEvents({ data }: { data: DashboardData }) {
   return (
     <section className="border border-swu-border bg-swu-surface/70">
-      <header className="border-b border-swu-border px-3 py-2 text-xs font-bold text-swu-primary">
-        Letzte Ereignisse
+      <header className="flex items-center justify-between border-b border-swu-border px-3 py-2 text-xs font-bold text-swu-primary">
+        <span>Letzte Ereignisse</span>
+        <Link to="/events" className="text-swu-muted hover:text-swu-accent">
+          Alle Ereignisse
+        </Link>
       </header>
-      <div className="divide-y divide-swu-border/60">
-        {data.recentEvents.slice(0, 8).map((event) => (
-          <div key={event.id} className="flex gap-2 px-3 py-2 text-xs">
-            <time className="shrink-0 font-mono text-swu-muted">
-              {new Date(event.createdAt).toLocaleTimeString('de-DE')}
-            </time>
-            <span className="text-swu-text">{event.text}</span>
-          </div>
-        ))}
-      </div>
+      {data.recentEvents.length ? (
+        <div className="divide-y divide-swu-border/60">
+          {data.recentEvents.slice(0, 10).map((event) => {
+            const location =
+              event.location?.scope === 'GALAXY'
+                ? `Ebene ${event.location.layerId} · ${event.location.x}|${event.location.y}`
+                : event.location?.scope === 'SYSTEM'
+                  ? `System ${event.location.systemId} · ${event.location.x}|${event.location.y}`
+                  : event.scope === 'GALAXY' && event.layerId != null && event.x != null && event.y != null
+                    ? `Ebene ${event.layerId} · ${event.x}|${event.y}`
+                    : event.scope === 'SYSTEM' && event.systemId != null && event.x != null && event.y != null
+                      ? `System ${event.systemId} · ${event.x}|${event.y}`
+                      : null;
+
+            return (
+              <div key={event.id} className="px-3 py-2 text-xs">
+                <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                  <time className="shrink-0 font-mono text-swu-muted">
+                    {new Date(event.createdAt).toLocaleString('de-DE')}
+                  </time>
+                  <span className="text-swu-text">{event.text}</span>
+                </div>
+                {location && (
+                  <span className="mt-0.5 block font-mono text-[10px] text-swu-muted">
+                    {location}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="px-3 py-3 text-xs text-swu-muted">
+          Keine aktuellen Ereignisse.
+        </p>
+      )}
     </section>
   );
 }
