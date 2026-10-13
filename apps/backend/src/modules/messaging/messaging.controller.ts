@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Query,
+  BadRequestException,
   UseGuards,
   Request,
   ParseIntPipe,
@@ -13,12 +14,35 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { MessagingService } from './messaging.service';
+import { MessageFolder, MESSAGE_FOLDERS } from './message-folder';
 
 @Controller('messages')
 @RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class MessagingController {
   constructor(private readonly messagingService: MessagingService) {}
+
+  @Get('folders')
+  folders(@Request() req: { user: { sub: number } }) {
+    return this.messagingService.getFolderSummary(req.user.sub);
+  }
+
+  @Get('folders/:folder')
+  folder(
+    @Param('folder') folder: string,
+    @Request() req: { user: { sub: number } },
+    @Query('page') page?: string,
+  ) {
+    const parsedFolder = folder.toUpperCase() as MessageFolder;
+    if (!MESSAGE_FOLDERS.includes(parsedFolder)) {
+      throw new BadRequestException('Unknown message folder');
+    }
+    return this.messagingService.getFolder(
+      req.user.sub,
+      parsedFolder,
+      Number(page) || 1,
+    );
+  }
 
   @Get('inbox')
   inbox(

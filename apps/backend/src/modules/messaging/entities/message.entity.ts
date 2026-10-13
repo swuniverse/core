@@ -8,6 +8,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
+import { MessageFolder } from '../message-folder';
 
 @Entity('messages')
 @Index(['recipientId', 'isRead'])
@@ -45,6 +46,10 @@ export class Message {
 
   @Column({ default: false })
   isSystem: boolean;
+
+  /** Durable classification for received messages; sent messages are OUTBOX. */
+  @Column({ type: 'varchar', length: 16, default: MessageFolder.PERSONAL })
+  folder: MessageFolder;
 
   /** Optional idempotency token for durable system-message delivery. */
   @Column({ type: 'varchar', length: 100, nullable: true })
