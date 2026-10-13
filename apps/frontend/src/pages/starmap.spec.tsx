@@ -167,13 +167,38 @@ const contactRequests = () =>
     String(path).startsWith('/spacecraft/starmap-contacts'),
   );
 
-function renderPage() {
+function renderPage(initialEntry = '/starmap') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <StarmapPage />
     </MemoryRouter>,
   );
 }
+
+describe('StarmapPage URL target', () => {
+  beforeEach(() => {
+    apiMocks.get.mockReset();
+    contactsByLayer = {};
+    viewerAlliance = null;
+    mockApi();
+  });
+
+  it('selects a visible system at the requested galaxy coordinate', async () => {
+    renderPage('/starmap?layer=3&x=40&y=41');
+
+    await screen.findByTestId('starmap-canvas');
+
+    expect(screen.getByText('System: Kessel')).toBeTruthy();
+  });
+
+  it('does not select an unseen system requested in the URL', async () => {
+    renderPage('/starmap?layer=3&x=99&y=99');
+
+    await screen.findByTestId('starmap-canvas');
+
+    expect(screen.queryByRole('button', { name: 'Systemfelder laden' })).toBeNull();
+  });
+});
 
 describe('StarmapPage ship layer', () => {
   beforeEach(() => {

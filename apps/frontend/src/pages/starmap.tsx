@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   WsEventType,
   type HyperspaceRouteDto,
@@ -33,7 +34,24 @@ type HyperspaceRoute = HyperspaceRouteDto;
 /** Ship contacts are refreshed in this interval while the page is visible. */
 const CONTACT_REFRESH_MS = 30_000;
 
+type StarmapUrlTarget = {
+  layerId: number;
+  x: number;
+  y: number;
+};
+
+function parseStarmapUrlTarget(searchParams: URLSearchParams): StarmapUrlTarget | null {
+  const layerId = Number(searchParams.get('layer'));
+  const x = Number(searchParams.get('x'));
+  const y = Number(searchParams.get('y'));
+  return [layerId, x, y].every(Number.isSafeInteger) && layerId > 0 && x > 0 && y > 0
+    ? { layerId, x, y }
+    : null;
+}
+
 export function StarmapPage() {
+  const [searchParams] = useSearchParams();
+  const urlTarget = parseStarmapUrlTarget(searchParams);
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<Layer | null>(null);
   const [fields, setFields] = useState<GalaxyField[]>([]);
@@ -62,20 +80,32 @@ export function StarmapPage() {
   useEffect(() => {
     api.get<Layer[]>('/starmap/layers').then(async (data) => {
       setLayers(data);
-      if (data.length > 0) {
-        setSelectedLayer(data[0]);
+      const layer =
+        data.find((entry) => entry.id === urlTarget?.layerId) ?? data[0];
+      if (layer) {
+        setSelectedLayer(layer);
         const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
-          api.get<GalaxyField[]>(`/starmap/layers/${data[0].id}/fields`),
-          api.get<HyperspaceRoute[]>(`/starmap/layers/${data[0].id}/hyperspace-routes`),
-          api.get<StarmapWormholeDto[]>(`/starmap/layers/${data[0].id}/wormholes`),
+          api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`),
+          api.get<HyperspaceRoute[]>(`/starmap/layers/${layer.id}/hyperspace-routes`),
+          api.get<StarmapWormholeDto[]>(`/starmap/layers/${layer.id}/wormholes`),
         ]);
         setFields(loadedFields);
         setHyperspaceRoutes(loadedRoutes);
         setWormholes(loadedWormholes);
+        const targetField =
+          urlTarget?.layerId === layer.id
+            ? loadedFields.find(
+                (field) => field.cx === urlTarget.x && field.cy === urlTarget.y,
+              )
+            : undefined;
+        if (targetField?.starSystem) {
+          setSelectedField(targetField);
+          setSelectedSystem(targetField.starSystem);
+        }
       }
       setLoading(false);
     });
-  }, []);
+  }, [urlTarget?.layerId, urlTarget?.x, urlTarget?.y]);
 
   async function selectLayer(layer: Layer) {
     setSelectedLayer(layer);
