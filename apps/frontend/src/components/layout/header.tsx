@@ -145,7 +145,7 @@ export function Header() {
 
         <div className="flex shrink-0 border-r border-swu-border">
           <StatusLink
-            to="/messages?tab=inbox"
+            to="/messages?folder=PERSONAL"
             label="Nachrichten"
             count={status?.notifications.messages ?? 0}
             icon="pmnavlet_1"
@@ -186,7 +186,7 @@ export function Header() {
             )}
           </div>
           <StatusLink
-            to="/messages?tab=system"
+            to="/messages?folder=SYSTEM"
             label="System"
             count={status?.notifications.system ?? 0}
             icon="pmnavlet_5"
