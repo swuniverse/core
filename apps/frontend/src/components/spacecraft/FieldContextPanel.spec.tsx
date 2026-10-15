@@ -138,6 +138,7 @@ describe('FieldContextPanel', () => {
               planetName: 'Alpha',
               isOwn: true,
               canLand: true,
+              canSurfaceScan: false,
             },
             information: {
               canSectorScan: false,
@@ -188,6 +189,7 @@ describe('FieldContextPanel', () => {
               planetName: 'Alpha',
               isOwn: true,
               canLand: false,
+              canSurfaceScan: false,
             },
             information: {
               canSectorScan: false,
@@ -217,6 +219,7 @@ describe('FieldContextPanel', () => {
               planetName: 'Alpha',
               isOwn: true,
               canLand: true,
+              canSurfaceScan: false,
             },
             information: {
               canSectorScan: false,
@@ -283,6 +286,7 @@ describe('FieldContextPanel', () => {
               planetName: 'Alpha',
               isOwn: true,
               canLand: false,
+              canSurfaceScan: false,
             },
             information: {
               canSectorScan: false,

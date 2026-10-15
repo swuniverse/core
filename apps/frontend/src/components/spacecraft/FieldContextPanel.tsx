@@ -10,6 +10,7 @@ import {
 import { api } from '../../services/api';
 import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
+import { ColonyScanDialog, type ColonyScan } from './ColonyScanDialog';
 
 type SectorScanResult = {
   field: {
@@ -56,6 +57,7 @@ export function FieldContextPanel({
     colonyName: string;
     message: string | null;
   } | null>(null);
+  const [colonyScan, setColonyScan] = useState<ColonyScan | null>(null);
   const [colonizationOpen, setColonizationOpen] = useState(false);
   const [landing, setLanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,21 @@ export function FieldContextPanel({
       );
     }
   }
+  async function scanColony() {
+    if (!context?.colony) return;
+    setError(null);
+    try {
+      setColonyScan(
+        await api.post<ColonyScan>(`/spacecraft/${shipId}/colony-scan`, {
+          colonyId: context.colony.id,
+        }),
+      );
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Kolonie-Scan fehlgeschlagen');
+    }
+  }
+
   async function showMessage() {
     if (!context?.colony) return;
     setError(null);
@@ -302,6 +319,17 @@ export function FieldContextPanel({
                 className="size-5"
               />
             </button>
+            {context.colony.canSurfaceScan && (
+              <button
+                type="button"
+                onClick={() => void scanColony()}
+                title="Kolonieoberfläche scannen"
+                className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent"
+              >
+                <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
+                Scannen
+              </button>
+            )}
             {context.colony.canLand && (
               <button
                 type="button"
@@ -334,6 +362,7 @@ export function FieldContextPanel({
         />
       )}
       {scan && <SectorScanDialog scan={scan} onClose={() => setScan(null)} />}
+      {colonyScan && <ColonyScanDialog scan={colonyScan} onClose={() => setColonyScan(null)} />}
       {message && (
         <Dialog
           title={message.colonyName}

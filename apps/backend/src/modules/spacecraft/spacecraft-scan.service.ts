@@ -450,6 +450,12 @@ export class SpacecraftScanService {
     surface: {
       width: number | null;
       height: number | null;
+      deposits: Array<{
+        commodityId: number;
+        commodityName: string;
+        minAmount: number;
+        maxAmount: number;
+      }>;
       fields: Array<{
         fieldIndex: number;
         fieldType: number;
@@ -500,14 +506,13 @@ export class SpacecraftScanService {
     if (colonyLocation?.systemId !== location.systemId) {
       throw new BadRequestException('Colony is not in current system');
     }
-
-    const distance = Math.max(
-      Math.abs(colonyLocation.x - location.x),
-      Math.abs(colonyLocation.y - location.y),
-    );
-    const range = await this.getSensorRange(ship);
-    if (distance > range) {
-      throw new BadRequestException('Colony is outside sensor range');
+    if (
+      colonyLocation.x !== location.x ||
+      colonyLocation.y !== location.y
+    ) {
+      throw new BadRequestException(
+        'Colony scan requires ship to orbit the colony',
+      );
     }
 
     const fields = [...(colony.fields ?? [])].sort(
@@ -551,6 +556,16 @@ export class SpacecraftScanService {
         : null;
     scan.locationId = scan.location?.id ?? null;
     scan.colonyClassId = colony.colonyClassId;
+    scan.deposits = this.gameData
+      .getColonyClassDeposits(colony.colonyClassId)
+      .map((deposit) => ({
+        commodityId: deposit.commodityId,
+        commodityName:
+          this.gameData.getCommodity(deposit.commodityId)?.name ??
+          `Ware #${deposit.commodityId}`,
+        minAmount: deposit.minAmount,
+        maxAmount: deposit.maxAmount,
+      }));
     scan.surfaceWidth = colony.celestialObject?.surfaceWidth ?? null;
     scan.surfaceHeight = colony.celestialObject?.surfaceHeight ?? null;
     scan.surfaceFields = surfaceFields;
@@ -577,6 +592,7 @@ export class SpacecraftScanService {
       surface: {
         width: colony.celestialObject?.surfaceWidth ?? null,
         height: colony.celestialObject?.surfaceHeight ?? null,
+        deposits: scan.deposits ?? [],
         fields: surfaceFields,
       },
       intelligence: {
@@ -634,6 +650,7 @@ export class SpacecraftScanService {
       colonyClassId: scan.colonyClassId,
       surfaceWidth: scan.surfaceWidth,
       surfaceHeight: scan.surfaceHeight,
+      deposits: scan.deposits ?? [],
       createdAt: scan.createdAt,
       abandoned: !!scan.colony && scan.colony.userId !== scan.colonyOwnerId,
     });
@@ -668,6 +685,7 @@ export class SpacecraftScanService {
       colonyClassId: scan.colonyClassId,
       surfaceWidth: scan.surfaceWidth,
       surfaceHeight: scan.surfaceHeight,
+      deposits: scan.deposits ?? [],
       surface: scan.surfaceFields,
       createdAt: scan.createdAt,
       abandoned: !!scan.colony && scan.colony.userId !== scan.colonyOwnerId,

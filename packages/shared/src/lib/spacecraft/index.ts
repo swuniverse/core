@@ -358,6 +358,7 @@ export interface SpacecraftFieldContextDto {
     planetName: string;
     isOwn: boolean;
     canLand: boolean;
+    canSurfaceScan: boolean;
   } | null;
   information: {
     canSectorScan: boolean;

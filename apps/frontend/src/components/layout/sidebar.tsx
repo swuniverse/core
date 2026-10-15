@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { label: 'Maindesk', path: '/', icon: NavIconMaindesk },
   { label: 'Kolonien', path: '/colonies', icon: NavIconColonies },
   { label: 'Schiffe', path: '/spacecraft', icon: NavIconShips },
-  { label: 'Scans', path: '/colony-scans', icon: NavIconScans },
   { label: 'HoloNet', path: '/holonet', icon: NavIconHolonet },
   { label: 'Nachrichten', path: '/messages', icon: NavIconMessages },
   { label: 'Allianzen', path: '/alliances', icon: NavIconAlliances },
@@ -277,28 +276,6 @@ function NavIconDatabase() {
       <ellipse cx="12" cy="5" rx="8" ry="3" />
       <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
       <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
-    </svg>
-  );
-}
-
-function NavIconScans() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12h4" />
-      <path d="M17 12h4" />
-      <path d="M12 3v4" />
-      <path d="M12 17v4" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M9.5 12a2.5 2.5 0 0 1 2.5-2.5" />
     </svg>
   );
 }

@@ -99,6 +99,8 @@ function createService(resolver?: RelationshipResolverService) {
       },
     ]),
     getBuilding: jest.fn((id: number) => ({ id, name: `Gebäude ${id}` })),
+    getColonyClassDeposits: jest.fn().mockReturnValue([]),
+    getCommodity: jest.fn(),
   };
   const spacecraftCrewService = {
     hasEnoughCrew: jest.fn().mockResolvedValue(true),
@@ -234,6 +236,7 @@ describe('SpacecraftScanService colonyScan', () => {
       surface: {
         width: 4,
         height: 3,
+        deposits: [],
         fields: [
           {
             fieldIndex: 1,
@@ -291,7 +294,7 @@ describe('SpacecraftScanService colonyScan', () => {
     });
 
     await expect(service.colonyScan(10, 1, 20)).rejects.toThrow(
-      new BadRequestException('Colony is outside sensor range'),
+      new BadRequestException('Colony scan requires ship to orbit the colony'),
     );
   });
 

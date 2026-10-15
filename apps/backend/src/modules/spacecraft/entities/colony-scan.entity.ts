@@ -63,6 +63,14 @@ export class ColonyScan {
   @Column({ type: 'int', nullable: true })
   surfaceHeight: number | null;
 
+  @Column({ type: 'simple-json', nullable: true })
+  deposits: Array<{
+    commodityId: number;
+    commodityName: string;
+    minAmount: number;
+    maxAmount: number;
+  }> | null;
+
   @Column({ type: 'simple-json' })
   surfaceFields: Array<{
     fieldIndex: number;

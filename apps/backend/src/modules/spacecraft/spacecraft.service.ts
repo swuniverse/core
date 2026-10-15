@@ -2203,6 +2203,10 @@ export class SpacecraftService {
     const shipClass = colony
       ? await this.shipClassService.findById(ship.shipClassId)
       : null;
+    const canSurfaceScan =
+      colony != null &&
+      this.hasSurfaceScanner(ship.modules ?? []) &&
+      colony.userId !== userId;
     const canLand =
       colony?.userId === userId &&
       colony.fields.some(
@@ -2266,6 +2270,7 @@ export class SpacecraftService {
             planetName: colony.celestialObject?.name ?? colony.name,
             isOwn: colony.userId === userId,
             canLand,
+            canSurfaceScan,
           }
         : null,
       information: {

@@ -1,4 +1,5 @@
-/* SWU Landing + Registration — v3 */
+/* SWU Landing + Registration — command-deck redesign */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
 /* Stack: Tailwind v4, pure CSS animations, React 19 */
 
 html:has(.swu-page--landing) {
@@ -9,20 +10,20 @@ html:has(.swu-page--landing) {
 /* === Design Tokens === */
 
 .swu-page {
-  --swu-black: #06070f;
-  --swu-deep: #0d0e1d;
-  --swu-surface: rgba(255, 255, 255, 0.055);
-  --swu-border: rgba(255, 255, 255, 0.1);
-  --swu-border-gold: rgba(240, 192, 80, 0.45);
-  --swu-gold: #f0c050;
-  --swu-gold-dim: #c8962a;
-  --swu-blue: #4f82f7;
-  --swu-cream: #f5f0e8;
-  --swu-muted: rgba(245, 240, 232, 0.55);
+  --swu-black: #090b11;
+  --swu-deep: #10151e;
+  --swu-surface: rgba(248, 250, 252, 0.055);
+  --swu-border: rgba(148, 163, 184, 0.22);
+  --swu-border-gold: rgba(59, 130, 246, 0.58);
+  --swu-gold: #f8fafc;
+  --swu-gold-dim: #94a3b8;
+  --swu-blue: #3b82f6;
+  --swu-cream: #f8fafc;
+  --swu-muted: rgba(226, 232, 240, 0.72);
   --swu-danger: #ef4444;
-  --font-display: 'Cinzel', Georgia, serif;
-  --font-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, Menlo, monospace;
-  --font-body: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Share Tech Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+  --font-mono: 'Fira Code', 'SF Mono', ui-monospace, Menlo, monospace;
+  --font-body: 'Fira Code', ui-monospace, Menlo, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-std: cubic-bezier(0.2, 0, 0, 1);
   --motion-fast: 150ms;
@@ -31,7 +32,11 @@ html:has(.swu-page--landing) {
   position: relative;
   min-height: 100svh;
   overflow-x: clip;
-  background: var(--swu-black);
+  background:
+    linear-gradient(rgba(59, 130, 246, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.035) 1px, transparent 1px),
+    var(--swu-black);
+  background-size: 56px 56px;
   color: var(--swu-cream);
   font-family: var(--font-body);
 }
@@ -62,21 +67,9 @@ html:has(.swu-page--landing) {
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(
-      ellipse at 68% 18%,
-      rgba(79, 130, 247, 0.22),
-      transparent 38%
-    ),
-    radial-gradient(
-      ellipse at 18% 55%,
-      rgba(124, 58, 237, 0.18),
-      transparent 36%
-    ),
-    radial-gradient(
-      ellipse at 50% 90%,
-      rgba(240, 192, 80, 0.08),
-      transparent 30%
-    );
+    radial-gradient(ellipse at 68% 18%, rgba(59, 130, 246, 0.22), transparent 38%),
+    radial-gradient(ellipse at 18% 55%, rgba(30, 64, 175, 0.18), transparent 36%),
+    radial-gradient(ellipse at 50% 90%, rgba(248, 250, 252, 0.06), transparent 30%);
   filter: blur(32px);
   animation: swu-nebula-breathe 20s ease-in-out infinite alternate;
 }
@@ -286,13 +279,13 @@ html:has(.swu-page--landing) {
 .swu-eyebrow {
   display: inline-block;
   margin: 0 0 22px;
-  color: var(--swu-gold);
+  color: var(--swu-blue);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  text-shadow: 0 0 14px rgba(240, 192, 80, 0.4);
+  text-shadow: 0 0 14px rgba(59, 130, 246, 0.5);
   animation: swu-rise 600ms var(--ease-out) 100ms both;
 }
 
@@ -313,8 +306,8 @@ html:has(.swu-page--landing) {
 .swu-hero__title em {
   display: block;
   font-style: normal;
-  color: var(--swu-gold);
-  text-shadow: 0 0 40px rgba(240, 192, 80, 0.38);
+  color: var(--swu-blue);
+  text-shadow: 0 0 40px rgba(59, 130, 246, 0.48);
   padding-bottom: 4px; /* descender clearance */
 }
 
@@ -335,6 +328,74 @@ html:has(.swu-page--landing) {
   animation: swu-rise 700ms var(--ease-out) 700ms both;
 }
 
+/* === Command-deck details === */
+
+.swu-hero__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: var(--swu-cream);
+  font: 700 clamp(18px, 2.4vw, 28px)/1 var(--font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-shadow: 0 0 24px rgba(248, 250, 252, 0.16);
+  animation: swu-rise 600ms var(--ease-out) 40ms both;
+}
+
+.swu-hero__brand strong {
+  color: var(--swu-blue);
+  font-weight: 700;
+  text-shadow: 0 0 22px rgba(59, 130, 246, 0.55);
+}
+
+.swu-hero__intel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 28px;
+  color: var(--swu-muted);
+  font: 500 11px/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swu-hero__intel span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swu-hero__intel strong {
+  color: var(--swu-blue);
+  font-weight: 700;
+}
+
+.swu-field__hint {
+  margin-left: 8px;
+  color: rgba(148, 163, 184, 0.8);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.swu-game-status {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  box-shadow: inset 3px 0 0 var(--swu-blue), 0 0 28px rgba(59, 130, 246, 0.08);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.swu-game-status h2 {
+  color: var(--swu-blue);
+}
+
+.swu-game-status p {
+  color: var(--swu-cream);
+}
+
 /* === Buttons === */
 
 .swu-btn {
@@ -345,7 +406,7 @@ html:has(.swu-page--landing) {
   min-height: 50px;
   padding: 0 26px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 8px;
   cursor: pointer;
   font: 700 12px/1 var(--font-mono);
   letter-spacing: 0.12em;
@@ -368,17 +429,10 @@ html:has(.swu-page--landing) {
 }
 
 .swu-btn--primary {
-  border-color: rgba(240, 192, 80, 0.65);
-  color: #130f02;
-  background: radial-gradient(
-    circle at 50% 0%,
-    #fff4c4,
-    var(--swu-gold) 48%,
-    var(--swu-gold-dim)
-  );
-  box-shadow:
-    0 0 24px rgba(240, 192, 80, 0.32),
-    0 12px 40px rgba(200, 150, 42, 0.2);
+  border-color: rgba(59, 130, 246, 0.72);
+  color: #eff6ff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.32), 0 12px 40px rgba(30, 64, 175, 0.24);
   animation: swu-cta-pulse 3.5s ease-in-out infinite;
 }
 
@@ -389,9 +443,9 @@ html:has(.swu-page--landing) {
 }
 
 .swu-btn--ghost {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(148, 163, 184, 0.35);
   color: var(--swu-cream);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.62);
   backdrop-filter: blur(12px);
 }
 
@@ -454,10 +508,10 @@ html:has(.swu-page--landing) {
   overflow: hidden;
   padding: 32px;
   border: 1px solid var(--swu-border);
-  border-radius: 24px;
+  border-radius: 8px;
   background: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.07),
+    rgba(248, 250, 252, 0.07),
     rgba(13, 14, 29, 0.6)
   );
   box-shadow:
@@ -501,10 +555,10 @@ html:has(.swu-page--landing) {
   width: 56px;
   height: 56px;
   margin-bottom: 28px;
-  border: 1px solid rgba(240, 192, 80, 0.42);
-  border-radius: 16px;
-  background: rgba(240, 192, 80, 0.08);
-  box-shadow: 0 0 28px rgba(240, 192, 80, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.42);
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 28px rgba(59, 130, 246, 0.16);
   display: grid;
   place-items: center;
 }
@@ -519,7 +573,7 @@ html:has(.swu-page--landing) {
 .swu-bento__icon svg {
   width: 24px;
   height: 24px;
-  stroke: var(--swu-gold);
+  stroke: var(--swu-blue);
   fill: none;
   stroke-width: 1.5;
   stroke-linecap: round;
@@ -579,8 +633,8 @@ html:has(.swu-page--landing) {
   font-family: var(--font-mono);
   font-size: clamp(24px, 3.2vw, 40px);
   font-weight: 800;
-  color: var(--swu-gold);
-  text-shadow: 0 0 20px rgba(240, 192, 80, 0.36);
+  color: var(--swu-blue);
+  text-shadow: 0 0 20px rgba(59, 130, 246, 0.42);
   line-height: 1;
   margin-bottom: 8px;
 }
@@ -596,6 +650,111 @@ html:has(.swu-page--landing) {
 }
 
 /* === Briefing / How to Start — left-edge timeline === */
+
+.swu-briefing__systems {
+  position: relative;
+  overflow: hidden;
+  min-height: 100%;
+  padding: clamp(28px, 5vw, 52px);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(59, 130, 246, 0.12), rgba(15, 23, 42, 0.72)),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(148, 163, 184, 0.06) 32px);
+  box-shadow: inset 0 0 60px rgba(59, 130, 246, 0.06), 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.swu-briefing__systems::before,
+.swu-briefing__systems::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.swu-briefing__systems::before {
+  inset: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+}
+
+.swu-briefing__systems::after {
+  top: 0;
+  left: 12%;
+  width: 76%;
+  height: 1px;
+  background: var(--swu-blue);
+  box-shadow: 0 0 24px 2px rgba(59, 130, 246, 0.7);
+  animation: swu-scan 4s ease-in-out infinite;
+}
+
+.swu-briefing__systems > * {
+  position: relative;
+  z-index: 1;
+}
+
+.swu-briefing__systems h3 {
+  max-width: 420px;
+  margin: 0 0 16px;
+  font: 700 clamp(28px, 4vw, 52px)/0.98 var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+.swu-briefing__systems > p:not(.swu-eyebrow) {
+  max-width: 470px;
+  margin: 0;
+  color: var(--swu-muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.swu-briefing__pulse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 42px 0 26px;
+}
+
+.swu-briefing__pulse::before {
+  content: '';
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, var(--swu-blue), rgba(59, 130, 246, 0.1));
+}
+
+.swu-briefing__pulse span {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--swu-blue);
+  border-radius: 50%;
+  background: var(--swu-black);
+  box-shadow: 0 0 18px var(--swu-blue);
+}
+
+.swu-briefing__pulse span:nth-child(1) { left: 0; }
+.swu-briefing__pulse span:nth-child(2) { left: 48%; }
+.swu-briefing__pulse span:nth-child(3) { right: 0; }
+
+.swu-briefing__legend {
+  display: grid;
+  gap: 10px;
+  color: var(--swu-muted);
+  font: 600 11px/1.4 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swu-briefing__legend b {
+  display: inline-block;
+  width: 28px;
+  color: var(--swu-blue);
+}
+
+@keyframes swu-scan {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(180px); opacity: 1; }
+}
+
 
 .swu-briefing {
   display: grid;
@@ -628,12 +787,12 @@ html:has(.swu-page--landing) {
   width: 48px;
   height: 48px;
   border: 1px solid var(--swu-border-gold);
-  border-radius: 50%;
-  color: var(--swu-gold);
+  border-radius: 8px;
+  color: var(--swu-blue);
   font: 800 13px/1 var(--font-mono);
   letter-spacing: 0.08em;
-  background: rgba(240, 192, 80, 0.06);
-  box-shadow: 0 0 24px rgba(240, 192, 80, 0.2);
+  background: rgba(59, 130, 246, 0.06);
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.2);
   flex-shrink: 0;
   margin-top: 4px;
 }
@@ -689,10 +848,10 @@ html:has(.swu-page--landing) {
   margin: 0 auto;
   padding: clamp(44px, 8vw, 88px) clamp(28px, 6vw, 72px);
   border: 1px solid var(--swu-border);
-  border-radius: 36px;
+  border-radius: 12px;
   background: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.08),
+    rgba(248, 250, 252, 0.08),
     rgba(13, 14, 29, 0.6)
   );
   box-shadow: 0 24px 96px rgba(0, 0, 0, 0.4);
@@ -934,8 +1093,8 @@ html:has(.swu-page--landing) {
 }
 
 .swu-field input:focus {
-  border-color: rgba(240, 192, 80, 0.55);
-  box-shadow: 0 0 0 3px rgba(240, 192, 80, 0.14);
+  border-color: rgba(59, 130, 246, 0.68);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
 }
 
 .swu-field input::placeholder {
@@ -970,7 +1129,7 @@ html:has(.swu-page--landing) {
 }
 
 .swu-password-toggle:hover {
-  color: var(--swu-gold);
+  color: var(--swu-blue);
 }
 
 .swu-password-toggle:focus-visible {
@@ -979,7 +1138,7 @@ html:has(.swu-page--landing) {
 }
 
 .swu-password-toggle[aria-pressed='true'] {
-  color: var(--swu-gold);
+  color: var(--swu-blue);
 }
 
 .swu-password-field::after {
@@ -1015,7 +1174,7 @@ html:has(.swu-page--landing) {
   width: min(100%, 600px);
   padding: clamp(24px, 5vw, 42px);
   border: 1px solid var(--swu-border);
-  border-radius: 32px;
+  border-radius: 12px;
   background: linear-gradient(
     145deg,
     rgba(255, 255, 255, 0.09),
@@ -1121,8 +1280,8 @@ html:has(.swu-page--landing) {
   gap: 6px;
   min-height: 108px;
   border: 1px solid var(--swu-border);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.7);
   color: var(--swu-muted);
   cursor: pointer;
   font: 700 10px/1.3 var(--font-mono);
@@ -1141,11 +1300,11 @@ html:has(.swu-page--landing) {
 }
 
 .swu-faction--selected {
-  border-color: rgba(240, 192, 80, 0.68);
+  border-color: rgba(59, 130, 246, 0.82);
   color: var(--swu-cream);
   box-shadow:
-    0 0 0 1px rgba(240, 192, 80, 0.18),
-    0 0 28px rgba(240, 192, 80, 0.18);
+    0 0 0 1px rgba(59, 130, 246, 0.2),
+    0 0 28px rgba(59, 130, 246, 0.2);
 }
 
 .swu-faction__mark {
@@ -1381,14 +1540,18 @@ html:has(.swu-page--landing) {
     padding: 0;
   }
 
+  .swu-hero__brand {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
   .swu-briefing {
     grid-template-columns: 1fr;
     gap: 32px;
   }
 
-  .swu-briefing__visual {
-    order: -1;
-    aspect-ratio: 16 / 9;
+  .swu-briefing__systems {
+    min-height: 360px;
   }
 
   .swu-stats__grid {
@@ -1427,6 +1590,10 @@ html:has(.swu-page--landing) {
   .swu-section {
     width: min(100% - 28px, 1160px);
     padding: 60px 0;
+  }
+
+  .swu-briefing__systems {
+    padding: 28px 22px;
   }
 
   .swu-stats__grid {
@@ -1499,14 +1666,9 @@ html:has(.swu-page--landing) {
   justify-content: center;
   min-height: 44px;
   border: 1px solid rgba(240, 192, 80, 0.58);
-  border-radius: 999px;
-  background: radial-gradient(
-    circle at 50% 0%,
-    #fff4c4,
-    var(--swu-gold) 48%,
-    var(--swu-gold-dim)
-  );
-  color: #130f02;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #eff6ff;
   font: 800 12px/1 var(--font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;

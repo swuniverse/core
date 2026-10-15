@@ -6,7 +6,6 @@ const primaryTabs = [
   { label: 'Kolonien', path: '/colonies', icon: '◉' },
   { label: 'Schiffe', path: '/spacecraft', icon: '△' },
   { label: 'Maindesk', path: '/', icon: '◫' },
-  { label: 'Scans', path: '/colony-scans', icon: '◎' },
 ];
 
 const moreItems = [

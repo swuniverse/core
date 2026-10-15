@@ -12,6 +12,12 @@ interface ColonyScanListItem {
   colonyClassId: number | null;
   surfaceWidth: number | null;
   surfaceHeight: number | null;
+  deposits: Array<{
+    commodityId: number;
+    commodityName: string;
+    minAmount: number;
+    maxAmount: number;
+  }>;
   createdAt: string;
   abandoned: boolean;
   history?: ColonyScanListItem[];
@@ -28,6 +34,12 @@ interface ColonyScanDetail {
   colonyClassId: number | null;
   surfaceWidth: number | null;
   surfaceHeight: number | null;
+  deposits: Array<{
+    commodityId: number;
+    commodityName: string;
+    minAmount: number;
+    maxAmount: number;
+  }>;
   createdAt: string;
   abandoned: boolean;
   surface: Array<{
@@ -267,6 +279,17 @@ export function ColonyScansPage() {
                 </span>
               </div>
             </div>
+            {selected.deposits.length > 0 && (
+              <div className="mb-3 border border-swu-border p-2 text-xs">
+                <h3 className="mb-1 font-bold text-swu-accent">Ressourcenvorkommen</h3>
+                {selected.deposits.map((deposit) => (
+                  <div key={deposit.commodityId} className="flex justify-between text-swu-muted">
+                    <span>{deposit.commodityName}</span>
+                    <span>min: {deposit.minAmount}, max: {deposit.maxAmount}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div
               className="grid gap-1"
               style={{

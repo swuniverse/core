@@ -147,19 +147,24 @@ export function RegisterPage() {
       <section className="swu-register-shell" aria-labelledby="register-title">
         <form className="swu-register-card" onSubmit={handleSubmit}>
           <div className="swu-register-card__header">
-            <p className="swu-eyebrow">Closed Alpha Zugang</p>
-            <h1 id="register-title">Commander registrieren</h1>
+            <p className="swu-eyebrow">NEW COMMANDER // SECTOR ACCESS</p>
+            <h1 id="register-title">Dein Befehl beginnt hier.</h1>
             <p>
-              Wähle dein Rufzeichen, sichere deinen Invite Key und betrete die
-              erste Testwelle von Star Wars Universe.
+              Sichere dein Rufzeichen, wähle eine Doktrin und erhalte Zugang zur
+              persistenten Galaxis. Plane deine Entwicklung per Tick und greife
+              live ein, sobald deine Flotte den Raum betritt.
             </p>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && (
+            <div className="auth-error" role="alert" tabIndex={-1}>
+              <strong>Übertragung abgebrochen.</strong> {error}
+            </div>
+          )}
 
           <div className="swu-register-card__fields">
             <label className="swu-field">
-              <span>Commander Name</span>
+              <span>Commander Name <small className="swu-field__hint">3–32 Zeichen</small></span>
               <input
                 name="commander"
                 autoComplete="username"
@@ -172,7 +177,7 @@ export function RegisterPage() {
               />
             </label>
             <label className="swu-field">
-              <span>E-Mail</span>
+              <span>E-Mail <small className="swu-field__hint">für Zugangshinweise</small></span>
               <input
                 name="email"
                 type="email"
@@ -235,7 +240,7 @@ export function RegisterPage() {
               />
             </label>
             <label className="swu-field">
-              <span>Invite Key</span>
+              <span>Invite Key <small className="swu-field__hint">optional</small></span>
               <input
                 name="invite"
                 inputMode="text"
@@ -247,7 +252,7 @@ export function RegisterPage() {
           </div>
 
           <fieldset className="swu-factions">
-            <legend>Fraktion wählen</legend>
+            <legend>Doktrin wählen <small className="swu-field__hint">dein Startbonus für Bau, Forschung und Flotte</small></legend>
             <div className="swu-factions__row">
               {factions.map((f) => (
                 <button
@@ -285,7 +290,7 @@ export function RegisterPage() {
             type="submit"
             disabled={loading || !factionId}
           >
-            {loading ? 'Registriere...' : 'Alpha-Zugang sichern'}
+            {loading ? 'Zugang wird verschlüsselt...' : 'Commander registrieren'}
           </button>
 
           <Link className="swu-register-card__back" to="/login">

@@ -22,20 +22,20 @@ interface GalaxyStats {
 
 const features = [
   {
-    title: 'Kolonien & Ressourcen',
-    copy: 'Baue Außenposten auf, sichere Hyperraum-Routen und optimiere jede Tick-Produktion wie ein echter Sektor-Gouverneur.',
+    title: 'Kolonien & Bauketten',
+    copy: 'Setze Gebäude und Schiffe in die Warteschlange. Während du offline bist, laufen Produktion, Reparatur und Forschung weiter.',
     icon: 'orbit',
     variant: 'primary',
   },
   {
-    title: 'Flotten & Taktik',
-    copy: 'Plane Manöver über mehrere Ticks, stelle Verbände zusammen. Timing schlägt Reflexe.',
+    title: 'Fliegen & Raumkampf',
+    copy: 'Gib Flugbefehle, überwache Schiffe in Echtzeit und reagiere, wenn aus einem Manöver eine Schlacht wird.',
     icon: 'fleet',
     variant: 'secondary',
   },
   {
-    title: 'Diplomatie',
-    copy: 'Schmiede Bündnisse, handle Nichtangriffspakte aus. Manchmal ist Verrat mehr wert als Loyalität.',
+    title: 'Allianzen & Diplomatie',
+    copy: 'Handle, kommuniziere und koordiniere Flotten. Tick-Planung trifft auf Entscheidungen im laufenden Betrieb.',
     icon: 'signal',
     variant: 'secondary',
   },
@@ -48,11 +48,11 @@ const steps = [
   },
   {
     title: 'Commander anlegen',
-    copy: 'Registriere dich mit deinem Key, wähle eine Fraktion und betrete die Galaxis.',
+    copy: 'Registriere dich, wähle eine Fraktion und richte deine erste Kolonie ein.',
   },
   {
-    title: 'Flotte entsenden',
-    copy: 'Setze Befehle, warte auf den nächsten Tick und beobachte, wie die Galaxis reagiert.',
+    title: 'Befehl geben',
+    copy: 'Baue langfristig per Tick, fliege aktiv durch Systeme und entscheide, wann du eingreifst.',
   },
 ];
 
@@ -272,15 +272,24 @@ export function LoginPage() {
       {/* Hero — asymmetric split */}
       <section className="swu-hero" id="top" aria-labelledby="hero-title">
         <div className="swu-hero__content">
-          <p className="swu-eyebrow">Open Source · Closed Alpha</p>
+          <div className="swu-hero__brand" aria-label="Star Wars Universe">
+            <span>STAR WARS</span>
+            <strong>UNIVERSE</strong>
+          </div>
+          <p className="swu-eyebrow">SWU // TICK-BASED GALACTIC STRATEGY</p>
           <h1 className="swu-hero__title" id="hero-title">
-            Star Wars
-            <em>Universe</em>
+            Die Galaxis
+            <em>wartet auf deinen Befehl.</em>
           </h1>
           <p className="swu-hero__tagline">
-            Kolonien. Flotten. Allianzen. Ein tick-basiertes Strategiespiel im
-            Star Wars Universum.
+            Eine persistent laufende Sci-Fi-Strategie. Baue Kolonien, verschiebe Flotten
+            und gewinne durch Planung statt Klickgeschwindigkeit.
           </p>
+          <div className="swu-hero__intel" aria-label="Spielprinzip">
+            <span><strong>01</strong> Tick planen</span>
+            <span><strong>02</strong> Live eingreifen</span>
+            <span><strong>03</strong> Konsequenz lesen</span>
+          </div>
           <div className="swu-hero__actions">
             {gameStatus.status !== 'MAINTENANCE' && (
               <Link className="swu-btn swu-btn--primary" to="/register">
@@ -310,7 +319,8 @@ export function LoginPage() {
         aria-labelledby="features-title"
       >
         <div className="swu-section__header">
-          <h2 id="features-title">Dein Imperium wartet</h2>
+          <p className="swu-eyebrow">COMMAND DECK</p>
+          <h2 id="features-title">Jeder Tick verändert die Karte.</h2>
         </div>
         <div className="swu-bento">
           {features.map((f) => {
@@ -403,12 +413,23 @@ export function LoginPage() {
               ))}
             </div>
           </div>
-          <div className="swu-briefing__visual" aria-label="Starmap-Vorschau">
-            <img
-              src="/assets/starmap-preview.png"
-              alt="Galaktische Sternenkarte"
-              loading="lazy"
-            />
+          <div className="swu-briefing__systems" aria-label="Spielrhythmus">
+            <p className="swu-eyebrow">DUAL-PHASE LOOP</p>
+            <h3>Planen. Eingreifen. Auflösen.</h3>
+            <p>
+              Deine Galaxis bleibt aktiv, auch wenn du nicht online bist. Baue,
+              forsche und setze Flottenbefehle für den nächsten Tick — und öffne
+              im richtigen Moment den Live-Modus für Navigation, Sensoren und Kampf.
+            </p>
+            <div className="swu-briefing__pulse" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="swu-briefing__legend">
+              <span><b>01</b> Tick-Auflösung</span>
+              <span><b>02</b> Echtzeit-Intervention</span>
+            </div>
           </div>
         </div>
       </section>
@@ -420,9 +441,9 @@ export function LoginPage() {
         aria-labelledby="cta-title"
       >
         <div className="swu-cta">
-          <p className="swu-eyebrow">Closed Alpha</p>
-          <h2 id="cta-title">Die Galaxis braucht dich.</h2>
-          <p>Wochentliche Updates. Open Source. Kostenlos spielbar.</p>
+          <p className="swu-eyebrow">CLOSED ALPHA // INVITE ONLY</p>
+          <h2 id="cta-title">Setze den ersten Befehl.</h2>
+          <p>Kein Pay-to-win. Keine permanente Echtzeit-Hektik. Eine Galaxis, die auf deine Planung und deine Live-Entscheidungen reagiert.</p>
           <div className="swu-cta__actions">
             <a
               className="swu-btn swu-btn--primary"
