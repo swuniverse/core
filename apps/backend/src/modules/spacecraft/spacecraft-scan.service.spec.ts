@@ -484,6 +484,19 @@ describe('SpacecraftScanService colonyScan', () => {
     );
   });
 
+  it('denies a direct delete attempt for a foreign colony scan', async () => {
+    const { service, colonyScanRepo } = createService();
+    colonyScanRepo.findOne.mockResolvedValue(null);
+
+    await expect(service.deleteColonyScan(7, 1)).rejects.toThrow(
+      new NotFoundException('Colony scan not found'),
+    );
+    expect(colonyScanRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 7, userId: 1 },
+    });
+    expect(colonyScanRepo.remove).not.toHaveBeenCalled();
+  });
+
   it('deletes own colony scans', async () => {
     const { service, colonyScanRepo } = createService();
     colonyScanRepo.findOne.mockResolvedValue({ id: 7, userId: 1 });

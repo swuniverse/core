@@ -21,6 +21,8 @@ import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
+import { ColonyScan } from '../spacecraft/entities/colony-scan.entity';
+import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 
 @Module({
   imports: [
@@ -40,6 +42,7 @@ import { SystemField } from '../starmap/entities/system-field.entity';
       StarSystem,
       SystemExploration,
       SystemField,
+      ColonyScan,
     ]),
     FactionModule,
     GameDataModule,
@@ -47,6 +50,6 @@ import { SystemField } from '../starmap/entities/system-field.entity';
     AllianceModule,
   ],
   controllers: [DatabaseController],
-  providers: [DatabaseService],
+  providers: [DatabaseService, ColonyScanProjectionService],
 })
 export class DatabaseModule {}
