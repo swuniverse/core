@@ -16,6 +16,7 @@ import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
+import { AstrometryPanel } from '../components/spacecraft/AstrometryPanel';
 import {
   spaceBackgroundTile,
   starTileImage,
@@ -90,7 +91,9 @@ export function SpacecraftDetailPage() {
 
   useSocket(WsEventType.SHIP_MOVED, (payload) => {
     const event = payload as { shipId?: number };
-    if (event.shipId === Number(id)) void fetchShip();
+    if (event.shipId !== Number(id)) return;
+    void fetchShip();
+    setShipRefreshVersion((version) => version + 1);
   });
 
   if (loading)
@@ -162,7 +165,12 @@ export function SpacecraftDetailPage() {
             showEnergy={energyFlowOpen}
             onCloseEnergy={() => setEnergyFlowOpen(false)}
           />
-          <div id="ship-reactor">
+          <AstrometryPanel
+            shipId={ship.id}
+            refreshKey={shipRefreshVersion}
+            onUpdate={refreshShipAndStorage}
+          />
+          <div id="ship-reactor" className="mt-2">
             <ReactorPanel
               shipId={ship.id}
               warpdrive={ship.warpdrive}

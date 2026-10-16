@@ -9,7 +9,10 @@ import { FactionService } from '../faction/faction.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.entity';
-import { SYSTEM_TYPE_DEFINITIONS } from '../starmap/starmap-system-types';
+import {
+  SYSTEM_TYPE_BY_ID,
+  SYSTEM_TYPE_DEFINITIONS,
+} from '../starmap/starmap-system-types';
 import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
@@ -21,6 +24,11 @@ import {
 } from '../starmap/generator/swu-planet-type';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { AllianceService } from '../alliance/alliance.service';
+import { Layer } from '../starmap/entities/layer.entity';
+import { StarSystem } from '../starmap/entities/star-system.entity';
+import { SystemExploration } from '../starmap/entities/system-exploration.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
+import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 
 type RankingKey =
   | 'discoveries'
@@ -71,6 +79,15 @@ export class DatabaseService {
     @InjectRepository(CelestialObject)
     private readonly celestialObjectRepo: Repository<CelestialObject>,
     private readonly allianceService: AllianceService,
+    @InjectRepository(Layer)
+    private readonly layerRepo: Repository<Layer>,
+    @InjectRepository(StarSystem)
+    private readonly systemRepo: Repository<StarSystem>,
+    @InjectRepository(SystemExploration)
+    private readonly systemExplorationRepo: Repository<SystemExploration>,
+    @InjectRepository(SystemField)
+    private readonly systemFieldRepo: Repository<SystemField>,
+    private readonly colonyScanProjection: ColonyScanProjectionService,
   ) {}
 
   async getOnlinePlayers() {
@@ -218,6 +235,136 @@ export class DatabaseService {
               rarity: null,
               discoveredAt: null,
             };
+      }),
+    };
+  }
+
+  async getSystems(userId: number) {
+    const [layers, systems, discoveries] = await Promise.all([
+      this.layerRepo.find({
+        where: { isHidden: false },
+        order: { id: 'ASC' },
+      }),
+      this.systemRepo.find({
+        order: { layerId: 'ASC', cx: 'ASC', cy: 'ASC', id: 'ASC' },
+      }),
+      this.systemExplorationRepo.find({ where: { userId } }),
+    ]);
+    const discoveredBySystemId = new Map(
+      discoveries.map((discovery) => [discovery.starSystemId, discovery]),
+    );
+    const systemsByLayer = new Map<number, StarSystem[]>();
+    for (const system of [...systems].sort(
+      (left, right) =>
+        left.layerId - right.layerId ||
+        left.cx - right.cx ||
+        left.cy - right.cy ||
+        left.id - right.id,
+    )) {
+      const entries = systemsByLayer.get(system.layerId) ?? [];
+      entries.push(system);
+      systemsByLayer.set(system.layerId, entries);
+    }
+
+    return {
+      layers: layers.map((layer) => ({
+        id: layer.id,
+        name: layer.name,
+        entries: (systemsByLayer.get(layer.id) ?? []).map((system) => {
+          const discovery = discoveredBySystemId.get(system.id);
+          if (!discovery) return { discovered: false, name: '???' };
+          return {
+            discovered: true,
+            systemId: system.id,
+            name: system.name,
+            cx: system.cx,
+            cy: system.cy,
+            systemTypeName:
+              SYSTEM_TYPE_BY_ID[system.systemTypeId]?.name ??
+              `Typ ${system.systemTypeId}`,
+            discoveredAt: discovery.discoveredAt.toISOString(),
+          };
+        }),
+      })),
+    };
+  }
+
+  async getSystemDetail(userId: number, systemId: number) {
+    const [system, discovery] = await Promise.all([
+      this.systemRepo.findOneBy({ id: systemId }),
+      this.systemExplorationRepo.findOne({
+        where: { userId, starSystemId: systemId },
+      }),
+    ]);
+    if (!system || !discovery) throw new NotFoundException('System nicht gefunden');
+
+    const [fields, colonies, colonyScans] = await Promise.all([
+      this.systemFieldRepo.find({
+        where: { starSystemId: systemId },
+        relations: ['celestialObject'],
+        order: { sy: 'ASC', sx: 'ASC' },
+      }),
+      this.colonyRepo.find({
+        where: { starSystemId: systemId },
+        relations: ['user'],
+        order: { id: 'ASC' },
+      }),
+      this.colonyScanProjection.newestAccessibleForSystem(userId, systemId),
+    ]);
+    const hasOwnCurrentColony = colonies.some(
+      (colony) => colony.userId === userId && !colony.isAbandoned,
+    );
+
+    return {
+      id: system.id,
+      name: system.name,
+      layerId: system.layerId,
+      cx: system.cx,
+      cy: system.cy,
+      systemTypeName:
+        SYSTEM_TYPE_BY_ID[system.systemTypeId]?.name ?? `Typ ${system.systemTypeId}`,
+      maxX: system.maxX,
+      maxY: system.maxY,
+      fields: fields.map((field) => ({
+        id: field.id,
+        sx: field.sx,
+        sy: field.sy,
+        fieldTypeId: field.fieldTypeId,
+        isPassable: field.isPassable,
+        energyCost: field.energyCost,
+        damage: field.damage,
+        effects: field.effects ?? [],
+        celestialObject: field.celestialObject
+          ? {
+              id: field.celestialObject.id,
+              objectType: field.celestialObject.objectType,
+              name: field.celestialObject.name,
+              description: field.celestialObject.description,
+              posX: field.celestialObject.posX,
+              posY: field.celestialObject.posY,
+              classId: field.celestialObject.classId,
+              isColonizable: field.celestialObject.isColonizable,
+            }
+          : null,
+      })),
+      colonyScans,
+      colonies: colonies.map((colony) => {
+        const isOwn = colony.userId === userId && !colony.isAbandoned;
+        const owner =
+          colony.userId != null && !colony.isAbandoned && colony.user
+            ? { id: colony.user.id, username: colony.user.username }
+            : null;
+        return {
+          id: colony.id,
+          name: colony.name,
+          owner: isOwn ? null : owner,
+          isOwn,
+          isAbandoned: colony.isAbandoned,
+          posX: colony.posX,
+          posY: colony.posY,
+          celestialObjectId: colony.celestialObjectId,
+          canMessageOwner: hasOwnCurrentColony && !!owner && !isOwn,
+        };
       }),
     };
   }

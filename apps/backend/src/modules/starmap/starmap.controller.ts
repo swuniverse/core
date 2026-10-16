@@ -1,5 +1,6 @@
 import {
   Controller,
+  NotFoundException,
   Get,
   Post,
   Patch,
@@ -34,7 +35,6 @@ import type {
   StarmapCreateSystemDto,
   StarmapCreateWormholeDto,
   StarmapDiscoverFieldDto,
-  StarmapDiscoverSystemDto,
   StarmapExploredSectorDto,
   StarmapExplorationStateDto,
   StarmapFieldTypeDto,
@@ -96,10 +96,19 @@ export class StarmapController {
   }
 
   @Get('layers/:layerId/systems')
-  getSystemsInLayer(
+  async getSystemsInLayer(
     @Param('layerId', ParseIntPipe) layerId: number,
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapSystemListItemDto[]> {
-    return this.starmapService.getSystemsInLayer(layerId);
+    if (this.bypassFog(req.user)) {
+      return this.starmapService.getSystemsInLayer(layerId);
+    }
+    return this.starmapService.getExploredSystemsInLayer(
+      req.user.sub,
+      layerId,
+      this.explorationService,
+    );
   }
 
   @Get('layers/:layerId/hyperspace-routes')
@@ -181,17 +190,32 @@ export class StarmapController {
   }
 
   @Get('systems/:id/grid')
-  getSystemGrid(
+  async getSystemGrid(
     @Param('id', ParseIntPipe) id: number,
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapSystemGridDto> {
+    await this.assertSystemEntryAccess(id, req.user);
     return this.starmapQueryService.getSystemGrid(id);
   }
 
   @Get('systems/:id')
-  getSystemDetail(
+  async getSystemDetail(
     @Param('id', ParseIntPipe) id: number,
+    @Req()
+    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapSystemDetailDto> {
+    await this.assertSystemEntryAccess(id, req.user);
     return this.starmapService.getSystemDetail(id);
+  }
+
+  private async assertSystemEntryAccess(
+    systemId: number,
+    user: { sub: number; isAdmin?: boolean; permissions?: string[] },
+  ): Promise<void> {
+    if (this.bypassFog(user)) return;
+    if (await this.explorationService.isSystemExplored(user.sub, systemId)) return;
+    throw new NotFoundException('System not found');
   }
 
   // --- Exploration / Fog of War ---
@@ -258,19 +282,6 @@ export class StarmapController {
       source: body.source,
     });
     return { created: discovered };
-  }
-
-  @Post('exploration/discover-system')
-  async discoverSystem(
-    @Req() req: { user: { sub: number } },
-    @Body() body: StarmapDiscoverSystemDto,
-  ): Promise<StarmapOperationResultDto> {
-    await this.explorationService.discoverSystem({
-      userId: req.user.sub,
-      starSystemId: body.starSystemId,
-      source: body.source,
-    });
-    return { created: 1 };
   }
 
   @Post('admin/exploration/discover-all')

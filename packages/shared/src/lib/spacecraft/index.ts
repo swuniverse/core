@@ -62,6 +62,19 @@ export interface SpacecraftEffectiveStatsDto {
   evadeChance: number;
 }
 
+export type SpacecraftAstrometryStatus = 'ACTIVE' | 'COMPLETED' | 'ABORTED';
+
+export interface SpacecraftAstrometryJobDto {
+  id: number;
+  spacecraftId: number;
+  starSystemId: number;
+  status: SpacecraftAstrometryStatus;
+  startedAt: string;
+  completesAt: string;
+  completedAt: string | null;
+  abortReason: string | null;
+}
+
 export interface SpacecraftDetailDto {
   id: number;
   name: string;

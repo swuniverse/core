@@ -47,6 +47,23 @@ export class DatabaseController {
     return this.databaseService.getSystemTypes(req.user.sub);
   }
 
+  @Get('systems/:id')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getSystemDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.databaseService.getSystemDetail(req.user.sub, id);
+  }
+
+  @Get('systems')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getSystems(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getSystems(req.user.sub);
+  }
+
   @Get('ship-classes')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))

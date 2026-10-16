@@ -66,11 +66,11 @@ import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
+import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveContextualCelestialObject,
   resolveContextualCelestialObjectId,
-  resolveSpaceLocation,
   resolveSpacecraftField,
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
@@ -115,6 +115,7 @@ export class SpacecraftService {
     private readonly shipClassDiscoveryService: ShipClassDiscoveryService,
     private readonly hyperdriveDisruptionService: HyperdriveDisruptionService,
     private readonly spacecraftAlertService: SpacecraftAlertService,
+    private readonly astrometryService: SpacecraftAstrometryService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -470,11 +471,6 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (systems.LONG_RANGE_SENSORS?.active !== true)
       throw new BadRequestException('Langstreckensensoren sind nicht aktiv');
-    await this.explorationService.discoverSystem({
-      userId,
-      starSystemId: location.systemId,
-      source: 'ship_survey',
-    });
     return this.getCartography(shipId, userId);
   }
 
@@ -1349,6 +1345,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1457,6 +1454,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1589,6 +1587,7 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemeintritt');
 
@@ -1643,11 +1642,6 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
 
-    await this.explorationService.discoverSystem({
-      userId,
-      starSystemId: galaxyField.starSystemId,
-      source: 'ENTER',
-    });
     return ship;
   }
 
@@ -1699,6 +1693,7 @@ export class SpacecraftService {
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemaustritt');
 
@@ -1965,11 +1960,6 @@ export class SpacecraftService {
     if (ship.status !== SpacecraftStatus.IN_FLIGHT || !ship.arrivalAt) return;
 
     if (new Date() >= ship.arrivalAt) {
-      const currentCanonicalLocation = await this.loadLocation(
-        ship.locationId,
-        ship.location,
-      );
-      const currentLocation = resolveSpaceLocation(currentCanonicalLocation);
       const targetLocation =
         ship.targetLocationId != null
           ? await this.loadLocation(ship.targetLocationId, ship.targetLocation)
@@ -1984,19 +1974,7 @@ export class SpacecraftService {
           targetLocation.kind === 'SYSTEM_FIELD' &&
           targetLocation.systemField
         ) {
-          const targetField = targetLocation.systemField;
-          const targetSystemId = targetField.starSystemId;
-          const isWarpArrival =
-            currentLocation?.scope !== 'SYSTEM' ||
-            currentLocation.systemId !== targetSystemId;
-
           await this.setCurrentLocation(ship, targetLocation);
-
-          await this.explorationService.discoverSystem({
-            userId: ship.userId,
-            starSystemId: targetSystemId,
-            source: isWarpArrival ? 'WARP' : 'NAVIGATE',
-          });
         } else if (
           targetLocation.kind === 'GALAXY_FIELD' &&
           targetLocation.galaxyField
@@ -2927,6 +2905,7 @@ export class SpacecraftService {
     }
 
     this.spacecraftRuntimeStateService.initialize(ship);
+    await this.astrometryService.processTick(ship);
 
     await this.shipRepo.save(ship);
   }
