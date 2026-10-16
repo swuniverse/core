@@ -34,7 +34,6 @@ import type {
   StarmapCreateSystemDto,
   StarmapCreateWormholeDto,
   StarmapDiscoverFieldDto,
-  StarmapDiscoverSystemDto,
   StarmapExploredSectorDto,
   StarmapExplorationStateDto,
   StarmapFieldTypeDto,
@@ -258,19 +257,6 @@ export class StarmapController {
       source: body.source,
     });
     return { created: discovered };
-  }
-
-  @Post('exploration/discover-system')
-  async discoverSystem(
-    @Req() req: { user: { sub: number } },
-    @Body() body: StarmapDiscoverSystemDto,
-  ): Promise<StarmapOperationResultDto> {
-    await this.explorationService.discoverSystem({
-      userId: req.user.sub,
-      starSystemId: body.starSystemId,
-      source: body.source,
-    });
-    return { created: 1 };
   }
 
   @Post('admin/exploration/discover-all')

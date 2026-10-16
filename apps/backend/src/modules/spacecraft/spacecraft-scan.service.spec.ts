@@ -66,7 +66,7 @@ const activeScanner = {
 };
 
 function createService(resolver?: RelationshipResolverService) {
-  const shipRepo = { findOne: jest.fn() };
+  const shipRepo = { findOne: jest.fn(), save: jest.fn(async (ship) => ship) };
   const moduleRepo = { find: jest.fn() };
   const objectRepo = { findOneBy: jest.fn() };
   const colonyRepo = { findOne: jest.fn() };
@@ -151,8 +151,43 @@ function createService(resolver?: RelationshipResolverService) {
     gameData,
     spacecraftCrewService,
     celestialClassDiscoveryService,
+    explorationService,
+    systemFieldRepo,
   };
 }
+
+describe('SpacecraftScanService systemFieldScan', () => {
+  it('does not discover the system while scanning one of its fields', async () => {
+    const { service, shipRepo, systemFieldRepo, explorationService } =
+      createService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 10,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      energy: 10,
+      modules: [activeScanner],
+      runtimeSystems: { LONG_RANGE_SENSORS: { active: true, integrity: 100 } },
+      location: {
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 2, sy: 2 },
+      },
+    });
+    systemFieldRepo.findOne.mockResolvedValue({
+      id: 30,
+      starSystemId: 8,
+      sx: 3,
+      sy: 2,
+      isPassable: true,
+      effects: [],
+      celestialObject: null,
+      fieldType: { name: 'Leerer Raum' },
+    });
+
+    await service.systemFieldScan(10, 1, 3, 2);
+
+    expect(explorationService.discoverSystem).not.toHaveBeenCalled();
+  });
+});
 
 describe('SpacecraftScanService colonyScan', () => {
   it('returns redacted foreign colony surface intel without storage, defense, or production', async () => {

@@ -70,7 +70,6 @@ import {
   projectSpacecraftLocationToGalaxy,
   resolveContextualCelestialObject,
   resolveContextualCelestialObjectId,
-  resolveSpaceLocation,
   resolveSpacecraftField,
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
@@ -470,11 +469,6 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (systems.LONG_RANGE_SENSORS?.active !== true)
       throw new BadRequestException('Langstreckensensoren sind nicht aktiv');
-    await this.explorationService.discoverSystem({
-      userId,
-      starSystemId: location.systemId,
-      source: 'ship_survey',
-    });
     return this.getCartography(shipId, userId);
   }
 
@@ -1643,11 +1637,6 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
 
-    await this.explorationService.discoverSystem({
-      userId,
-      starSystemId: galaxyField.starSystemId,
-      source: 'ENTER',
-    });
     return ship;
   }
 
@@ -1965,11 +1954,6 @@ export class SpacecraftService {
     if (ship.status !== SpacecraftStatus.IN_FLIGHT || !ship.arrivalAt) return;
 
     if (new Date() >= ship.arrivalAt) {
-      const currentCanonicalLocation = await this.loadLocation(
-        ship.locationId,
-        ship.location,
-      );
-      const currentLocation = resolveSpaceLocation(currentCanonicalLocation);
       const targetLocation =
         ship.targetLocationId != null
           ? await this.loadLocation(ship.targetLocationId, ship.targetLocation)
@@ -1984,19 +1968,7 @@ export class SpacecraftService {
           targetLocation.kind === 'SYSTEM_FIELD' &&
           targetLocation.systemField
         ) {
-          const targetField = targetLocation.systemField;
-          const targetSystemId = targetField.starSystemId;
-          const isWarpArrival =
-            currentLocation?.scope !== 'SYSTEM' ||
-            currentLocation.systemId !== targetSystemId;
-
           await this.setCurrentLocation(ship, targetLocation);
-
-          await this.explorationService.discoverSystem({
-            userId: ship.userId,
-            starSystemId: targetSystemId,
-            source: isWarpArrival ? 'WARP' : 'NAVIGATE',
-          });
         } else if (
           targetLocation.kind === 'GALAXY_FIELD' &&
           targetLocation.galaxyField
