@@ -7,6 +7,12 @@ jest.mock('./entities/cartography-plan.entity', () => ({
     DONE: 'DONE',
   },
 }));
+jest.mock('../starmap/entities/system-field.entity', () => ({
+  SystemField: class SystemField {},
+}));
+jest.mock('../starmap/entities/system-exploration.entity', () => ({
+  SystemExploration: class SystemExploration {},
+}));
 
 import { BadRequestException } from '@nestjs/common';
 import { CartographyPlanStatus } from './entities/cartography-plan.entity';
@@ -238,5 +244,85 @@ describe('CartographyPlanService', () => {
     ).rejects.toEqual(
       new BadRequestException('Die Kartographie wird bereits finalisiert'),
     );
+  });
+
+  it('completes exactly once after three valid main ticks and persists personal discovery', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.FINISHING,
+      remainingFieldIds: [],
+      finalizationStartedAt: new Date('2026-10-16T12:00:00.000Z'),
+      finalizationTick: 2,
+      finalizingSpacecraftId: 9,
+      completedAt: null,
+    };
+    const planRepo = {
+      manager: {
+        transaction: jest.fn(async (work) =>
+          work({
+            getRepository: (entity) =>
+              entity.name === 'SystemExploration'
+                ? {
+                    findOne: jest.fn(async () => null),
+                    create: jest.fn((value) => value),
+                    save: jest.fn(),
+                  }
+                : { findOne: jest.fn(async () => plan), save: jest.fn() },
+          }),
+        ),
+      },
+    };
+    const service = new CartographyPlanService(planRepo as never);
+
+    await expect(service.progressFinalization(9)).resolves.toEqual({
+      completed: true,
+      userId: 11,
+      starSystemId: 42,
+    });
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.DONE,
+      finalizationTick: 3,
+      finalizingSpacecraftId: null,
+    });
+
+  });
+
+  it('ends an open finalization without a reward when the system was discovered elsewhere', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.FINISHING,
+      remainingFieldIds: [],
+      finalizationTick: 1,
+      finalizingSpacecraftId: 9,
+      completedAt: null,
+    };
+    const planRepo = {
+      manager: {
+        transaction: jest.fn(async (work) =>
+          work({
+            getRepository: (entity) =>
+              entity.name === 'SystemExploration'
+                ? { findOne: jest.fn(async () => ({ id: 44 })) }
+                : { findOne: jest.fn(async () => plan), save: jest.fn() },
+          }),
+        ),
+      },
+    };
+    const service = new CartographyPlanService(planRepo as never);
+
+    await expect(service.progressFinalization(9)).resolves.toEqual({
+      completed: false,
+      userId: null,
+      starSystemId: null,
+    });
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.DONE,
+      finalizingSpacecraftId: null,
+      finalizationTick: 1,
+    });
   });
 });

@@ -173,6 +173,28 @@ function createService() {
         messages: [],
       })),
     } as any,
+    {
+      getPlan: jest.fn(),
+      createPlan: jest.fn(),
+      startFinalization: jest.fn(async () => ({
+        id: 8,
+        starSystemId: 44,
+        status: 'FINISHING',
+        remainingFieldIds: [],
+        finalizationStartedAt: new Date(),
+        finalizationTick: 0,
+        finalizingSpacecraftId: ship.id,
+        completedAt: null,
+      })),
+      resetFinishingForSpacecraft: jest.fn(),
+      progressFinalization: jest.fn(async () => ({
+        completed: false,
+        userId: null,
+        starSystemId: null,
+      })),
+    } as any,
+    { sendSystem: jest.fn() } as any,
+    { change: jest.fn() } as any,
   );
   jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);
   jest.spyOn(service, 'getSensorRange').mockResolvedValue(3);
@@ -274,6 +296,21 @@ describe('spacecraft core detail controls', () => {
     await expect(
       service.toggleSystem(2, 1, 'ASTROMETRY_LAB', true),
     ).rejects.toThrow('Astrometrie-Labor benötigt aktive intakte Kurz- und Langstreckensensoren');
+  });
+
+  it('blocks cartography finalization while the ship is in standby', async () => {
+    const { service, ship } = createService();
+    ship.operatingMode = SpacecraftOperatingMode.STANDBY;
+    Object.assign(ship, {
+      location: {
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 44, sx: 1, sy: 1 },
+      },
+    });
+
+    await expect(
+      service.startCartographyFinalization(2, 1),
+    ).rejects.toThrow('Kartographie-Finalisierung ist in Bereitschaft nicht möglich');
   });
 
   it('allows Icarus sensor activation without crew when STU crew requirement is zero', async () => {

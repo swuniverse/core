@@ -558,6 +558,14 @@ export class SpacecraftController {
     return this.spacecraftService.createCartographyPlan(id, req.user.sub);
   }
 
+  @Post(':id/cartography/finalize')
+  startCartographyFinalization(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.startCartographyFinalization(id, req.user.sub);
+  }
+
   @Post(':id/sector-scan')
   sectorScan(
     @Param('id', ParseIntPipe) id: number,

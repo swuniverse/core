@@ -154,6 +154,72 @@ export class CartographyPlanService {
     await this.planRepo.save(plan);
   }
 
+  async progressFinalization(spacecraftId: number): Promise<{
+    completed: boolean;
+    userId: number | null;
+    starSystemId: number | null;
+  }> {
+    return this.planRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(CartographyPlan);
+      const plan = await repo.findOne({
+        where: {
+          finalizingSpacecraftId: spacecraftId,
+          status: CartographyPlanStatus.FINISHING,
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!plan) {
+        return { completed: false, userId: null, starSystemId: null };
+      }
+
+      const explorationRepo = manager.getRepository(SystemExploration);
+      const alreadyExplored = await explorationRepo.findOne({
+        where: { userId: plan.userId, starSystemId: plan.starSystemId },
+      });
+      if (alreadyExplored) {
+        plan.status = CartographyPlanStatus.DONE;
+        plan.finalizingSpacecraftId = null;
+        plan.completedAt = new Date();
+        await repo.save(plan);
+        return { completed: false, userId: null, starSystemId: null };
+      }
+
+      plan.finalizationTick = (plan.finalizationTick ?? 0) + 1;
+      if (plan.finalizationTick < 3) {
+        await repo.save(plan);
+        return { completed: false, userId: null, starSystemId: null };
+      }
+
+      const discovery = explorationRepo.create({
+        userId: plan.userId,
+        starSystemId: plan.starSystemId,
+        discoverySource: 'CARTOGRAPHY',
+      });
+      try {
+        await explorationRepo.save(discovery);
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        plan.status = CartographyPlanStatus.DONE;
+        plan.finalizingSpacecraftId = null;
+        plan.completedAt = new Date();
+        await repo.save(plan);
+        return { completed: false, userId: null, starSystemId: null };
+      }
+
+      const completedUserId = plan.userId;
+      const completedStarSystemId = plan.starSystemId;
+      plan.status = CartographyPlanStatus.DONE;
+      plan.finalizingSpacecraftId = null;
+      plan.completedAt = new Date();
+      await repo.save(plan);
+      return {
+        completed: true,
+        userId: completedUserId,
+        starSystemId: completedStarSystemId,
+      };
+    });
+  }
+
   async startFinalization(
     userId: number,
     starSystemId: number,

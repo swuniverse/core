@@ -455,6 +455,47 @@ export class SpacecraftService {
       : null;
   }
 
+  async startCartographyFinalization(
+    shipId: number,
+    userId: number,
+  ): Promise<CartographyPlanDto> {
+    const ship = await this.findOne(shipId, userId);
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
+      throw new BadRequestException(
+        'Kartographie-Finalisierung erfordert ein Sternensystem',
+      );
+    }
+    if (ship.operatingMode === SpacecraftOperatingMode.STANDBY) {
+      throw new BadRequestException(
+        'Kartographie-Finalisierung ist in Bereitschaft nicht möglich',
+      );
+    }
+    if (ship.status !== SpacecraftStatus.IDLE) {
+      throw new BadRequestException(
+        'Kartographie-Finalisierung erfordert ein untätiges Schiff',
+      );
+    }
+    const action = await this.getCartographyPlanAction(ship);
+    if (!action.available) throw new BadRequestException(action.reason!);
+    if (ship.energy < 15) throw new BadRequestException('Nicht genug EPS');
+
+    const plan = await this.cartographyPlanService.startFinalization(
+      userId,
+      location.systemId,
+      ship.id,
+    );
+    ship.energy -= 15;
+    await this.shipRepo.save(ship);
+    await this.messagingService.sendSystem(
+      userId,
+      'Kartographie',
+      'Die Finalisierung der Systemkartographie hat begonnen.',
+      `cartography-finalization-started:${userId}:${location.systemId}`,
+    );
+    return this.toCartographyPlanDto(plan, action);
+  }
+
   async createCartographyPlan(
     shipId: number,
     userId: number,
@@ -1532,6 +1573,7 @@ export class SpacecraftService {
     targetX: number,
     targetY: number,
   ): Promise<Spacecraft> {
+    await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     const ship = await this.findOne(shipId, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
@@ -3144,6 +3186,23 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (!this.isAstrometryLaborOperational(ship, systems)) {
       await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    } else {
+      const finalization = await this.cartographyPlanService.progressFinalization(
+        ship.id,
+      );
+      if (finalization.completed) {
+        await this.prestigeService.change(
+          finalization.userId!,
+          10,
+          'Kartographie eines Sternensystems abgeschlossen',
+        );
+        await this.messagingService.sendSystem(
+          finalization.userId!,
+          'Kartographie',
+          'Die Systemkartographie wurde erfolgreich abgeschlossen.',
+          `cartography-completed:${finalization.userId}:${finalization.starSystemId}`,
+        );
+      }
     }
 
     await this.shipRepo.save(ship);
