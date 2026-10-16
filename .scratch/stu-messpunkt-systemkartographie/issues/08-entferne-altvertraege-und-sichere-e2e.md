@@ -4,7 +4,7 @@
 
 **Blocked by:** 05: Integriere Messpunkte in die Bewegung; 06: Finalisiere Kartographie und entdecke Systeme; 07: Baue die kompakte Kartographieoberfläche.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Nicht mehr gültige `spacecraft/:id/astrometry`-Jobendpunkte sowie binäre `cartography`-/`survey`-Platzhalter werden entfernt oder auf den kanonischen neuen Vertrag umgestellt; keine alte Semantik bleibt erreichbar.
 - [ ] Shared DTOs liegen ausschließlich in `packages/shared`; Frontend und Backend verwenden denselben zustandsbasierten Vertrag.
@@ -13,3 +13,5 @@
 - [ ] Ein E2E-Szenario deckt Laboraktivierung, Plan, zwei eigene Schiffe, Messpunkte, Prestige, Finalisierung, drei Ticks, Entdeckung und Endstatus ab.
 - [ ] Ein E2E-/Integrationsszenario deckt Unterbrechung durch Flug/Tarnung/Sensorverlust/Brownout, Wiederaufnahme sowie Weltänderungs-/Feldverlustregeln ab.
 - [ ] Es wird dokumentiert, dass Crew-XP bei Messpunkten noch aussteht, ohne dies Spielern als vorhandene Belohnung anzuzeigen.
+
+Closure: Implemented in `0d82bafaef7abb7d0cc869e5574bef831b5e2c51`.
