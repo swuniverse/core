@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-import { DatabasePage } from './database';
+import { DatabasePage, DatabaseSystemDetailPage } from './database';
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -64,6 +64,81 @@ describe('DatabasePage', () => {
     const link = await screen.findByRole('link', { name: 'Vader' });
     expect(link.getAttribute('href')).toBe('/players/1');
     expect(screen.getByText('Vader')).toBeTruthy();
+  });
+
+  it('shows a discovered system as an inspect-only entry with current-owner message access', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/systems/20') {
+        return Promise.resolve({
+          id: 20,
+          name: 'Bespin',
+          layerId: 7,
+          cx: 1,
+          cy: 3,
+          systemTypeName: 'Gelber Zwerg',
+          maxX: 22,
+          maxY: 22,
+          fields: [
+            {
+              id: 101,
+              sx: 1,
+              sy: 2,
+              fieldTypeId: 5,
+              isPassable: true,
+              energyCost: 0,
+              damage: 0,
+              effects: [],
+              celestialObject: {
+                id: 90,
+                objectType: 1,
+                name: 'Bespin II',
+                description: 'Gasriese',
+                posX: 1,
+                posY: 2,
+                classId: 42,
+                isColonizable: true,
+              },
+            },
+          ],
+          colonies: [
+            {
+              id: 12,
+              name: 'Cloud City',
+              owner: { id: 77, username: 'lando' },
+              isOwn: false,
+              isAbandoned: false,
+              posX: 3,
+              posY: 4,
+              celestialObjectId: null,
+              canMessageOwner: true,
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/database/systems/20']}>
+        <Routes>
+          <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Bespin' })).toBeTruthy();
+    expect(screen.getByText('Bespin II')).toBeTruthy();
+    expect(screen.getByText('Cloud City')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Sternenkarte öffnen' }).getAttribute('href')).toBe(
+      '/starmap?layer=7&x=1&y=3',
+    );
+    expect(screen.getByRole('link', { name: 'Nachricht an lando' }).getAttribute('href')).toBe(
+      '/messages?tab=compose&to=77&name=lando',
+    );
+    expect(screen.queryByRole('button', { name: /scan|navigation|kampf|bewegung/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Feld 1:2 untersuchen' }));
+    expect(screen.getByText('Gasriese')).toBeTruthy();
   });
 
   it('shows the Sternensysteme catalog with non-openable masked entries', async () => {

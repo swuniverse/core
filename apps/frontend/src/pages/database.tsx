@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { PlanetImg } from '../components/PlanetImg';
 import { systemTypeImage } from '../lib/assets';
 import { api } from '../services/api';
@@ -68,6 +68,48 @@ type SystemCatalog = {
     >;
   }>;
 };
+type SystemDetail = {
+  id: number;
+  name: string;
+  layerId: number;
+  cx: number;
+  cy: number;
+  systemTypeName: string;
+  maxX: number;
+  maxY: number;
+  fields: Array<{
+    id: number;
+    sx: number;
+    sy: number;
+    fieldTypeId: number;
+    isPassable: boolean;
+    energyCost: number;
+    damage: number;
+    effects: string[];
+    celestialObject: {
+      id: number;
+      objectType: number;
+      name: string | null;
+      description: string | null;
+      posX: number;
+      posY: number;
+      classId: number | null;
+      isColonizable: boolean;
+    } | null;
+  }>;
+  colonies: Array<{
+    id: number;
+    name: string;
+    owner: { id: number; username: string } | null;
+    isOwn: boolean;
+    isAbandoned: boolean;
+    posX: number;
+    posY: number;
+    celestialObjectId: number | null;
+    canMessageOwner: boolean;
+  }>;
+};
+
 type ShipClass = {
   key: string;
   discovered: boolean;
@@ -196,6 +238,121 @@ export function DatabasePage() {
       ) : (
         <Detail view={view} data={data} />
       )}
+    </section>
+  );
+}
+
+export function DatabaseSystemDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [detail, setDetail] = useState<SystemDetail | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    setDetail(null);
+    setSelectedFieldId(null);
+    setError(null);
+    api
+      .get<SystemDetail>(`/database/systems/${id}`)
+      .then(setDetail)
+      .catch((err: unknown) =>
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Systemeintrag konnte nicht geladen werden',
+        ),
+      );
+  }, [id]);
+
+  if (error) {
+    return (
+      <section className="space-y-3 p-4 sm:p-6">
+        <Link to="/database?view=systems" className="text-xs text-swu-muted hover:text-swu-accent">
+          ← Sternensysteme
+        </Link>
+        <p role="alert" className="text-red-300">{error}</p>
+      </section>
+    );
+  }
+  if (!detail) {
+    return <p className="p-4 text-swu-muted sm:p-6">Systemeintrag wird geladen...</p>;
+  }
+
+  const selectedField = detail.fields.find((field) => field.id === selectedFieldId) ?? null;
+  return (
+    <section className="space-y-3 p-4 sm:p-6">
+      <Link to="/database?view=systems" className="text-xs text-swu-muted hover:text-swu-accent">
+        ← Sternensysteme
+      </Link>
+      <header className="border border-swu-border bg-black/30 px-3 py-2">
+        <h1 className="font-bold text-swu-primary">{detail.name}</h1>
+        <p className="text-sm text-swu-muted">
+          {detail.systemTypeName} · Außenkoordinaten {detail.cx}:{detail.cy}
+        </p>
+        <Link
+          className="mt-2 inline-block text-xs text-swu-accent hover:underline"
+          to={`/starmap?layer=${detail.layerId}&x=${detail.cx}&y=${detail.cy}`}
+        >
+          Sternenkarte öffnen
+        </Link>
+      </header>
+      <p className="text-xs text-swu-muted">
+        Informationsansicht: Felder und Objekte können untersucht werden; keine taktischen Aktionen verfügbar.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {detail.fields.map((field) => (
+          <button
+            key={field.id}
+            type="button"
+            aria-label={`Feld ${field.sx}:${field.sy} untersuchen`}
+            onClick={() => setSelectedFieldId(field.id)}
+            className="border border-swu-border bg-black/30 p-2 text-left text-xs hover:border-swu-accent"
+          >
+            <span className="font-mono text-swu-primary">{field.sx}:{field.sy}</span>
+            <span className="ml-2 text-swu-muted">
+              {field.celestialObject?.name ?? `Feldtyp ${field.fieldTypeId}`}
+            </span>
+          </button>
+        ))}
+      </div>
+      {selectedField && (
+        <aside className="border border-swu-accent/60 bg-black/30 p-3 text-sm">
+          <h2 className="font-bold text-swu-primary">
+            Feld {selectedField.sx}:{selectedField.sy}
+          </h2>
+          {selectedField.celestialObject ? (
+            <p>{selectedField.celestialObject.description ?? selectedField.celestialObject.name}</p>
+          ) : (
+            <p className="text-swu-muted">Kein Himmelskörper auf diesem Feld.</p>
+          )}
+        </aside>
+      )}
+      <section className="border border-swu-border bg-black/30">
+        <h2 className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Kolonien</h2>
+        {detail.colonies.length === 0 ? (
+          <p className="p-3 text-sm text-swu-muted">Keine aktuellen Kolonien.</p>
+        ) : (
+          <ul className="divide-y divide-swu-border/60">
+            {detail.colonies.map((colony) => (
+              <li key={colony.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                <span>{colony.name}</span>
+                <span className="font-mono text-xs text-swu-muted">{colony.posX}:{colony.posY}</span>
+                {colony.isOwn && <span className="text-xs text-swu-primary">eigene Kolonie</span>}
+                {colony.isAbandoned && <span className="text-xs text-swu-muted">aufgegeben</span>}
+                {colony.canMessageOwner && colony.owner && (
+                  <Link
+                    className="ml-auto text-xs text-swu-accent hover:underline"
+                    to={`/messages?tab=compose&to=${colony.owner.id}&name=${encodeURIComponent(colony.owner.username)}`}
+                  >
+                    Nachricht an {colony.owner.username}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   );
 }

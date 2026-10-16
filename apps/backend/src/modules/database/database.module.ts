@@ -20,6 +20,7 @@ import { AllianceModule } from '../alliance/alliance.module';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SystemExploration } from '../starmap/entities/system-exploration.entity
       Layer,
       StarSystem,
       SystemExploration,
+      SystemField,
     ]),
     FactionModule,
     GameDataModule,
