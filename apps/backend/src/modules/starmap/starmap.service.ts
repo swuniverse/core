@@ -9,6 +9,7 @@ import { Layer } from './entities/layer.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { CelestialObject } from './entities/celestial-object.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
+import type { ExplorationService } from './exploration.service';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import type {
   StarmapCelestialObjectDto,
@@ -55,6 +56,25 @@ export class StarmapService {
     });
 
     return systems.map((system) => this.toSystemListItemDto(system));
+  }
+
+  async getExploredSystemsInLayer(
+    userId: number,
+    layerId: number,
+    explorationService: ExplorationService,
+  ): Promise<StarmapSystemListItemDto[]> {
+    const discoveries = await explorationService.getExploredSystems(userId);
+    const exploredSystemIds = new Set(
+      discoveries.map((discovery) => discovery.starSystemId),
+    );
+    const systems = await this.systemRepo.find({
+      where: { layerId },
+      order: { cx: 'ASC', cy: 'ASC' },
+    });
+
+    return systems
+      .filter((system) => exploredSystemIds.has(system.id))
+      .map((system) => this.toSystemListItemDto(system));
   }
 
   async getSectorsInLayer(layerId: number): Promise<StarmapSectorDto[]> {

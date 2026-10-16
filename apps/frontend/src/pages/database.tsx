@@ -16,6 +16,7 @@ type View =
   | 'settlers'
   | 'rankings'
   | 'system-types'
+  | 'systems'
   | 'ship-classes'
   | 'planet-types'
   | 'prestige-history';
@@ -48,6 +49,24 @@ type SystemTypes = {
   discovered: number;
   total: number;
   entries: SystemTypeEntry[];
+};
+type SystemCatalog = {
+  layers: Array<{
+    id: number;
+    name: string;
+    entries: Array<
+      | { discovered: false; name: '???' }
+      | {
+          discovered: true;
+          systemId: number;
+          name: string;
+          cx: number;
+          cy: number;
+          systemTypeName: string;
+          discoveredAt: string;
+        }
+    >;
+  }>;
 };
 type ShipClass = {
   key: string;
@@ -98,7 +117,7 @@ const groups: Array<{
     title: 'Karte & Entdeckungen',
     entries: [
       { label: 'Sternensystemtypen', view: 'system-types' },
-      { label: 'Sternensysteme', note: 'Erforschungsdaten werden aufgebaut' },
+      { label: 'Sternensysteme', view: 'systems' },
       { label: 'Planetentypen', view: 'planet-types' },
     ],
   },
@@ -231,12 +250,80 @@ function Hub({
 function Detail({ view, data }: { view: View; data: unknown }) {
   if (view === 'system-types')
     return <SystemTypes data={data as SystemTypes} />;
+  if (view === 'systems') return <Systems data={data as SystemCatalog} />;
   if (view === 'settlers') return <Settlers data={data as Settler[]} />;
   if (view === 'rankings') return <RankingView data={data as RankingDetail} />;
   if (view === 'prestige-history')
     return <PrestigeHistory data={data as PrestigeHistory} />;
   if (view === 'planet-types') return <PlanetTypes data={data as PlanetTypes} />;
   return <ShipClasses data={data as ShipClasses} />;
+}
+
+function Systems({ data }: { data: SystemCatalog }) {
+  const [layerId, setLayerId] = useState(data.layers[0]?.id ?? null);
+  const layer = data.layers.find((entry) => entry.id === layerId) ?? data.layers[0];
+
+  return (
+    <div className="max-w-3xl space-y-2">
+      <h1 className="border border-swu-border bg-black/30 px-2 py-1 font-bold text-swu-primary">
+        Sternensysteme
+      </h1>
+      <label className="block text-sm text-swu-muted">
+        Kartenebene
+        <select
+          aria-label="Kartenebene"
+          value={layer?.id ?? ''}
+          onChange={(event) => setLayerId(Number(event.target.value))}
+          className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-text"
+        >
+          {data.layers.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="overflow-auto border border-swu-border bg-black/30">
+        <table className="w-full text-sm">
+          <thead className="bg-swu-bg/60 text-left text-xs text-swu-muted">
+            <tr>
+              <th className="px-2 py-1">System</th>
+              <th className="px-2 py-1">Koordinaten</th>
+              <th className="px-2 py-1">Typ</th>
+              <th className="px-2 py-1">Entdeckung</th>
+            </tr>
+          </thead>
+          <tbody>
+            {layer?.entries.map((entry, index) => (
+              <tr key={entry.discovered ? entry.systemId : index} className="border-t border-swu-border/60">
+                {entry.discovered ? (
+                  <>
+                    <td className="px-2 py-1">
+                      <Link className="text-swu-accent hover:underline" to={`/database/systems/${entry.systemId}`}>
+                        {entry.name}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-1 font-mono">{entry.cx}:{entry.cy}</td>
+                    <td className="px-2 py-1">{entry.systemTypeName}</td>
+                    <td className="px-2 py-1 font-mono text-xs text-swu-muted">
+                      {new Date(entry.discoveredAt).toLocaleString('de-DE')}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-2 py-1">???</td>
+                    <td className="px-2 py-1">???</td>
+                    <td className="px-2 py-1">???</td>
+                    <td className="px-2 py-1 text-swu-muted">---</td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function PlanetTypes({ data }: { data: PlanetTypes }) {
@@ -519,6 +606,7 @@ function titleFor(view: View) {
       settlers: 'Siedlerliste',
       rankings: 'Ranglisten',
       'system-types': 'Sternensystemtypen',
+      systems: 'Sternensysteme',
       'ship-classes': 'Schiffsrümpfe',
       'planet-types': 'Planetentypen',
       'prestige-history': 'Prestigehistorie',

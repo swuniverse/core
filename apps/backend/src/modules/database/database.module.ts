@@ -17,6 +17,9 @@ import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entr
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { AllianceModule } from '../alliance/alliance.module';
+import { Layer } from '../starmap/entities/layer.entity';
+import { StarSystem } from '../starmap/entities/star-system.entity';
+import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { AllianceModule } from '../alliance/alliance.module';
       CelestialClassDiscovery,
       CrewAssignment,
       CelestialObject,
+      Layer,
+      StarSystem,
+      SystemExploration,
     ]),
     FactionModule,
     GameDataModule,

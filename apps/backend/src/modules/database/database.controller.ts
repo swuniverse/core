@@ -47,6 +47,13 @@ export class DatabaseController {
     return this.databaseService.getSystemTypes(req.user.sub);
   }
 
+  @Get('systems')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getSystems(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getSystems(req.user.sub);
+  }
+
   @Get('ship-classes')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
