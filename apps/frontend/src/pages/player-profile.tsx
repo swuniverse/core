@@ -5,6 +5,11 @@ import { PlayerAvatar } from '../components/PlayerAvatar';
 import { Faction, type AllianceRefDto } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { SettlerPublicDiplomacy } from './alliances';
+import {
+  ColonyScans,
+  ColonySurfaceDialog,
+  type ColonyScanProjection,
+} from './database';
 
 interface PlayerProfile {
   id: number;
@@ -22,6 +27,7 @@ interface PlayerProfile {
   isAdmin: boolean;
   createdAt: string;
   alliance: AllianceRefDto | null;
+  colonyScans?: ColonyScanProjection[];
 }
 
 const dateFormatter = new Intl.DateTimeFormat('de-DE', {
@@ -37,6 +43,9 @@ export function PlayerProfilePage() {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedScan, setSelectedScan] = useState<ColonyScanProjection | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!id) {
@@ -95,6 +104,20 @@ export function PlayerProfilePage() {
   }
 
   const name = player.displayName || player.username;
+
+  async function deleteScan(scanId: number) {
+    try {
+      await api.delete(`/spacecraft/colony-scans/${scanId}`);
+      if (id)
+        setPlayer(await api.get<PlayerProfile>(`/database/settlers/${id}`));
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Scan konnte nicht gelöscht werden',
+      );
+    }
+  }
 
   return (
     <div className="p-3 md:p-6 space-y-4">
@@ -186,7 +209,21 @@ export function PlayerProfilePage() {
         />
       </section>
 
+      {player.colonyScans && (
+        <ColonyScans
+          scans={player.colonyScans}
+          onOpen={setSelectedScan}
+          onDelete={deleteScan}
+        />
+      )}
+
       {!player.alliance && <SettlerPublicDiplomacy playerId={player.id} />}
+      {selectedScan && (
+        <ColonySurfaceDialog
+          scan={selectedScan}
+          onClose={() => setSelectedScan(null)}
+        />
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ export type ColonyScanProjection = {
       fields: ColonyScan['surfaceFields'];
     };
   };
+  systemId: number | null;
   current: {
     colony: {
       id: number;
@@ -51,14 +52,24 @@ export class ColonyScanProjectionService {
     viewerId: number,
     systemId: number,
   ): Promise<ColonyScanProjection[]> {
-    const sharerIds = await this.relationshipResolver.historicalScanSharerIds(
-      viewerId,
-    );
+    return this.newestAccessible(viewerId, { starSystemId: systemId });
+  }
+
+  async newestAccessibleForColonies(
+    viewerId: number,
+    colonyOwnerId: number,
+  ): Promise<ColonyScanProjection[]> {
+    return this.newestAccessible(viewerId, { colonyOwnerId });
+  }
+
+  private async newestAccessible(
+    viewerId: number,
+    scope: Partial<Pick<ColonyScan, 'starSystemId' | 'colonyOwnerId'>>,
+  ): Promise<ColonyScanProjection[]> {
+    const sharerIds =
+      await this.relationshipResolver.historicalScanSharerIds(viewerId);
     const scans = await this.scanRepo.find({
-      where: {
-        userId: In(sharerIds),
-        starSystemId: systemId,
-      },
+      where: { userId: In(sharerIds), ...scope },
       relations: ['user', 'colony', 'colony.user'],
       order: { createdAt: 'DESC', id: 'DESC' },
     });
@@ -70,14 +81,20 @@ export class ColonyScanProjectionService {
       }
     }
 
-    return [...newestByColony.values()].map((scan) => this.toProjection(scan, viewerId));
+    return [...newestByColony.values()].map((scan) =>
+      this.toProjection(scan, viewerId),
+    );
   }
 
-  private toProjection(scan: ColonyScan, viewerId: number): ColonyScanProjection {
+  private toProjection(
+    scan: ColonyScan,
+    viewerId: number,
+  ): ColonyScanProjection {
     const colony = scan.colony;
     return {
       id: scan.id,
       colonyId: scan.colonyId,
+      systemId: scan.starSystemId,
       scanner: {
         id: scan.userId,
         username: scan.user?.username ?? null,

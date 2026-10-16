@@ -36,8 +36,11 @@ export class DatabaseController {
   @Get('settlers/:id')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getSettler(@Param('id', ParseIntPipe) id: number) {
-    return this.databaseService.getSettler(id);
+  getSettler(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.databaseService.getSettler(req.user.sub, id);
   }
 
   @Get('system-types')
