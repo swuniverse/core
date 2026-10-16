@@ -1,41 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
+import type { ColonyScanProjectionDto } from '@swuniverse/shared';
 import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import { ColonyScan } from './entities/colony-scan.entity';
 
-export type ColonyScanProjection = {
-  id: number;
-  colonyId: number;
-  scanner: { id: number; username: string | null };
-  provenance: 'OWN' | 'ALLIANCE';
-  canDelete: boolean;
-  snapshot: {
-    colonyName: string | null;
-    owner: { id: number | null; username: string | null };
-    scannedAt: Date;
-    system: { id: number | null; celestialObjectId: number | null };
-    colonyClassId: number | null;
-    surface: {
-      width: number | null;
-      height: number | null;
-      deposits: NonNullable<ColonyScan['deposits']>;
-      fields: ColonyScan['surfaceFields'];
-    };
-  };
-  systemId: number | null;
-  current: {
-    colony: {
-      id: number;
-      name: string;
-      owner: { id: number; username: string | null } | null;
-      isAbandoned: boolean;
-      posX: number;
-      posY: number;
-      celestialObjectId: number | null;
-    } | null;
-  };
-};
+export type ColonyScanProjection = ColonyScanProjectionDto;
 
 /**
  * Viewer-authorized historical colony scans. This is deliberately separate
@@ -94,7 +64,10 @@ export class ColonyScanProjectionService {
       viewerId,
     );
     return this.scanRepo.find({
-      where: { userId: In(sharerIds), ...scope },
+      where: {
+        userId: In(sharerIds),
+        ...scope,
+      } as FindOptionsWhere<ColonyScan>,
       relations: ['user', 'colony', 'colony.user'],
       order: { createdAt: 'DESC', id: 'DESC' },
     });
@@ -118,7 +91,7 @@ export class ColonyScanProjectionService {
           id: scan.colonyOwnerId,
           username: scan.colonyOwnerUsername,
         },
-        scannedAt: scan.createdAt,
+        scannedAt: scan.createdAt.toISOString(),
         system: {
           id: scan.starSystemId,
           celestialObjectId: scan.celestialObjectId,

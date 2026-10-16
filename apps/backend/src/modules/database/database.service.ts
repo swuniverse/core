@@ -318,14 +318,17 @@ export class DatabaseService {
     const discoveredBySystemId = new Map(
       discoveries.map((discovery) => [discovery.starSystemId, discovery]),
     );
+    const visibleLayerIds = new Set(layers.map((layer) => layer.id));
     const systemsByLayer = new Map<number, StarSystem[]>();
-    for (const system of [...systems].sort(
-      (left, right) =>
-        left.layerId - right.layerId ||
-        left.cx - right.cx ||
-        left.cy - right.cy ||
-        left.id - right.id,
-    )) {
+    for (const system of systems
+      .filter((system) => visibleLayerIds.has(system.layerId))
+      .sort(
+        (left, right) =>
+          left.layerId - right.layerId ||
+          left.cx - right.cx ||
+          left.cy - right.cy ||
+          left.id - right.id,
+      )) {
       const entries = systemsByLayer.get(system.layerId) ?? [];
       entries.push(system);
       systemsByLayer.set(system.layerId, entries);

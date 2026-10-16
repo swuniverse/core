@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ColonyScanProjectionDto } from '@swuniverse/shared';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { PlanetImg } from '../components/PlanetImg';
 import { systemTypeImage } from '../lib/assets';
@@ -111,50 +112,8 @@ type SystemDetail = {
   colonyScans: ColonyScanProjection[];
 };
 
-export type ColonyScanProjection = {
-  id: number;
-  colonyId: number;
-  scanner: { id: number; username: string | null };
-  provenance: 'OWN' | 'ALLIANCE';
-  canDelete: boolean;
-  snapshot: {
-    colonyName: string | null;
-    owner: { id: number | null; username: string | null };
-    scannedAt: string;
-    surface: {
-      width: number | null;
-      height: number | null;
-      deposits: Array<{
-        commodityId: number;
-        commodityName: string;
-        minAmount: number;
-        maxAmount: number;
-      }>;
-      fields: Array<{
-        fieldIndex: number;
-        fieldType: number;
-        terrainTileId: string | null;
-        buildingId: number | null;
-        buildingName: string | null;
-        hasBuilding: boolean;
-        isConstruction: boolean;
-        isActive: boolean;
-        integrityPercent: number | null;
-      }>;
-    };
-  };
+export type ColonyScanProjection = ColonyScanProjectionDto & {
   system?: { id: number | null; discovered: boolean; name: string | null };
-  current: {
-    colony: {
-      id: number;
-      name: string;
-      owner: { id: number; username: string | null } | null;
-      isAbandoned: boolean;
-      posX: number;
-      posY: number;
-      celestialObjectId: number | null;
-    } | null;
-  };
 };
 
 type ShipClass = {
@@ -512,6 +471,7 @@ export function ColonyScans({
             const current = scan.current.colony;
             const ownerChanged =
               current?.owner != null &&
+              !current.isAbandoned &&
               (current.owner.id !== scan.snapshot.owner.id ||
                 current.owner.username !== scan.snapshot.owner.username);
             return (

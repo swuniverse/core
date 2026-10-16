@@ -75,6 +75,58 @@ export interface SpacecraftAstrometryJobDto {
   abortReason: string | null;
 }
 
+export interface ColonyScanDepositDto {
+  commodityId: number;
+  commodityName: string;
+  minAmount: number;
+  maxAmount: number;
+}
+
+export interface ColonyScanSurfaceFieldDto {
+  fieldIndex: number;
+  fieldType: number;
+  terrainTileId: string | null;
+  buildingId: number | null;
+  buildingName: string | null;
+  hasBuilding: boolean;
+  isConstruction: boolean;
+  isActive: boolean;
+  integrityPercent: number | null;
+}
+
+export interface ColonyScanProjectionDto {
+  id: number;
+  colonyId: number;
+  scanner: { id: number; username: string | null };
+  provenance: 'OWN' | 'ALLIANCE';
+  canDelete: boolean;
+  systemId: number | null;
+  snapshot: {
+    colonyName: string | null;
+    owner: { id: number | null; username: string | null };
+    scannedAt: string;
+    system: { id: number | null; celestialObjectId: number | null };
+    colonyClassId: number | null;
+    surface: {
+      width: number | null;
+      height: number | null;
+      deposits: ColonyScanDepositDto[];
+      fields: ColonyScanSurfaceFieldDto[];
+    };
+  };
+  current: {
+    colony: {
+      id: number;
+      name: string;
+      owner: { id: number; username: string | null } | null;
+      isAbandoned: boolean;
+      posX: number;
+      posY: number;
+      celestialObjectId: number | null;
+    } | null;
+  };
+}
+
 export interface SpacecraftDetailDto {
   id: number;
   name: string;

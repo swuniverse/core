@@ -1746,6 +1746,7 @@ export class SpacecraftService {
     targetSystemId: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
 
     if (

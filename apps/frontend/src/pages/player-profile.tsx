@@ -2,14 +2,18 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { PlayerAvatar } from '../components/PlayerAvatar';
-import { Faction, type AllianceRefDto } from '@swuniverse/shared';
+import {
+  Faction,
+  type AllianceRefDto,
+  type ColonyScanProjectionDto,
+} from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { SettlerPublicDiplomacy } from './alliances';
-import {
-  ColonyScans,
-  ColonySurfaceDialog,
-  type ColonyScanProjection,
-} from './database';
+import { ColonyScans, ColonySurfaceDialog } from './database';
+
+type ColonyScanProjection = ColonyScanProjectionDto & {
+  system?: { id: number | null; discovered: boolean; name: string | null };
+};
 
 interface PlayerProfile {
   id: number;

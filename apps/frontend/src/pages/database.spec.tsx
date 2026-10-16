@@ -159,6 +159,7 @@ describe('DatabasePage', () => {
             {
               id: 701,
               colonyId: 12,
+              systemId: 20,
               scanner: { id: 1, username: 'scanner' },
               provenance: 'OWN',
               canDelete: true,
@@ -166,6 +167,8 @@ describe('DatabasePage', () => {
                 colonyName: 'Damals Cloud City',
                 owner: { id: 77, username: 'damals-lando' },
                 scannedAt: '2026-10-15T10:00:00.000Z',
+                system: { id: 20, celestialObjectId: null },
+                colonyClassId: null,
                 surface: { width: 2, height: 1, deposits: [], fields: [] },
               },
               current: {
@@ -183,6 +186,7 @@ describe('DatabasePage', () => {
             {
               id: 702,
               colonyId: 13,
+              systemId: 20,
               scanner: { id: 2, username: 'allianz-scout' },
               provenance: 'ALLIANCE',
               canDelete: false,
@@ -190,6 +194,8 @@ describe('DatabasePage', () => {
                 colonyName: 'Allianz-Snapshot',
                 owner: { id: 77, username: 'lando' },
                 scannedAt: '2026-10-14T10:00:00.000Z',
+                system: { id: 20, celestialObjectId: null },
+                colonyClassId: null,
                 surface: { width: 1, height: 1, deposits: [], fields: [] },
               },
               current: { colony: null },
