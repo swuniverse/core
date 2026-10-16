@@ -156,7 +156,7 @@ export class DatabaseService {
     );
   }
 
-  async getSettler(id: number) {
+  async getSettler(viewerId: number, id: number) {
     const [user, factions] = await Promise.all([
       this.userRepo.findOne({ where: { id } }),
       this.factionService.findAll(),
@@ -170,11 +170,76 @@ export class DatabaseService {
       factions.map((faction) => [faction.id, faction]),
     );
 
-    const [entry, alliance] = await Promise.all([
+    const [entry, alliance, colonyScans] = await Promise.all([
       this.toSettlerEntry(user, factionById),
       this.allianceService.getRef(user.id),
+      viewerId === user.id
+        ? Promise.resolve(undefined)
+        : this.colonyScanProjection.newestAccessibleForColonies(
+            viewerId,
+            user.id,
+          ),
     ]);
-    return { ...entry, alliance };
+    const scansWithSystemContext =
+      colonyScans === undefined
+        ? undefined
+        : await this.withDiscoveredSystemContext(viewerId, colonyScans);
+    return {
+      ...entry,
+      alliance,
+      ...(scansWithSystemContext === undefined
+        ? {}
+        : { colonyScans: scansWithSystemContext }),
+    };
+  }
+
+  private async withDiscoveredSystemContext<
+    T extends { systemId: number | null },
+  >(
+    viewerId: number,
+    scans: T[],
+  ): Promise<
+    Array<
+      Omit<T, 'systemId'> & {
+        system: { id: number | null; discovered: boolean; name: string | null };
+      }
+    >
+  > {
+    const systemIds = [
+      ...new Set(
+        scans
+          .map((scan) => scan.systemId)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const discoveries = systemIds.length
+      ? await this.systemExplorationRepo.find({
+          where: { userId: viewerId, starSystemId: In(systemIds) },
+        })
+      : [];
+    const discoveredSystemIds = discoveries.map(
+      (discovery) => discovery.starSystemId,
+    );
+    const systems = discoveredSystemIds.length
+      ? await this.systemRepo.find({
+          where: { id: In(discoveredSystemIds) },
+          select: ['id', 'name'],
+        })
+      : [];
+    const systemNameById = new Map(
+      systems.map((system) => [system.id, system.name]),
+    );
+    return scans.map(({ systemId, ...scan }) => {
+      const name = systemId == null ? undefined : systemNameById.get(systemId);
+      return {
+        ...scan,
+        system: {
+          id: name === undefined ? null : systemId,
+          discovered: name !== undefined,
+          name: name ?? null,
+        },
+      };
+    });
   }
 
   private async toSettlerEntry(
@@ -296,7 +361,8 @@ export class DatabaseService {
         where: { userId, starSystemId: systemId },
       }),
     ]);
-    if (!system || !discovery) throw new NotFoundException('System nicht gefunden');
+    if (!system || !discovery)
+      throw new NotFoundException('System nicht gefunden');
 
     const [fields, colonies, colonyScans] = await Promise.all([
       this.systemFieldRepo.find({
@@ -322,7 +388,8 @@ export class DatabaseService {
       cx: system.cx,
       cy: system.cy,
       systemTypeName:
-        SYSTEM_TYPE_BY_ID[system.systemTypeId]?.name ?? `Typ ${system.systemTypeId}`,
+        SYSTEM_TYPE_BY_ID[system.systemTypeId]?.name ??
+        `Typ ${system.systemTypeId}`,
       maxX: system.maxX,
       maxY: system.maxY,
       fields: fields.map((field) => ({
@@ -535,7 +602,11 @@ export class DatabaseService {
       rank: index + 1,
     }));
     const own = rankedEntries.find((entry) => entry.userId === userId) ?? null;
-    return { ...ranking, entries: rankedEntries.slice(0, 10), currentUser: own };
+    return {
+      ...ranking,
+      entries: rankedEntries.slice(0, 10),
+      currentUser: own,
+    };
   }
 
   private async rankingFor(
@@ -597,7 +668,11 @@ export class DatabaseService {
       scores.set(entry.userId, (scores.get(entry.userId) ?? 0) + 1);
     }
     return users
-      .map((user) => ({ userId: user.id, username: user.username, score: scores.get(user.id) ?? 0 }))
+      .map((user) => ({
+        userId: user.id,
+        username: user.username,
+        score: scores.get(user.id) ?? 0,
+      }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username))
       .slice(0, topOnly ? 10 : undefined);
@@ -683,7 +758,10 @@ export class DatabaseService {
       .addSelect('colony.name', 'colonyName')
       .addSelect('user.id', 'userId')
       .addSelect('user.username', 'username')
-      .addSelect(`SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false THEN 1 ELSE 0 END)`, 'score')
+      .addSelect(
+        `SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false THEN 1 ELSE 0 END)`,
+        'score',
+      )
       .groupBy('colony.id')
       .addGroupBy('colony.name')
       .addGroupBy('user.id')
@@ -702,7 +780,10 @@ export class DatabaseService {
       .addSelect('colony.name', 'colonyName')
       .addSelect('user.id', 'userId')
       .addSelect('user.username', 'username')
-      .addSelect(`SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false AND field.isActive = true THEN 1 ELSE 0 END)`, 'score')
+      .addSelect(
+        `SUM(CASE WHEN field.buildingId IS NOT NULL AND field.isBuilding = false AND field.isActive = true THEN 1 ELSE 0 END)`,
+        'score',
+      )
       .groupBy('colony.id')
       .addGroupBy('colony.name')
       .addGroupBy('user.id')

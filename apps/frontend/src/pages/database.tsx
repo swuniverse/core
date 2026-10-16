@@ -111,7 +111,7 @@ type SystemDetail = {
   colonyScans: ColonyScanProjection[];
 };
 
-type ColonyScanProjection = {
+export type ColonyScanProjection = {
   id: number;
   colonyId: number;
   scanner: { id: number; username: string | null };
@@ -143,6 +143,7 @@ type ColonyScanProjection = {
       }>;
     };
   };
+  system?: { id: number | null; discovered: boolean; name: string | null };
   current: {
     colony: {
       id: number;
@@ -219,12 +220,32 @@ const groups: Array<{
   {
     title: 'Highscores',
     entries: [
-      { label: 'Die 10 besten Entdecker', view: 'rankings', ranking: 'discoveries' },
-      { label: 'Die 10 besten Forscher', view: 'rankings', ranking: 'research' },
+      {
+        label: 'Die 10 besten Entdecker',
+        view: 'rankings',
+        ranking: 'discoveries',
+      },
+      {
+        label: 'Die 10 besten Forscher',
+        view: 'rankings',
+        ranking: 'research',
+      },
       { label: 'Höchstes Prestige', view: 'rankings', ranking: 'prestige' },
-      { label: 'Die 10 besten Ausbilder', view: 'rankings', ranking: 'crew-training' },
-      { label: 'Die Top 10 der Architekten', view: 'rankings', ranking: 'colony-worth' },
-      { label: 'Die Top 10 der Produzenten', view: 'rankings', ranking: 'colony-production' },
+      {
+        label: 'Die 10 besten Ausbilder',
+        view: 'rankings',
+        ranking: 'crew-training',
+      },
+      {
+        label: 'Die Top 10 der Architekten',
+        view: 'rankings',
+        ranking: 'colony-worth',
+      },
+      {
+        label: 'Die Top 10 der Produzenten',
+        view: 'rankings',
+        ranking: 'colony-production',
+      },
     ],
   },
   {
@@ -249,7 +270,9 @@ export function DatabasePage() {
     setData(null);
     setError(null);
     api
-      .get(`/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}`)
+      .get(
+        `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}`,
+      )
       .then(setData)
       .catch((err: unknown) =>
         setError(
@@ -261,7 +284,9 @@ export function DatabasePage() {
   }, [view, ranking]);
 
   const select = (next: View, nextRanking?: RankingKey) =>
-    setParams(nextRanking ? { view: next, ranking: nextRanking } : { view: next });
+    setParams(
+      nextRanking ? { view: next, ranking: nextRanking } : { view: next },
+    );
   if (!view) return <Hub onSelect={select} />;
   return (
     <section className="space-y-3 p-4 sm:p-6">
@@ -292,7 +317,9 @@ export function DatabaseSystemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [detail, setDetail] = useState<SystemDetail | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
-  const [selectedScan, setSelectedScan] = useState<ColonyScanProjection | null>(null);
+  const [selectedScan, setSelectedScan] = useState<ColonyScanProjection | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -315,29 +342,44 @@ export function DatabaseSystemDetailPage() {
   if (error) {
     return (
       <section className="space-y-3 p-4 sm:p-6">
-        <Link to="/database?view=systems" className="text-xs text-swu-muted hover:text-swu-accent">
+        <Link
+          to="/database?view=systems"
+          className="text-xs text-swu-muted hover:text-swu-accent"
+        >
           ← Sternensysteme
         </Link>
-        <p role="alert" className="text-red-300">{error}</p>
+        <p role="alert" className="text-red-300">
+          {error}
+        </p>
       </section>
     );
   }
   if (!detail) {
-    return <p className="p-4 text-swu-muted sm:p-6">Systemeintrag wird geladen...</p>;
+    return (
+      <p className="p-4 text-swu-muted sm:p-6">Systemeintrag wird geladen...</p>
+    );
   }
 
-  const selectedField = detail.fields.find((field) => field.id === selectedFieldId) ?? null;
+  const selectedField =
+    detail.fields.find((field) => field.id === selectedFieldId) ?? null;
   async function deleteScan(scanId: number) {
     try {
       await api.delete(`/spacecraft/colony-scans/${scanId}`);
       if (id) setDetail(await api.get<SystemDetail>(`/database/systems/${id}`));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Scan konnte nicht gelöscht werden');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Scan konnte nicht gelöscht werden',
+      );
     }
   }
   return (
     <section className="space-y-3 p-4 sm:p-6">
-      <Link to="/database?view=systems" className="text-xs text-swu-muted hover:text-swu-accent">
+      <Link
+        to="/database?view=systems"
+        className="text-xs text-swu-muted hover:text-swu-accent"
+      >
         ← Sternensysteme
       </Link>
       <header className="border border-swu-border bg-black/30 px-3 py-2">
@@ -353,7 +395,8 @@ export function DatabaseSystemDetailPage() {
         </Link>
       </header>
       <p className="text-xs text-swu-muted">
-        Informationsansicht: Felder und Objekte können untersucht werden; keine taktischen Aktionen verfügbar.
+        Informationsansicht: Felder und Objekte können untersucht werden; keine
+        taktischen Aktionen verfügbar.
       </p>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {detail.fields.map((field) => (
@@ -364,7 +407,9 @@ export function DatabaseSystemDetailPage() {
             onClick={() => setSelectedFieldId(field.id)}
             className="border border-swu-border bg-black/30 p-2 text-left text-xs hover:border-swu-accent"
           >
-            <span className="font-mono text-swu-primary">{field.sx}:{field.sy}</span>
+            <span className="font-mono text-swu-primary">
+              {field.sx}:{field.sy}
+            </span>
             <span className="ml-2 text-swu-muted">
               {field.celestialObject?.name ?? `Feldtyp ${field.fieldTypeId}`}
             </span>
@@ -377,24 +422,44 @@ export function DatabaseSystemDetailPage() {
             Feld {selectedField.sx}:{selectedField.sy}
           </h2>
           {selectedField.celestialObject ? (
-            <p>{selectedField.celestialObject.description ?? selectedField.celestialObject.name}</p>
+            <p>
+              {selectedField.celestialObject.description ??
+                selectedField.celestialObject.name}
+            </p>
           ) : (
-            <p className="text-swu-muted">Kein Himmelskörper auf diesem Feld.</p>
+            <p className="text-swu-muted">
+              Kein Himmelskörper auf diesem Feld.
+            </p>
           )}
         </aside>
       )}
       <section className="border border-swu-border bg-black/30">
-        <h2 className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Kolonien</h2>
+        <h2 className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">
+          Kolonien
+        </h2>
         {detail.colonies.length === 0 ? (
-          <p className="p-3 text-sm text-swu-muted">Keine aktuellen Kolonien.</p>
+          <p className="p-3 text-sm text-swu-muted">
+            Keine aktuellen Kolonien.
+          </p>
         ) : (
           <ul className="divide-y divide-swu-border/60">
             {detail.colonies.map((colony) => (
-              <li key={colony.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+              <li
+                key={colony.id}
+                className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm"
+              >
                 <span>{colony.name}</span>
-                <span className="font-mono text-xs text-swu-muted">{colony.posX}:{colony.posY}</span>
-                {colony.isOwn && <span className="text-xs text-swu-primary">eigene Kolonie</span>}
-                {colony.isAbandoned && <span className="text-xs text-swu-muted">aufgegeben</span>}
+                <span className="font-mono text-xs text-swu-muted">
+                  {colony.posX}:{colony.posY}
+                </span>
+                {colony.isOwn && (
+                  <span className="text-xs text-swu-primary">
+                    eigene Kolonie
+                  </span>
+                )}
+                {colony.isAbandoned && (
+                  <span className="text-xs text-swu-muted">aufgegeben</span>
+                )}
                 {colony.canMessageOwner && colony.owner && (
                   <Link
                     className="ml-auto text-xs text-swu-accent hover:underline"
@@ -414,13 +479,16 @@ export function DatabaseSystemDetailPage() {
         onDelete={deleteScan}
       />
       {selectedScan && (
-        <ColonySurfaceDialog scan={selectedScan} onClose={() => setSelectedScan(null)} />
+        <ColonySurfaceDialog
+          scan={selectedScan}
+          onClose={() => setSelectedScan(null)}
+        />
       )}
     </section>
   );
 }
 
-function ColonyScans({
+export function ColonyScans({
   scans,
   onOpen,
   onDelete,
@@ -435,7 +503,9 @@ function ColonyScans({
         Neueste zugängliche Kolonie-Scans
       </h2>
       {scans.length === 0 ? (
-        <p className="p-3 text-sm text-swu-muted">Keine zugänglichen Kolonie-Scans.</p>
+        <p className="p-3 text-sm text-swu-muted">
+          Keine zugänglichen Kolonie-Scans.
+        </p>
       ) : (
         <ul className="divide-y divide-swu-border/60">
           {scans.map((scan) => {
@@ -447,9 +517,16 @@ function ColonyScans({
             return (
               <li key={scan.id} className="space-y-1 px-3 py-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{scan.snapshot.colonyName ?? 'Unbenannte Kolonie'}</span>
+                  <span className="font-medium">
+                    {scan.snapshot.colonyName ?? 'Unbenannte Kolonie'}
+                  </span>
                   <span className="text-xs text-swu-muted">
-                    <span>{scan.provenance === 'OWN' ? 'eigener Scan' : 'Allianz-Scan'}</span> · Scanner: {scan.scanner.username ?? `#${scan.scanner.id}`}
+                    <span>
+                      {scan.provenance === 'OWN'
+                        ? 'eigener Scan'
+                        : 'Allianz-Scan'}
+                    </span>{' '}
+                    · Scanner: {scan.scanner.username ?? `#${scan.scanner.id}`}
                   </span>
                   {scan.canDelete && (
                     <button
@@ -463,17 +540,44 @@ function ColonyScans({
                   )}
                 </div>
                 <p className="text-xs text-swu-muted">
-                  Snapshot vom {new Date(scan.snapshot.scannedAt).toLocaleString('de-DE')} · damaliger Besitzer: {scan.snapshot.owner.username ?? 'unbekannt'}
+                  Snapshot vom{' '}
+                  {new Date(scan.snapshot.scannedAt).toLocaleString('de-DE')} ·
+                  damaliger Besitzer:{' '}
+                  {scan.snapshot.owner.username ?? 'unbekannt'}
                 </p>
+                {scan.system?.discovered && scan.system.id != null && (
+                  <p className="text-xs text-swu-muted">
+                    System:{' '}
+                    <Link
+                      to={`/database/systems/${scan.system.id}`}
+                      className="text-swu-accent hover:underline"
+                    >
+                      {scan.system.name}
+                    </Link>
+                  </p>
+                )}
                 {current ? (
                   <p className="text-xs">
-                    Aktuell: <span>{current.name}</span> auf Feld {current.posX}:{current.posY}
-                    {current.owner ? ` · Besitzer: ${current.owner.username ?? 'unbekannt'}` : ' · aufgegeben'}
-                    {ownerChanged && <span className="ml-2 text-amber-200">Besitzerwechsel seit dem Scan</span>}
-                    {current.isAbandoned && <span className="ml-2 text-amber-200">Kolonie aufgegeben</span>}
+                    Aktuell: <span>{current.name}</span> auf Feld {current.posX}
+                    :{current.posY}
+                    {current.owner
+                      ? ` · Besitzer: ${current.owner.username ?? 'unbekannt'}`
+                      : ' · aufgegeben'}
+                    {ownerChanged && (
+                      <span className="ml-2 text-amber-200">
+                        Besitzerwechsel seit dem Scan
+                      </span>
+                    )}
+                    {current.isAbandoned && (
+                      <span className="ml-2 text-amber-200">
+                        Kolonie aufgegeben
+                      </span>
+                    )}
                   </p>
                 ) : (
-                  <p className="text-xs text-amber-200">Kolonie existiert heute nicht mehr.</p>
+                  <p className="text-xs text-amber-200">
+                    Kolonie existiert heute nicht mehr.
+                  </p>
                 )}
                 <button
                   type="button"
@@ -492,7 +596,7 @@ function ColonyScans({
   );
 }
 
-function ColonySurfaceDialog({
+export function ColonySurfaceDialog({
   scan,
   onClose,
 }: {
@@ -512,21 +616,32 @@ function ColonySurfaceDialog({
       <section className="max-h-[90vh] w-full max-w-2xl overflow-auto border border-swu-border bg-swu-bg p-3">
         <header className="mb-3 flex items-center justify-between border-b border-swu-border pb-2">
           <h2 className="font-bold text-swu-primary">
-            Gespeicherte Oberfläche: {scan.snapshot.colonyName ?? 'Unbenannte Kolonie'}
+            Gespeicherte Oberfläche:{' '}
+            {scan.snapshot.colonyName ?? 'Unbenannte Kolonie'}
           </h2>
-          <button type="button" onClick={onClose} className="text-xs text-swu-muted">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs text-swu-muted"
+          >
             Schließen
           </button>
         </header>
         <p className="mb-3 text-xs text-swu-muted">
-          Informationsansicht der beim Scan gespeicherten Oberfläche; keine taktischen Aktionen verfügbar.
+          Informationsansicht der beim Scan gespeicherten Oberfläche; keine
+          taktischen Aktionen verfügbar.
         </p>
         <p className="mb-2 text-xs text-swu-muted">
-          Größe: {scan.snapshot.surface.width ?? '?'} × {scan.snapshot.surface.height ?? '?'} · {scan.snapshot.surface.fields.length} gespeicherte Felder
+          Größe: {scan.snapshot.surface.width ?? '?'} ×{' '}
+          {scan.snapshot.surface.height ?? '?'} ·{' '}
+          {scan.snapshot.surface.fields.length} gespeicherte Felder
         </p>
         <ul className="grid gap-1 sm:grid-cols-2">
           {scan.snapshot.surface.fields.map((field) => (
-            <li key={field.fieldIndex} className="border border-swu-border/60 p-2 text-xs">
+            <li
+              key={field.fieldIndex}
+              className="border border-swu-border/60 p-2 text-xs"
+            >
               Feld {field.fieldIndex} · Typ {field.fieldType}
               {field.buildingName ? ` · ${field.buildingName}` : ''}
             </li>
@@ -592,13 +707,15 @@ function Detail({ view, data }: { view: View; data: unknown }) {
   if (view === 'rankings') return <RankingView data={data as RankingDetail} />;
   if (view === 'prestige-history')
     return <PrestigeHistory data={data as PrestigeHistory} />;
-  if (view === 'planet-types') return <PlanetTypes data={data as PlanetTypes} />;
+  if (view === 'planet-types')
+    return <PlanetTypes data={data as PlanetTypes} />;
   return <ShipClasses data={data as ShipClasses} />;
 }
 
 function Systems({ data }: { data: SystemCatalog }) {
   const [layerId, setLayerId] = useState(data.layers[0]?.id ?? null);
-  const layer = data.layers.find((entry) => entry.id === layerId) ?? data.layers[0];
+  const layer =
+    data.layers.find((entry) => entry.id === layerId) ?? data.layers[0];
 
   return (
     <div className="max-w-3xl space-y-2">
@@ -632,15 +749,23 @@ function Systems({ data }: { data: SystemCatalog }) {
           </thead>
           <tbody>
             {layer?.entries.map((entry, index) => (
-              <tr key={entry.discovered ? entry.systemId : index} className="border-t border-swu-border/60">
+              <tr
+                key={entry.discovered ? entry.systemId : index}
+                className="border-t border-swu-border/60"
+              >
                 {entry.discovered ? (
                   <>
                     <td className="px-2 py-1">
-                      <Link className="text-swu-accent hover:underline" to={`/database/systems/${entry.systemId}`}>
+                      <Link
+                        className="text-swu-accent hover:underline"
+                        to={`/database/systems/${entry.systemId}`}
+                      >
                         {entry.name}
                       </Link>
                     </td>
-                    <td className="px-2 py-1 font-mono">{entry.cx}:{entry.cy}</td>
+                    <td className="px-2 py-1 font-mono">
+                      {entry.cx}:{entry.cy}
+                    </td>
                     <td className="px-2 py-1">{entry.systemTypeName}</td>
                     <td className="px-2 py-1 font-mono text-xs text-swu-muted">
                       {new Date(entry.discoveredAt).toLocaleString('de-DE')}
@@ -746,7 +871,10 @@ function PrestigeHistory({ data }: { data: PrestigeHistory }) {
                     {entry.amount > 0 ? '+' : ''}
                     {entry.amount} Prestige
                   </span>{' '}
-                  {entry.description.replace(/^[-+]?\d+ Prestige(?: erhalten)?\s*/, '')}
+                  {entry.description.replace(
+                    /^[-+]?\d+ Prestige(?: erhalten)?\s*/,
+                    '',
+                  )}
                 </td>
                 <td className="p-2 font-mono text-xs text-swu-muted">
                   {new Date(entry.createdAt).toLocaleString('de-DE')}
@@ -864,7 +992,9 @@ function RankingView({ data }: { data: RankingDetail }) {
       />
       <p className="text-sm text-swu-muted">
         Dein Punktestand:{' '}
-        {data.currentUser ? `${data.currentUser.score} (Platz ${data.currentUser.rank})` : '0'}
+        {data.currentUser
+          ? `${data.currentUser.score} (Platz ${data.currentUser.rank})`
+          : '0'}
       </p>
     </div>
   );
