@@ -203,11 +203,6 @@ export class SpacecraftScanService {
       relations: ['fieldType', 'celestialObject'],
     });
     if (!field) throw new NotFoundException('Systemfeld nicht gefunden');
-    await this.explorationService.discoverSystem({
-      userId,
-      starSystemId: location.systemId,
-      source: 'system_field_scan',
-    });
     const shielded = field.celestialObject
       ? (
           await findShieldedColonyObjectIds(this.colonyRepo, location.systemId)

@@ -184,6 +184,7 @@ function createService() {
     systemFieldRepo,
     locationRepo,
     runtimeState,
+    explorationService,
   };
 }
 
@@ -500,6 +501,36 @@ describe('SpacecraftService movement resources', () => {
       }),
     );
     expect(shipRepo.save).toHaveBeenCalledWith(ship);
+  });
+
+  it('does not discover a system when a ship enters it', async () => {
+    const { service, objectRepo, locationRepo, explorationService } =
+      createService();
+    const targetLocation = {
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      systemField: { id: 31, starSystemId: 3, sx: 8, sy: 12 },
+    };
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IN_FLIGHT,
+      locationId: 90,
+      location: { id: 90, kind: 'GALAXY_FIELD' },
+      targetLocationId: 91,
+      targetLocation,
+      originLocationId: 90,
+      originLocation: { id: 90 },
+      targetSystemId: 3,
+      arrivalAt: new Date(0),
+    };
+    locationRepo.findOne.mockResolvedValue(targetLocation);
+    objectRepo.findOneBy.mockResolvedValue(null);
+
+    await service.processMovement(ship as any);
+
+    expect(ship.location).toBe(targetLocation);
+    expect(explorationService.discoverSystem).not.toHaveBeenCalled();
   });
 
   it('uses the canonical target location kind on arrival', async () => {

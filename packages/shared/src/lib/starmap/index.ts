@@ -456,11 +456,6 @@ export interface StarmapDiscoverFieldDto {
   source?: string;
 }
 
-export interface StarmapDiscoverSystemDto {
-  starSystemId: number;
-  source?: string;
-}
-
 export interface StarmapExploredGalaxyFieldDto extends StarmapGalaxyFieldDto {
   explorationLevel: StarmapExplorationLevel;
 }
