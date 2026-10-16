@@ -16,7 +16,6 @@ import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
-import { AstrometryPanel } from '../components/spacecraft/AstrometryPanel';
 import {
   spaceBackgroundTile,
   starTileImage,
@@ -150,6 +149,7 @@ export function SpacecraftDetailPage() {
             shipId={ship.id}
             context={fieldContext}
             onUpdate={refreshShipAndStorage}
+            refreshKey={shipRefreshVersion}
             canColonize={ship.isColonizer === true}
             onColonized={(colonyId) =>
               navigate(`/colonies?selected=${colonyId}`)
@@ -164,11 +164,6 @@ export function SpacecraftDetailPage() {
             onCloseDetails={() => setShipInfoOpen(false)}
             showEnergy={energyFlowOpen}
             onCloseEnergy={() => setEnergyFlowOpen(false)}
-          />
-          <AstrometryPanel
-            shipId={ship.id}
-            refreshKey={shipRefreshVersion}
-            onUpdate={refreshShipAndStorage}
           />
           <div id="ship-reactor" className="mt-2">
             <ReactorPanel

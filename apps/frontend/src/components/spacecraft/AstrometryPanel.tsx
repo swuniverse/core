@@ -6,6 +6,8 @@ type Props = {
   shipId: number;
   refreshKey?: number;
   onUpdate: () => Promise<void> | void;
+  compact?: boolean;
+  onError?: (message: string) => void;
 };
 
 const statusText: Record<SpacecraftAstrometryJobDto['status'], string> = {
@@ -14,7 +16,13 @@ const statusText: Record<SpacecraftAstrometryJobDto['status'], string> = {
   ABORTED: 'Astrometrie abgebrochen',
 };
 
-export function AstrometryPanel({ shipId, refreshKey = 0, onUpdate }: Props) {
+export function AstrometryPanel({
+  shipId,
+  refreshKey = 0,
+  onUpdate,
+  compact = false,
+  onError,
+}: Props) {
   const [job, setJob] = useState<SpacecraftAstrometryJobDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -25,14 +33,18 @@ export function AstrometryPanel({ shipId, refreshKey = 0, onUpdate }: Props) {
     setLoading(true);
     setError(null);
     api
-      .get<SpacecraftAstrometryJobDto | null>(`/spacecraft/${shipId}/astrometry`)
+      .get<SpacecraftAstrometryJobDto | null>(
+        `/spacecraft/${shipId}/astrometry`,
+      )
       .then((result) => {
         if (current) setJob(result);
       })
       .catch((err: unknown) => {
         if (!current) return;
         setError(
-          err instanceof Error ? err.message : 'Astrometriestatus konnte nicht geladen werden',
+          err instanceof Error
+            ? err.message
+            : 'Astrometriestatus konnte nicht geladen werden',
         );
       })
       .finally(() => {
@@ -54,20 +66,20 @@ export function AstrometryPanel({ shipId, refreshKey = 0, onUpdate }: Props) {
       setJob(result);
       await onUpdate();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'Astrometrie konnte nicht gestartet werden',
-      );
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Astrometrie konnte nicht gestartet werden';
+      if (onError) onError(message);
+      else setError(message);
     } finally {
       setPending(false);
     }
   }
 
   const active = job?.status === 'ACTIVE';
-  return (
-    <section
-      aria-label="Astrometrie"
-      className="border border-swu-border bg-swu-surface/50 p-3 text-xs"
-    >
+  const content = (
+    <>
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-bold text-swu-primary">Astrometrie</h2>
         {active && <span className="text-amber-300">Läuft</span>}
@@ -76,12 +88,17 @@ export function AstrometryPanel({ shipId, refreshKey = 0, onUpdate }: Props) {
         <p className="mt-1 text-swu-muted">Status wird geladen…</p>
       ) : job ? (
         <div className="mt-1 space-y-1">
-          <p className={job.status === 'ABORTED' ? 'text-red-300' : 'text-swu-text'}>
+          <p
+            className={
+              job.status === 'ABORTED' ? 'text-red-300' : 'text-swu-text'
+            }
+          >
             {statusText[job.status]}
           </p>
           {active && (
             <p className="text-swu-muted">
-              Abschluss beim nächsten Haupttick (seit {new Date(job.startedAt).toLocaleString('de-DE')})
+              Abschluss beim nächsten Haupttick (seit{' '}
+              {new Date(job.startedAt).toLocaleString('de-DE')})
             </p>
           )}
           {job.abortReason && (
@@ -108,6 +125,17 @@ export function AstrometryPanel({ shipId, refreshKey = 0, onUpdate }: Props) {
           {error}
         </p>
       )}
+    </>
+  );
+
+  if (compact) return <div aria-label="Astrometrie">{content}</div>;
+
+  return (
+    <section
+      aria-label="Astrometrie"
+      className="border border-swu-border bg-swu-surface/50 p-3 text-xs"
+    >
+      {content}
     </section>
   );
 }

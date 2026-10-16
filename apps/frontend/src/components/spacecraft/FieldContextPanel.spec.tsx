@@ -8,6 +8,76 @@ vi.mock('../../services/api', () => ({
 }));
 
 describe('FieldContextPanel', () => {
+  beforeEach(() => {
+    apiMocks.get.mockReset();
+    apiMocks.post.mockReset();
+    apiMocks.get.mockResolvedValue(null);
+  });
+
+  it('keeps sector scan available and shows the server rejection in a dialog', async () => {
+    apiMocks.get.mockResolvedValue(null);
+    apiMocks.post.mockRejectedValue(
+      new Error('Kurzstreckensensoren sind nicht aktiv'),
+    );
+
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Sektor-Scan' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Kurzstreckensensoren sind nicht aktiv'),
+    ).toBeTruthy();
+  });
+
+  it('shows astrometry in Informationen and reports start rejection in a dialog', async () => {
+    apiMocks.get.mockResolvedValue(null);
+    apiMocks.post.mockRejectedValue(
+      new Error('Langstreckensensoren sind nicht aktiv'),
+    );
+
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Astrometrie starten' }),
+    );
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Astrometrie' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Langstreckensensoren sind nicht aktiv'),
+    ).toBeTruthy();
+  });
+
   it('shows a database discovery notification after a sector scan', async () => {
     apiMocks.post.mockResolvedValue({
       result: {
@@ -47,7 +117,9 @@ describe('FieldContextPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
 
     expect(
-      await screen.findByText('Neuer Datenbankeintrag: Klasse M (+100 Prestige)'),
+      await screen.findByText(
+        'Neuer Datenbankeintrag: Klasse M (+100 Prestige)',
+      ),
     ).toBeTruthy();
   });
 
@@ -132,9 +204,13 @@ describe('FieldContextPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Scannen' }));
 
-    expect(await screen.findByRole('dialog', { name: 'Kolonie-Oberflächenscan' })).toBeTruthy();
     expect(
-      screen.getByRole('link', { name: 'Systemdatenbank öffnen' }).getAttribute('href'),
+      await screen.findByRole('dialog', { name: 'Kolonie-Oberflächenscan' }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('link', { name: 'Systemdatenbank öffnen' })
+        .getAttribute('href'),
     ).toBe('/database/systems/8');
     expect(screen.getByText('Kolonie-Oberflächenscan: Alpha')).toBeTruthy();
   });
@@ -178,7 +254,9 @@ describe('FieldContextPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Scannen' }));
 
     await screen.findByRole('dialog', { name: 'Kolonie-Oberflächenscan' });
-    expect(screen.queryByRole('link', { name: 'Systemdatenbank öffnen' })).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Systemdatenbank öffnen' }),
+    ).toBeNull();
   });
 
   it('disables system exit when no hyperdrive is available', () => {
