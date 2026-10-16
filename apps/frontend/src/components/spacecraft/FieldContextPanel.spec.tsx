@@ -65,6 +65,45 @@ describe('FieldContextPanel', () => {
     expect(screen.getByText('Messpunkte abgeschlossen')).toBeTruthy();
   });
 
+  it('renders legacy cartography without action availability as read-only', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'MEASURED',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+    });
+
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Messpunkte abgeschlossen')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Kartographie finalisieren' }),
+    ).toBeNull();
+  });
+
   it('keeps shared cartography status read-only for an unqualified ship', async () => {
     apiMocks.get.mockResolvedValue({
       id: 4,

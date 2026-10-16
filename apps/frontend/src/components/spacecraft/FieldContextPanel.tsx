@@ -116,9 +116,11 @@ export function FieldContextPanel({
 
   const laboratory = runtimeSystems?.ASTROMETRY_LAB;
   const localQualified =
-    cartography == null || cartography.status === 'MEASURED'
-      ? cartography?.actions.finalize?.available !== false
-      : cartography.actions.plan.available === true;
+    cartography == null
+      ? true
+      : cartography.status === 'MEASURED'
+        ? cartography.actions?.finalize?.available === true
+        : cartography.actions?.plan?.available === true;
 
   async function toggleLaboratory() {
     const active = laboratory?.active === true;
