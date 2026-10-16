@@ -4,7 +4,9 @@
 
 **Blocked by:** 02: Ersetze das alte Astrometrie-Datenmodell; 03: Implementiere das Astrometrie-Labor; 05: Integriere Messpunkte in die Bewegung.
 
-**Status:** ready-for-agent
+**Status:** resolved
+
+**Closure:** Implemented in `68c29872143dbc6cab6700a4894086f196c63c07` (`feat(cartography): finalize system discovery`).
 
 - [ ] Nur `MEASURED`-Pläne können finalisiert werden; exakt ein qualifiziertes, nicht reparierendes, sonst untätiges Schiff kann dies gleichzeitig tun.
 - [ ] Start verlangt 15 EPS, zieht sie einmalig ab und speichert das finalisierende Schiff sowie einen Drei-Haupttick-Countdown atomar.
