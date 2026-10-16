@@ -20,6 +20,7 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   WEAPONS: 1,
   TORPEDO_BANK: 1,
   SPECIAL: 1,
+  ASTROMETRY_LAB: 1,
   LIFE_SUPPORT: 1,
 };
 
@@ -171,6 +172,7 @@ export class SpacecraftResourceFlowService {
     // Deactivate systems in reverse priority until deficit is covered
     // ponytail: priority order — least critical first
     const deactivationOrder: SpacecraftRuntimeSystemKey[] = [
+      'ASTROMETRY_LAB',
       'SPECIAL',
       'TORPEDO_BANK',
       'WEAPONS',

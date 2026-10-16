@@ -237,6 +237,45 @@ describe('spacecraft core detail controls', () => {
     expect(resourceFlow.calculate).toHaveBeenCalled();
   });
 
+  it('activates only a concrete Astrometrie-Labor after charging one EPS and requiring both sensors', async () => {
+    const { service, ship } = createService();
+    ship.modules = [
+      {
+        moduleType: 'Astrometrie-Labor',
+        category: 'SPECIAL',
+        isActive: false,
+        integrity: 100,
+      } as never,
+    ];
+    ship.runtimeSystems = {
+      ASTROMETRY_LAB: { active: false, cooldown: 0, integrity: 100 },
+      SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+      LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+    };
+
+    (
+      service as any
+    ).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(1);
+
+    await service.toggleSystem(2, 1, 'ASTROMETRY_LAB', true);
+
+    expect(ship.energy).toBe(19);
+    expect((ship.runtimeSystems as any).ASTROMETRY_LAB.active).toBe(true);
+  });
+
+  it('rejects laboratory activation when its required sensors are not active', async () => {
+    const { service, ship } = createService();
+    ship.runtimeSystems = {
+      ASTROMETRY_LAB: { active: false, cooldown: 0, integrity: 100 },
+      SHORT_RANGE_SENSORS: { active: false, cooldown: 0, integrity: 100 },
+      LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+    };
+
+    await expect(
+      service.toggleSystem(2, 1, 'ASTROMETRY_LAB', true),
+    ).rejects.toThrow('Astrometrie-Labor benötigt aktive intakte Kurz- und Langstreckensensoren');
+  });
+
   it('allows Icarus sensor activation without crew when STU crew requirement is zero', async () => {
     const { service, ship } = createService();
     ship.crew = 0;

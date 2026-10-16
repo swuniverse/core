@@ -13,6 +13,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'WEAPONS',
   'TORPEDO_BANK',
   'SPECIAL',
+  'ASTROMETRY_LAB',
   'LIFE_SUPPORT',
 ] as const;
 

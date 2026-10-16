@@ -85,6 +85,42 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.SPECIAL).toBeUndefined();
   });
 
+  it('maps only Astrometrie-Labor to its dedicated runtime capability', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const ship = {
+      energy: 4,
+      energyMax: 10,
+      epsMax: 10,
+      warpdrive: 0,
+      warpdriveMax: 5,
+      reactorOutput: 3,
+      shields: 1,
+      shieldsMax: 2,
+      modules: [
+        {
+          category: 'SPECIAL',
+          moduleType: 'Astrometrie-Labor',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
+        {
+          category: 'SPECIAL',
+          moduleType: 'Tarnfeld-Generator',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
+      ],
+      runtimeSystems: {},
+    } as never;
+
+    const systems = service.initialize(ship);
+
+    expect(systems.ASTROMETRY_LAB).toBeDefined();
+    expect(systems.SPECIAL).toBeDefined();
+  });
+
   it('uses installed module state and category aliases consistently', () => {
     const service = new SpacecraftRuntimeStateService();
     const ship = {

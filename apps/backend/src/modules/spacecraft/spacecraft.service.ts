@@ -534,6 +534,23 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     const system = systems[systemKey];
     if (!system) throw new BadRequestException(`Unknown system: ${systemKey}`);
+    if (active && systemKey === 'ASTROMETRY_LAB') {
+      const shortRangeSensors = systems.SHORT_RANGE_SENSORS;
+      const longRangeSensors = systems.LONG_RANGE_SENSORS;
+      if (
+        !shortRangeSensors ||
+        !shortRangeSensors.active ||
+        shortRangeSensors.integrity <= 0 ||
+        !longRangeSensors ||
+        !longRangeSensors.active ||
+        longRangeSensors.integrity <= 0
+      ) {
+        throw new BadRequestException(
+          'Astrometrie-Labor benötigt aktive intakte Kurz- und Langstreckensensoren',
+        );
+      }
+      if (ship.energy < 1) throw new BadRequestException('Nicht genug EPS');
+    }
     if (
       active &&
       systemKey === 'WARPDRIVE' &&
@@ -547,6 +564,9 @@ export class SpacecraftService {
       if (system.integrity <= 0)
         throw new BadRequestException('System zerstört');
       await this.assertCrewForActivation(ship, systemKey);
+      if (systemKey === 'ASTROMETRY_LAB' && !system.active) {
+        ship.energy--;
+      }
       if (['SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(systemKey)) {
         if (systemKey === 'SHORT_RANGE_SENSORS') {
           const colonies = await this.dataSource
@@ -572,6 +592,9 @@ export class SpacecraftService {
     }
     systems[systemKey] = { ...system, active };
     ship.runtimeSystems = systems;
+    if (systemKey === 'ASTROMETRY_LAB' && !active) {
+      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    }
     await this.shipRepo.save(ship);
     const systemName: Record<SpacecraftRuntimeSystemKey, string> = {
       SHIELDS: 'Schilde',
@@ -585,6 +608,7 @@ export class SpacecraftService {
       WEAPONS: 'Strahlenwaffen',
       TORPEDO_BANK: 'Projektilwaffe',
       SPECIAL: 'Spezialsysteme',
+      ASTROMETRY_LAB: 'Astrometrie-Labor',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
@@ -2848,6 +2872,23 @@ export class SpacecraftService {
     };
   }
 
+  private isAstrometryLaborOperational(
+    ship: Spacecraft,
+    systems: ReturnType<SpacecraftRuntimeStateService['initialize']>,
+  ): boolean {
+    const laboratory = systems.ASTROMETRY_LAB;
+    const shortRangeSensors = systems.SHORT_RANGE_SENSORS;
+    const longRangeSensors = systems.LONG_RANGE_SENSORS;
+    return Boolean(
+      laboratory?.active &&
+        laboratory.integrity > 0 &&
+        shortRangeSensors?.active &&
+        shortRangeSensors.integrity > 0 &&
+        longRangeSensors?.active &&
+        longRangeSensors.integrity > 0,
+    );
+  }
+
   async processTick(ship: Spacecraft): Promise<void> {
     await this.processMovement(ship);
 
@@ -2885,7 +2926,10 @@ export class SpacecraftService {
       }
     }
 
-    this.spacecraftRuntimeStateService.initialize(ship);
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    if (!this.isAstrometryLaborOperational(ship, systems)) {
+      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    }
 
     await this.shipRepo.save(ship);
   }

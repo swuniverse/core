@@ -69,6 +69,32 @@ describe('CartographyPlanService', () => {
     });
   });
 
+  it('resets only the finishing plan for a deactivated finalizing spacecraft', async () => {
+    const plan = {
+      id: 3,
+      status: CartographyPlanStatus.FINISHING,
+      remainingFieldIds: [],
+      finalizingSpacecraftId: 9,
+      finalizationStartedAt: new Date(),
+      finalizationTick: 2,
+    };
+    const repo = {
+      findOne: jest.fn(async () => plan),
+      save: jest.fn(async (value) => value),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await service.resetFinishingForSpacecraft(9);
+
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.MEASURED,
+      finalizingSpacecraftId: null,
+      finalizationStartedAt: null,
+      finalizationTick: null,
+    });
+    expect(repo.save).toHaveBeenCalledWith(plan);
+  });
+
   it('allows exactly one transition from measured to finishing', async () => {
     const plan = {
       id: 3,

@@ -34,7 +34,9 @@ export function getRuntimeSystemsForModule(
   }
   if (category === 'REACTOR' || name.includes('reaktor')) return ['REACTOR'];
   if (category === 'EPS' || name.includes('energieverteiler')) return ['EPS'];
-  if (category === 'SPECIAL') return ['SPECIAL'];
+  if (category === 'SPECIAL') {
+    return name === 'astrometrie-labor' ? ['ASTROMETRY_LAB'] : ['SPECIAL'];
+  }
   return [];
 }
 
@@ -111,6 +113,7 @@ export function initializeSpacecraftRuntimeSystems(
     }
   } else {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
+      if (key === 'ASTROMETRY_LAB') continue;
       systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
     }
   }
@@ -149,7 +152,9 @@ function getAvailableSystems(
   // be backed by an installed module, matching STU's system creation model.
   const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT']);
   if (!modules) {
-    for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) systems.add(key);
+    for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
+      if (key !== 'ASTROMETRY_LAB') systems.add(key);
+    }
     return systems;
   }
 

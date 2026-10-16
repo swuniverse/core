@@ -81,6 +81,21 @@ export class CartographyPlanService {
     return this.planRepo.save(plan);
   }
 
+  async resetFinishingForSpacecraft(spacecraftId: number): Promise<void> {
+    const plan = await this.planRepo.findOne({
+      where: {
+        finalizingSpacecraftId: spacecraftId,
+        status: CartographyPlanStatus.FINISHING,
+      },
+    });
+    if (!plan) return;
+    plan.status = CartographyPlanStatus.MEASURED;
+    plan.finalizingSpacecraftId = null;
+    plan.finalizationStartedAt = null;
+    plan.finalizationTick = null;
+    await this.planRepo.save(plan);
+  }
+
   async startFinalization(
     userId: number,
     starSystemId: number,

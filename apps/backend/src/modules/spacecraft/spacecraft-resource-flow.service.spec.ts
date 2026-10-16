@@ -206,6 +206,35 @@ describe('SpacecraftResourceFlowService', () => {
     expect(ship.energy).toBe(flow.netEps);
   });
 
+  it('charges an active Astrometrie-Labor every main tick without charging unrelated special modules twice', () => {
+    const service = createService();
+    const ship = makeShip({
+      modules: [
+        {
+          category: 'SPECIAL',
+          moduleType: 'Astrometrie-Labor',
+          isActive: true,
+          integrity: 100,
+        },
+        {
+          category: 'SPECIAL',
+          moduleType: 'Tarnfeld-Generator',
+          isActive: true,
+          integrity: 100,
+        },
+      ],
+    });
+
+    const flow = service.calculate(ship as never);
+
+    expect(flow.systems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ systemKey: 'ASTROMETRY_LAB', epsPerTick: 1 }),
+        expect.objectContaining({ systemKey: 'SPECIAL', epsPerTick: 1 }),
+      ]),
+    );
+  });
+
   it('only charges systems created by the ship modules', () => {
     const service = createService();
     const ship = makeShip({
