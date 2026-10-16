@@ -175,6 +175,9 @@ function createService() {
     } as any,
     {
       getPlan: jest.fn(),
+      getPlanForFinalizingSpacecraft: jest.fn(async (spacecraftId: number) =>
+        spacecraftId === ship.id ? { starSystemId: 44 } : null,
+      ),
       createPlan: jest.fn(),
       startFinalization: jest.fn(async () => ({
         id: 8,
@@ -302,6 +305,30 @@ describe('spacecraft core detail controls', () => {
     expect((ship.runtimeSystems as any).ASTROMETRY_LAB.active).toBe(true);
   });
 
+  it.each(['SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'] as const)(
+    'resets a running cartography finalization when %s is deactivated',
+    async (systemKey) => {
+      const { service, ship } = createService();
+      ship.runtimeSystems = {
+        ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 },
+        SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+        LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+      };
+
+      await service.toggleSystem(2, 1, systemKey, false);
+
+      expect(
+        (service as any).cartographyPlanService.resetFinishingForSpacecraft,
+      ).toHaveBeenCalledWith(2);
+      expect((service as any).messagingService.sendSystem).toHaveBeenCalledWith(
+        1,
+        'Kartographie',
+        expect.stringContaining('abgebrochen'),
+        'cartography-finalization-aborted:2',
+      );
+    },
+  );
+
   it('rejects laboratory activation when its required sensors are not active', async () => {
     const { service, ship } = createService();
     ship.runtimeSystems = {
@@ -312,7 +339,9 @@ describe('spacecraft core detail controls', () => {
 
     await expect(
       service.toggleSystem(2, 1, 'ASTROMETRY_LAB', true),
-    ).rejects.toThrow('Astrometrie-Labor benötigt aktive intakte Kurz- und Langstreckensensoren');
+    ).rejects.toThrow(
+      'Astrometrie-Labor benötigt aktive intakte Kurz- und Langstreckensensoren',
+    );
   });
 
   it('blocks cartography finalization while the ship is in standby', async () => {
@@ -325,9 +354,9 @@ describe('spacecraft core detail controls', () => {
       },
     });
 
-    await expect(
-      service.startCartographyFinalization(2, 1),
-    ).rejects.toThrow('Kartographie-Finalisierung ist in Bereitschaft nicht möglich');
+    await expect(service.startCartographyFinalization(2, 1)).rejects.toThrow(
+      'Kartographie-Finalisierung ist in Bereitschaft nicht möglich',
+    );
   });
 
   it('allows Icarus sensor activation without crew when STU crew requirement is zero', async () => {

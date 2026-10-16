@@ -6,11 +6,15 @@ jest.mock('../colony/entities/crew.entity', () => ({
 jest.mock('../colony/entities/crew-assignment.entity', () => ({
   CrewAssignment: class CrewAssignment {},
 }));
-jest.mock('../colony/entities/colony.entity', () => ({ Colony: class Colony {} }));
+jest.mock('../colony/entities/colony.entity', () => ({
+  Colony: class Colony {},
+}));
 jest.mock('../starmap/entities/star-system.entity', () => ({
   StarSystem: class StarSystem {},
 }));
-jest.mock('../starmap/entities/layer.entity', () => ({ Layer: class Layer {} }));
+jest.mock('../starmap/entities/layer.entity', () => ({
+  Layer: class Layer {},
+}));
 jest.mock('../starmap/entities/celestial-object.entity', () => ({
   CelestialObject: class CelestialObject {},
 }));
@@ -162,39 +166,61 @@ function createHarness() {
     getPlan: jest.fn(async (userId: number, systemId: number) =>
       plan?.userId === userId && plan.starSystemId === systemId ? plan : null,
     ),
-    createPlan: jest.fn(async (userId: number, systemId: number, fieldIds: number[]) => {
-      plan ??= {
-        id: 1,
-        userId,
-        starSystemId: systemId,
-        status: fieldIds.length ? 'PLANNED' : 'MEASURED',
-        remainingFieldIds: [...fieldIds],
-        finalizationStartedAt: null,
-        finalizationTick: null,
-        finalizingSpacecraftId: null,
-        completedAt: null,
-      };
-      return plan;
-    }),
-    claimArrivedField: jest.fn(async (_userId: number, _systemId: number, fieldId: number) => {
-      if (!plan || plan.status !== 'PLANNED' || !plan.remainingFieldIds.includes(fieldId)) {
-        return { claimed: false, completed: false };
-      }
-      plan.remainingFieldIds = plan.remainingFieldIds.filter((id) => id !== fieldId);
-      const completed = plan.remainingFieldIds.length === 0;
-      if (completed) plan.status = 'MEASURED';
-      return { claimed: true, completed };
-    }),
-    startFinalization: jest.fn(async (_userId: number, _systemId: number, spacecraftId: number) => {
-      if (!plan || plan.status !== 'MEASURED') throw new Error('not measured');
-      plan.status = 'FINISHING';
-      plan.finalizingSpacecraftId = spacecraftId;
-      plan.finalizationTick = 0;
-      plan.finalizationStartedAt = new Date('2026-10-16T12:00:00.000Z');
-      return plan;
-    }),
+    getPlanForFinalizingSpacecraft: jest.fn(async (spacecraftId: number) =>
+      plan?.status === 'FINISHING' &&
+      plan.finalizingSpacecraftId === spacecraftId
+        ? plan
+        : null,
+    ),
+    createPlan: jest.fn(
+      async (userId: number, systemId: number, fieldIds: number[]) => {
+        plan ??= {
+          id: 1,
+          userId,
+          starSystemId: systemId,
+          status: fieldIds.length ? 'PLANNED' : 'MEASURED',
+          remainingFieldIds: [...fieldIds],
+          finalizationStartedAt: null,
+          finalizationTick: null,
+          finalizingSpacecraftId: null,
+          completedAt: null,
+        };
+        return plan;
+      },
+    ),
+    claimArrivedField: jest.fn(
+      async (_userId: number, _systemId: number, fieldId: number) => {
+        if (
+          !plan ||
+          plan.status !== 'PLANNED' ||
+          !plan.remainingFieldIds.includes(fieldId)
+        ) {
+          return { claimed: false, completed: false };
+        }
+        plan.remainingFieldIds = plan.remainingFieldIds.filter(
+          (id) => id !== fieldId,
+        );
+        const completed = plan.remainingFieldIds.length === 0;
+        if (completed) plan.status = 'MEASURED';
+        return { claimed: true, completed };
+      },
+    ),
+    startFinalization: jest.fn(
+      async (_userId: number, _systemId: number, spacecraftId: number) => {
+        if (!plan || plan.status !== 'MEASURED')
+          throw new Error('not measured');
+        plan.status = 'FINISHING';
+        plan.finalizingSpacecraftId = spacecraftId;
+        plan.finalizationTick = 0;
+        plan.finalizationStartedAt = new Date('2026-10-16T12:00:00.000Z');
+        return plan;
+      },
+    ),
     resetFinishingForSpacecraft: jest.fn(async (spacecraftId: number) => {
-      if (plan?.status === 'FINISHING' && plan.finalizingSpacecraftId === spacecraftId) {
+      if (
+        plan?.status === 'FINISHING' &&
+        plan.finalizingSpacecraftId === spacecraftId
+      ) {
         plan.status = 'MEASURED';
         plan.finalizingSpacecraftId = null;
         plan.finalizationTick = null;
@@ -202,7 +228,11 @@ function createHarness() {
       }
     }),
     progressFinalization: jest.fn(async (spacecraftId: number) => {
-      if (!plan || plan.status !== 'FINISHING' || plan.finalizingSpacecraftId !== spacecraftId) {
+      if (
+        !plan ||
+        plan.status !== 'FINISHING' ||
+        plan.finalizingSpacecraftId !== spacecraftId
+      ) {
         return { completed: false, userId: null, starSystemId: null };
       }
       plan.finalizationTick = (plan.finalizationTick ?? 0) + 1;
@@ -212,8 +242,15 @@ function createHarness() {
       plan.status = 'DONE';
       plan.finalizingSpacecraftId = null;
       plan.completedAt = new Date();
-      discoveries.push({ userId: plan.userId, starSystemId: plan.starSystemId });
-      return { completed: true, userId: plan.userId, starSystemId: plan.starSystemId };
+      discoveries.push({
+        userId: plan.userId,
+        starSystemId: plan.starSystemId,
+      });
+      return {
+        completed: true,
+        userId: plan.userId,
+        starSystemId: plan.starSystemId,
+      };
     }),
   };
   const shipRepo = {
@@ -226,16 +263,23 @@ function createHarness() {
   const moduleRepo = { find: jest.fn(async () => []), save: jest.fn() };
   const systemFieldRepo = {
     find: jest.fn(async () => fields),
-    findOne: jest.fn(async ({ where }: any) =>
-      fields.find((field) => field.sx === where.sx && field.sy === where.sy) ?? null,
+    findOne: jest.fn(
+      async ({ where }: any) =>
+        fields.find(
+          (field) => field.sx === where.sx && field.sy === where.sy,
+        ) ?? null,
     ),
-    findByIds: jest.fn(async (ids: number[]) => fields.filter((field) => ids.includes(field.id))),
+    findByIds: jest.fn(async (ids: number[]) =>
+      fields.filter((field) => ids.includes(field.id)),
+    ),
   };
   const dataSource = {
     getRepository: jest.fn(() => ({
       find: jest.fn(async () => []),
       findOne: jest.fn(async ({ where }: any) => {
-        const field = fields.find((candidate) => candidate.id === where.systemFieldId);
+        const field = fields.find(
+          (candidate) => candidate.id === where.systemFieldId,
+        );
         return field
           ? {
               id: field.id + 100,
@@ -246,7 +290,10 @@ function createHarness() {
       }),
     })),
   };
-  const runtime = { initialize: jest.fn((ship: any) => ship.runtimeSystems), getSystems: jest.fn((ship: any) => ship.runtimeSystems) };
+  const runtime = {
+    initialize: jest.fn((ship: any) => ship.runtimeSystems),
+    getSystems: jest.fn((ship: any) => ship.runtimeSystems),
+  };
   const service = new SpacecraftService(
     shipRepo as never,
     moduleRepo as never,
@@ -274,7 +321,12 @@ function createHarness() {
     runtime as never,
     { emitToUser: jest.fn() } as never,
     {} as never,
-    { saveUnlessDestroyed: jest.fn(async (ship: any) => { await shipRepo.save(ship); return true; }) } as never,
+    {
+      saveUnlessDestroyed: jest.fn(async (ship: any) => {
+        await shipRepo.save(ship);
+        return true;
+      }),
+    } as never,
     {} as never,
     {} as never,
     {} as never,
@@ -282,13 +334,25 @@ function createHarness() {
     messages as never,
     prestige as never,
   );
-  jest.spyOn(service, 'findOne').mockImplementation(async (id: number, userId: number) => {
-    const ship = ships.get(id);
-    if (!ship || ship.userId !== userId) throw new Error('not found');
-    return ship;
-  });
+  jest
+    .spyOn(service, 'findOne')
+    .mockImplementation(async (id: number, userId: number) => {
+      const ship = ships.get(id);
+      if (!ship || ship.userId !== userId) throw new Error('not found');
+      return ship;
+    });
   jest.spyOn(service as any, 'getSensorRange').mockResolvedValue(1);
-  return { service, ships, cartography, prestige, messages, discoveries, get plan() { return plan; } };
+  return {
+    service,
+    ships,
+    cartography,
+    prestige,
+    messages,
+    discoveries,
+    get plan() {
+      return plan;
+    },
+  };
 }
 
 describe('cartography lifecycle integration (in-process)', () => {
@@ -296,13 +360,19 @@ describe('cartography lifecycle integration (in-process)', () => {
     const harness = createHarness();
 
     const planned = await harness.service.createCartographyPlan(1, 11);
-    expect(planned).toMatchObject({ status: 'PLANNED', remainingFieldIds: expect.arrayContaining([11, 12]) });
+    expect(planned).toMatchObject({
+      status: 'PLANNED',
+      remainingFieldIds: expect.arrayContaining([11, 12]),
+    });
     expect(harness.ships.get(1).lssMode).toBe(SpacecraftLssMode.CARTOGRAPHY);
 
     await harness.service.navigate(1, 11, 1, 2);
     await harness.service.navigate(2, 11, 1, 2);
     await harness.service.navigate(2, 11, 1, 3);
-    expect(harness.plan).toMatchObject({ status: 'MEASURED', remainingFieldIds: [] });
+    expect(harness.plan).toMatchObject({
+      status: 'MEASURED',
+      remainingFieldIds: [],
+    });
     expect(harness.prestige.change).toHaveBeenCalledTimes(2);
 
     await harness.service.startCartographyFinalization(2, 11);
@@ -312,13 +382,53 @@ describe('cartography lifecycle integration (in-process)', () => {
       expect(harness.plan?.finalizationTick).toBe(tick);
     }
 
-    expect(harness.plan).toMatchObject({ status: 'DONE', finalizingSpacecraftId: null });
+    expect(harness.plan).toMatchObject({
+      status: 'DONE',
+      finalizingSpacecraftId: null,
+    });
     expect(harness.discoveries).toEqual([{ userId: 11, starSystemId: 42 }]);
     expect(harness.prestige.change).toHaveBeenLastCalledWith(
       11,
       10,
       'Kartographie eines Sternensystems abgeschlossen',
     );
+  });
+
+  it('aborts finalization without prestige when the finalizer is no longer in the planned system', async () => {
+    const harness = createHarness();
+    await harness.service.createCartographyPlan(1, 11);
+    await harness.service.navigate(1, 11, 1, 2);
+    await harness.service.navigate(2, 11, 1, 2);
+    await harness.service.navigate(2, 11, 1, 3);
+    await harness.service.startCartographyFinalization(1, 11);
+
+    harness.ships.get(1).location.systemField.starSystemId = 99;
+    await harness.service.processTick(harness.ships.get(1));
+
+    expect(harness.plan).toMatchObject({
+      status: 'MEASURED',
+      finalizingSpacecraftId: null,
+      finalizationTick: null,
+    });
+    expect(harness.prestige.change).not.toHaveBeenCalledWith(
+      11,
+      10,
+      'Kartographie eines Sternensystems abgeschlossen',
+    );
+    expect(harness.messages.sendSystem).toHaveBeenCalledWith(
+      11,
+      'Kartographie',
+      expect.stringContaining('abgebrochen'),
+      'cartography-finalization-aborted:1',
+    );
+  });
+
+  it('does not send an abort message when no finalization is open', async () => {
+    const harness = createHarness();
+
+    await harness.service.processTick(harness.ships.get(1));
+
+    expect(harness.messages.sendSystem).not.toHaveBeenCalled();
   });
 
   it('resets a finalization when flight begins, preserving measured progress for the other ship to resume', async () => {
@@ -343,6 +453,25 @@ describe('cartography lifecycle integration (in-process)', () => {
       status: 'FINISHING',
       finalizingSpacecraftId: 2,
     });
+  });
+
+  it('notifies the player when a tick resets finalization after sensor loss', async () => {
+    const harness = createHarness();
+    await harness.service.createCartographyPlan(1, 11);
+    await harness.service.navigate(1, 11, 1, 2);
+    await harness.service.navigate(2, 11, 1, 2);
+    await harness.service.navigate(2, 11, 1, 3);
+    await harness.service.startCartographyFinalization(1, 11);
+
+    harness.ships.get(1).runtimeSystems.LONG_RANGE_SENSORS.active = false;
+    await harness.service.processTick(harness.ships.get(1));
+
+    expect(harness.messages.sendSystem).toHaveBeenCalledWith(
+      11,
+      'Kartographie',
+      expect.stringContaining('abgebrochen'),
+      'cartography-finalization-aborted:1',
+    );
   });
 
   it('resets a finalization on sensor loss and lets the other qualified ship resume without losing measured progress', async () => {

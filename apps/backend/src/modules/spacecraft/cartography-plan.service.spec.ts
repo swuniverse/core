@@ -153,17 +153,19 @@ describe('CartographyPlanService', () => {
     };
     const repo = {
       manager: {
-        transaction: jest.fn(async (work) => work({
-          getRepository: (entity) =>
-            entity.name === 'SystemExploration'
-              ? { findOne: jest.fn(async () => null) }
-              : entity.name === 'SystemField'
-                ? { find: jest.fn(async () => [{ id: 7 }]) }
-                : {
-                    findOne: jest.fn(async () => plan),
-                    save: jest.fn(async (value) => value),
-                  },
-        })),
+        transaction: jest.fn(async (work) =>
+          work({
+            getRepository: (entity) =>
+              entity.name === 'SystemExploration'
+                ? { findOne: jest.fn(async () => null) }
+                : entity.name === 'SystemField'
+                  ? { find: jest.fn(async () => [{ id: 7 }]) }
+                  : {
+                      findOne: jest.fn(async () => plan),
+                      save: jest.fn(async (value) => value),
+                    },
+          }),
+        ),
       },
     };
     const service = new CartographyPlanService(repo as never);
@@ -189,14 +191,16 @@ describe('CartographyPlanService', () => {
     const save = jest.fn(async (value) => value);
     const repo = {
       manager: {
-        transaction: jest.fn(async (work) => work({
-          getRepository: (entity) =>
-            entity.name === 'SystemExploration'
-              ? { findOne: jest.fn(async () => null) }
-              : entity.name === 'SystemField'
-                ? { find: jest.fn(async () => []) }
-                : { findOne: jest.fn(async () => plan), save },
-        })),
+        transaction: jest.fn(async (work) =>
+          work({
+            getRepository: (entity) =>
+              entity.name === 'SystemExploration'
+                ? { findOne: jest.fn(async () => null) }
+                : entity.name === 'SystemField'
+                  ? { find: jest.fn(async () => []) }
+                  : { findOne: jest.fn(async () => plan), save },
+          }),
+        ),
       },
     };
     const service = new CartographyPlanService(repo as never);
@@ -206,8 +210,9 @@ describe('CartographyPlanService', () => {
       completed: false,
     });
     expect(plan).toMatchObject({
-      status: CartographyPlanStatus.MEASURED,
+      status: CartographyPlanStatus.DONE,
       remainingFieldIds: [],
+      completedAt: expect.any(Date),
     });
     expect(save).toHaveBeenCalledTimes(1);
   });
@@ -242,8 +247,9 @@ describe('CartographyPlanService', () => {
       completed: false,
     });
     expect(plan).toMatchObject({
-      status: CartographyPlanStatus.PLANNED,
+      status: CartographyPlanStatus.DONE,
       remainingFieldIds: [8],
+      completedAt: expect.any(Date),
     });
     expect(save).toHaveBeenCalledWith(plan);
   });
@@ -322,7 +328,6 @@ describe('CartographyPlanService', () => {
       finalizationTick: 3,
       finalizingSpacecraftId: null,
     });
-
   });
 
   it('ends an open finalization without a reward when the system was discovered elsewhere', async () => {
@@ -359,6 +364,8 @@ describe('CartographyPlanService', () => {
       status: CartographyPlanStatus.DONE,
       finalizingSpacecraftId: null,
       finalizationTick: 1,
+      finalizationStartedAt: null,
+      completedAt: expect.any(Date),
     });
   });
 });

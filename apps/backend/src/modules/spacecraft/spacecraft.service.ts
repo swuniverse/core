@@ -872,8 +872,16 @@ export class SpacecraftService {
     }
     systems[systemKey] = { ...system, active };
     ship.runtimeSystems = systems;
-    if (systemKey === 'ASTROMETRY_LAB' && !active) {
-      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    if (
+      !active &&
+      ['ASTROMETRY_LAB', 'SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(
+        systemKey,
+      )
+    ) {
+      await this.abortCartographyFinalization(
+        ship,
+        'Die Kartographie-Finalisierung wurde wegen der Deaktivierung eines erforderlichen Systems abgebrochen.',
+      );
     }
     await this.shipRepo.save(ship);
     const systemName: Record<SpacecraftRuntimeSystemKey, string> = {
@@ -3200,6 +3208,22 @@ export class SpacecraftService {
     };
   }
 
+  private async abortCartographyFinalization(
+    ship: Spacecraft,
+    message: string,
+  ): Promise<void> {
+    const plan =
+      await this.cartographyPlanService.getPlanForFinalizingSpacecraft(ship.id);
+    if (!plan) return;
+    await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    await this.messagingService.sendSystem(
+      ship.userId,
+      'Kartographie',
+      message,
+      `cartography-finalization-aborted:${ship.id}`,
+    );
+  }
+
   private isAstrometryLaborOperational(
     ship: Spacecraft,
     systems: ReturnType<SpacecraftRuntimeStateService['initialize']>,
@@ -3258,12 +3282,23 @@ export class SpacecraftService {
     }
 
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    const location = resolveSpacecraftLocation(ship);
     if (
       ship.status === SpacecraftStatus.IN_FLIGHT ||
       ship.status === SpacecraftStatus.DESTROYED ||
-      !this.isAstrometryLaborOperational(ship, systems)
+      !this.isAstrometryLaborOperational(ship, systems) ||
+      location?.scope !== 'SYSTEM' ||
+      location.systemId !==
+        (
+          await this.cartographyPlanService.getPlanForFinalizingSpacecraft(
+            ship.id,
+          )
+        )?.starSystemId
     ) {
-      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+      await this.abortCartographyFinalization(
+        ship,
+        'Die Kartographie-Finalisierung wurde abgebrochen, weil das Schiff die Voraussetzungen nicht mehr erfüllt.',
+      );
     } else {
       const finalization =
         await this.cartographyPlanService.progressFinalization(ship.id);

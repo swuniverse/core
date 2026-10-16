@@ -70,6 +70,17 @@ export class CartographyPlanService {
     return this.planRepo.findOne({ where: { userId, starSystemId } });
   }
 
+  async getPlanForFinalizingSpacecraft(
+    spacecraftId: number,
+  ): Promise<CartographyPlan | null> {
+    return this.planRepo.findOne({
+      where: {
+        finalizingSpacecraftId: spacecraftId,
+        status: CartographyPlanStatus.FINISHING,
+      },
+    });
+  }
+
   async claimArrivedField(
     userId: number,
     starSystemId: number,
@@ -84,12 +95,13 @@ export class CartographyPlanService {
       if (!plan || plan.status !== CartographyPlanStatus.PLANNED) {
         return { claimed: false, completed: false };
       }
-      const alreadyExplored = await manager.getRepository(SystemExploration).findOne({
-        where: { userId, starSystemId },
-      });
+      const alreadyExplored = await manager
+        .getRepository(SystemExploration)
+        .findOne({
+          where: { userId, starSystemId },
+        });
       if (alreadyExplored) {
-        plan.remainingFieldIds = [];
-        plan.status = CartographyPlanStatus.MEASURED;
+        this.completeWithoutReward(plan);
         await repo.save(plan);
         return { claimed: false, completed: false };
       }
@@ -105,14 +117,21 @@ export class CartographyPlanService {
         validFields.has(id),
       );
       const arrivalIsRemaining = remainingFieldIds.includes(fieldId);
-      if (arrivalIsRemaining) {
-        plan.remainingFieldIds = remainingFieldIds.filter((id) => id !== fieldId);
-      } else if (remainingFieldIds.length !== plan.remainingFieldIds.length) {
-        plan.remainingFieldIds = remainingFieldIds;
-      } else {
+      const fieldsDisappeared =
+        remainingFieldIds.length !== plan.remainingFieldIds.length;
+      if (fieldsDisappeared) {
+        plan.remainingFieldIds = arrivalIsRemaining
+          ? remainingFieldIds.filter((id) => id !== fieldId)
+          : remainingFieldIds;
+        this.completeWithoutReward(plan);
+        await repo.save(plan);
+        return { claimed: false, completed: false };
+      }
+      if (!arrivalIsRemaining) {
         return { claimed: false, completed: false };
       }
 
+      plan.remainingFieldIds = remainingFieldIds.filter((id) => id !== fieldId);
       const completed = plan.remainingFieldIds.length === 0;
       if (completed) plan.status = CartographyPlanStatus.MEASURED;
       await repo.save(plan);
@@ -177,9 +196,7 @@ export class CartographyPlanService {
         where: { userId: plan.userId, starSystemId: plan.starSystemId },
       });
       if (alreadyExplored) {
-        plan.status = CartographyPlanStatus.DONE;
-        plan.finalizingSpacecraftId = null;
-        plan.completedAt = new Date();
+        this.completeWithoutReward(plan);
         await repo.save(plan);
         return { completed: false, userId: null, starSystemId: null };
       }
@@ -199,9 +216,7 @@ export class CartographyPlanService {
         await explorationRepo.save(discovery);
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;
-        plan.status = CartographyPlanStatus.DONE;
-        plan.finalizingSpacecraftId = null;
-        plan.completedAt = new Date();
+        this.completeWithoutReward(plan);
         await repo.save(plan);
         return { completed: false, userId: null, starSystemId: null };
       }
@@ -252,6 +267,14 @@ export class CartographyPlanService {
       }
       throw error;
     }
+  }
+
+  private completeWithoutReward(plan: CartographyPlan): void {
+    plan.status = CartographyPlanStatus.DONE;
+    plan.finalizingSpacecraftId = null;
+    plan.finalizationStartedAt = null;
+    plan.finalizationTick = null;
+    plan.completedAt = new Date();
   }
 
   private async requirePlan(
