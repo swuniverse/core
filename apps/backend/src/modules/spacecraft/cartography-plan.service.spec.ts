@@ -137,6 +137,75 @@ describe('CartographyPlanService', () => {
     expect(repo.save).toHaveBeenCalledWith(plan);
   });
 
+  it('atomically claims one arrived measurement point, then marks the plan measured', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [7],
+    };
+    const repo = {
+      manager: {
+        transaction: jest.fn(async (work) => work({
+          getRepository: (entity) =>
+            entity.name === 'SystemExploration'
+              ? { findOne: jest.fn(async () => null) }
+              : entity.name === 'SystemField'
+                ? { find: jest.fn(async () => [{ id: 7 }]) }
+                : {
+                    findOne: jest.fn(async () => plan),
+                    save: jest.fn(async (value) => value),
+                  },
+        })),
+      },
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.claimArrivedField(11, 42, 7)).resolves.toEqual({
+      claimed: true,
+      completed: true,
+    });
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.MEASURED,
+      remainingFieldIds: [],
+    });
+  });
+
+  it('removes disappeared planned fields and ends a plan without an arrival reward', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [7],
+    };
+    const save = jest.fn(async (value) => value);
+    const repo = {
+      manager: {
+        transaction: jest.fn(async (work) => work({
+          getRepository: (entity) =>
+            entity.name === 'SystemExploration'
+              ? { findOne: jest.fn(async () => null) }
+              : entity.name === 'SystemField'
+                ? { find: jest.fn(async () => []) }
+                : { findOne: jest.fn(async () => plan), save },
+        })),
+      },
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.claimArrivedField(11, 42, 99)).resolves.toEqual({
+      claimed: false,
+      completed: false,
+    });
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.MEASURED,
+      remainingFieldIds: [],
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
   it('allows exactly one transition from measured to finishing', async () => {
     const plan = {
       id: 3,

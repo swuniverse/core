@@ -59,6 +59,8 @@ import {
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 import { CartographyPlanStatus } from './entities/cartography-plan.entity';
+import { MessagingService } from '../messaging/messaging.service';
+import { PrestigeService } from '../prestige/prestige.service';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
 import { ShipColonyContextService } from './ship-colony-context.service';
 import { findShieldedColonyObjectIds } from './shielded-colonies.util';
@@ -117,6 +119,8 @@ export class SpacecraftService {
     private readonly hyperdriveDisruptionService: HyperdriveDisruptionService,
     private readonly spacecraftAlertService: SpacecraftAlertService,
     private readonly cartographyPlanService: CartographyPlanService,
+    private readonly messagingService: MessagingService,
+    private readonly prestigeService: PrestigeService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1619,14 +1623,58 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
 
-    await this.explorationService.discoverSystem({
-      userId: ship.userId,
-      starSystemId: currentSystemId,
-      source: 'NAVIGATE',
-    });
+    await this.processCartographyArrival(ship, currentSystemId, targetField.id);
     await this.emitOrbitUpdates(previousField, resolveSpacecraftField(ship));
 
     return this.findOne(ship.id, userId);
+  }
+
+  private async processCartographyArrival(
+    ship: Spacecraft,
+    starSystemId: number,
+    fieldId: number,
+  ): Promise<void> {
+    if (!(await this.isQualifiedForCartography(ship))) return;
+
+    const result = await this.cartographyPlanService.claimArrivedField(
+      ship.userId,
+      starSystemId,
+      fieldId,
+    );
+    if (!result.claimed) return;
+
+    await this.prestigeService.change(
+      ship.userId,
+      1,
+      'Kartographie-Messpunkt erreicht',
+    );
+    await this.messagingService.sendSystem(
+      ship.userId,
+      'Kartographie',
+      'Ein Messpunkt der Systemkartographie wurde erreicht.',
+      `cartography-measurement:${ship.userId}:${starSystemId}:${fieldId}`,
+    );
+    if (result.completed) {
+      await this.messagingService.sendSystem(
+        ship.userId,
+        'Kartographie',
+        'Alle Messpunkte wurden erreicht. Die Kartographie kann finalisiert werden.',
+        `cartography-measured:${ship.userId}:${starSystemId}`,
+      );
+    }
+  }
+
+  private async isQualifiedForCartography(ship: Spacecraft): Promise<boolean> {
+    if (ship.status === SpacecraftStatus.DESTROYED) return false;
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    return [
+      'ASTROMETRY_LAB',
+      'SHORT_RANGE_SENSORS',
+      'LONG_RANGE_SENSORS',
+    ].every((key) => {
+      const system = systems[key as SpacecraftRuntimeSystemKey];
+      return Boolean(system?.active && system.integrity > 0);
+    });
   }
 
   // Galaxy-map flight: move between galaxy fields when NOT in a system

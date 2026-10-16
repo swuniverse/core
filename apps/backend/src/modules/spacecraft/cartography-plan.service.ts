@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { SystemField } from '../starmap/entities/system-field.entity';
+import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import {
   CartographyPlan,
   CartographyPlanStatus,
@@ -66,6 +68,59 @@ export class CartographyPlanService {
     starSystemId: number,
   ): Promise<CartographyPlan | null> {
     return this.planRepo.findOne({ where: { userId, starSystemId } });
+  }
+
+  async claimArrivedField(
+    userId: number,
+    starSystemId: number,
+    fieldId: number,
+  ): Promise<{ claimed: boolean; completed: boolean }> {
+    return this.planRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(CartographyPlan);
+      const plan = await repo.findOne({
+        where: { userId, starSystemId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!plan || plan.status !== CartographyPlanStatus.PLANNED) {
+        return { claimed: false, completed: false };
+      }
+      const alreadyExplored = await manager.getRepository(SystemExploration).findOne({
+        where: { userId, starSystemId },
+      });
+      if (alreadyExplored) {
+        plan.remainingFieldIds = [];
+        plan.status = CartographyPlanStatus.MEASURED;
+        await repo.save(plan);
+        return { claimed: false, completed: false };
+      }
+
+      const validFields = new Set(
+        (
+          await manager
+            .getRepository(SystemField)
+            .find({ where: { starSystemId, id: In(plan.remainingFieldIds) } })
+        ).map((field) => field.id),
+      );
+      const remainingFieldIds = plan.remainingFieldIds.filter((id) =>
+        validFields.has(id),
+      );
+      const arrivalIsRemaining = remainingFieldIds.includes(fieldId);
+      if (arrivalIsRemaining) {
+        plan.remainingFieldIds = remainingFieldIds.filter((id) => id !== fieldId);
+      } else if (remainingFieldIds.length !== plan.remainingFieldIds.length) {
+        plan.remainingFieldIds = remainingFieldIds;
+      } else {
+        return { claimed: false, completed: false };
+      }
+
+      const completed = plan.remainingFieldIds.length === 0;
+      if (completed) plan.status = CartographyPlanStatus.MEASURED;
+      await repo.save(plan);
+      return {
+        claimed: arrivalIsRemaining,
+        completed: arrivalIsRemaining && completed,
+      };
+    });
   }
 
   async transitionToMeasured(
