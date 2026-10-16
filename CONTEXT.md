@@ -59,8 +59,24 @@ Die persönliche, dauerhafte Kenntnis eines konkreten Sternensystems. Sie entste
 _Avoid_: Systemexploration, Systemfreischaltung
 
 **Astrometrie**:
-Der tickbasierte Schiffsauftrag, mit dem ein eigenes einsatzbereites Schiff sein aktuelles Sternensystem kartographiert. Ein erfolgreicher Abschluss erzeugt für seinen Spieler eine **Systementdeckung**; Abbruch oder Fehlschlag erzeugen keine.
+Die persönliche, systemgebundene Kartographie eines noch nicht entdeckten Sternensystems. Ein Spieler legt mit einem qualifizierten eigenen Schiff einen **Kartographieplan** an, arbeitet dessen **Messpunkte** beim Anflug ab und schließt ihn über die **Finalisierung** ab. Erst deren erfolgreicher Abschluss erzeugt für den Spieler eine **Systementdeckung**; Abbruch oder Fehlschlag erzeugen keine.
 _Avoid_: Systemscan, Fernkartographie
+
+**Astrometrie-Labor**:
+Das konkrete aktivierbare Schiffssystem `Astrometrie-Labor`. Ein eigenes Schiff ist für die Kartographie nur qualifiziert, wenn sein Labor sowie Kurz- und Langstreckensensoren aktiv und intakt sind. Die Aktivierung kostet 1 EPS; solange das Labor aktiv ist, kostet es je Haupttick 1 EPS.
+_Avoid_: generischer Spezialslot, Astrometrie-Fähigkeit
+
+**Kartographieplan**:
+Der persistierte Fortschritt eines Spielers für ein konkretes Sternensystem. Er gehört weder einem bestimmten Schiff noch einer **Allianz** und durchläuft `PLANNABLE → PLANNED → MEASURED → FINISHING → DONE`.
+_Avoid_: Schiffsauftrag, Kartographiejob
+
+**Messpunkt**:
+Eine beim Planen gespeicherte Feldreferenz eines **Kartographieplans**. Ein qualifiziertes eigenes Schiff arbeitet einen verbleibenden Messpunkt ausschließlich beim tatsächlichen Anflug ab. Die Messpunktphase sperrt Navigation nicht und belohnt jeden erreichten Messpunkt mit 1 Prestige. Die kanonische STU-Belohnung von Crew-Erfahrung fehlt in SWU, weil keine Crew-XP-Infrastruktur existiert; dies ist eine offene STU-Paritätslücke.
+_Avoid_: Wegpunkt, Scanpunkt
+
+**Finalisierung**:
+Der kostenpflichtige, drei Hauptticks dauernde Abschluss eines **Kartographieplans** nach allen **Messpunkten**. Erst eine erfolgreiche Finalisierung erzeugt die persönliche **Systementdeckung** und 10 Prestige. Währenddessen ist nur das finalisierende Schiff für Navigation und Reparaturen gesperrt; ein Abbruch setzt den Plan auf `MEASURED` zurück.
+_Avoid_: Sofortabschluss, Systemscan
 
 **Systemeintrag**:
 Die nicht-taktische, geschützte Datenbankansicht eines persönlich entdeckten Sternensystems. Sie zeigt aktuelle Systemdaten und die jeweils neuesten zugänglichen **Kolonie-Scans**, erlaubt aber keine Fernaktionen.
