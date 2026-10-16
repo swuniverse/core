@@ -66,6 +66,7 @@ import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
+import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveContextualCelestialObject,
@@ -114,6 +115,7 @@ export class SpacecraftService {
     private readonly shipClassDiscoveryService: ShipClassDiscoveryService,
     private readonly hyperdriveDisruptionService: HyperdriveDisruptionService,
     private readonly spacecraftAlertService: SpacecraftAlertService,
+    private readonly astrometryService: SpacecraftAstrometryService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1343,6 +1345,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1451,6 +1454,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1583,6 +1587,7 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemeintritt');
 
@@ -1688,6 +1693,7 @@ export class SpacecraftService {
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemaustritt');
 
@@ -2899,6 +2905,7 @@ export class SpacecraftService {
     }
 
     this.spacecraftRuntimeStateService.initialize(ship);
+    await this.astrometryService.processTick(ship);
 
     await this.shipRepo.save(ship);
   }
