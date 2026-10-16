@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Dokumentiere die Messpunkt-Kartographieentscheidung.
 
-**Status:** resolved
+Status: resolved
 
 - [ ] `spacecraft_astrometry_jobs`, seine Entity, Migration, DTOs und nicht mehr passende APIs werden vollständig zurückgebaut.
 - [ ] Eine neue persistierte Entität enthält mindestens Spieler, Sternensystem, Zustand, verbleibende Messpunktfeld-IDs, Finalisierungsstart-/Tickdaten und das aktuell finalisierende Schiff.

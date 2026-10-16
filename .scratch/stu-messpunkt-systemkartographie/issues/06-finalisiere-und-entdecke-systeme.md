@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Ersetze das alte Astrometrie-Datenmodell; 03: Implementiere das Astrometrie-Labor; 05: Integriere Messpunkte in die Bewegung.
 
-**Status:** resolved
+Status: resolved
 
 **Closure:** Implemented in `68c29872143dbc6cab6700a4894086f196c63c07` (`feat(cartography): finalize system discovery`).
 

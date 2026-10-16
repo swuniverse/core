@@ -4,7 +4,7 @@
 
 **Blocked by:** 03: Implementiere das Astrometrie-Labor; 04: Plane Systemkartographie und Messpunkte.
 
-**Status:** resolved
+Status: resolved
 
 > Closed by implementation commit `dc3c879546b015641586b6b3b7c0b1e59a7c00be`.
 

@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** resolved
+Status: resolved
 
 - [ ] Eine ADR dokumentiert die Ablösung von `spacecraft_astrometry_jobs` durch `PLANNABLE → PLANNED → MEASURED → FINISHING → DONE`.
 - [ ] Die ADR hält fest, dass der Kartographieplan einem Spieler und Sternensystem, nicht einem Schiff, gehört.

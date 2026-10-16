@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Ersetze das alte Astrometrie-Datenmodell; 03: Implementiere das Astrometrie-Labor.
 
-**Status:** resolved
+Status: resolved
 
 > Closed by implementation commit `d632711caecc5a65bad5c6fe10e0dbb4eab28279`.
 

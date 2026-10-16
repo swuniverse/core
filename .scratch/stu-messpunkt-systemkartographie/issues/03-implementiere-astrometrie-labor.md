@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Dokumentiere die Messpunkt-Kartographieentscheidung; 02: Ersetze das alte Astrometrie-Datenmodell.
 
-**Status:** resolved
+Status: resolved
 
 > Closed by implementation commit `5a86fa9af3680ffef512b2fc42c511e801d0e411`.
 

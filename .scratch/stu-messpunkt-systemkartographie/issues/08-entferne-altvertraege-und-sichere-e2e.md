@@ -4,7 +4,7 @@
 
 **Blocked by:** 05: Integriere Messpunkte in die Bewegung; 06: Finalisiere Kartographie und entdecke Systeme; 07: Baue die kompakte Kartographieoberfläche.
 
-**Status:** resolved
+Status: resolved
 
 - [ ] Nicht mehr gültige `spacecraft/:id/astrometry`-Jobendpunkte sowie binäre `cartography`-/`survey`-Platzhalter werden entfernt oder auf den kanonischen neuen Vertrag umgestellt; keine alte Semantik bleibt erreichbar.
 - [ ] Shared DTOs liegen ausschließlich in `packages/shared`; Frontend und Backend verwenden denselben zustandsbasierten Vertrag.
