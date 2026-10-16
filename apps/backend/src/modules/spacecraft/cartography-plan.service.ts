@@ -38,7 +38,10 @@ export class CartographyPlanService {
     const plan = this.planRepo.create({
       userId,
       starSystemId,
-      status: CartographyPlanStatus.PLANNED,
+      status:
+        remainingFieldIds.length === 0
+          ? CartographyPlanStatus.MEASURED
+          : CartographyPlanStatus.PLANNED,
       remainingFieldIds,
       finalizationStartedAt: null,
       finalizationTick: null,

@@ -550,6 +550,14 @@ export class SpacecraftController {
     return this.spacecraftService.getCartography(id, req.user.sub);
   }
 
+  @Post(':id/cartography')
+  createCartographyPlan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.createCartographyPlan(id, req.user.sub);
+  }
+
   @Post(':id/sector-scan')
   sectorScan(
     @Param('id', ParseIntPipe) id: number,

@@ -69,6 +69,48 @@ describe('CartographyPlanService', () => {
     });
   });
 
+  it('marks a plan without measurement fields as measured at creation', async () => {
+    const repo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((plan) => plan),
+      save: jest.fn(async (plan) => ({ id: 9, ...plan })),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.createPlan(11, 42, [])).resolves.toMatchObject({
+      status: CartographyPlanStatus.MEASURED,
+      remainingFieldIds: [],
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: CartographyPlanStatus.MEASURED }),
+    );
+  });
+
+  it('returns one preserved plan to parallel planners after a duplicate-key race', async () => {
+    const persisted = {
+      id: 17,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [3, 4],
+    };
+    const repo = {
+      findOne: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(persisted),
+      create: jest.fn((plan) => plan),
+      save: jest.fn(async () => {
+        throw { code: '23505' };
+      }),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.createPlan(11, 42, [99])).resolves.toBe(persisted);
+    expect(persisted.remainingFieldIds).toEqual([3, 4]);
+  });
+
   it('resets only the finishing plan for a deactivated finalizing spacecraft', async () => {
     const plan = {
       id: 3,

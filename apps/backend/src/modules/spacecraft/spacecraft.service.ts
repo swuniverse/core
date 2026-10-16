@@ -58,6 +58,7 @@ import {
   getStuCelestialClass,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
+import { CartographyPlanStatus } from './entities/cartography-plan.entity';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
 import { ShipColonyContextService } from './ship-colony-context.service';
 import { findShieldedColonyObjectIds } from './shielded-colonies.util';
@@ -442,19 +443,184 @@ export class SpacecraftService {
       userId,
       location.systemId,
     );
-    return plan ? this.toCartographyPlanDto(plan) : null;
+    return plan
+      ? this.toCartographyPlanDto(
+          plan,
+          await this.getCartographyPlanAction(ship),
+        )
+      : null;
   }
 
-  private toCartographyPlanDto(plan: {
-    id: number;
-    starSystemId: number;
-    status: import('./entities/cartography-plan.entity').CartographyPlanStatus;
-    remainingFieldIds: number[];
-    finalizationStartedAt: Date | null;
-    finalizationTick: number | null;
-    finalizingSpacecraftId: number | null;
-    completedAt: Date | null;
-  }): CartographyPlanDto {
+  async createCartographyPlan(
+    shipId: number,
+    userId: number,
+  ): Promise<CartographyPlanDto> {
+    const ship = await this.findOne(shipId, userId);
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
+      throw new BadRequestException(
+        'Kartographieplanung erfordert ein Sternensystem',
+      );
+    }
+
+    const existing = await this.cartographyPlanService.getPlan(
+      userId,
+      location.systemId,
+    );
+    if (existing) {
+      return this.toCartographyPlanDto(
+        existing,
+        await this.getCartographyPlanAction(ship),
+      );
+    }
+
+    if (
+      await this.explorationService.isSystemExplored(userId, location.systemId)
+    ) {
+      throw new BadRequestException(
+        'Das Sternensystem wurde bereits persönlich entdeckt',
+      );
+    }
+
+    const action = await this.getCartographyPlanAction(ship);
+    if (!action.available) throw new BadRequestException(action.reason!);
+
+    const fields = await this.systemFieldRepo.find({
+      where: { starSystemId: location.systemId },
+      relations: ['celestialObject'],
+      order: { id: 'ASC' },
+    });
+    const colonies = await this.dataSource.getRepository(Colony).find({
+      where: { starSystemId: location.systemId },
+    });
+    const remainingFieldIds = this.selectCartographyFields(
+      fields,
+      colonies,
+      location.x,
+      location.y,
+    );
+    const plan = await this.cartographyPlanService.createPlan(
+      userId,
+      location.systemId,
+      remainingFieldIds,
+    );
+    ship.lssMode = SpacecraftLssMode.CARTOGRAPHY;
+    await this.shipRepo.save(ship);
+    return this.toCartographyPlanDto(plan, action);
+  }
+
+  private async getCartographyPlanAction(
+    ship: Spacecraft,
+  ): Promise<{ available: boolean; reason: string | null }> {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') {
+      return {
+        available: false,
+        reason: 'Kartographieplanung erfordert ein Sternensystem',
+      };
+    }
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      return { available: false, reason: 'Schiff ist zerstört' };
+    }
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    for (const systemKey of [
+      'ASTROMETRY_LAB',
+      'SHORT_RANGE_SENSORS',
+      'LONG_RANGE_SENSORS',
+    ] as const) {
+      const system = systems[systemKey];
+      if (!system?.active || system.integrity <= 0) {
+        return {
+          available: false,
+          reason:
+            'Kartographie benötigt ein aktives intaktes Astrometrie-Labor sowie Kurz- und Langstreckensensoren',
+        };
+      }
+    }
+    const [required, assigned] = await Promise.all([
+      this.spacecraftCrewService.getRequiredCrew(ship),
+      this.spacecraftCrewService.getAssignedCrewCount(ship.id),
+    ]);
+    if (assigned < required) {
+      return {
+        available: false,
+        reason: 'Nicht genug Crew für die Kartographie',
+      };
+    }
+    return { available: true, reason: null };
+  }
+
+  private selectCartographyFields(
+    fields: SystemField[],
+    colonies: Colony[],
+    startX: number,
+    startY: number,
+  ): number[] {
+    const isStart = (field: SystemField) =>
+      field.sx === startX && field.sy === startY;
+    const available = fields.filter((field) => !isStart(field));
+    const settledObjectIds = new Set(
+      colonies
+        .map((colony) => colony.celestialObjectId)
+        .filter((id): id is number => id != null),
+    );
+    const settledFieldIds = new Set(
+      colonies
+        .map((colony) => colony.systemFieldId)
+        .filter((id): id is number => id != null),
+    );
+    const settled = available.filter(
+      (field) =>
+        settledFieldIds.has(field.id) ||
+        (field.celestialObjectId != null &&
+          settledObjectIds.has(field.celestialObjectId)),
+    );
+    const colonizable = available.filter(
+      (field) =>
+        !settled.includes(field) &&
+        field.celestialObject?.isColonizable === true,
+    );
+    const safe = available.filter(
+      (field) =>
+        !settled.includes(field) &&
+        !colonizable.includes(field) &&
+        field.isPassable &&
+        field.damage <= 0,
+    );
+    const selected = settled.slice(0, 2);
+    for (const field of colonizable) {
+      if (selected.length >= 5) break;
+      selected.push(field);
+    }
+    for (const field of this.shuffle(safe)) {
+      if (selected.length >= 5) break;
+      selected.push(field);
+    }
+    return selected.map((field) => field.id);
+  }
+
+  private shuffle<T>(values: T[]): T[] {
+    const shuffled = [...values];
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+    }
+    return shuffled;
+  }
+
+  private toCartographyPlanDto(
+    plan: {
+      id: number;
+      starSystemId: number;
+      status: CartographyPlanStatus;
+      remainingFieldIds: number[];
+      finalizationStartedAt: Date | null;
+      finalizationTick: number | null;
+      finalizingSpacecraftId: number | null;
+      completedAt: Date | null;
+    },
+    planAction: { available: boolean; reason: string | null },
+  ): CartographyPlanDto {
     return {
       id: plan.id,
       starSystemId: plan.starSystemId,
@@ -464,6 +630,7 @@ export class SpacecraftService {
       finalizationTick: plan.finalizationTick,
       finalizingSpacecraftId: plan.finalizingSpacecraftId,
       completedAt: plan.completedAt?.toISOString() ?? null,
+      actions: { plan: planAction },
     };
   }
 
@@ -2881,11 +3048,11 @@ export class SpacecraftService {
     const longRangeSensors = systems.LONG_RANGE_SENSORS;
     return Boolean(
       laboratory?.active &&
-        laboratory.integrity > 0 &&
-        shortRangeSensors?.active &&
-        shortRangeSensors.integrity > 0 &&
-        longRangeSensors?.active &&
-        longRangeSensors.integrity > 0,
+      laboratory.integrity > 0 &&
+      shortRangeSensors?.active &&
+      shortRangeSensors.integrity > 0 &&
+      longRangeSensors?.active &&
+      longRangeSensors.integrity > 0,
     );
   }
 
