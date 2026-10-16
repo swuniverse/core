@@ -5,7 +5,7 @@ import {
   Index,
   OneToMany,
 } from 'typeorm';
-import { FactionModifier } from './faction-modifier.entity';
+import type { FactionModifier } from './faction-modifier.entity';
 
 @Entity('factions')
 @Index(['key'], { unique: true })
@@ -34,8 +34,10 @@ export class FactionEntity {
   @Column({ type: 'varchar', length: 64, nullable: true })
   starterProfileKey: string | null;
 
-  @OneToMany(() => FactionModifier, (modifier) => modifier.faction, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => require('./faction-modifier.entity').FactionModifier,
+    (modifier: FactionModifier) => modifier.faction,
+    { cascade: true },
+  )
   modifiers: FactionModifier[];
 }

@@ -117,6 +117,7 @@ function createService() {
       return true;
     }),
   };
+  const astrometryService = { assertNoActiveJob: jest.fn(async () => undefined) };
 
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
@@ -173,6 +174,9 @@ function createService() {
     {} as ConstructorParameters<typeof SpacecraftService>[23],
     {} as ConstructorParameters<typeof SpacecraftService>[24],
     {} as ConstructorParameters<typeof SpacecraftService>[25],
+    astrometryService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[26],
   );
 
   return {
@@ -185,6 +189,7 @@ function createService() {
     locationRepo,
     runtimeState,
     explorationService,
+    astrometryService,
   };
 }
 
@@ -380,6 +385,40 @@ describe('SpacecraftService movement resources', () => {
 
     expect(ship.warpdrive).toBe(0);
     expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
+  });
+
+  it('blocks warp while an astrometry job is active without consuming warpdrive', async () => {
+    const { service, shipRepo, astrometryService } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(11),
+      warpCooldown: 0,
+      warpdrive: 5,
+      runtimeSystems: {
+        WARPDRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+      modules: [],
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    astrometryService.assertNoActiveJob.mockRejectedValue(
+      new BadRequestException(
+        'Navigation ist während eines Astrometrieauftrags nicht möglich',
+      ),
+    );
+
+    await expect(service.warp(7, 1, 12)).rejects.toEqual(
+      new BadRequestException(
+        'Navigation ist während eines Astrometrieauftrags nicht möglich',
+      ),
+    );
+
+    expect(astrometryService.assertNoActiveJob).toHaveBeenCalledWith(7);
+    expect(ship).toMatchObject({
+      warpdrive: 5,
+      status: SpacecraftStatus.IDLE,
+    });
   });
 
   it('writes canonical origin and target locations for warp', async () => {

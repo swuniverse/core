@@ -18,6 +18,32 @@ import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.servic
 
 export const ASTROMETRY_ENERGY_COST = 10;
 
+const MAIN_TICK_HOURS = [0, 12, 15, 18, 21];
+
+function nextMainTickAt(now: Date): Date {
+  const next = new Date(now);
+  next.setMinutes(0, 0, 0);
+
+  const nextHour = MAIN_TICK_HOURS.find((hour) => hour > now.getHours());
+  if (nextHour != null) {
+    next.setHours(nextHour, 0, 0, 0);
+    return next;
+  }
+
+  next.setDate(next.getDate() + 1);
+  next.setHours(MAIN_TICK_HOURS[0], 0, 0, 0);
+  return next;
+}
+
+function isActiveJobUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error != null &&
+    'code' in error &&
+    error.code === '23505'
+  );
+}
+
 @Injectable()
 export class SpacecraftAstrometryService {
   constructor(
@@ -75,23 +101,33 @@ export class SpacecraftAstrometryService {
     if (explored)
       throw new BadRequestException('Dieses Sternensystem wurde bereits entdeckt');
 
+    const startedAt = new Date();
+    let job: SpacecraftAstrometryJob;
+    try {
+      job = await this.jobRepo.save(
+        this.jobRepo.create({
+          userId,
+          spacecraftId: ship.id,
+          starSystemId: location.systemId,
+          status: SpacecraftAstrometryJobStatus.ACTIVE,
+          startedAt,
+          completesAt: nextMainTickAt(startedAt),
+          completedAt: null,
+          abortReason: null,
+        }),
+      );
+    } catch (error) {
+      if (isActiveJobUniqueViolation(error)) {
+        throw new BadRequestException(
+          'Für dieses Schiff läuft bereits ein Astrometrieauftrag',
+        );
+      }
+      throw error;
+    }
+
     ship.energy -= ASTROMETRY_ENERGY_COST;
     ship.runtimeSystems = systems;
     await this.shipRepo.save(ship);
-
-    const startedAt = new Date();
-    const job = await this.jobRepo.save(
-      this.jobRepo.create({
-        userId,
-        spacecraftId: ship.id,
-        starSystemId: location.systemId,
-        status: SpacecraftAstrometryJobStatus.ACTIVE,
-        startedAt,
-        completesAt: startedAt,
-        completedAt: null,
-        abortReason: null,
-      }),
-    );
     return this.toDto(job);
   }
 

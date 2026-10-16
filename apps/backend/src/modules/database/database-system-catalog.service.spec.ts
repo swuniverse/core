@@ -64,6 +64,14 @@ describe('DatabaseService system catalog', () => {
           cy: 3,
           systemTypeId: 1050,
         },
+        {
+          id: 30,
+          layerId: 99,
+          name: 'Verborgener Sektor',
+          cx: 1,
+          cy: 1,
+          systemTypeId: 1049,
+        },
       ]),
     };
     const explorationRepo = {
