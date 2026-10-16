@@ -149,7 +149,6 @@ export function SpacecraftDetailPage() {
             shipId={ship.id}
             context={fieldContext}
             onUpdate={refreshShipAndStorage}
-            refreshKey={shipRefreshVersion}
             canColonize={ship.isColonizer === true}
             onColonized={(colonyId) =>
               navigate(`/colonies?selected=${colonyId}`)

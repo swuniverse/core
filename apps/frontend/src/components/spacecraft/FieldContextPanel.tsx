@@ -11,7 +11,6 @@ import { api } from '../../services/api';
 import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
 import { ColonyScanDialog, type ColonyScan } from './ColonyScanDialog';
-import { AstrometryPanel } from './AstrometryPanel';
 
 type SectorScanResult = {
   field: {
@@ -40,7 +39,6 @@ export function FieldContextPanel({
   shipId,
   context,
   onUpdate,
-  refreshKey = 0,
   canColonize = false,
   onColonized,
   onLanded,
@@ -48,7 +46,6 @@ export function FieldContextPanel({
   shipId: number;
   context: SpacecraftFieldContextDto | null;
   onUpdate: () => Promise<void> | void;
-  refreshKey?: number;
   canColonize?: boolean;
   onColonized?: (colonyId: number) => void;
   onLanded?: (colonyId: number) => void;
@@ -197,15 +194,6 @@ export function FieldContextPanel({
                 System nicht kartographiert
               </span>
             )}
-            <AstrometryPanel
-              shipId={shipId}
-              refreshKey={refreshKey}
-              onUpdate={onUpdate}
-              compact
-              onError={(message) =>
-                setActionMessage({ title: 'Astrometrie', message })
-              }
-            />
           </div>
           <div className="border-l border-swu-border p-2">
             {context.starSystem ? (

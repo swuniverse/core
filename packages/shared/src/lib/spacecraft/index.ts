@@ -34,7 +34,10 @@ export type SpacecraftRuntimeSystemsDto = Partial<
 export type SpacecraftOperatingMode = 'NORMAL' | 'STANDBY';
 export type SpacecraftAlertState = 'GREEN' | 'YELLOW' | 'RED';
 export type SpacecraftLssMode =
-  'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
+  | 'DISABLED'
+  | 'TERRITORY'
+  | 'IMPASSABLE'
+  | 'CARTOGRAPHY';
 
 export interface SpacecraftActionAvailabilityDto {
   available: boolean;
@@ -62,17 +65,21 @@ export interface SpacecraftEffectiveStatsDto {
   evadeChance: number;
 }
 
-export type SpacecraftAstrometryStatus = 'ACTIVE' | 'COMPLETED' | 'ABORTED';
+export type CartographyPlanStatus =
+  | 'PLANNED'
+  | 'MEASURED'
+  | 'FINISHING'
+  | 'DONE';
 
-export interface SpacecraftAstrometryJobDto {
+export interface CartographyPlanDto {
   id: number;
-  spacecraftId: number;
   starSystemId: number;
-  status: SpacecraftAstrometryStatus;
-  startedAt: string;
-  completesAt: string;
+  status: CartographyPlanStatus;
+  remainingFieldIds: number[];
+  finalizationStartedAt: string | null;
+  finalizationTick: number | null;
+  finalizingSpacecraftId: number | null;
   completedAt: string | null;
-  abortReason: string | null;
 }
 
 export interface ColonyScanDepositDto {
@@ -314,14 +321,6 @@ export interface SpacecraftScanPageDto {
   total: number;
   page: number;
   limit: number;
-}
-
-export interface SpacecraftCartographyDto {
-  systemId: number | null;
-  explored: boolean;
-  progress: number;
-  surveyedFields: number;
-  totalFields: number;
 }
 
 export interface ShipCentredMapFieldDto {

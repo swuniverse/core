@@ -16,7 +16,7 @@ import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
-import { SpacecraftAstrometryJob } from './entities/spacecraft-astrometry-job.entity';
+import { CartographyPlan } from './entities/cartography-plan.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -55,7 +55,7 @@ import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { AllianceModule } from '../alliance/alliance.module';
 import { StarmapVisibilityService } from './starmap-visibility.service';
-import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
+import { CartographyPlanService } from './cartography-plan.service';
 import { DatabaseModule } from '../database/database.module';
 
 @Module({
@@ -74,7 +74,7 @@ import { DatabaseModule } from '../database/database.module';
       CargoItem,
       SpacecraftTorpedoStorage,
       SpacecraftWreck,
-      SpacecraftAstrometryJob,
+      CartographyPlan,
       StarSystem,
       Layer,
       CelestialObject,
@@ -107,7 +107,7 @@ import { DatabaseModule } from '../database/database.module';
     ShipClassDiscoveryService,
     HyperdriveDisruptionService,
     SpacecraftAlertService,
-    SpacecraftAstrometryService,
+    CartographyPlanService,
     TransferService,
     SpacecraftScanService,
     SpacecraftStatsService,
@@ -133,7 +133,7 @@ import { DatabaseModule } from '../database/database.module';
     SpacecraftTorpedoService,
     SpacecraftRuntimeStateService,
     SpacecraftResourceFlowService,
-    SpacecraftAstrometryService,
+    CartographyPlanService,
     SpacecraftDestructionService,
   ],
 })

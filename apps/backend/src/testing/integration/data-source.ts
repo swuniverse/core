@@ -43,6 +43,7 @@ import { Crew } from '../../modules/colony/entities/crew.entity';
 import { CrewAssignment } from '../../modules/colony/entities/crew-assignment.entity';
 import { GameStatus } from '../../modules/game-status/entities/game-status.entity';
 import { GameEvent } from '../../modules/events/entities/game-event.entity';
+import { CartographyPlan } from '../../modules/spacecraft/entities/cartography-plan.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -89,6 +90,7 @@ export const INTEGRATION_ENTITIES = [
   CrewAssignment,
   GameStatus,
   GameEvent,
+  CartographyPlan,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

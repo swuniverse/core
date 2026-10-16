@@ -1,0 +1,105 @@
+jest.mock('./entities/cartography-plan.entity', () => ({
+  CartographyPlan: class CartographyPlan {},
+  CartographyPlanStatus: {
+    PLANNED: 'PLANNED',
+    MEASURED: 'MEASURED',
+    FINISHING: 'FINISHING',
+    DONE: 'DONE',
+  },
+}));
+
+import { BadRequestException } from '@nestjs/common';
+import { CartographyPlanStatus } from './entities/cartography-plan.entity';
+import { CartographyPlanService } from './cartography-plan.service';
+
+describe('CartographyPlanService', () => {
+  it('returns the existing player/system plan without replacing its persisted measurement fields', async () => {
+    const existing = {
+      id: 4,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [7, 8],
+    };
+    const repo = {
+      findOne: jest.fn(async () => existing),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.createPlan(11, 42, [1, 2, 3])).resolves.toBe(existing);
+
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('returns the concurrently created player/system plan on a duplicate-key race', async () => {
+    const concurrentPlan = {
+      id: 8,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.MEASURED,
+      remainingFieldIds: [],
+    };
+    const repo = {
+      findOne: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(concurrentPlan),
+      create: jest.fn((plan) => plan),
+      save: jest.fn(async () => {
+        throw { code: '23505' };
+      }),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.createPlan(11, 42, [1, 2])).resolves.toBe(
+      concurrentPlan,
+    );
+    expect(repo.create).toHaveBeenCalledWith({
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [1, 2],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+    });
+  });
+
+  it('allows exactly one transition from measured to finishing', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.MEASURED,
+      remainingFieldIds: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+    };
+    const repo = {
+      findOne: jest.fn(async () => plan),
+      save: jest.fn(async (value) => value),
+    };
+    const service = new CartographyPlanService(repo as never);
+    const startedAt = new Date('2026-10-16T12:00:00.000Z');
+
+    await expect(
+      service.startFinalization(11, 42, 9, startedAt),
+    ).resolves.toMatchObject({
+      status: CartographyPlanStatus.FINISHING,
+      finalizingSpacecraftId: 9,
+      finalizationTick: 0,
+      finalizationStartedAt: startedAt,
+    });
+
+    await expect(
+      service.startFinalization(11, 42, 10, startedAt),
+    ).rejects.toEqual(
+      new BadRequestException('Die Kartographie wird bereits finalisiert'),
+    );
+  });
+});

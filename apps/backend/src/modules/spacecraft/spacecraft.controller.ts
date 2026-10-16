@@ -36,7 +36,6 @@ import { ShipColonyContextService } from './ship-colony-context.service';
 import { SpacecraftCommunicationService } from './spacecraft-communication.service';
 import { SpacecraftEngineeringService } from './spacecraft-engineering.service';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
-import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
 import {
@@ -290,7 +289,6 @@ export class SpacecraftController {
     private readonly engineeringService: SpacecraftEngineeringService,
     private readonly destructionService: SpacecraftDestructionService,
     private readonly starmapVisibilityService: StarmapVisibilityService,
-    private readonly astrometryService: SpacecraftAstrometryService,
   ) {}
 
   // Static routes first (before :id)
@@ -478,22 +476,6 @@ export class SpacecraftController {
     return this.spacecraftService.getDetails(id, req.user.sub);
   }
 
-  @Post(':id/astrometry')
-  startAstrometry(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.astrometryService.start(id, req.user.sub);
-  }
-
-  @Get(':id/astrometry')
-  getAstrometryStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.astrometryService.getStatus(id, req.user.sub);
-  }
-
   @Get(':id/energy-flow')
   getEnergyFlow(
     @Param('id', ParseIntPipe) id: number,
@@ -566,14 +548,6 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.getCartography(id, req.user.sub);
-  }
-
-  @Post(':id/cartography/survey')
-  surveyCartography(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.spacecraftService.surveyCurrentSystem(id, req.user.sub);
   }
 
   @Post(':id/sector-scan')

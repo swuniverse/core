@@ -52,7 +52,7 @@ import {
   type SpacecraftEnergyFlowDto,
   type SpacecraftOperatingModeResultDto,
   type ShipCentredMapDto,
-  type SpacecraftCartographyDto,
+  type CartographyPlanDto,
   type SpacecraftLssMode as SpacecraftLssModeDto,
   WsEventType,
   getStuCelestialClass,
@@ -66,7 +66,7 @@ import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
-import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
+import { CartographyPlanService } from './cartography-plan.service';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveContextualCelestialObject,
@@ -115,7 +115,7 @@ export class SpacecraftService {
     private readonly shipClassDiscoveryService: ShipClassDiscoveryService,
     private readonly hyperdriveDisruptionService: HyperdriveDisruptionService,
     private readonly spacecraftAlertService: SpacecraftAlertService,
-    private readonly astrometryService: SpacecraftAstrometryService,
+    private readonly cartographyPlanService: CartographyPlanService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -433,45 +433,38 @@ export class SpacecraftService {
   async getCartography(
     shipId: number,
     userId: number,
-  ): Promise<SpacecraftCartographyDto> {
+  ): Promise<CartographyPlanDto | null> {
     const ship = await this.findOne(shipId, userId);
     const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM') {
-      return {
-        systemId: null,
-        explored: false,
-        progress: 0,
-        surveyedFields: 0,
-        totalFields: 0,
-      };
-    }
-    const [explored, totalFields] = await Promise.all([
-      this.explorationService.isSystemExplored(userId, location.systemId),
-      this.systemFieldRepo.count({
-        where: { starSystemId: location.systemId },
-      }),
-    ]);
-    return {
-      systemId: location.systemId,
-      explored,
-      progress: explored ? 100 : 0,
-      surveyedFields: explored ? totalFields : 0,
-      totalFields,
-    };
+    if (location?.scope !== 'SYSTEM') return null;
+
+    const plan = await this.cartographyPlanService.getPlan(
+      userId,
+      location.systemId,
+    );
+    return plan ? this.toCartographyPlanDto(plan) : null;
   }
 
-  async surveyCurrentSystem(
-    shipId: number,
-    userId: number,
-  ): Promise<SpacecraftCartographyDto> {
-    const ship = await this.findOne(shipId, userId);
-    const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM')
-      throw new BadRequestException('Schiff befindet sich in keinem System');
-    const systems = this.spacecraftRuntimeStateService.initialize(ship);
-    if (systems.LONG_RANGE_SENSORS?.active !== true)
-      throw new BadRequestException('Langstreckensensoren sind nicht aktiv');
-    return this.getCartography(shipId, userId);
+  private toCartographyPlanDto(plan: {
+    id: number;
+    starSystemId: number;
+    status: import('./entities/cartography-plan.entity').CartographyPlanStatus;
+    remainingFieldIds: number[];
+    finalizationStartedAt: Date | null;
+    finalizationTick: number | null;
+    finalizingSpacecraftId: number | null;
+    completedAt: Date | null;
+  }): CartographyPlanDto {
+    return {
+      id: plan.id,
+      starSystemId: plan.starSystemId,
+      status: plan.status,
+      remainingFieldIds: plan.remainingFieldIds,
+      finalizationStartedAt: plan.finalizationStartedAt?.toISOString() ?? null,
+      finalizationTick: plan.finalizationTick,
+      finalizingSpacecraftId: plan.finalizingSpacecraftId,
+      completedAt: plan.completedAt?.toISOString() ?? null,
+    };
   }
 
   async setOperatingMode(
@@ -1345,7 +1338,6 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
-    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1454,7 +1446,6 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
-    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1587,7 +1578,6 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
-    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemeintritt');
 
@@ -1693,7 +1683,6 @@ export class SpacecraftService {
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
-    await this.astrometryService.assertNoActiveJob(ship.id);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemaustritt');
 
@@ -1746,7 +1735,6 @@ export class SpacecraftService {
     targetSystemId: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
-    await this.astrometryService.assertNoActiveJob(ship.id);
     assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
 
     if (
@@ -2254,7 +2242,7 @@ export class SpacecraftService {
         : null,
       information: {
         canSectorScan: systems.SHORT_RANGE_SENSORS?.active === true,
-        cartographyKnown: cartography?.explored === true,
+        cartographyKnown: cartography?.status === 'DONE',
         entrySystem: entryField?.starSystem
           ? {
               id: entryField.starSystem.id,
@@ -2454,8 +2442,7 @@ export class SpacecraftService {
     if (location.scope === 'SYSTEM') {
       const shipX = location.x;
       const shipY = location.y;
-      const starSystem =
-        ship.location.systemField?.starSystem;
+      const starSystem = ship.location.systemField?.starSystem;
 
       const bounds = {
         minX: Math.max(1, shipX - sensorRange),
@@ -2465,65 +2452,65 @@ export class SpacecraftService {
       };
       const [fields, nearbyShips, starObjects, wrecks, shieldedObjectIds] =
         await Promise.all([
-        this.systemFieldRepo
-          .createQueryBuilder('sf')
-          .leftJoinAndSelect('sf.fieldType', 'ft')
-          .leftJoinAndSelect('sf.celestialObject', 'co')
-          .where('sf.starSystemId = :sid', { sid: location.systemId })
-          .andWhere('sf.sx BETWEEN :minX AND :maxX', {
-            minX: bounds.minX,
-            maxX: bounds.maxX,
-          })
-          .andWhere('sf.sy BETWEEN :minY AND :maxY', {
-            minY: bounds.minY,
-            maxY: bounds.maxY,
-          })
-          .getMany(),
-        this.shipRepo
-          .createQueryBuilder('s')
-          .leftJoin('s.user', 'u')
-          .leftJoinAndSelect('s.location', 'sl')
-          .leftJoinAndSelect('sl.systemField', 'ssf')
-          .addSelect(['u.username'])
-          .where('ssf.starSystemId = :sid', { sid: location.systemId })
-          .andWhere('s.id != :shipId', { shipId: ship.id })
-          .andWhere('s.status != :destroyed', {
-            destroyed: SpacecraftStatus.DESTROYED,
-          })
-          .andWhere('ssf.sx BETWEEN :minX AND :maxX', {
-            minX: bounds.minX,
-            maxX: bounds.maxX,
-          })
-          .andWhere('ssf.sy BETWEEN :minY AND :maxY', {
-            minY: bounds.minY,
-            maxY: bounds.maxY,
-          })
-          .getMany(),
-        this.objectRepo
-          .createQueryBuilder('object')
-          .where('object.systemId = :systemId', {
-            systemId: location.systemId,
-          })
-          .andWhere('object.classId IN (:...starClassIds)', {
-            starClassIds: [9001, 9002],
-          })
-          .orderBy('object.classId', 'ASC')
-          .addOrderBy('object.id', 'ASC')
-          .getMany(),
-        this.dataSource
-          .getRepository(SpacecraftWreck)
-          .createQueryBuilder('wreck')
-          .leftJoinAndSelect('wreck.location', 'wl')
-          .leftJoinAndSelect('wl.systemField', 'wsf')
-          .where('wsf.starSystemId = :sid', { sid: location.systemId })
-          .andWhere('wsf.sx BETWEEN :minX AND :maxX', bounds)
-          .andWhere('wsf.sy BETWEEN :minY AND :maxY', bounds)
-          .getMany(),
-        findShieldedColonyObjectIds(
-          this.dataSource.getRepository(Colony),
-          location.systemId,
-        ),
-      ]);
+          this.systemFieldRepo
+            .createQueryBuilder('sf')
+            .leftJoinAndSelect('sf.fieldType', 'ft')
+            .leftJoinAndSelect('sf.celestialObject', 'co')
+            .where('sf.starSystemId = :sid', { sid: location.systemId })
+            .andWhere('sf.sx BETWEEN :minX AND :maxX', {
+              minX: bounds.minX,
+              maxX: bounds.maxX,
+            })
+            .andWhere('sf.sy BETWEEN :minY AND :maxY', {
+              minY: bounds.minY,
+              maxY: bounds.maxY,
+            })
+            .getMany(),
+          this.shipRepo
+            .createQueryBuilder('s')
+            .leftJoin('s.user', 'u')
+            .leftJoinAndSelect('s.location', 'sl')
+            .leftJoinAndSelect('sl.systemField', 'ssf')
+            .addSelect(['u.username'])
+            .where('ssf.starSystemId = :sid', { sid: location.systemId })
+            .andWhere('s.id != :shipId', { shipId: ship.id })
+            .andWhere('s.status != :destroyed', {
+              destroyed: SpacecraftStatus.DESTROYED,
+            })
+            .andWhere('ssf.sx BETWEEN :minX AND :maxX', {
+              minX: bounds.minX,
+              maxX: bounds.maxX,
+            })
+            .andWhere('ssf.sy BETWEEN :minY AND :maxY', {
+              minY: bounds.minY,
+              maxY: bounds.maxY,
+            })
+            .getMany(),
+          this.objectRepo
+            .createQueryBuilder('object')
+            .where('object.systemId = :systemId', {
+              systemId: location.systemId,
+            })
+            .andWhere('object.classId IN (:...starClassIds)', {
+              starClassIds: [9001, 9002],
+            })
+            .orderBy('object.classId', 'ASC')
+            .addOrderBy('object.id', 'ASC')
+            .getMany(),
+          this.dataSource
+            .getRepository(SpacecraftWreck)
+            .createQueryBuilder('wreck')
+            .leftJoinAndSelect('wreck.location', 'wl')
+            .leftJoinAndSelect('wl.systemField', 'wsf')
+            .where('wsf.starSystemId = :sid', { sid: location.systemId })
+            .andWhere('wsf.sx BETWEEN :minX AND :maxX', bounds)
+            .andWhere('wsf.sy BETWEEN :minY AND :maxY', bounds)
+            .getMany(),
+          findShieldedColonyObjectIds(
+            this.dataSource.getRepository(Colony),
+            location.systemId,
+          ),
+        ]);
 
       return {
         mode: 'system' as const,
@@ -2819,13 +2806,7 @@ export class SpacecraftService {
     const cartography =
       shipLocation?.scope === 'SYSTEM'
         ? await this.getCartography(ship.id, ship.userId)
-        : {
-            systemId: null,
-            explored: false,
-            progress: 0,
-            surveyedFields: 0,
-            totalFields: 0,
-          };
+        : null;
 
     return {
       layerId,
@@ -2842,8 +2823,7 @@ export class SpacecraftService {
       adminRegionKey: currentField?.adminRegionKey ?? null,
       systemName:
         shipLocation?.scope === 'SYSTEM'
-          ? (ship.location?.systemField?.starSystem?.name ??
-            null)
+          ? (ship.location?.systemField?.starSystem?.name ?? null)
           : null,
       entrySystem: currentField?.starSystem
         ? {
@@ -2906,7 +2886,6 @@ export class SpacecraftService {
     }
 
     this.spacecraftRuntimeStateService.initialize(ship);
-    await this.astrometryService.processTick(ship);
 
     await this.shipRepo.save(ship);
   }

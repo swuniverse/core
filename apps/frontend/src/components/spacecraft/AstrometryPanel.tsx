@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SpacecraftAstrometryJobDto } from '@swuniverse/shared';
+import type { CartographyPlanDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
 
 type Props = {
@@ -10,42 +10,42 @@ type Props = {
   onError?: (message: string) => void;
 };
 
-const statusText: Record<SpacecraftAstrometryJobDto['status'], string> = {
-  ACTIVE: 'Astrometrie läuft',
-  COMPLETED: 'System erfolgreich kartographiert',
-  ABORTED: 'Astrometrie abgebrochen',
+const statusText: Record<CartographyPlanDto['status'], string> = {
+  PLANNED: 'Messpunkte werden angeflogen',
+  MEASURED: 'Messpunkte abgeschlossen',
+  FINISHING: 'Kartographie wird finalisiert',
+  DONE: 'System erfolgreich kartographiert',
 };
 
+/**
+ * Compatibility presentation surface until the compact cartography dialog lands.
+ * It deliberately exposes no action: planning and finalization belong to later tickets.
+ */
 export function AstrometryPanel({
   shipId,
   refreshKey = 0,
-  onUpdate,
   compact = false,
   onError,
 }: Props) {
-  const [job, setJob] = useState<SpacecraftAstrometryJobDto | null>(null);
+  const [plan, setPlan] = useState<CartographyPlanDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
     setLoading(true);
-    setError(null);
     api
-      .get<SpacecraftAstrometryJobDto | null>(
-        `/spacecraft/${shipId}/astrometry`,
-      )
+      .get<CartographyPlanDto | null>(`/spacecraft/${shipId}/cartography`)
       .then((result) => {
-        if (current) setJob(result);
+        if (current) setPlan(result);
       })
       .catch((err: unknown) => {
-        if (!current) return;
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Astrometriestatus konnte nicht geladen werden',
-        );
+        if (current) {
+          onError?.(
+            err instanceof Error
+              ? err.message
+              : 'Kartographiestatus konnte nicht geladen werden',
+          );
+        }
       })
       .finally(() => {
         if (current) setLoading(false);
@@ -53,86 +53,43 @@ export function AstrometryPanel({
     return () => {
       current = false;
     };
-  }, [shipId, refreshKey]);
+  }, [shipId, refreshKey, onError]);
 
-  async function start() {
-    setPending(true);
-    setError(null);
-    try {
-      const result = await api.post<SpacecraftAstrometryJobDto>(
-        `/spacecraft/${shipId}/astrometry`,
-        {},
-      );
-      setJob(result);
-      await onUpdate();
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Astrometrie konnte nicht gestartet werden';
-      if (onError) onError(message);
-      else setError(message);
-    } finally {
-      setPending(false);
-    }
-  }
-
-  const active = job?.status === 'ACTIVE';
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-bold text-swu-primary">Astrometrie</h2>
-        {active && <span className="text-amber-300">Läuft</span>}
+        <h2 className="font-bold text-swu-primary">Kartographie</h2>
+        {plan?.status === 'FINISHING' && (
+          <span className="text-amber-300">Läuft</span>
+        )}
       </div>
       {loading ? (
         <p className="mt-1 text-swu-muted">Status wird geladen…</p>
-      ) : job ? (
+      ) : plan ? (
         <div className="mt-1 space-y-1">
-          <p
-            className={
-              job.status === 'ABORTED' ? 'text-red-300' : 'text-swu-text'
-            }
-          >
-            {statusText[job.status]}
-          </p>
-          {active && (
+          <p className="text-swu-text">{statusText[plan.status]}</p>
+          {plan.status === 'PLANNED' && (
             <p className="text-swu-muted">
-              Abschluss beim nächsten Haupttick (seit{' '}
-              {new Date(job.startedAt).toLocaleString('de-DE')})
+              Verbleibende Messpunkte: {plan.remainingFieldIds.length}
             </p>
           )}
-          {job.abortReason && (
-            <p className="text-red-300">Grund: {job.abortReason}</p>
+          {plan.status === 'FINISHING' && plan.finalizationTick !== null && (
+            <p className="text-swu-muted">
+              Abschlussfortschritt: {plan.finalizationTick}/3 Hauptticks
+            </p>
           )}
         </div>
       ) : (
-        <p className="mt-1 text-swu-muted">
-          Kartographiert das aktuelle Sternensystem. Kosten: 10 EPS.
-        </p>
-      )}
-      {!active && (
-        <button
-          type="button"
-          disabled={pending || loading}
-          onClick={() => void start()}
-          className="mt-2 border border-swu-accent px-2 py-1 font-bold text-swu-accent hover:bg-swu-accent/10 disabled:opacity-50"
-        >
-          {pending ? 'Starte Astrometrie…' : 'Astrometrie starten'}
-        </button>
-      )}
-      {error && (
-        <p role="alert" className="mt-2 text-red-300">
-          {error}
-        </p>
+        <p className="mt-1 text-swu-muted">Kein Kartographieplan vorhanden.</p>
       )}
     </>
   );
 
-  if (compact) return <div aria-label="Astrometrie">{content}</div>;
+  if (compact) return <div aria-label="Kartographie">{content}</div>;
 
   return (
     <section
-      aria-label="Astrometrie"
+      aria-label="Kartographie"
       className="border border-swu-border bg-swu-surface/50 p-3 text-xs"
     >
       {content}

@@ -63,7 +63,7 @@ import { CargoItem } from './modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './modules/spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './modules/spacecraft/entities/spacecraft-wreck.entity';
-import { SpacecraftAstrometryJob } from './modules/spacecraft/entities/spacecraft-astrometry-job.entity';
+import { CartographyPlan } from './modules/spacecraft/entities/cartography-plan.entity';
 import { ColonyScan } from './modules/spacecraft/entities/colony-scan.entity';
 import { SpacecraftScanResult } from './modules/spacecraft/entities/spacecraft-scan-result.entity';
 import { ShipLogEntry } from './modules/spacecraft/entities/ship-log-entry.entity';
@@ -155,7 +155,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           SpacecraftModuleEntity,
           SpacecraftTorpedoStorage,
           SpacecraftWreck,
-          SpacecraftAstrometryJob,
+          CartographyPlan,
           ColonyScan,
           SpacecraftScanResult,
           ShipLogEntry,
