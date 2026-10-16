@@ -4,7 +4,9 @@
 
 **Blocked by:** 03: Implementiere das Astrometrie-Labor; 04: Plane Systemkartographie und Messpunkte; 06: Finalisiere Kartographie und entdecke Systeme.
 
-**Status:** ready-for-agent
+**Status:** resolved
+
+**Closure:** Implemented by `18e89d77430b678353f0b53e285261059ae701f2` and corrected by `e0354febdd6dc7aeb936ae4dc6923a6616d91c6c`.
 
 - [ ] Der `Informationen`-Kasten zeigt kompakte einzeilige Labor- und Kartographieinformationen, ohne einen neuen separaten Astrometrie-Kasten.
 - [ ] Die Laborzeile schaltet ausschließlich über diesen Kontext zwischen Aktivieren und Deaktivieren; konkrete fachliche Fehler erscheinen im bestehenden STU-artigen Meldungsdialog.
