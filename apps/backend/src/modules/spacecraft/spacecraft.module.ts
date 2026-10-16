@@ -56,6 +56,7 @@ import { PrestigeModule } from '../prestige/prestige.module';
 import { AllianceModule } from '../alliance/alliance.module';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
+import { DatabaseModule } from '../database/database.module';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
     EventsModule,
     PrestigeModule,
     AllianceModule,
+    DatabaseModule,
   ],
   controllers: [SpacecraftController],
   providers: [

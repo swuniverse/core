@@ -51,5 +51,6 @@ import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projectio
   ],
   controllers: [DatabaseController],
   providers: [DatabaseService, ColonyScanProjectionService],
+  exports: [ColonyScanProjectionService],
 })
 export class DatabaseModule {}
