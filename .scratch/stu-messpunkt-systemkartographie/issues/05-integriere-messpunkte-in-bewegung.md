@@ -4,7 +4,9 @@
 
 **Blocked by:** 03: Implementiere das Astrometrie-Labor; 04: Plane Systemkartographie und Messpunkte.
 
-**Status:** ready-for-agent
+**Status:** resolved
+
+> Closed by implementation commit `dc3c879546b015641586b6b3b7c0b1e59a7c00be`.
 
 - [ ] Der postbewegliche In-System-Navigationspfad prüft den Plan des Spielers und verarbeitet genau den erreichten verbleibenden Feldpunkt.
 - [ ] Nur ein eigenes Schiff mit aktivem/intaktem Labor, SRS und LRS darf einen Punkt zählen; Bewegung bleibt ansonsten erlaubt.
