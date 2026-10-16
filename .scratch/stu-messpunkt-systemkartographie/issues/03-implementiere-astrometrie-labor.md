@@ -4,7 +4,9 @@
 
 **Blocked by:** 01: Dokumentiere die Messpunkt-Kartographieentscheidung; 02: Ersetze das alte Astrometrie-Datenmodell.
 
-**Status:** ready-for-agent
+**Status:** resolved
+
+> Closed by implementation commit `5a86fa9af3680ffef512b2fc42c511e801d0e411`.
 
 - [ ] Ausschließlich das vorhandene konkrete Spiel-Datenmodul `Astrometrie-Labor` aktiviert die Fähigkeit; die bestehende Slot-/Schiffskompatibilität bleibt maßgeblich.
 - [ ] Aktivieren kostet 1 EPS und verlangt kein Tarnfeld sowie aktive/intakte Kurz- und Langstreckensensoren.
