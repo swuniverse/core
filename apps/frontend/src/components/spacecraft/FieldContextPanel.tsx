@@ -11,6 +11,7 @@ import { api } from '../../services/api';
 import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
 import { ColonyScanDialog, type ColonyScan } from './ColonyScanDialog';
+import { AstrometryPanel } from './AstrometryPanel';
 
 type SectorScanResult = {
   field: {
@@ -21,7 +22,12 @@ type SectorScanResult = {
     damage: number;
     specialDamage: number;
     effects: string[];
-    celestialObject: { name: string | null; classId: number | null; objectType?: number; shielded?: boolean } | null;
+    celestialObject: {
+      name: string | null;
+      classId: number | null;
+      objectType?: number;
+      shielded?: boolean;
+    } | null;
   };
   discovery?: {
     discovered: boolean;
@@ -34,6 +40,7 @@ export function FieldContextPanel({
   shipId,
   context,
   onUpdate,
+  refreshKey = 0,
   canColonize = false,
   onColonized,
   onLanded,
@@ -41,6 +48,7 @@ export function FieldContextPanel({
   shipId: number;
   context: SpacecraftFieldContextDto | null;
   onUpdate: () => Promise<void> | void;
+  refreshKey?: number;
   canColonize?: boolean;
   onColonized?: (colonyId: number) => void;
   onLanded?: (colonyId: number) => void;
@@ -59,6 +67,10 @@ export function FieldContextPanel({
   } | null>(null);
   const [colonyScan, setColonyScan] = useState<ColonyScan | null>(null);
   const [colonizationOpen, setColonizationOpen] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const [landing, setLanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,9 +84,11 @@ export function FieldContextPanel({
       setScan(result);
       onUpdate();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'Sektor-Scan fehlgeschlagen',
-      );
+      setActionMessage({
+        title: 'Sektor-Scan',
+        message:
+          err instanceof Error ? err.message : 'Sektor-Scan fehlgeschlagen',
+      });
     }
   }
   async function scanColony() {
@@ -88,7 +102,9 @@ export function FieldContextPanel({
       );
       onUpdate();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kolonie-Scan fehlgeschlagen');
+      setError(
+        err instanceof Error ? err.message : 'Kolonie-Scan fehlgeschlagen',
+      );
     }
   }
 
@@ -167,26 +183,29 @@ export function FieldContextPanel({
           </h3>
         </div>
         <div className="grid grid-cols-2">
-          <div className="p-2">
-            {context.information.canSectorScan && (
-              <button
-                type="button"
-                onClick={() => void scanSector()}
-                className="inline-flex items-center gap-1 text-swu-primary hover:text-swu-accent"
-              >
-                <img
-                  src="/assets/buttons/lupe1.png"
-                  alt=""
-                  className="size-5"
-                />
-                Sektor {context.coordinates.x}|{context.coordinates.y} scannen
-              </button>
-            )}
+          <div className="space-y-2 p-2">
+            <button
+              type="button"
+              onClick={() => void scanSector()}
+              className="inline-flex items-center gap-1 text-swu-primary hover:text-swu-accent"
+            >
+              <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
+              Sektor {context.coordinates.x}|{context.coordinates.y} scannen
+            </button>
             {!context.information.cartographyKnown && context.starSystem && (
               <span className="ml-2 text-swu-muted">
                 System nicht kartographiert
               </span>
             )}
+            <AstrometryPanel
+              shipId={shipId}
+              refreshKey={refreshKey}
+              onUpdate={onUpdate}
+              compact
+              onError={(message) =>
+                setActionMessage({ title: 'Astrometrie', message })
+              }
+            />
           </div>
           <div className="border-l border-swu-border p-2">
             {context.starSystem ? (
@@ -246,7 +265,9 @@ export function FieldContextPanel({
           <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1">
             {context.information.colonizationTarget.classId != null && (
               <img
-                src={planetThumbnail(context.information.colonizationTarget.classId)}
+                src={planetThumbnail(
+                  context.information.colonizationTarget.classId,
+                )}
                 alt=""
                 className="size-5 object-contain"
               />
@@ -326,7 +347,11 @@ export function FieldContextPanel({
                 title="Kolonieoberfläche scannen"
                 className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent"
               >
-                <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
+                <img
+                  src="/assets/buttons/lupe1.png"
+                  alt=""
+                  className="size-5"
+                />
                 Scannen
               </button>
             )}
@@ -362,7 +387,21 @@ export function FieldContextPanel({
         />
       )}
       {scan && <SectorScanDialog scan={scan} onClose={() => setScan(null)} />}
-      {colonyScan && <ColonyScanDialog scan={colonyScan} onClose={() => setColonyScan(null)} />}
+      {actionMessage && (
+        <Dialog
+          title={actionMessage.title}
+          label={actionMessage.title}
+          onClose={() => setActionMessage(null)}
+        >
+          <p>{actionMessage.message}</p>
+        </Dialog>
+      )}
+      {colonyScan && (
+        <ColonyScanDialog
+          scan={colonyScan}
+          onClose={() => setColonyScan(null)}
+        />
+      )}
       {message && (
         <Dialog
           title={message.colonyName}
