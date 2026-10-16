@@ -65,4 +65,47 @@ describe('DatabasePage', () => {
     expect(link.getAttribute('href')).toBe('/players/1');
     expect(screen.getByText('Vader')).toBeTruthy();
   });
+
+  it('shows the Sternensysteme catalog with non-openable masked entries', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/systems') {
+        return Promise.resolve({
+          layers: [
+            {
+              id: 7,
+              name: 'Kern',
+              entries: [
+                {
+                  discovered: true,
+                  name: 'Bespin',
+                  cx: 1,
+                  cy: 3,
+                  systemTypeName: 'Gelber Zwerg',
+                  discoveredAt: '2026-10-01T12:00:00.000Z',
+                  systemId: 20,
+                },
+                { discovered: false, name: '???' },
+              ],
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Sternensysteme' }),
+    );
+
+    expect(await screen.findByText('Kern')).toBeTruthy();
+    expect(screen.getByText('Bespin')).toBeTruthy();
+    expect(screen.getAllByText('???')).toHaveLength(3);
+    expect(screen.queryByRole('link', { name: '???' })).toBeNull();
+  });
 });

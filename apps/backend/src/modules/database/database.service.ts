@@ -9,7 +9,10 @@ import { FactionService } from '../faction/faction.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.entity';
-import { SYSTEM_TYPE_DEFINITIONS } from '../starmap/starmap-system-types';
+import {
+  SYSTEM_TYPE_BY_ID,
+  SYSTEM_TYPE_DEFINITIONS,
+} from '../starmap/starmap-system-types';
 import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
@@ -21,6 +24,9 @@ import {
 } from '../starmap/generator/swu-planet-type';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { AllianceService } from '../alliance/alliance.service';
+import { Layer } from '../starmap/entities/layer.entity';
+import { StarSystem } from '../starmap/entities/star-system.entity';
+import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 
 type RankingKey =
   | 'discoveries'
@@ -71,6 +77,12 @@ export class DatabaseService {
     @InjectRepository(CelestialObject)
     private readonly celestialObjectRepo: Repository<CelestialObject>,
     private readonly allianceService: AllianceService,
+    @InjectRepository(Layer)
+    private readonly layerRepo: Repository<Layer>,
+    @InjectRepository(StarSystem)
+    private readonly systemRepo: Repository<StarSystem>,
+    @InjectRepository(SystemExploration)
+    private readonly systemExplorationRepo: Repository<SystemExploration>,
   ) {}
 
   async getOnlinePlayers() {
@@ -219,6 +231,56 @@ export class DatabaseService {
               discoveredAt: null,
             };
       }),
+    };
+  }
+
+  async getSystems(userId: number) {
+    const [layers, systems, discoveries] = await Promise.all([
+      this.layerRepo.find({
+        where: { isHidden: false },
+        order: { id: 'ASC' },
+      }),
+      this.systemRepo.find({
+        order: { layerId: 'ASC', cx: 'ASC', cy: 'ASC', id: 'ASC' },
+      }),
+      this.systemExplorationRepo.find({ where: { userId } }),
+    ]);
+    const discoveredBySystemId = new Map(
+      discoveries.map((discovery) => [discovery.starSystemId, discovery]),
+    );
+    const systemsByLayer = new Map<number, StarSystem[]>();
+    for (const system of [...systems].sort(
+      (left, right) =>
+        left.layerId - right.layerId ||
+        left.cx - right.cx ||
+        left.cy - right.cy ||
+        left.id - right.id,
+    )) {
+      const entries = systemsByLayer.get(system.layerId) ?? [];
+      entries.push(system);
+      systemsByLayer.set(system.layerId, entries);
+    }
+
+    return {
+      layers: layers.map((layer) => ({
+        id: layer.id,
+        name: layer.name,
+        entries: (systemsByLayer.get(layer.id) ?? []).map((system) => {
+          const discovery = discoveredBySystemId.get(system.id);
+          if (!discovery) return { discovered: false, name: '???' };
+          return {
+            discovered: true,
+            systemId: system.id,
+            name: system.name,
+            cx: system.cx,
+            cy: system.cy,
+            systemTypeName:
+              SYSTEM_TYPE_BY_ID[system.systemTypeId]?.name ??
+              `Typ ${system.systemTypeId}`,
+            discoveredAt: discovery.discoveredAt.toISOString(),
+          };
+        }),
+      })),
     };
   }
 
