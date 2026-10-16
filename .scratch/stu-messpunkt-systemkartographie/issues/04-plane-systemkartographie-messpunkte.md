@@ -4,7 +4,9 @@
 
 **Blocked by:** 02: Ersetze das alte Astrometrie-Datenmodell; 03: Implementiere das Astrometrie-Labor.
 
-**Status:** ready-for-agent
+**Status:** resolved
+
+> Closed by implementation commit `d632711caecc5a65bad5c6fe10e0dbb4eab28279`.
 
 - [ ] Planen setzt ein qualifiziertes Schiff im aktuellen Sternensystem, aktive/intakte Labor-/SRS-/LRS-Voraussetzungen und ausreichende Crew voraus.
 - [ ] Bereits persönlich entdeckte Systeme erlauben keinen Plan; bestehende Pläne werden unverändert zurückgegeben und nicht neu gewürfelt.
