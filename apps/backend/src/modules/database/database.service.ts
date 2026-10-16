@@ -28,6 +28,7 @@ import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
+import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 
 type RankingKey =
   | 'discoveries'
@@ -86,6 +87,7 @@ export class DatabaseService {
     private readonly systemExplorationRepo: Repository<SystemExploration>,
     @InjectRepository(SystemField)
     private readonly systemFieldRepo: Repository<SystemField>,
+    private readonly colonyScanProjection: ColonyScanProjectionService,
   ) {}
 
   async getOnlinePlayers() {
@@ -296,7 +298,7 @@ export class DatabaseService {
     ]);
     if (!system || !discovery) throw new NotFoundException('System nicht gefunden');
 
-    const [fields, colonies] = await Promise.all([
+    const [fields, colonies, colonyScans] = await Promise.all([
       this.systemFieldRepo.find({
         where: { starSystemId: systemId },
         relations: ['celestialObject'],
@@ -307,6 +309,7 @@ export class DatabaseService {
         relations: ['user'],
         order: { id: 'ASC' },
       }),
+      this.colonyScanProjection.newestAccessibleForSystem(userId, systemId),
     ]);
     const hasOwnCurrentColony = colonies.some(
       (colony) => colony.userId === userId && !colony.isAbandoned,
@@ -344,6 +347,7 @@ export class DatabaseService {
             }
           : null,
       })),
+      colonyScans,
       colonies: colonies.map((colony) => {
         const isOwn = colony.userId === userId && !colony.isAbandoned;
         const owner =

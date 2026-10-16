@@ -141,6 +141,88 @@ describe('DatabasePage', () => {
     expect(screen.getByText('Gasriese')).toBeTruthy();
   });
 
+  it('shows scan provenance and current-versus-snapshot context in a non-tactical surface dialog', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/systems/20') {
+        return Promise.resolve({
+          id: 20,
+          name: 'Bespin',
+          layerId: 7,
+          cx: 1,
+          cy: 3,
+          systemTypeName: 'Gelber Zwerg',
+          maxX: 22,
+          maxY: 22,
+          fields: [],
+          colonies: [],
+          colonyScans: [
+            {
+              id: 701,
+              colonyId: 12,
+              scanner: { id: 1, username: 'scanner' },
+              provenance: 'OWN',
+              canDelete: true,
+              snapshot: {
+                colonyName: 'Damals Cloud City',
+                owner: { id: 77, username: 'damals-lando' },
+                scannedAt: '2026-10-15T10:00:00.000Z',
+                surface: { width: 2, height: 1, deposits: [], fields: [] },
+              },
+              current: {
+                colony: {
+                  id: 12,
+                  name: 'Heute Tibanna',
+                  owner: { id: 88, username: 'heute-lex' },
+                  isAbandoned: false,
+                  posX: 3,
+                  posY: 4,
+                  celestialObjectId: null,
+                },
+              },
+            },
+            {
+              id: 702,
+              colonyId: 13,
+              scanner: { id: 2, username: 'allianz-scout' },
+              provenance: 'ALLIANCE',
+              canDelete: false,
+              snapshot: {
+                colonyName: 'Allianz-Snapshot',
+                owner: { id: 77, username: 'lando' },
+                scannedAt: '2026-10-14T10:00:00.000Z',
+                surface: { width: 1, height: 1, deposits: [], fields: [] },
+              },
+              current: { colony: null },
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/database/systems/20']}>
+        <Routes>
+          <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Damals Cloud City')).toBeTruthy();
+    expect(screen.getByText('Heute Tibanna')).toBeTruthy();
+    expect(screen.getByText(/Besitzerwechsel seit dem Scan/)).toBeTruthy();
+    expect(screen.getByText('eigener Scan')).toBeTruthy();
+    expect(screen.getByText('Allianz-Scan')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Scan 701 löschen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Scan 702 löschen' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gespeicherte Oberfläche von Damals Cloud City öffnen' }));
+    const dialog = screen.getByRole('dialog', { name: 'Gespeicherte Oberfläche' });
+    expect(dialog).toBeTruthy();
+    expect(dialog.textContent).toMatch(/Informationsansicht.*keine taktischen Aktionen/i);
+    expect(dialog.querySelectorAll('button')).toHaveLength(1);
+  });
+
   it('shows the Sternensysteme catalog with non-openable masked entries', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/database/systems') {

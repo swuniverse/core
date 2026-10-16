@@ -62,6 +62,9 @@ function createService(overrides: Record<string, unknown> = {}) {
     explorationRepo: {
       findOne: jest.fn().mockResolvedValue({ userId: 42, starSystemId: 9 }),
     },
+    scanProjection: {
+      newestAccessibleForSystem: jest.fn().mockResolvedValue([]),
+    },
     fieldRepo: {
       find: jest.fn().mockResolvedValue([
         {
@@ -126,6 +129,7 @@ function createService(overrides: Record<string, unknown> = {}) {
     systemRepo: repos.systemRepo,
     systemExplorationRepo: repos.explorationRepo,
     systemFieldRepo: repos.fieldRepo,
+    colonyScanProjection: repos.scanProjection,
   });
   return { service, repos };
 }
@@ -143,6 +147,7 @@ describe('DatabaseService system detail', () => {
       systemTypeName: expect.any(String),
       maxX: 22,
       maxY: 22,
+      colonyScans: [],
       fields: [
         {
           id: 11,
@@ -223,6 +228,46 @@ describe('DatabaseService system detail', () => {
 
     const detail = await service.getSystemDetail(42, 9);
     expect(detail.colonies[0]).toMatchObject({ canMessageOwner: false });
+  });
+
+  it('includes the reusable newest accessible scan projection with its current colony context', async () => {
+    const scan = {
+      id: 701,
+      colonyId: 202,
+      scanner: { id: 42, username: 'scanner' },
+      provenance: 'OWN',
+      canDelete: true,
+      snapshot: {
+        colonyName: 'Damals Cloud City',
+        owner: { id: 77, username: 'damals-lando' },
+        scannedAt: '2026-10-15T10:00:00.000Z',
+        surface: { width: 2, height: 1, deposits: [], fields: [] },
+      },
+      current: {
+        colony: {
+          id: 202,
+          name: 'Heute Tibanna',
+          owner: { id: 88, username: 'heute-lex' },
+          isAbandoned: false,
+          posX: 3,
+          posY: 4,
+          celestialObjectId: null,
+        },
+      },
+    };
+    const { service, repos } = createService({
+      scanProjection: {
+        newestAccessibleForSystem: jest.fn().mockResolvedValue([scan]),
+      },
+    });
+
+    const detail = await service.getSystemDetail(42, 9);
+
+    expect(repos.scanProjection.newestAccessibleForSystem).toHaveBeenCalledWith(
+      42,
+      9,
+    );
+    expect(detail).toMatchObject({ colonyScans: [scan] });
   });
 
   it('rejects a system detail request without the viewer’s personal discovery', async () => {
