@@ -47,15 +47,6 @@ jest.mock('./spacecraft-crew.service', () => ({
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { SpacecraftStatus } from './entities/spacecraft.entity';
-import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
-import {
-  NoPersonalContactStatusPort,
-  RelationshipResolverService,
-} from '../alliance/relationship-resolver.service';
-import {
-  EMPIRE,
-  InMemoryAllianceStore,
-} from '../alliance/testing/in-memory-alliance.store';
 
 const activeScanner = {
   moduleType: 'Matrixsensoren',
@@ -65,7 +56,7 @@ const activeScanner = {
   isActive: true,
 };
 
-function createService(resolver?: RelationshipResolverService) {
+function createService() {
   const shipRepo = { findOne: jest.fn(), save: jest.fn(async (ship) => ship) };
   const moduleRepo = { find: jest.fn() };
   const objectRepo = { findOneBy: jest.fn() };
@@ -111,15 +102,13 @@ function createService(resolver?: RelationshipResolverService) {
   const explorationService = {
     discoverArea: jest.fn(),
     discoverSystem: jest.fn(),
+    isSystemExplored: jest.fn().mockResolvedValue(false),
   };
   const systemTypeDiscoveryService = { discover: jest.fn() };
   const celestialClassDiscoveryService = { discover: jest.fn() };
-  const stubResolver = {
-    resolve: jest.fn(async (viewerId: number, ownerId: number) => ({
-      mayShareHistoricalScans: viewerId === ownerId,
-    })),
+  const colonyScanProjection = {
+    allAccessible: jest.fn(),
   };
-  const relationshipResolver = resolver ?? stubResolver;
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,
@@ -137,16 +126,16 @@ function createService(resolver?: RelationshipResolverService) {
     explorationService as any,
     systemTypeDiscoveryService as any,
     celestialClassDiscoveryService as any,
-    relationshipResolver as any,
+    colonyScanProjection as any,
   );
   return {
     service,
-    relationshipResolver: stubResolver,
     shipRepo,
     moduleRepo,
     objectRepo,
     colonyRepo,
     colonyScanRepo,
+    colonyScanProjection,
     planetGenerator,
     gameData,
     spacecraftCrewService,
@@ -303,6 +292,43 @@ describe('SpacecraftScanService colonyScan', () => {
     expect(JSON.stringify(result)).not.toContain('torpedoTypeId');
   });
 
+  it('includes a database reference only when the scanner already discovered the system', async () => {
+    const { service, shipRepo, colonyRepo, explorationService } = createService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 10,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      modules: [activeScanner],
+      location: {
+        kind: 'SYSTEM_FIELD',
+        systemField: { starSystemId: 8, sx: 6, sy: 6 },
+      },
+    });
+    colonyRepo.findOne.mockResolvedValue({
+      id: 20,
+      name: 'Fremdwelt',
+      userId: 2,
+      user: { username: 'Leia' },
+      colonyClassId: 3,
+      systemField: { starSystemId: 8, sx: 6, sy: 6 },
+      celestialObject: null,
+      fields: [],
+    });
+
+    explorationService.isSystemExplored.mockResolvedValueOnce(true);
+    await expect(service.colonyScan(10, 1, 20)).resolves.toEqual(
+      expect.objectContaining({
+        systemReference: { id: 8, href: '/database/systems/8' },
+      }),
+    );
+
+    explorationService.isSystemExplored.mockResolvedValueOnce(false);
+    await expect(service.colonyScan(10, 1, 20)).resolves.toEqual(
+      expect.not.objectContaining({ systemReference: expect.anything() }),
+    );
+    expect(explorationService.discoverSystem).not.toHaveBeenCalled();
+  });
+
   it('requires target colony to be inside scanner range', async () => {
     const { service, shipRepo, colonyRepo } = createService();
     shipRepo.findOne.mockResolvedValue({
@@ -369,116 +395,96 @@ describe('SpacecraftScanService colonyScan', () => {
     );
   });
 
-  it('lists the scans of current alliance members only', async () => {
-    const store = new InMemoryAllianceStore();
-    for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Spieler ${id}`);
-    store.addPlayer(5, 'Imperial', EMPIRE.id);
-    const own = store.seedAlliance({ name: 'Own' }, [
-      [1, AllianceRole.PRESIDENT],
-      [2, AllianceRole.NONE],
-    ]);
-    const befriended = store.seedAlliance({ name: 'Befriended' }, [
-      [3, AllianceRole.PRESIDENT],
-    ]);
-    store.seedActiveAllianceRelationship({
-      firstAllianceId: own.id,
-      secondAllianceId: befriended.id,
-      type: AllianceRelationshipType.ALLIANCE,
-      treatAsFriend: true,
-      shareLivePositions: true,
-    });
-    const { service, colonyScanRepo } = createService(
-      new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
-    );
+  it('lists authorized own and alliance scans with projection metadata', async () => {
+    const { service, colonyScanProjection } = createService();
     const scan = (id: number, userId: number, colonyId: number) => ({
       id,
-      userId,
       colonyId,
-      colonyOwnerId: 20 + userId,
-      colonyName: `Kolonie ${colonyId}`,
-      colonyOwnerUsername: `Spieler ${userId}`,
-      starSystemId: 7,
-      celestialObjectId: 30 + colonyId,
-      colonyClassId: 3,
-      surfaceWidth: 4,
-      surfaceHeight: 3,
-      createdAt: new Date(`2026-07-${20 - id}T09:00:00.000Z`),
-      colony: { id: colonyId, userId: 20 + userId },
+      scanner: { id: userId, username: `Spieler ${userId}` },
+      provenance: userId === 1 ? 'OWN' : 'ALLIANCE',
+      canDelete: userId === 1,
+      snapshot: {
+        colonyName: `Kolonie ${colonyId}`,
+        owner: { id: 20 + userId, username: `Spieler ${userId}` },
+        scannedAt: new Date(`2026-07-${20 - id}T09:00:00.000Z`),
+        system: { id: 7, celestialObjectId: 30 + colonyId },
+        colonyClassId: 3,
+        surface: { width: 4, height: 3, deposits: [], fields: [] },
+      },
+      current: { colony: { isAbandoned: false } },
     });
-    const allScans = [
+    colonyScanProjection.allAccessible.mockResolvedValue([
       scan(7, 1, 20),
       scan(6, 2, 21),
-      scan(5, 3, 22),
-      scan(4, 4, 23),
-      scan(3, 5, 24),
-    ];
-    colonyScanRepo.find.mockImplementation(
-      async ({ where }: { where: { userId: { value: number[] } } }) =>
-        allScans.filter((candidate) =>
-          where.userId.value.includes(candidate.userId),
-        ),
-    );
-
-    await expect(service.listColonyScans(1)).resolves.toEqual([
-      expect.objectContaining({ id: 7, colonyId: 20 }),
-      expect.objectContaining({ id: 6, colonyId: 21 }),
     ]);
 
-    await store.deleteMembership(own.id, 2);
     await expect(service.listColonyScans(1)).resolves.toEqual([
-      expect.objectContaining({ id: 7, colonyId: 20 }),
-    ]);
-  });
-
-  it('lists only own scans when alliance data is unavailable', async () => {
-    const store = new InMemoryAllianceStore();
-    store.addPlayer(1, 'Spieler 1');
-    jest
-      .spyOn(store, 'findMembership')
-      .mockRejectedValue(new Error('database unavailable'));
-    const { service, colonyScanRepo } = createService(
-      new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
-    );
-    colonyScanRepo.find.mockResolvedValue([]);
-
-    await service.listColonyScans(1);
-
-    expect(colonyScanRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: expect.objectContaining({ value: [1] }) },
+        id: 7,
+        colonyId: 20,
+        scanner: { id: 1, username: 'Spieler 1' },
+        provenance: 'OWN',
+        canDelete: true,
+        history: [
+          expect.objectContaining({
+            id: 7,
+            scanner: { id: 1, username: 'Spieler 1' },
+            provenance: 'OWN',
+            canDelete: true,
+          }),
+        ],
       }),
-    );
+      expect.objectContaining({
+        id: 6,
+        colonyId: 21,
+        scanner: { id: 2, username: 'Spieler 2' },
+        provenance: 'ALLIANCE',
+        canDelete: false,
+      }),
+    ]);
   });
 
-  it('opens an alliance members scan but denies a friend without scan sharing', async () => {
-    const { service, colonyScanRepo, relationshipResolver } = createService();
-    colonyScanRepo.findOne.mockResolvedValue({
-      id: 7,
-      userId: 2,
-      colonyId: 20,
-      colonyOwnerId: 3,
-      colonyName: 'Alderaan',
-      colonyOwnerUsername: 'Leia',
-      starSystemId: 7,
-      celestialObjectId: 30,
-      colonyClassId: 3,
-      surfaceWidth: 4,
-      surfaceHeight: 3,
-      surfaceFields: [{ index: 0 }],
-      createdAt: new Date('2026-07-16T09:00:00.000Z'),
-      colony: { id: 20, userId: 3 },
-    });
-    relationshipResolver.resolve.mockResolvedValue({
-      mayShareHistoricalScans: true,
-    });
+  it('uses the shared projection for archive visibility', async () => {
+    const { service, colonyScanProjection } = createService();
+    colonyScanProjection.allAccessible.mockResolvedValue([]);
+
+    await expect(service.listColonyScans(1)).resolves.toEqual([]);
+    expect(colonyScanProjection.allAccessible).toHaveBeenCalledWith(1);
+  });
+
+  it('opens an authorized alliance scan with shared provenance metadata and denies inaccessible scans', async () => {
+    const { service, colonyScanProjection } = createService();
+    colonyScanProjection.allAccessible.mockResolvedValue([
+      {
+        id: 7,
+        colonyId: 20,
+        scanner: { id: 2, username: 'Alliance Scout' },
+        provenance: 'ALLIANCE',
+        canDelete: false,
+        snapshot: {
+          colonyName: 'Alderaan',
+          owner: { id: 3, username: 'Leia' },
+          scannedAt: new Date('2026-07-16T09:00:00.000Z'),
+          system: { id: 7, celestialObjectId: 30 },
+          colonyClassId: 3,
+          surface: { width: 4, height: 3, deposits: [], fields: [] },
+        },
+        current: { colony: { isAbandoned: false } },
+      },
+    ]);
 
     await expect(service.getColonyScan(7, 1)).resolves.toEqual(
-      expect.objectContaining({ id: 7, colonyId: 20 }),
+      expect.objectContaining({
+        id: 7,
+        colonyId: 20,
+        scanner: { id: 2, username: 'Alliance Scout' },
+        provenance: 'ALLIANCE',
+        canDelete: false,
+      }),
     );
+    expect(colonyScanProjection.allAccessible).toHaveBeenCalledWith(1);
 
-    relationshipResolver.resolve.mockResolvedValue({
-      mayShareHistoricalScans: false,
-    });
+    colonyScanProjection.allAccessible.mockResolvedValue([]);
     await expect(service.getColonyScan(7, 1)).rejects.toThrow(
       new NotFoundException('Colony scan not found'),
     );

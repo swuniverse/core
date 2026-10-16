@@ -69,6 +69,50 @@ describe('ColonyScanProjectionService', () => {
     );
   });
 
+  it('keeps the complete authorized history for archive consumers', async () => {
+    const newest = {
+      id: 2,
+      colonyId: 10,
+      userId: 1,
+      user: { id: 1, username: 'own-scout' },
+      colonyName: 'Snapshot neu',
+      colonyOwnerId: 12,
+      colonyOwnerUsername: 'damals',
+      starSystemId: 7,
+      celestialObjectId: 99,
+      colonyClassId: 3,
+      surfaceWidth: 2,
+      surfaceHeight: 1,
+      deposits: [],
+      surfaceFields: [],
+      createdAt: new Date('2026-10-16T12:00:00.000Z'),
+      colony: null,
+    };
+    const old = {
+      ...newest,
+      id: 1,
+      colonyName: 'Snapshot alt',
+      createdAt: new Date('2026-10-15T12:00:00.000Z'),
+    };
+    const { service } = createService({ scans: [newest, old] });
+
+    await expect(service.allAccessible(1)).resolves.toEqual([
+      expect.objectContaining({
+        id: 2,
+        provenance: 'OWN',
+        canDelete: true,
+        snapshot: expect.objectContaining({
+          colonyName: 'Snapshot neu',
+          system: { id: 7, celestialObjectId: 99 },
+        }),
+      }),
+      expect.objectContaining({
+        id: 1,
+        snapshot: expect.objectContaining({ colonyName: 'Snapshot alt' }),
+      }),
+    ]);
+  });
+
   it('withdraws foreign scans immediately when current alliance membership no longer authorizes them', async () => {
     const { service, scanRepo } = createService({ sharers: [1] });
 

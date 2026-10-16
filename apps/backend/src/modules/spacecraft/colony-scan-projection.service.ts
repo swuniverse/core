@@ -14,6 +14,8 @@ export type ColonyScanProjection = {
     colonyName: string | null;
     owner: { id: number | null; username: string | null };
     scannedAt: Date;
+    system: { id: number | null; celestialObjectId: number | null };
+    colonyClassId: number | null;
     surface: {
       width: number | null;
       height: number | null;
@@ -62,18 +64,16 @@ export class ColonyScanProjectionService {
     return this.newestAccessible(viewerId, { colonyOwnerId });
   }
 
+  async allAccessible(viewerId: number): Promise<ColonyScanProjection[]> {
+    const scans = await this.accessibleScans(viewerId);
+    return scans.map((scan) => this.toProjection(scan, viewerId));
+  }
+
   private async newestAccessible(
     viewerId: number,
     scope: Partial<Pick<ColonyScan, 'starSystemId' | 'colonyOwnerId'>>,
   ): Promise<ColonyScanProjection[]> {
-    const sharerIds =
-      await this.relationshipResolver.historicalScanSharerIds(viewerId);
-    const scans = await this.scanRepo.find({
-      where: { userId: In(sharerIds), ...scope },
-      relations: ['user', 'colony', 'colony.user'],
-      order: { createdAt: 'DESC', id: 'DESC' },
-    });
-
+    const scans = await this.accessibleScans(viewerId, scope);
     const newestByColony = new Map<number, ColonyScan>();
     for (const scan of scans) {
       if (!newestByColony.has(scan.colonyId)) {
@@ -86,10 +86,21 @@ export class ColonyScanProjectionService {
     );
   }
 
-  private toProjection(
-    scan: ColonyScan,
+  private async accessibleScans(
     viewerId: number,
-  ): ColonyScanProjection {
+    scope: Partial<Pick<ColonyScan, 'starSystemId' | 'colonyOwnerId'>> = {},
+  ): Promise<ColonyScan[]> {
+    const sharerIds = await this.relationshipResolver.historicalScanSharerIds(
+      viewerId,
+    );
+    return this.scanRepo.find({
+      where: { userId: In(sharerIds), ...scope },
+      relations: ['user', 'colony', 'colony.user'],
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+  }
+
+  toProjection(scan: ColonyScan, viewerId: number): ColonyScanProjection {
     const colony = scan.colony;
     return {
       id: scan.id,
@@ -108,6 +119,11 @@ export class ColonyScanProjectionService {
           username: scan.colonyOwnerUsername,
         },
         scannedAt: scan.createdAt,
+        system: {
+          id: scan.starSystemId,
+          celestialObjectId: scan.celestialObjectId,
+        },
+        colonyClassId: scan.colonyClassId,
         surface: {
           width: scan.surfaceWidth,
           height: scan.surfaceHeight,
