@@ -762,6 +762,9 @@ export class SpacecraftService {
     }
     ship.operatingMode = operatingMode;
     ship.runtimeSystems = systems;
+    if (operatingMode === SpacecraftOperatingMode.STANDBY) {
+      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    }
     await this.shipRepo.save(ship);
     return { operatingMode, systems };
   }
@@ -2071,6 +2074,7 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
+    await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     return ship;
   }
 
@@ -2081,6 +2085,7 @@ export class SpacecraftService {
     targetSystemId: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
 
     if (
@@ -3214,6 +3219,9 @@ export class SpacecraftService {
 
   async processTick(ship: Spacecraft): Promise<void> {
     await this.processMovement(ship);
+    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
+      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    }
 
     const [modules, shipClass] = await Promise.all([
       this.moduleRepo.find({ where: { spacecraftId: ship.id } }),
@@ -3250,7 +3258,11 @@ export class SpacecraftService {
     }
 
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
-    if (!this.isAstrometryLaborOperational(ship, systems)) {
+    if (
+      ship.status === SpacecraftStatus.IN_FLIGHT ||
+      ship.status === SpacecraftStatus.DESTROYED ||
+      !this.isAstrometryLaborOperational(ship, systems)
+    ) {
       await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     } else {
       const finalization =
