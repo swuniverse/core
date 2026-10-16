@@ -17,6 +17,12 @@ import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entr
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { AllianceModule } from '../alliance/alliance.module';
+import { Layer } from '../starmap/entities/layer.entity';
+import { StarSystem } from '../starmap/entities/star-system.entity';
+import { SystemExploration } from '../starmap/entities/system-exploration.entity';
+import { SystemField } from '../starmap/entities/system-field.entity';
+import { ColonyScan } from '../spacecraft/entities/colony-scan.entity';
+import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 
 @Module({
   imports: [
@@ -32,6 +38,11 @@ import { AllianceModule } from '../alliance/alliance.module';
       CelestialClassDiscovery,
       CrewAssignment,
       CelestialObject,
+      Layer,
+      StarSystem,
+      SystemExploration,
+      SystemField,
+      ColonyScan,
     ]),
     FactionModule,
     GameDataModule,
@@ -39,6 +50,7 @@ import { AllianceModule } from '../alliance/alliance.module';
     AllianceModule,
   ],
   controllers: [DatabaseController],
-  providers: [DatabaseService],
+  providers: [DatabaseService, ColonyScanProjectionService],
+  exports: [ColonyScanProjectionService],
 })
 export class DatabaseModule {}

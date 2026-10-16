@@ -16,7 +16,7 @@ import { MessagesPage } from '../pages/messages';
 import { HolonetComposePage, HolonetPage } from '../pages/holonet';
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
-import { DatabasePage } from '../pages/database';
+import { DatabasePage, DatabaseSystemDetailPage } from '../pages/database';
 import { PlayerProfilePage } from '../pages/player-profile';
 import { AllianceMemberOverviewPage } from '../pages/alliance-member-overview';
 import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
@@ -148,6 +148,7 @@ export function App() {
             <Route path="/holonet" element={<HolonetPage />} />
             <Route path="/holonet/new" element={<HolonetComposePage />} />
             <Route path="/holonet/:id" element={<HolonetPage />} />
+            <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
             <Route path="/database" element={<DatabasePage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
             <Route path="/alliances" element={<AllianceIndexPage />} />

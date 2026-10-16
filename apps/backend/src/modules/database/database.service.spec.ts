@@ -46,6 +46,11 @@ function createService() {
     gameGateway as any,
     {} as any,
     allianceService as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
   );
   return {
     service,

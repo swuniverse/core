@@ -93,6 +93,94 @@ describe('FieldContextPanel', () => {
     expect(screen.queryByText(/Neuer Datenbankeintrag/)).toBeNull();
   });
 
+  it('links a completed colony scan to an already discovered system without changing the scan result', async () => {
+    apiMocks.post.mockResolvedValue({
+      scanId: 42,
+      colony: {
+        id: 3,
+        name: 'Alpha',
+        owner: { id: 2, username: 'Leia' },
+        colonyClassId: 7,
+        starSystemId: 8,
+        celestialObject: null,
+      },
+      surface: { width: 1, height: 1, deposits: [], fields: [] },
+      intelligence: { level: 'SURFACE_SCAN', redacted: [] },
+      systemReference: { id: 8, href: '/database/systems/8' },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 3, y: 4 },
+            starSystem: null,
+            colony: {
+              id: 3,
+              name: 'Alpha',
+              planetName: 'Alpha',
+              isOwn: false,
+              canLand: false,
+              canSurfaceScan: true,
+            },
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scannen' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Kolonie-Oberflächenscan' })).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Systemdatenbank öffnen' }).getAttribute('href'),
+    ).toBe('/database/systems/8');
+    expect(screen.getByText('Kolonie-Oberflächenscan: Alpha')).toBeTruthy();
+  });
+
+  it('does not render a system link for a scan of an undiscovered system', async () => {
+    apiMocks.post.mockResolvedValue({
+      scanId: 42,
+      colony: {
+        id: 3,
+        name: 'Alpha',
+        owner: { id: 2, username: 'Leia' },
+        colonyClassId: 7,
+        starSystemId: 8,
+        celestialObject: null,
+      },
+      surface: { width: 1, height: 1, deposits: [], fields: [] },
+      intelligence: { level: 'SURFACE_SCAN', redacted: [] },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 3, y: 4 },
+            starSystem: null,
+            colony: {
+              id: 3,
+              name: 'Alpha',
+              planetName: 'Alpha',
+              isOwn: false,
+              canLand: false,
+              canSurfaceScan: true,
+            },
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scannen' }));
+
+    await screen.findByRole('dialog', { name: 'Kolonie-Oberflächenscan' });
+    expect(screen.queryByRole('link', { name: 'Systemdatenbank öffnen' })).toBeNull();
+  });
+
   it('disables system exit when no hyperdrive is available', () => {
     render(
       <MemoryRouter>

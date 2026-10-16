@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type {
   SpacecraftScanPageDto,
   SpacecraftScanResultDto,
@@ -35,7 +35,7 @@ import { findShieldedColonyObjectIds } from './shielded-colonies.util';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { resolveSpacecraftLocation } from './spacecraft-field';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
-import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
+import { ColonyScanProjectionService } from './colony-scan-projection.service';
 
 @Injectable()
 export class SpacecraftScanService {
@@ -65,7 +65,7 @@ export class SpacecraftScanService {
     private readonly explorationService: ExplorationService,
     private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
     private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
-    private readonly relationshipResolver: RelationshipResolverService,
+    private readonly colonyScanProjection: ColonyScanProjectionService,
   ) {}
 
   async sectorScan(
@@ -203,11 +203,6 @@ export class SpacecraftScanService {
       relations: ['fieldType', 'celestialObject'],
     });
     if (!field) throw new NotFoundException('Systemfeld nicht gefunden');
-    await this.explorationService.discoverSystem({
-      userId,
-      starSystemId: location.systemId,
-      source: 'system_field_scan',
-    });
     const shielded = field.celestialObject
       ? (
           await findShieldedColonyObjectIds(this.colonyRepo, location.systemId)
@@ -469,6 +464,7 @@ export class SpacecraftScanService {
       }>;
     };
     intelligence: { level: 'SURFACE_SCAN'; redacted: string[] };
+    systemReference?: { id: number; href: string };
   }> {
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
@@ -570,6 +566,12 @@ export class SpacecraftScanService {
     scan.surfaceHeight = colony.celestialObject?.surfaceHeight ?? null;
     scan.surfaceFields = surfaceFields;
     const savedScan = await this.colonyScanRepo.save(scan);
+    const systemReference = await this.explorationService.isSystemExplored(
+      userId,
+      colonyLocation.systemId,
+    )
+      ? { id: colonyLocation.systemId, href: `/database/systems/${colonyLocation.systemId}` }
+      : undefined;
 
     return {
       scanId: savedScan.id,
@@ -606,6 +608,7 @@ export class SpacecraftScanService {
           'queues',
         ],
       },
+      ...(systemReference ? { systemReference } : {}),
     };
   }
 
@@ -624,35 +627,30 @@ export class SpacecraftScanService {
   }
 
   async listColonyScans(userId: number) {
-    const scans = await this.colonyScanRepo.find({
-      where: {
-        userId: In(
-          await this.relationshipResolver.historicalScanSharerIds(userId),
-        ),
-      },
-      relations: ['colony'],
-      order: { createdAt: 'DESC' },
-    });
+    const scans = await this.colonyScanProjection.allAccessible(userId);
     const latestByColony = new Map<number, (typeof scans)[number]>();
     for (const scan of scans) {
       if (!latestByColony.has(scan.colonyId)) {
         latestByColony.set(scan.colonyId, scan);
       }
     }
-    const toListItem = (scan: ColonyScan) => ({
+    const toListItem = (scan: (typeof scans)[number]) => ({
       id: scan.id,
       colonyId: scan.colonyId,
-      colonyOwnerId: scan.colonyOwnerId,
-      colonyName: scan.colonyName,
-      colonyOwnerUsername: scan.colonyOwnerUsername,
-      starSystemId: scan.starSystemId,
-      celestialObjectId: scan.celestialObjectId,
-      colonyClassId: scan.colonyClassId,
-      surfaceWidth: scan.surfaceWidth,
-      surfaceHeight: scan.surfaceHeight,
-      deposits: scan.deposits ?? [],
-      createdAt: scan.createdAt,
-      abandoned: !!scan.colony && scan.colony.userId !== scan.colonyOwnerId,
+      scanner: scan.scanner,
+      provenance: scan.provenance,
+      canDelete: scan.canDelete,
+      colonyOwnerId: scan.snapshot.owner.id,
+      colonyName: scan.snapshot.colonyName,
+      colonyOwnerUsername: scan.snapshot.owner.username,
+      starSystemId: scan.snapshot.system.id,
+      celestialObjectId: scan.snapshot.system.celestialObjectId,
+      colonyClassId: scan.snapshot.colonyClassId,
+      surfaceWidth: scan.snapshot.surface.width,
+      surfaceHeight: scan.snapshot.surface.height,
+      deposits: scan.snapshot.surface.deposits,
+      createdAt: scan.snapshot.scannedAt,
+      abandoned: scan.current.colony?.isAbandoned ?? false,
     });
     return Array.from(latestByColony.values()).map((scan) => ({
       ...toListItem(scan),
@@ -663,32 +661,28 @@ export class SpacecraftScanService {
   }
 
   async getColonyScan(scanId: number, userId: number) {
-    const scan = await this.colonyScanRepo.findOne({
-      where: { id: scanId },
-      relations: ['colony'],
-    });
-    if (
-      !scan ||
-      (scan.userId !== userId &&
-        !(await this.relationshipResolver.resolve(userId, scan.userId))
-          .mayShareHistoricalScans)
-    )
-      throw new NotFoundException('Colony scan not found');
+    const scan = (await this.colonyScanProjection.allAccessible(userId)).find(
+      (candidate) => candidate.id === scanId,
+    );
+    if (!scan) throw new NotFoundException('Colony scan not found');
     return {
       id: scan.id,
       colonyId: scan.colonyId,
-      colonyOwnerId: scan.colonyOwnerId,
-      colonyName: scan.colonyName,
-      colonyOwnerUsername: scan.colonyOwnerUsername,
-      starSystemId: scan.starSystemId,
-      celestialObjectId: scan.celestialObjectId,
-      colonyClassId: scan.colonyClassId,
-      surfaceWidth: scan.surfaceWidth,
-      surfaceHeight: scan.surfaceHeight,
-      deposits: scan.deposits ?? [],
-      surface: scan.surfaceFields,
-      createdAt: scan.createdAt,
-      abandoned: !!scan.colony && scan.colony.userId !== scan.colonyOwnerId,
+      scanner: scan.scanner,
+      provenance: scan.provenance,
+      canDelete: scan.canDelete,
+      colonyOwnerId: scan.snapshot.owner.id,
+      colonyName: scan.snapshot.colonyName,
+      colonyOwnerUsername: scan.snapshot.owner.username,
+      starSystemId: scan.snapshot.system.id,
+      celestialObjectId: scan.snapshot.system.celestialObjectId,
+      colonyClassId: scan.snapshot.colonyClassId,
+      surfaceWidth: scan.snapshot.surface.width,
+      surfaceHeight: scan.snapshot.surface.height,
+      deposits: scan.snapshot.surface.deposits,
+      surface: scan.snapshot.surface.fields,
+      createdAt: scan.snapshot.scannedAt,
+      abandoned: scan.current.colony?.isAbandoned ?? false,
     };
   }
 

@@ -16,6 +16,7 @@ import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
+import { SpacecraftAstrometryJob } from './entities/spacecraft-astrometry-job.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -54,6 +55,8 @@ import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { AllianceModule } from '../alliance/alliance.module';
 import { StarmapVisibilityService } from './starmap-visibility.service';
+import { SpacecraftAstrometryService } from './spacecraft-astrometry.service';
+import { DatabaseModule } from '../database/database.module';
 
 @Module({
   imports: [
@@ -71,6 +74,7 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
       CargoItem,
       SpacecraftTorpedoStorage,
       SpacecraftWreck,
+      SpacecraftAstrometryJob,
       StarSystem,
       Layer,
       CelestialObject,
@@ -94,6 +98,7 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
     EventsModule,
     PrestigeModule,
     AllianceModule,
+    DatabaseModule,
   ],
   controllers: [SpacecraftController],
   providers: [
@@ -102,6 +107,7 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
     ShipClassDiscoveryService,
     HyperdriveDisruptionService,
     SpacecraftAlertService,
+    SpacecraftAstrometryService,
     TransferService,
     SpacecraftScanService,
     SpacecraftStatsService,
@@ -127,6 +133,7 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
     SpacecraftTorpedoService,
     SpacecraftRuntimeStateService,
     SpacecraftResourceFlowService,
+    SpacecraftAstrometryService,
     SpacecraftDestructionService,
   ],
 })

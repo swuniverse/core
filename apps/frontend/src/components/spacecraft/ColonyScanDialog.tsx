@@ -1,4 +1,7 @@
+import { Link } from 'react-router-dom';
+
 export type ColonyScan = {
+  systemReference?: { id: number; href: string };
   colony: { name: string; owner: { username: string | null } };
   surface: {
     width: number | null;
@@ -55,6 +58,15 @@ export function ColonyScanDialog({
             <p className="text-swu-muted">
               Besitzer: {scan.colony.owner.username ?? 'unbekannt'}
             </p>
+            {scan.systemReference && (
+              <Link
+                to={scan.systemReference.href}
+                aria-label="Systemdatenbank öffnen"
+                className="text-swu-accent hover:text-swu-primary"
+              >
+                Systemdatenbank öffnen
+              </Link>
+            )}
           </div>
           <button type="button" onClick={onClose}>
             Schließen

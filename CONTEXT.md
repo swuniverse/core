@@ -52,6 +52,28 @@ _Avoid_: Profilbanner, Wappen
 Das PNG-Bild einer **Allianz**, das Präsident und Vize hochladen, ersetzen und entfernen. Es erscheint als fester Kopfbereich der Allianzseite und über den Platzhalter `$ALLIANCE_BANNER` in der Beschreibung. Die Allianz hält nur eine Referenz, das Bild liegt hinter einer austauschbaren Asset-Schnittstelle.
 _Avoid_: Logo, Wappen
 
+## Kartographie & Aufklärung
+
+**Systementdeckung**:
+Die persönliche, dauerhafte Kenntnis eines konkreten Sternensystems. Sie entsteht ausschließlich durch erfolgreich abgeschlossene **Astrometrie** eines eigenen Schiffs und berechtigt zum geschützten **Systemeintrag**. Sie wird nicht innerhalb einer **Allianz** geteilt.
+_Avoid_: Systemexploration, Systemfreischaltung
+
+**Astrometrie**:
+Der tickbasierte Schiffsauftrag, mit dem ein eigenes einsatzbereites Schiff sein aktuelles Sternensystem kartographiert. Ein erfolgreicher Abschluss erzeugt für seinen Spieler eine **Systementdeckung**; Abbruch oder Fehlschlag erzeugen keine.
+_Avoid_: Systemscan, Fernkartographie
+
+**Systemeintrag**:
+Die nicht-taktische, geschützte Datenbankansicht eines persönlich entdeckten Sternensystems. Sie zeigt aktuelle Systemdaten und die jeweils neuesten zugänglichen **Kolonie-Scans**, erlaubt aber keine Fernaktionen.
+_Avoid_: Systemdatenbank, Systemprofil
+
+**Kolonie-Scan**:
+Das gespeicherte Aufklärungswissen, das einem Scanner gehört. Der Scanner liest und löscht seinen Scan; aktuelle Mitglieder derselben **Allianz** lesen ihn dynamisch, ohne Eigentum oder Löschrecht zu erhalten. Nach Ende der gemeinsamen Allianzmitgliedschaft entfällt der Zugriff auf fremde Scans sofort.
+_Avoid_: Allianzscan, geteilter Systemscan
+
+**Scan-Snapshot**:
+Der historische Zustand, den ein **Kolonie-Scan** bei seiner Erstellung festhält, insbesondere Scanzeit, damaliger Koloniename, damaliger Besitzer, Oberfläche und Vorkommen. Davon getrennt bleiben aktuelle Systemdaten wie Raster, Feldkoordinaten, Himmelskörperbild, heutige Koloniebelegung und aktuelle Allianzmitgliedschaft.
+_Avoid_: Live-Scan, aktuelle Scandaten
+
 ## Beziehungen
 
 **Feind**:

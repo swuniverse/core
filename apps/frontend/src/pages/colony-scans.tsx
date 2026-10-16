@@ -4,9 +4,12 @@ import { api } from '../services/api';
 interface ColonyScanListItem {
   id: number;
   colonyId: number;
-  colonyOwnerId: number;
+  scanner: { id: number; username: string | null };
+  provenance: 'OWN' | 'ALLIANCE';
+  canDelete: boolean;
+  colonyOwnerId: number | null;
   colonyName: string | null;
-  colonyOwnerUsername: string;
+  colonyOwnerUsername: string | null;
   starSystemId: number | null;
   celestialObjectId: number | null;
   colonyClassId: number | null;
@@ -26,9 +29,12 @@ interface ColonyScanListItem {
 interface ColonyScanDetail {
   id: number;
   colonyId: number;
-  colonyOwnerId: number;
+  scanner: { id: number; username: string | null };
+  provenance: 'OWN' | 'ALLIANCE';
+  canDelete: boolean;
+  colonyOwnerId: number | null;
   colonyName: string | null;
-  colonyOwnerUsername: string;
+  colonyOwnerUsername: string | null;
   starSystemId: number | null;
   celestialObjectId: number | null;
   colonyClassId: number | null;
@@ -193,7 +199,7 @@ export function ColonyScansPage() {
                     {scan.colonyName || `Kolonie #${scan.colonyId}`}
                   </div>
                   <div className="text-swu-muted">
-                    Besitzer: {scan.colonyOwnerUsername}
+                    Besitzer: {scan.colonyOwnerUsername ?? 'unbekannt'}
                   </div>
                   {(scan.history?.length ?? 0) > 1 && (
                     <button
@@ -227,18 +233,23 @@ export function ColonyScansPage() {
                           <div className="text-swu-muted">
                             {new Date(entry.createdAt).toLocaleString('de-DE')}
                           </div>
+                          <div className="text-swu-muted">
+                            {entry.provenance === 'OWN' ? 'Eigener Scan' : 'Allianz-Scan'} · Scanner: {entry.scanner.username ?? `#${entry.scanner.id}`}
+                          </div>
                           {entry.abandoned && (
                             <div className="text-yellow-400">
                               Besitzstand geändert
                             </div>
                           )}
                         </button>
-                        <button
-                          className="mt-1 text-[11px] text-red-400 hover:text-red-300"
-                          onClick={() => void removeScan(entry.id)}
-                        >
-                          Löschen
-                        </button>
+                        {entry.canDelete && (
+                          <button
+                            className="mt-1 text-[11px] text-red-400 hover:text-red-300"
+                            onClick={() => void removeScan(entry.id)}
+                          >
+                            Löschen
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -259,10 +270,13 @@ export function ColonyScansPage() {
                 {selected.colonyName || `Kolonie #${selected.colonyId}`}
               </div>
               <div className="text-xs text-swu-muted">
-                Besitzer: {selected.colonyOwnerUsername}
+                Besitzer: {selected.colonyOwnerUsername ?? 'unbekannt'}
               </div>
               <div className="text-xs text-swu-muted">
                 Scan: {new Date(selected.createdAt).toLocaleString('de-DE')}
+              </div>
+              <div className="text-xs text-swu-muted">
+                {selected.provenance === 'OWN' ? 'Eigener Scan' : 'Allianz-Scan'} · Scanner: {selected.scanner.username ?? `#${selected.scanner.id}`}
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded border border-swu-border px-2 py-1 text-swu-muted">

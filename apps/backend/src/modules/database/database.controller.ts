@@ -36,8 +36,11 @@ export class DatabaseController {
   @Get('settlers/:id')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getSettler(@Param('id', ParseIntPipe) id: number) {
-    return this.databaseService.getSettler(id);
+  getSettler(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.databaseService.getSettler(req.user.sub, id);
   }
 
   @Get('system-types')
@@ -45,6 +48,23 @@ export class DatabaseController {
   @UseGuards(AuthGuard('jwt'))
   getSystemTypes(@Request() req: { user: { sub: number } }) {
     return this.databaseService.getSystemTypes(req.user.sub);
+  }
+
+  @Get('systems/:id')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getSystemDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.databaseService.getSystemDetail(req.user.sub, id);
+  }
+
+  @Get('systems')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getSystems(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getSystems(req.user.sub);
   }
 
   @Get('ship-classes')
