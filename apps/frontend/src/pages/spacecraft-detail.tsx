@@ -154,6 +154,7 @@ export function SpacecraftDetailPage() {
               navigate(`/colonies?selected=${colonyId}`)
             }
             onLanded={(colonyId) => navigate(`/colonies?selected=${colonyId}`)}
+            runtimeSystems={ship.runtimeSystems}
           />
         </div>
         <div>

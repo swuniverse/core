@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { SpacecraftFieldContextDto } from '@swuniverse/shared';
+import type {
+  CartographyPlanDto,
+  SpacecraftFieldContextDto,
+  SpacecraftRuntimeSystemsDto,
+} from '@swuniverse/shared';
 import { PlanetImg } from '../PlanetImg';
 import {
   planetThumbnail,
@@ -42,6 +46,7 @@ export function FieldContextPanel({
   canColonize = false,
   onColonized,
   onLanded,
+  runtimeSystems,
 }: {
   shipId: number;
   context: SpacecraftFieldContextDto | null;
@@ -49,6 +54,7 @@ export function FieldContextPanel({
   canColonize?: boolean;
   onColonized?: (colonyId: number) => void;
   onLanded?: (colonyId: number) => void;
+  runtimeSystems?: SpacecraftRuntimeSystemsDto;
 }) {
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
     null,
@@ -70,6 +76,99 @@ export function FieldContextPanel({
   } | null>(null);
   const [landing, setLanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cartography, setCartography] = useState<CartographyPlanDto | null>(
+    null,
+  );
+  const [cartographyLoading, setCartographyLoading] = useState(false);
+  const [cartographyDialog, setCartographyDialog] = useState<
+    'INSPECT' | 'PLAN' | 'FINALIZE' | null
+  >(null);
+
+  useEffect(() => {
+    if (!context?.starSystem) {
+      setCartography(null);
+      return;
+    }
+    let current = true;
+    setCartographyLoading(true);
+    void api
+      .get<CartographyPlanDto | null>(`/spacecraft/${shipId}/cartography`)
+      .then((plan) => {
+        if (current) setCartography(plan);
+      })
+      .catch((err: unknown) => {
+        if (current)
+          setActionMessage({
+            title: 'Kartographie',
+            message:
+              err instanceof Error
+                ? err.message
+                : 'Kartographiestatus konnte nicht geladen werden',
+          });
+      })
+      .finally(() => {
+        if (current) setCartographyLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [shipId, context?.starSystem?.id]);
+
+  const laboratory = runtimeSystems?.ASTROMETRY_LAB;
+  const localQualified =
+    cartography?.status === 'MEASURED'
+      ? cartography.actions.finalize?.available === true
+      : cartography?.actions.plan.available === true;
+
+  async function toggleLaboratory() {
+    const active = laboratory?.active === true;
+    if (!active && !laboratory) return;
+    try {
+      if (active && cartography?.status === 'FINISHING') {
+        setActionMessage({
+          title: 'Astrometrie-Labor',
+          message:
+            'Das Deaktivieren setzt die laufende Kartographie-Finalisierung zurück.',
+        });
+      }
+      await api.patch(`/spacecraft/${shipId}/systems/ASTROMETRY_LAB`, {
+        active: !active,
+      });
+      await onUpdate();
+    } catch (err: unknown) {
+      setActionMessage({
+        title: 'Astrometrie',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Astrometrie-Labor konnte nicht geschaltet werden',
+      });
+    }
+  }
+
+  async function confirmCartographyAction() {
+    if (cartographyDialog !== 'PLAN' && cartographyDialog !== 'FINALIZE')
+      return;
+    const finalizing = cartographyDialog === 'FINALIZE';
+    try {
+      const plan = await api.post<CartographyPlanDto>(
+        `/spacecraft/${shipId}/cartography${finalizing ? '/finalize' : ''}`,
+        {},
+      );
+      setCartography(plan);
+      setCartographyDialog(null);
+      await onUpdate();
+    } catch (err: unknown) {
+      setCartographyDialog(null);
+      setActionMessage({
+        title: 'Kartographie',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Kartographieaktion fehlgeschlagen',
+      });
+    }
+  }
 
   async function scanSector() {
     setError(null);
@@ -189,10 +288,27 @@ export function FieldContextPanel({
               <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
               Sektor {context.coordinates.x}|{context.coordinates.y} scannen
             </button>
-            {!context.information.cartographyKnown && context.starSystem && (
-              <span className="ml-2 text-swu-muted">
-                System nicht kartographiert
-              </span>
+            {laboratory && (
+              <div className="flex items-center gap-2 text-swu-muted">
+                <span>Astrometrie-Labor:</span>
+                <button
+                  type="button"
+                  onClick={() => void toggleLaboratory()}
+                  className="text-swu-primary hover:text-swu-accent"
+                >
+                  {laboratory.active ? 'deaktivieren' : 'aktivieren'}
+                </button>
+              </div>
+            )}
+            {context.starSystem && (
+              <CartographyStatus
+                plan={cartography}
+                loading={cartographyLoading}
+                qualified={localQualified}
+                onInspect={() => setCartographyDialog('INSPECT')}
+                onPlan={() => setCartographyDialog('PLAN')}
+                onFinalize={() => setCartographyDialog('FINALIZE')}
+              />
             )}
           </div>
           <div className="border-l border-swu-border p-2">
@@ -374,6 +490,14 @@ export function FieldContextPanel({
           onColonized={(colonyId) => onColonized?.(colonyId)}
         />
       )}
+      {cartographyDialog && (
+        <CartographyDialog
+          mode={cartographyDialog}
+          plan={cartography}
+          onClose={() => setCartographyDialog(null)}
+          onConfirm={() => void confirmCartographyAction()}
+        />
+      )}
       {scan && <SectorScanDialog scan={scan} onClose={() => setScan(null)} />}
       {actionMessage && (
         <Dialog
@@ -417,6 +541,139 @@ export function FieldContextPanel({
         />
       )}
     </section>
+  );
+}
+
+function CartographyStatus({
+  plan,
+  loading,
+  qualified,
+  onInspect,
+  onPlan,
+  onFinalize,
+}: {
+  plan: CartographyPlanDto | null;
+  loading: boolean;
+  qualified: boolean;
+  onInspect: () => void;
+  onPlan: () => void;
+  onFinalize: () => void;
+}) {
+  if (loading)
+    return <span className="text-swu-muted">Kartographie wird geladen…</span>;
+  if (!plan) {
+    return qualified ? (
+      <button
+        type="button"
+        onClick={onPlan}
+        className="text-swu-primary hover:text-swu-accent"
+      >
+        Kartographie planen
+      </button>
+    ) : (
+      <span className="text-swu-muted">System nicht kartographiert</span>
+    );
+  }
+  if (plan.status === 'PLANNED')
+    return (
+      <div className="flex flex-wrap gap-x-2 text-swu-muted">
+        <span>Kartographierung ist geplant</span>
+        <button
+          type="button"
+          onClick={onInspect}
+          className="text-swu-primary hover:text-swu-accent"
+        >
+          Verbleibende Messpunkte: {plan.remainingFieldIds.length}
+        </button>
+      </div>
+    );
+  if (plan.status === 'MEASURED')
+    return (
+      <div className="flex flex-wrap gap-x-2">
+        <span className="text-swu-muted">Messpunkte abgeschlossen</span>
+        {qualified && (
+          <button
+            type="button"
+            onClick={onFinalize}
+            className="text-swu-primary hover:text-swu-accent"
+          >
+            Kartographie finalisieren
+          </button>
+        )}
+      </div>
+    );
+  if (plan.status === 'FINISHING')
+    return (
+      <span className="text-swu-muted">
+        Kartographie wird finalisiert ({plan.finalizationTick ?? 0}/3
+        Hauptticks)
+      </span>
+    );
+  return (
+    <span className="text-swu-primary">System erfolgreich kartographiert</span>
+  );
+}
+
+function CartographyDialog({
+  mode,
+  plan,
+  onClose,
+  onConfirm,
+}: {
+  mode: 'INSPECT' | 'PLAN' | 'FINALIZE';
+  plan: CartographyPlanDto | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const title =
+    mode === 'INSPECT'
+      ? 'Kartographie-Messpunkte'
+      : mode === 'PLAN'
+        ? 'Kartographie planen'
+        : 'Kartographie finalisieren';
+  return (
+    <Dialog title={title} label={title} onClose={onClose}>
+      {mode === 'INSPECT' ? (
+        <>
+          <p className="mb-2 text-swu-muted">
+            Verbleibende Messpunkte (nur Anzeige)
+          </p>
+          <div
+            aria-label="Verbleibende Messpunkte"
+            className="grid grid-cols-5 gap-1"
+          >
+            {plan?.remainingFieldIds.map((fieldId) => (
+              <span
+                key={fieldId}
+                className="border border-swu-border px-1 py-0.5 text-center"
+              >
+                {fieldId}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <p>
+            {mode === 'PLAN'
+              ? 'Kartographie für dieses System planen?'
+              : 'Kartographie jetzt für 15 EPS finalisieren?'}
+          </p>
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" onClick={onClose}>
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="text-swu-primary"
+            >
+              Bestätigen
+            </button>
+          </div>
+        </>
+      )}
+    </Dialog>
   );
 }
 

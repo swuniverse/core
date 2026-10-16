@@ -450,7 +450,7 @@ export class SpacecraftService {
     return plan
       ? this.toCartographyPlanDto(
           plan,
-          await this.getCartographyPlanAction(ship),
+          await this.getCartographyPlanActions(ship, plan.status),
         )
       : null;
   }
@@ -476,8 +476,12 @@ export class SpacecraftService {
         'Kartographie-Finalisierung erfordert ein untätiges Schiff',
       );
     }
-    const action = await this.getCartographyPlanAction(ship);
-    if (!action.available) throw new BadRequestException(action.reason!);
+    const actions = await this.getCartographyPlanActions(
+      ship,
+      CartographyPlanStatus.MEASURED,
+    );
+    if (!actions.finalize.available)
+      throw new BadRequestException(actions.finalize.reason!);
     if (ship.energy < 15) throw new BadRequestException('Nicht genug EPS');
 
     const plan = await this.cartographyPlanService.startFinalization(
@@ -493,7 +497,7 @@ export class SpacecraftService {
       'Die Finalisierung der Systemkartographie hat begonnen.',
       `cartography-finalization-started:${userId}:${location.systemId}`,
     );
-    return this.toCartographyPlanDto(plan, action);
+    return this.toCartographyPlanDto(plan, actions);
   }
 
   async createCartographyPlan(
@@ -515,7 +519,7 @@ export class SpacecraftService {
     if (existing) {
       return this.toCartographyPlanDto(
         existing,
-        await this.getCartographyPlanAction(ship),
+        await this.getCartographyPlanActions(ship, existing.status),
       );
     }
 
@@ -527,8 +531,12 @@ export class SpacecraftService {
       );
     }
 
-    const action = await this.getCartographyPlanAction(ship);
-    if (!action.available) throw new BadRequestException(action.reason!);
+    const actions = await this.getCartographyPlanActions(
+      ship,
+      CartographyPlanStatus.PLANNED,
+    );
+    if (!actions.plan.available)
+      throw new BadRequestException(actions.plan.reason!);
 
     const fields = await this.systemFieldRepo.find({
       where: { starSystemId: location.systemId },
@@ -551,7 +559,7 @@ export class SpacecraftService {
     );
     ship.lssMode = SpacecraftLssMode.CARTOGRAPHY;
     await this.shipRepo.save(ship);
-    return this.toCartographyPlanDto(plan, action);
+    return this.toCartographyPlanDto(plan, actions);
   }
 
   private async getCartographyPlanAction(
@@ -653,6 +661,32 @@ export class SpacecraftService {
     return shuffled;
   }
 
+  private async getCartographyPlanActions(
+    ship: Spacecraft,
+    status: CartographyPlanStatus,
+  ): Promise<{
+    plan: { available: boolean; reason: string | null };
+    finalize: { available: boolean; reason: string | null };
+  }> {
+    const action = await this.getCartographyPlanAction(ship);
+    return {
+      plan:
+        status === CartographyPlanStatus.PLANNED
+          ? action
+          : { available: false, reason: 'Kartographieplan besteht bereits' },
+      finalize:
+        status === CartographyPlanStatus.MEASURED
+          ? action
+          : {
+              available: false,
+              reason:
+                status === CartographyPlanStatus.FINISHING
+                  ? 'Die Kartographie wird bereits finalisiert'
+                  : 'Die Kartographie kann noch nicht finalisiert werden',
+            },
+    };
+  }
+
   private toCartographyPlanDto(
     plan: {
       id: number;
@@ -664,7 +698,10 @@ export class SpacecraftService {
       finalizingSpacecraftId: number | null;
       completedAt: Date | null;
     },
-    planAction: { available: boolean; reason: string | null },
+    actions: {
+      plan: { available: boolean; reason: string | null };
+      finalize: { available: boolean; reason: string | null };
+    },
   ): CartographyPlanDto {
     return {
       id: plan.id,
@@ -675,7 +712,7 @@ export class SpacecraftService {
       finalizationTick: plan.finalizationTick,
       finalizingSpacecraftId: plan.finalizingSpacecraftId,
       completedAt: plan.completedAt?.toISOString() ?? null,
-      actions: { plan: planAction },
+      actions,
     };
   }
 
@@ -2521,6 +2558,7 @@ export class SpacecraftService {
             canSurfaceScan,
           }
         : null,
+      runtimeSystems: systems,
       information: {
         canSectorScan: systems.SHORT_RANGE_SENSORS?.active === true,
         cartographyKnown: cartography?.status === 'DONE',
@@ -3187,9 +3225,8 @@ export class SpacecraftService {
     if (!this.isAstrometryLaborOperational(ship, systems)) {
       await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     } else {
-      const finalization = await this.cartographyPlanService.progressFinalization(
-        ship.id,
-      );
+      const finalization =
+        await this.cartographyPlanService.progressFinalization(ship.id);
       if (finalization.completed) {
         await this.prestigeService.change(
           finalization.userId!,

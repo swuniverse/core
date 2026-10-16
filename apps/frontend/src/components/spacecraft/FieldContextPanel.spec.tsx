@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FieldContextPanel } from './FieldContextPanel';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+}));
 vi.mock('../../services/api', () => ({
   api: apiMocks,
 }));
@@ -11,7 +15,91 @@ describe('FieldContextPanel', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
+    apiMocks.patch.mockReset();
     apiMocks.get.mockResolvedValue(null);
+  });
+
+  it('shows cartography controls only for a qualified local ship', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'MEASURED',
+      remainingFieldIds: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: true, reason: null },
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          runtimeSystems={{
+            ASTROMETRY_LAB: { active: true, integrity: 100, cooldown: 0 },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('button', { name: 'Kartographie finalisieren' }),
+    ).toBeTruthy();
+    expect(screen.getByText('Messpunkte abgeschlossen')).toBeTruthy();
+  });
+
+  it('keeps shared cartography status read-only for an unqualified ship', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'PLANNED',
+      remainingFieldIds: [10, 11],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      actions: { plan: { available: false, reason: 'Labor nicht aktiv' } },
+    });
+
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={2}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          runtimeSystems={{}}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Verbleibende Messpunkte: 2')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Kartographie/ })).toBeNull();
   });
 
   it('keeps sector scan available and shows the server rejection in a dialog', async () => {
@@ -61,14 +149,18 @@ describe('FieldContextPanel', () => {
             colony: null,
             information: { canSectorScan: false, cartographyKnown: true },
           }}
+          runtimeSystems={{
+            ASTROMETRY_LAB: { active: false, integrity: 100, cooldown: 0 },
+          }}
           onUpdate={vi.fn()}
         />
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Astrometrie starten' }),
+    apiMocks.patch.mockRejectedValue(
+      new Error('Langstreckensensoren sind nicht aktiv'),
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'aktivieren' }));
 
     expect(
       await screen.findByRole('dialog', { name: 'Astrometrie' }),

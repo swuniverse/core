@@ -35,7 +35,10 @@ export type SpacecraftRuntimeSystemsDto = Partial<
 export type SpacecraftOperatingMode = 'NORMAL' | 'STANDBY';
 export type SpacecraftAlertState = 'GREEN' | 'YELLOW' | 'RED';
 export type SpacecraftLssMode =
-  'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
+  | 'DISABLED'
+  | 'TERRITORY'
+  | 'IMPASSABLE'
+  | 'CARTOGRAPHY';
 
 export interface SpacecraftActionAvailabilityDto {
   available: boolean;
@@ -64,7 +67,10 @@ export interface SpacecraftEffectiveStatsDto {
 }
 
 export type CartographyPlanStatus =
-  'PLANNED' | 'MEASURED' | 'FINISHING' | 'DONE';
+  | 'PLANNED'
+  | 'MEASURED'
+  | 'FINISHING'
+  | 'DONE';
 
 export interface CartographyActionAvailabilityDto {
   available: boolean;
@@ -82,6 +88,7 @@ export interface CartographyPlanDto {
   completedAt: string | null;
   actions: {
     plan: CartographyActionAvailabilityDto;
+    finalize: CartographyActionAvailabilityDto;
   };
 }
 
@@ -427,6 +434,7 @@ export interface SpacecraftFieldContextDto {
     canLand: boolean;
     canSurfaceScan: boolean;
   } | null;
+  runtimeSystems?: SpacecraftRuntimeSystemsDto;
   information: {
     canSectorScan: boolean;
     cartographyKnown: boolean;
