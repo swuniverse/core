@@ -212,6 +212,42 @@ describe('CartographyPlanService', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps already reached points but invalidates a plan when its remaining fields disappear', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [7, 8],
+    };
+    const save = jest.fn(async (value) => value);
+    const repo = {
+      manager: {
+        transaction: jest.fn(async (work) =>
+          work({
+            getRepository: (entity: { name: string }) =>
+              entity.name === 'SystemExploration'
+                ? { findOne: jest.fn(async () => null) }
+                : entity.name === 'SystemField'
+                  ? { find: jest.fn(async () => [{ id: 8 }]) }
+                  : { findOne: jest.fn(async () => plan), save },
+          }),
+        ),
+      },
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.claimArrivedField(11, 42, 99)).resolves.toEqual({
+      claimed: false,
+      completed: false,
+    });
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.PLANNED,
+      remainingFieldIds: [8],
+    });
+    expect(save).toHaveBeenCalledWith(plan);
+  });
+
   it('allows exactly one transition from measured to finishing', async () => {
     const plan = {
       id: 3,

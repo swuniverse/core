@@ -215,6 +215,23 @@ describe('spacecraft core detail controls', () => {
     expect(ship.operatingMode).toBe('STANDBY');
   });
 
+  it('resets a running cartography finalization when standby powers down its laboratory', async () => {
+    const { service, ship } = createService();
+    ship.runtimeSystems = {
+      ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 },
+      SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+      LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+      LIFE_SUPPORT: { active: true, cooldown: 0, integrity: 100 },
+    };
+
+    await service.setOperatingMode(2, 1, SpacecraftOperatingMode.STANDBY);
+
+    expect(
+      (service as any).cartographyPlanService.resetFinishingForSpacecraft,
+    ).toHaveBeenCalledWith(2);
+    expect((ship.runtimeSystems as any).ASTROMETRY_LAB.active).toBe(false);
+  });
+
   it('changes alert state without changing active systems', async () => {
     const { service, ship, shipRepo } = createService();
     (ship.runtimeSystems as Record<string, any>).LONG_RANGE_SENSORS = {
