@@ -82,6 +82,7 @@ export interface CartographyPlanDto {
   starSystemId: number;
   status: CartographyPlanStatus;
   remainingFieldIds: number[];
+  remainingCoordinates: Array<{ x: number; y: number }>;
   finalizationStartedAt: string | null;
   finalizationTick: number | null;
   finalizingSpacecraftId: number | null;

@@ -25,6 +25,7 @@ describe('FieldContextPanel', () => {
       starSystemId: 8,
       status: 'MEASURED',
       remainingFieldIds: [],
+      remainingCoordinates: [],
       finalizationStartedAt: null,
       finalizationTick: null,
       finalizingSpacecraftId: null,
@@ -70,6 +71,10 @@ describe('FieldContextPanel', () => {
       starSystemId: 8,
       status: 'PLANNED',
       remainingFieldIds: [10, 11],
+      remainingCoordinates: [
+        { x: 4, y: 7 },
+        { x: 8, y: 2 },
+      ],
       finalizationStartedAt: null,
       finalizationTick: null,
       finalizingSpacecraftId: null,
@@ -100,6 +105,180 @@ describe('FieldContextPanel', () => {
 
     expect(await screen.findByText('Verbleibende Messpunkte: 2')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Kartographie/ })).toBeNull();
+  });
+
+  it('shows an inspect-only coordinate raster without making a remote mutation', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'PLANNED',
+      remainingFieldIds: [10, 11],
+      remainingCoordinates: [
+        { x: 4, y: 7 },
+        { x: 8, y: 2 },
+      ],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Verbleibende Messpunkte: 2' }),
+    );
+    expect(
+      await screen.findByRole('dialog', { name: 'Kartographie-Messpunkte' }),
+    ).toBeTruthy();
+    expect(screen.getByText('4|7')).toBeTruthy();
+    expect(screen.getByText('8|2')).toBeTruthy();
+    expect(apiMocks.post).not.toHaveBeenCalled();
+  });
+
+  it('requires confirmation before planning and sends the request only after confirmation', async () => {
+    apiMocks.get.mockResolvedValue(null);
+    apiMocks.post.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'PLANNED',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Kartographie planen' }),
+    );
+    expect(apiMocks.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
+    expect(apiMocks.post).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Kartographie planen' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/1/cartography',
+        {},
+      ),
+    );
+  });
+
+  it('confirms finalization and displays finalization and done statuses', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'MEASURED',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: true, reason: null },
+      },
+    });
+    apiMocks.post.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'FINISHING',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: '2026-10-16T10:00:00.000Z',
+      finalizationTick: 1,
+      finalizingSpacecraftId: 1,
+      completedAt: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Kartographie finalisieren' }),
+    );
+    expect(apiMocks.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/1/cartography/finalize',
+        {},
+      ),
+    );
+    expect(
+      await screen.findByText(
+        /Kartographie wird finalisiert \(1\/3 Hauptticks\)/,
+      ),
+    ).toBeTruthy();
   });
 
   it('keeps sector scan available and shows the server rejection in a dialog', async () => {

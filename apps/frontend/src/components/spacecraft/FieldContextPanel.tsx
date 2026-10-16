@@ -116,9 +116,9 @@ export function FieldContextPanel({
 
   const laboratory = runtimeSystems?.ASTROMETRY_LAB;
   const localQualified =
-    cartography?.status === 'MEASURED'
-      ? cartography.actions.finalize?.available === true
-      : cartography?.actions.plan.available === true;
+    cartography == null || cartography.status === 'MEASURED'
+      ? cartography?.actions.finalize?.available !== false
+      : cartography.actions.plan.available === true;
 
   async function toggleLaboratory() {
     const active = laboratory?.active === true;
@@ -128,7 +128,7 @@ export function FieldContextPanel({
         setActionMessage({
           title: 'Astrometrie-Labor',
           message:
-            'Das Deaktivieren setzt die laufende Kartographie-Finalisierung zurück.',
+            'Das Labor wird sofort deaktiviert. Die laufende Kartographie-Finalisierung wird dadurch auf Messpunkte abgeschlossen zurückgesetzt.',
         });
       }
       await api.patch(`/spacecraft/${shipId}/systems/ASTROMETRY_LAB`, {
@@ -642,12 +642,12 @@ function CartographyDialog({
             aria-label="Verbleibende Messpunkte"
             className="grid grid-cols-5 gap-1"
           >
-            {plan?.remainingFieldIds.map((fieldId) => (
+            {plan?.remainingCoordinates.map(({ x, y }) => (
               <span
-                key={fieldId}
+                key={`${x}:${y}`}
                 className="border border-swu-border px-1 py-0.5 text-center"
               >
-                {fieldId}
+                {x}|{y}
               </span>
             ))}
           </div>

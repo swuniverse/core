@@ -451,6 +451,7 @@ export class SpacecraftService {
       ? this.toCartographyPlanDto(
           plan,
           await this.getCartographyPlanActions(ship, plan.status),
+          await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
         )
       : null;
   }
@@ -497,7 +498,11 @@ export class SpacecraftService {
       'Die Finalisierung der Systemkartographie hat begonnen.',
       `cartography-finalization-started:${userId}:${location.systemId}`,
     );
-    return this.toCartographyPlanDto(plan, actions);
+    return this.toCartographyPlanDto(
+      plan,
+      actions,
+      await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
+    );
   }
 
   async createCartographyPlan(
@@ -520,6 +525,9 @@ export class SpacecraftService {
       return this.toCartographyPlanDto(
         existing,
         await this.getCartographyPlanActions(ship, existing.status),
+        await this.getRemainingCartographyCoordinates(
+          existing.remainingFieldIds,
+        ),
       );
     }
 
@@ -559,7 +567,11 @@ export class SpacecraftService {
     );
     ship.lssMode = SpacecraftLssMode.CARTOGRAPHY;
     await this.shipRepo.save(ship);
-    return this.toCartographyPlanDto(plan, actions);
+    return this.toCartographyPlanDto(
+      plan,
+      actions,
+      await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
+    );
   }
 
   private async getCartographyPlanAction(
@@ -687,6 +699,20 @@ export class SpacecraftService {
     };
   }
 
+  private async getRemainingCartographyCoordinates(
+    fieldIds: number[],
+  ): Promise<Array<{ x: number; y: number }>> {
+    if (fieldIds.length === 0) return [];
+    const fields = await this.systemFieldRepo.findByIds(fieldIds);
+    const coordinates = new Map(
+      fields.map((field) => [field.id, { x: field.sx, y: field.sy }]),
+    );
+    return fieldIds.flatMap((fieldId) => {
+      const coordinate = coordinates.get(fieldId);
+      return coordinate ? [coordinate] : [];
+    });
+  }
+
   private toCartographyPlanDto(
     plan: {
       id: number;
@@ -702,12 +728,14 @@ export class SpacecraftService {
       plan: { available: boolean; reason: string | null };
       finalize: { available: boolean; reason: string | null };
     },
+    remainingCoordinates: Array<{ x: number; y: number }>,
   ): CartographyPlanDto {
     return {
       id: plan.id,
       starSystemId: plan.starSystemId,
       status: plan.status,
       remainingFieldIds: plan.remainingFieldIds,
+      remainingCoordinates,
       finalizationStartedAt: plan.finalizationStartedAt?.toISOString() ?? null,
       finalizationTick: plan.finalizationTick,
       finalizingSpacecraftId: plan.finalizingSpacecraftId,
