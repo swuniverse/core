@@ -5,15 +5,15 @@ import { PlayerAvatar } from '../components/PlayerAvatar';
 import {
   Faction,
   type AllianceRefDto,
-  type ColonyScanProjectionDto,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { SettlerPublicDiplomacy } from './alliances';
-import { ColonyScans, ColonySurfaceDialog } from './database';
+import {
+  ColonyScans,
+  ColonySurfaceDialog,
+  type ColonyScanProjection,
+} from '../components/database/ColonyScans';
 
-type ColonyScanProjection = ColonyScanProjectionDto & {
-  system?: { id: number | null; discovered: boolean; name: string | null };
-};
 
 interface PlayerProfile {
   id: number;

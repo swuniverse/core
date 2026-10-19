@@ -94,7 +94,7 @@ describe('SpacecraftController cartography API contract', () => {
   });
 
   it('has no legacy astrometry or binary survey controller operation', () => {
-    const prototype = SpacecraftController.prototype as Record<string, unknown>;
+    const prototype = SpacecraftController.prototype as unknown as Record<string, unknown>;
 
     expect(prototype).not.toHaveProperty('startAstrometry');
     expect(prototype).not.toHaveProperty('getAstrometry');

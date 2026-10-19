@@ -104,6 +104,7 @@ describe('DatabaseService system catalog', () => {
       explorationRepo as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     await expect(service.getSystems(42)).resolves.toEqual({

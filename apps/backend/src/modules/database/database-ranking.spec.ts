@@ -60,6 +60,7 @@ describe('DatabaseService individual discovery ranking', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const result = await service.getRanking(2, 'discoveries');

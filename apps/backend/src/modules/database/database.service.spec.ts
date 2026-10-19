@@ -51,6 +51,7 @@ function createService() {
     {} as any,
     {} as any,
     {} as any,
+    {} as any,
   );
   return {
     service,
@@ -188,7 +189,7 @@ describe('DatabaseService settlers', () => {
     shipRepo.count.mockResolvedValue(2);
     researchRepo.count.mockResolvedValue(3);
 
-    const result = await service.getSettler(1);
+    const result = await service.getSettler(1, 1);
 
     expect(result).toEqual({
       id: 1,
@@ -224,7 +225,7 @@ describe('DatabaseService settlers', () => {
     researchRepo.count.mockResolvedValue(0);
     allianceService.getRef.mockResolvedValue(alliance);
 
-    await expect(service.getSettler(1)).resolves.toMatchObject({ alliance });
+    await expect(service.getSettler(1, 1)).resolves.toMatchObject({ alliance });
     expect(allianceService.getRef).toHaveBeenCalledWith(1);
   });
 
@@ -233,6 +234,6 @@ describe('DatabaseService settlers', () => {
     userRepo.findOne.mockResolvedValue(null);
     factionService.findAll.mockResolvedValue([]);
 
-    await expect(service.getSettler(404)).rejects.toThrow(NotFoundException);
+    await expect(service.getSettler(1, 404)).rejects.toThrow(NotFoundException);
   });
 });

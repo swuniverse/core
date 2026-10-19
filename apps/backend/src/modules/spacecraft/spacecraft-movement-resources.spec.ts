@@ -100,6 +100,9 @@ function createService() {
   const crewService = { hasEnoughCrew: jest.fn(async () => true) };
   const torpedoService = { getStorage: jest.fn() };
   const resourceFlow = { recharge: jest.fn() };
+  const cartographyPlanService = {
+    resetFinishingForSpacecraft: jest.fn(async () => undefined),
+  };
   const runtimeState = {
     initialize: jest.fn((ship) => {
       ship.runtimeSystems ??= {
@@ -172,6 +175,9 @@ function createService() {
     {} as ConstructorParameters<typeof SpacecraftService>[23],
     {} as ConstructorParameters<typeof SpacecraftService>[24],
     {} as ConstructorParameters<typeof SpacecraftService>[25],
+    cartographyPlanService as ConstructorParameters<typeof SpacecraftService>[26],
+    {} as ConstructorParameters<typeof SpacecraftService>[27],
+    {} as ConstructorParameters<typeof SpacecraftService>[28],
   );
 
   return {

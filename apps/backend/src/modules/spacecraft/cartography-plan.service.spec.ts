@@ -183,7 +183,7 @@ describe('CartographyPlanService', () => {
       manager: {
         transaction: jest.fn(async (work) =>
           work({
-            getRepository: (entity) =>
+            getRepository: (entity: { name: string }) =>
               entity.name === 'SystemExploration'
                 ? { findOne: jest.fn(async () => null) }
                 : entity.name === 'SystemField'
@@ -221,7 +221,7 @@ describe('CartographyPlanService', () => {
       manager: {
         transaction: jest.fn(async (work) =>
           work({
-            getRepository: (entity) =>
+            getRepository: (entity: { name: string }) =>
               entity.name === 'SystemExploration'
                 ? { findOne: jest.fn(async () => null) }
                 : entity.name === 'SystemField'
@@ -334,7 +334,7 @@ describe('CartographyPlanService', () => {
       manager: {
         transaction: jest.fn(async (work) =>
           work({
-            getRepository: (entity) =>
+            getRepository: (entity: { name: string }) =>
               entity.name === 'SystemExploration'
                 ? {
                     findOne: jest.fn(async () => null),
@@ -376,7 +376,7 @@ describe('CartographyPlanService', () => {
       manager: {
         transaction: jest.fn(async (work) =>
           work({
-            getRepository: (entity) =>
+            getRepository: (entity: { name: string }) =>
               entity.name === 'SystemExploration'
                 ? {
                     findOne: jest.fn(async () => null),
@@ -422,7 +422,7 @@ describe('CartographyPlanService', () => {
       manager: {
         transaction: jest.fn(async (work) =>
           work({
-            getRepository: (entity) =>
+            getRepository: (entity: { name: string }) =>
               entity.name === 'SystemExploration'
                 ? { findOne: jest.fn(async () => ({ id: 44 })) }
                 : { findOne: jest.fn(async () => plan), save: jest.fn() },
