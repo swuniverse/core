@@ -76,6 +76,7 @@ type Plan = {
   finalizationTick: number | null;
   finalizingSpacecraftId: number | null;
   completedAt: Date | null;
+  completionOutcome: 'SUCCESS' | 'INVALIDATED' | null;
 };
 
 const qualifiedSystems = () => ({
@@ -184,6 +185,7 @@ function createHarness() {
           finalizationTick: null,
           finalizingSpacecraftId: null,
           completedAt: null,
+          completionOutcome: null,
         };
         return plan;
       },
@@ -240,6 +242,7 @@ function createHarness() {
         return { completed: false, userId: null, starSystemId: null };
       }
       plan.status = 'DONE';
+      plan.completionOutcome = 'SUCCESS';
       plan.finalizingSpacecraftId = null;
       plan.completedAt = new Date();
       discoveries.push({
@@ -384,6 +387,7 @@ describe('cartography lifecycle integration (in-process)', () => {
 
     expect(harness.plan).toMatchObject({
       status: 'DONE',
+      completionOutcome: 'SUCCESS',
       finalizingSpacecraftId: null,
     });
     expect(harness.discoveries).toEqual([{ userId: 11, starSystemId: 42 }]);

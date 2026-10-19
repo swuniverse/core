@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { CartographyPlanDto } from '@swuniverse/shared';
 import type { SpacecraftDetailDto } from '@swuniverse/shared';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
@@ -31,6 +32,9 @@ export function SpacecraftDetailPage() {
   const [fieldContext, setFieldContext] = useState<
     import('@swuniverse/shared').SpacecraftFieldContextDto | null
   >(null);
+  const [cartography, setCartography] = useState<CartographyPlanDto | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [selfDestructOpen, setSelfDestructOpen] = useState(false);
   const [shipInfoOpen, setShipInfoOpen] = useState(false);
@@ -80,6 +84,28 @@ export function SpacecraftDetailPage() {
       current = false;
     };
   }, [ship?.id, locationKey]);
+
+  useEffect(() => {
+    if (!ship || ship.location.scope !== 'SYSTEM') {
+      setCartography(null);
+      return;
+    }
+    let current = true;
+    setCartography(null);
+    void api
+      .get<CartographyPlanDto>(`/spacecraft/${ship.id}/cartography`, {
+        cache: 'no-store',
+      })
+      .then((plan) => {
+        if (current) setCartography(plan);
+      })
+      .catch(() => {
+        if (current) setCartography(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [ship?.id, locationKey, shipRefreshVersion]);
 
   useEffect(() => {
     if (ship?.status !== 'IN_FLIGHT') return;
@@ -137,7 +163,11 @@ export function SpacecraftDetailPage() {
 
       <div className="mt-2 grid gap-2 xl:grid-cols-[minmax(360px,1.2fr)_minmax(300px,0.9fr)_minmax(250px,0.75fr)] xl:items-start">
         <div id="ship-navigation">
-          <NavigationPanel ship={ship} onShipUpdate={refreshShipAndStorage} />
+          <NavigationPanel
+            ship={ship}
+            onShipUpdate={refreshShipAndStorage}
+            cartography={cartography}
+          />
         </div>
         <div className="space-y-2">
           <ShipControlCenter

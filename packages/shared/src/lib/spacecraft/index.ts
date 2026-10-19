@@ -72,21 +72,26 @@ export type CartographyPlanStatus =
   | 'FINISHING'
   | 'DONE';
 
+export type CartographyState = 'NONE' | 'PLANNABLE' | CartographyPlanStatus;
+
+export type CartographyCompletionOutcome = 'SUCCESS' | 'INVALIDATED' | null;
+
 export interface CartographyActionAvailabilityDto {
   available: boolean;
   reason: string | null;
 }
 
 export interface CartographyPlanDto {
-  id: number;
-  starSystemId: number;
-  status: CartographyPlanStatus;
+  id: number | null;
+  starSystemId: number | null;
+  status: CartographyState;
   remainingFieldIds: number[];
   remainingCoordinates: Array<{ x: number; y: number }>;
   finalizationStartedAt: string | null;
   finalizationTick: number | null;
   finalizingSpacecraftId: number | null;
   completedAt: string | null;
+  completionOutcome: CartographyCompletionOutcome;
   actions: {
     plan: CartographyActionAvailabilityDto;
     finalize: CartographyActionAvailabilityDto;

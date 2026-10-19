@@ -74,6 +74,7 @@ describe('ShipControlCenter', () => {
           SHIELDS: { active: true, cooldown: 0, integrity: 88 },
           WEAPONS: { active: false, cooldown: 0, integrity: 100 },
           TORPEDO_BANK: { active: false, cooldown: 0, integrity: 100 },
+          ASTROMETRY_LAB: { active: false, cooldown: 0, integrity: 100 },
         }}
       />,
     );
@@ -85,7 +86,31 @@ describe('ShipControlCenter', () => {
       screen.getByRole('button', { name: /Strahlenwaffen aktivieren/ }),
     ).toBeTruthy();
     expect(screen.queryByText('Hyperantrieb aktivieren')).toBeNull();
-    expect(await screen.findByText('Schwerer Plasmatorpedo: 3')).toBeTruthy();
+    const shields = screen.getByRole('button', {
+      name: 'Schilde deaktivieren',
+    });
+    const weapons = screen.getByRole('button', {
+      name: 'Strahlenwaffen aktivieren',
+    });
+    const projectile = screen.getByRole('button', {
+      name: 'Projektilwaffe aktivieren',
+    });
+    const torpedo = await screen.findByText('Schwerer Plasmatorpedo: 3');
+    const laboratory = screen.getByRole('button', {
+      name: 'Astrometrisches Labor aktivieren',
+    });
+    expect(shields.compareDocumentPosition(weapons)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(weapons.compareDocumentPosition(projectile)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(projectile.compareDocumentPosition(torpedo)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(torpedo.compareDocumentPosition(laboratory)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     fireEvent.click(
       screen.getByRole('button', { name: /Strahlenwaffen aktivieren/ }),
     );
@@ -95,6 +120,54 @@ describe('ShipControlCenter', () => {
         { active: true },
       ),
     );
+  });
+
+  it('toggles the astrometric laboratory with STU button assets', async () => {
+    apiMocks.patch.mockResolvedValue({});
+    render(
+      <ShipControlCenter
+        shipId={baseProps.shipId}
+        onUpdate={baseProps.onUpdate}
+        systems={{
+          ASTROMETRY_LAB: { active: false, cooldown: 0, integrity: 100 },
+        }}
+      />,
+    );
+
+    const activate = screen.getByRole('button', {
+      name: 'Astrometrisches Labor aktivieren',
+    });
+    expect(activate.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/map2.png',
+    );
+    fireEvent.click(activate);
+
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/2/systems/ASTROMETRY_LAB',
+        { active: true },
+      ),
+    );
+  });
+
+  it('uses the active laboratory asset for deactivation', () => {
+    render(
+      <ShipControlCenter
+        shipId={baseProps.shipId}
+        onUpdate={baseProps.onUpdate}
+        systems={{
+          ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 },
+        }}
+      />,
+    );
+
+    const deactivate = screen.getByRole('button', {
+      name: 'Astrometrisches Labor deaktivieren',
+    });
+    expect(deactivate.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/map1.png',
+    );
+    expect(deactivate.querySelector('span')?.className).toContain('leading-5');
   });
 
   it('shows empty torpedo storage when a torpedo bank is present', async () => {

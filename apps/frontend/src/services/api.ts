@@ -86,7 +86,7 @@ export class ApiError extends Error {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, options?: RequestInit) => request<T>(path, options),
   post: <T, B = unknown>(path: string, body: B) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   postForm: <T>(path: string, body: FormData) =>

@@ -116,4 +116,35 @@ describe('LssMap', () => {
       /^\/star-\d+\.png$/,
     );
   });
+
+  it('marks supplied cartography points on system fields', () => {
+    render(
+      <LssMap
+        localMap={systemMap(201)}
+        navTarget={null}
+        cartographyPoints={[{ x: 1, y: 14 }]}
+        onFieldClick={vi.fn()}
+      />,
+    );
+
+    const field = screen.getByRole('button', {
+      name: /Feld 1,14.*verbleibender Messpunkt/,
+    });
+    expect(field.className).toContain('ring-red-400/70');
+  });
+
+  it('does not mark unmatched system fields', () => {
+    render(
+      <LssMap
+        localMap={systemMap(201)}
+        navTarget={null}
+        cartographyPoints={[{ x: 2, y: 14 }]}
+        onFieldClick={vi.fn()}
+      />,
+    );
+
+    const field = screen.getByRole('button', { name: /Feld 1,14/ });
+    expect(field.className).not.toContain('ring-red-400/70');
+    expect(field.getAttribute('aria-label')).not.toContain('Messpunkt');
+  });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { SpaceLocationDto } from '@swuniverse/shared';
+import type { CartographyPlanDto, SpaceLocationDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
@@ -14,18 +14,21 @@ interface Ship {
   arrivalAt: string | null;
   location: SpaceLocationDto;
   runtimeSystems?: Record<string, { active: boolean }>;
+  lssMode?: 'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 interface NavigationPanelProps {
   ship: Ship;
   onShipUpdate: () => Promise<void> | void;
+  cartography?: CartographyPlanDto | null;
   onLocalMapChange?: (localMap: LocalMapResponse | null) => void;
 }
 
 export function NavigationPanel({
   ship,
   onShipUpdate,
+  cartography,
   onLocalMapChange,
 }: NavigationPanelProps) {
   const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
@@ -152,6 +155,12 @@ export function NavigationPanel({
   };
 
   const lssActive = ship.runtimeSystems?.LONG_RANGE_SENSORS?.active === true;
+  const cartographyPoints =
+    ship.lssMode === 'CARTOGRAPHY' &&
+    localMap?.mode === 'system' &&
+    cartography?.status === 'PLANNED'
+      ? cartography.remainingCoordinates
+      : [];
   const blindX = shipX;
   const blindY = shipY;
   const blindBounds = ship.navigationBounds ?? {
@@ -293,6 +302,7 @@ export function NavigationPanel({
           <LssMap
             localMap={localMap}
             navTarget={navTarget}
+            cartographyPoints={cartographyPoints}
             onFieldClick={handleFieldClick}
           />
 
@@ -303,14 +313,6 @@ export function NavigationPanel({
               onStepChange={setStepSize}
               disabled={!isDocked || moving || changingSystem}
             />
-
-            <div className="w-full space-y-1.5">
-              {moving && (
-                <p className="rounded border border-swu-accent/40 bg-swu-accent/5 p-2 text-[11px] text-swu-muted">
-                  Flug wird ausgeführt…
-                </p>
-              )}
-            </div>
           </div>
         </div>
       )}

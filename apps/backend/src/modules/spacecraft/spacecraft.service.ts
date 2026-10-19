@@ -438,22 +438,30 @@ export class SpacecraftService {
   async getCartography(
     shipId: number,
     userId: number,
-  ): Promise<CartographyPlanDto | null> {
+  ): Promise<CartographyPlanDto> {
     const ship = await this.findOne(shipId, userId);
     const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM') return null;
+    if (location?.scope !== 'SYSTEM') return this.toCartographyStateDto('NONE');
 
-    const plan = await this.cartographyPlanService.getPlan(
-      userId,
-      location.systemId,
+    const [explored, plan] = await Promise.all([
+      this.explorationService.isSystemExplored(userId, location.systemId),
+      this.cartographyPlanService.getPlan(userId, location.systemId),
+    ]);
+    if (explored && !plan) {
+      return this.toCartographyStateDto('DONE', location.systemId);
+    }
+    if (!plan) {
+      return this.toCartographyStateDto(
+        'PLANNABLE',
+        location.systemId,
+        await this.getCartographyPlanAction(ship),
+      );
+    }
+    return this.toCartographyPlanDto(
+      plan,
+      await this.getCartographyPlanActions(ship, plan.status),
+      await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
     );
-    return plan
-      ? this.toCartographyPlanDto(
-          plan,
-          await this.getCartographyPlanActions(ship, plan.status),
-          await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
-        )
-      : null;
   }
 
   async startCartographyFinalization(
@@ -713,6 +721,38 @@ export class SpacecraftService {
     });
   }
 
+  private toCartographyStateDto(
+    status: 'NONE' | 'PLANNABLE' | 'DONE',
+    starSystemId: number | null = null,
+    planAction: { available: boolean; reason: string | null } = {
+      available: false,
+      reason: 'Die Kartographie kann nicht geplant werden',
+    },
+  ): CartographyPlanDto {
+    return {
+      id: null,
+      starSystemId,
+      status,
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      completionOutcome: status === 'DONE' ? 'SUCCESS' : null,
+      actions: {
+        plan:
+          status === 'PLANNABLE'
+            ? planAction
+            : { available: false, reason: null },
+        finalize: {
+          available: false,
+          reason: 'Die Kartographie kann noch nicht finalisiert werden',
+        },
+      },
+    };
+  }
+
   private toCartographyPlanDto(
     plan: {
       id: number;
@@ -723,6 +763,7 @@ export class SpacecraftService {
       finalizationTick: number | null;
       finalizingSpacecraftId: number | null;
       completedAt: Date | null;
+      completionOutcome: 'SUCCESS' | 'INVALIDATED' | null;
     },
     actions: {
       plan: { available: boolean; reason: string | null };
@@ -740,6 +781,10 @@ export class SpacecraftService {
       finalizationTick: plan.finalizationTick,
       finalizingSpacecraftId: plan.finalizingSpacecraftId,
       completedAt: plan.completedAt?.toISOString() ?? null,
+      completionOutcome:
+        plan.status === CartographyPlanStatus.DONE
+          ? (plan.completionOutcome ?? 'SUCCESS')
+          : null,
       actions,
     };
   }
@@ -2602,7 +2647,9 @@ export class SpacecraftService {
       runtimeSystems: systems,
       information: {
         canSectorScan: systems.SHORT_RANGE_SENSORS?.active === true,
-        cartographyKnown: cartography?.status === 'DONE',
+        cartographyKnown:
+          cartography?.status === 'DONE' &&
+          cartography.completionOutcome !== 'INVALIDATED',
         entrySystem: entryField?.starSystem
           ? {
               id: entryField.starSystem.id,

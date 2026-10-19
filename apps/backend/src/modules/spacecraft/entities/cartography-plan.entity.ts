@@ -14,6 +14,11 @@ export enum CartographyPlanStatus {
   DONE = 'DONE',
 }
 
+export enum CartographyCompletionOutcome {
+  SUCCESS = 'SUCCESS',
+  INVALIDATED = 'INVALIDATED',
+}
+
 @Entity('cartography_plans')
 @Index(['userId', 'starSystemId'], { unique: true })
 @Index(['userId'])
@@ -53,6 +58,9 @@ export class CartographyPlan {
 
   @Column({ type: 'timestamp', nullable: true })
   completedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  completionOutcome: CartographyCompletionOutcome | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -67,6 +67,87 @@ describe('NavigationPanel', () => {
     );
   });
 
+  it('marks planned measurement points only in cartography mode', async () => {
+    const systemMap = {
+      mode: 'system' as const,
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 2, minY: 1, maxY: 1 },
+      systemId: 8,
+      systemName: 'Testsystem',
+      fields: [
+        {
+          id: 1,
+          sx: 1,
+          sy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Weltraum' },
+          celestialObjectId: null,
+          celestialObject: null,
+        },
+        {
+          id: 2,
+          sx: 2,
+          sy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Weltraum' },
+          celestialObjectId: null,
+          celestialObject: null,
+        },
+      ],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+    const cartography = {
+      id: 4,
+      starSystemId: 8,
+      status: 'PLANNED' as const,
+      remainingFieldIds: [2],
+      remainingCoordinates: [{ x: 2, y: 1 }],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      completionOutcome: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    };
+    apiMocks.get.mockResolvedValue(systemMap);
+    const { rerender } = render(
+      <NavigationPanel
+        ship={{
+          ...ship,
+          location: { scope: 'SYSTEM', systemId: 8, x: 1, y: 1 },
+          lssMode: 'CARTOGRAPHY',
+        }}
+        cartography={cartography}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: /Feld 2,1.*verbleibender Messpunkt/,
+      }),
+    ).toBeTruthy();
+
+    rerender(
+      <NavigationPanel
+        ship={{
+          ...ship,
+          location: { scope: 'SYSTEM', systemId: 8, x: 1, y: 1 },
+          lssMode: 'TERRITORY',
+        }}
+        cartography={cartography}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+
+    const field = screen.getByRole('button', { name: /Feld 2,1/ });
+    expect(field.getAttribute('aria-label')).not.toContain('Messpunkt');
+  });
+
   it('uses blind navigation until long-range sensors are activated', async () => {
     apiMocks.post.mockResolvedValue({});
     apiMocks.patch.mockResolvedValue({});

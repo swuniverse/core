@@ -9,6 +9,7 @@ import {
   Body,
   UseGuards,
   Request,
+  Res,
   ParseIntPipe,
   ParseEnumPipe,
   Query,
@@ -543,10 +544,13 @@ export class SpacecraftController {
   }
 
   @Get(':id/cartography')
-  getCartography(
+  async getCartography(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
+    @Res({ passthrough: true })
+    response: { setHeader: (name: string, value: string) => void },
   ) {
+    response.setHeader('Cache-Control', 'no-store');
     return this.spacecraftService.getCartography(id, req.user.sub);
   }
 
@@ -563,7 +567,10 @@ export class SpacecraftController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
   ) {
-    return this.spacecraftService.startCartographyFinalization(id, req.user.sub);
+    return this.spacecraftService.startCartographyFinalization(
+      id,
+      req.user.sub,
+    );
   }
 
   @Post(':id/sector-scan')

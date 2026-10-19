@@ -134,6 +134,7 @@ export type LocalMapResponse = LocalMapGalaxy | LocalMapSystem;
 interface LssMapProps {
   localMap: LocalMapResponse;
   navTarget: { x: number; y: number } | null;
+  cartographyPoints?: Array<{ x: number; y: number }>;
   onFieldClick: (x: number, y: number) => void;
 }
 
@@ -143,8 +144,16 @@ const OBJECT_TYPE_EMOJI: Record<number, string> = {
   3: '☄️',
 };
 
-export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
+export function LssMap({
+  localMap,
+  navTarget,
+  cartographyPoints = [],
+  onFieldClick,
+}: LssMapProps) {
   const { shipX, shipY, sensorRange } = localMap;
+  const cartographyPointKeys = new Set(
+    cartographyPoints.map(({ x, y }) => `${x}:${y}`),
+  );
   const bounds = localMap.bounds ?? {
     minX: Math.max(1, shipX - sensorRange),
     maxX: shipX + sensorRange,
@@ -202,6 +211,7 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
               {xValues.map((x) => {
                 const isShip = x === shipX && y === shipY;
                 const isTarget = navTarget?.x === x && navTarget?.y === y;
+                const isCartographyPoint = cartographyPointKeys.has(`${x}:${y}`);
                 const signatureCount = signaturesByPosition.get(`${x},${y}`);
                 const signatureLabel = signatureCount
                   ? `, ${signatureCount} sichtbare ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
@@ -351,7 +361,7 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                     type="button"
                     onClick={() => onFieldClick(x, y)}
                     style={{ width: cellSize, height: cellSize }}
-                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}`}
+                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${isCartographyPoint ? ', verbleibender Messpunkt' : ''}${signatureLabel}`}
                     className={[
                       showStarTile
                         ? 'relative flex items-center justify-center overflow-hidden border-0 rounded-none'
@@ -364,6 +374,9 @@ export function LssMap({ localMap, navTarget, onFieldClick }: LssMapProps) {
                         : '',
                       isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                       isTarget ? 'ring-2 ring-swu-accent z-10' : '',
+                      isCartographyPoint
+                        ? 'ring-2 ring-red-400/70 ring-inset z-10'
+                        : '',
                     ].join(' ')}
                   >
                     {!showStarTile && !objectAsset && (

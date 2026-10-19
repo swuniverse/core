@@ -8,6 +8,7 @@ import { In, Repository } from 'typeorm';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import {
+  CartographyCompletionOutcome,
   CartographyPlan,
   CartographyPlanStatus,
 } from './entities/cartography-plan.entity';
@@ -49,6 +50,7 @@ export class CartographyPlanService {
       finalizationTick: null,
       finalizingSpacecraftId: null,
       completedAt: null,
+      completionOutcome: null,
     });
 
     try {
@@ -133,7 +135,10 @@ export class CartographyPlanService {
 
       plan.remainingFieldIds = remainingFieldIds.filter((id) => id !== fieldId);
       const completed = plan.remainingFieldIds.length === 0;
-      if (completed) plan.status = CartographyPlanStatus.MEASURED;
+      if (completed) {
+        plan.status = CartographyPlanStatus.MEASURED;
+        plan.completionOutcome = null;
+      }
       await repo.save(plan);
       return {
         claimed: arrivalIsRemaining,
@@ -154,6 +159,7 @@ export class CartographyPlanService {
       );
     }
     plan.status = CartographyPlanStatus.MEASURED;
+    plan.completionOutcome = null;
     plan.remainingFieldIds = [];
     return this.planRepo.save(plan);
   }
@@ -167,6 +173,7 @@ export class CartographyPlanService {
     });
     if (!plan) return;
     plan.status = CartographyPlanStatus.MEASURED;
+    plan.completionOutcome = null;
     plan.finalizingSpacecraftId = null;
     plan.finalizationStartedAt = null;
     plan.finalizationTick = null;
@@ -224,6 +231,7 @@ export class CartographyPlanService {
       const completedUserId = plan.userId;
       const completedStarSystemId = plan.starSystemId;
       plan.status = CartographyPlanStatus.DONE;
+      plan.completionOutcome = CartographyCompletionOutcome.SUCCESS;
       plan.finalizingSpacecraftId = null;
       plan.completedAt = new Date();
       await repo.save(plan);
@@ -254,6 +262,7 @@ export class CartographyPlanService {
     }
 
     plan.status = CartographyPlanStatus.FINISHING;
+    plan.completionOutcome = null;
     plan.finalizingSpacecraftId = spacecraftId;
     plan.finalizationStartedAt = startedAt;
     plan.finalizationTick = 0;
@@ -271,6 +280,7 @@ export class CartographyPlanService {
 
   private completeWithoutReward(plan: CartographyPlan): void {
     plan.status = CartographyPlanStatus.DONE;
+    plan.completionOutcome = CartographyCompletionOutcome.INVALIDATED;
     plan.finalizingSpacecraftId = null;
     plan.finalizationStartedAt = null;
     plan.finalizationTick = null;

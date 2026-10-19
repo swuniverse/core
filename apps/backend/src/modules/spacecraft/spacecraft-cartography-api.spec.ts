@@ -1,7 +1,9 @@
 jest.mock('./spacecraft.service', () => ({
   SpacecraftService: class SpacecraftService {},
 }));
-jest.mock('./transfer.service', () => ({ TransferService: class TransferService {} }));
+jest.mock('./transfer.service', () => ({
+  TransferService: class TransferService {},
+}));
 jest.mock('./spacecraft-scan.service', () => ({
   SpacecraftScanService: class SpacecraftScanService {},
 }));
@@ -59,21 +61,34 @@ describe('SpacecraftController cartography API contract', () => {
   it('uses the authenticated owner for every canonical cartography operation', async () => {
     const { controller, service } = createController();
     const request = { user: { sub: 17 } };
+    const response = { setHeader: jest.fn() };
     service.getCartography.mockResolvedValue({ status: 'PLANNED' });
     service.createCartographyPlan.mockResolvedValue({ status: 'PLANNED' });
-    service.startCartographyFinalization.mockResolvedValue({ status: 'FINISHING' });
+    service.startCartographyFinalization.mockResolvedValue({
+      status: 'FINISHING',
+    });
 
-    await expect(controller.getCartography(4, request)).resolves.toEqual({
+    await expect(
+      controller.getCartography(4, request, response),
+    ).resolves.toEqual({
       status: 'PLANNED',
     });
-    await expect(controller.createCartographyPlan(4, request)).resolves.toEqual({
-      status: 'PLANNED',
-    });
-    await expect(controller.startCartographyFinalization(4, request)).resolves.toEqual({
+    await expect(controller.createCartographyPlan(4, request)).resolves.toEqual(
+      {
+        status: 'PLANNED',
+      },
+    );
+    await expect(
+      controller.startCartographyFinalization(4, request),
+    ).resolves.toEqual({
       status: 'FINISHING',
     });
 
     expect(service.getCartography).toHaveBeenCalledWith(4, 17);
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'no-store',
+    );
     expect(service.createCartographyPlan).toHaveBeenCalledWith(4, 17);
     expect(service.startCartographyFinalization).toHaveBeenCalledWith(4, 17);
   });

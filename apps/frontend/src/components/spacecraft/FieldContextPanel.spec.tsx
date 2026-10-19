@@ -146,7 +146,7 @@ describe('FieldContextPanel', () => {
     expect(screen.queryByRole('button', { name: /Kartographie/ })).toBeNull();
   });
 
-  it('shows an inspect-only coordinate raster without making a remote mutation', async () => {
+  it('shows planned cartography as a non-interactive remaining-point count', async () => {
     apiMocks.get.mockResolvedValue({
       id: 4,
       starSystemId: 8,
@@ -185,19 +185,83 @@ describe('FieldContextPanel', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Verbleibende Messpunkte: 2' }),
+    const remainingPoints = await screen.findByText(
+      'Verbleibende Messpunkte: 2',
+    );
+    expect(remainingPoints.tagName).toBe('DIV');
+    expect(remainingPoints.className).toContain('min-h-5');
+    expect(remainingPoints.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/map2.png',
     );
     expect(
-      await screen.findByRole('dialog', { name: 'Kartographie-Messpunkte' }),
-    ).toBeTruthy();
-    expect(screen.getByText('4|7')).toBeTruthy();
-    expect(screen.getByText('8|2')).toBeTruthy();
+      screen.queryByRole('button', { name: 'Verbleibende Messpunkte: 2' }),
+    ).toBeNull();
+    expect(screen.queryByText('Kartographierung ist geplant')).toBeNull();
+    expect(screen.queryByText('4|7')).toBeNull();
+    expect(screen.queryByText('8|2')).toBeNull();
     expect(apiMocks.post).not.toHaveBeenCalled();
   });
 
+  it('does not make a non-plannable state actionable', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: null,
+      starSystemId: 8,
+      status: 'PLANNABLE',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      completionOutcome: null,
+      actions: {
+        plan: { available: false, reason: 'Labor nicht aktiv' },
+        finalize: { available: false, reason: null },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('System nicht kartographiert')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Kartographie planen' }),
+    ).toBeNull();
+  });
+
   it('requires confirmation before planning and sends the request only after confirmation', async () => {
-    apiMocks.get.mockResolvedValue(null);
+    apiMocks.get.mockResolvedValue({
+      id: null,
+      starSystemId: 8,
+      status: 'PLANNABLE',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      completionOutcome: null,
+      actions: {
+        plan: { available: true, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    });
     apiMocks.post.mockResolvedValue({
       id: 4,
       starSystemId: 8,
@@ -313,11 +377,226 @@ describe('FieldContextPanel', () => {
         {},
       ),
     );
+    const finalizationStatus = await screen.findByText('Kartographie: 1/3');
+    const finalizationRow = finalizationStatus.closest('div');
+    expect(finalizationRow?.className).toContain('whitespace-nowrap');
+    expect(finalizationRow?.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/map2.png',
+    );
+    expect(screen.queryByText(/Hauptticks/)).toBeNull();
+  });
+
+  it('renders success only for an explicitly successful terminal plan', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'DONE',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: '2026-10-16T10:00:00.000Z',
+      completionOutcome: 'SUCCESS',
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const successStatus = await screen.findByText('System ist kartographiert');
+    const successRow = successStatus.closest('div');
+    expect(successRow?.className).toContain('whitespace-nowrap');
+    expect(successRow?.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/map2.png',
+    );
+    const systemLink = screen.getByRole('link', { name: '✦ Testsystem' });
+    expect(systemLink.getAttribute('href')).toBe('/database/systems/8');
+    const systemActions = systemLink.parentElement;
+    expect(systemActions?.className).toContain('flex-col');
+    expect(systemActions?.contains(screen.getByRole('button', { name: 'System verlassen' }))).toBe(
+      true,
+    );
+    expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft/1/cartography', {
+      cache: 'no-store',
+    });
+  });
+
+  it.each([['INVALIDATED', 'Kartographie ohne Belohnung beendet']])(
+    'does not render success for a terminal plan with outcome %s',
+    async (completionOutcome, expectedStatus) => {
+      apiMocks.get.mockResolvedValue({
+        id: 4,
+        starSystemId: 8,
+        status: 'DONE',
+        remainingFieldIds: [],
+        remainingCoordinates: [],
+        finalizationStartedAt: null,
+        finalizationTick: null,
+        finalizingSpacecraftId: null,
+        completedAt: '2026-10-16T10:00:00.000Z',
+        completionOutcome,
+        actions: {
+          plan: { available: false, reason: null },
+          finalize: { available: false, reason: null },
+        },
+      });
+      render(
+        <MemoryRouter>
+          <FieldContextPanel
+            shipId={1}
+            context={{
+              coordinates: { x: 5, y: 23 },
+              starSystem: {
+                id: 8,
+                name: 'Testsystem',
+                canLeave: true,
+                leaveReason: null,
+              },
+              colony: null,
+              information: { canSectorScan: false, cartographyKnown: false },
+            }}
+            onUpdate={vi.fn()}
+          />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByText(expectedStatus)).toBeTruthy();
+      expect(screen.queryByText('System ist kartographiert')).toBeNull();
+      expect(
+        screen.getByRole('link', { name: '✦ Testsystem' }).getAttribute('href'),
+      ).toBe('/database/systems/8');
+    },
+  );
+
+  it('treats a legacy terminal plan without an outcome as successful', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 4,
+      starSystemId: 8,
+      status: 'DONE',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: '2026-10-16T10:00:00.000Z',
+      completionOutcome: null,
+      actions: {
+        plan: { available: false, reason: null },
+        finalize: { available: false, reason: null },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: {
+              id: 8,
+              name: 'Testsystem',
+              canLeave: true,
+              leaveReason: null,
+            },
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const successStatus = await screen.findByText('System ist kartographiert');
+    const successRow = successStatus.closest('div');
+    expect(successRow?.className).toContain('whitespace-nowrap');
+    expect(successRow?.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/map2.png',
+    );
     expect(
-      await screen.findByText(
-        /Kartographie wird finalisiert \(1\/3 Hauptticks\)/,
-      ),
+      screen.getByRole('link', { name: '✦ Testsystem' }).getAttribute('href'),
+    ).toBe('/database/systems/8');
+    expect(screen.queryByText('Kartographiestatus unbekannt')).toBeNull();
+  });
+
+  it('clears a stale cartography plan when a refresh fails', async () => {
+    let rejectRefresh!: (error: Error) => void;
+    apiMocks.get
+      .mockResolvedValueOnce({
+        id: 4,
+        starSystemId: 8,
+        status: 'DONE',
+        remainingFieldIds: [],
+        remainingCoordinates: [],
+        finalizationStartedAt: null,
+        finalizationTick: null,
+        finalizingSpacecraftId: null,
+        completedAt: '2026-10-16T10:00:00.000Z',
+        completionOutcome: 'SUCCESS',
+        actions: {
+          plan: { available: false, reason: null },
+          finalize: { available: false, reason: null },
+        },
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectRefresh = reject;
+          }),
+      );
+    const context = {
+      coordinates: { x: 5, y: 23 },
+      starSystem: {
+        id: 8,
+        name: 'Testsystem',
+        canLeave: true,
+        leaveReason: null,
+      },
+      colony: null,
+      information: { canSectorScan: false, cartographyKnown: false },
+    };
+    const { rerender } = render(
+      <MemoryRouter>
+        <FieldContextPanel shipId={1} context={context} onUpdate={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('System ist kartographiert')).toBeTruthy();
+
+    rerender(
+      <MemoryRouter>
+        <FieldContextPanel shipId={2} context={context} onUpdate={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Kartographie wird geladen…')).toBeTruthy();
+    expect(screen.queryByText('System ist kartographiert')).toBeNull();
+
+    rejectRefresh(new Error('Status nicht verfügbar'));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Kartographie' }),
     ).toBeTruthy();
+    expect(screen.getByText('Status nicht verfügbar')).toBeTruthy();
+    expect(screen.queryByText('System ist kartographiert')).toBeNull();
   });
 
   it('keeps sector scan available and shows the server rejection in a dialog', async () => {
@@ -351,12 +630,7 @@ describe('FieldContextPanel', () => {
     ).toBeTruthy();
   });
 
-  it('shows astrometry in Informationen and reports start rejection in a dialog', async () => {
-    apiMocks.get.mockResolvedValue(null);
-    apiMocks.post.mockRejectedValue(
-      new Error('Langstreckensensoren sind nicht aktiv'),
-    );
-
+  it('does not render astrometry controls in Informationen', () => {
     render(
       <MemoryRouter>
         <FieldContextPanel
@@ -375,17 +649,8 @@ describe('FieldContextPanel', () => {
       </MemoryRouter>,
     );
 
-    apiMocks.patch.mockRejectedValue(
-      new Error('Langstreckensensoren sind nicht aktiv'),
-    );
-    fireEvent.click(await screen.findByRole('button', { name: 'aktivieren' }));
-
-    expect(
-      await screen.findByRole('dialog', { name: 'Astrometrie' }),
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Langstreckensensoren sind nicht aktiv'),
-    ).toBeTruthy();
+    expect(screen.queryByText('Astrometrie-Labor:')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'aktivieren' })).toBeNull();
   });
 
   it('shows a database discovery notification after a sector scan', async () => {

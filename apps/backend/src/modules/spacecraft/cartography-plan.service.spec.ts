@@ -1,5 +1,9 @@
 jest.mock('./entities/cartography-plan.entity', () => ({
   CartographyPlan: class CartographyPlan {},
+  CartographyCompletionOutcome: {
+    SUCCESS: 'SUCCESS',
+    INVALIDATED: 'INVALIDATED',
+  },
   CartographyPlanStatus: {
     PLANNED: 'PLANNED',
     MEASURED: 'MEASURED',
@@ -26,6 +30,29 @@ describe('CartographyPlanService', () => {
       starSystemId: 42,
       status: CartographyPlanStatus.PLANNED,
       remainingFieldIds: [7, 8],
+    };
+    const repo = {
+      findOne: jest.fn(async () => existing),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.createPlan(11, 42, [1, 2, 3])).resolves.toBe(existing);
+
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('preserves a legacy terminal plan instead of reopening cartography', async () => {
+    const existing = {
+      id: 4,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.DONE,
+      remainingFieldIds: [],
+      completionOutcome: null,
+      completedAt: new Date('2026-10-16T10:00:00.000Z'),
     };
     const repo = {
       findOne: jest.fn(async () => existing),
@@ -72,6 +99,7 @@ describe('CartographyPlanService', () => {
       finalizationTick: null,
       finalizingSpacecraftId: null,
       completedAt: null,
+      completionOutcome: null,
     });
   });
 
@@ -211,6 +239,7 @@ describe('CartographyPlanService', () => {
     });
     expect(plan).toMatchObject({
       status: CartographyPlanStatus.DONE,
+      completionOutcome: 'INVALIDATED',
       remainingFieldIds: [],
       completedAt: expect.any(Date),
     });
@@ -248,6 +277,7 @@ describe('CartographyPlanService', () => {
     });
     expect(plan).toMatchObject({
       status: CartographyPlanStatus.DONE,
+      completionOutcome: 'INVALIDATED',
       remainingFieldIds: [8],
       completedAt: expect.any(Date),
     });
@@ -325,8 +355,55 @@ describe('CartographyPlanService', () => {
     });
     expect(plan).toMatchObject({
       status: CartographyPlanStatus.DONE,
+      completionOutcome: 'SUCCESS',
       finalizationTick: 3,
       finalizingSpacecraftId: null,
+    });
+  });
+
+  it('invalidates the plan when cartography discovery loses a unique-key race', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.FINISHING,
+      remainingFieldIds: [],
+      finalizationTick: 2,
+      finalizingSpacecraftId: 9,
+      completedAt: null,
+    };
+    const planRepo = {
+      manager: {
+        transaction: jest.fn(async (work) =>
+          work({
+            getRepository: (entity) =>
+              entity.name === 'SystemExploration'
+                ? {
+                    findOne: jest.fn(async () => null),
+                    create: jest.fn((value) => value),
+                    save: jest.fn(async () => {
+                      throw { code: '23505' };
+                    }),
+                  }
+                : { findOne: jest.fn(async () => plan), save: jest.fn() },
+          }),
+        ),
+      },
+    };
+    const service = new CartographyPlanService(planRepo as never);
+
+    await expect(service.progressFinalization(9)).resolves.toEqual({
+      completed: false,
+      userId: null,
+      starSystemId: null,
+    });
+    expect(plan).toMatchObject({
+      status: CartographyPlanStatus.DONE,
+      completionOutcome: 'INVALIDATED',
+      finalizingSpacecraftId: null,
+      finalizationTick: null,
+      finalizationStartedAt: null,
+      completedAt: expect.any(Date),
     });
   });
 
@@ -362,8 +439,9 @@ describe('CartographyPlanService', () => {
     });
     expect(plan).toMatchObject({
       status: CartographyPlanStatus.DONE,
+      completionOutcome: 'INVALIDATED',
       finalizingSpacecraftId: null,
-      finalizationTick: 1,
+      finalizationTick: null,
       finalizationStartedAt: null,
       completedAt: expect.any(Date),
     });

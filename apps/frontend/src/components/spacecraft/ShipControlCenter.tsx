@@ -103,6 +103,7 @@ export function ShipControlCenter({
     );
   };
   const torpedoState = systems?.TORPEDO_BANK;
+  const laboratory = systems?.ASTROMETRY_LAB;
   return (
     <section>
       <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface text-xs">
@@ -110,7 +111,7 @@ export function ShipControlCenter({
           Schiffskontrolle
         </h3>
         {systemRow('SHIELDS')}
-        {systemRow('WEAPONS')}{' '}
+        {systemRow('WEAPONS')}
         {torpedoState && (
           <div className="grid grid-cols-2 border-b border-swu-border">
             <button
@@ -167,6 +168,24 @@ export function ShipControlCenter({
               ) : null}
             </div>
           </div>
+        )}
+        {laboratory && (
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => void toggle('ASTROMETRY_LAB', !laboratory.active)}
+            className="flex w-full items-center gap-2 border-b border-swu-border px-2 py-1.5 text-left text-swu-primary hover:bg-white/5 disabled:opacity-40"
+          >
+            <img
+              src={`/assets/buttons/${laboratory.active ? 'map1.png' : 'map2.png'}`}
+              alt=""
+              className="size-5 shrink-0 self-center"
+            />
+            <span className="leading-5">
+              Astrometrisches Labor{' '}
+              {laboratory.active ? 'deaktivieren' : 'aktivieren'}
+            </span>
+          </button>
         )}
         {error && (
           <p role="alert" className="p-2 text-red-300">
