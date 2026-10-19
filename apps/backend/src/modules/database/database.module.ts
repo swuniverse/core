@@ -23,6 +23,7 @@ import { SystemExploration } from '../starmap/entities/system-exploration.entity
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyScan } from '../spacecraft/entities/colony-scan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
+import { CartographyPlan } from '../spacecraft/entities/cartography-plan.entity';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projectio
       StarSystem,
       SystemExploration,
       SystemField,
+      CartographyPlan,
       ColonyScan,
     ]),
     FactionModule,

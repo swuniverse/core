@@ -28,6 +28,11 @@ import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
+import {
+  CartographyCompletionOutcome,
+  CartographyPlan,
+  CartographyPlanStatus,
+} from '../spacecraft/entities/cartography-plan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 
 type RankingKey =
@@ -87,6 +92,8 @@ export class DatabaseService {
     private readonly systemExplorationRepo: Repository<SystemExploration>,
     @InjectRepository(SystemField)
     private readonly systemFieldRepo: Repository<SystemField>,
+    @InjectRepository(CartographyPlan)
+    private readonly cartographyPlanRepo: Repository<CartographyPlan>,
     private readonly colonyScanProjection: ColonyScanProjectionService,
   ) {}
 
@@ -367,29 +374,30 @@ export class DatabaseService {
     if (!system || !discovery)
       throw new NotFoundException('System nicht gefunden');
 
-    const [fields, colonies, colonyScans] = await Promise.all([
-      this.systemFieldRepo.find({
-        where: { starSystemId: systemId },
-        relations: ['celestialObject'],
-        order: { sy: 'ASC', sx: 'ASC' },
-      }),
-      this.colonyRepo.find({
-        where: { starSystemId: systemId },
-        relations: ['user'],
-        order: { id: 'ASC' },
-      }),
-      this.colonyScanProjection.newestAccessibleForSystem(userId, systemId),
-    ]);
-    const hasOwnCurrentColony = colonies.some(
-      (colony) => colony.userId === userId && !colony.isAbandoned,
-    );
+    const plan = await this.cartographyPlanRepo.findOne({
+      where: { userId, starSystemId: systemId },
+    });
+    if (
+      plan?.status !== CartographyPlanStatus.DONE ||
+      plan.completionOutcome !== CartographyCompletionOutcome.SUCCESS
+    ) {
+      return { availability: 'ASTROMETRY_REQUIRED' as const };
+    }
+
+    const fields = await this.systemFieldRepo.find({
+      where: { starSystemId: systemId },
+      relations: ['fieldType', 'celestialObject'],
+      order: { sy: 'ASC', sx: 'ASC' },
+    });
 
     return {
+      availability: 'AVAILABLE' as const,
       id: system.id,
       name: system.name,
       layerId: system.layerId,
       cx: system.cx,
       cy: system.cy,
+      systemTypeId: system.systemTypeId,
       systemTypeName:
         SYSTEM_TYPE_BY_ID[system.systemTypeId]?.name ??
         `Typ ${system.systemTypeId}`,
@@ -399,11 +407,11 @@ export class DatabaseService {
         id: field.id,
         sx: field.sx,
         sy: field.sy,
-        fieldTypeId: field.fieldTypeId,
-        isPassable: field.isPassable,
-        energyCost: field.energyCost,
-        damage: field.damage,
-        effects: field.effects ?? [],
+        fieldType: {
+          id: field.fieldType.id,
+          key: field.fieldType.key,
+          name: field.fieldType.name,
+        },
         celestialObject: field.celestialObject
           ? {
               id: field.celestialObject.id,
@@ -417,25 +425,6 @@ export class DatabaseService {
             }
           : null,
       })),
-      colonyScans,
-      colonies: colonies.map((colony) => {
-        const isOwn = colony.userId === userId && !colony.isAbandoned;
-        const owner =
-          colony.userId != null && !colony.isAbandoned && colony.user
-            ? { id: colony.user.id, username: colony.user.username }
-            : null;
-        return {
-          id: colony.id,
-          name: colony.name,
-          owner: isOwn ? null : owner,
-          isOwn,
-          isAbandoned: colony.isAbandoned,
-          posX: colony.posX,
-          posY: colony.posY,
-          celestialObjectId: colony.celestialObjectId,
-          canMessageOwner: hasOwnCurrentColony && !!owner && !isOwn,
-        };
-      }),
     };
   }
 
