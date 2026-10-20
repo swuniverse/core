@@ -36,6 +36,11 @@ import { assertSpacecraftNotInStandby } from '../spacecraft/spacecraft-mode.util
 import { SpacecraftDestructionService } from '../spacecraft/spacecraft-destruction.service';
 import { CombatReportFormatter } from './combat-report.formatter';
 import {
+  COMBATS_EVENT,
+  DESTROYED_SHIPS_EVENT,
+} from '../statistics/statistic-metrics';
+import { StatisticsService } from '../statistics/statistics.service';
+import {
   matchesColonyOrbit,
   sameSpacecraftLocation,
 } from '../spacecraft/spacecraft-field';
@@ -62,6 +67,7 @@ export class CombatService {
     private readonly colonyDamageService: ColonyDamageService,
     private readonly destructionService: SpacecraftDestructionService,
     private readonly reportFormatter: CombatReportFormatter,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   async attack(
@@ -138,6 +144,9 @@ export class CombatService {
     if (result.defenderDestroyed) {
       await this.destructionService.destroyFromCombat(defender.id);
     }
+    await this.countCombat(
+      Number(result.attackerDestroyed) + Number(result.defenderDestroyed),
+    );
 
     return this.reportFormatter.format(result, attacker, defender);
   }
@@ -308,6 +317,8 @@ export class CombatService {
       },
     });
 
+    await this.countCombat(attacker.hull <= 0 ? 1 : 0);
+
     const result = {
       defenderType: 'COLONY' as const,
       colonyShields: colony.stats.shields ?? 0,
@@ -328,6 +339,17 @@ export class CombatService {
       defenderDestroyed: false,
     };
     return result;
+  }
+
+  /** Zählt ein abgeschlossenes Gefecht und die darin zerstörten Schiffe. */
+  private async countCombat(destroyedShips: number): Promise<void> {
+    await this.statisticsService.countEvent(COMBATS_EVENT);
+    if (destroyedShips > 0) {
+      await this.statisticsService.countEvent(
+        DESTROYED_SHIPS_EVENT,
+        destroyedShips,
+      );
+    }
   }
 
   private getActiveColonyFunctionIds(colony: Colony): number[] {

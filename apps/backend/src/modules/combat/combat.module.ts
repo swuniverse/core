@@ -14,6 +14,7 @@ import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { ColonyDefenseService } from '../colony/colony-defense.service';
 import { ColonyDamageService } from '../colony/colony-damage.service';
+import { StatisticsModule } from '../statistics/statistics.module';
 import { CombatReportFormatter } from './combat-report.formatter';
 
 @Module({
@@ -28,6 +29,7 @@ import { CombatReportFormatter } from './combat-report.formatter';
     ]),
     WebsocketModule,
     SpacecraftModule,
+    StatisticsModule,
   ],
   controllers: [CombatController],
   providers: [
