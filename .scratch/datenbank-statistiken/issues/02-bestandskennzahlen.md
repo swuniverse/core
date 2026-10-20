@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Jede genannte Kennzahl erscheint nach einem Haupttick mit den richtigen Serien in der Lese-API (Integrationstest)
 - [x] Die Statistikseite zeigt für jede einen Chart mit Legende
