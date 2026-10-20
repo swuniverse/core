@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-
-export type ChartSeries = { key: string; label: string };
-export type ChartPoint = { t: string; values: Record<string, number> };
+import type { StatisticPointDto, StatisticSeriesDto } from '@swuniverse/shared';
 
 // Farben aus den Design-Tokens, in Stapelreihenfolge.
 const SERIES_COLORS = [
@@ -26,12 +24,41 @@ const LABEL_GAP = 16;
 
 export type ChartTimeFormat = (iso: string) => string;
 
+const colorOf = (index: number) => SERIES_COLORS[index % SERIES_COLORS.length];
+
 /** Rundet das Maximum auf einen gut lesbaren Achsenendwert. */
 function niceMax(value: number): number {
   if (value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const step = [1, 2, 2.5, 5, 10].find((m) => value <= m * magnitude)!;
   return step * magnitude;
+}
+
+/** Gleichmäßig verteilte y-Achsenwerte von 0 bis `max`. */
+export function yAxisTicks(max: number): number[] {
+  return Array.from({ length: Y_TICKS + 1 }, (_, i) => (max / Y_TICKS) * i);
+}
+
+/**
+ * Indizes der x-Achsenlabels: so viele gleichmäßig verteilte, wie bei
+ * `labelWidth` pro Label ohne Überlappung in `plotWidth` passen.
+ */
+export function xAxisTickIndexes(
+  pointCount: number,
+  labelWidth: number,
+  plotWidth: number,
+): number[] {
+  const count = Math.max(
+    1,
+    Math.min(pointCount, Math.floor(plotWidth / (labelWidth + LABEL_GAP)) + 1),
+  );
+  return [
+    ...new Set(
+      Array.from({ length: count }, (_, i) =>
+        count === 1 ? 0 : Math.round((i / (count - 1)) * (pointCount - 1)),
+      ),
+    ),
+  ];
 }
 
 /**
@@ -46,8 +73,8 @@ export function StackedAreaChart({
   formatTooltip,
 }: {
   title: string;
-  series: ChartSeries[];
-  points: ChartPoint[];
+  series: StatisticSeriesDto[];
+  points: StatisticPointDto[];
   formatTick: ChartTimeFormat;
   formatTooltip: ChartTimeFormat;
 }) {
@@ -68,8 +95,7 @@ export function StackedAreaChart({
     return () => observer.disconnect();
   }, []);
 
-  const WIDTH = width;
-  const PLOT_W = WIDTH - PAD.left - PAD.right;
+  const PLOT_W = width - PAD.left - PAD.right;
 
   const totals = points.map((point) =>
     series.reduce((sum, s) => sum + (point.values[s.key] ?? 0), 0),
@@ -95,26 +121,10 @@ export function StackedAreaChart({
     return `M${[...top, ...bottom].join('L')}Z`;
   };
 
-  const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => (max / Y_TICKS) * i);
-  // So viele gleichmäßig verteilte Labels, wie ohne Überlappung passen.
+  const yTicks = yAxisTicks(max);
   const labelWidth =
     Math.max(...points.map((p) => formatTick(p.t).length), 0) * CHAR_WIDTH;
-  const xTickCount = Math.max(
-    1,
-    Math.min(
-      points.length,
-      Math.floor(PLOT_W / (labelWidth + LABEL_GAP)) + 1,
-    ),
-  );
-  const xTickIndexes = [
-    ...new Set(
-      Array.from({ length: xTickCount }, (_, i) =>
-        xTickCount === 1
-          ? 0
-          : Math.round((i / (xTickCount - 1)) * (points.length - 1)),
-      ),
-    ),
-  ];
+  const xTickIndexes = xAxisTickIndexes(points.length, labelWidth, PLOT_W);
   const colWidth = points.length > 1 ? PLOT_W / (points.length - 1) : PLOT_W;
   const hovered = hover == null ? null : points[hover];
 
@@ -124,7 +134,7 @@ export function StackedAreaChart({
         <svg
           role="img"
           aria-label={title}
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          viewBox={`0 0 ${width} ${HEIGHT}`}
           className="h-auto w-full"
           onMouseLeave={() => setHover(null)}
         >
@@ -132,7 +142,7 @@ export function StackedAreaChart({
             <g key={tick}>
               <line
                 x1={PAD.left}
-                x2={WIDTH - PAD.right}
+                x2={width - PAD.right}
                 y1={y(tick)}
                 y2={y(tick)}
                 stroke="var(--color-swu-border)"
@@ -169,9 +179,9 @@ export function StackedAreaChart({
               key={s.key}
               data-series={s.key}
               d={areaPath(index)}
-              fill={SERIES_COLORS[index % SERIES_COLORS.length]}
+              fill={colorOf(index)}
               fillOpacity={0.7}
-              stroke={SERIES_COLORS[index % SERIES_COLORS.length]}
+              stroke={colorOf(index)}
               strokeWidth={1}
             />
           ))}
@@ -205,8 +215,8 @@ export function StackedAreaChart({
             className="pointer-events-none absolute top-2 border border-swu-border bg-swu-bg/95 px-2 py-1 text-xs text-swu-text"
             style={
               hover > points.length / 2
-                ? { right: `${100 - (x(hover) / WIDTH) * 100 + 2}%` }
-                : { left: `${(x(hover) / WIDTH) * 100 + 2}%` }
+                ? { right: `${100 - (x(hover) / width) * 100 + 2}%` }
+                : { left: `${(x(hover) / width) * 100 + 2}%` }
             }
           >
             <p className="mb-1 font-mono text-swu-muted">
@@ -218,7 +228,7 @@ export function StackedAreaChart({
                   aria-hidden
                   className="inline-block size-2"
                   style={{
-                    background: SERIES_COLORS[index % SERIES_COLORS.length],
+                    background: colorOf(index),
                   }}
                 />
                 <span>{s.label}</span>
@@ -236,7 +246,7 @@ export function StackedAreaChart({
             <span
               aria-hidden
               className="inline-block size-2.5"
-              style={{ background: SERIES_COLORS[index % SERIES_COLORS.length] }}
+              style={{ background: colorOf(index) }}
             />
             {s.label}
           </li>
