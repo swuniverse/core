@@ -38,7 +38,7 @@ import { CombatReportFormatter } from './combat-report.formatter';
 import {
   COMBATS_EVENT,
   DESTROYED_SHIPS_EVENT,
-} from '../statistics/statistic-metrics';
+} from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import {
   matchesColonyOrbit,

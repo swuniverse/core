@@ -469,6 +469,101 @@ describe('database statistics (Postgres, HTTP)', () => {
     expect(messages.points.map((p) => p.values)).toEqual([{ messages: 2 }]);
   });
 
+  it('counts only the previous hour at the first snapshot and every event exactly once afterwards', async () => {
+    const at = (day: number, hour: number, minute = 0) =>
+      new Date(2026, 2, day, hour, minute);
+    for (const event of ['combats', 'private-messages']) {
+      await statistics.countEvent(event, 100, at(10, 8, 30)); // history before the previous hour
+      await statistics.countEvent(event, 1, at(10, 11, 30)); // previous hour of tick 1
+    }
+    await statistics.recordSnapshots(at(10, 12));
+
+    for (const event of ['combats', 'private-messages']) {
+      await statistics.countEvent(event, 2, at(10, 12, 10)); // same hour as tick 1, lands in tick 2
+      await statistics.countEvent(event, 4, at(10, 14, 20)); // hour skipped by the main ticks
+      await statistics.countEvent(event, 8, at(10, 15, 50));
+    }
+    await statistics.recordSnapshots(at(10, 16));
+
+    for (const event of ['combats', 'private-messages']) {
+      await statistics.countEvent(event, 16, at(10, 16, 5));
+    }
+    await statistics.recordSnapshots(at(10, 17));
+
+    expect(
+      (await metric('tick', 'private-messages')).points.map((p) => p.values),
+    ).toEqual([{ messages: 1 }, { messages: 14 }, { messages: 16 }]);
+    expect(
+      (await metric('tick', 'combat')).points.map((p) => p.values.combats),
+    ).toEqual([1, 14, 16]);
+  });
+
+  it('skips a metric whose history cannot be read instead of failing the API', async () => {
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    const defect: StatisticMetric = {
+      ...customMetric,
+      key: "bad'key",
+      title: 'Defekt',
+    };
+    const service = new StatisticsService(
+      {
+        query: (sql: string, params: unknown[]) =>
+          params?.[0] === defect.key
+            ? Promise.reject(new Error('boom'))
+            : dataSource.query(sql, params),
+      } as never,
+      [defect, customMetric],
+    );
+
+    const result = await service.getStatistics('tick');
+
+    expect(result.metrics.map((entry) => entry.key)).toEqual(['test-metric']);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it('buckets daily, weekly and monthly units independently of the database session time zone', async () => {
+    // 2026-03-01 is a Sunday; the instants straddle the UTC day, week and
+    // month borders of the evening before (local time zone of the test
+    // process differs from UTC).
+    await statistics.recordSnapshots(new Date(Date.UTC(2026, 1, 28, 23, 30)));
+    await statistics.recordSnapshots(new Date(Date.UTC(2026, 2, 1, 0, 30)));
+    await statistics.recordSnapshots(new Date(Date.UTC(2026, 2, 1, 23, 30)));
+    await statistics.recordSnapshots(new Date(Date.UTC(2026, 2, 2, 0, 30)));
+    const runner = dataSource.createQueryRunner();
+    try {
+      await runner.query(`SET TIME ZONE 'Pacific/Auckland'`);
+      const auckland = new StatisticsService(
+        {
+          query: (sql: string, params: unknown[]) => runner.query(sql, params),
+        } as never,
+        STATISTIC_METRICS,
+      );
+      const times = async (unit: 'daily' | 'weekly' | 'monthly') =>
+        (await auckland.getStatistics(unit)).metrics
+          .find((entry) => entry.key === 'players')!
+          .points.map((p) => p.t);
+
+      expect(await times('daily')).toEqual([
+        '2026-02-28T00:00:00.000Z',
+        '2026-03-01T00:00:00.000Z',
+        '2026-03-02T00:00:00.000Z',
+      ]);
+      expect(await times('weekly')).toEqual([
+        '2026-02-23T00:00:00.000Z',
+        '2026-03-02T00:00:00.000Z',
+      ]);
+      expect(await times('monthly')).toEqual([
+        '2026-02-01T00:00:00.000Z',
+        '2026-03-01T00:00:00.000Z',
+      ]);
+    } finally {
+      await runner.release();
+    }
+  });
+
   it('does not throw when counting an event fails', async () => {
     const error = jest
       .spyOn(Logger.prototype, 'error')
