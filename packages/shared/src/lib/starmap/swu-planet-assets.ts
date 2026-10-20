@@ -39,6 +39,28 @@ export const SWU_PLANET_ASSET_CODE: Record<number, string> = {
   90153: 'G4', // Gasplanet D
 };
 
+/** Anzeigenamen der SWU-Planetenklassen (analog zu den STU-Klassennamen wie "Klasse M"). */
+export const SWU_PLANET_CLASS_NAME: Record<number, string> = {
+  90010: 'Erdähnlich',
+  90020: 'Ozeanwelt',
+  90030: 'Waldplanet',
+  90040: 'Sumpf',
+  90050: 'Savanne',
+  90060: 'Wüste',
+  90070: 'Gebirgswelt',
+  90080: 'Tundraartig',
+  90090: 'Marsartig',
+  90100: 'Arktisch',
+  90110: 'Archipel',
+  90120: 'Mondartig',
+  90130: 'Lavaplanet',
+  90140: 'Giftwelt',
+  90150: 'Gasplanet A',
+  90151: 'Gasplanet B',
+  90152: 'Gasplanet C',
+  90153: 'Gasplanet D',
+};
+
 /** Klassenkuerzel, fuer die es eine Tidal-Locked-Grafik gibt (= tidalLockedPossible im Generator). */
 export const SWU_TIDAL_LOCKED_ASSET_CODES: ReadonlySet<string> = new Set([
   'TE',

@@ -56,6 +56,7 @@ import {
   type SpacecraftLssMode as SpacecraftLssModeDto,
   WsEventType,
   getStuCelestialClass,
+  SWU_PLANET_CLASS_NAME,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 import { CartographyPlanStatus } from './entities/cartography-plan.entity';
@@ -2609,10 +2610,10 @@ export class SpacecraftService {
     const colonizationCandidate =
       location?.scope === 'SYSTEM' && celestialObjectId != null
         ? await this.dataSource.getRepository(CelestialObject).findOne({
-            where: { id: celestialObjectId, isColonizable: true },
+            where: { id: celestialObjectId },
           })
         : null;
-    const abandonedColony = colonizationCandidate
+    const abandonedColony = colonizationCandidate?.isColonizable
       ? await this.dataSource.getRepository(Colony).findOne({
           where: {
             celestialObjectId: colonizationCandidate.id,
@@ -2639,6 +2640,7 @@ export class SpacecraftService {
             id: colony.id,
             name: colony.name,
             planetName: colony.celestialObject?.name ?? colony.name,
+            classId: colony.celestialObject?.classId ?? null,
             isOwn: colony.userId === userId,
             canLand,
             canSurfaceScan,
@@ -2665,7 +2667,10 @@ export class SpacecraftService {
               name: colonizationTarget.name,
               classId: colonizationTarget.classId,
               className:
-                getStuCelestialClass(colonizationTarget.classId)?.name ?? null,
+                getStuCelestialClass(colonizationTarget.classId)?.name ??
+                SWU_PLANET_CLASS_NAME[colonizationTarget.classId ?? -1] ??
+                null,
+              isColonizable: colonizationTarget.isColonizable,
               isAbandoned: abandonedColony != null,
             }
           : null,

@@ -336,34 +336,50 @@ export function FieldContextPanel({
           </div>
         </div>
       </div>
-      {canColonize && context.information.colonizationTarget && (
+      {context.information.colonizationTarget && (
         <div className="border border-swu-border bg-swu-surface">
-          <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1">
-            {context.information.colonizationTarget.classId != null && (
-              <img
-                src={planetThumbnail(
-                  context.information.colonizationTarget.classId,
-                )}
-                alt=""
-                className="size-5 object-contain"
-              />
-            )}
-            <span className="text-swu-primary">
+          <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
+            {context.information.colonizationTarget.name ??
+              'Unbekannter Himmelskörper'}
+          </h3>
+          <div className="grid grid-cols-2">
+            <span className="inline-flex items-center gap-1 p-2 text-swu-primary">
+              {context.information.colonizationTarget.classId != null && (
+                <img
+                  src={planetThumbnail(
+                    context.information.colonizationTarget.classId,
+                  )}
+                  alt=""
+                  className="size-4 object-contain"
+                />
+              )}
               {context.information.colonizationTarget.className ??
-                context.information.colonizationTarget.name ??
                 'Unbekannter Himmelskörper'}
             </span>
+            {canColonize &&
+            context.information.colonizationTarget.isColonizable ? (
+              <button
+                type="button"
+                onClick={() => setColonizationOpen(true)}
+                className="inline-flex items-center gap-1 border-l border-swu-border p-2 text-left text-swu-muted hover:text-swu-accent"
+              >
+                {context.information.colonizationTarget.classId != null && (
+                  <img
+                    src={planetThumbnail(
+                      context.information.colonizationTarget.classId,
+                    )}
+                    alt=""
+                    className="size-4 object-contain"
+                  />
+                )}
+                {context.information.colonizationTarget.isAbandoned
+                  ? 'Ruinen übernehmen'
+                  : 'Kolonie gründen'}
+              </button>
+            ) : (
+              <span className="border-l border-swu-border p-2" />
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setColonizationOpen(true)}
-            className="inline-flex items-center gap-1 px-2 py-1 text-swu-primary hover:text-swu-accent"
-          >
-            ◉{' '}
-            {context.information.colonizationTarget.isAbandoned
-              ? 'Ruinen übernehmen'
-              : 'Kolonie gründen'}
-          </button>
         </div>
       )}
       {context.colony && (
@@ -371,82 +387,88 @@ export function FieldContextPanel({
           <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
             {context.colony.planetName}
           </h3>
-          <div className="flex items-center gap-2 p-2">
-            <div className="flex flex-1 items-center gap-1">
-              {context.colony.isOwn ? (
-                <Link
-                  to={`/colonies?selected=${context.colony.id}`}
-                  className="text-swu-primary hover:text-swu-accent"
-                >
-                  ◉ {context.colony.name}
-                </Link>
-              ) : (
-                <span className="text-swu-primary">
-                  ◉ {context.colony.name}
-                </span>
-              )}
+          <div className="grid grid-cols-2">
+            <div className="space-y-1 p-2">
+              <div className="flex items-center gap-1">
+                {context.colony.classId != null && (
+                  <img
+                    src={planetThumbnail(context.colony.classId)}
+                    alt=""
+                    className="size-4 object-contain"
+                  />
+                )}
+                {context.colony.isOwn ? (
+                  <Link
+                    to={`/colonies?selected=${context.colony.id}`}
+                    className="text-swu-primary hover:text-swu-accent"
+                  >
+                    {context.colony.name}
+                  </Link>
+                ) : (
+                  <span className="text-swu-primary">
+                    {context.colony.name}
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => void showMessage()}
-                title="Koloniebotschaft"
+                title="Koloniebotschaft anzeigen"
                 className="border border-swu-border px-1 text-swu-primary"
               >
                 ?
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setTransfer('TO_COLONY')}
-              title="Zur Kolonie entladen"
-            >
-              <img
-                src="/assets/buttons/b_down1.png"
-                alt="Entladen"
-                className="size-5"
-              />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTransfer('TO_SHIP')}
-              title="Von Kolonie verladen"
-            >
-              <img
-                src="/assets/buttons/b_up1.png"
-                alt="Verladen"
-                className="size-5"
-              />
-            </button>
-            {context.colony.canSurfaceScan && (
+            <div className="flex items-start gap-2 border-l border-swu-border p-2">
+              {context.colony.canSurfaceScan && (
+                <button
+                  type="button"
+                  onClick={() => void scanColony()}
+                  title="Kolonieoberfläche scannen"
+                  className="inline-flex items-center gap-1 text-swu-muted hover:text-swu-accent"
+                >
+                  <img
+                    src="/assets/buttons/lupe1.png"
+                    alt=""
+                    className="size-5"
+                  />
+                  Scannen
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => void scanColony()}
-                title="Kolonieoberfläche scannen"
-                className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent"
+                onClick={() => setTransfer('TO_COLONY')}
+                title="Zur Kolonie beamen"
               >
                 <img
-                  src="/assets/buttons/lupe1.png"
-                  alt=""
+                  src="/assets/buttons/b_down1.png"
+                  alt="Entladen"
                   className="size-5"
                 />
-                Scannen
               </button>
-            )}
-            {context.colony.canLand && (
               <button
                 type="button"
-                disabled={landing}
-                onClick={() => void landShip()}
-                title="Schiff auf der Kolonie landen"
-                className="inline-flex items-center gap-1 border border-swu-border px-1.5 py-0.5 text-swu-primary hover:border-swu-accent disabled:opacity-40"
+                onClick={() => setTransfer('TO_SHIP')}
+                title="Von der Kolonie beamen"
               >
                 <img
-                  src="/assets/buttons/dock1.png"
-                  alt=""
+                  src="/assets/buttons/b_up1.png"
+                  alt="Verladen"
                   className="size-5"
                 />
-                Landen
               </button>
-            )}
+              {context.colony.canLand && (
+                <button
+                  type="button"
+                  disabled={landing}
+                  onClick={() => void landShip()}
+                  title="Schiff auf der Kolonie landen"
+                  className="px-1 text-swu-muted hover:text-swu-accent disabled:opacity-40"
+                >
+                  Landen
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -624,11 +646,7 @@ function CartographyDialog({
         <button type="button" onClick={onClose}>
           Abbrechen
         </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="text-swu-primary"
-        >
+        <button type="button" onClick={onConfirm} className="text-swu-primary">
           Bestätigen
         </button>
       </div>

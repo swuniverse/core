@@ -433,9 +433,11 @@ describe('FieldContextPanel', () => {
     expect(systemLink.getAttribute('href')).toBe('/database/systems/8');
     const systemActions = systemLink.parentElement;
     expect(systemActions?.className).toContain('flex-col');
-    expect(systemActions?.contains(screen.getByRole('button', { name: 'System verlassen' }))).toBe(
-      true,
-    );
+    expect(
+      systemActions?.contains(
+        screen.getByRole('button', { name: 'System verlassen' }),
+      ),
+    ).toBe(true);
     expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft/1/cartography', {
       cache: 'no-store',
     });
@@ -997,6 +999,7 @@ describe('FieldContextPanel', () => {
                 name: 'Tatooine',
                 classId: 701,
                 className: 'Klasse M',
+                isColonizable: true,
                 isAbandoned: false,
               },
             },
@@ -1010,6 +1013,55 @@ describe('FieldContextPanel', () => {
     expect(
       screen.getByRole('button', { name: /Kolonie gründen/ }),
     ).toBeTruthy();
+  });
+
+  it('shows the planet box without colonization for a non-colonizer or uncolonizable body', () => {
+    const target = {
+      celestialObjectId: 9,
+      name: 'Duro II',
+      classId: 701,
+      className: 'Klasse M',
+      isColonizable: true,
+      isAbandoned: false,
+    };
+    const ctx = (colonizationTarget: typeof target) => ({
+      coordinates: { x: 1, y: 4 },
+      starSystem: null,
+      colony: null,
+      information: {
+        canSectorScan: false,
+        cartographyKnown: true,
+        colonizationTarget,
+      },
+    });
+    const { unmount } = render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={ctx(target)}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Klasse M')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: /Kolonie gründen/ }),
+    ).toBeNull();
+    unmount();
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          canColonize
+          context={ctx({ ...target, isColonizable: false })}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Klasse M')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: /Kolonie gründen/ }),
+    ).toBeNull();
   });
 
   it('does not show a colonization action for an occupied colony', () => {
@@ -1043,7 +1095,7 @@ describe('FieldContextPanel', () => {
     expect(
       screen.queryByRole('button', { name: /Kolonie gründen/ }),
     ).toBeNull();
-    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.getAllByText('Alpha').length).toBeGreaterThan(0);
   });
 
   it('labels abandoned colonies as a takeover target', () => {
@@ -1064,6 +1116,7 @@ describe('FieldContextPanel', () => {
                 name: 'Tatooine',
                 classId: 701,
                 className: 'Klasse M',
+                isColonizable: true,
                 isAbandoned: true,
               },
             },

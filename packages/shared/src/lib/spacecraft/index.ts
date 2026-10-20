@@ -436,6 +436,7 @@ export interface SpacecraftFieldContextDto {
     id: number;
     name: string;
     planetName: string;
+    classId?: number | null;
     isOwn: boolean;
     canLand: boolean;
     canSurfaceScan: boolean;
@@ -456,6 +457,7 @@ export interface SpacecraftFieldContextDto {
       name: string | null;
       classId: number | null;
       className: string | null;
+      isColonizable: boolean;
       isAbandoned: boolean;
     } | null;
   };
