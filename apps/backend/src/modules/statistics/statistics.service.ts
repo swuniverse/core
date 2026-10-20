@@ -63,6 +63,35 @@ export class StatisticsService {
     }
   }
 
+  /**
+   * Zählt ein Ereignis `amount`-mal in der Stunde von `at` hoch (atomar per
+   * UPSERT). Fehler werden protokolliert und nie weitergereicht, damit die
+   * zählende Aktion nicht an der Statistik scheitert.
+   */
+  async countEvent(
+    metricKey: string,
+    amount = 1,
+    at: Date = new Date(),
+  ): Promise<void> {
+    if (!(amount > 0)) return;
+    try {
+      const hour = new Date(at);
+      hour.setMinutes(0, 0, 0);
+      await this.dataSource.query(
+        `INSERT INTO "statistic_hour_counters" ("metricKey", "hour", "count")
+         VALUES ($1, $2, $3)
+         ON CONFLICT ("metricKey", "hour")
+         DO UPDATE SET "count" = "statistic_hour_counters"."count" + EXCLUDED."count"`,
+        [metricKey, hour, amount],
+      );
+    } catch (error) {
+      this.logger.error(
+        `Event ${metricKey} could not be counted`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
   async getStatistics(
     unit: StatisticUnit,
   ): Promise<{ unit: StatisticUnit; metrics: StatisticDto[] }> {

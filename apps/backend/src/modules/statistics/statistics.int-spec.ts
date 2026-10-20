@@ -256,6 +256,43 @@ describe('database statistics (Postgres, HTTP)', () => {
     expect(text).not.toContain(String(player.email));
   });
 
+  it('shows the fields flown in the last 24 hours, counted per hour', async () => {
+    const now = new Date(2026, 2, 10, 12, 30);
+    const hoursAgo = (hours: number) => new Date(now.getTime() - hours * HOUR);
+
+    await statistics.countEvent('flown-fields', 3, now);
+    await statistics.countEvent(
+      'flown-fields',
+      4,
+      new Date(now.getTime() - 10 * 60_000),
+    );
+    await statistics.countEvent('flown-fields', 5, hoursAgo(23));
+    await statistics.countEvent('flown-fields', 100, hoursAgo(24)); // outside the window
+    await statistics.countEvent('other-event', 50, hoursAgo(1));
+    await statistics.recordSnapshots(now);
+
+    const flown = await metric('tick', 'flown-fields-24h');
+    expect(flown.title).toBe('Geflogene Felder (24 h)');
+    expect(flown.points.map((p) => p.values)).toEqual([{ fields: 12 }]);
+  });
+
+  it('does not throw when counting an event fails', async () => {
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    const broken = new StatisticsService(
+      { query: () => Promise.reject(new Error('boom')) } as never,
+      [],
+    );
+
+    await expect(
+      broken.countEvent('flown-fields', 1),
+    ).resolves.toBeUndefined();
+
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it('rejects an unknown time unit', async () => {
     expect((await get('/database/statistics?unit=yearly')).status).toBe(400);
   });
