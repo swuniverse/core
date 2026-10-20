@@ -28,6 +28,9 @@ describe('STU-style Maindesk overview', () => {
         },
       },
       crewInfo: { assigned: 4, globalLimit: 12 },
+      onlinePlayers: [
+        { id: 7, username: 'Leia', faction: 'REBEL', avatar: null },
+      ],
     } as DashboardData;
 
     render(
@@ -42,6 +45,11 @@ describe('STU-style Maindesk overview', () => {
     expect(screen.getByText('Kolonielimitierung')).toBeTruthy();
     expect(screen.getByText('Crewlimitierung')).toBeTruthy();
     expect(screen.getByText('4/12')).toBeTruthy();
+    expect(screen.getByText('Zufällige Spieler (online)')).toBeTruthy();
+    expect(screen.getByText('Leia')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Leia/ }).getAttribute('href')).toBe(
+      '/players/7',
+    );
     expect(
       screen.getByTitle('Planeten').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/planets/201s.png');

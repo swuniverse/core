@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PlayerAvatar } from '../../components/PlayerAvatar';
 import type { DashboardData } from './types';
 
 export function RecentEvents({ data }: { data: DashboardData }) {
@@ -88,6 +89,9 @@ export function DashboardMessages({ data }: { data: DashboardData }) {
 }
 export function DashboardLimits({ data }: { data: DashboardData }) {
   const limits = data.colonizationLimits?.limits;
+  const randomPlayer = data.onlinePlayers.length
+    ? data.onlinePlayers[Math.floor(Math.random() * data.onlinePlayers.length)]
+    : null;
   return (
     <div className="space-y-2">
       <section className="border border-swu-border bg-swu-surface/70">
@@ -142,6 +146,30 @@ export function DashboardLimits({ data }: { data: DashboardData }) {
             title="Globales Crewlimit"
           />
         </div>
+      </section>
+      <section className="border border-swu-border bg-swu-surface/70">
+        <header className="border-b border-swu-border px-3 py-1.5 text-center text-xs font-bold text-swu-primary">
+          Zufällige Spieler (online)
+        </header>
+        {randomPlayer ? (
+          <Link
+            to={`/players/${randomPlayer.id}`}
+            className="flex flex-col items-center gap-1 px-3 py-3 hover:bg-white/[0.04]"
+          >
+            <PlayerAvatar
+              name={randomPlayer.username}
+              avatar={randomPlayer.avatar}
+              faction={randomPlayer.faction as never}
+              alt={randomPlayer.username}
+              className="size-10"
+            />
+            <span className="text-xs text-swu-text">{randomPlayer.username}</span>
+          </Link>
+        ) : (
+          <p className="px-3 py-3 text-center text-xs text-swu-muted">
+            Keine Spieler online
+          </p>
+        )}
       </section>
     </div>
   );
