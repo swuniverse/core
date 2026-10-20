@@ -87,6 +87,7 @@ import { PrestigeModule } from './modules/prestige/prestige.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapshot.entity';
 import { StatisticSnapshot } from './modules/statistics/entities/statistic-snapshot.entity';
+import { StatisticHourCounter } from './modules/statistics/entities/statistic-hour-counter.entity';
 import { AllianceModule } from './modules/alliance/alliance.module';
 import { Alliance } from './modules/alliance/entities/alliance.entity';
 import { AllianceMembership } from './modules/alliance/entities/alliance-membership.entity';
@@ -178,6 +179,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           PrestigeHistoryEntry,
           DashboardSnapshot,
           StatisticSnapshot,
+          StatisticHourCounter,
           Alliance,
           AllianceMembership,
           AllianceApplication,

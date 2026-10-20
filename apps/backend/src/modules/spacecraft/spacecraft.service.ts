@@ -79,6 +79,8 @@ import {
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
 } from './spacecraft-field';
+import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-metrics';
+import { StatisticsService } from '../statistics/statistics.service';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 
 @Injectable()
@@ -122,6 +124,7 @@ export class SpacecraftService {
     private readonly cartographyPlanService: CartographyPlanService,
     private readonly messagingService: MessagingService,
     private readonly prestigeService: PrestigeService,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1787,6 +1790,7 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
 
+    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
     await this.processCartographyArrival(ship, currentSystemId, targetField.id);
     await this.emitOrbitUpdates(previousField, resolveSpacecraftField(ship));
 
@@ -1924,6 +1928,7 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
 
+    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
     await this.discoverGalaxyAroundShip(
       ship,
       currentLayerId,
@@ -2199,6 +2204,10 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
+    await this.statisticsService.countEvent(
+      FLOWN_FIELDS_EVENT,
+      galaxyDistance,
+    );
     return ship;
   }
 

@@ -120,6 +120,7 @@ function createService() {
       return true;
     }),
   };
+  const statistics = { countEvent: jest.fn(async () => undefined) };
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
     moduleRepo as unknown as ConstructorParameters<typeof SpacecraftService>[1],
@@ -175,9 +176,14 @@ function createService() {
     {} as ConstructorParameters<typeof SpacecraftService>[23],
     {} as ConstructorParameters<typeof SpacecraftService>[24],
     {} as ConstructorParameters<typeof SpacecraftService>[25],
-    cartographyPlanService as ConstructorParameters<typeof SpacecraftService>[26],
+    cartographyPlanService as ConstructorParameters<
+      typeof SpacecraftService
+    >[26],
     {} as ConstructorParameters<typeof SpacecraftService>[27],
     {} as ConstructorParameters<typeof SpacecraftService>[28],
+    statistics as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[29],
   );
 
   return {
@@ -190,6 +196,7 @@ function createService() {
     locationRepo,
     runtimeState,
     explorationService,
+    statistics,
   };
 }
 
@@ -332,6 +339,62 @@ describe('SpacecraftService movement resources', () => {
     await service.navigate(7, 1, 1, 4);
 
     expect(ship.energy).toBe(14);
+  });
+
+  it('counts the flown fields of successful navigation and galaxy flight', async () => {
+    const {
+      service,
+      shipRepo,
+      systemRepo,
+      systemFieldRepo,
+      galaxyFieldRepo,
+      statistics,
+    } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      energy: 20,
+      warpdrive: 10,
+      modules: [],
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+
+    await service.navigate(7, 1, 1, 4);
+
+    expect(statistics.countEvent).toHaveBeenCalledWith('flown-fields', 3);
+
+    ship.status = SpacecraftStatus.IDLE;
+    Object.assign(ship, galaxyLocation());
+    galaxyFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+
+    await service.flyGalaxy(7, 1, 3, 1);
+
+    expect(statistics.countEvent).toHaveBeenLastCalledWith('flown-fields', 2);
+  });
+
+  it('does not count fields of a failed movement', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo, statistics } =
+      createService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      energy: 0,
+      modules: [],
+    });
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ isPassable: true });
+
+    await expect(service.navigate(7, 1, 1, 4)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    expect(statistics.countEvent).not.toHaveBeenCalled();
   });
 
   it('rejects in-system navigation when EPS is insufficient', async () => {

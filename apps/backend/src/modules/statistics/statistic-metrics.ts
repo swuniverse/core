@@ -173,6 +173,30 @@ const holonetMetric: StatisticMetric = {
   },
 };
 
+export const FLOWN_FIELDS_EVENT = 'flown-fields';
+
+const flownFieldsMetric: StatisticMetric = {
+  key: 'flown-fields-24h',
+  title: 'Geflogene Felder (24 h)',
+  aggregation: 'last',
+  series: [{ key: 'fields', label: 'Felder' }],
+  async capture(dataSource, now) {
+    const currentHour = new Date(now);
+    currentHour.setMinutes(0, 0, 0);
+    const [row] = await dataSource.query(
+      `SELECT COALESCE(SUM("count"), 0)::float AS fields
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" = $1 AND "hour" > $2 AND "hour" <= $3`,
+      [
+        FLOWN_FIELDS_EVENT,
+        new Date(currentHour.getTime() - ACTIVE_WINDOW_MS),
+        currentHour,
+      ],
+    );
+    return { fields: Number(row.fields) };
+  },
+};
+
 /**
  * Register aller Statistiken. Eine neue Kennzahl entsteht durch einen
  * weiteren Eintrag; Erfassung, API und Anzeige übernehmen sie automatisch.
@@ -186,4 +210,5 @@ export const STATISTIC_METRICS: StatisticMetric[] = [
   alliancesMetric,
   prestigeMetric,
   holonetMetric,
+  flownFieldsMetric,
 ];

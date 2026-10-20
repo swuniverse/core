@@ -336,6 +336,7 @@ function createHarness() {
     cartography as never,
     messages as never,
     prestige as never,
+    { countEvent: jest.fn(async () => undefined) } as never,
   );
   jest
     .spyOn(service, 'findOne')
