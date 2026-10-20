@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Das Senden einer Privatnachricht erhöht den Zähler; andere Ordner zählen nicht
 - [x] Das Löschen einer Nachricht verändert den Verlauf nicht (Integrationstest)
