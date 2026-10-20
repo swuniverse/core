@@ -1,4 +1,5 @@
 import type { DataSource } from 'typeorm';
+import { Faction } from '@swuniverse/shared';
 
 /**
  * Wie die Snapshots einer Kennzahl zu einem Bucket (Täglich, Wöchentlich,
@@ -44,8 +45,145 @@ const playersMetric: StatisticMetric = {
   },
 };
 
+const FACTION_SERIES = [
+  { key: Faction.REBEL_ALLIANCE, label: 'Rebellenallianz' },
+  { key: Faction.GALACTIC_EMPIRE, label: 'Galaktisches Imperium' },
+];
+
+/**
+ * Bestandskennzahl, die Zeilen je Fraktion zählt. `table` ist die Tabelle mit
+ * `userId`; Zeilen ohne Spieler (NPC, herrenlos) erscheinen in keiner Serie.
+ */
+function perFactionMetric(
+  key: string,
+  title: string,
+  table: string,
+): StatisticMetric {
+  return {
+    key,
+    title,
+    aggregation: 'last',
+    series: FACTION_SERIES,
+    async capture(dataSource) {
+      const rows: Array<{ faction: string; count: string }> =
+        await dataSource.query(
+          `SELECT f."key" AS faction, COUNT(*) AS count
+           FROM "${table}" t
+           JOIN "users" u ON u."id" = t."userId"
+           JOIN "factions" f ON f."id" = u."factionId"
+           GROUP BY f."key"`,
+        );
+      return countsPerSeries(rows);
+    },
+  };
+}
+
+function countsPerSeries(
+  rows: Array<{ faction: string; count: string }>,
+): Record<string, number> {
+  const values: Record<string, number> = {};
+  for (const series of FACTION_SERIES) values[series.key] = 0;
+  for (const row of rows) values[row.faction] = Number(row.count);
+  return values;
+}
+
+const playersByFactionMetric: StatisticMetric = {
+  key: 'players-by-faction',
+  title: 'Spieler je Fraktion',
+  aggregation: 'last',
+  series: FACTION_SERIES,
+  async capture(dataSource) {
+    const rows = await dataSource.query(
+      `SELECT f."key" AS faction, COUNT(*) AS count
+       FROM "users" u
+       JOIN "factions" f ON f."id" = u."factionId"
+       GROUP BY f."key"`,
+    );
+    return countsPerSeries(rows);
+  },
+};
+
+const discoveredSystemsMetric: StatisticMetric = {
+  key: 'discovered-systems',
+  title: 'Entdeckte Systeme',
+  aggregation: 'last',
+  series: [{ key: 'systems', label: 'Systementdeckungen' }],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT COUNT(*) AS systems FROM "system_explorations"`,
+    );
+    return { systems: Number(row.systems) };
+  },
+};
+
+const alliancesMetric: StatisticMetric = {
+  key: 'alliances',
+  title: 'Allianzen',
+  aggregation: 'last',
+  series: [
+    { key: 'count', label: 'Anzahl' },
+    { key: 'avgMembers', label: 'Ø Mitglieder' },
+  ],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT
+         (SELECT COUNT(*) FROM "alliances") AS count,
+         (SELECT COUNT(*) FROM "alliance_memberships") AS members`,
+    );
+    const count = Number(row.count);
+    return {
+      count,
+      avgMembers: count
+        ? Math.round((Number(row.members) / count) * 100) / 100
+        : 0,
+    };
+  },
+};
+
+// Gesamtsumme statt Median: sie wächst monoton mit Aktivität und ist als
+// Bestandswert über Zeit besser lesbar als eine robuste, aber träge Mitte.
+const prestigeMetric: StatisticMetric = {
+  key: 'prestige',
+  title: 'Prestige',
+  aggregation: 'last',
+  series: [{ key: 'total', label: 'Gesamt' }],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT COALESCE(SUM("prestige"), 0) AS total FROM "users"`,
+    );
+    return { total: Number(row.total) };
+  },
+};
+
+const holonetMetric: StatisticMetric = {
+  key: 'holonet',
+  title: 'Holonet',
+  aggregation: 'last',
+  series: [
+    { key: 'posts', label: 'Beiträge' },
+    { key: 'comments', label: 'Kommentare' },
+  ],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT
+         (SELECT COUNT(*) FROM "holonet_posts") AS posts,
+         (SELECT COUNT(*) FROM "holonet_comments") AS comments`,
+    );
+    return { posts: Number(row.posts), comments: Number(row.comments) };
+  },
+};
+
 /**
  * Register aller Statistiken. Eine neue Kennzahl entsteht durch einen
  * weiteren Eintrag; Erfassung, API und Anzeige übernehmen sie automatisch.
  */
-export const STATISTIC_METRICS: StatisticMetric[] = [playersMetric];
+export const STATISTIC_METRICS: StatisticMetric[] = [
+  playersMetric,
+  perFactionMetric('ships-by-faction', 'Schiffe nach Fraktion', 'spacecraft'),
+  perFactionMetric('colonies-by-faction', 'Kolonien nach Fraktion', 'colonies'),
+  playersByFactionMetric,
+  discoveredSystemsMetric,
+  alliancesMetric,
+  prestigeMetric,
+  holonetMetric,
+];
