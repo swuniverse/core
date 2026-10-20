@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   Controller,
+  DefaultValuePipe,
   Get,
   Param,
   NotFoundException,
+  ParseEnumPipe,
   ParseIntPipe,
   Query,
   Request,
@@ -12,11 +14,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
-import {
-  STATISTIC_UNITS,
-  StatisticsService,
-  type StatisticUnit,
-} from '../statistics/statistics.service';
+import { STATISTIC_UNITS, type StatisticUnit } from '@swuniverse/shared';
+import { StatisticsService } from '../statistics/statistics.service';
 
 @Controller('database')
 export class DatabaseController {
@@ -130,11 +129,18 @@ export class DatabaseController {
   @Get('statistics')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getStatistics(@Query('unit') unit = 'tick') {
-    if (!STATISTIC_UNITS.includes(unit as StatisticUnit)) {
-      throw new BadRequestException('Unbekannte Zeiteinheit');
-    }
-    return this.statisticsService.getStatistics(unit as StatisticUnit);
+  getStatistics(
+    @Query(
+      'unit',
+      new DefaultValuePipe('tick'),
+      new ParseEnumPipe(STATISTIC_UNITS, {
+        exceptionFactory: () =>
+          new BadRequestException('Unbekannte Zeiteinheit'),
+      }),
+    )
+    unit: StatisticUnit,
+  ) {
+    return this.statisticsService.getStatistics(unit);
   }
 
   @Get('rankings/:key')

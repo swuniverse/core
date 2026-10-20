@@ -79,7 +79,7 @@ import {
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
 } from './spacecraft-field';
-import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-metrics';
+import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 

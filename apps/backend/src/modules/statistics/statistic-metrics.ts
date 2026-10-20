@@ -1,5 +1,11 @@
 import type { DataSource } from 'typeorm';
 import { Faction } from '@swuniverse/shared';
+import {
+  COMBATS_EVENT,
+  DESTROYED_SHIPS_EVENT,
+  FLOWN_FIELDS_EVENT,
+  PRIVATE_MESSAGES_EVENT,
+} from './statistic-events';
 
 /**
  * Wie die Snapshots einer Kennzahl zu einem Bucket (Täglich, Wöchentlich,
@@ -18,13 +24,52 @@ export interface StatisticMetric {
 }
 
 const ACTIVE_WINDOW_MS = 24 * 3_600_000;
+const FLOWN_FIELDS_WINDOW_HOURS = 24;
 
-function hourOf(at: Date): Date {
+/** Beginn der (UTC-)Stunde von `at`. */
+export function hourOf(at: Date): Date {
   const hour = new Date(at);
-  hour.setMinutes(0, 0, 0);
+  hour.setUTCMinutes(0, 0, 0);
   return hour;
 }
 
+/**
+ * Summe je Ereignis aus den Stundenzeilen seit dem letzten Snapshot der
+ * Kennzahl `metricKey` bis vor die aktuelle Stunde von `now`. Gezählt wird ab
+ * der Stunde des letzten Snapshots (so geht nichts verloren, auch wenn
+ * Haupttick-Stunden ausfallen); beim ersten Snapshot nur die letzte
+ * abgeschlossene Stunde. Jedes Ereignis landet so genau einmal in einem
+ * Snapshot. Ereignisse der laufenden Stunde zählen im nächsten Snapshot.
+ */
+async function countSinceLastSnapshot(
+  dataSource: DataSource,
+  metricKey: string,
+  eventKeys: string[],
+  now: Date,
+): Promise<Record<string, number>> {
+  const rows: Array<{ eventKey: string; total: number }> =
+    await dataSource.query(
+      `SELECT "metricKey" AS "eventKey", SUM("count")::float AS total
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" = ANY($1)
+         AND "hour" < ($2::timestamptz AT TIME ZONE 'UTC')
+         AND "hour" >= COALESCE(
+           (SELECT date_trunc('hour', MAX("recordedAt"))
+            FROM "statistic_snapshots"
+            WHERE "metricKey" = $3
+              AND "recordedAt" < ($4::timestamptz AT TIME ZONE 'UTC')),
+           ($2::timestamptz AT TIME ZONE 'UTC') - interval '1 hour')
+       GROUP BY "metricKey"`,
+      [eventKeys, hourOf(now), metricKey, now],
+    );
+  const totals: Record<string, number> = {};
+  for (const eventKey of eventKeys) totals[eventKey] = 0;
+  for (const row of rows) totals[row.eventKey] = Number(row.total);
+  return totals;
+}
+
+// Zählt alle Users, auch Admins. Spieler ohne Fraktion fehlen dagegen in
+// `players-by-faction`, die Summen beider Kennzahlen können also abweichen.
 const playersMetric: StatisticMetric = {
   key: 'players',
   title: 'Spieler',
@@ -51,63 +96,50 @@ const playersMetric: StatisticMetric = {
   },
 };
 
-const FACTION_SERIES = [
+const FACTION_SERIES_DEFINITIONS = [
   { key: Faction.REBEL_ALLIANCE, label: 'Rebellenallianz' },
   { key: Faction.GALACTIC_EMPIRE, label: 'Galaktisches Imperium' },
 ];
 
 /**
  * Bestandskennzahl, die Zeilen je Fraktion zählt. `table` ist die Tabelle mit
- * `userId`; Zeilen ohne Spieler (NPC, herrenlos) erscheinen in keiner Serie.
+ * `ownerColumn` als Spieler-Verweis; Zeilen ohne Spieler (NPC, herrenlos)
+ * oder ohne Fraktion erscheinen in keiner Serie.
  */
 function perFactionMetric(
   key: string,
   title: string,
   table: string,
+  ownerColumn: string,
 ): StatisticMetric {
   return {
     key,
     title,
     aggregation: 'last',
-    series: FACTION_SERIES,
+    series: FACTION_SERIES_DEFINITIONS,
     async capture(dataSource) {
       const rows: Array<{ faction: string; count: string }> =
         await dataSource.query(
           `SELECT f."key" AS faction, COUNT(*) AS count
            FROM "${table}" t
-           JOIN "users" u ON u."id" = t."userId"
+           JOIN "users" u ON u."id" = t."${ownerColumn}"
            JOIN "factions" f ON f."id" = u."factionId"
            GROUP BY f."key"`,
         );
-      return countsPerSeries(rows);
+      const values: Record<string, number> = {};
+      for (const series of FACTION_SERIES_DEFINITIONS) values[series.key] = 0;
+      for (const row of rows) values[row.faction] = Number(row.count);
+      return values;
     },
   };
 }
 
-function countsPerSeries(
-  rows: Array<{ faction: string; count: string }>,
-): Record<string, number> {
-  const values: Record<string, number> = {};
-  for (const series of FACTION_SERIES) values[series.key] = 0;
-  for (const row of rows) values[row.faction] = Number(row.count);
-  return values;
-}
-
-const playersByFactionMetric: StatisticMetric = {
-  key: 'players-by-faction',
-  title: 'Spieler je Fraktion',
-  aggregation: 'last',
-  series: FACTION_SERIES,
-  async capture(dataSource) {
-    const rows = await dataSource.query(
-      `SELECT f."key" AS faction, COUNT(*) AS count
-       FROM "users" u
-       JOIN "factions" f ON f."id" = u."factionId"
-       GROUP BY f."key"`,
-    );
-    return countsPerSeries(rows);
-  },
-};
+const playersByFactionMetric = perFactionMetric(
+  'players-by-faction',
+  'Spieler je Fraktion',
+  'users',
+  'id',
+);
 
 const discoveredSystemsMetric: StatisticMetric = {
   key: 'discovered-systems',
@@ -179,23 +211,22 @@ const holonetMetric: StatisticMetric = {
   },
 };
 
-export const FLOWN_FIELDS_EVENT = 'flown-fields';
-
 const flownFieldsMetric: StatisticMetric = {
   key: 'flown-fields-24h',
   title: 'Geflogene Felder (24 h)',
   aggregation: 'last',
   series: [{ key: 'fields', label: 'Felder' }],
   async capture(dataSource, now) {
-    const currentHour = new Date(now);
-    currentHour.setMinutes(0, 0, 0);
+    const currentHour = hourOf(now);
     const [row] = await dataSource.query(
       `SELECT COALESCE(SUM("count"), 0)::float AS fields
        FROM "statistic_hour_counters"
-       WHERE "metricKey" = $1 AND "hour" > $2 AND "hour" <= $3`,
+       WHERE "metricKey" = $1
+         AND "hour" > ($2::timestamptz AT TIME ZONE 'UTC')
+         AND "hour" <= ($3::timestamptz AT TIME ZONE 'UTC')`,
       [
         FLOWN_FIELDS_EVENT,
-        new Date(currentHour.getTime() - ACTIVE_WINDOW_MS),
+        new Date(currentHour.getTime() - FLOWN_FIELDS_WINDOW_HOURS * 3_600_000),
         currentHour,
       ],
     );
@@ -203,13 +234,6 @@ const flownFieldsMetric: StatisticMetric = {
   },
 };
 
-export const COMBATS_EVENT = 'combats';
-export const DESTROYED_SHIPS_EVENT = 'destroyed-ships';
-
-// Zuwachs seit dem vorigen Snapshot aus den Stundenzeilen: es zählen die
-// Stunden ab der Stunde des vorigen Snapshots bis vor die aktuelle Stunde
-// (beim ersten Snapshot nur die Vorstunde), damit jedes Ereignis genau
-// einmal in einem Snapshot landet.
 const combatMetric: StatisticMetric = {
   key: 'combat',
   title: 'Kampf',
@@ -219,52 +243,34 @@ const combatMetric: StatisticMetric = {
     { key: 'destroyedShips', label: 'Zerstörte Schiffe' },
   ],
   async capture(dataSource, now) {
-    const currentHour = new Date(now);
-    currentHour.setMinutes(0, 0, 0);
-    const [row] = await dataSource.query(
-      `SELECT
-         COALESCE(SUM("count") FILTER (WHERE "metricKey" = $1), 0)::float AS combats,
-         COALESCE(SUM("count") FILTER (WHERE "metricKey" = $2), 0)::float AS destroyed
-       FROM "statistic_hour_counters"
-       WHERE "metricKey" IN ($1, $2)
-         AND "hour" < $3
-         AND "hour" >= COALESCE(
-           (SELECT date_trunc('hour', MAX("recordedAt"))
-            FROM "statistic_snapshots"
-            WHERE "metricKey" = 'combat' AND "recordedAt" < $4),
-           $3::timestamptz - interval '1 hour')`,
-      [COMBATS_EVENT, DESTROYED_SHIPS_EVENT, currentHour, now],
+    const totals = await countSinceLastSnapshot(
+      dataSource,
+      'combat',
+      [COMBATS_EVENT, DESTROYED_SHIPS_EVENT],
+      now,
     );
     return {
-      combats: Number(row.combats),
-      destroyedShips: Number(row.destroyed),
+      combats: totals[COMBATS_EVENT],
+      destroyedShips: totals[DESTROYED_SHIPS_EVENT],
     };
   },
 };
 
-export const PRIVATE_MESSAGES_EVENT = 'private-messages';
-
+// Zuwachs aus den Stundenzeilen, nicht aus dem Bestand: Löschen verändert den
+// Verlauf nicht.
 const privateMessagesMetric: StatisticMetric = {
   key: 'private-messages',
   title: 'Privatnachrichten',
   aggregation: 'sum',
   series: [{ key: 'messages', label: 'Nachrichten' }],
-  // Zuwachs seit dem letzten Haupttick aus den Stundenzeilen
-  // [Stunde des letzten Ticks, Stunde von now), nicht aus dem Bestand:
-  // Löschen verändert den Verlauf nicht, übersprungene Tickstunden gehen
-  // nicht verloren.
   async capture(dataSource, now) {
-    const [row] = await dataSource.query(
-      `SELECT COALESCE(SUM("count"), 0)::float AS messages
-       FROM "statistic_hour_counters"
-       WHERE "metricKey" = $1 AND "hour" < $2
-         AND "hour" >= COALESCE(
-           (SELECT date_trunc('hour', MAX("recordedAt")) FROM "statistic_snapshots"
-            WHERE "metricKey" = 'private-messages' AND "recordedAt" < $3),
-           '-infinity')`,
-      [PRIVATE_MESSAGES_EVENT, hourOf(now), now],
+    const totals = await countSinceLastSnapshot(
+      dataSource,
+      'private-messages',
+      [PRIVATE_MESSAGES_EVENT],
+      now,
     );
-    return { messages: Number(row.messages) };
+    return { messages: totals[PRIVATE_MESSAGES_EVENT] };
   },
 };
 
@@ -274,8 +280,18 @@ const privateMessagesMetric: StatisticMetric = {
  */
 export const STATISTIC_METRICS: StatisticMetric[] = [
   playersMetric,
-  perFactionMetric('ships-by-faction', 'Schiffe nach Fraktion', 'spacecraft'),
-  perFactionMetric('colonies-by-faction', 'Kolonien nach Fraktion', 'colonies'),
+  perFactionMetric(
+    'ships-by-faction',
+    'Schiffe nach Fraktion',
+    'spacecraft',
+    'userId',
+  ),
+  perFactionMetric(
+    'colonies-by-faction',
+    'Kolonien nach Fraktion',
+    'colonies',
+    'userId',
+  ),
   playersByFactionMetric,
   discoveredSystemsMetric,
   alliancesMetric,

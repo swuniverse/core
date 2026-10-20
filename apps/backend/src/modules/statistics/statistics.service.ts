@@ -1,12 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { STATISTIC_METRICS, type StatisticMetric } from './statistic-metrics';
+import type {
+  StatisticDto,
+  StatisticPointDto,
+  StatisticUnit,
+  StatisticsResponseDto,
+} from '@swuniverse/shared';
+import { hourOf, type StatisticMetric } from './statistic-metrics';
 
 export const STATISTIC_METRICS_TOKEN = 'STATISTIC_METRICS';
-
-export const STATISTIC_UNITS = ['tick', 'daily', 'weekly', 'monthly'] as const;
-export type StatisticUnit = (typeof STATISTIC_UNITS)[number];
 
 const UNIT_BUCKET: Record<
   StatisticUnit,
@@ -18,14 +21,6 @@ const UNIT_BUCKET: Record<
   monthly: { trunc: 'month', limit: 30 },
 };
 
-export type StatisticPointDto = { t: string; values: Record<string, number> };
-export type StatisticDto = {
-  key: string;
-  title: string;
-  series: Array<{ key: string; label: string }>;
-  points: StatisticPointDto[];
-};
-
 @Injectable()
 export class StatisticsService {
   private readonly logger = new Logger(StatisticsService.name);
@@ -33,7 +28,7 @@ export class StatisticsService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     @Inject(STATISTIC_METRICS_TOKEN)
-    private readonly metrics: StatisticMetric[] = STATISTIC_METRICS,
+    private readonly metrics: StatisticMetric[],
   ) {}
 
   /**
@@ -49,7 +44,7 @@ export class StatisticsService {
         for (const series of metric.series) {
           await this.dataSource.query(
             `INSERT INTO "statistic_snapshots" ("metricKey", "seriesKey", "recordedAt", "value")
-             VALUES ($1, $2, $3, $4)
+             VALUES ($1, $2, $3::timestamptz AT TIME ZONE 'UTC', $4)
              ON CONFLICT ("metricKey", "seriesKey", "recordedAt") DO NOTHING`,
             [metric.key, series.key, at, values[series.key] ?? 0],
           );
@@ -75,11 +70,10 @@ export class StatisticsService {
   ): Promise<void> {
     if (!(amount > 0)) return;
     try {
-      const hour = new Date(at);
-      hour.setMinutes(0, 0, 0);
+      const hour = hourOf(at);
       await this.dataSource.query(
         `INSERT INTO "statistic_hour_counters" ("metricKey", "hour", "count")
-         VALUES ($1, $2, $3)
+         VALUES ($1, $2::timestamptz AT TIME ZONE 'UTC', $3)
          ON CONFLICT ("metricKey", "hour")
          DO UPDATE SET "count" = "statistic_hour_counters"."count" + EXCLUDED."count"`,
         [metricKey, hour, amount],
@@ -92,13 +86,28 @@ export class StatisticsService {
     }
   }
 
-  async getStatistics(
-    unit: StatisticUnit,
-  ): Promise<{ unit: StatisticUnit; metrics: StatisticDto[] }> {
-    const metrics = await Promise.all(
-      this.metrics.map((metric) => this.readMetric(metric, unit)),
+  async getStatistics(unit: StatisticUnit): Promise<StatisticsResponseDto> {
+    const results = await Promise.all(
+      this.metrics.map((metric) => this.readMetricSafely(metric, unit)),
     );
+    const metrics = results.filter((dto): dto is StatisticDto => dto !== null);
     return { unit, metrics };
+  }
+
+  /** Eine defekte Kennzahl wird protokolliert und übersprungen. */
+  private async readMetricSafely(
+    metric: StatisticMetric,
+    unit: StatisticUnit,
+  ): Promise<StatisticDto | null> {
+    try {
+      return await this.readMetric(metric, unit);
+    } catch (error) {
+      this.logger.error(
+        `Statistic ${metric.key} could not be read`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return null;
+    }
   }
 
   private async readMetric(
@@ -107,9 +116,12 @@ export class StatisticsService {
   ): Promise<StatisticDto> {
     const { trunc, limit } = UNIT_BUCKET[unit];
     // trunc stammt aus der festen Tabelle oben, nie aus Nutzereingaben.
+    // Zeitstempel liegen als UTC-Wanduhrzeit vor; Buckets werden explizit in
+    // UTC gebildet und als timestamptz geliefert, unabhängig von der
+    // Zeitzone von Datenbanksitzung und Server.
     const bucket = trunc
-      ? `date_trunc('${trunc}', "recordedAt")`
-      : '"recordedAt"';
+      ? `date_trunc('${trunc}', "recordedAt") AT TIME ZONE 'UTC'`
+      : `"recordedAt" AT TIME ZONE 'UTC'`;
     const value =
       metric.aggregation === 'sum'
         ? 'SUM("value")'

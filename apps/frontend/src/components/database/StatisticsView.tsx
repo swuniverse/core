@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'react';
+import type {
+  StatisticDto,
+  StatisticUnit,
+  StatisticsResponseDto,
+} from '@swuniverse/shared';
 import { api } from '../../services/api';
-import {
-  StackedAreaChart,
-  type ChartPoint,
-  type ChartSeries,
-} from './StackedAreaChart';
+import { StackedAreaChart } from './StackedAreaChart';
 
-type Unit = 'tick' | 'daily' | 'weekly' | 'monthly';
-type Statistic = {
-  key: string;
-  title: string;
-  series: ChartSeries[];
-  points: ChartPoint[];
-};
-
-const UNITS: Array<{ unit: Unit; label: string }> = [
+const UNITS: Array<{ unit: StatisticUnit; label: string }> = [
   { unit: 'tick', label: 'Tick' },
   { unit: 'daily', label: 'Täglich' },
   { unit: 'weekly', label: 'Wöchentlich' },
@@ -33,7 +26,7 @@ const time = (iso: string) =>
   });
 
 const FORMATS: Record<
-  Unit,
+  StatisticUnit,
   { tick: (iso: string) => string; tooltip: (iso: string) => string }
 > = {
   tick: {
@@ -57,15 +50,15 @@ const FORMATS: Record<
 };
 
 export function StatisticsView() {
-  const [unit, setUnit] = useState<Unit>('tick');
-  const [metrics, setMetrics] = useState<Statistic[] | null>(null);
+  const [unit, setUnit] = useState<StatisticUnit>('tick');
+  const [metrics, setMetrics] = useState<StatisticDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMetrics(null);
     setError(null);
     api
-      .get<{ metrics: Statistic[] }>(`/database/statistics?unit=${unit}`)
+      .get<StatisticsResponseDto>(`/database/statistics?unit=${unit}`)
       .then((data) => setMetrics(data.metrics))
       .catch((err: unknown) =>
         setError(

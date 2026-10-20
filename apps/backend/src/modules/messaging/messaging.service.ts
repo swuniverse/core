@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-metrics';
+import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { Message } from './entities/message.entity';
 import {
