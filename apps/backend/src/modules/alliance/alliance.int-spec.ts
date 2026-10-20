@@ -13,6 +13,7 @@ import {
 } from '../../testing/integration/database';
 import { User } from '../auth/user.entity';
 import { Message } from '../messaging/entities/message.entity';
+import { StatisticsService } from '../statistics/statistics.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { AllianceService } from './alliance.service';
 import { AllianceConstraintViolation } from './alliance.store';
@@ -406,7 +407,10 @@ describe('alliance persistence (Postgres)', () => {
     const mon = await rebel();
     const rogue = await alliance('Rogue Squadron', leia.id);
     const red = await alliance('Red Squadron', mon.id);
-    const messaging = new MessagingService(dataSource.getRepository(Message));
+    const messaging = new MessagingService(
+      dataSource.getRepository(Message),
+      new StatisticsService(dataSource, []),
+    );
     const failingService = new AllianceService(store, messaging);
     const markDelivered = jest
       .spyOn(store, 'markDiplomacyNotificationDelivered')

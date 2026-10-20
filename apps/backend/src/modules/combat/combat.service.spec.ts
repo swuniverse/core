@@ -87,6 +87,14 @@ function createService() {
     applyIncomingDamage: jest.fn<any, any[]>(() => []),
   };
   const reportFormatter = { format: jest.fn((result) => result) };
+  const statistics = { countEvent: jest.fn(async () => undefined) };
+  const destructionService = {
+    destroyFromCombat: jest.fn(async () => undefined),
+    saveCombatSurvivor: jest.fn(async (ship) => {
+      await shipRepo.save(ship);
+      return true;
+    }),
+  };
   const service = new CombatService(
     shipRepo as any,
     moduleRepo as any,
@@ -100,14 +108,9 @@ function createService() {
     gameData as any,
     colonyEventService as any,
     colonyDamageService as any,
-    {
-      destroyFromCombat: jest.fn(async () => undefined),
-      saveCombatSurvivor: jest.fn(async (ship) => {
-        await shipRepo.save(ship);
-        return true;
-      }),
-    } as any,
+    destructionService as any,
     reportFormatter as any,
+    statistics as any,
   );
   return {
     service,
@@ -120,6 +123,9 @@ function createService() {
     colonyEventService,
     colonyDamageService,
     colonyFieldRepo,
+    engine,
+    statistics,
+    destructionService,
   };
 }
 
@@ -317,6 +323,24 @@ describe('CombatService attackColony', () => {
     expect(result.colonyShields).toBe(200);
   });
 
+  it('counts a colony attack as a combat, with the ship if it is destroyed', async () => {
+    const { service, shipRepo, colonyRepo, statistics } = createService();
+    shipRepo.findOne.mockResolvedValue(attacker());
+    colonyRepo.findOne.mockResolvedValue(colony());
+
+    await service.attackColony(7, 5, 1);
+
+    expect(statistics.countEvent).toHaveBeenCalledTimes(1);
+    expect(statistics.countEvent).toHaveBeenCalledWith('combats');
+
+    statistics.countEvent.mockClear();
+    shipRepo.findOne.mockResolvedValue({ ...attacker(), hull: 0 });
+    await service.attackColony(7, 5, 1);
+
+    expect(statistics.countEvent).toHaveBeenCalledWith('combats');
+    expect(statistics.countEvent).toHaveBeenCalledWith('destroyed-ships', 1);
+  });
+
   it('rejects attacks from ships outside colony orbit', async () => {
     const { service, shipRepo, colonyRepo } = createService();
     shipRepo.findOne.mockResolvedValue({
@@ -379,5 +403,78 @@ describe('CombatService attack', () => {
       .mockResolvedValueOnce(defender);
 
     await expect(service.attack(1, 2, 1)).resolves.toBeDefined();
+  });
+
+  describe('statistics', () => {
+    const ship = (id: number, userId: number) => ({
+      id,
+      userId,
+      status: SpacecraftStatus.IDLE,
+      locationId: 42,
+      location: { id: 42, kind: 'GALAXY_FIELD' },
+    });
+
+    async function fight(outcome: {
+      attackerDestroyed: boolean;
+      defenderDestroyed: boolean;
+    }) {
+      const env = createService();
+      env.engine.resolveCombat.mockResolvedValueOnce({
+        ...outcome,
+        rounds: [],
+        winner: 'attacker',
+      } as any);
+      env.shipRepo.findOne
+        .mockResolvedValueOnce(ship(1, 1))
+        .mockResolvedValueOnce(ship(2, 2));
+      return env;
+    }
+
+    it('counts a finished combat once and each destroyed ship', async () => {
+      const { service, statistics } = await fight({
+        attackerDestroyed: true,
+        defenderDestroyed: true,
+      });
+
+      await service.attack(1, 2, 1);
+
+      expect(statistics.countEvent).toHaveBeenCalledTimes(2);
+      expect(statistics.countEvent).toHaveBeenCalledWith('combats');
+      expect(statistics.countEvent).toHaveBeenCalledWith('destroyed-ships', 2);
+    });
+
+    it('counts no destroyed ships when both survive', async () => {
+      const { service, statistics } = await fight({
+        attackerDestroyed: false,
+        defenderDestroyed: false,
+      });
+
+      await service.attack(1, 2, 1);
+
+      expect(statistics.countEvent).toHaveBeenCalledTimes(1);
+      expect(statistics.countEvent).toHaveBeenCalledWith('combats');
+    });
+
+    it('counts nothing when the combat fails midway', async () => {
+      const { service, statistics, engine } = await fight({
+        attackerDestroyed: false,
+        defenderDestroyed: true,
+      });
+      engine.resolveCombat.mockReset();
+      engine.resolveCombat.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(service.attack(1, 2, 1)).rejects.toThrow('boom');
+
+      expect(statistics.countEvent).not.toHaveBeenCalled();
+    });
+
+    it('counts nothing when the attack is rejected', async () => {
+      const { service, statistics, shipRepo } = createService();
+      shipRepo.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.attack(1, 2, 1)).rejects.toThrow();
+
+      expect(statistics.countEvent).not.toHaveBeenCalled();
+    });
   });
 });

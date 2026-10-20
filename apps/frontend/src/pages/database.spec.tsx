@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { DatabasePage, DatabaseSystemDetailPage } from './database';
@@ -101,7 +102,11 @@ describe('DatabasePage', () => {
               id: 102,
               sx: 3,
               sy: 1,
-              fieldType: { id: 6, key: 'ASTEROID_CLUSTER', name: 'Asteroidenfeld' },
+              fieldType: {
+                id: 6,
+                key: 'ASTEROID_CLUSTER',
+                name: 'Asteroidenfeld',
+              },
               celestialObject: {
                 id: 91,
                 objectType: 3,
@@ -122,25 +127,40 @@ describe('DatabasePage', () => {
     render(
       <MemoryRouter initialEntries={['/database/systems/20']}>
         <Routes>
-          <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
+          <Route
+            path="/database/systems/:id"
+            element={<DatabaseSystemDetailPage />}
+          />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect((await screen.findAllByRole('heading', { name: 'Bespin' })).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByRole('heading', { name: 'Bespin' })).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByLabelText('Kartographische Systemkarte')).toBeTruthy();
     expect(screen.queryByText('Rastergröße')).toBeNull();
-    expect(screen.getByRole('button', { name: /Feld 1:2: Bespin II/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Feld 3:1: Asteroidengürtel/ })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Feld 1:2: Bespin II/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Feld 3:1: Asteroidengürtel/ }),
+    ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /Feld 1:2: Bespin II/ }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Feld 1:2: Bespin II/ }),
+    );
     expect(screen.getByText('Gasriese')).toBeTruthy();
     expect(screen.getByText('Planet')).toBeTruthy();
 
     expect(screen.queryByText('Cloud City')).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Sternenkarte öffnen' })).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Sternenkarte öffnen' }),
+    ).toBeNull();
     expect(screen.queryByRole('link', { name: /Nachricht an/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /scan|navigation|kampf|bewegung/i })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /scan|navigation|kampf|bewegung/i }),
+    ).toBeNull();
   });
 
   it('withholds the raster and all system details until Astrometrie succeeds', async () => {
@@ -149,19 +169,26 @@ describe('DatabasePage', () => {
     render(
       <MemoryRouter initialEntries={['/database/systems/20']}>
         <Routes>
-          <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
+          <Route
+            path="/database/systems/:id"
+            element={<DatabaseSystemDetailPage />}
+          />
         </Routes>
       </MemoryRouter>,
     );
 
     expect(
-      await screen.findByText(/noch nicht erfolgreich vollständig kartographiert/i),
+      await screen.findByText(
+        /noch nicht erfolgreich vollständig kartographiert/i,
+      ),
     ).toBeTruthy();
     expect(screen.queryByLabelText('Kartographische Systemkarte')).toBeNull();
     expect(screen.queryByText('Bespin')).toBeNull();
-    expect(screen.getByRole('link', { name: '← Sternensysteme' }).getAttribute('href')).toBe(
-      '/database?view=systems',
-    );
+    expect(
+      screen
+        .getByRole('link', { name: '← Sternensysteme' })
+        .getAttribute('href'),
+    ).toBe('/database?view=systems');
   });
 
   it('shows the Sternensysteme catalog with non-openable masked entries', async () => {
@@ -205,5 +232,160 @@ describe('DatabasePage', () => {
     expect(screen.getByText('Bespin')).toBeTruthy();
     expect(screen.getAllByText('???')).toHaveLength(3);
     expect(screen.queryByRole('link', { name: '???' })).toBeNull();
+  });
+
+  describe('Statistiken', () => {
+    const statistics = (unit: string, points: number) => ({
+      unit,
+      metrics: [
+        {
+          key: 'players',
+          title: 'Spieler',
+          series: [
+            { key: 'active', label: 'Aktiv (24 h)' },
+            { key: 'inactive', label: 'Inaktiv' },
+            { key: 'vacation', label: 'Urlaub' },
+          ],
+          points: Array.from({ length: points }, (_, i) => ({
+            t: new Date(2026, 2, 2 + i, 8, 0).toISOString(),
+            values: { active: 2 + i, inactive: 1, vacation: 0 },
+          })),
+        },
+      ],
+    });
+
+    function openStatistics(points = 3) {
+      apiMocks.get.mockImplementation((url: string) => {
+        if (url.startsWith('/database/statistics?unit=')) {
+          return Promise.resolve(statistics(url.split('=')[1], points));
+        }
+        throw new Error(`Unexpected URL ${url}`);
+      });
+      render(
+        <MemoryRouter initialEntries={['/database?view=statistics']}>
+          <DatabasePage />
+        </MemoryRouter>,
+      );
+    }
+
+    it('opens from the hub entry and reloads when the time unit changes', async () => {
+      apiMocks.get.mockImplementation((url: string) => {
+        if (url === '/database/overview') {
+          return Promise.resolve({ sections: [] });
+        }
+        return Promise.resolve(statistics('tick', 3));
+      });
+      render(
+        <MemoryRouter>
+          <DatabasePage />
+        </MemoryRouter>,
+      );
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Statistiken' }),
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Spieler' }),
+      ).toBeTruthy();
+      expect(apiMocks.get).toHaveBeenCalledWith(
+        '/database/statistics?unit=tick',
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Täglich' }));
+      await waitFor(() =>
+        expect(apiMocks.get).toHaveBeenCalledWith(
+          '/database/statistics?unit=daily',
+        ),
+      );
+      expect(
+        screen
+          .getByRole('button', { name: 'Täglich' })
+          .getAttribute('aria-pressed'),
+      ).toBe('true');
+    });
+
+    it('renders a stacked area chart with a legend per series', async () => {
+      openStatistics();
+
+      expect(await screen.findByRole('img', { name: 'Spieler' })).toBeTruthy();
+      expect(document.querySelectorAll('svg path[data-series]')).toHaveLength(
+        3,
+      );
+      for (const label of ['Aktiv (24 h)', 'Inaktiv', 'Urlaub']) {
+        expect(screen.getByText(label)).toBeTruthy();
+      }
+    });
+
+    it('shows time and all series values in a tooltip on hover', async () => {
+      openStatistics();
+      await screen.findByRole('img', { name: 'Spieler' });
+
+      fireEvent.mouseEnter(screen.getAllByTestId('chart-hover')[1]);
+
+      const tooltip = screen.getByRole('tooltip');
+      expect(tooltip.textContent).toContain('03.03.');
+      expect(tooltip.textContent).toContain('Aktiv (24 h)');
+      expect(tooltip.textContent).toContain('3');
+      expect(tooltip.textContent).toContain('Inaktiv');
+    });
+
+    it('thins the time axis out without rotating labels or letting them overlap', async () => {
+      openStatistics(40);
+      const chart = await screen.findByRole('img', { name: 'Spieler' });
+
+      const labels = Array.from(chart.querySelectorAll('text[data-axis="x"]'));
+      expect(labels.length).toBeGreaterThanOrEqual(2);
+      expect(labels.length).toBeLessThan(8);
+      expect(chart.querySelectorAll('text[transform]')).toHaveLength(0);
+      const xs = labels.map((label) => Number(label.getAttribute('x')));
+      const gaps = xs.slice(1).map((value, i) => value - xs[i]);
+      // Ein Tick-Label ("03.03. 08:00") ist knapp 80 Einheiten breit.
+      for (const gap of gaps) expect(gap).toBeGreaterThan(80);
+    });
+
+    describe('on a narrow viewport', () => {
+      const originalObserver = globalThis.ResizeObserver;
+      afterEach(() => {
+        globalThis.ResizeObserver = originalObserver;
+      });
+
+      it('sizes the chart to the container and drops axis labels that no longer fit', async () => {
+        globalThis.ResizeObserver = class {
+          constructor(private callback: ResizeObserverCallback) {}
+          observe(target: Element) {
+            this.callback(
+              [{ contentRect: { width: 300 } } as ResizeObserverEntry],
+              this as unknown as ResizeObserver,
+            );
+            void target;
+          }
+          unobserve() {
+            // nicht benötigt
+          }
+          disconnect() {
+            // nicht benötigt
+          }
+        } as unknown as typeof ResizeObserver;
+
+        openStatistics(40);
+        const chart = await screen.findByRole('img', { name: 'Spieler' });
+
+        await waitFor(() =>
+          expect(chart.getAttribute('viewBox')).toBe('0 0 300 240'),
+        );
+        const labels = chart.querySelectorAll('text[data-axis="x"]');
+        expect(labels.length).toBeGreaterThanOrEqual(2);
+        expect(labels.length).toBeLessThanOrEqual(3);
+      });
+    });
+
+    it('explains that data is still being collected when fewer than two snapshots exist', async () => {
+      openStatistics(1);
+
+      expect(
+        await screen.findByText(/Noch nicht genug Messpunkte/),
+      ).toBeTruthy();
+      expect(screen.queryByRole('img', { name: 'Spieler' })).toBeNull();
+    });
   });
 });

@@ -198,6 +198,7 @@ function createService() {
     } as any,
     { sendSystem: jest.fn() } as any,
     { change: jest.fn() } as any,
+    { countEvent: jest.fn() } as any,
   );
   jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);
   jest.spyOn(service, 'getSensorRange').mockResolvedValue(3);

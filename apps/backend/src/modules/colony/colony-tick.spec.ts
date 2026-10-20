@@ -5840,6 +5840,7 @@ describe('main tick idempotency', () => {
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn((key: string) => config[key]) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
   it('calculates hourly tick slots when schedule is wildcard', () => {
@@ -6000,6 +6001,7 @@ describe('main tick idempotency', () => {
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     const result = await service.handleTick();
@@ -6028,6 +6030,7 @@ describe('main tick idempotency', () => {
       { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     const result = await service.triggerManualTick();
@@ -6080,6 +6083,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     await service.handleTick(1);
@@ -6153,6 +6157,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -6234,6 +6239,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -6334,6 +6340,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     const handling = service.checkBuildingCompletions();
@@ -6398,6 +6405,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     await service.checkBuildingCompletions();
@@ -6455,6 +6463,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     const handling = service.handleTick();
@@ -6498,6 +6507,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).rejects.toBe(completionError);
@@ -6540,6 +6550,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).rejects.toThrow('tick failed');
@@ -6582,6 +6593,7 @@ describe('main tick idempotency', () => {
       gateway as any,
       { get: jest.fn(() => undefined) } as any,
       { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
     );
 
     await expect(service.handleTick()).resolves.toEqual({

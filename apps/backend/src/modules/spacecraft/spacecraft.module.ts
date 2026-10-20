@@ -57,6 +57,7 @@ import { AllianceModule } from '../alliance/alliance.module';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { CartographyPlanService } from './cartography-plan.service';
 import { DatabaseModule } from '../database/database.module';
+import { StatisticsModule } from '../statistics/statistics.module';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { DatabaseModule } from '../database/database.module';
     PrestigeModule,
     AllianceModule,
     DatabaseModule,
+    StatisticsModule,
   ],
   controllers: [SpacecraftController],
   providers: [

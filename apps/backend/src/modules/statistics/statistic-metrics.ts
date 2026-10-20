@@ -1,0 +1,287 @@
+import type { DataSource } from 'typeorm';
+import { Faction } from '@swuniverse/shared';
+
+/**
+ * Wie die Snapshots einer Kennzahl zu einem Bucket (Täglich, Wöchentlich,
+ * Monatlich) zusammengefasst werden: `last` für Bestandswerte, `sum` für
+ * Zuwächse je Haupttick.
+ */
+export type StatisticAggregation = 'last' | 'sum';
+
+export interface StatisticMetric {
+  key: string;
+  title: string;
+  aggregation: StatisticAggregation;
+  series: Array<{ key: string; label: string }>;
+  /** Liefert je Serienschlüssel den Wert zum Messzeitpunkt `now`. */
+  capture(dataSource: DataSource, now: Date): Promise<Record<string, number>>;
+}
+
+const ACTIVE_WINDOW_MS = 24 * 3_600_000;
+
+function hourOf(at: Date): Date {
+  const hour = new Date(at);
+  hour.setMinutes(0, 0, 0);
+  return hour;
+}
+
+const playersMetric: StatisticMetric = {
+  key: 'players',
+  title: 'Spieler',
+  aggregation: 'last',
+  series: [
+    { key: 'active', label: 'Aktiv (24 h)' },
+    { key: 'inactive', label: 'Inaktiv' },
+    { key: 'vacation', label: 'Urlaub' },
+  ],
+  async capture(dataSource, now) {
+    const [row] = await dataSource.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE NOT "vacationMode" AND "lastActiveAt" >= $1)::int AS active,
+         COUNT(*) FILTER (WHERE NOT "vacationMode" AND ("lastActiveAt" IS NULL OR "lastActiveAt" < $1))::int AS inactive,
+         COUNT(*) FILTER (WHERE "vacationMode")::int AS vacation
+       FROM "users"`,
+      [new Date(now.getTime() - ACTIVE_WINDOW_MS)],
+    );
+    return {
+      active: Number(row.active),
+      inactive: Number(row.inactive),
+      vacation: Number(row.vacation),
+    };
+  },
+};
+
+const FACTION_SERIES = [
+  { key: Faction.REBEL_ALLIANCE, label: 'Rebellenallianz' },
+  { key: Faction.GALACTIC_EMPIRE, label: 'Galaktisches Imperium' },
+];
+
+/**
+ * Bestandskennzahl, die Zeilen je Fraktion zählt. `table` ist die Tabelle mit
+ * `userId`; Zeilen ohne Spieler (NPC, herrenlos) erscheinen in keiner Serie.
+ */
+function perFactionMetric(
+  key: string,
+  title: string,
+  table: string,
+): StatisticMetric {
+  return {
+    key,
+    title,
+    aggregation: 'last',
+    series: FACTION_SERIES,
+    async capture(dataSource) {
+      const rows: Array<{ faction: string; count: string }> =
+        await dataSource.query(
+          `SELECT f."key" AS faction, COUNT(*) AS count
+           FROM "${table}" t
+           JOIN "users" u ON u."id" = t."userId"
+           JOIN "factions" f ON f."id" = u."factionId"
+           GROUP BY f."key"`,
+        );
+      return countsPerSeries(rows);
+    },
+  };
+}
+
+function countsPerSeries(
+  rows: Array<{ faction: string; count: string }>,
+): Record<string, number> {
+  const values: Record<string, number> = {};
+  for (const series of FACTION_SERIES) values[series.key] = 0;
+  for (const row of rows) values[row.faction] = Number(row.count);
+  return values;
+}
+
+const playersByFactionMetric: StatisticMetric = {
+  key: 'players-by-faction',
+  title: 'Spieler je Fraktion',
+  aggregation: 'last',
+  series: FACTION_SERIES,
+  async capture(dataSource) {
+    const rows = await dataSource.query(
+      `SELECT f."key" AS faction, COUNT(*) AS count
+       FROM "users" u
+       JOIN "factions" f ON f."id" = u."factionId"
+       GROUP BY f."key"`,
+    );
+    return countsPerSeries(rows);
+  },
+};
+
+const discoveredSystemsMetric: StatisticMetric = {
+  key: 'discovered-systems',
+  title: 'Entdeckte Systeme',
+  aggregation: 'last',
+  series: [{ key: 'systems', label: 'Systementdeckungen' }],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT COUNT(*) AS systems FROM "system_explorations"`,
+    );
+    return { systems: Number(row.systems) };
+  },
+};
+
+const alliancesMetric: StatisticMetric = {
+  key: 'alliances',
+  title: 'Allianzen',
+  aggregation: 'last',
+  series: [
+    { key: 'count', label: 'Anzahl' },
+    { key: 'avgMembers', label: 'Ø Mitglieder' },
+  ],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT
+         (SELECT COUNT(*) FROM "alliances") AS count,
+         (SELECT COUNT(*) FROM "alliance_memberships") AS members`,
+    );
+    const count = Number(row.count);
+    return {
+      count,
+      avgMembers: count
+        ? Math.round((Number(row.members) / count) * 100) / 100
+        : 0,
+    };
+  },
+};
+
+// Gesamtsumme statt Median: sie wächst monoton mit Aktivität und ist als
+// Bestandswert über Zeit besser lesbar als eine robuste, aber träge Mitte.
+const prestigeMetric: StatisticMetric = {
+  key: 'prestige',
+  title: 'Prestige',
+  aggregation: 'last',
+  series: [{ key: 'total', label: 'Gesamt' }],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT COALESCE(SUM("prestige"), 0) AS total FROM "users"`,
+    );
+    return { total: Number(row.total) };
+  },
+};
+
+const holonetMetric: StatisticMetric = {
+  key: 'holonet',
+  title: 'Holonet',
+  aggregation: 'last',
+  series: [
+    { key: 'posts', label: 'Beiträge' },
+    { key: 'comments', label: 'Kommentare' },
+  ],
+  async capture(dataSource) {
+    const [row] = await dataSource.query(
+      `SELECT
+         (SELECT COUNT(*) FROM "holonet_posts") AS posts,
+         (SELECT COUNT(*) FROM "holonet_comments") AS comments`,
+    );
+    return { posts: Number(row.posts), comments: Number(row.comments) };
+  },
+};
+
+export const FLOWN_FIELDS_EVENT = 'flown-fields';
+
+const flownFieldsMetric: StatisticMetric = {
+  key: 'flown-fields-24h',
+  title: 'Geflogene Felder (24 h)',
+  aggregation: 'last',
+  series: [{ key: 'fields', label: 'Felder' }],
+  async capture(dataSource, now) {
+    const currentHour = new Date(now);
+    currentHour.setMinutes(0, 0, 0);
+    const [row] = await dataSource.query(
+      `SELECT COALESCE(SUM("count"), 0)::float AS fields
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" = $1 AND "hour" > $2 AND "hour" <= $3`,
+      [
+        FLOWN_FIELDS_EVENT,
+        new Date(currentHour.getTime() - ACTIVE_WINDOW_MS),
+        currentHour,
+      ],
+    );
+    return { fields: Number(row.fields) };
+  },
+};
+
+export const COMBATS_EVENT = 'combats';
+export const DESTROYED_SHIPS_EVENT = 'destroyed-ships';
+
+// Zuwachs seit dem vorigen Snapshot aus den Stundenzeilen: es zählen die
+// Stunden ab der Stunde des vorigen Snapshots bis vor die aktuelle Stunde
+// (beim ersten Snapshot nur die Vorstunde), damit jedes Ereignis genau
+// einmal in einem Snapshot landet.
+const combatMetric: StatisticMetric = {
+  key: 'combat',
+  title: 'Kampf',
+  aggregation: 'sum',
+  series: [
+    { key: 'combats', label: 'Gefechte' },
+    { key: 'destroyedShips', label: 'Zerstörte Schiffe' },
+  ],
+  async capture(dataSource, now) {
+    const currentHour = new Date(now);
+    currentHour.setMinutes(0, 0, 0);
+    const [row] = await dataSource.query(
+      `SELECT
+         COALESCE(SUM("count") FILTER (WHERE "metricKey" = $1), 0)::float AS combats,
+         COALESCE(SUM("count") FILTER (WHERE "metricKey" = $2), 0)::float AS destroyed
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" IN ($1, $2)
+         AND "hour" < $3
+         AND "hour" >= COALESCE(
+           (SELECT date_trunc('hour', MAX("recordedAt"))
+            FROM "statistic_snapshots"
+            WHERE "metricKey" = 'combat' AND "recordedAt" < $4),
+           $3::timestamptz - interval '1 hour')`,
+      [COMBATS_EVENT, DESTROYED_SHIPS_EVENT, currentHour, now],
+    );
+    return {
+      combats: Number(row.combats),
+      destroyedShips: Number(row.destroyed),
+    };
+  },
+};
+
+export const PRIVATE_MESSAGES_EVENT = 'private-messages';
+
+const privateMessagesMetric: StatisticMetric = {
+  key: 'private-messages',
+  title: 'Privatnachrichten',
+  aggregation: 'sum',
+  series: [{ key: 'messages', label: 'Nachrichten' }],
+  // Zuwachs seit dem letzten Haupttick aus den Stundenzeilen
+  // [Stunde des letzten Ticks, Stunde von now), nicht aus dem Bestand:
+  // Löschen verändert den Verlauf nicht, übersprungene Tickstunden gehen
+  // nicht verloren.
+  async capture(dataSource, now) {
+    const [row] = await dataSource.query(
+      `SELECT COALESCE(SUM("count"), 0)::float AS messages
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" = $1 AND "hour" < $2
+         AND "hour" >= COALESCE(
+           (SELECT date_trunc('hour', MAX("recordedAt")) FROM "statistic_snapshots"
+            WHERE "metricKey" = 'private-messages' AND "recordedAt" < $3),
+           '-infinity')`,
+      [PRIVATE_MESSAGES_EVENT, hourOf(now), now],
+    );
+    return { messages: Number(row.messages) };
+  },
+};
+
+/**
+ * Register aller Statistiken. Eine neue Kennzahl entsteht durch einen
+ * weiteren Eintrag; Erfassung, API und Anzeige übernehmen sie automatisch.
+ */
+export const STATISTIC_METRICS: StatisticMetric[] = [
+  playersMetric,
+  perFactionMetric('ships-by-faction', 'Schiffe nach Fraktion', 'spacecraft'),
+  perFactionMetric('colonies-by-faction', 'Kolonien nach Fraktion', 'colonies'),
+  playersByFactionMetric,
+  discoveredSystemsMetric,
+  alliancesMetric,
+  prestigeMetric,
+  holonetMetric,
+  flownFieldsMetric,
+  combatMetric,
+  privateMessagesMetric,
+];
