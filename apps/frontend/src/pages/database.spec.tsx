@@ -129,8 +129,7 @@ describe('DatabasePage', () => {
 
     expect((await screen.findAllByRole('heading', { name: 'Bespin' })).length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Kartographische Systemkarte')).toBeTruthy();
-    expect(screen.getByText('Rastergröße')).toBeTruthy();
-    expect(screen.getByText('3 × 2')).toBeTruthy();
+    expect(screen.queryByText('Rastergröße')).toBeNull();
     expect(screen.getByRole('button', { name: /Feld 1:2: Bespin II/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Feld 3:1: Asteroidengürtel/ })).toBeTruthy();
 

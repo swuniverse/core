@@ -1,4 +1,8 @@
 import { isStuClassColonizable } from './generator/stu-class-colonizable';
+import {
+  TACTICAL_CANON_NAMES,
+  pickTacticalSystemNames,
+} from './tactical-system-names';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -1137,6 +1141,15 @@ export class StarmapAdminService {
     await fieldRepo.save(fields, { chunk: 500 });
 
     const systems: StarSystem[] = [];
+    const systemNames = pickTacticalSystemNames(
+      [
+        ...STAR_WARS_SYSTEM_CATALOG.map((entry) => entry.name),
+        ...TACTICAL_CANON_NAMES,
+      ],
+      positions.length,
+      seed,
+      (value) => this.hashString(value),
+    );
     for (let index = 0; index < positions.length; index++) {
       const position = positions[index];
       const systemTypeId = this.tacticalSystemTypeFor(
@@ -1144,7 +1157,7 @@ export class StarmapAdminService {
         seed,
         index,
       );
-      const name = `Tactical-${index + 1}`;
+      const name = systemNames[index];
       const layout = this.systemGenerator.createLayout(
         name,
         systemTypeId,
@@ -2002,10 +2015,17 @@ export class StarmapAdminService {
       converted++;
     }
     if (converted > 0) {
-      await this.objectRepo.save(candidates.filter((o) => o.originalClassId != null));
+      await this.objectRepo.save(
+        candidates.filter((o) => o.originalClassId != null),
+      );
     }
 
-    return { converted, skippedInhabited, skippedNoMapping, updated: converted };
+    return {
+      converted,
+      skippedInhabited,
+      skippedNoMapping,
+      updated: converted,
+    };
   }
 
   /**

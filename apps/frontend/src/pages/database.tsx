@@ -294,7 +294,7 @@ export function DatabaseSystemDetailPage() {
       <header className="border border-swu-border bg-black/30 px-3 py-2">
         <h1 className="font-bold text-swu-primary">{detail.name}</h1>
         <p className="text-sm text-swu-muted">
-          {detail.systemTypeName} · Außenkoordinaten {detail.cx}:{detail.cy}
+          {detail.systemTypeName} · Koordinaten: {detail.cx}:{detail.cy}
         </p>
       </header>
       <p className="text-xs text-swu-muted">
@@ -377,13 +377,9 @@ function SystemContextPanel({
           <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
             <dt className="text-swu-muted">Systemtyp</dt>
             <dd>{detail.systemTypeName}</dd>
-            <dt className="text-swu-muted">Außenkoordinaten</dt>
+            <dt className="text-swu-muted">Koordinaten:</dt>
             <dd className="font-mono">
               {detail.cx}:{detail.cy}
-            </dd>
-            <dt className="text-swu-muted">Rastergröße</dt>
-            <dd className="font-mono">
-              {detail.maxX} × {detail.maxY}
             </dd>
           </dl>
         </>
