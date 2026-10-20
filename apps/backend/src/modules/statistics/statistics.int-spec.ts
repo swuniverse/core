@@ -15,6 +15,8 @@ import { User } from '../auth/user.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { DatabaseController } from '../database/database.controller';
 import { DatabaseService } from '../database/database.service';
+import { MessagingService } from '../messaging/messaging.service';
+import { Message } from '../messaging/entities/message.entity';
 import { StatisticsService } from './statistics.service';
 import { STATISTIC_METRICS, type StatisticMetric } from './statistic-metrics';
 
@@ -421,6 +423,24 @@ describe('database statistics (Postgres, HTTP)', () => {
     const flown = await metric('tick', 'flown-fields-24h');
     expect(flown.title).toBe('Geflogene Felder (24 h)');
     expect(flown.points.map((p) => p.values)).toEqual([{ fields: 12 }]);
+  });
+
+  it('shows private messages as growth per hour, unaffected by deletion and other folders', async () => {
+    const messaging = new MessagingService(
+      dataSource.getRepository(Message),
+      statistics,
+    );
+    const other = await createUser(dataSource, { username: 'other' });
+    const first = await messaging.send(player.id, other.id, 's1', 'b');
+    await messaging.send(other.id, player.id, 's2', 'b');
+    await messaging.sendSystem(other.id, 'system', 'b');
+    await messaging.delete(first.id, player.id);
+    await messaging.delete(first.id, other.id);
+    await statistics.recordSnapshots(new Date(Date.now() + HOUR));
+
+    const messages = await metric('tick', 'private-messages');
+    expect(messages.title).toBe('Privatnachrichten');
+    expect(messages.points.map((p) => p.values)).toEqual([{ messages: 2 }]);
   });
 
   it('does not throw when counting an event fails', async () => {

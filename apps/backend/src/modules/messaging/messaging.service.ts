@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-metrics';
+import { StatisticsService } from '../statistics/statistics.service';
 import { Message } from './entities/message.entity';
 import {
   IncomingMessageFolder,
@@ -13,6 +15,7 @@ export class MessagingService {
   constructor(
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   async getInbox(userId: number, page = 1, limit = 20) {
@@ -128,7 +131,9 @@ export class MessagingService {
       body,
       folder: MessageFolder.PERSONAL,
     });
-    return this.messageRepo.save(message);
+    const saved = await this.messageRepo.save(message);
+    await this.statisticsService.countEvent(PRIVATE_MESSAGES_EVENT);
+    return saved;
   }
 
   async sendSystem(

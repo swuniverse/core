@@ -6,6 +6,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] Das Senden einer Privatnachricht erhöht den Zähler; andere Ordner zählen nicht
-- [ ] Das Löschen einer Nachricht verändert den Verlauf nicht (Integrationstest)
-- [ ] Der Chart zeigt den Zuwachs je Zeiteinheit
+- [x] Das Senden einer Privatnachricht erhöht den Zähler; andere Ordner zählen nicht
+- [x] Das Löschen einer Nachricht verändert den Verlauf nicht (Integrationstest)
+- [x] Der Chart zeigt den Zuwachs je Zeiteinheit
