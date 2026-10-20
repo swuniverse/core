@@ -6,6 +6,7 @@ import {
   SystemRasterMap,
   type SystemRasterDetail,
 } from '../components/database/SystemRasterMap';
+import { StatisticsView } from '../components/database/StatisticsView';
 import { systemTypeImage } from '../lib/assets';
 import { api } from '../services/api';
 
@@ -24,7 +25,8 @@ type View =
   | 'systems'
   | 'ship-classes'
   | 'planet-types'
-  | 'prestige-history';
+  | 'prestige-history'
+  | 'statistics';
 
 type Settler = {
   id: number;
@@ -182,7 +184,7 @@ const groups: Array<{
     title: 'Sonstiges',
     entries: [
       { label: 'Siedlerliste', view: 'settlers' },
-      { label: 'Statistiken', note: 'Zeitreihen werden aufgebaut' },
+      { label: 'Statistiken', view: 'statistics' },
       { label: 'Prestigehistorie', view: 'prestige-history' },
     ],
   },
@@ -196,7 +198,7 @@ export function DatabasePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!view) return void setData(null);
+    if (!view || view === 'statistics') return void setData(null);
     setData(null);
     setError(null);
     api
@@ -234,6 +236,8 @@ export function DatabasePage() {
         <p role="alert" className="text-red-300">
           {error}
         </p>
+      ) : view === 'statistics' ? (
+        <StatisticsView />
       ) : !data ? (
         <p className="text-swu-muted">Datenbank wird geladen...</p>
       ) : (
@@ -814,6 +818,7 @@ function titleFor(view: View) {
       'ship-classes': 'Schiffsrümpfe',
       'planet-types': 'Planetentypen',
       'prestige-history': 'Prestigehistorie',
+      statistics: 'Statistiken',
     } as Record<View, string>
   )[view];
 }

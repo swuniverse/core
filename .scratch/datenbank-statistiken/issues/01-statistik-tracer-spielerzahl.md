@@ -6,10 +6,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Nach einem Haupttick liefert die Lese-API für alle vier Zeiteinheiten die Serien aktiv/inaktiv/Urlaub korrekt (Backend-Integrationstest gegen echte DB, Vorbild `*.int-spec.ts`)
-- [ ] Ein Fehler beim Snapshot-Schreiben bricht den Haupttick nicht ab und wird protokolliert
-- [ ] Ein zweiter Lauf zum selben Zeitpunkt erzeugt keine Duplikate
-- [ ] Die API verlangt Anmeldung und liefert keine Einzeldaten
-- [ ] Der Hub-Eintrag „Statistiken“ öffnet die Seite; der Umschalter wechselt die Zeiteinheit (Frontend-Test mit gemockter API, Vorbild `database.spec.tsx`)
-- [ ] Der Chart zeigt gestapelte Flächen, Legende mit Farbquadrat und Tooltip mit Zeitpunkt und Werten
-- [ ] Neue Kennzahlen lassen sich durch eine einzelne Registrierung ergänzen
+- [x] Nach einem Haupttick liefert die Lese-API für alle vier Zeiteinheiten die Serien aktiv/inaktiv/Urlaub korrekt (Backend-Integrationstest gegen echte DB, Vorbild `*.int-spec.ts`)
+- [x] Ein Fehler beim Snapshot-Schreiben bricht den Haupttick nicht ab und wird protokolliert
+- [x] Ein zweiter Lauf zum selben Zeitpunkt erzeugt keine Duplikate
+- [x] Die API verlangt Anmeldung und liefert keine Einzeldaten
+- [x] Der Hub-Eintrag „Statistiken“ öffnet die Seite; der Umschalter wechselt die Zeiteinheit (Frontend-Test mit gemockter API, Vorbild `database.spec.tsx`)
+- [x] Der Chart zeigt gestapelte Flächen, Legende mit Farbquadrat und Tooltip mit Zeitpunkt und Werten
+- [x] Neue Kennzahlen lassen sich durch eine einzelne Registrierung ergänzen
