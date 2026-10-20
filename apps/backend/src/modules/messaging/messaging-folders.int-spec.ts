@@ -14,6 +14,7 @@ import {
 import { User } from '../auth/user.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { MessagingController } from './messaging.controller';
+import { StatisticsService } from '../statistics/statistics.service';
 import { MessagingService } from './messaging.service';
 import { Message } from './entities/message.entity';
 import { MessageFolder } from './message-folder';
@@ -42,7 +43,10 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         {
           provide: MessagingService,
           useFactory: () =>
-            new MessagingService(dataSource.getRepository(Message)),
+            new MessagingService(
+              dataSource.getRepository(Message),
+              new StatisticsService(dataSource, []),
+            ),
         },
       ],
     }).compile();

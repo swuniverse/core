@@ -19,6 +19,12 @@ export interface StatisticMetric {
 
 const ACTIVE_WINDOW_MS = 24 * 3_600_000;
 
+function hourOf(at: Date): Date {
+  const hour = new Date(at);
+  hour.setMinutes(0, 0, 0);
+  return hour;
+}
+
 const playersMetric: StatisticMetric = {
   key: 'players',
   title: 'Spieler',
@@ -236,6 +242,32 @@ const combatMetric: StatisticMetric = {
   },
 };
 
+export const PRIVATE_MESSAGES_EVENT = 'private-messages';
+
+const privateMessagesMetric: StatisticMetric = {
+  key: 'private-messages',
+  title: 'Privatnachrichten',
+  aggregation: 'sum',
+  series: [{ key: 'messages', label: 'Nachrichten' }],
+  // Zuwachs seit dem letzten Haupttick aus den Stundenzeilen
+  // [Stunde des letzten Ticks, Stunde von now), nicht aus dem Bestand:
+  // Löschen verändert den Verlauf nicht, übersprungene Tickstunden gehen
+  // nicht verloren.
+  async capture(dataSource, now) {
+    const [row] = await dataSource.query(
+      `SELECT COALESCE(SUM("count"), 0)::float AS messages
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" = $1 AND "hour" < $2
+         AND "hour" >= COALESCE(
+           (SELECT date_trunc('hour', MAX("recordedAt")) FROM "statistic_snapshots"
+            WHERE "metricKey" = 'private-messages' AND "recordedAt" < $3),
+           '-infinity')`,
+      [PRIVATE_MESSAGES_EVENT, hourOf(now), now],
+    );
+    return { messages: Number(row.messages) };
+  },
+};
+
 /**
  * Register aller Statistiken. Eine neue Kennzahl entsteht durch einen
  * weiteren Eintrag; Erfassung, API und Anzeige übernehmen sie automatisch.
@@ -251,4 +283,5 @@ export const STATISTIC_METRICS: StatisticMetric[] = [
   holonetMetric,
   flownFieldsMetric,
   combatMetric,
+  privateMessagesMetric,
 ];
