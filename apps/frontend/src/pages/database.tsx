@@ -133,11 +133,11 @@ const groups: Array<{
     entries: [{ label: 'Schiffsrümpfe', view: 'ship-classes' }],
   },
   {
-    title: 'Karte & Entdeckungen',
+    title: 'Karte',
     entries: [
-      { label: 'Sternensystemtypen', view: 'system-types' },
       { label: 'Sternensysteme', view: 'systems' },
       { label: 'Planetentypen', view: 'planet-types' },
+      { label: 'Sternensystemtypen', view: 'system-types' },
     ],
   },
   {
