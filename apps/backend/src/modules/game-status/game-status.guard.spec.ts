@@ -5,12 +5,16 @@ import {
 } from './game-status.guard';
 
 describe('GameStatusGuard', () => {
-  const context = (user?: { isAdmin?: boolean }) =>
+  const context = (user?: { isAdmin?: boolean }, authorization?: string) =>
     ({
       getHandler: () => undefined,
       getClass: () => undefined,
-      switchToHttp: () => ({ getRequest: () => ({ user }) }),
+      switchToHttp: () => ({
+        getRequest: () => ({ user, headers: { authorization } }),
+      }),
     }) as unknown as ExecutionContext;
+  const jwt = { verify: jest.fn(() => ({ isAdmin: false })) };
+  const config = { get: jest.fn(() => 'secret') };
   const reflector = { getAllAndOverride: jest.fn(() => true) };
 
   it('allows routes that do not require game access', async () => {
@@ -18,6 +22,8 @@ describe('GameStatusGuard', () => {
     const guard = new GameStatusGuard(
       { getAllAndOverride: jest.fn(() => false) } as never,
       service as never,
+      jwt as never,
+      config as never,
     );
 
     await expect(guard.canActivate(context())).resolves.toBe(true);
@@ -31,7 +37,12 @@ describe('GameStatusGuard', () => {
         .fn()
         .mockResolvedValue({ status: 'MAINTENANCE', message: 'Update läuft.' }),
     };
-    const guard = new GameStatusGuard(reflector as never, service as never);
+    const guard = new GameStatusGuard(
+      reflector as never,
+      service as never,
+      jwt as never,
+      config as never,
+    );
 
     await expect(guard.canActivate(context())).rejects.toMatchObject({
       status: 403,
@@ -44,11 +55,32 @@ describe('GameStatusGuard', () => {
 
   it('keeps administrator access open during maintenance', async () => {
     const service = { isMaintenance: jest.fn() };
-    const guard = new GameStatusGuard(reflector as never, service as never);
+    const guard = new GameStatusGuard(
+      reflector as never,
+      service as never,
+      jwt as never,
+      config as never,
+    );
 
     await expect(guard.canActivate(context({ isAdmin: true }))).resolves.toBe(
       true,
     );
+    expect(service.isMaintenance).not.toHaveBeenCalled();
+  });
+
+  it('keeps administrator access open when only the bearer token identifies them', async () => {
+    jwt.verify.mockReturnValueOnce({ isAdmin: true });
+    const service = { isMaintenance: jest.fn() };
+    const guard = new GameStatusGuard(
+      reflector as never,
+      service as never,
+      jwt as never,
+      config as never,
+    );
+
+    await expect(
+      guard.canActivate(context(undefined, 'Bearer admin-token')),
+    ).resolves.toBe(true);
     expect(service.isMaintenance).not.toHaveBeenCalled();
   });
 });

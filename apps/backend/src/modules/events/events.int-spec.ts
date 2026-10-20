@@ -66,6 +66,7 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
           },
         },
         Reflector,
+        { provide: JwtService, useValue: jwt },
         { provide: APP_GUARD, useClass: GameStatusGuard },
       ],
     }).compile();

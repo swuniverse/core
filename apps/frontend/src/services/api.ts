@@ -65,8 +65,13 @@ async function request<T>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (res.status === 403 && body.code === 'GAME_MAINTENANCE') {
-      const params = new URLSearchParams({ maintenance: body.message });
-      window.location.assign(`/?${params}`);
+      // Ausloggen, sonst laedt das Dashboard sofort wieder, bekommt erneut
+      // 403 und die Seite reloaded endlos.
+      useAuthStore.getState().logout();
+      if (window.location.pathname !== '/login') {
+        const params = new URLSearchParams({ maintenance: body.message });
+        window.location.assign(`/login?${params}`);
+      }
     }
     throw new ApiError(res.status, body.message || res.statusText);
   }
