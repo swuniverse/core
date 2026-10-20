@@ -423,6 +423,32 @@ describe('database statistics (Postgres, HTTP)', () => {
     expect(flown.points.map((p) => p.values)).toEqual([{ fields: 12 }]);
   });
 
+  it('shows combats and destroyed ships as growth per main tick', async () => {
+    const tick1 = new Date(2026, 2, 10, 12, 0);
+    const tick2 = new Date(2026, 2, 10, 15, 0);
+    const at = (hours: number) => new Date(tick1.getTime() + hours * HOUR);
+
+    await statistics.countEvent('combats', 1, at(-0.5));
+    await statistics.countEvent('destroyed-ships', 2, at(-0.5));
+    await statistics.recordSnapshots(tick1);
+
+    await statistics.countEvent('combats', 1, at(0.5)); // after tick 1, in its hour
+    await statistics.countEvent('combats', 2, at(1.5));
+    await statistics.countEvent('destroyed-ships', 1, at(2.5));
+    await statistics.recordSnapshots(tick2);
+
+    const combat = await metric('tick', 'combat');
+    expect(combat.title).toBe('Kampf');
+    expect(combat.series.map((s) => s.label)).toEqual([
+      'Gefechte',
+      'Zerstörte Schiffe',
+    ]);
+    expect(combat.points.map((p) => p.values)).toEqual([
+      { combats: 1, destroyedShips: 2 },
+      { combats: 3, destroyedShips: 1 },
+    ]);
+  });
+
   it('does not throw when counting an event fails', async () => {
     const error = jest
       .spyOn(Logger.prototype, 'error')

@@ -197,6 +197,45 @@ const flownFieldsMetric: StatisticMetric = {
   },
 };
 
+export const COMBATS_EVENT = 'combats';
+export const DESTROYED_SHIPS_EVENT = 'destroyed-ships';
+
+// Zuwachs seit dem vorigen Snapshot aus den Stundenzeilen: es zählen die
+// Stunden ab der Stunde des vorigen Snapshots bis vor die aktuelle Stunde
+// (beim ersten Snapshot nur die Vorstunde), damit jedes Ereignis genau
+// einmal in einem Snapshot landet.
+const combatMetric: StatisticMetric = {
+  key: 'combat',
+  title: 'Kampf',
+  aggregation: 'sum',
+  series: [
+    { key: 'combats', label: 'Gefechte' },
+    { key: 'destroyedShips', label: 'Zerstörte Schiffe' },
+  ],
+  async capture(dataSource, now) {
+    const currentHour = new Date(now);
+    currentHour.setMinutes(0, 0, 0);
+    const [row] = await dataSource.query(
+      `SELECT
+         COALESCE(SUM("count") FILTER (WHERE "metricKey" = $1), 0)::float AS combats,
+         COALESCE(SUM("count") FILTER (WHERE "metricKey" = $2), 0)::float AS destroyed
+       FROM "statistic_hour_counters"
+       WHERE "metricKey" IN ($1, $2)
+         AND "hour" < $3
+         AND "hour" >= COALESCE(
+           (SELECT date_trunc('hour', MAX("recordedAt"))
+            FROM "statistic_snapshots"
+            WHERE "metricKey" = 'combat' AND "recordedAt" < $4),
+           $3::timestamptz - interval '1 hour')`,
+      [COMBATS_EVENT, DESTROYED_SHIPS_EVENT, currentHour, now],
+    );
+    return {
+      combats: Number(row.combats),
+      destroyedShips: Number(row.destroyed),
+    };
+  },
+};
+
 /**
  * Register aller Statistiken. Eine neue Kennzahl entsteht durch einen
  * weiteren Eintrag; Erfassung, API und Anzeige übernehmen sie automatisch.
@@ -211,4 +250,5 @@ export const STATISTIC_METRICS: StatisticMetric[] = [
   prestigeMetric,
   holonetMetric,
   flownFieldsMetric,
+  combatMetric,
 ];
