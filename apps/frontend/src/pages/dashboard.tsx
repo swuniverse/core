@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
+import { useAuthStore } from '../stores/auth.store';
 import type {
   DashboardData,
   ActiveResearch,
@@ -17,6 +18,24 @@ import {
   DashboardMessages,
   DashboardLimits,
 } from './dashboard/DashboardLowerSections';
+
+/**
+ * The websocket of the viewer may not be registered yet when the list is
+ * fetched. The viewer is online by definition, so make sure they are listed.
+ */
+function withSelf(players: DashboardData['onlinePlayers']) {
+  const self = useAuthStore.getState().user;
+  if (!self || players.some((p) => p.id === self.id)) return players;
+  return [
+    ...players,
+    {
+      id: self.id,
+      username: self.username,
+      faction: self.faction ?? '',
+      avatar: self.avatar ?? null,
+    },
+  ];
+}
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -375,7 +394,7 @@ export function DashboardPage() {
         .slice(0, 5),
       colonizationLimits: colonizationData,
       crewInfo,
-      onlinePlayers: onlineData,
+      onlinePlayers: withSelf(onlineData),
       colonies,
       colonyCount: colonies.length,
       fleetTotal: spacecraftData.length,

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 import type { DashboardData } from './types';
@@ -87,11 +88,23 @@ export function DashboardMessages({ data }: { data: DashboardData }) {
     </section>
   );
 }
+/** Picks a random player once and keeps them until they go offline. */
+function useStableRandomPlayer(players: DashboardData['onlinePlayers']) {
+  const pickedId = useRef<number | null>(null);
+  const current = players.find((p) => p.id === pickedId.current);
+  if (current) return current;
+  if (players.length === 0) {
+    pickedId.current = null;
+    return null;
+  }
+  const picked = players[Math.floor(Math.random() * players.length)];
+  pickedId.current = picked.id;
+  return picked;
+}
+
 export function DashboardLimits({ data }: { data: DashboardData }) {
   const limits = data.colonizationLimits?.limits;
-  const randomPlayer = data.onlinePlayers.length
-    ? data.onlinePlayers[Math.floor(Math.random() * data.onlinePlayers.length)]
-    : null;
+  const randomPlayer = useStableRandomPlayer(data.onlinePlayers);
   return (
     <div className="space-y-2">
       <section className="border border-swu-border bg-swu-surface/70">
