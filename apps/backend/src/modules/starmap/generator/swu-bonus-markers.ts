@@ -7,8 +7,8 @@
  * Gasplaneten auch Untergrund. Solar-Bonus (STU AENERGY/SENERGY) entfaellt,
  * den Solarertrag liefert swu-solar.ts.
  *
- * Wirkung (Bedeutung "zaehlt wie zwei Felder" etc.) ist hier nur beschrieben,
- * noch nicht in der Produktion verdrahtet.
+ * Die Wirkung ist in colony-bonus-marker.util.ts (Faktoren) und
+ * colony-stats.service.ts (Kyber) in die Produktion verdrahtet.
  */
 
 import { SeededRNG } from './seeded-rng';

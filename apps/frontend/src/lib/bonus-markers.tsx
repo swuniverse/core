@@ -3,13 +3,45 @@ export const BONUS_MARKER_META: Record<
   string,
   { emoji: string; label: string; effect: string }
 > = {
-  KYBER: { emoji: '💎', label: 'Kyber-Vorkommen', effect: 'zusätzliches Kybervorkommen' },
-  PHRIK: { emoji: '⛏️', label: 'Ergiebiges Phrik-Vorkommen', effect: 'zählt wie zwei Felder' },
-  FERTILE: { emoji: '🌾', label: 'Fruchtbar', effect: 'zählt wie zwei Felder' },
-  FERTILE_WATER: { emoji: '🪼', label: 'Fruchtbar', effect: 'zählt wie zwei Felder' },
-  ENERGY: { emoji: '⚡', label: 'Energiereich', effect: 'zählt wie zwei Felder' },
-  ATTRACTIVE: { emoji: '✨', label: 'Anziehend', effect: 'Wohngebäude zählen wie zwei Felder' },
+  KYBER: {
+    emoji: '💎',
+    label: 'Kyber-Vorkommen',
+    effect: '+1 Kyber-Grundproduktion der Kolonie, auch ohne Gebäude',
+  },
+  PHRIK: {
+    emoji: '⛏️',
+    label: 'Ergiebiges Phrik-Vorkommen',
+    effect: 'Ein Bergbau-Gebäude auf diesem Feld produziert doppelt so viel',
+  },
+  FERTILE: {
+    emoji: '🌾',
+    label: 'Fruchtbar',
+    effect: 'Ein Nahrungsgebäude auf diesem Feld produziert doppelt so viel Nahrung',
+  },
+  FERTILE_WATER: {
+    emoji: '🪼',
+    label: 'Fruchtbar',
+    effect: 'Ein Nahrungsgebäude auf diesem Feld produziert doppelt so viel Nahrung',
+  },
+  ENERGY: {
+    emoji: '⚡',
+    label: 'Energiereich',
+    effect: 'Ein Kraftwerk auf diesem Feld erzeugt doppelt so viel Energie',
+  },
+  ATTRACTIVE: {
+    emoji: '✨',
+    label: 'Anziehend',
+    effect: 'Ein Wohngebäude auf diesem Feld bietet doppelt so viel Wohnraum',
+  },
 };
+
+/** Gemeinsamer Erklaertext fuer Mouseover und Dialog. */
+export function bonusMarkerDescription(
+  meta: { label: string; effect: string },
+  active: boolean,
+): string {
+  return `Bonusfeld: ${meta.label} – ${meta.effect}${active ? '' : ' (auf diesem Tile nicht nutzbar)'}`;
+}
 
 export function BonusMarkerBadge({
   emoji,

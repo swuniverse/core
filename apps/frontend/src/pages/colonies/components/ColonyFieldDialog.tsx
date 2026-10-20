@@ -15,6 +15,10 @@ import { getTerraformingOptionsForField } from '../utils';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from '../constants';
 import { formatSignedAmount } from '../utils';
 import {
+  BONUS_MARKER_META,
+  bonusMarkerDescription,
+} from '../../../lib/bonus-markers';
+import {
   getBuildingContextActions,
   type ColonyContextView,
 } from '../colony-navigation';
@@ -146,6 +150,9 @@ export function ColonyFieldDialog({
     FIELD_TYPE_NAMES[field.fieldType] ||
     '?';
   const isBonus = Number(field.terrainTileId ?? field.fieldType) >= 10000;
+  const bonusMarker = field.bonusMarker
+    ? BONUS_MARKER_META[field.bonusMarker]
+    : undefined;
   const isHQ =
     field.buildingId != null &&
     [1, 82010100, 82010300].includes(field.buildingId);
@@ -267,6 +274,17 @@ export function ColonyFieldDialog({
                 <span className="ml-1 text-yellow-400">★ Bonusfeld</span>
               )}
             </div>
+            {bonusMarker && (
+              <div
+                className={`mt-1 text-xs ${field.bonusMarkerActive === false ? 'text-swu-muted' : 'text-yellow-400'}`}
+              >
+                {bonusMarker.emoji}{' '}
+                {bonusMarkerDescription(
+                  bonusMarker,
+                  field.bonusMarkerActive !== false,
+                )}
+              </div>
+            )}
           </div>
           <button
             ref={closeButtonRef}

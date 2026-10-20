@@ -4,6 +4,7 @@ import {
   BONUS_MARKER_FRAME_CLASS,
   BONUS_MARKER_META,
   BonusMarkerBadge,
+  bonusMarkerDescription,
 } from '../../../lib/bonus-markers';
 import {
   FIELD_TYPE_COLORS,
@@ -96,6 +97,12 @@ export function FieldCell({
         ${field.locked ? 'grayscale opacity-60' : ''}`}
       title={[
         `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ' ⟳ Geoengineering' : ''}${field.locked ? ' — Admin-Vorschau (Spieler: unerforscht)' : ''} (${field.fieldIndex})`,
+        marker
+          ? `${marker.emoji} ${bonusMarkerDescription(marker, field.bonusMarkerActive !== false)}`
+          : undefined,
+        isBonus
+          ? '★ Bonusfeld: erlaubt eine verbesserte Bonus-Variante des Gebäudes'
+          : undefined,
         buildPreviewTitle,
       ]
         .filter(Boolean)
@@ -122,7 +129,10 @@ export function FieldCell({
         <BonusMarkerBadge
           emoji={marker.emoji}
           inactive={field.bonusMarkerActive === false}
-          title={`${marker.label} – ${marker.effect}${field.bonusMarkerActive === false ? ' (auf diesem Tile nicht nutzbar)' : ''}`}
+          title={bonusMarkerDescription(
+            marker,
+            field.bonusMarkerActive !== false,
+          )}
         />
       )}
       {field.terraformingId && (
