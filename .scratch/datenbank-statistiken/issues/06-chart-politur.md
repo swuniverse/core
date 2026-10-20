@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Die Achsenbeschriftung bleibt ohne Drehung lesbar und überlappt nicht
 - [ ] Auf schmalen Viewports bleiben Charts und Legende nutzbar
