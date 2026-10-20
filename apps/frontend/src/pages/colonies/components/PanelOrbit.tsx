@@ -139,6 +139,7 @@ export function PanelOrbit({
           colonyId={colonyId}
           colonyName={`Kolonie ${colonyId}`}
           direction={transfer}
+          initiator="COLONY"
           onClose={() => setTransfer(null)}
           onTransfer={() => setTransfer(null)}
         />

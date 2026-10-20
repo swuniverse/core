@@ -20,6 +20,9 @@ import {
   TRANSFER_CAPACITY_PER_EPS,
 } from './transfer-cost';
 import { matchesColonyOrbit } from './spacecraft-field';
+import { deductColonyEnergy } from '../colony/colony-stats.service';
+
+export type TransferInitiator = 'SHIP' | 'COLONY';
 
 @Injectable()
 export class ShipColonyContextService {
@@ -90,6 +93,19 @@ export class ShipColonyContextService {
       throw new BadRequestException(`${cost} ship energy required`);
     }
     ship.energy -= cost;
+    return cost;
+  }
+
+  /** Charges the ship or the colony, depending on who started the transfer. */
+  chargeTransferEnergy(
+    ship: Spacecraft,
+    colony: Colony,
+    amount: number,
+    initiator: TransferInitiator = 'SHIP',
+  ): number {
+    if (initiator === 'SHIP') return this.chargeEnergy(ship, amount);
+    const cost = calculateTransferEnergyCost(amount);
+    deductColonyEnergy(colony, cost, `${cost} colony energy required`);
     return cost;
   }
 

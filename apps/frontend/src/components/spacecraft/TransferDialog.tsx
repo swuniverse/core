@@ -18,6 +18,7 @@ export function TransferDialog({
   targetShipId,
   targetName,
   direction,
+  initiator = 'SHIP',
   onClose,
   onTransfer,
 }: {
@@ -27,6 +28,8 @@ export function TransferDialog({
   targetShipId?: number;
   targetName?: string;
   direction: Direction;
+  /** Who pays the transfer energy: the ship (default) or the colony. */
+  initiator?: 'SHIP' | 'COLONY';
   onClose: () => void;
   onTransfer: () => void;
 }) {
@@ -190,7 +193,7 @@ export function TransferDialog({
           : `/spacecraft/${shipId}/cargo/${direction === 'TO_SHIP' ? 'load' : 'unload'}`,
         isShipTransfer
           ? { targetShipId, commodityId, amount, direction }
-          : { colonyId, commodityId, amount },
+          : { colonyId, commodityId, amount, initiator },
       );
       await refresh();
       onTransfer();
@@ -226,7 +229,9 @@ export function TransferDialog({
         <div className="border-b border-swu-border px-3 py-2 text-xs text-swu-muted">
           {isShipTransfer
             ? `Eigenes Lager: ${shipQuote?.sourceUsed ?? '—'}/${shipQuote?.sourceMax ?? '—'} · Ziel-Lager: ${shipQuote?.targetUsed ?? '—'}/${shipQuote?.targetMax ?? '—'} · Freie Kapazität: ${capacity}`
-            : `Transferkapazität pro Energie: ${quote?.energyPerCapacity ?? '—'} · Freie Kapazität: ${capacity}`}
+            : transferType !== 'CARGO'
+              ? `Kein Energieverbrauch · Freie Kapazität: ${capacity}`
+              : `Energie: ${initiator === 'COLONY' ? 'Kolonie' : 'Schiff'} · Transferkapazität pro Energie: ${quote?.energyPerCapacity ?? '—'} · Freie Kapazität: ${capacity}`}
           {shipQuote?.reason && ` · ${shipQuote.reason}`}
         </div>
         {(isShipTransfer || colonyId != null) && (

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService } from '../game-data/game-data.service';
+import { getColonyChangeable } from '../colony/colony-stats.service';
 import { ColonyCrewService } from '../colony/colony-crew.service';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import {
@@ -13,7 +14,10 @@ import { CargoItem } from './entities/cargo-item.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
-import { ShipColonyContextService } from './ship-colony-context.service';
+import {
+  ShipColonyContextService,
+  type TransferInitiator,
+} from './ship-colony-context.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { sameSpacecraftLocation } from './spacecraft-field';
 
@@ -55,15 +59,16 @@ export class TransferService {
     colonyId: number,
     commodityId: number,
     amount: number,
+    initiator: TransferInitiator = 'SHIP',
   ): Promise<CargoItem> {
     return this.dataSource.transaction(async (manager) => {
-      const { ship } = await this.contextService.requireContext(
+      const { ship, colony } = await this.contextService.requireContext(
         shipId,
         userId,
         colonyId,
         manager,
       );
-      this.contextService.chargeEnergy(ship, amount);
+      this.contextService.chargeTransferEnergy(ship, colony, amount, initiator);
       const storage = await manager.findOne(ColonyStorage, {
         where: { colonyId, commodityId },
         lock: { mode: 'pessimistic_write' },
@@ -90,6 +95,9 @@ export class TransferService {
       await cargoRepo.save(cargoItem);
       ship.cargoUsed = currentCargo + amount;
       await manager.save(ship);
+      if (initiator === 'COLONY') {
+        await manager.save(getColonyChangeable(colony));
+      }
       return cargoItem;
     });
   }
@@ -105,7 +113,6 @@ export class TransferService {
       userId,
       colonyId,
     );
-    this.contextService.chargeEnergy(ship, amount);
     await this.crewService.transferCrewFromColonyToShip(colony, ship, amount);
   }
 
@@ -120,7 +127,6 @@ export class TransferService {
       userId,
       colonyId,
     );
-    this.contextService.chargeEnergy(ship, amount);
     await this.crewService.transferCrewFromShipToColony(colony, ship, amount);
   }
 
@@ -130,6 +136,7 @@ export class TransferService {
     colonyId: number,
     commodityId: number,
     amount: number,
+    initiator: TransferInitiator = 'SHIP',
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const { ship, colony } = await this.contextService.requireContext(
@@ -138,7 +145,7 @@ export class TransferService {
         colonyId,
         manager,
       );
-      this.contextService.chargeEnergy(ship, amount);
+      this.contextService.chargeTransferEnergy(ship, colony, amount, initiator);
       const cargoRepo = manager.getRepository(CargoItem);
       const cargoItem = await cargoRepo.findOne({
         where: { spacecraftId: shipId, commodityId },
@@ -168,6 +175,9 @@ export class TransferService {
       await storageRepo.save(storage);
       ship.cargoUsed = await this.getCargoUsed(shipId, cargoRepo);
       await manager.save(ship);
+      if (initiator === 'COLONY') {
+        await manager.save(getColonyChangeable(colony));
+      }
     });
   }
 
@@ -287,8 +297,6 @@ export class TransferService {
       );
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
-      if (direction === 'TO_TARGET')
-        this.contextService.chargeEnergy(sourceShip, amount);
       const crewRepo = manager.getRepository(CrewAssignment);
       const crew = await crewRepo.find({
         where: { spacecraftId: from.id },
@@ -332,8 +340,6 @@ export class TransferService {
       );
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
-      if (direction === 'TO_TARGET')
-        this.contextService.chargeEnergy(sourceShip, amount);
       const repo = manager.getRepository(SpacecraftTorpedoStorage);
       const fromStorage = await repo.findOne({
         where: { spacecraftId: from.id, isActive: true },

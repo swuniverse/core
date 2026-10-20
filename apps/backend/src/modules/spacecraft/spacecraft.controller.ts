@@ -20,6 +20,7 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -33,7 +34,10 @@ import { TransferService } from './transfer.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonizationService } from '../colonization/colonization.service';
-import { ShipColonyContextService } from './ship-colony-context.service';
+import {
+  ShipColonyContextService,
+  type TransferInitiator,
+} from './ship-colony-context.service';
 import { SpacecraftCommunicationService } from './spacecraft-communication.service';
 import { SpacecraftEngineeringService } from './spacecraft-engineering.service';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
@@ -211,6 +215,10 @@ class CargoTransferDto {
   @IsInt()
   @Min(1)
   amount: number;
+
+  @IsOptional()
+  @IsIn(['SHIP', 'COLONY'])
+  initiator?: TransferInitiator;
 }
 
 class ColonyCrewTransferDto {
@@ -1045,6 +1053,7 @@ export class SpacecraftController {
       dto.colonyId,
       dto.commodityId,
       dto.amount,
+      dto.initiator,
     );
   }
 
@@ -1167,6 +1176,7 @@ export class SpacecraftController {
       dto.colonyId,
       dto.commodityId,
       dto.amount,
+      dto.initiator,
     );
   }
 }
