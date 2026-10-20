@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type ChartSeries = { key: string; label: string };
 export type ChartPoint = { t: string; values: Record<string, number> };
@@ -13,13 +13,16 @@ const SERIES_COLORS = [
   'var(--color-swu-danger)',
 ];
 
-const WIDTH = 640;
+const DEFAULT_WIDTH = 640;
+const MIN_WIDTH = 240;
 const HEIGHT = 240;
 const PAD = { top: 12, right: 12, bottom: 28, left: 44 };
-const PLOT_W = WIDTH - PAD.left - PAD.right;
 const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
 const Y_TICKS = 4;
-const X_TICKS = 5;
+const TICK_FONT_SIZE = 11;
+// Grobe Zeichenbreite der Achsenschrift und Mindestabstand zwischen Labels.
+const CHAR_WIDTH = 6.2;
+const LABEL_GAP = 16;
 
 export type ChartTimeFormat = (iso: string) => string;
 
@@ -49,6 +52,24 @@ export function StackedAreaChart({
   formatTooltip: ChartTimeFormat;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const container = useRef<HTMLDivElement>(null);
+
+  // Das Diagramm nutzt die echte Containerbreite als viewBox, damit
+  // Schrift und Linien auf schmalen Bildschirmen nicht mitskaliert werden.
+  useEffect(() => {
+    const element = container.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const next = Math.round(entry.contentRect.width);
+      if (next > 0) setWidth(Math.max(MIN_WIDTH, next));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const WIDTH = width;
+  const PLOT_W = WIDTH - PAD.left - PAD.right;
 
   const totals = points.map((point) =>
     series.reduce((sum, s) => sum + (point.values[s.key] ?? 0), 0),
@@ -75,10 +96,22 @@ export function StackedAreaChart({
   };
 
   const yTicks = Array.from({ length: Y_TICKS + 1 }, (_, i) => (max / Y_TICKS) * i);
+  // So viele gleichmäßig verteilte Labels, wie ohne Überlappung passen.
+  const labelWidth =
+    Math.max(...points.map((p) => formatTick(p.t).length), 0) * CHAR_WIDTH;
+  const xTickCount = Math.max(
+    1,
+    Math.min(
+      points.length,
+      Math.floor(PLOT_W / (labelWidth + LABEL_GAP)) + 1,
+    ),
+  );
   const xTickIndexes = [
     ...new Set(
-      Array.from({ length: X_TICKS }, (_, i) =>
-        Math.round((i / (X_TICKS - 1)) * (points.length - 1)),
+      Array.from({ length: xTickCount }, (_, i) =>
+        xTickCount === 1
+          ? 0
+          : Math.round((i / (xTickCount - 1)) * (points.length - 1)),
       ),
     ),
   ];
@@ -87,7 +120,7 @@ export function StackedAreaChart({
 
   return (
     <div className="space-y-2">
-      <div className="relative">
+      <div ref={container} className="relative">
         <svg
           role="img"
           aria-label={title}
@@ -109,7 +142,7 @@ export function StackedAreaChart({
                 x={PAD.left - 6}
                 y={y(tick) + 4}
                 textAnchor="end"
-                fontSize={11}
+                fontSize={TICK_FONT_SIZE}
                 fill="var(--color-swu-muted)"
               >
                 {Math.round(tick * 10) / 10}
@@ -119,12 +152,13 @@ export function StackedAreaChart({
           {xTickIndexes.map((i) => (
             <text
               key={i}
+              data-axis="x"
               x={x(i)}
               y={HEIGHT - 8}
               textAnchor={
                 i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'
               }
-              fontSize={11}
+              fontSize={TICK_FONT_SIZE}
               fill="var(--color-swu-muted)"
             >
               {formatTick(points[i].t)}
