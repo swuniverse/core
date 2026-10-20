@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { DatabasePage, DatabaseSystemDetailPage } from './database';
@@ -326,6 +327,56 @@ describe('DatabasePage', () => {
       expect(tooltip.textContent).toContain('Aktiv (24 h)');
       expect(tooltip.textContent).toContain('3');
       expect(tooltip.textContent).toContain('Inaktiv');
+    });
+
+    it('thins the time axis out without rotating labels or letting them overlap', async () => {
+      openStatistics(40);
+      const chart = await screen.findByRole('img', { name: 'Spieler' });
+
+      const labels = Array.from(chart.querySelectorAll('text[data-axis="x"]'));
+      expect(labels.length).toBeGreaterThanOrEqual(2);
+      expect(labels.length).toBeLessThan(8);
+      expect(chart.querySelectorAll('text[transform]')).toHaveLength(0);
+      const xs = labels.map((label) => Number(label.getAttribute('x')));
+      const gaps = xs.slice(1).map((value, i) => value - xs[i]);
+      // Ein Tick-Label ("03.03. 08:00") ist knapp 80 Einheiten breit.
+      for (const gap of gaps) expect(gap).toBeGreaterThan(80);
+    });
+
+    describe('on a narrow viewport', () => {
+      const originalObserver = globalThis.ResizeObserver;
+      afterEach(() => {
+        globalThis.ResizeObserver = originalObserver;
+      });
+
+      it('sizes the chart to the container and drops axis labels that no longer fit', async () => {
+        globalThis.ResizeObserver = class {
+          constructor(private callback: ResizeObserverCallback) {}
+          observe(target: Element) {
+            this.callback(
+              [{ contentRect: { width: 300 } } as ResizeObserverEntry],
+              this as unknown as ResizeObserver,
+            );
+            void target;
+          }
+          unobserve() {
+            // nicht benötigt
+          }
+          disconnect() {
+            // nicht benötigt
+          }
+        } as unknown as typeof ResizeObserver;
+
+        openStatistics(40);
+        const chart = await screen.findByRole('img', { name: 'Spieler' });
+
+        await waitFor(() =>
+          expect(chart.getAttribute('viewBox')).toBe('0 0 300 240'),
+        );
+        const labels = chart.querySelectorAll('text[data-axis="x"]');
+        expect(labels.length).toBeGreaterThanOrEqual(2);
+        expect(labels.length).toBeLessThanOrEqual(3);
+      });
     });
 
     it('explains that data is still being collected when fewer than two snapshots exist', async () => {
