@@ -16,7 +16,7 @@ describe('LoginPage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the current maintenance status and hides game entry actions', async () => {
+  it('shows the current maintenance status and keeps login but hides registration', async () => {
     vi.stubGlobal(
       'IntersectionObserver',
       class {
@@ -56,5 +56,8 @@ describe('LoginPage', () => {
     expect(screen.getByText('Spielstatus')).toBeTruthy();
     expect(screen.getByText('Update läuft.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Registrieren' })).toBeNull();
+    expect(
+      screen.getAllByRole('button', { name: 'Login' }).length,
+    ).toBeGreaterThan(0);
   });
 });

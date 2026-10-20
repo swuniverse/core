@@ -217,15 +217,13 @@ export function LoginPage() {
           <button type="button" onClick={() => scrollTo('join')}>
             Start
           </button>
-          {gameStatus.status !== 'MAINTENANCE' && (
-            <button
-              className="swu-nav__login"
-              type="button"
-              onClick={() => setLoginOpen(true)}
-            >
-              Login
-            </button>
-          )}
+          <button
+            className="swu-nav__login"
+            type="button"
+            onClick={() => setLoginOpen(true)}
+          >
+            Login
+          </button>
           <a
             href="https://wiki.swuniverse.net"
             target="_blank"
@@ -296,15 +294,13 @@ export function LoginPage() {
                 Registrieren
               </Link>
             )}
-            {gameStatus.status !== 'MAINTENANCE' && (
-              <button
-                className="swu-btn swu-btn--ghost"
-                type="button"
-                onClick={() => setLoginOpen(true)}
-              >
-                Login
-              </button>
-            )}
+            <button
+              className="swu-btn swu-btn--ghost"
+              type="button"
+              onClick={() => setLoginOpen(true)}
+            >
+              Login
+            </button>
           </div>
         </div>
 
@@ -493,20 +489,20 @@ export function LoginPage() {
       </footer>
 
       {/* Mobile Sticky CTA */}
-      {gameStatus.status !== 'MAINTENANCE' && (
-        <div className="swu-mobile-cta">
-          <button
-            className="swu-mobile-cta__login"
-            type="button"
-            onClick={() => setLoginOpen(true)}
-          >
-            Login
-          </button>
+      <div className="swu-mobile-cta">
+        <button
+          className="swu-mobile-cta__login"
+          type="button"
+          onClick={() => setLoginOpen(true)}
+        >
+          Login
+        </button>
+        {gameStatus.status !== 'MAINTENANCE' && (
           <Link className="swu-mobile-cta__register" to="/register">
             Registrieren
           </Link>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Login Drawer */}
       <div
