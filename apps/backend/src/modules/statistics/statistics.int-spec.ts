@@ -285,9 +285,7 @@ describe('database statistics (Postgres, HTTP)', () => {
       [],
     );
 
-    await expect(
-      broken.countEvent('flown-fields', 1),
-    ).resolves.toBeUndefined();
+    await expect(broken.countEvent('flown-fields', 1)).resolves.toBeUndefined();
 
     expect(error).toHaveBeenCalled();
     error.mockRestore();

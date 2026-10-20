@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] Jede Schiffsbewegung erhöht den Zähler der aktuellen Stunde um die zurückgelegten Felder
-- [ ] Der Snapshot nach einem Haupttick entspricht der Summe der letzten 24 Stunden (Integrationstest)
-- [ ] Fehlgeschlagene Bewegungen werden nicht gezählt
-- [ ] Der Chart erscheint auf der Statistikseite
+- [x] Jede Schiffsbewegung erhöht den Zähler der aktuellen Stunde um die zurückgelegten Felder
+- [x] Der Snapshot nach einem Haupttick entspricht der Summe der letzten 24 Stunden (Integrationstest)
+- [x] Fehlgeschlagene Bewegungen werden nicht gezählt
+- [x] Der Chart erscheint auf der Statistikseite
