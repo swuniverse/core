@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Jede Schiffsbewegung erhöht den Zähler der aktuellen Stunde um die zurückgelegten Felder
 - [x] Der Snapshot nach einem Haupttick entspricht der Summe der letzten 24 Stunden (Integrationstest)
