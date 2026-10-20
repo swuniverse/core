@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Nach einem Haupttick liefert die Lese-API für alle vier Zeiteinheiten die Serien aktiv/inaktiv/Urlaub korrekt (Backend-Integrationstest gegen echte DB, Vorbild `*.int-spec.ts`)
 - [x] Ein Fehler beim Snapshot-Schreiben bricht den Haupttick nicht ab und wird protokolliert
