@@ -14,6 +14,7 @@ import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { GameTickState } from './entities/game-tick-state.entity';
 import { DashboardModule } from '../dashboard/dashboard.module';
+import { StatisticsModule } from '../statistics/statistics.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
     ResearchModule,
     WebsocketModule,
     DashboardModule,
+    StatisticsModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [TickService],
