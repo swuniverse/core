@@ -243,6 +243,153 @@ describe('database statistics (Postgres, HTTP)', () => {
     expect(custom.points.map((p) => p.values)).toEqual([{ hits: 7 }]);
   });
 
+  // Raw inserts with FK checks off: the metrics only read ownership, so the
+  // test does not need a whole map around each ship or colony.
+  async function insertRows(
+    table: string,
+    rows: Array<Record<string, unknown>>,
+  ): Promise<void> {
+    const runner = dataSource.createQueryRunner();
+    try {
+      await runner.query(`SET session_replication_role = replica`);
+      for (const row of rows) {
+        const keys = Object.keys(row);
+        await runner.query(
+          `INSERT INTO "${table}" (${keys.map((k) => `"${k}"`).join(', ')})
+           VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')})`,
+          keys.map((k) => row[k]),
+        );
+      }
+    } finally {
+      await runner.query(`SET session_replication_role = DEFAULT`);
+      await runner.release();
+    }
+  }
+
+  const lastValues = async (key: string) => {
+    const points = (await metric('tick', key)).points;
+    return points[points.length - 1].values;
+  };
+
+  describe('stock metrics', () => {
+    let empire: User;
+    let rebel2: User;
+
+    beforeEach(async () => {
+      const empireId = await factionId(dataSource, Faction.GALACTIC_EMPIRE);
+      empire = await createUser(dataSource, {
+        username: 'emp',
+        faction: Faction.GALACTIC_EMPIRE,
+        factionId: empireId,
+        prestige: 30,
+      });
+      rebel2 = await createUser(dataSource, {
+        username: 'reb2',
+        faction: Faction.REBEL_ALLIANCE,
+        factionId: player.factionId,
+        prestige: 20,
+      });
+      await setUsers([player], { prestige: 10 });
+      // a player without faction counts towards no faction series
+      await createUser(dataSource, { username: 'nofaction' });
+    });
+
+    it('counts ships, colonies and players per faction without an NPC series', async () => {
+      const ship = (userId: number, id: number) => ({
+        id,
+        name: `s${id}`,
+        shipClassId: 1,
+        userId,
+        locationId: 1,
+      });
+      await insertRows('spacecraft', [
+        ship(player.id, 1),
+        ship(rebel2.id, 2),
+        ship(empire.id, 3),
+      ]);
+      const colony = (userId: number | null, id: number) => ({
+        id,
+        name: `c${id}`,
+        userId,
+        colonyClassId: 1,
+      });
+      await insertRows('colonies', [
+        colony(player.id, 1),
+        colony(empire.id, 2),
+        colony(empire.id, 3),
+        colony(null, 4), // unowned colony belongs to no faction
+      ]);
+
+      await statistics.recordSnapshots(new Date(2026, 2, 2, 8, 0));
+
+      for (const key of [
+        'ships-by-faction',
+        'colonies-by-faction',
+        'players-by-faction',
+      ]) {
+        expect((await metric('tick', key)).series.map((s) => s.key)).toEqual([
+          Faction.REBEL_ALLIANCE,
+          Faction.GALACTIC_EMPIRE,
+        ]);
+      }
+      expect(await lastValues('ships-by-faction')).toEqual({
+        REBEL_ALLIANCE: 2,
+        GALACTIC_EMPIRE: 1,
+      });
+      expect(await lastValues('colonies-by-faction')).toEqual({
+        REBEL_ALLIANCE: 1,
+        GALACTIC_EMPIRE: 2,
+      });
+      expect(await lastValues('players-by-faction')).toEqual({
+        REBEL_ALLIANCE: 2,
+        GALACTIC_EMPIRE: 1,
+      });
+    });
+
+    it('tracks discovered systems, alliances and total prestige', async () => {
+      await insertRows('system_explorations', [
+        { userId: player.id, starSystemId: 1 },
+        { userId: player.id, starSystemId: 2 },
+        { userId: empire.id, starSystemId: 1 },
+      ]);
+      const rebels = player.factionId;
+      await insertRows('alliances', [
+        { id: 1, name: 'A1', factionId: rebels },
+        { id: 2, name: 'A2', factionId: rebels },
+      ]);
+      await insertRows('alliance_memberships', [
+        { allianceId: 1, userId: player.id },
+        { allianceId: 1, userId: rebel2.id },
+        { allianceId: 2, userId: empire.id },
+      ]);
+
+      await statistics.recordSnapshots(new Date(2026, 2, 2, 8, 0));
+
+      expect(await lastValues('discovered-systems')).toEqual({ systems: 3 });
+      expect(await lastValues('alliances')).toEqual({
+        count: 2,
+        avgMembers: 1.5,
+      });
+      expect(await lastValues('prestige')).toEqual({ total: 60 });
+    });
+
+    it('counts holonet posts and comments', async () => {
+      await insertRows('holonet_posts', [
+        { id: 1, authorId: player.id, title: 't', body: 'b' },
+        { id: 2, authorId: empire.id, title: 't', body: 'b' },
+      ]);
+      await insertRows('holonet_comments', [
+        { postId: 1, authorId: empire.id, body: 'x' },
+        { postId: 1, authorId: player.id, body: 'y' },
+        { postId: 2, authorId: player.id, body: 'z' },
+      ]);
+
+      await statistics.recordSnapshots(new Date(2026, 2, 2, 8, 0));
+
+      expect(await lastValues('holonet')).toEqual({ posts: 2, comments: 3 });
+    });
+  });
+
   it('requires login and exposes aggregates only', async () => {
     await statistics.recordSnapshots(new Date(2026, 2, 2, 8, 0));
 
