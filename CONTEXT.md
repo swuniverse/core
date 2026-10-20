@@ -160,3 +160,23 @@ _Avoid_: Präsenz
 **Allianzdepot**:
 Eine geeignete Depotstation, die ihr Eigentümer organisatorisch seiner **Allianz** zuordnet. Die Zuordnung überträgt weder Eigentum noch Entnahmerechte.
 _Avoid_: Allianz-Lager
+
+## Statistiken
+
+**Haupttick**:
+Der stündliche Spieltakt, in dem das Universum fortgeschrieben wird. Er ist der Messzeitpunkt jedes **Snapshots**.
+
+**Statistik**:
+Der Zeitverlauf einer Kennzahl des gesamten Universums, etwa Spielerzahl oder Schiffsanzahl, in der Datenbank für alle angemeldeten Spieler sichtbar. Sie enthält nur Aggregate, keine Einzeldaten, und beginnt ab ihrer Einführung ohne zurückgerechnete Historie.
+_Avoid_: Highscore (das ist eine Rangliste einzelner Spieler)
+
+**Snapshot**:
+Der je **Haupttick** festgehaltene Wert einer **Statistik**, gegebenenfalls aufgeteilt in Serien wie Fraktionen. Snapshots werden unbegrenzt aufbewahrt.
+_Avoid_: Messwert, Datenpunkt
+
+**Zeiteinheit**:
+Die Auflösung, in der eine **Statistik** betrachtet wird: Tick, Täglich, Wöchentlich oder Monatlich. Größere Einheiten fassen mehrere **Snapshots** zusammen.
+
+**Aktiver Spieler**:
+Ein **Spieler** mit Aktivität in den letzten 24 Stunden. Ein nicht aktiver Spieler gilt als **inaktiv**, es sei denn, er befindet sich im Urlaub; Urlauber werden getrennt gezählt.
+_Avoid_: Online-Spieler
