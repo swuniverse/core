@@ -6,5 +6,5 @@
 
 **Status:** ready-for-agent
 
-- [ ] Ein abgeschlossenes Gefecht erhöht den Gefechtszähler, jedes zerstörte Schiff den zweiten Zähler (Integrationstest)
+- [x] Ein abgeschlossenes Gefecht erhöht den Gefechtszähler, jedes zerstörte Schiff den zweiten Zähler (Integrationstest)
 - [ ] Der Chart zeigt beide Serien je Zeiteinheit
