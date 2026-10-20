@@ -176,7 +176,7 @@ function createService() {
     {} as ConstructorParameters<typeof SpacecraftService>[23],
     {} as ConstructorParameters<typeof SpacecraftService>[24],
     {} as ConstructorParameters<typeof SpacecraftService>[25],
-    cartographyPlanService as ConstructorParameters<
+    cartographyPlanService as unknown as ConstructorParameters<
       typeof SpacecraftService
     >[26],
     {} as ConstructorParameters<typeof SpacecraftService>[27],
