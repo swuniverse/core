@@ -8,6 +8,7 @@ import { SpacecraftService } from '../spacecraft/spacecraft.service';
 import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { StatisticsService } from '../statistics/statistics.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -54,6 +55,7 @@ export class TickService {
     private readonly gateway: GameGateway,
     private readonly config: ConfigService,
     private readonly dashboardService: DashboardService,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -211,6 +213,8 @@ export class TickService {
       }
 
       await this.dashboardService.recordSnapshot();
+      // Fehler werden in recordSnapshots protokolliert und brechen den Tick nicht ab.
+      await this.statisticsService.recordSnapshots(new Date(tickNumber));
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
     } catch (error) {
       await this.finishTick(

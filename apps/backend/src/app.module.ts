@@ -86,6 +86,7 @@ import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-histo
 import { PrestigeModule } from './modules/prestige/prestige.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DashboardSnapshot } from './modules/dashboard/entities/dashboard-snapshot.entity';
+import { StatisticSnapshot } from './modules/statistics/entities/statistic-snapshot.entity';
 import { AllianceModule } from './modules/alliance/alliance.module';
 import { Alliance } from './modules/alliance/entities/alliance.entity';
 import { AllianceMembership } from './modules/alliance/entities/alliance-membership.entity';
@@ -176,6 +177,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           GameStatus,
           PrestigeHistoryEntry,
           DashboardSnapshot,
+          StatisticSnapshot,
           Alliance,
           AllianceMembership,
           AllianceApplication,

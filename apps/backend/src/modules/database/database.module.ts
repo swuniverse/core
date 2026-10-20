@@ -24,6 +24,7 @@ import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyScan } from '../spacecraft/entities/colony-scan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 import { CartographyPlan } from '../spacecraft/entities/cartography-plan.entity';
+import { StatisticsModule } from '../statistics/statistics.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CartographyPlan } from '../spacecraft/entities/cartography-plan.entity'
     GameDataModule,
     WebsocketModule,
     AllianceModule,
+    StatisticsModule,
   ],
   controllers: [DatabaseController],
   providers: [DatabaseService, ColonyScanProjectionService],
