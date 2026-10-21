@@ -1,0 +1,36 @@
+# E-Mail-Benachrichtigung bei neuer persönlicher Nachricht (hinter Flag)
+
+**Status:** ready-for-agent
+**Priority:** P3
+**Size:** S
+**Blocked by:** —
+
+## Ziel
+
+Wird eine Nachricht im Ordner Persönlich zugestellt und hat der Empfänger `email_notification` aktiv, geht nach dem erfolgreichen Speichern eine Mail über `MailService` raus. Gemäß Leitplanke 4 steht der gesamte Versand hinter einer Konfiguration, die standardmäßig aus ist; der Standardwert der Spielereinstellung ist deshalb unkritisch und bleibt unverändert.
+
+Abgrenzung: sh-AP-16 nennt `email_notification` als wirksam zu machende Einstellung. Dieses Issue liefert den konkreten Mailversand bei PMs; die Flag-Variable soll von sh-AP-10 (Massenmail) wiederverwendet werden.
+
+## STU-Quellen
+
+- `src/Module/Message/Lib/EmailNotificationSender.php`
+- `src/Module/Message/Lib/PrivateMessageSender.php#createPrivateMessage`
+- `src/Module/PlayerSetting/Lib/UserSettingEnum.php` (`EMAIL_NOTIFICATION`)
+
+## SWU-Pfade
+
+- `apps/backend/src/modules/messaging/messaging.service.ts#send`
+- `apps/backend/src/modules/mail/mail.service.ts` (neue Methode, z. B. `sendPrivateMessageNotification`)
+- `apps/backend/src/modules/settings/settings.service.ts`
+- `.env.example` (neue Variable dokumentieren)
+
+## Akzeptanzkriterien
+
+- [ ] Neue Konfiguration `PLAYER_MAIL_NOTIFICATIONS_ENABLED` (Default `false`, in `.env.example` dokumentiert). Ist sie aus oder SMTP nicht konfiguriert, wird keine Mail versucht.
+- [ ] Nur persönliche PMs von Spielern lösen eine Mail aus; Systemnachrichten und andere Ordner nicht.
+- [ ] Mail nur bei `email_notification = '1'` des Empfängers; Betreff „Neue Nachricht von <Absender>“, Text ohne Nachrichteninhalt (nur Hinweis und Link auf `/messages`), Adressat ist die Konto-E-Mail.
+- [ ] Der Versand läuft nach dem Speichern und blockiert bzw. scheitert den PM-Versand nie; Fehler werden nur geloggt.
+- [ ] Backend-Tests mit gemocktem `MailService`: Flag aus → kein Aufruf; Flag an + Einstellung an → ein Aufruf; Einstellung aus → kein Aufruf; Mailfehler → PM trotzdem gespeichert.
+- [ ] Hinweis im Einstellungs-UI bei der Option, dass E-Mails nur verschickt werden, wenn der Betreiber sie aktiviert hat (optional über einen Statusendpunkt).
+
+## Comments
