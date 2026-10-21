@@ -226,7 +226,14 @@ export class ColonyConstructionService {
       if (!lockedColony) throw new NotFoundException('Colony not found');
       colony = await repository.findOne({
         where: { id: colonyId, userId, isAbandoned: false },
-        relations: ['fields', 'storage', 'stats', 'changeable'],
+        // celestialObject: fuer die Atmosphaeren-Pruefung (Planetenklasse).
+        relations: [
+          'fields',
+          'storage',
+          'stats',
+          'changeable',
+          'celestialObject',
+        ],
       });
     } else {
       colony = await this.findOne(colonyId, userId);
