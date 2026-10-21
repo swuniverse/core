@@ -477,6 +477,11 @@ export function colonyFieldTileImage(
   return `${ASSET_BASE}/generated/SWUfields/${prefix}${id}.png`;
 }
 
+/** Kuppel-Overlay (150x150, transparent) fuer geraeumte Krater-Kacheln. */
+export function colonyDomeImage(tileId: string): string {
+  return `${ASSET_BASE}/generated/SWUdomes/${tileId}.png`;
+}
+
 export function researchImage(techId: number): string {
   return `${ASSET_BASE}/research/${techId}.png`;
 }

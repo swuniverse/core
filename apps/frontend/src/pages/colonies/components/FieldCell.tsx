@@ -1,4 +1,8 @@
-import { buildingImage, colonyFieldTileImage } from '../../../lib/assets';
+import {
+  buildingImage,
+  colonyDomeImage,
+  colonyFieldTileImage,
+} from '../../../lib/assets';
 import type { ColonyField } from '../types';
 import {
   BONUS_MARKER_FRAME_CLASS,
@@ -96,7 +100,7 @@ export function FieldCell({
         ${isHighlighted ? 'cursor-crosshair' : ''}
         ${field.locked ? 'grayscale opacity-60' : ''}`}
       title={[
-        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ' ⟳ Geoengineering' : ''}${field.locked ? ' — Admin-Vorschau (Spieler: unerforscht)' : ''} (${field.fieldIndex})`,
+        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ' ⟳ Geoengineering' : ''}${field.hasDome ? ' ◠ Kuppel' : ''}${field.domeFinishesAt && !field.hasDome ? ' ◠ Kuppel im Bau' : ''}${field.locked ? ' — Admin-Vorschau (Spieler: unerforscht)' : ''} (${field.fieldIndex})`,
         marker
           ? `${marker.emoji} ${bonusMarkerDescription(marker, field.bonusMarkerActive !== false)}`
           : undefined,
@@ -160,6 +164,23 @@ export function FieldCell({
             loading="lazy"
           />
         </>
+      )}
+      {field.hasDome && field.terrainTileId && (
+        <img
+          src={colonyDomeImage(field.terrainTileId)}
+          alt=""
+          data-testid="field-dome-overlay"
+          className="pointer-events-none absolute inset-0 z-[5] h-full w-full object-cover"
+          loading="lazy"
+        />
+      )}
+      {field.domeFinishesAt && !field.hasDome && (
+        <span
+          className="absolute bottom-0.5 left-0.5 z-20 rounded bg-sky-500/90 px-1 text-[8px] font-bold leading-3 text-black"
+          title="Kuppel im Bau"
+        >
+          ◠
+        </span>
       )}
       {isReplacement && (
         <span className="absolute bottom-0.5 right-0.5 z-20 rounded bg-orange-500/90 px-1 text-[8px] font-bold leading-3 text-black">

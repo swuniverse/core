@@ -136,6 +136,7 @@ export class ColonyAbandonmentService {
       field.reactivateAfterUpgrade = null;
       field.terraformingId = null;
       field.terraformingFinishesAt = null;
+      field.domeFinishesAt = null;
       if (field.isBuilding) {
         // A construction site has no completed ruin to preserve.
         field.buildingId = null;

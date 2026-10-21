@@ -103,7 +103,12 @@ export function buildingAllowedOnField(
     return true;
   }
   if (!field.terrainTileId) return false;
-  const categories = fieldCategories.tiles[field.terrainTileId] ?? [];
+  const tileCategories = fieldCategories.tiles[field.terrainTileId] ?? [];
+  // Kuppel gibt dem Feld Atmosphaere: wie ein "standard"-Feld.
+  const categories =
+    field.hasDome && !tileCategories.includes('standard')
+      ? [...tileCategories, 'standard']
+      : tileCategories;
   return categories.some(
     (category) =>
       fieldCategories.anyCategories.includes(category) ||

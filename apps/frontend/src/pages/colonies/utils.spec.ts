@@ -1,5 +1,6 @@
 import type { BuildingDef, ColonyStorageItem } from './types';
 import {
+  buildingAllowedOnField,
   canAfford,
   getTerraformingOptionsForField,
   maxAffordable,
@@ -44,5 +45,24 @@ describe('colony build affordability', () => {
     );
 
     expect(options.map((option) => option.id)).toEqual([11110103]);
+  });
+});
+
+describe('buildingAllowedOnField with dome', () => {
+  const house = { allowedFieldTypes: ['standard'] } as unknown as BuildingDef;
+  const categories = { tiles: { G612: [] }, anyCategories: [] };
+
+  it('forbids standard buildings on an open cleared crater', () => {
+    const field = { fieldType: 612, terrainTileId: 'G612' } as never;
+    expect(buildingAllowedOnField(house, field, categories)).toBe(false);
+  });
+
+  it('treats a domed cleared crater like a standard field', () => {
+    const field = {
+      fieldType: 612,
+      terrainTileId: 'G612',
+      hasDome: true,
+    } as never;
+    expect(buildingAllowedOnField(house, field, categories)).toBe(true);
   });
 });

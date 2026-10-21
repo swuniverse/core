@@ -231,6 +231,16 @@ export class ColonyTickProcessorService {
         });
       }
 
+      if (field.domeFinishesAt && field.domeFinishesAt <= now) {
+        field.hasDome = true;
+        field.domeFinishesAt = null;
+        await this.fieldRepo.save(field);
+        events.push({
+          type: 'DOME_FINISHED',
+          fieldIndex: field.fieldIndex,
+        });
+      }
+
       if (
         field.isBuilding &&
         field.buildFinishesAt &&

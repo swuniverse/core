@@ -69,4 +69,11 @@ export class ColonyField {
 
   @Column({ type: 'timestamp', nullable: true })
   terraformingFinishesAt: Date | null;
+
+  /** Kuppel steht (Overlay ueber Feld + Gebaeude, siehe dome.ts im shared-Paket). */
+  @Column({ default: false })
+  hasDome: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  domeFinishesAt: Date | null;
 }

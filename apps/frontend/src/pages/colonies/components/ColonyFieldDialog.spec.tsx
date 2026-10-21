@@ -117,6 +117,7 @@ const defaultProps = {
   onOpenBuildMenu: vi.fn(),
   onOpenAcademy: vi.fn(),
   onTerraform: vi.fn(),
+  onBuildDome: vi.fn(),
   onUpgrade: vi.fn(),
   onDemolish: vi.fn(),
   onToggle: vi.fn(),

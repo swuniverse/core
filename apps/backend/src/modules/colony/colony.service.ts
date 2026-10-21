@@ -643,6 +643,18 @@ export class ColonyService {
     );
   }
 
+  async buildDome(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    return this.colonyConstructionService.buildDome(
+      colonyId,
+      userId,
+      fieldIndex,
+    );
+  }
+
   async upgradeBuilding(
     colonyId: number,
     userId: number,

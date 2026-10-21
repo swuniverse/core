@@ -365,6 +365,12 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
+      onBuildDome={(fi) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/fields/${fi}/dome`, {});
+          loadColonyDetail(selected.id);
+        })
+      }
       onBuildShip={(sci, name, moduleSelections, buildPlanName) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/build-ship`, {
@@ -662,6 +668,7 @@ export function ColonyDetail({
   onDemolish,
   onToggle,
   onTerraform,
+  onBuildDome,
   onBuildShip,
   onStartFabrication,
   onCancelFabrication,
@@ -710,6 +717,7 @@ export function ColonyDetail({
   onDemolish: (fi: number) => Promise<void> | void;
   onToggle: (fi: number) => Promise<void> | void;
   onTerraform: (fi: number, ti: string) => Promise<void> | void;
+  onBuildDome: (fi: number) => Promise<void> | void;
   onBuildShip: (
     sci: number,
     name: string,
@@ -1321,6 +1329,7 @@ export function ColonyDetail({
           onOpenBuildMenu={() => handleMainViewChange('build')}
           onOpenAcademy={() => handleMainViewChange('social')}
           onTerraform={onTerraform}
+          onBuildDome={onBuildDome}
           onUpgrade={onUpgradeBuilding}
           onDemolish={onDemolish}
           onToggle={onToggle}

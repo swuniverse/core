@@ -250,6 +250,8 @@ export class ColonyProjectionService {
             buildFinishesAt: null,
             terraformingId: null,
             terraformingFinishesAt: null,
+            hasDome: false,
+            domeFinishesAt: null,
             locked: true,
           };
         }
@@ -279,6 +281,8 @@ export class ColonyProjectionService {
           terraformingId: field.terraformingId,
           terraformingFinishesAt:
             field.terraformingFinishesAt?.toISOString() ?? null,
+          hasDome: field.hasDome,
+          domeFinishesAt: field.domeFinishesAt?.toISOString() ?? null,
           ...(locked ? { locked: true, adminPreview: true } : {}),
         };
       }),
@@ -725,6 +729,8 @@ export class ColonyProjectionService {
                 terraformingId: field.terraformingId,
                 terraformingFinishesAt:
                   field.terraformingFinishesAt?.toISOString() ?? null,
+                hasDome: field.hasDome,
+                domeFinishesAt: field.domeFinishesAt?.toISOString() ?? null,
                 availableUpgrades:
                   availableUpgradesByFieldIndex.get(field.fieldIndex) ?? [],
                 epsProc: building?.epsProc ?? 0,
