@@ -1,6 +1,6 @@
 # Zentrale Interaktions-Checks für Feld-Interaktionen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -34,3 +34,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- Abbruch am 2026-10-22: Der Querschnitt ist mit den aktuellen Service-Konstruktoren und direkten Unit-Test-Instanziierungen nicht in einem Durchlauf sicher integrierbar. Zwei ernsthafte TDD-Versuche führten zu breiten Testausfällen (fehlende neue Konstruktor-Abhängigkeiten in Combat/Transfer/Communication sowie Entity-Zyklusfehler beim Import des zentralen Dienstes). Benötigte Produktentscheidung: Soll der zentrale Check als provider-basierter Dienst mit Anpassung aller bestehenden Test-Fixtures eingeführt werden, oder als injektionsfreie Policy/Funktionen, die Repositories/Resolver-Daten vom jeweiligen Adapter erhalten? Das Issue sollte danach in kleinere Integrationsschritte (Policy, Transfer, Combat, Scan/NBS, Kommunikation/Abfangen/Bergung) geteilt werden.
