@@ -4,10 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { WsEventType } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
+import { GameGateway } from '../websocket/game.gateway';
 import { Message } from './entities/message.entity';
 import {
   IncomingMessageFolder,
@@ -26,6 +28,7 @@ export class MessagingService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly statisticsService: StatisticsService,
+    private readonly gateway: GameGateway,
   ) {}
 
   setIgnoreCheck(
@@ -183,6 +186,7 @@ export class MessagingService {
       folder: MessageFolder.PERSONAL,
     });
     const saved = await this.messageRepo.save(message);
+    this.notifyRecipient(recipientId, MessageFolder.PERSONAL);
     await this.statisticsService.countEvent(PRIVATE_MESSAGES_EVENT);
     return saved;
   }
@@ -226,7 +230,9 @@ export class MessagingService {
         isSystem: true,
         folder,
       });
-      return this.messageRepo.save(message);
+      const saved = await this.messageRepo.save(message);
+      this.notifyRecipient(recipientId, folder);
+      return saved;
     }
 
     const inserted = await this.messageRepo
@@ -248,11 +254,18 @@ export class MessagingService {
     const insertedId = inserted.identifiers[0]?.id as number | undefined;
     if (insertedId !== undefined) {
       const message = await this.messageRepo.findOneBy({ id: insertedId });
-      if (message) return message;
+      if (message) {
+        this.notifyRecipient(recipientId, folder);
+        return message;
+      }
     }
     const existing = await this.messageRepo.findOneBy({ deliveryKey });
     if (!existing) throw new Error('System message delivery key was not persisted');
     return existing;
+  }
+
+  private notifyRecipient(recipientId: number, folder: MessageFolder): void {
+    this.gateway.emitToUser(recipientId, WsEventType.MESSAGE_RECEIVED, { folder });
   }
 
   async getUnreadCount(userId: number): Promise<number> {

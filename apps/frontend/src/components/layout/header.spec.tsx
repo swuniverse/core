@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Header } from './header';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const authMocks = vi.hoisted(() => ({ logout: vi.fn() }));
+const socketMocks = vi.hoisted(() => ({ useSocket: vi.fn() }));
 
 const messageFolders = [
   { folder: 'PERSONAL', unread: 2, total: 4 },
@@ -15,7 +16,7 @@ const messageFolders = [
   { folder: 'STATION', unread: 0, total: 0 },
 ];
 vi.mock('../../services/api', () => ({ api: apiMocks }));
-vi.mock('../../hooks/use-socket', () => ({ useSocket: vi.fn() }));
+vi.mock('../../hooks/use-socket', () => socketMocks);
 vi.mock('../../stores/auth.store', () => ({
   useAuthStore: (selector: (state: object) => unknown) =>
     selector({ user: null, logout: authMocks.logout }),
@@ -23,9 +24,11 @@ vi.mock('../../stores/auth.store', () => ({
 
 describe('Global status header', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     authMocks.logout.mockReset();
+    socketMocks.useSocket.mockReset();
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(messageFolders);
       return Promise.resolve({
@@ -129,13 +132,60 @@ describe('Global status header', () => {
     expect(screen.getByTitle('Systemmeldungen').textContent?.trim()).toBe('1');
     expect(
       screen.getByTitle('Schiffe').querySelector('img')?.getAttribute('src'),
-    ).toBe('/assets/buttons/pmnavlet_2_0.png');
+    ).toBe('/assets/buttons/pmnavlet_2_1.png');
     expect(
       screen.getByTitle('Kolonien').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_3_0.png');
     expect(
       screen.getByTitle('Handel').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_4_0.png');
+  });
+
+  it('highlights unread folders and links directly to message composition', async () => {
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    const inbox = await screen.findByTitle('Posteingang');
+    const colonies = screen.getByTitle('Kolonien');
+    expect(inbox.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/pmnavlet_1_1.png',
+    );
+    expect(inbox.querySelector('span')?.className).toContain('text-swu-accent');
+    expect(inbox.querySelector('span')?.className).toContain('font-bold');
+    expect(colonies.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/pmnavlet_3_0.png',
+    );
+    expect(colonies.querySelector('span')?.className).toContain('text-swu-muted');
+    expect(screen.getByTitle('Neue Nachricht schreiben').getAttribute('href')).toBe(
+      '/messages?tab=compose',
+    );
+  });
+
+  it('reloads folder counters when a message is received', async () => {
+    vi.useFakeTimers();
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+    await vi.waitFor(() =>
+      expect(apiMocks.get).toHaveBeenCalledWith('/messages/folders'),
+    );
+    apiMocks.get.mockClear();
+    const registration = socketMocks.useSocket.mock.calls.find(
+      ([event]) => event === 'MESSAGE_RECEIVED',
+    );
+
+    await act(async () => {
+      registration?.[1]({ folder: 'PERSONAL' });
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(apiMocks.get).toHaveBeenCalledWith('/messages/folders');
+    vi.useRealTimers();
   });
 
   it('invalidates the server session before clearing the client session', async () => {

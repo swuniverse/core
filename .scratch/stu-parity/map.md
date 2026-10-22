@@ -142,6 +142,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-UI-1a – Schiffsliste mit STU-Informationsdichte und Laufzeitstatus – siehe Feature-Commit
 - sh-AP-01 – Sicherer, konfigurierbarer Passwort-Reset mit wiederverwendbaren Account-Tokens – siehe Feature-Commit
 - sh-AP-02 – Eigenständige System-News mit Admin-Erstellung und öffentlicher Landing-Anzeige – siehe Feature-Commit
+- sh-AP-15a – Nachrichten-Navlet mit Live-Zählern, Hervorhebung und direktem Schreiben-Link – siehe Feature-Commit
 - sh-AP-07a – Tägliches Maintenance-Gerüst und explizite Spielzeitzone – siehe Feature-Commit
 - sh-AP-09 – Login und Session mit sicherem JWT-Secret, serverseitigem Logout und Account-Prüfungen gehärtet – siehe Feature-Commit
 - sh-AP-11 – Gemeinsame cursorfolgende, touch- und tastaturfähige Tooltip-Komponente – siehe Feature-Commit

@@ -1,6 +1,6 @@
 # Nachrichten-Navlet: Hervorhebung, Live-Zähler, „Neue Nachricht schreiben“
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -27,10 +27,12 @@ Die Ordner-Icons im Header zeigen wie STU bei ungelesenen Nachrichten das hervor
 
 ## Akzeptanzkriterien
 
-- [ ] Ordner mit ungelesenen Nachrichten zeigen `pmnavlet_<n>_1` und die Zahl in `text-swu-accent font-bold`; ohne Ungelesene `_0` mit Hover-Tausch auf `_1` und Zahl `0` in `text-swu-muted`.
-- [ ] Neues `WsEventType.MESSAGE_RECEIVED` (Payload: Ordner); wird nach dem Speichern jeder Nachricht an den Empfänger gesendet (persönlich und System), auch bei Massen- und Tickmeldungen höchstens einmal je Empfänger und Vorgang.
-- [ ] Der Header lädt bei diesem Event die Ordnerzähler neu (entprellt, z. B. 500 ms).
-- [ ] Userbox enthält einen Icon-Link „Neue Nachricht schreiben“ (`buttons/msg1.png`, `title` und `aria-label`) auf `/messages?tab=compose`.
-- [ ] Backend-Test: Event wird nach `send` und `sendSystem` an den Empfänger emittiert. Frontend-Tests: Asset-Wechsel bei Ungelesenen, Neuladen beim Event, Schreiben-Link.
+- [x] Ordner mit ungelesenen Nachrichten zeigen `pmnavlet_<n>_1` und die Zahl in `text-swu-accent font-bold`; ohne Ungelesene `_0` mit Hover-Tausch auf `_1` und Zahl `0` in `text-swu-muted`.
+- [x] Neues `WsEventType.MESSAGE_RECEIVED` (Payload: Ordner); wird nach dem Speichern jeder Nachricht an den Empfänger gesendet (persönlich und System), auch bei Massen- und Tickmeldungen höchstens einmal je Empfänger und Vorgang.
+- [x] Der Header lädt bei diesem Event die Ordnerzähler neu (entprellt, z. B. 500 ms).
+- [x] Userbox enthält einen Icon-Link „Neue Nachricht schreiben“ (`buttons/msg1.png`, `title` und `aria-label`) auf `/messages?tab=compose`.
+- [x] Backend-Test: Event wird nach `send` und `sendSystem` an den Empfänger emittiert. Frontend-Tests: Asset-Wechsel bei Ungelesenen, Neuladen beim Event, Schreiben-Link.
 
 ## Comments
+
+Implemented live mailbox notifications in the messaging service and shared WebSocket contract. The header now refreshes folder counts with a 500 ms debounce, uses unread/hover assets and count emphasis, and exposes the compose shortcut. Backend and frontend behavior is covered by tests; no follow-up gaps identified.

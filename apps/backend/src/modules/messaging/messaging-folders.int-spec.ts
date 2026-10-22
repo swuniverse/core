@@ -52,6 +52,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
               dataSource.getRepository(Message),
               dataSource.getRepository(User),
               new StatisticsService(dataSource, []),
+              { emitToUser: jest.fn() } as never,
             ),
         },
       ],

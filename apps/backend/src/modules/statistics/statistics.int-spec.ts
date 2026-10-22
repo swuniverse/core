@@ -484,6 +484,7 @@ describe('database statistics (Postgres, HTTP)', () => {
       dataSource.getRepository(Message),
       dataSource.getRepository(User),
       statistics,
+      { emitToUser: jest.fn() } as never,
     );
     const other = await createUser(dataSource, { username: 'other' });
     const first = await messaging.send(player.id, other.id, 's1', 'b');

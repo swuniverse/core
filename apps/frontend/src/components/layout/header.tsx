@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Faction, type GlobalHeaderStatusDto } from '@swuniverse/shared';
 import { useAuthStore } from '../../stores/auth.store';
@@ -35,31 +35,31 @@ const MESSAGE_FOLDERS: Array<{
     folder: 'PERSONAL',
     label: 'Posteingang',
     route: 'personal',
-    asset: 'pmnavlet_1_0',
+    asset: 'pmnavlet_1',
   },
   {
     folder: 'SHIP',
     label: 'Schiffe',
     route: 'ship',
-    asset: 'pmnavlet_2_0',
+    asset: 'pmnavlet_2',
   },
   {
     folder: 'COLONY',
     label: 'Kolonien',
     route: 'colony',
-    asset: 'pmnavlet_3_0',
+    asset: 'pmnavlet_3',
   },
   {
     folder: 'TRADE',
     label: 'Handel',
     route: 'trade',
-    asset: 'pmnavlet_4_0',
+    asset: 'pmnavlet_4',
   },
   {
     folder: 'SYSTEM',
     label: 'Systemmeldungen',
     route: 'system',
-    asset: 'pmnavlet_5_0',
+    asset: 'pmnavlet_5',
   },
 ];
 
@@ -71,6 +71,7 @@ export function Header() {
   const [messageFolders, setMessageFolders] = useState<MessageFolderSummary[]>(
     [],
   );
+  const messageRefreshTimeout = useRef<number | undefined>(undefined);
 
   const refresh = useCallback(() => {
     void api
@@ -88,20 +89,27 @@ export function Header() {
       window.removeEventListener('focus', refresh);
     };
   }, [refresh]);
+  const refreshMessageFolders = useCallback(() => {
+    void api
+      .get<MessageFolderSummary[]>('/messages/folders')
+      .then(setMessageFolders)
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
-    const refreshMessageFolders = () => {
-      void api
-        .get<MessageFolderSummary[]>('/messages/folders')
-        .then(setMessageFolders)
-        .catch(() => undefined);
-    };
     refreshMessageFolders();
     window.addEventListener('focus', refreshMessageFolders);
     return () => window.removeEventListener('focus', refreshMessageFolders);
+  }, [refreshMessageFolders]);
+  useEffect(() => {
+    return () => window.clearTimeout(messageRefreshTimeout.current);
   }, []);
   useSocket('TICK', refresh);
   useSocket('COLONY_UPDATED', refresh);
   useSocket('RESEARCH_COMPLETED', refresh);
+  useSocket('MESSAGE_RECEIVED', () => {
+    window.clearTimeout(messageRefreshTimeout.current);
+    messageRefreshTimeout.current = window.setTimeout(refreshMessageFolders, 500);
+  });
 
   const user =
     status?.user ??
@@ -184,6 +192,18 @@ export function Header() {
               {status.alliance.name}
             </Link>
           )}
+          <Link
+            to="/messages?tab=compose"
+            title="Neue Nachricht schreiben"
+            aria-label="Neue Nachricht schreiben"
+            className="hidden shrink-0 px-1 sm:block"
+          >
+            <img
+              src="/assets/buttons/msg1.png"
+              alt=""
+              className="size-5 object-contain"
+            />
+          </Link>
           <Link
             to="/notes"
             title="Notizzettel öffnen"
@@ -341,14 +361,23 @@ function MailboxFolderLink(props: {
       to={props.to}
       title={props.label}
       aria-label={`${props.label}: ${props.unread} ungelesen`}
-      className="relative flex h-full w-10 shrink-0 flex-col items-center justify-center border-r border-swu-border px-1 text-swu-muted hover:bg-white/[0.03] hover:text-swu-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent md:w-12"
+      className="group relative flex h-full w-10 shrink-0 flex-col items-center justify-center border-r border-swu-border px-1 text-swu-muted hover:bg-white/[0.03] hover:text-swu-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-swu-accent md:w-12"
     >
       <img
-        src={`/assets/buttons/${props.asset}.png`}
+        src={`/assets/buttons/${props.asset}_${props.unread > 0 ? '1' : '0'}.png`}
         alt=""
-        className="size-6 object-contain md:size-[30px]"
+        className={`size-6 object-contain md:size-[30px] ${props.unread === 0 ? 'group-hover:hidden' : ''}`}
       />
-      <span className="mt-0.5 font-mono text-[8px] text-swu-primary">
+      {props.unread === 0 && (
+        <img
+          src={`/assets/buttons/${props.asset}_1.png`}
+          alt=""
+          className="hidden size-6 object-contain group-hover:block md:size-[30px]"
+        />
+      )}
+      <span
+        className={`mt-0.5 font-mono text-[8px] ${props.unread > 0 ? 'font-bold text-swu-accent' : 'text-swu-muted'}`}
+      >
         {props.unread}
       </span>
     </Link>

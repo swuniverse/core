@@ -11,6 +11,7 @@ describe('MessagingService', () => {
   };
   const userRepo = { findOneBy: jest.fn() };
   const statisticsService = { countEvent: jest.fn() };
+  const gateway = { emitToUser: jest.fn() };
   let service: MessagingService;
 
   beforeEach(() => {
@@ -20,6 +21,7 @@ describe('MessagingService', () => {
       messageRepo as never,
       userRepo as never,
       statisticsService as never,
+      gateway as never,
     );
   });
 
@@ -80,6 +82,24 @@ describe('MessagingService', () => {
       body: 'Lange Nachricht',
       folder: MessageFolder.PERSONAL,
     }));
+  });
+
+  it('notifies the recipient after persisting a personal message', async () => {
+    userRepo.findOneBy.mockResolvedValue({ id: 2 });
+
+    await service.send(1, 2, 'Hallo', 'Lange Nachricht');
+
+    expect(gateway.emitToUser).toHaveBeenCalledWith(2, 'MESSAGE_RECEIVED', {
+      folder: MessageFolder.PERSONAL,
+    });
+  });
+
+  it('notifies the recipient after persisting a system message', async () => {
+    await service.sendSystem(2, 'System', 'Meldung');
+
+    expect(gateway.emitToUser).toHaveBeenCalledWith(2, 'MESSAGE_RECEIVED', {
+      folder: MessageFolder.SYSTEM,
+    });
   });
 
   it('returns only visible personal correspondence newest first', async () => {
