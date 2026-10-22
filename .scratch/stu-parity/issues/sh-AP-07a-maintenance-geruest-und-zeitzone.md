@@ -1,6 +1,6 @@
 # Maintenance-Gerüst und feste Zeitzone der Ticks
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
