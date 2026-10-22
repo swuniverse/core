@@ -1,6 +1,6 @@
 # Akademie-Tick prüft Aktivität und Crew-Limits
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -23,9 +23,11 @@
 
 ## Akzeptanzkriterien
 
-- [ ] Ohne aktive Akademie bleiben Aufträge im Tick unverändert in der Queue (nicht abgeschlossen, nicht gelöscht).
-- [ ] Kann die Kolonie keine weitere Crew aufnehmen (lokales Limit) oder ist das globale Crew-Limit erreicht, wird der Auftrag storniert (`CANCELLED`) und eine Kolonie-Nachricht erzeugt.
-- [ ] Teilaufträge werden auf die noch zulässige Menge gekürzt statt komplett abgeschlossen; die je Tick ausbildbare Menge (STU `getTrainableCount`) wird beachtet, falls SWU einen entsprechenden Wert hat – sonst bleibt die heutige Menge.
-- [ ] Backend-Tests: inaktive Akademie, lokales Limit, globales Limit, Kürzung, Normalfall.
+- [x] Ohne aktive Akademie bleiben Aufträge im Tick unverändert in der Queue (nicht abgeschlossen, nicht gelöscht).
+- [x] Kann die Kolonie keine weitere Crew aufnehmen (lokales Limit) oder ist das globale Crew-Limit erreicht, wird der Auftrag storniert (`CANCELLED`) und eine Kolonie-Nachricht erzeugt.
+- [x] Teilaufträge werden auf die noch zulässige Menge gekürzt statt komplett abgeschlossen; die je Tick ausbildbare Menge (STU `getTrainableCount`) wird beachtet, falls SWU einen entsprechenden Wert hat – sonst bleibt die heutige Menge.
+- [x] Backend-Tests: inaktive Akademie, lokales Limit, globales Limit, Kürzung, Normalfall.
 
 ## Comments
+
+- Der Akademie-Tick prüft nun den aktiven Ausbildungsbetrieb, lokale und globale Crewkapazität sowie das tickweise Ausbildungslimit. Aufträge werden pausiert, gekürzt oder mit Kolonie-Nachricht storniert; Backend-Tests decken alle Akzeptanzfälle ab. Keine offenen Folgepunkte.

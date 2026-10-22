@@ -166,7 +166,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       getRawOne: jest.fn(async () => ({ total: 0 })),
     })),
   };
-  const gameData = {
+  const gameData: any = {
     getBuilding: jest.fn((id: number) => {
       const buildings: Record<number, any> = {
         72010100: {
@@ -1333,6 +1333,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyStorageService,
     buildingLifecycleService,
     colonyCrewService as any,
+    colonyEconomyService,
+    colonyEventService as any,
     colonyDefenseService as any,
     fabricationService as any,
     shipyardService as any,
@@ -4132,24 +4134,117 @@ describe('crew training queues', () => {
     expect(queue).toMatchObject({ amount: 2 });
   });
 
+  const queuedTraining = (amount = 2) => ({
+    id: 1,
+    colonyId: 1,
+    userId: 1,
+    amount,
+    finishesAt: null,
+    status: 'QUEUED',
+  });
+  const academyColony = (active = true) => ({
+    id: 1,
+    userId: 1,
+    stats: { trainedCrew: 0 },
+    fields: [
+      {
+        buildingId: 51010100,
+        isBuilding: false,
+        isActive: active,
+      },
+    ],
+  });
+
+  it('leaves crew training queued while the academy is inactive', async () => {
+    const { service, crewTrainingQueueRepo, colonyCrewService } =
+      createColonyService();
+    const job = queuedTraining();
+    crewTrainingQueueRepo.find.mockResolvedValue([job]);
+
+    await (service as any).processCrewTrainingQueue(academyColony(false));
+
+    expect(colonyCrewService.createCrewOnColony).not.toHaveBeenCalled();
+    expect(crewTrainingQueueRepo.save).not.toHaveBeenCalled();
+    expect(job.status).toBe('QUEUED');
+  });
+
+  it.each([
+    ['local', 'LOCAL_CREW_LIMIT', { freeLocal: 0 }],
+    ['global', 'GLOBAL_CREW_LIMIT', { assigned: 10, globalLimit: 10 }],
+  ])(
+    'cancels crew training at the %s crew limit and creates a colony message',
+    async (
+      _label,
+      reason,
+      limits: {
+        freeLocal?: number;
+        assigned?: number;
+        globalLimit?: number;
+      },
+    ) => {
+      const {
+        service,
+        crewTrainingQueueRepo,
+        colonyCrewService,
+        colonyEventService,
+      } = createColonyService();
+      const job = queuedTraining();
+      crewTrainingQueueRepo.find.mockResolvedValue([job]);
+      colonyCrewService.getFreeAssignmentCount.mockResolvedValue(
+        limits.freeLocal ?? 10,
+      );
+      colonyCrewService.getAssignedCount.mockResolvedValue(
+        limits.assigned ?? 0,
+      );
+      colonyCrewService.getGlobalCrewLimit.mockResolvedValue(
+        limits.globalLimit ?? 10,
+      );
+
+      await (service as any).processCrewTrainingQueue(academyColony());
+
+      expect(colonyCrewService.createCrewOnColony).not.toHaveBeenCalled();
+      expect(job.status).toBe('CANCELLED');
+      expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          colonyId: 1,
+          userId: 1,
+          type: 'CREW_TRAINING_CANCELLED',
+          payload: { amount: 2, reason },
+        }),
+      );
+    },
+  );
+
+  it('limits partial crew training to remaining capacity and per-tick throughput', async () => {
+    const { service, crewTrainingQueueRepo, colonyCrewService } =
+      createColonyService();
+    const job = queuedTraining(5);
+    crewTrainingQueueRepo.find.mockResolvedValue([job]);
+    colonyCrewService.getFreeAssignmentCount.mockResolvedValue(3);
+    colonyCrewService.getAssignedCount.mockResolvedValue(7);
+    colonyCrewService.getGlobalCrewLimit.mockResolvedValue(10);
+    colonyCrewService.getTrainableCount.mockResolvedValue(2);
+
+    await (service as any).processCrewTrainingQueue(academyColony());
+
+    expect(colonyCrewService.createCrewOnColony).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1 }),
+      2,
+    );
+    expect(job.amount).toBe(2);
+    expect(job.status).toBe('COMPLETED');
+  });
+
   it('completes crew training and creates colony crew assignments', async () => {
     const { service, crewTrainingQueueRepo, colonyCrewService } =
       createColonyService();
-    const job = {
-      id: 1,
-      colonyId: 1,
-      userId: 1,
-      amount: 2,
-      finishesAt: null,
-      status: 'QUEUED',
-    };
-    const colony = { id: 1, userId: 1, stats: { trainedCrew: 0 } };
+    const job = queuedTraining();
     crewTrainingQueueRepo.find.mockResolvedValue([job]);
 
-    await (service as any).processCrewTrainingQueue(colony);
+    await (service as any).processCrewTrainingQueue(academyColony());
 
     expect(colonyCrewService.createCrewOnColony).toHaveBeenCalledWith(
-      colony,
+      expect.objectContaining({ id: 1 }),
       2,
     );
     expect(job.status).toBe('COMPLETED');
@@ -4537,7 +4632,7 @@ describe('ship building compatibility', () => {
     const colony = {
       id: 1,
       userId: 1,
-      isBlockaded: true,
+      stats: { isBlockaded: true },
       ...orbitColonyLocation,
       colonyClassId: 999,
       fields: [

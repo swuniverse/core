@@ -639,7 +639,7 @@ export class ColonyShipyardService {
     buildPlanName?: string,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
-    if (colony.isBlockaded) {
+    if (getColonyChangeable(colony).isBlockaded) {
       throw new BadRequestException(
         'Ship retrofit is not possible while the colony is blockaded',
       );
@@ -948,7 +948,7 @@ export class ColonyShipyardService {
     sourceBuildplan?: ColonyShipBuildplan,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
-    if (colony.isBlockaded) {
+    if (getColonyChangeable(colony).isBlockaded) {
       throw new BadRequestException(
         'Ship construction is not possible while the colony is blockaded',
       );

@@ -3,8 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { ColonyTickEvent } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
+import { ColonyEventService } from '../messaging/colony-event.service';
+import {
+  ColonyEventSeverity,
+  ColonyEventType,
+} from '../messaging/colony-event.types';
 import { BuildingLifecycleService } from './building-lifecycle.service';
 import { ColonyCrewService } from './colony-crew.service';
+import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
@@ -55,6 +61,8 @@ export class ColonyTickProcessorService {
     private readonly colonyStorageService: ColonyStorageService,
     private readonly buildingLifecycleService: BuildingLifecycleService,
     private readonly colonyCrewService: ColonyCrewService,
+    private readonly colonyEconomyService: ColonyEconomyService,
+    private readonly colonyEventService: ColonyEventService,
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyFabricationService: ColonyFabricationService,
     private readonly colonyShipyardService: ColonyShipyardService,
@@ -67,10 +75,62 @@ export class ColonyTickProcessorService {
         status: ColonyCrewTrainingQueueStatus.QUEUED,
       },
     });
+    if (
+      jobs.length === 0 ||
+      !this.colonyEconomyService.getCrewTrainingFacility(colony).active
+    ) {
+      return;
+    }
+
+    const [freeLocal, globalLimit, assigned, trainable] = await Promise.all([
+      this.colonyCrewService.getFreeAssignmentCount(colony),
+      this.colonyCrewService.getGlobalCrewLimit(colony.userId!),
+      this.colonyCrewService.getAssignedCount(colony.userId!),
+      this.colonyCrewService.getTrainableCount(colony.userId!),
+    ]);
+    let remainingLocal = freeLocal;
+    let remainingGlobal = Math.max(0, globalLimit - assigned);
+    let remainingTrainable = trainable;
+
     for (const job of jobs) {
-      await this.colonyCrewService.createCrewOnColony(colony, job.amount);
+      const reason =
+        remainingLocal <= 0
+          ? 'LOCAL_CREW_LIMIT'
+          : remainingGlobal <= 0
+            ? 'GLOBAL_CREW_LIMIT'
+            : null;
+      if (reason) {
+        job.status = ColonyCrewTrainingQueueStatus.CANCELLED;
+        await this.crewTrainingQueueRepo.save(job);
+        await this.colonyEventService.createActionEvent({
+          colonyId: colony.id,
+          userId: job.userId,
+          type: ColonyEventType.CREW_TRAINING_CANCELLED,
+          severity: ColonyEventSeverity.WARNING,
+          title: 'Crewausbildung abgebrochen',
+          message:
+            reason === 'LOCAL_CREW_LIMIT'
+              ? 'Die Crewausbildung wurde wegen des lokalen Crewlimits abgebrochen.'
+              : 'Die Crewausbildung wurde wegen des globalen Crewlimits abgebrochen.',
+          payload: { amount: job.amount, reason },
+        });
+        continue;
+      }
+      if (remainingTrainable <= 0) break;
+
+      const amount = Math.min(
+        job.amount,
+        remainingLocal,
+        remainingGlobal,
+        remainingTrainable,
+      );
+      await this.colonyCrewService.createCrewOnColony(colony, amount);
+      job.amount = amount;
       job.status = ColonyCrewTrainingQueueStatus.COMPLETED;
       await this.crewTrainingQueueRepo.save(job);
+      remainingLocal -= amount;
+      remainingGlobal -= amount;
+      remainingTrainable -= amount;
     }
   }
 
