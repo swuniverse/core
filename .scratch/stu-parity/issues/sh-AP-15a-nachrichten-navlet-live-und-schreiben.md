@@ -1,6 +1,6 @@
 # Nachrichten-Navlet: Hervorhebung, Live-Zähler, „Neue Nachricht schreiben“
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
