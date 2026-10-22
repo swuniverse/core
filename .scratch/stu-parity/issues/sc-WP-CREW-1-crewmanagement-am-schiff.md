@@ -1,6 +1,6 @@
 # Crewmanagement am Schiff: Positionen, Details, Umbenennen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -26,12 +26,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] `GET :id/crew` liefert Positionen mit Soll (aus Rumpfdaten) und zugewiesenen Crewmitgliedern sowie unzugewiesene Crew.
-- [ ] `PATCH :id/crew/:crewId/slot` weist eine Position zu bzw. entfernt sie; Soll-Grenzen werden geprüft.
-- [ ] Umbenennen eines Crewmitglieds (Länge, Zeichen wie Schiffsname) und der gesamten Crew (STU `RenameCrew`).
-- [ ] Crewman-Details zeigen Name, Typ, Geschlecht, Herkunftskolonie, Position.
-- [ ] Nur der Eigner; nicht im Hyperraumflug.
-- [ ] Backend-Tests (Grenzen, Fremdzugriff), Frontend-Test für Zuweisen und Umbenennen.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] `GET :id/crew` liefert Positionen mit Soll (aus Rumpfdaten) und zugewiesenen Crewmitgliedern sowie unzugewiesene Crew.
+- [x] `PATCH :id/crew/:crewId/slot` weist eine Position zu bzw. entfernt sie; Soll-Grenzen werden geprüft.
+- [x] Umbenennen eines Crewmitglieds (Länge, Zeichen wie Schiffsname) und der gesamten Crew (STU `RenameCrew`).
+- [x] Crewman-Details zeigen Name, Typ, Geschlecht, Herkunftskolonie, Position.
+- [x] Nur der Eigner; nicht im Hyperraumflug.
+- [x] Backend-Tests (Grenzen, Fremdzugriff), Frontend-Test für Zuweisen und Umbenennen.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- Crewpostenverwaltung, Details und Umbenennen sind über eigentümergebundene Schiffsendpunkte und ein eigenes Crew-Fenster umgesetzt. Herkunftskolonie entspricht der aktuellen Crewzuweisung; bei an Bord befindlicher Crew ist sie daher nicht mehr verfügbar und wird als unbekannt angezeigt.

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import type {
+  SpacecraftCrewManagementDto,
+  SpacecraftCrewManagementMemberDto,
+  SpacecraftCrewPosition,
   SpacecraftDetailDto,
   SpacecraftEnergyFlowDto,
 } from '@swuniverse/shared';
@@ -24,11 +27,17 @@ export function ShipOperationsPanel({
 }: Props) {
   const [details, setDetails] = useState<SpacecraftDetailDto | null>(null);
   const [flow, setFlow] = useState<SpacecraftEnergyFlowDto | null>(null);
+  const [crew, setCrew] = useState<SpacecraftCrewManagementDto | null>(null);
+  const [showCrew, setShowCrew] = useState(false);
+  const [crewNames, setCrewNames] = useState<Record<number, string>>({});
+  const [crewName, setCrewName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setDetails(null);
     setFlow(null);
+    setCrew(null);
+    setShowCrew(false);
   }, [shipId]);
 
   useEffect(() => {
@@ -58,6 +67,75 @@ export function ShipOperationsPanel({
         ),
       );
   }, [flow, shipId, showEnergy]);
+
+  const loadCrew = async () => {
+    try {
+      const response = await api.get<SpacecraftCrewManagementDto>(
+        `/spacecraft/${shipId}/crew`,
+      );
+      setCrew(response);
+      setCrewNames(
+        Object.fromEntries(
+          [
+            ...response.positions.flatMap((position) => position.crew),
+            ...response.unassignedCrew,
+          ].map((member) => [member.id, member.name]),
+        ),
+      );
+      setShowCrew(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Crew konnte nicht geladen werden',
+      );
+    }
+  };
+
+  const updateSlot = async (
+    member: SpacecraftCrewManagementMemberDto,
+    slot: SpacecraftCrewPosition | null,
+  ) => {
+    try {
+      setCrew(
+        await api.patch(`/spacecraft/${shipId}/crew/${member.id}/slot`, {
+          slot,
+        }),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Position konnte nicht geändert werden',
+      );
+    }
+  };
+
+  const renameMember = async (member: SpacecraftCrewManagementMemberDto) => {
+    try {
+      setCrew(
+        await api.patch(`/spacecraft/${shipId}/crew/${member.id}/name`, {
+          name: crewNames[member.id],
+        }),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Crewmitglied konnte nicht umbenannt werden',
+      );
+    }
+  };
+
+  const renameCompleteCrew = async () => {
+    try {
+      setCrew(
+        await api.patch(`/spacecraft/${shipId}/crew/name`, { name: crewName }),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Crew konnte nicht umbenannt werden',
+      );
+    }
+  };
 
   return (
     <>
@@ -96,22 +174,31 @@ export function ShipOperationsPanel({
                     ['Batterie', `${details.battery}/${details.batteryMax}`],
                   ]}
                 />
-                <InfoSection
-                  title="Crew"
-                  rows={
-                    details.crewRoster?.length
-                      ? details.crewRoster.map((member) => [
-                          member.name,
-                          `${member.position} · ${member.rank}`,
-                        ])
-                      : [
-                          [
-                            'Besatzung',
-                            `${details.crew} (${details.crewRequired ?? 0},${details.crewMax || 'kA'})`,
-                          ],
-                        ]
-                  }
-                />
+                <section>
+                  <InfoSection
+                    title="Crew"
+                    rows={
+                      details.crewRoster?.length
+                        ? details.crewRoster.map((member) => [
+                            member.name,
+                            `${member.position} · ${member.rank}`,
+                          ])
+                        : [
+                            [
+                              'Besatzung',
+                              `${details.crew} (${details.crewRequired ?? 0},${details.crewMax || 'kA'})`,
+                            ],
+                          ]
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void loadCrew()}
+                    className="mt-2 border border-swu-border px-2 py-1 text-swu-primary"
+                  >
+                    Crew verwalten
+                  </button>
+                </section>
                 <InfoSection
                   title="Informationen"
                   rows={[
@@ -154,6 +241,77 @@ export function ShipOperationsPanel({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {showCrew && crew && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Crew verwalten"
+          className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4"
+        >
+          <section className="max-h-[90vh] w-full max-w-4xl overflow-y-auto border border-swu-border bg-swu-bg p-4 text-xs shadow-xl">
+            <header className="mb-3 flex items-center justify-between">
+              <h3 className="font-bold text-swu-primary">Crewposten verwalten</h3>
+              <button type="button" onClick={() => setShowCrew(false)}>
+                Schließen
+              </button>
+            </header>
+            <div className="mb-3 flex gap-2">
+              <label>
+                Crewname
+                <input
+                  value={crewName}
+                  onChange={(event) => setCrewName(event.target.value)}
+                  className="ml-2 border border-swu-border bg-swu-surface px-2 py-1"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void renameCompleteCrew()}
+                className="border border-swu-border px-2"
+              >
+                Gesamte Crew umbenennen
+              </button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {crew.positions.map((position) => (
+                <section key={position.slot} className="border border-swu-border p-2">
+                  <h4 className="font-bold text-swu-primary">
+                    {position.slot} · {position.crew.length}/
+                    {position.target ?? '∞'}
+                  </h4>
+                  {position.crew.map((member) => (
+                    <CrewMemberRow
+                      key={member.id}
+                      member={member}
+                      positions={crew.positions}
+                      name={crewNames[member.id] ?? member.name}
+                      onNameChange={(name) =>
+                        setCrewNames((names) => ({ ...names, [member.id]: name }))
+                      }
+                      onRename={() => void renameMember(member)}
+                      onSlotChange={(slot) => void updateSlot(member, slot)}
+                    />
+                  ))}
+                </section>
+              ))}
+            </div>
+            {crew.unassignedCrew.map((member) => (
+              <CrewMemberRow
+                key={member.id}
+                member={member}
+                positions={crew.positions}
+                name={crewNames[member.id] ?? member.name}
+                onNameChange={(name) =>
+                  setCrewNames((names) => ({ ...names, [member.id]: name }))
+                }
+                onRename={() => void renameMember(member)}
+                onSlotChange={(slot) => void updateSlot(member, slot)}
+              />
+            ))}
+          </section>
         </div>
       )}
 
@@ -215,6 +373,67 @@ export function ShipOperationsPanel({
         </p>
       )}
     </>
+  );
+}
+
+function CrewMemberRow({
+  member,
+  positions,
+  name,
+  onNameChange,
+  onRename,
+  onSlotChange,
+}: {
+  member: SpacecraftCrewManagementMemberDto;
+  positions: SpacecraftCrewManagementDto['positions'];
+  name: string;
+  onNameChange: (name: string) => void;
+  onRename: () => void;
+  onSlotChange: (slot: SpacecraftCrewPosition | null) => void;
+}) {
+  return (
+    <div className="mt-2 grid gap-1 border-t border-swu-border pt-2">
+      <strong>{member.name}</strong>
+      <span>
+        {member.gender} · {member.type} · {member.originColony?.name ?? 'Unbekannt'}
+      </span>
+      <label>
+        Position
+        <select
+          aria-label={`Position für ${member.name}`}
+          value={member.position ?? ''}
+          onChange={(event) =>
+            onSlotChange(
+              (event.target.value || null) as SpacecraftCrewPosition | null,
+            )
+          }
+          className="ml-2 border border-swu-border bg-swu-surface"
+        >
+          <option value="">Nicht zugewiesen</option>
+          {positions.map((position) => (
+            <option key={position.slot} value={position.slot}>
+              {position.slot}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex gap-1">
+        <input
+          aria-label={`Name von ${member.name}`}
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          className="min-w-0 flex-1 border border-swu-border bg-swu-surface px-1"
+        />
+        <button
+          type="button"
+          aria-label={`${member.name} umbenennen`}
+          onClick={onRename}
+          className="border border-swu-border px-2"
+        >
+          Umbenennen
+        </button>
+      </div>
+    </div>
   );
 }
 

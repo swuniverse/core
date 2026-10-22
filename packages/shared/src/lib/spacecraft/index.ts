@@ -49,6 +49,35 @@ export interface SpacecraftCrewMemberDto {
   rank: string;
 }
 
+export const SPACECRAFT_CREW_POSITIONS = [
+  'CAPTAIN',
+  'COMMAND',
+  'SECURITY',
+  'SCIENCE',
+  'TECHNICAL',
+  'NAVIGATION',
+  'CREWMAN',
+] as const;
+export type SpacecraftCrewPosition = (typeof SPACECRAFT_CREW_POSITIONS)[number];
+
+export interface SpacecraftCrewManagementMemberDto {
+  id: number;
+  name: string;
+  type: SpacecraftCrewPosition;
+  gender: 'MALE' | 'FEMALE' | 'DIVERSE';
+  originColony: { id: number; name: string } | null;
+  position: SpacecraftCrewPosition | null;
+}
+
+export interface SpacecraftCrewManagementDto {
+  positions: Array<{
+    slot: SpacecraftCrewPosition;
+    target: number | null;
+    crew: SpacecraftCrewManagementMemberDto[];
+  }>;
+  unassignedCrew: SpacecraftCrewManagementMemberDto[];
+}
+
 export interface SpacecraftEffectiveStatsDto {
   hullMax: number;
   shieldsMax: number;

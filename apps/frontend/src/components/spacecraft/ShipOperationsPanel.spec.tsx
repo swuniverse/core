@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ShipOperationsPanel } from './ShipOperationsPanel';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
@@ -87,6 +87,65 @@ describe('ShipOperationsPanel', () => {
     expect(screen.getByText(/Lebenserhaltung: 100%/)).toBeTruthy();
     expect(screen.queryByText(/aktiv$/i)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Dialog schließen' }));
+  });
+
+  it('assigns positions and renames crew members from the crew window', async () => {
+    const crew = {
+      positions: [
+        {
+          slot: 'CAPTAIN',
+          target: 1,
+          crew: [
+            {
+              id: 1,
+              name: 'Leia',
+              type: 'CAPTAIN',
+              gender: 'FEMALE',
+              originColony: { id: 8, name: 'Alderaan' },
+              position: 'CAPTAIN',
+            },
+          ],
+        },
+        { slot: 'COMMAND', target: 1, crew: [] },
+      ],
+      unassignedCrew: [],
+    };
+    apiMocks.get.mockImplementation((path: string) =>
+      Promise.resolve(path.endsWith('/crew') ? crew : details),
+    );
+    apiMocks.patch.mockResolvedValue(crew);
+    render(
+      <ShipOperationsPanel
+        shipId={2}
+        showDetails
+        onCloseDetails={vi.fn()}
+        showEnergy={false}
+        onCloseEnergy={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Crew verwalten' }));
+    expect(await screen.findByText(/Alderaan/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Position für Leia'), {
+      target: { value: 'COMMAND' },
+    });
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/2/crew/1/slot',
+        { slot: 'COMMAND' },
+      ),
+    );
+
+    fireEvent.change(screen.getByLabelText('Name von Leia'), {
+      target: { value: 'General Leia' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Leia umbenennen' }));
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/2/crew/1/name',
+        { name: 'General Leia' },
+      ),
+    );
   });
 
   it('shows EPS consumption in a modal when requested', async () => {

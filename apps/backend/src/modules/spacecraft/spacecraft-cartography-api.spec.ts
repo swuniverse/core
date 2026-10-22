@@ -28,6 +28,9 @@ jest.mock('./spacecraft-engineering.service', () => ({
 jest.mock('./spacecraft-destruction.service', () => ({
   SpacecraftDestructionService: class SpacecraftDestructionService {},
 }));
+jest.mock('./spacecraft-crew.service', () => ({
+  SpacecraftCrewService: class SpacecraftCrewService {},
+}));
 jest.mock('./entities/spacecraft.entity', () => ({
   AlertState: { GREEN: 'GREEN' },
   SpacecraftOperatingMode: { NORMAL: 'NORMAL' },
@@ -45,6 +48,7 @@ describe('SpacecraftController cartography API contract', () => {
     };
     const controller = new SpacecraftController(
       service as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

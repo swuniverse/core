@@ -333,6 +333,17 @@ export interface ShipyardRumpCrewDef {
   stuRumpId: number;
   baseCrew: number;
   maxCrew: number;
+  positions?: Partial<
+    Record<
+      | 'CAPTAIN'
+      | 'COMMAND'
+      | 'SECURITY'
+      | 'SCIENCE'
+      | 'TECHNICAL'
+      | 'NAVIGATION',
+      number
+    >
+  >;
 }
 
 export interface ShipyardRumpModuleRuleDef {

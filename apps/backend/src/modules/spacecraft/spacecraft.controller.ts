@@ -41,6 +41,8 @@ import {
 import { SpacecraftCommunicationService } from './spacecraft-communication.service';
 import { SpacecraftEngineeringService } from './spacecraft-engineering.service';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
+import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { CrewType } from '../colony/entities/crew.entity';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
 import {
@@ -310,6 +312,7 @@ export class SpacecraftController {
     private readonly engineeringService: SpacecraftEngineeringService,
     private readonly destructionService: SpacecraftDestructionService,
     private readonly starmapVisibilityService: StarmapVisibilityService,
+    private readonly crewService: SpacecraftCrewService,
   ) {}
 
   // Static routes first (before :id)
@@ -525,6 +528,43 @@ export class SpacecraftController {
     @Body('name') name: string,
   ) {
     return this.spacecraftService.rename(id, req.user.sub, name);
+  }
+
+  @Get(':id/crew')
+  getCrew(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.crewService.getCrewManagement(id, req.user.sub);
+  }
+
+  @Patch(':id/crew/:crewId/slot')
+  assignCrewSlot(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('crewId', ParseIntPipe) crewId: number,
+    @Request() req: { user: { sub: number } },
+    @Body('slot') slot: CrewType | null,
+  ) {
+    return this.crewService.assignSlot(id, crewId, req.user.sub, slot);
+  }
+
+  @Patch(':id/crew/:crewId/name')
+  renameCrewMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('crewId', ParseIntPipe) crewId: number,
+    @Request() req: { user: { sub: number } },
+    @Body('name') name: string,
+  ) {
+    return this.crewService.renameCrewMember(id, crewId, req.user.sub, name);
+  }
+
+  @Patch(':id/crew/name')
+  renameCrew(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('name') name: string,
+  ) {
+    return this.crewService.renameCrew(id, req.user.sub, name);
   }
 
   @Get(':id/details')
