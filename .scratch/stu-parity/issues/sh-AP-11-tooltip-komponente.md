@@ -1,6 +1,6 @@
 # Gemeinsame Tooltip-Komponente im STU-Verhalten
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -23,13 +23,15 @@ SWU bekommt eine gemeinsame `<Tooltip>`-Komponente, die sich wie die STU-Tippy-T
 
 ## Akzeptanzkriterien
 
-- [ ] API: `<Tooltip content={ReactNode} title?={string}>{children}</Tooltip>` sowie eine Hilfskomponente `TooltipTable` (Titelzeile `th`, Zeilen mit Label/Wert, Stil nach 3.4: `border-swu-border`, `text-xs`, `bg-swu-surface`).
-- [ ] Desktop: erscheint beim Hovern sofort, folgt dem Cursor mit ca. 20 px Abstand unterhalb, verschwindet beim Verlassen; kein Fade, keine Verzögerung; `pointer-events: none` am Panel.
-- [ ] Es ist global immer höchstens ein Tooltip offen (gemeinsamer Store/Context).
-- [ ] Touch: erster Tap öffnet (Position am Element), zweiter Tap auf dasselbe Element führt die normale Aktion aus (z. B. Link), Tap außerhalb schließt.
-- [ ] Rendert per Portal in `document.body` mit z-Index über Header (`z-50`) und Dialogen; bleibt im Viewport (Flip/Clamp am Rand).
-- [ ] Barrierefreiheit: Fokus per Tastatur zeigt den Tooltip am Element, `aria-describedby` verweist auf den Inhalt; `Escape` schließt.
-- [ ] Keine neue Abhängigkeit nötig; falls doch, nur eine kleine, gepflegte Bibliothek mit Begründung im Commit.
-- [ ] Frontend-Tests: Anzeigen/Ausblenden bei Hover, nur ein Tooltip gleichzeitig, Tap-Verhalten, Escape, Inhalt mit Titelzeile.
+- [x] API: `<Tooltip content={ReactNode} title?={string}>{children}</Tooltip>` sowie eine Hilfskomponente `TooltipTable` (Titelzeile `th`, Zeilen mit Label/Wert, Stil nach 3.4: `border-swu-border`, `text-xs`, `bg-swu-surface`).
+- [x] Desktop: erscheint beim Hovern sofort, folgt dem Cursor mit ca. 20 px Abstand unterhalb, verschwindet beim Verlassen; kein Fade, keine Verzögerung; `pointer-events: none` am Panel.
+- [x] Es ist global immer höchstens ein Tooltip offen (gemeinsamer Store/Context).
+- [x] Touch: erster Tap öffnet (Position am Element), zweiter Tap auf dasselbe Element führt die normale Aktion aus (z. B. Link), Tap außerhalb schließt.
+- [x] Rendert per Portal in `document.body` mit z-Index über Header (`z-50`) und Dialogen; bleibt im Viewport (Flip/Clamp am Rand).
+- [x] Barrierefreiheit: Fokus per Tastatur zeigt den Tooltip am Element, `aria-describedby` verweist auf den Inhalt; `Escape` schließt.
+- [x] Keine neue Abhängigkeit nötig; falls doch, nur eine kleine, gepflegte Bibliothek mit Begründung im Commit.
+- [x] Frontend-Tests: Anzeigen/Ausblenden bei Hover, nur ein Tooltip gleichzeitig, Tap-Verhalten, Escape, Inhalt mit Titelzeile.
 
 ## Comments
+
+- Implemented the shared portal-based `Tooltip` and `TooltipTable` in `apps/frontend/src/components/Tooltip.tsx`, including cursor/focus/touch behavior, global exclusivity, viewport positioning, and accessibility. Added focused frontend coverage in `Tooltip.spec.tsx`; no follow-up gaps found.
