@@ -1,6 +1,6 @@
 # Stationsmodell und Stationsrollen festlegen (ADR)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
