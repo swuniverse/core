@@ -1286,6 +1286,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonySocialService as any,
     orbitService as any,
   );
+  const messagingService = { sendSystem: jest.fn() };
   const shipyardService = new ColonyShipyardService(
     storageRepo as any,
     shipRepo as any,
@@ -1302,6 +1303,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     statsService,
     orbitService as any,
     colonyEventService as any,
+    messagingService as any,
     spacecraftStatsService as any,
     unlockResolver as any,
     timingService,
@@ -1409,6 +1411,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       colonyCrewService,
       colonyDefenseService,
       colonyEventService,
+      messagingService,
       ownershipService,
       abandonmentService,
       settingsService,
@@ -7304,7 +7307,7 @@ describe('ship repair queues', () => {
     stats: { workless: 0, trainedCrew: 0, maxStorage: 100 },
   });
 
-  it('queues repair and deducts spare parts/system components', async () => {
+  it('queues repair without charging parts before the first repair step', async () => {
     const {
       service,
       colonyRepo,
@@ -7313,6 +7316,7 @@ describe('ship repair queues', () => {
       spacecraftModuleRepo,
       storageRepo,
       shipBuildQueueRepo,
+      messagingService,
     } = createColonyService();
     colonyRepo.findOne.mockResolvedValue(repairColony());
     shipRepo.findOne.mockResolvedValue({
@@ -7345,8 +7349,8 @@ describe('ship repair queues', () => {
 
     const queue = await service.queueShipRepair(1, 1, 7);
 
-    expect(storage[10001].amount).toBe(3);
-    expect(storage[10002].amount).toBe(4);
+    expect(storage[10001].amount).toBe(5);
+    expect(storage[10002].amount).toBe(5);
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'REPAIR',
@@ -7362,6 +7366,61 @@ describe('ship repair queues', () => {
       }),
     );
     expect(queue.mode).toBe('REPAIR');
+    expect(messagingService.sendSystem).toHaveBeenCalledWith(
+      1,
+      'Schiffsreparatur gestartet',
+      expect.stringContaining('Damaged Corvette'),
+      expect.stringMatching(/^colony-ship-repair-started:/),
+      'SHIP',
+    );
+  });
+
+  it('pauses a due repair step when required parts are unavailable', async () => {
+    const {
+      service,
+      shipRepo,
+      shipClassRepo,
+      spacecraftModuleRepo,
+      shipBuildQueueRepo,
+      storageRepo,
+    } = createColonyService();
+    const colony = repairColony();
+    const ship = {
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      name: 'Damaged Corvette',
+      hull: 20,
+      hullMax: 100,
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      key: 'TEST_CORVETTE',
+      category: 'CORVETTE',
+      isNpc: false,
+    });
+    spacecraftModuleRepo.find.mockResolvedValue([]);
+    storageRepo.findOne.mockResolvedValue(null);
+    const job = {
+      id: 99,
+      colonyId: 1,
+      colony,
+      userId: 1,
+      shipClassId: 1,
+      spacecraftId: 7,
+      mode: 'REPAIR',
+      status: 'QUEUED',
+      finishesAt: new Date(Date.now() - 1000),
+      stoppedAt: null,
+    };
+    shipBuildQueueRepo.find.mockResolvedValue([job]);
+
+    await service.processTick(colony as any);
+
+    expect(ship.hull).toBe(20);
+    expect(job.status).toBe('PAUSED');
+    expect(job.stoppedAt).toBeInstanceOf(Date);
   });
 
   it('rejects repair without active matching shipyard or without damage', async () => {
@@ -7426,7 +7485,7 @@ describe('ship repair queues', () => {
     });
   });
 
-  it('completes repair queue through colony tick', async () => {
+  it('repairs hull and systems one funded step per colony tick', async () => {
     const {
       service,
       colonyRepo,
@@ -7435,6 +7494,8 @@ describe('ship repair queues', () => {
       shipBuildQueueRepo,
       spacecraftModuleRepo,
       spacecraftStatsService,
+      storageRepo,
+      messagingService,
     } = createColonyService();
     const colony = repairColony();
     colonyRepo.findOne.mockResolvedValue(colony);
@@ -7443,11 +7504,12 @@ describe('ship repair queues', () => {
       userId: 1,
       shipClassId: 1,
       hull: 20,
-      hullMax: 100,
+      hullMax: 250,
       shields: 0,
       shieldsMax: 10,
       energy: 0,
       energyMax: 10,
+      name: 'Damaged Corvette',
     };
     shipRepo.findOne.mockResolvedValue(ship);
     shipClassRepo.findOneBy.mockResolvedValue({
@@ -7471,6 +7533,13 @@ describe('ship repair queues', () => {
       isActive: false,
     };
     spacecraftModuleRepo.find.mockResolvedValue([module]);
+    const storage: Record<number, any> = {
+      10001: { colonyId: 1, commodityId: 10001, amount: 5 },
+      10002: { colonyId: 1, commodityId: 10002, amount: 5 },
+    };
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => storage[where.commodityId] ?? null,
+    );
     shipBuildQueueRepo.find.mockResolvedValue([
       {
         id: 99,
@@ -7479,6 +7548,7 @@ describe('ship repair queues', () => {
         shipClassId: 1,
         spacecraftId: 7,
         mode: 'REPAIR',
+        colony,
         status: 'QUEUED',
         finishesAt: new Date(Date.now() - 1000),
       },
@@ -7486,13 +7556,52 @@ describe('ship repair queues', () => {
 
     await service.processTick(colony as any);
 
+    expect(shipBuildQueueRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'QUEUED',
+        finishesAt: expect.any(Date),
+      }),
+    );
     expect(module).toMatchObject({
       integrity: 100,
       cooldown: 0,
       isActive: true,
     });
-    expect(ship.hull).toBe(100);
+    expect(ship.hull).toBe(220);
+    expect(storage[10001].amount).toBe(4);
+    expect(storage[10002].amount).toBe(4);
     expect(spacecraftStatsService.applyStats).toHaveBeenCalled();
+    expect(messagingService.sendSystem).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'Schiffsreparatur abgeschlossen',
+      expect.anything(),
+      expect.anything(),
+      'SHIP',
+    );
+
+    shipBuildQueueRepo.find.mockResolvedValue([
+      {
+        id: 99,
+        colonyId: 1,
+        userId: 1,
+        shipClassId: 1,
+        spacecraftId: 7,
+        mode: 'REPAIR',
+        colony,
+        status: 'QUEUED',
+        finishesAt: new Date(Date.now() - 1000),
+      },
+    ]);
+    await service.processTick(colony as any);
+
+    expect(ship.hull).toBe(250);
+    expect(messagingService.sendSystem).toHaveBeenCalledWith(
+      1,
+      'Schiffsreparatur abgeschlossen',
+      expect.stringContaining('Damaged Corvette'),
+      'colony-ship-repair-completed:99',
+      'SHIP',
+    );
   });
 });
 

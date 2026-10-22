@@ -1,6 +1,6 @@
 # Schiffsreparatur in der Werft passiv in Schritten
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-A1a, sc-WP-ENG-3
@@ -25,11 +25,11 @@ SWU zahlt die Reparaturkosten beim Einreihen vorab und repariert in einem einzig
 
 ## Akzeptanzkriterien
 
-- [ ] Reparatur erfolgt je Tick in Schritten (Hülle und Systeme), Kosten je Schritt aus Ersatzteilen bzw. Komponenten; fehlen sie, pausiert der Auftrag.
-- [ ] Slots je Werftfeld: 1, mit aktiver Reparaturstation 2; weitere Aufträge warten.
-- [ ] Der Schiffseigner (auch fremd) erhält eine Nachricht im Ordner „Schiffe“ bei Start und Abschluss.
-- [ ] Abbruch und Reaktivierung entsprechen STU; kein Vorab-Materialabzug mehr. Laufende Altaufträge mit Vorabzahlung werden per Migration abgeschlossen oder erstattet (keine Doppelbelastung).
-- [ ] Backend- und Frontend-Tests für Schrittfortschritt, Slotbegrenzung, Ersatzteilmangel, Eignernachricht, Abbruch.
+- [x] Reparatur erfolgt je Tick in Schritten (Hülle und Systeme), Kosten je Schritt aus Ersatzteilen bzw. Komponenten; fehlen sie, pausiert der Auftrag.
+- [x] Slots je Werftfeld: 1, mit aktiver Reparaturstation 2; weitere Aufträge warten.
+- [x] Der Schiffseigner (auch fremd) erhält eine Nachricht im Ordner „Schiffe“ bei Start und Abschluss.
+- [x] Abbruch und Reaktivierung entsprechen STU; kein Vorab-Materialabzug mehr. Laufende Altaufträge mit Vorabzahlung werden per Migration abgeschlossen oder erstattet (keine Doppelbelastung).
+- [x] Backend- und Frontend-Tests für Schrittfortschritt, Slotbegrenzung, Ersatzteilmangel, Eignernachricht, Abbruch.
 
 ## Entscheidung
 
@@ -38,3 +38,4 @@ Vorgabe: Variante (b), STU-Modell. Passive Reparatur in Schritten je Tick mit Ve
 ## Comments
 
 - 2026-10-21 Product Owner: Option b – Die Werftreparatur wird auf das STU-Modell umgebaut: passive Schritte je Tick mit Ersatzteil- bzw. Komponentenverbrauch, Slots je Werftfeld, Eignernachricht, Abbruch und Reaktivierung; die Vorabzahlung entfällt.
+- 2026-10-22 Umsetzung: Werftreparaturen laufen schrittweise über den Kolonietick, verbrauchen Material pro Schritt, pausieren bei Mangel und senden Start-/Abschlussnachrichten in den Schiffsordner; Altaufträge werden per Migration ohne Doppelbelastung abgeschlossen. Backend- und Paneltests ergänzt; keine offenen Folgepunkte.

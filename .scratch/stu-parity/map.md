@@ -114,6 +114,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-A1a – Werftqueues reagieren zentral auf Gebäudestatus und Abriss – siehe Feature-Commit
 - col-A1b – Fabrikation, Akademie und Schilde reagieren auf Gebäudestatus – siehe Feature-Commit
 - col-A10 – Phalanx-Torpedotypen sind an abgeschlossene Forschung gebunden – siehe Feature-Commit
+- col-A5 – Werftreparaturen laufen passiv in materialgebundenen Schritten mit Slots und Eignernachrichten – siehe Feature-Commit
 - col-A3a – Werftbau und Umrüstung prüfen Blockade, Crew-Maximum und Spezialslots – siehe Feature-Commit
 - col-A4 – Baupläne mit Löschsperren, Duplikatsignaturen und Namensvalidierung gehärtet – siehe Feature-Commit
 - col-A7 – Akademie-Tick berücksichtigt Aktivität, Crewlimits und Ausbildungslimit – siehe Feature-Commit

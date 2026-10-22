@@ -1236,6 +1236,9 @@ export function PanelShipyard({
             subtitle={selectedShipyardLabel}
             onBack={() => setView('yardActions')}
           />
+          <div className="rounded border border-swu-border/50 bg-swu-bg/30 px-3 py-2 text-[10px] text-swu-muted">
+            Material wird je Reparaturschritt verbraucht; fehlende Ersatzteile pausieren den Auftrag. Abgebrochene Aufträge verursachen keine Vorabkosten.
+          </div>
           {(repairStationActive || repairStationPresent) && (
             <div
               className={`rounded border px-3 py-2 text-[10px] ${repairStationActive ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-300'}`}

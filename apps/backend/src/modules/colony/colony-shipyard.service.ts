@@ -26,6 +26,8 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyEventService } from '../messaging/colony-event.service';
+import { MessageFolder } from '../messaging/message-folder';
+import { MessagingService } from '../messaging/messaging.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import {
@@ -89,6 +91,7 @@ export class ColonyShipyardService {
     private readonly colonyStatsService: ColonyStatsService,
     private readonly colonyOrbitService: ColonyOrbitService,
     private readonly colonyEventService: ColonyEventService,
+    private readonly messagingService: MessagingService,
     private readonly spacecraftStatsService: SpacecraftStatsService,
     private readonly unlockResolver: UnlockResolverService,
     private readonly timing: ColonyTimingService,
@@ -587,7 +590,6 @@ export class ColonyShipyardService {
     }
 
     const repairPlan = this.calculateShipRepairPlan(colony, ship, modules);
-    await this.deductBuildCosts(colony, repairPlan.costs);
     const activeRepairSlots = this.getActiveRepairSlotCount(colony);
     const activeRepairJobs = await this.getActiveRepairQueueCount(colony.id);
     const startsActive = activeRepairJobs < activeRepairSlots;
@@ -628,7 +630,15 @@ export class ColonyShipyardService {
         : ColonyShipBuildQueueStatus.PAUSED,
     });
 
-    return this.shipBuildQueueRepo.save(queue);
+    const savedQueue = await this.shipBuildQueueRepo.save(queue);
+    await this.messagingService.sendSystem(
+      ship.userId,
+      'Schiffsreparatur gestartet',
+      `Die Reparatur von ${ship.name} wurde auf ${colony.name} gestartet.`,
+      `colony-ship-repair-started:${savedQueue.id}`,
+      MessageFolder.SHIP,
+    );
+    return savedQueue;
   }
 
   async queueShipRetrofit(
@@ -1417,7 +1427,7 @@ export class ColonyShipyardService {
         colonyId: colony.id,
         status: ColonyShipBuildQueueStatus.QUEUED,
       },
-      relations: ['shipClass'],
+      relations: ['shipClass', 'colony'],
       order: { finishesAt: 'ASC', id: 'ASC' },
     });
     const now = new Date();
@@ -1470,7 +1480,15 @@ export class ColonyShipyardService {
     }
     await Promise.all(queueTasks);
 
-    if (canProgressRepair && remainingRepairSlots > 0) {
+    if (
+      canProgressRepair &&
+      remainingRepairSlots > 0 &&
+      !queuedJobs.some(
+        (job) =>
+          job.mode === ColonyShipBuildQueueMode.REPAIR &&
+          job.status === ColonyShipBuildQueueStatus.PAUSED,
+      )
+    ) {
       const pausedJobs = await this.getPausedRepairJobs(colony.id);
       const reactivatedJobs: ColonyShipBuildQueue[] = [];
       for (const pausedJob of pausedJobs) {
@@ -1565,22 +1583,67 @@ export class ColonyShipyardService {
     ]);
     if (!shipClass) return;
 
-    ship.hull = ship.hullMax;
-    for (const module of modules) {
-      if (module.integrity < 100 || !module.isActive || module.cooldown !== 0) {
-        module.integrity = 100;
-        module.isActive = true;
-        module.cooldown = 0;
-      }
+    const hasRepairStationBonus = this.hasActiveBuildingFunction(
+      job.colony,
+      this.repairStationFunctionId,
+    );
+    const hullRepairAmount = hasRepairStationBonus ? 200 : 100;
+    const modulesPerStep = hasRepairStationBonus ? 4 : 2;
+    const damagedModules = modules.filter(
+      (module) =>
+        module.integrity < 100 || !module.isActive || module.cooldown !== 0,
+    );
+    const modulesToRepair = damagedModules.slice(0, modulesPerStep);
+    const costs = [
+      {
+        commodityId: this.repairSparePartCommodityId,
+        amount: ship.hull < ship.hullMax || modulesToRepair.length > 0 ? 1 : 0,
+      },
+      {
+        commodityId: this.repairSystemComponentCommodityId,
+        amount: modulesToRepair.length > 0 ? 1 : 0,
+      },
+    ].filter((cost) => cost.amount > 0);
+    try {
+      await this.deductBuildCosts(job.colony, costs);
+    } catch (error) {
+      if (!(error instanceof BadRequestException)) throw error;
+      job.status = ColonyShipBuildQueueStatus.PAUSED;
+      job.stoppedAt = new Date();
+      await this.shipBuildQueueRepo.save(job);
+      return;
     }
-    await this.spacecraftModuleRepo.save(modules);
+
+    ship.hull = Math.min(ship.hullMax, ship.hull + hullRepairAmount);
+    for (const module of modulesToRepair) {
+      module.integrity = 100;
+      module.isActive = true;
+      module.cooldown = 0;
+    }
+    if (modulesToRepair.length > 0) {
+      await this.spacecraftModuleRepo.save(modulesToRepair);
+    }
     this.spacecraftStatsService.applyStats(ship, shipClass, modules);
-    ship.hull = ship.hullMax;
     ship.shields = Math.min(ship.shieldsMax, Math.max(ship.shields, 0));
     ship.energy = Math.min(ship.energyMax, Math.max(ship.energy, 0));
     await this.shipRepo.save(ship);
-    job.status = ColonyShipBuildQueueStatus.COMPLETED;
+    const repairComplete = !this.isShipRepairNeeded(ship, modules);
+    job.status = repairComplete
+      ? ColonyShipBuildQueueStatus.COMPLETED
+      : ColonyShipBuildQueueStatus.QUEUED;
+    if (!repairComplete) {
+      job.finishesAt = this.timing.dateAfterScaledMinutes(1);
+    }
     await this.shipBuildQueueRepo.save(job);
+    if (repairComplete) {
+      await this.messagingService.sendSystem(
+        ship.userId,
+        'Schiffsreparatur abgeschlossen',
+        `Die Reparatur von ${ship.name} wurde abgeschlossen.`,
+        `colony-ship-repair-completed:${job.id}`,
+        MessageFolder.SHIP,
+      );
+    }
   }
 
   private async finishShipRetrofitQueue(
