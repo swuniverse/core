@@ -50,6 +50,8 @@ const postFixture = {
   isUnread: true,
   commentCount: 0,
   rating: 0,
+  positiveCount: 0,
+  totalCount: 0,
   createdAt: '2026-08-05T10:00:00.000Z',
   authorId: 8,
   author: { username: 'rebel' },
@@ -352,8 +354,38 @@ describe('HolonetPage routing', () => {
     expect(minusButton.hasAttribute('disabled')).toBe(true);
   });
 
-  it('creates posts on the dedicated compose page', async () => {
-    apiMocks.post.mockResolvedValue({ ...postFixture, id: 42 });
+  it('shows a yellow positive-over-total rating bar only when votes exist', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') {
+        return Promise.resolve(
+          listResponse([{ ...postFixture, positiveCount: 3, totalCount: 5 }]),
+        );
+      }
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/holonet']}>
+        <Routes>
+          <Route path="/holonet" element={<HolonetPage />} />
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole('progressbar', { name: 'Bewertung 3 von 5' })).toBeNull();
+    fireEvent.click(await screen.findByText('Widget Report'));
+    const bar = await screen.findByRole('progressbar', { name: 'Bewertung 3 von 5' });
+    expect(bar.textContent).toContain('3 / 5');
+    expect(bar.className).toContain('yellow');
+  });
+
+  it('creates posts on the dedicated compose page and sets the requested bookmark', async () => {
+    apiMocks.post
+      .mockResolvedValueOnce({ ...postFixture, id: 42 })
+      .mockResolvedValueOnce({});
 
     render(
       <MemoryRouter initialEntries={['/holonet/new']}>
@@ -370,6 +402,11 @@ describe('HolonetPage routing', () => {
     fireEvent.change(screen.getByLabelText('Text'), {
       target: { value: 'Archivtext' },
     });
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Lesezeichen auf diesen Beitrag setzen',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Hinzufügen' }));
 
     await waitFor(() => {
@@ -377,6 +414,9 @@ describe('HolonetPage routing', () => {
         title: 'Neuer Archivposten',
         body: 'Archivtext',
         category: 'NEWS',
+      });
+      expect(apiMocks.post).toHaveBeenCalledWith('/holonet/checkpoint', {
+        postId: 42,
       });
     });
     expect(await screen.findByText('created')).toBeTruthy();

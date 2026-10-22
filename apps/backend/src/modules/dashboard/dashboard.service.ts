@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import {
@@ -129,7 +129,7 @@ export class DashboardService {
       this.colonyRepo.count({ where: { isAbandoned: false } }),
       this.shipRepo.count(),
       this.shipRepo.count({ where: { status: SpacecraftStatus.IN_FLIGHT } }),
-      this.postRepo.count(),
+      this.postRepo.count({ where: { deletedAt: IsNull() } }),
     ]);
     const snapshot = this.snapshotRepo.create({
       playerCount,

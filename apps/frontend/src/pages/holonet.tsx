@@ -12,6 +12,8 @@ interface HolonetPost {
   isUnread?: boolean;
   commentCount: number;
   rating: number;
+  positiveCount: number;
+  totalCount: number;
   createdAt: string;
   authorId: number;
   author: { username: string };
@@ -211,12 +213,17 @@ export function HolonetPage() {
   };
 
   const rate = async (post: HolonetPost, value: number) => {
-    const res = await api.post<{ rating: number }>(`/holonet/${post.id}/rate`, {
-      value,
-    });
+    await api.post<{ rating: number }>(`/holonet/${post.id}/rate`, { value });
     setPosts((prev) =>
       prev.map((item) =>
-        item.id === post.id ? { ...item, rating: res.rating } : item,
+        item.id === post.id
+          ? {
+              ...item,
+              rating: item.rating + value,
+              positiveCount: item.positiveCount + (value === 1 ? 1 : 0),
+              totalCount: item.totalCount + 1,
+            }
+          : item,
       ),
     );
     setRatingsByPost((prev) => ({
@@ -328,10 +335,9 @@ export function HolonetPage() {
                       <div className="mt-1 flex flex-wrap gap-3 text-[10px] text-swu-muted">
                         <span>Beitrag #{post.id}</span>
                         <span>{post.commentCount} Kommentare</span>
-                        <span>
-                          Bewertung {post.rating > 0 ? '+' : ''}
-                          {post.rating}
-                        </span>
+                        {post.totalCount > 0 && (
+                          <span>Bewertung {post.positiveCount}/{post.totalCount}</span>
+                        )}
                       </div>
                     </button>
 
@@ -410,18 +416,24 @@ export function HolonetPage() {
                               >
                                 -
                               </button>
-                              <span
-                                className={`min-w-8 text-center font-bold ${
-                                  post.rating > 0
-                                    ? 'text-green-400'
-                                    : post.rating < 0
-                                      ? 'text-red-400'
-                                      : 'text-swu-muted'
-                                }`}
-                              >
-                                {post.rating > 0 ? '+' : ''}
-                                {post.rating}
-                              </span>
+                              {post.totalCount > 0 && (
+                                <div
+                                  role="progressbar"
+                                  aria-label={`Bewertung ${post.positiveCount} von ${post.totalCount}`}
+                                  aria-valuemin={0}
+                                  aria-valuemax={post.totalCount}
+                                  aria-valuenow={post.positiveCount}
+                                  className="relative h-5 min-w-28 overflow-hidden border border-yellow-500/60 bg-black/50 text-center text-[10px] text-yellow-100"
+                                >
+                                  <div
+                                    className="absolute inset-y-0 left-0 bg-yellow-500/40"
+                                    style={{
+                                      width: `${(post.positiveCount / post.totalCount) * 100}%`,
+                                    }}
+                                  />
+                                  <span className="relative">Bewertung {post.positiveCount} / {post.totalCount}</span>
+                                </div>
+                              )}
                               <button
                                 onClick={() => rate(post, 1)}
                                 disabled={myRating !== 0}
@@ -645,9 +657,13 @@ export function HolonetComposePage() {
     body: '',
     category: 'NEWS',
   });
+  const [setBookmark, setSetBookmark] = useState(false);
 
   const createPost = async () => {
     const post = await api.post<HolonetPost>('/holonet', compose);
+    if (setBookmark) {
+      await api.post('/holonet/checkpoint', { postId: post.id });
+    }
     navigate(`/holonet/${post.id}`);
   };
 
@@ -725,9 +741,14 @@ export function HolonetComposePage() {
             >
               Abbrechen
             </button>
-            <span className="ml-auto text-[10px] text-swu-muted">
-              Lesezeichen werden im Archiv manuell gesetzt.
-            </span>
+            <label className="ml-auto flex items-center gap-2 text-[10px] text-swu-muted">
+              <input
+                type="checkbox"
+                checked={setBookmark}
+                onChange={(event) => setSetBookmark(event.target.checked)}
+              />
+              Lesezeichen auf diesen Beitrag setzen
+            </label>
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  DeleteDateColumn,
   Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
@@ -49,4 +50,7 @@ export class HolonetPost {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deletedAt: Date | null;
 }

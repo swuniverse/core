@@ -1,6 +1,6 @@
 # HoloNet-Regeln an STU angleichen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -27,13 +27,15 @@ Das HoloNet erhält die serverseitigen Längenprüfungen und Löschregeln aus ST
 
 ## Akzeptanzkriterien
 
-- [ ] Neuer Beitrag: Titel 6–80 Zeichen, Text ≥ 50 Zeichen (getrimmt, Zeichen nach `[...string].length`), gültige Kategorie; sonst 400 mit deutscher Meldung. Text-Obergrenze (z. B. 20.000) gegen Missbrauch.
-- [ ] Bearbeiten: Titel 6–80, Text ≥ 10; Autor innerhalb von 10 Minuten, Admins jederzeit (auch fremde Beiträge).
-- [ ] Kommentar: 3–250 Zeichen.
-- [ ] Beiträge und Kommentare werden weich gelöscht (`deletedAt`); gelöschte erscheinen nicht in Listen, Suche, Zählern, `new-count`, Dashboard-Vorschau und Permalink (404). `commentCount` bleibt konsistent.
-- [ ] Neuer Kommentar benachrichtigt den Autor und alle anderen bisherigen Kommentatoren (je Spieler einmal, nicht den Kommentierenden selbst) per Systemnachricht.
-- [ ] Bewertung: die API liefert `positiveCount` und `totalCount`; die UI zeigt einen Bewertungsbalken positiv/gesamt (gelb, wie STU) statt der Summe; ohne Bewertungen kein Balken.
-- [ ] Compose: Checkbox „Lesezeichen auf diesen Beitrag setzen“ setzt nach dem Speichern den Checkpoint auf den neuen Beitrag.
-- [ ] Backend-Tests für alle Grenzen, Admin-Bearbeitung, weiche Löschung (Liste/Zähler), Mehrfachbenachrichtigung. Frontend-Tests für Bewertungsbalken und Lesezeichen-Option.
+- [x] Neuer Beitrag: Titel 6–80 Zeichen, Text ≥ 50 Zeichen (getrimmt, Zeichen nach `[...string].length`), gültige Kategorie; sonst 400 mit deutscher Meldung. Text-Obergrenze (z. B. 20.000) gegen Missbrauch.
+- [x] Bearbeiten: Titel 6–80, Text ≥ 10; Autor innerhalb von 10 Minuten, Admins jederzeit (auch fremde Beiträge).
+- [x] Kommentar: 3–250 Zeichen.
+- [x] Beiträge und Kommentare werden weich gelöscht (`deletedAt`); gelöschte erscheinen nicht in Listen, Suche, Zählern, `new-count`, Dashboard-Vorschau und Permalink (404). `commentCount` bleibt konsistent.
+- [x] Neuer Kommentar benachrichtigt den Autor und alle anderen bisherigen Kommentatoren (je Spieler einmal, nicht den Kommentierenden selbst) per Systemnachricht.
+- [x] Bewertung: die API liefert `positiveCount` und `totalCount`; die UI zeigt einen Bewertungsbalken positiv/gesamt (gelb, wie STU) statt der Summe; ohne Bewertungen kein Balken.
+- [x] Compose: Checkbox „Lesezeichen auf diesen Beitrag setzen“ setzt nach dem Speichern den Checkpoint auf den neuen Beitrag.
+- [x] Backend-Tests für alle Grenzen, Admin-Bearbeitung, weiche Löschung (Liste/Zähler), Mehrfachbenachrichtigung. Frontend-Tests für Bewertungsbalken und Lesezeichen-Option.
 
 ## Comments
+
+- 2026-10-22: STU-Längenregeln, Admin-Bearbeitung, Soft-Delete mit gefilterten Listen/Zählern, Benachrichtigungen an alle Beteiligten, positive/gesamte Bewertungsanzeige und optionale Lesezeichen-Setzung umgesetzt. Affected lint/test/typecheck und vollständiger Build erfolgreich.

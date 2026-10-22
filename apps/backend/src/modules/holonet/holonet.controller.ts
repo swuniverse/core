@@ -85,11 +85,17 @@ export class HolonetController {
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
+    @Request() req: { user: { sub: number; isAdmin?: boolean } },
     @Body('title') title: string,
     @Body('body') body: string,
   ) {
-    return this.holonetService.update(id, req.user.sub, title, body);
+    return this.holonetService.update(
+      id,
+      req.user.sub,
+      title,
+      body,
+      req.user.isAdmin === true,
+    );
   }
 
   @Delete(':id')

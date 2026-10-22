@@ -204,8 +204,8 @@ const holonetMetric: StatisticMetric = {
   async capture(dataSource) {
     const [row] = await dataSource.query(
       `SELECT
-         (SELECT COUNT(*) FROM "holonet_posts") AS posts,
-         (SELECT COUNT(*) FROM "holonet_comments") AS comments`,
+         (SELECT COUNT(*) FROM "holonet_posts" WHERE "deletedAt" IS NULL) AS posts,
+         (SELECT COUNT(*) FROM "holonet_comments" WHERE "deletedAt" IS NULL) AS comments`,
     );
     return { posts: Number(row.posts), comments: Number(row.comments) };
   },

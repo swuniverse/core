@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, ILike, MoreThan, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, IsNull, MoreThan, Repository } from 'typeorm';
 import { HolonetPost, PostCategory } from './entities/holonet-post.entity';
 import { HolonetComment } from './entities/holonet-comment.entity';
 import { HolonetRating } from './entities/holonet-rating.entity';
@@ -20,7 +20,8 @@ interface HolonetSearchFilters {
   postId?: number;
 }
 const HOLONET_EDIT_WINDOW_MS = 10 * 60 * 1000;
-
+const HOLONET_BODY_MAX_LENGTH = 20_000;
+const codePointLength = (value: string): number => [...value].length;
 
 @Injectable()
 export class HolonetService {
@@ -46,7 +47,7 @@ export class HolonetService {
     limit = 20,
     filters: HolonetSearchFilters = {},
   ) {
-    const baseWhere: FindOptionsWhere<HolonetPost> = {};
+    const baseWhere: FindOptionsWhere<HolonetPost> = { deletedAt: IsNull() };
     if (category) baseWhere.category = category;
     if (filters.authorId) baseWhere.authorId = filters.authorId;
     if (filters.postId) baseWhere.id = filters.postId;
@@ -69,12 +70,22 @@ export class HolonetService {
     const checkpoint = await this.checkpointRepo.findOneBy({ userId });
     const lastReadPostId = checkpoint?.lastReadPostId ?? 0;
     const unreadCount = await this.postRepo.count({
-      where: { id: MoreThan(lastReadPostId) },
+      where: { id: MoreThan(lastReadPostId), deletedAt: IsNull() },
     });
-    const posts = data.map((post) => ({
-      ...post,
-      isUnread: post.id > lastReadPostId,
-    }));
+    const posts = await Promise.all(
+      data.map(async (post) => {
+        const [positiveCount, totalCount] = await Promise.all([
+          this.ratingRepo.count({ where: { postId: post.id, value: 1 } }),
+          this.ratingRepo.count({ where: { postId: post.id } }),
+        ]);
+        return {
+          ...post,
+          positiveCount,
+          totalCount,
+          isUnread: post.id > lastReadPostId,
+        };
+      }),
+    );
 
     return { data: posts, total, page, limit, unreadCount, lastReadPostId };
   }
@@ -82,15 +93,24 @@ export class HolonetService {
   async findOne(
     id: number,
     userId?: number,
-  ): Promise<HolonetPost & { isUnread?: boolean }> {
+  ): Promise<HolonetPost & {
+    isUnread?: boolean;
+    positiveCount: number;
+    totalCount: number;
+  }> {
     const post = await this.postRepo.findOne({
-      where: { id },
+      where: { id, deletedAt: IsNull() },
       relations: ['author'],
     });
     if (!post) throw new NotFoundException('Post not found');
-    if (!userId) return post;
+    const [positiveCount, totalCount] = await Promise.all([
+      this.ratingRepo.count({ where: { postId: id, value: 1 } }),
+      this.ratingRepo.count({ where: { postId: id } }),
+    ]);
+    const result = { ...post, positiveCount, totalCount };
+    if (!userId) return result;
     const checkpoint = await this.checkpointRepo.findOneBy({ userId });
-    return { ...post, isUnread: post.id > (checkpoint?.lastReadPostId ?? 0) };
+    return { ...result, isUnread: post.id > (checkpoint?.lastReadPostId ?? 0) };
   }
 
   async create(
@@ -99,7 +119,25 @@ export class HolonetService {
     body: string,
     category: PostCategory,
   ): Promise<HolonetPost> {
-    const post = this.postRepo.create({ authorId, title, body, category });
+    const normalizedTitle = title?.trim() ?? '';
+    const normalizedBody = body?.trim() ?? '';
+    this.validateTitle(normalizedTitle);
+    const bodyLength = codePointLength(normalizedBody);
+    if (bodyLength < 50) {
+      throw new BadRequestException('Der Text muss mindestens 50 Zeichen lang sein.');
+    }
+    if (bodyLength > HOLONET_BODY_MAX_LENGTH) {
+      throw new BadRequestException('Der Text darf höchstens 20000 Zeichen lang sein.');
+    }
+    if (!Object.values(PostCategory).includes(category)) {
+      throw new BadRequestException('Ungültige HoloNet-Kategorie.');
+    }
+    const post = this.postRepo.create({
+      authorId,
+      title: normalizedTitle,
+      body: normalizedBody,
+      category,
+    });
     return this.postRepo.save(post);
   }
 
@@ -108,32 +146,45 @@ export class HolonetService {
     userId: number,
     title: string,
     body: string,
+    isAdmin = false,
   ): Promise<HolonetPost> {
     const post = await this.postRepo.findOne({
-      where: { id, authorId: userId },
+      where: isAdmin
+        ? { id, deletedAt: IsNull() }
+        : { id, authorId: userId, deletedAt: IsNull() },
     });
     if (!post) throw new NotFoundException('Post not found');
-    if (Date.now() - post.createdAt.getTime() > HOLONET_EDIT_WINDOW_MS) {
-      throw new BadRequestException('Post can only be edited for 10 minutes');
+    if (!isAdmin && Date.now() - post.createdAt.getTime() > HOLONET_EDIT_WINDOW_MS) {
+      throw new BadRequestException('Dieser Beitrag kann nur 10 Minuten lang bearbeitet werden.');
     }
-    post.title = title;
-    post.body = body;
+    const normalizedTitle = title?.trim() ?? '';
+    const normalizedBody = body?.trim() ?? '';
+    this.validateTitle(normalizedTitle);
+    const bodyLength = codePointLength(normalizedBody);
+    if (bodyLength < 10) {
+      throw new BadRequestException('Der Text muss mindestens 10 Zeichen lang sein.');
+    }
+    if (bodyLength > HOLONET_BODY_MAX_LENGTH) {
+      throw new BadRequestException('Der Text darf höchstens 20000 Zeichen lang sein.');
+    }
+    post.title = normalizedTitle;
+    post.body = normalizedBody;
     return this.postRepo.save(post);
   }
 
   async delete(id: number, userId: number): Promise<void> {
     const post = await this.postRepo.findOne({
-      where: { id, authorId: userId },
+      where: { id, authorId: userId, deletedAt: IsNull() },
     });
     if (!post) throw new NotFoundException('Post not found');
     if (Date.now() - post.createdAt.getTime() > HOLONET_EDIT_WINDOW_MS) {
-      throw new BadRequestException('Post can only be deleted for 10 minutes');
+      throw new BadRequestException('Dieser Beitrag kann nur 10 Minuten lang gelöscht werden.');
     }
-    await this.postRepo.remove(post);
+    await this.postRepo.softRemove(post);
   }
 
   async togglePin(id: number): Promise<HolonetPost> {
-    const post = await this.postRepo.findOneBy({ id });
+    const post = await this.postRepo.findOneBy({ id, deletedAt: IsNull() });
     if (!post) throw new NotFoundException('Post not found');
     post.isPinned = !post.isPinned;
     return this.postRepo.save(post);
@@ -143,7 +194,7 @@ export class HolonetService {
 
   async getComments(postId: number, page = 1, limit = 20) {
     const [data, total] = await this.commentRepo.findAndCount({
-      where: { postId },
+      where: { postId, deletedAt: IsNull() },
       relations: ['author'],
       order: { createdAt: 'ASC' },
       skip: (page - 1) * limit,
@@ -157,25 +208,43 @@ export class HolonetService {
     authorId: number,
     body: string,
   ): Promise<HolonetComment> {
-    if (!body || body.length > 250) {
-      throw new BadRequestException('Comment must be 1-250 characters');
+    const normalizedBody = body?.trim() ?? '';
+    const bodyLength = codePointLength(normalizedBody);
+    if (bodyLength < 3 || bodyLength > 250) {
+      throw new BadRequestException('Der Kommentar muss 3 bis 250 Zeichen lang sein.');
     }
 
-    const post = await this.postRepo.findOneBy({ id: postId });
+    const post = await this.postRepo.findOneBy({ id: postId, deletedAt: IsNull() });
     if (!post) throw new NotFoundException('Post not found');
 
-    const comment = this.commentRepo.create({ postId, authorId, body });
+    const priorComments = await this.commentRepo.find({
+      where: { postId, deletedAt: IsNull() },
+      select: ['authorId'],
+    });
+    const comment = this.commentRepo.create({
+      postId,
+      authorId,
+      body: normalizedBody,
+    });
     const saved = await this.commentRepo.save(comment);
 
     post.commentCount += 1;
     await this.postRepo.save(post);
 
-    if (post.authorId !== authorId) {
-      const commenter = await this.userRepo.findOneBy({ id: authorId });
+    const commenter = await this.userRepo.findOneBy({ id: authorId });
+    const recipients = new Set([
+      post.authorId,
+      ...priorComments.map((item) => item.authorId),
+    ]);
+    recipients.delete(authorId);
+    for (const recipientId of recipients) {
+      const isAuthor = recipientId === post.authorId;
       await this.messagingService.sendSystem(
-        post.authorId,
+        recipientId,
         `Neuer Kommentar auf: ${post.title}`,
-        `${commenter?.username || 'Unbekannt'} hat kommentiert: ${body}`,
+        isAuthor
+          ? `${commenter?.username || 'Unbekannt'} hat kommentiert: ${normalizedBody}`
+          : `${commenter?.username || 'Unbekannt'} hat einen HoloNet-Beitrag ebenfalls kommentiert: ${normalizedBody}`,
       );
     }
 
@@ -184,13 +253,15 @@ export class HolonetService {
 
   async deleteComment(commentId: number, userId: number): Promise<void> {
     const comment = await this.commentRepo.findOne({
-      where: { id: commentId, authorId: userId },
+      where: { id: commentId, authorId: userId, deletedAt: IsNull() },
     });
     if (!comment) throw new NotFoundException('Comment not found');
 
-    await this.commentRepo.remove(comment);
-
-    await this.postRepo.decrement({ id: comment.postId }, 'commentCount', 1);
+    await this.commentRepo.softRemove(comment);
+    const [, commentCount] = await this.commentRepo.findAndCount({
+      where: { postId: comment.postId, deletedAt: IsNull() },
+    });
+    await this.postRepo.update(comment.postId, { commentCount });
   }
 
   // --- Ratings ---
@@ -204,7 +275,10 @@ export class HolonetService {
       throw new BadRequestException('Value must be 1 or -1');
     }
 
-    const post = await this.postRepo.findOneBy({ id: postId });
+    const post = await this.postRepo.findOneBy({
+      id: postId,
+      deletedAt: IsNull(),
+    });
     if (!post) throw new NotFoundException('Post not found');
 
     if (post.authorId === userId) {
@@ -247,10 +321,24 @@ export class HolonetService {
     return this.postRepo.count({ where: { id: MoreThan(lastId) } });
   }
 
+  private validateTitle(title: string): void {
+    const length = codePointLength(title);
+    if (length < 6 || length > 80) {
+      throw new BadRequestException('Der Titel muss 6 bis 80 Zeichen lang sein.');
+    }
+  }
+
   async updateCheckpoint(userId: number, postId?: number): Promise<void> {
     const latest = postId
-      ? await this.postRepo.findOne({ where: { id: postId }, select: ['id'] })
-      : await this.postRepo.findOne({ order: { id: 'DESC' }, select: ['id'] });
+      ? await this.postRepo.findOne({
+          where: { id: postId, deletedAt: IsNull() },
+          select: ['id'],
+        })
+      : await this.postRepo.findOne({
+          where: { deletedAt: IsNull() },
+          order: { id: 'DESC' },
+          select: ['id'],
+        });
     if (!latest) throw new NotFoundException('Post not found');
 
     await this.checkpointRepo.upsert({ userId, lastReadPostId: latest.id }, [
