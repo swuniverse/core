@@ -8,8 +8,13 @@ import {
 } from '../components/database/SystemRasterMap';
 import { StatisticsView } from '../components/database/StatisticsView';
 import { PageHeader } from '../components/PageHeader';
-import { systemTypeImage } from '../lib/assets';
+import { commodityImage, systemTypeImage } from '../lib/assets';
+import { formatNumber } from '../lib/format';
 import { api } from '../services/api';
+import type {
+  CommodityLocationsOverviewDto,
+  CommodityOverviewEntryDto,
+} from '@swuniverse/shared';
 
 type RankingKey =
   | 'discoveries'
@@ -27,6 +32,7 @@ type View =
   | 'ship-classes'
   | 'planet-types'
   | 'prestige-history'
+  | 'commodity-overview'
   | 'statistics';
 
 type Settler = {
@@ -185,6 +191,7 @@ const groups: Array<{
     title: 'Sonstiges',
     entries: [
       { label: 'Siedlerliste', view: 'settlers' },
+      { label: 'Warenübersicht', view: 'commodity-overview' },
       { label: 'Statistiken', view: 'statistics' },
       { label: 'Prestigehistorie', view: 'prestige-history' },
     ],
@@ -204,7 +211,9 @@ export function DatabasePage() {
     setError(null);
     api
       .get(
-        `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}`,
+        view === 'commodity-overview'
+          ? '/database/commodities/overview'
+          : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}`,
       )
       .then(setData)
       .catch((err: unknown) =>
@@ -452,7 +461,138 @@ function Detail({ view, data }: { view: View; data: unknown }) {
     return <PrestigeHistory data={data as PrestigeHistory} />;
   if (view === 'planet-types')
     return <PlanetTypes data={data as PlanetTypes} />;
+  if (view === 'commodity-overview')
+    return <CommodityOverview data={data as CommodityOverviewEntryDto[]} />;
   return <ShipClasses data={data as ShipClasses} />;
+}
+
+function CommodityOverview({ data }: { data: CommodityOverviewEntryDto[] }) {
+  const [locations, setLocations] = useState<CommodityLocationsOverviewDto | null>(
+    null,
+  );
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const showLocations = (commodityId: number) => {
+    setLoadingId(commodityId);
+    setLocations(null);
+    setError(null);
+    api
+      .get<CommodityLocationsOverviewDto>(
+        `/database/commodities/${commodityId}/locations`,
+      )
+      .then(setLocations)
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Lagerorte konnten nicht geladen werden'),
+      )
+      .finally(() => setLoadingId(null));
+  };
+
+  return (
+    <div className="grid max-w-4xl gap-3 lg:grid-cols-2 lg:items-start">
+      <div className="overflow-hidden border border-swu-border bg-black/30 text-xs">
+        <table className="w-full">
+          <thead className="bg-swu-bg/60 text-left text-swu-muted">
+            <tr>
+              <th className="px-2 py-1">Ware</th>
+              <th className="px-2 py-1 text-right">Anzahl</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((entry) => (
+              <tr key={entry.commodityId} className="border-t border-swu-border/60">
+                <td className="px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={() => showLocations(entry.commodityId)}
+                    className="flex items-center gap-2 text-swu-accent hover:underline"
+                  >
+                    <img
+                      src={commodityImage(entry.commodityId, entry.commodityName)}
+                      alt=""
+                      className="h-6 w-6 object-contain"
+                    />
+                    {entry.commodityName}
+                  </button>
+                </td>
+                <td className="px-2 py-1 text-right font-mono">
+                  {formatNumber(entry.total)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="border border-swu-border bg-black/30 text-xs">
+        <h2 className="border-b border-swu-border px-2 py-1 font-bold text-swu-primary">
+          Lagerorte
+        </h2>
+        {loadingId ? (
+          <p className="p-2 text-swu-muted">Lagerorte werden geladen...</p>
+        ) : error ? (
+          <p role="alert" className="p-2 text-red-300">{error}</p>
+        ) : locations ? (
+          <table className="w-full">
+            <thead className="text-left text-swu-muted">
+              <tr>
+                <th className="px-2 py-1">Typ</th>
+                <th className="px-2 py-1">Lagerort</th>
+                <th className="px-2 py-1 text-right">Anzahl</th>
+              </tr>
+            </thead>
+            <tbody>
+              {locations.locations.map((location, index) => (
+                <tr
+                  key={`${location.type}-${location.id}-${index}`}
+                  className="border-t border-swu-border/60"
+                >
+                  <td className="px-2 py-1 text-swu-muted">
+                    {locationTypeLabel(location.type)}
+                  </td>
+                  <td className="px-2 py-1">
+                    <Link
+                      to={
+                        location.type === 'COLONY'
+                          ? `/colonies?colony=${location.id}`
+                          : `/spacecraft/${location.id}`
+                      }
+                      className="text-swu-accent hover:underline"
+                    >
+                      {location.name}
+                    </Link>
+                    {location.location && (
+                      <span className="ml-2 text-[10px] text-swu-muted">
+                        {location.location}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 py-1 text-right font-mono">
+                    {formatNumber(location.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-swu-border font-bold">
+              <tr>
+                <td className="px-2 py-1" colSpan={2}>Summe</td>
+                <td className="px-2 py-1 text-right font-mono">
+                  {formatNumber(locations.total)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        ) : (
+          <p className="p-2 text-swu-muted">Ware auswählen.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function locationTypeLabel(type: CommodityLocationsOverviewDto['locations'][number]['type']) {
+  if (type === 'COLONY') return 'Kolonie';
+  if (type === 'TORPEDO_STORAGE') return 'Torpedolager';
+  return 'Schiff';
 }
 
 function Systems({ data }: { data: SystemCatalog }) {
@@ -820,6 +960,7 @@ function titleFor(view: View) {
       'ship-classes': 'Schiffsrümpfe',
       'planet-types': 'Planetentypen',
       'prestige-history': 'Prestigehistorie',
+      'commodity-overview': 'Warenübersicht',
       statistics: 'Statistiken',
     } as Record<View, string>
   )[view];

@@ -17,6 +17,8 @@ export interface Commodity {
   isDeposit: boolean;
   isShuttle?: boolean;
   isWorkbee?: boolean;
+  sort: number;
+  visible: boolean;
 }
 
 export interface BuildingCosts {
@@ -580,6 +582,7 @@ export class GameDataService implements OnModuleInit {
         type?: number;
         bound?: boolean;
         npcCommodity?: boolean;
+        sort?: number;
       }>;
     }>('commodities/stu-commodity-map.yaml');
     if (data?.commodities?.length) {
@@ -598,6 +601,8 @@ export class GameDataService implements OnModuleInit {
           isDeposit: c.id >= 1500 && c.id < 1700,
           isShuttle: c.id >= 21600 && c.id < 21700,
           isWorkbee: c.id >= 21650 && c.id < 21660,
+          sort: c.sort ?? c.id,
+          visible: c.visible !== false,
         });
       }
       this.logger.log(`Loaded ${this.commodities.size} commodities`);

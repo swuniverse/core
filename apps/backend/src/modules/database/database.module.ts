@@ -25,6 +25,12 @@ import { ColonyScan } from '../spacecraft/entities/colony-scan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 import { CartographyPlan } from '../spacecraft/entities/cartography-plan.entity';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { ColonyStorage } from '../colony/entities/colony-storage.entity';
+import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
+import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
+import { CommodityOverviewService } from './commodity-overview.service';
+import { OwnedStorageCommodityLocationSource } from './owned-storage-commodity-location.source';
+import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
 
 @Module({
   imports: [
@@ -46,6 +52,9 @@ import { StatisticsModule } from '../statistics/statistics.module';
       SystemField,
       CartographyPlan,
       ColonyScan,
+      ColonyStorage,
+      CargoItem,
+      SpacecraftTorpedoStorage,
     ]),
     FactionModule,
     GameDataModule,
@@ -54,7 +63,19 @@ import { StatisticsModule } from '../statistics/statistics.module';
     StatisticsModule,
   ],
   controllers: [DatabaseController],
-  providers: [DatabaseService, ColonyScanProjectionService],
+  providers: [
+    DatabaseService,
+    ColonyScanProjectionService,
+    CommodityOverviewService,
+    OwnedStorageCommodityLocationSource,
+    {
+      provide: COMMODITY_LOCATION_SOURCES,
+      useFactory: (ownedStorage: OwnedStorageCommodityLocationSource) => [
+        ownedStorage,
+      ],
+      inject: [OwnedStorageCommodityLocationSource],
+    },
+  ],
   exports: [ColonyScanProjectionService],
 })
 export class DatabaseModule {}

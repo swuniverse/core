@@ -16,12 +16,14 @@ import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
 import { STATISTIC_UNITS, type StatisticUnit } from '@swuniverse/shared';
 import { StatisticsService } from '../statistics/statistics.service';
+import { CommodityOverviewService } from './commodity-overview.service';
 
 @Controller('database')
 export class DatabaseController {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly statisticsService: StatisticsService,
+    private readonly commodityOverviewService: CommodityOverviewService,
   ) {}
 
   @Get('overview')
@@ -104,6 +106,23 @@ export class DatabaseController {
   @UseGuards(AuthGuard('jwt'))
   getModules() {
     return this.databaseService.getModules();
+  }
+
+  @Get('commodities/overview')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getCommodityOverview(@Request() req: { user: { sub: number } }) {
+    return this.commodityOverviewService.getOverview(req.user.sub);
+  }
+
+  @Get('commodities/:id/locations')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getCommodityLocations(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.commodityOverviewService.getLocations(req.user.sub, id);
   }
 
   @Get('commodities')

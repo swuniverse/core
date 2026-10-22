@@ -51,6 +51,56 @@ describe('DatabasePage', () => {
     });
   });
 
+  it('opens the commodity overview and shows linked storage locations', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/commodities/overview') {
+        return Promise.resolve([
+          { commodityId: 2, commodityName: 'Doonium', total: 1234 },
+        ]);
+      }
+      if (url === '/database/commodities/2/locations') {
+        return Promise.resolve({
+          commodityId: 2,
+          commodityName: 'Doonium',
+          total: 1234,
+          locations: [
+            {
+              type: 'COLONY',
+              id: 7,
+              name: 'Alderaan',
+              location: 'Core',
+              amount: 1200,
+            },
+            {
+              type: 'SPACECRAFT',
+              id: 9,
+              name: 'Falcon',
+              location: 'Core',
+              amount: 34,
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Warenübersicht' }));
+    expect(await screen.findByText('1.234')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Doonium/ }));
+
+    expect(
+      (await screen.findByRole('link', { name: 'Alderaan' })).getAttribute('href'),
+    ).toBe('/colonies?colony=7');
+    expect(
+      screen.getByRole('link', { name: 'Falcon' }).getAttribute('href'),
+    ).toBe('/spacecraft/9');
+  });
+
   it('links settlers to their profile pages', async () => {
     render(
       <MemoryRouter>

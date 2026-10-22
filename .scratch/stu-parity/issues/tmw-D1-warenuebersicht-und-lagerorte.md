@@ -1,6 +1,6 @@
 # Warenübersicht und Lagerorte je Ware in der Datenbank
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -26,13 +26,15 @@ In der Datenbank kommt unter „Sonstiges“ der neue Eintrag „Warenübersicht
 
 ## Akzeptanzkriterien
 
-- [ ] `GET database/commodities/overview` liefert für den eingeloggten Spieler jede Ware mit Gesamtmenge > 0, aufsummiert über alle eigenen Kolonielager, Schiffsfrachträume und Torpedolager. Sortiert wird nach dem STU-`sort`-Wert, unsichtbare Waren entfallen.
-- [ ] `GET database/commodities/:id/locations` liefert alle eigenen Lagerorte der Ware (Typ Kolonie/Schiff/Torpedolager, Name, Ort, Menge) und eine Summe. Fremde Lager erscheinen nie.
-- [ ] Die Lagerortabfrage ist über eine registrierbare Quellen-Schnittstelle erweiterbar (Port/Provider-Muster), sodass tmw-T3 (Konten) und tmw-T4a (Angebote) weitere Quellen ohne Änderung am Datenbankmodul anschließen. Ein Test belegt das mit einer Fake-Quelle.
-- [ ] Die Kolonie-Ansicht nutzt dieselbe Logik weiter, ohne Verhaltensänderung (`CommodityLocationsDialog` bleibt grün).
-- [ ] Im Datenbank-Hub erscheint unter „Sonstiges“ der Eintrag „Warenübersicht“: zweispaltige Icontabelle (Icon, Name, Menge mit Tausenderpunkt), Seitenkopf `/ Datenbank / Warenübersicht`. Ein Klick öffnet die Lagerortliste mit Links auf `/colonies?…` bzw. `/spacecraft/:id`.
-- [ ] Die UI folgt den Konventionen aus `inventory/shell-admin-runtime.md` Abschnitt 3 (Tabellenstil, `text-xs`, keine Emoji).
-- [ ] Backend-Tests: Unit-Tests für Summierung, Sortierung, Ausschluss fremder Lager und den Erweiterungspunkt, dazu ein Controller-Test.
-- [ ] Frontend-Tests (`database.spec.tsx`): Hub-Eintrag, Übersicht rendert Mengen, Klick zeigt Lagerorte.
+- [x] `GET database/commodities/overview` liefert für den eingeloggten Spieler jede Ware mit Gesamtmenge > 0, aufsummiert über alle eigenen Kolonielager, Schiffsfrachträume und Torpedolager. Sortiert wird nach dem STU-`sort`-Wert, unsichtbare Waren entfallen.
+- [x] `GET database/commodities/:id/locations` liefert alle eigenen Lagerorte der Ware (Typ Kolonie/Schiff/Torpedolager, Name, Ort, Menge) und eine Summe. Fremde Lager erscheinen nie.
+- [x] Die Lagerortabfrage ist über eine registrierbare Quellen-Schnittstelle erweiterbar (Port/Provider-Muster), sodass tmw-T3 (Konten) und tmw-T4a (Angebote) weitere Quellen ohne Änderung am Datenbankmodul anschließen. Ein Test belegt das mit einer Fake-Quelle.
+- [x] Die Kolonie-Ansicht nutzt dieselbe Logik weiter, ohne Verhaltensänderung (`CommodityLocationsDialog` bleibt grün).
+- [x] Im Datenbank-Hub erscheint unter „Sonstiges“ der Eintrag „Warenübersicht“: zweispaltige Icontabelle (Icon, Name, Menge mit Tausenderpunkt), Seitenkopf `/ Datenbank / Warenübersicht`. Ein Klick öffnet die Lagerortliste mit Links auf `/colonies?…` bzw. `/spacecraft/:id`.
+- [x] Die UI folgt den Konventionen aus `inventory/shell-admin-runtime.md` Abschnitt 3 (Tabellenstil, `text-xs`, keine Emoji).
+- [x] Backend-Tests: Unit-Tests für Summierung, Sortierung, Ausschluss fremder Lager und den Erweiterungspunkt, dazu ein Controller-Test.
+- [x] Frontend-Tests (`database.spec.tsx`): Hub-Eintrag, Übersicht rendert Mengen, Klick zeigt Lagerorte.
 
 ## Comments
+
+- 2026-10-22: Warenübersicht, eigene Kolonie-/Schiffs-/Torpedolager, erweiterbarer Quellen-Port und verlinkte Lagerortansicht umgesetzt. Betroffene Checks und vollständiger Build sind grün.
