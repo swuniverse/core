@@ -20,6 +20,10 @@ interface GalaxyStats {
   buildingTypes: number;
 }
 
+interface AuthFeatures {
+  passwordReset: boolean;
+}
+
 const features = [
   {
     title: 'Kolonien & Bauketten',
@@ -136,6 +140,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<GalaxyStats | null>(null);
+  const [authFeatures, setAuthFeatures] = useState<AuthFeatures | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     status: 'ONLINE',
     message: '',
@@ -156,6 +161,10 @@ export function LoginPage() {
       .then(setStats)
       .catch(() => undefined);
     api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
+    api
+      .get<AuthFeatures>('/auth/features')
+      .then(setAuthFeatures)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -576,6 +585,11 @@ export function LoginPage() {
             {gameStatus.status !== 'MAINTENANCE' && (
               <Link to="/register" tabIndex={loginOpen ? 0 : -1}>
                 Registrieren
+              </Link>
+            )}
+            {authFeatures?.passwordReset && (
+              <Link to="/lost-password" tabIndex={loginOpen ? 0 : -1}>
+                Passwort vergessen?
               </Link>
             )}
             <a

@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Raw, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { User } from './user.entity';
@@ -20,12 +21,23 @@ import {
   LoginDto,
   AuthResponse,
   JwtPayload,
+  LostPasswordDto,
+  ResetPasswordDto,
+  AuthFeaturesDto,
+  AuthMessageDto,
 } from '@swuniverse/shared';
 import { MailService } from '../mail/mail.service';
 import { GameStatusService } from '../game-status/game-status.service';
 import { GAME_MAINTENANCE_ERROR_CODE } from '../game-status/game-status.guard';
+import { AccountTokenPurpose } from './account-token.entity';
+import { AccountTokenService } from './account-token.service';
 
 const INITIAL_INVITE_QUOTA = 2;
+const PASSWORD_RESET_LIFETIME_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_RATE_LIMIT_MS = 5 * 60 * 1000;
+const LOST_PASSWORD_MESSAGE =
+  'Falls ein Konto existiert, wurde eine E-Mail verschickt';
+const INVALID_RESET_LINK_MESSAGE = 'Der Link ist ungültig oder abgelaufen';
 const INVITE_KEY_BYTES = 15;
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -72,7 +84,92 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
     private readonly gameStatusService: GameStatusService,
+    private readonly accountTokenService: AccountTokenService,
+    private readonly config: ConfigService,
   ) {}
+
+  features(): AuthFeaturesDto {
+    return { passwordReset: this.isPasswordResetEnabled() };
+  }
+
+  async lostPassword(dto: LostPasswordDto): Promise<AuthMessageDto> {
+    this.assertPasswordResetEnabled();
+    const user = await this.userRepo.findOne({
+      where: [
+        {
+          username: Raw((column) => `LOWER(${column}) = LOWER(:login)`, {
+            login: dto.login,
+          }),
+        },
+        {
+          email: Raw((column) => `LOWER(${column}) = LOWER(:login)`, {
+            login: dto.login,
+          }),
+        },
+      ],
+    });
+    if (!user) return { message: LOST_PASSWORD_MESSAGE };
+
+    const rateLimitSince = new Date(Date.now() - PASSWORD_RESET_RATE_LIMIT_MS);
+    if (
+      await this.accountTokenService.hasRecentToken(
+        user.id,
+        AccountTokenPurpose.PasswordReset,
+        rateLimitSince,
+      )
+    ) {
+      return { message: LOST_PASSWORD_MESSAGE };
+    }
+
+    const { token } = await this.accountTokenService.create(
+      user.id,
+      AccountTokenPurpose.PasswordReset,
+      PASSWORD_RESET_LIFETIME_MS,
+    );
+    const baseUrl = (this.config.get<string>('APP_BASE_URL') ?? '').replace(
+      /\/$/,
+      '',
+    );
+    void this.mailService.sendPasswordResetMail(
+      user.email,
+      user.username,
+      `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`,
+    );
+    return { message: LOST_PASSWORD_MESSAGE };
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<AuthMessageDto> {
+    this.assertPasswordResetEnabled();
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const updated = await this.dataSource.transaction(async (manager) => {
+      const accountToken = await this.accountTokenService.consume(
+        dto.token,
+        AccountTokenPurpose.PasswordReset,
+        manager,
+      );
+      if (!accountToken) return false;
+      await manager.getRepository(User).update(accountToken.userId, {
+        passwordHash,
+        refreshToken: null,
+      });
+      return true;
+    });
+    if (!updated) {
+      throw new BadRequestException(INVALID_RESET_LINK_MESSAGE);
+    }
+    return { message: 'Das Passwort wurde geändert' };
+  }
+
+  private isPasswordResetEnabled(): boolean {
+    return (
+      this.config.get<string>('PASSWORD_RESET_ENABLED') === 'true' &&
+      this.mailService.isEnabled()
+    );
+  }
+
+  private assertPasswordResetEnabled(): void {
+    if (!this.isPasswordResetEnabled()) throw new NotFoundException();
+  }
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -87,7 +184,11 @@ export class AuthService {
 
       const exists = await userRepo.findOne({
         where: [
-          { username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, { username: dto.username }) },
+          {
+            username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, {
+              username: dto.username,
+            }),
+          },
           { email: dto.email },
         ],
       });
@@ -166,7 +267,11 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<AuthResponse> {
     const user = await this.userRepo.findOne({
-      where: { username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, { username: dto.username }) },
+      where: {
+        username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, {
+          username: dto.username,
+        }),
+      },
     });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');

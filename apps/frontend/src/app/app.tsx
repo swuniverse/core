@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { AppShell } from '../components/layout/app-shell';
 import { LoginPage } from '../pages/login';
 import { RegisterPage } from '../pages/register';
+import { LostPasswordPage, ResetPasswordPage } from '../pages/password-reset';
 import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
 import { SpacecraftPage } from '../pages/spacecraft';
@@ -86,6 +87,22 @@ export function App() {
             element={
               <PublicOnlyRoute>
                 <RegisterPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/lost-password"
+            element={
+              <PublicOnlyRoute>
+                <LostPasswordPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PublicOnlyRoute>
+                <ResetPasswordPage />
               </PublicOnlyRoute>
             }
           />

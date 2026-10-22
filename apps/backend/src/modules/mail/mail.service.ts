@@ -72,6 +72,29 @@ export class MailService {
     }
   }
 
+  sendPasswordResetMail(
+    to: string,
+    username: string,
+    resetUrl: string,
+  ): Promise<boolean> {
+    const subject = 'Passwort für Star Wars Universe zurücksetzen';
+    const text = [
+      `Hallo ${username},`,
+      '',
+      'über diesen Link kannst du dein Passwort zurücksetzen:',
+      resetUrl,
+      '',
+      'Der Link ist 24 Stunden gültig und kann nur einmal verwendet werden.',
+    ].join('\n');
+    const html = `
+      <p>Hallo ${this.escapeHtml(username)},</p>
+      <p>Über diesen Link kannst du dein Passwort zurücksetzen:</p>
+      <p><a href="${this.escapeHtml(resetUrl)}">Passwort zurücksetzen</a></p>
+      <p>Der Link ist 24 Stunden gültig und kann nur einmal verwendet werden.</p>
+    `;
+    return this.sendMail({ to, subject, text, html });
+  }
+
   sendWelcomeMail(to: string, username: string): Promise<boolean> {
     const subject = 'Willkommen bei Star Wars Universe';
     const text = [

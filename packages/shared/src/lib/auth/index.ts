@@ -11,6 +11,23 @@ export interface LoginDto {
   password: string;
 }
 
+export interface LostPasswordDto {
+  login: string;
+}
+
+export interface ResetPasswordDto {
+  token: string;
+  password: string;
+}
+
+export interface AuthFeaturesDto {
+  passwordReset: boolean;
+}
+
+export interface AuthMessageDto {
+  message: string;
+}
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;

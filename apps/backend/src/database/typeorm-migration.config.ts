@@ -21,6 +21,7 @@ import { HyperspaceRouteSegment } from '../modules/starmap/entities/hyperspace-r
 import { FactionEntity } from './migration-entities/faction.entity';
 import { FactionModifier } from './migration-entities/faction-modifier.entity';
 import { MigrationSpacecraft } from './migration-entities/spacecraft.entity';
+import { MigrationAccountToken } from './migration-entities/account-token.entity';
 
 loadEnv();
 
@@ -54,6 +55,7 @@ const appDataSource = new DataSource({
     FactionEntity,
     FactionModifier,
     MigrationSpacecraft,
+    MigrationAccountToken,
   ],
   migrations: ['apps/backend/src/database/migrations/*.ts'],
   synchronize: false,

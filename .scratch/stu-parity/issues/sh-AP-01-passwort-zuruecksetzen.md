@@ -1,6 +1,6 @@
 # Passwort vergessen und zurücksetzen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -30,13 +30,15 @@ Bewusste Abweichung von STU (Leitplanke 5, Sicherheitslücke nicht übernehmen):
 
 ## Akzeptanzkriterien
 
-- [ ] Gemeinsamer Token-Dienst (z. B. `AccountTokenService`): Zweck (`PASSWORD_RESET`, später `EMAIL_VERIFICATION`, `ACCOUNT_DELETION`), zufälliger Token (≥ 32 Byte), in der DB nur als SHA-256-Hash, Ablauf (Reset: 24 h), einmalige Einlösung, ein neuer Token desselben Zwecks invalidiert ältere.
-- [ ] `POST /auth/lost-password` nimmt Login-Name oder E-Mail (case-insensitiv) und antwortet immer gleich („Falls ein Konto existiert, wurde eine E-Mail verschickt“), auch bei unbekanntem Konto. Höchstens eine Anfrage je Konto alle 5 Minuten (weitere werden still verworfen).
-- [ ] Die Mail enthält einen Link `<APP_BASE_URL>/reset-password?token=…`, keinen Klartext-Token im Log.
-- [ ] `POST /auth/reset-password` (Token, neues Passwort mit denselben Regeln wie bei der Registrierung) setzt den Passwort-Hash, löscht das gespeicherte Refresh-Token (alle Sitzungen enden) und verbraucht den Token. Abgelaufene, benutzte oder unbekannte Tokens liefern 400 „Der Link ist ungültig oder abgelaufen“.
-- [ ] `GET /auth/features` (öffentlich) liefert mindestens `{ passwordReset: boolean }` (true nur bei Flag an und SMTP konfiguriert); spätere Flags (sh-AP-03, sh-AP-05a) erweitern diesen Endpunkt.
-- [ ] Frontend: Login zeigt „Passwort vergessen?“ nur bei `passwordReset: true`; Seiten `/lost-password` und `/reset-password` im Stil von `components/auth/AuthLayout.tsx`, mit Erfolgs- und Fehlermeldung und Rückweg zum Login.
-- [ ] Backend-Tests: gleiche Antwort für existierendes/unbekanntes Konto, Hash statt Klartext gespeichert, Ablauf, Einmaligkeit, Refresh-Token gelöscht, Flag aus → 404, Rate-Limit.
-- [ ] Frontend-Tests: Link nur bei aktivem Feature, Reset-Formular sendet Token und zeigt Fehler bei ungültigem Link.
+- [x] Gemeinsamer Token-Dienst (z. B. `AccountTokenService`): Zweck (`PASSWORD_RESET`, später `EMAIL_VERIFICATION`, `ACCOUNT_DELETION`), zufälliger Token (≥ 32 Byte), in der DB nur als SHA-256-Hash, Ablauf (Reset: 24 h), einmalige Einlösung, ein neuer Token desselben Zwecks invalidiert ältere.
+- [x] `POST /auth/lost-password` nimmt Login-Name oder E-Mail (case-insensitiv) und antwortet immer gleich („Falls ein Konto existiert, wurde eine E-Mail verschickt“), auch bei unbekanntem Konto. Höchstens eine Anfrage je Konto alle 5 Minuten (weitere werden still verworfen).
+- [x] Die Mail enthält einen Link `<APP_BASE_URL>/reset-password?token=…`, keinen Klartext-Token im Log.
+- [x] `POST /auth/reset-password` (Token, neues Passwort mit denselben Regeln wie bei der Registrierung) setzt den Passwort-Hash, löscht das gespeicherte Refresh-Token (alle Sitzungen enden) und verbraucht den Token. Abgelaufene, benutzte oder unbekannte Tokens liefern 400 „Der Link ist ungültig oder abgelaufen“.
+- [x] `GET /auth/features` (öffentlich) liefert mindestens `{ passwordReset: boolean }` (true nur bei Flag an und SMTP konfiguriert); spätere Flags (sh-AP-03, sh-AP-05a) erweitern diesen Endpunkt.
+- [x] Frontend: Login zeigt „Passwort vergessen?“ nur bei `passwordReset: true`; Seiten `/lost-password` und `/reset-password` im Stil von `components/auth/AuthLayout.tsx`, mit Erfolgs- und Fehlermeldung und Rückweg zum Login.
+- [x] Backend-Tests: gleiche Antwort für existierendes/unbekanntes Konto, Hash statt Klartext gespeichert, Ablauf, Einmaligkeit, Refresh-Token gelöscht, Flag aus → 404, Rate-Limit.
+- [x] Frontend-Tests: Link nur bei aktivem Feature, Reset-Formular sendet Token und zeigt Fehler bei ungültigem Link.
 
 ## Comments
+
+- 2026-10-22: Sicheren, zweckgebundenen Account-Token-Dienst mit Migration, Passwort-Reset-Endpunkten, Feature-Flag/SMTP-Gate, Mailversand, persistenter 5-Minuten-Drosselung und atomarer Einlösung umgesetzt. Login sowie öffentliche Lost-/Reset-Pages und Backend-/Frontend-/Migrationstests ergänzt. Keine offenen Folgepunkte.

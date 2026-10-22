@@ -13,6 +13,10 @@ import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto } from './dto/register.dto';
 import { LoginRequestDto } from './dto/login.dto';
+import {
+  LostPasswordRequestDto,
+  ResetPasswordRequestDto,
+} from './dto/password-reset.dto';
 import { AdminGuard } from './admin.guard';
 
 @Controller('auth')
@@ -32,6 +36,21 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refresh(refreshToken);
+  }
+
+  @Get('features')
+  features() {
+    return this.authService.features();
+  }
+
+  @Post('lost-password')
+  lostPassword(@Body() dto: LostPasswordRequestDto) {
+    return this.authService.lostPassword(dto);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordRequestDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @RequiresGameAccess()
