@@ -1,6 +1,6 @@
 # Handels-Domänenmodell, NPC-Handelsposten und Handelsseite (lesend)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-W1
@@ -42,3 +42,5 @@ Das Fundament des Handels: Entitäten für Handelsposten, Warenkonten (Spieler �
 - [ ] Backend-Tests: Speicherdienst (Platz, Überlauf, Nebenläufigkeit), Seed-Idempotenz, Endpunkte (nur eigene Konten, Nebel für Orte). Frontend-Tests (`trade.spec.tsx`): beide Tabs und Posteninfo.
 
 ## Comments
+
+- 2026-10-22: Das Issue ist als Size M markiert, umfasst aber sieben persistente Entitäten samt Migration und Transaktions-/Nebenläufigkeitslogik, einen idempotenten Welt-Seed mit noch nicht festgelegten konkreten Orten und STU-Werten, drei autorisierte API-Sichten, die Registrierung als Warenortquelle sowie eine neue Frontend-Seite einschließlich Navigation und Tests. Das ist nicht sicher in einem einzelnen Ralph-Durchlauf umsetzbar. Bitte in mindestens Backend-Domänenmodell/Storage, NPC-Seed/API und Frontend/Integration teilen und die konkreten fünf NPC-Standorte sowie Lager-, Transfer- und Lizenzwerte festlegen.
