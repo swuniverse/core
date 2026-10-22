@@ -1,45 +1,25 @@
-# Schiffbau-Queue / BuildJob Folgeplanung
+# Shipyard queue status
 
-Status: Folgeplanung nach MVP-Direktbau.
+This document replaces the obsolete MVP follow-up plan. Ship construction,
+retrofits, and repairs now use `colony_ship_build_queue`; buildplans persist the
+selected module snapshot.
 
-## Warum
+## Current behavior
 
-Der aktuelle MVP-Schiffbau soll bewusst direkt sein: Kosten pruefen, Ressourcen abziehen, `Spacecraft` erzeugen. Das macht den ersten Progressionsloop schnell testbar.
+- Construction validates ownership, an active compatible shipyard, blockade
+  state, hull crew maximum, special-module capacity, research, inventory, and
+  available trained crew before resources are consumed.
+- Creating a buildplan applies the same module, crew-maximum, and special-slot
+  validation as construction.
+- Retrofitting validates colony blockade state, orbit access, an active
+  compatible shipyard, hull crew maximum, special-module capacity, research,
+  and newly required inventory.
+- Construction reserves crew and materials when queued. Retrofit jobs consume
+  only newly installed modules and retain a snapshot for completion or
+  cancellation.
+- Building-function lifecycle hooks pause or cancel affected shipyard jobs.
+- Due jobs are completed by the colony tick processor and the colony UI shows
+  active and paused jobs.
 
-Fuer STU-naeheren Betrieb braucht Schiffbau danach eine Queue.
-
-## Vorschlag Entity
-
-`ship_build_jobs`
-
-- `id`
-- `userId`
-- `colonyId`
-- `shipClassId`
-- `name`
-- `costsSnapshot jsonb`
-- `startedAt`
-- `finishesAt`
-- `status` (`QUEUED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`, `FAILED`)
-- `createdShipId nullable`
-
-## Service-Ablauf
-
-1. `ColonyService.buildShip(...)` wird zu `enqueueShipBuild(...)`.
-2. Kosten und Unlocks werden beim Erstellen des Jobs geprueft.
-3. Ressourcen werden sofort reserviert/abgezogen.
-4. Minute-Process-Tick prueft faellige Jobs.
-5. Fertige Jobs erzeugen `Spacecraft` an Kolonie-/Systemposition.
-6. Dashboard und Kolonie-Werftpanel zeigen laufende Schiffbauauftraege.
-
-## Nicht im MVP-Direktbau
-
-- Keine Queue-Tabelle
-- Keine Storno-/Refund-Logik
-- Keine parallelen Werft-Slots
-- Keine Priorisierung
-
-## Naechster sinnvoller Zeitpunkt
-
-Nach erfolgreichem Flow:
-Homeworld → Forschung → Werfthub → erster Direktbau → Spacecraft-Seite.
+Further changes to queue capacity, energy costs, repair steps, and dismantling
+belong to their dedicated STU parity issues rather than this historical plan.

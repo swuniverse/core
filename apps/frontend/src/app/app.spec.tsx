@@ -1266,27 +1266,30 @@ describe('ColonyDetail', () => {
 
   it('opens the full orbital management panel from information', async () => {
     // Erster GET: SWU-Oekosystem der Kolonie (STU-Kolonie -> null), danach die Orbit-Daten.
-    const get = vi.spyOn(api, 'get').mockResolvedValueOnce(null).mockResolvedValueOnce({
-      colony: { energy: 40, energyMax: 80, storage: [] },
-      ships: [
-        {
-          id: 7,
-          name: 'Icarus',
-          shipClassId: 1,
-          crew: { current: 3, max: 5, minimum: 2 },
-          battery: { current: 20, max: 40 },
-          reactor: {
-            fuel: { current: 10, max: 30 },
-            profile: { label: 'Standard', loadUnits: 1, costs: [] },
+    const get = vi
+      .spyOn(api, 'get')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        colony: { energy: 40, energyMax: 80, storage: [] },
+        ships: [
+          {
+            id: 7,
+            name: 'Icarus',
+            shipClassId: 1,
+            crew: { current: 3, max: 5, minimum: 2 },
+            battery: { current: 20, max: 40 },
+            reactor: {
+              fuel: { current: 10, max: 30 },
+              profile: { label: 'Standard', loadUnits: 1, costs: [] },
+            },
+            torpedoes: null,
+            cargo: { used: 2, max: 20 },
+            shieldsActive: true,
+            hyperdriveActive: false,
+            orbitAssignment: null,
           },
-          torpedoes: null,
-          cargo: { used: 2, max: 20 },
-          shieldsActive: true,
-          hyperdriveActive: false,
-          orbitAssignment: null,
-        },
-      ],
-    });
+        ],
+      });
     renderColonyDetail(createDetail());
 
     fireEvent.click(screen.getByRole('button', { name: 'Orbitalmanagement' }));
@@ -1519,6 +1522,57 @@ describe('ColonyDetail', () => {
       ]),
       'Nebulon-B Buildplan',
     );
+  });
+
+  it('shows backend build errors in the module designer', async () => {
+    const detail = createDetail();
+    const layout = createShipyardLayout();
+    detail.shipyard.slotRules = [
+      {
+        category: 'FRIGATE',
+        allowedBuildingFunctionIds: [7],
+        moduleSlots: { SPECIAL: 2 },
+        layoutKey: 'frigate-layout',
+        imageKey: 'frigate-layout',
+        slots: layout.slots,
+      },
+    ];
+    detail.shipyard.shipClassLayouts = [layout];
+    const onBuildShip = vi
+      .fn()
+      .mockRejectedValue(new Error('Crew maximum exceeded'));
+
+    render(
+      <PanelShipyard
+        shipyard={detail.shipyard}
+        shipClasses={[shipClassFixture]}
+        queue={[]}
+        availableModules={[]}
+        slotRules={detail.shipyard.slotRules}
+        availableCrew={8}
+        commodityMap={{}}
+        orbitShips={[]}
+        buildplans={[]}
+        onBuildShip={onBuildShip}
+        onDisassembleShip={noopPromise}
+        onQueueShipRepair={noopPromise}
+        onQueueShipRetrofit={noopPromise}
+        onCancelShipyardQueue={noopPromise}
+        onReactivateShipyardQueue={noopPromise}
+        onCreateBuildplan={noopPromise}
+        onRenameBuildplan={noopPromise}
+        onDeleteBuildplan={noopPromise}
+        onBuildFromBuildplan={noopPromise}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Werft öffnen' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Nebulon-B/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Schiff bauen' }));
+
+    expect(await screen.findByText('Crew maximum exceeded')).toBeTruthy();
+    expect(screen.getByText(/Modul-Designer/)).toBeTruthy();
   });
 
   it('honors per-class shipyard overrides over freighter slot rules', () => {

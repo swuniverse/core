@@ -278,6 +278,16 @@ export class ColonyShipyardService {
     const layout = this.getShipLayout(shipClass);
     const slotsById = new Map(layout.slots.map((slot) => [slot.slotId, slot]));
     const seenTypes = new Set<string>();
+    const specialModuleCount = moduleSelections.filter(
+      (selection) =>
+        slotsById.get(String(selection?.slotId ?? '').trim())
+          ?.moduleCategory === 'SPECIAL',
+    ).length;
+    if (specialModuleCount > (layout.moduleSlots.SPECIAL ?? 0)) {
+      throw new BadRequestException(
+        'More special modules selected than the hull allows',
+      );
+    }
 
     return moduleSelections.map((selection) => {
       if (!selection || typeof selection !== 'object') {
@@ -445,6 +455,20 @@ export class ColonyShipyardService {
           return sum + (item?.shipyardModuleStats?.crew ?? 0);
         }, 0),
     );
+  }
+
+  private assertCrewWithinHullMaximum(
+    shipClass: ShipClassDef,
+    moduleSelections: ShipModuleSelection[],
+  ): number {
+    const crewRequired = this.calculateCrewRequired(
+      shipClass,
+      moduleSelections,
+    );
+    if (crewRequired > shipClass.crewMax) {
+      throw new BadRequestException('Crew maximum exceeded');
+    }
+    return crewRequired;
   }
 
   private normalizeInstalledModuleSelections(
@@ -615,6 +639,11 @@ export class ColonyShipyardService {
     buildPlanName?: string,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
+    if (colony.isBlockaded) {
+      throw new BadRequestException(
+        'Ship retrofit is not possible while the colony is blockaded',
+      );
+    }
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
       relations: ['location', 'location.systemField'],
@@ -653,6 +682,7 @@ export class ColonyShipyardService {
     const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
       selectedModuleSelections,
     );
+    this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
 
     const installedModules = await this.spacecraftModuleRepo.find({
       where: { spacecraftId: ship.id },
@@ -918,6 +948,11 @@ export class ColonyShipyardService {
     sourceBuildplan?: ColonyShipBuildplan,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
+    if (colony.isBlockaded) {
+      throw new BadRequestException(
+        'Ship construction is not possible while the colony is blockaded',
+      );
+    }
 
     const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
     if (activeShipyardFunctionIds.length === 0) {
@@ -957,7 +992,7 @@ export class ColonyShipyardService {
       selectedModuleSelections,
     );
 
-    const crewRequired = this.calculateCrewRequired(
+    const crewRequired = this.assertCrewWithinHullMaximum(
       shipClass,
       selectedModuleSelections,
     );
@@ -1186,6 +1221,7 @@ export class ColonyShipyardService {
     const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
       selectedModuleSelections,
     );
+    this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
 
     const buildplan = this.shipBuildplanRepo.create({
       userId,

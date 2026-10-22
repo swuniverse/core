@@ -1,6 +1,6 @@
 # Werft: Blockade-, Crew-Maximum- und Spezialmodulprüfung im Backend
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -24,12 +24,15 @@ Beim Schiffsbau prüft SWU heute weder eine Kolonieblockade noch serverseitig da
 
 ## Akzeptanzkriterien
 
-- [ ] Bau und Umrüstung werden mit verständlicher Meldung abgelehnt, wenn die Kolonie blockiert ist (`isBlockaded`).
-- [ ] Bau, Bauplananlage und Umrüstung werden abgelehnt, wenn der berechnete Crewbedarf das Crew-Maximum des Rumpfs überschreitet („Crew-Maximum wurde überschritten“).
-- [ ] Bau, Bauplananlage und Umrüstung werden abgelehnt, wenn mehr Spezialmodule gewählt sind, als der Rumpf `specialSlots` hat.
-- [ ] Das Frontend zeigt die Backend-Meldung im Modulbildschirm und sperrt den Bauknopf weiterhin vorab.
-- [ ] `docs/ship-build-job-followup.md` beschreibt den aktuellen Stand (oder wird als überholt markiert).
-- [ ] Backend-Tests (`colony-shipyard`-Spec): je ein Ablehnungsfall für Blockade, Crew-Maximum und Spezialmodule sowie ein Gutfall.
-- [ ] Frontend-Test: Fehlermeldung aus der API wird im Modulbildschirm angezeigt.
+- [x] Bau und Umrüstung werden mit verständlicher Meldung abgelehnt, wenn die Kolonie blockiert ist (`isBlockaded`).
+- [x] Bau, Bauplananlage und Umrüstung werden abgelehnt, wenn der berechnete Crewbedarf das Crew-Maximum des Rumpfs überschreitet („Crew-Maximum wurde überschritten“).
+- [x] Bau, Bauplananlage und Umrüstung werden abgelehnt, wenn mehr Spezialmodule gewählt sind, als der Rumpf `specialSlots` hat.
+- [x] Das Frontend zeigt die Backend-Meldung im Modulbildschirm und sperrt den Bauknopf weiterhin vorab.
+- [x] `docs/ship-build-job-followup.md` beschreibt den aktuellen Stand (oder wird als überholt markiert).
+- [x] Backend-Tests (`colony-shipyard`-Spec): je ein Ablehnungsfall für Blockade, Crew-Maximum und Spezialmodule sowie ein Gutfall.
+- [x] Frontend-Test: Fehlermeldung aus der API wird im Modulbildschirm angezeigt.
 
 ## Comments
+
+- Backend-Prüfungen für Blockade, Crew-Maximum und Spezialslot-Kapazität gelten für Bau, Bauplananlage und Umrüstung; die UI zeigt API-Fehler weiterhin im Modul-Designer. Queue-Dokumentation und Regressionstests wurden aktualisiert.
+- Verifikation: gezielte Backend- und Frontend-Tests sowie `npx nx run-many --targets=build` grün. Der verpflichtende Affected-Lauf bleibt wegen bestehender, issue-fremder `backend:typecheck`-Fehler (TS6305/TS7006 in zahlreichen unveränderten Specs) rot.

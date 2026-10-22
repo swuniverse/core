@@ -4531,6 +4531,206 @@ describe('ship building compatibility', () => {
     );
   });
 
+  it('rejects blockaded builds and retrofits', async () => {
+    const { service, colonyRepo, shipRepo, shipClassRepo } =
+      createColonyService();
+    const colony = {
+      id: 1,
+      userId: 1,
+      isBlockaded: true,
+      ...orbitColonyLocation,
+      colonyClassId: 999,
+      fields: [
+        {
+          id: 1,
+          buildingId: 85110100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+      storage: [],
+    };
+    const shipClass = {
+      id: 1,
+      key: 'TEST_CORVETTE',
+      name: 'Test Corvette',
+      category: 'CORVETTE',
+      isNpc: false,
+      crewMin: 0,
+      crewMax: 5,
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      ...orbitShipLocation,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue(shipClass);
+
+    await expect(service.buildShip(1, 1, 1, 'Blocked', [])).rejects.toThrow(
+      'Ship construction is not possible while the colony is blockaded',
+    );
+    await expect(service.queueShipRetrofit(1, 1, 7, [])).rejects.toThrow(
+      'Ship retrofit is not possible while the colony is blockaded',
+    );
+  });
+
+  it('rejects crew requirements above the hull maximum for builds, buildplans, and retrofits', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      shipClassRepo,
+      storageRepo,
+      gameData,
+    } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 1,
+      ...orbitColonyLocation,
+      colonyClassId: 999,
+      fields: [
+        {
+          id: 1,
+          buildingId: 85110100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+      storage: [],
+    };
+    const shipClass = {
+      id: 1,
+      key: 'TEST_CORVETTE',
+      name: 'Test Corvette',
+      category: 'CORVETTE',
+      isNpc: false,
+      crewMin: 4,
+      crewMax: 4,
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      ...orbitShipLocation,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue(shipClass);
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 10701,
+      amount: 1,
+    });
+    gameData.getFabricationItemByOutputCommodity.mockReturnValue({
+      itemKey: 'module.weapon.crew-heavy',
+      queueType: 'MODULE',
+      outputCommodityId: 10701,
+      moduleType: 'Laser Cannon',
+      moduleLevel: 1,
+      shipyardType: 'ENERGY_WEAPON',
+      shipyardModuleStats: { crew: 1 },
+    });
+    gameData.getAllFabricationItems.mockReturnValue([
+      {
+        itemKey: 'module.weapon.crew-heavy',
+        queueType: 'MODULE',
+        outputCommodityId: 10701,
+        moduleType: 'Laser Cannon',
+        moduleLevel: 1,
+        shipyardType: 'ENERGY_WEAPON',
+        shipyardModuleStats: { crew: 1 },
+      },
+    ]);
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Overcrewed', [weaponSelection]),
+    ).rejects.toThrow('Crew maximum exceeded');
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Overcrewed', [weaponSelection]),
+    ).rejects.toThrow('Crew maximum exceeded');
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection]),
+    ).rejects.toThrow('Crew maximum exceeded');
+  });
+
+  it('rejects special modules beyond the hull slot limit for builds, buildplans, and retrofits', async () => {
+    const { service, colonyRepo, shipRepo, shipClassRepo, gameData } =
+      createColonyService();
+    const colony = {
+      id: 1,
+      userId: 1,
+      ...orbitColonyLocation,
+      colonyClassId: 999,
+      fields: [
+        {
+          id: 1,
+          buildingId: 85110100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+      storage: [],
+    };
+    const shipClass = {
+      id: 1,
+      key: 'TEST_CORVETTE',
+      name: 'Test Corvette',
+      category: 'CORVETTE',
+      isNpc: false,
+      crewMin: 0,
+      crewMax: 5,
+    };
+    const selections = [
+      { slotId: 'corvette-special-1', commodityId: 10801 },
+      { slotId: 'corvette-special-2', commodityId: 10802 },
+    ];
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      ...orbitShipLocation,
+    });
+    shipClassRepo.findOneBy.mockResolvedValue(shipClass);
+    gameData.getShipClassSlotRule.mockReturnValue({
+      category: 'CORVETTE',
+      moduleSlots: { SPECIAL: 1 },
+      slots: [
+        {
+          slotId: 'corvette-special-1',
+          moduleCategory: 'SPECIAL',
+          label: 'Special I',
+        },
+        {
+          slotId: 'corvette-special-2',
+          moduleCategory: 'SPECIAL',
+          label: 'Special II',
+        },
+      ],
+    });
+    gameData.getFabricationItemByOutputCommodity.mockImplementation(
+      (commodityId: number) => ({
+        itemKey: `module.special.${commodityId}`,
+        queueType: 'MODULE',
+        outputCommodityId: commodityId,
+        moduleType: `Special ${commodityId}`,
+        moduleLevel: 1,
+        shipyardType: 'SPECIAL',
+      }),
+    );
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Too Special', selections),
+    ).rejects.toThrow('More special modules selected than the hull allows');
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Too Special', selections),
+    ).rejects.toThrow('More special modules selected than the hull allows');
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, selections),
+    ).rejects.toThrow('More special modules selected than the hull allows');
+  });
+
   it('finishes queued ship builds during colony tick', async () => {
     const {
       service,
