@@ -161,6 +161,48 @@ _Avoid_: Präsenz
 Eine geeignete Depotstation, die ihr Eigentümer organisatorisch seiner **Allianz** zuordnet. Die Zuordnung überträgt weder Eigentum noch Entnahmerechte.
 _Avoid_: Allianz-Lager
 
+## Stationen
+
+**Station**:
+Ein unbeweglicher Typ von **Spacecraft** mit gemeinsamen Laufzeitsystemen, Lager, Sensorik und Kampffähigkeit. Stationsspezifische Zustände wie Bau, Dockplätze, Zugangsregeln und Reparaturen sind an dieses Spacecraft gebunden.
+_Avoid_: Gebäude, Raumkörper
+
+**Konstrukt**:
+Der temporäre Bauzustand einer Station. Es entsteht aus fünf einsatzfähigen Workbees sowie Baumaterial und Duranium und wird anschließend in eine fertige **Stationsrolle** ausgebaut.
+_Avoid_: Baustelle, Rohbau
+
+**Stationsrolle**:
+Die Funktion einer fertigen Station: **Versorgungsdepot**, **Logistikzentrum**, **Raumwerft**, **Sensorphalanx**, **Außenposten** oder **Raumstation**. Die Rolle bestimmt insbesondere Ort, Spielerlimit, Workbee-Bedarf und Dockplätze.
+_Avoid_: Stationsklasse, Rumpfrolle
+
+**Versorgungsdepot**:
+Eine kleine Depotstation innerhalb eines Sternsystems mit großem Lager und begrenzten Dockplätzen.
+_Avoid_: kleines Depot
+
+**Logistikzentrum**:
+Eine große Depotstation innerhalb eines Sternsystems. Ein Spieler darf höchstens eines besitzen.
+_Avoid_: großes Depot
+
+**Raumwerft**:
+Eine Station innerhalb eines Sternsystems für Stations- und Schiffsarbeiten. Ein Spieler darf höchstens zwei besitzen.
+_Avoid_: Stationswerft
+
+**Sensorphalanx**:
+Eine spezialisierte Sensorstation, die an allen zulässigen Stationsorten errichtet werden kann.
+_Avoid_: Sensorstation, Phalanx
+
+**Außenposten**:
+Eine bewaffnete Station auf einer Galaxieposition außerhalb eines Sternsystems.
+_Avoid_: Vorposten
+
+**Raumstation**:
+Die größte bewaffnete Stationsrolle auf der Galaxieposition eines Sternsystems.
+_Avoid_: Basis
+
+**Andocken**:
+Das Belegen eines freien Dockplatzes einer Station durch ein Schiff. Eine ausdrücklich passende Zugangsverweigerung hat Vorrang vor jeder Erlaubnis; ohne passende Erlaubnis ist Andocken verboten.
+_Avoid_: Anlegen, Parken
+
 ## Statistiken
 
 **Haupttick**:

@@ -1,6 +1,6 @@
 # Stationsmodell und Stationsrollen festlegen (ADR)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -28,10 +28,12 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] ADR legt fest: Station als Typ von `Spacecraft` (Diskriminator) oder eigene Entity, mit Begründung (Wiederverwendung von Laufzeitsystemen, Lager, NBS, Kampf).
-- [ ] Rollentabelle mit SWU-Namen je STU-Rolle (z. B. Konstrukt, kleines/großes Depot, Raumwerft, Sensorphalanx, Außenposten, Basis), Ortsregel, Limit je Spieler und benötigten Workbees; dazu je Fraktion mindestens eine Stationsklasse je Rolle mit Basiswerten aus STU-Rumpfdaten (als Plan für sc-WP-STAT-1b, keine Datenänderung nötig).
-- [ ] ADR beschreibt Docking (Plätze je Rolle, Rechte Spieler/Allianz/Fraktion/Schiff, Verbot vor Erlaubnis) und die Einhaltung der Allianz-Integrationsverträge.
-- [ ] `CONTEXT.md` um die Stationsbegriffe ergänzt; Entscheidung mit Datum unter „Entscheidungen“ in `map.md`.
-- [ ] Keine Tests nötig (Doku); `lint` bleibt grün.
+- [x] ADR legt fest: Station als Typ von `Spacecraft` (Diskriminator) oder eigene Entity, mit Begründung (Wiederverwendung von Laufzeitsystemen, Lager, NBS, Kampf).
+- [x] Rollentabelle mit SWU-Namen je STU-Rolle (z. B. Konstrukt, kleines/großes Depot, Raumwerft, Sensorphalanx, Außenposten, Basis), Ortsregel, Limit je Spieler und benötigten Workbees; dazu je Fraktion mindestens eine Stationsklasse je Rolle mit Basiswerten aus STU-Rumpfdaten (als Plan für sc-WP-STAT-1b, keine Datenänderung nötig).
+- [x] ADR beschreibt Docking (Plätze je Rolle, Rechte Spieler/Allianz/Fraktion/Schiff, Verbot vor Erlaubnis) und die Einhaltung der Allianz-Integrationsverträge.
+- [x] `CONTEXT.md` um die Stationsbegriffe ergänzt; Entscheidung mit Datum unter „Entscheidungen“ in `map.md`.
+- [x] Keine Tests nötig (Doku); `lint` bleibt grün.
 
 ## Comments
+
+ADR 0004 legt Stationen als unbeweglichen `Spacecraft`-Typ, die SWU-Stationsrollen, Klassenbasiswerte sowie Docking- und Allianzverträge fest. `CONTEXT.md` und die Entscheidungen/Erledigt-Liste in `map.md` wurden ergänzt. Keine Produktdaten geändert; die konkreten Stationsklassen folgen in sc-WP-STAT-1b.
