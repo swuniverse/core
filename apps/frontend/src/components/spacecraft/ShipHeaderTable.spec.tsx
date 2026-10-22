@@ -4,6 +4,7 @@ import { ApiError } from '../../services/api';
 import type * as ApiModule from '../../services/api';
 
 const apiMocks = vi.hoisted(() => ({
+  get: vi.fn(),
   put: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
@@ -43,10 +44,12 @@ const ship = {
 
 describe('ShipHeaderTable', () => {
   beforeEach(() => {
+    apiMocks.get.mockReset();
     apiMocks.put.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
     apiMocks.delete.mockReset();
+    apiMocks.get.mockResolvedValue({ targets: [], engineers: 0, cost: 0, durationSeconds: 10800, activeRepair: null });
     apiMocks.put.mockResolvedValue({});
     apiMocks.post.mockResolvedValue({});
     apiMocks.patch.mockResolvedValue({});
@@ -119,6 +122,40 @@ describe('ShipHeaderTable', () => {
         name: 'Neuer Falke',
       }),
     );
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('opens repair options and starts a repair', async () => {
+    apiMocks.get.mockResolvedValue({
+      targets: [{ type: 'MODULE', moduleId: 5, label: 'SENSOR', integrity: 10 }],
+      engineers: 2,
+      cost: 4,
+      durationSeconds: 8640,
+      activeRepair: null,
+    });
+    const onUpdate = vi.fn();
+    render(
+      <ShipHeaderTable
+        ship={ship}
+        onUpdate={onUpdate}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reparaturoptionen' })[0]);
+    expect(await screen.findByText('SENSOR (10 %)')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Reparatur starten' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/self-repair', {
+      targetType: 'MODULE',
+      moduleId: 5,
+      partsType: 'SPARE_PARTS',
+      instant: false,
+    }));
     expect(onUpdate).toHaveBeenCalled();
   });
 

@@ -65,6 +65,7 @@ import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecra
 import { SpacecraftWreck } from './modules/spacecraft/entities/spacecraft-wreck.entity';
 import { CartographyPlan } from './modules/spacecraft/entities/cartography-plan.entity';
 import { FlightSignature } from './modules/spacecraft/entities/flight-signature.entity';
+import { SpacecraftRepairTask } from './modules/spacecraft/entities/spacecraft-repair-task.entity';
 import { ColonyScan } from './modules/spacecraft/entities/colony-scan.entity';
 import { SpacecraftScanResult } from './modules/spacecraft/entities/spacecraft-scan-result.entity';
 import { ShipLogEntry } from './modules/spacecraft/entities/ship-log-entry.entity';
@@ -170,6 +171,7 @@ import { UserAward } from './modules/awards/entities/user-award.entity';
           SpacecraftWreck,
           CartographyPlan,
           FlightSignature,
+          SpacecraftRepairTask,
           ColonyScan,
           SpacecraftScanResult,
           ShipLogEntry,

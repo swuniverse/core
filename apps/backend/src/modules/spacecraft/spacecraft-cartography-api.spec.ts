@@ -31,6 +31,9 @@ jest.mock('./spacecraft-destruction.service', () => ({
 jest.mock('./spacecraft-crew.service', () => ({
   SpacecraftCrewService: class SpacecraftCrewService {},
 }));
+jest.mock('./spacecraft-repair.service', () => ({
+  SpacecraftRepairService: class SpacecraftRepairService {},
+}));
 jest.mock('./entities/spacecraft.entity', () => ({
   AlertState: { GREEN: 'GREEN' },
   SpacecraftOperatingMode: { NORMAL: 'NORMAL' },

@@ -34,6 +34,36 @@ export type SpacecraftRuntimeSystemsDto = Partial<
 
 export type SpacecraftOperatingMode = 'NORMAL' | 'STANDBY';
 export type SpacecraftAlertState = 'GREEN' | 'YELLOW' | 'RED';
+
+export type SpacecraftRepairTargetType = 'HULL' | 'MODULE';
+export type SpacecraftRepairPartsType =
+  | 'SPARE_PARTS'
+  | 'SYSTEM_COMPONENTS'
+  | 'BOTH';
+
+export interface SpacecraftRepairOptionsDto {
+  targets: Array<{
+    type: SpacecraftRepairTargetType;
+    moduleId: number | null;
+    label: string;
+    integrity: number;
+  }>;
+  engineers: number;
+  cost: number;
+  durationSeconds: number;
+  activeRepair: {
+    targetType: SpacecraftRepairTargetType;
+    moduleId: number | null;
+    completesAt: string;
+  } | null;
+}
+
+export interface SpacecraftSelfRepairDto {
+  targetType: SpacecraftRepairTargetType;
+  moduleId: number | null;
+  partsType: SpacecraftRepairPartsType;
+  instant: boolean;
+}
 export type SpacecraftLssMode =
   'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
 

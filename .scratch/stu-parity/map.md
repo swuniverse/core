@@ -130,6 +130,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-COMBAT-3 – Kampfprestige, intakte Module im Wrack und globale Zerstörungshistory – siehe Feature-Commit
 - sc-WP-CLEAN-1 – Freie Modulinstallation, -aufrüstung und -entfernung aus der Spieler-API entfernt – siehe Feature-Commit
 - sc-WP-CREW-1 – Crewposten, Crewdetails und Umbenennen am Schiff umgesetzt – siehe Feature-Commit
+- sc-WP-ENG-3 – Eigenreparatur mit Ersatzteilen, Systemkomponenten, Tick-Abschluss und Flugabbruch umgesetzt – siehe Feature-Commit
 - sc-WP-NAV-2a – Flugsignaturen, Sichtbarkeitsfenster, Verfall und Schiff-Sektor-Scan – siehe Feature-Commit
 - sc-WP-STAT-0 – ADR für Stationsmodell, Stationsrollen, Docking und Allianzverträge – siehe Feature-Commit
 - sc-WP-FLEET-2 – Flottenflug, Fixierung und flottenweites Abfangen – siehe Feature-Commit

@@ -83,6 +83,7 @@ import {
 import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
+import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 
@@ -128,6 +129,10 @@ export class SpacecraftService {
     private readonly messagingService: MessagingService,
     private readonly prestigeService: PrestigeService,
     private readonly statisticsService: StatisticsService,
+    private readonly repairService: SpacecraftRepairService = {
+      cancelForFlight: async () => undefined,
+      processTick: async () => undefined,
+    } as unknown as SpacecraftRepairService,
     private readonly flightSignatureService: FlightSignatureService = {
       createMovement: async () => undefined,
     } as unknown as FlightSignatureService,
@@ -1820,6 +1825,10 @@ export class SpacecraftService {
     await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
     await this.processCartographyArrival(ship, currentSystemId, targetField.id);
     await this.emitOrbitUpdates(previousField, resolveSpacecraftField(ship));
+    await this.repairService.cancelForFlight([
+      ship.id,
+      ...fleetMembers.map((member) => member.id),
+    ]);
 
     return this.findOne(ship.id, userId);
   }
@@ -1987,6 +1996,10 @@ export class SpacecraftService {
       targetY,
       'FLIGHT',
     );
+    await this.repairService.cancelForFlight([
+      ship.id,
+      ...fleetMembers.map((member) => member.id),
+    ]);
 
     return this.findOne(ship.id, userId);
   }
@@ -2115,6 +2128,10 @@ export class SpacecraftService {
       ship.location,
       this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
     );
+    await this.repairService.cancelForFlight([
+      ship.id,
+      ...fleetMembers.map((member) => member.id),
+    ]);
 
     return ship;
   }
@@ -2245,6 +2262,10 @@ export class SpacecraftService {
       this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
     );
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
+    await this.repairService.cancelForFlight([
+      ship.id,
+      ...fleetMembers.map((member) => member.id),
+    ]);
     return ship;
   }
 
@@ -2333,6 +2354,10 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
     await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, galaxyDistance);
+    await this.repairService.cancelForFlight([
+      ship.id,
+      ...fleetMembers.map((member) => member.id),
+    ]);
     return ship;
   }
 
@@ -3597,6 +3622,7 @@ export class SpacecraftService {
 
   async processTick(ship: Spacecraft): Promise<void> {
     await this.processMovement(ship);
+    await this.repairService.processTick(ship);
     if (ship.status === SpacecraftStatus.IN_FLIGHT) {
       await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     }

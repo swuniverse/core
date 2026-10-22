@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../services/api';
 import { CommunicationDrawer } from './CommunicationDrawer';
+import { RepairDialog } from './RepairDialog';
 
 interface ShipQuickActionsProps {
   shipId: number;
@@ -15,7 +16,7 @@ type QuickAction = {
   label: string;
   icon: string;
   action?:
-    'refresh' | 'info' | 'communication' | 'standby' | 'navigation' | 'sensors';
+    'refresh' | 'info' | 'communication' | 'repair' | 'standby' | 'navigation' | 'sensors';
   target?: string;
   disabled?: boolean;
 };
@@ -24,6 +25,7 @@ const ACTIONS: QuickAction[] = [
   { label: 'Aktualisieren', icon: 'update0.png', action: 'refresh' },
   { label: 'Schiffsinformationen', icon: 'info1.png', action: 'info' },
   { label: 'Kommunikation', icon: 'msg1.png', action: 'communication' },
+  { label: 'Reparaturoptionen', icon: 'rep1.png', action: 'repair' },
   {
     label: 'Navigation und Karte',
     icon: 'map1.png',
@@ -45,7 +47,7 @@ export function ShipQuickActions({
   onNavigation,
   onSensors,
 }: ShipQuickActionsProps) {
-  const [dialog, setDialog] = useState<'communication' | null>(null);
+  const [dialog, setDialog] = useState<'communication' | 'repair' | null>(null);
 
   function activate(action: QuickAction) {
     if (action.disabled) return;
@@ -61,7 +63,7 @@ export function ShipQuickActions({
         .then(onRefresh);
       return;
     }
-    if (action.action === 'communication') {
+    if (action.action === 'communication' || action.action === 'repair') {
       setDialog(action.action);
       return;
     }
@@ -104,6 +106,14 @@ export function ShipQuickActions({
           </button>
         ))}
       </div>
+
+      {dialog === 'repair' && (
+        <RepairDialog
+          shipId={shipId}
+          onClose={() => setDialog(null)}
+          onComplete={onRefresh}
+        />
+      )}
 
       {dialog === 'communication' && (
         <div

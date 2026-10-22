@@ -45,6 +45,7 @@ import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { CrewType } from '../colony/entities/crew.entity';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
+import { SpacecraftRepairService } from './spacecraft-repair.service';
 import {
   AlertState,
   SpacecraftOperatingMode,
@@ -175,6 +176,22 @@ class TorpedoUnloadDto {
   @IsInt()
   @Min(1)
   amount?: number;
+}
+
+class SelfRepairDto {
+  @IsIn(['HULL', 'MODULE'])
+  targetType: 'HULL' | 'MODULE';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  moduleId: number | null = null;
+
+  @IsIn(['SPARE_PARTS', 'SYSTEM_COMPONENTS', 'BOTH'])
+  partsType: 'SPARE_PARTS' | 'SYSTEM_COMPONENTS' | 'BOTH';
+
+  @IsBoolean()
+  instant: boolean;
 }
 
 class AlertStateDto {
@@ -313,6 +330,16 @@ export class SpacecraftController {
     private readonly destructionService: SpacecraftDestructionService,
     private readonly starmapVisibilityService: StarmapVisibilityService,
     private readonly crewService: SpacecraftCrewService,
+    private readonly repairService: SpacecraftRepairService = {
+      getOptions: async () => ({
+        targets: [],
+        engineers: 0,
+        cost: 0,
+        durationSeconds: 0,
+        activeRepair: null,
+      }),
+      start: async () => ({ completed: false, targetIntegrity: 0 }),
+    } as unknown as SpacecraftRepairService,
   ) {}
 
   // Static routes first (before :id)
@@ -573,6 +600,23 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.getDetails(id, req.user.sub);
+  }
+
+  @Get(':id/repair-options')
+  getRepairOptions(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.repairService.getOptions(id, req.user.sub);
+  }
+
+  @Post(':id/self-repair')
+  selfRepair(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: SelfRepairDto,
+  ) {
+    return this.repairService.start(id, req.user.sub, dto);
   }
 
   @Get(':id/energy-flow')

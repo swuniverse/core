@@ -18,6 +18,7 @@ import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { CartographyPlan } from './entities/cartography-plan.entity';
 import { FlightSignature } from './entities/flight-signature.entity';
+import { SpacecraftRepairTask } from './entities/spacecraft-repair-task.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -60,6 +61,7 @@ import { CartographyPlanService } from './cartography-plan.service';
 import { DatabaseModule } from '../database/database.module';
 import { StatisticsModule } from '../statistics/statistics.module';
 import { FlightSignatureService } from './flight-signature.service';
+import { SpacecraftRepairService } from './spacecraft-repair.service';
 
 @Module({
   imports: [
@@ -79,6 +81,7 @@ import { FlightSignatureService } from './flight-signature.service';
       SpacecraftWreck,
       CartographyPlan,
       FlightSignature,
+      SpacecraftRepairTask,
       StarSystem,
       Layer,
       CelestialObject,
@@ -127,6 +130,7 @@ import { FlightSignatureService } from './flight-signature.service';
     SpacecraftDestructionService,
     StarmapVisibilityService,
     FlightSignatureService,
+    SpacecraftRepairService,
   ],
   exports: [
     SpacecraftService,

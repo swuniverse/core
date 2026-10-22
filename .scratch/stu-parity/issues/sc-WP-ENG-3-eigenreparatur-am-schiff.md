@@ -1,6 +1,6 @@
 # Eigenreparatur am Schiff mit Ersatzteilen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -26,12 +26,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] `GET :id/repair-options` listet beschädigte Systeme mit benötigten Ersatzteilen/Komponenten und Dauer.
-- [ ] `POST :id/self-repair` mit System und Teileart; prüft Alarmstufe Grün, Crew, keine laufende Reparatur, keine Kartographie-Finalisierung, nicht im Hyperraumflug, Lagerbestand.
-- [ ] Normale Reparatur verbraucht Teile und setzt einen Reparaturzustand; der Tick schließt sie ab und meldet sie.
-- [ ] Sofortreparatur verbraucht das Dreifache und gelingt mit der STU-Erfolgschance.
-- [ ] Ein Flug bricht die laufende Reparatur mit Meldung ab.
-- [ ] Backend-Tests für jede Vorbedingung, Tick-Abschluss und Flugabbruch; Frontend-Test für Dialog.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] `GET :id/repair-options` listet beschädigte Systeme mit benötigten Ersatzteilen/Komponenten und Dauer.
+- [x] `POST :id/self-repair` mit System und Teileart; prüft Alarmstufe Grün, Crew, keine laufende Reparatur, keine Kartographie-Finalisierung, nicht im Hyperraumflug, Lagerbestand.
+- [x] Normale Reparatur verbraucht Teile und setzt einen Reparaturzustand; der Tick schließt sie ab und meldet sie.
+- [x] Sofortreparatur verbraucht das Dreifache und gelingt mit der STU-Erfolgschance.
+- [x] Ein Flug bricht die laufende Reparatur mit Meldung ab.
+- [x] Backend-Tests für jede Vorbedingung, Tick-Abschluss und Flugabbruch; Frontend-Test für Dialog.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-22: Eigenreparatur mit persistenter, transaktionaler Reparaturaufgabe, STU-Teilekosten und Zielintegritätswürfen, Tick-Abschluss, Flugabbruch für Einzelschiffe und Flotten sowie Reparaturdialog umgesetzt. Tests decken Vorbedingungen, Lagertransaktionen, Tick und Flugabbruch ab; keine offenen Folgepunkte.
