@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   SpacecraftListDto,
   SpacecraftListSystemDto,
@@ -33,13 +33,62 @@ export function SpacecraftPage() {
   const navigate = useNavigate();
   const [ships, setShips] = useState<SpacecraftListDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fleetName, setFleetName] = useState('');
+  const [leaderId, setLeaderId] = useState('');
+
+  const loadShips = useCallback(async () => {
+    const data = await api.get<SpacecraftListDto[]>('/spacecraft');
+    setShips(data);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    api.get<SpacecraftListDto[]>('/spacecraft').then((data) => {
-      setShips(data);
-      setLoading(false);
+    void loadShips();
+  }, [loadShips]);
+
+  const fleets = useMemo(() => {
+    const grouped = new Map<number, SpacecraftListDto[]>();
+    for (const ship of ships) {
+      if (ship.fleetId == null) continue;
+      const members = grouped.get(ship.fleetId) ?? [];
+      members.push(ship);
+      grouped.set(ship.fleetId, members);
+    }
+    return [...grouped.entries()].map(([id, members]) => ({
+      id,
+      name: members[0].fleetName ?? `Flotte ${id}`,
+      leaderId: members[0].fleetLeaderId,
+      members: [...members].sort((a, b) =>
+        a.id === members[0].fleetLeaderId ? -1 : b.id === members[0].fleetLeaderId ? 1 : a.id - b.id,
+      ),
+    }));
+  }, [ships]);
+  const singles = ships.filter((ship) => ship.fleetId == null);
+
+  async function createFleet(event: FormEvent) {
+    event.preventDefault();
+    if (!fleetName.trim() || !leaderId) return;
+    await api.post('/spacecraft/fleets/create', {
+      name: fleetName.trim(),
+      leaderId: Number(leaderId),
     });
-  }, []);
+    setFleetName('');
+    setLeaderId('');
+    await loadShips();
+  }
+
+  async function renameFleet(id: number, currentName: string) {
+    const name = window.prompt('Neuer Flottenname', currentName)?.trim();
+    if (!name || name === currentName) return;
+    await api.patch(`/spacecraft/fleets/${id}`, { name });
+    await loadShips();
+  }
+
+  async function dissolveFleet(id: number, name: string) {
+    if (!window.confirm(`Flotte „${name}“ wirklich auflösen?`)) return;
+    await api.delete(`/spacecraft/fleets/${id}`);
+    await loadShips();
+  }
 
   if (loading) return <div className="p-3 text-swu-muted md:p-6">Flotte wird geladen...</div>;
 
@@ -48,30 +97,56 @@ export function SpacecraftPage() {
       <div className="border border-swu-border bg-black/30 px-3 py-1.5">
         <h1 className="text-xs font-bold text-swu-primary">/ Schiffe / Flotte</h1>
       </div>
-      <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
-        <header className="border-b border-swu-border px-3 py-2 text-xs font-bold text-swu-primary">
-          Einzelschiffe
-        </header>
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr className="bg-black/40 text-center font-bold text-swu-primary">
-              {['Klasse', 'Name', 'Alarm', 'Ebene', 'x|y', 'Hülle', 'Schilde', 'EPS', 'Hyperantrieb', 'Reaktor', 'Batterie', 'Crew', 'Systeme', 'Status'].map((heading) => (
-                <th key={heading} className={cell}>{heading}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ships.length === 0 ? (
-              <tr><td colSpan={14} className={`${cell} py-4 text-center text-swu-muted`}>Du besitzt derzeit keine Schiffe</td></tr>
-            ) : ships.map((ship) => <ShipRow key={ship.id} ship={ship} onOpen={() => navigate(`/spacecraft/${ship.id}`)} />)}
-          </tbody>
-        </table>
-      </section>
+      {fleets.map((fleet) => (
+        <ShipTable
+          key={fleet.id}
+          title={fleet.name}
+          ships={fleet.members}
+          leaderId={fleet.leaderId}
+          actions={(
+            <>
+              <span>{fleet.members.length} {fleet.members.length === 1 ? 'Schiff' : 'Schiffe'}</span>
+              <button type="button" className="text-swu-primary hover:underline" onClick={() => void renameFleet(fleet.id, fleet.name)}>Umbenennen</button>
+              <button type="button" className="text-red-400 hover:underline" onClick={() => void dissolveFleet(fleet.id, fleet.name)}>Auflösen</button>
+            </>
+          )}
+          onOpen={(id) => navigate(`/spacecraft/${id}`)}
+        />
+      ))}
+      <ShipTable
+        title="Einzelschiffe"
+        ships={singles}
+        emptyLabel={ships.length === 0 ? 'Du besitzt derzeit keine Schiffe' : 'Alle Schiffe sind einer Flotte zugeordnet'}
+        onOpen={(id) => navigate(`/spacecraft/${id}`)}
+      />
+      <form onSubmit={createFleet} className="border border-swu-border bg-swu-surface/70 text-xs">
+        <h2 className="border-b border-swu-border bg-black/30 px-3 py-2 font-bold text-swu-primary">Neue Flotte</h2>
+        <div className="flex flex-wrap items-end gap-3 p-3">
+          <label className="grid gap-1">Flottenname<input aria-label="Flottenname" value={fleetName} onChange={(event) => setFleetName(event.target.value)} className="border border-swu-border bg-black/30 px-2 py-1" required /></label>
+          <label className="grid gap-1">Flottenführer<select aria-label="Flottenführer" value={leaderId} onChange={(event) => setLeaderId(event.target.value)} className="border border-swu-border bg-black/30 px-2 py-1" required><option value="">Schiff auswählen</option>{singles.map((ship) => <option key={ship.id} value={ship.id}>{ship.name}</option>)}</select></label>
+          <button type="submit" disabled={singles.length === 0} className="border border-swu-primary px-3 py-1 text-swu-primary disabled:cursor-not-allowed disabled:opacity-40">Flotte anlegen</button>
+        </div>
+      </form>
     </div>
   );
 }
 
-function ShipRow({ ship, onOpen }: { ship: SpacecraftListDto; onOpen: () => void }) {
+function ShipTable({ title, ships, leaderId, actions, emptyLabel, onOpen }: { title: string; ships: SpacecraftListDto[]; leaderId?: number | null; actions?: ReactNode; emptyLabel?: string; onOpen: (id: number) => void }) {
+  return (
+    <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
+      <header className="flex items-center justify-between gap-3 border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
+        <h2 className="font-bold text-swu-primary">{title}</h2>
+        {actions && <div className="flex items-center gap-3 text-swu-muted">{actions}</div>}
+      </header>
+      <table className="w-full border-collapse text-xs">
+        <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">{['Klasse', 'Name', 'Alarm', 'Ebene', 'x|y', 'Hülle', 'Schilde', 'EPS', 'Hyperantrieb', 'Reaktor', 'Batterie', 'Crew', 'Systeme', 'Status'].map((heading) => <th key={heading} className={cell}>{heading}</th>)}</tr></thead>
+        <tbody>{ships.length === 0 ? <tr><td colSpan={14} className={`${cell} py-4 text-center text-swu-muted`}>{emptyLabel}</td></tr> : ships.map((ship) => <ShipRow key={ship.id} ship={ship} leader={ship.id === leaderId} onOpen={() => onOpen(ship.id)} />)}</tbody>
+      </table>
+    </section>
+  );
+}
+
+function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; leader?: boolean; onOpen: () => void }) {
   const alert = ALERT_PRESENTATION[ship.alertState];
   const location = ship.location.scope === 'SYSTEM'
     ? `${ship.location.galaxyX ?? 0}|${ship.location.galaxyY ?? 0} (${ship.location.x}|${ship.location.y})`
@@ -82,7 +157,7 @@ function ShipRow({ ship, onOpen }: { ship: SpacecraftListDto; onOpen: () => void
   return (
     <tr onClick={onOpen} className="cursor-pointer hover:bg-white/5">
       <td className={cell}><img src={shipImage(ship.shipClassId, ship.shipClassKey)} alt={ship.shipClassName ?? ''} className="h-8 w-auto object-contain" /></td>
-      <td className={`${cell} font-medium text-swu-primary`}>{ship.name}</td>
+      <td className={`${cell} font-medium text-swu-primary`}>{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">◆ {ship.name}</span> : ship.name}</td>
       <td className={`${cell} text-center`}><span role="img" title={alert.label} aria-label={alert.label} className={`inline-block size-3 border border-swu-border ${alert.className}`} /></td>
       <td className={`${cell} text-center`}><span title={ship.layer.name} aria-label={`Ebene ${ship.layer.name}`} className="font-mono text-swu-primary">L{ship.layer.id}</span></td>
       <td className={numberCell}>{location}</td>

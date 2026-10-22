@@ -186,6 +186,9 @@ export interface SpacecraftListDto {
   crew: number;
   crewRequired: number;
   crewMax: number;
+  fleetId: number | null;
+  fleetName: string | null;
+  fleetLeaderId: number | null;
   systems: Record<
     'SHORT_RANGE_SENSORS' | 'LONG_RANGE_SENSORS' | 'WEAPONS' | 'TORPEDO_BANK',
     SpacecraftListSystemDto

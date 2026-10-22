@@ -1,8 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SpacecraftPage } from './spacecraft';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
+}));
 vi.mock('../services/api', () => ({ api: apiMocks }));
 vi.mock('../lib/assets', () => ({ shipImage: () => '/ship.png' }));
 
@@ -77,6 +82,65 @@ describe('SpacecraftPage', () => {
     expect(screen.getByText('4|7 (11|12)')).toBeTruthy();
   });
 
+  it('groups fleets and singles and creates a fleet from a single ship', async () => {
+    apiMocks.get.mockResolvedValue([
+      {
+        ...ship,
+        id: 2,
+        name: 'Falke',
+        fleetId: 4,
+        fleetName: 'Rote Staffel',
+        fleetLeaderId: 3,
+      },
+      {
+        ...ship,
+        id: 3,
+        name: 'Adler',
+        fleetId: 4,
+        fleetName: 'Rote Staffel',
+        fleetLeaderId: 3,
+      },
+      {
+        ...ship,
+        id: 5,
+        name: 'Speer',
+        fleetId: 8,
+        fleetName: 'Blaue Staffel',
+        fleetLeaderId: 5,
+      },
+      { ...ship, id: 7, name: 'Solo', fleetId: null },
+    ]);
+    apiMocks.post.mockResolvedValue({ id: 9 });
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Rote Staffel' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Blaue Staffel' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Einzelschiffe' })).toBeTruthy();
+    expect(screen.getByLabelText('Flottenführer Adler')).toBeTruthy();
+    expect(screen.getByText('2 Schiffe')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Flottenname'), {
+      target: { value: 'Gold-Staffel' },
+    });
+    fireEvent.change(screen.getByLabelText('Flottenführer'), {
+      target: { value: '7' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Flotte anlegen' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/fleets/create', {
+        name: 'Gold-Staffel',
+        leaderId: 7,
+      }),
+    );
+    expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft');
+  });
+
   it('renders the dense STU status columns and system availability', async () => {
     apiMocks.get.mockResolvedValue([ship]);
 
@@ -99,7 +163,7 @@ describe('SpacecraftPage', () => {
       'Systeme',
       'Status',
     ]) {
-      expect(await screen.findByRole('columnheader', { name: heading })).toBeTruthy();
+      expect((await screen.findAllByRole('columnheader', { name: heading })).length).toBeGreaterThan(0);
     }
     expect(
       screen.getByLabelText('Crew 4/5/8: zu wenig').className,
