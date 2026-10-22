@@ -109,6 +109,8 @@ import { validateGameTimezone } from './modules/tick/maintenance.service';
 import { AwardsModule } from './modules/awards/awards.module';
 import { Award } from './modules/awards/entities/award.entity';
 import { UserAward } from './modules/awards/entities/user-award.entity';
+import { NewsModule } from './modules/news/news.module';
+import { News } from './modules/news/entities/news.entity';
 
 @Module({
   imports: [
@@ -210,6 +212,7 @@ import { UserAward } from './modules/awards/entities/user-award.entity';
           ForumPost,
           Award,
           UserAward,
+          News,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -218,6 +221,7 @@ import { UserAward } from './modules/awards/entities/user-award.entity';
     GameDataModule,
     FactionModule,
     GameStatusModule,
+    NewsModule,
     AuthModule,
     OnboardingModule,
     ColonyModule,

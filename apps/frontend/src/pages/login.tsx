@@ -4,6 +4,7 @@ import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
 import type { AuthResponse } from '@swuniverse/shared';
+import { formatDate } from '../lib/format';
 
 interface GameStatus {
   status: 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
@@ -22,6 +23,15 @@ interface GalaxyStats {
 
 interface AuthFeatures {
   passwordReset: boolean;
+}
+
+interface PublicNews {
+  id: number;
+  title: string;
+  renderedText: string;
+  links: string[];
+  isChangelog: boolean;
+  createdAt: string;
 }
 
 const features = [
@@ -141,6 +151,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<GalaxyStats | null>(null);
   const [authFeatures, setAuthFeatures] = useState<AuthFeatures | null>(null);
+  const [news, setNews] = useState<PublicNews[]>([]);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     status: 'ONLINE',
     message: '',
@@ -161,6 +172,7 @@ export function LoginPage() {
       .then(setStats)
       .catch(() => undefined);
     api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
+    api.get<PublicNews[]>('/news').then((items) => setNews(Array.isArray(items) ? items : [])).catch(() => undefined);
     api
       .get<AuthFeatures>('/auth/features')
       .then(setAuthFeatures)
@@ -198,6 +210,20 @@ export function LoginPage() {
   return (
     <main className="swu-page swu-page--landing">
       <StarField />
+
+      <section aria-label="System-News" className="relative z-10 mx-auto mt-24 w-[min(92%,70rem)] border border-swu-border bg-swu-surface/70">
+        <header className="border-b border-swu-border px-3 py-2 text-xs font-bold text-swu-primary">SYSTEM-NEWS</header>
+        {news.length === 0 ? (
+          <p className="px-3 py-4 text-sm text-swu-muted">Keine System-News vorhanden.</p>
+        ) : news.map((item) => (
+          <article key={item.id} className="border-b border-swu-border/50 p-3 last:border-b-0">
+            <div className="flex items-baseline justify-between gap-3"><h2 className="font-bold text-swu-text">{item.title}</h2><time className="text-xs text-swu-muted">{formatDate(item.createdAt)}</time></div>
+            {item.isChangelog && <span className="text-xs font-bold text-swu-accent">CHANGELOG</span>}
+            <div className="mt-2 whitespace-pre-wrap text-sm text-swu-text" dangerouslySetInnerHTML={{ __html: item.renderedText }} />
+            {item.links.length > 0 && <ul className="mt-2 space-y-1">{item.links.map((link) => <li key={link}><a href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-swu-accent underline">{link}</a></li>)}</ul>}
+          </article>
+        ))}
+      </section>
 
       {/* Background layers */}
       <div className="swu-bg" aria-hidden="true">

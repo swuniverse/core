@@ -85,6 +85,24 @@ describe('LoginPage', () => {
     );
   });
 
+  it('renders system news and safe public links', async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/news') return Promise.resolve([{ id: 1, title: 'Server Update', renderedText: '<strong>Online</strong>', links: ['https://example.com'], isChangelog: true, createdAt: '2026-10-23T12:00:00.000Z' }]);
+      if (path === '/auth/features') return Promise.resolve({ passwordReset: false });
+      if (path === '/game-status') return Promise.resolve({ status: 'ONLINE', message: '' });
+      return Promise.resolve(null);
+    });
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    expect(await screen.findByText('Server Update')).toBeTruthy();
+    expect(screen.getByText('Online', { selector: 'strong' }).tagName).toBe('STRONG');
+    expect(screen.getByRole('link', { name: 'https://example.com' }).getAttribute('href')).toBe('https://example.com');
+  });
+
+  it('renders the system news empty state', async () => {
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    expect(await screen.findByText('Keine System-News vorhanden.')).toBeTruthy();
+  });
+
   it('shows the current maintenance status and keeps login but hides registration', async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path === '/game-status') {

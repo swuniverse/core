@@ -22,6 +22,7 @@ import { FactionEntity } from './migration-entities/faction.entity';
 import { FactionModifier } from './migration-entities/faction-modifier.entity';
 import { MigrationSpacecraft } from './migration-entities/spacecraft.entity';
 import { MigrationAccountToken } from './migration-entities/account-token.entity';
+import { News } from '../modules/news/entities/news.entity';
 
 loadEnv();
 
@@ -56,6 +57,7 @@ const appDataSource = new DataSource({
     FactionModifier,
     MigrationSpacecraft,
     MigrationAccountToken,
+    News,
   ],
   migrations: ['apps/backend/src/database/migrations/*.ts'],
   synchronize: false,

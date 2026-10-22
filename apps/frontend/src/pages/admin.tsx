@@ -258,6 +258,29 @@ function TickTrigger() {
   );
 }
 
+function NewsControl() {
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [links, setLinks] = useState('');
+  const [isChangelog, setIsChangelog] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const submit = async () => {
+    await api.post('/news', { title, text, links: links.split(/\r?\n/).map((line) => line.trim()).filter(Boolean), isChangelog });
+    setTitle(''); setText(''); setLinks(''); setIsChangelog(false); setStatus('News veröffentlicht.');
+  };
+  return <div className="border border-swu-border bg-swu-surface/70 p-5">
+    <h3 className="font-bold text-swu-primary">News erstellen</h3>
+    <div className="mt-3 space-y-3">
+      <label className="block text-sm">Titel<input aria-label="Titel" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border border-swu-border bg-swu-bg p-2" /></label>
+      <label className="block text-sm">Text mit BBCode<textarea aria-label="Text mit BBCode" value={text} onChange={(e) => setText(e.target.value)} className="mt-1 min-h-32 w-full border border-swu-border bg-swu-bg p-2" /></label>
+      <label className="block text-sm">Links (einer pro Zeile)<textarea aria-label="Links" value={links} onChange={(e) => setLinks(e.target.value)} className="mt-1 min-h-20 w-full border border-swu-border bg-swu-bg p-2" /></label>
+      <label className="flex gap-2 text-sm"><input type="checkbox" checked={isChangelog} onChange={(e) => setIsChangelog(e.target.checked)} /> Changelog</label>
+      <button type="button" disabled={!title.trim() || !text.trim()} onClick={() => void submit()} className="border border-swu-accent px-4 py-2 text-swu-accent disabled:opacity-50">Veröffentlichen</button>
+      {status && <p className="text-sm text-swu-positive">{status}</p>}
+    </div>
+  </div>;
+}
+
 export function AdminPage() {
   return (
     <div className="p-6 space-y-6">
@@ -276,6 +299,7 @@ export function AdminPage() {
           <TickTrigger />
           <CompleteAllBuilds />
           <GameStatusControl />
+          <NewsControl />
         </div>
       </section>
 
