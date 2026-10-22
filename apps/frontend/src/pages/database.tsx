@@ -7,6 +7,7 @@ import {
   type SystemRasterDetail,
 } from '../components/database/SystemRasterMap';
 import { StatisticsView } from '../components/database/StatisticsView';
+import { PageHeader } from '../components/PageHeader';
 import { systemTypeImage } from '../lib/assets';
 import { api } from '../services/api';
 
@@ -229,9 +230,12 @@ export function DatabasePage() {
       >
         ← Datenbank
       </button>
-      <p className="font-mono text-xs text-swu-muted">
-        / Datenbank / {titleFor(view)}
-      </p>
+      <PageHeader
+        segments={[
+          { label: 'Datenbank', to: '/database' },
+          { label: titleFor(view) },
+        ]}
+      />
       {error ? (
         <p role="alert" className="text-red-300">
           {error}
@@ -399,10 +403,8 @@ function Hub({
   onSelect: (view: View, ranking?: RankingKey) => void;
 }) {
   return (
-    <section className="p-4 sm:p-6">
-      <h1 className="mb-4 border border-swu-border bg-black/40 px-2 py-1 text-lg font-bold text-swu-primary">
-        / Datenbank
-      </h1>
+    <section className="space-y-4 p-4 sm:p-6">
+      <PageHeader segments={[{ label: 'Datenbank' }]} />
       <div className="grid max-w-5xl gap-4 md:grid-cols-3">
         {groups.map((group) => (
           <div

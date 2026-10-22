@@ -1,6 +1,6 @@
 # Seitenkopf mit Breadcrumb und persistente Meldungsbox
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -24,12 +24,14 @@ Jede Spielseite soll wie in STU mit „/ Modul / Unterseite“ beginnen und den 
 
 ## Akzeptanzkriterien
 
-- [ ] `PageHeader` nimmt eine Liste von Segmenten (`{ label, to? }`), rendert „/ Segment / Segment“ im bestehenden Stil (verlinkte Segmente in `text-swu-primary`, letztes Segment fett) und setzt `document.title` auf „<letztes Segment> · Star Wars Universe“ (beim Unmount zurück auf den Standardtitel).
-- [ ] `PageHeader` hat einen Slot für die Meldungsbox direkt darunter.
-- [ ] `ActionResult` zeigt eine Liste von Meldungszeilen (BBCode über `BbCodeText`) in einer Box mit Kopf „Meldung“; ab 6 Einträgen sind nur die ersten 5 sichtbar plus Umschalter „Alle n Meldungen anzeigen“; optionaler Weiter-Link; schließbar; bleibt bis zum Seitenwechsel oder bis neue Meldungen kommen.
-- [ ] Ein kleiner Hook (z. B. `useActionResult()`) verwaltet die Meldungen je Seite und leert sie beim Routenwechsel.
-- [ ] Maindesk und Datenbank nutzen `PageHeader`; keine sichtbare Regression des bisherigen Kopfes.
-- [ ] Kurze Konvention in einem Kommentar am Komponentenkopf: kurze Bestätigungen als Toast, mehrzeilige Ergebnisse als `ActionResult`.
-- [ ] Frontend-Tests: Breadcrumb und `document.title`, Einklappen ab 6 Einträgen, Leeren beim Routenwechsel.
+- [x] `PageHeader` nimmt eine Liste von Segmenten (`{ label, to? }`), rendert „/ Segment / Segment“ im bestehenden Stil (verlinkte Segmente in `text-swu-primary`, letztes Segment fett) und setzt `document.title` auf „<letztes Segment> · Star Wars Universe“ (beim Unmount zurück auf den Standardtitel).
+- [x] `PageHeader` hat einen Slot für die Meldungsbox direkt darunter.
+- [x] `ActionResult` zeigt eine Liste von Meldungszeilen (BBCode über `BbCodeText`) in einer Box mit Kopf „Meldung“; ab 6 Einträgen sind nur die ersten 5 sichtbar plus Umschalter „Alle n Meldungen anzeigen“; optionaler Weiter-Link; schließbar; bleibt bis zum Seitenwechsel oder bis neue Meldungen kommen.
+- [x] Ein kleiner Hook (z. B. `useActionResult()`) verwaltet die Meldungen je Seite und leert sie beim Routenwechsel.
+- [x] Maindesk und Datenbank nutzen `PageHeader`; keine sichtbare Regression des bisherigen Kopfes.
+- [x] Kurze Konvention in einem Kommentar am Komponentenkopf: kurze Bestätigungen als Toast, mehrzeilige Ergebnisse als `ActionResult`.
+- [x] Frontend-Tests: Breadcrumb und `document.title`, Einklappen ab 6 Einträgen, Leeren beim Routenwechsel.
 
 ## Comments
+
+- Implemented reusable `PageHeader`, `ActionResult`, and `useActionResult` components under `apps/frontend/src/components`, with Maindesk and Datenbank as reference integrations. Added focused frontend tests for breadcrumbs/title lifecycle, collapsed BBCode results, continuation links, and route-change cleanup. Toasts remain unchanged for short confirmations; further page migrations stay with their domain issues.

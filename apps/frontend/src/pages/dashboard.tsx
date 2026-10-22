@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '../stores/auth.store';
+import { PageHeader } from '../components/PageHeader';
 import type {
   DashboardData,
   ActiveResearch,
@@ -432,9 +433,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-3 p-2 sm:p-4">
-      <header className="border border-swu-border bg-black/30 px-3 py-1.5">
-        <h1 className="text-xs font-bold text-swu-primary">/ Maindesk</h1>
-      </header>
+      <PageHeader segments={[{ label: 'Maindesk' }]} />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
         <DashboardColonies data={data} />
         <DashboardLimits data={data} />
