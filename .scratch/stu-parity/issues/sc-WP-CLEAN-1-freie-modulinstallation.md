@@ -1,6 +1,6 @@
 # Freie Modulinstallation am Schiff entfernen oder auf Admin beschränken
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
