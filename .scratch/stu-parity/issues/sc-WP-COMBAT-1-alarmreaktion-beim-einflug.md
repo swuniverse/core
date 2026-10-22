@@ -1,6 +1,6 @@
 # Alarmreaktion beim Einflug
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-COMBAT-2
@@ -36,5 +36,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-22 Blocker: Die Akzeptanzkriterien verlangen Alarmreaktion nach jedem Feldwechsel einschließlich Flottenflug, Hyperraumankunft, Traktor-Trojanerhinweis und getarnten Einfliegern. Die dafür vorausgesetzten Mechaniken sc-WP-TRACT-1a und sc-WP-CLOAK-1a sind noch nicht umgesetzt; zugleich liefert die bestehende Navigations-API nur ein `Spacecraft` und hat keinen Vertrag für einen Kampfbericht. Bitte entscheiden, ob dieses Issue bis zu diesen Abhängigkeiten blockiert werden soll oder ob ein Teilscope mit neuem Movement-Result-DTO zulässig ist.
 
 - 2026-10-21 Hinweis aus soc-B1b (Option b): Ein persönlicher Feind-Kontakt ergibt Haltung „Feind“ auch innerhalb derselben Fraktion. Die Alarmreaktion liest die Haltung ausschließlich über den Relationship-Resolver und braucht dafür keine Sonderlogik.
