@@ -1,6 +1,6 @@
 # Handels-Domänenmodell, NPC-Handelsposten und Handelsseite (lesend)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-W1
