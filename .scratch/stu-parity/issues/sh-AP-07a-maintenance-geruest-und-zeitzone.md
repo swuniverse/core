@@ -1,6 +1,6 @@
 # Maintenance-Gerüst und feste Zeitzone der Ticks
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -26,10 +26,12 @@ Vorgabe: Neue Konfiguration `GAME_TIMEZONE`. Ist sie nicht gesetzt, wird die heu
 
 ## Akzeptanzkriterien
 
-- [ ] `GameTickType.MAINTENANCE` ergänzt; ein Lauf je Kalendertag (Tick-Nummer = Datum `YYYYMMDD` in `GAME_TIMEZONE`), idempotent über die bestehende Unique-Kombination.
-- [ ] `MaintenanceService` mit Cron 03:00 (`timeZone: GAME_TIMEZONE`) ruft registrierte Handler (`{ name; run(now): Promise<string | void> }`) nacheinander auf; ein fehlschlagender Handler wird geloggt, die übrigen laufen weiter; der Lauf endet als FAILED mit gesammelter Fehlermeldung, wenn mindestens einer scheiterte.
-- [ ] Alle bestehenden `@Cron` in `tick.service.ts` nutzen `GAME_TIMEZONE`; die Stundenprüfung (`getHours()`) rechnet ebenfalls in dieser Zeitzone (z. B. über `Intl.DateTimeFormat`).
-- [ ] `GAME_TIMEZONE` ist in `.env.example` dokumentiert (auskommentiert); ohne Wert gilt die Prozess-Zeitzone; eine ungültige Zeitzone verhindert den Start mit klarer Meldung.
-- [ ] Backend-Tests: Handler-Reihenfolge, Fehlertoleranz, Idempotenz am selben Tag, Stundenberechnung mit `GAME_TIMEZONE=Europe/Berlin` für UTC-Zeitpunkte rund um 0 und 12 Uhr Berliner Zeit (Sommer- und Winterzeit), Verhalten ohne gesetzte Variable unverändert.
+- [x] `GameTickType.MAINTENANCE` ergänzt; ein Lauf je Kalendertag (Tick-Nummer = Datum `YYYYMMDD` in `GAME_TIMEZONE`), idempotent über die bestehende Unique-Kombination.
+- [x] `MaintenanceService` mit Cron 03:00 (`timeZone: GAME_TIMEZONE`) ruft registrierte Handler (`{ name; run(now): Promise<string | void> }`) nacheinander auf; ein fehlschlagender Handler wird geloggt, die übrigen laufen weiter; der Lauf endet als FAILED mit gesammelter Fehlermeldung, wenn mindestens einer scheiterte.
+- [x] Alle bestehenden `@Cron` in `tick.service.ts` nutzen `GAME_TIMEZONE`; die Stundenprüfung (`getHours()`) rechnet ebenfalls in dieser Zeitzone (z. B. über `Intl.DateTimeFormat`).
+- [x] `GAME_TIMEZONE` ist in `.env.example` dokumentiert (auskommentiert); ohne Wert gilt die Prozess-Zeitzone; eine ungültige Zeitzone verhindert den Start mit klarer Meldung.
+- [x] Backend-Tests: Handler-Reihenfolge, Fehlertoleranz, Idempotenz am selben Tag, Stundenberechnung mit `GAME_TIMEZONE=Europe/Berlin` für UTC-Zeitpunkte rund um 0 und 12 Uhr Berliner Zeit (Sommer- und Winterzeit), Verhalten ohne gesetzte Variable unverändert.
 
 ## Comments
+
+Implemented the daily maintenance runner in the tick module with ordered, fault-tolerant handlers, persisted idempotent state, explicit cron timezone configuration, startup validation, and timezone-aware main-tick hour checks. Added focused backend coverage for DST boundaries, fallback behavior, handler order, failure collection, and daily idempotency. No open follow-up points.

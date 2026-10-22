@@ -9,6 +9,7 @@ import {
 export enum GameTickType {
   MAIN = 'MAIN',
   BUILDING_COMPLETION = 'BUILDING_COMPLETION',
+  MAINTENANCE = 'MAINTENANCE',
 }
 
 export enum GameTickStatus {

@@ -26,6 +26,7 @@ import {
   GameTickStatus,
   GameTickType,
 } from './entities/game-tick-state.entity';
+import { getHourInTimezone } from './maintenance.service';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
 type MainTickSchedule = '*' | number[];
@@ -62,7 +63,9 @@ export class TickService {
     } as unknown as FlightSignatureService,
   ) {}
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_HOUR, {
+    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+  })
   async handleScheduledMainTick(): Promise<
     { tickNumber: number; status: string } | undefined
   > {
@@ -245,7 +248,9 @@ export class TickService {
     return { tickNumber, status: GameTickStatus.COMPLETED };
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE, {
+    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+  })
   async checkBuildingCompletions() {
     const now = new Date();
     const activeBuilds = await this.fieldRepo.find({
@@ -348,7 +353,9 @@ export class TickService {
     return { completed: `tick #${tickResult.tickNumber}` };
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE, {
+    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+  })
   async checkWarpArrivals() {
     const now = new Date();
     const arrived = await this.shipRepo.find({
@@ -430,7 +437,8 @@ export class TickService {
 
   private isMainTickHourActive(now: Date): boolean {
     const schedule = this.getMainTickScheduleHours();
-    return schedule === '*' || schedule.includes(now.getHours());
+    const timezone = this.config.get<string>('GAME_TIMEZONE')?.trim();
+    return schedule === '*' || schedule.includes(getHourInTimezone(now, timezone));
   }
 
   private getMainTickScheduleDescription(): string {

@@ -15,6 +15,10 @@ import { User } from '../auth/user.entity';
 import { GameTickState } from './entities/game-tick-state.entity';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { StatisticsModule } from '../statistics/statistics.module';
+import {
+  MAINTENANCE_HANDLERS,
+  MaintenanceService,
+} from './maintenance.service';
 
 @Module({
   imports: [
@@ -34,6 +38,10 @@ import { StatisticsModule } from '../statistics/statistics.module';
     StatisticsModule,
   ],
   controllers: [TickController, TickStatusController],
-  providers: [TickService],
+  providers: [
+    TickService,
+    MaintenanceService,
+    { provide: MAINTENANCE_HANDLERS, useValue: [] },
+  ],
 })
 export class TickModule {}

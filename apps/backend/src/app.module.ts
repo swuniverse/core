@@ -104,10 +104,17 @@ import { AllianceDiplomacyNotification } from './modules/alliance/entities/allia
 import { ForumBoard } from './modules/alliance/entities/forum-board.entity';
 import { ForumTopic } from './modules/alliance/entities/forum-topic.entity';
 import { ForumPost } from './modules/alliance/entities/forum-post.entity';
+import { validateGameTimezone } from './modules/tick/maintenance.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (config) => {
+        validateGameTimezone(config.GAME_TIMEZONE);
+        return config;
+      },
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
