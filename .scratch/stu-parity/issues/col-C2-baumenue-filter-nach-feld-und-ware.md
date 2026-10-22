@@ -1,6 +1,6 @@
 # Baumenü-Filter nach Feld und Ware
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,9 +24,11 @@
 
 ## Akzeptanzkriterien
 
-- [ ] „Baumenü öffnen“ aus einem Feld setzt einen Feldfilter; das Baumenü zeigt nur auf diesem Feldtyp baubare Gebäude und einen sichtbaren, entfernbaren Filterhinweis („Feld 12: Wüste ×“).
-- [ ] In der Produktionsanzeige eines Gebäudes bzw. Felds führt ein Link „Baumenü nach '<Ware>' filtern“ zu einem Baumenü, das nur Gebäude zeigt, die diese Ware produzieren.
-- [ ] Beide Filter sind kombinierbar und werden beim Schließen bzw. per Klick auf ✕ zurückgesetzt.
-- [ ] Frontend-Tests: Feldfilter, Warenfilter, Kombination, Zurücksetzen.
+- [x] „Baumenü öffnen“ aus einem Feld setzt einen Feldfilter; das Baumenü zeigt nur auf diesem Feldtyp baubare Gebäude und einen sichtbaren, entfernbaren Filterhinweis („Feld 12: Wüste ×“).
+- [x] In der Produktionsanzeige eines Gebäudes bzw. Felds führt ein Link „Baumenü nach '<Ware>' filtern“ zu einem Baumenü, das nur Gebäude zeigt, die diese Ware produzieren.
+- [x] Beide Filter sind kombinierbar und werden beim Schließen bzw. per Klick auf ✕ zurückgesetzt.
+- [x] Frontend-Tests: Feldfilter, Warenfilter, Kombination, Zurücksetzen.
 
 ## Comments
+
+- Feld- und Warenfilter im React-Baumenü ergänzt; Feldaktionen und Produktionswaren öffnen den gefilterten Build-Workspace. Kombinierte Filter und separates Zurücksetzen sind in `PanelBuild.spec.tsx` abgedeckt. Keine offenen Folgepunkte.

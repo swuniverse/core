@@ -56,6 +56,7 @@ export function ColonyFieldDialog({
   onClose,
   onOpenContext,
   onOpenBuildMenu,
+  onFilterBuildMenuByCommodity,
   onOpenAcademy,
   onTerraform,
   onUpgrade,
@@ -71,6 +72,7 @@ export function ColonyFieldDialog({
   onClose: () => void;
   onOpenContext: (view: ColonyContextView) => void;
   onOpenBuildMenu: () => void;
+  onFilterBuildMenuByCommodity: (commodityId: number) => void;
   onOpenAcademy: () => void;
   onTerraform: (
     fieldIndex: number,
@@ -397,7 +399,12 @@ export function ColonyFieldDialog({
                         key={p.commodityId}
                         className="flex items-center justify-between gap-2"
                       >
-                        <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
+                        <button
+                          type="button"
+                          onClick={() => onFilterBuildMenuByCommodity(p.commodityId)}
+                          className="flex min-w-0 items-center gap-1.5 text-left text-swu-muted hover:text-swu-accent"
+                          title={`Baumenü nach '${commodityMap[p.commodityId]?.name || `Ware #${p.commodityId}`}' filtern`}
+                        >
                           <img
                             src={commodityImage(
                               p.commodityId,
@@ -410,7 +417,7 @@ export function ColonyFieldDialog({
                           <span className="truncate">
                             {commodityMap[p.commodityId]?.name || '?'}
                           </span>
-                        </span>
+                        </button>
                         <span
                           className={
                             p.amount < 0 ? 'text-red-400' : 'text-green-400'

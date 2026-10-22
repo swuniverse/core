@@ -49,6 +49,7 @@ import {
   getEffectiveBuildingForField,
 } from './utils';
 import { useSocket } from '../../hooks/use-socket';
+import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from './constants';
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Aktion fehlgeschlagen';
@@ -819,6 +820,11 @@ export function ColonyDetail({
     null,
   );
   const [deactivateAfterBuild, setDeactivateAfterBuild] = useState(false);
+  const [buildFieldFilter, setBuildFieldFilter] =
+    useState<ColonyField | null>(null);
+  const [buildCommodityFilterId, setBuildCommodityFilterId] = useState<
+    number | null
+  >(null);
   const [hoveredBuildField, setHoveredBuildField] =
     useState<ColonyField | null>(null);
   const [commodityLocations, setCommodityLocations] = useState<{
@@ -866,6 +872,8 @@ export function ColonyDetail({
   const clearWorkspaceSelection = () => {
     setSelectedField(null);
     setSelectedBuilding(null);
+    setBuildFieldFilter(null);
+    setBuildCommodityFilterId(null);
     setHoveredBuildField(null);
   };
 
@@ -1248,6 +1256,23 @@ export function ColonyDetail({
               energy={currentEnergy}
               commodityMap={commodityMap}
               selectedBuilding={selectedBuilding}
+              fieldFilter={
+                buildFieldFilter
+                  ? {
+                      field: buildFieldFilter,
+                      label:
+                        TILE_TYPE_NAMES[
+                          buildFieldFilter.terrainTileId ??
+                            buildFieldFilter.fieldType
+                        ] ||
+                        FIELD_TYPE_NAMES[buildFieldFilter.fieldType] ||
+                        '?',
+                    }
+                  : null
+              }
+              commodityFilterId={buildCommodityFilterId}
+              onClearFieldFilter={() => setBuildFieldFilter(null)}
+              onClearCommodityFilter={() => setBuildCommodityFilterId(null)}
               onSelectBuilding={(b: BuildingDef) => {
                 setHoveredBuildField(null);
                 if (selectedBuilding?.id === b.id) setSelectedBuilding(null);
@@ -1318,7 +1343,22 @@ export function ColonyDetail({
           }}
           onClose={() => setSelectedField(null)}
           onOpenContext={handleOpenContext}
-          onOpenBuildMenu={() => handleMainViewChange('build')}
+          onOpenBuildMenu={() => {
+            setBuildFieldFilter(selectedField);
+            setSelectedField(null);
+            setSelectedBuilding(null);
+            setHoveredBuildField(null);
+            setMainView('build');
+            setContextView(null);
+          }}
+          onFilterBuildMenuByCommodity={(commodityId) => {
+            setBuildCommodityFilterId(commodityId);
+            setSelectedField(null);
+            setSelectedBuilding(null);
+            setHoveredBuildField(null);
+            setMainView('build');
+            setContextView(null);
+          }}
           onOpenAcademy={() => handleMainViewChange('social')}
           onTerraform={onTerraform}
           onUpgrade={onUpgradeBuilding}

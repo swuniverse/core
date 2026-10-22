@@ -20,6 +20,10 @@ type PanelBuildProps = {
   energy: number;
   commodityMap: Record<number, CommodityDef>;
   selectedBuilding: BuildingDef | null;
+  fieldFilter?: { field: ColonyField; label: string } | null;
+  commodityFilterId?: number | null;
+  onClearFieldFilter?: () => void;
+  onClearCommodityFilter?: () => void;
   onSelectBuilding: (building: BuildingDef) => void;
 };
 
@@ -100,6 +104,10 @@ export function PanelBuild({
   energy,
   commodityMap,
   selectedBuilding,
+  fieldFilter = null,
+  commodityFilterId = null,
+  onClearFieldFilter,
+  onClearCommodityFilter,
   onSelectBuilding,
 }: PanelBuildProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
@@ -108,6 +116,24 @@ export function PanelBuild({
     const cols: Record<number, BuildingDef[]> = {};
     for (const building of buildingDefs) {
       if (building.id === 1) continue;
+      if (
+        fieldFilter &&
+        !building.allowedFieldTypes.includes(fieldFilter.field.fieldType) &&
+        !building.allowedFieldTypes.includes(
+          fieldFilter.field.terrainTileId ?? fieldFilter.field.fieldType,
+        )
+      ) {
+        continue;
+      }
+      if (
+        commodityFilterId != null &&
+        !building.production.some(
+          (production) =>
+            production.commodityId === commodityFilterId && production.amount > 0,
+        )
+      ) {
+        continue;
+      }
       const col = building.bmCol ?? 0;
       if (!cols[col]) cols[col] = [];
       cols[col].push(building);
@@ -121,7 +147,7 @@ export function PanelBuild({
       });
     }
     return cols;
-  }, [buildingDefs, energy, storage]);
+  }, [buildingDefs, commodityFilterId, energy, fieldFilter, storage]);
 
   const visibleBuildings = useMemo(() => {
     if (activeCategory === 'all') {
@@ -153,6 +179,35 @@ export function PanelBuild({
           </div>
         )}
       </div>
+
+      {(fieldFilter || commodityFilterId != null) && (
+        <div className="mb-2 flex flex-wrap gap-1" aria-label="Baumenü-Filter">
+          {fieldFilter && (
+            <button
+              type="button"
+              onClick={onClearFieldFilter}
+              className="rounded border border-swu-accent/50 bg-swu-accent/10 px-2 py-1 text-[10px] text-swu-accent"
+              aria-label={`Feldfilter ${fieldFilter.field.fieldIndex} entfernen`}
+            >
+              Feld {fieldFilter.field.fieldIndex}: {fieldFilter.label} ×
+            </button>
+          )}
+          {commodityFilterId != null && (
+            <button
+              type="button"
+              onClick={onClearCommodityFilter}
+              className="rounded border border-swu-accent/50 bg-swu-accent/10 px-2 py-1 text-[10px] text-swu-accent"
+              aria-label="Warenfilter entfernen"
+            >
+              Ware:{' '}
+              {commodityMap[commodityFilterId]?.nameShort ||
+                commodityMap[commodityFilterId]?.name ||
+                `#${commodityFilterId}`}{' '}
+              ×
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mb-2 flex flex-wrap gap-1">
         <button

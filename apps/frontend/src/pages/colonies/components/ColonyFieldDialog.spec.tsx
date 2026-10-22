@@ -115,6 +115,7 @@ const defaultProps = {
   onClose: vi.fn(),
   onOpenContext: vi.fn(),
   onOpenBuildMenu: vi.fn(),
+  onFilterBuildMenuByCommodity: vi.fn(),
   onOpenAcademy: vi.fn(),
   onTerraform: vi.fn(),
   onUpgrade: vi.fn(),
