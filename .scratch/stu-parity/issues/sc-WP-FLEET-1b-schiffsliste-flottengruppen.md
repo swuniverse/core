@@ -1,6 +1,6 @@
 # Schiffsliste mit Flottengruppen und Einzelschiffen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** sc-WP-UI-1a, sc-WP-FLEET-1a
