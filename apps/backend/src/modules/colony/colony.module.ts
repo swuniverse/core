@@ -9,6 +9,7 @@ import { ColonyFunctionManagerService } from './colony-function-manager.service'
 import { ColonyBuildingEffectsService } from './colony-building-effects.service';
 import { ColonyStorageService } from './colony-storage.service';
 import { BuildingLifecycleService } from './building-lifecycle.service';
+import { BuildingFunctionHooksService } from './building-function-hooks.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyDamageService } from './colony-damage.service';
@@ -98,6 +99,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
     ColonyBuildingEffectsService,
     ColonyStorageService,
     BuildingLifecycleService,
+    BuildingFunctionHooksService,
     ColonyBuildingManagementService,
     ColonyCrewService,
     ColonyDefenseService,
@@ -127,6 +129,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
     ColonyBuildingEffectsService,
     ColonyStorageService,
     BuildingLifecycleService,
+    BuildingFunctionHooksService,
     ColonyBuildingManagementService,
     ColonyCrewService,
     ColonyDefenseService,

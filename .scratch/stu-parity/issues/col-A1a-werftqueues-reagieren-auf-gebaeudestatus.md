@@ -1,6 +1,6 @@
 # Werft-Queues reagieren auf Deaktivierung und Abriss der Werft
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -27,15 +27,17 @@ Heute berühren Deaktivierung und Abriss eines Werftgebäudes die Werft-Queues n
 
 ## Akzeptanzkriterien
 
-- [ ] Es gibt einen zentralen Hook (z. B. `BuildingFunctionHooks`), der bei Aktivierung, Deaktivierung und Abriss eines Gebäudes je Gebäudefunktion aufgerufen wird – aus Einzelschaltung, Massenschaltung, Tick-Abschaltkaskade, Schadensabschaltung und Abriss gleichermaßen.
-- [ ] Deaktivieren einer Werftfunktion setzt alle laufenden BUILD- und RETROFIT-Aufträge dieser Kolonie, die nur diese Werftfunktion nutzen können, auf `PAUSED` und merkt `stoppedAt`.
-- [ ] Reaktivieren setzt diese Aufträge auf `QUEUED` zurück; `finishesAt` wird um die Pausendauer verlängert, `stoppedAt` geleert.
-- [ ] Gibt es eine zweite aktive, kompatible Werft, pausiert der Auftrag nicht.
-- [ ] Abriss einer Werft storniert ihre offenen BUILD- und RETROFIT-Aufträge (`CANCELLED`); zugewiesene Crew und ein umzurüstendes Schiff werden freigegeben, das Schiff bleibt im Orbit erhalten. Materialerstattung beim Abriss nur so, wie die bestehende Abbruchlogik es heute tut (keine neue Erstattungsregel, siehe col-A3b).
-- [ ] Bereits vorhandenes REPAIR-Pausenverhalten bleibt unverändert; REPAIR-Aufträge werden beim Deaktivieren über denselben Hook pausiert.
-- [ ] Die Projektion zeigt pausierte BUILD-/RETROFIT-Aufträge im Werftpanel als pausiert an (bestehende `PAUSED`-Darstellung in `colony-projection.service.ts` wiederverwenden).
-- [ ] Je Pause/Storno entsteht eine Kolonie-Nachricht (Ordner „Kolonien“) mit Schiffs-/Rumpfname.
-- [ ] Backend-Tests (`*.spec.ts`): Pause bei Einzel- und Massendeaktivierung, Pause durch Tick-Abschaltkaskade, Fortsetzung mit verlängerter Restzeit, kein Pausieren bei Ersatzwerft, Storno bei Abriss mit Crew-Freigabe.
-- [ ] Frontend-Test (`PanelShipyard` bzw. Projektion): pausierter Bauauftrag wird als pausiert angezeigt.
+- [x] Es gibt einen zentralen Hook (z. B. `BuildingFunctionHooks`), der bei Aktivierung, Deaktivierung und Abriss eines Gebäudes je Gebäudefunktion aufgerufen wird – aus Einzelschaltung, Massenschaltung, Tick-Abschaltkaskade, Schadensabschaltung und Abriss gleichermaßen.
+- [x] Deaktivieren einer Werftfunktion setzt alle laufenden BUILD- und RETROFIT-Aufträge dieser Kolonie, die nur diese Werftfunktion nutzen können, auf `PAUSED` und merkt `stoppedAt`.
+- [x] Reaktivieren setzt diese Aufträge auf `QUEUED` zurück; `finishesAt` wird um die Pausendauer verlängert, `stoppedAt` geleert.
+- [x] Gibt es eine zweite aktive, kompatible Werft, pausiert der Auftrag nicht.
+- [x] Abriss einer Werft storniert ihre offenen BUILD- und RETROFIT-Aufträge (`CANCELLED`); zugewiesene Crew und ein umzurüstendes Schiff werden freigegeben, das Schiff bleibt im Orbit erhalten. Materialerstattung beim Abriss nur so, wie die bestehende Abbruchlogik es heute tut (keine neue Erstattungsregel, siehe col-A3b).
+- [x] Bereits vorhandenes REPAIR-Pausenverhalten bleibt unverändert; REPAIR-Aufträge werden beim Deaktivieren über denselben Hook pausiert.
+- [x] Die Projektion zeigt pausierte BUILD-/RETROFIT-Aufträge im Werftpanel als pausiert an (bestehende `PAUSED`-Darstellung in `colony-projection.service.ts` wiederverwenden).
+- [x] Je Pause/Storno entsteht eine Kolonie-Nachricht (Ordner „Kolonien“) mit Schiffs-/Rumpfname.
+- [x] Backend-Tests (`*.spec.ts`): Pause bei Einzel- und Massendeaktivierung, Pause durch Tick-Abschaltkaskade, Fortsetzung mit verlängerter Restzeit, kein Pausieren bei Ersatzwerft, Storno bei Abriss mit Crew-Freigabe.
+- [x] Frontend-Test (`PanelShipyard` bzw. Projektion): pausierter Bauauftrag wird als pausiert angezeigt.
 
 ## Comments
+
+- 2026-10-22: Zentralen `BuildingFunctionHooksService` an den Gebäude-Lebenszyklus angebunden. Werftaufträge pausieren, laufen mit verschobenem Endzeitpunkt weiter oder werden beim Abriss inklusive Crew-Freigabe storniert; Ersatzwerften werden berücksichtigt. Das bestehende PAUSED-Projektionsverhalten bleibt erhalten. Backend-Hooktests sowie vollständige affected Checks und Builds sind grün.

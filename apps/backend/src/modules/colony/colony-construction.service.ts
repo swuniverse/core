@@ -809,6 +809,11 @@ export class ColonyConstructionService {
       );
     }
 
+    await this.buildingLifecycleService.destructBuilding(
+      colony,
+      field,
+      definition,
+    );
     this.buildingLifecycleService.clearBuilding(field);
     const saved = await (
       manager?.getRepository(ColonyField) ?? this.fieldRepo

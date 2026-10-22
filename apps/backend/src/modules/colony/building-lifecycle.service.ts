@@ -12,6 +12,7 @@ import {
   getColonyChangeable,
   setColonyMaxPopulation,
 } from './colony-stats.service';
+import type { BuildingFunctionHooksService } from './building-function-hooks.service';
 
 @Injectable()
 export class BuildingLifecycleService {
@@ -22,6 +23,7 @@ export class BuildingLifecycleService {
     private readonly changeableRepo: Repository<ColonyChangeable>,
     private readonly config: ConfigService,
     @Optional() private readonly gameData?: GameDataService,
+    @Optional() private readonly functionHooks?: BuildingFunctionHooksService,
   ) {}
 
   async finishBuilding(
@@ -59,7 +61,13 @@ export class BuildingLifecycleService {
     }
     await this.activateBuildingStats(colony, definition, field);
     field.isActive = true;
-    return this.fieldRepo.save(field);
+    const saved = await this.fieldRepo.save(field);
+    await this.functionHooks?.activate(
+      colony,
+      field,
+      this.getBuildingFunctionIds(definition),
+    );
+    return saved;
   }
 
   async deactivateBuilding(
@@ -69,6 +77,11 @@ export class BuildingLifecycleService {
     manager?: EntityManager,
   ): Promise<ColonyField> {
     await this.deactivateBuildingStats(colony, definition, field, manager);
+    await this.functionHooks?.deactivate(
+      colony,
+      field,
+      this.getBuildingFunctionIds(definition),
+    );
     field.isActive = false;
     return (manager?.getRepository(ColonyField) ?? this.fieldRepo).save(field);
   }
@@ -147,6 +160,18 @@ export class BuildingLifecycleService {
     return field;
   }
 
+  async destructBuilding(
+    colony: Colony,
+    field: ColonyField,
+    definition: BuildingDef,
+  ): Promise<void> {
+    await this.functionHooks?.destruct(
+      colony,
+      field,
+      this.getBuildingFunctionIds(definition),
+    );
+  }
+
   clearBuilding(field: ColonyField): ColonyField {
     field.buildingId = null;
     field.isActive = true;
@@ -158,5 +183,9 @@ export class BuildingLifecycleService {
     field.activateAfterBuild = true;
     field.reactivateAfterUpgrade = null;
     return field;
+  }
+
+  private getBuildingFunctionIds(definition: BuildingDef): number[] {
+    return definition.functions ?? this.gameData?.getBuildingFunctions(definition.id) ?? [];
   }
 }
