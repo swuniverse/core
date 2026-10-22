@@ -1,6 +1,6 @@
 # Kolonie verteidigen und blockieren direkt vom Schiff
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-22: Blockiert durch eine fehlende Produkt-/Backendentscheidung: Die vorhandenen Kolonie-Orbit-Endpunkte setzen in `ColonyOrbitService.setOrbitAssignment` für Verteidigung und Blockade zwingend `assertOwnedColony(colony)` voraus. Damit kann ein Schiff nur die eigene Kolonie verteidigen oder blockieren; das Akzeptanzkriterium verlangt dagegen eine Blockade fremder Kolonien abhängig von der Haltung. Soll der bestehende Endpunkt für fremde Kolonien geöffnet werden (und wenn ja: nur bei Haltung `ENEMY` oder auch `NEUTRAL`), oder soll ein eigener schiffsseitiger Endpunkt eingeführt werden? Die begonnenen Produktcode-/Teständerungen wurden gemäß Abbruchregel verworfen.
