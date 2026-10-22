@@ -203,6 +203,20 @@ _Avoid_: Basis
 Das Belegen eines freien Dockplatzes einer Station durch ein Schiff. Eine ausdrücklich passende Zugangsverweigerung hat Vorrang vor jeder Erlaubnis; ohne passende Erlaubnis ist Andocken verboten.
 _Avoid_: Anlegen, Parken
 
+## Navigation
+
+**Galaxieflug**:
+Die feldweise Reise eines Schiffs auf der Galaxiekarte. Ein Schiff verlässt ein Sternensystem, durchfliegt konkrete Galaxiefelder und tritt am Ziel wieder in ein System ein. Feldkosten, Feldfolgen, Flugsignaturen und Aufklärung werden dabei je tatsächlich durchflogenem Feld ausgewertet.
+_Avoid_: zeitbasierter Hyperraumsprung, Zeitflug
+
+**Hyperraumroute**:
+Eine sichtbare Route auf der Galaxiekarte. Sie verkürzt den Galaxieflug nicht; eine spätere Nutzung als Voraussetzung oder Zielnetz bleibt dem **Langstreckensprung** vorbehalten.
+_Avoid_: Schnellreiseroute
+
+**Langstreckensprung**:
+Eine gesonderte Schiffsfähigkeit für einen unmittelbaren Sprung über große Entfernung. Sie wird ausschließlich durch das Star-Wars-Pendant zur STU-Transwarpspule eingeführt und ist nicht der normale Reiseweg zwischen Sternensystemen.
+_Avoid_: Hyperraumsprung (für normalen Galaxieflug), zeitbasierter Hyperraumsprung
+
 ## Statistiken
 
 **Haupttick**:

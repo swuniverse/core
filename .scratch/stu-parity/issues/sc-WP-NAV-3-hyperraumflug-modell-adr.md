@@ -1,6 +1,6 @@
 # Hyperraumflug-Modell klären (ADR)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -23,10 +23,10 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] ADR `docs/adr/<nächste freie Nummer>-galaxieflug-statt-zeitbasiertem-hyperraumsprung.md` im Format der bestehenden ADRs dokumentiert: feldweiser STU-Galaxieflug als Modell, Wegfall des zeitbasierten Sprungs, Rolle der Hyperraumrouten und Verhältnis zu sc-WP-NAV-5b (Langstreckensprung).
-- [ ] `CONTEXT.md` führt den Begriff „Hyperraumsprung“ entsprechend (Galaxieflug feldweise; Langstreckensprung nur über das Pendant aus sc-WP-NAV-5b) bzw. nennt „zeitbasierter Hyperraumsprung“ unter _Avoid_.
-- [ ] Ein Folge-Issue `sc-WP-NAV-3b-rueckbau-zeitbasierter-hyperraumsprung.md` (Status `needs-triage`) beschreibt den Rückbau von `warp`, `IN_FLIGHT`/`arrivalAt`/`warpCooldown`, `checkWarpArrivals` und der zugehörigen UI inkl. Umgang mit Schiffen, die zum Migrationszeitpunkt im Flug sind.
-- [ ] Entscheidung unter „Entscheidungen“ in `map.md` (bereits eingetragen).
+- [x] ADR `docs/adr/<nächste freie Nummer>-galaxieflug-statt-zeitbasiertem-hyperraumsprung.md` im Format der bestehenden ADRs dokumentiert: feldweiser STU-Galaxieflug als Modell, Wegfall des zeitbasierten Sprungs, Rolle der Hyperraumrouten und Verhältnis zu sc-WP-NAV-5b (Langstreckensprung).
+- [x] `CONTEXT.md` führt den Begriff „Hyperraumsprung“ entsprechend (Galaxieflug feldweise; Langstreckensprung nur über das Pendant aus sc-WP-NAV-5b) bzw. nennt „zeitbasierter Hyperraumsprung“ unter _Avoid_.
+- [x] Ein Folge-Issue `sc-WP-NAV-3b-rueckbau-zeitbasierter-hyperraumsprung.md` (Status `needs-triage`) beschreibt den Rückbau von `warp`, `IN_FLIGHT`/`arrivalAt`/`warpCooldown`, `checkWarpArrivals` und der zugehörigen UI inkl. Umgang mit Schiffen, die zum Migrationszeitpunkt im Flug sind.
+- [x] Entscheidung unter „Entscheidungen“ in `map.md` (bereits eingetragen).
 
 ## Entscheidung
 
@@ -35,3 +35,4 @@ Vorgabe: Variante (b). Der zeitbasierte Sprung zwischen Systemen (`warp`, `IN_FL
 ## Comments
 
 - 2026-10-21 Product Owner: Option b – Der zeitbasierte Hyperraumsprung zwischen Systemen bleibt nicht: SWU kehrt zum feldweisen STU-Galaxieflug zurück, und der Zeitsprung entfällt bzw. geht im Transwarp-Pendant (sc-WP-NAV-5b) auf.
+- 2026-10-22 Agent: ADR-0006 und die Navigationsbegriffe in `CONTEXT.md` dokumentiert; Rückbau samt sicherer Behandlung laufender Flüge als `sc-WP-NAV-3b` erfasst.
