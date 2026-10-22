@@ -1,6 +1,6 @@
 # Forschungsbelohnung: Belohnungsschiff
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D1
@@ -33,4 +33,10 @@ In STU erhalten Spieler für bestimmte Forschungen ein fertiges Schiff (`reward_
 - [ ] Backend-Tests: Schiffserzeugung, keine Kolonie, Idempotenz (kein zweites Schiff bei erneutem Tick).
 - [ ] Frontend-Test: Belohnung im Detailmodal.
 
+## Offene Frage
+
+Welche konkrete Zuordnung soll für die STU-`reward_buildplan_id`-Werte zu den vorhandenen SWU-Schiffsklassen und Modulkonfigurationen gelten? Die im Issue genannte produktive SQLite-Migration enthält nur das Schema, während die Testdaten keine Reward-Baupläne setzen; ohne kanonische Quelldaten bzw. eine bestätigte Mapping-Liste kann nicht verlässlich bestimmt werden, welche Forschungen in beiden SWU-Fraktionen welches Schiff vergeben sollen.
+
 ## Comments
+
+- 2026-10-22: Umsetzung blockiert, bevor Produktcode geändert wurde. Benötigt werden die produktiven STU-Forschungsdaten mit `reward_buildplan_id` samt Bauplänen oder eine vom Product Owner bestätigte SWU-Zuordnung.
