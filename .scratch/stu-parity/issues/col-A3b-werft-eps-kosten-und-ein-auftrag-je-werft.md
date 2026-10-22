@@ -1,6 +1,6 @@
 # Werft: EPS-Kosten und ein Auftrag je Werft
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** col-A1a, col-A3a
