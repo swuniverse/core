@@ -102,6 +102,19 @@ export function NearbySensorPanel({
     }
   }
 
+  async function joinFleet(target: SpacecraftNearbyTargetDto) {
+    if (!target.fleetId) return;
+    try {
+      await api.post(`/spacecraft/fleets/${target.fleetId}/join`, { shipId });
+      await refreshNearby();
+      onUpdate();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Flottenbeitritt fehlgeschlagen',
+      );
+    }
+  }
+
   async function scan(target: SpacecraftNearbyTargetDto) {
     try {
       const result = await api.post<SpacecraftTargetScanDto>(
@@ -166,6 +179,20 @@ export function NearbySensorPanel({
               {nearby?.ships.map((target) => (
                 <tr key={target.id}>
                   <td className="border border-swu-border p-1">
+                    {target.isOwn && target.isFleetLeader && target.fleetId && (
+                      <button
+                        type="button"
+                        onClick={() => void joinFleet(target)}
+                        title="Flotte beitreten"
+                        className="mr-1"
+                      >
+                        <img
+                          src="/assets/buttons/fleet.png"
+                          alt="Flotte beitreten"
+                          className="inline size-4"
+                        />
+                      </button>
+                    )}
                     {target.actions.attack && (
                       <button
                         type="button"

@@ -33,6 +33,10 @@ interface ShipHeaderTableProps {
     crewMax: number;
     location: SpaceLocationDto;
     locationLabel?: string;
+    fleetId?: number | null;
+    fleetName?: string | null;
+    fleetLeaderId?: number | null;
+    fleetMembers?: Array<{ id: number; name: string }>;
   };
   onUpdate?: () => void;
   onSelfDestruct: () => void;
@@ -63,6 +67,9 @@ export function ShipHeaderTable({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [fleetDialog, setFleetDialog] = useState<
+    'CREATE' | 'RENAME' | 'LEADER' | null
+  >(null);
 
   useEffect(() => {
     setDraftName(ship.name);
@@ -286,6 +293,23 @@ export function ShipHeaderTable({
         />
       </div>
 
+      <FleetActions
+        ship={ship}
+        onUpdate={() => onUpdate?.()}
+        onError={setError}
+        onDialog={setFleetDialog}
+      />
+
+      {fleetDialog && (
+        <FleetDialog
+          mode={fleetDialog}
+          ship={ship}
+          onClose={() => setFleetDialog(null)}
+          onUpdate={() => onUpdate?.()}
+          onError={setError}
+        />
+      )}
+
       {alertOpen && (
         <AlertDialog
           shipId={ship.id}
@@ -304,6 +328,195 @@ export function ShipHeaderTable({
         </p>
       )}
     </section>
+  );
+}
+
+type FleetShip = ShipHeaderTableProps['ship'];
+
+function FleetActions({
+  ship,
+  onUpdate,
+  onError,
+  onDialog,
+}: {
+  ship: FleetShip;
+  onUpdate: () => void;
+  onError: (message: string | null) => void;
+  onDialog: (dialog: 'CREATE' | 'RENAME' | 'LEADER') => void;
+}) {
+  const isLeader = ship.fleetId != null && ship.fleetLeaderId === ship.id;
+  async function execute(path: string, method: 'post' | 'delete') {
+    try {
+      onError(null);
+      if (method === 'post') await api.post(path, {});
+      else await api.delete(path);
+      onUpdate();
+    } catch (err: unknown) {
+      onError(
+        err instanceof Error ? err.message : 'Flottenaktion fehlgeschlagen',
+      );
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-swu-border px-3 py-2 text-xs">
+      <strong className="text-swu-primary">
+        {ship.fleetName
+          ? `${ship.fleetName}${isLeader ? ' (Flottenführer)' : ''}`
+          : 'Keine Flotte'}
+      </strong>
+      {!ship.fleetId ? (
+        <button
+          type="button"
+          onClick={() => onDialog('CREATE')}
+          className="text-swu-accent"
+        >
+          Flotte erstellen
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              void execute(`/spacecraft/${ship.id}/leave-fleet`, 'post')
+            }
+            className="text-swu-accent"
+          >
+            Flotte verlassen
+          </button>
+          {isLeader && (
+            <>
+              <button
+                type="button"
+                onClick={() => onDialog('RENAME')}
+                className="text-swu-accent"
+              >
+                Flotte umbenennen
+              </button>
+              <button
+                type="button"
+                onClick={() => onDialog('LEADER')}
+                className="text-swu-accent"
+              >
+                Leader wechseln
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void execute(`/spacecraft/fleets/${ship.fleetId}`, 'delete')
+                }
+                className="text-red-300"
+              >
+                Flotte auflösen
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FleetDialog({
+  mode,
+  ship,
+  onClose,
+  onUpdate,
+  onError,
+}: {
+  mode: 'CREATE' | 'RENAME' | 'LEADER';
+  ship: FleetShip;
+  onClose: () => void;
+  onUpdate: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const [name, setName] = useState(
+    mode === 'RENAME' ? (ship.fleetName ?? '') : '',
+  );
+  const candidates = (ship.fleetMembers ?? []).filter(
+    (member) => member.id !== ship.id,
+  );
+  const [leaderId, setLeaderId] = useState(candidates[0]?.id ?? 0);
+  async function submit() {
+    try {
+      if (mode === 'CREATE')
+        await api.post('/spacecraft/fleets/create', {
+          name: name.trim(),
+          leaderId: ship.id,
+        });
+      if (mode === 'RENAME')
+        await api.patch(`/spacecraft/fleets/${ship.fleetId}`, {
+          name: name.trim(),
+        });
+      if (mode === 'LEADER')
+        await api.patch(`/spacecraft/fleets/${ship.fleetId}/leader`, {
+          leaderId,
+        });
+      onClose();
+      onUpdate();
+    } catch (err: unknown) {
+      onError(
+        err instanceof Error ? err.message : 'Flottenaktion fehlgeschlagen',
+      );
+      onClose();
+    }
+  }
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Flottenverwaltung"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+    >
+      <section className="w-full max-w-sm border border-swu-border bg-swu-bg p-3">
+        <h2 className="mb-3 text-sm font-bold text-swu-primary">
+          Flottenverwaltung
+        </h2>
+        {mode === 'LEADER' ? (
+          <label className="block text-xs text-swu-muted">
+            Neuer Flottenführer
+            <select
+              aria-label="Neuer Flottenführer"
+              value={leaderId}
+              onChange={(event) => setLeaderId(Number(event.target.value))}
+              className="mt-1 w-full bg-swu-surface p-1 text-swu-primary"
+            >
+              {candidates.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="block text-xs text-swu-muted">
+            Flottenname
+            <input
+              aria-label="Flottenname"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="mt-1 w-full bg-swu-surface p-1 text-swu-primary"
+            />
+          </label>
+        )}
+        <div className="mt-3 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="text-swu-muted">
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={mode === 'LEADER' ? !leaderId : !name.trim()}
+            className="text-swu-accent"
+          >
+            {mode === 'CREATE'
+              ? 'Erstellen'
+              : mode === 'RENAME'
+                ? 'Speichern'
+                : 'Übergeben'}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

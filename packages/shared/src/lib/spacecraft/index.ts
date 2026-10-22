@@ -35,10 +35,7 @@ export type SpacecraftRuntimeSystemsDto = Partial<
 export type SpacecraftOperatingMode = 'NORMAL' | 'STANDBY';
 export type SpacecraftAlertState = 'GREEN' | 'YELLOW' | 'RED';
 export type SpacecraftLssMode =
-  | 'DISABLED'
-  | 'TERRITORY'
-  | 'IMPASSABLE'
-  | 'CARTOGRAPHY';
+  'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
 
 export interface SpacecraftActionAvailabilityDto {
   available: boolean;
@@ -67,10 +64,7 @@ export interface SpacecraftEffectiveStatsDto {
 }
 
 export type CartographyPlanStatus =
-  | 'PLANNED'
-  | 'MEASURED'
-  | 'FINISHING'
-  | 'DONE';
+  'PLANNED' | 'MEASURED' | 'FINISHING' | 'DONE';
 
 export type CartographyState = 'NONE' | 'PLANNABLE' | CartographyPlanStatus;
 
@@ -191,7 +185,10 @@ export interface SpacecraftDetailDto {
   locationLabel?: string;
   moduleCount?: number;
   moduleCategories?: string[];
+  fleetId?: number | null;
   fleetName?: string | null;
+  fleetLeaderId?: number | null;
+  fleetMembers?: Array<{ id: number; name: string }>;
   starSystem?: { id: number; name: string } | null;
   celestialObject?: { id: number; name: string | null } | null;
   isColonizer?: boolean;
@@ -412,6 +409,8 @@ export interface SpacecraftNearbyTargetDto {
   hyperdriveActive: boolean;
   isOwn: boolean;
   inHyperspace: boolean;
+  fleetId?: number | null;
+  isFleetLeader?: boolean;
   actions: {
     attack: boolean;
     scan: boolean;

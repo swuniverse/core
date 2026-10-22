@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { NearbySensorPanel } from './NearbySensorPanel';
 
 const apiMocks = vi.hoisted(() => ({
@@ -65,6 +66,39 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('joins a nearby own fleet leader', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          isOwn: true,
+          fleetId: 7,
+          isFleetLeader: true,
+        },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({});
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <NearbySensorPanel
+          shipId={2}
+          locationKey="system:1:5:5"
+          systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByTitle('Flotte beitreten'));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/fleets/7/join', {
+        shipId: 2,
+      }),
+    );
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
   it('opens cargo salvage from an NBS wreck', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

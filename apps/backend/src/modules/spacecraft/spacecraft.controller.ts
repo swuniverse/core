@@ -66,6 +66,18 @@ class JoinFleetDto {
   shipId: number;
 }
 
+class RenameFleetDto {
+  @IsString()
+  name: string;
+}
+
+class ChangeFleetLeaderDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  leaderId: number;
+}
+
 class CelestialObjectActionDto {
   @Type(() => Number)
   @IsInt()
@@ -400,6 +412,36 @@ export class SpacecraftController {
     @Body() dto: JoinFleetDto,
   ) {
     return this.spacecraftService.joinFleet(req.user.sub, fleetId, dto.shipId);
+  }
+
+  @Delete('fleets/:fleetId')
+  dissolveFleet(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.dissolveFleet(req.user.sub, fleetId);
+  }
+
+  @Patch('fleets/:fleetId')
+  renameFleet(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: RenameFleetDto,
+  ) {
+    return this.spacecraftService.renameFleet(req.user.sub, fleetId, dto.name);
+  }
+
+  @Patch('fleets/:fleetId/leader')
+  changeFleetLeader(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: ChangeFleetLeaderDto,
+  ) {
+    return this.spacecraftService.changeFleetLeader(
+      req.user.sub,
+      fleetId,
+      dto.leaderId,
+    );
   }
 
   // Collection routes

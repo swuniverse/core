@@ -3,7 +3,12 @@ import { ShipHeaderTable } from './ShipHeaderTable';
 import { ApiError } from '../../services/api';
 import type * as ApiModule from '../../services/api';
 
-const apiMocks = vi.hoisted(() => ({ put: vi.fn(), patch: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  put: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
+}));
 vi.mock('../../services/api', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiModule>();
   return { ...actual, api: apiMocks };
@@ -39,9 +44,13 @@ const ship = {
 describe('ShipHeaderTable', () => {
   beforeEach(() => {
     apiMocks.put.mockReset();
+    apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
+    apiMocks.delete.mockReset();
     apiMocks.put.mockResolvedValue({});
+    apiMocks.post.mockResolvedValue({});
     apiMocks.patch.mockResolvedValue({});
+    apiMocks.delete.mockResolvedValue({});
   });
 
   it('renders authoritative summary values and renames the ship', async () => {
@@ -111,6 +120,100 @@ describe('ShipHeaderTable', () => {
       }),
     );
     expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('manages a fleet from the ship header', async () => {
+    const onUpdate = vi.fn();
+    render(
+      <ShipHeaderTable
+        ship={{
+          ...ship,
+          fleetId: 7,
+          fleetName: 'Aurek',
+          fleetLeaderId: 2,
+          fleetMembers: [
+            { id: 2, name: 'Falke' },
+            { id: 3, name: 'Möwe' },
+          ],
+        }}
+        onUpdate={onUpdate}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Aurek (Flottenführer)').length).toBeGreaterThan(
+      0,
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Flotte umbenennen' })[0],
+    );
+    fireEvent.change(screen.getByLabelText('Flottenname'), {
+      target: { value: 'Besh' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith('/spacecraft/fleets/7', {
+        name: 'Besh',
+      }),
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Leader wechseln' })[0],
+    );
+    fireEvent.change(screen.getByLabelText('Neuer Flottenführer'), {
+      target: { value: '3' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Übergeben' }));
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/fleets/7/leader',
+        {
+          leaderId: 3,
+        },
+      ),
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Flotte auflösen' })[0],
+    );
+    await waitFor(() =>
+      expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/fleets/7'),
+    );
+  });
+
+  it('creates a fleet for a fleetless ship', async () => {
+    render(
+      <ShipHeaderTable
+        ship={ship}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Flotte erstellen' })[0],
+    );
+    fireEvent.change(screen.getByLabelText('Flottenname'), {
+      target: { value: 'Aurek' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Erstellen' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/fleets/create', {
+        name: 'Aurek',
+        leaderId: 2,
+      }),
+    );
   });
 
   it('uses STU unknown-capacity notation for the Icarus', () => {

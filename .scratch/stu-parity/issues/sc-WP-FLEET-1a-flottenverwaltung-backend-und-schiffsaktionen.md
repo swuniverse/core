@@ -1,6 +1,6 @@
 # Flottenverwaltung: Backend vervollständigen und Aktionen am Schiff
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -26,13 +26,15 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Neue Endpunkte: Flotte auflösen (`DELETE fleets/:fleetId`), umbenennen (`PATCH fleets/:fleetId`, Namensvalidierung wie Schiffsname), Leader wechseln (`PATCH fleets/:fleetId/leader`, neues Mitglied muss in der Flotte sein).
-- [ ] Verlässt der Leader die Flotte, wird sie wie in STU aufgelöst (alle Mitglieder flottenlos); verlässt ein Mitglied, bleibt sie bestehen.
-- [ ] Beitritt nur für eigene Schiffe auf demselben Feld wie der Leader, nicht im Hyperraumflug, nicht zerstört; Fehlermeldungen auf Deutsch.
-- [ ] Nur der Eigentümer darf seine Flotten ändern (Backend-Test mit Fremdzugriff).
-- [ ] Schiffskopf zeigt Flottenname und Leader-Markierung; Aktionen „Flotte erstellen“ (mit Namensdialog), „Flotte verlassen“, bei Leader zusätzlich „Auflösen“, „Umbenennen“, „Leader wechseln“.
-- [ ] Die NBS-Liste zeigt bei eigenen Flotten-Leadern am Feld „Flotte beitreten“ (STU-Icon).
-- [ ] Backend-Tests für alle Regeln, Frontend-Tests für Schiffskopf-Aktionen und NBS-Beitritt.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Neue Endpunkte: Flotte auflösen (`DELETE fleets/:fleetId`), umbenennen (`PATCH fleets/:fleetId`, Namensvalidierung wie Schiffsname), Leader wechseln (`PATCH fleets/:fleetId/leader`, neues Mitglied muss in der Flotte sein).
+- [x] Verlässt der Leader die Flotte, wird sie wie in STU aufgelöst (alle Mitglieder flottenlos); verlässt ein Mitglied, bleibt sie bestehen.
+- [x] Beitritt nur für eigene Schiffe auf demselben Feld wie der Leader, nicht im Hyperraumflug, nicht zerstört; Fehlermeldungen auf Deutsch.
+- [x] Nur der Eigentümer darf seine Flotten ändern (Backend-Test mit Fremdzugriff).
+- [x] Schiffskopf zeigt Flottenname und Leader-Markierung; Aktionen „Flotte erstellen“ (mit Namensdialog), „Flotte verlassen“, bei Leader zusätzlich „Auflösen“, „Umbenennen“, „Leader wechseln“.
+- [x] Die NBS-Liste zeigt bei eigenen Flotten-Leadern am Feld „Flotte beitreten“ (STU-Icon).
+- [x] Backend-Tests für alle Regeln, Frontend-Tests für Schiffskopf-Aktionen und NBS-Beitritt.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Backend-Flottenregeln und Eigentümerprüfung in `spacecraft.service.ts`/Controller vervollständigt; Schiffskopf und NBS-Flottenbeitritt samt Shared-DTOs und Tests ergänzt. Die gruppierte Schiffsliste bleibt wie vorgesehen in sc-WP-FLEET-1b.

@@ -227,6 +227,7 @@ export class SpacecraftService {
       where: { userId },
       relations: [
         'fleet',
+        'fleet.members',
         'location',
         'location.galaxyField',
         'location.galaxyField.layer',
@@ -252,6 +253,7 @@ export class SpacecraftService {
       relations: [
         'modules',
         'fleet',
+        'fleet.members',
         'location',
         'location.galaxyField',
         'location.galaxyField.layer',
@@ -1294,6 +1296,12 @@ export class SpacecraftService {
         'Deep Space',
       moduleCount,
       fleetName: ship.fleet?.name || null,
+      fleetLeaderId: ship.fleet?.leaderId ?? null,
+      fleetMembers:
+        ship.fleet?.members?.map((member) => ({
+          id: member.id,
+          name: member.name,
+        })) ?? [],
     });
   }
 
@@ -1586,6 +1594,7 @@ export class SpacecraftService {
       relations: [
         'modules',
         'fleet',
+        'fleet.members',
         'location',
         'location.galaxyField',
         'location.systemField',
@@ -2204,10 +2213,7 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
-    await this.statisticsService.countEvent(
-      FLOWN_FIELDS_EVENT,
-      galaxyDistance,
-    );
+    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, galaxyDistance);
     return ship;
   }
 
@@ -2295,15 +2301,18 @@ export class SpacecraftService {
   ): Promise<Fleet> {
     const leader = await this.findOne(leaderId, userId);
     if (leader.fleetId) {
-      throw new BadRequestException('Ship already in a fleet');
+      throw new BadRequestException('Das Schiff ist bereits in einer Flotte');
     }
+    this.assertFleetName(name);
 
-    const fleet = this.fleetRepo.create({ name, userId, leaderId });
+    const fleet = this.fleetRepo.create({
+      name: name.trim(),
+      userId,
+      leaderId,
+    });
     const saved = await this.fleetRepo.save(fleet);
-
     leader.fleetId = saved.id;
     await this.shipRepo.save(leader);
-
     return saved;
   }
 
@@ -2312,14 +2321,24 @@ export class SpacecraftService {
     fleetId: number,
     shipId: number,
   ): Promise<Spacecraft> {
-    const fleet = await this.fleetRepo.findOne({
-      where: { id: fleetId, userId },
-    });
-    if (!fleet) throw new NotFoundException('Fleet not found');
-
+    const fleet = await this.requireFleet(userId, fleetId);
     const ship = await this.findOne(shipId, userId);
     if (ship.fleetId) {
-      throw new BadRequestException('Ship already in a fleet');
+      throw new BadRequestException('Das Schiff ist bereits in einer Flotte');
+    }
+    if (ship.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException(
+        'Zerstörte Schiffe können keiner Flotte beitreten',
+      );
+    }
+    if (ship.status !== SpacecraftStatus.IDLE) {
+      throw new BadRequestException('Schiff darf sich nicht im Flug befinden');
+    }
+    const leader = await this.findOne(fleet.leaderId, userId);
+    if (!sameSpacecraftLocation(ship, leader)) {
+      throw new BadRequestException(
+        'Schiff und Flottenführer müssen sich auf demselben Feld befinden',
+      );
     }
 
     ship.fleetId = fleetId;
@@ -2329,27 +2348,68 @@ export class SpacecraftService {
   async leaveFleet(userId: number, shipId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
     if (!ship.fleetId) {
-      throw new BadRequestException('Ship not in a fleet');
+      throw new BadRequestException('Das Schiff ist in keiner Flotte');
     }
-
-    const fleet = await this.fleetRepo.findOne({ where: { id: ship.fleetId } });
+    const fleet = await this.requireFleet(userId, ship.fleetId);
+    if (fleet.leaderId === shipId) {
+      await this.dissolveFleet(userId, fleet.id);
+      ship.fleetId = null;
+      return ship;
+    }
     ship.fleetId = null;
-
-    // Dissolve fleet if leader leaves
-    if (fleet && fleet.leaderId === shipId) {
-      const members = await this.shipRepo.find({
-        where: { fleetId: fleet.id },
-      });
-      for (const m of members) {
-        if (m.id !== shipId) {
-          m.fleetId = null;
-          await this.shipRepo.save(m);
-        }
-      }
-      await this.fleetRepo.remove(fleet);
-    }
-
     return this.shipRepo.save(ship);
+  }
+
+  async dissolveFleet(userId: number, fleetId: number): Promise<void> {
+    const fleet = await this.requireFleet(userId, fleetId);
+    const members = await this.shipRepo.find({ where: { fleetId } });
+    for (const member of members) member.fleetId = null;
+    if (members.length > 0) await this.shipRepo.save(members);
+    await this.fleetRepo.remove(fleet);
+  }
+
+  async renameFleet(
+    userId: number,
+    fleetId: number,
+    name: string,
+  ): Promise<Fleet> {
+    this.assertFleetName(name);
+    const fleet = await this.requireFleet(userId, fleetId);
+    fleet.name = name.trim();
+    return this.fleetRepo.save(fleet);
+  }
+
+  async changeFleetLeader(
+    userId: number,
+    fleetId: number,
+    leaderId: number,
+  ): Promise<Fleet> {
+    const fleet = await this.requireFleet(userId, fleetId);
+    const leader = await this.findOne(leaderId, userId);
+    if (leader.fleetId !== fleetId) {
+      throw new BadRequestException('Der neue Flottenführer ist kein Mitglied');
+    }
+    fleet.leaderId = leaderId;
+    return this.fleetRepo.save(fleet);
+  }
+
+  private async requireFleet(userId: number, fleetId: number): Promise<Fleet> {
+    const fleet = await this.fleetRepo.findOne({
+      where: { id: fleetId, userId },
+    });
+    if (!fleet) throw new NotFoundException('Flotte nicht gefunden');
+    return fleet;
+  }
+
+  private assertFleetName(name: string): void {
+    const normalized = name?.trim();
+    if (!normalized)
+      throw new BadRequestException('Flottenname darf nicht leer sein');
+    if (normalized.length > 255) {
+      throw new BadRequestException(
+        'Flottenname ist zu lang (Maximum: 255 Zeichen)',
+      );
+    }
   }
 
   async getUserFleets(userId: number): Promise<Fleet[]> {
@@ -2721,6 +2781,7 @@ export class SpacecraftService {
     const shipQuery = this.shipRepo
       .createQueryBuilder('target')
       .leftJoinAndSelect('target.user', 'user')
+      .leftJoinAndSelect('target.fleet', 'fleet')
       .leftJoinAndSelect('target.location', 'targetLocation')
       .leftJoinAndSelect('targetLocation.galaxyField', 'targetGalaxyField')
       .leftJoinAndSelect('targetLocation.systemField', 'targetSystemField')
@@ -2799,6 +2860,9 @@ export class SpacecraftService {
             shieldsActive: targetSystems.SHIELDS?.active === true,
             hyperdriveActive: targetHyperdriveActive,
             isOwn: target.userId === ship.userId,
+            fleetId: target.fleetId,
+            isFleetLeader:
+              target.fleetId != null && target.fleet?.leaderId === target.id,
             inHyperspace:
               resolveSpacecraftLocation(target)?.scope === 'GALAXY' &&
               target.status === SpacecraftStatus.IDLE &&
