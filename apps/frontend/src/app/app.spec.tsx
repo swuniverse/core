@@ -1524,6 +1524,71 @@ describe('ColonyDetail', () => {
     );
   });
 
+  it('disables deleting buildplans that are in use', async () => {
+    const detail = createDetail();
+    detail.shipyard.slotRules = [
+      {
+        category: 'FRIGATE',
+        allowedBuildingFunctionIds: [7],
+        moduleSlots: {},
+        layoutKey: 'frigate-layout',
+        imageKey: 'frigate-layout',
+        slots: [],
+      },
+    ];
+    detail.buildplans = [
+      {
+        id: 7,
+        shipClassId: 101,
+        name: 'Aktiver Bauplan',
+        signature: 'signature',
+        moduleSelections: [],
+        moduleCommodityIds: [],
+        moduleTypes: [],
+        canDelete: false,
+      },
+    ];
+    const onDeleteBuildplan = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <PanelShipyard
+        shipyard={detail.shipyard}
+        shipClasses={[shipClassFixture]}
+        queue={[]}
+        availableModules={[]}
+        slotRules={detail.shipyard.slotRules ?? []}
+        availableCrew={0}
+        commodityMap={{}}
+        orbitShips={[]}
+        buildplans={detail.buildplans}
+        onBuildShip={noopPromise}
+        onDisassembleShip={noopPromise}
+        onQueueShipRepair={noopPromise}
+        onQueueShipRetrofit={noopPromise}
+        onCancelShipyardQueue={noopPromise}
+        onReactivateShipyardQueue={noopPromise}
+        onCreateBuildplan={noopPromise}
+        onRenameBuildplan={noopPromise}
+        onDeleteBuildplan={onDeleteBuildplan}
+        onBuildFromBuildplan={noopPromise}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Werft öffnen' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
+    const deleteButton = screen.getByRole('button', {
+      name: 'Bauplan Aktiver Bauplan löschen',
+    });
+    expect((deleteButton as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.mouseEnter(deleteButton.parentElement!);
+    expect(
+      await screen.findByText(
+        'Der Bauplan wird von einem Auftrag oder Schiff verwendet.',
+      ),
+    ).toBeTruthy();
+    expect(onDeleteBuildplan).not.toHaveBeenCalled();
+  });
+
   it('shows backend build errors in the module designer', async () => {
     const detail = createDetail();
     const layout = createShipyardLayout();

@@ -73,6 +73,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const shipRepo = {
     find: jest.fn(async () => []),
     findOne: jest.fn(),
+    count: jest.fn(async () => 0),
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
     remove: jest.fn(async (value) => value),
@@ -4981,6 +4982,7 @@ describe('ship building compatibility', () => {
       colonyId: 1,
       userId: 1,
       shipClassId: 1,
+      buildPlanId: 7,
       name: 'Queued Ship',
       finishesAt: new Date(Date.now() - 1000),
       status: 'QUEUED',
@@ -5013,6 +5015,7 @@ describe('ship building compatibility', () => {
       expect.objectContaining({
         name: 'Queued Ship',
         shipClassId: 1,
+        buildPlanId: 7,
         locationId: 401,
       }),
     );
@@ -5456,8 +5459,9 @@ describe('ship building compatibility', () => {
     ).rejects.toThrow('Colony not found');
   });
 
-  it('rejects empty and duplicate buildplan names', async () => {
-    const { service, colonyRepo, shipBuildplanRepo } = createColonyService();
+  it('rejects invalid, duplicate, and overlong buildplan names', async () => {
+    const { service, colonyRepo, shipClassRepo, shipBuildplanRepo } =
+      createColonyService();
     colonyRepo.findOne.mockResolvedValue({
       id: 1,
       userId: 1,
@@ -5465,10 +5469,22 @@ describe('ship building compatibility', () => {
       fields: [],
       storage: [],
     });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      isNpc: false,
+      category: 'CORVETTE',
+      crewMax: 2,
+    });
 
     await expect(
       service.createShipBuildplan(1, 1, 1, '   ', []),
     ).rejects.toThrow('Buildplan name is required');
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Plan\u0000Name', []),
+    ).rejects.toThrow('Buildplan name contains control characters');
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Ä'.repeat(256), []),
+    ).rejects.toThrow('Buildplan name is too long');
 
     shipBuildplanRepo.findOne.mockResolvedValue({
       id: 4,
@@ -5479,6 +5495,76 @@ describe('ship building compatibility', () => {
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Scout Plan', []),
     ).rejects.toThrow('Buildplan name already exists');
+  });
+
+  it('rejects duplicate buildplan signatures and rename collisions', async () => {
+    const { service, colonyRepo, shipClassRepo, shipBuildplanRepo } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      fields: [],
+      storage: [],
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({
+      id: 1,
+      isNpc: false,
+      category: 'CORVETTE',
+      crewMax: 2,
+    });
+    shipBuildplanRepo.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 4, name: 'Existing Plan' });
+
+    await expect(
+      service.createShipBuildplan(1, 1, 1, 'Duplicate Layout', [
+        weaponSelection,
+      ]),
+    ).rejects.toThrow(
+      'Ein Bauplan mit dieser Konfiguration existiert bereits: Existing Plan',
+    );
+
+    shipBuildplanRepo.findOne
+      .mockResolvedValueOnce({
+        id: 7,
+        userId: 1,
+        name: 'Original',
+      })
+      .mockResolvedValueOnce({
+        id: 8,
+        userId: 1,
+        name: 'Existing Name',
+      });
+    await expect(
+      service.renameShipBuildplan(1, 1, 7, 'Existing Name'),
+    ).rejects.toThrow('Buildplan name already exists');
+  });
+
+  it('blocks deleting buildplans used by active queues or spacecraft', async () => {
+    const { service, colonyRepo, shipRepo, shipBuildQueueRepo, shipBuildplanRepo } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      fields: [],
+      storage: [],
+    });
+    const buildplan = { id: 7, userId: 1, name: 'Used Plan' };
+    shipBuildplanRepo.findOne.mockResolvedValue(buildplan);
+    shipBuildQueueRepo.count.mockResolvedValueOnce(1);
+
+    await expect(service.deleteShipBuildplan(1, 1, 7)).rejects.toThrow(
+      'Buildplan is in use',
+    );
+
+    shipBuildQueueRepo.count.mockResolvedValueOnce(0);
+    shipRepo.count.mockResolvedValueOnce(1);
+    await expect(service.deleteShipBuildplan(1, 1, 7)).rejects.toThrow(
+      'Buildplan is in use',
+    );
+    expect(shipBuildplanRepo.delete).not.toHaveBeenCalled();
   });
 
   it('creates, renames, and deletes colony-local buildplans', async () => {
@@ -5557,7 +5643,7 @@ describe('ship building compatibility', () => {
     expect(shipBuildplanRepo.delete).toHaveBeenCalledWith({ id: 1 });
   });
 
-  it('builds from a plan using a queue snapshot that survives plan delete', async () => {
+  it('builds from a plan using a queue snapshot and blocks plan deletion', async () => {
     const {
       service,
       colonyRepo,
@@ -5638,8 +5724,12 @@ describe('ship building compatibility', () => {
     });
 
     shipBuildplanRepo.findOne.mockResolvedValueOnce(buildplan);
-    await service.deleteShipBuildplan(1, 1, 7);
+    shipBuildQueueRepo.count.mockResolvedValueOnce(1);
+    await expect(service.deleteShipBuildplan(1, 1, 7)).rejects.toThrow(
+      'Buildplan is in use',
+    );
 
+    expect(shipBuildplanRepo.delete).not.toHaveBeenCalled();
     expect(queue).toMatchObject({
       buildPlanName: 'Snapshot Plan',
       buildPlanId: 7,

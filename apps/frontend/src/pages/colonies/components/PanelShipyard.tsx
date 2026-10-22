@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { shipyardDrydockImage } from '../../../lib/shipyard-assets';
+import { Tooltip } from '../../../components/Tooltip';
 import type {
   ColonyDetailV2,
   CommodityDef,
@@ -1387,6 +1388,32 @@ export function PanelShipyard({
                     >
                       Bearbeiten & Bauen
                     </button>
+                    <Tooltip
+                      content={
+                        plan.canDelete
+                          ? 'Bauplan löschen'
+                          : 'Der Bauplan wird von einem Auftrag oder Schiff verwendet.'
+                      }
+                    >
+                      <span tabIndex={plan.canDelete ? -1 : 0}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            runShipyardAction(`delete-plan-${plan.id}`, () =>
+                              onDeleteBuildplan(plan.id),
+                            )
+                          }
+                          disabled={
+                            !plan.canDelete ||
+                            busyShipyardAction === `delete-plan-${plan.id}`
+                          }
+                          aria-label={`Bauplan ${plan.name} löschen`}
+                          className="px-2 py-1 rounded border border-swu-danger/50 text-[10px] text-swu-danger disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Löschen
+                        </button>
+                      </span>
+                    </Tooltip>
                     <button
                       onClick={() =>
                         runShipyardAction(`use-plan-${plan.id}`, () =>

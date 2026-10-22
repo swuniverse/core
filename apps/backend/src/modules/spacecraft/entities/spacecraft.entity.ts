@@ -53,6 +53,9 @@ export class Spacecraft {
   @Column()
   shipClassId: number;
 
+  @Column({ type: 'int', nullable: true })
+  buildPlanId: number | null;
+
   @Column()
   userId: number;
 

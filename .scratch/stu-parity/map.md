@@ -114,6 +114,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-A1b – Fabrikation, Akademie und Schilde reagieren auf Gebäudestatus – siehe Feature-Commit
 - col-A10 – Phalanx-Torpedotypen sind an abgeschlossene Forschung gebunden – siehe Feature-Commit
 - col-A3a – Werftbau und Umrüstung prüfen Blockade, Crew-Maximum und Spezialslots – siehe Feature-Commit
+- col-A4 – Baupläne mit Löschsperren, Duplikatsignaturen und Namensvalidierung gehärtet – siehe Feature-Commit
 - col-A7 – Akademie-Tick berücksichtigt Aktivität, Crewlimits und Ausbildungslimit – siehe Feature-Commit
 - col-B1 – Arbeitslose wandern bei Überbelegung und überschrittenem Bevölkerungslimit aus – siehe Feature-Commit
 - sc-WP-FLEET-1a – Flottenverwaltung und Schiffsaktionen vollständig – siehe Feature-Commit

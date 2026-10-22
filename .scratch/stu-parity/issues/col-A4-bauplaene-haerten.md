@@ -1,6 +1,6 @@
 # Baupläne härten: Löschsperre, Duplikatprüfung, Namensvalidierung
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ Baupläne lassen sich in SWU löschen, auch wenn Schiffe danach gebaut werden od
 
 ## Akzeptanzkriterien
 
-- [ ] Löschen wird abgelehnt, solange ein Auftrag (QUEUED/PAUSED) den Plan nutzt oder ein existierendes Schiff aus dem Plan stammt; die UI zeigt den Löschknopf dann deaktiviert mit Tooltip.
-- [ ] Anlegen eines Plans mit derselben Signatur (Rumpf + Module) wie ein bestehender eigener Plan wird mit „Ein Bauplan mit dieser Konfiguration existiert bereits: <Name>“ abgelehnt.
-- [ ] Namen werden getrimmt, dürfen höchstens 255 Zeichen lang sein, Unicode-Buchstaben sind erlaubt, Steuerzeichen nicht.
-- [ ] Backend-Tests: Löschsperre (Queue und Schiff), Duplikatsignatur, Namenslänge/-zeichen, Umbenennen auf vorhandenen Namen.
-- [ ] Frontend-Test: deaktivierter Löschknopf bei genutztem Plan.
+- [x] Löschen wird abgelehnt, solange ein Auftrag (QUEUED/PAUSED) den Plan nutzt oder ein existierendes Schiff aus dem Plan stammt; die UI zeigt den Löschknopf dann deaktiviert mit Tooltip.
+- [x] Anlegen eines Plans mit derselben Signatur (Rumpf + Module) wie ein bestehender eigener Plan wird mit „Ein Bauplan mit dieser Konfiguration existiert bereits: <Name>“ abgelehnt.
+- [x] Namen werden getrimmt, dürfen höchstens 255 Zeichen lang sein, Unicode-Buchstaben sind erlaubt, Steuerzeichen nicht.
+- [x] Backend-Tests: Löschsperre (Queue und Schiff), Duplikatsignatur, Namenslänge/-zeichen, Umbenennen auf vorhandenen Namen.
+- [x] Frontend-Test: deaktivierter Löschknopf bei genutztem Plan.
 
 ## Comments
+
+- 2026-10-22: Löschsperren, Bauplan-Provenienz, Signaturduplikate und Namensvalidierung umgesetzt und durch betroffene Tests sowie vollständige Builds verifiziert.

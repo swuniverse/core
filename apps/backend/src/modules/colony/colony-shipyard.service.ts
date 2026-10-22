@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import {
   GameDataService,
@@ -1123,6 +1123,12 @@ export class ColonyShipyardService {
     if (!trimmed) {
       throw new BadRequestException('Buildplan name is required');
     }
+    if (/\p{Cc}/u.test(trimmed)) {
+      throw new BadRequestException('Buildplan name contains control characters');
+    }
+    if ([...trimmed].length > 255) {
+      throw new BadRequestException('Buildplan name is too long');
+    }
     return trimmed;
   }
 
@@ -1139,7 +1145,10 @@ export class ColonyShipyardService {
     }
   }
 
-  private toBuildplanDto(buildplan: ColonyShipBuildplan) {
+  private toBuildplanDto(
+    buildplan: ColonyShipBuildplan,
+    canDelete = true,
+  ) {
     return {
       id: buildplan.id,
       shipClassId: buildplan.shipClassId,
@@ -1148,16 +1157,35 @@ export class ColonyShipyardService {
       moduleSelections: buildplan.moduleSelections,
       moduleCommodityIds: buildplan.moduleCommodityIds,
       moduleTypes: buildplan.moduleTypes,
+      canDelete,
     };
   }
 
   async listUserBuildplans(userId: number) {
-    return (
-      await this.shipBuildplanRepo.find({
-        where: { userId },
-        order: { name: 'ASC' },
-      })
-    ).map((plan) => this.toBuildplanDto(plan));
+    const buildplans = await this.shipBuildplanRepo.find({
+      where: { userId },
+      order: { name: 'ASC' },
+    });
+    return Promise.all(
+      buildplans.map(async (plan) => {
+        const [activeQueueCount, spacecraftCount] = await Promise.all([
+          this.shipBuildQueueRepo.count({
+            where: {
+              buildPlanId: plan.id,
+              status: In([
+                ColonyShipBuildQueueStatus.QUEUED,
+                ColonyShipBuildQueueStatus.PAUSED,
+              ]),
+            },
+          }),
+          this.shipRepo.count({ where: { buildPlanId: plan.id } }),
+        ]);
+        return this.toBuildplanDto(
+          plan,
+          activeQueueCount === 0 && spacecraftCount === 0,
+        );
+      }),
+    );
   }
 
   async createAdminBuildplan(
@@ -1223,14 +1251,24 @@ export class ColonyShipyardService {
     );
     this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
 
+    const signature = this.createBuildplanSignature(
+      shipClassId,
+      selectedModuleSelections,
+    );
+    const existingBuildplan = await this.shipBuildplanRepo.findOne({
+      where: { userId, signature },
+    });
+    if (existingBuildplan) {
+      throw new BadRequestException(
+        `Ein Bauplan mit dieser Konfiguration existiert bereits: ${existingBuildplan.name}`,
+      );
+    }
+
     const buildplan = this.shipBuildplanRepo.create({
       userId,
       shipClassId,
       name: trimmedName,
-      signature: this.createBuildplanSignature(
-        shipClassId,
-        selectedModuleSelections,
-      ),
+      signature,
       moduleSelections: selectedModuleSelections,
       moduleCommodityIds: selectedModuleCommodityIds,
       moduleTypes: selectedModuleTypes,
@@ -1262,6 +1300,21 @@ export class ColonyShipyardService {
       where: { id: planId, userId },
     });
     if (!buildplan) throw new NotFoundException('Buildplan not found');
+    const [activeQueueCount, spacecraftCount] = await Promise.all([
+      this.shipBuildQueueRepo.count({
+        where: {
+          buildPlanId: buildplan.id,
+          status: In([
+            ColonyShipBuildQueueStatus.QUEUED,
+            ColonyShipBuildQueueStatus.PAUSED,
+          ]),
+        },
+      }),
+      this.shipRepo.count({ where: { buildPlanId: buildplan.id } }),
+    ]);
+    if (activeQueueCount > 0 || spacecraftCount > 0) {
+      throw new BadRequestException('Buildplan is in use');
+    }
     await this.shipBuildplanRepo.delete({ id: buildplan.id });
     return { deleted: true, id: buildplan.id };
   }
@@ -1466,6 +1519,7 @@ export class ColonyShipyardService {
       shipClass,
       job.name,
     );
+    ship.buildPlanId = job.buildPlanId;
     const savedShip = await this.shipRepo.save(ship);
     const modules = await this.createModulesForBuiltShip(savedShip.id, job);
     if ((job.crewAssigned ?? 0) > 0) {

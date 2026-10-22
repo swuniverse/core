@@ -464,6 +464,7 @@ export interface ColonyDetailV2 {
     moduleSelections: ShipModuleSelection[];
     moduleCommodityIds: number[];
     moduleTypes: string[];
+    canDelete: boolean;
   }>;
   fabricationQueue?: Array<{
     id: number;
