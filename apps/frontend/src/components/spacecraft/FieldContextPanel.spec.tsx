@@ -700,6 +700,60 @@ describe('FieldContextPanel', () => {
     ).toBeTruthy();
   });
 
+  it('renders flight signatures and faded counts in the sector scan table', async () => {
+    apiMocks.post.mockResolvedValue({
+      result: {
+        field: {
+          x: 5,
+          y: 23,
+          fieldType: { id: 1, name: 'Leerer Raum' },
+          movementEnergyCost: 1,
+          damage: 0,
+          specialDamage: 0,
+          effects: [],
+          celestialObject: null,
+        },
+        discovery: null,
+        signatures: [
+          {
+            spacecraftId: 9,
+            shipClassId: 4,
+            shipClassName: 'CR90-Korvette',
+            spacecraftName: 'Tantive IV',
+            fromDirection: null,
+            toDirection: 'EAST',
+            isCloaked: false,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        fadedSignatures: { uncloaked: 2, cloaked: 1 },
+      },
+      energyCost: 1,
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: true, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+
+    expect(await screen.findByText('CR90-Korvette')).toBeTruthy();
+    expect(screen.getByText('Tantive IV')).toBeTruthy();
+    expect(screen.getByText('nach Ost')).toBeTruthy();
+    expect(screen.getByText('Ungetarnt: 2')).toBeTruthy();
+    expect(screen.getByText('Getarnt: 1')).toBeTruthy();
+  });
+
   it('does not show a notification for an already known planet class', async () => {
     apiMocks.post.mockResolvedValue({
       result: {

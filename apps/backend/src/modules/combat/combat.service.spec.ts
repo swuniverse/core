@@ -422,7 +422,7 @@ describe('CombatService attack', () => {
       .mockResolvedValueOnce(attacker)
       .mockResolvedValueOnce(defender);
     shipRepo.find.mockResolvedValue(participants);
-    engine.resolveBattle = jest.fn(async () => ({
+    engine.resolveBattle = jest.fn(async (_attackers, _defenders) => ({
       rounds: [],
       winner: 'attacker',
       destroyedShipIds: [],

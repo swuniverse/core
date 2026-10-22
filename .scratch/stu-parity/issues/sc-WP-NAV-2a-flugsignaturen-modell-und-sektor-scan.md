@@ -1,6 +1,6 @@
 # Flugsignaturen: Modell, Erzeugung, Verfall und Sektor-Scan des Schiffs
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -28,12 +28,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Jeder Feldwechsel eines Schiffs erzeugt zwei Signaturen (Abflug mit Zielrichtung, Ankunft mit Herkunftsrichtung) mit Eigentümer, Schiffs-ID, Schiffsname, Klasse, Tarnflag (vorerst `false`) und Zeitstempel; Hyperraumsprünge erzeugen Signaturen an Start- und Zielfeld.
-- [ ] Der Sektor-Scan liefert die Signaturen fremder Spieler am Feld, je Schiff nur die jüngste; Name, Klasse und Signatur werden gemäß den STU-Sichtbarkeitsfenstern angezeigt bzw. als „verblasst“ gezählt (`fadedSignatures.uncloaked`/`cloaked`).
-- [ ] Eigene Signaturen erscheinen nicht.
-- [ ] Ein Tick- bzw. Wartungsjob löscht Signaturen älter als 48 h.
-- [ ] Die Sektor-Scan-Ansicht zeigt Signaturen als Tabelle (Klasse, Name, Richtung, Alter) wie `sectorScan.twig`.
-- [ ] Backend-Tests: Erzeugung bei Systemflug und Galaxieflug, Sichtbarkeitsfenster an den Grenzen, Löschung; Frontend-Test der Tabelle.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Jeder Feldwechsel eines Schiffs erzeugt zwei Signaturen (Abflug mit Zielrichtung, Ankunft mit Herkunftsrichtung) mit Eigentümer, Schiffs-ID, Schiffsname, Klasse, Tarnflag (vorerst `false`) und Zeitstempel; Hyperraumsprünge erzeugen Signaturen an Start- und Zielfeld.
+- [x] Der Sektor-Scan liefert die Signaturen fremder Spieler am Feld, je Schiff nur die jüngste; Name, Klasse und Signatur werden gemäß den STU-Sichtbarkeitsfenstern angezeigt bzw. als „verblasst“ gezählt (`fadedSignatures.uncloaked`/`cloaked`).
+- [x] Eigene Signaturen erscheinen nicht.
+- [x] Ein Tick- bzw. Wartungsjob löscht Signaturen älter als 48 h.
+- [x] Die Sektor-Scan-Ansicht zeigt Signaturen als Tabelle (Klasse, Name, Richtung, Alter) wie `sectorScan.twig`.
+- [x] Backend-Tests: Erzeugung bei Systemflug und Galaxieflug, Sichtbarkeitsfenster an den Grenzen, Löschung; Frontend-Test der Tabelle.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Implemented persisted flight signatures for system, galaxy, system-boundary, and delayed hyperdrive movement; STU visibility windows and cleanup now feed the ship sector scan and its dense signature table. Added backend and frontend coverage. No open follow-up for this issue.

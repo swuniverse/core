@@ -77,10 +77,13 @@ import {
   resolveContextualCelestialObjectId,
   resolveSpacecraftField,
   resolveSpacecraftLocation,
+  resolveSpaceLocation,
   sameSpacecraftLocation,
 } from './spacecraft-field';
 import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
+import { FlightSignatureService } from './flight-signature.service';
+import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 
 @Injectable()
@@ -125,6 +128,9 @@ export class SpacecraftService {
     private readonly messagingService: MessagingService,
     private readonly prestigeService: PrestigeService,
     private readonly statisticsService: StatisticsService,
+    private readonly flightSignatureService: FlightSignatureService = {
+      createMovement: async () => undefined,
+    } as unknown as FlightSignatureService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1783,6 +1789,7 @@ export class SpacecraftService {
     this.consumeEps(ship, energyCost, 'navigation');
 
     const previousField = resolveSpacecraftField(ship);
+    const previousLocation = ship.location;
     if (!targetField) throw new NotFoundException('Target field not found');
     await this.setCurrentLocation(
       ship,
@@ -1798,6 +1805,14 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
+    await this.flightSignatureService.createMovement(
+      ship,
+      previousLocation,
+      ship.location,
+      this.flightDirection(
+        this.directionFromMove(startX, startY, targetX, targetY),
+      ),
+    );
 
     await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
     await this.processCartographyArrival(ship, currentSystemId, targetField.id);
@@ -1921,6 +1936,7 @@ export class SpacecraftService {
       targetX,
       targetY,
     );
+    const previousLocation = ship.location;
 
     await this.setCurrentLocation(
       ship,
@@ -1937,6 +1953,12 @@ export class SpacecraftService {
       throw new BadRequestException('Ship is destroyed');
     }
 
+    await this.flightSignatureService.createMovement(
+      ship,
+      previousLocation,
+      ship.location,
+      this.flightDirection(ship.lastGalaxyFlightDirection),
+    );
     await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
     await this.discoverGalaxyAroundShip(
       ship,
@@ -2036,6 +2058,7 @@ export class SpacecraftService {
       ship.lastGalaxyFlightDirection,
     );
 
+    const previousLocation = ship.location;
     await this.setCurrentLocation(
       ship,
       await this.findLocationBySystemField(entryField.id),
@@ -2048,6 +2071,12 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
+    await this.flightSignatureService.createMovement(
+      ship,
+      previousLocation,
+      ship.location,
+      this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
+    );
 
     return ship;
   }
@@ -2061,6 +2090,17 @@ export class SpacecraftService {
     if (toY < fromY) return 'TOP';
     if (toY > fromY) return 'BOTTOM';
     return toX > fromX ? 'RIGHT' : 'LEFT';
+  }
+
+  private flightDirection(
+    direction: NonNullable<Spacecraft['lastGalaxyFlightDirection']>,
+  ): FlightDirection {
+    return {
+      TOP: 'NORTH',
+      RIGHT: 'EAST',
+      BOTTOM: 'SOUTH',
+      LEFT: 'WEST',
+    }[direction] as FlightDirection;
   }
 
   private async findSystemEntryField(
@@ -2133,6 +2173,7 @@ export class SpacecraftService {
     const galaxyField = await this.galaxyFieldRepo.findOne({
       where: { layerId: system.layerId, cx: system.cx, cy: system.cy },
     });
+    const previousLocation = ship.location;
     await this.setCurrentLocation(
       ship,
       galaxyField ? await this.findLocationByGalaxyField(galaxyField.id) : null,
@@ -2142,6 +2183,12 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
+    await this.flightSignatureService.createMovement(
+      ship,
+      previousLocation,
+      ship.location,
+      this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
+    );
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     return ship;
   }
@@ -2453,6 +2500,30 @@ export class SpacecraftService {
           );
         } else {
           throw new BadRequestException('Invalid target location');
+        }
+      }
+
+      const originLocation = await this.loadLocation(
+        ship.originLocationId,
+        ship.originLocation,
+      );
+      if (originLocation && targetLocation) {
+        const originField = resolveSpaceLocation(originLocation);
+        const targetField = resolveSpaceLocation(targetLocation);
+        if (originField && targetField) {
+          await this.flightSignatureService.createMovement(
+            ship,
+            originLocation,
+            targetLocation,
+            this.flightDirection(
+              this.directionFromMove(
+                originField.x,
+                originField.y,
+                targetField.x,
+                targetField.y,
+              ),
+            ),
+          );
         }
       }
 

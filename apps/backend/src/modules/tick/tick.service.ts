@@ -9,6 +9,7 @@ import { ResearchService } from '../research/research.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { FlightSignatureService } from '../spacecraft/flight-signature.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -56,6 +57,9 @@ export class TickService {
     private readonly config: ConfigService,
     private readonly dashboardService: DashboardService,
     private readonly statisticsService: StatisticsService,
+    private readonly flightSignatureService: FlightSignatureService = {
+      deleteExpired: async () => undefined,
+    } as unknown as FlightSignatureService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -212,6 +216,7 @@ export class TickService {
         );
       }
 
+      await this.flightSignatureService.deleteExpired();
       await this.dashboardService.recordSnapshot();
       // Fehler werden in recordSnapshots protokolliert und brechen den Tick nicht ab.
       await this.statisticsService.recordSnapshots(new Date(tickNumber));

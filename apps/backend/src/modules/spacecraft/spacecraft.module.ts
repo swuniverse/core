@@ -17,6 +17,7 @@ import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { CartographyPlan } from './entities/cartography-plan.entity';
+import { FlightSignature } from './entities/flight-signature.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -58,6 +59,7 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
 import { CartographyPlanService } from './cartography-plan.service';
 import { DatabaseModule } from '../database/database.module';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { FlightSignatureService } from './flight-signature.service';
 
 @Module({
   imports: [
@@ -76,6 +78,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
       SpacecraftTorpedoStorage,
       SpacecraftWreck,
       CartographyPlan,
+      FlightSignature,
       StarSystem,
       Layer,
       CelestialObject,
@@ -123,6 +126,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
     SpacecraftEngineeringService,
     SpacecraftDestructionService,
     StarmapVisibilityService,
+    FlightSignatureService,
   ],
   exports: [
     SpacecraftService,
@@ -137,6 +141,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
     SpacecraftResourceFlowService,
     CartographyPlanService,
     SpacecraftDestructionService,
+    FlightSignatureService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

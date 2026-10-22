@@ -36,6 +36,7 @@ import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.servic
 import { resolveSpacecraftLocation } from './spacecraft-field';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { ColonyScanProjectionService } from './colony-scan-projection.service';
+import { FlightSignatureService } from './flight-signature.service';
 
 @Injectable()
 export class SpacecraftScanService {
@@ -66,6 +67,12 @@ export class SpacecraftScanService {
     private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
     private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
     private readonly colonyScanProjection: ColonyScanProjectionService,
+    private readonly flightSignatureService: FlightSignatureService = {
+      getVisibleAt: async () => ({
+        signatures: [],
+        fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      }),
+    } as unknown as FlightSignatureService,
   ) {}
 
   async sectorScan(
@@ -116,6 +123,9 @@ export class SpacecraftScanService {
         ? field.systemTypeId
         : null;
     const galaxyLocation = location.scope === 'GALAXY' ? location : null;
+    const signatureResult = ship.locationId
+      ? await this.flightSignatureService.getVisibleAt(ship.locationId, userId)
+      : { signatures: [], fadedSignatures: { uncloaked: 0, cloaked: 0 } };
     const discovery =
       galaxyLocation && systemTypeId != null && SYSTEM_TYPE_BY_ID[systemTypeId]
         ? await this.systemTypeDiscoveryService.discover({
@@ -165,8 +175,8 @@ export class SpacecraftScanService {
       },
       discovery: discovery ?? celestialDiscovery,
       celestialDiscovery,
-      signatures: [],
-      fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      signatures: signatureResult.signatures,
+      fadedSignatures: signatureResult.fadedSignatures,
       buoys: [],
     });
   }
@@ -502,10 +512,7 @@ export class SpacecraftScanService {
     if (colonyLocation?.systemId !== location.systemId) {
       throw new BadRequestException('Colony is not in current system');
     }
-    if (
-      colonyLocation.x !== location.x ||
-      colonyLocation.y !== location.y
-    ) {
+    if (colonyLocation.x !== location.x || colonyLocation.y !== location.y) {
       throw new BadRequestException(
         'Colony scan requires ship to orbit the colony',
       );
@@ -566,11 +573,14 @@ export class SpacecraftScanService {
     scan.surfaceHeight = colony.celestialObject?.surfaceHeight ?? null;
     scan.surfaceFields = surfaceFields;
     const savedScan = await this.colonyScanRepo.save(scan);
-    const systemReference = await this.explorationService.isSystemExplored(
+    const systemReference = (await this.explorationService.isSystemExplored(
       userId,
       colonyLocation.systemId,
-    )
-      ? { id: colonyLocation.systemId, href: `/database/systems/${colonyLocation.systemId}` }
+    ))
+      ? {
+          id: colonyLocation.systemId,
+          href: `/database/systems/${colonyLocation.systemId}`,
+        }
       : undefined;
 
     return {

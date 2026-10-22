@@ -37,6 +37,17 @@ type SectorScanResult = {
     prestigeAwarded: number;
     name: string;
   } | null;
+  signatures: Array<{
+    spacecraftId: number;
+    shipClassId: number | null;
+    shipClassName: string | null;
+    spacecraftName: string | null;
+    fromDirection: 'NORTH' | 'EAST' | 'SOUTH' | 'WEST' | null;
+    toDirection: 'NORTH' | 'EAST' | 'SOUTH' | 'WEST' | null;
+    isCloaked: boolean;
+    createdAt: string;
+  }>;
+  fadedSignatures: { uncloaked: number; cloaked: number };
 };
 
 export function FieldContextPanel({
@@ -663,6 +674,11 @@ function SectorScanDialog({
 }) {
   const field = scan.result.field;
   const object = field.celestialObject;
+  const signatures = scan.result.signatures ?? [];
+  const fadedSignatures = scan.result.fadedSignatures ?? {
+    uncloaked: 0,
+    cloaked: 0,
+  };
   return (
     <Dialog title="Sektor-Scan" label="Sektor-Scan" onClose={onClose}>
       {scan.result.discovery?.discovered && (
@@ -714,8 +730,74 @@ function SectorScanDialog({
           )}
         </div>
       </div>
+      {signatures.length > 0 && (
+        <table className="mt-3 w-full border-collapse text-left text-sm">
+          <caption className="border border-swu-border bg-black/30 px-2 py-1 text-left font-bold text-swu-primary">
+            Signaturen
+          </caption>
+          <thead>
+            <tr className="border border-swu-border text-swu-muted">
+              <th className="px-2 py-1">Klasse</th>
+              <th className="px-2 py-1">Name</th>
+              <th className="px-2 py-1">Richtung</th>
+              <th className="px-2 py-1">Alter</th>
+            </tr>
+          </thead>
+          <tbody>
+            {signatures.map((signature) => (
+              <tr
+                key={signature.spacecraftId}
+                className="border border-swu-border"
+              >
+                <td className="px-2 py-1">{signature.shipClassName ?? '?'}</td>
+                <td className="px-2 py-1">{signature.spacecraftName ?? '?'}</td>
+                <td className="px-2 py-1">
+                  {formatSignatureDirection(signature)}
+                </td>
+                <td className="px-2 py-1">
+                  {formatSignatureAge(signature.createdAt)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {(fadedSignatures.uncloaked > 0 || fadedSignatures.cloaked > 0) && (
+        <div className="mt-3 border border-swu-border bg-black/20 p-2 text-sm">
+          <div className="font-bold text-swu-primary">
+            Verblasste Signaturen
+          </div>
+          <div>Ungetarnt: {fadedSignatures.uncloaked}</div>
+          <div>Getarnt: {fadedSignatures.cloaked}</div>
+        </div>
+      )}
     </Dialog>
   );
+}
+
+function formatSignatureDirection(
+  signature: SectorScanResult['signatures'][number],
+): string {
+  const labels = {
+    NORTH: 'Nord',
+    EAST: 'Ost',
+    SOUTH: 'Süd',
+    WEST: 'West',
+  } as const;
+  if (signature.toDirection) return `nach ${labels[signature.toDirection]}`;
+  if (signature.fromDirection) return `aus ${labels[signature.fromDirection]}`;
+  return '?';
+}
+
+function formatSignatureAge(createdAt: string): string {
+  const seconds = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000),
+  );
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h`;
 }
 
 function Dialog({

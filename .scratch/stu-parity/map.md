@@ -115,3 +115,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-B1 – Arbeitslose wandern bei Überbelegung und überschrittenem Bevölkerungslimit aus – siehe Feature-Commit
 - sc-WP-FLEET-1a – Flottenverwaltung und Schiffsaktionen vollständig – siehe Feature-Commit
 - sc-WP-COMBAT-2 – Mehrparteienkampf für Flotten und alarmierte Mitverteidiger – siehe Feature-Commit
+- sc-WP-NAV-2a – Flugsignaturen, Sichtbarkeitsfenster, Verfall und Schiff-Sektor-Scan – siehe Feature-Commit
