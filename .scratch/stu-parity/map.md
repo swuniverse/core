@@ -106,6 +106,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-22 – sc-WP-STAT-0 – Stationen sind unbewegliche `Spacecraft` mit Diskriminator; kanonische Rollen: Konstrukt, Versorgungsdepot, Logistikzentrum, Raumwerft, Sensorphalanx, Außenposten und Raumstation; Dock-Zugänge folgen Verbot-vor-Erlaubnis und den Allianz-Integrationsverträgen
 
 - 2026-10-22 – tmw-W1 – Hutten-Kartell betreibt Deals, Auktionen, Lotterie und den „Hutten-Handelsposten“; Imperiales Versorgungsamt und Nachschubkommando der Rebellenallianz betreiben die fraktionseigenen Basishandelsnetze
+- 2026-10-22 – soc-G1 – SWU-Awardkatalog: Forschungs- und Datenbankmeilensteine, Ebenenerkundung, Hutten-Lotterie, Rollenspiel/Gemeinschaft sowie positive und negative Auszeichnungen von Rebellen-Oberkommando, Imperialem Oberkommando und Hutten-Kartell; bis zu eigenen Grafiken dient das Favicon als klarer Platzhalter
 
 ## Erledigt
 
@@ -145,3 +146,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-D0 – Elf Systemdatenbank- und Astrometrie-Spec-Issues gegen Code, Tests und Historie abgeglichen; Restlücken als tmw-D0a/b erfasst – siehe Feature-Commit
 - tmw-D1 – Warenübersicht mit eigenen Lagerorten und erweiterbarem Quellen-Port umgesetzt – siehe Feature-Commit
 - tmw-W1 – Handels-NPC-Konten mit zentralen Ausschlüssen, Handelsnachrichten und Adminpflege umgesetzt – siehe Feature-Commit
+- soc-G1 – Awardkatalog, idempotente Vergabe mit Prestige und Profilanzeige umgesetzt – siehe Feature-Commit

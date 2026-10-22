@@ -105,6 +105,9 @@ import { ForumBoard } from './modules/alliance/entities/forum-board.entity';
 import { ForumTopic } from './modules/alliance/entities/forum-topic.entity';
 import { ForumPost } from './modules/alliance/entities/forum-post.entity';
 import { validateGameTimezone } from './modules/tick/maintenance.service';
+import { AwardsModule } from './modules/awards/awards.module';
+import { Award } from './modules/awards/entities/award.entity';
+import { UserAward } from './modules/awards/entities/user-award.entity';
 
 @Module({
   imports: [
@@ -203,6 +206,8 @@ import { validateGameTimezone } from './modules/tick/maintenance.service';
           ForumBoard,
           ForumTopic,
           ForumPost,
+          Award,
+          UserAward,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -226,6 +231,7 @@ import { validateGameTimezone } from './modules/tick/maintenance.service';
     MailModule,
     EventsModule,
     PrestigeModule,
+    AwardsModule,
     DashboardModule,
     AllianceModule,
     TickModule,

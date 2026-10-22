@@ -1,6 +1,6 @@
 # Awards: Grundsystem, SWU-Katalog und Profilanzeige
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -30,12 +30,14 @@ Vorgabe gemäß Leitplanke 2 und 3: Awards sind im Scope. Die STU-Awards sind St
 
 ## Akzeptanzkriterien
 
-- [ ] Tabellen `awards` (stabiler Key, Beschreibung, Bildpfad, Prestige ≥ 0, `isNpc`) und `user_awards` (Spieler, Award, Anzahl ≥ 1, erstes Vergabedatum), eindeutig je Spieler/Award, `ON DELETE CASCADE` mit dem Konto.
-- [ ] Katalog mit mindestens: Forschungsmeilensteine, vollständige Datenbankkategorie, Ebene vollständig erkundet, Lotteriegewinn, zwei RPG-/Community-Awards, je Fraktion bzw. SW-NPC-Macht ein positiver und negativer NPC-Award; per Migration/Seed idempotent eingespielt.
-- [ ] `AwardService.grant` ist idempotent: Erstvergabe legt an (Anzahl 1) und bucht das Award-Prestige über `PrestigeService` mit STU-Text; erneute Vergabe ohne `incrementExisting` ändert nichts; mit `incrementExisting` erhöht die Anzahl und bucht erneut Prestige. Nebenläufige Doppelvergabe erzeugt keine Duplikate.
-- [ ] Der Spieler erhält bei Erstvergabe eine Systemnachricht „Du hast den Award X erhalten“.
-- [ ] Die Profil-API liefert Awards (Key, Beschreibung, Bild, Anzahl); das Profil zeigt eine Box „Awards“ mit Bild, `title`/`aria-label` = Beschreibung, Zähler ab 2, „Keine“ wenn leer.
-- [ ] Der gewählte SWU-Katalog steht unter „Entscheidungen“ in `map.md`.
-- [ ] Backend-Tests: Erstvergabe, Idempotenz, Inkrement, Prestige-Buchung, Konkurrenz (Unique-Constraint). Frontend-Tests: Profilbox mit/ohne Awards, Zähler.
+- [x] Tabellen `awards` (stabiler Key, Beschreibung, Bildpfad, Prestige ≥ 0, `isNpc`) und `user_awards` (Spieler, Award, Anzahl ≥ 1, erstes Vergabedatum), eindeutig je Spieler/Award, `ON DELETE CASCADE` mit dem Konto.
+- [x] Katalog mit mindestens: Forschungsmeilensteine, vollständige Datenbankkategorie, Ebene vollständig erkundet, Lotteriegewinn, zwei RPG-/Community-Awards, je Fraktion bzw. SW-NPC-Macht ein positiver und negativer NPC-Award; per Migration/Seed idempotent eingespielt.
+- [x] `AwardService.grant` ist idempotent: Erstvergabe legt an (Anzahl 1) und bucht das Award-Prestige über `PrestigeService` mit STU-Text; erneute Vergabe ohne `incrementExisting` ändert nichts; mit `incrementExisting` erhöht die Anzahl und bucht erneut Prestige. Nebenläufige Doppelvergabe erzeugt keine Duplikate.
+- [x] Der Spieler erhält bei Erstvergabe eine Systemnachricht „Du hast den Award X erhalten“.
+- [x] Die Profil-API liefert Awards (Key, Beschreibung, Bild, Anzahl); das Profil zeigt eine Box „Awards“ mit Bild, `title`/`aria-label` = Beschreibung, Zähler ab 2, „Keine“ wenn leer.
+- [x] Der gewählte SWU-Katalog steht unter „Entscheidungen“ in `map.md`.
+- [x] Backend-Tests: Erstvergabe, Idempotenz, Inkrement, Prestige-Buchung, Konkurrenz (Unique-Constraint). Frontend-Tests: Profilbox mit/ohne Awards, Zähler.
 
 ## Comments
+
+- Award entities, idempotent/concurrency-safe grant service, seeded Star-Wars catalog, profile DTO/API projection and dense profile box were added across `apps/backend/src/modules/awards`, database profile handling, shared DTOs, and the React profile. The existing favicon is used as a clearly documented placeholder until dedicated award art is available. Focused tests and all builds pass; the required affected suite remains blocked by pre-existing failures in `spacecraft-destruction.service.spec.ts` and `research.spec.tsx` unrelated to this issue.

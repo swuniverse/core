@@ -84,6 +84,69 @@ describe('PlayerProfilePage', () => {
     expect(screen.queryByText('Allianz')).toBeNull();
   });
 
+  it('renders awards with descriptions and repeat counts', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1,
+      username: 'leia',
+      displayName: null,
+      avatar: null,
+      description: null,
+      faction: 'REBEL_ALLIANCE',
+      factionName: 'Rebellenallianz',
+      prestige: 0,
+      colonies: 0,
+      ships: 0,
+      completedResearch: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null },
+      awards: [
+        {
+          key: 'LOTTERY_WINNER',
+          description: 'Gewinner der Hutten-Lotterie',
+          image: '/favicon.ico',
+          count: 2,
+        },
+      ],
+    });
+
+    renderProfile();
+
+    expect(await screen.findByRole('heading', { name: 'Awards' })).toBeTruthy();
+    const award = screen.getByRole('img', {
+      name: 'Gewinner der Hutten-Lotterie',
+    });
+    expect(award.getAttribute('title')).toBe('Gewinner der Hutten-Lotterie');
+    expect(screen.getByText('2')).toBeTruthy();
+  });
+
+  it('renders an empty awards box', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1,
+      username: 'leia',
+      displayName: null,
+      avatar: null,
+      description: null,
+      faction: 'REBEL_ALLIANCE',
+      factionName: 'Rebellenallianz',
+      prestige: 0,
+      colonies: 0,
+      ships: 0,
+      completedResearch: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null },
+      awards: [],
+    });
+
+    renderProfile();
+
+    expect(await screen.findByRole('heading', { name: 'Awards' })).toBeTruthy();
+    expect(screen.getByText('Keine')).toBeTruthy();
+  });
+
   it('links the player’s alliance', async () => {
     apiMocks.get.mockResolvedValue({
       id: 1,

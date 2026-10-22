@@ -5,6 +5,7 @@ import { PlayerAvatar } from '../components/PlayerAvatar';
 import {
   Faction,
   type AllianceRefDto,
+  type AwardProfileDto,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { SettlerPublicDiplomacy } from './alliances';
@@ -31,6 +32,7 @@ interface PlayerProfile {
   isAdmin: boolean;
   createdAt: string;
   alliance: AllianceRefDto | null;
+  awards?: AwardProfileDto[];
   colonyScans?: ColonyScanProjection[];
 }
 
@@ -199,6 +201,32 @@ export function PlayerProfilePage() {
           />
         ) : (
           <p className="text-sm italic text-swu-muted">Keine Beschreibung</p>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
+        <h2 className="mb-3 text-sm font-bold text-swu-primary">Awards</h2>
+        {(player.awards ?? []).length === 0 ? (
+          <p className="text-center text-sm text-swu-muted">Keine</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {(player.awards ?? []).map((award) => (
+              <span key={award.key} className="relative inline-flex">
+                <img
+                  src={award.image}
+                  alt={award.description}
+                  aria-label={award.description}
+                  title={award.description}
+                  className="size-12 rounded border border-swu-border bg-swu-bg object-contain p-1"
+                />
+                {award.count >= 2 && (
+                  <span className="absolute -bottom-1 -right-1 min-w-5 rounded-full bg-swu-accent px-1 text-center text-xs font-bold text-swu-bg">
+                    {award.count}
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
         )}
       </section>
 

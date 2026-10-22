@@ -6,3 +6,4 @@ export * from './lib/spacecraft/index.js';
 export * from './lib/alliance/index.js';
 export * from './lib/statistics/index.js';
 export * from './lib/database/index.js';
+export * from './lib/awards/index.js';

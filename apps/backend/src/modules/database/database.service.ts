@@ -35,6 +35,7 @@ import {
   CartographyPlanStatus,
 } from '../spacecraft/entities/cartography-plan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
+import { UserAward } from '../awards/entities/user-award.entity';
 
 type RankingKey =
   | 'discoveries'
@@ -95,6 +96,8 @@ export class DatabaseService {
     private readonly systemFieldRepo: Repository<SystemField>,
     @InjectRepository(CartographyPlan)
     private readonly cartographyPlanRepo: Repository<CartographyPlan>,
+    @InjectRepository(UserAward)
+    private readonly userAwardRepo: Repository<UserAward>,
     private readonly colonyScanProjection: ColonyScanProjectionService,
   ) {}
 
@@ -178,9 +181,14 @@ export class DatabaseService {
       factions.map((faction) => [faction.id, faction]),
     );
 
-    const [entry, alliance, colonyScans] = await Promise.all([
+    const [entry, alliance, awards, colonyScans] = await Promise.all([
       this.toSettlerEntry(user, factionById),
       this.allianceService.getRef(user.id),
+      this.userAwardRepo.find({
+        where: { userId: user.id },
+        relations: ['award'],
+        order: { firstGrantedAt: 'ASC' },
+      }),
       viewerId === user.id
         ? Promise.resolve(undefined)
         : this.colonyScanProjection.newestAccessibleForColonies(
@@ -195,6 +203,12 @@ export class DatabaseService {
     return {
       ...entry,
       alliance,
+      awards: awards.map(({ award, count }) => ({
+        key: award.key,
+        description: award.description,
+        image: award.image,
+        count,
+      })),
       ...(scansWithSystemContext === undefined
         ? {}
         : { colonyScans: scansWithSystemContext }),

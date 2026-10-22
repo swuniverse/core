@@ -30,6 +30,7 @@ function createService() {
   const gameGateway = { onlineUserIds: [] as number[] };
   const prestigeHistoryRepo = { find: jest.fn() };
   const allianceService = { getRef: jest.fn().mockResolvedValue(null) };
+  const userAwardRepo = { find: jest.fn().mockResolvedValue([]) };
   const service = new DatabaseService(
     userRepo as any,
     colonyRepo as any,
@@ -51,6 +52,7 @@ function createService() {
     {} as any,
     {} as any,
     {} as any,
+    userAwardRepo as any,
     {} as any,
   );
   return {
@@ -253,6 +255,7 @@ describe('DatabaseService settlers', () => {
       isAdmin: false,
       createdAt,
       alliance: null,
+      awards: [],
     });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     expect(JSON.stringify(result)).not.toContain('refreshToken');

@@ -31,6 +31,7 @@ import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torp
 import { CommodityOverviewService } from './commodity-overview.service';
 import { OwnedStorageCommodityLocationSource } from './owned-storage-commodity-location.source';
 import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
+import { UserAward } from '../awards/entities/user-award.entity';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
       ColonyStorage,
       CargoItem,
       SpacecraftTorpedoStorage,
+      UserAward,
     ]),
     FactionModule,
     GameDataModule,

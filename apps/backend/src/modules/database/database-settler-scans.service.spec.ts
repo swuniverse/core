@@ -68,6 +68,7 @@ function createService(overrides: Record<string, unknown> = {}) {
     },
     shipRepo: { count: jest.fn().mockResolvedValue(2) },
     researchRepo: { count: jest.fn().mockResolvedValue(3) },
+    userAwardRepo: { find: jest.fn().mockResolvedValue([]) },
     colonyScanProjection: {
       newestAccessibleForColonies: jest.fn().mockResolvedValue([
         { id: 501, colonyId: 201, systemId: 9, canDelete: true },
