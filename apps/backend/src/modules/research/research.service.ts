@@ -14,26 +14,9 @@ import { GameGateway } from '../websocket/game.gateway';
 
 const ROOT_TECH_IDS = new Set([1001, 1003]);
 const MAX_QUEUE_SIZE = 10;
-const EXCLUSIVE_TECH_FACTIONS = new Map<number, Faction>([
-  [60100, Faction.GALACTIC_EMPIRE],
-]);
 
-// ponytail: faction check via ID last digit + name substring
-function isTechForFaction(
-  tech: { id: number; name?: string; faction?: Faction },
-  faction: Faction | null,
-): boolean {
-  if (!faction) return true;
-  if (tech.faction) return tech.faction === faction;
-  const exclusiveFaction = EXCLUSIVE_TECH_FACTIONS.get(tech.id);
-  if (exclusiveFaction) return faction === exclusiveFaction;
-  const lastDigit = tech.id % 10;
-  const name = tech.name ?? '';
-  const isRebel = lastDigit === 1 || name.includes('(Rebellen)');
-  const isEmpire = lastDigit === 3 || name.includes('(Imperium)');
-  if (isRebel && faction === Faction.GALACTIC_EMPIRE) return false;
-  if (isEmpire && faction === Faction.REBEL_ALLIANCE) return false;
-  return true;
+function isTechForFaction(tech: TechDef, faction: Faction | null): boolean {
+  return !faction || tech.faction === 'SHARED' || tech.faction === faction;
 }
 
 @Injectable()

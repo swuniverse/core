@@ -18,7 +18,7 @@ function makeTech(
   id: number,
   effort: number,
   deps: { type: string; techIds: number[] }[] = [],
-  faction?: Faction,
+  faction: TechDef['faction'] = 'SHARED',
 ): TechDef {
   return {
     id,
@@ -196,6 +196,22 @@ describe('ResearchService – state deduplication', () => {
     });
   });
 
+  it('includes shared technology for both factions', async () => {
+    techs = [makeTech(910000, 10, [], 'SHARED')];
+
+    const rebelState = await service.getResearchState(
+      42,
+      Faction.REBEL_ALLIANCE,
+    );
+    const empireState = await service.getResearchState(
+      42,
+      Faction.GALACTIC_EMPIRE,
+    );
+
+    expect(rebelState.map((tech) => tech.id)).toEqual([910000]);
+    expect(empireState.map((tech) => tech.id)).toEqual([910000]);
+  });
+
   it('deduplicates repeated tech definitions by id in research state', async () => {
     techs = [
       makeTech(910001, 10),
@@ -242,6 +258,20 @@ describe('ResearchService – state deduplication', () => {
     expect(empireCloakingGenerator?.dependencies).toEqual([
       { type: 'REQUIRE', techIds: [200503] },
     ]);
+  });
+
+  it('hides the excluded target after its source research starts', async () => {
+    techs = [
+      makeTech(10, 5, [{ type: 'EXCLUDE', techIds: [20] }]),
+      makeTech(20, 5),
+    ];
+    mockRepo.find.mockResolvedValue([
+      { techId: 10, status: 'IN_PROGRESS' } as never,
+    ]);
+
+    const state = await service.getResearchState(42, null);
+
+    expect(state.map((tech) => tech.id)).toEqual([10]);
   });
 
   it('uses faction-specific duplicate tech definitions for imperial module dependencies', async () => {

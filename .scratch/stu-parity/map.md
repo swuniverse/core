@@ -121,6 +121,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-C2 – Baumenü lässt sich nach Feld und produzierter Ware filtern – siehe Feature-Commit
 - col-D1 – Forschungsabschluss meldet sich im Kolonie-Ordner und aktualisiert die UI live – siehe Feature-Commit
 - col-D3a – Forschungsliste und -detail zeigen Bilder, Abschlussdatum, Folgeforschungen sowie Rumpf-/Modulfreischaltungen – siehe Feature-Commit
+- col-D4 – Forschungsdaten tragen validierte explizite Fraktionen; EXCLUDE-Import und -Richtung entsprechen STU – siehe Feature-Commit
 - sc-WP-FLEET-1a – Flottenverwaltung und Schiffsaktionen vollständig – siehe Feature-Commit
 - sc-WP-COMBAT-2 – Mehrparteienkampf für Flotten und alarmierte Mitverteidiger – siehe Feature-Commit
 - sc-WP-NAV-2a – Flugsignaturen, Sichtbarkeitsfenster, Verfall und Schiff-Sektor-Scan – siehe Feature-Commit

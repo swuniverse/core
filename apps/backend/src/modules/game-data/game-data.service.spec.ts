@@ -8,6 +8,20 @@ process.env.GAME_DATA_PATH = path.resolve(
     : 'game-data/data',
 );
 
+describe('GameDataService research validation', () => {
+  it('rejects technology data without an explicit faction', () => {
+    const service = new GameDataService();
+    const loadYaml = jest.spyOn(service as any, 'loadYaml');
+    loadYaml
+      .mockReturnValueOnce({ technologies: [{ id: 10, dependencies: [] }] })
+      .mockReturnValueOnce({ technologies: [] });
+
+    expect(() => (service as any).loadTechTree()).toThrow(
+      'Technology 10 in research/rebels.yaml has invalid or missing faction',
+    );
+  });
+});
+
 const FUNCTIONS = {
   COLONY_CENTRAL: 1,
   ENERGY_PHALANX: 26,

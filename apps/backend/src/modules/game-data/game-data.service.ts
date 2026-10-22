@@ -171,7 +171,7 @@ export interface TechDef {
   commodityId?: number;
   mappedCommodityId?: number | null;
   researchMode?: 'commodity' | 'points';
-  faction?: Faction;
+  faction: Faction | 'SHARED';
   hidden?: boolean;
   adminOnly?: boolean;
   excludeFromNormalProgression?: boolean;
@@ -1035,16 +1035,21 @@ export class GameDataService implements OnModuleInit {
 
   private loadTechTree() {
     this.techTree = [];
-    const files: Array<{ file: string; faction: Faction }> = [
-      { file: 'research/rebels.yaml', faction: Faction.REBEL_ALLIANCE },
-      { file: 'research/imperials.yaml', faction: Faction.GALACTIC_EMPIRE },
-    ];
-    for (const { file, faction } of files) {
+    const files = ['research/rebels.yaml', 'research/imperials.yaml'];
+    const validFactions = new Set<string>([
+      Faction.REBEL_ALLIANCE,
+      Faction.GALACTIC_EMPIRE,
+      'SHARED',
+    ]);
+    for (const file of files) {
       const data = this.loadYaml<{ technologies: TechDef[] }>(file);
-      if (data?.technologies?.length) {
-        this.techTree.push(
-          ...data.technologies.map((tech) => ({ ...tech, faction })),
-        );
+      for (const tech of data?.technologies ?? []) {
+        if (!validFactions.has(tech.faction)) {
+          throw new Error(
+            `Technology ${tech.id} in ${file} has invalid or missing faction`,
+          );
+        }
+        this.techTree.push(tech);
       }
     }
     this.logger.log(`Loaded ${this.techTree.length} technologies`);
