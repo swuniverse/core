@@ -1,6 +1,6 @@
 # HoloNet-Regeln an STU angleichen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
