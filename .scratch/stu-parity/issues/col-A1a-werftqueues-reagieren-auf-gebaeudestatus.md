@@ -1,6 +1,6 @@
 # Werft-Queues reagieren auf Deaktivierung und Abriss der Werft
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
