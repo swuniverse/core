@@ -1,6 +1,6 @@
 # Mehrparteienkampf: Flotten und Mitverteidiger
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** sc-WP-FLEET-1a
