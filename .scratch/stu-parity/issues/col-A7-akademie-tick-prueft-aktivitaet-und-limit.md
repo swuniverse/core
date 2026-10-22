@@ -1,6 +1,6 @@
 # Akademie-Tick prüft Aktivität und Crew-Limits
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
