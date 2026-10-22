@@ -817,6 +817,13 @@ export interface CommodityDef {
   id: number;
   name: string;
   nameShort: string;
+  sort?: number;
+  type?: number;
+  visible?: boolean;
+  npcCommodity?: boolean;
+  bound?: boolean;
+  isBeamable?: boolean;
+  isTradeable?: boolean;
   isSaveable?: boolean;
   isEffect?: boolean;
   isDeposit?: boolean;

@@ -46,13 +46,31 @@ describe('GameDataService commodity semantics', () => {
     service.onModuleInit();
   });
 
-  it('distinguishes saveable, effect and deposit commodities', () => {
+  it('derives STU transfer, trade, and storage semantics', () => {
     expect(service.getCommodity(2)).toMatchObject({
+      sort: 2,
+      type: 1,
+      visible: true,
+      npcCommodity: false,
+      bound: false,
+      isBeamable: true,
+      isTradeable: true,
       isSaveable: true,
       isEffect: false,
       isDeposit: false,
     });
+    expect(service.getCommodity(1)).toMatchObject({
+      isBeamable: true,
+      isTradeable: false,
+    });
+    expect(service.getCommodity(60)).toMatchObject({
+      bound: true,
+      isBeamable: true,
+    });
     expect(service.getCommodity(1001)).toMatchObject({
+      visible: false,
+      isBeamable: false,
+      isTradeable: false,
       isSaveable: false,
       isEffect: true,
     });

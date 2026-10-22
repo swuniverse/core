@@ -58,6 +58,31 @@ describe('SupplyDock', () => {
     ).toBeNull();
   });
 
+  it('shows only visible standard commodities in configured sort order', () => {
+    render(
+      <SupplyDock
+        storage={[
+          { id: 1, commodityId: 1, amount: 10 },
+          { id: 2, commodityId: 2, amount: 20 },
+          { id: 3, commodityId: 3, amount: 30 },
+          { id: 4, commodityId: 4, amount: 40 },
+        ]}
+        commodityMap={{
+          1: { ...commodities[0], sort: 30, visible: true, type: 1 },
+          2: { ...commodities[1], sort: 10, visible: true, type: 1 },
+          3: { ...commodities[2], sort: 20, visible: false, type: 1 },
+          4: { id: 4, name: 'Effekt', nameShort: 'EFF', sort: 5, visible: true, type: 2 },
+        }}
+        onOpenCommodityLocations={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole('listitem').map((row) => row.getAttribute('aria-label'))).toEqual([
+      'Tibanna-Gas Lagerbestand',
+      'Durastahl Lagerbestand',
+    ]);
+  });
+
   it('opens locations only from the commodity icon and passes the exact trigger', () => {
     const onOpenCommodityLocations = vi.fn();
     render(

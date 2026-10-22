@@ -1,6 +1,6 @@
 # Warenmodell vervollständigen: Sortierung, Sichtbarkeit, Beam- und Handelssperren
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ Die Warendaten (`stu-commodity-map.yaml`) enthalten `sort`, `type`, `visible`, `
 
 ## Akzeptanzkriterien
 
-- [ ] `Commodity` enthält `sort`, `type`, `visible`, `npcCommodity`, `bound` sowie abgeleitete `isBeamable`, `isTradeable`, `isSaveable` (Shared-Funktion, STU-Semantik).
-- [ ] Transfers Kolonie↔Schiff und Schiff↔Schiff lehnen nicht beambare Waren ab; kontogebundene Waren (`bound`) nur zwischen verschiedenen Spielern.
-- [ ] Lageranzeigen (Kolonie, Schiff, Kolonieliste) sortieren nach `sort`; unsichtbare Waren (`visible: false`) und Effektwaren erscheinen nicht im Lager.
-- [ ] `isTradeable` steht für den Handel bereit (Durchsetzung folgt mit tmw-T4a; dort im Issue-Comment vermerken).
-- [ ] Backend-Tests: Beamsperre, Bound-Regel, Ableitungen; Frontend-Test: Sortierung nach `sort`.
+- [x] `Commodity` enthält `sort`, `type`, `visible`, `npcCommodity`, `bound` sowie abgeleitete `isBeamable`, `isTradeable`, `isSaveable` (Shared-Funktion, STU-Semantik).
+- [x] Transfers Kolonie↔Schiff und Schiff↔Schiff lehnen nicht beambare Waren ab; kontogebundene Waren (`bound`) nur zwischen verschiedenen Spielern.
+- [x] Lageranzeigen (Kolonie, Schiff, Kolonieliste) sortieren nach `sort`; unsichtbare Waren (`visible: false`) und Effektwaren erscheinen nicht im Lager.
+- [x] `isTradeable` steht für den Handel bereit (Durchsetzung folgt mit tmw-T4a; dort im Issue-Comment vermerken).
+- [x] Backend-Tests: Beamsperre, Bound-Regel, Ableitungen; Frontend-Test: Sortierung nach `sort`.
 
 ## Comments
+
+Commodity metadata and STU-derived flags now flow from game data into the API and storage UIs. Colony/ship and ship/ship cargo transfers enforce beamability and account binding; storage displays filter hidden/effect commodities and use configured sort order. `tmw-T4a` must enforce the exposed `isTradeable` flag when offers are implemented.

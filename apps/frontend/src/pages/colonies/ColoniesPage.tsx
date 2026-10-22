@@ -72,10 +72,23 @@ const buildStorageRows = (
 ) => {
   const rows = new Map<number, ColonyStorageItem>();
   for (const item of colony.storage ?? []) {
-    if (item.amount > 0) rows.set(item.commodityId, item);
+    const commodity = commodityMap[item.commodityId];
+    if (
+      item.amount > 0 &&
+      commodity?.visible !== false &&
+      commodity?.type !== 2
+    )
+      rows.set(item.commodityId, item);
   }
   for (const item of colony.detailV2?.inventory ?? []) {
-    if (item.amount <= 0 || rows.has(item.commodityId)) continue;
+    const commodity = commodityMap[item.commodityId];
+    if (
+      item.amount <= 0 ||
+      rows.has(item.commodityId) ||
+      commodity?.visible === false ||
+      commodity?.type === 2
+    )
+      continue;
     rows.set(item.commodityId, {
       id: item.id,
       commodityId: item.commodityId,
@@ -96,7 +109,10 @@ const buildStorageRows = (
     });
   }
   return Array.from(rows.values()).sort((a, b) => {
-    if (b.amount !== a.amount) return b.amount - a.amount;
+    const sortDiff =
+      (commodityMap[a.commodityId]?.sort ?? a.commodityId) -
+      (commodityMap[b.commodityId]?.sort ?? b.commodityId);
+    if (sortDiff !== 0) return sortDiff;
     return getStorageCommodityLabel(
       commodityMap,
       colony.detailV2,

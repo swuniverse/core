@@ -31,3 +31,5 @@ Spieler mit Lizenz erstellen an einem Posten Tauschangebote aus ihrem Warenkonto
 - [ ] Backend-Tests für jede Regel, für Zurückziehen und für den Kontoplatz. Frontend-Tests: Formularvalidierung und Liste.
 
 ## Comments
+
+- col-F2 exposes canonical `isTradeable` on commodity definitions; offer creation must reject commodities where it is false.

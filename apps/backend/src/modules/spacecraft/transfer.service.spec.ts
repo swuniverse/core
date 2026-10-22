@@ -119,7 +119,12 @@ function cargoTransfer(
     dataSource as never,
     {} as never,
     {} as never,
-    {} as never,
+    {
+      getCommodity: jest.fn().mockReturnValue({
+        isBeamable: true,
+        bound: false,
+      }),
+    } as never,
     (resolver ?? {
       resolve: jest.fn().mockResolvedValue(relationship(status)),
     }) as never,
@@ -265,6 +270,32 @@ describe('TransferService ship transfers', () => {
       expect(quote.torpedoTransferAvailable).toBe(expectedAvailable);
     },
   );
+  it('rejects non-beamable cargo', async () => {
+    const { service, targetCargo } = cargoTransfer('FRIEND');
+    jest.spyOn((service as any).gameData, 'getCommodity').mockReturnValue({
+      isBeamable: false,
+      bound: false,
+    });
+
+    await expect(
+      service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
+    ).rejects.toThrow('Diese Ware kann nicht gebeamt werden');
+    expect(targetCargo.amount).toBe(0);
+  });
+
+  it('rejects account-bound cargo between different players', async () => {
+    const { service, targetCargo } = cargoTransfer('FRIEND');
+    jest.spyOn((service as any).gameData, 'getCommodity').mockReturnValue({
+      isBeamable: true,
+      bound: true,
+    });
+
+    await expect(
+      service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
+    ).rejects.toThrow('Diese Ware kann nicht gebeamt werden');
+    expect(targetCargo.amount).toBe(0);
+  });
+
   it('rejects cargo provisioning to a neutral foreign ship', async () => {
     const { service, targetCargo } = cargoTransfer('NEUTRAL');
 

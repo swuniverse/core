@@ -11,6 +11,11 @@ export interface Commodity {
   description: string;
   density: number;
   type: number;
+  visible: boolean;
+  npcCommodity: boolean;
+  bound: boolean;
+  isBeamable: boolean;
+  isTradeable: boolean;
   isTradeOnly: boolean;
   isSaveable: boolean;
   isEffect: boolean;
@@ -18,7 +23,6 @@ export interface Commodity {
   isShuttle?: boolean;
   isWorkbee?: boolean;
   sort: number;
-  visible: boolean;
 }
 
 export interface BuildingCosts {
@@ -588,6 +592,9 @@ export class GameDataService implements OnModuleInit {
     if (data?.commodities?.length) {
       for (const c of data.commodities) {
         const type = c.type ?? 1;
+        const visible = c.visible !== false;
+        const npcCommodity = c.npcCommodity === true;
+        const isBeamable = type === 1 && visible;
         this.commodities.set(c.id, {
           id: c.id,
           name: c.name,
@@ -595,14 +602,18 @@ export class GameDataService implements OnModuleInit {
           description: c.name,
           density: 1,
           type,
-          isTradeOnly: type !== 1 || c.visible === false,
-          isSaveable: type === 1 && c.visible !== false,
+          visible,
+          npcCommodity,
+          bound: c.bound === true,
+          isBeamable,
+          isTradeable: isBeamable && !npcCommodity,
+          isTradeOnly: !isBeamable,
+          isSaveable: type === 1,
           isEffect: type !== 1,
           isDeposit: c.id >= 1500 && c.id < 1700,
           isShuttle: c.id >= 21600 && c.id < 21700,
           isWorkbee: c.id >= 21650 && c.id < 21660,
           sort: c.sort ?? c.id,
-          visible: c.visible !== false,
         });
       }
       this.logger.log(`Loaded ${this.commodities.size} commodities`);

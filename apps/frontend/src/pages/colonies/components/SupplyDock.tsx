@@ -38,6 +38,10 @@ export function SupplyDock({
 
   const rows = useMemo(() => {
     return storage
+      .filter((item) => {
+        const commodity = commodityMap[item.commodityId];
+        return commodity?.visible !== false && commodity?.type !== 2;
+      })
       .map((item) => {
         const delta = detail?.productionDeltas.find(
           (d) => d.commodityId === item.commodityId,
@@ -49,16 +53,10 @@ export function SupplyDock({
         };
       })
       .sort((a, b) => {
-        const rank = (row: { item: ColonyStorageItem; delta?: number }) => {
-          if (row.item.amount <= 0 || (row.delta ?? 0) < 0) return 0;
-          if ((row.delta ?? 0) > 0) return 1;
-          return 2;
-        };
-        const rankDiff = rank(a) - rank(b);
-        if (rankDiff !== 0) return rankDiff;
-        if (b.item.amount !== a.item.amount)
-          return b.item.amount - a.item.amount;
-        return a.label.localeCompare(b.label, 'de');
+        const sortDiff =
+          (commodityMap[a.item.commodityId]?.sort ?? a.item.commodityId) -
+          (commodityMap[b.item.commodityId]?.sort ?? b.item.commodityId);
+        return sortDiff || a.label.localeCompare(b.label, 'de');
       });
   }, [commodityMap, detail, storage]);
 

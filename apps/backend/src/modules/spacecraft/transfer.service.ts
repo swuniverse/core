@@ -53,6 +53,20 @@ export class TransferService {
     private readonly relationshipResolver: RelationshipResolverService,
   ) {}
 
+  private assertCommodityBeamable(
+    commodityId: number,
+    sourceUserId: number,
+    targetUserId: number,
+  ): void {
+    const commodity = this.gameData.getCommodity(commodityId);
+    if (
+      !commodity?.isBeamable ||
+      (commodity.bound && sourceUserId !== targetUserId)
+    ) {
+      throw new BadRequestException('Diese Ware kann nicht gebeamt werden');
+    }
+  }
+
   async loadCargo(
     shipId: number,
     userId: number,
@@ -67,6 +81,11 @@ export class TransferService {
         userId,
         colonyId,
         manager,
+      );
+      this.assertCommodityBeamable(
+        commodityId,
+        colony.userId ?? userId,
+        ship.userId ?? userId,
       );
       this.contextService.chargeTransferEnergy(ship, colony, amount, initiator);
       const storage = await manager.findOne(ColonyStorage, {
@@ -144,6 +163,11 @@ export class TransferService {
         userId,
         colonyId,
         manager,
+      );
+      this.assertCommodityBeamable(
+        commodityId,
+        colony.userId ?? userId,
+        ship.userId ?? userId,
       );
       this.contextService.chargeTransferEnergy(ship, colony, amount, initiator);
       const cargoRepo = manager.getRepository(CargoItem);
@@ -397,6 +421,7 @@ export class TransferService {
       );
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
+      this.assertCommodityBeamable(commodityId, from.userId, to.userId);
       if (direction === 'TO_TARGET')
         this.contextService.chargeEnergy(sourceShip, amount);
       const cargoRepo = manager.getRepository(CargoItem);
@@ -501,12 +526,24 @@ export class TransferService {
   }
 
   private withCommodityNames(items: CargoItem[]) {
-    return items.map((item) => ({
-      ...item,
-      commodityName:
-        this.gameData.getCommodity(item.commodityId)?.name ??
-        `Ware #${item.commodityId}`,
-    }));
+    return items
+      .map((item) => ({
+        item,
+        commodity: this.gameData.getCommodity(item.commodityId),
+      }))
+      .filter(
+        ({ commodity }) => commodity?.visible !== false && commodity?.type !== 2,
+      )
+      .sort(
+        (a, b) =>
+          (a.commodity?.sort ?? a.item.commodityId) -
+          (b.commodity?.sort ?? b.item.commodityId),
+      )
+      .map(({ item, commodity }) => ({
+        ...item,
+        commodityName: commodity?.name ?? `Ware #${item.commodityId}`,
+        commoditySort: commodity?.sort ?? item.commodityId,
+      }));
   }
 
   async getShipCargo(shipId: number, userId?: number) {
