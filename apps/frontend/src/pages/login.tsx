@@ -553,7 +553,7 @@ export function LoginPage() {
             <input
               name="username"
               autoComplete="username"
-              placeholder="Commander"
+              placeholder="Login-Name oder Spieler-ID"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

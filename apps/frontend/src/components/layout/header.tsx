@@ -114,9 +114,15 @@ export function Header() {
         }
       : null);
 
-  function handleLogout() {
-    logout();
-    navigate('/login');
+  async function handleLogout() {
+    try {
+      await api.post('/auth/logout', {});
+    } catch {
+      // Client credentials still have to be cleared when the server is unreachable.
+    } finally {
+      logout();
+      navigate('/login');
+    }
   }
 
   return (

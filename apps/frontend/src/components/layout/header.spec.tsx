@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Header } from './header';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+const authMocks = vi.hoisted(() => ({ logout: vi.fn() }));
 
 const messageFolders = [
   { folder: 'PERSONAL', unread: 2, total: 4 },
@@ -17,12 +18,14 @@ vi.mock('../../services/api', () => ({ api: apiMocks }));
 vi.mock('../../hooks/use-socket', () => ({ useSocket: vi.fn() }));
 vi.mock('../../stores/auth.store', () => ({
   useAuthStore: (selector: (state: object) => unknown) =>
-    selector({ user: null, logout: vi.fn() }),
+    selector({ user: null, logout: authMocks.logout }),
 }));
 
 describe('Global status header', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
+    apiMocks.post.mockReset();
+    authMocks.logout.mockReset();
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(messageFolders);
       return Promise.resolve({
@@ -133,6 +136,20 @@ describe('Global status header', () => {
     expect(
       screen.getByTitle('Handel').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_4_0.png');
+  });
+
+  it('invalidates the server session before clearing the client session', async () => {
+    apiMocks.post.mockRejectedValueOnce(new Error('offline'));
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByTitle('Ausloggen'));
+
+    expect(apiMocks.post).toHaveBeenCalledWith('/auth/logout', {});
+    await waitFor(() => expect(authMocks.logout).toHaveBeenCalled());
   });
 
   it('shows a direct, counted icon link for every mailbox folder', async () => {

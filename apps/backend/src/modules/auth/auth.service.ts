@@ -1,5 +1,7 @@
 import {
   Injectable,
+  Inject,
+  Optional,
   ConflictException,
   UnauthorizedException,
   BadRequestException,
@@ -31,6 +33,10 @@ import { GameStatusService } from '../game-status/game-status.service';
 import { GAME_MAINTENANCE_ERROR_CODE } from '../game-status/game-status.guard';
 import { AccountTokenPurpose } from './account-token.entity';
 import { AccountTokenService } from './account-token.service';
+import {
+  ACCOUNT_ACCESS_CHECKS,
+  AccountAccessCheck,
+} from './account-access-check';
 
 const INITIAL_INVITE_QUOTA = 2;
 const PASSWORD_RESET_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -86,6 +92,9 @@ export class AuthService {
     private readonly gameStatusService: GameStatusService,
     private readonly accountTokenService: AccountTokenService,
     private readonly config: ConfigService,
+    @Optional()
+    @Inject(ACCOUNT_ACCESS_CHECKS)
+    private readonly accountAccessChecks: AccountAccessCheck[] = [],
   ) {}
 
   features(): AuthFeaturesDto {
@@ -266,13 +275,16 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.userRepo.findOne({
+    let user = await this.userRepo.findOne({
       where: {
         username: Raw((col) => `LOWER(${col}) = LOWER(:username)`, {
           username: dto.username,
         }),
       },
     });
+    if (!user && /^\d+$/.test(dto.username)) {
+      user = await this.userRepo.findOneBy({ id: Number(dto.username) });
+    }
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -282,6 +294,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    await this.assertAccountAccess(user);
     await this.assertGameAccess(user);
     return this.generateTokens(user);
   }
@@ -294,8 +307,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    await this.assertAccountAccess(user);
     await this.assertGameAccess(user);
     return this.generateTokens(user);
+  }
+
+  async logout(userId: number): Promise<void> {
+    await this.userRepo.update(userId, { refreshToken: null });
   }
 
   async getProfile(userId: number) {
@@ -580,6 +598,12 @@ export class AuthService {
 
   async updatePermissions(userId: number, permissions: string[]) {
     await this.userRepo.update(userId, { permissions });
+  }
+
+  private async assertAccountAccess(user: User): Promise<void> {
+    for (const check of this.accountAccessChecks) {
+      await check.assertAccountAccess(user);
+    }
   }
 
   private async assertGameAccess(user: User): Promise<void> {

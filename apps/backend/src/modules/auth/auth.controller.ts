@@ -38,6 +38,12 @@ export class AuthController {
     return this.authService.refresh(refreshToken);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  logout(@Request() req: { user: { sub: number } }) {
+    return this.authService.logout(req.user.sub);
+  }
+
   @Get('features')
   features() {
     return this.authService.features();

@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { GameStatusService } from './game-status.service';
+import { getJwtSecret } from '../auth/jwt-secret';
 
 export const GAME_MAINTENANCE_ERROR_CODE = 'GAME_MAINTENANCE';
 const REQUIRES_GAME_ACCESS = 'requires-game-access';
@@ -35,7 +36,7 @@ export class GameStatusGuard implements CanActivate {
     if (!token) return false;
     try {
       const payload = this.jwtService.verify<{ isAdmin?: boolean }>(token, {
-        secret: this.config.get<string>('JWT_SECRET') || 'fallback',
+        secret: getJwtSecret(this.config),
       });
       return Boolean(payload.isAdmin);
     } catch {

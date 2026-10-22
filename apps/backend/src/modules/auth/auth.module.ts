@@ -21,6 +21,7 @@ import { ColonyModule } from '../colony/colony.module';
 import { FactionModule } from '../faction/faction.module';
 import { MailModule } from '../mail/mail.module';
 import { GameStatusModule } from '../game-status/game-status.module';
+import { getJwtSecret } from './jwt-secret';
 
 @Module({
   imports: [
@@ -36,7 +37,7 @@ import { GameStatusModule } from '../game-status/game-status.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get('JWT_SECRET'),
+        secret: getJwtSecret(config),
         signOptions: { expiresIn: '15m' },
       }),
     }),
