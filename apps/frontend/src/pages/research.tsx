@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useSocket } from '../hooks/use-socket';
+import { commodityImage, researchImage, shipImage } from '../lib/assets';
 
 interface TechDependency {
   type: 'REQUIRE' | 'REQUIRE_SOME' | 'EXCLUDE';
@@ -19,6 +20,17 @@ interface ProductionItem {
   commodityId: number;
   amount: number;
   name: string;
+}
+
+interface UnlockShipClass {
+  id: number;
+  key?: string;
+  name: string;
+}
+
+interface UnlockModule {
+  name: string;
+  commodityId: number | null;
 }
 
 interface UnlockBuilding {
@@ -46,14 +58,15 @@ export interface TechState {
   dependencies: TechDependency[];
   unlocks?: {
     buildings?: UnlockBuilding[];
-    shipClasses?: number[];
-    modules?: string[];
+    shipClasses?: UnlockShipClass[];
+    modules?: UnlockModule[];
   };
   researchMode?: 'commodity' | 'points';
   status: string;
   progress: number;
   pointsRequired: number;
   finishesAt: string | null;
+  completedAt?: string | null;
   effort?: number;
   sort?: number;
   spentPoints?: number;
@@ -277,6 +290,7 @@ export function ResearchPage() {
                 className="bg-swu-surface border border-swu-accent/20 rounded px-3 py-2 cursor-pointer hover:border-swu-accent/50 transition-colors flex items-center gap-3"
                 onClick={() => openTechDetail(tech)}
               >
+                <ResearchArtwork tech={tech} size="small" />
                 <span className="text-[10px] font-mono text-swu-accent font-bold w-5 shrink-0">
                   {idx + 1}
                 </span>
@@ -336,8 +350,16 @@ export function ResearchPage() {
                 onClick={() => openTechDetail(tech)}
                 className="bg-swu-surface/50 border border-swu-border/30 rounded px-4 py-2 flex items-center gap-3 cursor-pointer hover:border-swu-border/60 transition-colors"
               >
+                <ResearchArtwork tech={tech} size="small" />
                 <span className="text-green-400 text-sm">✓</span>
-                <span className="text-xs text-swu-primary">{tech.name}</span>
+                <div className="min-w-0">
+                  <div className="text-xs text-swu-primary">{tech.name}</div>
+                  {tech.completedAt && (
+                    <div className="text-[10px] text-swu-muted">
+                      Erforscht am {formatResearchDate(tech.completedAt)}
+                    </div>
+                  )}
+                </div>
                 {tech.commodity && (
                   <span className="text-[10px] text-swu-muted ml-auto">
                     {tech.commodity.name}
@@ -372,7 +394,8 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
       onClick={onClick}
       className="bg-swu-surface border border-swu-border/50 rounded px-4 py-3 cursor-pointer hover:border-swu-accent/40 hover:bg-swu-accent/5 transition-colors"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <ResearchArtwork tech={tech} />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-swu-primary">{tech.name}</div>
           {tech.description && (
@@ -408,6 +431,44 @@ function TechCard({ tech, onClick }: { tech: TechState; onClick: () => void }) {
   );
 }
 
+function ResearchArtwork({
+  tech,
+  size = 'large',
+}: {
+  tech: TechState;
+  size?: 'small' | 'large';
+}) {
+  const [missing, setMissing] = useState(false);
+  const classes = size === 'small' ? 'size-10' : 'size-14';
+
+  if (missing) {
+    return (
+      <div
+        className={`${classes} shrink-0 rounded border border-swu-border/40 bg-swu-bg/70 flex items-center justify-center text-swu-muted text-lg`}
+        aria-label="Kein Forschungsbild verfügbar"
+      >
+        ?
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={researchImage(tech.id)}
+      alt={tech.name}
+      className={`${classes} shrink-0 rounded border border-swu-border/40 object-cover`}
+      onError={() => setMissing(true)}
+    />
+  );
+}
+
+function formatResearchDate(value: string): string {
+  return new Intl.DateTimeFormat('de-DE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 function uniqueTechsById(techs: TechState[]): TechState[] {
   const seen = new Set<number>();
   return techs.filter((tech) => {
@@ -439,11 +500,20 @@ export function TechDetailModal({
   const [queuePreview, setQueuePreview] = useState<TechState[] | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  const downstreamTechs = techs.filter((t) =>
-    t.dependencies.some(
-      (d) => d.type === 'REQUIRE' && d.techIds.includes(tech.id),
-    ),
-  );
+  const downstreamTechs = techs
+    .map((candidate) => {
+      const dependency = candidate.dependencies.find(
+        (entry) =>
+          (entry.type === 'REQUIRE' || entry.type === 'REQUIRE_SOME') &&
+          entry.techIds.includes(tech.id),
+      );
+      return dependency ? { tech: candidate, dependency } : null;
+    })
+    .filter(
+      (
+        entry,
+      ): entry is { tech: TechState; dependency: TechDependency } => !!entry,
+    );
   const excludedTechIds = tech.dependencies
     .filter((dep) => dep.type === 'EXCLUDE')
     .flatMap((dep) => dep.techIds);
@@ -516,12 +586,21 @@ export function TechDetailModal({
 
         {/* Body */}
         <div className="px-4 py-3 space-y-3">
-          {/* Description */}
-          {tech.description && (
-            <p className="text-[11px] text-swu-text leading-relaxed">
-              {tech.description}
-            </p>
-          )}
+          <div className="flex items-start gap-3">
+            <ResearchArtwork tech={tech} />
+            <div className="min-w-0 flex-1">
+              {tech.description && (
+                <p className="text-[11px] text-swu-text leading-relaxed">
+                  {tech.description}
+                </p>
+              )}
+              {tech.completedAt && (
+                <p className="mt-1 text-[10px] text-green-400">
+                  Erforscht am {formatResearchDate(tech.completedAt)}
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* Info Table */}
           <div className="border border-swu-border/50 rounded overflow-hidden">
@@ -704,13 +783,55 @@ export function TechDetailModal({
                 Folgende Forschungen werden ermoeglicht
               </div>
               <div className="flex flex-wrap gap-1.5 justify-center">
-                {downstreamTechs.map((dt) => (
-                  <span
-                    key={dt.id}
-                    className="px-2 py-1 text-[10px] bg-swu-primary/10 border border-swu-primary/40 text-swu-primary rounded"
+                {downstreamTechs.map(({ tech: downstream, dependency }) => (
+                  <button
+                    key={downstream.id}
+                    onClick={() => onSelect(downstream)}
+                    className="px-2 py-1 text-[10px] bg-swu-primary/10 border border-swu-primary/40 text-swu-primary rounded hover:bg-swu-primary/20"
                   >
-                    {dt.name}
-                  </span>
+                    {downstream.name}
+                    {dependency.type === 'REQUIRE_SOME' && (
+                      <span className="ml-1 text-swu-muted">(eine von)</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(tech.unlocks?.shipClasses?.length || tech.unlocks?.modules?.length) && (
+            <div className="border-t border-swu-border/30 pt-3">
+              <div className="text-[10px] text-swu-muted font-bold uppercase tracking-wider mb-2 text-center">
+                Freigeschaltete Schiffe und Module
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {(tech.unlocks?.shipClasses ?? []).map((shipClass) => (
+                  <div
+                    key={shipClass.id}
+                    className="flex items-center gap-2 rounded border border-swu-border/40 bg-swu-bg/50 p-2 text-[10px] text-swu-text"
+                  >
+                    <img
+                      src={shipImage(shipClass.id, shipClass.key)}
+                      alt={shipClass.name}
+                      className="size-8 object-contain"
+                    />
+                    <span>{shipClass.name}</span>
+                  </div>
+                ))}
+                {(tech.unlocks?.modules ?? []).map((module) => (
+                  <div
+                    key={`${module.name}-${module.commodityId ?? 'none'}`}
+                    className="flex items-center gap-2 rounded border border-swu-border/40 bg-swu-bg/50 p-2 text-[10px] text-swu-text"
+                  >
+                    {module.commodityId != null && (
+                      <img
+                        src={commodityImage(module.commodityId, module.name)}
+                        alt={module.name}
+                        className="size-8 object-contain"
+                      />
+                    )}
+                    <span>{module.name}</span>
+                  </div>
                 ))}
               </div>
             </div>

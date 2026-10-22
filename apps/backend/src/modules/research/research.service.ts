@@ -150,6 +150,28 @@ export class ResearchService {
         blockedReason: existing?.blockedReason ?? null,
         unlocks: {
           ...tech.unlocks,
+          shipClasses: (tech.unlocks?.shipClasses ?? []).map((id) => {
+            const definition = this.gameData
+              .getShipClassDefs()
+              .find((shipClass) => shipClass.stuRumpId === id);
+            return {
+              id,
+              key: definition?.key,
+              name: definition?.name ?? `Schiffsklasse #${id}`,
+            };
+          }),
+          modules: (tech.unlocks?.modules ?? []).map((name) => {
+            const item = this.gameData
+              .getAllFabricationItems()
+              .find(
+                (candidate) =>
+                  candidate.moduleType === name || candidate.displayName === name,
+              );
+            return {
+              name: item?.displayName ?? name,
+              commodityId: item?.outputCommodityId ?? null,
+            };
+          }),
           buildings: (tech.unlocks?.buildings ?? [])
             .filter(
               (
@@ -189,6 +211,7 @@ export class ResearchService {
             }),
         },
         finishesAt: existing?.finishesAt || null,
+        completedAt: existing?.completedAt || null,
       };
     });
   }
@@ -614,6 +637,7 @@ export class ResearchService {
         current.status = ResearchStatus.COMPLETED;
         current.remainingPoints = 0;
         current.finishesAt = null;
+        current.completedAt = new Date();
         current.blockedReason = null;
         await this.researchRepo.save(current);
         await this.notifyCompletion(userId, current.id, currentTech);
@@ -642,6 +666,7 @@ export class ResearchService {
         current.status = ResearchStatus.COMPLETED;
         current.remainingPoints = 0;
         current.finishesAt = null;
+        current.completedAt = new Date();
         await this.researchRepo.save(current);
         await this.notifyCompletion(userId, current.id, currentTech);
         current = await this.promoteQueued(userId);

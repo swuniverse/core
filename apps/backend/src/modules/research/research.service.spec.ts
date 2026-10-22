@@ -144,6 +144,58 @@ describe('ResearchService – state deduplication', () => {
     );
   });
 
+  it('returns completedAt and display data for unlocked ship classes and modules', async () => {
+    const completedAt = new Date('2026-10-22T12:34:56.000Z');
+    techs = [
+      {
+        ...makeTech(910001, 10),
+        unlocks: {
+          shipClasses: [701],
+          modules: ['Militär-Scanner'],
+        },
+      } as TechDef,
+    ];
+    mockRepo.find.mockResolvedValue([
+      {
+        techId: 910001,
+        status: 'COMPLETED',
+        completedAt,
+      } as never,
+    ]);
+    const gameData = (service as any).gameData;
+    gameData.getShipClassDefs = () => [
+      {
+        key: 'REBEL_SCOUT',
+        name: 'A-Wing Aufklärer',
+        stuRumpId: 701,
+      },
+    ];
+    gameData.getAllFabricationItems = () => [
+      {
+        displayName: 'Militär-Scanner',
+        moduleType: 'Militär-Scanner',
+        outputCommodityId: 9901,
+      },
+    ];
+
+    const state = await service.getResearchState(42, null);
+
+    expect(state[0]).toMatchObject({
+      completedAt,
+      unlocks: {
+        shipClasses: [
+          { id: 701, key: 'REBEL_SCOUT', name: 'A-Wing Aufklärer' },
+        ],
+        modules: [
+          {
+            name: 'Militär-Scanner',
+            commodityId: 9901,
+          },
+        ],
+      },
+    });
+  });
+
   it('deduplicates repeated tech definitions by id in research state', async () => {
     techs = [
       makeTech(910001, 10),
@@ -264,6 +316,7 @@ describe('ResearchService – completion notifications', () => {
       spentPoints: 0,
       progress: 0,
       finishesAt: new Date(),
+      completedAt: null as Date | null,
       blockedReason: null,
     };
     const repository = {
@@ -293,11 +346,16 @@ describe('ResearchService – completion notifications', () => {
     };
   }
 
-  it('sends one colony message and websocket event when research completes', async () => {
+  it('sets the completion timestamp and sends one colony message and websocket event', async () => {
     const context = setup(5);
+    const beforeCompletion = new Date();
 
     await context.service.processTick(42, 0, context.commodityProduction);
 
+    expect(context.research.completedAt).toEqual(expect.any(Date));
+    expect(context.research.completedAt?.getTime()).toBeGreaterThanOrEqual(
+      beforeCompletion.getTime(),
+    );
     expect(context.messaging.sendSystem).toHaveBeenCalledWith(
       42,
       "Forschung 'Tech 10' wurde abgeschlossen",

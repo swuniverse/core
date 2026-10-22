@@ -1,6 +1,6 @@
 # Forschungsliste und -detail: Bilder, Datum, Folgeforschungen, Freischaltungen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -24,13 +24,15 @@ Die SWU-Forschungsansicht zeigt keine Forschungsbilder, kein Abschlussdatum, Fol
 
 ## Akzeptanzkriterien
 
-- [ ] Liste und Detail zeigen das Forschungsbild (`researchImage`) mit Fallback, wenn das Asset fehlt.
-- [ ] Abgeschlossene Forschungen zeigen „Erforscht am <Datum>“ (neues Feld `completedAt`, beim Abschluss gesetzt; Altbestände ohne Datum zeigen kein Datum).
-- [ ] Folgeforschungen im Detail umfassen REQUIRE- und REQUIRE_SOME-Abhängige (REQUIRE_SOME als „eine von“ gekennzeichnet).
-- [ ] Das Detail listet freigeschaltete Schiffsklassen und Module (zusätzlich zu Gebäuden) mit Icons.
-- [ ] Backend-Test: `completedAt` wird gesetzt und ausgeliefert; Unlock-Daten enthalten Rümpfe/Module.
-- [ ] Frontend-Tests: Bild, Datum, REQUIRE_SOME-Folgeforschung, Rumpf-/Modulliste.
+- [x] Liste und Detail zeigen das Forschungsbild (`researchImage`) mit Fallback, wenn das Asset fehlt.
+- [x] Abgeschlossene Forschungen zeigen „Erforscht am <Datum>“ (neues Feld `completedAt`, beim Abschluss gesetzt; Altbestände ohne Datum zeigen kein Datum).
+- [x] Folgeforschungen im Detail umfassen REQUIRE- und REQUIRE_SOME-Abhängige (REQUIRE_SOME als „eine von“ gekennzeichnet).
+- [x] Das Detail listet freigeschaltete Schiffsklassen und Module (zusätzlich zu Gebäuden) mit Icons.
+- [x] Backend-Test: `completedAt` wird gesetzt und ausgeliefert; Unlock-Daten enthalten Rümpfe/Module.
+- [x] Frontend-Tests: Bild, Datum, REQUIRE_SOME-Folgeforschung, Rumpf-/Modulliste.
 
 ## Comments
 
 Geprüft beim Anlegen: Die Schaltfläche „Tick ausführen“ in `research.tsx` ist bereits nur für Admins sichtbar (`user?.isAdmin`).
+
+Umgesetzt: Das Backend persistiert und liefert `completedAt` per Entity und Migration und reichert Rumpf-/Modulfreischaltungen für die Anzeige an. Forschungsliste und Detail zeigen Bilder mit Fallback, Abschlussdatum, REQUIRE_SOME-Folgeforschungen sowie Rumpf-/Modulfreischaltungen mit Icons. Backend- und Frontend-Tests sowie die vollständigen Nx-Prüfungen sind grün; keine offenen Folgepunkte.

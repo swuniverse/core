@@ -57,6 +57,9 @@ export class Research {
   @Column({ type: 'timestamp', nullable: true })
   finishesAt: Date | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt: Date | null;
+
   @Column({ type: 'int', nullable: true })
   queuePosition: number | null;
 

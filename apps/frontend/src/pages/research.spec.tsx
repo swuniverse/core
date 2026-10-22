@@ -21,8 +21,12 @@ const techs = [
     tier: 1,
     duration: 45,
     finishesAt: null,
+    completedAt: '2026-10-22T12:34:56.000Z',
     dependencies: [],
-    unlocks: {},
+    unlocks: {
+      shipClasses: [{ id: 701, name: 'A-Wing Aufklärer' }],
+      modules: [{ name: 'Militär-Scanner', commodityId: 9901 }],
+    },
     status: 'COMPLETED',
     progress: 90,
     pointsRequired: 90,
@@ -601,6 +605,70 @@ describe('ResearchPage routing', () => {
       refreshToken: 'refresh',
       user: { isAdmin: false } as UserProfile,
     });
+  });
+
+  it('shows research images, completion date, alternative follow-ups, hulls, and modules', async () => {
+    const techsWithAlternativeFollowUp = [
+      ...techs,
+      {
+        id: 211400,
+        name: 'Alternative Reaktortheorie',
+        description: 'Kann auf mehreren Grundlagen aufbauen.',
+        category: 'energy',
+        tier: 2,
+        duration: 80,
+        finishesAt: null,
+        dependencies: [{ type: 'REQUIRE_SOME', techIds: [211200, 211302] }],
+        unlocks: {},
+        status: 'AVAILABLE',
+        progress: 0,
+        pointsRequired: 140,
+        commodity: null,
+      },
+    ];
+    apiMocks.get.mockResolvedValue(techsWithAlternativeFollowUp);
+
+    render(
+      <MemoryRouter initialEntries={['/research?focus=211200']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      (await screen.findByAltText('Fusionskern Mathematik')).getAttribute('src'),
+    ).toBe('/assets/research/211200.png');
+    expect(screen.getAllByText(/Erforscht am 22\.10\.2026/).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText('Alternative Reaktortheorie').length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /eine von/ })).toBeTruthy();
+    expect(screen.getByText('A-Wing Aufklärer')).toBeTruthy();
+    expect(screen.getByText('Militär-Scanner')).toBeTruthy();
+    expect(
+      screen.getByAltText('A-Wing Aufklärer').getAttribute('src'),
+    ).toBe('/assets/ships/701.png');
+    expect(
+      screen.getByAltText('Militär-Scanner').getAttribute('src'),
+    ).toContain('9901');
+  });
+
+  it('replaces a missing research image with an accessible fallback', async () => {
+    render(
+      <MemoryRouter initialEntries={['/research']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const image = await screen.findByAltText('Hyperantrieb Konzepte');
+    fireEvent.error(image);
+
+    expect(screen.getByLabelText('Kein Forschungsbild verfügbar')).toBeTruthy();
   });
 
   it('opens the focused tech modal from the URL and closes back to the research overview', async () => {
