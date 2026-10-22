@@ -1,6 +1,6 @@
 # Flottenverwaltung: Backend vervollständigen und Aktionen am Schiff
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
