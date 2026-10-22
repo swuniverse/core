@@ -1,3 +1,4 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -63,6 +64,10 @@ describe('alliance banner requests (Postgres, HTTP)', () => {
       controllers: [AllianceBannerController, AllianceController],
       providers: [
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+        },
         JwtStrategy,
         AllianceService,
         AllianceBannerService,

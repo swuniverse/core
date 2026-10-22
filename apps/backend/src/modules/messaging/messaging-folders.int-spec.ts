@@ -1,3 +1,4 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -39,6 +40,10 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       controllers: [MessagingController],
       providers: [
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+        },
         JwtStrategy,
         {
           provide: MessagingService,

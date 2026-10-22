@@ -16,6 +16,7 @@ function setup(checks: AccountAccessCheck[] = []) {
       onboardingCompleted: true,
       starterColonyId: null,
       isAdmin: false,
+      isNpc: false,
       permissions: [],
       createdAt: new Date('2026-01-01T00:00:00Z'),
     },
@@ -30,6 +31,7 @@ function setup(checks: AccountAccessCheck[] = []) {
       onboardingCompleted: true,
       starterColonyId: null,
       isAdmin: false,
+      isNpc: false,
       permissions: [],
       createdAt: new Date('2026-01-01T00:00:00Z'),
     },
@@ -70,6 +72,18 @@ describe('auth session behavior', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+
+  it('rejects NPC login before password verification', async () => {
+    const { service, users } = setup();
+    users[0].isNpc = true;
+    const compare = jest.spyOn(bcrypt, 'compare');
+
+    await expect(
+      service.login({ username: 'Leia', password: 'secret' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(compare).not.toHaveBeenCalled();
+  });
 
   it('logs in by player id when no exact numeric login name exists', async () => {
     const { service, users, userRepo } = setup();

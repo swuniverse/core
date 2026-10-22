@@ -85,7 +85,8 @@ const playersMetric: StatisticMetric = {
          COUNT(*) FILTER (WHERE NOT "vacationMode" AND "lastActiveAt" >= $1)::int AS active,
          COUNT(*) FILTER (WHERE NOT "vacationMode" AND ("lastActiveAt" IS NULL OR "lastActiveAt" < $1))::int AS inactive,
          COUNT(*) FILTER (WHERE "vacationMode")::int AS vacation
-       FROM "users"`,
+       FROM "users"
+       WHERE "isNpc" = false`,
       [new Date(now.getTime() - ACTIVE_WINDOW_MS)],
     );
     return {
@@ -124,6 +125,7 @@ function perFactionMetric(
            FROM "${table}" t
            JOIN "users" u ON u."id" = t."${ownerColumn}"
            JOIN "factions" f ON f."id" = u."factionId"
+           WHERE u."isNpc" = false
            GROUP BY f."key"`,
         );
       const values: Record<string, number> = {};
@@ -187,7 +189,7 @@ const prestigeMetric: StatisticMetric = {
   series: [{ key: 'total', label: 'Gesamt' }],
   async capture(dataSource) {
     const [row] = await dataSource.query(
-      `SELECT COALESCE(SUM("prestige"), 0) AS total FROM "users"`,
+      `SELECT COALESCE(SUM("prestige"), 0) AS total FROM "users" WHERE "isNpc" = false`,
     );
     return { total: Number(row.total) };
   },

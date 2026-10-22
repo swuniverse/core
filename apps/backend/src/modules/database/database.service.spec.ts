@@ -72,6 +72,7 @@ function rankingBuilder(result: unknown[]) {
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
     addGroupBy: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -155,6 +156,51 @@ describe('DatabaseService rankings', () => {
     );
   });
 });
+
+
+  it('excludes NPC accounts from the settler list and online list', async () => {
+    const { service, userRepo, factionService } = createService();
+    const player = { id: 1, username: 'Leia', isNpc: false, factionId: null };
+    userRepo.find.mockResolvedValue([player]);
+    factionService.findAll.mockResolvedValue([]);
+    const onlineIds = (service as any).gameGateway.onlineUserIds as number[];
+    onlineIds.push(1, 9);
+
+    await service.getSettlers();
+    await service.getOnlinePlayers();
+
+    expect(userRepo.find).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ where: { isNpc: false } }),
+    );
+    expect(userRepo.find).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: expect.objectContaining({ isNpc: false }) }),
+    );
+  });
+
+  it('adds the central non-NPC predicate to query-backed rankings', async () => {
+    const { service, userRepo, colonyRepo, researchRepo } = createService();
+    const research = rankingBuilder([]);
+    const colonies = rankingBuilder([]);
+    const worth = rankingBuilder([]);
+    const production = rankingBuilder([]);
+    researchRepo.createQueryBuilder.mockReturnValue(research);
+    colonyRepo.createQueryBuilder
+      .mockReturnValueOnce(colonies)
+      .mockReturnValueOnce(worth)
+      .mockReturnValueOnce(production);
+    userRepo.find.mockResolvedValue([]);
+
+    await service.getRankings();
+
+    for (const query of [research, colonies, worth, production]) {
+      expect(query.andWhere).toHaveBeenCalledWith('user.isNpc = false');
+    }
+    expect(userRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { isNpc: false } }),
+    );
+  });
 
 describe('DatabaseService settlers', () => {
   it('returns a single settler profile with public counts', async () => {

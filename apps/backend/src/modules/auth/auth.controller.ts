@@ -107,6 +107,16 @@ export class AuthController {
 
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch('admin/users/:id')
+  updateUser(
+    @Param('id') id: string,
+    @Body() body: { username: string; description: string | null },
+  ) {
+    return this.authService.updateUser(Number(id), body);
+  }
+
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Patch('admin/users/:id/permissions')
   updatePermissions(
     @Param('id') id: string,

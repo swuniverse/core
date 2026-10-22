@@ -43,6 +43,13 @@ export class User {
   @Column({ default: false })
   isAdmin: boolean;
 
+  @Column({ default: false })
+  isNpc: boolean;
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  npcKey: string | null;
+
   @Column({ type: 'simple-json', default: '[]' })
   permissions: string[];
 

@@ -285,7 +285,7 @@ export class AuthService {
     if (!user && /^\d+$/.test(dto.username)) {
       user = await this.userRepo.findOneBy({ id: Number(dto.username) });
     }
-    if (!user) {
+    if (!user || user.isNpc) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -303,7 +303,7 @@ export class AuthService {
     const user = await this.userRepo.findOne({
       where: { refreshToken },
     });
-    if (!user) {
+    if (!user || user.isNpc) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -585,15 +585,30 @@ export class AuthService {
 
   async listUsers() {
     const users = await this.userRepo.find({
-      select: ['id', 'username', 'isAdmin', 'permissions'],
+      select: ['id', 'username', 'description', 'isAdmin', 'isNpc', 'permissions'],
       order: { username: 'ASC' },
     });
     return users.map((u) => ({
       id: u.id,
       username: u.username,
+      description: u.description,
       isAdmin: u.isAdmin,
+      isNpc: u.isNpc,
       permissions: u.permissions ?? [],
     }));
+  }
+
+  async updateUser(
+    userId: number,
+    input: { username: string; description: string | null },
+  ) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user?.isNpc) throw new NotFoundException('NPC account not found');
+    await this.userRepo.update(userId, {
+      username: input.username.trim(),
+      displayName: input.username.trim(),
+      description: input.description?.trim() || null,
+    });
   }
 
   async updatePermissions(userId: number, permissions: string[]) {

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { User } from '../auth/user.entity';
+import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
 import { Colony } from '../colony/entities/colony.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
@@ -101,7 +102,7 @@ export class DatabaseService {
     const onlineUserIds = this.gameGateway.onlineUserIds;
     if (onlineUserIds.length === 0) return [];
     const users = await this.userRepo.find({
-      where: { id: In(onlineUserIds) },
+      where: { id: In(onlineUserIds), ...NON_NPC_USER_WHERE },
       select: ['id', 'username', 'faction', 'avatar'],
     });
     return users.map((u) => ({
@@ -151,7 +152,7 @@ export class DatabaseService {
 
   async getSettlers() {
     const [users, factions] = await Promise.all([
-      this.userRepo.find({ order: { username: 'ASC' } }),
+      this.userRepo.find({ where: NON_NPC_USER_WHERE, order: { username: 'ASC' } }),
       this.factionService.findAll(),
     ]);
     const factionById = new Map(
@@ -431,7 +432,7 @@ export class DatabaseService {
   async getShipClasses(userId: number) {
     const [definitions, discoveries] = await Promise.all([
       this.shipClassRepo.find({
-        where: { isNpc: false },
+        where: NON_NPC_USER_WHERE,
         order: { id: 'ASC' },
       }),
       this.shipClassDiscoveryRepo.find({ where: { userId } }),
@@ -648,6 +649,7 @@ export class DatabaseService {
   private async getDiscoveryRanking(topOnly = true) {
     const users = await this.userRepo.find({
       select: { id: true, username: true },
+      where: NON_NPC_USER_WHERE,
       order: { username: 'ASC' },
     });
     const [systems, ships, planets] = await Promise.all([
@@ -706,6 +708,7 @@ export class DatabaseService {
       .addSelect('user.username', 'username')
       .addSelect('COUNT(research.id)', 'score')
       .where('research.status = :status', { status: ResearchStatus.COMPLETED })
+      .andWhere('user.isNpc = false')
       .groupBy('user.id')
       .addGroupBy('user.username')
       .orderBy('COUNT(research.id)', 'DESC')
@@ -715,6 +718,7 @@ export class DatabaseService {
 
   private async getPrestigeRanking(topOnly = true) {
     const users = await this.userRepo.find({
+      where: NON_NPC_USER_WHERE,
       order: { prestige: 'DESC', username: 'ASC' },
       ...(topOnly ? { take: 10 } : {}),
     });
@@ -730,6 +734,7 @@ export class DatabaseService {
     return this.colonyRepo
       .createQueryBuilder('colony')
       .innerJoin(User, 'user', 'user.id = colony.userId')
+      .andWhere('user.isNpc = false')
       .select('user.id', 'userId')
       .addSelect('user.username', 'username')
       .addSelect('COUNT(colony.id)', 'score')
@@ -745,6 +750,7 @@ export class DatabaseService {
     const query = this.colonyRepo
       .createQueryBuilder('colony')
       .innerJoin(User, 'user', 'user.id = colony.userId')
+      .andWhere('user.isNpc = false')
       .leftJoin('colony.fields', 'field')
       .select('colony.id', 'colonyId')
       .addSelect('colony.name', 'colonyName')
@@ -767,6 +773,7 @@ export class DatabaseService {
     const query = this.colonyRepo
       .createQueryBuilder('colony')
       .innerJoin(User, 'user', 'user.id = colony.userId')
+      .andWhere('user.isNpc = false')
       .leftJoin('colony.fields', 'field')
       .select('colony.id', 'colonyId')
       .addSelect('colony.name', 'colonyName')

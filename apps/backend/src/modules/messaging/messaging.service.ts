@@ -187,6 +187,29 @@ export class MessagingService {
     return saved;
   }
 
+  async sendNpcTrade(
+    senderId: number,
+    recipientId: number,
+    subject: string,
+    body: string,
+  ): Promise<Message> {
+    const [sender, recipient] = await Promise.all([
+      this.userRepo.findOneBy({ id: senderId }),
+      this.userRepo.findOneBy({ id: recipientId }),
+    ]);
+    if (!sender?.isNpc) throw new BadRequestException('Invalid NPC sender');
+    if (!recipient) throw new NotFoundException('Dieser Siedler existiert nicht');
+    return this.messageRepo.save(
+      this.messageRepo.create({
+        senderId,
+        recipientId,
+        subject: subject.trim(),
+        body: body.trim(),
+        folder: MessageFolder.TRADE,
+      }),
+    );
+  }
+
   async sendSystem(
     recipientId: number,
     subject: string,

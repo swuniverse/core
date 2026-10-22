@@ -22,6 +22,7 @@ import { FactionModule } from '../faction/faction.module';
 import { MailModule } from '../mail/mail.module';
 import { GameStatusModule } from '../game-status/game-status.module';
 import { getJwtSecret } from './jwt-secret';
+import { NpcAccountService } from './npc-account.service';
 
 @Module({
   imports: [
@@ -53,9 +54,10 @@ import { getJwtSecret } from './jwt-secret';
     JwtStrategy,
     AdminGuard,
     AdminBootstrapService,
+    NpcAccountService,
     LastActivityService,
     { provide: APP_INTERCEPTOR, useClass: LastActivityInterceptor },
   ],
-  exports: [AuthService, AccountTokenService, AdminGuard],
+  exports: [AuthService, AccountTokenService, AdminGuard, NpcAccountService],
 })
 export class AuthModule {}

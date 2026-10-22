@@ -1,3 +1,4 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -57,6 +58,10 @@ describe('database statistics (Postgres, HTTP)', () => {
       controllers: [DatabaseController],
       providers: [
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+        },
         JwtStrategy,
         { provide: DatabaseService, useValue: {} },
         { provide: StatisticsService, useValue: statistics },
@@ -294,6 +299,29 @@ describe('database statistics (Postgres, HTTP)', () => {
       await setUsers([player], { prestige: 10 });
       // a player without faction counts towards no faction series
       await createUser(dataSource, { username: 'nofaction' });
+    });
+
+    it('excludes NPC accounts from player, faction and prestige statistics', async () => {
+      const npc = await createUser(dataSource, {
+        username: 'npc-trader',
+        faction: Faction.GALACTIC_EMPIRE,
+        factionId: empire.factionId,
+        prestige: 1000,
+      });
+      await setUsers([npc], { isNpc: true, lastActiveAt: new Date() });
+
+      await statistics.recordSnapshots(new Date());
+
+      expect(await lastValues('players')).toEqual({
+        active: 3,
+        inactive: 1,
+        vacation: 0,
+      });
+      expect(await lastValues('players-by-faction')).toEqual({
+        REBEL_ALLIANCE: 2,
+        GALACTIC_EMPIRE: 1,
+      });
+      expect(await lastValues('prestige')).toEqual({ total: 60 });
     });
 
     it('counts ships, colonies and players per faction without an NPC series', async () => {

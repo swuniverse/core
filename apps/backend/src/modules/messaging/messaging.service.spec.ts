@@ -15,6 +15,7 @@ describe('MessagingService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    userRepo.findOneBy.mockReset();
     service = new MessagingService(
       messageRepo as never,
       userRepo as never,
@@ -22,6 +23,24 @@ describe('MessagingService', () => {
     );
   });
 
+
+
+  it('delivers a trade message in an NPC account name', async () => {
+    userRepo.findOneBy
+      .mockResolvedValueOnce({ id: 9, isNpc: true })
+      .mockResolvedValueOnce({ id: 2, isNpc: false });
+
+    await service.sendNpcTrade(9, 2, 'Handel', 'Die Ware ist da.');
+
+    expect(messageRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderId: 9,
+        recipientId: 2,
+        folder: MessageFolder.TRADE,
+      }),
+    );
+    expect(statisticsService.countEvent).not.toHaveBeenCalled();
+  });
 
   it('rejects an unknown recipient', async () => {
     userRepo.findOneBy.mockResolvedValue(null);

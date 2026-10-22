@@ -19,9 +19,13 @@ export class PrestigeService {
   ): Promise<void> {
     if (amount === 0) return;
 
+    const entityManager = manager ?? this.historyRepo.manager;
+    const user = await entityManager.getRepository(User).findOneBy({ id: userId });
+    if (!user || user.isNpc) return;
+
     const repository = manager?.getRepository(PrestigeHistoryEntry) ?? this.historyRepo;
     await repository.save(repository.create({ userId, amount, description }));
-    await (manager ?? this.historyRepo.manager).increment(
+    await entityManager.increment(
       User,
       { id: userId },
       'prestige',

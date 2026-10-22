@@ -1,3 +1,4 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -37,6 +38,10 @@ describe('game status HTTP access (Postgres, HTTP)', () => {
       controllers: [GameStatusController],
       providers: [
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+        },
         JwtStrategy,
         AdminGuard,
         {

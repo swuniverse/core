@@ -1,6 +1,6 @@
 # NPC-Spielerkonten (Umfang: Handel)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -30,11 +30,13 @@ SWU erhält NPC-Spielerkonten, aber nur im Umfang, den der Handel braucht (Leitp
 
 ## Akzeptanzkriterien
 
-- [ ] `users.isNpc` (bool, Standard false) per Migration. Ein idempotenter Seed legt die drei Handels-NPCs an (Name, Fraktion: Imperium bzw. Rebellenallianz bzw. keine für das Hutten-Kartell, Profilbeschreibung) und stellt sie über einen stabilen Schlüssel bereit (`NpcKey.HUTT_CARTEL`, `NpcKey.EMPIRE_SUPPLY`, `NpcKey.REBEL_SUPPLY`), nicht über feste IDs.
-- [ ] NPC-Konten können sich nicht einloggen: kein nutzbares Passwort, und Login bzw. JWT-Validierung lehnen `isNpc` ab. Sie durchlaufen kein Onboarding.
-- [ ] NPCs fehlen in Siedlerliste, Online-Liste, allen `database/rankings/*`, Statistik-Spielerzählungen und Fraktionszählungen, und sie erhalten kein Entdeckungs- oder Holonet-Prestige. Ein zentraler Helfer (z. B. `nonNpcUsers()`-Query-Builder bzw. Filterkonstante) wird an allen Stellen verwendet.
-- [ ] Ein Dienst `NpcAccountService.get(key)` liefert das NPC-Konto. `messaging.service` kann im Namen eines NPC eine Nachricht in den Ordner `TRADE` senden.
-- [ ] Die Admin-Benutzerliste zeigt NPCs gekennzeichnet. Admins können Name und Beschreibung bearbeiten.
-- [ ] Backend-Tests: Seed ist idempotent, Login abgelehnt, Ausschluss in Siedlerliste, Ranglisten und Statistik, kein Prestige, NPC-Nachricht im Ordner Handel. Frontend-Test: Kennzeichnung in `admin-users`.
+- [x] `users.isNpc` (bool, Standard false) per Migration. Ein idempotenter Seed legt die drei Handels-NPCs an (Name, Fraktion: Imperium bzw. Rebellenallianz bzw. keine für das Hutten-Kartell, Profilbeschreibung) und stellt sie über einen stabilen Schlüssel bereit (`NpcKey.HUTT_CARTEL`, `NpcKey.EMPIRE_SUPPLY`, `NpcKey.REBEL_SUPPLY`), nicht über feste IDs.
+- [x] NPC-Konten können sich nicht einloggen: kein nutzbares Passwort, und Login bzw. JWT-Validierung lehnen `isNpc` ab. Sie durchlaufen kein Onboarding.
+- [x] NPCs fehlen in Siedlerliste, Online-Liste, allen `database/rankings/*`, Statistik-Spielerzählungen und Fraktionszählungen, und sie erhalten kein Entdeckungs- oder Holonet-Prestige. Ein zentraler Helfer (z. B. `nonNpcUsers()`-Query-Builder bzw. Filterkonstante) wird an allen Stellen verwendet.
+- [x] Ein Dienst `NpcAccountService.get(key)` liefert das NPC-Konto. `messaging.service` kann im Namen eines NPC eine Nachricht in den Ordner `TRADE` senden.
+- [x] Die Admin-Benutzerliste zeigt NPCs gekennzeichnet. Admins können Name und Beschreibung bearbeiten.
+- [x] Backend-Tests: Seed ist idempotent, Login abgelehnt, Ausschluss in Siedlerliste, Ranglisten und Statistik, kein Prestige, NPC-Nachricht im Ordner Handel. Frontend-Test: Kennzeichnung in `admin-users`.
 
 ## Comments
+
+Implemented trade-scoped NPC accounts with a migration, idempotent stable-key seed/service, login and JWT rejection, central non-NPC query helpers across database/statistics/prestige paths, NPC trade-message delivery, and editable admin UI/API. Added backend and frontend seam tests; pirates and quest NPCs remain out of scope.

@@ -1,3 +1,4 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -41,6 +42,10 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       controllers: [EventsController],
       providers: [
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+        },
         JwtStrategy,
         {
           provide: ExplorationService,

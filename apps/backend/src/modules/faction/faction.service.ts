@@ -5,6 +5,7 @@ import { Faction } from '@swuniverse/shared';
 import { FactionEntity } from './entities/faction.entity';
 import { FactionModifier } from './entities/faction-modifier.entity';
 import { User } from '../auth/user.entity';
+import { nonNpcUsers } from '../auth/non-npc-users';
 
 const DEFAULT_FACTIONS: Array<{
   key: Faction;
@@ -113,8 +114,10 @@ export class FactionService {
 
   async findAll(): Promise<(FactionEntity & { playerCount: number })[]> {
     const factions = await this.factionRepo.find({ relations: { modifiers: true } });
-    const counts: { factionId: number; count: string }[] = await this.userRepo
-      .createQueryBuilder('u')
+    const counts: { factionId: number; count: string }[] = await nonNpcUsers(
+      this.userRepo.createQueryBuilder('u'),
+      'u',
+    )
       .select('u.factionId', 'factionId')
       .addSelect('COUNT(*)', 'count')
       .where('u.factionId IS NOT NULL AND u.isAdmin = false')

@@ -92,6 +92,10 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
       controllers: [SpacecraftController],
       providers: [
         { provide: ConfigService, useValue: config },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+        },
         JwtStrategy,
         StarmapVisibilityService,
         RelationshipResolverService,
