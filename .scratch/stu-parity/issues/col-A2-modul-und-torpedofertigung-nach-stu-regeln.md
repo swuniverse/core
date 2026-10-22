@@ -1,6 +1,6 @@
 # Modul- und Torpedofertigung nach STU-Regeln
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-A1b
@@ -39,5 +39,7 @@ SWU fertigt Module und Torpedos über eine zeitbasierte Queue ohne Energiekosten
 Vorgabe: Variante (b), STU-Modell. EPS-Kosten je Stück, Kürzung der Menge auf verfügbare EPS und Material, Aufstocken bestehender Aufträge, Teilabbruch mit 100 % Rückerstattung, Fertigstellung der Module im nächsten Kolonie-Tick bei aktiver Funktion, Torpedos sofort. Die SWU-Zeitqueue (`durationSeconds`, ein Auftrag je Funktion, 50 % Erstattung) entfällt; keine ADR.
 
 ## Comments
+
+- 2026-10-22 Agent: Blocker: Die verbindlichen STU-`ecost`-Werte für die 172 Moduldatensätze sind weder in `stu-fabrication.yaml` noch in den genannten Laufzeitquellen enthalten; dort werden sie nur aus `module_building_function.modificator * module.level` berechnet. Für eine verlustfreie Migration laufender Altaufträge fehlt außerdem die historische, bereits abgezogene EPS-Menge in der Queue. Bitte festlegen, (1) aus welcher konkreten STU-Datenquelle/Zuordnung die Modifikatoren für die SWU-Funktions-IDs 10–18 übernommen werden sollen und (2) ob bestehende Queuezeilen ohne gespeicherte EPS-Kosten mit berechneten aktuellen Kosten weitergeführt, ohne zusätzliche EPS migriert oder erstattet werden sollen.
 
 - 2026-10-21 Product Owner: Option b – Modul- und Torpedofertigung folgen dem STU-Modell: EPS-Kosten je Stück, Kürzung auf EPS/Lager, Aufstocken, Teilabbruch mit 100 % Erstattung, Modulfertigstellung im nächsten Kolonie-Tick und Torpedos sofort.
