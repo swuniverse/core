@@ -1,6 +1,6 @@
 # Rettungskapseln: Start bei Zerstörung und Landung auf eigener Kolonie
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-6a
@@ -38,3 +38,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-22: Abbruch vor Produktcodeänderungen: Die geforderte „Kapselklasse je Fraktion in `game-data`“ braucht konkrete, kanonnahe Star-Wars-Klassen (Namen, IDs/Keys und Assets) sowie eine Entscheidung, ob Rettungskapseln trotz neutralem Besitz als `Spacecraft` mit der ursprünglichen Fraktionsklasse oder als eigene Entity modelliert werden. Das bestehende `Spacecraft`-Modell verlangt einen Spieler-Eigner und eine `ShipClassDef`; STU nutzt dagegen den Fallback-Spieler „niemand“. Bitte diese Eigentums- und Klassenzuordnung festlegen.
