@@ -177,6 +177,6 @@ export const colonyApi = {
     api.post(`/colonies/${colonyId}/shields/load`, { amount }),
   setShieldFrequency: (colonyId: number, frequency: number) =>
     api.post(`/colonies/${colonyId}/shields/frequency`, { frequency }),
-  setDefenseTorpedoType: (colonyId: number, commodityId: number | null) =>
-    api.post(`/colonies/${colonyId}/defense/torpedo-type`, { commodityId }),
+  setDefenseTorpedoType: (colonyId: number, torpedoTypeId: number | null) =>
+    api.post(`/colonies/${colonyId}/defense/torpedo-type`, { torpedoTypeId }),
 };

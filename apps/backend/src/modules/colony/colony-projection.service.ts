@@ -965,13 +965,17 @@ export class ColonyProjectionService {
             : null,
           availableTorpedoTypes: this.gameData
             .getAllTorpedoTypes()
+            .filter(
+              (torpedo) =>
+                torpedo.researchId == null ||
+                completedTechIds.has(torpedo.researchId),
+            )
             .map((torpedo) => {
               const inventoryItem = storage.find(
                 (item) => item.commodityId === torpedo.commodityId,
               );
               return { ...torpedo, amount: inventoryItem?.amount ?? 0 };
-            })
-            .filter((torpedo) => torpedo.amount > 0),
+            }),
         },
         shields: {
           current: changeable.shields ?? 0,

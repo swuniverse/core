@@ -109,3 +109,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
 - col-A1a – Werftqueues reagieren zentral auf Gebäudestatus und Abriss – siehe Feature-Commit
 - col-A1b – Fabrikation, Akademie und Schilde reagieren auf Gebäudestatus – siehe Feature-Commit
+- col-A10 – Phalanx-Torpedotypen sind an abgeschlossene Forschung gebunden – siehe Feature-Commit

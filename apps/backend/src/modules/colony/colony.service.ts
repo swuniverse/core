@@ -695,8 +695,15 @@ export class ColonyService {
     if (!this.hasActiveBuildingFunction(colony, 27)) {
       throw new BadRequestException('Active particle phalanx required');
     }
-    if (torpedoTypeId != null && !this.gameData.getTorpedoType(torpedoTypeId)) {
-      throw new BadRequestException('Unknown torpedo type');
+    if (torpedoTypeId != null) {
+      const torpedoType = this.gameData.getTorpedoType(torpedoTypeId);
+      const allowed =
+        torpedoType != null &&
+        (torpedoType.researchId == null ||
+          (await this.unlockResolver.hasTech(userId, torpedoType.researchId)));
+      if (!allowed) {
+        throw new BadRequestException('Unerlaubter Torpedo-Typ');
+      }
     }
     this.colonyDefenseService.setTorpedoType(colony, torpedoTypeId);
     await this.colonyRepo.save(colony);

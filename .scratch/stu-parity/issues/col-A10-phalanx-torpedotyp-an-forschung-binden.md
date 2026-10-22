@@ -1,6 +1,6 @@
 # Phalanx-Torpedotyp an die Forschung binden
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -23,9 +23,11 @@
 
 ## Akzeptanzkriterien
 
-- [ ] Ein Torpedotyp mit `researchId` ist nur wählbar, wenn der Spieler diese Forschung abgeschlossen hat; sonst `400` mit „Unerlaubter Torpedo-Typ“. Typen ohne `researchId` sind immer erlaubt; `null` (kein Torpedo) bleibt erlaubt.
-- [ ] Die Projektion bzw. ein Endpunkt liefert die erlaubten Typen; `PanelDefense.tsx` bietet nur diese an.
-- [ ] Backend-Tests: erlaubter, nicht erforschter und unbekannter Typ.
-- [ ] Frontend-Test: nicht erforschter Typ erscheint nicht in der Auswahl.
+- [x] Ein Torpedotyp mit `researchId` ist nur wählbar, wenn der Spieler diese Forschung abgeschlossen hat; sonst `400` mit „Unerlaubter Torpedo-Typ“. Typen ohne `researchId` sind immer erlaubt; `null` (kein Torpedo) bleibt erlaubt.
+- [x] Die Projektion bzw. ein Endpunkt liefert die erlaubten Typen; `PanelDefense.tsx` bietet nur diese an.
+- [x] Backend-Tests: erlaubter, nicht erforschter und unbekannter Typ.
+- [x] Frontend-Test: nicht erforschter Typ erscheint nicht in der Auswahl.
 
 ## Comments
+
+Research authorization is enforced in `ColonyService`, and the colony projection now returns every researched torpedo type regardless of current stock. The frontend request contract was aligned with the backend and `PanelDefense` coverage verifies that only projected options appear. No follow-up gaps found.

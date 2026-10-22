@@ -3961,6 +3961,80 @@ describe('colony tick calculations', () => {
 });
 
 describe('colony shields', () => {
+  it('allows researched and unrestricted defense torpedo types', async () => {
+    const { service, colonyRepo, gameData, unlockResolver } =
+      createColonyService();
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      stats: { torpedoTypeId: null },
+      fields: [
+        { id: 1, buildingId: 100040100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    gameData.getTorpedoType.mockImplementation((id: number) =>
+      id === 81
+        ? {
+            id: 81,
+            commodityId: 81,
+            name: 'Micro',
+            baseDamage: 90,
+            researchId: 501100,
+          }
+        : {
+            id: 82,
+            commodityId: 82,
+            name: 'Photon',
+            baseDamage: 100,
+            researchId: null,
+          },
+    );
+    unlockResolver.hasTech.mockResolvedValueOnce(true);
+
+    await service.setDefenseTorpedoType(1, 1, 81);
+    await service.setDefenseTorpedoType(1, 1, 82);
+    await service.setDefenseTorpedoType(1, 1, null);
+
+    expect(unlockResolver.hasTech).toHaveBeenCalledWith(1, 501100);
+    expect(colony.stats.torpedoTypeId).toBeNull();
+  });
+
+  it.each([
+    [
+      'unresearched',
+      {
+        id: 81,
+        commodityId: 81,
+        name: 'Micro',
+        baseDamage: 90,
+        researchId: 501100,
+      },
+    ],
+    ['unknown', undefined],
+  ])('rejects an %s defense torpedo type', async (_label, torpedoType) => {
+    const { service, colonyRepo, gameData, unlockResolver } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      colonyClassId: 999,
+      stats: { torpedoTypeId: null },
+      fields: [
+        { id: 1, buildingId: 100040100, isBuilding: false, isActive: true },
+      ],
+      storage: [],
+    });
+    gameData.getTorpedoType.mockReturnValueOnce(torpedoType);
+    unlockResolver.hasTech.mockResolvedValueOnce(false);
+
+    await expect(service.setDefenseTorpedoType(1, 1, 81)).rejects.toThrow(
+      'Unerlaubter Torpedo-Typ',
+    );
+  });
+
   it('sets shield frequency and loads shield battery using energy', async () => {
     const { service, colonyRepo, colonyRepo: repo } = createColonyService();
     const colony = {
