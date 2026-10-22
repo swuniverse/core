@@ -1,6 +1,6 @@
 # Kolonieangriff vom Schiff aus (UI-Einstieg)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
