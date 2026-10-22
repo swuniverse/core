@@ -1,6 +1,6 @@
 # Passwort vergessen und zurücksetzen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
