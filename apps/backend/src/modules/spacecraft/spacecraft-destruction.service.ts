@@ -6,6 +6,7 @@ import {
 import type { SpacecraftSelfDestructResultDto } from '@swuniverse/shared';
 import { WsEventType } from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
+import { ColonyFabricationQueueType } from '../colony/entities/colony-fabrication-queue.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { GameGateway } from '../websocket/game.gateway';
@@ -19,6 +20,10 @@ import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '../events/entities/game-event.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { resolveSpacecraftLocation } from './spacecraft-field';
+import { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { PrestigeService } from '../prestige/prestige.service';
+import { GameDataService } from '../game-data/game-data.service';
+import { User } from '../auth/user.entity';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -33,6 +38,8 @@ export class SpacecraftDestructionService {
     private readonly gateway: GameGateway,
     private readonly messagingService: MessagingService,
     private readonly gameEvents: GameEventService,
+    private readonly prestige: PrestigeService,
+    private readonly gameData: GameDataService,
   ) {}
 
   async selfDestruct(
@@ -115,29 +122,41 @@ export class SpacecraftDestructionService {
     return this.saveUnlessDestroyed(ship);
   }
 
-  async destroyFromCombat(shipId: number): Promise<void> {
-    const ownerId = await this.dataSource.transaction(async (manager) => {
+  async destroyFromCombat(
+    shipId: number,
+    destroyerUserId?: number,
+  ): Promise<void> {
+    const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId },
+        relations: ['shipClass'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!ship || ship.status === SpacecraftStatus.DESTROYED) return null;
+      const destroyer =
+        destroyerUserId == null
+          ? null
+          : await manager.findOne(User, { where: { id: destroyerUserId } });
       await this.finalizeInManager(manager, ship, 'COMBAT');
-      return ship.userId;
-    });
-    if (ownerId != null) {
-      const ship = await this.dataSource
-        .getRepository(Spacecraft)
-        .findOneBy({ id: shipId });
-      if (ship)
-        await this.gameEvents.recordSpacecraft(
-          GameEventType.SHIP,
-          `${ship.name} wurde im Kampf zerstört.`,
-          ship,
+      if (destroyerUserId != null && ship.shipClass.prestige !== 0) {
+        await this.prestige.change(
+          destroyerUserId,
+          ship.shipClass.prestige,
+          `${ship.shipClass.prestige} Prestige erhalten für die Zerstörung von: ${ship.shipClass.name}`,
+          manager,
         );
-      this.emitDestroyed(ownerId, shipId, 'Im Kampf zerstört');
+      }
+      return { ownerId: ship.userId, ship, destroyerName: destroyer?.username };
+    });
+    if (result) {
+      await this.gameEvents.recordSpacecraft(
+        GameEventType.SHIP,
+        `${result.destroyerName ?? 'Unbekannt'} zerstörte ${result.ship.name} (${result.ship.shipClass.name}).`,
+        result.ship,
+      );
+      this.emitDestroyed(result.ownerId, shipId, 'Im Kampf zerstört');
       await this.messagingService.sendSystem(
-        ownerId,
+        result.ownerId,
         'Schiff zerstört',
         `Schiff #${shipId} wurde im Kampf zerstört.`,
       );
@@ -161,12 +180,33 @@ export class SpacecraftDestructionService {
     ship: Spacecraft,
     _reason: 'COMBAT' | 'SELF_DESTRUCT',
   ): Promise<void> {
-    const [cargo, torpedoes] = await Promise.all([
+    const [cargo, torpedoes, installedModules] = await Promise.all([
       manager.find(CargoItem, { where: { spacecraftId: ship.id } }),
       manager.find(SpacecraftTorpedoStorage, {
         where: { spacecraftId: ship.id },
       }),
+      manager.find(SpacecraftModule, { where: { spacecraftId: ship.id } }),
     ]);
+    const intactModules = installedModules.filter(
+      (module) => module.integrity > 0,
+    );
+    const modules = intactModules
+      .map((module) => ({ module, order: Math.random() }))
+      .sort((left, right) => left.order - right.order)
+      .slice(0, Math.ceil(intactModules.length / 2))
+      .map(({ module }) => module)
+      .flatMap((module) => {
+        const item = this.gameData
+          .getAllFabricationItems()
+          .find(
+            (candidate) =>
+              candidate.queueType === ColonyFabricationQueueType.MODULE &&
+              candidate.moduleType === module.moduleType &&
+              (candidate.shipyardType ?? module.category) === module.category &&
+              (candidate.moduleLevel ?? module.level) === module.level,
+          );
+        return item ? [{ commodityId: item.outputCommodityId, amount: 1 }] : [];
+      });
     const location = ship.location ?? (await this.loadLocation(ship, manager));
     await manager.save(
       manager.create(SpacecraftWreck, {
@@ -179,6 +219,7 @@ export class SpacecraftDestructionService {
           commodityId: item.commodityId,
           amount: item.amount,
         })),
+        modules,
         torpedoes: torpedoes.map((item) => ({
           torpedoTypeId: item.torpedoTypeId,
           commodityId: item.commodityId,

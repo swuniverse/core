@@ -521,6 +521,7 @@ export interface SpacecraftNearbyDto {
     id: number;
     hull: number;
     cargo: Array<{ commodityId: number; amount: number }>;
+    modules: Array<{ commodityId: number; amount: number }>;
   }>;
 }
 

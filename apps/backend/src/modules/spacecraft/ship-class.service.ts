@@ -50,6 +50,7 @@ export class ShipClassService {
         sensorRangeBase: def.sensorRangeBase,
         torpedoStorageBase: def.torpedoStorageBase,
         flightEnergyCost: def.flightEnergyCost,
+        prestige: def.prestige,
         shuttleSlots: def.shuttleSlots ?? 0,
         starterAllowed: def.starterAllowed,
         isNpc: def.isNpc,

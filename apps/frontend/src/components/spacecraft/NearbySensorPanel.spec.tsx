@@ -144,10 +144,17 @@ describe('NearbySensorPanel', () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 
-  it('opens cargo salvage from an NBS wreck', async () => {
+  it('opens cargo and module salvage from an NBS wreck', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,
-      wrecks: [{ id: 8, hull: 22, cargo: [{ commodityId: 4, amount: 2 }] }],
+      wrecks: [
+        {
+          id: 8,
+          hull: 22,
+          cargo: [{ commodityId: 4, amount: 2 }],
+          modules: [{ commodityId: 10_101, amount: 1 }],
+        },
+      ],
     });
     render(
       <NearbySensorPanel
@@ -160,6 +167,7 @@ describe('NearbySensorPanel', () => {
     fireEvent.click(await screen.findByTitle('Bergung'));
     expect(await screen.findByRole('dialog', { name: 'Bergung' })).toBeTruthy();
     expect(screen.getByText('Ware #4: 2')).toBeTruthy();
+    expect(screen.getByText('Modul #10101: 1')).toBeTruthy();
   });
   it('opens a real target scan', async () => {
     apiMocks.get.mockImplementation((path: string) =>

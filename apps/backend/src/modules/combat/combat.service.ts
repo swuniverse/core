@@ -150,7 +150,15 @@ export class CombatService {
     const destroyedIds = new Set(result.destroyedShipIds);
     for (const ship of participants) {
       if (destroyedIds.has(ship.id)) {
-        await this.destructionService.destroyFromCombat(ship.id);
+        const destroyerUserId = attackers.some(
+          (participant) => participant.id === ship.id,
+        )
+          ? defender.userId
+          : attacker.userId;
+        await this.destructionService.destroyFromCombat(
+          ship.id,
+          destroyerUserId,
+        );
       } else {
         await this.destructionService.saveCombatSurvivor(ship);
       }
@@ -294,7 +302,10 @@ export class CombatService {
     attacker.status =
       attacker.hull <= 0 ? SpacecraftStatus.DESTROYED : SpacecraftStatus.IDLE;
     if (attacker.hull <= 0) {
-      await this.destructionService.destroyFromCombat(attacker.id);
+      await this.destructionService.destroyFromCombat(
+        attacker.id,
+        colony.userId,
+      );
     } else {
       await this.destructionService.saveCombatSurvivor(attacker);
     }

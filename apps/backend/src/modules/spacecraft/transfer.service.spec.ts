@@ -685,4 +685,58 @@ describe('TransferService wreck recovery', () => {
       }),
     );
   });
+
+  it('recovers an intact module from a wreck into cargo', async () => {
+    const ship = {
+      id: 1,
+      userId: 10,
+      locationId: 20,
+      location: { id: 20, kind: 'GALAXY_FIELD' },
+      runtimeSystems: {},
+      cargoMax: 10,
+      cargoUsed: 0,
+    };
+    const wreck = {
+      id: 2,
+      locationId: 20,
+      location: { id: 20, kind: 'GALAXY_FIELD' },
+      cargo: [],
+      modules: [{ commodityId: 10101, amount: 1 }],
+      torpedoes: [],
+      crewCount: 0,
+    };
+    const cargo = { spacecraftId: 1, commodityId: 10101, amount: 0 };
+    const cargoRepo = {
+      createQueryBuilder: jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+      })),
+    };
+    const manager = {
+      findOne: jest.fn(async (entity) =>
+        entity === Spacecraft ? ship : entity === SpacecraftWreck ? wreck : cargo,
+      ),
+      getRepository: jest.fn(() => cargoRepo),
+      create: jest.fn((_entity, value) => value),
+      save: jest.fn(),
+      remove: jest.fn(),
+    };
+    const service = new TransferService(
+      {} as never,
+      {} as never,
+      { transaction: jest.fn(async (work) => work(manager)) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.recoverWreckCargo(1, 10, 2, 10101, 1);
+
+    expect(cargo.amount).toBe(1);
+    expect(wreck.modules).toEqual([]);
+    expect(manager.remove).toHaveBeenCalledWith(wreck);
+  });
+
 });

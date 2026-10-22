@@ -26,10 +26,12 @@ function setup(
   const ship = {
     id: 2,
     userId: 1,
+    name: 'Opfer',
     status: 'IN_COMBAT',
     hull: 20,
     hullMax: 100,
     shipClassId: 7,
+    shipClass: { name: 'X-Wing Jäger', prestige: 6 },
     locationId: 42,
     location: {
       id: 42,
@@ -53,6 +55,7 @@ function setup(
       if (entity.name === 'Spacecraft') return ship;
       if (entity.name === 'SpaceLocation') return ship.location ?? null;
       if (entity.name === 'ShipDistressSignal') return distress;
+      if (entity.name === 'User') return destroyer;
       return null;
     }),
     find: jest.fn(async (entity) =>
@@ -73,6 +76,26 @@ function setup(
   const gateway = { emitToUser: jest.fn(), emitToAll: jest.fn() };
   const messaging = { sendSystem: jest.fn(async () => undefined) };
   const gameEvents = { recordSpacecraft: jest.fn(async () => undefined) };
+  const destroyer = { id: 9, username: 'Sieger' };
+  const prestige = { change: jest.fn(async () => undefined) };
+  const gameData = {
+    getAllFabricationItems: jest.fn(() => [
+      {
+        queueType: 'MODULE',
+        moduleType: 'LASER_CANNON',
+        shipyardType: 'ENERGY_WEAPON',
+        moduleLevel: 1,
+        outputCommodityId: 10_101,
+      },
+      {
+        queueType: 'MODULE',
+        moduleType: 'SHIELD_GENERATOR',
+        shipyardType: 'SHIELD',
+        moduleLevel: 1,
+        outputCommodityId: 10_201,
+      },
+    ]),
+  };
   return {
     service: new SpacecraftDestructionService(
       dataSource as any,
@@ -80,12 +103,16 @@ function setup(
       gateway as any,
       messaging as any,
       gameEvents as any,
+      prestige as any,
+      gameData as any,
     ),
     ship,
     distress,
     manager,
     gateway,
     messaging,
+    prestige,
+    gameEvents,
   };
 }
 
@@ -117,6 +144,76 @@ describe('SpacecraftDestructionService', () => {
       }),
     );
     expect(manager.remove).toHaveBeenCalledWith(ship);
+  });
+
+  it('awards combat prestige and stores half of the intact modules', async () => {
+    const { service, manager, prestige } = setup({
+      shipClass: { name: 'X-Wing Jäger', prestige: 6 },
+    });
+    (manager.find as jest.Mock).mockImplementation(async (entity) => {
+      if (entity.name === 'SpacecraftModule') {
+        return [
+          {
+            id: 1,
+            moduleType: 'LASER_CANNON',
+            category: 'ENERGY_WEAPON',
+            level: 1,
+            integrity: 100,
+          },
+          {
+            id: 2,
+            moduleType: 'SHIELD_GENERATOR',
+            category: 'SHIELD',
+            level: 1,
+            integrity: 40,
+          },
+          {
+            id: 3,
+            moduleType: 'BROKEN',
+            category: 'SHIELD',
+            level: 1,
+            integrity: 0,
+          },
+        ];
+      }
+      return [];
+    });
+
+    await service.destroyFromCombat(2, 9);
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modules: [{ commodityId: 10_101, amount: 1 }],
+      }),
+    );
+    expect(prestige.change).toHaveBeenCalledWith(
+      9,
+      6,
+      '6 Prestige erhalten für die Zerstörung von: X-Wing Jäger',
+      manager,
+    );
+  });
+
+  it('records destroyer, victim and class in combat history', async () => {
+    const { service, gameEvents } = setup();
+
+    await service.destroyFromCombat(2, 9);
+
+    expect(gameEvents.recordSpacecraft).toHaveBeenCalledWith(
+      expect.anything(),
+      'Sieger zerstörte Opfer (X-Wing Jäger).',
+      expect.objectContaining({ id: 2, name: 'Opfer' }),
+    );
+  });
+
+  it('does not award prestige for self-destruction', async () => {
+    const { service, prestige } = setup({
+      shipClass: { name: 'X-Wing Jäger', prestige: 6 },
+    });
+
+    await service.selfDestruct(2, 1);
+
+    expect(prestige.change).not.toHaveBeenCalled();
   });
 
   it('locks the ship without loading nullable location relations', async () => {

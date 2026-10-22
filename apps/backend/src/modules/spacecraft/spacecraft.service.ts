@@ -3274,6 +3274,7 @@ export class SpacecraftService {
             y: wreck.location!.systemField!.sy,
             hull: wreck.hull,
             cargo: wreck.cargo,
+            modules: wreck.modules,
           })),
         overlays: {
           signatures: this.countFieldSignatures(

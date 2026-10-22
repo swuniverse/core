@@ -446,6 +446,7 @@ export interface ShipClassYamlDef {
   colonizerTier?: number | null;
   colonizationBuildingId?: number | null;
   stuRumpId?: number;
+  prestige: number;
   buildCosts?: FabricationCostDef[];
 }
 

@@ -69,6 +69,9 @@ export class ShipClassDef {
   @Column({ default: 1 })
   flightEnergyCost: number;
 
+  @Column({ default: 0 })
+  prestige: number;
+
   @Column({ default: false })
   starterAllowed: boolean;
 

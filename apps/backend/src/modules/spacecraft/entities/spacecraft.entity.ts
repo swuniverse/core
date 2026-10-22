@@ -12,6 +12,7 @@ import { User } from '../../auth/user.entity';
 import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 import { SpacecraftModule } from './spacecraft-module.entity';
 import { Fleet } from './fleet.entity';
+import { ShipClassDef } from './ship-class-def.entity';
 
 export enum SpacecraftStatus {
   IDLE = 'IDLE',
@@ -52,6 +53,10 @@ export class Spacecraft {
 
   @Column()
   shipClassId: number;
+
+  @ManyToOne(() => ShipClassDef)
+  @JoinColumn({ name: 'shipClassId' })
+  shipClass: ShipClassDef;
 
   @Column({ type: 'int', nullable: true })
   buildPlanId: number | null;

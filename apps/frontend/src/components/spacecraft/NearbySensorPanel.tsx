@@ -37,6 +37,7 @@ export function NearbySensorPanel({
     id: number;
     hull: number;
     cargo: Array<{ commodityId: number; amount: number }>;
+    modules: Array<{ commodityId: number; amount: number }>;
   } | null>(null);
   const [messageTarget, setMessageTarget] =
     useState<SpacecraftNearbyTargetDto | null>(null);
@@ -429,7 +430,11 @@ function WreckSalvageDialog({
   onUpdate,
 }: {
   shipId: number;
-  wreck: { id: number; cargo: Array<{ commodityId: number; amount: number }> };
+  wreck: {
+    id: number;
+    cargo: Array<{ commodityId: number; amount: number }>;
+    modules: Array<{ commodityId: number; amount: number }>;
+  };
   onClose: () => void;
   onUpdate: () => void;
 }) {
@@ -462,16 +467,19 @@ function WreckSalvageDialog({
             Schließen
           </button>
         </header>
-        {wreck.cargo.length === 0 ? (
+        {wreck.cargo.length === 0 && wreck.modules.length === 0 ? (
           <p className="text-swu-muted">Keine bergbare Fracht.</p>
         ) : (
-          wreck.cargo.map((item) => (
+          [
+            ...wreck.cargo.map((item) => ({ ...item, kind: 'Ware' })),
+            ...wreck.modules.map((item) => ({ ...item, kind: 'Modul' })),
+          ].map((item) => (
             <div
-              key={item.commodityId}
+              key={`${item.kind}-${item.commodityId}`}
               className="flex items-center gap-2 border-b border-swu-border py-2"
             >
               <span className="flex-1">
-                Ware #{item.commodityId}: {item.amount}
+                {item.kind} #{item.commodityId}: {item.amount}
               </span>
               <input
                 aria-label={`Menge Ware ${item.commodityId}`}

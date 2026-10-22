@@ -491,7 +491,7 @@ export class TransferService {
         throw new BadRequestException('Hyperantrieb muss deaktiviert sein');
       if (systems.SHIELDS?.active)
         throw new BadRequestException('Schilde müssen deaktiviert sein');
-      const entry = wreck.cargo.find(
+      const entry = [...wreck.cargo, ...wreck.modules].find(
         (item) => item.commodityId === commodityId,
       );
       if (!entry || entry.amount < amount)
@@ -504,6 +504,7 @@ export class TransferService {
         throw new BadRequestException('Not enough cargo space');
       entry.amount -= amount;
       wreck.cargo = wreck.cargo.filter((item) => item.amount > 0);
+      wreck.modules = wreck.modules.filter((item) => item.amount > 0);
       let cargo = await manager.findOne(CargoItem, {
         where: { spacecraftId: ship.id, commodityId },
       });
@@ -517,6 +518,7 @@ export class TransferService {
       await manager.save([wreck, cargo, ship]);
       if (
         wreck.cargo.length === 0 &&
+        wreck.modules.length === 0 &&
         wreck.torpedoes.length === 0 &&
         wreck.crewCount === 0
       ) {

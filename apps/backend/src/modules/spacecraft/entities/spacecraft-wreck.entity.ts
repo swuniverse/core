@@ -35,6 +35,9 @@ export class SpacecraftWreck {
   cargo: Array<{ commodityId: number; amount: number }>;
 
   @Column({ type: 'jsonb', default: () => "'[]'" })
+  modules: Array<{ commodityId: number; amount: number }>;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
   torpedoes: Array<{
     torpedoTypeId: number;
     commodityId: number;

@@ -1,6 +1,6 @@
 # Zerstörungsfolgen: Prestige, intakte Module, History
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -28,11 +28,13 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Jede Schiffsklasse hat einen Prestigewert, abgeleitet aus den STU-Rumpfdaten (Quelle dokumentiert).
-- [ ] Zerstörung im Kampf schreibt dem Zerstörer diesen Wert gut (Prestige-Log mit Beschreibung); Selbstzerstörung ohne Zerstörer gibt keinen Gewinn.
-- [ ] Das Wrack speichert `ceil(n/2)` zufällig gewählte intakte Module (Integrität > 0); diese sind wie Fracht bergbar und landen im Lager des Bergenden.
-- [ ] Ein globales Ereignis bzw. History-Eintrag nennt Zerstörer, Opfer und Klasse (bestehendes `recordSpacecraft` erweitern).
-- [ ] Backend-Tests für Prestige, Modulbergung und Ereignis; Frontend-Test für Module im Wrack.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Jede Schiffsklasse hat einen Prestigewert, abgeleitet aus den STU-Rumpfdaten (Quelle dokumentiert).
+- [x] Zerstörung im Kampf schreibt dem Zerstörer diesen Wert gut (Prestige-Log mit Beschreibung); Selbstzerstörung ohne Zerstörer gibt keinen Gewinn.
+- [x] Das Wrack speichert `ceil(n/2)` zufällig gewählte intakte Module (Integrität > 0); diese sind wie Fracht bergbar und landen im Lager des Bergenden.
+- [x] Ein globales Ereignis bzw. History-Eintrag nennt Zerstörer, Opfer und Klasse (bestehendes `recordSpacecraft` erweitern).
+- [x] Backend-Tests für Prestige, Modulbergung und Ereignis; Frontend-Test für Module im Wrack.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-22: STU-Prestigewerte aus `dist/db/stu.dump` (`stu_rumps.prestige`) für alle 42 SWU-Schiffsklassen übernommen; Kampfprestige, zufällige Modulbergung und History-Eintrag umgesetzt und validiert.
