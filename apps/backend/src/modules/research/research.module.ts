@@ -7,10 +7,12 @@ import { Research } from './entities/research.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
+import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Research, Colony, ColonyStorage, ShipClassDef]),
+    WebsocketModule,
   ],
   controllers: [ResearchController],
   providers: [ResearchService, UnlockResolverService],

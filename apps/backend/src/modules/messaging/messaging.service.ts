@@ -215,6 +215,7 @@ export class MessagingService {
     subject: string,
     body: string,
     deliveryKey?: string,
+    folder: MessageFolder = MessageFolder.SYSTEM,
   ): Promise<Message> {
     if (!deliveryKey) {
       const message = this.messageRepo.create({
@@ -223,7 +224,7 @@ export class MessagingService {
         subject,
         body,
         isSystem: true,
-        folder: MessageFolder.SYSTEM,
+        folder,
       });
       return this.messageRepo.save(message);
     }
@@ -238,7 +239,7 @@ export class MessagingService {
         subject,
         body,
         isSystem: true,
-        folder: MessageFolder.SYSTEM,
+        folder,
         deliveryKey,
       })
       .orIgnore()

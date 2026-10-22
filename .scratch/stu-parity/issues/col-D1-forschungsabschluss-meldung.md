@@ -1,6 +1,6 @@
 # Forschungsabschluss: Meldung und Echtzeit-Ereignis
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -22,10 +22,12 @@ Schließt ein Spieler eine Forschung ab, erfährt er das in SWU nur durch einen 
 
 ## Akzeptanzkriterien
 
-- [ ] Beim Abschluss einer Forschung entsteht genau eine Nachricht „Forschung '<Name>' wurde abgeschlossen“ im Ordner „Kolonien“ des Spielers.
-- [ ] Ein WS-Ereignis (z. B. `RESEARCH_COMPLETED` mit Tech-ID und Name) wird an den Spieler gesendet; Forschungsseite und Header-Widget aktualisieren sich ohne Neuladen.
-- [ ] Startet automatisch die nächste Forschung aus der Queue, bleibt das Verhalten unverändert.
-- [ ] Backend-Tests: Nachricht und Ereignis bei Abschluss, keine Nachricht ohne Abschluss, keine Doppelmeldung bei wiederholtem Tick.
-- [ ] Frontend-Test: Ereignis löst Aktualisierung der Forschungsansicht aus.
+- [x] Beim Abschluss einer Forschung entsteht genau eine Nachricht „Forschung '<Name>' wurde abgeschlossen“ im Ordner „Kolonien“ des Spielers.
+- [x] Ein WS-Ereignis (z. B. `RESEARCH_COMPLETED` mit Tech-ID und Name) wird an den Spieler gesendet; Forschungsseite und Header-Widget aktualisieren sich ohne Neuladen.
+- [x] Startet automatisch die nächste Forschung aus der Queue, bleibt das Verhalten unverändert.
+- [x] Backend-Tests: Nachricht und Ereignis bei Abschluss, keine Nachricht ohne Abschluss, keine Doppelmeldung bei wiederholtem Tick.
+- [x] Frontend-Test: Ereignis löst Aktualisierung der Forschungsansicht aus.
 
 ## Comments
+
+- Forschungsabschlüsse erzeugen jetzt idempotente Nachrichten im Kolonie-Ordner und `RESEARCH_COMPLETED` für Forschungsseite und Header. Queue-Fortsetzung bleibt unverändert; Backend- und Frontend-Tests decken Abschluss, Nicht-Abschluss, Wiederholung und Live-Aktualisierung ab. Keine offenen Folgepunkte.

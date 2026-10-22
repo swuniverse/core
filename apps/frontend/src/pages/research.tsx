@@ -94,6 +94,10 @@ export function ResearchPage() {
     void load();
   });
 
+  useSocket('RESEARCH_COMPLETED', () => {
+    void load();
+  });
+
   useEffect(() => {
     if (focusTechId && techs.length > 0) {
       const t = techs.find((tech) => tech.id === focusTechId);

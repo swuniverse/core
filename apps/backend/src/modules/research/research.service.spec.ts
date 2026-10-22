@@ -43,7 +43,12 @@ describe('ResearchService – path resolution', () => {
       getBuilding: () => null,
     };
     const mockRepo = {} as any;
-    service = new ResearchService(mockRepo, mockGameData as any);
+    service = new ResearchService(
+      mockRepo,
+      mockGameData as any,
+      {} as any,
+      {} as any,
+    );
   });
 
   function setTechs(...defs: TechDef[]) {
@@ -134,6 +139,8 @@ describe('ResearchService – state deduplication', () => {
       mockGameData as unknown as ConstructorParameters<
         typeof ResearchService
       >[1],
+      {} as ConstructorParameters<typeof ResearchService>[2],
+      {} as ConstructorParameters<typeof ResearchService>[3],
     );
   });
 
@@ -241,6 +248,96 @@ describe('ResearchService – state deduplication', () => {
   });
 });
 
+describe('ResearchService – completion notifications', () => {
+  const completedTech = {
+    ...makeTech(10, 5),
+    mappedCommodityId: 7,
+  } as TechDef;
+
+  function setup(remainingPoints: number, production = 5) {
+    const research = {
+      id: 91,
+      userId: 42,
+      techId: 10,
+      status: 'IN_PROGRESS',
+      remainingPoints,
+      spentPoints: 0,
+      progress: 0,
+      finishesAt: new Date(),
+      blockedReason: null,
+    };
+    const repository = {
+      findOne: jest.fn().mockResolvedValueOnce(research),
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(async (value) => value),
+    };
+    const messaging = { sendSystem: jest.fn().mockResolvedValue({}) };
+    const gateway = { emitToUser: jest.fn() };
+    const service = new ResearchService(
+      repository as any,
+      {
+        getTech: () => completedTech,
+        getTechTree: () => [completedTech],
+      } as any,
+      messaging as any,
+      gateway as any,
+    );
+
+    return {
+      service,
+      research,
+      repository,
+      messaging,
+      gateway,
+      commodityProduction: new Map([[7, production]]),
+    };
+  }
+
+  it('sends one colony message and websocket event when research completes', async () => {
+    const context = setup(5);
+
+    await context.service.processTick(42, 0, context.commodityProduction);
+
+    expect(context.messaging.sendSystem).toHaveBeenCalledWith(
+      42,
+      "Forschung 'Tech 10' wurde abgeschlossen",
+      "Forschung 'Tech 10' wurde abgeschlossen",
+      'research-completed:91',
+      expect.anything(),
+    );
+    expect(context.gateway.emitToUser).toHaveBeenCalledWith(
+      42,
+      'RESEARCH_COMPLETED',
+      { techId: 10, name: 'Tech 10' },
+    );
+  });
+
+  it('does not notify when research remains in progress', async () => {
+    const context = setup(10);
+
+    await context.service.processTick(42, 0, context.commodityProduction);
+
+    expect(context.messaging.sendSystem).not.toHaveBeenCalled();
+    expect(context.gateway.emitToUser).not.toHaveBeenCalled();
+  });
+
+  it('does not duplicate a durable completion message on a repeated tick', async () => {
+    const context = setup(5);
+
+    await context.service.processTick(42, 0, context.commodityProduction);
+    await context.service.processTick(42, 0, context.commodityProduction);
+
+    expect(context.messaging.sendSystem).toHaveBeenCalledTimes(1);
+    expect(context.messaging.sendSystem).toHaveBeenCalledWith(
+      42,
+      expect.any(String),
+      expect.any(String),
+      'research-completed:91',
+      expect.anything(),
+    );
+  });
+});
+
 describe('ResearchService – restart state', () => {
   it('clears a stale blocked reason when research is restarted', async () => {
     const research = {
@@ -262,6 +359,8 @@ describe('ResearchService – restart state', () => {
         getTechTree: () => [tech],
         getTech: () => tech,
       } as any,
+      {} as any,
+      {} as any,
     );
 
     await service.startResearch(42, 10);

@@ -7,7 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
-import { Faction } from '@swuniverse/shared';
+import { Faction, WsEventType } from '@swuniverse/shared';
+import { MessagingService } from '../messaging/messaging.service';
+import { MessageFolder } from '../messaging/message-folder';
+import { GameGateway } from '../websocket/game.gateway';
 
 const ROOT_TECH_IDS = new Set([1001, 1003]);
 const MAX_QUEUE_SIZE = 10;
@@ -39,6 +42,8 @@ export class ResearchService {
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
     private readonly gameData: GameDataService,
+    private readonly messagingService: MessagingService,
+    private readonly gameGateway: GameGateway,
   ) {}
 
   getTechTree(): TechDef[] {
@@ -611,6 +616,7 @@ export class ResearchService {
         current.finishesAt = null;
         current.blockedReason = null;
         await this.researchRepo.save(current);
+        await this.notifyCompletion(userId, current.id, currentTech);
         current = await this.promoteQueued(userId);
         if (
           current &&
@@ -637,6 +643,7 @@ export class ResearchService {
         current.remainingPoints = 0;
         current.finishesAt = null;
         await this.researchRepo.save(current);
+        await this.notifyCompletion(userId, current.id, currentTech);
         current = await this.promoteQueued(userId);
         if (
           current &&
@@ -651,6 +658,25 @@ export class ResearchService {
         current = null;
       }
     }
+  }
+
+  private async notifyCompletion(
+    userId: number,
+    researchId: number,
+    tech: TechDef,
+  ): Promise<void> {
+    const message = `Forschung '${tech.name}' wurde abgeschlossen`;
+    await this.messagingService.sendSystem(
+      userId,
+      message,
+      message,
+      `research-completed:${researchId}`,
+      MessageFolder.COLONY,
+    );
+    this.gameGateway.emitToUser(userId, WsEventType.RESEARCH_COMPLETED, {
+      techId: tech.id,
+      name: tech.name,
+    });
   }
 
   private getPointsRequired(tech: TechDef): number {

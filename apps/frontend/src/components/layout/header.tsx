@@ -101,6 +101,7 @@ export function Header() {
   }, []);
   useSocket('TICK', refresh);
   useSocket('COLONY_UPDATED', refresh);
+  useSocket('RESEARCH_COMPLETED', refresh);
 
   const user =
     status?.user ??

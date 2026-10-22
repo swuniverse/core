@@ -6302,7 +6302,12 @@ describe('research tick semantics', () => {
         dependencies: [],
       })),
     };
-    const service = new ResearchService(researchRepo as any, gameData as any);
+    const service = new ResearchService(
+      researchRepo as any,
+      gameData as any,
+      { sendSystem: jest.fn() } as any,
+      { emitToUser: jest.fn() } as any,
+    );
 
     await service.processTick(1, 3, new Map());
 
@@ -6335,7 +6340,12 @@ describe('research tick semantics', () => {
         dependencies: [],
       })),
     };
-    const service = new ResearchService(researchRepo as any, gameData as any);
+    const service = new ResearchService(
+      researchRepo as any,
+      gameData as any,
+      { sendSystem: jest.fn() } as any,
+      { emitToUser: jest.fn() } as any,
+    );
 
     await service.processTick(1, 0, new Map([[1702, 3]]));
 
@@ -6379,7 +6389,12 @@ describe('research tick semantics', () => {
         dependencies: [],
       })),
     };
-    const service = new ResearchService(researchRepo as any, gameData as any);
+    const service = new ResearchService(
+      researchRepo as any,
+      gameData as any,
+      { sendSystem: jest.fn() } as any,
+      { emitToUser: jest.fn() } as any,
+    );
 
     await service.processTick(1, 0, new Map([[1701, 3]]));
 
@@ -6412,7 +6427,12 @@ describe('research tick semantics', () => {
         dependencies: [],
       })),
     };
-    const service = new ResearchService(researchRepo as any, gameData as any);
+    const service = new ResearchService(
+      researchRepo as any,
+      gameData as any,
+      { sendSystem: jest.fn() } as any,
+      { emitToUser: jest.fn() } as any,
+    );
 
     await service.processTick(1, 99, new Map([[4, 5]]));
 

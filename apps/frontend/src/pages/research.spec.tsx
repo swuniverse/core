@@ -880,6 +880,29 @@ describe('ResearchPage routing', () => {
     );
   });
 
+  it('refreshes research after completion event', async () => {
+    apiMocks.get.mockResolvedValue(techs);
+
+    render(
+      <MemoryRouter initialEntries={['/research']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Verfuegbare Forschungen');
+    const callsBeforeUpdate = apiMocks.get.mock.calls.length;
+    emitSocket('RESEARCH_COMPLETED', {
+      techId: 211301,
+      name: 'Hyperantrieb Theorie',
+    });
+
+    await waitFor(() => {
+      expect(apiMocks.get.mock.calls.length).toBeGreaterThan(callsBeforeUpdate);
+    });
+  });
+
   it('refreshes research after a colony update', async () => {
     apiMocks.get.mockResolvedValue(techs);
 
