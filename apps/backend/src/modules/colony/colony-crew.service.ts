@@ -392,14 +392,26 @@ export class ColonyCrewService {
         where: { userId },
         order: { crewId: 'ASC' },
       });
-      for (const assignment of shipAssignments.filter(
-        (entry) => entry.spacecraftId,
-      )) {
+      const assignmentsByShip = new Map<number, CrewAssignment[]>();
+      for (const assignment of shipAssignments) {
+        if (assignment.spacecraftId == null) continue;
+        const assignments = assignmentsByShip.get(assignment.spacecraftId) ?? [];
+        assignments.push(assignment);
+        assignmentsByShip.set(assignment.spacecraftId, assignments);
+      }
+      for (const [spacecraftId, assignments] of assignmentsByShip) {
         if (excess === 0) break;
-        removedCrewIds.push(assignment.crewId);
-        await this.crewAssignmentRepo.delete({ crewId: assignment.crewId });
-        await this.crewRepo.delete({ id: assignment.crewId });
-        excess -= 1;
+        for (const assignment of assignments) {
+          removedCrewIds.push(assignment.crewId);
+          await this.crewAssignmentRepo.delete({ crewId: assignment.crewId });
+          await this.crewRepo.delete({ id: assignment.crewId });
+        }
+        const ship = await this.shipRepo.findOneBy({ id: spacecraftId });
+        if (ship) {
+          ship.crew = 0;
+          await this.shipRepo.save(ship);
+        }
+        excess = Math.max(0, excess - assignments.length);
       }
     }
     return removedCrewIds.length;

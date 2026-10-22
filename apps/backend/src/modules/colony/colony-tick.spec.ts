@@ -6470,6 +6470,46 @@ describe('main tick idempotency', () => {
       { recordSnapshots: jest.fn() } as any,
     );
 
+  it('enforces global crew limits for active users but skips vacationers', async () => {
+    const colonyRepo = { find: jest.fn(async () => []) };
+    const shipRepo = { find: jest.fn(async () => []) };
+    const users = [
+      { id: 1, vacationMode: false },
+      { id: 2, vacationMode: true },
+    ];
+    const userRepo = { find: jest.fn(async () => users) };
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    const colonyCrewService = { enforceGlobalCrewLimit: jest.fn(async () => 0) };
+    const messagingService = { sendSystem: jest.fn(async () => undefined) };
+    const service = new TickService(
+      colonyRepo as any,
+      {} as any,
+      shipRepo as any,
+      userRepo as any,
+      tickStateRepo as any,
+      {} as any,
+      { createTickEvents: jest.fn(async () => []) } as any,
+      {} as any,
+      { processTick: jest.fn(async () => undefined) } as any,
+      { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
+      undefined,
+      colonyCrewService as any,
+      messagingService as any,
+    );
+
+    await service.handleTick(1234);
+
+    expect(colonyCrewService.enforceGlobalCrewLimit).toHaveBeenCalledTimes(1);
+    expect(colonyCrewService.enforceGlobalCrewLimit).toHaveBeenCalledWith(1);
+  });
+
   it('calculates hourly tick slots when schedule is wildcard', () => {
     const service = createTickService({ GAME_MAIN_TICK_SCHEDULE_HOURS: '*' });
     const slot = new Date(2026, 6, 3, 13, 0, 0, 0).getTime();

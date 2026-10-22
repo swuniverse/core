@@ -3662,6 +3662,20 @@ export class SpacecraftService {
     }
 
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    const lifeSupport = systems.LIFE_SUPPORT;
+    if (
+      ship.crew > 0 &&
+      (!lifeSupport || !lifeSupport.active || lifeSupport.integrity <= 0)
+    ) {
+      const evacuated = await this.spacecraftCrewService.evacuateSpacecraft(ship);
+      if (evacuated > 0) {
+        await this.messagingService.sendSystem(
+          ship.userId,
+          'Lebenserhaltung ausgefallen',
+          `Die Lebenserhaltung der ${ship.name} ist ausgefallen. ${evacuated} Crewmitglieder konnten nicht gerettet werden.`,
+        );
+      }
+    }
     const location = resolveSpacecraftLocation(ship);
     if (
       ship.status === SpacecraftStatus.IN_FLIGHT ||

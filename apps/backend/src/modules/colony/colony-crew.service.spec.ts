@@ -22,16 +22,19 @@ function createService() {
   const crewRepo = {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => ({ id: 100, ...value })),
-    delete: jest.fn(async () => ({})),
+    delete: jest.fn<Promise<any>, any[]>(async () => ({})),
   };
   const crewAssignmentRepo = {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     count: jest.fn(async () => 0),
-    delete: jest.fn(async () => ({})),
+    delete: jest.fn<Promise<any>, any[]>(async () => ({})),
   };
-  const shipRepo = { save: jest.fn(async (value) => value) };
+  const shipRepo = {
+    findOneBy: jest.fn<Promise<any>, any[]>(async () => null),
+    save: jest.fn<Promise<any>, any[]>(async (value) => value),
+  };
   const colonyStatsService = {
     calculateSummary: jest.fn(() => ({
       productionDelta: new Map([
@@ -111,6 +114,34 @@ describe('ColonyCrewService', () => {
 
     await expect(service.getRemainingCount(1)).resolves.toBe(8);
     await expect(service.getTrainableCount(1)).resolves.toBe(2);
+  });
+
+  it('removes excess crew from colonies before evacuating whole ship crews', async () => {
+    const { service, colonyRepo, crewAssignmentRepo, crewRepo, shipRepo } =
+      createService();
+    colonyRepo.find.mockResolvedValue([]);
+    crewAssignmentRepo.count.mockResolvedValue(3);
+    crewAssignmentRepo.find
+      .mockResolvedValueOnce([
+        { crewId: 1, colonyId: 10, spacecraftId: null },
+        { crewId: 2, colonyId: null, spacecraftId: 20 },
+        { crewId: 3, colonyId: null, spacecraftId: 20 },
+      ])
+      .mockResolvedValueOnce([
+        { crewId: 2, colonyId: null, spacecraftId: 20 },
+        { crewId: 3, colonyId: null, spacecraftId: 20 },
+      ]);
+    shipRepo.findOneBy.mockResolvedValue({ id: 20, userId: 5, crew: 2 });
+
+    await expect(service.enforceGlobalCrewLimit(5)).resolves.toBe(3);
+
+    expect(crewAssignmentRepo.delete.mock.calls.map(([where]) => where)).toEqual([
+      { crewId: 1 },
+      { crewId: 2 },
+      { crewId: 3 },
+    ]);
+    expect(crewRepo.delete).toHaveBeenCalledTimes(3);
+    expect(shipRepo.save).toHaveBeenCalledWith(expect.objectContaining({ crew: 0 }));
   });
 
   it('creates crew and colony assignments on training completion', async () => {

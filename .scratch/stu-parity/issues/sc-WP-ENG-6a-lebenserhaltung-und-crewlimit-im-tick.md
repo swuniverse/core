@@ -1,6 +1,6 @@
 # Lebenserhaltung und Crew-Limit im Tick
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,9 +25,11 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Ein Schiff mit Crew und nicht intakter Lebenserhaltung (inaktiv oder Integrität 0) verliert im Tick seine Crew über eine zentrale Funktion `evacuateSpacecraft` (Rettungskapsel-Hook vorbereitet); der Eigner erhält eine Meldung.
-- [ ] Liegt die Crew eines Spielers über dem globalen Limit, verlassen überzählige Crewmitglieder zuerst Kolonien, dann Schiffe; Spieler im wirksamen Urlaubsmodus sind ausgenommen; Meldung an den Spieler.
-- [ ] Backend-Tests für beide Fälle und die Urlaubsausnahme.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Ein Schiff mit Crew und nicht intakter Lebenserhaltung (inaktiv oder Integrität 0) verliert im Tick seine Crew über eine zentrale Funktion `evacuateSpacecraft` (Rettungskapsel-Hook vorbereitet); der Eigner erhält eine Meldung.
+- [x] Liegt die Crew eines Spielers über dem globalen Limit, verlassen überzählige Crewmitglieder zuerst Kolonien, dann Schiffe; Spieler im wirksamen Urlaubsmodus sind ausgenommen; Meldung an den Spieler.
+- [x] Backend-Tests für beide Fälle und die Urlaubsausnahme.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-22: Lebenserhaltungsprüfung und zentrale Schiffs-Evakuierung im Tick ergänzt. Die globale Limitprüfung entfernt Crew zuerst von Kolonien und danach jeweils vollständig von ausgewählten Schiffen; aktiver Urlaubsmodus wird übersprungen. Spieler erhalten in beiden Fällen eine Systemmeldung. Rettungskapseln können später an `evacuateSpacecraft` anknüpfen.

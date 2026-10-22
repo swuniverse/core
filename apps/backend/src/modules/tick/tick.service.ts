@@ -10,6 +10,9 @@ import { GameGateway } from '../websocket/game.gateway';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from '../spacecraft/flight-signature.service';
+import { ColonyCrewService } from '../colony/colony-crew.service';
+import { MessagingService } from '../messaging/messaging.service';
+import { MessageFolder } from '../messaging/message-folder';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -61,6 +64,8 @@ export class TickService {
     private readonly flightSignatureService: FlightSignatureService = {
       deleteExpired: async () => undefined,
     } as unknown as FlightSignatureService,
+    private readonly colonyCrewService?: ColonyCrewService,
+    private readonly messagingService?: MessagingService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -209,7 +214,9 @@ export class TickService {
         }
       }
 
-      const users = await this.userRepo.find({ select: ['id'] });
+      const users = await this.userRepo.find({
+        select: ['id', 'vacationMode'],
+      });
       processedUserCount = users.length;
       for (const user of users) {
         await this.researchService.processTick(
@@ -217,6 +224,20 @@ export class TickService {
           researchByUser.get(user.id) || 0,
           commodityProductionByUser.get(user.id) || new Map(),
         );
+        if (!user.vacationMode && this.colonyCrewService) {
+          const removed = await this.colonyCrewService.enforceGlobalCrewLimit(
+            user.id,
+          );
+          if (removed > 0) {
+            await this.messagingService?.sendSystem(
+              user.id,
+              'Globales Crewlimit überschritten',
+              `${removed} Crewmitglieder haben wegen Überschreitung des globalen Crewlimits ihren Dienst quittiert.`,
+              undefined,
+              MessageFolder.COLONY,
+            );
+          }
+        }
       }
 
       await this.flightSignatureService.deleteExpired();

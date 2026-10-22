@@ -19,6 +19,7 @@ import {
   MAINTENANCE_HANDLERS,
   MaintenanceService,
 } from './maintenance.service';
+import { MessagingModule } from '../messaging/messaging.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import {
     WebsocketModule,
     DashboardModule,
     StatisticsModule,
+    MessagingModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
