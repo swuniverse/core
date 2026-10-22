@@ -7,9 +7,13 @@
 **Status:** ready-for-agent
 
 - [ ] Ein entdeckter Systemeintrag zeigt aktuelle Systemmetadaten, Himmelskörper, Felder und Koloniebelegung aus einem serverseitig berechtigten Detailvertrag.
-- [ ] Ein zugänglicher Raster-Inspektor erlaubt ausschließlich Auswahl und Untersuchung von Feldern oder Objekten; Bewegungs-, Kampf-, Navigations- und Scanaktionen sind nicht verfügbar.
+- [x] Ein zugänglicher Raster-Inspektor erlaubt ausschließlich Auswahl und Untersuchung von Feldern oder Objekten; Bewegungs-, Kampf-, Navigations- und Scanaktionen sind nicht verfügbar.
 - [ ] Der Systemeintrag verlinkt mit den passenden Außenkoordinaten zur bestehenden Sternenkarte.
 - [ ] Besitzt der Betrachter mindestens eine aktuelle Kolonie im dargestellten System, sieht er an aktuell fremden Kolonien eine Schnellnachricht zum aktuellen Besitzer.
 - [ ] Ohne eigene Kolonie im System erscheint keine Schnellnachricht; historische Scanbesitzer werden niemals als Empfänger verwendet.
 - [ ] Die Nachrichtenkomposition übernimmt die vorbefüllte aktuelle Empfänger-ID und den Namen, ohne das bestehende Senden von Nachrichten zu verändern.
 - [ ] Integration- und Komponententests prüfen Detailberechtigung, aktuelle Darstellung, inspect-only Interaktion, Kartenlink und die Schnellnachrichtenbedingung.
+
+## Comments
+
+Audit: Nur das Kriterium zur rein lesenden, nicht-taktischen Darstellung ist aktuell vollständig erfüllt. `fc37352` implementierte ursprünglich aktuelle Koloniebelegung, Sternkartenlink und Schnellnachricht; `b496498` und `d118865` entfernten diese Funktionen aus dem aktiven Detailvertrag bzw. der Oberfläche (`database.service.ts`, `database.controller.ts`, `database.tsx`, `SystemRasterMap.tsx`; Tests `database-system-detail.service.spec.ts`, `database.spec.tsx`). Offen bleiben aktuelle Belegung, koordinatentragender Sternkartenlink, serverseitige Nachrichtenberechtigung, Empfängervorbelegung ausschließlich aus aktuellem Besitz sowie passende Tests. Restarbeit: `tmw-D0a`.

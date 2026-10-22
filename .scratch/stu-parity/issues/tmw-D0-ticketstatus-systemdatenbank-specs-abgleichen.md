@@ -1,6 +1,6 @@
 # Ticketstatus der Systemdatenbank-Specs abgleichen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -29,11 +29,13 @@ Die Issues der Specs `stu-systemdatenbank-und-kolonie-scans` (01–08) und `graf
 
 ## Akzeptanzkriterien
 
-- [ ] Für jedes der elf Issues ist jedes Akzeptanzkriterium gegen Code und Tests geprüft: per CodeGraph (`codegraph explore`), Lesen der Tests und `git log`.
-- [ ] Ist ein Issue vollständig erfüllt, steht dort `**Status:** resolved`, die Checkboxen sind abgehakt, und ein `## Comments`-Eintrag nennt Belegdateien, Testdateien und Commit-Hashes.
-- [ ] Ist ein Issue nur teilweise erfüllt, bleibt sein Status unverändert. Ein `## Comments`-Eintrag listet die offenen Kriterien konkret auf. Zusätzlich gibt es für die Restlücke ein neues Issue `tmw-D0a-<slug>.md` (fortlaufend `D0b`, `D0c` …) in `.scratch/stu-parity/issues/` mit `**Status:** needs-triage`.
-- [ ] Es wird kein Produktcode geändert. Geändert werden nur Status-Zeilen, Checkboxen und Kommentare in den beiden Spec-Verzeichnissen sowie ggf. neue Restlücken-Issues.
-- [ ] Die betroffenen Backend- und Frontend-Tests (`npx nx test backend`, `npx nx test frontend`) laufen grün. Das belegt, dass die als `resolved` markierten Kriterien abgedeckt sind. Fehlschläge werden als Restlücke behandelt.
-- [ ] Die Zeile zu `stu-systemdatenbank-…`/`grafischer-systemeintrag-…` in `inventory/trade-map-world.md` muss nicht angepasst werden. Das Ergebnis steht unter „Erledigt“ in `map.md`.
+- [x] Für jedes der elf Issues ist jedes Akzeptanzkriterium gegen Code und Tests geprüft: per CodeGraph (`codegraph explore`), Lesen der Tests und `git log`.
+- [x] Ist ein Issue vollständig erfüllt, steht dort `**Status:** resolved`, die Checkboxen sind abgehakt, und ein `## Comments`-Eintrag nennt Belegdateien, Testdateien und Commit-Hashes.
+- [x] Ist ein Issue nur teilweise erfüllt, bleibt sein Status unverändert. Ein `## Comments`-Eintrag listet die offenen Kriterien konkret auf. Zusätzlich gibt es für die Restlücke ein neues Issue `tmw-D0a-<slug>.md` (fortlaufend `D0b`, `D0c` …) in `.scratch/stu-parity/issues/` mit `**Status:** needs-triage`.
+- [x] Es wird kein Produktcode geändert. Geändert werden nur Status-Zeilen, Checkboxen und Kommentare in den beiden Spec-Verzeichnissen sowie ggf. neue Restlücken-Issues.
+- [x] Die betroffenen Backend- und Frontend-Tests (`npx nx test backend`, `npx nx test frontend`) laufen grün. Das belegt, dass die als `resolved` markierten Kriterien abgedeckt sind. Fehlschläge werden als Restlücke behandelt.
+- [x] Die Zeile zu `stu-systemdatenbank-…`/`grafischer-systemeintrag-…` in `inventory/trade-map-world.md` muss nicht angepasst werden. Das Ergebnis steht unter „Erledigt“ in `map.md`.
 
 ## Comments
+
+Audit abgeschlossen: Fünf Issues der Systemdatenbank-Spec sind vollständig erfüllt und auf `resolved` gesetzt; der abgelöste Ein-Tick-Astrometrievertrag ist wegen ADR-0003 `wontfix`. Fünf teilweise erfüllte Issues bleiben unverändert und dokumentieren ihre konkreten Restlücken. Diese sind in `tmw-D0a` (Produktvertrag/UI) und `tmw-D0b` (Verhaltenstests und Kartographieentscheidungen) als `needs-triage` gebündelt. Es wurde kein Produktcode geändert. `npx nx test backend` und `npx nx test frontend` liefen am 2026-10-22 grün.

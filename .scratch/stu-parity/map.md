@@ -129,3 +129,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-13a – Design-Tokens, Spieltabellen, Zahlenformatierung und deutsche UI-Texte vereinheitlicht – siehe Feature-Commit
 - soc-A1 – PM-Serverregeln, Ignorier-Haken und Antwortverlauf umgesetzt – siehe Feature-Commit
 - soc-D1 – HoloNet-Längenregeln, Soft-Delete, Beteiligten-Benachrichtigungen, Bewertungsbalken und Compose-Lesezeichen umgesetzt – siehe Feature-Commit
+- tmw-D0 – Elf Systemdatenbank- und Astrometrie-Spec-Issues gegen Code, Tests und Historie abgeglichen; Restlücken als tmw-D0a/b erfasst – siehe Feature-Commit
