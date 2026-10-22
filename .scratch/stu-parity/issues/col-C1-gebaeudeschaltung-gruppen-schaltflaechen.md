@@ -1,6 +1,6 @@
 # Gebäudeschaltung: Gruppen-Schaltflächen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -23,11 +23,13 @@ Das Backend beherrscht alle sieben STU-Massenmodi, die Oberfläche nutzt aber nu
 
 ## Akzeptanzkriterien
 
-- [ ] Neben der Auswahlliste gibt es eine kompakte Gruppenleiste mit je einem Aktivieren- und Deaktivieren-Icon für: Energieverbraucher (1), Energieerzeuger (3), Arbeitgeber (4), Wohngebäude (5).
-- [ ] Für Warenverbraucher (6) und Warenerzeuger (7) wählt der Spieler eine Ware (Icon-Auswahl aus den Waren der Kolonie), dann Aktivieren/Deaktivieren.
-- [ ] Nach der Aktion zeigt die UI die Backend-Rückmeldung (geschaltete Gebäude, Fehlschläge) und aktualisiert Karte und Bilanz.
-- [ ] Darstellung nach den UI-Konventionen aus `inventory/shell-admin-runtime.md` Abschnitt 3 (Icons mit Tooltip, dichte Zeilen).
-- [ ] Frontend-Tests: jede Gruppe sendet den richtigen Modus (und `commodityId` bei 6/7).
-- [ ] Backend-Test bestätigt, dass Modi 6/7 die Ware als Parameter verlangen (falls noch nicht abgedeckt).
+- [x] Neben der Auswahlliste gibt es eine kompakte Gruppenleiste mit je einem Aktivieren- und Deaktivieren-Icon für: Energieverbraucher (1), Energieerzeuger (3), Arbeitgeber (4), Wohngebäude (5).
+- [x] Für Warenverbraucher (6) und Warenerzeuger (7) wählt der Spieler eine Ware (Icon-Auswahl aus den Waren der Kolonie), dann Aktivieren/Deaktivieren.
+- [x] Nach der Aktion zeigt die UI die Backend-Rückmeldung (geschaltete Gebäude, Fehlschläge) und aktualisiert Karte und Bilanz.
+- [x] Darstellung nach den UI-Konventionen aus `inventory/shell-admin-runtime.md` Abschnitt 3 (Icons mit Tooltip, dichte Zeilen).
+- [x] Frontend-Tests: jede Gruppe sendet den richtigen Modus (und `commodityId` bei 6/7).
+- [x] Backend-Test bestätigt, dass Modi 6/7 die Ware als Parameter verlangen (falls noch nicht abgedeckt).
 
 ## Comments
+
+- 2026-10-22: Kompakte Gruppensteuerung mit Tooltips, Warenwahl und Ergebnisanzeige in `PanelBuildingManagement.tsx` ergänzt; Modi 6/7 werden im Backend ohne Ware abgewiesen. Frontend- und Backend-Tests decken alle Gruppenmodi ab. Keine offenen Folgepunkte.

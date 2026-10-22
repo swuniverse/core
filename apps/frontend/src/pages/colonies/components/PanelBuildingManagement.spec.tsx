@@ -69,7 +69,10 @@ const management = {
       production: [],
     },
   ],
-  usableCommodities: [],
+  usableCommodities: [
+    { id: 2, name: 'Baumaterial' },
+    { id: 3, name: 'Duranium' },
+  ],
 } satisfies NonNullable<ColonyDetailV2['buildingManagement']>;
 
 const getBuildingRow = (buildingName: string) => {
@@ -80,7 +83,7 @@ const getBuildingRow = (buildingName: string) => {
 
 describe('PanelBuildingManagement', () => {
   it('associates field numbers with effective row statuses and preserves selection actions', async () => {
-    const onActivate = vi.fn().mockResolvedValue({});
+    const onActivate = vi.fn().mockResolvedValue({ changed: [], skipped: [] });
 
     render(
       <PanelBuildingManagement
@@ -108,10 +111,74 @@ describe('PanelBuildingManagement', () => {
 
     fireEvent.click(damagedRow.getByRole('checkbox'));
     expect(screen.getByText('1 ausgewählt')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Aktivieren' }));
+    fireEvent.click(screen.getByText('1 ausgewählt').parentElement!.querySelector('button')!);
 
     await waitFor(() => {
       expect(onActivate).toHaveBeenCalledWith(2, { fieldIndexes: [13] });
     });
+  });
+
+  it.each([
+    ['Energieverbraucher', 1],
+    ['Energieerzeuger', 3],
+    ['Arbeitgeber', 4],
+    ['Wohngebäude', 5],
+  ])('sends the %s group mode for activation and deactivation', async (label, mode) => {
+    const onActivate = vi.fn().mockResolvedValue({ changed: [], skipped: [] });
+    const onDeactivate = vi.fn().mockResolvedValue({ changed: [], skipped: [] });
+
+    render(
+      <PanelBuildingManagement
+        management={management}
+        onActivate={onActivate}
+        onDeactivate={onDeactivate}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: label });
+    fireEvent.click(within(group).getByRole('button', { name: 'Aktivieren' }));
+    await waitFor(() => expect(onActivate).toHaveBeenCalledWith(mode, {}));
+
+    fireEvent.click(within(group).getByRole('button', { name: 'Deaktivieren' }));
+    await waitFor(() => expect(onDeactivate).toHaveBeenCalledWith(mode, {}));
+  });
+
+  it('sends the selected commodity for consumer and producer groups', async () => {
+    const onActivate = vi.fn().mockResolvedValue({
+      changed: [{ buildingName: 'Aktivwerk' }],
+      skipped: [],
+    });
+    const onDeactivate = vi.fn().mockResolvedValue({ changed: [], skipped: [] });
+
+    render(
+      <PanelBuildingManagement
+        management={management}
+        onActivate={onActivate}
+        onDeactivate={onDeactivate}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Ware' }), {
+      target: { value: '3' },
+    });
+    const consumers = screen.getByRole('group', { name: 'Warenverbraucher' });
+    fireEvent.click(
+      within(consumers).getByRole('button', { name: 'Aktivieren' }),
+    );
+    await waitFor(() =>
+      expect(onActivate).toHaveBeenCalledWith(6, { commodityId: 3 }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('1 Gebäude geschaltet')).toBeTruthy(),
+    );
+
+    const producers = screen.getByRole('group', { name: 'Warenerzeuger' });
+    fireEvent.click(
+      within(producers).getByRole('button', { name: 'Deaktivieren' }),
+    );
+    await waitFor(() =>
+      expect(onDeactivate).toHaveBeenCalledWith(7, { commodityId: 3 }),
+    );
   });
 });

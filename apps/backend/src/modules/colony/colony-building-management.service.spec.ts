@@ -218,6 +218,17 @@ describe('ColonyBuildingManagementService', () => {
     ).toEqual([5]);
   });
 
+  it.each([
+    BuildingMassActionMode.COMMODITY_CONSUMERS,
+    BuildingMassActionMode.COMMODITY_PRODUCERS,
+  ])('requires a commodity for mass-action mode %s', (mode) => {
+    const { service } = createService();
+
+    expect(() => service.selectFields(colony() as any, mode)).toThrow(
+      'Commodity is required for this mass-action mode',
+    );
+  });
+
   it('returns skipped reasons when worker validation fails', async () => {
     const { service } = createService();
     const c = colony() as any;

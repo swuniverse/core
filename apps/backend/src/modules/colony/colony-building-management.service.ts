@@ -273,6 +273,15 @@ export class ColonyBuildingManagementService {
     const fields = (colony.fields ?? [])
       .filter((field) => field.buildingId)
       .sort((a, b) => a.fieldIndex - b.fieldIndex);
+    if (
+      (mode === BuildingMassActionMode.COMMODITY_CONSUMERS ||
+        mode === BuildingMassActionMode.COMMODITY_PRODUCERS) &&
+      !options.commodityId
+    ) {
+      throw new BadRequestException(
+        'Commodity is required for this mass-action mode',
+      );
+    }
     switch (mode) {
       case BuildingMassActionMode.EPS_CONSUMERS:
         return fields.filter(
