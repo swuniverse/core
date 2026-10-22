@@ -1,6 +1,6 @@
 # Forschungsqueue und Abbruchregeln festlegen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -22,10 +22,10 @@ STU erlaubt eine aktive Forschung plus einen Warteslot und verwirft den Fortschr
 
 ## Akzeptanzkriterien
 
-- [ ] ADR `docs/adr/<nächste freie Nummer>-forschungsqueue-weicht-von-stu-ab.md` im Format der bestehenden ADRs (vgl. `docs/adr/0001-allianzen-abweichungen-von-stu.md`): STU-Regel, SWU-Regel (10 Slots, Auto-Pfad, Fortschritt bleibt), Begründung (Komfortgewinn ohne Balance-Nachteil, Forschungsgeschwindigkeit unverändert).
-- [ ] `CONTEXT.md` nur ergänzen, falls dort ein Begriff zur Forschungsqueue geführt wird bzw. nötig ist (z. B. „Forschungsqueue“); sonst unverändert.
-- [ ] Kein Produktcode wird geändert.
-- [ ] Issue danach `resolved`.
+- [x] ADR `docs/adr/<nächste freie Nummer>-forschungsqueue-weicht-von-stu-ab.md` im Format der bestehenden ADRs (vgl. `docs/adr/0001-allianzen-abweichungen-von-stu.md`): STU-Regel, SWU-Regel (10 Slots, Auto-Pfad, Fortschritt bleibt), Begründung (Komfortgewinn ohne Balance-Nachteil, Forschungsgeschwindigkeit unverändert).
+- [x] `CONTEXT.md` nur ergänzen, falls dort ein Begriff zur Forschungsqueue geführt wird bzw. nötig ist (z. B. „Forschungsqueue“); sonst unverändert.
+- [x] Kein Produktcode wird geändert.
+- [x] Issue danach `resolved`.
 
 ## Entscheidung
 
@@ -34,3 +34,4 @@ Vorgabe: Variante (a). Die SWU-Forschungsqueue bleibt unverändert (`MAX_QUEUE_S
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Das SWU-Modell der Forschungsqueue (10 Slots, Auto-Pfad zur Zielforschung, Fortschritt bleibt beim Abbruch) bleibt bestehen und wird als bewusste Abweichung von STU per ADR dokumentiert.
+- 2026-10-22: ADR 0005 dokumentiert STU- und SWU-Regel, Komfort- und Balancebegründung sowie die Folgen für Queue und Anzeigen. `CONTEXT.md` und Produktcode bleiben unverändert.
