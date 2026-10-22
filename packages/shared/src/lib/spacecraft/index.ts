@@ -144,6 +144,54 @@ export interface ColonyScanProjectionDto {
   };
 }
 
+export interface SpacecraftListSystemDto {
+  present: boolean;
+  active: boolean;
+  damaged: boolean;
+}
+
+export interface SpacecraftListDto {
+  id: number;
+  name: string;
+  shipClassId: number;
+  shipClassName?: string;
+  shipClassKey?: string | null;
+  status: string;
+  specialStatus: 'IN_FLIGHT' | 'STANDBY' | 'CARTOGRAPHY_FINALIZATION' | null;
+  alertState: SpacecraftAlertState;
+  layer: { id: number; name: string };
+  location: SpaceLocationDto & {
+    layerId: number;
+    galaxyX?: number;
+    galaxyY?: number;
+  };
+  hull: number;
+  hullMax: number;
+  shields: number;
+  shieldsMax: number;
+  shieldActive: boolean;
+  shieldRegeneration: number;
+  energy: number;
+  energyMax: number;
+  energyGain: number;
+  energyConsumption: number;
+  reactorUsage: number;
+  warpdrive: number;
+  warpdriveMax: number;
+  warpdriveGain: number;
+  reactorFuel: number;
+  reactorFuelMax: number;
+  battery: number;
+  batteryMax: number;
+  crew: number;
+  crewRequired: number;
+  crewMax: number;
+  systems: Record<
+    'SHORT_RANGE_SENSORS' | 'LONG_RANGE_SENSORS' | 'WEAPONS' | 'TORPEDO_BANK',
+    SpacecraftListSystemDto
+  >;
+}
+
 export interface SpacecraftDetailDto {
   id: number;
   name: string;

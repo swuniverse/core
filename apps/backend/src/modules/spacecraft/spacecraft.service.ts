@@ -232,6 +232,7 @@ export class SpacecraftService {
     const ships = await this.shipRepo.find({
       where: { userId },
       relations: [
+        'modules',
         'fleet',
         'fleet.members',
         'location',
@@ -244,13 +245,7 @@ export class SpacecraftService {
       ],
       order: { id: 'ASC' },
     });
-    const summaries = await Promise.all(
-      ships.map((ship) => this.toShipSummary(ship)),
-    );
-    return summaries.map((ship) => ({
-      ...ship,
-      location: resolveSpacecraftLocation(ship),
-    }));
+    return Promise.all(ships.map((ship) => this.toShipListDto(ship)));
   }
 
   async findOne(shipId: number, userId: number): Promise<Spacecraft> {
@@ -1280,6 +1275,87 @@ export class SpacecraftService {
         Math.round(shipClass.cargoCapacity * 0.25),
       ),
       energiemodule: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
+    };
+  }
+
+  private async toShipListDto(ship: Spacecraft) {
+    const [summary, crew, crewRequired, finalization, shipClass] =
+      await Promise.all([
+        this.toShipSummary(ship),
+        this.spacecraftCrewService.getAssignedCrewCount(ship.id),
+        this.spacecraftCrewService.getRequiredCrew(ship),
+        this.cartographyPlanService.getPlanForFinalizingSpacecraft(ship.id),
+        this.shipClassService.findById(ship.shipClassId),
+      ]);
+    const flow = this.spacecraftResourceFlowService.calculate(
+      ship,
+      shipClass?.flightEnergyCost ?? 1,
+    );
+    const runtimeSystems = this.spacecraftRuntimeStateService.initialize(ship);
+    const resolvedLocation = resolveSpacecraftLocation(ship);
+    if (!resolvedLocation) throw new Error('Spacecraft location is missing');
+    const galaxyField =
+      ship.location.galaxyField ?? ship.location.systemField?.starSystem;
+    const layerId = galaxyField?.layerId ?? 0;
+    const location =
+      resolvedLocation.scope === 'SYSTEM'
+        ? {
+            ...resolvedLocation,
+            layerId,
+            galaxyX: galaxyField?.cx ?? 0,
+            galaxyY: galaxyField?.cy ?? 0,
+          }
+        : resolvedLocation;
+    const layer = ship.location.galaxyField?.layer ?? {
+      id: layerId,
+      name: `Ebene ${layerId}`,
+    };
+    const system = (key: SpacecraftRuntimeSystemKey) => {
+      const state = runtimeSystems[key];
+      return {
+        present: Boolean(state),
+        active: state?.active === true,
+        damaged: Boolean(state && state.integrity < 100),
+      };
+    };
+    const shieldActive = runtimeSystems.SHIELDS?.active === true;
+
+    return {
+      ...summary,
+      location,
+      layer: { id: layer.id, name: layer.name },
+      crew,
+      crewRequired,
+      crewMax: ship.crewMax,
+      shieldActive,
+      shieldRegeneration:
+        !shieldActive && ship.shields < ship.shieldsMax
+          ? Math.max(1, Math.floor(ship.shieldsMax * 0.05))
+          : 0,
+      energyMax: flow.energy.max,
+      energyGain: flow.effectiveEpsProduction,
+      energyConsumption: flow.totalSystemConsumption,
+      reactorUsage: flow.reactorUsage,
+      warpdrive: flow.warpdrive.current,
+      warpdriveMax: flow.warpdrive.max,
+      warpdriveGain: flow.effectiveWarpProduction,
+      reactorFuel: flow.reactorFuel.current,
+      reactorFuelMax: flow.reactorFuel.max,
+      battery: flow.battery.current,
+      batteryMax: flow.battery.max,
+      systems: {
+        SHORT_RANGE_SENSORS: system('SHORT_RANGE_SENSORS'),
+        LONG_RANGE_SENSORS: system('LONG_RANGE_SENSORS'),
+        WEAPONS: system('WEAPONS'),
+        TORPEDO_BANK: system('TORPEDO_BANK'),
+      },
+      specialStatus: finalization
+        ? 'CARTOGRAPHY_FINALIZATION'
+        : ship.operatingMode === SpacecraftOperatingMode.STANDBY
+          ? 'STANDBY'
+          : ship.status === SpacecraftStatus.IN_FLIGHT
+            ? 'IN_FLIGHT'
+            : null,
     };
   }
 

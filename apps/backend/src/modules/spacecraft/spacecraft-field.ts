@@ -6,6 +6,9 @@ export type SpaceLocationDto =
       scope: 'SYSTEM';
       locationId?: number;
       systemId: number;
+      layerId?: number;
+      galaxyX?: number;
+      galaxyY?: number;
       x: number;
       y: number;
     }

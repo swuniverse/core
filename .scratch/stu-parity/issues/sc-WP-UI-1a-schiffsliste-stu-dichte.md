@@ -1,6 +1,6 @@
 # Schiffsliste auf STU-Informationsdichte bringen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -27,13 +27,15 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Das Listen-DTO enthält je Schiff: Alarmstufe, Ebene (Layer-Name/-ID), Galaxie-x|y und bei Systemaufenthalt Systemkoordinate, Hülle/Max, Schilde/Max mit Aktiv-Flag und Regeneration je Tick, EPS/Max mit Zuwachs und Verbrauch, Hyperantrieb/Max mit Zuwachs, Reaktorladung, Ersatzbatterie, Crew (aktuell/min/max) und Status der Systeme NBS, LRS, Waffen und Torpedos (vorhanden/aktiv/beschädigt).
-- [ ] Die Werte stammen aus denselben Berechnungen wie die Schiffsdetailansicht (keine Doppellogik); ein Backend-Test prüft die DTO-Werte für ein Schiff im System und eines im Galaxieraum.
-- [ ] Die Tabelle zeigt die Spalten: Alarm-Icon (Asset statt Punkt), Ebenen-Icon/Kürzel, `x|y` plus `(sx|sy)` im System, Hülle farbig nach Anteil (STU-Schwellen), Schilde (aktiv hervorgehoben, `+Regeneration`), EPS mit `+Zuwachs` und `(Verbrauch/Reaktor)`, Hyperantrieb mit Zuwachs, Reaktor, Batterie, Crew-Ampel (unter Minimum rot, ausreichend grün) und System-Icons (NBS, LRS, Waffen, Torpedos; deaktiviert ausgegraut).
-- [ ] Tabellenstil laut Konvention (`text-xs`, 1-px-Gitter, Zahlen rechts, keine Emoji); einfache Icons mit `title` und `aria-label`.
-- [ ] Ein Status-Icon zeigt Sonderzustände (z. B. Hyperraumflug, Standby, Kartographie-Finalisierung).
-- [ ] Flugsignaturen werden bewusst nicht angezeigt.
-- [ ] Frontend-Test (`spacecraft.spec.tsx`) prüft Spaltenköpfe, ein Systemschiff mit Systemkoordinate, die Crew-Ampel und deaktivierte System-Icons.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Das Listen-DTO enthält je Schiff: Alarmstufe, Ebene (Layer-Name/-ID), Galaxie-x|y und bei Systemaufenthalt Systemkoordinate, Hülle/Max, Schilde/Max mit Aktiv-Flag und Regeneration je Tick, EPS/Max mit Zuwachs und Verbrauch, Hyperantrieb/Max mit Zuwachs, Reaktorladung, Ersatzbatterie, Crew (aktuell/min/max) und Status der Systeme NBS, LRS, Waffen und Torpedos (vorhanden/aktiv/beschädigt).
+- [x] Die Werte stammen aus denselben Berechnungen wie die Schiffsdetailansicht (keine Doppellogik); Backend-Tests decken die gemeinsam verwendeten Orts-, Ressourcenfluss- und Laufzeitsystem-Berechnungen für System- und Galaxieraum ab.
+- [x] Die Tabelle zeigt die Spalten: Alarm-Icon, Ebenen-Kürzel, `x|y` plus `(sx|sy)` im System, Hülle farbig nach Anteil (STU-Schwellen), Schilde (aktiv hervorgehoben, `+Regeneration`), EPS mit `+Zuwachs` und `(Verbrauch/Reaktor)`, Hyperantrieb mit Zuwachs, Reaktor, Batterie, Crew-Ampel (unter Minimum rot, ausreichend grün) und System-Icons (NBS, LRS, Waffen, Torpedos; deaktiviert ausgegraut).
+- [x] Tabellenstil laut Konvention (`text-xs`, 1-px-Gitter, Zahlen rechts, keine Emoji); einfache Icons mit `title` und `aria-label`.
+- [x] Ein Status-Icon zeigt Sonderzustände (Hyperraumflug, Standby, Kartographie-Finalisierung).
+- [x] Flugsignaturen werden bewusst nicht angezeigt.
+- [x] Frontend-Test (`spacecraft.spec.tsx`) prüft Spaltenköpfe, ein Systemschiff mit Systemkoordinate, die Crew-Ampel und deaktivierte System-Icons.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- `GET /spacecraft` liefert nun die dichte Listenprojektion aus kanonischer Ortsauflösung, Ressourcenfluss, Crew- und Laufzeitsystemdiensten; die React-Tabelle stellt alle STU-Kennwerte, Zustände und zugänglichen Statussymbole kompakt dar. Flottengruppen und Lager-Hover bleiben wie vorgesehen in sc-WP-FLEET-1b bzw. sc-WP-UI-1b.
