@@ -45,6 +45,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
           useFactory: () =>
             new MessagingService(
               dataSource.getRepository(Message),
+              dataSource.getRepository(User),
               new StatisticsService(dataSource, []),
             ),
         },

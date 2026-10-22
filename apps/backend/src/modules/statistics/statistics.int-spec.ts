@@ -454,6 +454,7 @@ describe('database statistics (Postgres, HTTP)', () => {
   it('shows private messages as growth per hour, unaffected by deletion and other folders', async () => {
     const messaging = new MessagingService(
       dataSource.getRepository(Message),
+      dataSource.getRepository(User),
       statistics,
     );
     const other = await createUser(dataSource, { username: 'other' });

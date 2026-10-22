@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { User } from '../auth/user.entity';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { Message } from './entities/message.entity';
@@ -12,11 +17,22 @@ import {
 
 @Injectable()
 export class MessagingService {
+  private ignoreCheck: (recipientId: number, senderId: number) => Promise<boolean> =
+    async () => false;
+
   constructor(
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly statisticsService: StatisticsService,
   ) {}
+
+  setIgnoreCheck(
+    ignoreCheck: (recipientId: number, senderId: number) => Promise<boolean>,
+  ): void {
+    this.ignoreCheck = ignoreCheck;
+  }
 
   async getInbox(userId: number, page = 1, limit = 20) {
     const [data, total] = await this.messageRepo.findAndCount({
@@ -123,12 +139,47 @@ export class MessagingService {
     return message;
   }
 
+  async getCorrespondence(userId: number, partnerId: number, limit = 10) {
+    return this.messageRepo.find({
+      where: [
+        {
+          senderId: partnerId,
+          recipientId: userId,
+          folder: MessageFolder.PERSONAL,
+          isSystem: false,
+          deletedByRecipient: false,
+        },
+        {
+          senderId: userId,
+          recipientId: partnerId,
+          folder: MessageFolder.PERSONAL,
+          isSystem: false,
+          deletedBySender: false,
+        },
+      ],
+      relations: ['sender'],
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(1, limit), 10),
+    });
+  }
+
   async send(senderId: number, recipientId: number, subject: string, body: string): Promise<Message> {
+    if (senderId === recipientId) {
+      throw new BadRequestException('Du kannst Dir keine Nachricht schicken');
+    }
+    const recipient = await this.userRepo.findOneBy({ id: recipientId });
+    if (!recipient) {
+      throw new NotFoundException('Dieser Siedler existiert nicht');
+    }
+    if (await this.ignoreCheck(recipientId, senderId)) {
+      throw new BadRequestException('Der Siedler ignoriert Dich');
+    }
+
     const message = this.messageRepo.create({
       senderId,
       recipientId,
-      subject,
-      body,
+      subject: subject.trim(),
+      body: body.trim(),
       folder: MessageFolder.PERSONAL,
     });
     const saved = await this.messageRepo.save(message);

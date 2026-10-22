@@ -5,10 +5,11 @@ import { MessagingService } from './messaging.service';
 import { Message } from './entities/message.entity';
 import { StatisticsModule } from '../statistics/statistics.module';
 import { ColonyEventService } from './colony-event.service';
+import { User } from '../auth/user.entity';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([Message]), StatisticsModule],
+  imports: [TypeOrmModule.forFeature([Message, User]), StatisticsModule],
   controllers: [MessagingController],
   providers: [MessagingService, ColonyEventService],
   exports: [MessagingService, ColonyEventService],

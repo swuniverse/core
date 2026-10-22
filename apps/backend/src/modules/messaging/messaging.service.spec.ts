@@ -1,0 +1,91 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { MessageFolder } from './message-folder';
+import { MessagingService } from './messaging.service';
+
+describe('MessagingService', () => {
+  const messageRepo = {
+    findOneBy: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: 1, ...value })),
+  };
+  const userRepo = { findOneBy: jest.fn() };
+  const statisticsService = { countEvent: jest.fn() };
+  let service: MessagingService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new MessagingService(
+      messageRepo as never,
+      userRepo as never,
+      statisticsService as never,
+    );
+  });
+
+
+  it('rejects an unknown recipient', async () => {
+    userRepo.findOneBy.mockResolvedValue(null);
+
+    await expect(service.send(1, 99, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
+      new NotFoundException('Dieser Siedler existiert nicht'),
+    );
+    expect(messageRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a message to the sender', async () => {
+    await expect(service.send(1, 1, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
+      new BadRequestException('Du kannst Dir keine Nachricht schicken'),
+    );
+  });
+
+  it('checks the ignore hook before sending', async () => {
+    userRepo.findOneBy.mockResolvedValue({ id: 2 });
+    const ignored = jest.fn().mockResolvedValue(true);
+    service.setIgnoreCheck(ignored);
+
+    await expect(service.send(1, 2, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
+      new BadRequestException('Der Siedler ignoriert Dich'),
+    );
+    expect(ignored).toHaveBeenCalledWith(2, 1);
+  });
+
+  it('trims and sends a valid personal message', async () => {
+    userRepo.findOneBy.mockResolvedValue({ id: 2 });
+
+    await service.send(1, 2, '  Hallo  ', '  Lange Nachricht  ');
+
+    expect(messageRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      senderId: 1,
+      recipientId: 2,
+      subject: 'Hallo',
+      body: 'Lange Nachricht',
+      folder: MessageFolder.PERSONAL,
+    }));
+  });
+
+  it('returns only visible personal correspondence newest first', async () => {
+    messageRepo.find.mockResolvedValue([{ id: 4 }]);
+
+    await expect(service.getCorrespondence(1, 2)).resolves.toEqual([{ id: 4 }]);
+    expect(messageRepo.find).toHaveBeenCalledWith(expect.objectContaining({
+      relations: ['sender'],
+      order: { createdAt: 'DESC' },
+      take: 10,
+    }));
+    const where = messageRepo.find.mock.calls[0][0].where;
+    expect(where).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        senderId: 2,
+        recipientId: 1,
+        isSystem: false,
+        deletedByRecipient: false,
+      }),
+      expect.objectContaining({
+        senderId: 1,
+        recipientId: 2,
+        isSystem: false,
+        deletedBySender: false,
+      }),
+    ]));
+  });
+});

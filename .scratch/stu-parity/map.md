@@ -127,3 +127,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-11 – Gemeinsame cursorfolgende, touch- und tastaturfähige Tooltip-Komponente – siehe Feature-Commit
 - sh-AP-12 – Seitenkopf mit Breadcrumb, Seitentitel und persistenter Meldungsbox – siehe Feature-Commit
 - sh-AP-13a – Design-Tokens, Spieltabellen, Zahlenformatierung und deutsche UI-Texte vereinheitlicht – siehe Feature-Commit
+- soc-A1 – PM-Serverregeln, Ignorier-Haken und Antwortverlauf umgesetzt – siehe Feature-Commit

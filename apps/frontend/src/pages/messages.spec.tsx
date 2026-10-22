@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ToastProvider } from '../components/Toast';
 import { MessagesPage } from './messages';
 
 const api = vi.hoisted(() => ({
@@ -23,7 +24,9 @@ const folders = [
 function renderPage(initialEntry = '/messages?folder=personal') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <MessagesPage />
+      <ToastProvider>
+        <MessagesPage />
+      </ToastProvider>
     </MemoryRouter>,
   );
 }
@@ -375,6 +378,84 @@ describe('MessagesPage folders', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('loads and shows correspondence when replying', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/personal?page=1') {
+        return Promise.resolve({
+          data: [{
+            id: 11,
+            subject: 'Private Nachricht',
+            isRead: false,
+            isSystem: false,
+            createdAt: '2026-10-13T12:00:00.000Z',
+            sender: { username: 'Leia' },
+          }],
+          total: 1,
+          page: 1,
+          limit: 20,
+        });
+      }
+      if (url === '/messages/11') {
+        return Promise.resolve({
+          id: 11,
+          subject: 'Private Nachricht',
+          body: 'Bitte antworten.',
+          isRead: false,
+          isSystem: false,
+          createdAt: '2026-10-13T12:00:00.000Z',
+          sender: { username: 'Leia' },
+          senderId: 7,
+          recipientId: 1,
+        });
+      }
+      if (url === '/messages/correspondence/7') {
+        return Promise.resolve([{
+          id: 10,
+          subject: 'Frühere Nachricht',
+          body: '[b]Alter Verlauf[/b]',
+          isRead: true,
+          isSystem: false,
+          createdAt: '2026-10-12T12:00:00.000Z',
+          sender: { username: 'Leia' },
+          senderId: 7,
+          recipientId: 1,
+        }]);
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByText('Private Nachricht'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Antworten' }));
+
+    expect(await screen.findByText('Korrespondenz')).toBeTruthy();
+    expect(screen.getByText('Alter Verlauf')).toBeTruthy();
+    expect(api.get).toHaveBeenCalledWith('/messages/correspondence/7');
+  });
+
+  it('shows a send error and keeps the draft', async () => {
+    renderPage('/messages?tab=compose&to=7&name=Leia');
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/messages/folders'));
+    api.post.mockImplementationOnce(() => Promise.reject(new Error('Der Text ist zu kurz')));
+
+    fireEvent.change(screen.getAllByRole('textbox')[1], {
+      target: { value: 'Status' },
+    });
+    fireEvent.change(screen.getAllByRole('textbox')[2], {
+      target: { value: 'Entwurf bleibt erhalten' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Senden' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/messages', {
+      recipientId: 7,
+      subject: 'Status',
+      body: 'Entwurf bleibt erhalten',
+    }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Der Text ist zu kurz');
+    expect(screen.getByDisplayValue('Entwurf bleibt erhalten')).toBeTruthy();
   });
 
   it('refreshes the folder summary after sending a message', async () => {

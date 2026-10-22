@@ -409,6 +409,7 @@ describe('alliance persistence (Postgres)', () => {
     const red = await alliance('Red Squadron', mon.id);
     const messaging = new MessagingService(
       dataSource.getRepository(Message),
+      dataSource.getRepository(User),
       new StatisticsService(dataSource, []),
     );
     const failingService = new AllianceService(store, messaging);

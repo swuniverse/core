@@ -1,6 +1,6 @@
 # PM-Serverregeln und Antwortverlauf
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -24,14 +24,16 @@ Das Senden persönlicher Nachrichten wird serverseitig abgesichert. Heute nimmt 
 
 ## Akzeptanzkriterien
 
-- [ ] `POST /messages` validiert per DTO: `recipientId` positive Ganzzahl, `subject` 0–255 Zeichen (getrimmt), `body` 5–10.000 Zeichen (getrimmt). Verstöße liefern 400 mit deutscher Meldung.
-- [ ] Unbekannter Empfänger liefert 404 „Dieser Siedler existiert nicht“, kein FK-Fehler/500.
-- [ ] Nachricht an sich selbst liefert 400 „Du kannst Dir keine Nachricht schicken“.
-- [ ] Der Service bietet einen Haken für die Ignorier-Sperre (wird mit soc-C1a gefüllt), ohne dass hier schon eine Ignorierliste entsteht.
-- [ ] `GET /messages/correspondence/:partnerId` liefert die letzten 10 nicht gelöschten Nachrichten zwischen dem Aufrufer und dem Partner (Persönlich und Postausgang, keine Systemnachrichten), neueste zuerst; nur eigene Nachrichten sind sichtbar.
-- [ ] Beim Antworten zeigt die Compose-Ansicht den Verlauf unter dem Eingabefeld (Absender, Datum via `formatDateTime`, Text mit `BbCodeText`), UI nach `inventory/shell-admin-runtime.md` Abschnitt 3.
-- [ ] Das Frontend zeigt Serverfehler beim Senden als Toast und behält den Entwurf.
-- [ ] Backend-Tests (Service/Controller-Spec): alle Ablehnungsfälle, erfolgreicher Versand, Verlauf zeigt keine fremden oder gelöschten Nachrichten.
-- [ ] Frontend-Test (`messages.spec.tsx`): Antworten lädt und zeigt den Verlauf; Fehlermeldung bei 400.
+- [x] `POST /messages` validiert per DTO: `recipientId` positive Ganzzahl, `subject` 0–255 Zeichen (getrimmt), `body` 5–10.000 Zeichen (getrimmt). Verstöße liefern 400 mit deutscher Meldung.
+- [x] Unbekannter Empfänger liefert 404 „Dieser Siedler existiert nicht“, kein FK-Fehler/500.
+- [x] Nachricht an sich selbst liefert 400 „Du kannst Dir keine Nachricht schicken“.
+- [x] Der Service bietet einen Haken für die Ignorier-Sperre (wird mit soc-C1a gefüllt), ohne dass hier schon eine Ignorierliste entsteht.
+- [x] `GET /messages/correspondence/:partnerId` liefert die letzten 10 nicht gelöschten Nachrichten zwischen dem Aufrufer und dem Partner (Persönlich und Postausgang, keine Systemnachrichten), neueste zuerst; nur eigene Nachrichten sind sichtbar.
+- [x] Beim Antworten zeigt die Compose-Ansicht den Verlauf unter dem Eingabefeld (Absender, Datum via `formatDateTime`, Text mit `BbCodeText`), UI nach `inventory/shell-admin-runtime.md` Abschnitt 3.
+- [x] Das Frontend zeigt Serverfehler beim Senden als Toast und behält den Entwurf.
+- [x] Backend-Tests (Service/Controller-Spec): alle Ablehnungsfälle, erfolgreicher Versand, Verlauf zeigt keine fremden oder gelöschten Nachrichten.
+- [x] Frontend-Test (`messages.spec.tsx`): Antworten lädt und zeigt den Verlauf; Fehlermeldung bei 400.
 
 ## Comments
+
+Implemented validated personal-message sending, recipient/self/ignore checks, and the protected ten-message correspondence endpoint in the messaging module. Reply composition now renders the BBCode correspondence and preserves the draft while showing send failures; backend and frontend coverage was added. The ignore hook remains intentionally unbound until soc-C1a.

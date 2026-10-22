@@ -1,3 +1,21 @@
+export interface SendMessageDto {
+  recipientId: number;
+  subject: string;
+  body: string;
+}
+
+export interface MessageCorrespondenceDto {
+  id: number;
+  subject: string;
+  body: string;
+  isRead: boolean;
+  isSystem: false;
+  createdAt: string;
+  senderId: number;
+  recipientId: number;
+  sender: { username: string };
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

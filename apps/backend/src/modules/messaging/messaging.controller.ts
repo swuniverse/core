@@ -12,9 +12,29 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Transform } from 'class-transformer';
+import { IsInt, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import type { SendMessageDto as SharedSendMessageDto } from '@swuniverse/shared';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { MessagingService } from './messaging.service';
 import { MessageFolder, MESSAGE_FOLDERS } from './message-folder';
+
+export class SendMessageDto implements SharedSendMessageDto {
+  @IsInt({ message: 'Der Empfänger muss eine positive Ganzzahl sein' })
+  @Min(1, { message: 'Der Empfänger muss eine positive Ganzzahl sein' })
+  recipientId: number;
+
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString({ message: 'Der Betreff muss Text sein' })
+  @MaxLength(255, { message: 'Der Betreff darf höchstens 255 Zeichen lang sein' })
+  subject: string;
+
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString({ message: 'Die Nachricht muss Text sein' })
+  @MinLength(5, { message: 'Die Nachricht muss mindestens 5 Zeichen lang sein' })
+  @MaxLength(10_000, { message: 'Die Nachricht darf höchstens 10.000 Zeichen lang sein' })
+  body: string;
+}
 
 @Controller('messages')
 @RequiresGameAccess()
@@ -98,6 +118,14 @@ export class MessagingController {
     return this.messagingService.getUnreadCount(req.user.sub);
   }
 
+  @Get('correspondence/:partnerId')
+  correspondence(
+    @Param('partnerId', ParseIntPipe) partnerId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.messagingService.getCorrespondence(req.user.sub, partnerId, 10);
+  }
+
   @Get(':id')
   getOne(
     @Param('id', ParseIntPipe) id: number,
@@ -109,11 +137,14 @@ export class MessagingController {
   @Post()
   send(
     @Request() req: { user: { sub: number } },
-    @Body('recipientId') recipientId: number,
-    @Body('subject') subject: string,
-    @Body('body') body: string,
+    @Body() dto: SendMessageDto,
   ) {
-    return this.messagingService.send(req.user.sub, recipientId, subject, body);
+    return this.messagingService.send(
+      req.user.sub,
+      dto.recipientId,
+      dto.subject,
+      dto.body,
+    );
   }
 
   @Delete(':id')

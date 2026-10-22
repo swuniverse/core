@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
+import { useToast } from '../components/Toast';
+import { formatDateTime } from '../lib/format';
 import { api } from '../services/api';
 
 type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
@@ -313,6 +315,7 @@ type Tab = 'folders' | 'compose';
 type Confirmation = 'bulk-delete' | 'empty-folder' | null;
 
 export function MessagesPage() {
+  const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const initialRecipientId = Number(searchParams.get('to'));
@@ -344,6 +347,8 @@ export function MessagesPage() {
   const [recipientId, setRecipientId] = useState<number | null>(
     startsCompose ? initialRecipientId : null,
   );
+  const [correspondence, setCorrespondence] = useState<MessageDetail[]>([]);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<
     { id: number; username: string }[]
   >([]);
@@ -502,6 +507,10 @@ export function MessagesPage() {
 
   const replyTo = () => {
     if (!selected) return;
+    void api
+      .get<MessageDetail[]>(`/messages/correspondence/${selected.senderId}`)
+      .then(setCorrespondence)
+      .catch(() => setCorrespondence([]));
     setCompose({
       recipientName: selected.sender?.username || '',
       subject: selected.subject.startsWith('Re: ')
@@ -539,15 +548,25 @@ export function MessagesPage() {
 
   const sendMessage = async () => {
     if (!recipientId) return;
-    await api.post('/messages', {
-      recipientId,
-      subject: compose.subject,
-      body: compose.body,
-    });
-    setCompose({ recipientName: '', subject: '', body: '' });
-    setRecipientId(null);
-    switchFolder('OUTBOX');
-    await refreshFolders();
+    try {
+      await api.post('/messages', {
+        recipientId,
+        subject: compose.subject,
+        body: compose.body,
+      });
+      setCompose({ recipientName: '', subject: '', body: '' });
+      setRecipientId(null);
+      setCorrespondence([]);
+      setSendError(null);
+      switchFolder('OUTBOX');
+      await refreshFolders();
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Die Nachricht konnte nicht gesendet werden.';
+      toast.error(message);
+      setSendError(message);
+    }
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -616,6 +635,11 @@ export function MessagesPage() {
       )}
       {tab === 'compose' ? (
         <div className="bg-swu-surface border border-swu-border rounded-lg p-4 max-w-lg space-y-3">
+          {sendError && (
+            <p role="alert" className="border border-red-500/60 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+              {sendError}
+            </p>
+          )}
           <div className="relative">
             <label className="text-xs text-swu-muted">Empfaenger</label>
             <input
@@ -661,11 +685,34 @@ export function MessagesPage() {
           </div>
           <button
             onClick={sendMessage}
-            disabled={!recipientId || !compose.subject}
+            disabled={!recipientId}
             className="px-4 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"
           >
             Senden
           </button>
+          {correspondence.length > 0 && (
+            <section className="border border-swu-border bg-swu-surface/70">
+              <header className="border-b border-swu-border px-3 py-2 text-xs font-bold text-swu-primary">
+                Korrespondenz
+              </header>
+              <div className="divide-y divide-swu-border">
+                {correspondence.map((message) => (
+                  <article key={message.id} className="px-3 py-2 text-xs">
+                    <div className="mb-1 flex justify-between gap-3 text-swu-muted">
+                      <span>Von: {message.sender?.username ?? 'System'}</span>
+                      <time dateTime={message.createdAt}>
+                        {formatDateTime(message.createdAt)}
+                      </time>
+                    </div>
+                    <BbCodeText
+                      text={message.body}
+                      className="whitespace-pre-wrap text-swu-text"
+                    />
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-4 md:flex-row">

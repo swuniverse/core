@@ -1,0 +1,40 @@
+import { validate } from 'class-validator';
+import { MessagingController, SendMessageDto } from './messaging.controller';
+
+describe('MessagingController', () => {
+  const service = {
+    send: jest.fn(),
+    getCorrespondence: jest.fn(),
+  };
+  const controller = new MessagingController(service as never);
+
+  it.each([
+    [{ recipientId: 0, subject: 'Hallo', body: 'Lange Nachricht' }, 'Empfänger'],
+    [{ recipientId: 2, subject: 'x'.repeat(256), body: 'Lange Nachricht' }, 'Betreff'],
+    [{ recipientId: 2, subject: 'Hallo', body: 'kurz' }, 'Nachricht'],
+    [{ recipientId: 2, subject: 'Hallo', body: 'x'.repeat(10_001) }, 'Nachricht'],
+  ])('validates rejected send input %#', async (input, expectedMessage) => {
+    const dto = Object.assign(new SendMessageDto(), input);
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(JSON.stringify(errors)).toContain(expectedMessage);
+  });
+
+  it('delegates sending a validated DTO', () => {
+    const dto = Object.assign(new SendMessageDto(), {
+      recipientId: 2,
+      subject: ' Hallo ',
+      body: ' Lange Nachricht ',
+    });
+
+    controller.send({ user: { sub: 1 } }, dto);
+
+    expect(service.send).toHaveBeenCalledWith(1, 2, ' Hallo ', ' Lange Nachricht ');
+  });
+
+  it('limits correspondence requests to ten messages', () => {
+    controller.correspondence(2, { user: { sub: 1 } });
+    expect(service.getCorrespondence).toHaveBeenCalledWith(1, 2, 10);
+  });
+});
