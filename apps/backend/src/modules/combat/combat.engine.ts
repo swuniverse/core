@@ -34,6 +34,8 @@ export interface CombatLogEntry {
   action: CombatAction;
   source: 'attacker' | 'defender';
   target?: 'attacker' | 'defender';
+  sourceId?: number;
+  targetId?: number;
   weapon?: string;
   value?: number;
   remaining?: number;
@@ -56,11 +58,22 @@ export interface CombatResult {
   defenderDestroyed: boolean;
 }
 
-interface Combatant {
+export interface BattleParticipant {
   ship: Spacecraft;
   modules: SpacecraftModule[];
+}
+
+interface Combatant extends BattleParticipant {
   role: 'attacker' | 'defender';
   shipClass: string;
+}
+
+export interface BattleResult {
+  rounds: Array<{ round: number; log: CombatLogEntry[] }>;
+  winner: 'attacker' | 'defender' | 'draw';
+  destroyedShipIds: number[];
+  attackerShipIds: number[];
+  defenderShipIds: number[];
 }
 
 @Injectable()
@@ -69,6 +82,69 @@ export class CombatEngine {
     private readonly gameData: GameDataService,
     private readonly torpedoService: SpacecraftTorpedoService,
   ) {}
+
+  async resolveBattle(
+    attackers: BattleParticipant[],
+    defenders: BattleParticipant[],
+  ): Promise<BattleResult> {
+    const formulas = this.gameData.getCombatFormulas();
+    const attackerParty = attackers.map((participant) =>
+      this.combatant(participant, 'attacker'),
+    );
+    const defenderParty = defenders.map((participant) =>
+      this.combatant(participant, 'defender'),
+    );
+    const log: CombatLogEntry[] = [];
+
+    for (const combatant of [...attackerParty, ...defenderParty]) {
+      combatant.ship.status = SpacecraftStatus.IN_COMBAT;
+      combatant.ship.alertState = AlertState.RED;
+    }
+
+    for (const category of ['WEAPONS', 'PROJECTILE']) {
+      for (const shooter of attackerParty) {
+        const target = defenderParty.find(({ ship }) => ship.hull > 0);
+        if (shooter.ship.hull > 0 && target) {
+          await this.fireWeaponsPhase(shooter, target, formulas, category, log);
+        }
+      }
+      for (const shooter of defenderParty) {
+        const target = attackerParty.find(({ ship }) => ship.hull > 0);
+        if (shooter.ship.hull > 0 && target) {
+          await this.fireWeaponsPhase(shooter, target, formulas, category, log);
+        }
+      }
+    }
+
+    const all = [...attackerParty, ...defenderParty];
+    for (const combatant of all) {
+      this.tickModuleCooldowns(combatant);
+      if (combatant.ship.hull <= 0) {
+        combatant.ship.status = SpacecraftStatus.DESTROYED;
+      } else {
+        combatant.ship.status = SpacecraftStatus.IDLE;
+        combatant.ship.alertState = AlertState.YELLOW;
+      }
+    }
+    const attackerAlive = attackerParty.some(({ ship }) => ship.hull > 0);
+    const defenderAlive = defenderParty.some(({ ship }) => ship.hull > 0);
+    const winner =
+      attackerAlive && !defenderAlive
+        ? 'attacker'
+        : defenderAlive && !attackerAlive
+          ? 'defender'
+          : 'draw';
+
+    return {
+      rounds: [{ round: 1, log }],
+      winner,
+      destroyedShipIds: all
+        .filter(({ ship }) => ship.hull <= 0)
+        .map(({ ship }) => ship.id),
+      attackerShipIds: attackerParty.map(({ ship }) => ship.id),
+      defenderShipIds: defenderParty.map(({ ship }) => ship.id),
+    };
+  }
 
   async resolveCombat(
     attacker: Spacecraft,
@@ -168,6 +244,17 @@ export class CombatEngine {
     return { rounds, winner, attackerDestroyed, defenderDestroyed };
   }
 
+  private combatant(
+    participant: BattleParticipant,
+    role: 'attacker' | 'defender',
+  ): Combatant {
+    return {
+      ...participant,
+      role,
+      shipClass: this.getShipClass(participant.ship.shipClassId),
+    };
+  }
+
   private async fireWeaponsPhase(
     shooter: Combatant,
     target: Combatant,
@@ -239,6 +326,8 @@ export class CombatEngine {
           action,
           source: shooter.role,
           target: target.role,
+          sourceId: shooter.ship.id,
+          targetId: target.ship.id,
           weapon: torpedo?.name ?? weapon.moduleType,
         });
         continue;
@@ -313,6 +402,8 @@ export class CombatEngine {
         action,
         source: shooter.role,
         target: target.role,
+        sourceId: shooter.ship.id,
+        targetId: target.ship.id,
         weapon: torpedo?.name ?? weapon.moduleType,
         value: damage,
       });

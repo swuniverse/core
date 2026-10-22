@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CombatAction, CombatResult } from './combat.engine';
+import { BattleResult, CombatAction, CombatResult } from './combat.engine';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 
 @Injectable()
@@ -33,6 +33,72 @@ export class CombatReportFormatter {
         defenderDestroyed: result.defenderDestroyed,
       },
     };
+  }
+
+  formatBattle(
+    result: BattleResult,
+    attackers: Spacecraft[],
+    defenders: Spacecraft[],
+  ) {
+    const ships = new Map(
+      [...attackers, ...defenders].map((ship) => [ship.id, ship]),
+    );
+    const destroyed = new Set(result.destroyedShipIds);
+    const members = (party: Spacecraft[]) =>
+      party.map((ship) => ({
+        id: ship.id,
+        name: ship.name,
+        destroyed: destroyed.has(ship.id),
+      }));
+    return {
+      parties: { attacker: members(attackers), defender: members(defenders) },
+      rounds: result.rounds.map((round) => ({
+        number: round.round,
+        lines: round.log.map((entry) => {
+          const source = entry.sourceId ? ships.get(entry.sourceId)?.name : undefined;
+          const target = entry.targetId ? ships.get(entry.targetId)?.name : undefined;
+          return {
+            kind: entry.action,
+            text: this.battleLine(entry, source, target),
+            emphasis: [
+              CombatAction.DESTROYED,
+              CombatAction.SYSTEM_DAMAGED,
+              CombatAction.SYSTEM_DISABLED,
+            ].includes(entry.action)
+              ? 'critical'
+              : [CombatAction.HULL_DAMAGE, CombatAction.CRITICAL_HIT].includes(
+                    entry.action,
+                  )
+                ? 'warning'
+                : 'neutral',
+            sourceId: entry.sourceId,
+            targetId: entry.targetId,
+            weapon: entry.weapon,
+            damage: entry.value,
+          };
+        }),
+      })),
+      outcome: {
+        winner: result.winner,
+        destroyedShipIds: result.destroyedShipIds,
+      },
+    };
+  }
+
+  private battleLine(
+    entry: CombatResult['rounds'][number]['log'][number],
+    source?: string,
+    target?: string,
+  ): string {
+    if (
+      [CombatAction.ENERGY_HIT, CombatAction.PROJECTILE_HIT].includes(entry.action)
+    ) {
+      return `${source ?? 'Schiff'} feuert mit ${entry.weapon ?? 'Waffe'} auf ${target ?? 'Ziel'} (${entry.value ?? 0} Schaden).`;
+    }
+    return this.line(entry, {
+      attacker: source ?? 'Angreifer',
+      defender: target ?? 'Verteidiger',
+    });
   }
 
   private line(

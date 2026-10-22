@@ -71,6 +71,73 @@ function combatFormulas(): CombatFormulas {
   };
 }
 
+describe('CombatEngine battle parties', () => {
+  it('lets every surviving ship fire and removes destroyed targets', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.1);
+    const formulas = combatFormulas();
+    const gameData = {
+      getCombatFormulas: jest.fn(() => formulas),
+      getAllModules: jest.fn(() => [
+        {
+          name: 'Turbolaser',
+          category: 'WEAPONS',
+          public: {},
+          secret: { baseDamage: 100, epsCost: 0 },
+        },
+      ]),
+      getWeaponShieldModifier: jest.fn(() => 100),
+    };
+    const engine = new CombatEngine(gameData as any, {
+      consumeForAttack: jest.fn(async () => null),
+    } as any);
+    const ship = (id: number, hull = 100) =>
+      ({
+        id,
+        name: `Ship ${id}`,
+        shipClassId: 3,
+        hull,
+        hullMax: hull,
+        shields: 0,
+        shieldsMax: 0,
+        energy: 100,
+        status: 'IDLE',
+        alertState: 'GREEN',
+      }) as any;
+    const weapon = (spacecraftId: number) =>
+      ({
+        spacecraftId,
+        moduleType: 'Turbolaser',
+        category: 'WEAPONS',
+        level: 1,
+        integrity: 100,
+        cooldown: 0,
+        isActive: true,
+      }) as any;
+    const attackers = [
+      { ship: ship(1), modules: [weapon(1)] },
+      { ship: ship(2), modules: [weapon(2)] },
+    ];
+    const defenders = [
+      { ship: ship(3, 50), modules: [weapon(3)] },
+      { ship: ship(4, 200), modules: [weapon(4)] },
+    ];
+
+    const result = await engine.resolveBattle(attackers, defenders);
+
+    expect(result.rounds[0].log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceId: 1, targetId: 3 }),
+        expect.objectContaining({ sourceId: 2, targetId: 4 }),
+        expect.objectContaining({ sourceId: 4, targetId: 1 }),
+      ]),
+    );
+    expect(result.destroyedShipIds).toContain(3);
+    expect(
+      result.rounds[0].log.some((entry) => entry.sourceId === 3),
+    ).toBe(false);
+  });
+});
+
 describe('CombatEngine projectile specialization', () => {
   afterEach(() => {
     jest.restoreAllMocks();

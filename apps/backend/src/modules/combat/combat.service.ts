@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import {
   Spacecraft,
   SpacecraftStatus,
+  SpacecraftOperatingMode,
+  AlertState,
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CombatEngine, CombatResult } from './combat.engine';
@@ -74,7 +76,7 @@ export class CombatService {
     attackerId: number,
     targetId: number,
     userId: number,
-  ): Promise<ReturnType<CombatReportFormatter['format']>> {
+  ): Promise<ReturnType<CombatReportFormatter['formatBattle']>> {
     const attacker = await this.shipRepo.findOne({
       where: { id: attackerId, userId },
     });
@@ -106,49 +108,57 @@ export class CombatService {
       throw new BadRequestException('Target must be on same field');
     }
 
-    const attackerModules = await this.moduleRepo.find({
-      where: { spacecraftId: attacker.id },
-    });
-    const defenderModules = await this.moduleRepo.find({
-      where: { spacecraftId: defender.id },
-    });
-
-    this.gateway.emitToUser(attacker.userId, WsEventType.COMBAT_STARTED, {
-      attackerId: attacker.id,
-      defenderId: defender.id,
-    });
-    this.gateway.emitToUser(defender.userId, WsEventType.COMBAT_STARTED, {
-      attackerId: attacker.id,
-      defenderId: defender.id,
-    });
-
-    const result = await this.engine.resolveCombat(
-      attacker,
-      defender,
-      attackerModules,
-      defenderModules,
+    const nearby = await this.shipRepo.find({ where: { locationId: attacker.locationId } });
+    const operational = (ship: Spacecraft) =>
+      ship.status === SpacecraftStatus.IDLE &&
+      ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
+    const attackers = nearby.filter(
+      (ship) =>
+        ship.userId === attacker.userId &&
+        operational(ship) &&
+        (ship.id === attacker.id ||
+          (attacker.fleetId != null && ship.fleetId === attacker.fleetId)),
     );
-
-    // Persist surviving state first. Destruction is finalized through the
-    // canonical locked transition so a stale combat save cannot revive a ship.
-    if (!result.attackerDestroyed) {
-      await this.destructionService.saveCombatSurvivor(attacker);
-    }
-    if (!result.defenderDestroyed) {
-      await this.destructionService.saveCombatSurvivor(defender);
-    }
-    await this.moduleRepo.save([...attackerModules, ...defenderModules]);
-    if (result.attackerDestroyed) {
-      await this.destructionService.destroyFromCombat(attacker.id);
-    }
-    if (result.defenderDestroyed) {
-      await this.destructionService.destroyFromCombat(defender.id);
-    }
-    await this.countCombat(
-      Number(result.attackerDestroyed) + Number(result.defenderDestroyed),
+    const defenders = nearby.filter(
+      (ship) =>
+        ship.userId === defender.userId &&
+        operational(ship) &&
+        (ship.id === defender.id ||
+          (defender.fleetId != null && ship.fleetId === defender.fleetId) ||
+          [AlertState.YELLOW, AlertState.RED].includes(ship.alertState)),
     );
+    if (!attackers.some((ship) => ship.id === attacker.id)) attackers.push(attacker);
+    if (!defenders.some((ship) => ship.id === defender.id)) defenders.push(defender);
+    const participants = [...attackers, ...defenders];
+    const modules = await this.moduleRepo.find({
+      where: participants.map((ship) => ({ spacecraftId: ship.id })),
+    });
+    const party = (ships: Spacecraft[]) =>
+      ships.map((ship) => ({
+        ship,
+        modules: modules.filter((module) => module.spacecraftId === ship.id),
+      }));
 
-    return this.reportFormatter.format(result, attacker, defender);
+    for (const ownerId of new Set(participants.map((ship) => ship.userId))) {
+      this.gateway.emitToUser(ownerId, WsEventType.COMBAT_STARTED, {
+        attackerId: attacker.id,
+        defenderId: defender.id,
+      });
+    }
+
+    const result = await this.engine.resolveBattle(party(attackers), party(defenders));
+    const destroyedIds = new Set(result.destroyedShipIds);
+    for (const ship of participants) {
+      if (destroyedIds.has(ship.id)) {
+        await this.destructionService.destroyFromCombat(ship.id);
+      } else {
+        await this.destructionService.saveCombatSurvivor(ship);
+      }
+    }
+    await this.moduleRepo.save(modules);
+    await this.countCombat(destroyedIds.size);
+
+    return this.reportFormatter.formatBattle(result, attackers, defenders);
   }
 
   async attackColony(

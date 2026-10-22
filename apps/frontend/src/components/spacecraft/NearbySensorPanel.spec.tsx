@@ -66,6 +66,51 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('renders a multi-ship combat report', async () => {
+    apiMocks.get.mockResolvedValue(nearby);
+    apiMocks.post.mockResolvedValue({
+      parties: {
+        attacker: [
+          { id: 2, name: 'Falcon', destroyed: false },
+          { id: 4, name: 'Wing', destroyed: true },
+        ],
+        defender: [{ id: 3, name: 'Ziel', destroyed: false }],
+      },
+      rounds: [
+        {
+          number: 1,
+          lines: [
+            {
+              kind: 'ENERGY_HIT',
+              text: 'Falcon feuert mit Turbolaser auf Ziel (12 Schaden).',
+              emphasis: 'neutral',
+              sourceId: 2,
+              targetId: 3,
+              weapon: 'Turbolaser',
+              damage: 12,
+            },
+          ],
+        },
+      ],
+      outcome: { winner: 'attacker', destroyedShipIds: [4] },
+    });
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTitle('Ziel angreifen'));
+
+    expect(await screen.findByText('Angreifer (2)')).toBeTruthy();
+    expect(screen.getByText('Verteidiger (1)')).toBeTruthy();
+    expect(screen.getByText(/Wing.*zerstört/)).toBeTruthy();
+    expect(screen.getByText(/Turbolaser.*12 Schaden/)).toBeTruthy();
+  });
+
   it('joins a nearby own fleet leader', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

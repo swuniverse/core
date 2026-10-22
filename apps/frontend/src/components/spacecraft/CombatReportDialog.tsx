@@ -1,14 +1,19 @@
 type Report = {
-  attacker: { name: string };
-  defender: { name: string };
+  attacker?: { name: string };
+  defender?: { name: string };
+  parties?: {
+    attacker: Array<{ id: number; name: string; destroyed: boolean }>;
+    defender: Array<{ id: number; name: string; destroyed: boolean }>;
+  };
   rounds: Array<{
     number: number;
     lines: Array<{ kind: string; text: string; emphasis: string }>;
   }>;
   outcome: {
     winner: string;
-    attackerDestroyed: boolean;
-    defenderDestroyed: boolean;
+    attackerDestroyed?: boolean;
+    defenderDestroyed?: boolean;
+    destroyedShipIds?: number[];
   };
 };
 
@@ -32,13 +37,30 @@ export function CombatReportDialog({
       <section className="w-full max-w-2xl border border-swu-border bg-swu-bg text-sm">
         <header className="flex items-center justify-between border-b border-swu-border px-3 py-2">
           <h3 className="font-bold text-swu-primary">
-            Kampfbericht · {report.attacker.name} gegen {report.defender.name}
+            Kampfbericht · {report.attacker?.name ?? 'Angreifer'} gegen{' '}
+            {report.defender?.name ?? 'Verteidiger'}
           </h3>
           <button type="button" onClick={onClose}>
             Schließen
           </button>
         </header>
         <div className="max-h-[65vh] overflow-auto p-3">
+          {report.parties && (
+            <div className="mb-3 grid grid-cols-2 gap-3 border-b border-swu-border pb-3">
+              {(['attacker', 'defender'] as const).map((side) => (
+                <div key={side}>
+                  <h4 className="font-bold text-swu-primary">
+                    {side === 'attacker' ? 'Angreifer' : 'Verteidiger'} ({report.parties?.[side].length ?? 0})
+                  </h4>
+                  {report.parties?.[side].map((ship) => (
+                    <p key={ship.id} className={ship.destroyed ? 'text-red-300' : ''}>
+                      {ship.name}{ship.destroyed ? ' · zerstört' : ''}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
           {lines.map((line, index) => (
             <p
               key={index}
@@ -57,7 +79,7 @@ export function CombatReportDialog({
             Ergebnis:{' '}
             {report.outcome.winner === 'draw'
               ? 'Unentschieden'
-              : `${report.outcome.winner === 'attacker' ? report.attacker.name : report.defender.name} gewinnt`}
+              : `${report.outcome.winner === 'attacker' ? (report.attacker?.name ?? 'Angreifer') : (report.defender?.name ?? 'Verteidiger')} gewinnt`}
           </p>
         </div>
       </section>

@@ -1,6 +1,7 @@
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftOperatingMode: { NORMAL: 'NORMAL', STANDBY: 'STANDBY' },
+  AlertState: { GREEN: 'GREEN', YELLOW: 'YELLOW', RED: 'RED' },
   SpacecraftStatus: {
     IDLE: 'IDLE',
     IN_FLIGHT: 'IN_FLIGHT',
@@ -34,6 +35,7 @@ import { ColonyDefenseService } from '../colony/colony-defense.service';
 function createService() {
   const shipRepo = {
     findOne: jest.fn(),
+    find: jest.fn<Promise<any[]>, any[]>(async () => []),
     save: jest.fn(async (value) => value),
   };
   const moduleRepo = {
@@ -52,6 +54,13 @@ function createService() {
       defenderDestroyed: false,
       rounds: [],
       winner: 'attacker',
+    })),
+    resolveBattle: jest.fn(async (attackers: any[], defenders: any[]) => ({
+      rounds: [],
+      winner: 'draw',
+      destroyedShipIds: [],
+      attackerShipIds: attackers.map(({ ship }) => ship.id),
+      defenderShipIds: defenders.map(({ ship }) => ship.id),
     })),
   };
   const gateway = { emitToUser: jest.fn() };
@@ -86,7 +95,10 @@ function createService() {
   const colonyDamageService = {
     applyIncomingDamage: jest.fn<any, any[]>(() => []),
   };
-  const reportFormatter = { format: jest.fn((result) => result) };
+  const reportFormatter = {
+    format: jest.fn((result) => result),
+    formatBattle: jest.fn((result) => result),
+  };
   const statistics = { countEvent: jest.fn(async () => undefined) };
   const destructionService = {
     destroyFromCombat: jest.fn(async () => undefined),
@@ -382,6 +394,60 @@ describe('CombatService attackColony', () => {
 });
 
 describe('CombatService attack', () => {
+  it('forms attacker fleet and target fleet plus alerted defenders', async () => {
+    const { service, shipRepo, engine } = createService();
+    const ship = (id: number, userId: number, overrides = {}) => ({
+      id,
+      userId,
+      name: `Ship ${id}`,
+      status: SpacecraftStatus.IDLE,
+      alertState: 'GREEN',
+      operatingMode: 'NORMAL',
+      fleetId: null,
+      locationId: 42,
+      location: { id: 42, kind: 'GALAXY_FIELD' },
+      ...overrides,
+    });
+    const attacker = ship(1, 1, { fleetId: 10 });
+    const defender = ship(3, 2, { fleetId: 20 });
+    const participants = [
+      attacker,
+      ship(2, 1, { fleetId: 10 }),
+      defender,
+      ship(4, 2, { fleetId: 20 }),
+      ship(5, 2, { alertState: 'YELLOW' }),
+      ship(6, 2),
+    ];
+    shipRepo.findOne
+      .mockResolvedValueOnce(attacker)
+      .mockResolvedValueOnce(defender);
+    shipRepo.find.mockResolvedValue(participants);
+    engine.resolveBattle = jest.fn(async () => ({
+      rounds: [],
+      winner: 'attacker',
+      destroyedShipIds: [],
+      attackerShipIds: [1, 2],
+      defenderShipIds: [3, 4, 5],
+    }));
+
+    await service.attack(1, 3, 1);
+
+    expect(engine.resolveBattle).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ ship: expect.objectContaining({ id: 1 }) }),
+        expect.objectContaining({ ship: expect.objectContaining({ id: 2 }) }),
+      ]),
+      expect.arrayContaining([
+        expect.objectContaining({ ship: expect.objectContaining({ id: 3 }) }),
+        expect.objectContaining({ ship: expect.objectContaining({ id: 4 }) }),
+        expect.objectContaining({ ship: expect.objectContaining({ id: 5 }) }),
+      ]),
+    );
+    expect(
+      engine.resolveBattle.mock.calls[0][1].some(({ ship }: any) => ship.id === 6),
+    ).toBe(false);
+  });
+
   it('uses matching canonical location IDs', async () => {
     const { service, shipRepo } = createService();
     const attacker = {
@@ -419,10 +485,15 @@ describe('CombatService attack', () => {
       defenderDestroyed: boolean;
     }) {
       const env = createService();
-      env.engine.resolveCombat.mockResolvedValueOnce({
-        ...outcome,
+      env.engine.resolveBattle.mockResolvedValueOnce({
         rounds: [],
         winner: 'attacker',
+        destroyedShipIds: [
+          ...(outcome.attackerDestroyed ? [1] : []),
+          ...(outcome.defenderDestroyed ? [2] : []),
+        ],
+        attackerShipIds: [1],
+        defenderShipIds: [2],
       } as any);
       env.shipRepo.findOne
         .mockResolvedValueOnce(ship(1, 1))
@@ -460,8 +531,8 @@ describe('CombatService attack', () => {
         attackerDestroyed: false,
         defenderDestroyed: true,
       });
-      engine.resolveCombat.mockReset();
-      engine.resolveCombat.mockRejectedValueOnce(new Error('boom'));
+      engine.resolveBattle.mockReset();
+      engine.resolveBattle.mockRejectedValueOnce(new Error('boom'));
 
       await expect(service.attack(1, 2, 1)).rejects.toThrow('boom');
 
