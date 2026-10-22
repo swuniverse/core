@@ -131,6 +131,7 @@ describe('ShipHeaderTable', () => {
           fleetId: 7,
           fleetName: 'Aurek',
           fleetLeaderId: 2,
+          fleetIsFixed: false,
           fleetMembers: [
             { id: 2, name: 'Falke' },
             { id: 3, name: 'Möwe' },
@@ -149,6 +150,15 @@ describe('ShipHeaderTable', () => {
 
     expect(screen.getAllByText('Aurek (Flottenführer)').length).toBeGreaterThan(
       0,
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Flotte fixieren' })[0],
+    );
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/fleets/7/fixation',
+        {},
+      ),
     );
     fireEvent.click(
       screen.getAllByRole('button', { name: 'Flotte umbenennen' })[0],

@@ -431,6 +431,14 @@ export class SpacecraftController {
     return this.spacecraftService.renameFleet(req.user.sub, fleetId, dto.name);
   }
 
+  @Patch('fleets/:fleetId/fixation')
+  toggleFleetFixation(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.toggleFleetFixation(req.user.sub, fleetId);
+  }
+
   @Patch('fleets/:fleetId/leader')
   changeFleetLeader(
     @Param('fleetId', ParseIntPipe) fleetId: number,

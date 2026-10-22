@@ -36,6 +36,7 @@ interface ShipHeaderTableProps {
     fleetId?: number | null;
     fleetName?: string | null;
     fleetLeaderId?: number | null;
+    fleetIsFixed?: boolean;
     fleetMembers?: Array<{ id: number; name: string }>;
   };
   onUpdate?: () => void;
@@ -385,6 +386,25 @@ function FleetActions({
           </button>
           {isLeader && (
             <>
+              <button
+                type="button"
+                aria-pressed={ship.fleetIsFixed === true}
+                onClick={() =>
+                  void api
+                    .patch(`/spacecraft/fleets/${ship.fleetId}/fixation`, {})
+                    .then(onUpdate)
+                    .catch((err: unknown) =>
+                      onError(
+                        err instanceof Error
+                          ? err.message
+                          : 'Flottenfixierung fehlgeschlagen',
+                      ),
+                    )
+                }
+                className="text-swu-accent"
+              >
+                {ship.fleetIsFixed ? 'Fixierung lösen' : 'Flotte fixieren'}
+              </button>
               <button
                 type="button"
                 onClick={() => onDialog('RENAME')}

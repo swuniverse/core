@@ -1,6 +1,6 @@
 # Flottenflug und Flottenfixierung
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** sc-WP-FLEET-1a
@@ -25,13 +25,15 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Fliegt der Leader (System, Galaxie, Systemeintritt/-austritt, Langstreckensprung aus sc-WP-NAV-5b; der zeitbasierte Hyperraumsprung entfällt laut sc-WP-NAV-3), fliegen alle Mitglieder auf seinem Feld mit; EPS bzw. Hyperantrieb werden je Schiff abgezogen.
-- [ ] Nicht flugfähige Mitglieder (Crew, EPS, Antrieb, zerstört) bleiben zurück, verlassen die Flotte und erzeugen eine Meldung je Schiff; in fixierten Flotten wird stattdessen der gesamte Flug mit Grund abgelehnt.
-- [ ] Mitglieder können nicht einzeln fliegen, solange sie in einer Flotte sind (STU-Regel), außer der Leader.
-- [ ] Endpunkt zum Umschalten der Fixierung; Anzeige im Flottenkopf.
-- [ ] Abfangen eines Flottenschiffs zieht die ganze Flotte aus dem Hyperraum.
-- [ ] Backend-Tests: Flottenflug mit drei Schiffen, Abhängen bei EPS-Mangel, fixierte Flotte blockiert, Abfangen der Flotte.
-- [ ] Frontend-Test für den Fixierungsschalter.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Fliegt der Leader (System, Galaxie, Systemeintritt/-austritt, Langstreckensprung aus sc-WP-NAV-5b; der zeitbasierte Hyperraumsprung entfällt laut sc-WP-NAV-3), fliegen alle Mitglieder auf seinem Feld mit; EPS bzw. Hyperantrieb werden je Schiff abgezogen.
+- [x] Nicht flugfähige Mitglieder (Crew, EPS, Antrieb, zerstört) bleiben zurück, verlassen die Flotte und erzeugen eine Meldung je Schiff; in fixierten Flotten wird stattdessen der gesamte Flug mit Grund abgelehnt.
+- [x] Mitglieder können nicht einzeln fliegen, solange sie in einer Flotte sind (STU-Regel), außer der Leader.
+- [x] Endpunkt zum Umschalten der Fixierung; Anzeige im Flottenkopf.
+- [x] Abfangen eines Flottenschiffs zieht die ganze Flotte aus dem Hyperraum.
+- [x] Backend-Tests: Flottenflug mit drei Schiffen, Abhängen bei EPS-Mangel, fixierte Flotte blockiert, Abfangen der Flotte.
+- [x] Frontend-Test für den Fixierungsschalter.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Implemented fleet-wide system and galaxy movement, system entry/exit, and the existing long-range warp compatibility path with per-ship readiness/resource checks, detachment notices, and fixed-fleet blocking. Added persisted fixation with API and fleet-header control, plus fleet-wide interception for both involved fleets. Covered backend fleet movement/interception and the frontend fixation switch; affected checks and all builds pass. The future sc-WP-NAV-5b mechanism remains owned by that issue.

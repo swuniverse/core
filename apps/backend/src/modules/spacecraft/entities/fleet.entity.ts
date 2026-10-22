@@ -30,6 +30,9 @@ export class Fleet {
   @Column()
   leaderId: number;
 
+  @Column({ default: false })
+  isFixed: boolean;
+
   @OneToMany(() => Spacecraft, (s) => s.fleet)
   members: Spacecraft[];
 

@@ -61,7 +61,54 @@ export class HyperdriveDisruptionService {
     if (!sameSpacecraftLocation(interceptor, target)) {
       throw new BadRequestException('Ziel ist nicht auf diesem Feld');
     }
-    return this.disrupt(target, { cause: 'MANUAL_INTERCEPT', interceptor });
+    const targetFleet = target.fleetId
+      ? await this.shipRepo.find({
+          where: { fleetId: target.fleetId },
+          relations: [
+            'location',
+            'location.galaxyField',
+            'location.systemField',
+          ],
+        })
+      : [target];
+    const interceptorFleet = interceptor.fleetId
+      ? await this.shipRepo.find({
+          where: { fleetId: interceptor.fleetId },
+          relations: [
+            'location',
+            'location.galaxyField',
+            'location.systemField',
+          ],
+        })
+      : [interceptor];
+    const results = [];
+    for (const member of targetFleet) {
+      if (
+        member.status === SpacecraftStatus.DESTROYED ||
+        !sameSpacecraftLocation(target, member)
+      ) {
+        continue;
+      }
+      results.push(
+        await this.disrupt(member, {
+          cause: 'MANUAL_INTERCEPT',
+          interceptor: member.id === target.id ? interceptor : undefined,
+        }),
+      );
+    }
+    for (const member of interceptorFleet) {
+      if (
+        member.id === interceptor.id ||
+        member.status === SpacecraftStatus.DESTROYED ||
+        !sameSpacecraftLocation(interceptor, member)
+      ) {
+        continue;
+      }
+      const drive = this.runtimeState.initialize(member).WARPDRIVE;
+      if (drive) drive.active = false;
+      await this.shipRepo.save(member);
+    }
+    return results[0];
   }
 
   async disrupt(

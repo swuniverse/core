@@ -206,8 +206,8 @@ function createService() {
   };
 }
 
-const location = { id: 10 };
-const ship = (overrides: Record<string, unknown> = {}) => ({
+const location: Record<string, unknown> = { id: 10 };
+const ship = (overrides: Record<string, unknown> = {}): any => ({
   id: 2,
   userId: 5,
   name: 'Falke',
@@ -233,6 +233,154 @@ describe('SpacecraftService fleet management', () => {
     });
     expect(shipRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ fleetId: 7 }),
+    );
+  });
+
+  it('moves all capable local members when the fleet leader flies', async () => {
+    const { service, shipRepo, fleetRepo, systemRepo, systemFieldRepo } =
+      createService();
+    const leader = ship({
+      id: 2,
+      fleetId: 7,
+      energy: 10,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+    const wingOne = ship({
+      id: 3,
+      name: 'Möwe',
+      fleetId: 7,
+      energy: 10,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+    const wingTwo = ship({
+      id: 4,
+      name: 'Rabe',
+      fleetId: 7,
+      energy: 10,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+    shipRepo.findOne.mockResolvedValue(leader);
+    shipRepo.find.mockResolvedValue([leader, wingOne, wingTwo]);
+    fleetRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 5,
+      leaderId: 2,
+      isFixed: false,
+    });
+    systemRepo.findOne.mockResolvedValue({ id: 9, maxX: 20, maxY: 20 });
+    systemFieldRepo.findOne.mockResolvedValue({
+      id: 99,
+      starSystemId: 9,
+      sx: 11,
+      sy: 10,
+      isPassable: true,
+    });
+    leader.location = {
+      id: 10,
+      kind: 'SYSTEM_FIELD',
+      systemField: { id: 98, starSystemId: 9, sx: 10, sy: 10 },
+    };
+    wingOne.location = leader.location;
+    wingTwo.location = leader.location;
+
+    await service.navigate(2, 5, 11, 10);
+
+    expect(shipRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 3, energy: 9 }),
+    );
+    expect(shipRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 4, energy: 9 }),
+    );
+  });
+
+  it('detaches an incapable member but blocks a fixed fleet', async () => {
+    const { service, shipRepo, fleetRepo, systemRepo, systemFieldRepo } =
+      createService();
+    const leader = ship({
+      id: 2,
+      fleetId: 7,
+      energy: 10,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+    const stranded = ship({
+      id: 3,
+      name: 'Möwe',
+      fleetId: 7,
+      energy: 0,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+    leader.location = {
+      id: 10,
+      kind: 'SYSTEM_FIELD',
+      systemField: { id: 98, starSystemId: 9, sx: 10, sy: 10 },
+    };
+    stranded.location = leader.location;
+    shipRepo.findOne.mockResolvedValue(leader);
+    shipRepo.find.mockResolvedValue([leader, stranded]);
+    const fleet = { id: 7, userId: 5, leaderId: 2, isFixed: false };
+    fleetRepo.findOne.mockResolvedValue(fleet);
+    systemRepo.findOne.mockResolvedValue({ id: 9, maxX: 20, maxY: 20 });
+    systemFieldRepo.findOne.mockResolvedValue({
+      id: 99,
+      starSystemId: 9,
+      sx: 11,
+      sy: 10,
+      isPassable: true,
+    });
+
+    await service.navigate(2, 5, 11, 10);
+    expect(stranded.fleetId).toBeNull();
+
+    leader.location = {
+      id: 10,
+      kind: 'SYSTEM_FIELD',
+      systemField: { id: 98, starSystemId: 9, sx: 10, sy: 10 },
+    };
+    leader.locationId = 10;
+    stranded.location = leader.location;
+    stranded.locationId = 10;
+    stranded.fleetId = 7;
+    fleet.isFixed = true;
+    fleetRepo.findOne.mockResolvedValue(fleet);
+    await expect(service.navigate(2, 5, 11, 10)).rejects.toThrow('Möwe');
+  });
+
+  it('prevents a non-leader fleet member from flying alone', async () => {
+    const { service, shipRepo, fleetRepo } = createService();
+    shipRepo.findOne.mockResolvedValue(ship({ id: 3, fleetId: 7 }));
+    fleetRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 5,
+      leaderId: 2,
+      isFixed: false,
+    });
+
+    await expect(service.navigate(3, 5, 11, 10)).rejects.toThrow(
+      'Nur der Flottenführer kann die Flotte bewegen',
+    );
+  });
+
+  it('toggles fixation only for the fleet leader', async () => {
+    const { service, shipRepo, fleetRepo } = createService();
+    const fleet = { id: 7, userId: 5, leaderId: 2, isFixed: false };
+    fleetRepo.findOne.mockResolvedValue(fleet);
+    shipRepo.findOne.mockResolvedValue(ship({ id: 2, fleetId: 7 }));
+
+    await expect(service.toggleFleetFixation(5, 7)).resolves.toMatchObject({
+      isFixed: true,
+    });
+    expect(fleetRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ isFixed: true }),
     );
   });
 

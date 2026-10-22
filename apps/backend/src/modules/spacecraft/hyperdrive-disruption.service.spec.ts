@@ -34,6 +34,7 @@ const galaxyField = (id: number) => ({
 function setup(target: any = galaxyField(2)) {
   const shipRepo = {
     findOne: jest.fn().mockResolvedValue(target),
+    find: jest.fn(async () => []),
     save: jest.fn(async (ship) => ship),
   };
   const runtimeState = {
@@ -68,6 +69,26 @@ describe('HyperdriveDisruptionService', () => {
       where: { id: 2 },
       relations: ['location', 'location.galaxyField', 'location.systemField'],
     });
+  });
+
+  it('pulls both co-located fleets out of hyperspace', async () => {
+    const target = { ...galaxyField(2), fleetId: 7 };
+    const targetWing = { ...galaxyField(3), fleetId: 7 };
+    const interceptor = { ...galaxyField(1), fleetId: 8 };
+    const interceptorWing = { ...galaxyField(4), fleetId: 8 };
+    const { service, shipRepo } = setup(target);
+    shipRepo.find
+      .mockResolvedValueOnce([target, targetWing] as never)
+      .mockResolvedValueOnce([interceptor, interceptorWing] as never);
+
+    await service.intercept(interceptor as never, 2);
+
+    expect(target.runtimeSystems.WARPDRIVE.active).toBe(false);
+    expect(targetWing.runtimeSystems.WARPDRIVE.active).toBe(false);
+    expect(interceptor.runtimeSystems.WARPDRIVE.active).toBe(false);
+    expect(interceptorWing.runtimeSystems.WARPDRIVE.active).toBe(false);
+    expect(shipRepo.save).toHaveBeenCalledWith(targetWing);
+    expect(shipRepo.save).toHaveBeenCalledWith(interceptorWing);
   });
 
   it('rejects canonical system scope', async () => {

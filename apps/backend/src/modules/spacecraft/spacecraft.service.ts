@@ -1303,6 +1303,7 @@ export class SpacecraftService {
       moduleCount,
       fleetName: ship.fleet?.name || null,
       fleetLeaderId: ship.fleet?.leaderId ?? null,
+      fleetIsFixed: ship.fleet?.isFixed ?? false,
       fleetMembers:
         ship.fleet?.members?.map((member) => ({
           id: member.id,
@@ -1715,6 +1716,7 @@ export class SpacecraftService {
   ): Promise<Spacecraft> {
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     const ship = await this.findOne(shipId, userId);
+    await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1786,15 +1788,32 @@ export class SpacecraftService {
     const shipClass = await this.shipClassService.findById(ship.shipClassId);
     if (!shipClass) throw new NotFoundException('Ship class not found');
     const energyCost = distance * shipClass.flightEnergyCost;
+    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
+      this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
+      this.assertSystemsForFlight(member, 'sublight');
+      this.consumeEps(member, energyCost, 'navigation');
+    });
     this.consumeEps(ship, energyCost, 'navigation');
 
     const previousField = resolveSpacecraftField(ship);
     const previousLocation = ship.location;
     if (!targetField) throw new NotFoundException('Target field not found');
-    await this.setCurrentLocation(
-      ship,
-      await this.findLocationBySystemField(targetField.id),
-    );
+    const destination = await this.findLocationBySystemField(targetField.id);
+    await this.setCurrentLocation(ship, destination);
+    for (const member of fleetMembers) {
+      const origin = member.location;
+      await this.setCurrentLocation(member, destination);
+      member.status = SpacecraftStatus.IDLE;
+      await this.shipRepo.save(member);
+      await this.flightSignatureService.createMovement(
+        member,
+        origin,
+        member.location,
+        this.flightDirection(
+          this.directionFromMove(startX, startY, targetX, targetY),
+        ),
+      );
+    }
     ship.targetLocationId = null;
     ship.targetLocation = null;
     ship.arrivalAt = null;
@@ -1877,6 +1896,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
@@ -1929,6 +1949,11 @@ export class SpacecraftService {
     }
 
     const warpdriveCost = distance;
+    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
+      this.activateDriveForFlight(member, 'WARPDRIVE');
+      this.assertSystemsForFlight(member, 'warp');
+      this.consumeWarpdrive(member, warpdriveCost, 'galaxy flight');
+    });
     this.consumeWarpdrive(ship, warpdriveCost, 'galaxy flight');
     ship.lastGalaxyFlightDirection = this.directionFromMove(
       currentLocation.x,
@@ -1937,11 +1962,22 @@ export class SpacecraftService {
       targetY,
     );
     const previousLocation = ship.location;
+    const destination = await this.findLocationByGalaxyField(targetField.id);
 
-    await this.setCurrentLocation(
-      ship,
-      await this.findLocationByGalaxyField(targetField.id),
-    );
+    await this.setCurrentLocation(ship, destination);
+    for (const member of fleetMembers) {
+      const origin = member.location;
+      member.lastGalaxyFlightDirection = ship.lastGalaxyFlightDirection;
+      await this.setCurrentLocation(member, destination);
+      member.status = SpacecraftStatus.IDLE;
+      await this.shipRepo.save(member);
+      await this.flightSignatureService.createMovement(
+        member,
+        origin,
+        member.location,
+        this.flightDirection(ship.lastGalaxyFlightDirection),
+      );
+    }
     ship.targetLocationId = null;
     ship.targetLocation = null;
     ship.arrivalAt = null;
@@ -2017,6 +2053,7 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemeintritt');
 
@@ -2058,11 +2095,28 @@ export class SpacecraftService {
       ship.lastGalaxyFlightDirection,
     );
 
+    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
+      this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
+      this.assertSystemsForFlight(member, 'sublight');
+    });
     const previousLocation = ship.location;
-    await this.setCurrentLocation(
-      ship,
-      await this.findLocationBySystemField(entryField.id),
-    );
+    const destination = await this.findLocationBySystemField(entryField.id);
+    await this.setCurrentLocation(ship, destination);
+    for (const member of fleetMembers) {
+      const origin = member.location;
+      await this.setCurrentLocation(member, destination);
+      member.status = SpacecraftStatus.IDLE;
+      const memberSystems = this.spacecraftRuntimeStateService.initialize(member);
+      if (memberSystems.WARPDRIVE) memberSystems.WARPDRIVE.active = false;
+      member.runtimeSystems = memberSystems;
+      await this.shipRepo.save(member);
+      await this.flightSignatureService.createMovement(
+        member,
+        origin,
+        member.location,
+        this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
+      );
+    }
     ship.status = SpacecraftStatus.IDLE;
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (systems.WARPDRIVE) systems.WARPDRIVE.active = false;
@@ -2140,6 +2194,7 @@ export class SpacecraftService {
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemaustritt');
 
@@ -2173,11 +2228,27 @@ export class SpacecraftService {
     const galaxyField = await this.galaxyFieldRepo.findOne({
       where: { layerId: system.layerId, cx: system.cx, cy: system.cy },
     });
+    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
+      this.activateDriveForFlight(member, 'WARPDRIVE');
+      this.assertSystemsForFlight(member, 'warp');
+    });
     const previousLocation = ship.location;
-    await this.setCurrentLocation(
-      ship,
-      galaxyField ? await this.findLocationByGalaxyField(galaxyField.id) : null,
-    );
+    const destination = galaxyField
+      ? await this.findLocationByGalaxyField(galaxyField.id)
+      : null;
+    await this.setCurrentLocation(ship, destination);
+    for (const member of fleetMembers) {
+      const origin = member.location;
+      await this.setCurrentLocation(member, destination);
+      member.status = SpacecraftStatus.IDLE;
+      await this.shipRepo.save(member);
+      await this.flightSignatureService.createMovement(
+        member,
+        origin,
+        member.location,
+        this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
+      );
+    }
     ship.status = SpacecraftStatus.IDLE;
 
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
@@ -2200,6 +2271,7 @@ export class SpacecraftService {
     targetSystemId: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    await this.assertFleetLeader(ship, userId);
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
 
@@ -2238,22 +2310,38 @@ export class SpacecraftService {
       : 1;
 
     const warpdriveCost = Math.max(1, galaxyDistance);
+    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
+      this.assertSystemsForFlight(member, 'warp');
+      this.consumeWarpdrive(member, warpdriveCost, 'warp');
+    });
     this.consumeWarpdrive(ship, warpdriveCost, 'warp');
 
     const warpTimeMs = galaxyDistance * 60_000;
+    const targetField = await this.systemFieldRepo.findOne({
+      where: { starSystemId: targetSystemId, sx: 1, sy: 1 },
+    });
+    const destination = targetField
+      ? await this.findLocationBySystemField(targetField.id)
+      : null;
+    const arrivalAt = new Date(Date.now() + warpTimeMs);
 
     ship.status = SpacecraftStatus.IN_FLIGHT;
     ship.originLocationId = ship.locationId;
     ship.originLocation = ship.location;
-    const targetField = await this.systemFieldRepo.findOne({
-      where: { starSystemId: targetSystemId, sx: 1, sy: 1 },
-    });
-    ship.targetLocation = targetField
-      ? await this.findLocationBySystemField(targetField.id)
-      : null;
-    ship.targetLocationId = ship.targetLocation?.id ?? null;
-    ship.arrivalAt = new Date(Date.now() + warpTimeMs);
+    ship.targetLocation = destination;
+    ship.targetLocationId = destination?.id ?? null;
+    ship.arrivalAt = arrivalAt;
     ship.warpCooldown = 3;
+    for (const member of fleetMembers) {
+      member.status = SpacecraftStatus.IN_FLIGHT;
+      member.originLocationId = member.locationId;
+      member.originLocation = member.location;
+      member.targetLocation = destination;
+      member.targetLocationId = destination?.id ?? null;
+      member.arrivalAt = arrivalAt;
+      member.warpCooldown = 3;
+      await this.shipRepo.save(member);
+    }
 
     this.spacecraftRuntimeStateService.initialize(ship);
 
@@ -2340,6 +2428,84 @@ export class SpacecraftService {
     ship.warpdrive -= amount;
   }
 
+  private async assertFleetLeader(
+    ship: Spacecraft,
+    userId: number,
+  ): Promise<Fleet | null> {
+    if (!ship.fleetId) return null;
+    const fleet = await this.requireFleet(userId, ship.fleetId);
+    if (fleet.leaderId !== ship.id) {
+      throw new BadRequestException(
+        'Nur der Flottenführer kann die Flotte bewegen',
+      );
+    }
+    return fleet;
+  }
+
+  private async prepareFleetMembers(
+    leader: Spacecraft,
+    userId: number,
+    validate: (member: Spacecraft) => void,
+  ): Promise<Spacecraft[]> {
+    const fleet = await this.assertFleetLeader(leader, userId);
+    if (!fleet) return [];
+    const members = await this.shipRepo.find({ where: { fleetId: fleet.id } });
+    const movable: Spacecraft[] = [];
+    const blocked: Array<{ member: Spacecraft; reason: string }> = [];
+    const snapshots = new Map<
+      Spacecraft,
+      Pick<Spacecraft, 'energy' | 'warpdrive' | 'runtimeSystems'>
+    >();
+    for (const member of members) {
+      if (member.id === leader.id || !sameSpacecraftLocation(member, leader)) continue;
+      try {
+        if (member.status === SpacecraftStatus.DESTROYED) {
+          throw new BadRequestException('Schiff ist zerstört');
+        }
+        if (member.status !== SpacecraftStatus.IDLE) {
+          throw new BadRequestException('Schiff ist nicht flugbereit');
+        }
+        if (!(await this.spacecraftCrewService.hasEnoughCrew(member))) {
+          throw new BadRequestException('Nicht genug Crew');
+        }
+        snapshots.set(member, {
+          energy: member.energy,
+          warpdrive: member.warpdrive,
+          runtimeSystems: structuredClone(member.runtimeSystems),
+        });
+        validate(member);
+        movable.push(member);
+      } catch (error) {
+        const snapshot = snapshots.get(member);
+        if (snapshot) Object.assign(member, snapshot);
+        blocked.push({
+          member,
+          reason: error instanceof Error ? error.message : 'nicht flugbereit',
+        });
+      }
+    }
+    if (fleet.isFixed && blocked.length > 0) {
+      for (const member of movable) {
+        const snapshot = snapshots.get(member);
+        if (snapshot) Object.assign(member, snapshot);
+      }
+      const first = blocked[0];
+      throw new BadRequestException(
+        `Fixierte Flotte kann nicht fliegen: ${first.member.name}: ${first.reason}`,
+      );
+    }
+    for (const { member, reason } of blocked) {
+      member.fleetId = null;
+      await this.shipRepo.save(member);
+      this.gameGateway.emitToUser(member.userId, WsEventType.SPACECRAFT_EVENT, {
+        shipId: member.id,
+        type: 'FLEET_MEMBER_LEFT_BEHIND',
+        detail: `${member.name} hat die Flotte verlassen: ${reason}`,
+      });
+    }
+    return movable;
+  }
+
   // Fleet management
   async createFleet(
     userId: number,
@@ -2423,6 +2589,13 @@ export class SpacecraftService {
     this.assertFleetName(name);
     const fleet = await this.requireFleet(userId, fleetId);
     fleet.name = name.trim();
+    return this.fleetRepo.save(fleet);
+  }
+
+  async toggleFleetFixation(userId: number, fleetId: number): Promise<Fleet> {
+    const fleet = await this.requireFleet(userId, fleetId);
+    await this.findOne(fleet.leaderId, userId);
+    fleet.isFixed = !fleet.isFixed;
     return this.fleetRepo.save(fleet);
   }
 
