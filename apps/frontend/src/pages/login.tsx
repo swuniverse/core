@@ -542,7 +542,7 @@ export function LoginPage() {
             ×
           </button>
           <p className="swu-eyebrow">Commander Login</p>
-          <h2>Zurück auf die Brucke</h2>
+          <h2>Zurück auf die Brücke</h2>
           {error && (
             <div className="auth-error" role="alert">
               {error}

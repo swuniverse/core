@@ -81,15 +81,15 @@ export const SWU_TEST_PLANET_EMOJI: Record<number, string> = {
   90060: '🏜️', // Wüste
   90070: '⛰️', // Gebirgswelt
   90080: '❄️', // Tundraartig
-  90090: '🔴', // Marsartig
+  90090: '●', // Marsartig
   90100: '🧊', // Arktisch
   90110: '🏝️', // Archipel
   90120: '🌑', // Mondartig
   90130: '🌋', // Lavaplanet
   90140: '☠️', // Giftwelt
   90150: '🟠', // Gasplanet A
-  90151: '🟡', // Gasplanet B
-  90152: '🟢', // Gasplanet C
+  90151: '●', // Gasplanet B
+  90152: '●', // Gasplanet C
   90153: '🟣', // Gasplanet D
 };
 

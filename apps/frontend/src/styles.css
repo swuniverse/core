@@ -11,6 +11,8 @@
   --color-swu-danger: #b10000;
   --color-swu-success: #4fc3f7;
   --color-swu-warning: #ff9800;
+  --color-swu-positive: #22c55e;
+  --color-swu-negative: #ef4444;
   --color-swu-text: #eeeeee;
   --color-swu-muted: #aaaaaa;
   --color-swu-header: #262323;
@@ -33,6 +35,34 @@ body {
 
 * {
   scrollbar-color: var(--color-swu-border) var(--color-swu-bg);
+}
+
+.swu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.swu-table th,
+.swu-table td {
+  border: 1px solid var(--color-swu-border);
+  padding: 0.25rem 0.375rem;
+}
+
+.swu-table th {
+  background-color: color-mix(in srgb, black 40%, transparent);
+  color: var(--color-swu-primary);
+  font-weight: 700;
+  text-align: center;
+}
+
+.swu-table tbody tr:hover {
+  background-color: color-mix(in srgb, white 5%, transparent);
+}
+
+.swu-table .swu-table-number {
+  font-family: var(--font-swu-mono);
+  text-align: right;
 }
 
 @supports (padding: env(safe-area-inset-bottom)) {

@@ -111,32 +111,37 @@ export function DashboardLimits({ data }: { data: DashboardData }) {
         <header className="border-b border-swu-border px-3 py-1.5 text-center text-xs font-bold text-swu-primary">
           Kolonielimitierung
         </header>
-        <div className="flex items-center justify-center gap-4 px-3 py-3 font-mono text-xs text-swu-text">
-          <span className="flex items-center gap-1" title="Planeten">
-            <img
-              src="/assets/planets/201s.png"
-              alt=""
-              className="size-5 object-contain"
-            />
-            {limits ? `${limits.planet.count}/${limits.planet.limit}` : '—'}
-          </span>
-          <span className="flex items-center gap-1" title="Monde">
-            <img
-              src="/assets/planets/401s.png"
-              alt=""
-              className="size-5 object-contain"
-            />
-            {limits ? `${limits.moon.count}/${limits.moon.limit}` : '—'}
-          </span>
-          <span className="flex items-center gap-1" title="Asteroiden">
-            <img
-              src="/assets/planets/701s.png"
-              alt=""
-              className="size-5 object-contain"
-            />
-            {limits ? `${limits.asteroid.count}/${limits.asteroid.limit}` : '—'}
-          </span>
-        </div>
+        <table className="swu-table">
+          <thead>
+            <tr>
+              <th>Typ</th>
+              <th>Belegt</th>
+              <th>Limit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {([
+              { label: 'Planeten', image: '/assets/planets/201s.png', limit: limits?.planet },
+              { label: 'Monde', image: '/assets/planets/401s.png', limit: limits?.moon },
+              { label: 'Asteroiden', image: '/assets/planets/701s.png', limit: limits?.asteroid },
+            ]).map(({ label, image, limit }) => (
+              <tr key={label}>
+                <td>
+                  <span className="flex items-center gap-1" title={label}>
+                    <img
+                      src={image}
+                      alt=""
+                      className="size-5 object-contain"
+                    />
+                    {label}
+                  </span>
+                </td>
+                <td className="swu-table-number">{limit ? limit.count : '—'}</td>
+                <td className="swu-table-number">{limit ? limit.limit : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
       <section className="border border-swu-border bg-swu-surface/70">
         <header className="border-b border-swu-border px-3 py-1.5 text-center text-xs font-bold text-swu-primary">

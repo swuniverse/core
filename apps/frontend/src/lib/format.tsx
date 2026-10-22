@@ -1,4 +1,31 @@
+import type { ComponentPropsWithoutRef } from 'react';
+
 export type InviteStatus = 'available' | 'used' | 'revoked';
+
+const numberFormatter = new Intl.NumberFormat('de-DE');
+
+export function formatNumber(value: number): string {
+  return numberFormatter.format(value);
+}
+
+export function formatDelta(value: number): string {
+  const formatted = formatNumber(value);
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
+export function Delta({ value, className = '', ...props }: { value: number } & ComponentPropsWithoutRef<'span'>) {
+  const colorClass = value > 0
+    ? 'text-swu-positive'
+    : value < 0
+      ? 'text-swu-negative'
+      : '';
+
+  return (
+    <span className={[colorClass, className].filter(Boolean).join(' ')} {...props}>
+      {formatDelta(value)}
+    </span>
+  );
+}
 
 export function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('de-DE');

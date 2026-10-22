@@ -277,7 +277,7 @@ function SecurityTab() {
 
   return (
     <div className="space-y-6 max-w-lg">
-      <Section title="Passwort aendern">
+      <Section title="Passwort ändern">
         <Input
           type="password"
           placeholder="Aktuelles Passwort"
@@ -300,12 +300,12 @@ function SecurityTab() {
           onClick={changePassword}
           className="mt-2 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
         >
-          Passwort aendern
+          Passwort ändern
         </button>
         {pwMsg && <p className="text-xs text-swu-muted mt-1">{pwMsg}</p>}
       </Section>
 
-      <Section title="E-Mail aendern">
+      <Section title="E-Mail ändern">
         <Input
           type="password"
           placeholder="Aktuelles Passwort"
@@ -322,7 +322,7 @@ function SecurityTab() {
           onClick={changeEmail}
           className="mt-2 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors"
         >
-          E-Mail aendern
+          E-Mail ändern
         </button>
         {emailMsg && <p className="text-xs text-swu-muted mt-1">{emailMsg}</p>}
       </Section>
@@ -665,7 +665,7 @@ function DangerTab() {
         )}
       </Section>
 
-      <Section title="Konto loeschen" danger>
+      <Section title="Konto löschen" danger>
         <p className="text-xs text-swu-muted mb-2">
           Diese Aktion kann nicht rueckgaengig gemacht werden. Alle Daten werden
           dauerhaft geloescht.
@@ -675,7 +675,7 @@ function DangerTab() {
             onClick={() => setConfirmDelete(true)}
             className="px-4 py-2 bg-red-500/20 border border-red-500 text-red-400 text-sm font-semibold rounded hover:bg-red-500/30 transition-colors"
           >
-            Konto loeschen...
+            Konto löschen...
           </button>
         ) : (
           <div className="space-y-2">
@@ -690,7 +690,7 @@ function DangerTab() {
                 onClick={requestDeletion}
                 className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700 transition-colors"
               >
-                Endgueltig loeschen
+                Endgültig löschen
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}

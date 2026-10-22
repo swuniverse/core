@@ -126,7 +126,7 @@ export function Header() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-swu-border bg-[#0d0e1b] text-[10px]">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-swu-border bg-swu-header text-[10px]">
       <div className="flex h-[58px] min-w-0 items-stretch md:h-[86px]">
         <div className="flex min-w-0 items-center border-r border-swu-border sm:w-[220px] xl:w-[255px]">
           {user?.id ? (
