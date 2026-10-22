@@ -1,6 +1,6 @@
 # Crew-Expertise, Ränge und Beförderung
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-CREW-1
@@ -36,6 +36,11 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 Vorgabe: Variante (a), vollständig. Expertise je Skill, 10 Ränge (STU-Rangstufen mit Star-Wars-Namen nach Leitplanke 2, z. B. Kadett, Fähnrich, Leutnant, Commander, Captain, Commodore, Admiral – der Agent ergänzt auf 10 und dokumentiert in `map.md`), Beförderung mit Limits je Rang, alle STU-Ereignisquellen schrittweise.
 
+## Offene Frage
+
+Wie soll das Akzeptanzkriterium „Rettungskapseln geborgen“ in diesem Issue angeschlossen werden? SWU hat noch kein Rettungskapsel-Modell und bewahrt bei der Zerstörung nur eine aggregierte `wreck.crewCount` auf; dadurch gehen Crew-Identitäten samt Expertise verloren. Soll sc-WP-CREW-2 (a) individuelle Crew in neuen Rettungskapseln persistieren und einen Bergungsablauf ergänzen oder (b) nur einen Erweiterungspunkt für das spätere, bereits geplante sc-WP-CREW-3 schaffen und das Ereignis dort anschließen?
+
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – SWU übernimmt das STU-Expertisemodell vollständig: Expertise je Skill, 10 Ränge mit Star-Wars-Namen, Beförderung mit Limits je Rang und schrittweise alle STU-Ereignisquellen.
+- 2026-10-22 Agent: Umsetzung vor Produktcode gestoppt: Das geforderte Bergungsereignis setzt eine noch offene Entscheidung über Crew-Identität und Eigentum bei Rettungskapseln voraus. `sc-WP-CREW-3` ist laut Backlog der kanonische Eigentümer für verschollene Crew/Rettungskapseln.
