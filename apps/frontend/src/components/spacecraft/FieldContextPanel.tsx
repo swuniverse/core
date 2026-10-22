@@ -15,6 +15,7 @@ import { api } from '../../services/api';
 import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
 import { ColonyScanDialog, type ColonyScan } from './ColonyScanDialog';
+import { CombatReportDialog } from './CombatReportDialog';
 
 type SectorScanResult = {
   field: {
@@ -80,6 +81,8 @@ export function FieldContextPanel({
     message: string | null;
   } | null>(null);
   const [colonyScan, setColonyScan] = useState<ColonyScan | null>(null);
+  const [attackSelection, setAttackSelection] = useState(false);
+  const [combatReport, setCombatReport] = useState<any | null>(null);
   const [colonizationOpen, setColonizationOpen] = useState(false);
   const [actionMessage, setActionMessage] = useState<{
     title: string;
@@ -194,6 +197,40 @@ export function FieldContextPanel({
       setError(
         err instanceof Error ? err.message : 'Kolonie-Scan fehlgeschlagen',
       );
+    }
+  }
+
+  async function openColonyAttack() {
+    if (!context?.colony?.canAttack) return;
+    setError(null);
+    try {
+      setColonyScan(
+        await api.post<ColonyScan>(`/spacecraft/${shipId}/colony-scan`, {
+          colonyId: context.colony.id,
+        }),
+      );
+      setAttackSelection(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Kolonieoberfläche nicht verfügbar');
+    }
+  }
+
+  async function attackColonyField(fieldIndex: number) {
+    if (!context?.colony) return;
+    setError(null);
+    try {
+      setCombatReport(
+        await api.post('/combat/attack-colony', {
+          attackerId: shipId,
+          colonyId: context.colony.id,
+          fieldIndex,
+        }),
+      );
+      setColonyScan(null);
+      setAttackSelection(false);
+      await onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Kolonieangriff fehlgeschlagen');
     }
   }
 
@@ -468,6 +505,17 @@ export function FieldContextPanel({
                   className="size-5"
                 />
               </button>
+              {!context.colony.isOwn && (
+                <button
+                  type="button"
+                  disabled={!context.colony.canAttack}
+                  title={context.colony.attackReason ?? undefined}
+                  onClick={() => void openColonyAttack()}
+                  className="px-1 text-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Kolonie angreifen
+                </button>
+              )}
               {context.colony.canLand && (
                 <button
                   type="button"
@@ -515,7 +563,17 @@ export function FieldContextPanel({
       {colonyScan && (
         <ColonyScanDialog
           scan={colonyScan}
-          onClose={() => setColonyScan(null)}
+          onClose={() => {
+            setColonyScan(null);
+            setAttackSelection(false);
+          }}
+          onAttack={attackSelection ? (fieldIndex) => void attackColonyField(fieldIndex) : undefined}
+        />
+      )}
+      {combatReport && (
+        <CombatReportDialog
+          report={combatReport}
+          onClose={() => setCombatReport(null)}
         />
       )}
       {message && (

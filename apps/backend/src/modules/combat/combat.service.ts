@@ -172,6 +172,7 @@ export class CombatService {
   async attackColony(
     attackerId: number,
     colonyId: number,
+    fieldIndex: number,
     userId: number,
   ): Promise<
     CombatResult & {
@@ -207,6 +208,16 @@ export class CombatService {
       throw new BadRequestException('Colony must be in same orbit');
     }
     if (!colony.stats) throw new BadRequestException('Colony stats missing');
+    const targetField = (colony.fields ?? []).find(
+      (field) => field.fieldIndex === fieldIndex,
+    );
+    if (!targetField) throw new BadRequestException('Selected field not found');
+    if (!targetField.buildingId || targetField.isBuilding) {
+      throw new BadRequestException('Selected field has no finished building');
+    }
+    if (targetField.layer === 'UNDERGROUND') {
+      throw new BadRequestException('Underground fields cannot be attacked');
+    }
 
     const functionIds = this.getActiveColonyFunctionIds(colony);
     const maxShields =
@@ -240,10 +251,15 @@ export class CombatService {
     const absorbed = Math.min(shieldsBefore, outgoingDamage);
     colony.stats.shields = Math.max(0, shieldsBefore - outgoingDamage);
     const remainingDamage = Math.max(0, outgoingDamage - absorbed);
-    const damagedFields = this.colonyDamageService.applyIncomingDamage(
-      colony,
-      remainingDamage,
-    );
+    const damagedFields =
+      remainingDamage > 0
+        ? [
+            this.colonyDamageService.damageField(
+              targetField,
+              Math.max(1, Math.ceil(remainingDamage / 10)),
+            ),
+          ]
+        : [];
     const log = [
       {
         action: 'COLONY_SHIELD_ABSORB' as any,

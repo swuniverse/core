@@ -2914,6 +2914,22 @@ export class SpacecraftService {
       ) &&
       shipClass != null &&
       this.gameData.getHangarShipDef(shipClass.key) != null;
+    const [viewer, colonyOwner] =
+      colony?.userId != null && colony.userId !== userId
+        ? await Promise.all([
+            this.userRepo.findOneBy({ id: userId }),
+            this.userRepo.findOneBy({ id: colony.userId }),
+          ])
+        : [null, null];
+    const canAttack =
+      viewer?.factionId != null &&
+      colonyOwner?.factionId != null &&
+      viewer.factionId !== colonyOwner.factionId;
+    const attackReason = colony?.userId === userId
+      ? 'Eigene Kolonie kann nicht angegriffen werden'
+      : canAttack
+        ? null
+        : 'Kolonie ist nicht feindlich';
     const cartography =
       location?.scope === 'SYSTEM'
         ? await this.getCartography(ship.id, userId)
@@ -2966,6 +2982,8 @@ export class SpacecraftService {
             isOwn: colony.userId === userId,
             canLand,
             canSurfaceScan,
+            canAttack,
+            attackReason,
           }
         : null,
       runtimeSystems: systems,

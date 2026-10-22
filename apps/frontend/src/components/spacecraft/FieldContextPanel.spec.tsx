@@ -1184,4 +1184,104 @@ describe('FieldContextPanel', () => {
       screen.getByRole('button', { name: /Ruinen übernehmen/ }),
     ).toBeTruthy();
   });
+
+  it('opens the colony surface for an enemy and attacks the selected building', async () => {
+    const onUpdate = vi.fn();
+    apiMocks.post
+      .mockResolvedValueOnce({
+        colony: { name: 'Alpha', owner: { username: 'Enemy' } },
+        surface: {
+          width: 2,
+          deposits: [],
+          fields: [
+            {
+              fieldIndex: 3,
+              fieldType: 111,
+              buildingName: 'Schildgenerator',
+              hasBuilding: true,
+              isConstruction: false,
+              isActive: true,
+              integrityPercent: 100,
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        rounds: [],
+        outcome: {
+          winner: 'attacker',
+          attackerDestroyed: false,
+          defenderDestroyed: false,
+        },
+      });
+
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: { id: 8, name: 'Testsystem', canLeave: true, leaveReason: null },
+            colony: {
+              id: 9,
+              name: 'Alpha',
+              planetName: 'Alpha Prime',
+              isOwn: false,
+              canLand: false,
+              canSurfaceScan: true,
+              canAttack: true,
+              attackReason: null,
+            },
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Kolonie angreifen' }));
+    await screen.findByRole('dialog', { name: 'Kolonie-Oberflächenscan' });
+    fireEvent.click(screen.getByRole('button', { name: /Schildgenerator angreifen/ }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenLastCalledWith('/combat/attack-colony', {
+        attackerId: 1,
+        colonyId: 9,
+        fieldIndex: 3,
+      }),
+    );
+    expect(await screen.findByRole('dialog', { name: 'Kampfbericht' })).toBeTruthy();
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('disables colony attacks outside an enemy stance with the server reason', () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            coordinates: { x: 5, y: 23 },
+            starSystem: { id: 8, name: 'Testsystem', canLeave: true, leaveReason: null },
+            colony: {
+              id: 9,
+              name: 'Alpha',
+              planetName: 'Alpha Prime',
+              isOwn: false,
+              canLand: false,
+              canSurfaceScan: true,
+              canAttack: false,
+              attackReason: 'Kolonie ist nicht feindlich',
+            },
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const button = screen.getByRole('button', { name: 'Kolonie angreifen' });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(button.getAttribute('title')).toBe('Kolonie ist nicht feindlich');
+  });
+
 });

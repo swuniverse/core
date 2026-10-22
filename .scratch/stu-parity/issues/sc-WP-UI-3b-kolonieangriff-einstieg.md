@@ -1,6 +1,6 @@
 # Kolonieangriff vom Schiff aus (UI-Einstieg)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -22,16 +22,18 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Fremde Kolonie im Orbit zeigt einen Knopf „Kolonie angreifen“ (nur bei feindlicher Haltung, sonst deaktiviert mit Grund).
-- [ ] Der Knopf öffnet die Kolonieoberfläche zur Feldwahl; der Angriff trifft das Gebäude des gewählten Felds nach STU-Regeln (`AttackBuilding`); der Endpunkt nimmt das Zielfeld entgegen und lehnt Felder ohne Gebäude ab.
-- [ ] Der Kampfbericht erscheint im vorhandenen `CombatReportDialog`.
-- [ ] Backend- und Frontend-Tests decken Feldwahl, Gebäudeschaden und Ablehnungsfälle ab.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Fremde Kolonie im Orbit zeigt einen Knopf „Kolonie angreifen“ (nur bei feindlicher Haltung, sonst deaktiviert mit Grund).
+- [x] Der Knopf öffnet die Kolonieoberfläche zur Feldwahl; der Angriff trifft das Gebäude des gewählten Felds nach STU-Regeln (`AttackBuilding`); der Endpunkt nimmt das Zielfeld entgegen und lehnt Felder ohne Gebäude ab.
+- [x] Der Kampfbericht erscheint im vorhandenen `CombatReportDialog`.
+- [x] Backend- und Frontend-Tests decken Feldwahl, Gebäudeschaden und Ablehnungsfälle ab.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Entscheidung
 
 Vorgabe: Variante (a), STU-Verhalten. Feldwahl über die Kolonieoberfläche, Schaden am gewählten Gebäude, Endpunkt `attack-colony` um das Zielfeld erweitert. Der Ganz-Kolonie-Angriff entfällt bzw. wird nicht mehr über die UI angeboten.
 
 ## Comments
+
+- 2026-10-22 Agent: Gezielter Gebäudeangriff über den Feldkontext umgesetzt. Feindprüfung, Feld-/Gebäudevalidierung, Oberflächenwahl und vorhandener Kampfbericht sind in Backend, Shared DTO und Frontend verdrahtet; Tests decken Schaden und Ablehnungen ab. Keine offenen Folgepunkte.
 
 - 2026-10-21 Product Owner: Option a – Der Kolonieangriff folgt STU (`AttackBuilding`): Der Spieler wählt über die Kolonieoberfläche ein Feld und greift gezielt das Gebäude an; der Endpunkt wird entsprechend erweitert.

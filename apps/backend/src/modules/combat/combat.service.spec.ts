@@ -93,7 +93,14 @@ function createService() {
     createActionEvent: jest.fn(async (value) => value),
   };
   const colonyDamageService = {
-    applyIncomingDamage: jest.fn<any, any[]>(() => []),
+    damageField: jest.fn<any, any[]>((field, integrityLoss) => ({
+      fieldIndex: field.fieldIndex,
+      buildingId: field.buildingId,
+      integrityBefore: field.integrity,
+      integrityAfter: Math.max(0, field.integrity - integrityLoss),
+      damage: Math.min(field.integrity, integrityLoss),
+      status: 'DAMAGED',
+    })),
   };
   const reportFormatter = {
     format: jest.fn((result) => result),
@@ -156,7 +163,11 @@ describe('CombatService attackColony', () => {
     shields: 0,
   });
 
-  const colony = (fields: any[] = []): any => ({
+  const colony = (
+    fields: any[] = [
+      { fieldIndex: 2, buildingId: 100030100, isActive: true, isBuilding: false, integrity: 100 },
+    ],
+  ): any => ({
     id: 5,
     userId: 2,
     starSystemId: 10,
@@ -185,7 +196,7 @@ describe('CombatService attackColony', () => {
     } = createService();
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(
-      colony([{ buildingId: 100010100, isActive: true, isBuilding: false }]),
+      colony([{ fieldIndex: 2, buildingId: 100010100, isActive: true, isBuilding: false }]),
     );
     moduleRepo.find.mockResolvedValue([
       {
@@ -197,15 +208,12 @@ describe('CombatService attackColony', () => {
       },
     ]);
 
-    const result = await service.attackColony(7, 5, 1);
+    const result = await service.attackColony(7, 5, 2, 1);
 
     expect(result.defenderType).toBe('COLONY');
     expect(result.colonyShields).toBe(200);
     expect(result.damagedFields).toEqual([]);
-    expect(colonyDamageService.applyIncomingDamage).toHaveBeenCalledWith(
-      expect.any(Object),
-      0,
-    );
+    expect(colonyDamageService.damageField).not.toHaveBeenCalled();
     expect(colonyStatsRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ shields: 200 }),
     );
@@ -246,7 +254,7 @@ describe('CombatService attackColony', () => {
         status: 'DESTROYED',
       },
     ];
-    colonyDamageService.applyIncomingDamage.mockReturnValue(damaged);
+    colonyDamageService.damageField.mockReturnValue(damaged[0]);
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(target);
     moduleRepo.find.mockResolvedValue([
@@ -259,9 +267,13 @@ describe('CombatService attackColony', () => {
       },
     ]);
 
-    const result = await service.attackColony(7, 5, 1);
+    const result = await service.attackColony(7, 5, 2, 1);
 
     expect(result.damagedFields).toEqual(damaged);
+    expect(colonyDamageService.damageField).toHaveBeenCalledWith(
+      expect.objectContaining({ fieldIndex: 2 }),
+      10,
+    );
     expect(colonyFieldRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ fieldIndex: 2 }),
     );
@@ -270,18 +282,43 @@ describe('CombatService attackColony', () => {
     );
   });
 
+
+  it('rejects a selected field without a finished building', async () => {
+    const { service, shipRepo, colonyRepo } = createService();
+    shipRepo.findOne.mockResolvedValue(attacker());
+    colonyRepo.findOne.mockResolvedValue(
+      colony([{ fieldIndex: 4, buildingId: null, isBuilding: false }]),
+    );
+
+    await expect(service.attackColony(7, 5, 4, 1)).rejects.toThrow(
+      'Selected field has no finished building',
+    );
+  });
+
+  it('rejects a selected field from another colony', async () => {
+    const { service, shipRepo, colonyRepo } = createService();
+    shipRepo.findOne.mockResolvedValue(attacker());
+    colonyRepo.findOne.mockResolvedValue(
+      colony([{ fieldIndex: 2, buildingId: 100030100, isBuilding: false }]),
+    );
+
+    await expect(service.attackColony(7, 5, 99, 1)).rejects.toThrow(
+      'Selected field not found',
+    );
+  });
+
   it('fires energy phalanx and consumes colony energy', async () => {
     const { service, shipRepo, colonyRepo } = createService();
     const ship = attacker();
     const target = colony([
-      { buildingId: 100010100, isActive: true, isBuilding: false },
-      { buildingId: 100030100, isActive: true, isBuilding: false },
+      { fieldIndex: 2, buildingId: 100010100, isActive: true, isBuilding: false },
+      { fieldIndex: 2, buildingId: 100030100, isActive: true, isBuilding: false },
     ]);
     target.stats.shields = 0;
     shipRepo.findOne.mockResolvedValue(ship);
     colonyRepo.findOne.mockResolvedValue(target);
 
-    const result = await service.attackColony(7, 5, 1);
+    const result = await service.attackColony(7, 5, 2, 1);
 
     expect(ship.hull).toBe(250);
     expect(target.energy).toBe(75);
@@ -294,14 +331,14 @@ describe('CombatService attackColony', () => {
     const { service, shipRepo, colonyRepo, storageService } = createService();
     const ship = attacker();
     const target = colony([
-      { buildingId: 100040100, isActive: true, isBuilding: false },
+      { fieldIndex: 2, buildingId: 100040100, isActive: true, isBuilding: false },
     ]);
     target.stats.shields = 0;
     target.stats.torpedoTypeId = 81;
     shipRepo.findOne.mockResolvedValue(ship);
     colonyRepo.findOne.mockResolvedValue(target);
 
-    const result = await service.attackColony(7, 5, 1);
+    const result = await service.attackColony(7, 5, 2, 1);
 
     expect(storageService.lowerStorage).toHaveBeenCalledWith(target, 81, 1);
     expect(ship.hull).toBe(410);
@@ -316,8 +353,8 @@ describe('CombatService attackColony', () => {
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(
       colony([
-        { buildingId: 100010100, isActive: true, isBuilding: false },
-        { buildingId: 100050100, isActive: true, isBuilding: false },
+        { fieldIndex: 2, buildingId: 100010100, isActive: true, isBuilding: false },
+        { fieldIndex: 2, buildingId: 100050100, isActive: true, isBuilding: false },
       ]),
     );
     moduleRepo.find.mockResolvedValue([
@@ -330,7 +367,7 @@ describe('CombatService attackColony', () => {
       },
     ]);
 
-    const result = await service.attackColony(7, 5, 1);
+    const result = await service.attackColony(7, 5, 2, 1);
 
     expect(result.colonyShields).toBe(200);
   });
@@ -340,14 +377,14 @@ describe('CombatService attackColony', () => {
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(colony());
 
-    await service.attackColony(7, 5, 1);
+    await service.attackColony(7, 5, 2, 1);
 
     expect(statistics.countEvent).toHaveBeenCalledTimes(1);
     expect(statistics.countEvent).toHaveBeenCalledWith('combats');
 
     statistics.countEvent.mockClear();
     shipRepo.findOne.mockResolvedValue({ ...attacker(), hull: 0 });
-    await service.attackColony(7, 5, 1);
+    await service.attackColony(7, 5, 2, 1);
 
     expect(statistics.countEvent).toHaveBeenCalledWith('combats');
     expect(statistics.countEvent).toHaveBeenCalledWith('destroyed-ships', 1);
@@ -366,7 +403,7 @@ describe('CombatService attackColony', () => {
     });
     colonyRepo.findOne.mockResolvedValue(colony());
 
-    await expect(service.attackColony(7, 5, 1)).rejects.toThrow(
+    await expect(service.attackColony(7, 5, 2, 1)).rejects.toThrow(
       'Colony must be in same orbit',
     );
   });
@@ -387,7 +424,7 @@ describe('CombatService attackColony', () => {
       systemField: { id: 30, starSystemId: 10, sx: 4, sy: 6 },
     });
 
-    await expect(service.attackColony(7, 5, 1)).resolves.toMatchObject({
+    await expect(service.attackColony(7, 5, 2, 1)).resolves.toMatchObject({
       defenderType: 'COLONY',
     });
   });

@@ -14,8 +14,14 @@ export class CombatController {
     @Request() req: { user: { sub: number } },
     @Body('attackerId') attackerId: number,
     @Body('colonyId') colonyId: number,
+    @Body('fieldIndex') fieldIndex: number,
   ) {
-    return this.combatService.attackColony(attackerId, colonyId, req.user.sub);
+    return this.combatService.attackColony(
+      attackerId,
+      colonyId,
+      fieldIndex,
+      req.user.sub,
+    );
   }
 
   @Post('attack')

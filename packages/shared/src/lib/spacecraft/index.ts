@@ -549,6 +549,8 @@ export interface SpacecraftFieldContextDto {
     isOwn: boolean;
     canLand: boolean;
     canSurfaceScan: boolean;
+    canAttack?: boolean;
+    attackReason?: string | null;
   } | null;
   runtimeSystems?: SpacecraftRuntimeSystemsDto;
   information: {

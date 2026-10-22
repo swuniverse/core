@@ -38,9 +38,11 @@ const FIELD_COLORS: Record<number, string> = {
 export function ColonyScanDialog({
   scan,
   onClose,
+  onAttack,
 }: {
   scan: ColonyScan;
   onClose: () => void;
+  onAttack?: (fieldIndex: number) => void;
 }) {
   return (
     <div
@@ -102,9 +104,23 @@ export function ColonyScanDialog({
                 <span>{field.fieldIndex}</span>
                 {field.isConstruction && <span>⌛</span>}
               </div>
-              {field.hasBuilding && <div className="truncate">{field.buildingName ?? 'Gebäude'}</div>}
+              {field.hasBuilding && (
+                <div className="truncate">
+                  {field.buildingName ?? 'Gebäude'}
+                </div>
+              )}
               {field.hasBuilding && field.integrityPercent != null && (
                 <div className="text-swu-muted">{field.integrityPercent}%</div>
+              )}
+              {onAttack && field.hasBuilding && !field.isConstruction && (
+                <button
+                  type="button"
+                  onClick={() => onAttack(field.fieldIndex)}
+                  className="mt-1 text-red-300 hover:text-red-200"
+                  aria-label={`${field.buildingName ?? `Gebäude auf Feld ${field.fieldIndex}`} angreifen`}
+                >
+                  Angreifen
+                </button>
               )}
             </div>
           ))}
