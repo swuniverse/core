@@ -1,6 +1,6 @@
 # Kolonie verteidigen und blockieren direkt vom Schiff
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
