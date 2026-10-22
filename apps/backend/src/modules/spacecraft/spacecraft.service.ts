@@ -1031,83 +1031,6 @@ export class SpacecraftService {
     }
   }
 
-  async installModule(
-    shipId: number,
-    userId: number,
-    moduleType: string,
-  ): Promise<SpacecraftModule> {
-    const ship = await this.findOne(shipId, userId);
-
-    if (ship.status === SpacecraftStatus.IN_COMBAT) {
-      throw new BadRequestException('Cannot install modules during combat');
-    }
-
-    const moduleDef = this.gameData
-      .getAllModules()
-      .find((m) => m.name === moduleType);
-    if (!moduleDef) {
-      throw new BadRequestException('Unknown module type');
-    }
-
-    const mod = this.moduleRepo.create({
-      spacecraftId: ship.id,
-      moduleType,
-      category: moduleDef.category,
-      level: 1,
-      integrity: 100,
-      cooldown: 0,
-      isActive: true,
-    });
-
-    const saved = await this.moduleRepo.save(mod);
-    await this.recalculateStats(ship);
-    return saved;
-  }
-
-  async removeModule(
-    shipId: number,
-    userId: number,
-    moduleId: number,
-  ): Promise<void> {
-    const ship = await this.findOne(shipId, userId);
-
-    if (ship.status === SpacecraftStatus.IN_COMBAT) {
-      throw new BadRequestException('Cannot remove modules during combat');
-    }
-
-    const mod = ship.modules.find((m) => m.id === moduleId);
-    if (!mod) throw new NotFoundException('Module not found on this ship');
-
-    await this.moduleRepo.remove(mod);
-    await this.recalculateStats(ship);
-  }
-
-  async levelUpModule(
-    shipId: number,
-    userId: number,
-    moduleId: number,
-  ): Promise<SpacecraftModule> {
-    const ship = await this.findOne(shipId, userId);
-
-    const mod = ship.modules.find((m) => m.id === moduleId);
-    if (!mod) throw new NotFoundException('Module not found on this ship');
-
-    const moduleDef = this.gameData
-      .getAllModules()
-      .find((m) => m.name === mod.moduleType);
-    if (!moduleDef)
-      throw new BadRequestException('Module definition not found');
-
-    if (mod.level >= moduleDef.maxLevel) {
-      throw new BadRequestException('Module already at max level');
-    }
-
-    mod.level += 1;
-    const saved = await this.moduleRepo.save(mod);
-    await this.recalculateStats(ship);
-    return saved;
-  }
-
   async getModules(shipId: number, userId: number) {
     await this.findOne(shipId, userId);
     const modules = await this.moduleRepo.find({
@@ -1760,21 +1683,6 @@ export class SpacecraftService {
     if (preset === 'offline') {
       ship.operatingMode = SpacecraftOperatingMode.STANDBY;
     }
-  }
-
-  private async recalculateStats(ship: Spacecraft): Promise<void> {
-    const [modules, shipClass] = await Promise.all([
-      this.moduleRepo.find({ where: { spacecraftId: ship.id } }),
-      this.shipClassService.findById(ship.shipClassId),
-    ]);
-    if (!shipClass) return;
-    this.spacecraftStatsService.applyStats(ship, shipClass, modules);
-    this.spacecraftCrewService.applyRequiredCrew(
-      ship,
-      shipClass.crewMin,
-      modules,
-    );
-    await this.shipRepo.save(ship);
   }
 
   private async assertEnoughCrew(ship: Spacecraft): Promise<void> {

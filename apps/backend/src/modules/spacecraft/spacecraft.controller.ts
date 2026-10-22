@@ -676,33 +676,6 @@ export class SpacecraftController {
     return this.spacecraftService.getModules(id, req.user.sub);
   }
 
-  @Post(':id/modules/install')
-  installModule(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-    @Body('moduleType') moduleType: string,
-  ) {
-    return this.spacecraftService.installModule(id, req.user.sub, moduleType);
-  }
-
-  @Post(':id/modules/:moduleId/level-up')
-  levelUpModule(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('moduleId', ParseIntPipe) moduleId: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.spacecraftService.levelUpModule(id, req.user.sub, moduleId);
-  }
-
-  @Delete(':id/modules/:moduleId')
-  removeModule(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('moduleId', ParseIntPipe) moduleId: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.spacecraftService.removeModule(id, req.user.sub, moduleId);
-  }
-
   @Post(':id/surface-scan')
   surfaceScan(
     @Param('id', ParseIntPipe) id: number,

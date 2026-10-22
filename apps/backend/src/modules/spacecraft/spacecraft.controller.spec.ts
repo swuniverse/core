@@ -1,8 +1,23 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { readFileSync } from 'node:fs';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
+
+describe('SpacecraftController routes', () => {
+  it.each([
+    ["@Post(':id/modules/install')"],
+    ["@Post(':id/modules/:moduleId/level-up')"],
+    ["@Delete(':id/modules/:moduleId')"],
+  ])('does not expose legacy module mutation route %s', (route) => {
+    const source = readFileSync(
+      `${__dirname}/spacecraft.controller.ts`,
+      'utf8',
+    );
+    expect(source).not.toContain(route);
+  });
+});
 
 describe('EngineeringAmountDto', () => {
   it.each([

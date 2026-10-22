@@ -1,6 +1,6 @@
 # Freie Modulinstallation am Schiff entfernen oder auf Admin beschränken
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -20,9 +20,9 @@
 
 ## Akzeptanzkriterien
 
-- [ ] Endpunkte entfernt (inkl. toter Service-Methoden und zugehöriger DTOs).
-- [ ] Tests: Spieler-Aufruf der alten Routen liefert 404; Werft- und Umrüstpfad bleiben grün.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Endpunkte entfernt (inkl. toter Service-Methoden und zugehöriger DTOs).
+- [x] Tests: Spieler-Aufruf der alten Routen liefert 404; Werft- und Umrüstpfad bleiben grün.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Entscheidung
 
@@ -31,3 +31,4 @@ Vorgabe: Variante (a). Die Endpunkte `POST :id/modules/install`, `POST :id/modul
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Module werden ausschließlich über Werft und Umrüstung geändert; die freien Modul-Endpunkte werden ersatzlos entfernt.
+- 2026-10-22 Agent: Freie Installations-, Upgrade- und Ausbau-Routen sowie ihre toten Servicepfade entfernt; Controller-Regressionstest schützt die 404-Routen. Werft- und Umrüstungspfade bleiben unverändert.
