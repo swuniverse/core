@@ -3,6 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 export enum ColonyCrewTrainingQueueStatus {
   QUEUED = 'QUEUED',
   COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
 @Entity('colony_crew_training_queue')

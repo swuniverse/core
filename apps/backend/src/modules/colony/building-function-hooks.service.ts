@@ -9,7 +9,19 @@ import {
 } from '../messaging/colony-event.types';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { ColonyCrewService } from './colony-crew.service';
+import { ColonyDefenseService } from './colony-defense.service';
+import { ColonyStatsService } from './colony-stats.service';
+import { ColonyStorageService } from './colony-storage.service';
+import { COLONY_FUNCTION_IDS } from './colony.constants';
 import { ColonyField } from './entities/colony-field.entity';
+import {
+  ColonyFabricationQueue,
+  ColonyFabricationQueueStatus,
+} from './entities/colony-fabrication-queue.entity';
+import {
+  ColonyCrewTrainingQueue,
+  ColonyCrewTrainingQueueStatus,
+} from './entities/colony-crew-training-queue.entity';
 import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueMode,
@@ -24,9 +36,16 @@ export class BuildingFunctionHooksService {
     private readonly queueRepo: Repository<ColonyShipBuildQueue>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
+    @InjectRepository(ColonyFabricationQueue)
+    private readonly fabricationQueueRepo: Repository<ColonyFabricationQueue>,
+    @InjectRepository(ColonyCrewTrainingQueue)
+    private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
     private readonly gameData: GameDataService,
     private readonly crewService: ColonyCrewService,
     private readonly eventService: ColonyEventService,
+    private readonly storageService: ColonyStorageService,
+    private readonly statsService: ColonyStatsService,
+    private readonly defenseService: ColonyDefenseService,
   ) {}
 
   async activate(
@@ -34,6 +53,12 @@ export class BuildingFunctionHooksService {
     field: ColonyField,
     functionIds: number[],
   ): Promise<void> {
+    if (
+      functionIds.includes(COLONY_FUNCTION_IDS.SHIELD_GENERATOR) ||
+      functionIds.includes(COLONY_FUNCTION_IDS.SHIELD_BATTERY)
+    ) {
+      this.syncShields(colony);
+    }
     const jobs = await this.getOpenJobs(colony.id);
     const shipClasses = await this.getShipClasses(jobs);
     const now = new Date();
@@ -69,6 +94,16 @@ export class BuildingFunctionHooksService {
     field: ColonyField,
     functionIds: number[],
   ): Promise<void> {
+    if (functionIds.includes(COLONY_FUNCTION_IDS.SHIELD_GENERATOR)) {
+      this.syncShields(colony, null);
+    } else if (functionIds.includes(COLONY_FUNCTION_IDS.SHIELD_BATTERY)) {
+      this.syncShields(colony, field);
+    }
+    await this.cancelFabricationJobs(
+      colony,
+      functionIds,
+      ColonyEventType.BUILDING_DEACTIVATED,
+    );
     const jobs = await this.getOpenJobs(colony.id);
     const shipClasses = await this.getShipClasses(jobs);
     const activeFunctions = this.getActiveShipyardFunctions(colony, field);
@@ -94,6 +129,26 @@ export class BuildingFunctionHooksService {
     field: ColonyField,
     functionIds: number[],
   ): Promise<void> {
+    await this.cancelFabricationJobs(
+      colony,
+      functionIds,
+      ColonyEventType.BUILDING_DESTROYED,
+    );
+    if (functionIds.includes(COLONY_FUNCTION_IDS.ACADEMY)) {
+      await this.crewTrainingQueueRepo.update(
+        {
+          colonyId: colony.id,
+          status: ColonyCrewTrainingQueueStatus.QUEUED,
+        },
+        { status: ColonyCrewTrainingQueueStatus.CANCELLED },
+      );
+    }
+    if (
+      functionIds.includes(COLONY_FUNCTION_IDS.SHIELD_GENERATOR) ||
+      functionIds.includes(COLONY_FUNCTION_IDS.SHIELD_BATTERY)
+    ) {
+      this.syncShields(colony, field);
+    }
     const jobs = await this.getOpenJobs(colony.id);
     const shipClasses = await this.getShipClasses(jobs);
     const activeFunctions = this.getActiveShipyardFunctions(colony, field);
@@ -112,6 +167,71 @@ export class BuildingFunctionHooksService {
       await this.queueRepo.save(job);
       await this.notify(colony, job, 'Werftauftrag storniert', ColonyEventType.BUILDING_DESTROYED);
     }
+  }
+
+  private async cancelFabricationJobs(
+    colony: Colony,
+    functionIds: number[],
+    type: ColonyEventType,
+  ): Promise<void> {
+    const fabricationIds = functionIds.filter(
+      (id) =>
+        id === COLONY_FUNCTION_IDS.TORPEDO_FAB ||
+        (id >= COLONY_FUNCTION_IDS.MODULEFAB_TYPE1_LVL1 &&
+          id <= COLONY_FUNCTION_IDS.MODULEFAB_TYPE3_LVL3),
+    );
+    if (!fabricationIds.length) return;
+    const jobs = await this.fabricationQueueRepo.find({
+      where: {
+        colonyId: colony.id,
+        buildingFunctionId: In(fabricationIds),
+        status: ColonyFabricationQueueStatus.QUEUED,
+      },
+    });
+    const maxStorage =
+      this.statsService.calculateSummary(colony).effectiveStorageMax;
+    for (const job of jobs) {
+      const item = this.gameData.getFabricationItem(job.itemKey);
+      const refunded: string[] = [];
+      for (const cost of item?.costs ?? []) {
+        const amount = await this.storageService.upperStorage(
+          colony,
+          cost.commodityId,
+          cost.amount * job.amount,
+          maxStorage,
+        );
+        const name = this.gameData.getCommodity(cost.commodityId)?.name ?? `Ware ${cost.commodityId}`;
+        refunded.push(`${amount} ${name}`);
+      }
+      job.status = ColonyFabricationQueueStatus.CANCELLED;
+      await this.fabricationQueueRepo.save(job);
+      await this.eventService.createActionEvent({
+        colonyId: colony.id,
+        userId: job.userId,
+        type,
+        severity: ColonyEventSeverity.WARNING,
+        title: 'Fabrikationsauftrag storniert',
+        message: `${job.itemKey} (${job.amount}) wurde storniert. Erstattet: ${refunded.join(', ') || 'nichts'}.`,
+        payload: { queueId: job.id, itemKey: job.itemKey, amount: job.amount },
+      });
+    }
+  }
+
+  private syncShields(
+    colony: Colony,
+    excludedField?: ColonyField | null,
+  ): void {
+    const maxShields = excludedField === null
+      ? 0
+      : this.defenseService.calculateMaxShields({
+          ...colony,
+          fields: (colony.fields ?? []).filter(
+            (candidate) =>
+              !excludedField ||
+              (candidate !== excludedField && candidate.id !== excludedField.id),
+          ),
+        } as Colony);
+    this.defenseService.syncShieldCapacity(colony, maxShields);
   }
 
   private getOpenJobs(colonyId: number): Promise<ColonyShipBuildQueue[]> {

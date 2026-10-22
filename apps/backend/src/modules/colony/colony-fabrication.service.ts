@@ -171,6 +171,9 @@ export class ColonyFabricationService {
     for (const job of finishedJobs.filter(
       (candidate) => candidate.finishesAt <= now,
     )) {
+      if (!this.hasActiveBuildingFunction(colony, job.buildingFunctionId)) {
+        continue;
+      }
       const item = this.gameData.getFabricationItem(job.itemKey);
       if (!item) continue;
       const maxStorage =

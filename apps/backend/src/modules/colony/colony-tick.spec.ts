@@ -4281,7 +4281,13 @@ describe('fabrication queues', () => {
       id: 1,
       colonyClassId: 999,
       storageMax: 100,
-      fields: [],
+      fields: [
+        {
+          buildingId: 81810100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
     });
 
     expect(storageRepo.create).toHaveBeenCalledWith({

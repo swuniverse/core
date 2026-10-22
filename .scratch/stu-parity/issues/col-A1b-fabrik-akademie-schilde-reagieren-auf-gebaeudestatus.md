@@ -1,6 +1,6 @@
 # Modulfabrik, Akademie und Schilde reagieren auf Deaktivierung und Abriss
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** col-A1a
@@ -29,11 +29,13 @@ Ergänzt den in col-A1a angelegten Gebäudefunktions-Hook um die übrigen STU-Ha
 
 ## Akzeptanzkriterien
 
-- [ ] Deaktivieren oder Abreißen eines Gebäudes mit Fabrikationsfunktion storniert alle offenen Aufträge dieser Funktion (`CANCELLED`) und erstattet 100 % der Materialkosten, gekappt auf den freien Lagerplatz (STU-Verhalten). Der vom Spieler ausgelöste Abbruch (`cancelFabricationQueue`) bleibt unverändert – seine Regeln klärt col-A2.
-- [ ] `processFabricationQueue` schließt einen Auftrag nur ab, wenn die Fabrikationsfunktion aktiv ist (Absicherung, falls ein Auftrag trotz Hook verbleibt).
-- [ ] Abriss der (letzten) Akademie storniert offene Crew-Ausbildungsaufträge der Kolonie.
-- [ ] Deaktivieren des Schildgenerators setzt die Kolonieschilde auf 0; Aktivieren/Deaktivieren einer Schildbatterie kappt die Schilde auf das neue Maximum.
-- [ ] Je Storno entsteht eine Kolonie-Nachricht mit Ware, Menge und erstatteten Mengen.
-- [ ] Backend-Tests (`*.spec.ts`): Fabrik-Storno mit voller Erstattung, Kappung bei vollem Lager, Akademie-Abriss löscht Ausbildung, Schildgenerator aus → 0, Batterie aus → Kappung, Auslösung auch über Massenschaltung und Tick-Abschaltkaskade.
+- [x] Deaktivieren oder Abreißen eines Gebäudes mit Fabrikationsfunktion storniert alle offenen Aufträge dieser Funktion (`CANCELLED`) und erstattet 100 % der Materialkosten, gekappt auf den freien Lagerplatz (STU-Verhalten). Der vom Spieler ausgelöste Abbruch (`cancelFabricationQueue`) bleibt unverändert – seine Regeln klärt col-A2.
+- [x] `processFabricationQueue` schließt einen Auftrag nur ab, wenn die Fabrikationsfunktion aktiv ist (Absicherung, falls ein Auftrag trotz Hook verbleibt).
+- [x] Abriss der (letzten) Akademie storniert offene Crew-Ausbildungsaufträge der Kolonie.
+- [x] Deaktivieren des Schildgenerators setzt die Kolonieschilde auf 0; Aktivieren/Deaktivieren einer Schildbatterie kappt die Schilde auf das neue Maximum.
+- [x] Je Storno entsteht eine Kolonie-Nachricht mit Ware, Menge und erstatteten Mengen.
+- [x] Backend-Tests (`*.spec.ts`): Fabrik-Storno mit voller Erstattung, Kappung bei vollem Lager, Akademie-Abriss löscht Ausbildung, Schildgenerator aus → 0, Batterie aus → Kappung, Auslösung auch über Massenschaltung und Tick-Abschaltkaskade.
 
 ## Comments
+
+- 2026-10-22: Gebäudefunktions-Hook um Fabrikationsstorno mit lagergekappter Vollerstattung und Meldung, Akademie-Storno sowie Schildsynchronisierung erweitert. Tick-Fertigstellung prüft die aktive Fabrikationsfunktion. Backend-Tests und Gesamtbuild grün; keine offenen Folgepunkte.
