@@ -3667,12 +3667,7 @@ export class SpacecraftService {
       ship.warpCooldown--;
     }
 
-    // Passive module repair (1% integrity per tick)
     for (const mod of modules) {
-      if (mod.integrity < 100) {
-        mod.integrity = Math.min(100, mod.integrity + 1);
-        await this.moduleRepo.save(mod);
-      }
       if (mod.cooldown > 0) {
         mod.cooldown--;
         await this.moduleRepo.save(mod);

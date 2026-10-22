@@ -263,7 +263,8 @@ function createHarness() {
       return ship;
     }),
   };
-  const moduleRepo = { find: jest.fn(async () => []), save: jest.fn() };
+  const modules: any[] = [];
+  const moduleRepo = { find: jest.fn(async () => modules), save: jest.fn() };
   const systemFieldRepo = {
     find: jest.fn(async () => fields),
     findOne: jest.fn(
@@ -349,6 +350,8 @@ function createHarness() {
   return {
     service,
     ships,
+    modules,
+    moduleRepo,
     cartography,
     prestige,
     messages,
@@ -360,6 +363,24 @@ function createHarness() {
 }
 
 describe('cartography lifecycle integration (in-process)', () => {
+  it('does not repair damaged modules passively during the spacecraft tick', async () => {
+    const harness = createHarness();
+    const module = {
+      id: 1,
+      spacecraftId: 1,
+      moduleType: 'SHORT_RANGE_SENSORS',
+      integrity: 42,
+      cooldown: 2,
+    };
+    harness.modules.push(module);
+
+    await harness.service.processTick(harness.ships.get(1));
+
+    expect(module.integrity).toBe(42);
+    expect(module.cooldown).toBe(1);
+    expect(harness.moduleRepo.save).toHaveBeenCalledWith(module);
+  });
+
   it('uses two ships for measurement points, awards prestige, finalizes over three ticks, and creates exactly one discovery', async () => {
     const harness = createHarness();
 

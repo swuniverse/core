@@ -1,6 +1,6 @@
 # Passive Modulreparatur an STU-Regel ausrichten?
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-ENG-3
@@ -22,8 +22,8 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Die 1-%-Reparatur in `spacecraft.service.ts#processTick` entfällt; Reparatur nur über Werft (col-A5), Eigenreparatur (sc-WP-ENG-3) und Stationen (sc-WP-STAT-4b). Tests angepasst, kein Test abgeschwächt.
-- [ ] Entscheidung unter „Entscheidungen“ in `map.md` (bereits eingetragen; ggf. um Umsetzungshinweis ergänzen).
+- [x] Die 1-%-Reparatur in `spacecraft.service.ts#processTick` entfällt; Reparatur nur über Werft (col-A5), Eigenreparatur (sc-WP-ENG-3) und Stationen (sc-WP-STAT-4b). Tests angepasst, kein Test abgeschwächt.
+- [x] Entscheidung unter „Entscheidungen“ in `map.md` (bereits eingetragen; ggf. um Umsetzungshinweis ergänzen).
 
 ## Entscheidung
 
@@ -32,3 +32,4 @@ Vorgabe: Variante (a), STU-Regel. Die 1-%-Reparatur je Tick an jedem Ort entfäl
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Die bedingungslose passive Modulreparatur von 1 % je Tick entfällt; Reparatur gibt es nur noch in der Werft, an Stationen oder per Eigenreparatur wie in STU.
+- 2026-10-23 Umsetzung: Die globale 1-%-Reparatur wurde aus `SpacecraftService.processTick` entfernt; Modul-Cooldowns laufen unverändert weiter. Ein Regressionstest stellt sicher, dass beschädigte Module im normalen Schiffstick unverändert bleiben. Keine offenen Folgepunkte.

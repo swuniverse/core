@@ -132,6 +132,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-CLEAN-1 – Freie Modulinstallation, -aufrüstung und -entfernung aus der Spieler-API entfernt – siehe Feature-Commit
 - sc-WP-CREW-1 – Crewposten, Crewdetails und Umbenennen am Schiff umgesetzt – siehe Feature-Commit
 - sc-WP-ENG-3 – Eigenreparatur mit Ersatzteilen, Systemkomponenten, Tick-Abschluss und Flugabbruch umgesetzt – siehe Feature-Commit
+- sc-WP-ENG-3b – Bedingungslose passive Modulreparatur aus dem Schiffstick entfernt – siehe Feature-Commit
 - sc-WP-ENG-6a – Lebenserhaltung evakuiert Schiffscrew; globale Crewlimits greifen kolonieweise und danach schiffsweise – siehe Feature-Commit
 - sc-WP-NAV-2a – Flugsignaturen, Sichtbarkeitsfenster, Verfall und Schiff-Sektor-Scan – siehe Feature-Commit
 - sc-WP-NAV-3 – Feldweiser Galaxieflug statt zeitbasiertem Hyperraumsprung als ADR festgelegt – siehe Feature-Commit
