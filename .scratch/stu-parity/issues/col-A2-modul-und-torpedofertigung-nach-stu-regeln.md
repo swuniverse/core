@@ -1,6 +1,6 @@
 # Modul- und Torpedofertigung nach STU-Regeln
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-A1b
