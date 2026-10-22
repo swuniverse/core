@@ -1,6 +1,6 @@
 # Werft: Blockade-, Crew-Maximum- und Spezialmodulprüfung im Backend
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
