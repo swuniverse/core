@@ -1,6 +1,6 @@
 # Alarmreaktion beim Einflug
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-COMBAT-2
