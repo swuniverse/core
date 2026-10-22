@@ -1,6 +1,6 @@
 # Modulfabrik, Akademie und Schilde reagieren auf Deaktivierung und Abriss
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** col-A1a
