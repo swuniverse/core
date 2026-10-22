@@ -1788,6 +1788,148 @@ describe('colony tick calculations', () => {
     ).toBe(16);
   });
 
+  it('emigrates a deterministic number of unemployed residents when housing is exceeded and skips growth', async () => {
+    const { service, colonyEventService, tickProcessorService } =
+      createColonyService();
+    (tickProcessorService as any).randomInt = jest.fn(() => 4);
+    const colony = {
+      id: 1,
+      userId: 7,
+      colonyClassId: 201,
+      population: 30,
+      populationMax: 20,
+      storageMax: 3000,
+      stats: {
+        workers: 18,
+        workless: 12,
+        maxPopulation: 20,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      changeable: {
+        workers: 18,
+        workless: 12,
+        maxPopulation: 20,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        maxEnergy: 100,
+        maxStorage: 3000,
+      },
+      fields: [],
+    };
+
+    jest
+      .spyOn((service as any).colonyStatsService, 'calculateSummary')
+      .mockReturnValue({
+        maxHousing: 20,
+        effectivePopulationMax: 20,
+        productionDelta: new Map([[1300, 30]]),
+      });
+
+    await service.growPopulation(colony as never);
+
+    expect(colony.changeable).toMatchObject({ workers: 18, workless: 8 });
+    expect(colony.population).toBe(26);
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        colonyId: 1,
+        userId: 7,
+        type: 'EMIGRATION',
+        message: '4 Einwohner sind ausgewandert',
+        payload: { amount: 4, reason: 'HOUSING' },
+      }),
+    );
+  });
+
+  it('removes only unemployed residents above the population limit and then grows', async () => {
+    const { service, colonyEventService } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 7,
+      colonyClassId: 201,
+      population: 30,
+      populationMax: 60,
+      storageMax: 3000,
+      stats: {
+        workers: 20,
+        workless: 10,
+        maxPopulation: 60,
+        populationLimit: 25,
+        immigrationEnabled: true,
+      },
+      fields: [],
+    };
+
+    await service.growPopulation(colony as never);
+
+    expect(colony.stats).toMatchObject({ workers: 20, workless: 5 });
+    expect(colony.population).toBe(25);
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'EMIGRATION',
+        message: 'Es sind 5 Arbeitslose ausgewandert',
+        payload: { amount: 5, reason: 'POPULATION_LIMIT' },
+      }),
+    );
+  });
+
+  it('removes all unemployed residents when workers fill the population limit', async () => {
+    const { service, colonyEventService } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 7,
+      colonyClassId: 201,
+      population: 30,
+      populationMax: 60,
+      storageMax: 3000,
+      stats: {
+        workers: 25,
+        workless: 5,
+        maxPopulation: 60,
+        populationLimit: 20,
+        immigrationEnabled: true,
+      },
+      fields: [],
+    };
+
+    await service.growPopulation(colony as never);
+
+    expect(colony.stats).toMatchObject({ workers: 25, workless: 0 });
+    expect(colony.population).toBe(25);
+    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'EMIGRATION',
+        message: 'Es sind alle Arbeitslosen ausgewandert',
+        payload: { amount: 5, reason: 'POPULATION_LIMIT' },
+      }),
+    );
+  });
+
+  it('does not emigrate workers when no unemployed residents exist', async () => {
+    const { service, colonyEventService } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 7,
+      colonyClassId: 201,
+      population: 30,
+      populationMax: 20,
+      storageMax: 3000,
+      stats: {
+        workers: 30,
+        workless: 0,
+        maxPopulation: 20,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      fields: [],
+    };
+
+    await service.growPopulation(colony as never);
+
+    expect(colony.stats).toMatchObject({ workers: 30, workless: 0 });
+    expect(colonyEventService.createActionEvent).not.toHaveBeenCalled();
+  });
+
   it('admits population after due housing completes in the same main tick', async () => {
     const { service, fieldRepo } = createColonyService();
     const field = {

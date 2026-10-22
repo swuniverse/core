@@ -127,6 +127,12 @@ export function PanelSettings({
             <div className="text-[10px] text-swu-muted">
               0 = kein Limit · aktuell {population.current}/{population.max}
             </div>
+            {populationLimit > 0 && populationLimit < population.current && (
+              <div className="text-[10px] text-amber-300">
+                Arbeitslose oberhalb des Limits wandern beim nächsten Haupttick
+                aus.
+              </div>
+            )}
           </label>
 
           <div className="lg:col-span-2 rounded border border-swu-border/60 bg-swu-bg px-3 py-2 flex items-center justify-between gap-3">

@@ -1,6 +1,6 @@
 # Auswanderung bei Überbelegung und Bevölkerungslimit
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -25,11 +25,13 @@ SWU kennt nur Bevölkerungswachstum: Sinkt der Wohnraum (z. B. durch abgeschalte
 
 ## Akzeptanzkriterien
 
-- [ ] Ist die Bevölkerung größer als der Wohnraum und gibt es Arbeitslose, wandert im Tick eine zufällige Zahl zwischen 1 und der Zahl der Arbeitslosen aus; in diesem Tick gibt es kein Wachstum.
-- [ ] Ist ein Bevölkerungslimit gesetzt und überschritten, werden die Arbeitslosen auf `max(0, Limit − Arbeiter)` gekürzt; danach läuft das Wachstum wie bisher.
-- [ ] Arbeiter (beschäftigte Bevölkerung) wandern nie aus.
-- [ ] Jede Auswanderung erzeugt eine Kolonie-Nachricht mit den STU-Texten (Ordner „Kolonien“).
-- [ ] `setPopulationLimit` akzeptiert weiterhin Werte unterhalb der aktuellen Bevölkerung; die Einstellungs-UI weist darauf hin, dass Arbeitslose im nächsten Tick auswandern.
-- [ ] Backend-Tests (Zufall per Injektion/Mock deterministisch): Überbelegung, Limit mit freien Plätzen, Limit ohne freie Plätze, keine Arbeitslosen, kein Wachstum im Überbelegungstick.
+- [x] Ist die Bevölkerung größer als der Wohnraum und gibt es Arbeitslose, wandert im Tick eine zufällige Zahl zwischen 1 und der Zahl der Arbeitslosen aus; in diesem Tick gibt es kein Wachstum.
+- [x] Ist ein Bevölkerungslimit gesetzt und überschritten, werden die Arbeitslosen auf `max(0, Limit − Arbeiter)` gekürzt; danach läuft das Wachstum wie bisher.
+- [x] Arbeiter (beschäftigte Bevölkerung) wandern nie aus.
+- [x] Jede Auswanderung erzeugt eine Kolonie-Nachricht mit den STU-Texten (Ordner „Kolonien“).
+- [x] `setPopulationLimit` akzeptiert weiterhin Werte unterhalb der aktuellen Bevölkerung; die Einstellungs-UI weist darauf hin, dass Arbeitslose im nächsten Tick auswandern.
+- [x] Backend-Tests (Zufall per Injektion/Mock deterministisch): Überbelegung, Limit mit freien Plätzen, Limit ohne freie Plätze, keine Arbeitslosen, kein Wachstum im Überbelegungstick.
 
 ## Comments
+
+Implemented STU-style unemployed emigration in the colony tick, including deterministic backend coverage, colony-folder messages, and a population-limit warning in the colony settings panel. No follow-up gaps identified.

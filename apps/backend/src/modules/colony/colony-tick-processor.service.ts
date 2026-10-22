@@ -42,6 +42,8 @@ import type { ColonyTickResult } from './colony.service';
 export class ColonyTickProcessorService {
   private readonly headquartersBuildingIds =
     COLONY_BUILDING_ID_SETS.HEADQUARTERS;
+  private randomInt = (min: number, max: number) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
 
   constructor(
     @InjectRepository(Colony)
@@ -615,21 +617,63 @@ export class ColonyTickProcessorService {
 
   async growPopulation(colony: Colony): Promise<void> {
     const summary = this.colonyStatsService.calculateSummary(colony);
+    const changeable = getColonyChangeable(colony);
     const currentPopulation = getEffectiveCurrentPopulation(colony);
-    const growth = this.calculatePopulationGrowth(colony, summary);
-    if (growth <= 0) {
-      if (colony.population !== currentPopulation) {
+
+    if (currentPopulation > summary.maxHousing) {
+      if (changeable.workless > 0) {
+        const amount = this.randomInt(1, changeable.workless);
+        adjustColonyPopulationParts(colony, 0, -amount);
+        await this.createEmigrationEvent(
+          colony,
+          amount,
+          'HOUSING',
+          `${amount} Einwohner sind ausgewandert`,
+        );
+        await this.colonyRepo.save(colony);
+      } else if (colony.population !== currentPopulation) {
         syncLegacyColonySnapshot(colony);
         await this.colonyRepo.save(colony);
       }
       return;
     }
 
+    const populationLimit = changeable.populationLimit ?? 0;
+    if (
+      populationLimit > 0 &&
+      currentPopulation > populationLimit &&
+      changeable.workless > 0
+    ) {
+      const nextWorkless = Math.max(0, populationLimit - changeable.workers);
+      const amount = changeable.workless - nextWorkless;
+      adjustColonyPopulationParts(colony, 0, -amount);
+      await this.createEmigrationEvent(
+        colony,
+        amount,
+        'POPULATION_LIMIT',
+        nextWorkless > 0
+          ? `Es sind ${amount} Arbeitslose ausgewandert`
+          : 'Es sind alle Arbeitslosen ausgewandert',
+      );
+    }
+
+    const populationAfterMigration = getEffectiveCurrentPopulation(colony);
+    const growth = this.calculatePopulationGrowth(colony, summary);
+    if (growth <= 0) {
+      if (colony.population !== populationAfterMigration) {
+        syncLegacyColonySnapshot(colony);
+      }
+      if (populationAfterMigration !== currentPopulation) {
+        await this.colonyRepo.save(colony);
+      }
+      return;
+    }
+
     const nextPopulation = Math.min(
-      currentPopulation + growth,
+      populationAfterMigration + growth,
       summary.effectivePopulationMax,
     );
-    const actualGrowth = nextPopulation - currentPopulation;
+    const actualGrowth = nextPopulation - populationAfterMigration;
 
     if (actualGrowth > 0) {
       adjustColonyPopulationParts(colony, 0, actualGrowth);
@@ -637,5 +681,23 @@ export class ColonyTickProcessorService {
       syncLegacyColonySnapshot(colony);
     }
     await this.colonyRepo.save(colony);
+  }
+
+  private async createEmigrationEvent(
+    colony: Colony,
+    amount: number,
+    reason: 'HOUSING' | 'POPULATION_LIMIT',
+    message: string,
+  ): Promise<void> {
+    if (colony.userId == null) return;
+    await this.colonyEventService.createActionEvent({
+      colonyId: colony.id,
+      userId: colony.userId,
+      type: ColonyEventType.EMIGRATION,
+      severity: ColonyEventSeverity.INFO,
+      title: 'Auswanderung',
+      message,
+      payload: { amount, reason },
+    });
   }
 }
