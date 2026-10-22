@@ -1,6 +1,6 @@
 # Baumenü-Filter nach Feld und Ware
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
