@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
+import { useHolonetUnreadStore } from '../stores/holonet-unread.store';
 import { PmLink } from '../components/PmLink';
 
 interface HolonetPost {
@@ -62,6 +63,8 @@ const categoryLabel: Record<string, string> = {
 
 export function HolonetPage() {
   const user = useAuthStore((s) => s.user);
+  const refreshHolonetUnread = useHolonetUnreadStore((state) => state.refresh);
+  const clearHolonetUnread = useHolonetUnreadStore((state) => state.clear);
   const navigate = useNavigate();
   const { id: routePostId } = useParams<{ id: string }>();
   const [posts, setPosts] = useState<HolonetPost[]>([]);
@@ -158,7 +161,8 @@ export function HolonetPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void refreshHolonetUnread();
+  }, [load, refreshHolonetUnread]);
 
   const togglePost = (post: HolonetPost) => {
     if (openPostIds.has(post.id)) {
@@ -181,6 +185,8 @@ export function HolonetPage() {
     setPosts((prev) =>
       prev.map((item) => ({ ...item, isUnread: item.id > post.id })),
     );
+    clearHolonetUnread();
+    void refreshHolonetUnread();
   };
 
   const submitComment = async (post: HolonetPost) => {
@@ -658,6 +664,7 @@ export function HolonetComposePage() {
     category: 'NEWS',
   });
   const [setBookmark, setSetBookmark] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const createPost = async () => {
     const post = await api.post<HolonetPost>('/holonet', compose);
@@ -709,6 +716,18 @@ export function HolonetComposePage() {
             />
           </label>
 
+          {showPreview && (
+            <section className="border border-swu-accent/50 bg-black/30 p-3">
+              <h2 className="mb-2 text-sm font-bold text-swu-primary">
+                {compose.title.trim() || 'Ohne Titel'}
+              </h2>
+              <BbCodeText
+                text={compose.body}
+                className="whitespace-pre-wrap text-sm text-swu-primary"
+              />
+            </section>
+          )}
+
           <section className="border border-swu-border/60 bg-swu-bg/50 p-3 text-xs text-swu-muted">
             <h3 className="mb-2 font-bold text-swu-primary">BB-Code Hilfe</h3>
             <div className="grid gap-1 md:grid-cols-2">
@@ -734,6 +753,13 @@ export function HolonetComposePage() {
               className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent hover:bg-swu-accent/20 disabled:opacity-40"
             >
               Hinzufügen
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPreview((value) => !value)}
+              className="border border-swu-border px-3 py-1 text-swu-muted hover:text-swu-primary"
+            >
+              {showPreview ? 'Bearbeiten' : 'Vorschau'}
             </button>
             <button
               onClick={() => navigate('/holonet')}

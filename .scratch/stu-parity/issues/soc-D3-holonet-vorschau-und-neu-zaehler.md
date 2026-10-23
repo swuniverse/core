@@ -1,6 +1,6 @@
 # HoloNet: Vorschau und Zähler neuer Beiträge
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -26,9 +26,11 @@ Abgrenzung: Die Maindesk-Markierung neuer Beiträge gehört zu sh-AP-18; das Nav
 
 ## Akzeptanzkriterien
 
-- [ ] Compose hat einen Umschalter „Vorschau“, der Titel und Text mit `BbCodeText` (gleiche Optionen wie die Beitragsanzeige) rendert, ohne zu speichern.
-- [ ] Sidebar (und Bottom-Nav) zeigen beim HoloNet-Eintrag ein Badge mit `new-count`, wenn > 0; aktualisiert beim Laden der App, beim Navigieren auf das HoloNet und nach `checkpoint`.
-- [ ] Kein Badge, wenn der Wert 0 ist oder der Abruf fehlschlägt.
-- [ ] Frontend-Tests: Vorschau rendert BBCode; Badge erscheint bei > 0 und verschwindet nach Checkpoint.
+- [x] Compose hat einen Umschalter „Vorschau“, der Titel und Text mit `BbCodeText` (gleiche Optionen wie die Beitragsanzeige) rendert, ohne zu speichern.
+- [x] Sidebar (und Bottom-Nav) zeigen beim HoloNet-Eintrag ein Badge mit `new-count`, wenn > 0; aktualisiert beim Laden der App, beim Navigieren auf das HoloNet und nach `checkpoint`.
+- [x] Kein Badge, wenn der Wert 0 ist oder der Abruf fehlschlägt.
+- [x] Frontend-Tests: Vorschau rendert BBCode; Badge erscheint bei > 0 und verschwindet nach Checkpoint.
 
 ## Comments
+
+- 2026-10-23: Compose-Vorschau mit dem bestehenden BBCode-Renderer sowie ein gemeinsamer HoloNet-Neuzähler für Sidebar und Bottom-Nav umgesetzt. Der Zähler lädt beim App-/HoloNet-Aufruf und aktualisiert sich nach Checkpoints. Keine offenen Folgepunkte.

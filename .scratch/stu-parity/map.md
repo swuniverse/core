@@ -183,3 +183,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-19a – Versioniertes Tutorialmodell, Spielerfortschritt, API und Onboarding-Aktivierung umgesetzt – siehe Feature-Commit
 - soc-E1 – Spielercharaktere mit Avatar, BBCode-Profilanzeige und eigentümergeschütztem CRUD umgesetzt – siehe Feature-Commit
 - sh-AP-03 – Optionale E-Mail-Verifikation mit sicheren Links, Adresskorrektur und Spielzugangs-Gate umgesetzt – siehe Feature-Commit
+- soc-D3 – HoloNet-Compose mit BBCode-Vorschau und Navigationsbadge für neue Beiträge umgesetzt – siehe Feature-Commit

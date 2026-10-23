@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { useStatusBar, formatTickCountdown } from '../../hooks/use-status-bar';
 import { api } from '../../services/api';
+import { useHolonetUnreadStore } from '../../stores/holonet-unread.store';
 
 const NAV_ITEMS = [
   { label: 'Maindesk', path: '/', icon: NavIconMaindesk },
@@ -28,6 +29,8 @@ export function Sidebar() {
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const setUser = useAuthStore((state) => state.setUser);
+  const holonetUnread = useHolonetUnreadStore((state) => state.count);
+  const refreshHolonetUnread = useHolonetUnreadStore((state) => state.refresh);
   const { tick } = useStatusBar();
   const extraItems = user?.isAdmin
     ? [adminNavItem, mapEditorNavItem]
@@ -35,6 +38,10 @@ export function Sidebar() {
       ? [mapEditorNavItem]
       : [];
   const items = [...NAV_ITEMS, ...extraItems];
+
+  useEffect(() => {
+    if (accessToken) void refreshHolonetUnread();
+  }, [accessToken, refreshHolonetUnread]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -63,6 +70,14 @@ export function Sidebar() {
           >
             <span className="relative">
               <item.icon />
+              {item.path === '/holonet' && holonetUnread > 0 && (
+                <span
+                  aria-label={`${holonetUnread} neue HoloNet-Beiträge`}
+                  className="absolute -right-3 -top-2 min-w-4 rounded-full bg-swu-danger px-1 text-[9px] font-bold leading-4 text-white"
+                >
+                  {holonetUnread}
+                </span>
+              )}
             </span>
             <span className="text-[10px] leading-tight">{item.label}</span>
           </NavLink>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
+import { useHolonetUnreadStore } from '../../stores/holonet-unread.store';
 
 const primaryTabs = [
   { label: 'Kolonien', path: '/colonies', icon: '◉' },
@@ -24,6 +25,7 @@ export function BottomNav() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const holonetUnread = useHolonetUnreadStore((state) => state.count);
 
   useEffect(() => {
     setMoreOpen(false);
@@ -55,7 +57,17 @@ export function BottomNav() {
                   }`
                 }
               >
-                <span className="text-base w-5 text-center">{item.icon}</span>
+                <span className="relative text-base w-5 text-center">
+                  {item.icon}
+                  {item.path === '/holonet' && holonetUnread > 0 && (
+                    <span
+                      aria-label={`${holonetUnread} neue HoloNet-Beiträge`}
+                      className="absolute -right-3 -top-2 min-w-4 rounded-full bg-swu-danger px-1 text-[9px] font-bold leading-4 text-white"
+                    >
+                      {holonetUnread}
+                    </span>
+                  )}
+                </span>
                 <span>{item.label}</span>
               </NavLink>
             ))}

@@ -3,8 +3,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import type { UserProfile } from '@swuniverse/shared';
 
+import { BottomNav } from '../components/layout/bottom-nav';
 import { Sidebar } from '../components/layout/sidebar';
 import { useAuthStore } from '../stores/auth.store';
+import { useHolonetUnreadStore } from '../stores/holonet-unread.store';
 import { HolonetComposePage, HolonetPage } from './holonet';
 
 const apiMocks = vi.hoisted(() => ({
@@ -88,6 +90,7 @@ describe('HolonetPage routing', () => {
       refreshToken: 'refresh',
       user,
     });
+    useHolonetUnreadStore.setState({ count: 0 });
   });
 
   it('loads the archive and opens the route-selected post without clicking', async () => {
@@ -418,6 +421,26 @@ describe('HolonetPage routing', () => {
     expect(bar.className).toContain('yellow');
   });
 
+  it('renders a BBCode preview without creating a post', () => {
+    render(
+      <MemoryRouter initialEntries={['/holonet/new']}>
+        <HolonetComposePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Titel'), {
+      target: { value: 'Vorschau-Titel' },
+    });
+    fireEvent.change(screen.getByLabelText('Text'), {
+      target: { value: '[b]Starke Übertragung[/b]' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Vorschau' }));
+
+    expect(screen.getByRole('heading', { name: 'Vorschau-Titel' })).toBeTruthy();
+    expect(screen.getByText('Starke Übertragung').tagName).toBe('STRONG');
+    expect(apiMocks.post).not.toHaveBeenCalled();
+  });
+
   it('creates posts on the dedicated compose page and sets the requested bookmark', async () => {
     apiMocks.post
       .mockResolvedValueOnce({ ...postFixture, id: 42 })
@@ -456,6 +479,40 @@ describe('HolonetPage routing', () => {
       });
     });
     expect(await screen.findByText('created')).toBeTruthy();
+  });
+
+  it('shows the HoloNet count in both navigations and clears it after a checkpoint', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/auth/me') return Promise.resolve(user);
+      if (url === '/holonet/new-count') return Promise.resolve({ count: 3 });
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse());
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    apiMocks.post.mockResolvedValue({});
+
+    render(
+      <MemoryRouter initialEntries={['/holonet']}>
+        <Sidebar />
+        <BottomNav />
+        <Routes>
+          <Route path="/holonet" element={<HolonetPage />} />
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByLabelText('3 neue HoloNet-Beiträge')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
+    expect(screen.getAllByLabelText('3 neue HoloNet-Beiträge')).toHaveLength(2);
+
+    fireEvent.click(await screen.findByText('Widget Report'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lesezeichen' }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('3 neue HoloNet-Beiträge')).toBeNull();
+    });
   });
 
   it('renders the sidebar HoloNet link without the old KommNet label', () => {
