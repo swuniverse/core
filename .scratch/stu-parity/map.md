@@ -169,3 +169,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-D0b – Systemdetailvertrag, Raster, Scanwissen, Schnellnachrichten und Kartographiefortsetzung verhaltensorientiert abgesichert – siehe Feature-Commit
 - sh-AP-04a – Urlaubsmodus mit 48-h-Vorlauf, Sitzungsende, Login-Beendigung und öffentlicher Kennzeichnung umgesetzt – siehe Feature-Commit
 - tmw-T1a – Handelsmodell mit Posten, Konten, Angebotsreserven, Transfers, Transaktionen und transaktionssicherem Speicher umgesetzt – siehe Feature-Commit
+- tmw-T1b – Fünf NPC-Handelsposten werden idempotent an deterministischen kanonischen Standorten gesät – siehe Feature-Commit
