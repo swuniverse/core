@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-23: Das Issue bündelt Stationsliste, vollständige Detailansicht, angedockte Schiffe sowie zwei neue Scanarten inklusive Backend- und Frontendtests und überschreitet damit den M-Scope eines einzelnen Durchlaufs. Bitte in getrennte Issues für (1) Liste/Detail, (2) Dockliste und (3) Sensorstations-Scans aufteilen und die API-Verträge je Teil festlegen.
