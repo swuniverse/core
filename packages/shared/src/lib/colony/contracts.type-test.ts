@@ -7,6 +7,7 @@ const environmentScanContract: ColonyEnvironmentScanDto = {
   bounds: { minX: 1, maxX: 5, minY: 1, maxY: 5 },
   fields: [],
   signatures: [{ x: 2, y: 3, visibleCount: 1 }],
+  sectorSignatures: [],
   fadedSignatures: { uncloaked: 0, cloaked: 0 },
   colonyShields: [],
   anomalies: [],

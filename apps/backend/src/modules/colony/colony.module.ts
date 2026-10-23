@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ColonyController } from './colony.controller';
 import { ColonyService } from './colony.service';
@@ -45,6 +45,7 @@ import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { PlanetField } from '../starmap/entities/planet-field.entity';
 import { StarmapModule } from '../starmap/starmap.module';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { SpacecraftModule as SpacecraftFeatureModule } from '../spacecraft/spacecraft.module';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
@@ -88,6 +89,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
     ]),
     ResearchModule,
     StarmapModule,
+    forwardRef(() => SpacecraftFeatureModule),
   ],
   controllers: [ColonyController],
   providers: [

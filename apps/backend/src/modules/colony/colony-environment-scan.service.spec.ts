@@ -11,6 +11,9 @@ jest.mock('../starmap/starmap-query.service', () => ({
 jest.mock('./colony-ownership.service', () => ({
   ColonyOwnershipService: class ColonyOwnershipService {},
 }));
+jest.mock('../spacecraft/flight-signature.service', () => ({
+  FlightSignatureService: class FlightSignatureService {},
+}));
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { FindOperator } from 'typeorm';
@@ -24,6 +27,7 @@ describe('ColonyEnvironmentScanService', () => {
     posX: 2,
     posY: 2,
     systemFieldId: 10,
+    locationId: 10,
     systemField: { starSystemId: 5, sx: 2, sy: 2 },
   };
   const grid = {
@@ -93,13 +97,31 @@ describe('ColonyEnvironmentScanService', () => {
         ]),
       ),
     };
+    const flightSignatures = {
+      getVisibleAt: jest.fn(async () => ({
+        signatures: [
+          {
+            spacecraftId: 31,
+            shipClassId: 301,
+            shipClassName: 'CR90-Korvette',
+            spacecraftName: 'Tantive',
+            fromDirection: 'WEST',
+            toDirection: null,
+            isCloaked: false,
+            createdAt: '2026-10-23T10:00:00.000Z',
+          },
+        ],
+        fadedSignatures: { uncloaked: 2, cloaked: 1 },
+      })),
+    };
     const service = new ColonyEnvironmentScanService(
       ownership as never,
       starmap as never,
       shipRepo as never,
+      flightSignatures as never,
     );
 
-    return { ownership, starmap, shipRepo, service };
+    return { ownership, starmap, shipRepo, flightSignatures, service };
   }
 
   it('validates ownership before querying scan data', async () => {
@@ -129,8 +151,8 @@ describe('ColonyEnvironmentScanService', () => {
     expect(shipRepo.find).not.toHaveBeenCalled();
   });
 
-  it('clips a 5x5 scan to system bounds and aggregates live signatures', async () => {
-    const { ownership, starmap, shipRepo, service } = setup();
+  it('clips a 5x5 scan and reuses sector-scan signature visibility', async () => {
+    const { ownership, starmap, shipRepo, flightSignatures, service } = setup();
 
     const result = await service.getScan(7, 99);
 
@@ -146,6 +168,7 @@ describe('ColonyEnvironmentScanService', () => {
     });
     expect(findOptions.where.status.type).toBe('not');
     expect(findOptions.where.status.value).toBe(SpacecraftStatus.DESTROYED);
+    expect(flightSignatures.getVisibleAt).toHaveBeenCalledWith(10, 99);
     expect(result).toEqual({
       bounds: { minX: 1, maxX: 3, minY: 1, maxY: 4 },
       fields: [
@@ -173,7 +196,19 @@ describe('ColonyEnvironmentScanService', () => {
         { x: 2, y: 2, visibleCount: 2 },
         { x: 3, y: 4, visibleCount: 1 },
       ],
-      fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      sectorSignatures: [
+        {
+          spacecraftId: 31,
+          shipClassId: 301,
+          shipClassName: 'CR90-Korvette',
+          spacecraftName: 'Tantive',
+          fromDirection: 'WEST',
+          toDirection: null,
+          isCloaked: false,
+          createdAt: '2026-10-23T10:00:00.000Z',
+        },
+      ],
+      fadedSignatures: { uncloaked: 2, cloaked: 1 },
       colonyShields: [{ colonyId: 7, x: 2, y: 2, shielded: true }],
       anomalies: [],
     });

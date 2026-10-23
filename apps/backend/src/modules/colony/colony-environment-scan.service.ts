@@ -8,6 +8,7 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { resolveSpacecraftLocation } from '../spacecraft/spacecraft-field';
+import { FlightSignatureService } from '../spacecraft/flight-signature.service';
 import { resolveColonyLocation } from './colony-location';
 import { ColonyOwnershipService } from './colony-ownership.service';
 
@@ -18,6 +19,7 @@ export class ColonyEnvironmentScanService {
     private readonly starmapQueryService: StarmapQueryService,
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
+    private readonly flightSignatureService: FlightSignatureService,
   ) {}
 
   async getScan(
@@ -45,13 +47,19 @@ export class ColonyEnvironmentScanService {
       y >= bounds.minY &&
       y <= bounds.maxY;
 
-    const ships = await this.shipRepo.find({
+    if (colony.systemFieldId == null) {
+      throw new BadRequestException('Colony has no system field');
+    }
+    const [ships, sectorSignatureResult] = await Promise.all([
+      this.shipRepo.find({
       where: {
         status: Not(SpacecraftStatus.DESTROYED),
         location: { systemField: { starSystemId: location.systemId } },
       },
-      relations: ['location', 'location.systemField'],
-    });
+        relations: ['location', 'location.systemField'],
+      }),
+      this.flightSignatureService.getVisibleAt(colony.systemFieldId, userId),
+    ]);
     const signatureCounts = new Map<
       string,
       ColonyEnvironmentScanDto['signatures'][number]
@@ -97,7 +105,8 @@ export class ColonyEnvironmentScanService {
             : null,
         })),
       signatures: [...signatureCounts.values()],
-      fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      sectorSignatures: sectorSignatureResult.signatures,
+      fadedSignatures: sectorSignatureResult.fadedSignatures,
       colonyShields: (grid.colonyShields ?? [])
         .filter((shield) => inBounds(shield.posX, shield.posY))
         .map((shield) => ({

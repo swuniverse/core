@@ -1,6 +1,6 @@
 # Sektor-Scan der Kolonie mit Flugsignaturen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-NAV-2a
@@ -24,10 +24,12 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Neuer Endpunkt bzw. Erweiterung liefert die Signaturen fremder Spieler am Kolonie-Feld nach denselben Sichtbarkeitsregeln wie der Schiffs-Sektor-Scan (gemeinsame Funktion, keine Kopie).
-- [ ] Der Umgebungsscan füllt `fadedSignatures` aus echten Signaturen.
-- [ ] Die Kolonieansicht zeigt „Sektor-Scan“ mit Signaturtabelle; nur für den Kolonieeigentümer.
-- [ ] Backend-Test (Fremdzugriff, Sichtbarkeit) und Frontend-Test.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Neuer Endpunkt bzw. Erweiterung liefert die Signaturen fremder Spieler am Kolonie-Feld nach denselben Sichtbarkeitsregeln wie der Schiffs-Sektor-Scan (gemeinsame Funktion, keine Kopie).
+- [x] Der Umgebungsscan füllt `fadedSignatures` aus echten Signaturen.
+- [x] Die Kolonieansicht zeigt „Sektor-Scan“ mit Signaturtabelle; nur für den Kolonieeigentümer.
+- [x] Backend-Test (Fremdzugriff, Sichtbarkeit) und Frontend-Test.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- Der eigentümergeschützte Umgebungsscan verwendet jetzt `FlightSignatureService.getVisibleAt` für dieselben Sichtbarkeitsfenster wie der Schiffs-Sektor-Scan und liefert sichtbare sowie verblasste Signaturen an die neue kompakte Signaturtabelle in `PanelInfo`. Backend-, Frontend- und Shared-Vertragstests ergänzt. Keine offenen Folgepunkte.

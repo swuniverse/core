@@ -135,7 +135,19 @@ const environmentScan = {
       shipName: 'Geheime Korvette',
     },
   ],
-  fadedSignatures: { uncloaked: 0, cloaked: 0 },
+  sectorSignatures: [
+    {
+      spacecraftId: 31,
+      shipClassId: 301,
+      shipClassName: 'CR90-Korvette',
+      spacecraftName: 'Tantive',
+      fromDirection: 'WEST',
+      toDirection: null,
+      isCloaked: false,
+      createdAt: '2026-10-23T10:00:00.000Z',
+    },
+  ],
+  fadedSignatures: { uncloaked: 2, cloaked: 1 },
   colonyShields: [{ colonyId: 1, x: 2, y: 2, shielded: true }],
   anomalies: [],
 } satisfies ColonyEnvironmentScanDto & {
@@ -205,7 +217,11 @@ describe('PanelInfo', () => {
     expect(
       screen.getByRole('button', { name: 'Orbitalmanagement' }),
     ).toBeTruthy();
-    expect(screen.getByText('Umgebungsscan')).toBeTruthy();
+    expect(screen.getByText('Sektor-Scan')).toBeTruthy();
+    expect(screen.getByText('CR90-Korvette')).toBeTruthy();
+    expect(screen.getByText('Tantive')).toBeTruthy();
+    expect(screen.getByText('Ungetarnt: 2')).toBeTruthy();
+    expect(screen.getByText('Getarnt: 1')).toBeTruthy();
     expect(screen.getByText('Sternensystem')).toBeTruthy();
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Effekte')).toBeTruthy();
@@ -213,7 +229,7 @@ describe('PanelInfo', () => {
     const sectionHeadings = [
       'Schiffe im Orbit',
       'Planet',
-      'Umgebungsscan',
+      'Sektor-Scan',
       'Sternensystem',
       'Bevölkerung',
       'Effekte',
@@ -226,7 +242,7 @@ describe('PanelInfo', () => {
       ).toBeTruthy();
     }
     const scan = screen.getByRole('heading', {
-      name: 'Umgebungsscan',
+      name: 'Sektor-Scan',
     }).parentElement;
     expect(scan).toBeTruthy();
     const informationRow = (planetSection as HTMLElement).parentElement;
@@ -292,7 +308,7 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Effekte')).toBeTruthy();
     expect(screen.queryByText('Ereignisse')).toBeNull();
-    const scan = screen.getByText('Umgebungsscan').closest('section');
+    const scan = screen.getByText('Sektor-Scan').closest('section');
     expect(scan).toBeTruthy();
     expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
     expect(scan?.textContent).toContain('Umgebungsscan nicht verfügbar');

@@ -349,16 +349,17 @@ function SystemScan({
 
   return (
     <section className={sectionClass}>
-      <h3 className={headingClass}>Umgebungsscan</h3>
+      <h3 className={headingClass}>Sektor-Scan</h3>
       {error ? (
         <p className="text-xs text-red-400">{error}</p>
       ) : environmentScan ? (
-        <div
-          className="mx-auto grid w-fit gap-px bg-swu-border"
-          style={{
-            gridTemplateColumns: `1.5rem repeat(${xs.length}, 2.5rem)`,
-          }}
-        >
+        <div className="space-y-3">
+          <div
+            className="mx-auto grid w-fit gap-px bg-swu-border"
+            style={{
+              gridTemplateColumns: `1.5rem repeat(${xs.length}, 2.5rem)`,
+            }}
+          >
           <div aria-hidden="true" className="bg-swu-surface" />
           {xs.map((x) => (
             <div
@@ -389,12 +390,78 @@ function SystemScan({
               );
             }),
           ])}
+          </div>
+          <SectorSignatures scan={environmentScan} />
         </div>
       ) : (
-        <p className="text-xs text-swu-muted">Umgebungsscan nicht verfügbar</p>
+        <p className="text-xs text-swu-muted">Sektor-Scan nicht verfügbar</p>
       )}
     </section>
   );
+}
+
+function SectorSignatures({ scan }: { scan: ColonyEnvironmentScanDto }) {
+  const hasFaded =
+    scan.fadedSignatures.uncloaked > 0 || scan.fadedSignatures.cloaked > 0;
+  if (scan.sectorSignatures.length === 0 && !hasFaded) {
+    return <p className="text-xs text-swu-muted">Keine fremden Signaturen</p>;
+  }
+
+  return (
+    <div className="space-y-2 text-xs">
+      {scan.sectorSignatures.length > 0 && (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-swu-border text-left text-swu-muted">
+              <th className="py-1 pr-2 font-medium">Rumpf</th>
+              <th className="py-1 pr-2 font-medium">Schiffsname</th>
+              <th className="py-1 font-medium">Alter</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scan.sectorSignatures.map((signature) => (
+              <tr
+                key={signature.spacecraftId}
+                className="border-b border-swu-border/40"
+              >
+                <td className="py-1 pr-2 text-swu-primary">
+                  {signature.shipClassName ?? '?'}
+                </td>
+                <td className="py-1 pr-2 text-swu-primary">
+                  {signature.spacecraftName ?? '?'}
+                </td>
+                <td className="py-1 text-swu-muted">
+                  {formatSignatureAge(signature.createdAt)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {hasFaded && (
+        <div>
+          <div className="font-medium text-swu-muted">Verblasste Signaturen</div>
+          <div className="flex gap-4 text-swu-primary">
+            {scan.fadedSignatures.uncloaked > 0 && (
+              <span>Ungetarnt: {scan.fadedSignatures.uncloaked}</span>
+            )}
+            {scan.fadedSignatures.cloaked > 0 && (
+              <span>Getarnt: {scan.fadedSignatures.cloaked}</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatSignatureAge(createdAt: string) {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60_000),
+  );
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h`;
 }
 
 function ScanCell({

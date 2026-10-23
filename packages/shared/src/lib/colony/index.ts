@@ -59,6 +59,16 @@ export interface ColonyEnvironmentScanDto {
     } | null;
   }>;
   signatures: Array<{ x: number; y: number; visibleCount: number }>;
+  sectorSignatures: Array<{
+    spacecraftId: number;
+    shipClassId: number | null;
+    shipClassName: string | null;
+    spacecraftName: string | null;
+    fromDirection: 'NORTH' | 'EAST' | 'SOUTH' | 'WEST' | null;
+    toDirection: 'NORTH' | 'EAST' | 'SOUTH' | 'WEST' | null;
+    isCloaked: boolean;
+    createdAt: string;
+  }>;
   fadedSignatures: { uncloaked: number; cloaked: number };
   colonyShields: Array<{
     colonyId: number;
