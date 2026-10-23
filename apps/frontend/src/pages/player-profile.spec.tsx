@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { PlayerProfilePage } from './player-profile';
@@ -8,6 +8,9 @@ import { useAuthStore } from '../stores/auth.store';
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
 }));
 
 vi.mock('../services/api', async (importOriginal) => {
@@ -30,7 +33,7 @@ function renderProfile(initialEntry = '/players/1') {
 
 describe('PlayerProfilePage', () => {
   beforeEach(() => {
-    apiMocks.get.mockReset();
+    Object.values(apiMocks).forEach((mock) => mock.mockReset());
     useAuthStore.setState({
       accessToken: 'token',
       refreshToken: 'refresh',
@@ -221,6 +224,22 @@ describe('PlayerProfilePage', () => {
     expect(link.getAttribute('href')).toBe('/alliances/5');
     expect(link.getAttribute('style')).toContain('color: rgb(0, 255, 0)');
     expect(screen.getByText('Allianz')).toBeTruthy();
+  });
+
+  it('shows public characters and owner controls', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/settlers/7') return Promise.resolve({ id: 7, username: 'tester', displayName: 'Tester', avatar: null, description: null, faction: 'REBEL_ALLIANCE', factionName: 'Rebellenallianz', prestige: 0, colonies: 0, ships: 0, completedResearch: 0, onboardingCompleted: true, isAdmin: false, createdAt: '2026-08-04T00:00:00.000Z', alliance: null, onVacation: false });
+      if (url === '/rpg/characters/player/7') return Promise.resolve([{ id: 3, userId: 7, name: 'General Test', description: '[b]Mutig[/b]', avatar: null, createdAt: '2026-01-01', updatedAt: '2026-01-01' }]);
+      if (url.startsWith('/alliances/settlers/7/diplomacy')) return Promise.resolve({ playerId: 7, name: 'Tester', relationships: [], entries: [], nextCursor: null });
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    renderProfile('/players/7');
+    expect(await screen.findByRole('heading', { name: 'Charaktere' })).toBeTruthy();
+    expect(screen.getByText('General Test')).toBeTruthy();
+    expect(screen.getByText('Mutig').tagName).toBe('STRONG');
+    expect(screen.getByRole('button', { name: 'Charakter anlegen' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'General Test bearbeiten' }));
+    expect(screen.getByLabelText('Charaktername')).toBeTruthy();
   });
 
   it('renders not-found error with database backlink', async () => {

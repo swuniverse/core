@@ -1,6 +1,6 @@
 # RPG: Spielercharaktere im Profil
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,10 +25,14 @@ Spieler legen im eigenen Profil Rollenspiel-Charaktere mit Name, BBCode-Beschrei
 
 ## Akzeptanzkriterien
 
-- [ ] Entity `user_characters` (Besitzer, Name 1–60 Zeichen, Beschreibung ≤ 5.000 Zeichen BBCode, Avatar optional als Bild-Data-URL ≤ ~250 KB oder Asset-Referenz, Datum), `ON DELETE CASCADE` mit dem Konto.
-- [ ] Endpunkte: Liste der Charaktere eines Spielers (öffentlich für eingeloggte Spieler); anlegen, ändern, löschen nur für den Besitzer (403 sonst). Optionales Limit (z. B. 20 je Spieler) mit Meldung.
-- [ ] Avatar wird serverseitig auf Bildtyp (png/jpeg/webp) und Größe geprüft; ohne Avatar Platzhalter.
-- [ ] Profil: Box „Charaktere“ mit Avatar, Name und gerenderter Beschreibung; im eigenen Profil Anlegen/Bearbeiten/Löschen (mit Bestätigung).
-- [ ] Backend-Tests: CRUD, Rechte, Validierung (Name, Länge, Bildtyp/Größe). Frontend-Tests: Anzeige fremd/eigen, Formular.
+- [x] Entity `user_characters` (Besitzer, Name 1–60 Zeichen, Beschreibung ≤ 5.000 Zeichen BBCode, Avatar optional als Bild-Data-URL ≤ ~250 KB oder Asset-Referenz, Datum), `ON DELETE CASCADE` mit dem Konto.
+- [x] Endpunkte: Liste der Charaktere eines Spielers (öffentlich für eingeloggte Spieler); anlegen, ändern, löschen nur für den Besitzer (403 sonst). Optionales Limit (z. B. 20 je Spieler) mit Meldung.
+- [x] Avatar wird serverseitig auf Bildtyp (png/jpeg/webp) und Größe geprüft; ohne Avatar Platzhalter.
+- [x] Profil: Box „Charaktere“ mit Avatar, Name und gerenderter Beschreibung; im eigenen Profil Anlegen/Bearbeiten/Löschen (mit Bestätigung).
+- [x] Backend-Tests: CRUD, Rechte, Validierung (Name, Länge, Bildtyp/Größe). Frontend-Tests: Anzeige fremd/eigen, Formular.
 
 ## Comments
+
+- Implemented the RPG character entity, migration, authenticated CRUD API, validation and owner authorization in `apps/backend/src/modules/rpg`; shared contracts live in `packages/shared`.
+- Player profiles now show BBCode character cards and provide owner-only create, edit and confirmed delete controls in `CharacterSection`.
+- Added backend service coverage and frontend profile coverage. No follow-up gaps identified.

@@ -119,6 +119,8 @@ import { TradeTransfer } from './modules/trade/entities/trade-transfer.entity';
 import { TradeTransaction } from './modules/trade/entities/trade-transaction.entity';
 import { TutorialModule } from './modules/tutorial/tutorial.module';
 import { UserTutorialProgress } from './modules/tutorial/entities/user-tutorial-progress.entity';
+import { RpgModule } from './modules/rpg/rpg.module';
+import { UserCharacter } from './modules/rpg/user-character.entity';
 
 @Module({
   imports: [
@@ -227,6 +229,7 @@ import { UserTutorialProgress } from './modules/tutorial/entities/user-tutorial-
           TradeTransfer,
           TradeTransaction,
           UserTutorialProgress,
+          UserCharacter,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -254,6 +257,7 @@ import { UserTutorialProgress } from './modules/tutorial/entities/user-tutorial-
     AwardsModule,
     TradeModule,
     TutorialModule,
+    RpgModule,
     DashboardModule,
     AllianceModule,
     TickModule,

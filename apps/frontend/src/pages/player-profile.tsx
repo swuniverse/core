@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { PlayerAvatar } from '../components/PlayerAvatar';
+import { CharacterSection } from '../components/CharacterSection';
 import { PmLink } from '../components/PmLink';
 import {
   Faction,
   type AllianceRefDto,
   type AwardProfileDto,
+  type UserCharacterDto,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
+import { useAuthStore } from '../stores/auth.store';
 import { SettlerPublicDiplomacy } from './alliances';
 import {
   ColonyScans,
@@ -51,9 +54,10 @@ export function PlayerProfilePage() {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedScan, setSelectedScan] = useState<ColonyScanProjection | null>(
-    null,
-  );
+  const [selectedScan, setSelectedScan] = useState<ColonyScanProjection | null>(null);
+  const [characters, setCharacters] = useState<UserCharacterDto[]>([]);
+  const [editingCharacter, setEditingCharacter] = useState<UserCharacterDto | 'new' | null>(null);
+  const currentUser = useAuthStore((state) => state.user);
 
   useEffect(() => {
     if (!id) {
@@ -70,6 +74,12 @@ export function PlayerProfilePage() {
       .then((data) => {
         if (cancelled) return;
         setPlayer(data);
+        try {
+          const request = api.get<UserCharacterDto[]>(`/rpg/characters/player/${id}`);
+          Promise.resolve(request).then((items) => setCharacters(Array.isArray(items) ? items : [])).catch(() => setCharacters([]));
+        } catch {
+          setCharacters([]);
+        }
         setError(null);
         setLoading(false);
       })
@@ -216,6 +226,14 @@ export function PlayerProfilePage() {
           <p className="text-sm italic text-swu-muted">Keine Beschreibung</p>
         )}
       </section>
+
+      <CharacterSection
+        characters={characters ?? []}
+        owner={currentUser?.id === player.id}
+        editing={editingCharacter}
+        onEdit={setEditingCharacter}
+        onChange={setCharacters}
+      />
 
       <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
         <h2 className="mb-3 text-sm font-bold text-swu-primary">Awards</h2>
