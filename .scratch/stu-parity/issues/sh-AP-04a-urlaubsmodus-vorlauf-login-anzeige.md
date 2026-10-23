@@ -1,6 +1,6 @@
 # Urlaubsmodus: 48-h-Vorlauf, Login beendet Urlaub, Anzeige
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
