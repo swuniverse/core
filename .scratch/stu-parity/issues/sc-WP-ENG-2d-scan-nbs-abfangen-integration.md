@@ -1,6 +1,6 @@
 # Policy in Scan, NBS und Abfangen integrieren
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** sc-WP-ENG-2a, sc-WP-ENG-2b
