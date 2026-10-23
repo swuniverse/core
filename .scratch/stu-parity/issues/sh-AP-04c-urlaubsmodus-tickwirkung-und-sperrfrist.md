@@ -1,6 +1,6 @@
 # Urlaubsmodus: Tickwirkung und Sperrfrist
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-04a
