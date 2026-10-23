@@ -459,6 +459,12 @@ export interface ShipClassYamlDef {
   stuRumpId?: number;
   prestige: number;
   buildCosts?: FabricationCostDef[];
+  station?: {
+    location: 'EVERYWHERE' | 'OVER_SYSTEM' | 'INSIDE_SYSTEM' | 'OUTSIDE_SYSTEM';
+    buildLimit: number | null;
+    requiredWorkbees: number;
+    dockCapacity: number;
+  };
 }
 
 export interface SocialEffectsDef {

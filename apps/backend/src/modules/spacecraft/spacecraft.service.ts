@@ -62,6 +62,7 @@ import {
 import { Colony } from '../colony/entities/colony.entity';
 import { CartographyPlanStatus } from './entities/cartography-plan.entity';
 import { MessagingService } from '../messaging/messaging.service';
+import { MessageFolder } from '../messaging/message-folder';
 import { PrestigeService } from '../prestige/prestige.service';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
 import { ShipColonyContextService } from './ship-colony-context.service';
@@ -84,6 +85,7 @@ import {
 import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
+import { StationConstructionService } from './station-construction.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
@@ -137,6 +139,9 @@ export class SpacecraftService {
     private readonly flightSignatureService: FlightSignatureService = {
       createMovement: async () => undefined,
     } as unknown as FlightSignatureService,
+    private readonly stationConstructionService: StationConstructionService = {
+      processTick: async () => ({ paused: false, completed: false, station: null }),
+    } as unknown as StationConstructionService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3675,6 +3680,28 @@ export class SpacecraftService {
   }
 
   async processTick(ship: Spacecraft): Promise<void> {
+    const construction = await this.stationConstructionService.processTick(ship.id);
+    if (construction.completed) {
+      await this.messagingService.sendSystem(
+        ship.userId,
+        'Stationsbau abgeschlossen',
+        `${construction.station?.name ?? ship.name} wurde fertiggestellt.`,
+        `station-construction-completed:${ship.id}`,
+        MessageFolder.STATION,
+      );
+      return;
+    }
+    if (construction.paused) {
+      await this.messagingService.sendSystem(
+        ship.userId,
+        'Stationsbau pausiert',
+        `Der Bau von ${ship.name} wurde wegen unzureichender angedockter Workbees pausiert.`,
+        `station-construction-paused:${ship.id}:${ship.constructionTicksRemaining}`,
+        MessageFolder.STATION,
+      );
+      return;
+    }
+    if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION) return;
     await this.processMovement(ship);
     await this.repairService.processTick(ship);
     if (ship.status === SpacecraftStatus.IN_FLIGHT) {

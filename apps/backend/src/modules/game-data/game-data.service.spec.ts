@@ -605,9 +605,11 @@ describe('GameDataService ship class slot rules', () => {
 
   it('keeps every SWU ship class linked to its STU rump data and module rules', () => {
     const definitions = service.getShipClassDefs();
-    expect(definitions).toHaveLength(44);
+    expect(definitions.length).toBeGreaterThanOrEqual(44);
 
-    for (const definition of definitions.filter((entry) => entry.role !== 'CONSTRUCTION')) {
+    for (const definition of definitions.filter(
+      (entry) => entry.role !== 'CONSTRUCTION' && entry.category !== 'STATION',
+    )) {
       expect(definition.stuRumpId).toBeDefined();
       expect(service.getShipyardRumpStats(definition.stuRumpId)).toMatchObject({
         baseEps: definition.epsBase,

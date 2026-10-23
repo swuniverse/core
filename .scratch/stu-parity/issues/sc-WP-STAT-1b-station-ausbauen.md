@@ -1,6 +1,6 @@
 # Konstrukt zur Station ausbauen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-1a
@@ -26,11 +26,13 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Stationsklassen je Rolle und Fraktion in `game-data` gemäß ADR.
-- [ ] `GET` Kostenübersicht je verfügbarer Klasse (Module, Workbees, Ortsregel, Limitstatus) wie `stationCost.twig`.
-- [ ] Ausbau prüft Typwahl, Limit, Ort (im/über/außerhalb System, überall), angedockte Workbees und Module; verbraucht Module.
-- [ ] Tick zählt Restticks herunter, pausiert ohne ausreichende Workbees (Meldung) und schließt mit voller Station ab (Werte aus Klasse).
-- [ ] Backend-Tests je Prüfung und Tickverlauf; Frontend-Test Kostenansicht.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Stationsklassen je Rolle und Fraktion in `game-data` gemäß ADR.
+- [x] `GET` Kostenübersicht je verfügbarer Klasse (Module, Workbees, Ortsregel, Limitstatus) wie `stationCost.twig`.
+- [x] Ausbau prüft Typwahl, Limit, Ort (im/über/außerhalb System, überall), angedockte Workbees und Module; verbraucht Module.
+- [x] Tick zählt Restticks herunter, pausiert ohne ausreichende Workbees (Meldung) und schließt mit voller Station ab (Werte aus Klasse).
+- [x] Backend-Tests je Prüfung und Tickverlauf; Frontend-Test Kostenansicht.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-23: Fraktionsgebundene Stationsklassen, Kosten-/Bereitschafts-API, validierter Ausbau, tickbasierter Bau mit Pausen-/Abschlussmeldungen und Kostenansicht umgesetzt. Vollständige Nx-Validierung und Builds sind grün.

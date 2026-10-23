@@ -33,6 +33,7 @@ export enum SpacecraftStatus {
   IDLE = 'IDLE',
   IN_FLIGHT = 'IN_FLIGHT',
   IN_COMBAT = 'IN_COMBAT',
+  UNDER_CONSTRUCTION = 'UNDER_CONSTRUCTION',
   DESTROYED = 'DESTROYED',
 }
 
@@ -105,6 +106,9 @@ export class Spacecraft {
 
   @Column({ default: 0 })
   dockCapacity: number;
+
+  @Column({ default: 0 })
+  constructionTicksRemaining: number;
 
   @Column({ type: 'varchar', default: SpacecraftStatus.IDLE })
   status: SpacecraftStatus;

@@ -1,8 +1,16 @@
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
-  StationRole: { CONSTRUCTION: 'CONSTRUCTION' },
-  SpacecraftStatus: { IDLE: 'IDLE' },
+  StationRole: {
+    CONSTRUCTION: 'CONSTRUCTION',
+    DEPOT_SMALL: 'DEPOT_LARGE',
+    DEPOT_LARGE: 'DEPOT_LARGE',
+    SHIPYARD: 'SHIPYARD',
+    SENSOR: 'SENSOR',
+    OUTPOST: 'OUTPOST',
+    BASE: 'BASE',
+  },
+  SpacecraftStatus: { IDLE: 'IDLE', UNDER_CONSTRUCTION: 'UNDER_CONSTRUCTION' },
   AlertState: { GREEN: 'GREEN' },
   SpacecraftOperatingMode: { NORMAL: 'NORMAL' },
 }));
@@ -45,7 +53,11 @@ describe('StationConstructionService', () => {
     }),
   };
   const dataSource = { transaction: jest.fn((run: (value: unknown) => unknown) => run(manager)) } as any;
-  const service = new StationConstructionService(dataSource);
+  const gameData = {
+    getShipClassDefByKey: jest.fn(),
+    getCommodity: jest.fn().mockReturnValue({ name: 'Stationsmodul' }),
+  };
+  const service = new StationConstructionService(dataSource, gameData as any);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -104,6 +116,145 @@ describe('StationConstructionService', () => {
   ])('rejects construction when %s', async (_name, arrange, message) => {
     await arrange();
     await expect(service.build(7, 3)).rejects.toThrow(message);
+  });
+
+  describe('station expansion', () => {
+    const construction = {
+      id: 100,
+      userId: 3,
+      user: { faction: 'REBEL_ALLIANCE' },
+      kind: SpacecraftKind.STATION,
+      stationRole: StationRole.CONSTRUCTION,
+      status: SpacecraftStatus.IDLE,
+      location: { kind: 'SYSTEM_FIELD', systemField: { starSystem: { id: 4 } } },
+      locationId: 44,
+    };
+    const stationClass = {
+      id: 20,
+      key: 'REBEL_DEPOT_LARGE',
+      name: 'Großes Versorgungsdepot',
+      role: 'DEPOT_LARGE',
+      category: 'STATION',
+      buildTimeTicks: 30,
+      hullBase: 1000,
+      shieldBase: 2000,
+      epsBase: 100,
+      crewMax: 10,
+      cargoCapacity: 50000,
+      batteryBase: 25,
+      reactorBase: 25,
+      warpdriveBase: 0,
+    };
+
+    beforeEach(() => {
+      gameData.getShipClassDefByKey.mockReturnValue({
+        buildCosts: [{ commodityId: 10101, amount: 4 }],
+        station: {
+          location: 'INSIDE_SYSTEM',
+          buildLimit: 1,
+          requiredWorkbees: 20,
+          dockCapacity: 20,
+        },
+      });
+      shipRepo.save.mockImplementation(async (value: any) => ({ id: value.id ?? 100, ...value }));
+      shipRepo.findOne.mockResolvedValue({ ...construction });
+      shipRepo.find.mockResolvedValue(Array.from({ length: 20 }, (_, index) => ({
+        id: 200 + index,
+        dockedAtId: 100,
+        shipClass: { role: 'WORKBEE' },
+      })));
+      classRepo.findOneBy.mockReset().mockResolvedValue(stationClass);
+      cargoRepo.find.mockResolvedValue([
+        { id: 1, spacecraftId: 100, commodityId: 10101, amount: 4 },
+      ]);
+    });
+
+    it('returns costs and readiness for every faction station class', async () => {
+      classRepo.find.mockResolvedValue([stationClass]);
+
+      await expect(service.getExpansionOptions(100, 3)).resolves.toEqual([
+        expect.objectContaining({
+          classKey: 'REBEL_DEPOT_LARGE',
+          role: 'DEPOT_LARGE',
+          workbees: { docked: 20, required: 20, sufficient: true },
+          location: { rule: 'INSIDE_SYSTEM', allowed: true },
+          limit: { maximum: 1, current: 0, reached: false },
+          modules: [
+            expect.objectContaining({ commodityId: 10101, stored: 4, required: 4, sufficient: true }),
+          ],
+          canStart: true,
+        }),
+      ]);
+    });
+
+    it('starts expansion only with valid location, limit, Workbees and modules', async () => {
+      classRepo.find.mockResolvedValue([stationClass]);
+      shipRepo.save.mockImplementation(async (value: any) => ({ id: value.id ?? 100, ...value }));
+
+      const result = await service.expand(100, 3, 'REBEL_DEPOT_LARGE');
+
+      expect(result.status).toBe(SpacecraftStatus.UNDER_CONSTRUCTION);
+      expect(result.stationRole).toBe(StationRole.DEPOT_LARGE);
+      expect(result.constructionTicksRemaining).toBe(30);
+      expect(cargoRepo.save).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ commodityId: 10101, amount: 0 })]),
+      );
+    });
+
+    const enoughWorkbees = Array.from({ length: 20 }, (_, index) => ({
+      id: 300 + index,
+      shipClass: { role: 'WORKBEE' },
+    }));
+
+    it.each([
+      ['wrong location', { ...construction, location: { kind: 'GALAXY_FIELD', galaxyField: { starSystem: null } } }, enoughWorkbees, 0, 'nur innerhalb eines Systems'],
+      ['role limit', construction, enoughWorkbees, 1, 'limit'],
+      ['too few Workbees', construction, [{ id: 201, shipClass: { role: 'WORKBEE' } }], 0, 'Nicht genügend Workbees'],
+    ])('rejects expansion for %s', async (_name, station, workbees, count, message) => {
+      shipRepo.findOne.mockResolvedValue({ ...construction, ...station, status: SpacecraftStatus.IDLE, stationRole: StationRole.CONSTRUCTION });
+      shipRepo.find.mockResolvedValue(workbees);
+      shipRepo.countBy.mockResolvedValue(count);
+      await expect(service.expand(100, 3, 'REBEL_DEPOT_LARGE')).rejects.toThrow(message);
+    });
+
+    it('pauses an expansion without enough docked Workbees', async () => {
+      shipRepo.findOne.mockResolvedValue({
+        ...construction,
+        status: SpacecraftStatus.UNDER_CONSTRUCTION,
+        stationRole: StationRole.DEPOT_SMALL,
+        constructionTicksRemaining: 2,
+        shipClass: stationClass,
+      });
+      shipRepo.find.mockResolvedValue([]);
+
+      await expect(service.processTick(100)).resolves.toEqual(
+        expect.objectContaining({ paused: true, completed: false }),
+      );
+      expect(shipRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('finishes an expansion with full class values', async () => {
+      shipRepo.findOne.mockResolvedValue({
+        ...construction,
+        status: SpacecraftStatus.UNDER_CONSTRUCTION,
+        stationRole: StationRole.DEPOT_SMALL,
+        constructionTicksRemaining: 1,
+        shipClass: stationClass,
+      });
+
+      const result = await service.processTick(100);
+
+      expect(result).toEqual(expect.objectContaining({ completed: true }));
+      expect(shipRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+        status: SpacecraftStatus.IDLE,
+        hull: 1000,
+        hullMax: 1000,
+        shields: 2000,
+        shieldsMax: 2000,
+        cargoMax: 50000,
+        constructionTicksRemaining: 0,
+      }));
+    });
   });
 
   it('removes an owned construction and undocks its Workbees', async () => {

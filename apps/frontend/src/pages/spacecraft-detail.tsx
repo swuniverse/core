@@ -17,6 +17,7 @@ import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
+import { StationExpansionPanel } from '../components/spacecraft/StationExpansionPanel';
 import {
   spaceBackgroundTile,
   starTileImage,
@@ -146,6 +147,14 @@ export function SpacecraftDetailPage() {
       </Link>
 
       <SpacecraftMessageBar shipId={ship.id} />
+      {ship.kind === 'STATION' && ship.stationRole === 'CONSTRUCTION' && (
+        <div className="mb-2">
+          <StationExpansionPanel
+            stationId={ship.id}
+            onExpanded={refreshShipAndStorage}
+          />
+        </div>
+      )}
       <ShipHeaderTable
         ship={ship}
         onUpdate={refreshShipAndStorage}

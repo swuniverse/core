@@ -343,6 +343,8 @@ export class SpacecraftController {
     } as unknown as SpacecraftRepairService,
     private readonly stationConstructionService: StationConstructionService = {
       build: async () => ({ station: null, workbees: [] }),
+      getExpansionOptions: async () => [],
+      expand: async () => null,
       remove: async () => undefined,
     } as unknown as StationConstructionService,
   ) {}
@@ -547,6 +549,23 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.stationConstructionService.build(id, req.user.sub);
+  }
+
+  @Get(':id/construction/expansion-options')
+  getStationExpansionOptions(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationConstructionService.getExpansionOptions(id, req.user.sub);
+  }
+
+  @Post(':id/construction/expand')
+  expandStation(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('classKey') classKey: string,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationConstructionService.expand(id, req.user.sub, classKey);
   }
 
   @Delete(':id/construction')

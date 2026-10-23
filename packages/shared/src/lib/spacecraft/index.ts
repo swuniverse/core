@@ -254,12 +254,37 @@ export interface SpacecraftListDto {
   >;
 }
 
+export interface StationExpansionOptionDto {
+  classKey: string;
+  name: string;
+  role: string;
+  buildTimeTicks: number;
+  workbees: { docked: number; required: number; sufficient: boolean };
+  location: {
+    rule: 'EVERYWHERE' | 'OVER_SYSTEM' | 'INSIDE_SYSTEM' | 'OUTSIDE_SYSTEM';
+    allowed: boolean;
+  };
+  limit: { maximum: number | null; current: number; reached: boolean };
+  modules: Array<{
+    commodityId: number;
+    name: string;
+    level: number | null;
+    stored: number;
+    required: number;
+    sufficient: boolean;
+  }>;
+  canStart: boolean;
+}
+
 export interface SpacecraftDetailDto {
   id: number;
   name: string;
   shipClassId: number;
   shipClassName?: string;
   shipClassKey?: string | null;
+  kind?: 'SHIP' | 'STATION';
+  stationRole?: string | null;
+  constructionTicksRemaining?: number;
   status: string;
   alertState: SpacecraftAlertState;
   operatingMode: SpacecraftOperatingMode;
