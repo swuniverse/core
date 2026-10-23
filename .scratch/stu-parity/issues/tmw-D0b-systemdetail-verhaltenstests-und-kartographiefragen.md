@@ -1,6 +1,6 @@
 # Systemdetail-Verhaltenstests und Kartographiefragen schließen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-D0a
@@ -22,13 +22,13 @@ Die geschützte Systemdetailansicht wird über die HTTP-, Service- und UI-Grenze
 
 ## Akzeptanzkriterien
 
-- [ ] Ein authentifizierter Controller-/HTTP-Test für `GET /api/database/systems/:id` deckt unbekannte, entdeckte, laufend kartographierte, invalidierte und erfolgreich kartographierte Zustände ab und prüft explizit, dass gesperrte Antworten keine Struktur- oder Dynamikdaten serialisieren.
-- [ ] Tests prüfen das vollständige `maxX × maxY`-Raster, beide Achsen, feste lesbare Zellgrößen und Scrollbarkeit in beide Richtungen.
-- [ ] Tests prüfen repräsentative Assets, die Asteroidengruppe ohne Badge und den vollständigen Ausschluss taktischer bzw. dynamischer Inhalte.
-- [ ] Seitentests prüfen anfängliche Zusammenfassung inklusive Rastergröße, Auswahlaktualisierung, gesperrten Rückweg und responsive Anordnung als sichtbares Verhalten.
-- [ ] Integrations- und UI-Tests prüfen aktuelle gegenüber Snapshotdaten, Besitzerwechsel, Aufgabe, Allianzbeitritt/-austritt, Provenienz sowie eigene und fremde Löschversuche.
-- [ ] Positive und negative Schnellnachrichtenfälle sind getestet.
-- [ ] Die Fachentscheidungen zu Crew-XP bei erfolgreicher Finalisierung und Fortsetzung eines `MEASURED`-Plans durch ein anderes eigenes Schiff sind dokumentiert und getestet.
+- [x] Ein authentifizierter Controller-/HTTP-Test für `GET /api/database/systems/:id` deckt unbekannte, entdeckte, laufend kartographierte, invalidierte und erfolgreich kartographierte Zustände ab und prüft explizit, dass gesperrte Antworten keine Struktur- oder Dynamikdaten serialisieren.
+- [x] Tests prüfen das vollständige `maxX × maxY`-Raster, beide Achsen, feste lesbare Zellgrößen und Scrollbarkeit in beide Richtungen.
+- [x] Tests prüfen repräsentative Assets, die Asteroidengruppe ohne Badge und den vollständigen Ausschluss taktischer bzw. dynamischer Inhalte.
+- [x] Seitentests prüfen anfängliche Zusammenfassung inklusive Rastergröße, Auswahlaktualisierung, gesperrten Rückweg und responsive Anordnung als sichtbares Verhalten.
+- [x] Integrations- und UI-Tests prüfen aktuelle gegenüber Snapshotdaten, Besitzerwechsel, Aufgabe, Allianzbeitritt/-austritt, Provenienz sowie eigene und fremde Löschversuche.
+- [x] Positive und negative Schnellnachrichtenfälle sind getestet.
+- [x] Die Fachentscheidungen zu Crew-XP bei erfolgreicher Finalisierung und Fortsetzung eines `MEASURED`-Plans durch ein anderes eigenes Schiff sind dokumentiert und getestet.
 
 ## Entscheidung
 
@@ -37,3 +37,5 @@ Crew-XP ist fachlich ausschließlich Eigentum von sc-WP-CREW-2 und wird hier wed
 ## Comments
 
 Aus dem Audit `tmw-D0`: Der alte schiffsgebundene Ein-Tick-Auftrag ist durch ADR-0003 obsolet; wiederhergestellt werden soll nicht das alte Modell, sondern nur explizit entschiedene, weiterhin gewünschte Fachwirkung und belastbare Vertragsabdeckung.
+
+Verhaltensabdeckung an Controller-, Service- und UI-Grenzen ergänzt: nicht enthüllende Kartographiezustände, vollständiges Raster/Assets/responsive Auswahl, aktuelle und historische Scanprojektionen samt Löschrechten sowie positive/negative Schnellnachrichten. Die schiffsübergreifende erneute Finalisierung eines `MEASURED`-Plans ist mit frischem Tickstand getestet; Crew-XP bleibt bei `sc-WP-CREW-2`. Keine offenen Folgepunkte.

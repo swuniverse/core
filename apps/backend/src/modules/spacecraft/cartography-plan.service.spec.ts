@@ -318,6 +318,35 @@ describe('CartographyPlanService', () => {
     );
   });
 
+  it('lets another own spacecraft restart a reset measured plan as a fresh finalization', async () => {
+    const plan = {
+      id: 3,
+      userId: 11,
+      starSystemId: 42,
+      status: CartographyPlanStatus.MEASURED,
+      remainingFieldIds: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+    };
+    const repo = {
+      findOne: jest.fn(async () => plan),
+      save: jest.fn(async (value) => value),
+    };
+    const service = new CartographyPlanService(repo as never);
+    const restartedAt = new Date('2026-10-17T12:00:00.000Z');
+
+    await expect(
+      service.startFinalization(11, 42, 10, restartedAt),
+    ).resolves.toMatchObject({
+      status: CartographyPlanStatus.FINISHING,
+      finalizingSpacecraftId: 10,
+      finalizationTick: 0,
+      finalizationStartedAt: restartedAt,
+    });
+    expect(repo.save).toHaveBeenCalledTimes(1);
+  });
+
   it('completes exactly once after three valid main ticks and persists personal discovery', async () => {
     const plan = {
       id: 3,

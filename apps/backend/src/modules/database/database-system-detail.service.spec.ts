@@ -256,6 +256,37 @@ describe('DatabaseService system detail', () => {
     },
   );
 
+  it('passes through the newest accessible scan projection without rewriting its snapshot or provenance', async () => {
+    const scan = {
+      id: 501,
+      colonyId: 202,
+      scanner: { id: 77, username: 'leia' },
+      provenance: 'ALLIANCE',
+      canDelete: false,
+      snapshot: {
+        colonyName: 'Old Cloud City',
+        owner: { id: 88, username: 'old-owner' },
+      },
+      current: {
+        colony: {
+          id: 202,
+          name: 'Cloud City',
+          owner: { id: 77, username: 'lando' },
+          isAbandoned: false,
+        },
+      },
+    };
+    const { service } = createService({
+      scanProjection: {
+        newestAccessibleForSystem: jest.fn().mockResolvedValue([scan]),
+      },
+    });
+
+    const detail = await service.getSystemDetail(42, 9);
+
+    expect(detail).toEqual(expect.objectContaining({ scans: [scan] }));
+  });
+
   it('does not offer messages when the viewer has no current colony in the system', async () => {
     const { service } = createService({
       colonyRepo: {

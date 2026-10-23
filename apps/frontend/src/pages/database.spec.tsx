@@ -248,9 +248,23 @@ describe('DatabasePage', () => {
     expect(
       (await screen.findAllByRole('heading', { name: 'Bespin' })).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Kartographische Systemkarte')).toBeTruthy();
+    const raster = screen.getByLabelText('Kartographische Systemkarte');
+    expect(raster).toBeTruthy();
+    expect(raster.className).toContain('overflow-auto');
     expect(screen.getByText('Rastergröße:')).toBeTruthy();
     expect(screen.getByText('3 × 2')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /^Feld \d:\d:/ })).toHaveLength(6);
+    for (const coordinate of ['1', '2', '3']) {
+      expect(screen.getAllByText(coordinate).length).toBeGreaterThan(0);
+    }
+    const emptyCell = screen.getByRole('button', {
+      name: 'Feld 2:1: Unkartographiertes Rasterfeld',
+    });
+    expect(emptyCell.getAttribute('style')).toContain('width: 40px');
+    expect(emptyCell.getAttribute('style')).toContain('height: 40px');
+    expect(raster.firstElementChild?.getAttribute('style')).toContain(
+      'grid-template-columns: 40px repeat(3, 40px)',
+    );
     expect(
       screen.getByRole('button', { name: /Feld 1:2: Bespin II/ }),
     ).toBeTruthy();
@@ -267,6 +281,9 @@ describe('DatabasePage', () => {
     );
     expect(screen.getByText('Gasriese')).toBeTruthy();
     expect(screen.getByText('Planet')).toBeTruthy();
+    expect(screen.getByText('Feld 1:2')).toBeTruthy();
+    expect(screen.getByText(/Gelber Zwerg · Koordinaten: 1:3/)).toBeTruthy();
+    expect(document.querySelector('.lg\\:grid-cols-\\[minmax\\(0\\,1fr\\)_260px\\]')).toBeTruthy();
 
     expect(screen.getAllByText('Cloud City').length).toBeGreaterThan(0);
     expect(
@@ -276,6 +293,10 @@ describe('DatabasePage', () => {
       screen.getByRole('link', { name: 'Nachricht an lando' }).getAttribute('href'),
     ).toBe('/messages?tab=compose&to=77&name=lando');
     expect(screen.getByText('Besitzerwechsel seit dem Scan')).toBeTruthy();
+    expect(screen.getByText(/eigener Scan/)).toBeTruthy();
+    expect(screen.getByText(/Scanner: han/)).toBeTruthy();
+    expect(screen.getByText(/damaliger Besitzer: calrissian/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Scan 501 löschen' })).toBeTruthy();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'Gespeicherte Oberfläche von Alte Wolkenstadt öffnen',
@@ -286,6 +307,76 @@ describe('DatabasePage', () => {
     expect(
       screen.queryByRole('button', { name: /navigation|kampf|bewegung/i }),
     ).toBeNull();
+  });
+
+  it('reloads after deleting an own scan and exposes no delete action for alliance scans', async () => {
+    const available = {
+      availability: 'AVAILABLE',
+      id: 20,
+      name: 'Bespin',
+      layerId: 7,
+      cx: 1,
+      cy: 3,
+      systemTypeId: 1049,
+      systemTypeName: 'Gelber Zwerg',
+      maxX: 1,
+      maxY: 1,
+      fields: [],
+      colonies: [],
+      scans: [
+        {
+          id: 501,
+          colonyId: 12,
+          scanner: { id: 42, username: 'han' },
+          provenance: 'OWN',
+          canDelete: true,
+          systemId: 20,
+          snapshot: {
+            colonyName: 'Cloud City',
+            owner: { id: 55, username: 'lando' },
+            scannedAt: '2026-10-01T12:00:00.000Z',
+            system: { id: 20, celestialObjectId: null },
+            colonyClassId: 1,
+            surface: { width: 1, height: 1, deposits: [], fields: [] },
+          },
+          current: { colony: null },
+        },
+        {
+          id: 502,
+          colonyId: 13,
+          scanner: { id: 77, username: 'leia' },
+          provenance: 'ALLIANCE',
+          canDelete: false,
+          systemId: 20,
+          snapshot: {
+            colonyName: 'Alderaan',
+            owner: { id: 77, username: 'leia' },
+            scannedAt: '2026-10-02T12:00:00.000Z',
+            system: { id: 20, celestialObjectId: null },
+            colonyClassId: 1,
+            surface: { width: 1, height: 1, deposits: [], fields: [] },
+          },
+          current: { colony: null },
+        },
+      ],
+    };
+    apiMocks.get
+      .mockResolvedValueOnce(available)
+      .mockResolvedValueOnce({ ...available, scans: [available.scans[1]] });
+    apiMocks.delete.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter initialEntries={['/database/systems/20']}>
+        <Routes>
+          <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Scan 501 löschen' }));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/colony-scans/501'));
+    expect(screen.queryByRole('button', { name: 'Scan 502 löschen' })).toBeNull();
+    expect(await screen.findByText(/Allianz-Scan/)).toBeTruthy();
   });
 
   it('withholds the raster and all system details until Astrometrie succeeds', async () => {
