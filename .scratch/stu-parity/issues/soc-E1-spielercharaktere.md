@@ -1,6 +1,6 @@
 # RPG: Spielercharaktere im Profil
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
