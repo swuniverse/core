@@ -111,6 +111,12 @@ import { Award } from './modules/awards/entities/award.entity';
 import { UserAward } from './modules/awards/entities/user-award.entity';
 import { NewsModule } from './modules/news/news.module';
 import { News } from './modules/news/entities/news.entity';
+import { TradeModule } from './modules/trade/trade.module';
+import { TradePost } from './modules/trade/entities/trade-post.entity';
+import { TradeAccountStorage } from './modules/trade/entities/trade-account-storage.entity';
+import { TradeOffer } from './modules/trade/entities/trade-offer.entity';
+import { TradeTransfer } from './modules/trade/entities/trade-transfer.entity';
+import { TradeTransaction } from './modules/trade/entities/trade-transaction.entity';
 
 @Module({
   imports: [
@@ -213,6 +219,11 @@ import { News } from './modules/news/entities/news.entity';
           Award,
           UserAward,
           News,
+          TradePost,
+          TradeAccountStorage,
+          TradeOffer,
+          TradeTransfer,
+          TradeTransaction,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -238,6 +249,7 @@ import { News } from './modules/news/entities/news.entity';
     EventsModule,
     PrestigeModule,
     AwardsModule,
+    TradeModule,
     DashboardModule,
     AllianceModule,
     TickModule,
