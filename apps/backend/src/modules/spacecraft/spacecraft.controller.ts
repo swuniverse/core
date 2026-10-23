@@ -46,6 +46,7 @@ import { CrewType } from '../colony/entities/crew.entity';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
+import { StationConstructionService } from './station-construction.service';
 import {
   AlertState,
   SpacecraftOperatingMode,
@@ -340,6 +341,10 @@ export class SpacecraftController {
       }),
       start: async () => ({ completed: false, targetIntegrity: 0 }),
     } as unknown as SpacecraftRepairService,
+    private readonly stationConstructionService: StationConstructionService = {
+      build: async () => ({ station: null, workbees: [] }),
+      remove: async () => undefined,
+    } as unknown as StationConstructionService,
   ) {}
 
   // Static routes first (before :id)
@@ -534,6 +539,22 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.scanService.deleteColonyScan(scanId, req.user.sub);
+  }
+
+  @Post(':id/construction')
+  buildConstruction(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationConstructionService.build(id, req.user.sub);
+  }
+
+  @Delete(':id/construction')
+  removeConstruction(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationConstructionService.remove(id, req.user.sub);
   }
 
   @Get(':id/field-context')

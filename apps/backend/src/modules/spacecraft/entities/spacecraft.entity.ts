@@ -14,6 +14,21 @@ import { SpacecraftModule } from './spacecraft-module.entity';
 import { Fleet } from './fleet.entity';
 import { ShipClassDef } from './ship-class-def.entity';
 
+export enum SpacecraftKind {
+  SHIP = 'SHIP',
+  STATION = 'STATION',
+}
+
+export enum StationRole {
+  CONSTRUCTION = 'CONSTRUCTION',
+  DEPOT_SMALL = 'DEPOT_SMALL',
+  DEPOT_LARGE = 'DEPOT_LARGE',
+  SHIPYARD = 'SHIPYARD',
+  SENSOR = 'SENSOR',
+  OUTPOST = 'OUTPOST',
+  BASE = 'BASE',
+}
+
 export enum SpacecraftStatus {
   IDLE = 'IDLE',
   IN_FLIGHT = 'IN_FLIGHT',
@@ -74,6 +89,22 @@ export class Spacecraft {
   @ManyToOne(() => SpaceLocation, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'locationId' })
   location: SpaceLocation;
+
+  @Column({ type: 'varchar', default: SpacecraftKind.SHIP })
+  kind: SpacecraftKind;
+
+  @Column({ type: 'varchar', nullable: true })
+  stationRole: StationRole | null;
+
+  @Column({ type: 'int', nullable: true })
+  dockedAtId: number | null;
+
+  @ManyToOne(() => Spacecraft, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'dockedAtId' })
+  dockedAt: Spacecraft | null;
+
+  @Column({ default: 0 })
+  dockCapacity: number;
 
   @Column({ type: 'varchar', default: SpacecraftStatus.IDLE })
   status: SpacecraftStatus;

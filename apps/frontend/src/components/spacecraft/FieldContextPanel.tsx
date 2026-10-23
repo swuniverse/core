@@ -89,6 +89,7 @@ export function FieldContextPanel({
     message: string;
   } | null>(null);
   const [landing, setLanding] = useState(false);
+  const [constructionConfirm, setConstructionConfirm] = useState<'BUILD' | 'REMOVE' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cartography, setCartography] = useState<CartographyPlanDto | null>(
     null,
@@ -162,6 +163,25 @@ export function FieldContextPanel({
           err instanceof Error
             ? err.message
             : 'Kartographieaktion fehlgeschlagen',
+      });
+    }
+  }
+
+  async function confirmConstruction() {
+    if (!constructionConfirm) return;
+    try {
+      if (constructionConfirm === 'BUILD') {
+        await api.post(`/spacecraft/${shipId}/construction`, {});
+      } else if (context?.construction?.station) {
+        await api.delete(`/spacecraft/${context.construction.station.id}/construction`);
+      }
+      setConstructionConfirm(null);
+      await onUpdate();
+    } catch (err: unknown) {
+      setConstructionConfirm(null);
+      setActionMessage({
+        title: 'Stationsbau',
+        message: err instanceof Error ? err.message : 'Stationsaktion fehlgeschlagen',
       });
     }
   }
@@ -430,6 +450,24 @@ export function FieldContextPanel({
           </div>
         </div>
       )}
+      {context.construction && (
+        <div className="border border-swu-border bg-swu-surface p-2 text-sm">
+          {context.construction.station ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-swu-primary">Station: {context.construction.station.name}</span>
+              {context.construction.station.isOwn && (
+                <button type="button" onClick={() => setConstructionConfirm('REMOVE')} className="text-red-300 hover:text-red-200">
+                  Konstrukt entfernen
+                </button>
+              )}
+            </div>
+          ) : context.construction.canBuild ? (
+            <button type="button" onClick={() => setConstructionConfirm('BUILD')} className="text-swu-primary hover:text-swu-accent">
+              Konstrukt errichten
+            </button>
+          ) : null}
+        </div>
+      )}
       {context.colony && (
         <div className="border border-swu-border bg-swu-surface">
           <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
@@ -542,6 +580,19 @@ export function FieldContextPanel({
           onClose={() => setColonizationOpen(false)}
           onColonized={(colonyId) => onColonized?.(colonyId)}
         />
+      )}
+      {constructionConfirm && (
+        <Dialog title="Stationsbau" label="Stationsbau bestätigen" onClose={() => setConstructionConfirm(null)}>
+          <p>
+            {constructionConfirm === 'BUILD'
+              ? 'Konstrukt für 5 Workbees, 100 Doonium und 50 Durastahl-Legierung errichten?'
+              : 'Konstrukt entfernen und angedockte Workbees freigeben?'}
+          </p>
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" onClick={() => setConstructionConfirm(null)}>Abbrechen</button>
+            <button type="button" onClick={() => void confirmConstruction()} className="text-swu-primary">Bestätigen</button>
+          </div>
+        </Dialog>
       )}
       {cartographyDialog && (
         <CartographyDialog

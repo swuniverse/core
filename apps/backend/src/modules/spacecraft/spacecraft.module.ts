@@ -62,6 +62,7 @@ import { DatabaseModule } from '../database/database.module';
 import { StatisticsModule } from '../statistics/statistics.module';
 import { FlightSignatureService } from './flight-signature.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
+import { StationConstructionService } from './station-construction.service';
 
 @Module({
   imports: [
@@ -131,6 +132,7 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
     StarmapVisibilityService,
     FlightSignatureService,
     SpacecraftRepairService,
+    StationConstructionService,
   ],
   exports: [
     SpacecraftService,

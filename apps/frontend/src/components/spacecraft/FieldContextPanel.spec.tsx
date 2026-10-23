@@ -6,12 +6,39 @@ const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  delete: vi.fn(),
 }));
 vi.mock('../../services/api', () => ({
   api: apiMocks,
 }));
 
 describe('FieldContextPanel', () => {
+  it('confirms construction creation from the field context', async () => {
+    apiMocks.post.mockResolvedValue({});
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={{
+            coordinates: { x: 1, y: 2 },
+            starSystem: null,
+            colony: null,
+            construction: { station: null, canBuild: true },
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Konstrukt errichten' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/construction', {}),
+    );
+  });
+
   beforeEach(() => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();

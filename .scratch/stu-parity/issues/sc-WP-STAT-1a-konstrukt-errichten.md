@@ -1,6 +1,6 @@
 # Konstrukt vom Schiff errichten
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-0
@@ -25,12 +25,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Datenmodell und Migration für Stationen/Konstrukte gemäß ADR.
-- [ ] Aktion „Konstrukt errichten“ mit allen STU-Prüfungen (inkl. Feldeffekt „kein Stationsbau“, sobald tmw-K3c Daten liefert) und Kosten; Workbees werden als Schiffe erzeugt und angedockt.
-- [ ] Limit je Spieler gemäß ADR.
-- [ ] Konstrukt entfernen (Eigner, Bestätigung) gibt Workbees frei.
-- [ ] Konstrukte erscheinen in NBS-Liste und Sternkarte für Berechtigte.
-- [ ] Backend-Tests je Prüfung; Frontend-Test für Aktion.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Datenmodell und Migration für Stationen/Konstrukte gemäß ADR.
+- [x] Aktion „Konstrukt errichten“ mit allen STU-Prüfungen (inkl. Feldeffekt „kein Stationsbau“, sobald tmw-K3c Daten liefert) und Kosten; Workbees werden als Schiffe erzeugt und angedockt.
+- [x] Limit je Spieler gemäß ADR.
+- [x] Konstrukt entfernen (Eigner, Bestätigung) gibt Workbees frei.
+- [x] Konstrukte erscheinen in NBS-Liste und Sternkarte für Berechtigte.
+- [x] Backend-Tests je Prüfung; Frontend-Test für Aktion.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-23: Stationsmodell und Migration ergänzt; Konstruktbau und -entfernung transaktionssicher mit STU-Prüfungen, Kosten, Spielerlimit sowie fünf angedockten Workbees umgesetzt. Bestehende NBS- und Sternkartenpfade erfassen Konstrukte als Spacecraft. Backend- und Frontend-Tests ergänzt; `nx affected -t lint typecheck test --base=HEAD` und `nx run-many --targets=build` sind grün.

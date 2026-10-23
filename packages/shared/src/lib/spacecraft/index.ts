@@ -553,6 +553,10 @@ export interface SpacecraftFieldContextDto {
     attackReason?: string | null;
   } | null;
   runtimeSystems?: SpacecraftRuntimeSystemsDto;
+  construction?: {
+    station: { id: number; name: string; isOwn: boolean } | null;
+    canBuild: boolean;
+  };
   information: {
     canSectorScan: boolean;
     cartographyKnown: boolean;

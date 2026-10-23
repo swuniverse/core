@@ -15,6 +15,7 @@ import {
 import {
   AlertState,
   Spacecraft,
+  SpacecraftKind,
   SpacecraftOperatingMode,
   SpacecraftLssMode,
   SpacecraftStatus,
@@ -2956,6 +2957,9 @@ export class SpacecraftService {
       : canAttack
         ? null
         : 'Kolonie ist nicht feindlich';
+    const station = await this.shipRepo.findOne({
+      where: { locationId: ship.locationId, kind: SpacecraftKind.STATION },
+    });
     const cartography =
       location?.scope === 'SYSTEM'
         ? await this.getCartography(ship.id, userId)
@@ -3013,6 +3017,12 @@ export class SpacecraftService {
           }
         : null,
       runtimeSystems: systems,
+      construction: {
+        station: station
+          ? { id: station.id, name: station.name, isOwn: station.userId === userId }
+          : null,
+        canBuild: station == null && ship.kind !== 'STATION',
+      },
       information: {
         canSectorScan: systems.SHORT_RANGE_SENSORS?.active === true,
         cartographyKnown:
