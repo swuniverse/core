@@ -1,6 +1,6 @@
 # Andocken und Abdocken an Stationen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-2
@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-23: Umsetzung nach zwei Prüfversuchen abgebrochen. `npx nx affected -t lint typecheck test --base=HEAD` und der Fallback `npm run typecheck` scheitern reproduzierbar an bestehenden TypeScript-Buildartefaktfehlern (`TS6305`, Backend-`dist/*.d.ts` wurde nicht aus den Quelldateien gebaut), obwohl die betroffenen Tests (Backend 14/14, Frontend 14/14) und `npx nx run-many --targets=build` grün sind. Produktcode wurde gemäß Abbruchregel verworfen. Bitte den Backend-Typecheck-Buildgraph reparieren oder bestätigen, dass diese bekannte Infrastrukturabweichung für Ralph-Läufe akzeptiert wird.
