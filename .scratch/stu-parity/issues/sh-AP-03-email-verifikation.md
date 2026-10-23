@@ -1,6 +1,6 @@
 # E-Mail-Verifikation nach der Registrierung
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-01
