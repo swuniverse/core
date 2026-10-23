@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PlayerProfilePage } from './player-profile';
 import { ApiError } from '../services/api';
 import type * as ApiModule from '../services/api';
+import { useAuthStore } from '../stores/auth.store';
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -30,6 +31,19 @@ function renderProfile(initialEntry = '/players/1') {
 describe('PlayerProfilePage', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
+    useAuthStore.setState({
+      accessToken: 'token',
+      refreshToken: 'refresh',
+      user: {
+        id: 7,
+        username: 'tester',
+        email: 'tester@example.test',
+        prestige: 0,
+        createdAt: '2026-08-05T00:00:00.000Z',
+        isAdmin: false,
+        permissions: [],
+      },
+    });
   });
 
   it('renders player profile data and BBCode description', async () => {
@@ -84,6 +98,39 @@ describe('PlayerProfilePage', () => {
     expect(container.textContent).not.toContain('[b]');
     expect(container.textContent).not.toContain('[quote]');
     expect(screen.queryByText('Allianz')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Nachricht an Vader schreiben' }).getAttribute(
+        'href',
+      ),
+    ).toBe('/messages?tab=compose&to=1&name=Vader');
+  });
+
+  it('does not offer a quick message on the own profile', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 7,
+      username: 'tester',
+      displayName: 'Tester',
+      avatar: null,
+      description: null,
+      faction: 'REBEL_ALLIANCE',
+      factionName: 'Rebellenallianz',
+      prestige: 0,
+      colonies: 0,
+      ships: 0,
+      completedResearch: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null },
+      onVacation: false,
+    });
+
+    renderProfile('/players/7');
+
+    await screen.findByRole('heading', { name: 'Tester' });
+    expect(
+      screen.queryByRole('link', { name: 'Nachricht an Tester schreiben' }),
+    ).toBeNull();
   });
 
   it('renders awards with descriptions and repeat counts', async () => {

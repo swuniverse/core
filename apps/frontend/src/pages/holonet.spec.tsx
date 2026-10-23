@@ -115,6 +115,42 @@ describe('HolonetPage routing', () => {
     expect(await screen.findByText('Route-selected body')).toBeTruthy();
     expect(screen.getAllByText('Widget Report')).toHaveLength(2);
     expect(screen.queryByText('NEU')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Nachricht an rebel schreiben' }).getAttribute(
+        'href',
+      ),
+    ).toBe('/messages?tab=compose&to=8&name=rebel');
+    expect(
+      screen.getByRole('link', { name: 'Profil von rebel öffnen' }).getAttribute(
+        'href',
+      ),
+    ).toBe('/players/8');
+  });
+
+  it('does not offer a quick message for an own HoloNet post', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') {
+        return Promise.resolve(
+          listResponse([{ ...postFixture, authorId: user.id, author: { username: user.username } }]),
+        );
+      }
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/holonet/1']}>
+        <Routes>
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Route-selected body');
+    expect(
+      screen.queryByRole('link', { name: `Nachricht an ${user.username} schreiben` }),
+    ).toBeNull();
   });
 
   it('keeps a stale route id usable when the list is empty and direct fetch fails', async () => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { PlayerAvatar } from '../components/PlayerAvatar';
+import { PmLink } from '../components/PmLink';
 import {
   Faction,
   type AllianceRefDto,
@@ -171,6 +172,14 @@ export function PlayerProfilePage() {
               <p className="text-xs text-swu-muted">Login: {player.username}</p>
             )}
             <p className="text-sm text-swu-primary">{player.factionName}</p>
+            <PmLink
+              playerId={player.id}
+              playerName={name}
+              className="inline-flex items-center gap-1.5 border border-swu-border px-2 py-1 text-xs text-swu-primary hover:border-swu-accent hover:text-swu-accent"
+            >
+              <img src="/assets/buttons/msg1.png" alt="" className="size-4" />
+              Nachricht schreiben
+            </PmLink>
             {player.alliance && (
               <p className="text-sm text-swu-muted">
                 Allianz{' '}

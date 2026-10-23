@@ -10,6 +10,7 @@ import type {
 
 import { ApiError } from '../services/api';
 import type * as ApiModule from '../services/api';
+import { useAuthStore } from '../stores/auth.store';
 import {
   AllianceForumBoardPage,
   AllianceForumPage,
@@ -147,6 +148,19 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   for (const mock of Object.values(apiMocks)) mock.mockReset();
+  useAuthStore.setState({
+    accessToken: 'token',
+    refreshToken: 'refresh',
+    user: {
+      id: 7,
+      username: 'tester',
+      email: 'tester@example.test',
+      prestige: 0,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      isAdmin: false,
+      permissions: [],
+    },
+  });
 });
 
 describe('AllianceForumPage', () => {
@@ -278,8 +292,25 @@ describe('AllianceForumTopicPage', () => {
     const { container } = renderAt('/alliances/1/forum/topics/9');
 
     expect(await screen.findByText('Fett')).toBeTruthy();
-    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('img[src="x"]')).toBeNull();
     expect(screen.getByText(/Rebellenallianz, Großadmiral/)).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Nachricht an Leia schreiben' }).getAttribute(
+        'href',
+      ),
+    ).toBe('/messages?tab=compose&to=1&name=Leia');
+  });
+
+  it('does not offer a quick message for an own forum post', async () => {
+    apiMocks.get.mockResolvedValue(
+      topicPage([post({ author: author({ userId: 7, name: 'Tester' }) })]),
+    );
+    renderAt('/alliances/1/forum/topics/9');
+
+    await screen.findByText('Tester');
+    expect(
+      screen.queryByRole('link', { name: 'Nachricht an Tester schreiben' }),
+    ).toBeNull();
   });
 
   it('shows Gelöschter Siedler without a profile link', async () => {

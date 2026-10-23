@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
+import { PmLink } from '../components/PmLink';
 
 interface HolonetPost {
   id: number;
@@ -530,20 +531,19 @@ export function HolonetPage() {
                           <p className="text-xs text-swu-primary">{post.author.username}</p>
                           <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
                           <div className="mt-3 flex justify-center gap-1">
-                            <button
-                              onClick={() => navigate('/messages')}
-                              className="border border-swu-border px-1.5 py-0.5 text-xs text-swu-primary hover:border-swu-accent hover:text-swu-accent"
-                              title="Nachricht schreiben"
+                            <PmLink
+                              playerId={post.authorId}
+                              playerName={post.author.username}
+                              className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
+                            />
+                            <Link
+                              to={`/players/${post.authorId}`}
+                              className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
+                              title={`Profil von ${post.author.username} öffnen`}
+                              aria-label={`Profil von ${post.author.username} öffnen`}
                             >
-                              ✉
-                            </button>
-                            <button
-                              disabled
-                              className="border border-swu-border px-1.5 py-0.5 text-xs text-swu-muted opacity-60"
-                              title="Siedlerprofil vorbereitet"
-                            >
-                              ?
-                            </button>
+                              <img src="/assets/buttons/info1.png" alt="" className="size-4" />
+                            </Link>
                             <button
                               onClick={() => setBookmark(post)}
                               className="border border-swu-accent/60 px-1.5 py-0.5 text-[10px] text-swu-accent hover:bg-swu-accent/10"

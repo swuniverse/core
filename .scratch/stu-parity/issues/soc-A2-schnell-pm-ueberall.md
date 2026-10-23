@@ -1,6 +1,6 @@
 # Schnell-PM aus Profil, HoloNet und Allianzforum
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -27,11 +27,13 @@
 
 ## Akzeptanzkriterien
 
-- [ ] Eine wiederverwendbare Komponente erzeugt den Compose-Deep-Link mit vorbelegtem Empfänger; sie wird für fremde Spieler gerendert, nicht für den eigenen Account.
-- [ ] Spielerprofil: Button „Nachricht schreiben“ öffnet Compose mit vorbelegtem Empfänger.
-- [ ] HoloNet-Beitrag: der Nachrichten-Button belegt den Autor vor; der Profil-Button ist aktiv und führt zu `/players/:authorId`.
-- [ ] Allianzforum: an jedem Beitrag ein PM-Link zum Autor.
-- [ ] Icons nach Asset-Konvention (`/assets/buttons/msg1.png`/`msg2.png` o. ä. mit Hover-Tausch oder Textbutton), kein Emoji/Unicode-Glyph (`inventory/shell-admin-runtime.md` 3.6), mit `title` und `aria-label`.
-- [ ] Frontend-Tests: Profil, HoloNet und Forum rendern den Link mit korrekter `to`-ID; eigener Account zeigt keinen Link.
+- [x] Eine wiederverwendbare Komponente erzeugt den Compose-Deep-Link mit vorbelegtem Empfänger; sie wird für fremde Spieler gerendert, nicht für den eigenen Account.
+- [x] Spielerprofil: Button „Nachricht schreiben“ öffnet Compose mit vorbelegtem Empfänger.
+- [x] HoloNet-Beitrag: der Nachrichten-Button belegt den Autor vor; der Profil-Button ist aktiv und führt zu `/players/:authorId`.
+- [x] Allianzforum: an jedem Beitrag ein PM-Link zum Autor.
+- [x] Icons nach Asset-Konvention (`/assets/buttons/msg1.png`/`msg2.png` o. ä. mit Hover-Tausch oder Textbutton), kein Emoji/Unicode-Glyph (`inventory/shell-admin-runtime.md` 3.6), mit `title` und `aria-label`.
+- [x] Frontend-Tests: Profil, HoloNet und Forum rendern den Link mit korrekter `to`-ID; eigener Account zeigt keinen Link.
 
 ## Comments
+
+- `PmLink` bündelt den Compose-Deep-Link samt Eigenkonto-Filter und Asset-Icon; Profil, HoloNet-Autorbox und Allianzforum verwenden ihn. Die drei betroffenen Frontend-Specs sowie Lint, Typecheck und Build sind grün. Der vollständige affected-Testlauf bleibt an einem bereits bestehenden, fachfremden `research.spec.tsx`-Fehler (`/eine von/`) rot.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { PmLink } from '../components/PmLink';
 import type {
   CreateForumPostResponse,
   CreateForumTopicResponse,
@@ -673,7 +674,16 @@ export function AllianceForumTopicPage() {
             {data.posts.map((post) => (
               <li key={post.id} className="space-y-2 border border-swu-border p-3">
                 <div className="flex flex-wrap justify-between gap-2 text-xs">
-                  <AuthorLine author={post.author} />
+                  <span className="flex items-center gap-2">
+                    <AuthorLine author={post.author} />
+                    {post.author.userId !== null && (
+                      <PmLink
+                        playerId={post.author.userId}
+                        playerName={post.author.name}
+                        className="inline-flex border border-swu-border p-0.5 hover:border-swu-accent"
+                      />
+                    )}
+                  </span>
                   <span className="text-swu-muted">
                     {formatDateTime(post.createdAt)}
                     {post.editedAt &&
