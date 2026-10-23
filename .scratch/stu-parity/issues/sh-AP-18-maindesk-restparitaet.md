@@ -1,6 +1,6 @@
 # Maindesk-Restparität: neue HoloNet-Beiträge, Werftprozesse, rechte Spalte
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ Das Maindesk erhält die fehlenden STU-Elemente: eine Box „Neue HoloNet-Beitr�
 
 ## Akzeptanzkriterien
 
-- [ ] Box „Neue HoloNet-Beiträge (n)“ zeigt bis zu 5 Beiträge seit dem Lesezeichen (Checkpoint) mit Titel, Autor, Datum; Klick springt auf den ersten neuen Beitrag (`/holonet/:id`). Ohne neue Beiträge: „Keine neuen Beiträge“.
-- [ ] Prozessliste kennt zusätzlich `SCHIFFSBAU`, `REPARATUR`, `UMRUESTUNG` (Anzeige „Schiffsbau“, „Reparatur“, „Umrüstung“) mit Schiffs-/Klassenname, Kolonie und Fortschritt bzw. Fertigstellungszeit; Daten aus den aktiven Werftqueues des Spielers (ein Endpunkt, keine Abfrage je Kolonie).
-- [ ] Layout ab `xl`: links Inhalt, rechts eine Spalte von ca. 350 px mit Kolonielimits, Crewlimit, zufälligem Online-Spieler und Prozessen; darunter wie bisher; mobil einspaltig.
-- [ ] Boxen im Maindesk-Standard (Abschnitt 3.3), Datum über `formatDateTime`.
-- [ ] Backend-Test: Werftprozesse je Modus. Frontend-Tests: HoloNet-Box mit/ohne neue Beiträge, Prozessarten, Layoutklassen.
+- [x] Box „Neue HoloNet-Beiträge (n)“ zeigt bis zu 5 Beiträge seit dem Lesezeichen (Checkpoint) mit Titel, Autor, Datum; Klick springt auf den ersten neuen Beitrag (`/holonet/:id`). Ohne neue Beiträge: „Keine neuen Beiträge“.
+- [x] Prozessliste kennt zusätzlich `SCHIFFSBAU`, `REPARATUR`, `UMRUESTUNG` (Anzeige „Schiffsbau“, „Reparatur“, „Umrüstung“) mit Schiffs-/Klassenname, Kolonie und Fortschritt bzw. Fertigstellungszeit; Daten aus den aktiven Werftqueues des Spielers (ein Endpunkt, keine Abfrage je Kolonie).
+- [x] Layout ab `xl`: links Inhalt, rechts eine Spalte von ca. 350 px mit Kolonielimits, Crewlimit, zufälligem Online-Spieler und Prozessen; darunter wie bisher; mobil einspaltig.
+- [x] Boxen im Maindesk-Standard (Abschnitt 3.3), Datum über `formatDateTime`.
+- [x] Backend-Test: Werftprozesse je Modus. Frontend-Tests: HoloNet-Box mit/ohne neue Beiträge, Prozessarten, Layoutklassen.
 
 ## Comments
+
+- Maindesk loads checkpoint-based HoloNet counts and active shipyard queues through single endpoints, renders all process modes, and keeps limits plus processes in a 350 px `xl` sidebar. Tests cover all queue modes and HoloNet empty/non-empty states; no follow-up gaps found.

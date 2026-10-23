@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '../stores/auth.store';
 import { PageHeader } from '../components/PageHeader';
+import { formatDateTime } from '../lib/format';
 import type {
   DashboardData,
   ActiveResearch,
@@ -55,6 +56,8 @@ export function DashboardPage() {
       distressSignals,
       recentEvents,
       forumTopics,
+      holonetNewCount,
+      shipyardProcesses,
     ] = await Promise.all([
       api.get<
         Array<{
@@ -162,6 +165,20 @@ export function DashboardPage() {
         .get<NonNullable<DashboardData['forumTopics']>>(
           '/dashboard/forum-topics',
         )
+        .catch(() => []),
+      api.get<number>('/holonet/new-count').catch(() => 0),
+      api
+        .get<
+          Array<{
+            id: number;
+            mode: 'BUILD' | 'REPAIR' | 'RETROFIT';
+            label: string;
+            colonyId: number;
+            colonyName: string;
+            finishesAt: string;
+            paused: boolean;
+          }>
+        >('/dashboard/shipyard-processes')
         .catch(() => []),
     ]);
 
@@ -383,6 +400,18 @@ export function DashboardPage() {
         progress: job.progress,
         linkTo: `/colonies?selected=${job.colonyId}`,
       })),
+      ...shipyardProcesses.map((process) => ({
+        id: `shipyard-${process.id}`,
+        kind:
+          process.mode === 'BUILD'
+            ? ('SCHIFFSBAU' as const)
+            : process.mode === 'REPAIR'
+              ? ('REPARATUR' as const)
+              : ('UMRUESTUNG' as const),
+        label: process.label,
+        detail: `${process.colonyName} · ${process.paused ? 'Angehalten' : formatDateTime(process.finishesAt)}`,
+        linkTo: `/colonies?selected=${process.colonyId}`,
+      })),
     ];
 
     setData({
@@ -393,6 +422,7 @@ export function DashboardPage() {
       holonetPosts: (holonetData?.data ?? [])
         .filter((post) => post.isUnread)
         .slice(0, 5),
+      holonetNewCount,
       colonizationLimits: colonizationData,
       crewInfo,
       onlinePlayers: withSelf(onlineData),
@@ -434,18 +464,20 @@ export function DashboardPage() {
   return (
     <div className="space-y-3 p-2 sm:p-4">
       <PageHeader segments={[{ label: 'Maindesk' }]} />
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
-        <DashboardColonies data={data} />
-        <DashboardLimits data={data} />
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_350px] xl:items-start">
+        <div className="space-y-3">
+          <DashboardColonies data={data} />
+          <DashboardAttention data={data} />
+          <DashboardFleet data={data} />
+          <DashboardMessages data={data} />
+          <DashboardForum data={data} />
+          <RecentEvents data={data} />
+        </div>
+        <aside className="space-y-3">
+          <DashboardLimits data={data} />
+          <DashboardProcesses data={data} />
+        </aside>
       </div>
-      <DashboardAttention data={data} />
-      <div className="grid gap-3 lg:grid-cols-2">
-        <DashboardFleet data={data} />
-        <DashboardProcesses data={data} />
-      </div>
-      <DashboardMessages data={data} />
-      <DashboardForum data={data} />
-      <RecentEvents data={data} />
     </div>
   );
 }

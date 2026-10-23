@@ -16,6 +16,18 @@ jest.mock('../research/entities/research.entity', () => ({
   Research: class Research {},
   ResearchStatus: { IN_PROGRESS: 'IN_PROGRESS' },
 }));
+jest.mock('../colony/entities/colony-ship-build-queue.entity', () => ({
+  ColonyShipBuildQueue: class ColonyShipBuildQueue {},
+  ColonyShipBuildQueueMode: {
+    BUILD: 'BUILD',
+    REPAIR: 'REPAIR',
+    RETROFIT: 'RETROFIT',
+  },
+  ColonyShipBuildQueueStatus: {
+    QUEUED: 'QUEUED',
+    PAUSED: 'PAUSED',
+  },
+}));
 
 jest.mock('../alliance/alliance.service', () => ({
   AllianceService: class AllianceService {},
@@ -86,6 +98,7 @@ describe('DashboardService header', () => {
           productionDelta: new Map([[4, 6]]),
         })),
       } as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({
@@ -144,10 +157,67 @@ describe('DashboardService header', () => {
       allianceService as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({ alliance });
     expect(allianceService.getRef).toHaveBeenCalledWith(4);
+  });
+});
+
+describe('DashboardService shipyard processes', () => {
+  it('returns active build, repair, and retrofit queues for the player', async () => {
+    const queueRepo = {
+      find: jest.fn(async () => [
+        {
+          id: 1,
+          mode: 'BUILD',
+          name: 'Phoenix',
+          finishesAt: new Date('2026-10-24T12:00:00.000Z'),
+          stoppedAt: null,
+          colony: { id: 7, name: 'Yavin' },
+          shipClass: { name: 'CR90-Korvette' },
+          spacecraft: null,
+        },
+        {
+          id: 2,
+          mode: 'REPAIR',
+          name: 'Renegade',
+          finishesAt: new Date('2026-10-24T13:00:00.000Z'),
+          stoppedAt: null,
+          colony: { id: 7, name: 'Yavin' },
+          shipClass: { name: 'X-Flügler' },
+          spacecraft: { name: 'Renegade' },
+        },
+        {
+          id: 3,
+          mode: 'RETROFIT',
+          name: 'Hope',
+          finishesAt: new Date('2026-10-24T14:00:00.000Z'),
+          stoppedAt: new Date('2026-10-23T14:00:00.000Z'),
+          colony: { id: 8, name: 'Hoth' },
+          shipClass: { name: 'Nebulon-B' },
+          spacecraft: { name: 'Hope' },
+        },
+      ]),
+    };
+    const service = new DashboardService(
+      ...(Array(12).fill({}) as [never, never, never, never, never, never, never, never, never, never, never, never]),
+      queueRepo as never,
+    );
+
+    await expect(service.getShipyardProcesses(4)).resolves.toEqual([
+      expect.objectContaining({ mode: 'BUILD', label: 'CR90-Korvette', colonyName: 'Yavin' }),
+      expect.objectContaining({ mode: 'REPAIR', label: 'Renegade', colonyName: 'Yavin' }),
+      expect.objectContaining({ mode: 'RETROFIT', label: 'Hope', colonyName: 'Hoth', paused: true }),
+    ]);
+    expect(queueRepo.find).toHaveBeenCalledWith(expect.objectContaining({
+      where: [
+        expect.objectContaining({ userId: 4, status: 'QUEUED' }),
+        expect.objectContaining({ userId: 4, status: 'PAUSED' }),
+      ],
+      relations: { colony: true, shipClass: true, spacecraft: true },
+    }));
   });
 });
 
@@ -168,6 +238,7 @@ describe('DashboardService forum topics', () => {
     const service = new DashboardService(
       ...(Array(10).fill({}) as [never, never, never, never, never, never, never, never, never, never]),
       forum as never,
+      {} as never,
       {} as never,
     );
     await expect(service.getForumTopics(4)).resolves.toEqual(topics);

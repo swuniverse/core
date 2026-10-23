@@ -20,6 +20,10 @@ import type {
 import { AllianceService } from '../alliance/alliance.service';
 import { ForumService } from '../alliance/forum.service';
 import { ColonyStatsService } from '../colony/colony-stats.service';
+import {
+  ColonyShipBuildQueue,
+  ColonyShipBuildQueueStatus,
+} from '../colony/entities/colony-ship-build-queue.entity';
 
 @Injectable()
 export class DashboardService {
@@ -41,6 +45,8 @@ export class DashboardService {
     private readonly allianceService: AllianceService,
     private readonly forumService: ForumService,
     private readonly colonyStatsService: ColonyStatsService,
+    @InjectRepository(ColonyShipBuildQueue)
+    private readonly shipyardQueueRepo: Repository<ColonyShipBuildQueue>,
   ) {}
 
   /** Latest forum topics of the player's alliance; empty without membership. */
@@ -155,6 +161,27 @@ export class DashboardService {
       holonetPostCount,
     });
     return this.snapshotRepo.save(snapshot);
+  }
+
+  async getShipyardProcesses(userId: number) {
+    const queues = await this.shipyardQueueRepo.find({
+      where: [
+        { userId, status: ColonyShipBuildQueueStatus.QUEUED },
+        { userId, status: ColonyShipBuildQueueStatus.PAUSED },
+      ],
+      relations: { colony: true, shipClass: true, spacecraft: true },
+      order: { finishesAt: 'ASC', id: 'ASC' },
+    });
+
+    return queues.map((queue) => ({
+      id: queue.id,
+      mode: queue.mode,
+      label: queue.spacecraft?.name ?? queue.shipClass.name,
+      colonyId: queue.colonyId,
+      colonyName: queue.colony.name,
+      finishesAt: queue.finishesAt.toISOString(),
+      paused: queue.stoppedAt !== null,
+    }));
   }
 
   async getOperations(userId: number) {

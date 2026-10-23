@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
+import { formatDateTime } from '../../lib/format';
 import type { DashboardData } from './types';
 
 export function RecentEvents({ data }: { data: DashboardData }) {
@@ -56,7 +57,12 @@ export function DashboardMessages({ data }: { data: DashboardData }) {
   return (
     <section className="border border-swu-border bg-swu-surface/70">
       <header className="flex justify-between border-b border-swu-border px-3 py-1.5 text-xs font-bold text-swu-primary">
-        <span>Neue HoloNet-Beiträge ({posts.length})</span>
+        <Link
+          to={posts[0] ? `/holonet/${posts[0].id}` : '/holonet'}
+          className="hover:text-swu-accent"
+        >
+          Neue HoloNet-Beiträge ({data.holonetNewCount})
+        </Link>
         <Link to="/holonet" className="text-swu-muted hover:text-swu-accent">
           HoloNet →
         </Link>
@@ -75,7 +81,7 @@ export function DashboardMessages({ data }: { data: DashboardData }) {
               </span>
               <span className="col-span-2 text-[9px] text-swu-muted">
                 von {post.author?.username ?? post.authorName ?? 'Unbekannt'} ·{' '}
-                {new Date(post.createdAt).toLocaleString('de-DE')}
+                {formatDateTime(post.createdAt)}
               </span>
             </Link>
           ))}

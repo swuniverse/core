@@ -6,10 +6,12 @@ import {
   RecentEvents,
 } from './DashboardLowerSections';
 import type { DashboardData } from './types';
+import { DashboardProcesses } from './DashboardProcesses';
 
 describe('STU-style Maindesk overview', () => {
   it('puts HoloNet posts beside colony and crew limits', () => {
     const data = {
+      holonetNewCount: 1,
       holonetPosts: [
         {
           id: 4,
@@ -66,6 +68,66 @@ describe('STU-style Maindesk overview', () => {
     expect(screen.getByTitle('Globales Crewlimit').getAttribute('src')).toBe(
       '/assets/bev/bev_free_5_1.png',
     );
+  });
+
+  it('shows the total new HoloNet count and links to the first unread post', () => {
+    const data = {
+      holonetNewCount: 12,
+      holonetPosts: [
+        {
+          id: 9,
+          title: 'Aufruf an die Flotte',
+          createdAt: '2026-10-23T12:00:00.000Z',
+          category: 'RP',
+          commentCount: 2,
+          authorName: 'Hera',
+        },
+      ],
+    } as DashboardData;
+
+    render(
+      <MemoryRouter>
+        <DashboardMessages data={data} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: 'Neue HoloNet-Beiträge (12)' }).getAttribute('href')).toBe('/holonet/9');
+    expect(screen.getByText('Aufruf an die Flotte')).toBeTruthy();
+    expect(screen.getByText(/Hera/)).toBeTruthy();
+    expect(screen.getByText(/23\.10\.2026/)).toBeTruthy();
+  });
+
+  it('explains when there are no new HoloNet posts', () => {
+    render(
+      <MemoryRouter>
+        <DashboardMessages data={{ holonetNewCount: 0, holonetPosts: [] } as unknown as DashboardData} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Neue HoloNet-Beiträge (0)')).toBeTruthy();
+    expect(screen.getByText('Keine neuen Beiträge.')).toBeTruthy();
+  });
+
+  it('renders every shipyard process kind with its ship and colony', () => {
+    const data = {
+      processes: [
+        { id: 'shipyard-1', kind: 'SCHIFFSBAU', label: 'CR90-Korvette', detail: 'Yavin · 24.10.2026, 12:00', linkTo: '/colonies?selected=7' },
+        { id: 'shipyard-2', kind: 'REPARATUR', label: 'Renegade', detail: 'Yavin · 24.10.2026, 13:00', linkTo: '/colonies?selected=7' },
+        { id: 'shipyard-3', kind: 'UMRUESTUNG', label: 'Hope', detail: 'Hoth · Angehalten', linkTo: '/colonies?selected=8' },
+      ],
+    } as DashboardData;
+
+    render(
+      <MemoryRouter>
+        <DashboardProcesses data={data} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Schiffsbau')).toBeTruthy();
+    expect(screen.getByText('Reparatur')).toBeTruthy();
+    expect(screen.getByText('Umrüstung')).toBeTruthy();
+    expect(screen.getByText('CR90-Korvette')).toBeTruthy();
+    expect(screen.getByText(/Hoth · Angehalten/)).toBeTruthy();
   });
 
   it('shows at most ten recent global events with their date, time, location, and history link', () => {

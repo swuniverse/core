@@ -147,7 +147,13 @@ export interface DistressSignal {
 
 export interface DashboardProcess {
   id: string;
-  kind: 'FORSCHUNG' | 'BAU' | 'KOLONISIERUNG';
+  kind:
+    | 'FORSCHUNG'
+    | 'BAU'
+    | 'KOLONISIERUNG'
+    | 'SCHIFFSBAU'
+    | 'REPARATUR'
+    | 'UMRUESTUNG';
   label: string;
   detail: string;
   progress?: number;
@@ -160,6 +166,7 @@ export interface DashboardData {
   buildJobs: DashboardBuildJob[];
   processes: DashboardProcess[];
   holonetPosts: HolonetPost[];
+  holonetNewCount: number;
   colonizationLimits: ColonizationStatus | null;
   crewInfo: CrewInfo | null;
   onlinePlayers: Array<{

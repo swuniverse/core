@@ -174,3 +174,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-T1b – Fünf NPC-Handelsposten werden idempotent an deterministischen kanonischen Standorten gesät – siehe Feature-Commit
 - sc-WP-FLEET-2b – Flotten-Alarmstufe mit partiellen Ergebnissen und STU-Icons umgesetzt – siehe Feature-Commit
 - sh-AP-17 – Öffentliche Seiten für Impressum, Datenschutz und Hilfe mit konfigurierbaren Links umgesetzt – siehe Feature-Commit
+- sh-AP-18 – Maindesk zeigt neue HoloNet-Beiträge, Werftprozesse und eine durchgehende rechte Spalte – siehe Feature-Commit

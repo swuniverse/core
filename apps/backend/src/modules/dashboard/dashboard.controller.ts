@@ -19,6 +19,11 @@ export class DashboardController {
     return this.dashboardService.getHeader(req.user.sub);
   }
 
+  @Get('shipyard-processes')
+  getShipyardProcesses(@Request() req: { user: { sub: number } }) {
+    return this.dashboardService.getShipyardProcesses(req.user.sub);
+  }
+
   @Get('forum-topics')
   getForumTopics(@Request() req: { user: { sub: number } }) {
     return this.dashboardService.getForumTopics(req.user.sub);

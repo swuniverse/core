@@ -12,6 +12,7 @@ import { Message } from '../messaging/entities/message.entity';
 import { Research } from '../research/entities/research.entity';
 import { AllianceModule } from '../alliance/alliance.module';
 import { ColonyModule } from '../colony/colony.module';
+import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ColonyModule } from '../colony/colony.module';
       HolonetPost,
       Message,
       Research,
+      ColonyShipBuildQueue,
     ]),
     WebsocketModule,
     AllianceModule,
