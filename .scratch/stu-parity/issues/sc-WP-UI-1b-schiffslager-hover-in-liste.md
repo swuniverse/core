@@ -1,6 +1,6 @@
 # Lager-Hover am Schiffbild in der Schiffsliste
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-UI-1a, sh-AP-11
@@ -30,3 +30,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-23: Umsetzung und fokussierter Frontend-Test sind grün; Build ist grün. Der vorgeschriebene Gesamt-Testlauf scheitert nach zwei Versuchen reproduzierbar an dem unabhängigen bestehenden Test `apps/frontend/src/pages/research.spec.tsx:648` (Button `/eine von/` fehlt). Produktcode gemäß Abbruchregel verworfen; bitte den Forschungs-Test/Stand reparieren oder bestätigen, dass dieser externe Fehler für den Abschluss ignoriert werden darf.
