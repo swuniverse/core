@@ -1,6 +1,6 @@
 # Lesebestätigung im Postausgang
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -32,3 +32,5 @@ Abgrenzung: sh-AP-16 nennt `show_pm_read_receipt` als eine der wirksam zu machen
 - [ ] Frontend-Test: Postausgang rendert das Icon nur bei `readReceipt: true`.
 
 ## Comments
+
+- 2026-10-23: Umsetzung und die neuen fokussierten Tests sind grün (12/13 Messaging-HTTP-Integrationstests; der bestehende Auth-Test bleibt unabhängig mit 500 statt 401 rot). Die Pflichtvalidierung kann nach zwei ernsthaften Läufen nicht grün werden: `backend:test` scheitert reproduzierbar im unveränderten `spacecraft-destruction.service.spec.ts`, weil der Test Commodity `10101` erwartet, die Implementierung aber `10201` speichert. `backend:test-integration` scheitert zusätzlich im bestehenden anonymen Folder-Test mit 500 statt 401. Produktänderungen werden gemäß Ralph-Abbruchregel zurückgenommen; bitte die beiden Baseline-Fehler klären.
