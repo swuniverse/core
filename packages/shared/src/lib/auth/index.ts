@@ -1,3 +1,18 @@
+export const VACATION_DELAY_MS = 48 * 60 * 60 * 1000;
+
+export interface VacationState {
+  vacationMode: boolean;
+  vacationStartedAt: Date | string | null;
+}
+
+export function isVacationEffective(
+  user: VacationState,
+  now: Date = new Date(),
+): boolean {
+  if (!user.vacationMode || !user.vacationStartedAt) return false;
+  return now.getTime() - new Date(user.vacationStartedAt).getTime() > VACATION_DELAY_MS;
+}
+
 export interface RegisterDto {
   username: string;
   email: string;
@@ -32,6 +47,7 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: UserProfile;
+  vacationEnded?: boolean;
 }
 
 export interface UserProfile {

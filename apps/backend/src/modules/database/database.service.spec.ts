@@ -231,6 +231,8 @@ describe('DatabaseService settlers', () => {
       refreshToken: 'token',
       email: 'vader@example.test',
       notes: 'private',
+      vacationMode: true,
+      vacationStartedAt: new Date(Date.now() - 48 * 60 * 60 * 1000 - 1),
     });
     factionService.findAll.mockResolvedValue([{ id: 10, name: 'Imperium' }]);
     colonyRepo.count.mockResolvedValue(1);
@@ -254,6 +256,7 @@ describe('DatabaseService settlers', () => {
       onboardingCompleted: true,
       isAdmin: false,
       createdAt,
+      onVacation: true,
       alliance: null,
       awards: [],
     });

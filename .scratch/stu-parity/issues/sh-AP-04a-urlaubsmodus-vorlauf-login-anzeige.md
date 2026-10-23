@@ -1,6 +1,6 @@
 # Urlaubsmodus: 48-h-Vorlauf, Login beendet Urlaub, Anzeige
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -29,11 +29,13 @@ Die 7-Tage-Sperrfrist bleibt in diesem Issue unverändert (SWU: ab Urlaubsende);
 
 ## Akzeptanzkriterien
 
-- [ ] `isVacationEffective` ist genau dann wahr, wenn `vacationMode` aktiv ist und `vacationStartedAt` mehr als 48 h zurückliegt; Unit-Tests für Grenzwerte.
-- [ ] `POST /user/vacation/activate` löscht nach Erfolg das gespeicherte Refresh-Token; das Frontend meldet den Spieler danach ab und zeigt auf dem Login den Hinweis „Urlaubsmodus aktiviert. Er wird in 48 Stunden wirksam.“
-- [ ] Ein erfolgreicher Login beendet einen aktiven Urlaub (`vacationMode=false`, `vacationEndedAt=now`) und meldet das dem Client (Feld im Login-Response, Toast „Urlaubsmodus beendet“).
-- [ ] Profil und Spielerlisten zeigen bei wirksamem Urlaub den Zusatz „(Urlaub)“ in `text-swu-warning` neben dem Namen; DTOs liefern dazu `onVacation: boolean` (nur der wirksame Zustand, kein Zeitstempel).
-- [ ] Der Einstellungsabschnitt erklärt Vorlauf und Wirkung und zeigt „wirksam ab <Datum>“.
-- [ ] Backend-Tests: Aktivierung invalidiert Refresh-Token, Login beendet Urlaub, DTO-Flag nur nach 48 h. Frontend-Tests: Logout nach Aktivierung, Namenszusatz im Profil.
+- [x] `isVacationEffective` ist genau dann wahr, wenn `vacationMode` aktiv ist und `vacationStartedAt` mehr als 48 h zurückliegt; Unit-Tests für Grenzwerte.
+- [x] `POST /user/vacation/activate` löscht nach Erfolg das gespeicherte Refresh-Token; das Frontend meldet den Spieler danach ab und zeigt auf dem Login den Hinweis „Urlaubsmodus aktiviert. Er wird in 48 Stunden wirksam.“
+- [x] Ein erfolgreicher Login beendet einen aktiven Urlaub (`vacationMode=false`, `vacationEndedAt=now`) und meldet das dem Client (Feld im Login-Response, Toast „Urlaubsmodus beendet“).
+- [x] Profil und Spielerlisten zeigen bei wirksamem Urlaub den Zusatz „(Urlaub)“ in `text-swu-warning` neben dem Namen; DTOs liefern dazu `onVacation: boolean` (nur der wirksame Zustand, kein Zeitstempel).
+- [x] Der Einstellungsabschnitt erklärt Vorlauf und Wirkung und zeigt „wirksam ab <Datum>“.
+- [x] Backend-Tests: Aktivierung invalidiert Refresh-Token, Login beendet Urlaub, DTO-Flag nur nach 48 h. Frontend-Tests: Logout nach Aktivierung, Namenszusatz im Profil.
 
 ## Comments
+
+- 2026-10-23: 48-h-Vorlauf zentral in `packages/shared` ergänzt; Aktivierung invalidiert die Sitzung und führt zum Login-Hinweis, Login beendet Urlaub, und Datenbankliste sowie Profil kennzeichnen wirksamen Urlaub. Einstellungen erklären Vorlauf und Wirksamkeitszeitpunkt. Schutz- und Tickwirkungen bleiben in sh-AP-04b/c.

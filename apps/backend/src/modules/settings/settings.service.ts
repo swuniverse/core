@@ -182,6 +182,7 @@ export class SettingsService {
 
     user.vacationMode = true;
     user.vacationStartedAt = new Date();
+    user.refreshToken = null;
     await this.userRepo.save(user);
   }
 

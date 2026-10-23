@@ -19,6 +19,9 @@ function setup(checks: AccountAccessCheck[] = []) {
       isNpc: false,
       permissions: [],
       createdAt: new Date('2026-01-01T00:00:00Z'),
+      vacationMode: false,
+      vacationStartedAt: null as Date | null,
+      vacationEndedAt: null as Date | null,
     },
     {
       id: 7,
@@ -34,6 +37,9 @@ function setup(checks: AccountAccessCheck[] = []) {
       isNpc: false,
       permissions: [],
       createdAt: new Date('2026-01-01T00:00:00Z'),
+      vacationMode: false,
+      vacationStartedAt: null as Date | null,
+      vacationEndedAt: null as Date | null,
     },
   ];
   const userRepo = {
@@ -109,6 +115,18 @@ describe('auth session behavior', () => {
 
     await service.logout(42);
     await expect(service.refresh('refresh-42')).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('ends active vacation mode on successful login and reports it', async () => {
+    const { service, users } = setup();
+    users[0].vacationMode = true;
+    users[0].vacationStartedAt = new Date('2026-10-20T00:00:00Z');
+
+    await expect(
+      service.login({ username: 'Leia', password: 'secret' }),
+    ).resolves.toMatchObject({ vacationEnded: true });
+    expect(users[0].vacationMode).toBe(false);
+    expect(users[0].vacationEndedAt).toBeInstanceOf(Date);
   });
 
   it('runs registered account access checks before game access for login and refresh', async () => {

@@ -296,7 +296,19 @@ export class AuthService {
 
     await this.assertAccountAccess(user);
     await this.assertGameAccess(user);
-    return this.generateTokens(user);
+    const vacationEnded = user.vacationMode;
+    if (vacationEnded) {
+      user.vacationMode = false;
+      user.vacationEndedAt = new Date();
+    }
+    const response = await this.generateTokens(user);
+    if (vacationEnded) {
+      await this.userRepo.update(user.id, {
+        vacationMode: false,
+        vacationEndedAt: user.vacationEndedAt,
+      });
+    }
+    return { ...response, vacationEnded };
   }
 
   async refresh(refreshToken: string): Promise<AuthResponse> {

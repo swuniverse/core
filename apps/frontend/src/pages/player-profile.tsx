@@ -34,6 +34,7 @@ interface PlayerProfile {
   alliance: AllianceRefDto | null;
   awards?: AwardProfileDto[];
   colonyScans?: ColonyScanProjection[];
+  onVacation: boolean;
 }
 
 const dateFormatter = new Intl.DateTimeFormat('de-DE', {
@@ -157,6 +158,9 @@ export function PlayerProfilePage() {
               >
                 {name}
               </h1>
+              {player.onVacation && (
+                <span className="text-sm font-bold text-swu-warning">(Urlaub)</span>
+              )}
               {player.isAdmin && (
                 <span className="rounded border border-swu-accent/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-swu-accent">
                   ADMIN

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { VACATION_DELAY_MS } from '@swuniverse/shared';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
 import { PlayerAvatar } from '../components/PlayerAvatar';
@@ -601,6 +603,7 @@ function DangerTab() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/auth/me').then(setProfile);
@@ -615,7 +618,9 @@ function DangerTab() {
         setVacationMsg('Kryoschlaf wird beendet');
       } else {
         await api.post('/user/vacation/activate', {});
-        setVacationMsg('Kryoschlaf aktiviert');
+        logout();
+        navigate('/login?vacation=activated');
+        return;
       }
       const updated = await api.get('/auth/me');
       setProfile(updated);
@@ -640,14 +645,17 @@ function DangerTab() {
     <div className="space-y-6 max-w-lg">
       <Section title="Kryoschlaf (Urlaubsmodus)">
         <p className="text-xs text-swu-muted mb-2">
-          Kryoschlaf pausiert alle Tick-Verarbeitung. Nach Deaktivierung gilt
-          eine 7-Tage-Abklingzeit bevor erneute Aktivierung möglich ist.
+          Der Urlaubsmodus wird 48 Stunden nach der Aktivierung wirksam. Ab dann
+          pausiert die Tick-Verarbeitung; ein Login beendet den Urlaub. Nach
+          Deaktivierung gilt eine 7-Tage-Abklingzeit.
         </p>
         {profile?.vacationMode && (
           <p className="text-sm text-swu-warning mb-2">
-            Kryoschlaf aktiv seit:{' '}
+            Wirksam ab{' '}
             {profile.vacationStartedAt
-              ? new Date(profile.vacationStartedAt).toLocaleDateString('de-DE')
+              ? new Date(
+                  new Date(profile.vacationStartedAt).getTime() + VACATION_DELAY_MS,
+                ).toLocaleString('de-DE')
               : '—'}
           </p>
         )}

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { isVacationEffective } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
 import { Colony } from '../colony/entities/colony.entity';
@@ -292,6 +293,7 @@ export class DatabaseService {
       onboardingCompleted: user.onboardingCompleted,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
+      onVacation: isVacationEffective(user),
     };
   }
 

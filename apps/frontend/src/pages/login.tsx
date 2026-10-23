@@ -160,6 +160,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
   const maintenanceMessage = searchParams.get('maintenance');
+  const vacationActivated = searchParams.get('vacation') === 'activated';
 
   const scrollTo = (id: string) =>
     document
@@ -197,7 +198,9 @@ export function LoginPage() {
         password,
       });
       setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/onboarding');
+      navigate('/onboarding', {
+        state: res.vacationEnded ? { toast: 'Urlaubsmodus beendet' } : undefined,
+      });
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen',
@@ -569,6 +572,11 @@ export function LoginPage() {
           </button>
           <p className="swu-eyebrow">Commander Login</p>
           <h2>Zurück auf die Brücke</h2>
+          {vacationActivated && (
+            <div className="mb-3 text-sm text-swu-warning" role="status">
+              Urlaubsmodus aktiviert. Er wird in 48 Stunden wirksam.
+            </div>
+          )}
           {error && (
             <div className="auth-error" role="alert">
               {error}

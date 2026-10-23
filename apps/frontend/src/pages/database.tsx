@@ -49,6 +49,7 @@ type Settler = {
   colonies: number;
   ships: number;
   completedResearch: number;
+  onVacation: boolean;
 };
 type Ranking = { userId: number; username: string; score: string | number };
 type RankingDetail = {
@@ -922,6 +923,9 @@ function Settlers({ data }: { data: Settler[] }) {
           className="text-swu-primary hover:text-swu-accent"
         >
           {row.displayName || row.username}
+          {row.onVacation && (
+            <span className="ml-1 text-swu-warning">(Urlaub)</span>
+          )}
         </Link>,
         row.factionName,
         row.prestige,

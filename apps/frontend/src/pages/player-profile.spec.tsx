@@ -51,6 +51,7 @@ describe('PlayerProfilePage', () => {
           isAdmin: false,
           createdAt: '2026-08-04T00:00:00.000Z',
           alliance: null,
+          onVacation: true,
         });
       }
       if (url.startsWith('/alliances/settlers/1/diplomacy')) {
@@ -68,6 +69,7 @@ describe('PlayerProfilePage', () => {
     const { container } = renderProfile();
 
     expect(await screen.findByRole('heading', { name: 'Vader' })).toBeTruthy();
+    expect(screen.getByText('(Urlaub)').className).toContain('text-swu-warning');
     expect(screen.getByText('Imperium')).toBeTruthy();
     expect(screen.getByText('10')).toBeTruthy();
     expect(screen.getByText('1')).toBeTruthy();
