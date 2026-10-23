@@ -5,6 +5,10 @@
 **Size:** S
 **Blocked by:** sh-AP-14a
 
+## Abgrenzung
+
+Dieses Issue ändert nur Produktionscode und Tests im Core-Repository, nachdem sh-AP-14a aufgelöst ist. Es erzeugt, kopiert oder verändert keine Asset-Datei und keinen Submodul-Zeiger.
+
 ## Ziel
 
 Sidebar und mobile Bottom-Nav nutzen statt eigener SVGs bzw. Unicode-Glyphen die Navigations-Icons aus `assets/navigation/` mit STU-typischem Hover-Tausch (`…0.png` / `…1.png`). Damit gilt die Asset-Konvention aus Abschnitt 3.6 der UI-Konventionen auch für die Navigation.

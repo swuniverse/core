@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** sc-WP-ENG-2
+**Blocked by:** sc-WP-ENG-2c
 
 ## Ziel
 
@@ -24,7 +24,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Akzeptanzkriterien
 
 - [ ] `POST :id/nearby/:targetId/eps-transfer` mit Menge; Regeln wie STU (Quell-EPS abzüglich Transferkosten, Ziel-EPS bis Maximum, Kürzung mit Meldung „X von Y“).
-- [ ] Erlaubnis über den Dienst aus sc-WP-ENG-2 inkl. Haltungsprüfung für fremde Ziele.
+- [ ] Erlaubnis über den Dienst aus sc-WP-ENG-2c inkl. Haltungsprüfung für fremde Ziele.
 - [ ] Fremder Empfänger erhält eine Systemnachricht.
 - [ ] NBS-Liste zeigt das STU-Icon (`e_trans2.png`) und öffnet einen Mengendialog.
 - [ ] Backend-Tests (Erfolg, Kürzung, Ablehnung), Frontend-Test.

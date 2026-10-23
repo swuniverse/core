@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** sc-WP-ENG-2
+**Blocked by:** sc-WP-ENG-2e
 
 ## Ziel
 
@@ -25,7 +25,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - `apps/backend/src/modules/spacecraft/spacecraft-runtime-state.service.ts` (`getRuntimeSystemsForModule`)
 - `apps/backend/src/modules/spacecraft/entities/spacecraft.entity.ts` (Referenz auf gezogenes Schiff), Migration
 - `apps/backend/src/modules/spacecraft/spacecraft.service.ts` (Flugpfade, `getNearby`), `spacecraft-destruction.service.ts`
-- Interaktions-Checks aus sc-WP-ENG-2
+- Interaktions-Checks aus sc-WP-ENG-2e
 - `apps/frontend/src/components/spacecraft/NearbySensorPanel.tsx`, `ShipControlCenter.tsx`
 
 ## Akzeptanzkriterien
@@ -35,7 +35,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] Beim Flug des Ziehenden fliegt das gezogene Schiff mit; zusätzliche EPS-Kosten je Feld wie STU; reicht die Energie nicht, reißt der Strahl mit Meldung ab.
 - [ ] Ein gezogenes Schiff kann nicht selbst fliegen (Pre-Flight „blockiert“).
 - [ ] Zerstörung eines Beteiligten löst den Strahl.
-- [ ] Der Interaktions-Check `Quelle nicht gezogen` ist im Dienst aus sc-WP-ENG-2 aktiv.
+- [ ] Der Interaktions-Check `Quelle nicht gezogen` ist im Dienst aus sc-WP-ENG-2e aktiv.
 - [ ] Backend-Tests: Aktivieren, Mitfliegen, Abriss bei EPS-Mangel, Blockade des Gezogenen, Bereinigung bei Zerstörung; Frontend-Test für NBS-Aktion.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 

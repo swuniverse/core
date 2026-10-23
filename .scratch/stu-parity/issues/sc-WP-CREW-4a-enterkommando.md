@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P3
 **Size:** M
-**Blocked by:** sc-WP-CREW-1, sc-WP-ENG-2
+**Blocked by:** sc-WP-CREW-1, sc-WP-ENG-2c
 
 ## Ziel
 

@@ -1,6 +1,6 @@
 # Geschützten Systemdetailvertrag wiederherstellen
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -20,6 +20,10 @@ Der persönlich entdeckte und erfolgreich kartographierte Datenbank-Systemeintra
 - `apps/frontend/src/pages/database.tsx`
 - `apps/frontend/src/components/database/SystemRasterMap.tsx`
 - `apps/frontend/src/components/database/ColonyScans.tsx`
+
+## Klarstellung
+
+„Sternkartenlink“ meint die strategische Karte an den Außenkoordinaten. Der Systemdetail-Kontext bleibt eine nicht-taktische Datenbankansicht; Kartenposition und Detailkontext werden nicht vermischt.
 
 ## Akzeptanzkriterien
 

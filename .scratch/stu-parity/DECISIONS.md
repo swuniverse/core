@@ -236,6 +236,12 @@ Abkürzung: **„alle Empfehlungen übernehmen“** ist eine gültige Gesamtantw
 - **Empfehlung:** (b), weil SWU das Design gerade über Tokens vereinheitlicht (sh-AP-13) und Schemata jede UI-Arbeit vervielfachen.
 - **Antwort:** a
 
+### P1 · Tracker-/Architekturentscheidungen vom 2026-10-23
+- **sc-WP-ENG-2:** aufgeteilt in 2a–2e; hybride reine Policy plus dünner NestJS-Loader; strukturiert `{ allowed, reason }`; Meldungen bleiben erhalten.
+- **tmw-T1:** aufgeteilt in T1a–T1d; Netze 1/2/3, Level 1, Lager 10000, Transfer 200; deterministische kanonische Standorte und festgelegte Namen; unbekannte Posten mit `location: null`; Lizenz-Alpha-Default in T2: 10 Aurodium/30 Tage.
+- **tmw-D0a/b:** Map und Datenbank-Kontext getrennt; Crew-XP gehört CREW-2; anderes eigenes geeignetes Schiff darf MEASURED gegen erneut 15 EPS fortsetzen.
+- **sh-AP-14a/b:** Assets bleiben separate menschliche Arbeit; 14a wird noch nicht aufgelöst, 14b berührt keine Assets.
+
 ### P3 · [Notizen als Notizsammlung](issues/soc-F5-notizsammlung.md)
 - **Frage:** Soll der Einzelzettel durch eine Notizsammlung ersetzt werden?
 - **Empfehlung:** (a), weil die Migration verlustfrei ist und mehrere Notizen für Koordinaten, Handelslisten und RPG den STU-Gebrauch abbilden.

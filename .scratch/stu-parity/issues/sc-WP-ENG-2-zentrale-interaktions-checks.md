@@ -1,8 +1,8 @@
 # Zentrale Interaktions-Checks für Feld-Interaktionen
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P1
-**Size:** M
+**Size:** S
 **Blocked by:** —
 
 ## Ziel
@@ -35,4 +35,8 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Comments
 
-- Abbruch am 2026-10-22: Der Querschnitt ist mit den aktuellen Service-Konstruktoren und direkten Unit-Test-Instanziierungen nicht in einem Durchlauf sicher integrierbar. Zwei ernsthafte TDD-Versuche führten zu breiten Testausfällen (fehlende neue Konstruktor-Abhängigkeiten in Combat/Transfer/Communication sowie Entity-Zyklusfehler beim Import des zentralen Dienstes). Benötigte Produktentscheidung: Soll der zentrale Check als provider-basierter Dienst mit Anpassung aller bestehenden Test-Fixtures eingeführt werden, oder als injektionsfreie Policy/Funktionen, die Repositories/Resolver-Daten vom jeweiligen Adapter erhalten? Das Issue sollte danach in kleinere Integrationsschritte (Policy, Transfer, Combat, Scan/NBS, Kommunikation/Abfangen/Bergung) geteilt werden.
+- Abbruch am 2026-10-22: Der Querschnitt ist mit den aktuellen Service-Konstruktoren und direkten Unit-Test-Instanziierungen nicht in einem Durchlauf sicher integrierbar. Zwei ernsthafte TDD-Versuche führten zu breiten Testausfällen (fehlende neue Konstruktor-Abhängigkeiten in Combat/Transfer/Communication sowie Entity-Zyklusfehler beim Import des zentralen Dienstes).
+
+## Answer
+
+Am 2026-10-23 durch sc-WP-ENG-2a bis 2e geteilt. Verbindlich ist eine hybride Architektur: injektionsfreie reine Policy mit strukturiertem Ergebnis `{ allowed, reason }`; bestehende deutsche Meldungen bleiben unverändert. Ein dünner NestJS-Loader lädt nur benötigten Laufzeitkontext.

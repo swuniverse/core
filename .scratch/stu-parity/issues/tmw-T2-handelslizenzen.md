@@ -3,7 +3,11 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-T1
+**Blocked by:** tmw-T1a
+
+## Verbindlicher Alpha-Default
+
+Die NPC-Lizenz kostet 10 Aurodium und gilt 30 Tage. Lizenzbedingungen und -entitäten gehören vollständig in dieses Issue, nicht in tmw-T1a.
 
 ## Ziel
 
@@ -19,7 +23,7 @@ Handel an einem Posten setzt eine gültige Lizenz voraus. Der Eigentümer legt d
 
 ## SWU-Pfade
 
-- Modul `apps/backend/src/modules/trade/` aus tmw-T1
+- Modul `apps/backend/src/modules/trade/` aus tmw-T1a
 - `apps/backend/src/modules/spacecraft/transfer.service.ts`, `entities/cargo-item.entity.ts` (Zahlung aus dem Frachtraum)
 - `apps/backend/src/modules/messaging/messaging.service.ts` (Ordner `TRADE`)
 - Wartung: sh-AP-07 (falls vorhanden), sonst eigener täglicher Cron in `apps/backend/src/modules/tick/`

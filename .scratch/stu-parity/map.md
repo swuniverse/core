@@ -108,6 +108,11 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-22 – tmw-W1 – Hutten-Kartell betreibt Deals, Auktionen, Lotterie und den „Hutten-Handelsposten“; Imperiales Versorgungsamt und Nachschubkommando der Rebellenallianz betreiben die fraktionseigenen Basishandelsnetze
 - 2026-10-22 – soc-G1 – SWU-Awardkatalog: Forschungs- und Datenbankmeilensteine, Ebenenerkundung, Hutten-Lotterie, Rollenspiel/Gemeinschaft sowie positive und negative Auszeichnungen von Rebellen-Oberkommando, Imperialem Oberkommando und Hutten-Kartell; bis zu eigenen Grafiken dient das Favicon als klarer Platzhalter
 
+- 2026-10-23 – sc-WP-ENG-2 – In 2a–2e geteilt: reine injektionsfreie Policy plus dünner NestJS-Kontextloader; Ergebnis `{ allowed, reason }`; bestehende deutsche Meldungen bleiben erhalten
+- 2026-10-23 – tmw-T1 – In T1a–T1d geteilt: Netze 1/2/3, Level 1, Lager 10000, Transfer 200, deterministische kanonische Standortwahl; unbekannte Posten sichtbar mit `location: null`; Lizenzen in T2 (Alpha: 10 Aurodium/30 Tage)
+- 2026-10-23 – tmw-D0a/b – Karte und Datenbank-Systemdetail bleiben getrennte Kontexte; Crew-XP gehört CREW-2; anderes geeignetes eigenes Schiff darf MEASURED mit erneut 15 EPS fortsetzen
+- 2026-10-23 – sh-AP-14a/b – Neutrale MIT-STU-Icons plus Star-Wars-neutrale Motive (Holoterminal, verbundene Flotten, Kontrollterminal, Karteneditor und Mehr) sind im Asset-Commit `5c7b0e7c31` veröffentlicht; 14a ist erledigt, 14b bleibt die getrennte Core-Navigation
+
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
@@ -150,6 +155,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-13a – Design-Tokens, Spieltabellen, Zahlenformatierung und deutsche UI-Texte vereinheitlicht – siehe Feature-Commit
 - soc-A1 – PM-Serverregeln, Ignorier-Haken und Antwortverlauf umgesetzt – siehe Feature-Commit
 - soc-D1 – HoloNet-Längenregeln, Soft-Delete, Beteiligten-Benachrichtigungen, Bewertungsbalken und Compose-Lesezeichen umgesetzt – siehe Feature-Commit
+- sc-WP-ENG-2 – Querschnitt in sc-WP-ENG-2a bis 2e aufgeteilt – Tracker-Entscheidung
+- tmw-T1 – Handelsfundament in tmw-T1a bis T1d aufgeteilt – Tracker-Entscheidung
 - tmw-D0 – Elf Systemdatenbank- und Astrometrie-Spec-Issues gegen Code, Tests und Historie abgeglichen; Restlücken als tmw-D0a/b erfasst – siehe Feature-Commit
 - tmw-D1 – Warenübersicht mit eigenen Lagerorten und erweiterbarem Quellen-Port umgesetzt – siehe Feature-Commit
 - tmw-W1 – Handels-NPC-Konten mit zentralen Ausschlüssen, Handelsnachrichten und Adminpflege umgesetzt – siehe Feature-Commit

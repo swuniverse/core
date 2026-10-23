@@ -1,6 +1,6 @@
 # Systemdetail-Verhaltenstests und Kartographiefragen schließen
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-D0a
@@ -30,9 +30,9 @@ Die geschützte Systemdetailansicht wird über die HTTP-, Service- und UI-Grenze
 - [ ] Positive und negative Schnellnachrichtenfälle sind getestet.
 - [ ] Die Fachentscheidungen zu Crew-XP bei erfolgreicher Finalisierung und Fortsetzung eines `MEASURED`-Plans durch ein anderes eigenes Schiff sind dokumentiert und getestet.
 
-## Offene Frage
+## Entscheidung
 
-Soll erfolgreiche messpunktbasierte Kartographie wie der frühere Astrometrievertrag Crew-XP vergeben? Soll ein `MEASURED`-Plan nach Abbruch der Finalisierung bewusst durch ein anderes eigenes geeignetes Schiff fortgesetzt werden dürfen?
+Crew-XP ist fachlich ausschließlich Eigentum von sc-WP-CREW-2 und wird hier weder definiert noch dupliziert. Ein `MEASURED`-Plan darf nach abgebrochener Finalisierung durch ein anderes eigenes geeignetes Schiff fortgesetzt werden; die Finalisierung benötigt dabei erneut 15 EPS.
 
 ## Comments
 

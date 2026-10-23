@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** sc-WP-ENG-2
+**Blocked by:** sc-WP-ENG-2d
 
 ## Ziel
 
@@ -31,7 +31,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] Berechtigungsregel festgelegt und in `map.md` dokumentiert; Bau/Ausrüstung bzw. Aktivierung erzwingt sie serverseitig.
 - [ ] Aktivieren schaltet Schilde, Waffen und Astrometrie-Labor ab und verhindert deren Aktivierung während der Tarnung; Alarmstufe Rot enttarnt bzw. verhindert Tarnung wie STU.
 - [ ] Getarnte fremde Schiffe fehlen in NBS-Liste, LSS-Zählung, Sternkarte und `starmap-visibility.service.ts`; eigene getarnte Schiffe bleiben für den Eigner sichtbar mit Tarn-Icon.
-- [ ] Interaktions-Checks „Quelle/Ziel ungetarnt“ im Dienst aus sc-WP-ENG-2 aktiv.
+- [ ] Interaktions-Checks „Quelle/Ziel ungetarnt“ im Dienst aus sc-WP-ENG-2d aktiv.
 - [ ] Neue Flugsignaturen tragen das Tarnflag, sofern sc-WP-NAV-2a erledigt ist.
 - [ ] Backend-Tests für Aktivierungsregeln, Sichtbarkeit (NBS, LSS, Sternkarte) und Interaktionssperre; Frontend-Test für Icon und Schalter.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.

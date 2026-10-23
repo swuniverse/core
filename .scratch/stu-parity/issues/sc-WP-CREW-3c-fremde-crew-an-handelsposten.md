@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
-**Blocked by:** sc-WP-CREW-3b, tmw-T1
+**Blocked by:** sc-WP-CREW-3b, tmw-T1c
 
 ## Ziel
 
@@ -18,7 +18,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## SWU-Pfade
 
-- Handelsposten-Modell aus tmw-T1
+- Handelsposten-Modell aus tmw-T1c
 - `apps/backend/src/modules/colony/entities/crew-assignment.entity.ts` (neuer Bezug Handelsposten), Migration
 - Kapsel-Bergung aus sc-WP-CREW-3b, Ansicht „Verschollene Crew“
 

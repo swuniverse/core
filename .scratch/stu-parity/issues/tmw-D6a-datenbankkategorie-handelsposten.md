@@ -3,11 +3,11 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** tmw-T1
+**Blocked by:** tmw-T1c
 
 ## Ziel
 
-Der Platzhalter „Handelsstationen – Stationsnetz wird aufgebaut“ wird zu einer POI-Liste aller Handelsposten. Sie zeigt Name, Beschreibung, Handelsnetz, Ort (Ebene, Koordinaten bzw. System) und Betreiber, wie STU `poiinfo.twig`. Spielerposten aus tmw-T12a erscheinen später automatisch.
+Der Platzhalter „Handelsstationen – Stationsnetz wird aufgebaut“ wird zu einer POI-Liste aller Handelsposten. Sie zeigt Name, Beschreibung, Handelsnetz, Ort (Ebene, Koordinaten bzw. System) und Betreiber, wie STU `poiinfo.twig`. Spielerposten aus tmw-T1c2a erscheinen später automatisch.
 
 ## STU-Quellen
 
@@ -16,7 +16,7 @@ Der Platzhalter „Handelsstationen – Stationsnetz wird aufgebaut“ wird zu e
 
 ## SWU-Pfade
 
-- Handelsmodul aus tmw-T1 (Postenentität, Lesedienst)
+- Handelsmodul aus tmw-T1c (Postenentität, Lesedienst)
 - `apps/backend/src/modules/database/database.service.ts`, `database.controller.ts`
 - `apps/frontend/src/pages/database.tsx` (Gruppe „Wichtige Orte“)
 

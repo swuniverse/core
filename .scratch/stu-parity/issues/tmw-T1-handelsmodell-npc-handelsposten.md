@@ -1,8 +1,8 @@
 # Handels-Domänenmodell, NPC-Handelsposten und Handelsseite (lesend)
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P1
-**Size:** M
+**Size:** S
 **Blocked by:** tmw-W1
 
 ## Ziel
@@ -43,4 +43,8 @@ Das Fundament des Handels: Entitäten für Handelsposten, Warenkonten (Spieler �
 
 ## Comments
 
-- 2026-10-22: Das Issue ist als Size M markiert, umfasst aber sieben persistente Entitäten samt Migration und Transaktions-/Nebenläufigkeitslogik, einen idempotenten Welt-Seed mit noch nicht festgelegten konkreten Orten und STU-Werten, drei autorisierte API-Sichten, die Registrierung als Warenortquelle sowie eine neue Frontend-Seite einschließlich Navigation und Tests. Das ist nicht sicher in einem einzelnen Ralph-Durchlauf umsetzbar. Bitte in mindestens Backend-Domänenmodell/Storage, NPC-Seed/API und Frontend/Integration teilen und die konkreten fünf NPC-Standorte sowie Lager-, Transfer- und Lizenzwerte festlegen.
+- 2026-10-22: Das Issue war für einen Durchlauf zu groß.
+
+## Answer
+
+Am 2026-10-23 durch tmw-T1a bis T1d geteilt. Defaults: Netz-IDs 1/2/3; Level 1, Lager 10000, Transfer 200; Standorte deterministisch nach kanonischer Ebenen-/Koordinatenordnung; unbekannte Posten sichtbar mit `location: null`. Lizenzmodell einschließlich Alpha-Default 10 Aurodium/30 Tage gehört tmw-T2.

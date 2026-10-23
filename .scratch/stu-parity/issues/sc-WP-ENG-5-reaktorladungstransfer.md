@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
-**Blocked by:** sc-WP-ENG-2
+**Blocked by:** sc-WP-ENG-2c
 
 ## Ziel
 
@@ -26,7 +26,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Akzeptanzkriterien
 
 - [ ] Modul, Laufzeitsystem und SW-Name existieren; Entscheidung in `map.md`.
-- [ ] Transfer an mehrere Ziele mit STU-Vorbedingungen; Prüfung über sc-WP-ENG-2.
+- [ ] Transfer an mehrere Ziele mit STU-Vorbedingungen; Prüfung über sc-WP-ENG-2c.
 - [ ] Fremde Eigner erhalten eine Systemnachricht.
 - [ ] Backend-Tests, Frontend-Test.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.

@@ -3,11 +3,11 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** sh-AP-04a, sc-WP-ENG-2
+**Blocked by:** sh-AP-04a, sc-WP-ENG-2c
 
 ## Ziel
 
-Schiffe und Kolonien wirksamer Urlauber (sh-AP-04a) können nicht angegriffen, abgefangen, blockiert oder (sobald vorhanden) per Traktorstrahl gezogen oder übernommen werden. Die Prüfung hängt sich in die zentrale Interaktionsprüfung aus sc-WP-ENG-2 ein, damit neue Aktionen den Schutz automatisch erben.
+Schiffe und Kolonien wirksamer Urlauber (sh-AP-04a) können nicht angegriffen, abgefangen, blockiert oder (sobald vorhanden) per Traktorstrahl gezogen oder übernommen werden. Die Prüfung hängt sich in die zentrale Interaktionsprüfung aus sc-WP-ENG-2c ein, damit neue Aktionen den Schutz automatisch erben.
 
 ## STU-Quellen
 
@@ -20,7 +20,7 @@ Schiffe und Kolonien wirksamer Urlauber (sh-AP-04a) können nicht angegriffen, a
 - `apps/backend/src/modules/combat/combat.service.ts#attack`, `#attackColony`
 - `apps/backend/src/modules/spacecraft/hyperdrive-disruption.service.ts#intercept`, `spacecraft.service.ts#interceptNearbyTarget`
 - `apps/backend/src/modules/colony/colony-orbit.service.ts` (Blockieren)
-- zentrale Prüfung aus sc-WP-ENG-2 (z. B. `spacecraft/transfer.service.ts#shipTransferBlockReason` bzw. deren Nachfolger)
+- zentrale Prüfung aus sc-WP-ENG-2c (z. B. `spacecraft/transfer.service.ts#shipTransferBlockReason` bzw. deren Nachfolger)
 - `packages/shared/src/lib/auth/index.ts#isVacationEffective`
 
 ## Akzeptanzkriterien
