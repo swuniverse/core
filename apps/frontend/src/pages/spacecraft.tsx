@@ -64,7 +64,9 @@ export function SpacecraftPage() {
       ),
     }));
   }, [ships]);
-  const singles = ships.filter((ship) => ship.fleetId == null);
+  const stations = ships.filter((ship) => ship.kind === 'STATION');
+  const mobileShips = ships.filter((ship) => ship.kind !== 'STATION');
+  const singles = mobileShips.filter((ship) => ship.fleetId == null);
 
   async function createFleet(event: FormEvent) {
     event.preventDefault();
@@ -146,6 +148,7 @@ export function SpacecraftPage() {
           onOpen={(id) => navigate(`/spacecraft/${id}`)}
         />
       ))}
+      <StationTable stations={stations} onOpen={(id) => navigate(`/spacecraft/${id}`)} />
       <ShipTable
         title="Einzelschiffe"
         ships={singles}
@@ -161,6 +164,41 @@ export function SpacecraftPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+const STATION_ROLES: Record<string, string> = {
+  CONSTRUCTION: 'Konstrukt',
+  DEPOT_SMALL: 'Versorgungsdepot',
+  DEPOT_LARGE: 'Logistikzentrum',
+  SHIPYARD: 'Raumwerft',
+  SENSOR: 'Sensorphalanx',
+  OUTPOST: 'Außenposten',
+  BASE: 'Raumstation',
+};
+
+function StationTable({ stations, onOpen }: { stations: SpacecraftListDto[]; onOpen: (id: number) => void }) {
+  return (
+    <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
+      <header className="border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
+        <h2 className="font-bold text-swu-primary">Stationen</h2>
+      </header>
+      <table className="w-full border-collapse text-xs">
+        <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">{['Klasse', 'Name', 'Rolle', 'Position', 'Hülle', 'Schilde', 'EPS', 'Crew', 'Andockbelegung'].map((heading) => <th key={heading} className={cell}>{heading}</th>)}</tr></thead>
+        <tbody>{stations.length === 0 ? <tr><td colSpan={9} className={`${cell} py-4 text-center text-swu-muted`}>Du besitzt derzeit keine Stationen</td></tr> : stations.map((station) => {
+          const location = station.location.scope === 'SYSTEM'
+            ? `${station.location.galaxyX ?? 0}|${station.location.galaxyY ?? 0} (${station.location.x}|${station.location.y})`
+            : `${station.location.x}|${station.location.y}`;
+          return <tr key={station.id} onClick={() => onOpen(station.id)} className="cursor-pointer hover:bg-white/5">
+            <td className={cell}>{station.shipClassName}</td><td className={`${cell} text-swu-primary`}>{station.name}</td>
+            <td className={cell}>{STATION_ROLES[station.stationRole ?? ''] ?? station.stationRole}</td><td className={numberCell}>{location}</td>
+            <td className={numberCell}><Hull current={station.hull} max={station.hullMax} /></td><td className={numberCell}>{station.shields}/{station.shieldsMax}</td>
+            <td className={numberCell}>{station.energy}/{station.energyMax}</td><td className={numberCell}>{station.crew}/{station.crewRequired}/{station.crewMax}</td>
+            <td className={numberCell} aria-label={`Andockbelegung ${station.dockedShips} von ${station.dockCapacity}`}>{station.dockedShips}/{station.dockCapacity}</td>
+          </tr>;
+        })}</tbody>
+      </table>
+    </section>
   );
 }
 

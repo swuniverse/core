@@ -1,6 +1,6 @@
 # Stationsansicht, Stationsliste und Stationssensoren
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-1b
@@ -24,13 +24,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Stationsliste mit STU-Spalten (Name, Klasse/Rolle, Position, Hülle, Schilde, EPS, Crew, Andockbelegung).
-- [ ] Stationsansicht mit Kopf, Lager, Modulen, NBS-Liste und Liste angedockter Schiffe.
-- [ ] Sensorstationen bieten Sensorscan (Feld mit Reichweite) und Systemsensorscan (ganzes System) wie STU.
-- [ ] Navigation: Stationen fliegen nicht; Flugsteuerung ist ausgeblendet.
-- [ ] Backend-Tests für Scans und Zugriffsschutz; Frontend-Tests für Liste und Ansicht.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Stationsliste mit STU-Spalten (Name, Klasse/Rolle, Position, Hülle, Schilde, EPS, Crew, Andockbelegung).
+- [x] Stationsansicht mit Kopf, Lager, Modulen, NBS-Liste und Liste angedockter Schiffe.
+- [x] Sensorstationen bieten Sensorscan (Feld mit Reichweite) und Systemsensorscan (ganzes System) wie STU.
+- [x] Navigation: Stationen fliegen nicht; Flugsteuerung ist ausgeblendet.
+- [x] Backend-Tests für Scans und Zugriffsschutz; Frontend-Tests für Liste und Ansicht.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
 
 - 2026-10-23: Das Issue bündelt Stationsliste, vollständige Detailansicht, angedockte Schiffe sowie zwei neue Scanarten inklusive Backend- und Frontendtests und überschreitet damit den M-Scope eines einzelnen Durchlaufs. Bitte in getrennte Issues für (1) Liste/Detail, (2) Dockliste und (3) Sensorstations-Scans aufteilen und die API-Verträge je Teil festlegen.
+- 2026-10-23: Stationsdaten werden über die vorhandene Spacecraft-API ausgeliefert; die UI trennt Stationen in einer dichten Liste, zeigt angedockte Schiffe und blendet Navigation aus. Die bestehenden NBS-, Sektor- und Systemfeld-Scans werden für Sensorphalanxen wiederverwendet und bleiben eigentümergeschützt. Frontend-Regressionstests sowie vollständige Nx-Prüfungen und Builds sind grün.

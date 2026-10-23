@@ -215,6 +215,10 @@ export interface SpacecraftListDto {
   shipClassId: number;
   shipClassName?: string;
   shipClassKey?: string | null;
+  kind: 'SHIP' | 'STATION';
+  stationRole: string | null;
+  dockCapacity: number;
+  dockedShips: number;
   status: string;
   specialStatus: 'IN_FLIGHT' | 'STANDBY' | 'CARTOGRAPHY_FINALIZATION' | null;
   alertState: SpacecraftAlertState;
@@ -284,6 +288,15 @@ export interface SpacecraftDetailDto {
   shipClassKey?: string | null;
   kind?: 'SHIP' | 'STATION';
   stationRole?: string | null;
+  dockCapacity?: number;
+  dockedShips?: Array<{
+    id: number;
+    name: string;
+    shipClassId: number;
+    shipClassName?: string;
+    hull: number;
+    hullMax: number;
+  }>;
   constructionTicksRemaining?: number;
   status: string;
   alertState: SpacecraftAlertState;

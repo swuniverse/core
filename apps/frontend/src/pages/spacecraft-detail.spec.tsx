@@ -114,6 +114,39 @@ describe('SpacecraftDetailPage', () => {
     expect(screen.queryByText('STU-Parität')).toBeNull();
   });
 
+  it('renders station systems and storage but hides flight controls', async () => {
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft/2') {
+        return Promise.resolve({
+          ...ship,
+          kind: 'STATION',
+          stationRole: 'SENSOR',
+          shipClassName: 'Sensorphalanx',
+          dockCapacity: 2,
+          dockedShips: [],
+        });
+      }
+      if (path === '/spacecraft/2/modules' || path === '/spacecraft/2/cargo')
+        return Promise.resolve([]);
+      if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+      if (path === '/colonies') return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(
+      <MemoryRouter initialEntries={['/spacecraft/2']}>
+        <Routes>
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Sensorphalanx')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Angedockte Schiffe' })).toBeTruthy();
+    expect(screen.getByText('Keine Schiffe angedockt')).toBeTruthy();
+    expect(screen.getByText(/Lagerraum 0\/20/)).toBeTruthy();
+    expect(screen.queryByText('Navigation')).toBeNull();
+  });
+
   it('uses canonical galaxy location coordinates in the ship header', async () => {
     apiMocks.get.mockImplementation((path: string) => {
       if (path === '/spacecraft/2') {

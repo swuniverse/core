@@ -290,12 +290,19 @@ export class SpacecraftService {
     userId: number,
   ): Promise<SpacecraftDetailDto> {
     const ship = await this.findOne(shipId, userId);
-    const [crewRoster, shipClass, sensorRange, crewRequired] =
+    const [crewRoster, shipClass, sensorRange, crewRequired, dockedShips] =
       await Promise.all([
         this.spacecraftCrewService.getAssignedCrew(ship.id),
         this.shipClassService.findById(ship.shipClassId),
         this.getSensorRange(ship),
         this.spacecraftCrewService.getRequiredCrew(ship),
+        ship.kind === 'STATION'
+          ? this.shipRepo.find({
+              where: { dockedAtId: ship.id },
+              relations: ['shipClass'],
+              order: { name: 'ASC' },
+            })
+          : Promise.resolve([]),
       ]);
     const effective = shipClass
       ? this.spacecraftStatsService.calculateStats(
@@ -317,6 +324,14 @@ export class SpacecraftService {
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(ship),
       crewRoster,
       crewRequired,
+      dockedShips: dockedShips.map((docked) => ({
+        id: docked.id,
+        name: docked.name,
+        shipClassId: docked.shipClassId,
+        shipClassName: docked.shipClass?.name,
+        hull: docked.hull,
+        hullMax: docked.hullMax,
+      })),
       effectiveStats: effective
         ? {
             hullMax: effective.hullMax,
@@ -1256,6 +1271,13 @@ export class SpacecraftService {
 
     return {
       ...summary,
+      kind: ship.kind,
+      stationRole: ship.stationRole,
+      dockCapacity: ship.dockCapacity,
+      dockedShips:
+        ship.kind === 'STATION'
+          ? await this.shipRepo.countBy({ dockedAtId: ship.id })
+          : 0,
       location,
       layer: { id: layer.id, name: layer.name },
       crew,
@@ -1711,6 +1733,9 @@ export class SpacecraftService {
   ): Promise<Spacecraft> {
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     const ship = await this.findOne(shipId, userId);
+    if (ship.kind === 'STATION') {
+      throw new BadRequestException('Stationen können nicht fliegen');
+    }
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
@@ -1895,6 +1920,9 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    if (ship.kind === 'STATION') {
+      throw new BadRequestException('Stationen können nicht fliegen');
+    }
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
@@ -2056,6 +2084,9 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    if (ship.kind === 'STATION') {
+      throw new BadRequestException('Stationen können nicht fliegen');
+    }
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemeintritt');
@@ -2201,6 +2232,9 @@ export class SpacecraftService {
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    if (ship.kind === 'STATION') {
+      throw new BadRequestException('Stationen können nicht fliegen');
+    }
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemaustritt');

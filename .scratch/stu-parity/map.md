@@ -145,6 +145,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-STAT-0 – ADR für Stationsmodell, Stationsrollen, Docking und Allianzverträge – siehe Feature-Commit
 - sc-WP-STAT-1a – Konstruktbau mit Kosten, angedockten Workbees, Limit und Entfernung umgesetzt – siehe Feature-Commit
 - sc-WP-STAT-1b – Konstrukt-Ausbau zu fraktionsgebundenen Stationsrollen mit Kostenansicht und Tickfortschritt umgesetzt – siehe Feature-Commit
+- sc-WP-STAT-2 – Stationsliste und -detail mit Dockbelegung, gemeinsamer Spacecraft-Ausstattung, Sensoransichten und Flugschutz umgesetzt – siehe Feature-Commit
 - sc-WP-FLEET-2 – Flottenflug, Fixierung und flottenweites Abfangen – siehe Feature-Commit
 - sc-WP-FLEET-1b – Schiffsliste nach Flotten und Einzelschiffen gruppiert – siehe Feature-Commit
 - sc-WP-UI-1a – Schiffsliste mit STU-Informationsdichte und Laufzeitstatus – siehe Feature-Commit

@@ -188,6 +188,34 @@ describe('SpacecraftPage', () => {
     expect(await screen.findByText('Adler: System zerstört')).toBeTruthy();
   });
 
+  it('separates stations into a dense station list with role and dock occupancy', async () => {
+    apiMocks.get.mockResolvedValue([
+      ship,
+      {
+        ...ship,
+        id: 9,
+        name: 'Hoth-Phalanx',
+        kind: 'STATION',
+        stationRole: 'SENSOR',
+        shipClassName: 'Sensorphalanx',
+        dockCapacity: 2,
+        dockedShips: 1,
+        fleetId: null,
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Stationen' })).toBeTruthy();
+    expect(screen.getAllByText('Sensorphalanx')).toHaveLength(2);
+    expect(screen.getByLabelText('Andockbelegung 1 von 2')).toBeTruthy();
+    expect(screen.getAllByText('Hoth-Phalanx')).toHaveLength(1);
+  });
+
   it('renders the dense STU status columns and system availability', async () => {
     apiMocks.get.mockResolvedValue([ship]);
 
