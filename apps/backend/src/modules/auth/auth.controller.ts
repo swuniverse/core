@@ -18,6 +18,10 @@ import {
   ResetPasswordRequestDto,
 } from './dto/password-reset.dto';
 import { AdminGuard } from './admin.guard';
+import {
+  UpdateVerificationEmailRequestDto,
+  VerifyEmailRequestDto,
+} from './dto/email-verification.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -59,7 +63,26 @@ export class AuthController {
     return this.authService.resetPassword(dto);
   }
 
-  @RequiresGameAccess()
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyEmailRequestDto) {
+    return this.authService.verifyEmail(dto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('verification/resend')
+  resendEmailVerification(@Request() req: { user: { sub: number } }) {
+    return this.authService.resendEmailVerification(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('verification/email')
+  updateVerificationEmail(
+    @Request() req: { user: { sub: number } },
+    @Body() dto: UpdateVerificationEmailRequestDto,
+  ) {
+    return this.authService.updateVerificationEmail(req.user.sub, dto);
+  }
+
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   getProfile(@Request() req: { user: { sub: number } }) {

@@ -24,6 +24,8 @@ import { GameStatusModule } from '../game-status/game-status.module';
 import { getJwtSecret } from './jwt-secret';
 import { NpcAccountService } from './npc-account.service';
 import { SettingsModule } from '../settings/settings.module';
+import { ACCOUNT_ACCESS_CHECKS } from './account-access-check';
+import { EmailVerificationAccessCheck } from './email-verification-access-check';
 
 @Module({
   imports: [
@@ -58,6 +60,14 @@ import { SettingsModule } from '../settings/settings.module';
     AdminBootstrapService,
     NpcAccountService,
     LastActivityService,
+    EmailVerificationAccessCheck,
+    {
+      provide: ACCOUNT_ACCESS_CHECKS,
+      inject: [EmailVerificationAccessCheck],
+      useFactory: (emailVerification: EmailVerificationAccessCheck) => [
+        emailVerification,
+      ],
+    },
     { provide: APP_INTERCEPTOR, useClass: LastActivityInterceptor },
   ],
   exports: [AuthService, AccountTokenService, AdminGuard, NpcAccountService],

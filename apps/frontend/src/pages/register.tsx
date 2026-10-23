@@ -101,7 +101,7 @@ export function RegisterPage() {
         inviteKey: inviteKey.trim() || undefined,
       });
       setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/');
+      navigate(res.user.emailVerifiedAt === null ? '/verify-email' : '/');
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen',

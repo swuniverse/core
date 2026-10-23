@@ -95,13 +95,36 @@ export class MailService {
     return this.sendMail({ to, subject, text, html });
   }
 
+  sendEmailVerificationMail(
+    to: string,
+    username: string,
+    verificationUrl: string,
+  ): Promise<boolean> {
+    const subject = 'E-Mail-Adresse für Star Wars Universe bestätigen';
+    const text = [
+      `Hallo ${username},`,
+      '',
+      'über diesen Link bestätigst du deine E-Mail-Adresse:',
+      verificationUrl,
+      '',
+      'Der Link ist 72 Stunden gültig und kann nur einmal verwendet werden.',
+    ].join('\n');
+    const html = `
+      <p>Hallo ${this.escapeHtml(username)},</p>
+      <p>Über diesen Link bestätigst du deine E-Mail-Adresse:</p>
+      <p><a href="${this.escapeHtml(verificationUrl)}">E-Mail-Adresse bestätigen</a></p>
+      <p>Der Link ist 72 Stunden gültig und kann nur einmal verwendet werden.</p>
+    `;
+    return this.sendMail({ to, subject, text, html });
+  }
+
   sendWelcomeMail(to: string, username: string): Promise<boolean> {
     const subject = 'Willkommen bei Star Wars Universe';
     const text = [
       `Hallo ${username},`,
       '',
       'dein Account bei Star Wars Universe wurde erstellt.',
-      'Waehle im Spiel deine Fraktion und gruende deine erste Kolonie.',
+      'Beanspruche im Spiel deine Heimatwelt und gruende deine erste Kolonie.',
       '',
       'Viel Erfolg im Outer Rim!',
       'Star Wars Universe',
@@ -109,7 +132,7 @@ export class MailService {
     const html = `
       <p>Hallo ${this.escapeHtml(username)},</p>
       <p>dein Account bei <strong>Star Wars Universe</strong> wurde erstellt.</p>
-      <p>Waehle im Spiel deine Fraktion und gruende deine erste Kolonie.</p>
+      <p>Beanspruche im Spiel deine Heimatwelt und gruende deine erste Kolonie.</p>
       <p>Viel Erfolg im Outer Rim!<br />Star Wars Universe</p>
     `;
 

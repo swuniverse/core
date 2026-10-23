@@ -94,7 +94,10 @@ describe('password reset behavior', () => {
     await expect(
       setup({ mail: false }).service.lostPassword({ login: 'Leia' }),
     ).rejects.toBeInstanceOf(NotFoundException);
-    expect(setup().service.features()).toEqual({ passwordReset: true });
+    expect(setup().service.features()).toEqual({
+      passwordReset: true,
+      emailVerification: false,
+    });
   });
 
   it('sets a registered-strength password, clears sessions, and consumes the token', async () => {

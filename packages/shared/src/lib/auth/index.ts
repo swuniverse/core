@@ -35,8 +35,17 @@ export interface ResetPasswordDto {
   password: string;
 }
 
+export interface VerifyEmailDto {
+  token: string;
+}
+
+export interface UpdateVerificationEmailDto {
+  email: string;
+}
+
 export interface AuthFeaturesDto {
   passwordReset: boolean;
+  emailVerification: boolean;
 }
 
 export interface AuthMessageDto {
@@ -57,6 +66,7 @@ export interface UserProfile {
   displayName?: string | null;
   avatar?: string | null;
   email: string;
+  emailVerifiedAt?: string | null;
   faction?: Faction | null;
   prestige: number;
   onboardingCompleted?: boolean;

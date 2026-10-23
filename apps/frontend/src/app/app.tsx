@@ -5,6 +5,7 @@ import { AppShell } from '../components/layout/app-shell';
 import { LoginPage } from '../pages/login';
 import { RegisterPage } from '../pages/register';
 import { LostPasswordPage, ResetPasswordPage } from '../pages/password-reset';
+import { VerifyEmailPage } from '../pages/verify-email';
 import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
 import { SpacecraftPage } from '../pages/spacecraft';
@@ -112,6 +113,7 @@ export function App() {
               </PublicOnlyRoute>
             }
           />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route
             element={
               <ProtectedRoute>

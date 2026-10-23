@@ -10,8 +10,12 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { GameStatusService } from './game-status.service';
 import { getJwtSecret } from '../auth/jwt-secret';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../auth/user.entity';
 
 export const GAME_MAINTENANCE_ERROR_CODE = 'GAME_MAINTENANCE';
+export const EMAIL_NOT_VERIFIED_ERROR_CODE = 'EMAIL_NOT_VERIFIED';
 const REQUIRES_GAME_ACCESS = 'requires-game-access';
 export const RequiresGameAccess = () => SetMetadata(REQUIRES_GAME_ACCESS, true);
 
@@ -22,6 +26,8 @@ export class GameStatusGuard implements CanActivate {
     private readonly gameStatusService: GameStatusService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   /**
@@ -29,18 +35,19 @@ export class GameStatusGuard implements CanActivate {
    * AuthGuard('jwt') der Controller; request.user ist dann noch leer.
    * Admin-Status daher direkt aus dem Bearer-Token lesen.
    */
-  private isAdminToken(authorization: string | undefined): boolean {
+  private tokenPayload(
+    authorization: string | undefined,
+  ): { sub?: number; isAdmin?: boolean } | null {
     const token = authorization?.startsWith('Bearer ')
       ? authorization.slice(7)
       : null;
-    if (!token) return false;
+    if (!token) return null;
     try {
-      const payload = this.jwtService.verify<{ isAdmin?: boolean }>(token, {
+      return this.jwtService.verify<{ sub?: number; isAdmin?: boolean }>(token, {
         secret: getJwtSecret(this.config),
       });
-      return Boolean(payload.isAdmin);
     } catch {
-      return false;
+      return null;
     }
   }
 
@@ -58,13 +65,24 @@ export class GameStatusGuard implements CanActivate {
       user?: { isAdmin?: boolean };
       headers?: { authorization?: string };
     }>();
+    const payload = this.tokenPayload(request.headers?.authorization);
+    const isAdmin = request.user?.isAdmin || payload?.isAdmin;
+    if (isAdmin) return true;
+
     if (
-      request.user?.isAdmin ||
-      this.isAdminToken(request.headers?.authorization) ||
-      !(await this.gameStatusService.isMaintenance())
+      this.config.get<string>('EMAIL_VERIFICATION_ENABLED') === 'true' &&
+      payload?.sub
     ) {
-      return true;
+      const user = await this.userRepository.findOneBy({ id: payload.sub });
+      if (user && !user.emailVerifiedAt) {
+        throw new ForbiddenException({
+          code: EMAIL_NOT_VERIFIED_ERROR_CODE,
+          message: 'Bitte bestätige zuerst deine E-Mail-Adresse',
+        });
+      }
     }
+
+    if (!(await this.gameStatusService.isMaintenance())) return true;
 
     const status = await this.gameStatusService.getPublicStatus();
     throw new ForbiddenException({

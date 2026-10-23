@@ -1,6 +1,6 @@
 # E-Mail-Verifikation nach der Registrierung
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-01
@@ -30,13 +30,15 @@ Vorgabe gemäß Leitplanke 4: alles hinter `EMAIL_VERIFICATION_ENABLED` (Default
 
 ## Akzeptanzkriterien
 
-- [ ] Bei aktivem Flag erhält ein neues Konto `emailVerifiedAt = null` und eine Mail mit Link `<APP_BASE_URL>/verify-email?token=…` (Token 72 h gültig) statt bzw. vor der Willkommensmail.
-- [ ] `POST /auth/verify-email` (Token) setzt `emailVerifiedAt`; ungültig/abgelaufen → 400.
-- [ ] `POST /auth/verification/resend` (eingeloggt, unverifiziert) sendet höchstens alle 5 Minuten eine neue Mail; `PATCH /auth/verification/email` ändert die Adresse nur solange unverifiziert (Format- und Eindeutigkeitsprüfung, neue Mail, alter Token ungültig).
-- [ ] Unverifizierte Konten erhalten auf Spielendpunkten (`RequiresGameAccess`) 403 mit Code `EMAIL_NOT_VERIFIED`; erlaubt bleiben `auth/me`, Logout und die Verifikationsendpunkte. Admins sind ausgenommen.
-- [ ] Frontend: Die App-Shell leitet unverifizierte Spieler auf `/verify-email` (Hinweis, Neusenden, Adresse korrigieren); nach Bestätigung geht es zu `/claim-colony`.
-- [ ] `GET /auth/features` liefert zusätzlich `emailVerification: boolean`.
-- [ ] Flag aus: keine Mail, kein Gate, Registrierung und Onboarding unverändert (Regressionstest).
-- [ ] Backend-Tests: Gate, Ablauf, Resend-Limit, Adresskorrektur, Flag aus. Frontend-Tests: Weiterleitung und Verifikationsseite.
+- [x] Bei aktivem Flag erhält ein neues Konto `emailVerifiedAt = null` und eine Mail mit Link `<APP_BASE_URL>/verify-email?token=…` (Token 72 h gültig) statt bzw. vor der Willkommensmail.
+- [x] `POST /auth/verify-email` (Token) setzt `emailVerifiedAt`; ungültig/abgelaufen → 400.
+- [x] `POST /auth/verification/resend` (eingeloggt, unverifiziert) sendet höchstens alle 5 Minuten eine neue Mail; `PATCH /auth/verification/email` ändert die Adresse nur solange unverifiziert (Format- und Eindeutigkeitsprüfung, neue Mail, alter Token ungültig).
+- [x] Unverifizierte Konten erhalten auf Spielendpunkten (`RequiresGameAccess`) 403 mit Code `EMAIL_NOT_VERIFIED`; erlaubt bleiben `auth/me`, Logout und die Verifikationsendpunkte. Admins sind ausgenommen.
+- [x] Frontend: Die App-Shell leitet unverifizierte Spieler auf `/verify-email` (Hinweis, Neusenden, Adresse korrigieren); nach Bestätigung geht es zu `/claim-colony`.
+- [x] `GET /auth/features` liefert zusätzlich `emailVerification: boolean`.
+- [x] Flag aus: keine Mail, kein Gate, Registrierung und Onboarding unverändert (Regressionstest).
+- [x] Backend-Tests: Gate, Ablauf, Resend-Limit, Adresskorrektur, Flag aus. Frontend-Tests: Weiterleitung und Verifikationsseite.
 
 ## Comments
+
+- E-Mail-Verifikation mit 72-h-Token, Resend-Sperre, Adresskorrektur, globalem Spielzugangs-Gate und Migration umgesetzt. Frontend leitet vor dem Onboarding auf `/verify-email`; das standardmäßig deaktivierte Flag erhält das bisherige Verhalten. Die 3-Tage-Bereinigung bleibt wie vorgesehen bei sh-AP-06.

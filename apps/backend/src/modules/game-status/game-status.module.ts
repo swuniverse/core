@@ -6,9 +6,10 @@ import { GameStatusController } from './game-status.controller';
 import { GameStatusGuard } from './game-status.guard';
 import { GameStatus } from './entities/game-status.entity';
 import { GameStatusService } from './game-status.service';
+import { User } from '../auth/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GameStatus]), JwtModule.register({})],
+  imports: [TypeOrmModule.forFeature([GameStatus, User]), JwtModule.register({})],
   controllers: [GameStatusController],
   providers: [
     GameStatusService,

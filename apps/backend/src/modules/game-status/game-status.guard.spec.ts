@@ -1,5 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import {
+  EMAIL_NOT_VERIFIED_ERROR_CODE,
   GAME_MAINTENANCE_ERROR_CODE,
   GameStatusGuard,
 } from './game-status.guard';
@@ -13,7 +14,12 @@ describe('GameStatusGuard', () => {
         getRequest: () => ({ user, headers: { authorization } }),
       }),
     }) as unknown as ExecutionContext;
-  const jwt = { verify: jest.fn(() => ({ isAdmin: false })) };
+  const jwt = {
+    verify: jest.fn<
+      { sub?: number; isAdmin: boolean },
+      [string, unknown?]
+    >(() => ({ isAdmin: false })),
+  };
   const config = { get: jest.fn(() => 'secret') };
   const reflector = { getAllAndOverride: jest.fn(() => true) };
 
@@ -24,9 +30,30 @@ describe('GameStatusGuard', () => {
       service as never,
       jwt as never,
       config as never,
+      { findOneBy: jest.fn(async () => ({ isAdmin: false, emailVerifiedAt: new Date() })) } as never,
     );
 
     await expect(guard.canActivate(context())).resolves.toBe(true);
+    expect(service.isMaintenance).not.toHaveBeenCalled();
+  });
+
+  it('blocks an unverified player on game routes', async () => {
+    jwt.verify.mockReturnValueOnce({ sub: 42, isAdmin: false });
+    const service = { isMaintenance: jest.fn() };
+    const guard = new GameStatusGuard(
+      reflector as never,
+      service as never,
+      jwt as never,
+      { get: jest.fn((key: string) => key === 'EMAIL_VERIFICATION_ENABLED' ? 'true' : 'secret') } as never,
+      { findOneBy: jest.fn(async () => ({ isAdmin: false, emailVerifiedAt: null })) } as never,
+    );
+
+    await expect(
+      guard.canActivate(context(undefined, 'Bearer player-token')),
+    ).rejects.toMatchObject({
+      status: 403,
+      response: { code: EMAIL_NOT_VERIFIED_ERROR_CODE },
+    });
     expect(service.isMaintenance).not.toHaveBeenCalled();
   });
 
@@ -42,6 +69,7 @@ describe('GameStatusGuard', () => {
       service as never,
       jwt as never,
       config as never,
+      { findOneBy: jest.fn(async () => ({ isAdmin: false, emailVerifiedAt: new Date() })) } as never,
     );
 
     await expect(guard.canActivate(context())).rejects.toMatchObject({
@@ -60,6 +88,7 @@ describe('GameStatusGuard', () => {
       service as never,
       jwt as never,
       config as never,
+      { findOneBy: jest.fn(async () => ({ isAdmin: false, emailVerifiedAt: new Date() })) } as never,
     );
 
     await expect(guard.canActivate(context({ isAdmin: true }))).resolves.toBe(
@@ -76,6 +105,7 @@ describe('GameStatusGuard', () => {
       service as never,
       jwt as never,
       config as never,
+      { findOneBy: jest.fn(async () => ({ isAdmin: false, emailVerifiedAt: new Date() })) } as never,
     );
 
     await expect(

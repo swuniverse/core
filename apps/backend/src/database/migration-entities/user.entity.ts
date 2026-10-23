@@ -27,6 +27,9 @@ export class User {
   @Column()
   passwordHash: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  emailVerifiedAt: Date | null;
+
   @Column({ type: 'enum', enum: MigrationFaction, nullable: true })
   faction: MigrationFaction | null;
 

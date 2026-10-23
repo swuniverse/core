@@ -27,6 +27,8 @@ import {
   ResetPasswordDto,
   AuthFeaturesDto,
   AuthMessageDto,
+  VerifyEmailDto,
+  UpdateVerificationEmailDto,
 } from '@swuniverse/shared';
 import { MailService } from '../mail/mail.service';
 import { GameStatusService } from '../game-status/game-status.service';
@@ -42,6 +44,8 @@ import { UserSettingsReader } from '../settings/user-settings-reader';
 const INITIAL_INVITE_QUOTA = 2;
 const PASSWORD_RESET_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const PASSWORD_RESET_RATE_LIMIT_MS = 5 * 60 * 1000;
+const EMAIL_VERIFICATION_LIFETIME_MS = 72 * 60 * 60 * 1000;
+const EMAIL_VERIFICATION_RATE_LIMIT_MS = 5 * 60 * 1000;
 const LOST_PASSWORD_MESSAGE =
   'Falls ein Konto existiert, wurde eine E-Mail verschickt';
 const INVALID_RESET_LINK_MESSAGE = 'Der Link ist ungültig oder abgelaufen';
@@ -100,7 +104,66 @@ export class AuthService {
   ) {}
 
   features(): AuthFeaturesDto {
-    return { passwordReset: this.isPasswordResetEnabled() };
+    return {
+      passwordReset: this.isPasswordResetEnabled(),
+      emailVerification: this.isEmailVerificationEnabled(),
+    };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto): Promise<AuthMessageDto> {
+    this.assertEmailVerificationEnabled();
+    const user = await this.dataSource.transaction(async (manager) => {
+      const accountToken = await this.accountTokenService.consume(
+        dto.token,
+        AccountTokenPurpose.EmailVerification,
+        manager,
+      );
+      if (!accountToken) return null;
+      const repository = manager.getRepository(User);
+      const verified = await repository.findOneBy({ id: accountToken.userId });
+      if (!verified) return null;
+      verified.emailVerifiedAt = new Date();
+      await repository.save(verified);
+      return verified;
+    });
+    if (!user) throw new BadRequestException('Der Link ist ungültig oder abgelaufen');
+    void this.mailService.sendWelcomeMail(user.email, user.username);
+    return { message: 'E-Mail-Adresse bestätigt' };
+  }
+
+  async resendEmailVerification(userId: number): Promise<AuthMessageDto> {
+    this.assertEmailVerificationEnabled();
+    const user = await this.requireUnverifiedUser(userId);
+    const since = new Date(Date.now() - EMAIL_VERIFICATION_RATE_LIMIT_MS);
+    if (
+      !(await this.accountTokenService.hasRecentToken(
+        user.id,
+        AccountTokenPurpose.EmailVerification,
+        since,
+      ))
+    ) {
+      await this.sendEmailVerification(user);
+    }
+    return { message: 'Falls möglich, wurde eine E-Mail verschickt' };
+  }
+
+  async updateVerificationEmail(
+    userId: number,
+    dto: UpdateVerificationEmailDto,
+  ): Promise<AuthMessageDto> {
+    this.assertEmailVerificationEnabled();
+    const email = dto.email.trim();
+    const user = await this.requireUnverifiedUser(userId);
+    const duplicate = await this.userRepo.findOne({
+      where: { email: Raw((column) => `LOWER(${column}) = LOWER(:email)`, { email }) },
+    });
+    if (duplicate && duplicate.id !== user.id) {
+      throw new ConflictException('E-Mail-Adresse wird bereits verwendet');
+    }
+    await this.userRepo.update(user.id, { email });
+    user.email = email;
+    await this.sendEmailVerification(user);
+    return { message: 'E-Mail-Adresse aktualisiert' };
   }
 
   async lostPassword(dto: LostPasswordDto): Promise<AuthMessageDto> {
@@ -182,6 +245,37 @@ export class AuthService {
     if (!this.isPasswordResetEnabled()) throw new NotFoundException();
   }
 
+  private isEmailVerificationEnabled(): boolean {
+    return this.config.get<string>('EMAIL_VERIFICATION_ENABLED') === 'true';
+  }
+
+  private assertEmailVerificationEnabled(): void {
+    if (!this.isEmailVerificationEnabled()) throw new NotFoundException();
+  }
+
+  private async requireUnverifiedUser(userId: number): Promise<User> {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException();
+    if (user.emailVerifiedAt) {
+      throw new BadRequestException('E-Mail-Adresse ist bereits bestätigt');
+    }
+    return user;
+  }
+
+  private async sendEmailVerification(user: User): Promise<void> {
+    const { token } = await this.accountTokenService.create(
+      user.id,
+      AccountTokenPurpose.EmailVerification,
+      EMAIL_VERIFICATION_LIFETIME_MS,
+    );
+    const baseUrl = (this.config.get<string>('APP_BASE_URL') ?? '').replace(/\/$/, '');
+    await this.mailService.sendEmailVerificationMail(
+      user.email,
+      user.username,
+      `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`,
+    );
+  }
+
   async register(dto: RegisterDto): Promise<AuthResponse> {
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
@@ -250,6 +344,7 @@ export class AuthService {
         faction: faction.key as any,
         factionId: faction.id,
         onboardingCompleted: false,
+        emailVerifiedAt: this.isEmailVerificationEnabled() ? null : new Date(),
         isAdmin: userCount === 0,
       });
       const savedUser = await userRepo.save(createdUser);
@@ -271,7 +366,11 @@ export class AuthService {
       return savedUser;
     });
 
-    void this.mailService.sendWelcomeMail(user.email, user.username);
+    if (this.isEmailVerificationEnabled() && !user.isAdmin) {
+      await this.sendEmailVerification(user);
+    } else {
+      void this.mailService.sendWelcomeMail(user.email, user.username);
+    }
 
     return this.generateTokens(user);
   }
@@ -675,6 +774,7 @@ export class AuthService {
         displayName: user.displayName ?? null,
         avatar: user.avatar ?? null,
         email: user.email,
+        emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
         faction: user.faction ?? null,
         prestige: user.prestige,
         onboardingCompleted: user.onboardingCompleted,

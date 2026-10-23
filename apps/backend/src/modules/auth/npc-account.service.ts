@@ -62,6 +62,7 @@ export class NpcAccountService implements OnModuleInit {
           isNpc: true,
           npcKey: definition.key,
           onboardingCompleted: true,
+          emailVerifiedAt: existing?.emailVerifiedAt ?? new Date(),
           permissions: [],
         }),
       );

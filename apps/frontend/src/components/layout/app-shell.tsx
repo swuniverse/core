@@ -54,13 +54,16 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (
-      !user ||
-      user.onboardingCompleted ||
-      location.pathname === '/claim-colony'
-    )
+    if (!user) return;
+    if (!user.isAdmin && user.emailVerifiedAt === null) {
+      if (location.pathname !== '/verify-email') {
+        navigate('/verify-email', { replace: true });
+      }
       return;
-    navigate('/claim-colony', { replace: true });
+    }
+    if (!user.onboardingCompleted && location.pathname !== '/claim-colony') {
+      navigate('/claim-colony', { replace: true });
+    }
   }, [location.pathname, navigate, user]);
   useSocket();
   useSocket('COLONY_TICK_REPORT', (payload) => {
