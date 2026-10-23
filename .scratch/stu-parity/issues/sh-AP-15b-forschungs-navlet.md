@@ -1,6 +1,6 @@
 # Forschungs-Navlet mit Bild, Produktion und Wartend-Badge
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -23,9 +23,11 @@ Das Forschungs-Navlet im Header erreicht die STU-Dichte: Forschungsbild, Warenic
 
 ## Akzeptanzkriterien
 
-- [ ] `GlobalHeaderStatusDto.research` enthält zusätzlich `imageId` (bzw. Tech-ID für das Asset), `commodityId`, `productionPerTick` (Forschungspunkte, die der nächste Haupttick voraussichtlich bringt, aus derselben Quelle wie der Tick) und `queuedCount` bzw. den Namen der nächsten wartenden Forschung.
-- [ ] Header zeigt Bild (mit Fallback ohne Bild, falls das Asset fehlt), Name, Balken, `Fortschritt/Benötigt (+Produktion)` mit Warenicon (15 px) und bei wartender Forschung ein Badge „+1“ in `text-swu-accent` mit `title="wartet: <Name>"`.
-- [ ] Ohne aktive Forschung: Icon und Text „Keine Forschung“, Link auf `/research`.
-- [ ] Backend-Test: Produktionswert und Wartend-Angabe im Header-DTO. Frontend-Tests: Anzeige mit/ohne Wartend-Badge und ohne Forschung.
+- [x] `GlobalHeaderStatusDto.research` enthält zusätzlich `imageId` (bzw. Tech-ID für das Asset), `commodityId`, `productionPerTick` (Forschungspunkte, die der nächste Haupttick voraussichtlich bringt, aus derselben Quelle wie der Tick) und `queuedCount` bzw. den Namen der nächsten wartenden Forschung.
+- [x] Header zeigt Bild (mit Fallback ohne Bild, falls das Asset fehlt), Name, Balken, `Fortschritt/Benötigt (+Produktion)` mit Warenicon (15 px) und bei wartender Forschung ein Badge „+1“ in `text-swu-accent` mit `title="wartet: <Name>"`.
+- [x] Ohne aktive Forschung: Icon und Text „Keine Forschung“, Link auf `/research`.
+- [x] Backend-Test: Produktionswert und Wartend-Angabe im Header-DTO. Frontend-Tests: Anzeige mit/ohne Wartend-Badge und ohne Forschung.
 
 ## Comments
+
+Umgesetzt in Shared-DTO, Dashboard-Header-Service und React-Header. Die Tick-Vorschau verwendet dieselbe `ColonyStatsService.calculateSummary`-Produktionsquelle wie der Haupttick; Backend- und Frontend-Fälle sind abgedeckt. Keine offenen Folgepunkte.

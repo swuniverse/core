@@ -43,9 +43,14 @@ describe('Global status header', () => {
       notifications: { messages: 2, system: 1 },
       research: {
         techId: 7,
+        imageId: 7,
         name: 'Hyperraumtheorie',
+        commodityId: 4,
         progress: 40,
         pointsRequired: 100,
+        productionPerTick: 6,
+        queuedCount: 1,
+        nextQueuedName: 'Sprungnavigation',
         blockedReason: null,
       },
       colonies: [
@@ -101,6 +106,14 @@ describe('Global status header', () => {
       '/messages?folder=system',
     );
     expect(screen.getByText('Hyperraumtheorie')).toBeTruthy();
+    expect(screen.getByText('40/100 (+6)')).toBeTruthy();
+    expect(screen.getByTitle('wartet: Sprungnavigation').textContent).toBe('+1');
+    expect(
+      screen.getByTitle('Forschung: Hyperraumtheorie').getAttribute('src'),
+    ).toBe('/assets/research/7.png');
+    expect(screen.getByTitle('Forschungspunkte').getAttribute('src')).toBe(
+      '/assets/commodities/4.png',
+    );
     expect(screen.getByText('Alpha')).toBeTruthy();
     expect(screen.queryByText('Kolonien 1')).toBeNull();
     expect(screen.queryByText('HoloNet')).toBeNull();
@@ -139,6 +152,48 @@ describe('Global status header', () => {
     expect(
       screen.getByTitle('Handel').querySelector('img')?.getAttribute('src'),
     ).toBe('/assets/buttons/pmnavlet_4_0.png');
+  });
+
+  it('shows research without a waiting badge when the queue is empty', async () => {
+    const status = await apiMocks.get.getMockImplementation()?.('/dashboard/header');
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(messageFolders);
+      return Promise.resolve({
+        ...status,
+        research: { ...status.research, queuedCount: 0, nextQueuedName: null },
+      });
+    });
+
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Hyperraumtheorie')).toBeTruthy();
+    expect(screen.queryByText('+1')).toBeNull();
+  });
+
+  it('shows the research navigation icon when no research is active', async () => {
+    const status = await apiMocks.get.getMockImplementation()?.('/dashboard/header');
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(messageFolders);
+      return Promise.resolve({ ...status, research: null });
+    });
+
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Keine Forschung')).toBeTruthy();
+    expect(screen.getByTitle('Forschung').getAttribute('src')).toBe(
+      '/assets/navigation/menu_forsch0.png',
+    );
+    expect(screen.getByText('Keine Forschung').closest('a')?.getAttribute('href')).toBe(
+      '/research',
+    );
   });
 
   it('highlights unread folders and links directly to message composition', async () => {

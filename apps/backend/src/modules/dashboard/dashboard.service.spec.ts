@@ -40,18 +40,28 @@ describe('DashboardService header', () => {
       })),
     };
     const colonyRepo = {
-      find: jest.fn(async () => [{ id: 9, name: 'Alpha' }]),
+      find: jest.fn(async () => [
+        {
+          id: 9,
+          name: 'Alpha',
+          fields: [{ id: 1, buildingId: 12, isBuilding: false, isActive: true }],
+        },
+      ]),
     };
     const messageRepo = {
       count: jest.fn().mockResolvedValueOnce(3).mockResolvedValueOnce(1),
     };
     const researchRepo = {
-      findOne: jest.fn(async () => ({
-        techId: 7,
-        progress: 40,
-        remainingPoints: 60,
-        blockedReason: null,
-      })),
+      findOne: jest.fn(async (options: { where: { status: string } }) =>
+        options.where.status === 'IN_PROGRESS'
+          ? {
+              techId: 7,
+              progress: 40,
+              remainingPoints: 60,
+              blockedReason: null,
+            }
+          : { techId: 8, queuePosition: 1 },
+      ),
     };
     const service = new DashboardService(
       userRepo as never,
@@ -62,9 +72,20 @@ describe('DashboardService header', () => {
       messageRepo as never,
       researchRepo as never,
       {} as never,
-      { getTech: jest.fn(() => ({ name: 'Hyperraumtheorie' })) } as never,
+      {
+        getTech: jest.fn((id: number) =>
+          id === 7
+            ? { name: 'Hyperraumtheorie', mappedCommodityId: 4 }
+            : { name: 'Sprungnavigation' },
+        ),
+      } as never,
       { getRef: jest.fn(async () => null) } as never,
       {} as never,
+      {
+        calculateSummary: jest.fn(() => ({
+          productionDelta: new Map([[4, 6]]),
+        })),
+      } as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({
@@ -72,9 +93,15 @@ describe('DashboardService header', () => {
       alliance: null,
       notifications: { messages: 3, system: 1 },
       research: {
+        techId: 7,
+        imageId: 7,
         name: 'Hyperraumtheorie',
+        commodityId: 4,
         progress: 40,
         pointsRequired: 100,
+        productionPerTick: 6,
+        queuedCount: 1,
+        nextQueuedName: 'Sprungnavigation',
       },
       colonies: [{ id: 9, name: 'Alpha' }],
     });
@@ -116,6 +143,7 @@ describe('DashboardService header', () => {
       { getTech: jest.fn() } as never,
       allianceService as never,
       {} as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({ alliance });
@@ -140,6 +168,7 @@ describe('DashboardService forum topics', () => {
     const service = new DashboardService(
       ...(Array(10).fill({}) as [never, never, never, never, never, never, never, never, never, never]),
       forum as never,
+      {} as never,
     );
     await expect(service.getForumTopics(4)).resolves.toEqual(topics);
     expect(forum.listRecentTopics).toHaveBeenCalledWith(4);

@@ -11,6 +11,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 import { Message } from '../messaging/entities/message.entity';
 import { Research } from '../research/entities/research.entity';
 import { AllianceModule } from '../alliance/alliance.module';
+import { ColonyModule } from '../colony/colony.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AllianceModule } from '../alliance/alliance.module';
     ]),
     WebsocketModule,
     AllianceModule,
+    ColonyModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

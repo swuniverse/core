@@ -111,9 +111,14 @@ export interface GlobalHeaderStatusDto {
   };
   research: {
     techId: number;
+    imageId: number;
     name: string;
+    commodityId: number | null;
     progress: number;
     pointsRequired: number;
+    productionPerTick: number;
+    queuedCount: number;
+    nextQueuedName: string | null;
     blockedReason: string | null;
   } | null;
   colonies: Array<{

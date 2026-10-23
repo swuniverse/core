@@ -246,13 +246,22 @@ export function Header() {
           to="/research"
           className="hidden w-[230px] shrink-0 items-center border-r border-swu-border px-3 hover:bg-white/[0.03] lg:flex"
         >
-          <div className="min-w-0 text-left">
-            <div className="truncate font-bold text-swu-primary">
-              {status?.research?.name ?? 'Keine Forschung'}
-            </div>
-            {status?.research && (
-              <>
-                <div className="mt-1 h-1.5 w-40 border border-swu-border bg-black/50">
+          {status?.research ? (
+            <>
+              <img
+                src={`/assets/research/${status.research.imageId}.png`}
+                alt=""
+                title={`Forschung: ${status.research.name}`}
+                className="mr-2 size-10 shrink-0 object-contain"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                }}
+              />
+              <div className="min-w-0 flex-1 text-left">
+                <div className="truncate font-bold text-swu-primary">
+                  {status.research.name}
+                </div>
+                <div className="mt-1 h-1.5 w-full border border-swu-border bg-black/50">
                   <div
                     className="h-full bg-swu-accent"
                     style={{
@@ -260,12 +269,41 @@ export function Header() {
                     }}
                   />
                 </div>
-                <div className="mt-1 font-mono text-[9px] text-swu-muted">
-                  {status.research.progress}/{status.research.pointsRequired}
+                <div className="mt-1 flex items-center gap-1 font-mono text-[9px] text-swu-muted">
+                  {status.research.commodityId != null && (
+                    <img
+                      src={`/assets/commodities/${status.research.commodityId}.png`}
+                      alt=""
+                      title="Forschungspunkte"
+                      className="size-[15px] object-contain"
+                    />
+                  )}
+                  <span>
+                    {status.research.progress}/{status.research.pointsRequired} (+
+                    {status.research.productionPerTick})
+                  </span>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+              {status.research.queuedCount > 0 && (
+                <span
+                  title={`wartet: ${status.research.nextQueuedName ?? 'Forschung'}`}
+                  className="ml-2 shrink-0 text-xl text-swu-accent"
+                >
+                  +1
+                </span>
+              )}
+            </>
+          ) : (
+            <div className="flex w-full items-center gap-2 text-left">
+              <img
+                src="/assets/navigation/menu_forsch0.png"
+                alt=""
+                title="Forschung"
+                className="size-10 object-contain"
+              />
+              <span className="font-bold text-swu-primary">Keine Forschung</span>
+            </div>
+          )}
         </Link>
 
         <div className="hidden max-w-[330px] shrink-0 items-center gap-1 overflow-x-auto border-r border-swu-border px-2 xl:flex">

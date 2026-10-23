@@ -19,6 +19,7 @@ import type {
 } from '@swuniverse/shared';
 import { AllianceService } from '../alliance/alliance.service';
 import { ForumService } from '../alliance/forum.service';
+import { ColonyStatsService } from '../colony/colony-stats.service';
 
 @Injectable()
 export class DashboardService {
@@ -39,6 +40,7 @@ export class DashboardService {
     private readonly gameData: GameDataService,
     private readonly allianceService: AllianceService,
     private readonly forumService: ForumService,
+    private readonly colonyStatsService: ColonyStatsService,
   ) {}
 
   /** Latest forum topics of the player's alliance; empty without membership. */
@@ -47,22 +49,12 @@ export class DashboardService {
   }
 
   async getHeader(userId: number): Promise<GlobalHeaderStatusDto> {
-    const [user, colonies, messages, system, research, alliance] =
+    const [user, colonies, messages, system, research, queued, alliance] =
       await Promise.all([
       this.userRepo.findOneByOrFail({ id: userId }),
       this.colonyRepo.find({
         where: { userId, isAbandoned: false },
-        relations: { celestialObject: true },
-        select: {
-          id: true,
-          name: true,
-          energy: true,
-          energyMax: true,
-          storageUsed: true,
-          storageMax: true,
-          colonyClassId: true,
-          celestialObject: { classId: true, name: true, objectType: true },
-        },
+        relations: { fields: true, changeable: true, celestialObject: true },
         order: { id: 'ASC' },
       }),
       this.messageRepo.count({
@@ -85,9 +77,25 @@ export class DashboardService {
         where: { userId, status: ResearchStatus.IN_PROGRESS },
         order: { id: 'ASC' },
       }),
+      this.researchRepo.findOne({
+        where: { userId, status: ResearchStatus.QUEUED },
+        order: { queuePosition: 'ASC' },
+      }),
       this.allianceService.getRef(userId),
     ]);
     const tech = research ? this.gameData.getTech(research.techId) : undefined;
+    const commodityId = tech?.mappedCommodityId ?? tech?.commodityId ?? null;
+    const productionPerTick =
+      commodityId == null
+        ? 0
+        : colonies.reduce((total, colony) => {
+            const production =
+              this.colonyStatsService.calculateSummary(colony).productionDelta.get(
+                commodityId,
+              ) ?? 0;
+            return total + Math.max(0, production);
+          }, 0);
+    const queuedTech = queued ? this.gameData.getTech(queued.techId) : undefined;
     const pointsRequired = research
       ? Math.max(
           research.progress,
@@ -107,9 +115,16 @@ export class DashboardService {
       research: research
         ? {
             techId: research.techId,
+            imageId: research.techId,
             name: tech?.name ?? `Forschung #${research.techId}`,
+            commodityId,
             progress: research.progress,
             pointsRequired,
+            productionPerTick,
+            queuedCount: queued ? 1 : 0,
+            nextQueuedName: queued
+              ? (queuedTech?.name ?? `Forschung #${queued.techId}`)
+              : null,
             blockedReason: research.blockedReason,
           }
         : null,
