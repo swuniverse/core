@@ -68,6 +68,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const planets = await service.listPlanets(7, 12);
@@ -96,6 +97,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       factionService as never,
+      {} as never,
       {} as never,
     );
 

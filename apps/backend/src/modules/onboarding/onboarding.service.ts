@@ -41,6 +41,7 @@ import {
   resolveSwuInstance,
   type SwuZoneSlot,
 } from '../starmap/generator/swu-planet-archetypes.generator';
+import { TutorialService } from '../tutorial/tutorial.service';
 
 const INVALID_STARTER_PLANET_MESSAGE =
   'Only colonizable planets with biome C or E can be claimed as homeworld (STU M, L or O class only if no SWU starter planet is free)';
@@ -75,6 +76,7 @@ export class OnboardingService {
     private readonly researchRepo: Repository<Research>,
     private readonly factionService: FactionService,
     private readonly colonySeedService: ColonySeedService,
+    private readonly tutorialService: TutorialService,
   ) {}
 
   async getOrCreateSelection(userId: number): Promise<OnboardingSelection> {
@@ -465,6 +467,7 @@ export class OnboardingService {
     user.factionId = factionId;
     await this.userRepo.save(user);
     await this.ensureBaseResearchCompleted(user.id, factionId);
+    await this.tutorialService.activateForNewPlayer(user.id);
 
     return {
       success: true,

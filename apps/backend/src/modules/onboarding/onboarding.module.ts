@@ -11,6 +11,7 @@ import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { Research } from '../research/entities/research.entity';
 import { FactionModule } from '../faction/faction.module';
 import { ColonyModule } from '../colony/colony.module';
+import { TutorialModule } from '../tutorial/tutorial.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ColonyModule } from '../colony/colony.module';
     ]),
     FactionModule,
     ColonyModule,
+    TutorialModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],
