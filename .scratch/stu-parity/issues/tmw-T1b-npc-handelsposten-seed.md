@@ -1,6 +1,6 @@
 # NPC-Handelsposten deterministisch säen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** tmw-T1a
