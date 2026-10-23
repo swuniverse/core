@@ -48,6 +48,7 @@ export interface AuthResponse {
   refreshToken: string;
   user: UserProfile;
   vacationEnded?: boolean;
+  defaultView?: string;
 }
 
 export interface UserProfile {

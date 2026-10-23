@@ -61,6 +61,7 @@ function setup(options: { enabled?: boolean; mail?: boolean } = {}) {
     {} as never,
     tokenService as never,
     config as never,
+    { getSettings: jest.fn(async () => ({ default_view: 'maindesk' })) } as never,
   );
   return { service, user, userRepo, tokenService, mail };
 }

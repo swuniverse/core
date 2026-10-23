@@ -37,6 +37,7 @@ import {
   ACCOUNT_ACCESS_CHECKS,
   AccountAccessCheck,
 } from './account-access-check';
+import { UserSettingsReader } from '../settings/user-settings-reader';
 
 const INITIAL_INVITE_QUOTA = 2;
 const PASSWORD_RESET_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -92,6 +93,7 @@ export class AuthService {
     private readonly gameStatusService: GameStatusService,
     private readonly accountTokenService: AccountTokenService,
     private readonly config: ConfigService,
+    private readonly userSettings: UserSettingsReader,
     @Optional()
     @Inject(ACCOUNT_ACCESS_CHECKS)
     private readonly accountAccessChecks: AccountAccessCheck[] = [],
@@ -308,7 +310,12 @@ export class AuthService {
         vacationEndedAt: user.vacationEndedAt,
       });
     }
-    return { ...response, vacationEnded };
+    const settings = await this.userSettings.getSettings(user.id);
+    return {
+      ...response,
+      vacationEnded,
+      defaultView: settings.default_view,
+    };
   }
 
   async refresh(refreshToken: string): Promise<AuthResponse> {

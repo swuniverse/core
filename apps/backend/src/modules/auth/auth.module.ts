@@ -23,6 +23,7 @@ import { MailModule } from '../mail/mail.module';
 import { GameStatusModule } from '../game-status/game-status.module';
 import { getJwtSecret } from './jwt-secret';
 import { NpcAccountService } from './npc-account.service';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { NpcAccountService } from './npc-account.service';
     FactionModule,
     MailModule,
     GameStatusModule,
+    SettingsModule,
   ],
   controllers: [AuthController],
   providers: [

@@ -20,6 +20,7 @@ import {
   MaintenanceService,
 } from './maintenance.service';
 import { MessagingModule } from '../messaging/messaging.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { MessagingModule } from '../messaging/messaging.module';
     DashboardModule,
     StatisticsModule,
     MessagingModule,
+    SettingsModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [

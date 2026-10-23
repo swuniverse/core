@@ -374,6 +374,7 @@ function NotificationsTab() {
       <Section title="Benachrichtigungen">
         <Toggle
           label="E-Mail-Benachrichtigungen"
+          description="Wird mit E-Mail-Benachrichtigungen für neue Nachrichten wirksam."
           checked={settings.email_notification === '1'}
           onChange={() => toggle('email_notification')}
         />
@@ -383,7 +384,8 @@ function NotificationsTab() {
           onChange={() => toggle('storage_notification')}
         />
         <Toggle
-          label="Lesebestaetigung anzeigen"
+          label="Lesebestätigung anzeigen"
+          description="Wird mit Lesebestätigungen im Nachrichtenausgang wirksam."
           checked={settings.show_pm_read_receipt === '1'}
           onChange={() => toggle('show_pm_read_receipt')}
         />
@@ -438,8 +440,11 @@ function GameplayTab() {
         >
           <option value="maindesk">Maindesk (Dashboard)</option>
           <option value="colonies">Kolonien</option>
+          <option value="spacecraft">Schiffe</option>
           <option value="starmap">Sternenkarte</option>
           <option value="messages">Nachrichten</option>
+          <option value="research">Forschung</option>
+          <option value="holonet">HoloNet</option>
         </select>
       </Section>
     </div>
@@ -775,16 +780,23 @@ function Input({
 
 function Toggle({
   label,
+  description,
   checked,
   onChange,
 }: {
   label: string;
+  description?: string;
   checked: boolean;
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-center justify-between py-2 cursor-pointer">
-      <span className="text-sm text-swu-primary">{label}</span>
+    <label className="flex items-center justify-between gap-4 py-2 cursor-pointer">
+      <span>
+        <span className="block text-sm text-swu-primary">{label}</span>
+        {description && (
+          <span className="block text-xs text-swu-muted">{description}</span>
+        )}
+      </span>
       <div
         onClick={onChange}
         className={`w-10 h-5 rounded-full transition-colors relative ${

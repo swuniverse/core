@@ -67,6 +67,7 @@ function setup(checks: AccountAccessCheck[] = []) {
     { isMaintenance: jest.fn(async () => false) } as never,
     {} as never,
     { get: jest.fn() } as never,
+    { getSettings: jest.fn(async () => ({ default_view: 'maindesk' })) } as never,
     checks,
   );
   return { service, users, userRepo };

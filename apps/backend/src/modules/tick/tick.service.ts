@@ -30,6 +30,7 @@ import {
   GameTickType,
 } from './entities/game-tick-state.entity';
 import { getHourInTimezone } from './maintenance.service';
+import { UserSettingsReader } from '../settings/user-settings-reader';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
 type MainTickSchedule = '*' | number[];
@@ -66,6 +67,7 @@ export class TickService {
     } as unknown as FlightSignatureService,
     private readonly colonyCrewService?: ColonyCrewService,
     private readonly messagingService?: MessagingService,
+    private readonly userSettings?: UserSettingsReader,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -170,21 +172,31 @@ export class TickService {
             colonyId: colony.id,
           });
           if (tickResult.events.length > 0) {
-            await this.colonyEventService.createTickEvents(
-              colony.id,
-              colonyUserId,
-              tickResult.events,
-              tickNumber,
-            );
-            this.gateway.emitToUser(
-              colonyUserId,
-              WsEventType.COLONY_TICK_REPORT,
-              {
-                colonyId: colony.id,
-                tick: tickNumber,
-                events: tickResult.events,
-              },
-            );
+            const storageNotifications =
+              (await this.userSettings?.getBoolean(
+                colonyUserId,
+                'storage_notification',
+              )) ?? true;
+            const visibleEvents = storageNotifications
+              ? tickResult.events
+              : tickResult.events.filter((event) => event.type !== 'STORAGE_FULL');
+            if (visibleEvents.length > 0) {
+              await this.colonyEventService.createTickEvents(
+                colony.id,
+                colonyUserId,
+                visibleEvents,
+                tickNumber,
+              );
+              this.gateway.emitToUser(
+                colonyUserId,
+                WsEventType.COLONY_TICK_REPORT,
+                {
+                  colonyId: colony.id,
+                  tick: tickNumber,
+                  events: visibleEvents,
+                },
+              );
+            }
           }
         }
       }

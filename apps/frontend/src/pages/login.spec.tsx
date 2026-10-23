@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './login';
 import { api } from '../services/api';
 
@@ -35,6 +35,41 @@ describe('LoginPage', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it('opens the configured start view after a successful login', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      user: {
+        id: 7,
+        username: 'leia',
+        email: 'leia@example.test',
+        prestige: 0,
+        onboardingCompleted: true,
+      },
+      defaultView: 'research',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/research" element={<p>Research destination</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
+    fireEvent.change(screen.getByLabelText('Username'), {
+      target: { value: 'leia' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'secret' },
+    });
+    fireEvent.submit(screen.getByLabelText('Login Formular'));
+
+    expect(await screen.findByText('Research destination')).toBeTruthy();
   });
 
   it('shows a lost-password link only when password reset is active', async () => {

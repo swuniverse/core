@@ -198,9 +198,23 @@ export function LoginPage() {
         password,
       });
       setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/onboarding', {
-        state: res.vacationEnded ? { toast: 'Urlaubsmodus beendet' } : undefined,
-      });
+      const routeByDefaultView: Record<string, string> = {
+        maindesk: '/',
+        colonies: '/colonies',
+        spacecraft: '/spacecraft',
+        starmap: '/starmap',
+        messages: '/messages',
+        research: '/research',
+        holonet: '/holonet',
+      };
+      navigate(
+        res.user.onboardingCompleted
+          ? (routeByDefaultView[res.defaultView ?? 'maindesk'] ?? '/')
+          : '/onboarding',
+        {
+          state: res.vacationEnded ? { toast: 'Urlaubsmodus beendet' } : undefined,
+        },
+      );
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen',

@@ -12,11 +12,25 @@ import { UserSetting } from './entities/user-setting.entity';
 
 const SETTING_DEFAULTS: Record<string, string> = {
   email_notification: '1',
-  storage_notification: '1',
+  storage_notification: '0',
   show_pm_read_receipt: '1',
   default_view: 'maindesk',
 };
 
+const BOOLEAN_SETTINGS = new Set([
+  'email_notification',
+  'storage_notification',
+  'show_pm_read_receipt',
+]);
+const DEFAULT_VIEWS = new Set([
+  'maindesk',
+  'colonies',
+  'spacecraft',
+  'starmap',
+  'messages',
+  'research',
+  'holonet',
+]);
 const VALID_SETTINGS = Object.keys(SETTING_DEFAULTS);
 
 const VACATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -43,9 +57,15 @@ export class SettingsService {
     userId: number,
     updates: Record<string, string>,
   ): Promise<Record<string, string>> {
-    for (const key of Object.keys(updates)) {
+    for (const [key, value] of Object.entries(updates)) {
       if (!VALID_SETTINGS.includes(key)) {
         throw new BadRequestException(`Invalid setting key: ${key}`);
+      }
+      if (BOOLEAN_SETTINGS.has(key) && value !== '0' && value !== '1') {
+        throw new BadRequestException(`Invalid setting value: ${key}`);
+      }
+      if (key === 'default_view' && !DEFAULT_VIEWS.has(value)) {
+        throw new BadRequestException(`Invalid setting value: ${key}`);
       }
     }
 

@@ -6473,6 +6473,60 @@ describe('main tick idempotency', () => {
       { recordSnapshots: jest.fn() } as any,
     );
 
+  it('suppresses storage-full events when the user disabled storage notifications', async () => {
+    const colony = { id: 4, userId: 7, isAbandoned: false };
+    const colonyRepo = {
+      find: jest.fn()
+        .mockResolvedValueOnce([{ id: colony.id }])
+        .mockResolvedValueOnce([colony]),
+    };
+    const shipRepo = { find: jest.fn(async () => []) };
+    const userRepo = { find: jest.fn(async () => []) };
+    const tickStateRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => value),
+    };
+    const colonyEventService = { createTickEvents: jest.fn(async () => []) };
+    const service = new TickService(
+      colonyRepo as any,
+      {} as any,
+      shipRepo as any,
+      userRepo as any,
+      tickStateRepo as any,
+      {
+        processTick: jest.fn(async () => ({
+          researchPoints: 0,
+          productionDelta: new Map(),
+          events: [
+            { type: 'STORAGE_FULL' },
+            { type: 'BUILDING_DEACTIVATED', buildingName: 'Mine' },
+          ],
+        })),
+      } as any,
+      colonyEventService as any,
+      {} as any,
+      { processTick: jest.fn(async () => undefined) } as any,
+      { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn() } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
+      undefined,
+      undefined,
+      undefined,
+      { getBoolean: jest.fn(async () => false) } as any,
+    );
+
+    await service.handleTick(1234);
+
+    expect(colonyEventService.createTickEvents).toHaveBeenCalledWith(
+      colony.id,
+      colony.userId,
+      [{ type: 'BUILDING_DEACTIVATED', buildingName: 'Mine' }],
+      1234,
+    );
+  });
+
   it('enforces global crew limits for active users but skips vacationers', async () => {
     const colonyRepo = { find: jest.fn(async () => []) };
     const shipRepo = { find: jest.fn(async () => []) };
