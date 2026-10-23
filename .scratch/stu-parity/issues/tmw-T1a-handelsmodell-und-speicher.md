@@ -1,6 +1,6 @@
 # Handels-Domänenmodell und Warenkontenspeicher
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** tmw-W1
