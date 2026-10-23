@@ -1,6 +1,6 @@
 # Sektor-Scan der Kolonie mit Flugsignaturen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-NAV-2a
