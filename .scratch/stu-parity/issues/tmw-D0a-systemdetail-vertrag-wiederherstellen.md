@@ -1,6 +1,6 @@
 # Geschützten Systemdetailvertrag wiederherstellen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -27,14 +27,16 @@ Der persönlich entdeckte und erfolgreich kartographierte Datenbank-Systemeintra
 
 ## Akzeptanzkriterien
 
-- [ ] Der berechtigte Detailvertrag liefert aktuelle Koloniebelegung und die neuesten zugänglichen eigenen bzw. aktuellen Allianzscans, ohne dynamische Daten im gesperrten Zustand preiszugeben.
-- [ ] Der Systemeintrag verlinkt mit den Außenkoordinaten zur Sternenkarte.
-- [ ] `canMessageOwner` wird serverseitig ausschließlich aus aktueller eigener Koloniepräsenz und aktuellem fremdem Kolonieeigentum abgeleitet; Snapshotbesitzer werden nie vorbefüllt.
-- [ ] Scanzeilen kennzeichnen aktuellen gegenüber historischem Zustand, öffnen die gespeicherte Oberfläche nicht-taktisch und erlauben Löschen nur für eigene Scans mit anschließendem Reload.
-- [ ] Die anfängliche Systemzusammenfassung zeigt die Rastergröße.
-- [ ] Asteroidenfelder verwenden ein bestehendes Spielasset bzw. eine visuelle Asteroidengruppe ohne Mengenbadge statt Emoji.
-- [ ] Backend- und Frontendtests decken die wiederhergestellten Verträge ab.
+- [x] Der berechtigte Detailvertrag liefert aktuelle Koloniebelegung und die neuesten zugänglichen eigenen bzw. aktuellen Allianzscans, ohne dynamische Daten im gesperrten Zustand preiszugeben.
+- [x] Der Systemeintrag verlinkt mit den Außenkoordinaten zur Sternenkarte.
+- [x] `canMessageOwner` wird serverseitig ausschließlich aus aktueller eigener Koloniepräsenz und aktuellem fremdem Kolonieeigentum abgeleitet; Snapshotbesitzer werden nie vorbefüllt.
+- [x] Scanzeilen kennzeichnen aktuellen gegenüber historischem Zustand, öffnen die gespeicherte Oberfläche nicht-taktisch und erlauben Löschen nur für eigene Scans mit anschließendem Reload.
+- [x] Die anfängliche Systemzusammenfassung zeigt die Rastergröße.
+- [x] Asteroidenfelder verwenden ein bestehendes Spielasset bzw. eine visuelle Asteroidengruppe ohne Mengenbadge statt Emoji.
+- [x] Backend- und Frontendtests decken die wiederhergestellten Verträge ab.
 
 ## Comments
 
 Aus dem Audit `tmw-D0`: Die Funktionen waren teilweise in `fc37352`/`64c0531` vorhanden und wurden durch `b496498`/`d118865` aus dem aktiven Detailpfad entfernt.
+
+Wiederhergestellt in `database.service.ts` und `database.tsx`: berechtigte Live-Kolonien, neueste zugängliche Scans, serverseitige Nachrichtenfreigabe, Sternkartenlink, Rastergröße, nicht-taktischer Oberflächendialog und eigene Scanlöschung mit Reload. `SystemRasterMap.tsx` verwendet für Asteroiden das vorhandene Spielasset. Backend- und Frontendtests decken Vertrag und Darstellung ab; keine offenen Folgepunkte.

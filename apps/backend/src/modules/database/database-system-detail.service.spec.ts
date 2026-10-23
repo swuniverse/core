@@ -180,14 +180,57 @@ describe('DatabaseService system detail', () => {
           },
         },
       ],
+      colonies: [
+        {
+          id: 201,
+          name: 'Eigene Kolonie',
+          owner: null,
+          isOwn: true,
+          isAbandoned: false,
+          posX: 1,
+          posY: 2,
+          celestialObjectId: 81,
+          canMessageOwner: false,
+        },
+        {
+          id: 202,
+          name: 'Fremde Kolonie',
+          owner: { id: 77, username: 'lando' },
+          isOwn: false,
+          isAbandoned: false,
+          posX: 3,
+          posY: 4,
+          celestialObjectId: null,
+          canMessageOwner: true,
+        },
+        {
+          id: 203,
+          name: 'Aufgegeben',
+          owner: null,
+          isOwn: false,
+          isAbandoned: true,
+          posX: 5,
+          posY: 6,
+          celestialObjectId: null,
+          canMessageOwner: false,
+        },
+      ],
+      scans: [],
     });
     expect(repos.fieldRepo.find).toHaveBeenCalledWith({
       where: { starSystemId: 9 },
       relations: ['fieldType', 'celestialObject'],
       order: { sy: 'ASC', sx: 'ASC' },
     });
-    expect(repos.colonyRepo.find).not.toHaveBeenCalled();
-    expect(repos.scanProjection.newestAccessibleForSystem).not.toHaveBeenCalled();
+    expect(repos.colonyRepo.find).toHaveBeenCalledWith({
+      where: { starSystemId: 9 },
+      relations: ['user'],
+      order: { id: 'ASC' },
+    });
+    expect(repos.scanProjection.newestAccessibleForSystem).toHaveBeenCalledWith(
+      42,
+      9,
+    );
   });
 
   it.each([
@@ -212,6 +255,33 @@ describe('DatabaseService system detail', () => {
       expect(repos.scanProjection.newestAccessibleForSystem).not.toHaveBeenCalled();
     },
   );
+
+  it('does not offer messages when the viewer has no current colony in the system', async () => {
+    const { service } = createService({
+      colonyRepo: {
+        find: jest.fn().mockResolvedValue([
+          {
+            id: 202,
+            name: 'Fremde Kolonie',
+            userId: 77,
+            isAbandoned: false,
+            posX: 3,
+            posY: 4,
+            celestialObjectId: null,
+            user: { id: 77, username: 'lando' },
+          },
+        ]),
+      },
+    });
+
+    const detail = await service.getSystemDetail(42, 9);
+
+    expect(detail).toEqual(
+      expect.objectContaining({
+        colonies: [expect.objectContaining({ canMessageOwner: false })],
+      }),
+    );
+  });
 
   it('rejects a system detail request without the viewer’s personal discovery', async () => {
     const { service } = createService({

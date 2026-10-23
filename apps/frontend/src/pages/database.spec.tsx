@@ -6,6 +6,7 @@ import { DatabasePage, DatabaseSystemDetailPage } from './database';
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
+  delete: vi.fn(),
 }));
 
 vi.mock('../services/api', () => ({
@@ -169,6 +170,65 @@ describe('DatabasePage', () => {
               },
             },
           ],
+          colonies: [
+            {
+              id: 12,
+              name: 'Cloud City',
+              owner: { id: 77, username: 'lando' },
+              isOwn: false,
+              isAbandoned: false,
+              posX: 3,
+              posY: 4,
+              celestialObjectId: null,
+              canMessageOwner: true,
+            },
+          ],
+          scans: [
+            {
+              id: 501,
+              colonyId: 12,
+              scanner: { id: 42, username: 'han' },
+              provenance: 'OWN',
+              canDelete: true,
+              systemId: 20,
+              snapshot: {
+                colonyName: 'Alte Wolkenstadt',
+                owner: { id: 55, username: 'calrissian' },
+                scannedAt: '2026-10-01T12:00:00.000Z',
+                system: { id: 20, celestialObjectId: null },
+                colonyClassId: 1,
+                surface: {
+                  width: 2,
+                  height: 2,
+                  deposits: [],
+                  fields: [
+                    {
+                      fieldIndex: 0,
+                      fieldType: 101,
+                      terrainTileId: null,
+                      buildingId: null,
+                      buildingName: null,
+                      hasBuilding: false,
+                      isConstruction: false,
+                      isActive: false,
+                      integrityPercent: null,
+                    },
+                  ],
+                },
+              },
+              current: {
+                colony: {
+                  id: 12,
+                  name: 'Cloud City',
+                  owner: { id: 77, username: 'lando' },
+                  isAbandoned: false,
+                  posX: 3,
+                  posY: 4,
+                  celestialObjectId: null,
+                },
+              },
+            },
+          ],
         });
       }
       throw new Error(`Unexpected URL ${url}`);
@@ -189,13 +249,18 @@ describe('DatabasePage', () => {
       (await screen.findAllByRole('heading', { name: 'Bespin' })).length,
     ).toBeGreaterThan(0);
     expect(screen.getByLabelText('Kartographische Systemkarte')).toBeTruthy();
-    expect(screen.queryByText('Rastergröße')).toBeNull();
+    expect(screen.getByText('Rastergröße:')).toBeTruthy();
+    expect(screen.getByText('3 × 2')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: /Feld 1:2: Bespin II/ }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: /Feld 3:1: Asteroidengürtel/ }),
-    ).toBeTruthy();
+    const asteroidField = screen.getByRole('button', {
+      name: /Feld 3:1: Asteroidengürtel/,
+    });
+    expect(asteroidField.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/planets/701s.png',
+    );
+    expect(asteroidField.textContent).toBe('');
 
     fireEvent.click(
       screen.getByRole('button', { name: /Feld 1:2: Bespin II/ }),
@@ -203,13 +268,23 @@ describe('DatabasePage', () => {
     expect(screen.getByText('Gasriese')).toBeTruthy();
     expect(screen.getByText('Planet')).toBeTruthy();
 
-    expect(screen.queryByText('Cloud City')).toBeNull();
+    expect(screen.getAllByText('Cloud City').length).toBeGreaterThan(0);
     expect(
-      screen.queryByRole('link', { name: 'Sternenkarte öffnen' }),
-    ).toBeNull();
-    expect(screen.queryByRole('link', { name: /Nachricht an/ })).toBeNull();
+      screen.getByRole('link', { name: 'Sternenkarte öffnen' }).getAttribute('href'),
+    ).toBe('/starmap?layer=7&x=1&y=3');
     expect(
-      screen.queryByRole('button', { name: /scan|navigation|kampf|bewegung/i }),
+      screen.getByRole('link', { name: 'Nachricht an lando' }).getAttribute('href'),
+    ).toBe('/messages?tab=compose&to=77&name=lando');
+    expect(screen.getByText('Besitzerwechsel seit dem Scan')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Gespeicherte Oberfläche von Alte Wolkenstadt öffnen',
+      }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Gespeicherte Oberfläche' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Schließen' }));
+    expect(
+      screen.queryByRole('button', { name: /navigation|kampf|bewegung/i }),
     ).toBeNull();
   });
 

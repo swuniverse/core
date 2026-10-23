@@ -163,3 +163,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-G1 – Awardkatalog, idempotente Vergabe mit Prestige und Profilanzeige umgesetzt – siehe Feature-Commit
 - sc-WP-UI-3b – Gezielter Kolonieangriff auf ein Gebäude über die Oberflächenwahl umgesetzt – siehe Feature-Commit
 - sc-WP-ENG-2a – Reine deklarative Interaktions-Policy mit stabilen Ablehnungsmeldungen umgesetzt – siehe Feature-Commit
+- tmw-D0a – Geschützten Systemdetailvertrag mit Kolonien, Scans, Kartenlink und nicht-taktischer Darstellung wiederhergestellt – siehe Feature-Commit

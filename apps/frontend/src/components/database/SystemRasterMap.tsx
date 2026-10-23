@@ -157,7 +157,11 @@ export function SystemRasterMap({
                     />
                   )}
                   {object && !isStar && object.objectType === 3 && (
-                    <span className="relative z-10 text-xl">☄️</span>
+                    <img
+                      src="/assets/planets/701s.png"
+                      alt=""
+                      className="relative z-10 h-8 w-8 object-contain"
+                    />
                   )}
                   {object &&
                     !isStar &&
@@ -179,7 +183,11 @@ export function SystemRasterMap({
                       <span className="relative z-10 text-xl">●</span>
                     )}
                   {!object && fieldType?.key === 'ASTEROID_CLUSTER' && (
-                    <span className="relative z-10 text-xl">☄️</span>
+                    <img
+                      src="/assets/planets/701s.png"
+                      alt=""
+                      className="relative z-10 h-8 w-8 object-contain"
+                    />
                   )}
                 </button>
               );

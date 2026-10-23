@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { PlanetImg } from '../components/PlanetImg';
 import {
+  ColonyScans,
+  ColonySurfaceDialog,
+  type ColonyScanProjection,
+} from '../components/database/ColonyScans';
+import {
   celestialObjectTypeLabel,
   SystemRasterMap,
   type SystemRasterDetail,
@@ -90,6 +95,18 @@ type AvailableSystemDetail = SystemRasterDetail & {
   cx: number;
   cy: number;
   systemTypeName: string;
+  colonies: Array<{
+    id: number;
+    name: string;
+    owner: { id: number; username: string } | null;
+    isOwn: boolean;
+    isAbandoned: boolean;
+    posX: number;
+    posY: number;
+    celestialObjectId: number | null;
+    canMessageOwner: boolean;
+  }>;
+  scans: ColonyScanProjection[];
 };
 
 type SystemDetail =
@@ -264,12 +281,14 @@ export function DatabaseSystemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [detail, setDetail] = useState<SystemDetail | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
+  const [openScan, setOpenScan] = useState<ColonyScanProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     setDetail(null);
     setSelectedFieldId(null);
+    setOpenScan(null);
     setError(null);
     api
       .get<SystemDetail>(`/database/systems/${id}`)
@@ -305,6 +324,19 @@ export function DatabaseSystemDetailPage() {
 
   const selectedField =
     detail.fields.find((field) => field.id === selectedFieldId) ?? null;
+  const reload = async () => {
+    const next = await api.get<SystemDetail>(`/database/systems/${id}`);
+    setDetail(next);
+  };
+  const deleteScan = async (scanId: number) => {
+    try {
+      await api.delete(`/spacecraft/colony-scans/${scanId}`);
+      setOpenScan(null);
+      await reload();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Scan konnte nicht gelöscht werden');
+    }
+  };
   return (
     <section className="space-y-3 p-4 sm:p-6">
       <SystemCatalogLink />
@@ -313,6 +345,12 @@ export function DatabaseSystemDetailPage() {
         <p className="text-sm text-swu-muted">
           {detail.systemTypeName} · Koordinaten: {detail.cx}:{detail.cy}
         </p>
+        <Link
+          className="mt-2 inline-block text-xs text-swu-accent hover:underline"
+          to={`/starmap?layer=${detail.layerId}&x=${detail.cx}&y=${detail.cy}`}
+        >
+          Sternenkarte öffnen
+        </Link>
       </header>
       <p className="text-xs text-swu-muted">
         Kartographischer Systemeintrag: statische Informationen, keine
@@ -326,6 +364,37 @@ export function DatabaseSystemDetailPage() {
         />
         <SystemContextPanel detail={detail} field={selectedField} />
       </div>
+      <section className="border border-swu-border bg-black/30">
+        <h2 className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">
+          Kolonien
+        </h2>
+        {detail.colonies.length === 0 ? (
+          <p className="p-3 text-sm text-swu-muted">Keine aktuellen Kolonien.</p>
+        ) : (
+          <ul className="divide-y divide-swu-border/60">
+            {detail.colonies.map((colony) => (
+              <li key={colony.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                <span>{colony.name}</span>
+                <span className="font-mono text-xs text-swu-muted">
+                  {colony.posX}:{colony.posY}
+                </span>
+                {colony.isOwn && <span className="text-xs text-swu-primary">eigene Kolonie</span>}
+                {colony.isAbandoned && <span className="text-xs text-swu-muted">aufgegeben</span>}
+                {colony.canMessageOwner && colony.owner && (
+                  <Link
+                    className="ml-auto text-xs text-swu-accent hover:underline"
+                    to={`/messages?tab=compose&to=${colony.owner.id}&name=${encodeURIComponent(colony.owner.username)}`}
+                  >
+                    Nachricht an {colony.owner.username}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <ColonyScans scans={detail.scans} onOpen={setOpenScan} onDelete={deleteScan} />
+      {openScan && <ColonySurfaceDialog scan={openScan} onClose={() => setOpenScan(null)} />}
     </section>
   );
 }
@@ -397,6 +466,10 @@ function SystemContextPanel({
             <dt className="text-swu-muted">Koordinaten:</dt>
             <dd className="font-mono">
               {detail.cx}:{detail.cy}
+            </dd>
+            <dt className="text-swu-muted">Rastergröße:</dt>
+            <dd>
+              {detail.maxX} × {detail.maxY}
             </dd>
           </dl>
         </>

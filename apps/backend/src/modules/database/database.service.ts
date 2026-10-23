@@ -399,11 +399,22 @@ export class DatabaseService {
       return { availability: 'ASTROMETRY_REQUIRED' as const };
     }
 
-    const fields = await this.systemFieldRepo.find({
-      where: { starSystemId: systemId },
-      relations: ['fieldType', 'celestialObject'],
-      order: { sy: 'ASC', sx: 'ASC' },
-    });
+    const [fields, colonies, scans] = await Promise.all([
+      this.systemFieldRepo.find({
+        where: { starSystemId: systemId },
+        relations: ['fieldType', 'celestialObject'],
+        order: { sy: 'ASC', sx: 'ASC' },
+      }),
+      this.colonyRepo.find({
+        where: { starSystemId: systemId },
+        relations: ['user'],
+        order: { id: 'ASC' },
+      }),
+      this.colonyScanProjection.newestAccessibleForSystem(userId, systemId),
+    ]);
+    const hasOwnCurrentColony = colonies.some(
+      (colony) => colony.userId === userId && !colony.isAbandoned,
+    );
 
     return {
       availability: 'AVAILABLE' as const,
@@ -440,6 +451,25 @@ export class DatabaseService {
             }
           : null,
       })),
+      colonies: colonies.map((colony) => {
+        const isOwn = colony.userId === userId && !colony.isAbandoned;
+        const owner =
+          colony.userId != null && !colony.isAbandoned && colony.user
+            ? { id: colony.user.id, username: colony.user.username }
+            : null;
+        return {
+          id: colony.id,
+          name: colony.name,
+          owner: isOwn ? null : owner,
+          isOwn,
+          isAbandoned: colony.isAbandoned,
+          posX: colony.posX,
+          posY: colony.posY,
+          celestialObjectId: colony.celestialObjectId,
+          canMessageOwner: hasOwnCurrentColony && owner != null && !isOwn,
+        };
+      }),
+      scans,
     };
   }
 
