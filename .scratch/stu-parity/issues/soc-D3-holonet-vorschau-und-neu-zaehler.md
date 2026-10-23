@@ -1,6 +1,6 @@
 # HoloNet: Vorschau und Zähler neuer Beiträge
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
