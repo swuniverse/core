@@ -1,6 +1,6 @@
 # Systemdetail-Verhaltenstests und Kartographiefragen schließen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-D0a
