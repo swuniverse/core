@@ -9,7 +9,10 @@ const apiMocks = vi.hoisted(() => ({
   delete: vi.fn(),
 }));
 vi.mock('../services/api', () => ({ api: apiMocks }));
-vi.mock('../lib/assets', () => ({ shipImage: () => '/ship.png' }));
+vi.mock('../lib/assets', () => ({
+  shipImage: () => '/ship.png',
+  alertStateImage: (state: string) => `/alert-${state}.png`,
+}));
 
 const ship = {
   id: 2,
@@ -139,6 +142,50 @@ describe('SpacecraftPage', () => {
       }),
     );
     expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft');
+  });
+
+  it('changes the alert state for every ship from the fleet header', async () => {
+    apiMocks.get.mockResolvedValue([
+      {
+        ...ship,
+        id: 2,
+        fleetId: 4,
+        fleetName: 'Rote Staffel',
+        fleetLeaderId: 2,
+      },
+      {
+        ...ship,
+        id: 3,
+        fleetId: 4,
+        fleetName: 'Rote Staffel',
+        fleetLeaderId: 2,
+      },
+    ]);
+    apiMocks.patch.mockResolvedValue({
+      alertState: 'RED',
+      applied: [{ shipId: 2, shipName: 'Falke' }],
+      failed: [{ shipId: 3, shipName: 'Adler', reason: 'System zerstört' }],
+    });
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Alarmstufe Rot für Rote Staffel',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/fleets/4/alert-state',
+        { alertState: 'RED' },
+      ),
+    );
+    expect(await screen.findByText('Adler: System zerstört')).toBeTruthy();
   });
 
   it('renders the dense STU status columns and system availability', async () => {

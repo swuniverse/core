@@ -2601,6 +2601,32 @@ export class SpacecraftService {
     return this.fleetRepo.save(fleet);
   }
 
+  async setFleetAlertState(
+    userId: number,
+    fleetId: number,
+    alertState: AlertState,
+  ) {
+    await this.requireFleet(userId, fleetId);
+    const members = await this.shipRepo.find({ where: { fleetId, userId } });
+    const applied: Array<{ shipId: number; shipName: string }> = [];
+    const failed: Array<{ shipId: number; shipName: string; reason: string }> = [];
+
+    for (const member of members) {
+      try {
+        await this.setAlertState(member.id, userId, alertState);
+        applied.push({ shipId: member.id, shipName: member.name });
+      } catch (error: unknown) {
+        failed.push({
+          shipId: member.id,
+          shipName: member.name,
+          reason: error instanceof Error ? error.message : 'Alarmstufe konnte nicht geändert werden',
+        });
+      }
+    }
+
+    return { alertState, applied, failed };
+  }
+
   async toggleFleetFixation(userId: number, fleetId: number): Promise<Fleet> {
     const fleet = await this.requireFleet(userId, fleetId);
     await this.findOne(fleet.leaderId, userId);

@@ -56,7 +56,7 @@ jest.mock('../faction/entities/faction-modifier.entity', () => ({
 }));
 
 import { SpacecraftService } from './spacecraft.service';
-import { SpacecraftStatus } from './entities/spacecraft.entity';
+import { AlertState, SpacecraftStatus } from './entities/spacecraft.entity';
 
 function createService() {
   const shipRepo = {
@@ -435,6 +435,29 @@ describe('SpacecraftService fleet management', () => {
     expect(leader.fleetId).toBeNull();
     expect(member.fleetId).toBeNull();
     expect(fleetRepo.remove).toHaveBeenCalled();
+  });
+
+  it('changes the fleet alert state for capable ships and reports failures', async () => {
+    const { service, shipRepo, fleetRepo } = createService();
+    const leader = ship({ id: 2, fleetId: 7, alertState: AlertState.GREEN });
+    const wing = ship({ id: 3, fleetId: 7, alertState: AlertState.GREEN });
+    fleetRepo.findOne.mockResolvedValue({ id: 7, userId: 5, leaderId: 2 });
+    shipRepo.find.mockResolvedValue([leader, wing]);
+    jest
+      .spyOn(service, 'setAlertState')
+      .mockResolvedValueOnce({ applied: true } as never)
+      .mockRejectedValueOnce(new Error('Reaktor überlastet'));
+
+    await expect(
+      service.setFleetAlertState(5, 7, AlertState.RED),
+    ).resolves.toEqual({
+      alertState: AlertState.RED,
+      applied: [{ shipId: 2, shipName: 'Falke' }],
+      failed: [
+        { shipId: 3, shipName: 'Falke', reason: 'Reaktor überlastet' },
+      ],
+    });
+    expect(service.setAlertState).toHaveBeenCalledTimes(2);
   });
 
   it('renames, transfers leadership, dissolves, and denies foreign access', async () => {

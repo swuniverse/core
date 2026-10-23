@@ -461,6 +461,19 @@ export class SpacecraftController {
     return this.spacecraftService.renameFleet(req.user.sub, fleetId, dto.name);
   }
 
+  @Patch('fleets/:fleetId/alert-state')
+  setFleetAlertState(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: AlertStateDto,
+  ) {
+    return this.spacecraftService.setFleetAlertState(
+      req.user.sub,
+      fleetId,
+      dto.alertState,
+    );
+  }
+
   @Patch('fleets/:fleetId/fixation')
   toggleFleetFixation(
     @Param('fleetId', ParseIntPipe) fleetId: number,

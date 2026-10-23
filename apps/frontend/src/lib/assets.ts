@@ -5,6 +5,14 @@ import {
 
 const ASSET_BASE = import.meta.env.VITE_ASSET_BASE_URL || '/assets';
 
+export function alertStateImage(
+  state: 'GREEN' | 'YELLOW' | 'RED',
+  active = false,
+): string {
+  const color = state === 'GREEN' ? 'g' : state === 'YELLOW' ? 'y' : 'r';
+  return `${ASSET_BASE}/buttons/alert${color}.png`;
+}
+
 export function factionAvatarImage(
   faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null | undefined,
 ): string | null {

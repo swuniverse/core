@@ -5,7 +5,7 @@ import type {
 } from '@swuniverse/shared';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { shipImage } from '../lib/assets';
+import { alertStateImage, shipImage } from '../lib/assets';
 
 const ALERT_PRESENTATION = {
   GREEN: { label: 'Grüner Alarm', className: 'bg-swu-success' },
@@ -35,6 +35,7 @@ export function SpacecraftPage() {
   const [loading, setLoading] = useState(true);
   const [fleetName, setFleetName] = useState('');
   const [leaderId, setLeaderId] = useState('');
+  const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
 
   const loadShips = useCallback(async () => {
     const data = await api.get<SpacecraftListDto[]>('/spacecraft');
@@ -90,6 +91,20 @@ export function SpacecraftPage() {
     await loadShips();
   }
 
+  async function setFleetAlertState(
+    fleetId: number,
+    alertState: SpacecraftListDto['alertState'],
+  ) {
+    const result = await api.patch<{
+      failed: Array<{ shipName: string; reason: string }>;
+    }>(`/spacecraft/fleets/${fleetId}/alert-state`, { alertState });
+    setFleetAlertFailures((current) => ({
+      ...current,
+      [fleetId]: result.failed.map(({ shipName, reason }) => `${shipName}: ${reason}`),
+    }));
+    await loadShips();
+  }
+
   if (loading) return <div className="p-3 text-swu-muted md:p-6">Flotte wird geladen...</div>;
 
   return (
@@ -106,10 +121,28 @@ export function SpacecraftPage() {
           actions={(
             <>
               <span>{fleet.members.length} {fleet.members.length === 1 ? 'Schiff' : 'Schiffe'}</span>
+              <div className="flex items-center gap-1">
+                {(['GREEN', 'YELLOW', 'RED'] as const).map((alertState) => {
+                  const active = fleet.members.every((member) => member.alertState === alertState);
+                  return (
+                    <button
+                      key={alertState}
+                      type="button"
+                      aria-label={`Alarmstufe ${alertState === 'GREEN' ? 'Grün' : alertState === 'YELLOW' ? 'Gelb' : 'Rot'} für ${fleet.name}`}
+                      title={`Alarmstufe ${alertState === 'GREEN' ? 'Grün' : alertState === 'YELLOW' ? 'Gelb' : 'Rot'}`}
+                      className={active ? 'ring-1 ring-swu-primary' : 'opacity-60 hover:opacity-100'}
+                      onClick={() => void setFleetAlertState(fleet.id, alertState)}
+                    >
+                      <img src={alertStateImage(alertState, active)} alt="" className="size-4" />
+                    </button>
+                  );
+                })}
+              </div>
               <button type="button" className="text-swu-primary hover:underline" onClick={() => void renameFleet(fleet.id, fleet.name)}>Umbenennen</button>
               <button type="button" className="text-red-400 hover:underline" onClick={() => void dissolveFleet(fleet.id, fleet.name)}>Auflösen</button>
             </>
           )}
+          message={fleetAlertFailures[fleet.id]?.join('\n')}
           onOpen={(id) => navigate(`/spacecraft/${id}`)}
         />
       ))}
@@ -131,13 +164,14 @@ export function SpacecraftPage() {
   );
 }
 
-function ShipTable({ title, ships, leaderId, actions, emptyLabel, onOpen }: { title: string; ships: SpacecraftListDto[]; leaderId?: number | null; actions?: ReactNode; emptyLabel?: string; onOpen: (id: number) => void }) {
+function ShipTable({ title, ships, leaderId, actions, message, emptyLabel, onOpen }: { title: string; ships: SpacecraftListDto[]; leaderId?: number | null; actions?: ReactNode; message?: string; emptyLabel?: string; onOpen: (id: number) => void }) {
   return (
     <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
       <header className="flex items-center justify-between gap-3 border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
         <h2 className="font-bold text-swu-primary">{title}</h2>
         {actions && <div className="flex items-center gap-3 text-swu-muted">{actions}</div>}
       </header>
+      {message && <p className="whitespace-pre-line border-b border-swu-border px-3 py-2 text-xs text-red-400">{message}</p>}
       <table className="w-full border-collapse text-xs">
         <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">{['Klasse', 'Name', 'Alarm', 'Ebene', 'x|y', 'Hülle', 'Schilde', 'EPS', 'Hyperantrieb', 'Reaktor', 'Batterie', 'Crew', 'Systeme', 'Status'].map((heading) => <th key={heading} className={cell}>{heading}</th>)}</tr></thead>
         <tbody>{ships.length === 0 ? <tr><td colSpan={14} className={`${cell} py-4 text-center text-swu-muted`}>{emptyLabel}</td></tr> : ships.map((ship) => <ShipRow key={ship.id} ship={ship} leader={ship.id === leaderId} onOpen={() => onOpen(ship.id)} />)}</tbody>
