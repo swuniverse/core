@@ -1,6 +1,6 @@
 # Lesende Handelsposten-API
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** tmw-T1a, tmw-T1b
