@@ -38,3 +38,5 @@ Spieler führen eine persönliche Kontaktliste mit Modus Freund, Neutral oder Fe
 - [ ] Backend-Tests: CRUD, Ablehnungsfälle, Benachrichtigung, Resolver liefert Freund über Kontakt, nicht über Fraktionsgrenzen, nicht gegen Allianzkrieg.
 
 ## Comments
+
+- 2026-10-23: Umsetzung abgebrochen, weil die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=HEAD` auch nach einem ernsthaften Wiederholungsversuch nicht grün wurde. Der bestehende, vom Issue unabhängige Test `apps/backend/src/modules/spacecraft/spacecraft-destruction.service.spec.ts` erwartet für das Bergungsgut Modul 10101, die aktuelle Spieldatenauflösung liefert jedoch 10201. Bitte Test/Spieldaten-Baseline klären; anschließend kann das Kontaktmodul erneut umgesetzt werden. `npx nx run-many --targets=build` war grün.
