@@ -1,6 +1,6 @@
 # Schiffskopf: STU-Zusatzwerte und Info-Tooltips
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-11
@@ -23,12 +23,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Schildzelle: `aktuell/max` plus `+Regeneration` je Tick, Tooltip mit Regenerationsregel.
-- [ ] EPS-Zelle: `aktuell/max`, `+Zuwachs`, `(Verbrauch/Reaktorleistung)`; Klick öffnet die vorhandene EPS-Verbrauchsansicht.
-- [ ] Crew-Zelle: `aktuell (min/max)` mit Ampelfarbe.
-- [ ] Reichhaltige Tooltips nutzen die Komponente aus sh-AP-11.
-- [ ] Desktop-Abstände der Kopf-Karten verdichtet (Zellen `px-1.5 py-1`, `text-xs`).
-- [ ] `ShipHeaderTable.spec.tsx` deckt die neuen Werte ab.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Schildzelle: `aktuell/max` plus `+Regeneration` je Tick, Tooltip mit Regenerationsregel.
+- [x] EPS-Zelle: `aktuell/max`, `+Zuwachs`, `(Verbrauch/Reaktorleistung)`; Klick öffnet die vorhandene EPS-Verbrauchsansicht.
+- [x] Crew-Zelle: `aktuell (min/max)` mit Ampelfarbe.
+- [x] Reichhaltige Tooltips nutzen die Komponente aus sh-AP-11.
+- [x] Desktop-Abstände der Kopf-Karten verdichtet (Zellen `px-1.5 py-1`, `text-xs`).
+- [x] `ShipHeaderTable.spec.tsx` deckt die neuen Werte ab.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- Der Schiffskopf lädt den bestehenden Energieflussvertrag, zeigt Schildregeneration, EPS-Zuwachs samt Verbrauch/Reaktorleistung und Crew-Ampelfarbe kompakt an und nutzt die gemeinsame Tooltip-Komponente. Die Komponenten-Tests decken Werte, Tooltips, Klickverhalten und Unterbesetzung ab; keine offenen Folgepunkte.

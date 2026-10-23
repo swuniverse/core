@@ -149,6 +149,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-FLEET-2 – Flottenflug, Fixierung und flottenweites Abfangen – siehe Feature-Commit
 - sc-WP-FLEET-1b – Schiffsliste nach Flotten und Einzelschiffen gruppiert – siehe Feature-Commit
 - sc-WP-UI-1a – Schiffsliste mit STU-Informationsdichte und Laufzeitstatus – siehe Feature-Commit
+- sc-WP-UI-2 – Schiffskopf mit Schildregeneration, EPS-Fluss, Crew-Ampelfarbe und Tooltips verdichtet – siehe Feature-Commit
 - sh-AP-01 – Sicherer, konfigurierbarer Passwort-Reset mit wiederverwendbaren Account-Tokens – siehe Feature-Commit
 - sh-AP-02 – Eigenständige System-News mit Admin-Erstellung und öffentlicher Landing-Anzeige – siehe Feature-Commit
 - sh-AP-15a – Nachrichten-Navlet mit Live-Zählern, Hervorhebung und direktem Schreiben-Link – siehe Feature-Commit

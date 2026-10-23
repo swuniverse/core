@@ -78,8 +78,8 @@ describe('ShipHeaderTable', () => {
     expect(screen.getByText('Korvette')).toBeTruthy();
     expect(screen.getAllByText('90/100').length).toBeGreaterThan(0);
     expect(screen.getAllByText('8/20').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('4 (2,8)').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('40/50')[0].className).toContain(
+    expect(screen.getAllByText('4 (2/8)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('40/50 +5')[0].className).toContain(
       'text-cyan-400',
     );
     expect(screen.queryByText('Warp')).toBeNull();
@@ -123,6 +123,83 @@ describe('ShipHeaderTable', () => {
       }),
     );
     expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('shows shield regeneration, EPS flow, and crew readiness in the compact header', async () => {
+    apiMocks.get.mockResolvedValue({
+      energy: { current: 70, max: 100 },
+      warpdrive: { current: 8, max: 20 },
+      battery: { current: 5, max: 10 },
+      reactorFuel: { current: 30, max: 50, commodityId: 5 },
+      reactorOutput: 12,
+      reactorWarpSplit: 100,
+      reactorAutoCarryOver: false,
+      flightCost: 1,
+      epsProduction: 12,
+      warpProduction: 0,
+      effectiveEpsProduction: 9,
+      effectiveWarpProduction: 0,
+      reactorUsage: 12,
+      totalSystemConsumption: 3,
+      netEps: 9,
+      systems: [],
+    });
+    const onEnergy = vi.fn();
+
+    render(
+      <ShipHeaderTable
+        ship={ship}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={onEnergy}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+        systems={{ SHIELDS: { active: false, integrity: 100 } }}
+      />,
+    );
+
+    expect(await screen.findAllByText('70/100 +9 (3/12)')).toHaveLength(2);
+    expect(screen.getAllByText('40/50 +5')).toHaveLength(2);
+    expect(screen.getAllByText('4 (2/8)')).toHaveLength(2);
+    expect(screen.getAllByText('4 (2/8)')[0].className).toContain(
+      'text-green-400',
+    );
+    fireEvent.mouseEnter(screen.getAllByText('Schilde')[0]);
+    expect(
+      await screen.findByText(
+        'Regeneration: 10 % der maximalen Schilde je Haupttick',
+      ),
+    ).toBeTruthy();
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'Energie' })[0]);
+    expect(
+      await screen.findByText(
+        'Aktuell/Maximum, +Zuwachs, (Systemverbrauch/Reaktorleistung)',
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Energie' })[0]);
+    expect(onEnergy).toHaveBeenCalledOnce();
+  });
+
+  it('marks an understaffed crew in red', async () => {
+    render(
+      <ShipHeaderTable
+        ship={{ ...ship, crew: 1 }}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('1 (2/8)')[0].className).toContain('text-red-400');
   });
 
   it('opens repair options and starts a repair', async () => {
@@ -278,8 +355,8 @@ describe('ShipHeaderTable', () => {
       />,
     );
 
-    expect(screen.getAllByText('0 (0,kA)').length).toBeGreaterThan(0);
-    expect(screen.getByTitle('aktuell (Minimum, Maximum)')).toBeTruthy();
+    expect(screen.getAllByText('0 (0/kA)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Crew').length).toBeGreaterThan(0);
   });
 
   it('renders canonical system location coordinates', () => {

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import type { SpaceLocationDto } from '@swuniverse/shared';
+import type {
+  SpacecraftEnergyFlowDto,
+  SpaceLocationDto,
+} from '@swuniverse/shared';
 import { shipImage } from '../../lib/assets';
 import { api } from '../../services/api';
+import { Tooltip } from '../Tooltip';
 import { ShipQuickActions } from './ShipQuickActions';
 import { SYSTEM_ASSETS } from './ShipControlCenter';
 import { SHIP_SYSTEMS } from './ship-system-presentation';
@@ -68,6 +72,9 @@ export function ShipHeaderTable({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [energyFlow, setEnergyFlow] = useState<SpacecraftEnergyFlowDto | null>(
+    null,
+  );
   const [fleetDialog, setFleetDialog] = useState<
     'CREATE' | 'RENAME' | 'LEADER' | null
   >(null);
@@ -76,6 +83,22 @@ export function ShipHeaderTable({
     setDraftName(ship.name);
     setError(null);
   }, [ship.id, ship.name]);
+
+  useEffect(() => {
+    let current = true;
+    setEnergyFlow(null);
+    void api
+      .get<SpacecraftEnergyFlowDto>(`/spacecraft/${ship.id}/energy-flow`)
+      .then((flow) => {
+        if (current) setEnergyFlow(flow);
+      })
+      .catch(() => {
+        if (current) setEnergyFlow(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [ship.id]);
 
   const saveName = async () => {
     const nextName = draftName.trim();
@@ -97,6 +120,16 @@ export function ShipHeaderTable({
   };
 
   const classLabel = ship.shipClassName ?? `Klasse ${ship.shipClassId}`;
+  const shieldRegeneration =
+    ship.shields < ship.shieldsMax
+      ? Math.max(1, Math.round(ship.shieldsMax * 0.1))
+      : 0;
+  const crewClassName =
+    ship.crew < (ship.crewRequired ?? 0)
+      ? 'text-red-400'
+      : ship.crew > ship.crewMax
+        ? 'text-yellow-400'
+        : 'text-green-400';
   const rows = [
     {
       label: 'Koordinaten',
@@ -110,8 +143,9 @@ export function ShipHeaderTable({
     },
     {
       label: 'Schilde',
-      value: `${ship.shields}/${ship.shieldsMax}`,
+      value: `${ship.shields}/${ship.shieldsMax}${shieldRegeneration > 0 ? ` +${shieldRegeneration}` : ''}`,
       icon: 'sb_schilde_1.png',
+      tooltip: 'Regeneration: 10 % der maximalen Schilde je Haupttick',
       valueClassName: systems?.SHIELDS?.active
         ? 'text-cyan-400'
         : 'text-swu-muted',
@@ -123,8 +157,12 @@ export function ShipHeaderTable({
     },
     {
       label: 'Energie',
-      value: `${ship.energy}/${ship.energyMax}`,
+      value: energyFlow
+        ? `${ship.energy}/${ship.energyMax} +${energyFlow.effectiveEpsProduction} (${energyFlow.totalSystemConsumption}/${energyFlow.reactorOutput})`
+        : `${ship.energy}/${ship.energyMax}`,
       icon: 'eps.png',
+      tooltip:
+        'Aktuell/Maximum, +Zuwachs, (Systemverbrauch/Reaktorleistung)',
     },
     {
       label: 'Batterie',
@@ -133,9 +171,10 @@ export function ShipHeaderTable({
     },
     {
       label: 'Crew',
-      value: `${ship.crew} (${ship.crewRequired ?? 0},${ship.crewMax || 'kA'})`,
+      value: `${ship.crew} (${ship.crewRequired ?? 0}/${ship.crewMax || 'kA'})`,
       icon: 'crew.png',
-      title: 'aktuell (Minimum, Maximum)',
+      tooltip: 'Aktuell (Minimum/Maximum)',
+      valueClassName: crewClassName,
     },
   ];
 
@@ -148,7 +187,7 @@ export function ShipHeaderTable({
         <table className="w-full min-w-[760px] border-collapse text-center text-xs">
           <thead className="bg-black/50 text-swu-muted">
             <tr>
-              <th className="border border-swu-border px-2 py-1">Typ</th>
+              <th className="border border-swu-border px-1.5 py-1">Typ</th>
               <th
                 className="border border-swu-border px-1 py-1"
                 aria-label="Alarmstufe"
@@ -156,34 +195,40 @@ export function ShipHeaderTable({
               {rows.map((row) => (
                 <th
                   key={row.label}
-                  className="border border-swu-border px-2 py-1"
+                  className="border border-swu-border px-1.5 py-1"
                 >
                   {row.label === 'Energie' ? (
-                    <button
-                      type="button"
-                      onClick={onEnergy}
-                      className="inline-flex items-center gap-1 hover:text-swu-accent focus:outline-none focus:ring-1 focus:ring-swu-accent"
-                    >
-                      <AssetIcon file={row.icon} />
-                      {row.label}
-                    </button>
+                    <Tooltip content={row.tooltip}>
+                      <button
+                        type="button"
+                        onClick={onEnergy}
+                        className="inline-flex items-center gap-1 hover:text-swu-accent focus:outline-none focus:ring-1 focus:ring-swu-accent"
+                      >
+                        <AssetIcon file={row.icon} />
+                        {row.label}
+                      </button>
+                    </Tooltip>
+                  ) : row.tooltip ? (
+                    <Tooltip content={row.tooltip}>
+                      <span className="inline-flex items-center gap-1" tabIndex={0}>
+                        <AssetIcon file={row.icon} />
+                        {row.label}
+                      </span>
+                    </Tooltip>
                   ) : (
-                    <span
-                      title={row.title}
-                      className="inline-flex items-center gap-1"
-                    >
+                    <span className="inline-flex items-center gap-1">
                       <AssetIcon file={row.icon} />
                       {row.label}
                     </span>
                   )}
                 </th>
               ))}
-              <th className="border border-swu-border px-2 py-1">Name</th>
+              <th className="border border-swu-border px-1.5 py-1">Name</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td className="border border-swu-border px-2 py-1">
+              <td className="border border-swu-border px-1.5 py-1">
                 <img
                   src={shipImage(ship.shipClassId, ship.shipClassKey)}
                   alt={classLabel}
@@ -203,7 +248,7 @@ export function ShipHeaderTable({
               {rows.map((row) => (
                 <td
                   key={row.label}
-                  className={`border border-swu-border px-2 py-2 font-mono ${row.valueClassName ?? 'text-swu-primary'}`}
+                  className={`border border-swu-border px-1.5 py-1 font-mono text-xs ${row.valueClassName ?? 'text-swu-primary'}`}
                 >
                   {row.value}
                 </td>
@@ -265,10 +310,22 @@ export function ShipHeaderTable({
             key={row.label}
             className="flex justify-between gap-3 border-b border-swu-border/30 pb-1 last:border-b-0"
           >
-            <span className="flex items-center gap-1 text-swu-muted">
-              <AssetIcon file={row.icon} />
-              {row.label}
-            </span>
+            {row.tooltip ? (
+              <Tooltip content={row.tooltip}>
+                <span
+                  className="flex items-center gap-1 text-swu-muted"
+                  tabIndex={0}
+                >
+                  <AssetIcon file={row.icon} />
+                  {row.label}
+                </span>
+              </Tooltip>
+            ) : (
+              <span className="flex items-center gap-1 text-swu-muted">
+                <AssetIcon file={row.icon} />
+                {row.label}
+              </span>
+            )}
             <span
               className={`font-mono ${row.valueClassName ?? 'text-swu-primary'}`}
             >
