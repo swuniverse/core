@@ -3713,7 +3713,10 @@ export class SpacecraftService {
     );
   }
 
-  async processTick(ship: Spacecraft): Promise<void> {
+  async processTick(
+    ship: Spacecraft,
+    options: { skipRepair?: boolean } = {},
+  ): Promise<void> {
     const construction = await this.stationConstructionService.processTick(ship.id);
     if (construction.completed) {
       await this.messagingService.sendSystem(
@@ -3737,7 +3740,9 @@ export class SpacecraftService {
     }
     if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION) return;
     await this.processMovement(ship);
-    await this.repairService.processTick(ship);
+    if (!options.skipRepair) {
+      await this.repairService.processTick(ship);
+    }
     if (ship.status === SpacecraftStatus.IN_FLIGHT) {
       await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     }

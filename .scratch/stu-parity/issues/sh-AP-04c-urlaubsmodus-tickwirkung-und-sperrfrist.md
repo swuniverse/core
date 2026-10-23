@@ -1,6 +1,6 @@
 # Urlaubsmodus: Tickwirkung und Sperrfrist
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-04a
@@ -25,9 +25,9 @@ In STU pausiert der Kolonie-Tick wirksamer Urlauber vollständig (keine Produkti
 
 ## Akzeptanzkriterien
 
-- [ ] Kolonien wirksamer Urlauber werden im Haupttick vollständig übersprungen (inkl. Bauabschluss-Prüfung im Haupttick; der minütliche Bauabschluss läuft weiter); Schiffe ticken weiter ohne Crewlimit-Folgen und ohne passive Reparaturaktionen; Forschung pausiert, weil keine Punkte erzeugt werden.
-- [ ] Die 7-Tage-Sperre zählt ab dem Zeitpunkt der letzten Aktivierung (Feld z. B. `vacationRequestedAt`, per Migration aus vorhandenen Daten befüllt); `VACATION_COOLDOWN_MS` wird darauf umgestellt; die Fehlermeldung nennt die Resttage.
-- [ ] Backend-Tests: Urlauberkolonie bleibt im Tick unverändert, Nicht-Urlauber werden verarbeitet, Urlaub < 48 h zählt als aktiv; Sperrfrist-Grenzwerte ab Aktivierung (kurzer Login setzt die Frist nicht zurück).
+- [x] Kolonien wirksamer Urlauber werden im Haupttick vollständig übersprungen (inkl. Bauabschluss-Prüfung im Haupttick; der minütliche Bauabschluss läuft weiter); Schiffe ticken weiter ohne Crewlimit-Folgen und ohne passive Reparaturaktionen; Forschung pausiert, weil keine Punkte erzeugt werden.
+- [x] Die 7-Tage-Sperre zählt ab dem Zeitpunkt der letzten Aktivierung (Feld z. B. `vacationRequestedAt`, per Migration aus vorhandenen Daten befüllt); `VACATION_COOLDOWN_MS` wird darauf umgestellt; die Fehlermeldung nennt die Resttage.
+- [x] Backend-Tests: Urlauberkolonie bleibt im Tick unverändert, Nicht-Urlauber werden verarbeitet, Urlaub < 48 h zählt als aktiv; Sperrfrist-Grenzwerte ab Aktivierung (kurzer Login setzt die Frist nicht zurück).
 
 ## Entscheidung
 
@@ -38,3 +38,4 @@ Vorgabe:
 ## Comments
 
 - 2026-10-21 Product Owner: Option 1a, 2a – Urlaub wirkt wie in STU: Der Kolonie-Tick pausiert komplett, Schiffe ticken ohne Crewlimit-Folgen und ohne passive Reparatur weiter (1a); die 7-Tage-Sperre zählt ab der letzten Aktivierung (2a).
+- 2026-10-23: Haupttick überspringt Urlauberkolonien und Schiffsreparaturen, behält den übrigen Schiffstick bei; `vacationRequestedAt` steuert nach Migration die Sperrfrist. Keine offenen Folgepunkte.

@@ -140,6 +140,12 @@ export class TickService {
 
       const researchByUser = new Map<number, number>();
       const commodityProductionByUser = new Map<number, Map<number, number>>();
+      const users = await this.userRepo.find({
+        select: ['id', 'vacationMode'],
+      });
+      const vacationUsers = new Set(
+        users.filter((user) => user.vacationMode).map((user) => user.id),
+      );
       const colonyIds = await this.loadIds(this.colonyRepo);
       processedColonyCount = colonyIds.length;
       for (const idChunk of this.chunk(colonyIds, TICK_BATCH_SIZE)) {
@@ -149,7 +155,12 @@ export class TickService {
           relations: ['fields', 'stats', 'changeable', 'celestialObject'],
         });
         for (const colony of colonies) {
-          if (colony.userId == null || colony.isAbandoned) continue;
+          if (
+            colony.userId == null ||
+            colony.isAbandoned ||
+            vacationUsers.has(colony.userId)
+          )
+            continue;
           const colonyUserId = colony.userId;
           const tickResult = await this.colonyService.processTick(colony);
           researchByUser.set(
@@ -217,7 +228,9 @@ export class TickService {
           ],
         });
         for (const ship of ships) {
-          await this.spacecraftService.processTick(ship);
+          await this.spacecraftService.processTick(ship, {
+            skipRepair: vacationUsers.has(ship.userId),
+          });
           this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
             shipId: ship.id,
             locationId: ship.location?.id ?? null,
@@ -226,9 +239,6 @@ export class TickService {
         }
       }
 
-      const users = await this.userRepo.find({
-        select: ['id', 'vacationMode'],
-      });
       processedUserCount = users.length;
       for (const user of users) {
         await this.researchService.processTick(

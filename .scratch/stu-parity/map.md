@@ -173,6 +173,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-D0a – Geschützten Systemdetailvertrag mit Kolonien, Scans, Kartenlink und nicht-taktischer Darstellung wiederhergestellt – siehe Feature-Commit
 - tmw-D0b – Systemdetailvertrag, Raster, Scanwissen, Schnellnachrichten und Kartographiefortsetzung verhaltensorientiert abgesichert – siehe Feature-Commit
 - sh-AP-04a – Urlaubsmodus mit 48-h-Vorlauf, Sitzungsende, Login-Beendigung und öffentlicher Kennzeichnung umgesetzt – siehe Feature-Commit
+- sh-AP-04c – Urlaub pausiert Kolonieticks, Crewlimit-Folgen und Schiffsreparaturen; Sperrfrist zählt ab Aktivierung – siehe Feature-Commit
 - tmw-T1a – Handelsmodell mit Posten, Konten, Angebotsreserven, Transfers, Transaktionen und transaktionssicherem Speicher umgesetzt – siehe Feature-Commit
 - tmw-T1b – Fünf NPC-Handelsposten werden idempotent an deterministischen kanonischen Standorten gesät – siehe Feature-Commit
 - sc-WP-FLEET-2b – Flotten-Alarmstufe mit partiellen Ergebnissen und STU-Icons umgesetzt – siehe Feature-Commit

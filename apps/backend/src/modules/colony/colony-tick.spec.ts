@@ -7261,7 +7261,7 @@ describe('main tick idempotency', () => {
       { find: jest.fn(async () => [{ id: 1, userId: 7 }]) } as any,
       {} as any,
       {} as any,
-      {} as any,
+      { find: jest.fn(async () => []) } as any,
       tickStateRepo as any,
       {
         processTick: jest.fn(async () => {

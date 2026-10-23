@@ -188,8 +188,8 @@ export class SettingsService {
       throw new BadRequestException('Vacation mode is already active');
     }
 
-    if (user.vacationEndedAt) {
-      const elapsed = Date.now() - user.vacationEndedAt.getTime();
+    if (user.vacationRequestedAt) {
+      const elapsed = Date.now() - user.vacationRequestedAt.getTime();
       if (elapsed < VACATION_COOLDOWN_MS) {
         const remainingDays = Math.ceil(
           (VACATION_COOLDOWN_MS - elapsed) / (24 * 60 * 60 * 1000),
@@ -200,8 +200,10 @@ export class SettingsService {
       }
     }
 
+    const now = new Date();
     user.vacationMode = true;
-    user.vacationStartedAt = new Date();
+    user.vacationRequestedAt = now;
+    user.vacationStartedAt = now;
     user.refreshToken = null;
     await this.userRepo.save(user);
   }

@@ -87,6 +87,9 @@ export class User {
   vacationStartedAt: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
+  vacationRequestedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
   vacationEndedAt: Date | null;
 
   @Column({ type: 'int', default: 0 })
