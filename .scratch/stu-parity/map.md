@@ -162,3 +162,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-W1 – Handels-NPC-Konten mit zentralen Ausschlüssen, Handelsnachrichten und Adminpflege umgesetzt – siehe Feature-Commit
 - soc-G1 – Awardkatalog, idempotente Vergabe mit Prestige und Profilanzeige umgesetzt – siehe Feature-Commit
 - sc-WP-UI-3b – Gezielter Kolonieangriff auf ein Gebäude über die Oberflächenwahl umgesetzt – siehe Feature-Commit
+- sc-WP-ENG-2a – Reine deklarative Interaktions-Policy mit stabilen Ablehnungsmeldungen umgesetzt – siehe Feature-Commit

@@ -1,0 +1,110 @@
+export enum InteractionRule {
+  POSITION = 'POSITION',
+  SOURCE_CREW = 'SOURCE_CREW',
+  SOURCE_COMBAT_CAPABLE = 'SOURCE_COMBAT_CAPABLE',
+  SOURCE_UNHYPERSPACED = 'SOURCE_UNHYPERSPACED',
+  TARGET_UNHYPERSPACED = 'TARGET_UNHYPERSPACED',
+  SOURCE_UNSHIELDED = 'SOURCE_UNSHIELDED',
+  TARGET_UNSHIELDED = 'TARGET_UNSHIELDED',
+  TARGET_VACATION = 'TARGET_VACATION',
+  SOURCE_INTACT = 'SOURCE_INTACT',
+  TARGET_INTACT = 'TARGET_INTACT',
+  SOURCE_UNBLOCKED = 'SOURCE_UNBLOCKED',
+  TARGET_UNBLOCKED = 'TARGET_UNBLOCKED',
+  STANCE = 'STANCE',
+}
+
+export interface InteractionContext {
+  samePosition: boolean;
+  sourceHasSufficientCrew: boolean;
+  sourceCombatCapable: boolean;
+  sourceInHyperspace: boolean;
+  targetInHyperspace: boolean;
+  sourceShieldsActive: boolean;
+  targetShieldsActive: boolean;
+  targetOnVacation: boolean;
+  sourceDestroyed: boolean;
+  targetDestroyed: boolean;
+  sourceBlocked: boolean;
+  targetBlocked: boolean;
+  stanceAllowed: boolean;
+}
+
+export interface InteractionDecision {
+  allowed: boolean;
+  reason: string | null;
+}
+
+type InteractionCheck = {
+  rejected: (context: InteractionContext) => boolean;
+  reason: string | null;
+};
+
+const CHECKS: Record<InteractionRule, InteractionCheck> = {
+  [InteractionRule.POSITION]: {
+    rejected: (context) => !context.samePosition,
+    reason: null,
+  },
+  [InteractionRule.SOURCE_CREW]: {
+    rejected: (context) => !context.sourceHasSufficientCrew,
+    reason: 'Nicht genügend Crew vorhanden',
+  },
+  [InteractionRule.SOURCE_COMBAT_CAPABLE]: {
+    rejected: (context) => !context.sourceCombatCapable,
+    reason: 'Das Schiff ist kampfunfähig',
+  },
+  [InteractionRule.SOURCE_UNHYPERSPACED]: {
+    rejected: (context) => context.sourceInHyperspace,
+    reason: 'Der Warpantrieb ist aktiviert',
+  },
+  [InteractionRule.TARGET_UNHYPERSPACED]: {
+    rejected: (context) => context.targetInHyperspace,
+    reason: 'Das Ziel hat den Warpantrieb aktiviert',
+  },
+  [InteractionRule.SOURCE_UNSHIELDED]: {
+    rejected: (context) => context.sourceShieldsActive,
+    reason: 'Die Schilde sind aktiviert',
+  },
+  [InteractionRule.TARGET_UNSHIELDED]: {
+    rejected: (context) => context.targetShieldsActive,
+    reason: 'Das Ziel hat die Schilde aktiviert',
+  },
+  [InteractionRule.TARGET_VACATION]: {
+    rejected: (context) => context.targetOnVacation,
+    reason: 'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+  },
+  [InteractionRule.SOURCE_INTACT]: {
+    rejected: (context) => context.sourceDestroyed,
+    reason: 'Schiff ist zerstört',
+  },
+  [InteractionRule.TARGET_INTACT]: {
+    rejected: (context) => context.targetDestroyed,
+    reason: 'Ziel ist zerstört',
+  },
+  [InteractionRule.SOURCE_UNBLOCKED]: {
+    rejected: (context) => context.sourceBlocked,
+    reason: 'Die Kolonie wird blockiert.',
+  },
+  [InteractionRule.TARGET_UNBLOCKED]: {
+    rejected: (context) => context.targetBlocked,
+    reason: 'Das Ziel wird blockiert.',
+  },
+  [InteractionRule.STANCE]: {
+    rejected: (context) => !context.stanceAllowed,
+    reason: 'Transfer nur zwischen Freunden erlaubt',
+  },
+};
+
+export function checkInteraction(
+  context: InteractionContext,
+  rules: readonly InteractionRule[],
+): InteractionDecision {
+  for (const rule of rules) {
+    const check = CHECKS[rule];
+    if (check.rejected(context)) {
+      return { allowed: false, reason: check.reason };
+    }
+  }
+
+  return { allowed: true, reason: null };
+}
