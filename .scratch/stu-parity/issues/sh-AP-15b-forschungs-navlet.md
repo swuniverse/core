@@ -1,6 +1,6 @@
 # Forschungs-Navlet mit Bild, Produktion und Wartend-Badge
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
