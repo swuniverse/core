@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
+import { LegalLinks } from '../components/legal/LegalLinks';
 import type { AuthResponse } from '@swuniverse/shared';
 
 interface FactionModifiers {
@@ -297,6 +298,7 @@ export function RegisterPage() {
             Zurück zum Login
           </Link>
         </form>
+        <LegalLinks className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-swu-primary" />
       </section>
     </main>
   );

@@ -371,6 +371,34 @@ vi.mock('pixi.js', () => ({
 }));
 
 describe('App', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
+  it.each([
+    ['/impressum', 'Impressum'],
+    ['/datenschutz', 'Datenschutzerklärung'],
+    ['/hilfe', 'Hilfe'],
+  ])('keeps the public route %s reachable without login', (path, heading) => {
+    window.history.pushState({}, '', path);
+
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: heading, level: 1 })).toBeTruthy();
+  });
+
+  it('marks operator placeholders on the imprint page', () => {
+    window.history.pushState({}, '', '/impressum');
+
+    render(<App />);
+
+    expect(
+      screen.getByText('[[BETREIBER: Name]]').getAttribute(
+        'data-operator-placeholder',
+      ),
+    ).toBe('true');
+  });
+
   it('should render successfully', () => {
     const { baseElement } = render(<App />);
     expect(baseElement).toBeTruthy();

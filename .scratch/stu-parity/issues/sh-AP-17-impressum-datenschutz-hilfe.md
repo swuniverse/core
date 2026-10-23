@@ -1,6 +1,6 @@
 # Impressum, Datenschutz und Hilfe
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ SWU bekommt öffentliche Seiten Impressum, Datenschutzerklärung und Hilfe mit F
 
 ## Akzeptanzkriterien
 
-- [ ] `/impressum`: Gerüst nach § 5 DDG (Anbieter, Anschrift, Kontakt, Verantwortlicher nach § 18 Abs. 2 MStV) mit Platzhaltern der Form `[[BETREIBER: Name]]`, deutlich als Platzhalter hervorgehoben; Hinweis auf Star Wars als Marke von Lucasfilm und Fan-Projekt ohne kommerzielle Absicht.
-- [ ] `/datenschutz`: Gerüst mit Abschnitten zu Verantwortlichem, verarbeiteten Daten (Konto, E-Mail, Spielstand, letzte Aktivität, Server-Logs), Zwecken, Rechtsgrundlagen, Speicherdauer (Verweis auf Inaktivitätslöschung), E-Mail-Versand, Rechten der Betroffenen; Platzhalter wie oben, keine erfundenen Betreiberangaben.
-- [ ] `/hilfe`: Kurzanleitung (Registrierung, Heimatwelt, Kolonie, Forschung, Schiffe, HoloNet, Allianzen), Links auf Wiki und Discord; Inhalte darf der Agent schreiben (Domänenbegriffe gemäß `CONTEXT.md`).
-- [ ] Footer-Links auf Landing/Login/Registrierung und ein Abschnitt in den Einstellungen nur bei aktivem Flag.
-- [ ] Frontend-Tests: Routen ohne Login erreichbar, Links nur bei Flag, Platzhalter sichtbar markiert.
+- [x] `/impressum`: Gerüst nach § 5 DDG (Anbieter, Anschrift, Kontakt, Verantwortlicher nach § 18 Abs. 2 MStV) mit Platzhaltern der Form `[[BETREIBER: Name]]`, deutlich als Platzhalter hervorgehoben; Hinweis auf Star Wars als Marke von Lucasfilm und Fan-Projekt ohne kommerzielle Absicht.
+- [x] `/datenschutz`: Gerüst mit Abschnitten zu Verantwortlichem, verarbeiteten Daten (Konto, E-Mail, Spielstand, letzte Aktivität, Server-Logs), Zwecken, Rechtsgrundlagen, Speicherdauer (Verweis auf Inaktivitätslöschung), E-Mail-Versand, Rechten der Betroffenen; Platzhalter wie oben, keine erfundenen Betreiberangaben.
+- [x] `/hilfe`: Kurzanleitung (Registrierung, Heimatwelt, Kolonie, Forschung, Schiffe, HoloNet, Allianzen), Links auf Wiki und Discord; Inhalte darf der Agent schreiben (Domänenbegriffe gemäß `CONTEXT.md`).
+- [x] Footer-Links auf Landing/Login/Registrierung und ein Abschnitt in den Einstellungen nur bei aktivem Flag.
+- [x] Frontend-Tests: Routen ohne Login erreichbar, Links nur bei Flag, Platzhalter sichtbar markiert.
 
 ## Comments
+
+Öffentliche Informationsseiten, gemeinsame rechtliche Navigation und das standardmäßig deaktivierte Vite-Flag wurden im Frontend ergänzt. Die Routen bleiben unabhängig vom Flag öffentlich erreichbar; Tests und alle vorgeschriebenen Prüfungen sind grün.

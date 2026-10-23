@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { VACATION_DELAY_MS } from '@swuniverse/shared';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { getErrorMessage } from '../lib/errors';
 import { formatDate, formatInviteStatus, type InviteStatus } from '../lib/format';
+import { LEGAL_PAGES_ENABLED } from '../components/legal/LegalLinks';
 
 type Tab =
   | 'profile'
@@ -69,6 +70,19 @@ export function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {LEGAL_PAGES_ENABLED && (
+        <section className="border border-swu-border bg-swu-surface/60 p-3" aria-labelledby="legal-links-title">
+          <h2 id="legal-links-title" className="mb-2 font-bold text-swu-primary">
+            Rechtliches und Hilfe
+          </h2>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <Link className="text-swu-accent hover:underline" to="/impressum">Impressum</Link>
+            <Link className="text-swu-accent hover:underline" to="/datenschutz">Datenschutz</Link>
+            <Link className="text-swu-accent hover:underline" to="/hilfe">Hilfe</Link>
+          </div>
+        </section>
+      )}
 
       <div className="mt-4">
         {activeTab === 'profile' && <ProfileTab />}

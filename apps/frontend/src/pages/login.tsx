@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
 import type { AuthResponse } from '@swuniverse/shared';
 import { formatDate } from '../lib/format';
+import { LegalLinks } from '../components/legal/LegalLinks';
 
 interface GameStatus {
   status: 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
@@ -523,6 +524,7 @@ export function LoginPage() {
         <span className="swu-footer__brand">Star Wars Universe</span>
         <span>Open Source · {new Date().getFullYear()}</span>
         <div className="swu-footer__links">
+          <LegalLinks className="contents" />
           <a
             href="https://github.com/swuniverse"
             target="_blank"

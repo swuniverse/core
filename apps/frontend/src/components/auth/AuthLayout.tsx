@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { StarField } from './StarField';
+import { LegalLinks } from '../legal/LegalLinks';
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -26,6 +27,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <span className="auth-footer__text">STAR WARS UNIVERSE</span>
           <span className="auth-footer__line" />
         </div>
+        <LegalLinks className="mt-3 flex flex-wrap justify-center gap-4 text-xs text-swu-primary" />
       </div>
     </div>
   );

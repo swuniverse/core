@@ -27,6 +27,9 @@ import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
+import { ImprintPage } from '../pages/imprint';
+import { PrivacyPage } from '../pages/privacy';
+import { HelpPage } from '../pages/help';
 import {
   AllianceApplicationsPage,
   AllianceDetailPage,
@@ -74,6 +77,9 @@ export function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/impressum" element={<ImprintPage />} />
+          <Route path="/datenschutz" element={<PrivacyPage />} />
+          <Route path="/hilfe" element={<HelpPage />} />
           <Route
             path="/login"
             element={
