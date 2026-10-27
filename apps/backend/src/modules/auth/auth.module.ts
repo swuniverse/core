@@ -26,6 +26,8 @@ import { NpcAccountService } from './npc-account.service';
 import { SettingsModule } from '../settings/settings.module';
 import { ACCOUNT_ACCESS_CHECKS } from './account-access-check';
 import { EmailVerificationAccessCheck } from './email-verification-access-check';
+import { UserLock } from './user-lock.entity';
+import { UserLockService } from './user-lock.service';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { EmailVerificationAccessCheck } from './email-verification-access-check'
       InviteKey,
       InviteQuota,
       AccountToken,
+      UserLock,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -60,6 +63,7 @@ import { EmailVerificationAccessCheck } from './email-verification-access-check'
     AdminBootstrapService,
     NpcAccountService,
     LastActivityService,
+    UserLockService,
     EmailVerificationAccessCheck,
     {
       provide: ACCOUNT_ACCESS_CHECKS,
@@ -70,6 +74,12 @@ import { EmailVerificationAccessCheck } from './email-verification-access-check'
     },
     { provide: APP_INTERCEPTOR, useClass: LastActivityInterceptor },
   ],
-  exports: [AuthService, AccountTokenService, AdminGuard, NpcAccountService],
+  exports: [
+    AuthService,
+    AccountTokenService,
+    AdminGuard,
+    NpcAccountService,
+    UserLockService,
+  ],
 })
 export class AuthModule {}

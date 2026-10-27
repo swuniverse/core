@@ -23,6 +23,7 @@ import { GameStatusModule } from './modules/game-status/game-status.module';
 import { User } from './modules/auth/user.entity';
 import { InviteKey } from './modules/auth/invite-key.entity';
 import { InviteQuota } from './modules/auth/invite-quota.entity';
+import { UserLock } from './modules/auth/user-lock.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from './modules/colony/entities/colony-storage.entity';
@@ -141,6 +142,7 @@ import { UserCharacter } from './modules/rpg/user-character.entity';
           User,
           InviteKey,
           InviteQuota,
+          UserLock,
           Colony,
           ColonyField,
           ColonyStorage,

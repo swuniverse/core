@@ -22,6 +22,7 @@ import {
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
+import { UserLockService } from '../auth/user-lock.service';
 import { WsEventType } from '@swuniverse/shared';
 import { resolveSpaceLocation } from '../spacecraft/spacecraft-field';
 import {
@@ -68,6 +69,7 @@ export class TickService {
     private readonly colonyCrewService?: ColonyCrewService,
     private readonly messagingService?: MessagingService,
     private readonly userSettings?: UserSettingsReader,
+    private readonly userLockService?: UserLockService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -266,6 +268,7 @@ export class TickService {
       await this.dashboardService.recordSnapshot();
       // Fehler werden in recordSnapshots protokolliert und brechen den Tick nicht ab.
       await this.statisticsService.recordSnapshots(new Date(tickNumber));
+      await this.userLockService?.reduceActiveLocks();
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
     } catch (error) {
       await this.finishTick(

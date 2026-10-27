@@ -3,10 +3,12 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
@@ -124,8 +126,8 @@ export class AuthController {
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('admin/users')
-  listUsers() {
-    return this.authService.listUsers();
+  listUsers(@Query('q') query?: string) {
+    return this.authService.listUsers(query);
   }
 
   @RequiresGameAccess()
@@ -136,6 +138,23 @@ export class AuthController {
     @Body() body: { username: string; description: string | null },
   ) {
     return this.authService.updateUser(Number(id), body);
+  }
+
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('admin/users/:id/lock')
+  lockUser(
+    @Param('id') id: string,
+    @Body() body: { ticks: number; reason: string },
+  ) {
+    return this.authService.lockUser(Number(id), body);
+  }
+
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Delete('admin/users/:id/lock')
+  unlockUser(@Param('id') id: string) {
+    return this.authService.unlockUser(Number(id));
   }
 
   @RequiresGameAccess()

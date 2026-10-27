@@ -1,6 +1,6 @@
 # Admin: Spielerliste und Spielersperre
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-09
@@ -27,12 +27,14 @@ Die Admin-Benutzerseite wird zur STU-Spielerliste (ID, Name, Fraktion, Registrie
 
 ## Akzeptanzkriterien
 
-- [ ] `GET /auth/admin/users` liefert zusätzlich Fraktion, `createdAt`, `lastActiveAt`, Urlaubsstatus, Löschmarke und aktive Sperre (Restticks, Grund); Sortierung nach ID, Suche nach Name/ID.
-- [ ] `POST /auth/admin/users/:id/lock` (Ticks ≥ 1, Grund Pflicht, max. 500 Zeichen) legt eine Sperre an oder überschreibt sie; `DELETE …/lock` hebt sie auf. Admins können nicht gesperrt werden.
-- [ ] Eine Sperre löscht das Refresh-Token; Login und Refresh liefern 403 mit Code `ACCOUNT_LOCKED`, Restticks und Grund. Laufende Access-Tokens enden spätestens nach 15 min (kein zusätzlicher Check je Request nötig).
-- [ ] Jeder erfolgreiche Haupttick zählt aktive Sperren um 1 herunter; bei 0 ist die Sperre beendet (Eintrag bleibt für die Historie oder wird gelöscht, konsistent dokumentiert).
-- [ ] Login-Seite zeigt bei `ACCOUNT_LOCKED` „Dein Spieleraccount ist noch für n Ticks gesperrt. Begründung: …“.
-- [ ] Spielerliste im Tabellenstil (UI-Konventionen 3.4), Datumswerte über `formatDateTime`, Aktionen Sperren/Entsperren mit Dialog; die bestehende Rechteverwaltung (MAP_EDITOR) bleibt erhalten.
-- [ ] Backend-Tests: Sperren, Entsperren, Admin nicht sperrbar, Tick-Herunterzählen, Login-Ablehnung mit Daten. Frontend-Tests: Liste, Sperrdialog, Login-Meldung.
+- [x] `GET /auth/admin/users` liefert zusätzlich Fraktion, `createdAt`, `lastActiveAt`, Urlaubsstatus, Löschmarke und aktive Sperre (Restticks, Grund); Sortierung nach ID, Suche nach Name/ID.
+- [x] `POST /auth/admin/users/:id/lock` (Ticks ≥ 1, Grund Pflicht, max. 500 Zeichen) legt eine Sperre an oder überschreibt sie; `DELETE …/lock` hebt sie auf. Admins können nicht gesperrt werden.
+- [x] Eine Sperre löscht das Refresh-Token; Login und Refresh liefern 403 mit Code `ACCOUNT_LOCKED`, Restticks und Grund. Laufende Access-Tokens enden spätestens nach 15 min (kein zusätzlicher Check je Request nötig).
+- [x] Jeder erfolgreiche Haupttick zählt aktive Sperren um 1 herunter; bei 0 ist die Sperre beendet (Eintrag wird gelöscht).
+- [x] Login-Seite zeigt bei `ACCOUNT_LOCKED` „Dein Spieleraccount ist noch für n Ticks gesperrt. Begründung: …“.
+- [x] Spielerliste im Tabellenstil (UI-Konventionen 3.4), Datumswerte über `formatDateTime`, Aktionen Sperren/Entsperren mit Dialog; die bestehende Rechteverwaltung (MAP_EDITOR) bleibt erhalten.
+- [x] Backend-Tests: Sperren, Entsperren, Admin nicht sperrbar, Tick-Herunterzählen, Login-Ablehnung mit Daten. Frontend-Tests: Liste, Sperrdialog, Login-Meldung.
 
 ## Comments
+
+Umgesetzt mit persistenter `user_locks`-Entity und Migration, Admin-API/Spielerliste, Login- und Refresh-Schutz sowie Herunterzählen im erfolgreichen Haupttick. Abgelaufene Sperren werden gelöscht. Alle fokussierten Tests, Lint, Typecheck und Builds sind grün; der vollständige Frontend-Testlauf bleibt an einem reproduzierbaren, unveränderten Research-Test (`research.spec.tsx`, erwarteter Button „eine von“) rot.

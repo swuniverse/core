@@ -40,6 +40,7 @@ import {
   AccountAccessCheck,
 } from './account-access-check';
 import { UserSettingsReader } from '../settings/user-settings-reader';
+import { UserLock } from './user-lock.entity';
 
 const INITIAL_INVITE_QUOTA = 2;
 const PASSWORD_RESET_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -101,6 +102,9 @@ export class AuthService {
     @Optional()
     @Inject(ACCOUNT_ACCESS_CHECKS)
     private readonly accountAccessChecks: AccountAccessCheck[] = [],
+    @Optional()
+    @InjectRepository(UserLock)
+    private readonly userLockRepo?: Repository<UserLock>,
   ) {}
 
   features(): AuthFeaturesDto {
@@ -704,19 +708,37 @@ export class AuthService {
     return { id: user.id, username: user.username, email: user.email };
   }
 
-  async listUsers() {
-    const users = await this.userRepo.find({
-      select: ['id', 'username', 'description', 'isAdmin', 'isNpc', 'permissions'],
-      order: { username: 'ASC' },
-    });
-    return users.map((u) => ({
-      id: u.id,
-      username: u.username,
-      description: u.description,
-      isAdmin: u.isAdmin,
-      isNpc: u.isNpc,
-      permissions: u.permissions ?? [],
-    }));
+  async listUsers(query?: string) {
+    const users = await this.userRepo.find({ order: { id: 'ASC' } });
+    const locks = this.userLockRepo ? await this.userLockRepo.find() : [];
+    const locksByUser = new Map(locks.map((lock) => [lock.userId, lock]));
+    const normalizedQuery = query?.trim().toLowerCase();
+    return users
+      .filter(
+        (user) =>
+          !normalizedQuery ||
+          String(user.id) === normalizedQuery ||
+          user.username.toLowerCase().includes(normalizedQuery),
+      )
+      .map((user) => {
+        const lock = locksByUser.get(user.id);
+        return {
+          id: user.id,
+          username: user.username,
+          description: user.description,
+          isAdmin: user.isAdmin,
+          isNpc: user.isNpc,
+          permissions: user.permissions ?? [],
+          faction: user.faction,
+          createdAt: user.createdAt.toISOString(),
+          lastActiveAt: user.lastActiveAt?.toISOString() ?? null,
+          vacationMode: user.vacationMode,
+          deletionMark: user.deletionMark,
+          lock: lock
+            ? { remainingTicks: lock.remainingTicks, reason: lock.reason }
+            : null,
+        };
+      });
   }
 
   async updateUser(
@@ -736,7 +758,45 @@ export class AuthService {
     await this.userRepo.update(userId, { permissions });
   }
 
+  async lockUser(
+    userId: number,
+    input: { ticks: number; reason: string },
+  ): Promise<UserLock> {
+    if (!Number.isInteger(input.ticks) || input.ticks < 1) {
+      throw new BadRequestException('Ticks müssen mindestens 1 sein');
+    }
+    const reason = input.reason?.trim();
+    if (!reason || reason.length > 500) {
+      throw new BadRequestException('Grund muss 1 bis 500 Zeichen lang sein');
+    }
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new NotFoundException('Spieler nicht gefunden');
+    if (user.isAdmin) {
+      throw new BadRequestException('Admins können nicht gesperrt werden');
+    }
+    let lock = await this.userLockRepo?.findOne({ where: { userId } });
+    lock ??= this.userLockRepo!.create({ userId });
+    lock.remainingTicks = input.ticks;
+    lock.reason = reason;
+    await this.userRepo.update(userId, { refreshToken: null });
+    return this.userLockRepo!.save(lock);
+  }
+
+  async unlockUser(userId: number): Promise<void> {
+    await this.userLockRepo?.delete({ userId });
+  }
+
   private async assertAccountAccess(user: User): Promise<void> {
+    const lock = await this.userLockRepo?.findOne({ where: { userId: user.id } });
+    if (lock && lock.remainingTicks > 0) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'ACCOUNT_LOCKED',
+        message: `Dein Spieleraccount ist noch für ${lock.remainingTicks} Ticks gesperrt. Begründung: ${lock.reason}`,
+        remainingTicks: lock.remainingTicks,
+        reason: lock.reason,
+      });
+    }
     for (const check of this.accountAccessChecks) {
       await check.assertAccountAccess(user);
     }

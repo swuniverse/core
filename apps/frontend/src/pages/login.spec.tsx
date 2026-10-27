@@ -2,11 +2,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './login';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 vi.mock('../services/api', () => ({
   api: { get: vi.fn(), post: vi.fn() },
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    constructor(public status: number, message: string, public code?: string) {
+      super(message);
+    }
+  },
 }));
 
 describe('LoginPage', () => {
@@ -174,4 +178,19 @@ describe('LoginPage', () => {
       screen.getAllByRole('button', { name: 'Login' }).length,
     ).toBeGreaterThan(0);
   });
+
+  it('shows the tick count and reason for a locked account', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce(new ApiError(403, 'Dein Spieleraccount ist noch für 3 Ticks gesperrt. Begründung: Regelverstoß', 'ACCOUNT_LOCKED'));
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes><Route path="/login" element={<LoginPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
+    fireEvent.change(screen.getByPlaceholderText('Login-Name oder Spieler-ID'), { target: { value: 'Leia' } });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'secret' } });
+    fireEvent.submit(screen.getByRole('form', { name: 'Login Formular' }));
+    expect(await screen.findByText('Dein Spieleraccount ist noch für 3 Ticks gesperrt. Begründung: Regelverstoß')).toBeTruthy();
+  });
+
 });

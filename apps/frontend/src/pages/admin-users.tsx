@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { formatDateTime } from '../lib/format';
+import type { Faction } from '@swuniverse/shared';
 
 const AVAILABLE_PERMISSIONS = ['MAP_EDITOR'] as const;
 
@@ -10,11 +12,21 @@ interface UserEntry {
   isNpc: boolean;
   description: string | null;
   permissions: string[];
+  faction: Faction | null;
+  createdAt: string;
+  lastActiveAt: string | null;
+  vacationMode: boolean;
+  deletionMark: number;
+  lock: { remainingTicks: number; reason: string } | null;
 }
 
 export function AdminUsersPage() {
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [lockUser, setLockUser] = useState<UserEntry | null>(null);
+  const [ticks, setTicks] = useState('1');
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     api.get<UserEntry[]>('/auth/admin/users').then((data) => {
@@ -30,83 +42,60 @@ export function AdminUsersPage() {
     });
   }
 
-  async function togglePermission(user: UserEntry, perm: string) {
-    const has = user.permissions.includes(perm);
-    const updated = has
-      ? user.permissions.filter((p) => p !== perm)
-      : [...user.permissions, perm];
-    await api.patch(`/auth/admin/users/${user.id}/permissions`, {
-      permissions: updated,
-    });
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, permissions: updated } : u)),
-    );
+  async function togglePermission(user: UserEntry, permission: string) {
+    const updated = user.permissions.includes(permission)
+      ? user.permissions.filter((item) => item !== permission)
+      : [...user.permissions, permission];
+    await api.patch(`/auth/admin/users/${user.id}/permissions`, { permissions: updated });
+    setUsers((previous) => previous.map((item) => item.id === user.id ? { ...item, permissions: updated } : item));
   }
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-swu-primary" style={{ fontFamily: 'var(--font-swu-display)' }}>Benutzerrechte</h1>
-        <p className="mt-4 text-swu-muted">Lade...</p>
-      </div>
-    );
+  async function submitLock() {
+    if (!lockUser) return;
+    const value = { ticks: Number(ticks), reason };
+    await api.post(`/auth/admin/users/${lockUser.id}/lock`, value);
+    setUsers((previous) => previous.map((item) => item.id === lockUser.id ? { ...item, lock: { remainingTicks: value.ticks, reason: value.reason } } : item));
+    setLockUser(null);
   }
+
+  async function unlock(user: UserEntry) {
+    await api.delete(`/auth/admin/users/${user.id}/lock`);
+    setUsers((previous) => previous.map((item) => item.id === user.id ? { ...item, lock: null } : item));
+  }
+
+  if (loading) return <p className="p-6 text-swu-muted">Lade...</p>;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleUsers = users.filter((user) => !normalizedQuery || String(user.id) === normalizedQuery || user.username.toLowerCase().includes(normalizedQuery));
 
   return (
-    <div className="p-6 max-w-4xl">
-      <h1 className="text-2xl font-bold text-swu-primary mb-4" style={{ fontFamily: 'var(--font-swu-display)' }}>Benutzerrechte</h1>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-swu-muted border-b border-swu-border">
-            <th className="py-2 px-2">User</th>
-            <th className="py-2 px-2">Konto</th>
-            {AVAILABLE_PERMISSIONS.map((p) => (
-              <th key={p} className="py-2 px-2">{p}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id} className="border-b border-swu-border/50">
-              <td className="py-2 px-2 text-swu-primary">
-                {user.isNpc ? (
-                  <div className="grid gap-2">
-                    <input
-                      aria-label={`Name für ${user.username}`}
-                      value={user.username}
-                      onChange={(event) => setUsers((previous) => previous.map((entry) => entry.id === user.id ? { ...entry, username: event.target.value } : entry))}
-                    />
-                    <textarea
-                      aria-label={`Beschreibung für ${user.username}`}
-                      value={user.description ?? ''}
-                      onChange={(event) => setUsers((previous) => previous.map((entry) => entry.id === user.id ? { ...entry, description: event.target.value } : entry))}
-                    />
-                    <button type="button" onClick={() => void updateNpc(user)}>NPC speichern</button>
-                  </div>
-                ) : user.username}
+    <div className="p-6">
+      <h1 className="mb-4 text-xl font-bold text-swu-primary">Spielerliste</h1>
+      <label className="mb-3 block text-xs text-swu-muted">
+        Spieler suchen
+        <input className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-text" value={query} onChange={(event) => setQuery(event.target.value)} />
+      </label>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-xs">
+          <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">
+            {['ID', 'Spieler', 'Fraktion', 'Registriert', 'Letzte Aktivität', 'Status', 'MAP_EDITOR', 'Aktion'].map((label) => <th key={label} className="border border-swu-border px-1.5 py-1">{label}</th>)}
+          </tr></thead>
+          <tbody>{visibleUsers.map((user) => (
+            <tr key={user.id} className="hover:bg-white/5">
+              <td className="border border-swu-border px-1.5 py-1 text-right font-mono">{user.id}</td>
+              <td className="border border-swu-border px-1.5 py-1 text-swu-primary">
+                {user.isNpc ? <div className="grid gap-1"><input aria-label={`Name für ${user.username}`} value={user.username} onChange={(event) => setUsers((previous) => previous.map((item) => item.id === user.id ? { ...item, username: event.target.value } : item))} /><textarea aria-label={`Beschreibung für ${user.username}`} value={user.description ?? ''} onChange={(event) => setUsers((previous) => previous.map((item) => item.id === user.id ? { ...item, description: event.target.value } : item))} /><button type="button" onClick={() => void updateNpc(user)}>NPC speichern</button></div> : user.username}
               </td>
-              <td className="py-2 px-2">
-                {user.isNpc && <span className="text-xs bg-swu-primary/20 text-swu-primary rounded px-1">NPC</span>}
-                {user.isAdmin && (
-                  <span className="text-xs bg-swu-accent/20 text-swu-accent rounded px-1">
-                    Admin
-                  </span>
-                )}
-              </td>
-              {AVAILABLE_PERMISSIONS.map((perm) => (
-                <td key={perm} className="py-2 px-2">
-                  <input
-                    type="checkbox"
-                    checked={user.isAdmin || user.permissions.includes(perm)}
-                    disabled={user.isAdmin}
-                    onChange={() => void togglePermission(user, perm)}
-                  />
-                </td>
-              ))}
+              <td className="border border-swu-border px-1.5 py-1">{user.faction ?? '—'}</td>
+              <td className="border border-swu-border px-1.5 py-1">{formatDateTime(user.createdAt)}</td>
+              <td className="border border-swu-border px-1.5 py-1">{user.lastActiveAt ? formatDateTime(user.lastActiveAt) : '—'}</td>
+              <td className="border border-swu-border px-1.5 py-1">{user.isAdmin ? 'Admin' : user.isNpc ? 'NPC' : user.lock ? `Gesperrt (${user.lock.remainingTicks}): ${user.lock.reason}` : user.vacationMode ? 'Urlaub' : user.deletionMark ? `Löschmarke ${user.deletionMark}` : 'Aktiv'}</td>
+              <td className="border border-swu-border px-1.5 py-1 text-center">{AVAILABLE_PERMISSIONS.map((permission) => <input key={permission} type="checkbox" checked={user.isAdmin || user.permissions.includes(permission)} disabled={user.isAdmin} onChange={() => void togglePermission(user, permission)} />)}</td>
+              <td className="border border-swu-border px-1.5 py-1 text-center">{!user.isAdmin && (user.lock ? <button type="button" onClick={() => void unlock(user)}>Entsperren</button> : <button type="button" onClick={() => { setLockUser(user); setTicks('1'); setReason(''); }}>Sperren</button>)}</td>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          ))}</tbody>
+        </table>
+      </div>
+      {lockUser && <div role="dialog" aria-modal="true" className="fixed inset-0 grid place-items-center bg-black/70"><div className="w-96 border border-swu-border bg-swu-surface p-4"><h2 className="mb-3 text-swu-primary">{lockUser.username} sperren</h2><label className="block text-xs">Anzahl Ticks<input aria-label="Anzahl Ticks" type="number" min="1" className="mt-1 w-full border border-swu-border bg-swu-bg p-2" value={ticks} onChange={(event) => setTicks(event.target.value)} /></label><label className="mt-3 block text-xs">Begründung<textarea aria-label="Begründung" maxLength={500} className="mt-1 h-28 w-full border border-swu-border bg-swu-bg p-2" value={reason} onChange={(event) => setReason(event.target.value)} /></label><div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setLockUser(null)}>Abbrechen</button><button type="button" disabled={Number(ticks) < 1 || !reason.trim()} onClick={() => void submitLock()}>Sperre setzen</button></div></div></div>}
     </div>
   );
 }

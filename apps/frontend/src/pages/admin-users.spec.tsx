@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AdminUsersPage } from './admin-users';
 import type * as ApiModule from '../services/api';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn(), post: vi.fn(), delete: vi.fn() }));
 vi.mock('../services/api', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiModule>();
   return { ...actual, api: apiMocks };
@@ -18,9 +18,17 @@ describe('AdminUsersPage', () => {
         isNpc: true,
         isAdmin: false,
         permissions: [],
+        faction: null,
+        createdAt: '2026-01-01T12:00:00.000Z',
+        lastActiveAt: null,
+        vacationMode: false,
+        deletionMark: 0,
+        lock: null,
       },
     ]);
     apiMocks.patch.mockResolvedValue(undefined);
+    apiMocks.post.mockResolvedValue(undefined);
+    apiMocks.delete.mockResolvedValue(undefined);
   });
 
   it('marks NPC accounts and lets admins edit name and description', async () => {
@@ -41,5 +49,15 @@ describe('AdminUsersPage', () => {
         description: 'Neue Beschreibung',
       }),
     );
+  });
+
+  it('shows player details and submits the lock dialog', async () => {
+    render(<AdminUsersPage />);
+    expect(await screen.findByText('01.01.2026, 13:00')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Sperren' }));
+    fireEvent.change(screen.getByLabelText('Anzahl Ticks'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Begründung'), { target: { value: 'Regelverstoß' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sperre setzen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/auth/admin/users/9/lock', { ticks: 3, reason: 'Regelverstoß' }));
   });
 });

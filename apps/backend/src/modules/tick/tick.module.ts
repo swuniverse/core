@@ -12,6 +12,7 @@ import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
+import { AuthModule } from '../auth/auth.module';
 import { GameTickState } from './entities/game-tick-state.entity';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { StatisticsModule } from '../statistics/statistics.module';
@@ -41,6 +42,7 @@ import { TickAdminService } from './tick-admin.service';
     StatisticsModule,
     MessagingModule,
     SettingsModule,
+    AuthModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [

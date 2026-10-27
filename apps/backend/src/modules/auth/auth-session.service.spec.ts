@@ -22,6 +22,7 @@ function setup(checks: AccountAccessCheck[] = []) {
       vacationMode: false,
       vacationStartedAt: null as Date | null,
       vacationEndedAt: null as Date | null,
+      lock: null as { remainingTicks: number; reason: string } | null,
     },
     {
       id: 7,
@@ -40,6 +41,7 @@ function setup(checks: AccountAccessCheck[] = []) {
       vacationMode: false,
       vacationStartedAt: null as Date | null,
       vacationEndedAt: null as Date | null,
+      lock: null as { remainingTicks: number; reason: string } | null,
     },
   ];
   const userRepo = {
@@ -69,11 +71,33 @@ function setup(checks: AccountAccessCheck[] = []) {
     { get: jest.fn() } as never,
     { getSettings: jest.fn(async () => ({ default_view: 'maindesk' })) } as never,
     checks,
+    { findOne: jest.fn(async ({ where }) => users.find((user) => user.id === where.userId)?.lock ?? null) } as never,
   );
   return { service, users, userRepo };
 }
 
 describe('auth session behavior', () => {
+  it('rejects login and refresh with active lock details', async () => {
+    const { service, users } = setup();
+    users[0].passwordHash = await import('bcrypt').then(({ hash }) => hash('secret', 1));
+    users[0].lock = { remainingTicks: 3, reason: 'Regelverstoß' };
+
+    for (const operation of [
+      () => service.login({ username: 'Leia', password: 'secret' }),
+      () => service.refresh('refresh-42'),
+    ]) {
+      await expect(operation()).rejects.toMatchObject({
+        response: {
+          statusCode: 403,
+          code: 'ACCOUNT_LOCKED',
+          message: 'Dein Spieleraccount ist noch für 3 Ticks gesperrt. Begründung: Regelverstoß',
+          remainingTicks: 3,
+          reason: 'Regelverstoß',
+        },
+      });
+    }
+  });
+
   beforeEach(async () => {
     jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
   });
