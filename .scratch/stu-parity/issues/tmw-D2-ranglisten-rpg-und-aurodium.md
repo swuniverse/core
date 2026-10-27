@@ -1,6 +1,6 @@
 # Ranglisten „RPG-Schreiber“ und „Aurodium-Besitz“, Highscore-Gliederung wie STU
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -34,3 +34,5 @@ Zwei fehlende Ranglisten kommen hinzu: „Die 10 bestbewerteten RPG-Schreiber“
 - [ ] Frontend-Tests: Die Hub-Gliederung rendert die vier Untergruppen, und beide neuen Ranglisten werden angezeigt.
 
 ## Comments
+
+- 2026-10-27 Agent: Abbruch wegen fehlender Produktentscheidung: Akzeptanzkriterium nennt Aurodium als Ware `id 50`, während das aktuelle SWU-Schema und `game-data/data/commodities/stu-commodity-map.yaml` STU-IDs in den 10000ern verwendet und keinen bestätigten SWU-Commodity-Schlüssel 50 bereitstellt. Bitte den kanonischen SWU-Aurodium-Commodity-Key festlegen (oder bestätigen, dass `50` als neue SWU-ID einzuführen ist), damit Kolonie- und Schiffslager korrekt aggregiert werden können.
