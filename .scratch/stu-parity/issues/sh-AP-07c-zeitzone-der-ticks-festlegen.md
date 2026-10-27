@@ -1,6 +1,6 @@
 # Zeitzone der Ticks festlegen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-07a
@@ -32,3 +32,4 @@ Vorgabe: Variante (a). Default `GAME_TIMEZONE=Europe/Berlin` (Ticks zu festen de
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Die Tickstunden gelten in Europe/Berlin wie in STU, inklusive Sommerzeitwechsel; das wird der Default von `GAME_TIMEZONE`.
+- 2026-10-27 Agent: Abbruch nach zwei vollständigen Prüfläufen: Die verpflichtende Suite bleibt unabhängig von diesem Issue rot (`spacecraft-destruction.service.spec.ts` erwartet Commodity 10101, erhält 10201; einmalig zusätzlich flakiger `research.spec.tsx`, einzeln grün). Produktcode unter `apps/` und `packages/` wurde verworfen. Bitte Baseline-Test korrigieren bzw. bestätigen, dass der bekannte Fremdfehler für diesen Durchlauf ausgenommen werden darf.
