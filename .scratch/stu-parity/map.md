@@ -112,6 +112,13 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-23 – tmw-T1 – In T1a–T1d geteilt: Netze 1/2/3, Level 1, Lager 10000, Transfer 200, deterministische kanonische Standortwahl; unbekannte Posten sichtbar mit `location: null`; Lizenzen in T2 (Alpha: 10 Aurodium/30 Tage)
 - 2026-10-23 – tmw-D0a/b – Karte und Datenbank-Systemdetail bleiben getrennte Kontexte; Crew-XP gehört CREW-2; anderes geeignetes eigenes Schiff darf MEASURED mit erneut 15 EPS fortsetzen
 - 2026-10-23 – sh-AP-14a/b – Neutrale MIT-STU-Icons plus Star-Wars-neutrale Motive (Holoterminal, verbundene Flotten, Kontrollterminal, Karteneditor und Mehr) sind im Asset-Commit `5c7b0e7c31` veröffentlicht; 14a ist erledigt, 14b bleibt die getrennte Core-Navigation
+- 2026-10-27 – col-A2 – Autoritative STU-Funktionsmodifikatoren auf SWU-IDs 10–18 abbilden; Legacy-Mengen ohne rückwirkende EPS-Belastung oder -Erstattung übernehmen, Aufstockungen zahlen neue EPS
+- 2026-10-27 – col-A3b – Die UI-gewählte Werftfunktion am BUILD-/RETROFIT-Auftrag persistieren; Legacy-Aufträge bleiben ungebunden und nicht blockierend, EPS folgen `stuRumpId`, REPAIR belegt keinen Slot
+- 2026-10-27 – col-D2a – Datengetriebenen idempotenten Reward-Ship-Mechanismus umsetzen, aber ohne bestätigte Tabelle keine produktiven Mappings oder abgeleiteten Belohnungen anlegen
+- 2026-10-27 – sc-WP-CREW-2 – Expertise-/Rangfundament jetzt vollständig umsetzen; obere Ranglimits 25/15/5/3, Rettungskapsel-Bergungs-XP später nicht blockierend über sc-WP-CREW-3b
+- 2026-10-27 – sc-WP-CREW-3a – Dedizierte neutrale `EscapePod`-Entity mit individuellen Crew-Zuweisungen; Identität, Rang und Expertise bleiben erhalten, Landung nur für passende Crew bis zur Kapazität
+- 2026-10-27 – sc-WP-COMBAT-1 – Basisalarm nach jeder realen Feldtransition mit gemeinsamem Movement-Result; Gelb nur `ENEMY`, Rot außer `FRIEND`, beidseitiger Urlaubsschutz, höchstens ein deterministischer Kampf; Traktor/Tarnung später
+- 2026-10-27 – sc-WP-UI-3a – Exakte STU-Regel: Jede belegte Kolonie unabhängig von Eigentum und Haltung verteidigen oder blockieren; schiffsbezogene API, flottenbezogene Order, Urlaub/Gegenorder und Blockade-Orbitalverteidigung prüfen
 
 ## Erledigt
 
