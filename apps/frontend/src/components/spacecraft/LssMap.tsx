@@ -1,5 +1,10 @@
 import { Fragment } from 'react';
 import {
+  fieldEffectDefinition,
+  knownFieldEffects,
+  type FieldEffect,
+} from '@swuniverse/shared';
+import {
   getGalaxyFieldMarker,
   getGalaxyFieldStyle,
   getSystemFieldStyle,
@@ -18,6 +23,9 @@ interface FieldType {
   id: number;
   key: string;
   name: string;
+  energyCost?: number;
+  damage?: number;
+  effects?: string[] | null;
 }
 
 interface GalaxyLocalField {
@@ -29,6 +37,9 @@ interface GalaxyLocalField {
   systemTypeId?: number | null;
   starSystem: { id: number; name: string } | null;
   isPassable?: boolean;
+  effects?: string[] | null;
+  energyCost?: number;
+  damage?: number;
 }
 
 interface SystemLocalField {
@@ -49,6 +60,9 @@ interface SystemLocalField {
     colonyId?: number | null;
     colonyName?: string | null;
   } | null;
+  effects?: string[] | null;
+  energyCost?: number;
+  damage?: number;
 }
 
 export interface FieldSignatureOverlay {
@@ -136,6 +150,23 @@ interface LssMapProps {
   navTarget: { x: number; y: number } | null;
   cartographyPoints?: Array<{ x: number; y: number }>;
   onFieldClick: (x: number, y: number) => void;
+}
+
+function fieldEffects(field: {
+  effects?: string[] | null;
+  fieldType: FieldType;
+}): FieldEffect[] {
+  return knownFieldEffects(field.effects ?? field.fieldType.effects);
+}
+
+function fieldEffectText(field: {
+  effects?: string[] | null;
+  fieldType: FieldType;
+}): string {
+  const descriptions = fieldEffects(field).map(
+    (effect) => fieldEffectDefinition(effect).description,
+  );
+  return descriptions.length > 0 ? `, Effekte: ${descriptions.join(', ')}` : '';
 }
 
 const OBJECT_TYPE_EMOJI: Record<number, string> = {
@@ -243,7 +274,7 @@ export function LssMap({
                       type="button"
                       onClick={() => onFieldClick(x, y)}
                       style={{ width: cellSize, height: cellSize }}
-                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}`}
+                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}${fieldEffectText(field)}`}
                       className={[
                         'relative border text-[10px] flex items-center justify-center transition-all',
                         getGalaxyFieldStyle(field.fieldType.key),
@@ -361,7 +392,7 @@ export function LssMap({
                     type="button"
                     onClick={() => onFieldClick(x, y)}
                     style={{ width: cellSize, height: cellSize }}
-                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${isCartographyPoint ? ', verbleibender Messpunkt' : ''}${signatureLabel}`}
+                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${isCartographyPoint ? ', verbleibender Messpunkt' : ''}${signatureLabel}${fieldEffectText(field)}`}
                     className={[
                       showStarTile
                         ? 'relative flex items-center justify-center overflow-hidden border-0 rounded-none'

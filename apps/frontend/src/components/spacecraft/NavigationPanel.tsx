@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { CartographyPlanDto, SpaceLocationDto } from '@swuniverse/shared';
+import {
+  fieldEffectDefinition,
+  knownFieldEffects,
+  type CartographyPlanDto,
+  type SpaceLocationDto,
+} from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
@@ -136,8 +141,21 @@ export function NavigationPanel({
       setNavMessage('Nur geradlinige Flugrouten sind möglich');
       return;
     }
-    void handleFly(x, y);
+    setNavTarget({ x, y });
   };
+
+  const targetField = navTarget
+    ? localMap?.fields.find((field) =>
+        localMap.mode === 'system'
+          ? 'sx' in field && field.sx === navTarget.x && field.sy === navTarget.y
+          : 'cx' in field && field.cx === navTarget.x && field.cy === navTarget.y,
+      )
+    : undefined;
+  const targetEffects = targetField
+    ? knownFieldEffects(targetField.effects ?? targetField.fieldType.effects)
+    : [];
+  const targetEnergy = targetField?.energyCost ?? targetField?.fieldType.energyCost ?? 0;
+  const targetDamage = targetField?.damage ?? targetField?.fieldType.damage ?? 0;
 
   const handleEnterSystem = async () => {
     setChangingSystem(true);
@@ -307,6 +325,23 @@ export function NavigationPanel({
           />
 
           <div className="flex w-full flex-col items-center gap-2 sm:min-w-[150px] sm:w-auto sm:pt-4">
+            {navTarget && targetField && (
+              <div className="w-full border border-amber-500/50 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+                <strong>Gefährliches Feld [{navTarget.x}|{navTarget.y}]</strong>
+                <div>Energie: {targetEnergy} · Schaden: {targetDamage}</div>
+                {targetEffects.map((effect) => (
+                  <div key={effect}>{fieldEffectDefinition(effect).destinationInfo}</div>
+                ))}
+                <button
+                  type="button"
+                  disabled={moving}
+                  onClick={() => void handleFly(navTarget.x, navTarget.y)}
+                  className="mt-1 border border-amber-400 px-2 py-0.5 font-bold hover:bg-amber-400/10 disabled:opacity-40"
+                >
+                  Flug starten
+                </button>
+              </div>
+            )}
             <DirectionalControls
               onMove={handleDirectionalMove}
               stepSize={stepSize}

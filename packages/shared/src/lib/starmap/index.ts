@@ -89,6 +89,8 @@ export interface StarmapFieldTypeDto {
   category: string | null;
 }
 
+export * from './field-effects.js';
+
 export type StarmapFactionZone =
   'REBEL' | 'EMPIRE' | 'CONTESTED' | 'UNKNOWN' | 'NEUTRAL';
 

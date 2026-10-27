@@ -90,6 +90,7 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 import { CrewEnhancementService } from './crew-enhancement.service';
+import { FlightConsequencePipeline } from './flight-consequence-pipeline';
 import { CrewEnhancementEvent } from './crew-expertise';
 
 @Injectable()
@@ -147,6 +148,8 @@ export class SpacecraftService {
     private readonly stationConstructionService: StationConstructionService = {
       processTick: async () => ({ paused: false, completed: false, station: null }),
     } as unknown as StationConstructionService,
+    private readonly flightConsequencePipeline: FlightConsequencePipeline =
+      new FlightConsequencePipeline(),
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1859,6 +1862,7 @@ export class SpacecraftService {
     );
 
     await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
+    await this.flightConsequencePipeline.onEnterField(ship, targetField);
     await this.processCartographyArrival(ship, currentSystemId, targetField.id);
     await this.emitOrbitUpdates(previousField, resolveSpacecraftField(ship));
     await this.repairService.cancelForFlight([
@@ -2039,6 +2043,7 @@ export class SpacecraftService {
       targetY,
       'FLIGHT',
     );
+    await this.flightConsequencePipeline.onEnterField(ship, targetField);
     await this.repairService.cancelForFlight([
       ship.id,
       ...fleetMembers.map((member) => member.id),
@@ -2174,6 +2179,7 @@ export class SpacecraftService {
       ship.location,
       this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
     );
+    await this.flightConsequencePipeline.onEnterField(ship, entryField);
     await this.repairService.cancelForFlight([
       ship.id,
       ...fleetMembers.map((member) => member.id),
@@ -2310,6 +2316,9 @@ export class SpacecraftService {
       ship.location,
       this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
     );
+    if (galaxyField) {
+      await this.flightConsequencePipeline.onEnterField(ship, galaxyField);
+    }
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     await this.repairService.cancelForFlight([
       ship.id,
@@ -2791,6 +2800,10 @@ export class SpacecraftService {
       ship.targetLocation = null;
       ship.status = SpacecraftStatus.IDLE;
 
+      const arrivedField = targetLocation?.systemField ?? targetLocation?.galaxyField;
+      if (arrivedField) {
+        await this.flightConsequencePipeline.onEnterField(ship, arrivedField);
+      }
       await this.shipRepo.save(ship);
     }
   }
@@ -3749,6 +3762,10 @@ export class SpacecraftService {
     }
     if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION) return;
     await this.processMovement(ship);
+    const tickLocation = ship.location?.systemField ?? ship.location?.galaxyField;
+    if (tickLocation) {
+      await this.flightConsequencePipeline.onTick(ship, tickLocation);
+    }
     if (!options.skipRepair) {
       await this.repairService.processTick(ship);
     }

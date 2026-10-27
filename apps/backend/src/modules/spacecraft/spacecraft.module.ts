@@ -66,6 +66,10 @@ import { StationConstructionService } from './station-construction.service';
 import { InteractionContextService } from './interaction-context.service';
 import { CrewSkill } from './entities/crew-skill.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
+import {
+  FLIGHT_CONSEQUENCES,
+  FlightConsequencePipeline,
+} from './flight-consequence-pipeline';
 
 @Module({
   imports: [
@@ -139,6 +143,8 @@ import { CrewEnhancementService } from './crew-enhancement.service';
     SpacecraftRepairService,
     StationConstructionService,
     InteractionContextService,
+    FlightConsequencePipeline,
+    { provide: FLIGHT_CONSEQUENCES, useValue: [] },
   ],
   exports: [
     SpacecraftService,

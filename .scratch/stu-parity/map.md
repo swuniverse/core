@@ -123,6 +123,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-K1a – Erweiterbarer Flugfolgen-Kern, vollständiger Feldeffekt-Katalog und Zielfeldwarnungen umgesetzt – siehe Feature-Commit
 - sh-AP-19b – Responsives Tutorial-PADD mit Fortschritt, Zielhervorhebung, Aktions-Events und Einstellungen – siehe Feature-Commit
 - col-A1a – Werftqueues reagieren zentral auf Gebäudestatus und Abriss – siehe Feature-Commit
 - col-A1b – Fabrikation, Akademie und Schilde reagieren auf Gebäudestatus – siehe Feature-Commit

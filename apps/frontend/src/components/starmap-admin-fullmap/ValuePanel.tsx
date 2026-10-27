@@ -1,7 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { starTileImage } from '../../lib/assets';
-import type { StarmapFieldTypeDto } from '@swuniverse/shared';
+import {
+  FIELD_EFFECT_KEYS,
+  fieldEffectDefinition,
+  type StarmapFieldTypeDto,
+} from '@swuniverse/shared';
 
 const CATEGORY_LABELS: Record<string, string> = {
   space: 'Weltraum',
@@ -16,28 +20,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   system_nebula: 'System: Nebulae',
 };
 
-const EFFECTS: { key: string; label: string }[] = [
-  { key: 'WARPDRIVE_LEAK', label: 'Leck am Warpantrieb' },
-  { key: 'REACTOR_LEAK', label: 'Leck am Reaktor' },
-  { key: 'EPS_LEAK', label: 'Leck am EPS' },
-  { key: 'CLOAK_UNUSEABLE', label: 'Ausfall der Tarnung' },
-  { key: 'NFS_MALFUNCTION_COOLDOWN', label: 'Ausfall Nahbereichssensoren' },
-  { key: 'LSS_MALFUNCTION', label: 'Störung Langstreckensensoren' },
-  { key: 'SHIELD_MALFUNCTION', label: 'Störung Schildemitter' },
-  { key: 'NO_SPACECRAFT_COUNT', label: 'Versteckte Signaturen' },
-  { key: 'DUBIOUS_SPACECRAFT_COUNT', label: 'Verschleierte Signaturen' },
-  { key: 'NO_SUBSPACE_LINES', label: 'Versteckte Subraumspuren' },
-  { key: 'ENERGY_WEAPON_BUFF', label: 'Energiewaffen-Buff' },
-  { key: 'REGENERATION_CHANCE', label: 'Regenerationschance' },
-  { key: 'ENERGY_WEAPON_NERF', label: 'Energiewaffen-Nerf' },
-  { key: 'HIT_CHANCE_INTERFERENCE', label: 'Zielerfassung gestört' },
-  { key: 'EVADE_CHANCE_INTERFERENCE', label: 'Manövrierbarkeit gestört' },
-  { key: 'NO_PIRATES', label: 'Keine Piraten' },
-  { key: 'NO_ANOMALIES', label: 'Keine Anomalien' },
-  { key: 'NO_MEASUREPOINT', label: 'Kein Messpunkt' },
-  { key: 'NO_STATION_CONSTRUCTION', label: 'Kein Stationsbau' },
-  { key: 'LSS_BLOCKADE', label: 'LSS-Blockade' },
-];
+const EFFECTS = FIELD_EFFECT_KEYS.map((key) => ({
+  key,
+  label: fieldEffectDefinition(key).description,
+}));
 
 export function ValuePanel() {
   const fieldTypes = useFullmapEditorStore((s) => s.fieldTypes);

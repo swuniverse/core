@@ -47,18 +47,42 @@ const ship = {
 };
 
 describe('NavigationPanel', () => {
+  it('shows destination effects, energy, and damage before flight', async () => {
+    apiMocks.get.mockResolvedValueOnce({
+      ...map,
+      fields: map.fields.map((field) =>
+        field.cx === 6 && field.cy === 5
+          ? {
+              ...field,
+              effects: ['EPS_LEAK'],
+              energyCost: 3,
+              damage: 7,
+            }
+          : field,
+      ),
+    });
+    render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Feld 6,5/ }));
+
+    expect(screen.getByText(/Gefährliches Feld \[6\|5\]/)).toBeTruthy();
+    expect(screen.getByText('Energie: 3 · Schaden: 7')).toBeTruthy();
+    expect(screen.getByText(/EPS-Energie ableiten/)).toBeTruthy();
+    expect(apiMocks.post).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
   });
 
-  it('flies directly to an accessible field', async () => {
+  it('confirms an accessible field before flying', async () => {
     apiMocks.get.mockResolvedValue(map);
     apiMocks.post.mockResolvedValue({});
     render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
     const field = await screen.findByRole('button', { name: /Feld 6,5/ });
     fireEvent.click(field);
+    fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/fly', {
         targetX: 6,

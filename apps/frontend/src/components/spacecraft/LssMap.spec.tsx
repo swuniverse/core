@@ -47,6 +47,18 @@ function systemMap(
 }
 
 describe('LssMap', () => {
+  it('includes field effect descriptions in the tooltip', () => {
+    const localMap = systemMap(201);
+    localMap.fields[0].effects = ['SHIELD_MALFUNCTION'];
+
+    render(
+      <LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('button').getAttribute('aria-label')).toContain(
+      'Störung der Schildemitter',
+    );
+  });
   it.each([
     ['planet', 201, 1],
     ['moon', 203, 2],

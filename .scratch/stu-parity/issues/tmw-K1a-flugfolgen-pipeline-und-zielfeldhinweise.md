@@ -1,6 +1,6 @@
 # Flugfolgen-Pipeline, Feldeffekt-Katalog und Zielfeldhinweise
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -26,12 +26,14 @@ SWU bekommt eine erweiterbare Pipeline für Flugfolgen nach dem Vorbild von STU 
 
 ## Akzeptanzkriterien
 
-- [ ] `packages/shared` enthält ein Feldeffekt-Enum mit allen STU-Effekten (`WARPDRIVE_LEAK`, `REACTOR_LEAK`, `EPS_LEAK`, `CLOAK_UNUSEABLE`, `NFS_MALFUNCTION_COOLDOWN`, `LSS_MALFUNCTION`, `LSS_BLOCKADE`, `SHIELD_MALFUNCTION`, `NO_SPACECRAFT_COUNT`, `DUBIOUS_SPACECRAFT_COUNT`, `NO_SUBSPACE_LINES`, `ENERGY_WEAPON_BUFF/NERF`, `REGENERATION_CHANCE`, `HIT_CHANCE_INTERFERENCE`, `EVADE_CHANCE_INTERFERENCE`, `NO_PIRATES`, `NO_ANOMALIES`, `NO_MEASUREPOINT`, `NO_STATION_CONSTRUCTION`). Je Effekt gibt es eine deutsche Beschreibung, einen Zielfeldhinweis und das Flag „aktiv/passiv“. Die STU-Texte werden in SWU-Begriffe übertragen (z. B. „Hyperantrieb“ statt „Warpantrieb“, wo `CONTEXT.md` das verlangt).
-- [ ] Der Admin-Effekt-Editor nutzt dieses Enum. Unbekannte Werte in der DB werden beim Lesen ignoriert und geloggt.
-- [ ] Backend: Ein `FlightConsequencePipeline`-Dienst mit registrierbaren Consequences (Interface `onEnterField(ship, field, messages)`) wird in `navigate`, `flyGalaxy` (bei Ankunft), `enterSystem`/`leaveSystem` und `warp` für das Zielfeld aufgerufen. Bei feldweiser Bewegung wird er zusätzlich für jedes durchflogene Feld aufgerufen, und zwar genau einmal je Feld. Ein Tick-Hook `onTick(ship, field)` wird in `processTick` aufgerufen.
-- [ ] Die Pipeline sammelt Meldungen je Schiff und liefert sie über den bestehenden Ergebnis- bzw. Ereignisweg ans Frontend (Schiffslog bzw. Meldungsleiste).
-- [ ] Ein Zerstörungsabbruch ist vorgesehen: Wird ein Schiff in einer Consequence zerstört, laufen die folgenden nicht mehr.
-- [ ] Frontend: Feldkontext und LSS-Tooltip zeigen die Effektbeschreibungen. Wählt der Spieler ein Ziel, zeigt die Navigation die Zielfeldhinweise sowie Energie und Schaden des Feldtyps als Warnung („Gefährliches Feld“), noch bevor der Flug startet.
-- [ ] Backend-Tests: Die Pipeline wird bei allen Bewegungsarten genau einmal je Feld aufgerufen, der Abbruch nach Zerstörung greift, und der Effekt-Katalog ist vollständig (Snapshot gegen die STU-Liste). Frontend-Tests: `FieldContextPanel` und `NavigationPanel` zeigen Beschreibung und Warnung.
+- [x] `packages/shared` enthält ein Feldeffekt-Enum mit allen STU-Effekten (`WARPDRIVE_LEAK`, `REACTOR_LEAK`, `EPS_LEAK`, `CLOAK_UNUSEABLE`, `NFS_MALFUNCTION_COOLDOWN`, `LSS_MALFUNCTION`, `LSS_BLOCKADE`, `SHIELD_MALFUNCTION`, `NO_SPACECRAFT_COUNT`, `DUBIOUS_SPACECRAFT_COUNT`, `NO_SUBSPACE_LINES`, `ENERGY_WEAPON_BUFF/NERF`, `REGENERATION_CHANCE`, `HIT_CHANCE_INTERFERENCE`, `EVADE_CHANCE_INTERFERENCE`, `NO_PIRATES`, `NO_ANOMALIES`, `NO_MEASUREPOINT`, `NO_STATION_CONSTRUCTION`). Je Effekt gibt es eine deutsche Beschreibung, einen Zielfeldhinweis und das Flag „aktiv/passiv“. Die STU-Texte werden in SWU-Begriffe übertragen (z. B. „Hyperantrieb“ statt „Warpantrieb“, wo `CONTEXT.md` das verlangt).
+- [x] Der Admin-Effekt-Editor nutzt dieses Enum. Unbekannte Werte in der DB werden beim Lesen ignoriert und geloggt.
+- [x] Backend: Ein `FlightConsequencePipeline`-Dienst mit registrierbaren Consequences (Interface `onEnterField(ship, field, messages)`) wird in `navigate`, `flyGalaxy` (bei Ankunft), `enterSystem`/`leaveSystem` und `warp` für das Zielfeld aufgerufen. Bei feldweiser Bewegung wird er zusätzlich für jedes durchflogene Feld aufgerufen, und zwar genau einmal je Feld. Ein Tick-Hook `onTick(ship, field)` wird in `processTick` aufgerufen.
+- [x] Die Pipeline sammelt Meldungen je Schiff und liefert sie über den bestehenden Ergebnis- bzw. Ereignisweg ans Frontend (Schiffslog bzw. Meldungsleiste).
+- [x] Ein Zerstörungsabbruch ist vorgesehen: Wird ein Schiff in einer Consequence zerstört, laufen die folgenden nicht mehr.
+- [x] Frontend: Feldkontext und LSS-Tooltip zeigen die Effektbeschreibungen. Wählt der Spieler ein Ziel, zeigt die Navigation die Zielfeldhinweise sowie Energie und Schaden des Feldtyps als Warnung („Gefährliches Feld“), noch bevor der Flug startet.
+- [x] Backend-Tests: Die Pipeline wird bei allen Bewegungsarten genau einmal je Feld aufgerufen, der Abbruch nach Zerstörung greift, und der Effekt-Katalog ist vollständig (Snapshot gegen die STU-Liste). Frontend-Tests: `FieldContextPanel` und `NavigationPanel` zeigen Beschreibung und Warnung.
 
 ## Comments
+
+- 2026-10-27: Gemeinsamen Feldeffekt-Katalog, registrierbare Flugfolgen-Pipeline mit Zerstörungsabbruch und Tick-Hook sowie Effekt-Tooltips und Zielfeldwarnung in LSS/Navigation umgesetzt. Konkrete Energie-, Schadens- und Effekthandler bleiben bei tmw-K1b, tmw-K2 und tmw-K3a/b/c.
