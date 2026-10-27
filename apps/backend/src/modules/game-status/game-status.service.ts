@@ -8,7 +8,14 @@ export interface GameStatusDto {
   message: string;
 }
 
+export type RestorableGameStatus = Exclude<GameStatusKind, 'TICK'>;
+export interface PreviousGameStatus {
+  status: RestorableGameStatus;
+  message: string;
+}
+
 const DEFAULT_MESSAGES: Record<Exclude<GameStatusKind, 'ONLINE'>, string> = {
+  TICK: 'Der Tick läuft gerade. Bitte versuche es gleich noch einmal.',
   MAINTENANCE_ANNOUNCED: 'Eine Wartung des Spiels ist angekündigt.',
   MAINTENANCE: 'Das Spiel befindet sich derzeit in Wartung.',
 };
@@ -27,6 +34,24 @@ export class GameStatusService {
 
   async isMaintenance(): Promise<boolean> {
     return (await this.get()).status === 'MAINTENANCE';
+  }
+
+  async beginMainTick(): Promise<PreviousGameStatus | null> {
+    const status = await this.get();
+    if (status.status === 'MAINTENANCE' || status.status === 'TICK') return null;
+    const previous = { status: status.status, message: status.message };
+    status.status = 'TICK';
+    status.message = '';
+    await this.repository.save(status);
+    return previous;
+  }
+
+  async endMainTick(previous: PreviousGameStatus): Promise<void> {
+    const status = await this.get();
+    if (status.status !== 'TICK') return;
+    status.status = previous.status;
+    status.message = previous.message;
+    await this.repository.save(status);
   }
 
   async update(input: {

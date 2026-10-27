@@ -6721,6 +6721,117 @@ describe('main tick idempotency', () => {
     ]);
   });
 
+  it('sets the tick status during processing and restores the previous status', async () => {
+    const gameStatus = {
+      beginMainTick: jest.fn().mockResolvedValue({ status: 'ONLINE', message: '' }),
+      endMainTick: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => []) } as any,
+      {
+        findOne: jest.fn(async () => null),
+        create: jest.fn((value) => value),
+        save: jest.fn(async (value) => value),
+      } as any,
+      {} as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      gameStatus as any,
+    );
+
+    await service.handleTick(1234);
+
+    expect(gameStatus.beginMainTick).toHaveBeenCalledTimes(1);
+    expect(gameStatus.endMainTick).toHaveBeenCalledWith({ status: 'ONLINE', message: '' });
+  });
+
+  it('restores the previous status when main tick processing fails', async () => {
+    const gameStatus = {
+      beginMainTick: jest.fn().mockResolvedValue({ status: 'MAINTENANCE_ANNOUNCED', message: 'Später.' }),
+      endMainTick: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new TickService(
+      { find: jest.fn(async () => [{ id: 1, userId: 7, isAbandoned: false }]) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => []) } as any,
+      {
+        findOne: jest.fn(async () => null),
+        create: jest.fn((value) => value),
+        save: jest.fn(async (value) => value),
+      } as any,
+      { processTick: jest.fn(async () => { throw new Error('tick failed'); }) } as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      gameStatus as any,
+    );
+
+    await expect(service.handleTick(1234)).rejects.toThrow('tick failed');
+    expect(gameStatus.endMainTick).toHaveBeenCalledWith({
+      status: 'MAINTENANCE_ANNOUNCED',
+      message: 'Später.',
+    });
+  });
+
+  it('does not replace an active maintenance status with TICK', async () => {
+    const gameStatus = {
+      beginMainTick: jest.fn().mockResolvedValue(null),
+      endMainTick: jest.fn(),
+    };
+    const service = new TickService(
+      { find: jest.fn(async () => []) } as any,
+      {} as any,
+      { find: jest.fn(async () => []) } as any,
+      { find: jest.fn(async () => []) } as any,
+      {
+        findOne: jest.fn(async () => null),
+        create: jest.fn((value) => value),
+        save: jest.fn(async (value) => value),
+      } as any,
+      {} as any,
+      { createTickEvents: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      { emitToAll: jest.fn(), emitToUser: jest.fn() } as any,
+      { get: jest.fn(() => undefined) } as any,
+      { recordSnapshot: jest.fn() } as any,
+      { recordSnapshots: jest.fn() } as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      gameStatus as any,
+    );
+
+    await service.handleTick(1234);
+
+    expect(gameStatus.endMainTick).not.toHaveBeenCalled();
+  });
+
   it('does not process an already completed durable tick slot', async () => {
     const colonyRepo = { find: jest.fn() };
     const tickStateRepo = {

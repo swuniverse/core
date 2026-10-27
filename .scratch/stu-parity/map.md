@@ -123,6 +123,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-20 – Hauptticks sperren schreibende Spieleraktionen per TICK-Status, Banner und 503, mit sicherer Statuswiederherstellung – siehe Feature-Commit
 - tmw-K8a – Erkundungsabhängige Regions- und Verwaltungsregionsinfos in Feldkontext, Schiffskopf, LSS und geschütztem Detailendpunkt umgesetzt – siehe Feature-Commit
 - tmw-K4 – Persistente Sternenkarten-Overlays für Territorium, Unpassierbarkeit, Feldeffekte und berechtigte Sensorabdeckung umgesetzt – siehe Feature-Commit
 - tmw-K1a – Erweiterbarer Flugfolgen-Kern, vollständiger Feldeffekt-Katalog und Zielfeldwarnungen umgesetzt – siehe Feature-Commit

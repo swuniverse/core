@@ -1,6 +1,10 @@
 import { Column, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
-export type GameStatusKind = 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
+export type GameStatusKind =
+  | 'ONLINE'
+  | 'TICK'
+  | 'MAINTENANCE_ANNOUNCED'
+  | 'MAINTENANCE';
 
 @Entity('game_status')
 export class GameStatus {

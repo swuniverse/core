@@ -11,7 +11,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { TutorialPadd } from '../tutorial/TutorialPadd';
 
 type GameStatus = {
-  status: 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
+  status: 'ONLINE' | 'TICK' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
   message: string;
 };
 
@@ -81,6 +81,7 @@ export function AppShell() {
     }
   }, [location.pathname, navigate, user]);
   useSocket();
+  useSocket('TICK', () => window.location.reload());
   useSocket('COLONY_TICK_REPORT', (payload) => {
     const message = formatColonyTickReport(payload as ColonyTickReportPayload);
     setTickReports((reports) => [message, ...reports].slice(0, 3));
@@ -106,7 +107,9 @@ export function AppShell() {
           <strong>
             {gameStatus?.status === 'MAINTENANCE'
               ? 'Wartung läuft'
-              : 'Wartung angekündigt'}
+              : gameStatus?.status === 'TICK'
+                ? 'Tick läuft'
+                : 'Wartung angekündigt'}
           </strong>
           {gameStatus?.message && ` — ${gameStatus.message}`}
         </div>

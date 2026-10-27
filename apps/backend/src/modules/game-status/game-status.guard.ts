@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  ServiceUnavailableException,
   SetMetadata,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +16,7 @@ import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 
 export const GAME_MAINTENANCE_ERROR_CODE = 'GAME_MAINTENANCE';
+export const GAME_TICK_RUNNING_ERROR_CODE = 'GAME_TICK_RUNNING';
 export const EMAIL_NOT_VERIFIED_ERROR_CODE = 'EMAIL_NOT_VERIFIED';
 const REQUIRES_GAME_ACCESS = 'requires-game-access';
 export const RequiresGameAccess = () => SetMetadata(REQUIRES_GAME_ACCESS, true);
@@ -64,6 +66,7 @@ export class GameStatusGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{
       user?: { isAdmin?: boolean };
       headers?: { authorization?: string };
+      method?: string;
     }>();
     const payload = this.tokenPayload(request.headers?.authorization);
     const isAdmin = request.user?.isAdmin || payload?.isAdmin;
@@ -82,9 +85,16 @@ export class GameStatusGuard implements CanActivate {
       }
     }
 
-    if (!(await this.gameStatusService.isMaintenance())) return true;
-
     const status = await this.gameStatusService.getPublicStatus();
+    if (status.status === 'TICK') {
+      if (request.method === 'GET') return true;
+      throw new ServiceUnavailableException({
+        code: GAME_TICK_RUNNING_ERROR_CODE,
+        message: 'Der Tick läuft gerade. Bitte versuche es gleich noch einmal.',
+      });
+    }
+    if (status.status !== 'MAINTENANCE') return true;
+
     throw new ForbiddenException({
       code: GAME_MAINTENANCE_ERROR_CODE,
       message: status.message,

@@ -35,6 +35,7 @@ import {
   getHourInTimezone,
 } from './maintenance.service';
 import { UserSettingsReader } from '../settings/user-settings-reader';
+import { GameStatusService } from '../game-status/game-status.service';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
 type MainTickSchedule = '*' | number[];
@@ -73,6 +74,7 @@ export class TickService {
     private readonly messagingService?: MessagingService,
     private readonly userSettings?: UserSettingsReader,
     private readonly userLockService?: UserLockService,
+    private readonly gameStatusService?: GameStatusService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -139,6 +141,7 @@ export class TickService {
     let processedColonyCount = 0;
     let processedShipCount = 0;
     let processedUserCount = 0;
+    const previousGameStatus = await this.gameStatusService?.beginMainTick();
 
     try {
       this.logger.log(`Tick #${tickNumber} started`);
@@ -280,6 +283,10 @@ export class TickService {
         error instanceof Error ? error.message : 'Unknown tick error',
       );
       throw error;
+    } finally {
+      if (previousGameStatus) {
+        await this.gameStatusService?.endMainTick(previousGameStatus);
+      }
     }
 
     try {

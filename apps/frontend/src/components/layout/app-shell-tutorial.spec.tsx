@@ -36,4 +36,19 @@ describe('AppShell tutorial route integration', () => {
     expect(await screen.findByRole('heading', { name: 'Forschung lernen' })).toBeTruthy();
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith('/tutorial/research'));
   });
+
+  it('shows the tick-running banner', async () => {
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/game-status') return Promise.resolve({ status: 'TICK', message: '' });
+      return Promise.resolve(null);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes><Route element={<AppShell />}><Route index element={<p>Seite</p>} /></Route></Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Tick läuft')).toBeTruthy();
+  });
 });

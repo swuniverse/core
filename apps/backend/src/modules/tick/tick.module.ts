@@ -23,6 +23,7 @@ import {
 import { MessagingModule } from '../messaging/messaging.module';
 import { SettingsModule } from '../settings/settings.module';
 import { TickAdminService } from './tick-admin.service';
+import { GameStatusModule } from '../game-status/game-status.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { TickAdminService } from './tick-admin.service';
     MessagingModule,
     SettingsModule,
     AuthModule,
+    GameStatusModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [

@@ -1,6 +1,6 @@
 # Spielstatus „Tick läuft“
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-07b
@@ -22,11 +22,11 @@ STU kennt den Spielstatus TICK: Während der Haupttick läuft, ist das Spiel fü
 
 ## Akzeptanzkriterien
 
-- [ ] Status `TICK` wird zu Beginn des Haupttick gesetzt und am Ende (auch bei Fehler) auf den vorherigen Status zurückgesetzt; das gilt auch für manuell über die Tick-Admin-Seite (sh-AP-07b) ausgelöste Hauptticks. Ein bereits gesetzter Wartungsstatus wird nicht überschrieben.
-- [ ] Schreibende Spieler-Endpunkte (`POST/PATCH/PUT/DELETE` mit `RequiresGameAccess`) liefern 503 mit Code `GAME_TICK_RUNNING` und „Der Tick läuft gerade. Bitte versuche es gleich noch einmal.“; Lesezugriffe und Admins bleiben erlaubt.
-- [ ] Die App-Shell zeigt ein Banner und lädt nach dem `TICK`-Socket-Event neu.
-- [ ] Die Dauer des Hauptticks ist auf der Tick-Admin-Seite sichtbar (sh-AP-07b); ein Hinweis in `docs/` bzw. im Issue-Kommentar nennt die gemessene typische Sperrdauer.
-- [ ] Backend-Tests: Status setzen/zurücksetzen inkl. Fehlerfall, 503 für Schreibzugriff, Lese- und Adminzugriff erlaubt. Frontend-Test: Banner.
+- [x] Status `TICK` wird zu Beginn des Haupttick gesetzt und am Ende (auch bei Fehler) auf den vorherigen Status zurückgesetzt; das gilt auch für manuell über die Tick-Admin-Seite (sh-AP-07b) ausgelöste Hauptticks. Ein bereits gesetzter Wartungsstatus wird nicht überschrieben.
+- [x] Schreibende Spieler-Endpunkte (`POST/PATCH/PUT/DELETE` mit `RequiresGameAccess`) liefern 503 mit Code `GAME_TICK_RUNNING` und „Der Tick läuft gerade. Bitte versuche es gleich noch einmal.“; Lesezugriffe und Admins bleiben erlaubt.
+- [x] Die App-Shell zeigt ein Banner und lädt nach dem `TICK`-Socket-Event neu.
+- [x] Die Dauer des Hauptticks ist auf der Tick-Admin-Seite sichtbar (sh-AP-07b); ein Hinweis in `docs/` bzw. im Issue-Kommentar nennt die gemessene typische Sperrdauer.
+- [x] Backend-Tests: Status setzen/zurücksetzen inkl. Fehlerfall, 503 für Schreibzugriff, Lese- und Adminzugriff erlaubt. Frontend-Test: Banner.
 
 ## Entscheidung
 
@@ -35,3 +35,4 @@ Vorgabe: Variante (a), wie STU. Status `TICK` während des Hauptticks, schreiben
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – SWU übernimmt den STU-Spielstatus TICK: Während des Hauptticks erhalten schreibende Spieleraktionen 503, und die App zeigt ein Banner.
+- 2026-10-27 Agent: `GameStatusService` kapselt Setzen/Wiederherstellen von `TICK`; `TickService`, der globale Zugriffsguard und die App-Shell sind integriert und verhaltensorientiert getestet. Die Tick-Admin-Seite zeigt die persistierte Laufdauer in Millisekunden; lokal lagen leere Testläufe unter einer Sekunde, produktive Sperrdauern hängen von Weltgröße und Last ab.
