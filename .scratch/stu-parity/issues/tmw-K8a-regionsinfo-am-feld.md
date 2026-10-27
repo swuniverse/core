@@ -1,6 +1,6 @@
 # Regionsinfo am Feld
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -23,9 +23,11 @@ Feldkontext, LSS-Tooltip und Schiffsdetail zeigen die Kartenregion und die Verwa
 
 ## Akzeptanzkriterien
 
-- [ ] Das Feldkontext-DTO enthält `region: { id, name, description } | null` und `adminRegion: { key, name } | null`, aufgelöst aus `regionId` bzw. `adminRegionKey`. Für unerkundete Felder sind beide `null`.
-- [ ] `GET starmap/regions/:id` liefert die Regionsinfo nur, wenn der Spieler mindestens ein Feld der Region erkundet hat, sonst 404.
-- [ ] Feldkontext und Schiffskopf zeigen „Region: <Name>“ als Link auf einen Dialog (Name, Beschreibung, Verwaltungsregion). Der LSS-Tooltip zeigt den Regionsnamen.
-- [ ] Backend-Tests: Auflösung, Nebel-Regel, 404. Frontend-Tests: `FieldContextPanel` zeigt Region und öffnet den Dialog.
+- [x] Das Feldkontext-DTO enthält `region: { id, name, description } | null` und `adminRegion: { key, name } | null`, aufgelöst aus `regionId` bzw. `adminRegionKey`. Für unerkundete Felder sind beide `null`.
+- [x] `GET starmap/regions/:id` liefert die Regionsinfo nur, wenn der Spieler mindestens ein Feld der Region erkundet hat, sonst 404.
+- [x] Feldkontext und Schiffskopf zeigen „Region: <Name>“ als Link auf einen Dialog (Name, Beschreibung, Verwaltungsregion). Der LSS-Tooltip zeigt den Regionsnamen.
+- [x] Backend-Tests: Auflösung, Nebel-Regel, 404. Frontend-Tests: `FieldContextPanel` zeigt Region und öffnet den Dialog.
 
 ## Comments
+
+Regions- und Verwaltungsregionsdaten werden erkundungsabhängig in Feldkontext und Schiffsdetail aufgelöst; Feldkontext, Schiffskopf und LSS zeigen die Informationen, und der geschützte Regionsendpunkt liefert Details nur nach persönlicher Felderkundung. Keine offenen Folgepunkte.

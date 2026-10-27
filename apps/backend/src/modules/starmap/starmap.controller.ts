@@ -50,6 +50,7 @@ import type {
   StarmapLayerDto,
   StarmapLayerOverviewDto,
   StarmapMapRegionDto,
+  StarmapRegionInfoDto,
   StarmapOperationResultDto,
   StarmapSetEmptyToStuResultDto,
   StarmapResetUninhabitedResultDto,
@@ -88,6 +89,18 @@ export class StarmapController {
     permissions?: string[];
   }): boolean {
     return !!user.isAdmin || (user.permissions ?? []).includes('MAP_EDITOR');
+  }
+
+  @Get('regions/:id')
+  getRegion(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: { user: { sub: number } },
+  ): Promise<StarmapRegionInfoDto> {
+    return this.starmapQueryService.getExploredRegion(
+      req.user.sub,
+      id,
+      this.explorationService,
+    );
   }
 
   @Get('layers')

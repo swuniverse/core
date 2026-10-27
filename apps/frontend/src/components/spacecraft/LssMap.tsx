@@ -36,6 +36,7 @@ interface GalaxyLocalField {
   starSystemId: number | null;
   systemTypeId?: number | null;
   starSystem: { id: number; name: string } | null;
+  regionName?: string | null;
   isPassable?: boolean;
   effects?: string[] | null;
   energyCost?: number;
@@ -274,7 +275,7 @@ export function LssMap({
                       type="button"
                       onClick={() => onFieldClick(x, y)}
                       style={{ width: cellSize, height: cellSize }}
-                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}${fieldEffectText(field)}`}
+                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${field.regionName ? `, Region: ${field.regionName}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}${fieldEffectText(field)}`}
                       className={[
                         'relative border text-[10px] flex items-center justify-center transition-all',
                         getGalaxyFieldStyle(field.fieldType.key),
@@ -284,7 +285,7 @@ export function LssMap({
                           ? 'shadow-[0_0_8px_rgba(255,220,120,0.3)]'
                           : '',
                       ].join(' ')}
-                      title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${signatureLabel}`}
+                      title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${field.regionName ? ` · Region: ${field.regionName}` : ''}${signatureLabel}`}
                     >
                       {systemAsset ? (
                         <img

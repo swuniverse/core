@@ -156,7 +156,11 @@ export function SpacecraftDetailPage() {
         </div>
       )}
       <ShipHeaderTable
-        ship={ship}
+        ship={{
+          ...ship,
+          region: fieldContext?.region ?? ship.region,
+          adminRegion: fieldContext?.adminRegion ?? ship.adminRegion,
+        }}
         onUpdate={refreshShipAndStorage}
         onSelfDestruct={() => setSelfDestructOpen(true)}
         onInfo={() => setShipInfoOpen(true)}

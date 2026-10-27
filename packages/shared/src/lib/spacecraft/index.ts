@@ -332,6 +332,12 @@ export interface SpacecraftDetailDto {
   reactorAutoCarryOver: boolean;
   runtimeSystems: SpacecraftRuntimeSystemsDto;
   location: SpaceLocationDto;
+  region?: {
+    id: number;
+    name: string;
+    description: string | null;
+  } | null;
+  adminRegion?: { key: string; name: string } | null;
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
   arrivalAt: string | null;
   locationLabel?: string;
@@ -579,6 +585,12 @@ export interface SpacecraftNearbyTargetDto {
 
 export interface SpacecraftFieldContextDto {
   coordinates: { x: number; y: number };
+  region?: {
+    id: number;
+    name: string;
+    description: string | null;
+  } | null;
+  adminRegion?: { key: string; name: string } | null;
   starSystem: {
     id: number;
     name: string;

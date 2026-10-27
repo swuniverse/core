@@ -37,6 +37,8 @@ interface ShipHeaderTableProps {
     crewMax: number;
     location: SpaceLocationDto;
     locationLabel?: string;
+    region?: { id: number; name: string; description?: string | null } | null;
+    adminRegion?: { key: string; name: string } | null;
     fleetId?: number | null;
     fleetName?: string | null;
     fleetLeaderId?: number | null;
@@ -78,6 +80,7 @@ export function ShipHeaderTable({
   const [fleetDialog, setFleetDialog] = useState<
     'CREATE' | 'RENAME' | 'LEADER' | null
   >(null);
+  const [regionOpen, setRegionOpen] = useState(false);
 
   useEffect(() => {
     setDraftName(ship.name);
@@ -134,6 +137,7 @@ export function ShipHeaderTable({
     {
       label: 'Koordinaten',
       value: `${ship.location.x}|${ship.location.y}`,
+      region: ship.region,
       icon: 'hud1.png',
     },
     {
@@ -251,6 +255,15 @@ export function ShipHeaderTable({
                   className={`border border-swu-border px-1.5 py-1 font-mono text-xs ${row.valueClassName ?? 'text-swu-primary'}`}
                 >
                   {row.value}
+                  {row.region && (
+                    <button
+                      type="button"
+                      onClick={() => setRegionOpen(true)}
+                      className="ml-1 text-swu-primary hover:text-swu-accent hover:underline"
+                    >
+                      · Region: {row.region.name}
+                    </button>
+                  )}
                 </td>
               ))}
               <td className="border border-swu-border px-2 py-2 text-left">
@@ -330,6 +343,15 @@ export function ShipHeaderTable({
               className={`font-mono ${row.valueClassName ?? 'text-swu-primary'}`}
             >
               {row.value}
+              {row.region && (
+                <button
+                  type="button"
+                  onClick={() => setRegionOpen(true)}
+                  className="ml-1 text-swu-primary hover:text-swu-accent hover:underline"
+                >
+                  · Region: {row.region.name}
+                </button>
+              )}
             </span>
           </div>
         ))}
@@ -375,6 +397,32 @@ export function ShipHeaderTable({
           onClose={() => setAlertOpen(false)}
           onUpdate={() => onUpdate?.()}
         />
+      )}
+
+      {regionOpen && ship.region && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Regionsinfo"
+          className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+        >
+          <section className="w-full max-w-md border border-swu-border bg-swu-bg p-3 text-xs">
+            <header className="mb-2 flex justify-between border-b border-swu-border pb-2">
+              <h3 className="font-bold text-swu-primary">{ship.region.name}</h3>
+              <button type="button" onClick={() => setRegionOpen(false)}>
+                Schließen
+              </button>
+            </header>
+            <p className="whitespace-pre-wrap text-swu-muted">
+              {ship.region.description ?? 'Keine Beschreibung vorhanden.'}
+            </p>
+            {ship.adminRegion && (
+              <p className="mt-2">
+                Verwaltungsregion: {ship.adminRegion.name}
+              </p>
+            )}
+          </section>
+        </div>
       )}
 
       {error && (

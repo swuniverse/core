@@ -98,6 +98,7 @@ export function FieldContextPanel({
   const [cartographyDialog, setCartographyDialog] = useState<
     'PLAN' | 'FINALIZE' | null
   >(null);
+  const [regionOpen, setRegionOpen] = useState(false);
 
   useEffect(() => {
     setCartographyDialog(null);
@@ -338,6 +339,20 @@ export function FieldContextPanel({
               <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
               Sektor {context.coordinates.x}|{context.coordinates.y} scannen
             </button>
+            {context.region && (
+              <button
+                type="button"
+                onClick={() => setRegionOpen(true)}
+                className="block text-swu-primary hover:text-swu-accent hover:underline"
+              >
+                Region: {context.region.name}
+              </button>
+            )}
+            {context.adminRegion && !context.region && (
+              <span className="block text-swu-muted">
+                Verwaltungsregion: {context.adminRegion.name}
+              </span>
+            )}
             {context.starSystem && (
               <CartographyStatus
                 plan={cartography}
@@ -602,6 +617,28 @@ export function FieldContextPanel({
         />
       )}
       {scan && <SectorScanDialog scan={scan} onClose={() => setScan(null)} />}
+      {regionOpen && context.region && (
+        <Dialog
+          title={context.region.name}
+          label="Regionsinfo"
+          onClose={() => setRegionOpen(false)}
+        >
+          <p className="whitespace-pre-wrap text-swu-muted">
+            {context.region.description ?? 'Keine Beschreibung vorhanden.'}
+          </p>
+          {context.adminRegion && (
+            <p className="mt-2">
+              Verwaltungsregion: {context.adminRegion.name}
+            </p>
+          )}
+          <Link
+            to={`/database/regions/${context.region.id}`}
+            className="mt-3 inline-block text-swu-primary hover:text-swu-accent hover:underline"
+          >
+            Datenbankeintrag öffnen
+          </Link>
+        </Dialog>
+      )}
       {actionMessage && (
         <Dialog
           title={actionMessage.title}

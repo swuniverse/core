@@ -12,6 +12,7 @@ import { StarSystem } from './entities/star-system.entity';
 import { HyperspaceRoute } from './entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './entities/hyperspace-route-segment.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { MapRegion } from './entities/map-region.entity';
 import { resolveColonyLocation } from '../colony/colony-location';
 import type { ExplorationService } from './exploration.service';
 import { ExplorationLevel } from './entities/exploration-state.entity';
@@ -23,6 +24,7 @@ import type {
   HyperspaceRouteDto,
   StarmapFieldTypeDto,
   StarmapGalaxyFieldDto,
+  StarmapRegionInfoDto,
   StarmapSectorDto,
   StarmapSystemFieldDto,
   StarmapSystemGridDto,
@@ -46,7 +48,39 @@ export class StarmapQueryService {
     private readonly hyperspaceRouteSegmentRepo: Repository<HyperspaceRouteSegment>,
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
+    @InjectRepository(MapRegion)
+    private readonly regionRepo: Repository<MapRegion>,
   ) {}
+
+  async getExploredRegion(
+    userId: number,
+    regionId: number,
+    explorationService: ExplorationService,
+  ): Promise<StarmapRegionInfoDto> {
+    const region = await this.regionRepo.findOneBy({ id: regionId });
+    if (!region) throw new NotFoundException('Region not found');
+
+    const [regionFields, exploredFields] = await Promise.all([
+      this.galaxyFieldRepo.find({ where: { regionId } }),
+      explorationService.getExploredFields(userId, region.layerId),
+    ]);
+    const exploredCoordinates = new Set(
+      exploredFields.map((field) => `${field.cx}:${field.cy}`),
+    );
+    if (
+      !regionFields.some((field) =>
+        exploredCoordinates.has(`${field.cx}:${field.cy}`),
+      )
+    ) {
+      throw new NotFoundException('Region not found');
+    }
+
+    return {
+      id: region.id,
+      name: region.name,
+      description: region.description,
+    };
+  }
 
   async getGalaxySectors(layerId: number): Promise<StarmapSectorDto[]> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });

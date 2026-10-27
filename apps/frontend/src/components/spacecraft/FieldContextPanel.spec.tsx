@@ -46,6 +46,35 @@ describe('FieldContextPanel', () => {
     apiMocks.get.mockResolvedValue(null);
   });
 
+  it('shows region information in a dialog', async () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={{
+            coordinates: { x: 1, y: 2 },
+            starSystem: null,
+            colony: null,
+            region: {
+              id: 3,
+              name: 'Kernwelten',
+              description: 'Das politische Zentrum der Galaxis.',
+            },
+            adminRegion: { key: 'CORE', name: 'Kernregion' },
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Region: Kernwelten' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Regionsinfo' });
+    expect(dialog.textContent).toContain('Das politische Zentrum der Galaxis.');
+    expect(dialog.textContent).toContain('Verwaltungsregion: Kernregion');
+  });
+
   it('shows cartography controls only for a qualified local ship', async () => {
     apiMocks.get.mockResolvedValue({
       id: 4,

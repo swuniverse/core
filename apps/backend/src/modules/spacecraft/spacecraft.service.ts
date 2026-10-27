@@ -28,6 +28,7 @@ import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import { adminRegionName } from '../starmap/admin-region';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { GameDataService } from '../game-data/game-data.service';
@@ -318,6 +319,29 @@ export class SpacecraftService {
           ship.modules ?? [],
         )
       : null;
+    const location = resolveSpacecraftLocation(ship);
+    const galaxyField =
+      location?.scope === 'GALAXY'
+        ? await this.galaxyFieldRepo.findOne({
+            where: {
+              layerId: location.layerId,
+              cx: location.x,
+              cy: location.y,
+            },
+            relations: ['region'],
+          })
+        : null;
+    const fieldExplored = galaxyField
+      ? (
+          await this.explorationService.getExploredFields(
+            userId,
+            galaxyField.layerId,
+          )
+        ).some(
+          (field) =>
+            field.cx === galaxyField.cx && field.cy === galaxyField.cy,
+        )
+      : false;
     const normal =
       (ship.operatingMode ?? SpacecraftOperatingMode.NORMAL) !==
       SpacecraftOperatingMode.STANDBY;
@@ -328,7 +352,20 @@ export class SpacecraftService {
       operatingMode: ship.operatingMode ?? SpacecraftOperatingMode.NORMAL,
       alertState: ship.alertState,
       arrivalAt: ship.arrivalAt?.toISOString() ?? null,
-      location: resolveSpacecraftLocation(ship)!,
+      location: location!,
+      region: fieldExplored && galaxyField?.region
+        ? {
+            id: galaxyField.region.id,
+            name: galaxyField.region.name,
+            description: galaxyField.region.description,
+          }
+        : null,
+      adminRegion: fieldExplored && galaxyField?.adminRegionKey
+        ? {
+            key: galaxyField.adminRegionKey,
+            name: adminRegionName(galaxyField.adminRegionKey),
+          }
+        : null,
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(ship),
       crewRoster,
       crewRequired,
@@ -3033,7 +3070,7 @@ export class SpacecraftService {
               cx: location.x,
               cy: location.y,
             },
-            relations: ['starSystem'],
+            relations: ['starSystem', 'region'],
           })
         : null;
     const colonizationCandidate =
@@ -3051,8 +3088,32 @@ export class SpacecraftService {
         })
       : null;
     const colonizationTarget = colony ? null : colonizationCandidate;
+    const fieldExplored = entryField
+      ? (
+          await this.explorationService.getExploredFields(
+            userId,
+            entryField.layerId,
+          )
+        ).some(
+          (field) =>
+            field.cx === entryField.cx && field.cy === entryField.cy,
+        )
+      : false;
     return {
       coordinates: { x: location?.x ?? 0, y: location?.y ?? 0 },
+      region: fieldExplored && entryField?.region
+        ? {
+            id: entryField.region.id,
+            name: entryField.region.name,
+            description: entryField.region.description,
+          }
+        : null,
+      adminRegion: fieldExplored && entryField?.adminRegionKey
+        ? {
+            key: entryField.adminRegionKey,
+            name: adminRegionName(entryField.adminRegionKey),
+          }
+        : null,
       starSystem:
         location?.scope === 'SYSTEM'
           ? {
@@ -3469,6 +3530,7 @@ export class SpacecraftService {
         .createQueryBuilder('gf')
         .leftJoinAndSelect('gf.fieldType', 'ft')
         .leftJoinAndSelect('gf.starSystem', 'ss')
+        .leftJoinAndSelect('gf.region', 'region')
         .where('gf.layerId = :lid', { lid: location.layerId })
         .andWhere('gf.cx BETWEEN :minX AND :maxX', {
           minX: bounds.minX,
@@ -3537,6 +3599,7 @@ export class SpacecraftService {
         starSystem: f.starSystem
           ? { id: f.starSystem.id, name: f.starSystem.name }
           : null,
+        regionName: f.region?.name ?? null,
         isPassable: f.isPassable,
       })),
       wrecks: wrecks

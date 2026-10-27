@@ -375,6 +375,12 @@ export interface StarmapMapRegionDto {
   colorKey: string;
 }
 
+export interface StarmapRegionInfoDto {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
 export interface StarmapCreateMapRegionDto {
   layerId: number;
   name: string;
