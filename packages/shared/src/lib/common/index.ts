@@ -29,6 +29,26 @@ export interface ApiError {
   error?: string;
 }
 
+export const TICK_RUN_TYPES = [
+  'MAIN',
+  'BUILDING_COMPLETION',
+  'WARP_ARRIVAL',
+  'MAINTENANCE',
+] as const;
+export type TickRunType = (typeof TICK_RUN_TYPES)[number];
+export type TickRunStatus = 'STARTED' | 'COMPLETED' | 'FAILED';
+
+export interface TickRunDto {
+  type: TickRunType;
+  tickNumber: number;
+  scheduledFor: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  durationMs: number | null;
+  status: TickRunStatus;
+  error: string | null;
+}
+
 export interface WebSocketEvent<T = unknown> {
   type: string;
   payload: T;

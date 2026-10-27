@@ -21,6 +21,7 @@ import {
 } from './maintenance.service';
 import { MessagingModule } from '../messaging/messaging.module';
 import { SettingsModule } from '../settings/settings.module';
+import { TickAdminService } from './tick-admin.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { SettingsModule } from '../settings/settings.module';
   controllers: [TickController, TickStatusController],
   providers: [
     TickService,
+    TickAdminService,
     MaintenanceService,
     { provide: MAINTENANCE_HANDLERS, useValue: [] },
   ],

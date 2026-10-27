@@ -294,7 +294,7 @@ export class TickService {
   @Cron(CronExpression.EVERY_MINUTE, {
     timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
   })
-  async checkBuildingCompletions() {
+  async checkBuildingCompletions(recordEmptyRun = false) {
     const now = new Date();
     const activeBuilds = await this.fieldRepo.find({
       where: [
@@ -306,8 +306,8 @@ export class TickService {
       ],
       select: { id: true, colonyId: true },
     });
-    // Nichts faellig: keinen game_tick_states-Eintrag pro Minute schreiben.
-    if (activeBuilds.length === 0) return;
+    // Nichts fällig: für den Cron keinen game_tick_states-Eintrag pro Minute schreiben.
+    if (activeBuilds.length === 0 && !recordEmptyRun) return;
 
     const tickNumber = Date.now();
     const { tickState, shouldRun } = await this.startTick(
@@ -416,7 +416,7 @@ export class TickService {
       ],
     });
 
-    if (arrived.length === 0) return;
+    if (arrived.length === 0) return { processed: 0 };
 
     for (const ship of arrived) {
       await this.spacecraftService.processMovement(ship);
@@ -428,6 +428,7 @@ export class TickService {
     }
 
     this.logger.log(`Processed ${arrived.length} warp arrival(s)`);
+    return { processed: arrived.length };
   }
 
   private async startTick(

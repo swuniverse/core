@@ -1,12 +1,30 @@
-import { Controller, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { TICK_RUN_TYPES, type TickRunType } from '@swuniverse/shared';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/admin.guard';
+import { TickAdminService } from './tick-admin.service';
 import { TickService } from './tick.service';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class TickController {
-  constructor(private readonly tickService: TickService) {}
+  constructor(
+    private readonly tickService: TickService,
+    private readonly tickAdminService: TickAdminService,
+  ) {}
+
+  @Get('ticks')
+  listRuns(@Query('limit', new ParseIntPipe({ optional: true })) limit = 50) {
+    return this.tickAdminService.listRuns(limit);
+  }
+
+  @Post('ticks/:type/run')
+  run(@Param('type') type: string) {
+    if (!TICK_RUN_TYPES.includes(type as TickRunType)) {
+      throw new BadRequestException('Unbekannter Tick-Typ');
+    }
+    return this.tickAdminService.run(type as TickRunType);
+  }
 
   @Post('tick/trigger')
   async triggerTick() {

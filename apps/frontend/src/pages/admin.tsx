@@ -15,6 +15,12 @@ const DEFAULT_STATUS_MESSAGES: Partial<Record<GameStatus['status'], string>> = {
 
 const adminCards = [
   {
+    title: 'Ticks',
+    path: '/admin/ticks',
+    description: 'Letzte Tick-Läufe prüfen und einzelne Jobs manuell starten.',
+    badge: 'Runtime',
+  },
+  {
     title: 'Ship Spawn',
     path: '/admin/ships',
     description:
