@@ -64,6 +64,16 @@ describe('useStatusBar', () => {
     });
 
     expect(result.current.tick.loaded).toBe(true);
+    expect(result.current.serverTime?.toISOString()).toBe(
+      '2026-08-05T10:05:00.000Z',
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.serverTime?.toISOString()).toBe(
+      '2026-08-05T10:05:01.000Z',
+    );
 
     expect(result.current.tick.currentTickIndex).toBe(2);
     expect(result.current.tick.totalTicks).toBe(5);
@@ -73,8 +83,11 @@ describe('useStatusBar', () => {
     expect(result.current.tick.nextTickAt.toISOString()).toBe(
       '2026-08-05T11:00:00.000Z',
     );
-    expect(result.current.tick.msToNext).toBe(55 * 60 * 1000);
-    expect(result.current.tick.progress).toBeCloseTo(65 / 120, 5);
+    expect(result.current.tick.msToNext).toBe(55 * 60 * 1000 - 1000);
+    expect(result.current.tick.progress).toBeCloseTo(
+      (65 * 60 + 1) / (120 * 60),
+      5,
+    );
   });
 
   it('refetches tick status when countdown reaches zero', async () => {

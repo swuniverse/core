@@ -154,6 +154,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-02 – Eigenständige System-News mit Admin-Erstellung und öffentlicher Landing-Anzeige – siehe Feature-Commit
 - sh-AP-15a – Nachrichten-Navlet mit Live-Zählern, Hervorhebung und direktem Schreiben-Link – siehe Feature-Commit
 - sh-AP-15b – Forschungs-Navlet mit Bild, Tick-Produktion und Wartend-Badge verdichtet – siehe Feature-Commit
+- sh-AP-15c – Kolonien-Navlet mit STU-Tooltips und laufender Serverzeit umgesetzt – siehe Feature-Commit
 - sh-AP-16 – Gespeicherte Startansicht, Benachrichtigungseinstellungen und gemeinsame serverseitige Leser wirksam gemacht – siehe Feature-Commit
 - sh-AP-07a – Tägliches Maintenance-Gerüst und explizite Spielzeitzone – siehe Feature-Commit
 - sh-AP-09 – Login und Session mit sicherem JWT-Secret, serverseitigem Logout und Account-Prüfungen gehärtet – siehe Feature-Commit

@@ -60,7 +60,12 @@ export class DashboardService {
       this.userRepo.findOneByOrFail({ id: userId }),
       this.colonyRepo.find({
         where: { userId, isAbandoned: false },
-        relations: { fields: true, changeable: true, celestialObject: true },
+        relations: {
+          fields: true,
+          changeable: true,
+          celestialObject: true,
+          starSystem: true,
+        },
         order: { id: 'ASC' },
       }),
       this.messageRepo.count({
@@ -134,7 +139,28 @@ export class DashboardService {
             blockedReason: research.blockedReason,
           }
         : null,
-      colonies,
+      colonies: colonies.map((colony) => ({
+        id: colony.id,
+        name: colony.name,
+        energy: colony.energy,
+        energyMax: colony.energyMax,
+        storageUsed: colony.storageUsed,
+        storageMax: colony.storageMax,
+        colonyClassId: colony.colonyClassId,
+        systemPosition: { x: colony.posX, y: colony.posY },
+        starSystem: {
+          name: colony.starSystem.name,
+          x: colony.starSystem.cx,
+          y: colony.starSystem.cy,
+        },
+        celestialObject: colony.celestialObject
+          ? {
+              classId: colony.celestialObject.classId,
+              name: colony.celestialObject.name,
+              objectType: colony.celestialObject.objectType,
+            }
+          : null,
+      })),
     };
   }
 

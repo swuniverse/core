@@ -56,6 +56,9 @@ describe('DashboardService header', () => {
         {
           id: 9,
           name: 'Alpha',
+          posX: 4,
+          posY: 7,
+          starSystem: { name: 'Alderaan', cx: 12, cy: 34 },
           fields: [{ id: 1, buildingId: 12, isBuilding: false, isActive: true }],
         },
       ]),
@@ -116,7 +119,14 @@ describe('DashboardService header', () => {
         queuedCount: 1,
         nextQueuedName: 'Sprungnavigation',
       },
-      colonies: [{ id: 9, name: 'Alpha' }],
+      colonies: [
+        {
+          id: 9,
+          name: 'Alpha',
+          systemPosition: { x: 4, y: 7 },
+          starSystem: { name: 'Alderaan', x: 12, y: 34 },
+        },
+      ],
     });
     expect(messageRepo.count).toHaveBeenNthCalledWith(
       1,

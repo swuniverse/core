@@ -5,7 +5,9 @@ import { useAuthStore } from '../../stores/auth.store';
 import { api } from '../../services/api';
 import { PlanetImg } from '../PlanetImg';
 import { PlayerAvatar } from '../PlayerAvatar';
+import { Tooltip } from '../Tooltip';
 import { useSocket } from '../../hooks/use-socket';
+import { formatNumber } from '../../lib/format';
 
 type MessageFolderSummary = {
   folder: MessageFolder;
@@ -14,13 +16,7 @@ type MessageFolderSummary = {
 };
 
 type MessageFolder =
-  | 'PERSONAL'
-  | 'SHIP'
-  | 'COLONY'
-  | 'TRADE'
-  | 'SYSTEM'
-  | 'OUTBOX'
-  | 'STATION';
+  'PERSONAL' | 'SHIP' | 'COLONY' | 'TRADE' | 'SYSTEM' | 'OUTBOX' | 'STATION';
 
 const MESSAGE_FOLDERS: Array<{
   folder: Extract<
@@ -108,7 +104,10 @@ export function Header() {
   useSocket('RESEARCH_COMPLETED', refresh);
   useSocket('MESSAGE_RECEIVED', () => {
     window.clearTimeout(messageRefreshTimeout.current);
-    messageRefreshTimeout.current = window.setTimeout(refreshMessageFolders, 500);
+    messageRefreshTimeout.current = window.setTimeout(
+      refreshMessageFolders,
+      500,
+    );
   });
 
   const user =
@@ -279,7 +278,8 @@ export function Header() {
                     />
                   )}
                   <span>
-                    {status.research.progress}/{status.research.pointsRequired} (+
+                    {status.research.progress}/{status.research.pointsRequired}{' '}
+                    (+
                     {status.research.productionPerTick})
                   </span>
                 </div>
@@ -301,13 +301,15 @@ export function Header() {
                 title="Forschung"
                 className="size-10 object-contain"
               />
-              <span className="font-bold text-swu-primary">Keine Forschung</span>
+              <span className="font-bold text-swu-primary">
+                Keine Forschung
+              </span>
             </div>
           )}
         </Link>
 
-        <div className="hidden max-w-[330px] shrink-0 items-center gap-1 overflow-x-auto border-r border-swu-border px-2 xl:flex">
-          {(status?.colonies ?? []).slice(0, 4).map((colony) => {
+        <div className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto border-r border-swu-border px-2 xl:flex">
+          {(status?.colonies ?? []).map((colony) => {
             const warning =
               colony.energyMax > 0 && colony.energy / colony.energyMax < 0.15
                 ? 'bg-red-500'
@@ -315,28 +317,58 @@ export function Header() {
                     colony.storageUsed / colony.storageMax > 0.9
                   ? 'bg-swu-warning'
                   : 'bg-swu-success';
+            const width =
+              colony.celestialObject?.objectType === 2
+                ? 'w-[30px]'
+                : colony.celestialObject?.objectType === 3
+                  ? 'w-[40px]'
+                  : 'w-[50px]';
             return (
-              <Link
+              <Tooltip
                 key={colony.id}
-                to={`/colonies?selected=${colony.id}`}
-                className="flex min-w-[72px] items-center gap-1 border border-swu-border bg-black/20 px-1.5 py-1 hover:border-swu-accent"
+                title={`Kolonieinformationen: ${colony.name}`}
+                content={
+                  <div className="space-y-0.5">
+                    <div>
+                      Koordinaten: {colony.systemPosition.x}|
+                      {colony.systemPosition.y}
+                    </div>
+                    <div>
+                      System: {colony.starSystem.name} ({colony.starSystem.x}|
+                      {colony.starSystem.y})
+                    </div>
+                    <div>
+                      EPS: {formatNumber(colony.energy)}/
+                      {formatNumber(colony.energyMax)}
+                    </div>
+                    <div>
+                      Lager: {formatNumber(colony.storageUsed)}/
+                      {formatNumber(colony.storageMax)}
+                    </div>
+                  </div>
+                }
               >
-                <PlanetImg
-                  classId={
-                    colony.celestialObject?.classId ??
-                    colony.colonyClassId ??
-                    201
-                  }
-                  name={colony.celestialObject?.name}
-                  objectType={colony.celestialObject?.objectType}
-                  thumbnail
-                  className="size-7 object-contain"
-                />
-                <span className="min-w-0 truncate text-swu-primary">
-                  {colony.name}
-                </span>
-                <span className={`size-1.5 shrink-0 rounded-full ${warning}`} />
-              </Link>
+                <Link
+                  to={`/colonies?selected=${colony.id}`}
+                  aria-label={colony.name}
+                  className="relative flex h-[64px] shrink-0 items-center justify-center px-1 hover:bg-white/[0.03]"
+                >
+                  <PlanetImg
+                    classId={
+                      colony.celestialObject?.classId ??
+                      colony.colonyClassId ??
+                      201
+                    }
+                    name={colony.celestialObject?.name}
+                    objectType={colony.celestialObject?.objectType}
+                    thumbnail
+                    className={`h-[50px] ${width} object-contain`}
+                  />
+                  <span
+                    className={`absolute bottom-1 right-1 size-1.5 rounded-full ${warning}`}
+                  />
+                </Link>
+              </Tooltip>
             );
           })}
         </div>

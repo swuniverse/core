@@ -13,6 +13,7 @@ vi.mock('../../stores/auth.store', () => ({
 vi.mock('../../hooks/use-status-bar', () => ({
   formatTickCountdown: () => '00:00',
   useStatusBar: () => ({
+    serverTime: new Date(2026, 7, 5, 10, 5, 1),
     tick: {
       msToNext: 0,
       currentTickIndex: 0,
@@ -25,6 +26,16 @@ vi.mock('../../hooks/use-status-bar', () => ({
 vi.mock('../../services/api', () => ({ api: { get: vi.fn() } }));
 
 describe('navigation icons', () => {
+  it('shows the running server time below the tick ring', () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTitle('Serverzeit').textContent).toBe('10:05:01');
+  });
+
   it('uses asset icon pairs and keeps the active desktop icon highlighted', () => {
     render(
       <MemoryRouter initialEntries={['/events']}>

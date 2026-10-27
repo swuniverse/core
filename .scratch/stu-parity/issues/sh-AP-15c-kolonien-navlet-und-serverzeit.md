@@ -1,6 +1,6 @@
 # Kolonien-Navlet mit Tooltips und laufende Serverzeit
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-11
@@ -24,10 +24,12 @@ Der Header zeigt wie STU alle Kolonien als Planetenbilder (Größe nach Typ) mit
 
 ## Akzeptanzkriterien
 
-- [ ] Header-DTO je Kolonie zusätzlich: Koordinaten im System (x|y) und Systemname mit Sektorkoordinaten.
-- [ ] Alle Kolonien werden angezeigt; bei Platzmangel horizontal scrollbar; Bildgrößen nach Objekttyp (Planet groß, Asteroid mittel, Mond klein); der Warnpunkt bleibt als zusätzlicher Statuspunkt.
-- [ ] Hover zeigt per `<Tooltip>` die Tabelle „Kolonieinformationen: <Name>“ mit Koordinaten, System, Energie `x/y` und Lager `x/y` (Zahlen mit `formatNumber`, falls sh-AP-13a umgesetzt).
-- [ ] Sidebar-Fuß zeigt unter dem Tick-Ring die laufende Serverzeit `HH:MM:SS` (aus `useStatusBar`, sekündlich aktualisiert) mit `title="Serverzeit"`.
-- [ ] Frontend-Tests: mehr als vier Kolonien sichtbar, Tooltip-Inhalt, Serverzeit tickt (Fake-Timer).
+- [x] Header-DTO je Kolonie zusätzlich: Koordinaten im System (x|y) und Systemname mit Sektorkoordinaten.
+- [x] Alle Kolonien werden angezeigt; bei Platzmangel horizontal scrollbar; Bildgrößen nach Objekttyp (Planet groß, Asteroid mittel, Mond klein); der Warnpunkt bleibt als zusätzlicher Statuspunkt.
+- [x] Hover zeigt per `<Tooltip>` die Tabelle „Kolonieinformationen: <Name>“ mit Koordinaten, System, Energie `x/y` und Lager `x/y` (Zahlen mit `formatNumber`, falls sh-AP-13a umgesetzt).
+- [x] Sidebar-Fuß zeigt unter dem Tick-Ring die laufende Serverzeit `HH:MM:SS` (aus `useStatusBar`, sekündlich aktualisiert) mit `title="Serverzeit"`.
+- [x] Frontend-Tests: mehr als vier Kolonien sichtbar, Tooltip-Inhalt, Serverzeit tickt (Fake-Timer).
 
 ## Comments
+
+- Header-DTO und Navlet um Systemkoordinaten, alle Kolonien, STU-Bildgrößen, Statuspunkt und Tooltip-Tabelle erweitert; Sidebar zeigt die sekündlich fortgeschriebene Serverzeit aus dem bestehenden Server-Offset. Backend-, Header-, Navigation- und Hook-Tests ergänzt. Keine offenen Folgepunkte.

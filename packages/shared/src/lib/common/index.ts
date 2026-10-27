@@ -149,6 +149,8 @@ export interface GlobalHeaderStatusDto {
     storageUsed: number;
     storageMax: number;
     colonyClassId: number;
+    systemPosition: { x: number; y: number };
+    starSystem: { name: string; x: number; y: number };
     celestialObject: {
       classId: number | null;
       name: string | null;

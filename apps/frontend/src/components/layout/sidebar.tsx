@@ -32,7 +32,7 @@ export function Sidebar() {
   const setUser = useAuthStore((state) => state.setUser);
   const holonetUnread = useHolonetUnreadStore((state) => state.count);
   const refreshHolonetUnread = useHolonetUnreadStore((state) => state.refresh);
-  const { tick } = useStatusBar();
+  const { tick, serverTime } = useStatusBar();
   const extraItems = user?.isAdmin
     ? [adminNavItem, mapEditorNavItem]
     : user?.permissions?.includes('MAP_EDITOR')
@@ -99,6 +99,20 @@ export function Sidebar() {
           progress={tick.progress}
           loaded={tick.loaded}
         />
+        <div
+          title="Serverzeit"
+          className="mt-1 font-mono text-[9px] text-swu-muted"
+        >
+          {serverTime
+            ? [
+                serverTime.getHours(),
+                serverTime.getMinutes(),
+                serverTime.getSeconds(),
+              ]
+                .map((value) => String(value).padStart(2, '0'))
+                .join(':')
+            : '--:--:--'}
+        </div>
       </div>
     </aside>
   );

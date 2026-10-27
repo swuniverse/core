@@ -14,6 +14,7 @@ export interface TickState {
 
 export interface StatusBarData {
   tick: TickState;
+  serverTime: Date | null;
 }
 
 interface TickStatusResponse {
@@ -70,6 +71,7 @@ export function formatTickCountdown(ms: number): string {
 
 export function useStatusBar(): StatusBarData {
   const [tick, setTick] = useState<TickState>(EMPTY_TICK_STATE);
+  const [serverTime, setServerTime] = useState<Date | null>(null);
   const tickStatusRef = useRef<{
     currentTickIndex: number;
     totalTicks: number;
@@ -95,6 +97,7 @@ export function useStatusBar(): StatusBarData {
     tickStatusRef.current = baseState;
     refetchingAtBoundaryRef.current = false;
     setTick(computeTickState(baseState, serverOffsetRef.current));
+    setServerTime(serverTime);
   }, []);
 
   useEffect(() => {
@@ -112,6 +115,7 @@ export function useStatusBar(): StatusBarData {
 
       const nextTick = computeTickState(tickStatus, serverOffsetRef.current);
       setTick(nextTick);
+      setServerTime(new Date(Date.now() + serverOffsetRef.current));
 
       if (nextTick.msToNext === 0 && !refetchingAtBoundaryRef.current) {
         refetchingAtBoundaryRef.current = true;
@@ -119,10 +123,10 @@ export function useStatusBar(): StatusBarData {
           refetchingAtBoundaryRef.current = false;
         });
       }
-    }, 30000);
+    }, 1000);
 
     return () => window.clearInterval(interval);
   }, [refreshTickStatus]);
 
-  return { tick };
+  return { tick, serverTime };
 }
