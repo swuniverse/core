@@ -1,6 +1,6 @@
 # Kontaktliste: Backend und Freund-Wirkung im Resolver
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -29,14 +29,15 @@ Spieler führen eine persönliche Kontaktliste mit Modus Freund, Neutral oder Fe
 
 ## Akzeptanzkriterien
 
-- [ ] Tabelle `contacts` (Besitzer, Kontakt, Modus, Kommentar ≤ 255 Zeichen, Datum), eindeutig je Besitzer/Kontakt, `ON DELETE CASCADE` für beide Spieler.
-- [ ] Endpunkte: Liste eigener Kontakte; Anlegen (Spieler-ID, Modus); Moduswechsel; Kommentar ändern; markierte löschen; alle löschen; Liste „Einträge anderer Siedler über Dich“ (wer hat mich mit welchem Modus eingetragen).
-- [ ] Ablehnungen mit deutschen Meldungen: unbekannter Spieler, eigener Account, bereits eingetragen, ungültiger Modus.
-- [ ] Anlegen und Moduswechsel senden dem Eingetragenen eine Systemnachricht mit dem STU-Text.
-- [ ] Ein `ContactStatusAdapter` implementiert `PersonalContactStatusPort.isFriend(a, b)` (Kontakt von a über b im Modus Freund) und ersetzt den No-Op-Provider. Vorrang gemäß `CONTEXT.md`: Feind der anderen Fraktion und Allianzkrieg gehen vor; der Resolver bleibt gebündelt (keine N+1-Abfragen).
-- [ ] Modus Feind und Neutral haben keine Wirkung auf die Haltung (Test belegt das).
-- [ ] Backend-Tests: CRUD, Ablehnungsfälle, Benachrichtigung, Resolver liefert Freund über Kontakt, nicht über Fraktionsgrenzen, nicht gegen Allianzkrieg.
+- [x] Tabelle `contacts` (Besitzer, Kontakt, Modus, Kommentar ≤ 255 Zeichen, Datum), eindeutig je Besitzer/Kontakt, `ON DELETE CASCADE` für beide Spieler.
+- [x] Endpunkte: Liste eigener Kontakte; Anlegen (Spieler-ID, Modus); Moduswechsel; Kommentar ändern; markierte löschen; alle löschen; Liste „Einträge anderer Siedler über Dich“ (wer hat mich mit welchem Modus eingetragen).
+- [x] Ablehnungen mit deutschen Meldungen: unbekannter Spieler, eigener Account, bereits eingetragen, ungültiger Modus.
+- [x] Anlegen und Moduswechsel senden dem Eingetragenen eine Systemnachricht mit dem STU-Text.
+- [x] Ein `ContactStatusAdapter` implementiert `PersonalContactStatusPort.isFriend(a, b)` (Kontakt von a über b im Modus Freund) und ersetzt den No-Op-Provider. Vorrang gemäß `CONTEXT.md`: Feind der anderen Fraktion und Allianzkrieg gehen vor; der Resolver bleibt gebündelt (keine N+1-Abfragen).
+- [x] Modus Feind und Neutral haben keine Wirkung auf die Haltung (Test belegt das).
+- [x] Backend-Tests: CRUD, Ablehnungsfälle, Benachrichtigung, Resolver liefert Freund über Kontakt, nicht über Fraktionsgrenzen, nicht gegen Allianzkrieg.
 
 ## Comments
 
 - 2026-10-23: Umsetzung abgebrochen, weil die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=HEAD` auch nach einem ernsthaften Wiederholungsversuch nicht grün wurde. Der bestehende, vom Issue unabhängige Test `apps/backend/src/modules/spacecraft/spacecraft-destruction.service.spec.ts` erwartet für das Bergungsgut Modul 10101, die aktuelle Spieldatenauflösung liefert jedoch 10201. Bitte Test/Spieldaten-Baseline klären; anschließend kann das Kontaktmodul erneut umgesetzt werden. `npx nx run-many --targets=build` war grün.
+- 2026-10-27: Kontaktmodell, Migration, Shared-DTOs und authentifizierte CRUD-Endpunkte unter `apps/backend/src/modules/contacts/` umgesetzt. `ContactStatusAdapter` ist im Allianzresolver verdrahtet; Tests decken Benachrichtigungen, Ablehnungen und die Priorität von Fraktion und Allianzkrieg ab. Keine offenen Folgepunkte.

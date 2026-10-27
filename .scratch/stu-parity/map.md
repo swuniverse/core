@@ -190,6 +190,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-18 – Maindesk zeigt neue HoloNet-Beiträge, Werftprozesse und eine durchgehende rechte Spalte – siehe Feature-Commit
 - soc-A2 – Schnell-PM-Links aus Spielerprofil, HoloNet und Allianzforum mit vorbelegtem Empfänger umgesetzt – siehe Feature-Commit
 - soc-A3 – Datenschutzgerechte Lesebestätigungen im Postausgang mit Doppelhäkchen umgesetzt – siehe Feature-Commit
+- soc-B1a – Kontaktlisten-Backend und persönliche Freund-Markierung im zentralen Haltungsresolver umgesetzt – siehe Feature-Commit
 - sh-AP-19a – Versioniertes Tutorialmodell, Spielerfortschritt, API und Onboarding-Aktivierung umgesetzt – siehe Feature-Commit
 - soc-E1 – Spielercharaktere mit Avatar, BBCode-Profilanzeige und eigentümergeschütztem CRUD umgesetzt – siehe Feature-Commit
 - sh-AP-03 – Optionale E-Mail-Verifikation mit sicheren Links, Adresskorrektur und Spielzugangs-Gate umgesetzt – siehe Feature-Commit

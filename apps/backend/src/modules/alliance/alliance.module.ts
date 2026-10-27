@@ -26,10 +26,11 @@ import { TypeOrmForumStore } from './typeorm-forum.store';
 import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import {
-  NoPersonalContactStatusPort,
   PERSONAL_CONTACT_STATUS,
   RelationshipResolverService,
 } from './relationship-resolver.service';
+import { ContactModule } from '../contacts/contact.module';
+import { ContactStatusAdapter } from '../contacts/contact-status.adapter';
 import {
   DIPLOMACY_NOTIFICATION_RETRY,
   DiplomacyNotificationDispatcherService,
@@ -70,6 +71,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     MessagingModule,
     WebsocketModule,
     ColonyModule,
+    ContactModule,
   ],
   controllers: [AllianceController, AllianceBannerController],
   providers: [
@@ -89,7 +91,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     RelationshipResolverService,
     {
       provide: PERSONAL_CONTACT_STATUS,
-      useClass: NoPersonalContactStatusPort,
+      useExisting: ContactStatusAdapter,
     },
     DiplomacyNotificationDispatcherService,
     AllianceRateLimiterService,

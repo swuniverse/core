@@ -122,6 +122,8 @@ import { TutorialModule } from './modules/tutorial/tutorial.module';
 import { UserTutorialProgress } from './modules/tutorial/entities/user-tutorial-progress.entity';
 import { RpgModule } from './modules/rpg/rpg.module';
 import { UserCharacter } from './modules/rpg/user-character.entity';
+import { ContactModule } from './modules/contacts/contact.module';
+import { Contact } from './modules/contacts/entities/contact.entity';
 
 @Module({
   imports: [
@@ -232,6 +234,7 @@ import { UserCharacter } from './modules/rpg/user-character.entity';
           TradeTransaction,
           UserTutorialProgress,
           UserCharacter,
+          Contact,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
@@ -260,6 +263,7 @@ import { UserCharacter } from './modules/rpg/user-character.entity';
     TradeModule,
     TutorialModule,
     RpgModule,
+    ContactModule,
     DashboardModule,
     AllianceModule,
     TickModule,

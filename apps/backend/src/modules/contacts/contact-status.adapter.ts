@@ -1,0 +1,12 @@
+import { Injectable } from '@nestjs/common';
+import type { PersonalContactStatusPort } from '../alliance/relationship-resolver.service';
+import { ContactService } from './contact.service';
+
+@Injectable()
+export class ContactStatusAdapter implements PersonalContactStatusPort {
+  constructor(private readonly contacts: ContactService) {}
+
+  isFriend(firstPlayerId: number, secondPlayerId: number): Promise<boolean> {
+    return this.contacts.isFriend(firstPlayerId, secondPlayerId);
+  }
+}
