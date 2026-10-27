@@ -108,6 +108,48 @@ describe('PlayerProfilePage', () => {
     ).toBe('/messages?tab=compose&to=1&name=Vader');
   });
 
+  it('adds another player to contacts from their profile', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/settlers/1') {
+        return Promise.resolve({
+          id: 1,
+          username: 'vader',
+          displayName: 'Vader',
+          avatar: null,
+          description: null,
+          faction: 'GALACTIC_EMPIRE',
+          factionName: 'Galaktisches Imperium',
+          prestige: 10,
+          colonies: 1,
+          ships: 2,
+          completedResearch: 3,
+          onboardingCompleted: true,
+          isAdmin: false,
+          createdAt: '2026-08-04T00:00:00.000Z',
+          alliance: null,
+          onVacation: false,
+        });
+      }
+      if (url === '/contacts') return Promise.resolve([]);
+      if (url.startsWith('/alliances/settlers/1/diplomacy')) {
+        return Promise.resolve({ playerId: 1, name: 'Vader', relationships: [], entries: [], nextCursor: null });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    apiMocks.post.mockResolvedValue({ id: 4, contactUserId: 1, mode: 'FRIEND' });
+
+    renderProfile();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Zu Kontakten hinzufügen' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/contacts', {
+        playerId: 1,
+        mode: 'FRIEND',
+      }),
+    );
+    expect(screen.getByLabelText('Kontaktmodus für Vader')).toBeTruthy();
+  });
+
   it('does not offer a quick message on the own profile', async () => {
     apiMocks.get.mockResolvedValue({
       id: 7,

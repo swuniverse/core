@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   delete: vi.fn(),
+  patch: vi.fn(),
 }));
 
 vi.mock('../services/api', () => ({ api }));
@@ -36,6 +37,7 @@ describe('MessagesPage folders', () => {
     api.get.mockReset();
     api.post.mockReset();
     api.delete.mockReset();
+    api.patch.mockReset();
     api.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(folders);
       if (url === '/messages/folders/personal?page=1') {
@@ -457,6 +459,53 @@ describe('MessagesPage folders', () => {
     expect(await screen.findByText('Korrespondenz')).toBeTruthy();
     expect(screen.getByText('Alter Verlauf')).toBeTruthy();
     expect(api.get).toHaveBeenCalledWith('/messages/correspondence/7');
+  });
+
+  it('renders contacts, changes their mode, and selects one in compose', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/contacts') {
+        return Promise.resolve([
+          {
+            id: 4,
+            userId: 1,
+            contactUserId: 7,
+            contactUsername: 'Leia',
+            mode: 'FRIEND',
+            comment: 'Generalin',
+            createdAt: '2026-10-13T12:00:00.000Z',
+          },
+        ]);
+      }
+      if (url === '/contacts/received') return Promise.resolve([]);
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+    api.patch = vi.fn().mockResolvedValue({
+      id: 4,
+      contactUserId: 7,
+      contactUsername: 'Leia',
+      mode: 'NEUTRAL',
+      comment: 'Generalin',
+      createdAt: '2026-10-13T12:00:00.000Z',
+    });
+
+    renderPage('/messages?tab=contacts');
+
+    expect(await screen.findByRole('link', { name: 'Leia' })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Modus für Leia'), {
+      target: { value: 'NEUTRAL' },
+    });
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/contacts/4/mode', {
+        mode: 'NEUTRAL',
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nachricht verfassen' }));
+    fireEvent.change(await screen.findByLabelText('Kontakt wählen'), {
+      target: { value: '7' },
+    });
+    expect(screen.getByPlaceholderText('Username eingeben...')).toHaveProperty('value', 'Leia');
   });
 
   it('shows a send error and keeps the draft', async () => {

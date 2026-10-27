@@ -1,6 +1,6 @@
 # Kontaktliste: UI und Profilaktionen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-B1a, soc-A2
@@ -25,11 +25,13 @@ Die Kontaktliste wird im Nachrichtenbereich als eigener Abschnitt „Kontakte“
 
 ## Akzeptanzkriterien
 
-- [ ] Abschnitt „Kontakte“ unter Nachrichten: Tabelle mit Avatar, Name (Link zum Profil), Modus (farbig: Freund grün, Neutral grau, Feind rot), Kommentar (inline editierbar), Datum, PM-Link; Mehrfachauswahl „markierte löschen“ und „alle löschen“ mit Bestätigung.
-- [ ] Formular „Kontakt hinzufügen“ per Siedler-ID oder Namenssuche (vorhandener Endpunkt `GET /user/search`) mit Modus.
-- [ ] Tabelle „Einträge anderer Siedler über Dich“.
-- [ ] Spielerprofil (fremd): Button „Zu Kontakten hinzufügen“ bzw. Moduswechsel, wenn bereits Kontakt.
-- [ ] Compose: Dropdown „Kontakt wählen“ belegt den Empfänger vor.
-- [ ] Frontend-Tests: Liste rendert, Moduswechsel ruft den Endpunkt, Profilbutton, Compose-Dropdown.
+- [x] Abschnitt „Kontakte“ unter Nachrichten: Tabelle mit Avatar, Name (Link zum Profil), Modus (farbig: Freund grün, Neutral grau, Feind rot), Kommentar (inline editierbar), Datum, PM-Link; Mehrfachauswahl „markierte löschen“ und „alle löschen“ mit Bestätigung.
+- [x] Formular „Kontakt hinzufügen“ per Siedler-ID oder Namenssuche (vorhandener Endpunkt `GET /user/search`) mit Modus.
+- [x] Tabelle „Einträge anderer Siedler über Dich“.
+- [x] Spielerprofil (fremd): Button „Zu Kontakten hinzufügen“ bzw. Moduswechsel, wenn bereits Kontakt.
+- [x] Compose: Dropdown „Kontakt wählen“ belegt den Empfänger vor.
+- [x] Frontend-Tests: Liste rendert, Moduswechsel ruft den Endpunkt, Profilbutton, Compose-Dropdown.
 
 ## Comments
+
+Kontaktverwaltung im Nachrichtenbereich, Profilaktionen und Compose-Auswahl wurden auf den vorhandenen Kontaktendpunkten umgesetzt. Der API-Client unterstützt nun DELETE-Requests mit Body; keine offenen Folgepunkte.

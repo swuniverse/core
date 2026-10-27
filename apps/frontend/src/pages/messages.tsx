@@ -4,6 +4,12 @@ import { BbCodeText } from '../components/BbCodeText';
 import { useToast } from '../components/Toast';
 import { formatDateTime } from '../lib/format';
 import { api } from '../services/api';
+import {
+  ContactMode,
+  type ContactDto,
+  type ReceivedContactDto,
+} from '@swuniverse/shared';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 
 type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
@@ -85,6 +91,7 @@ function MessageActionRail({
   selectedIds,
   isCompose,
   onCompose,
+  onContacts,
   onFolder,
   onSelectAll,
   onClearSelection,
@@ -98,6 +105,7 @@ function MessageActionRail({
   selectedIds: Set<number>;
   isCompose: boolean;
   onCompose: () => void;
+  onContacts: () => void;
   onFolder: (folder: MessageFolder) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
@@ -111,6 +119,7 @@ function MessageActionRail({
     <div className="space-y-3 rounded-lg border border-swu-border bg-swu-surface p-3 text-xs">
       <RailSection title="Aktionen">
         <RailButton onClick={onCompose}>Nachricht verfassen</RailButton>
+        <RailButton onClick={onContacts}>Kontakte</RailButton>
         {!isCompose && incomingFolder && (
           <>
             <RailButton onClick={onSelectAll} disabled={messages.length === 0}>
@@ -224,10 +233,19 @@ function ConfirmationDialog({
   onConfirm: () => void;
 }) {
   const emptyFolder = kind === 'empty-folder';
-  const title = emptyFolder ? 'Ordner leeren?' : 'Nachrichten löschen?';
+  const contacts = kind === 'delete-contacts' || kind === 'delete-all-contacts';
+  const title = emptyFolder
+    ? 'Ordner leeren?'
+    : contacts
+      ? 'Kontakte löschen?'
+      : 'Nachrichten löschen?';
   const description = emptyFolder
     ? 'Alle Nachrichten im aktuellen Ordner werden entfernt.'
-    : `${count} ausgewählte Nachrichten werden entfernt.`;
+    : kind === 'delete-all-contacts'
+      ? 'Alle Kontakte werden entfernt.'
+      : contacts
+        ? `${count} ausgewählte Kontakte werden entfernt.`
+        : `${count} ausgewählte Nachrichten werden entfernt.`;
   const dialogRef = useRef<HTMLElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -312,8 +330,20 @@ interface InboxResponse {
   limit: number;
 }
 
-type Tab = 'folders' | 'compose';
-type Confirmation = 'bulk-delete' | 'empty-folder' | null;
+type Tab = 'folders' | 'compose' | 'contacts';
+type Confirmation = 'bulk-delete' | 'empty-folder' | 'delete-contacts' | 'delete-all-contacts' | null;
+
+const CONTACT_MODE_LABELS: Record<ContactMode, string> = {
+  [ContactMode.FRIEND]: 'Freund',
+  [ContactMode.NEUTRAL]: 'Neutral',
+  [ContactMode.ENEMY]: 'Feind',
+};
+
+const CONTACT_MODE_STYLES: Record<ContactMode, string> = {
+  [ContactMode.FRIEND]: 'text-green-500',
+  [ContactMode.NEUTRAL]: 'text-swu-muted',
+  [ContactMode.ENEMY]: 'text-red-500',
+};
 
 export function MessagesPage() {
   const toast = useToast();
@@ -354,6 +384,13 @@ export function MessagesPage() {
     { id: number; username: string }[]
   >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [contacts, setContacts] = useState<ContactDto[]>([]);
+  const [receivedContacts, setReceivedContacts] = useState<ReceivedContactDto[]>([]);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
+  const [newContactId, setNewContactId] = useState('');
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactMode, setNewContactMode] = useState(ContactMode.NEUTRAL);
+  const [contactSearchResults, setContactSearchResults] = useState<{ id: number; username: string }[]>([]);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshFolders = async () => {
@@ -381,12 +418,25 @@ export function MessagesPage() {
 
   useEffect(() => {
     if (tab === 'folders') void loadMessages(folder, page);
+    if (tab === 'contacts') {
+      void Promise.all([
+        api.get<ContactDto[]>('/contacts'),
+        api.get<ReceivedContactDto[]>('/contacts/received'),
+      ]).then(([owned, received]) => {
+        setContacts(owned);
+        setReceivedContacts(received);
+      });
+    }
   }, [folder, page, tab]);
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
     if (requestedTab === 'compose' && startsCompose) return;
-    setTab(requestedTab === 'compose' ? 'compose' : 'folders');
+    setTab(
+      requestedTab === 'compose' || requestedTab === 'contacts'
+        ? requestedTab
+        : 'folders',
+    );
     setFolder(parseFolder(searchParams.get('folder')));
     setPage(1);
     setSelected(null);
@@ -547,6 +597,53 @@ export function MessagesPage() {
     setShowSuggestions(false);
   };
 
+  const updateContactMode = async (contact: ContactDto, mode: ContactMode) => {
+    const updated = await api.patch<ContactDto>(`/contacts/${contact.id}/mode`, { mode });
+    setContacts((current) => current.map((entry) => entry.id === contact.id ? updated : entry));
+  };
+
+  const updateContactComment = async (contact: ContactDto, comment: string) => {
+    const updated = await api.patch<ContactDto>(`/contacts/${contact.id}/comment`, { comment });
+    setContacts((current) => current.map((entry) => entry.id === contact.id ? updated : entry));
+  };
+
+  const addContact = async () => {
+    const playerId = Number(newContactId);
+    if (!Number.isInteger(playerId) || playerId <= 0) return;
+    const created = await api.post<ContactDto>('/contacts', { playerId, mode: newContactMode });
+    setContacts((current) => [...current, created]);
+    setNewContactId('');
+    setNewContactName('');
+  };
+
+  const searchContact = (query: string) => {
+    setNewContactName(query);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (query.trim().length < 2) return setContactSearchResults([]);
+    searchTimeout.current = setTimeout(() => {
+      void api.get<{ id: number; username: string }[]>(`/user/search?q=${encodeURIComponent(query)}`)
+        .then(setContactSearchResults)
+        .catch(() => setContactSearchResults([]));
+    }, 300);
+  };
+
+  const removeContacts = async (all = false) => {
+    if (all) await api.delete('/contacts/all');
+    else await api.delete('/contacts', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids: [...selectedContactIds] }),
+    });
+    const removed = all ? new Set(contacts.map((entry) => entry.id)) : selectedContactIds;
+    setContacts((current) => current.filter((entry) => !removed.has(entry.id)));
+    setSelectedContactIds(new Set());
+    setConfirmation(null);
+  };
+
+  const chooseContactRecipient = (contactUserId: number) => {
+    const contact = contacts.find((entry) => entry.contactUserId === contactUserId);
+    if (contact) selectRecipient({ id: contact.contactUserId, username: contact.contactUsername });
+  };
+
   const sendMessage = async () => {
     if (!recipientId) return;
     try {
@@ -619,6 +716,7 @@ export function MessagesPage() {
             selectedIds={selectedIds}
             isCompose={tab === 'compose'}
             onCompose={switchToCompose}
+            onContacts={() => setSearchParams({ tab: 'contacts' })}
             onFolder={switchFolder}
             onSelectAll={selectAll}
             onClearSelection={clearSelection}
@@ -634,7 +732,33 @@ export function MessagesPage() {
           {actionError}
         </p>
       )}
-      {tab === 'compose' ? (
+      {tab === 'contacts' ? (
+        <div className="space-y-4 text-xs">
+          <section className="border border-swu-border bg-swu-surface/70">
+            <header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Kontakte</header>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead><tr className="bg-swu-header text-swu-text"><th></th><th className="px-2 py-1">Siedler</th><th>Modus</th><th>Kommentar</th><th>Datum</th><th>Aktion</th></tr></thead>
+                <tbody>
+                  {contacts.map((contact) => (
+                    <tr key={contact.id} className="border-t border-swu-border">
+                      <td className="px-2 py-1"><input type="checkbox" aria-label={`${contact.contactUsername} markieren`} checked={selectedContactIds.has(contact.id)} onChange={() => setSelectedContactIds((current) => { const next = new Set(current); next.has(contact.id) ? next.delete(contact.id) : next.add(contact.id); return next; })} /></td>
+                      <td className="px-2 py-1"><PlayerAvatar name={contact.contactUsername} avatar={null} faction={null} decorative className="mr-2 size-7" /><Link to={`/players/${contact.contactUserId}`} className="text-swu-primary hover:text-swu-accent">{contact.contactUsername}</Link></td>
+                      <td className="px-2 py-1"><select aria-label={`Modus für ${contact.contactUsername}`} value={contact.mode} onChange={(event) => void updateContactMode(contact, event.target.value as ContactMode)} className={`bg-swu-bg border border-swu-border px-1 py-0.5 ${CONTACT_MODE_STYLES[contact.mode]}`}>{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select></td>
+                      <td className="px-2 py-1"><input defaultValue={contact.comment} aria-label={`Kommentar für ${contact.contactUsername}`} onBlur={(event) => void updateContactComment(contact, event.target.value)} className="bg-swu-bg border border-swu-border px-1 py-0.5" /></td>
+                      <td className="px-2 py-1">{formatDateTime(contact.createdAt)}</td>
+                      <td className="px-2 py-1"><Link to={`/messages?tab=compose&to=${contact.contactUserId}&name=${encodeURIComponent(contact.contactUsername)}`} className="text-swu-primary">PM</Link></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2 border-t border-swu-border p-2"><button disabled={!selectedContactIds.size} onClick={() => setConfirmation('delete-contacts')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Markierte löschen</button><button disabled={!contacts.length} onClick={() => setConfirmation('delete-all-contacts')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Alle löschen</button></div>
+          </section>
+          <section className="border border-swu-border bg-swu-surface/70 p-3"><h2 className="mb-2 font-bold text-swu-primary">Kontakt hinzufügen</h2><div className="flex flex-wrap gap-2"><input aria-label="Siedler-ID" value={newContactId} onChange={(event) => setNewContactId(event.target.value)} placeholder="Siedler-ID" className="bg-swu-bg border border-swu-border px-2 py-1" /><div className="relative"><input aria-label="Siedlername" value={newContactName} onChange={(event) => searchContact(event.target.value)} placeholder="Name suchen" className="bg-swu-bg border border-swu-border px-2 py-1" />{contactSearchResults.length > 0 && <div className="absolute z-10 w-full border border-swu-border bg-swu-surface">{contactSearchResults.map((result) => <button key={result.id} onClick={() => { setNewContactId(String(result.id)); setNewContactName(result.username); setContactSearchResults([]); }} className="block w-full px-2 py-1 text-left">{result.username}</button>)}</div>}</div><select value={newContactMode} onChange={(event) => setNewContactMode(event.target.value as ContactMode)} className="bg-swu-bg border border-swu-border px-2 py-1">{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select><button onClick={() => void addContact()} className="border border-swu-accent px-2 py-1 text-swu-accent">Hinzufügen</button></div></section>
+          <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Einträge anderer Siedler über Dich</header>{receivedContacts.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{receivedContacts.map((contact) => <tr key={contact.id} className="border-t border-swu-border"><td className={`px-2 py-1 ${CONTACT_MODE_STYLES[contact.mode]}`}>{CONTACT_MODE_LABELS[contact.mode]}</td><td className="px-2 py-1"><Link to={`/players/${contact.ownerId}`} className="text-swu-primary">{contact.ownerUsername}</Link></td><td>{formatDateTime(contact.createdAt)}</td></tr>)}</tbody></table>}</section>
+        </div>
+      ) : tab === 'compose' ? (
         <div className="bg-swu-surface border border-swu-border rounded-lg p-4 max-w-lg space-y-3">
           {sendError && (
             <p role="alert" className="border border-red-500/60 bg-red-950/30 px-3 py-2 text-xs text-red-200">
@@ -684,6 +808,23 @@ export function MessagesPage() {
               className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary mt-1 resize-none"
             />
           </div>
+          <label htmlFor="contact-recipient" className="text-xs text-swu-muted">
+            Kontakt wählen
+          </label>
+          <select
+            id="contact-recipient"
+            aria-label="Kontakt wählen"
+            value={recipientId ?? ''}
+            onChange={(event) => chooseContactRecipient(Number(event.target.value))}
+            className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary"
+          >
+            <option value="">Kontakt wählen</option>
+            {contacts.map((contact) => (
+              <option key={contact.id} value={contact.contactUserId}>
+                {contact.contactUsername}
+              </option>
+            ))}
+          </select>
           <button
             onClick={sendMessage}
             disabled={!recipientId}
@@ -856,9 +997,11 @@ export function MessagesPage() {
           kind={confirmation}
           count={selectedIds.size}
           onCancel={() => setConfirmation(null)}
-          onConfirm={() =>
-            confirmation === 'bulk-delete' ? deleteSelected() : emptyFolder()
-          }
+          onConfirm={() => {
+            if (confirmation === 'bulk-delete') return deleteSelected();
+            if (confirmation === 'empty-folder') return emptyFolder();
+            return removeContacts(confirmation === 'delete-all-contacts');
+          }}
         />
       )}
     </div>

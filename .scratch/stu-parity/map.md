@@ -209,3 +209,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-14b – Sidebar und mobile Navigation auf gemeinsame Asset-Iconpaare mit aktivem und Hover-Zustand umgestellt – siehe Feature-Commit
 - tmw-T1c – Autorisierte Handelspostenliste sowie eigene Konten und Schiffe vor Ort mit Standortredaktion umgesetzt – siehe Feature-Commit
 - tmw-FA1a – Startforschung und Startgebäude als Fraktionsdaten mit datengetriebenem Onboarding umgesetzt – siehe Feature-Commit
+- soc-B2 – Kontaktliste, Profilaktionen und Kontaktwahl beim Verfassen privater Nachrichten umgesetzt – siehe Feature-Commit

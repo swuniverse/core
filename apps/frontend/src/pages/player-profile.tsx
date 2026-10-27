@@ -9,6 +9,8 @@ import {
   type AllianceRefDto,
   type AwardProfileDto,
   type UserCharacterDto,
+  ContactMode,
+  type ContactDto,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -57,6 +59,7 @@ export function PlayerProfilePage() {
   const [selectedScan, setSelectedScan] = useState<ColonyScanProjection | null>(null);
   const [characters, setCharacters] = useState<UserCharacterDto[]>([]);
   const [editingCharacter, setEditingCharacter] = useState<UserCharacterDto | 'new' | null>(null);
+  const [contact, setContact] = useState<ContactDto | null>(null);
   const currentUser = useAuthStore((state) => state.user);
 
   useEffect(() => {
@@ -74,6 +77,16 @@ export function PlayerProfilePage() {
       .then((data) => {
         if (cancelled) return;
         setPlayer(data);
+        try {
+          if (currentUser?.id !== data.id) {
+            const request = api.get<ContactDto[]>('/contacts');
+            Promise.resolve(request)
+              .then((items) => setContact(items.find((item) => item.contactUserId === data.id) ?? null))
+              .catch(() => setContact(null));
+          }
+        } catch {
+          setContact(null);
+        }
         try {
           const request = api.get<UserCharacterDto[]>(`/rpg/characters/player/${id}`);
           Promise.resolve(request).then((items) => setCharacters(Array.isArray(items) ? items : [])).catch(() => setCharacters([]));
@@ -122,6 +135,18 @@ export function PlayerProfilePage() {
   }
 
   const name = player.displayName || player.username;
+
+  async function addContact() {
+    setContact(await api.post<ContactDto>('/contacts', {
+      playerId: player!.id,
+      mode: ContactMode.FRIEND,
+    }));
+  }
+
+  async function changeContactMode(mode: ContactMode) {
+    if (!contact) return;
+    setContact(await api.patch<ContactDto>(`/contacts/${contact.id}/mode`, { mode }));
+  }
 
   async function deleteScan(scanId: number) {
     try {
@@ -182,6 +207,31 @@ export function PlayerProfilePage() {
               <p className="text-xs text-swu-muted">Login: {player.username}</p>
             )}
             <p className="text-sm text-swu-primary">{player.factionName}</p>
+            {currentUser?.id !== player.id && (
+              contact ? (
+                <label className="inline-flex items-center gap-2 text-xs text-swu-muted">
+                  Kontakt
+                  <select
+                    aria-label={`Kontaktmodus für ${name}`}
+                    value={contact.mode}
+                    onChange={(event) => void changeContactMode(event.target.value as ContactMode)}
+                    className="border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary"
+                  >
+                    <option value={ContactMode.FRIEND}>Freund</option>
+                    <option value={ContactMode.NEUTRAL}>Neutral</option>
+                    <option value={ContactMode.ENEMY}>Feind</option>
+                  </select>
+                </label>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void addContact()}
+                  className="border border-swu-border px-2 py-1 text-xs text-swu-primary hover:border-swu-accent hover:text-swu-accent"
+                >
+                  Zu Kontakten hinzufügen
+                </button>
+              )
+            )}
             <PmLink
               playerId={player.id}
               playerName={name}
