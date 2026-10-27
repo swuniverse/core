@@ -1,6 +1,6 @@
 # Kontolöschung: Bestätigung, Sperre und Lösch-Orchestrator
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
