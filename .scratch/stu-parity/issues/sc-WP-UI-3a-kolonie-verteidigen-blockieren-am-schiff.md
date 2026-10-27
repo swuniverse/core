@@ -1,6 +1,6 @@
 # Kolonie verteidigen und blockieren direkt vom Schiff
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -43,3 +43,5 @@ SWU übernimmt das bestätigte STU-Verhalten exakt: Haltung und Eigentum filtern
 
 - 2026-10-22: Blockiert durch eine fehlende Produkt-/Backendentscheidung: Die vorhandenen Kolonie-Orbit-Endpunkte setzen in `ColonyOrbitService.setOrbitAssignment` für Verteidigung und Blockade zwingend `assertOwnedColony(colony)` voraus. Damit kann ein Schiff nur die eigene Kolonie verteidigen oder blockieren; das Akzeptanzkriterium verlangt dagegen eine Blockade fremder Kolonien abhängig von der Haltung. Soll der bestehende Endpunkt für fremde Kolonien geöffnet werden (und wenn ja: nur bei Haltung `ENEMY` oder auch `NEUTRAL`), oder soll ein eigener schiffsseitiger Endpunkt eingeführt werden? Die begonnenen Produktcode-/Teständerungen wurden gemäß Abbruchregel verworfen.
 - 2026-10-27 Product Owner: Exakte STU-Regel: Jede belegte Kolonie kann unabhängig von Eigentum und Haltung verteidigt oder blockiert werden. Die API ist kanonisch schiffsbezogen, die Order flottenbezogen; Urlaub, Gegenorder und Blockade-Orbitalverteidigung werden geprüft.
+
+- 2026-10-27: Abbruch wegen Issue-Größe: Die geforderte zentrale Policy umfasst neue schiffsbezogene API, flottenweiten DTO-Zustand und Verfügbarkeitsgründe, Urlaubseignerprüfung, Idle-/Orbit-/Leader-Regeln, Colony-Kompatibilitätsalias sowie Backend- und Frontend-Testmatrizen. Das ist kein Size-S-Issue und konnte in diesem Durchlauf nicht mit zwei ernsthaften Implementierungs-/Prüfversuchen sicher abgeschlossen werden. Bitte in Backend-Policy/API und Field-Context/UI aufteilen. Produktcode wurde verworfen.
