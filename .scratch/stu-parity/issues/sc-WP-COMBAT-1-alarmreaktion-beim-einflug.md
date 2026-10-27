@@ -1,6 +1,6 @@
 # Alarmreaktion beim Einflug
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-COMBAT-2
@@ -48,3 +48,4 @@ Die Basis-Alarmreaktion wird jetzt vollständig für alle realen Feldtransitione
 
 - 2026-10-21 Hinweis aus soc-B1b (Option b): Ein persönlicher Feind-Kontakt ergibt Haltung „Feind“ auch innerhalb derselben Fraktion. Die Alarmreaktion liest die Haltung ausschließlich über den Relationship-Resolver und braucht dafür keine Sonderlogik.
 - 2026-10-27 Product Owner: Basis jetzt mit gemeinsamem Movement-Result und Kampfbericht umsetzen. Traktor und Tarnung werden später über Erweiterungsports aktiviert; Gelb/Rot, beidseitiger Urlaubsschutz und höchstens ein deterministischer Kampf je Transition gelten verbindlich.
+- 2026-10-27 Agent: Umsetzung nach zwei ernsthaften Ansätzen ohne Produktcode beendet. Der Scope ist nicht M: `navigate` und `flyGalaxy` bewegen Flotten heute atomar direkt ans Endfeld und berechnen/verbrauchen Energie für die Gesamtdistanz; eine korrekte feldweise Pipeline mit Teilfortschritt muss zugleich Energie, Signaturen, Kartographie, Statistik, Zerstörung und Flottenverluste pro Schritt neu ordnen. Zusätzlich erzeugt die geforderte gemeinsame Alarm-Battle-Resolution eine zirkuläre Modulabhängigkeit (`CombatModule -> SpacecraftModule`, künftig auch umgekehrt). Bitte entweder (a) das Issue in Movement-Pipeline/DTO, internen Battle-Resolver und Alarm-Integration/UI aufteilen oder (b) Size L zulassen und eine Zielarchitektur für die Combat/Spacecraft-Abhängigkeit festlegen.
