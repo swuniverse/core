@@ -1,6 +1,6 @@
 # Overlays der Sternenkarte: Territorium, Unpassierbar, Feldeffekte, Sensorabdeckung
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
