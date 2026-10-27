@@ -86,3 +86,37 @@ body {
 .animate-slide-in-right {
   animation: slide-in-right 0.2s ease-out;
 }
+
+@keyframes tutorial-padd-enter {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes tutorial-target-pulse {
+  0%, 100% { outline-color: var(--color-swu-accent); }
+  50% { outline-color: color-mix(in srgb, var(--color-swu-accent) 45%, transparent); }
+}
+
+.tutorial-padd {
+  animation: tutorial-padd-enter 180ms ease-out;
+}
+
+.tutorial-target {
+  outline: 3px solid var(--color-swu-accent) !important;
+  outline-offset: 3px;
+  animation: tutorial-target-pulse 1.6s ease-in-out infinite;
+}
+
+@media (min-width: 768px) {
+  @keyframes tutorial-padd-enter {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-padd,
+  .tutorial-target {
+    animation: none;
+  }
+}

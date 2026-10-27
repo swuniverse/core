@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import type { ColonyTickReportPayload } from '@swuniverse/shared';
+import type { ColonyTickReportPayload, TutorialView } from '@swuniverse/shared';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
 import { BottomNav } from './bottom-nav';
@@ -8,11 +8,26 @@ import { useSocket } from '../../hooks/use-socket';
 import type { UserProfile } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/auth.store';
+import { TutorialPadd } from '../tutorial/TutorialPadd';
 
 type GameStatus = {
   status: 'ONLINE' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
   message: string;
 };
+
+export function tutorialViewForPath(pathname: string): TutorialView | null {
+  if (pathname === '/') return 'maindesk';
+  const segment = pathname.split('/').filter(Boolean)[0];
+  const views: Record<string, TutorialView> = {
+    colonies: 'colony',
+    research: 'research',
+    spacecraft: 'spacecraft',
+    starmap: 'starmap',
+    messages: 'messages',
+    holonet: 'holonet',
+  };
+  return views[segment] ?? null;
+}
 
 function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   const first = payload.events[0];
@@ -79,6 +94,7 @@ export function AppShell() {
       <Header />
       <Sidebar />
       <BottomNav />
+      <TutorialPadd view={tutorialViewForPath(location.pathname)} />
       {gameStatus?.status !== 'ONLINE' && (
         <div
           className={`fixed inset-x-0 top-[58px] z-40 border-b px-3 py-2 text-center text-xs md:top-[86px] ${

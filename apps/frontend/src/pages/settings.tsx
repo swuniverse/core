@@ -412,6 +412,9 @@ function GameplayTab() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
+  const [tutorialsEnabled, setTutorialsEnabled] = useState(false);
+  const [tutorialsBusy, setTutorialsBusy] = useState(false);
+  const [tutorialsError, setTutorialsError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -441,6 +444,21 @@ function GameplayTab() {
     await api.patch('/user/settings', { default_view: value });
   };
 
+  const setTutorials = async (enabled: boolean) => {
+    setTutorialsBusy(true);
+    setTutorialsError('');
+    try {
+      await api.post(enabled ? '/tutorial/reset' : '/tutorial/disable', {});
+      setTutorialsEnabled(enabled);
+    } catch (error: unknown) {
+      setTutorialsError(
+        getErrorMessage(error, 'Tutorial-Einstellungen konnten nicht gespeichert werden.'),
+      );
+    } finally {
+      setTutorialsBusy(false);
+    }
+  };
+
   if (!loaded) return <p className="text-swu-muted text-sm">Laden...</p>;
   if (error) return <p className="text-red-300 text-sm">{error}</p>;
 
@@ -460,6 +478,35 @@ function GameplayTab() {
           <option value="research">Forschung</option>
           <option value="holonet">HoloNet</option>
         </select>
+      </Section>
+      <Section title="Tutorial">
+        <div className="flex items-center justify-between gap-4 text-xs">
+          <span>Tutorials anzeigen</span>
+          <button
+            type="button"
+            role="switch"
+            aria-label="Tutorials anzeigen"
+            aria-checked={tutorialsEnabled}
+            disabled={tutorialsBusy}
+            onClick={() => void setTutorials(!tutorialsEnabled)}
+            className={`h-5 w-9 border disabled:cursor-not-allowed disabled:opacity-40 ${tutorialsEnabled ? 'border-swu-accent bg-swu-accent/20' : 'border-swu-border bg-swu-bg'}`}
+          >
+            <span className={`block h-3 w-3 bg-swu-primary transition-transform ${tutorialsEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <button
+          type="button"
+          disabled={tutorialsBusy}
+          className="mt-3 border border-swu-border bg-swu-bg px-3 py-2 text-xs text-swu-primary hover:border-swu-accent disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => void setTutorials(true)}
+        >
+          Tutorials neu starten
+        </button>
+        {tutorialsError && (
+          <p role="alert" className="mt-2 text-xs text-red-300">
+            {tutorialsError}
+          </p>
+        )}
       </Section>
     </div>
   );
