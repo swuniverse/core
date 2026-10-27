@@ -1,6 +1,6 @@
 # Werft: EPS-Kosten und ein Auftrag je Werft
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** col-A1a, col-A3a
@@ -42,3 +42,5 @@ Vorgabe: STU-Regeln. Die bereits vorhandene Spielerwahl der kompatiblen Werftfun
 
 - 2026-10-21 Product Owner: Option b – Die Werft übernimmt die STU-Regeln: Bau und Umrüstung kosten die Rumpf-EPS, und je Werftfunktion ist nur ein Bau- oder Umrüstauftrag gleichzeitig aktiv.
 - 2026-10-27 Product Owner: Die bestehende UI-Auswahl wird persistiert. Legacy-Aufträge bleiben ungebunden, blockieren keine Funktion und laufen normal aus; EPS folgen dem gemappten `stuRumpId`, REPAIR belegt keinen BUILD-/RETROFIT-Slot.
+
+- 2026-10-27 Agent: Abbruch nach zwei ernsthaften Umsetzungs-/Prüfversuchen. Der bestehende Shipyard-Service verarbeitet Bau, Material-/Crew-Reservierung, EPS-Abzug und Queue-Slot nicht in einer Datenbanktransaktion; eine rein service-seitige Prüfung wäre rennanfällig und könnte bei später Fehlerprüfung bereits EPS/Material abziehen. Für die geforderte transaktionssichere Validierung braucht es eine Produkt-/Scope-Entscheidung: Darf dieses S-Issue auf M erweitert werden, um `buildShip` und `queueShipRetrofit` auf eine gemeinsame `DataSource.transaction` mit Zeilensperre und Manager-Repositories umzubauen? Produktcode wurde gemäß Abbruchregel verworfen.
