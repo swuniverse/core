@@ -1,6 +1,6 @@
 # Forschungsbelohnung: Belohnungsschiff
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D1
@@ -39,6 +39,8 @@ SWU erhält einen optionalen, datengetriebenen und idempotenten Mechanismus für
 Der Mechanismus wird vollständig, optional und datengetrieben implementiert. Es werden keine Zuordnungen aus Forschungsfreischaltungen abgeleitet. Produktive Belohnungen benötigen später eine bestätigte Tabelle aus Fraktion, SWU-Tech-ID, Schiffsklasse und vollständiger Modulkonfiguration; bis dahin bleibt die produktive Mapping-Menge leer.
 
 ## Comments
+
+- 2026-10-27: Umsetzung abgebrochen: Das Issue verlangt eine dauerhafte Grant-Entity/Migration und eine neue transaktionale Schiffserzeugung über Research-, Spacecraft-, Crew-, Messaging-, Game-Data- und Frontend-Kontexte. Das überschreitet einen verlässlich testbaren Ralph-Durchlauf; bitte in vertikale Teilissues (Datenvertrag/UI, Grant-Persistenz, Spawn-Service, Abschlussintegration) teilen.
 
 - 2026-10-22: Umsetzung blockiert, bevor Produktcode geändert wurde. Benötigt werden die produktiven STU-Forschungsdaten mit `reward_buildplan_id` samt Bauplänen oder eine vom Product Owner bestätigte SWU-Zuordnung.
 - 2026-10-27 Product Owner: Den idempotenten, datengetriebenen Mechanismus umsetzen, aber ohne bestätigte Tabelle keine produktiven Reward-Mappings anlegen und keine Belohnung aus Freischaltungen ableiten.
