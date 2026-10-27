@@ -1,6 +1,6 @@
 # Flugfolgen-Pipeline, Feldeffekt-Katalog und Zielfeldhinweise
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
