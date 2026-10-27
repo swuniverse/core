@@ -28,8 +28,81 @@ jest.mock('../prestige/entities/prestige-history-entry.entity', () => ({
 jest.mock('../colony/entities/crew-assignment.entity', () => ({
   CrewAssignment: class CrewAssignment {},
 }));
+jest.mock('../spacecraft/entities/flight-signature.entity', () => ({
+  FlightSignature: class FlightSignature {},
+}));
 
 import { DatabaseService } from './database.service';
+
+function createService(overrides: { userRepo?: object; flightSignatureRepo?: object } = {}) {
+  return new DatabaseService(
+    (overrides.userRepo ?? {}) as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    (overrides.flightSignatureRepo ?? {}) as never,
+  );
+}
+
+describe('DatabaseService flight ranking', () => {
+  it('counts departures from system and galaxy flights in the 48-hour window and anonymizes players', async () => {
+    const getRawMany = jest.fn().mockResolvedValue([
+      { userId: 7, faction: 'REBELLION', score: '3', shipCount: '2' },
+    ]);
+    const query = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      getRawMany,
+    };
+    const service = createService({
+      flightSignatureRepo: { createQueryBuilder: jest.fn().mockReturnValue(query) },
+    });
+
+    const result = await service.getRanking(99, 'flights', new Date('2026-10-27T12:00:00Z'));
+
+    expect(query.where).toHaveBeenCalledWith('signature.toDirection IS NOT NULL');
+    expect(query.andWhere).toHaveBeenCalledWith('signature.createdAt > :visibleSince');
+    expect(query.andWhere).toHaveBeenCalledWith('user.isNpc = false');
+    expect(query.setParameters).toHaveBeenCalledWith({
+      visibleSince: new Date('2026-10-25T12:00:00Z'),
+    });
+    expect(result).toEqual({
+      title: 'Die Top 10 der Vielflieger',
+      metricLabel: 'Geflogene Felder',
+      anonymous: true,
+      entries: [{ rank: 1, faction: 'REBELLION', score: 3, shipCount: 2 }],
+      currentUser: null,
+    });
+    expect(JSON.stringify(result)).not.toMatch(/userId|username/);
+  });
+});
 
 describe('DatabaseService individual discovery ranking', () => {
   it('combines each persistent discovery source once and returns own rank', async () => {
@@ -49,6 +122,7 @@ describe('DatabaseService individual discovery ranking', () => {
       {} as never,
       {} as never,
       { find: jest.fn().mockResolvedValue([{ userId: 1 }]) } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

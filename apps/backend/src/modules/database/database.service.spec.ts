@@ -54,6 +54,7 @@ function createService() {
     {} as any,
     userAwardRepo as any,
     {} as any,
+    {} as any,
   );
   return {
     service,

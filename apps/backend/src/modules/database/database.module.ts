@@ -32,6 +32,7 @@ import { CommodityOverviewService } from './commodity-overview.service';
 import { OwnedStorageCommodityLocationSource } from './owned-storage-commodity-location.source';
 import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
 import { UserAward } from '../awards/entities/user-award.entity';
+import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { UserAward } from '../awards/entities/user-award.entity';
       CargoItem,
       SpacecraftTorpedoStorage,
       UserAward,
+      FlightSignature,
     ]),
     FactionModule,
     GameDataModule,
@@ -78,6 +80,6 @@ import { UserAward } from '../awards/entities/user-award.entity';
       inject: [OwnedStorageCommodityLocationSource],
     },
   ],
-  exports: [ColonyScanProjectionService],
+  exports: [DatabaseService, ColonyScanProjectionService],
 })
 export class DatabaseModule {}

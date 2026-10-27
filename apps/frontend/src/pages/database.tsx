@@ -26,6 +26,7 @@ type RankingKey =
   | 'research'
   | 'prestige'
   | 'crew-training'
+  | 'flights'
   | 'colony-worth'
   | 'colony-production';
 
@@ -51,10 +52,17 @@ type Settler = {
   completedResearch: number;
   onVacation: boolean;
 };
-type Ranking = { userId: number; username: string; score: string | number };
+type Ranking = {
+  userId?: number;
+  username?: string;
+  faction?: string | null;
+  score: string | number;
+  shipCount?: number;
+};
 type RankingDetail = {
   title: string;
   metricLabel: string;
+  anonymous?: boolean;
   entries: Array<Ranking & { rank: number; colonyName?: string }>;
   currentUser: (Ranking & { rank: number; colonyName?: string }) | null;
 };
@@ -172,6 +180,16 @@ const groups: Array<{
     entries: [
       { label: 'Regionen', note: 'Kartierung wird aufgebaut' },
       { label: 'Handelsstationen', note: 'Stationsnetz wird aufgebaut' },
+    ],
+  },
+  {
+    title: 'Schiffe (anonym)',
+    entries: [
+      {
+        label: 'Die Top 10 der Vielflieger',
+        view: 'rankings',
+        ranking: 'flights',
+      },
     ],
   },
   {
@@ -943,19 +961,25 @@ function RankingView({ data }: { data: RankingDetail }) {
         {data.title}
       </h1>
       <Table
-        headers={['#', 'Commander', data.metricLabel]}
-        rows={data.entries.map((entry) => [
-          entry.rank,
-          entry.username,
-          entry.score,
-        ])}
+        headers={
+          data.anonymous
+            ? ['#', 'Fraktion', data.metricLabel, 'Schiffe']
+            : ['#', 'Commander', data.metricLabel]
+        }
+        rows={data.entries.map((entry) =>
+          data.anonymous
+            ? [entry.rank, entry.faction ?? 'Unbekannt', entry.score, entry.shipCount ?? 0]
+            : [entry.rank, entry.username, entry.score],
+        )}
       />
-      <p className="text-sm text-swu-muted">
-        Dein Punktestand:{' '}
-        {data.currentUser
-          ? `${data.currentUser.score} (Platz ${data.currentUser.rank})`
-          : '0'}
-      </p>
+      {!data.anonymous && (
+        <p className="text-sm text-swu-muted">
+          Dein Punktestand:{' '}
+          {data.currentUser
+            ? `${data.currentUser.score} (Platz ${data.currentUser.rank})`
+            : '0'}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Rangliste „Die Top 10 der Vielflieger“ (anonym)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-NAV-2a
@@ -25,11 +25,11 @@ Die Datenbank erhält unter „Schiffe (anonym)“ die Rangliste der Vielflieger
 
 ## Akzeptanzkriterien
 
-- [ ] `GET database/rankings/flights` liefert die Top 10 anonym: Platz, Fraktion, geflogene Felder und Anzahl der Schiffe, ohne Spieler-ID oder Namen. NPC-Konten (tmw-W1) sind ausgeschlossen.
-- [ ] Gezählt werden die Flugsignaturen aus sc-WP-NAV-2a (wie STU `getFlightsTop10`: Signaturen mit Abflugrichtung im Sichtbarkeitsfenster, je Spieler mit Fraktion und Anzahl verschiedener Schiffe); kein eigener Zähler. Das Zeitfenster entspricht STU.
-- [ ] Ein täglicher Job vergibt Prestige nach der STU-Staffel und erzeugt einen Prestigelog-Eintrag „x Prestige erhalten für Platz n unter den Vielfliegern“. Der Job ist idempotent je Tag.
-- [ ] Der Hub-Eintrag „Die Top 10 der Vielflieger“ steht unter „Schiffe (anonym)“ (Gliederung aus tmw-D2).
-- [ ] Backend-Tests: Zählung (Hyperraumflug und Systemflug), Anonymisierung, Zeitfenster und Belohnungsstaffel. Frontend-Test: Die Tabelle rendert ohne Namen.
+- [x] `GET database/rankings/flights` liefert die Top 10 anonym: Platz, Fraktion, geflogene Felder und Anzahl der Schiffe, ohne Spieler-ID oder Namen. NPC-Konten (tmw-W1) sind ausgeschlossen.
+- [x] Gezählt werden die Flugsignaturen aus sc-WP-NAV-2a (wie STU `getFlightsTop10`: Signaturen mit Abflugrichtung im Sichtbarkeitsfenster, je Spieler mit Fraktion und Anzahl verschiedener Schiffe); kein eigener Zähler. Das Zeitfenster entspricht STU.
+- [x] Ein täglicher Job vergibt Prestige nach der STU-Staffel und erzeugt einen Prestigelog-Eintrag „x Prestige erhalten für Platz n unter den Vielfliegern“. Der Job ist idempotent je Tag.
+- [x] Der Hub-Eintrag „Die Top 10 der Vielflieger“ steht unter „Schiffe (anonym)“ (Gliederung aus tmw-D2).
+- [x] Backend-Tests: Zählung (Hyperraumflug und Systemflug), Anonymisierung, Zeitfenster und Belohnungsstaffel. Frontend-Test: Die Tabelle rendert ohne Namen.
 
 ## Entscheidung
 
@@ -40,3 +40,7 @@ Die Datenbank erhält unter „Schiffe (anonym)“ die Rangliste der Vielflieger
 
 - 2026-10-21 Product Owner: Option a – Die Rangliste wird wie in STU aus den Flugsignaturen von sc-WP-NAV-2a abgeleitet, ohne zweite Datenquelle. Die Teilfrage zur Belohnung ((i) oder (ii)) wurde nicht beantwortet; das Issue bleibt deshalb `needs-info`.
 - 2026-10-21 Product Owner: Option (i) – Die Top 10 der Vielflieger erhalten täglich Prestige nach der STU-Staffel.
+
+## Answer
+
+Die anonyme Vielflieger-Rangliste zählt Abflugsignaturen aus dem 48-Stunden-Sichtbarkeitsfenster, schließt NPCs aus und zeigt Platz, Fraktion, Felder und verschiedene Schiffe. Die tägliche Maintenance vergibt idempotent über den vorhandenen Tageslauf die STU-Prestigestaffel 20…1 mit Prestigelog; der Datenbank-Hub rendert die Tabelle ohne Spieleridentität.

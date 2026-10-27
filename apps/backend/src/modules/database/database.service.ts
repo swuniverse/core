@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
+import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
 import { isVacationEffective } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
@@ -43,6 +45,7 @@ type RankingKey =
   | 'research'
   | 'prestige'
   | 'crew-training'
+  | 'flights'
   | 'colony-worth'
   | 'colony-production';
 type RankingEntry = {
@@ -100,6 +103,8 @@ export class DatabaseService {
     @InjectRepository(UserAward)
     private readonly userAwardRepo: Repository<UserAward>,
     private readonly colonyScanProjection: ColonyScanProjectionService,
+    @InjectRepository(FlightSignature)
+    private readonly flightSignatureRepo: Repository<FlightSignature>,
   ) {}
 
   async getOnlinePlayers() {
@@ -634,7 +639,22 @@ export class DatabaseService {
     return { prestige: user.prestige, entries };
   }
 
-  async getRanking(userId: number, key: RankingKey) {
+  async getRanking(userId: number, key: RankingKey, now = new Date()) {
+    if (key === 'flights') {
+      const entries = await this.getFlightRanking(false, now);
+      return {
+        title: 'Die Top 10 der Vielflieger',
+        metricLabel: 'Geflogene Felder',
+        anonymous: true,
+        entries: entries.slice(0, 10).map(({ faction, score, shipCount }, index) => ({
+          rank: index + 1,
+          faction,
+          score,
+          shipCount,
+        })),
+        currentUser: null,
+      };
+    }
     const ranking = await this.rankingFor(key, false);
     const rankedEntries = ranking.entries.map((entry, index) => ({
       ...entry,
@@ -677,6 +697,8 @@ export class DatabaseService {
           metricLabel: 'Crew auf Schiffen',
           entries: await this.getCrewTrainingRanking(topOnly),
         };
+      case 'flights':
+        throw new Error('Anonymous flight rankings use getRanking directly');
       case 'colony-worth':
         return {
           title: 'Die Top 10 der Architekten',
@@ -716,6 +738,42 @@ export class DatabaseService {
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score || a.username.localeCompare(b.username))
       .slice(0, topOnly ? 10 : undefined);
+  }
+
+  async getFlightRankingForRewards(now = new Date()) {
+    return this.getFlightRanking(true, now);
+  }
+
+  private async getFlightRanking(topOnly: boolean, now: Date) {
+    const query = this.flightSignatureRepo
+      .createQueryBuilder('signature')
+      .innerJoin(User, 'user', 'user.id = signature.userId')
+      .select('user.id', 'userId')
+      .addSelect('user.faction', 'faction')
+      .addSelect('COUNT(signature.id)', 'score')
+      .addSelect('COUNT(DISTINCT signature.spacecraftId)', 'shipCount')
+      .where('signature.toDirection IS NOT NULL')
+      .andWhere('signature.createdAt > :visibleSince')
+      .andWhere('user.isNpc = false')
+      .groupBy('user.id')
+      .addGroupBy('user.faction')
+      .orderBy('COUNT(signature.id)', 'DESC')
+      .addOrderBy('user.id', 'ASC')
+      .setParameters({
+        visibleSince: new Date(now.getTime() - FLIGHT_SIGNATURE_RETENTION_MS),
+      });
+    const rows = await (topOnly ? query.limit(10) : query).getRawMany<{
+      userId: string | number;
+      faction: string | null;
+      score: string | number;
+      shipCount: string | number;
+    }>();
+    return rows.map((row) => ({
+      userId: Number(row.userId),
+      faction: row.faction,
+      score: Number(row.score),
+      shipCount: Number(row.shipCount),
+    }));
   }
 
   private async getCrewTrainingRanking(topOnly = true) {

@@ -102,6 +102,38 @@ describe('DatabasePage', () => {
     ).toBe('/spacecraft/9');
   });
 
+  it('renders the anonymous flight ranking without player names', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/rankings/flights') {
+        return Promise.resolve({
+          title: 'Die Top 10 der Vielflieger',
+          metricLabel: 'Geflogene Felder',
+          anonymous: true,
+          entries: [
+            { rank: 1, faction: 'REBELLION', score: 42, shipCount: 3 },
+          ],
+          currentUser: null,
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Die Top 10 der Vielflieger' }),
+    );
+
+    expect(await screen.findByText('REBELLION')).toBeTruthy();
+    expect(screen.getByText('42')).toBeTruthy();
+    expect(screen.getByText('3')).toBeTruthy();
+    expect(screen.queryByText('Commander')).toBeNull();
+    expect(screen.queryByText('Leia')).toBeNull();
+  });
+
   it('links settlers to their profile pages', async () => {
     render(
       <MemoryRouter>

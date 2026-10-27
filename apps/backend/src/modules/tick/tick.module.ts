@@ -24,6 +24,9 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { SettingsModule } from '../settings/settings.module';
 import { TickAdminService } from './tick-admin.service';
 import { GameStatusModule } from '../game-status/game-status.module';
+import { DatabaseModule } from '../database/database.module';
+import { PrestigeModule } from '../prestige/prestige.module';
+import { TopFlightsRewardService } from './top-flights-reward.service';
 
 @Module({
   imports: [
@@ -45,13 +48,20 @@ import { GameStatusModule } from '../game-status/game-status.module';
     SettingsModule,
     AuthModule,
     GameStatusModule,
+    DatabaseModule,
+    PrestigeModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
     TickService,
     TickAdminService,
     MaintenanceService,
-    { provide: MAINTENANCE_HANDLERS, useValue: [] },
+    TopFlightsRewardService,
+    {
+      provide: MAINTENANCE_HANDLERS,
+      useFactory: (topFlightsReward: TopFlightsRewardService) => [topFlightsReward],
+      inject: [TopFlightsRewardService],
+    },
   ],
 })
 export class TickModule {}

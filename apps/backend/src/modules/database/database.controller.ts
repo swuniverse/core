@@ -174,6 +174,7 @@ export class DatabaseController {
       'research',
       'prestige',
       'crew-training',
+      'flights',
       'colony-worth',
       'colony-production',
     ] as const;
