@@ -1,6 +1,6 @@
 # Kontaktliste: Backend und Freund-Wirkung im Resolver
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
