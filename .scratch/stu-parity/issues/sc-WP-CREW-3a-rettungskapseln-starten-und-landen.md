@@ -1,6 +1,6 @@
 # Rettungskapseln: Start bei Zerstörung und Landung auf eigener Kolonie
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-6a
@@ -47,3 +47,4 @@ Rettungskapseln werden als eigener neutraler Aggregate Root modelliert und bewah
 
 - 2026-10-22: Abbruch vor Produktcodeänderungen: Die geforderte „Kapselklasse je Fraktion in `game-data`“ braucht konkrete, kanonnahe Star-Wars-Klassen (Namen, IDs/Keys und Assets) sowie eine Entscheidung, ob Rettungskapseln trotz neutralem Besitz als `Spacecraft` mit der ursprünglichen Fraktionsklasse oder als eigene Entity modelliert werden. Das bestehende `Spacecraft`-Modell verlangt einen Spieler-Eigner und eine `ShipClassDef`; STU nutzt dagegen den Fallback-Spieler „niemand“. Bitte diese Eigentums- und Klassenzuordnung festlegen.
 - 2026-10-27 Product Owner: Eigene neutrale `EscapePod`-Entität mit individuellen Crew-Zuweisungen. Fraktionsdefinitionen sind reine Präsentationsdaten; Crew-Identität, Rang und Expertise bleiben erhalten, und Landung überträgt nur Crew des Kolonieeigners bis zur freien Kapazität.
+- 2026-10-27: Abbruch ohne Produktcodeänderungen: Das Issue kollidiert mit dem bestehenden Schiffbau-Reservierungsmodell, in dem `CrewAssignment` während eines Bauauftrags weder Kolonie noch Schiff zugeordnet ist. Für den geforderten Integritätsconstraint braucht es eine Produkt-/Domänenentscheidung: Soll `shipBuildQueueId` als vierter kanonischer Aufenthaltsort modelliert und das Kriterium entsprechend erweitert werden, oder sollen Bauaufträge Crew künftig an der Kolonie belassen und lediglich reservieren? Diese Vorarbeit betrifft Schiffbau, Abbruch, Hangarstart und Destruktions-Hooks und ist nicht als Voraussetzung im Issue erfasst.
