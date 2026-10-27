@@ -53,6 +53,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
               dataSource.getRepository(User),
               new StatisticsService(dataSource, []),
               { emitToUser: jest.fn() } as never,
+              { getManyBoolean: async (ids: number[]) => new Map(ids.map((id) => [id, true])) } as never,
             ),
         },
       ],

@@ -6,12 +6,14 @@ describe('MessagingService', () => {
   const messageRepo = {
     findOneBy: jest.fn(),
     find: jest.fn(),
+    findAndCount: jest.fn(),
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => ({ id: 1, ...value })),
   };
   const userRepo = { findOneBy: jest.fn() };
   const statisticsService = { countEvent: jest.fn() };
   const gateway = { emitToUser: jest.fn() };
+  const settingsReader = { getManyBoolean: jest.fn() };
   let service: MessagingService;
 
   beforeEach(() => {
@@ -22,10 +24,37 @@ describe('MessagingService', () => {
       userRepo as never,
       statisticsService as never,
       gateway as never,
+      settingsReader as never,
     );
   });
 
 
+  it.each([
+    [true, true, true, true],
+    [false, true, true, false],
+    [true, false, true, false],
+    [true, true, false, false],
+  ])(
+    'returns readReceipt=%s/%s/read=%s as %s without exposing isRead',
+    async (senderEnabled, recipientEnabled, isRead, expected) => {
+      messageRepo.findAndCount.mockResolvedValue([
+        [{ id: 7, senderId: 1, recipientId: 2, isRead, recipient: { username: 'Han' } }],
+        1,
+      ]);
+      settingsReader.getManyBoolean.mockResolvedValue(
+        new Map([
+          [1, senderEnabled],
+          [2, recipientEnabled],
+        ]),
+      );
+
+      const result = await service.getSent(1);
+
+      expect(result.data[0]).toEqual(expect.objectContaining({ readReceipt: expected }));
+      expect(result.data[0]).not.toHaveProperty('isRead');
+      expect(settingsReader.getManyBoolean).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('delivers a trade message in an NPC account name', async () => {
     userRepo.findOneBy

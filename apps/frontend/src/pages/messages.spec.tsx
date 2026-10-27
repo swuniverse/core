@@ -93,6 +93,29 @@ describe('MessagesPage folders', () => {
     expect(await screen.findByText('Keine Nachrichten.')).toBeTruthy();
   });
 
+  it('shows a read receipt only for confirmed outbox messages', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/outbox?page=1') {
+        return Promise.resolve({
+          data: [
+            { id: 21, subject: 'Gelesen', isSystem: false, readReceipt: true, createdAt: '2026-10-13T12:00:00.000Z', recipient: { username: 'Leia' } },
+            { id: 22, subject: 'Offen', isSystem: false, readReceipt: false, createdAt: '2026-10-13T12:00:00.000Z', recipient: { username: 'Han' } },
+          ],
+          total: 2,
+          page: 1,
+          limit: 20,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+
+    renderPage('/messages?folder=outbox');
+
+    expect(await screen.findByTitle('Nachricht gelesen')).toBeTruthy();
+    expect(screen.getAllByTitle('Nachricht gelesen')).toHaveLength(1);
+  });
+
   it('shows a desktop action rail with compose, notes and folder navigation', async () => {
     renderPage();
 

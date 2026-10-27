@@ -412,6 +412,7 @@ describe('alliance persistence (Postgres)', () => {
       dataSource.getRepository(User),
       new StatisticsService(dataSource, []),
       { emitToUser: jest.fn() } as never,
+      { getManyBoolean: async (ids: number[]) => new Map(ids.map((id) => [id, true])) } as never,
     );
     const failingService = new AllianceService(store, messaging);
     const markDelivered = jest

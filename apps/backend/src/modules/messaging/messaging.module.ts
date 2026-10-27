@@ -6,10 +6,15 @@ import { Message } from './entities/message.entity';
 import { StatisticsModule } from '../statistics/statistics.module';
 import { ColonyEventService } from './colony-event.service';
 import { User } from '../auth/user.entity';
+import { SettingsModule } from '../settings/settings.module';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([Message, User]), StatisticsModule],
+  imports: [
+    TypeOrmModule.forFeature([Message, User]),
+    StatisticsModule,
+    SettingsModule,
+  ],
   controllers: [MessagingController],
   providers: [MessagingService, ColonyEventService],
   exports: [MessagingService, ColonyEventService],

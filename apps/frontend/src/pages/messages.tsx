@@ -10,7 +10,8 @@ type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 interface MessageSummary {
   id: number;
   subject: string;
-  isRead: boolean;
+  isRead?: boolean;
+  readReceipt?: boolean;
   isSystem: boolean;
   createdAt: string;
   originSeverity?: OriginSeverity | null;
@@ -759,6 +760,15 @@ export function MessagesPage() {
                           {msg.subject}
                         </span>
                         <div className="flex shrink-0 items-center gap-2">
+                          {folder === 'OUTBOX' && msg.readReceipt && (
+                            <span
+                              title="Nachricht gelesen"
+                              aria-label="Nachricht gelesen"
+                              className="text-sm font-bold text-green-400"
+                            >
+                              ✓✓
+                            </span>
+                          )}
                           <OriginSeverityBadge severity={msg.originSeverity} />
                           <span className="text-[10px] text-swu-muted">
                             {timeAgo(msg.createdAt)}

@@ -10,6 +10,7 @@ import { User } from '../auth/user.entity';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { GameGateway } from '../websocket/game.gateway';
+import { UserSettingsReader } from '../settings/user-settings-reader';
 import { Message } from './entities/message.entity';
 import {
   IncomingMessageFolder,
@@ -29,6 +30,7 @@ export class MessagingService {
     private readonly userRepo: Repository<User>,
     private readonly statisticsService: StatisticsService,
     private readonly gateway: GameGateway,
+    private readonly settingsReader: UserSettingsReader,
   ) {}
 
   setIgnoreCheck(
@@ -121,7 +123,20 @@ export class MessagingService {
       take: limit,
     });
 
-    return { data, total, page: normalizedPage, limit };
+    const receiptSettings = await this.settingsReader.getManyBoolean(
+      [userId, ...data.map((message) => message.recipientId)],
+      'show_pm_read_receipt',
+    );
+    const senderEnabled = receiptSettings.get(userId) ?? true;
+    const receipts = data.map(({ isRead, ...message }) => ({
+      ...message,
+      readReceipt:
+        isRead &&
+        senderEnabled &&
+        (receiptSettings.get(message.recipientId) ?? true),
+    }));
+
+    return { data: receipts, total, page: normalizedPage, limit };
   }
 
   async getOne(messageId: number, userId: number): Promise<Message> {

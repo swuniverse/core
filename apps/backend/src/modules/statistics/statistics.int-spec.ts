@@ -485,6 +485,7 @@ describe('database statistics (Postgres, HTTP)', () => {
       dataSource.getRepository(User),
       statistics,
       { emitToUser: jest.fn() } as never,
+      { getManyBoolean: async (ids: number[]) => new Map(ids.map((id) => [id, true])) } as never,
     );
     const other = await createUser(dataSource, { username: 'other' });
     const first = await messaging.send(player.id, other.id, 's1', 'b');
