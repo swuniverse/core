@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 
-import { useStatusBar } from './use-status-bar';
+import { formatTickTime, useStatusBar } from './use-status-bar';
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -30,6 +30,14 @@ function emitSocket(event: string, payload: unknown) {
     handler(payload);
   }
 }
+
+describe('formatTickTime', () => {
+  it('formats absolute tick times in the browser timezone', () => {
+    expect(
+      formatTickTime(new Date('2026-08-05T10:00:00.000Z'), 'America/New_York'),
+    ).toBe('06:00');
+  });
+});
 
 describe('useStatusBar', () => {
   beforeEach(() => {

@@ -6587,6 +6587,25 @@ describe('main tick idempotency', () => {
     ).toBe(slot);
   });
 
+  it.each([
+    ['2026-01-15T11:00:00.000Z'],
+    ['2026-07-15T10:00:00.000Z'],
+  ])('uses the default Berlin tick schedule at %s', async (iso) => {
+    jest.useFakeTimers().setSystemTime(new Date(iso));
+    try {
+      const service = createTickService();
+      const handleTick = jest
+        .spyOn(service, 'handleTick')
+        .mockResolvedValue({ tickNumber: 1, status: GameTickStatus.COMPLETED });
+
+      await service.handleScheduledMainTick();
+
+      expect(handleTick).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('runs the scheduled wrapper only for active configured hours', async () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 6, 3, 13, 0, 0, 0));
     try {

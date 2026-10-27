@@ -69,6 +69,15 @@ export function formatTickCountdown(ms: number): string {
   return `${hours}h${String(minutes).padStart(2, '0')}m`;
 }
 
+export function formatTickTime(date: Date, timeZone?: string): string {
+  return new Intl.DateTimeFormat('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(date);
+}
+
 export function useStatusBar(): StatusBarData {
   const [tick, setTick] = useState<TickState>(EMPTY_TICK_STATE);
   const [serverTime, setServerTime] = useState<Date | null>(null);

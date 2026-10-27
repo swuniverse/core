@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
-import { useStatusBar, formatTickCountdown } from '../../hooks/use-status-bar';
+import {
+  useStatusBar,
+  formatTickCountdown,
+  formatTickTime,
+} from '../../hooks/use-status-bar';
 import { api } from '../../services/api';
 import { useHolonetUnreadStore } from '../../stores/holonet-unread.store';
 import { NavigationIcon } from './navigation-icon';
@@ -98,6 +102,7 @@ export function Sidebar() {
           totalTicks={tick.totalTicks}
           progress={tick.progress}
           loaded={tick.loaded}
+          nextTickAt={tick.nextTickAt}
         />
         <div
           title="Serverzeit"
@@ -124,19 +129,24 @@ function TickRing({
   totalTicks,
   progress,
   loaded,
+  nextTickAt,
 }: {
   msToNext: number;
   tickIndex: number;
   totalTicks: number;
   progress: number;
   loaded: boolean;
+  nextTickAt: Date;
 }) {
   const radius = 22;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
 
   return (
-    <div className="relative w-[52px] h-[52px] flex items-center justify-center">
+    <div
+      className="relative w-[52px] h-[52px] flex items-center justify-center"
+      title={loaded ? `Nächster Tick: ${formatTickTime(nextTickAt)}` : undefined}
+    >
       <svg width="52" height="52" className="absolute -rotate-90">
         <circle
           cx="26"

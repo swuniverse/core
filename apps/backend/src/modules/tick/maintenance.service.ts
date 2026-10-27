@@ -10,15 +10,15 @@ import {
 } from './entities/game-tick-state.entity';
 
 export const MAINTENANCE_HANDLERS = Symbol('MAINTENANCE_HANDLERS');
+export const DEFAULT_GAME_TIMEZONE = 'Europe/Berlin';
 
 export interface MaintenanceHandler {
   name: string;
   run(now: Date): Promise<string | void>;
 }
 
-export function validateGameTimezone(timezone?: string): string | undefined {
-  const value = timezone?.trim();
-  if (!value) return undefined;
+export function validateGameTimezone(timezone?: string): string {
+  const value = timezone?.trim() || DEFAULT_GAME_TIMEZONE;
 
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
@@ -29,10 +29,9 @@ export function validateGameTimezone(timezone?: string): string | undefined {
 }
 
 export function getHourInTimezone(now: Date, timezone?: string): number {
-  if (!timezone) return now.getHours();
   return Number(
     new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
+      timeZone: timezone?.trim() || DEFAULT_GAME_TIMEZONE,
       hour: '2-digit',
       hourCycle: 'h23',
     }).format(now),
@@ -40,16 +39,8 @@ export function getHourInTimezone(now: Date, timezone?: string): number {
 }
 
 export function getCalendarDateNumber(now: Date, timezone?: string): number {
-  if (!timezone) {
-    return (
-      now.getFullYear() * 10_000 +
-      (now.getMonth() + 1) * 100 +
-      now.getDate()
-    );
-  }
-
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
+    timeZone: timezone?.trim() || DEFAULT_GAME_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -62,7 +53,7 @@ export function getCalendarDateNumber(now: Date, timezone?: string): number {
 @Injectable()
 export class MaintenanceService {
   private readonly logger = new Logger(MaintenanceService.name);
-  private readonly timezone: string | undefined;
+  private readonly timezone: string;
 
   constructor(
     @InjectRepository(GameTickState)
@@ -75,7 +66,7 @@ export class MaintenanceService {
   }
 
   @Cron('0 3 * * *', {
-    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+    timeZone: process.env.GAME_TIMEZONE?.trim() || DEFAULT_GAME_TIMEZONE,
   })
   async handleScheduledMaintenance(): Promise<GameTickState> {
     return this.run();

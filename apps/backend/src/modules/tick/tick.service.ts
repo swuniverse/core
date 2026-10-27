@@ -30,7 +30,10 @@ import {
   GameTickStatus,
   GameTickType,
 } from './entities/game-tick-state.entity';
-import { getHourInTimezone } from './maintenance.service';
+import {
+  DEFAULT_GAME_TIMEZONE,
+  getHourInTimezone,
+} from './maintenance.service';
 import { UserSettingsReader } from '../settings/user-settings-reader';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
@@ -73,7 +76,7 @@ export class TickService {
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
-    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+    timeZone: process.env.GAME_TIMEZONE?.trim() || DEFAULT_GAME_TIMEZONE,
   })
   async handleScheduledMainTick(): Promise<
     { tickNumber: number; status: string } | undefined
@@ -295,7 +298,7 @@ export class TickService {
   }
 
   @Cron(CronExpression.EVERY_MINUTE, {
-    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+    timeZone: process.env.GAME_TIMEZONE?.trim() || DEFAULT_GAME_TIMEZONE,
   })
   async checkBuildingCompletions(recordEmptyRun = false) {
     const now = new Date();
@@ -400,7 +403,7 @@ export class TickService {
   }
 
   @Cron(CronExpression.EVERY_MINUTE, {
-    timeZone: process.env.GAME_TIMEZONE?.trim() || undefined,
+    timeZone: process.env.GAME_TIMEZONE?.trim() || DEFAULT_GAME_TIMEZONE,
   })
   async checkWarpArrivals() {
     const now = new Date();

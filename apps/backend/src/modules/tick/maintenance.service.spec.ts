@@ -109,14 +109,17 @@ describe('game timezone', () => {
     expect(getHourInTimezone(new Date(iso), 'Europe/Berlin')).toBe(expected);
   });
 
-  it('uses the process timezone when GAME_TIMEZONE is unset', () => {
-    const instant = new Date('2026-07-15T10:00:00.000Z');
-    const expected = Number(
-      `${instant.getFullYear()}${String(instant.getMonth() + 1).padStart(2, '0')}${String(instant.getDate()).padStart(2, '0')}`,
-    );
+  it.each([
+    ['2026-01-15T11:00:00.000Z', 12],
+    ['2026-07-15T10:00:00.000Z', 12],
+  ])('defaults to the Berlin hour for %s', (iso, expected) => {
+    expect(getHourInTimezone(new Date(iso))).toBe(expected);
+  });
 
-    expect(getCalendarDateNumber(instant)).toBe(expected);
-    expect(getHourInTimezone(instant)).toBe(instant.getHours());
+  it('defaults calendar dates to Europe/Berlin', () => {
+    expect(getCalendarDateNumber(new Date('2026-07-14T22:00:00.000Z'))).toBe(
+      20260715,
+    );
   });
 
   it('rejects invalid configured timezones with a clear error', () => {
