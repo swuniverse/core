@@ -82,6 +82,47 @@ describe('OnboardingService', () => {
     expect(query.andWhere).toHaveBeenCalledWith('colony.id IS NULL');
   });
 
+  it.each([
+    [1, 1001],
+    [2, 1003],
+  ])(
+    'completes faction %i start research %i from faction data',
+    async (factionId, startResearchTechId) => {
+      const researchRepo = {
+        findOne: jest.fn(async () => null),
+        create: jest.fn((value) => value),
+        save: jest.fn(async (value) => value),
+      };
+      const factionService = {
+        findById: jest.fn(async () => ({ id: factionId, startResearchTechId })),
+      };
+      const service = new OnboardingService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        researchRepo as never,
+        factionService as never,
+        {} as never,
+        {} as never,
+      );
+
+      await (service as never as {
+        ensureBaseResearchCompleted(userId: number, factionId: number): Promise<void>;
+      }).ensureBaseResearchCompleted(7, factionId);
+
+      expect(factionService.findById).toHaveBeenCalledWith(factionId);
+      expect(researchRepo.findOne).toHaveBeenCalledWith({
+        where: { userId: 7, techId: startResearchTechId },
+      });
+      expect(researchRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 7, techId: startResearchTechId }),
+      );
+    },
+  );
+
   it('does not allow changing a retained faction while claiming a new homeworld', async () => {
     const userRepo = {
       findOneBy: jest.fn(async () => ({ id: 7, factionId: 2 })),

@@ -15,6 +15,8 @@ const DEFAULT_FACTIONS: Array<{
   homeZone: string;
   starterShipClassId: number;
   starterProfileKey: string;
+  startResearchTechId: number;
+  startBuildingId: number;
   modifiers: Pick<
     FactionModifier,
     | 'hullMultiplier'
@@ -33,6 +35,8 @@ const DEFAULT_FACTIONS: Array<{
     homeZone: 'REBEL',
     starterShipClassId: 1001,
     starterProfileKey: 'rebel-starter',
+    startResearchTechId: 1001,
+    startBuildingId: 82010100,
     modifiers: {
       hullMultiplier: 1,
       shieldMultiplier: 1.1,
@@ -50,6 +54,8 @@ const DEFAULT_FACTIONS: Array<{
     homeZone: 'EMPIRE',
     starterShipClassId: 2001,
     starterProfileKey: 'empire-starter',
+    startResearchTechId: 1003,
+    startBuildingId: 82010300,
     modifiers: {
       hullMultiplier: 1.1,
       shieldMultiplier: 1,
@@ -88,6 +94,8 @@ export class FactionService {
           homeZone: definition.homeZone,
           starterShipClassId: definition.starterShipClassId,
           starterProfileKey: definition.starterProfileKey,
+          startResearchTechId: definition.startResearchTechId,
+          startBuildingId: definition.startBuildingId,
         }),
       );
 
@@ -125,6 +133,10 @@ export class FactionService {
       .getRawMany();
     const countMap = Object.fromEntries(counts.map((r) => [r.factionId, +r.count]));
     return factions.map((f) => Object.assign(f, { playerCount: countMap[f.id] ?? 0 }));
+  }
+
+  findById(id: number): Promise<FactionEntity | null> {
+    return this.factionRepo.findOneBy({ id });
   }
 
   findByKey(key: Faction | string): Promise<FactionEntity | null> {

@@ -34,6 +34,12 @@ export class FactionEntity {
   @Column({ type: 'varchar', length: 64, nullable: true })
   starterProfileKey: string | null;
 
+  @Column({ type: 'int', nullable: true })
+  startResearchTechId: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  startBuildingId: number | null;
+
   @OneToMany(
     () => require('./faction-modifier.entity').FactionModifier,
     (modifier: FactionModifier) => modifier.faction,

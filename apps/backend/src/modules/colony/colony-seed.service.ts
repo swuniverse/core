@@ -73,11 +73,6 @@ type SwuColonyFieldSeed = {
   bonusMarker?: SwuBonusMarkerType | null;
 };
 
-const STU_STARTER_BUILDINGS_BY_FACTION_ID: Record<number, number> = {
-  1: 82010100, // Föderation -> später Rebel
-  2: 82010300, // Klingonen -> später Imperial
-};
-
 const STARTING_COMMODITIES = [
   { commodityId: 2, amount: 180 }, // Baumaterial
   { commodityId: 4, amount: 50 }, // Transparistahl
@@ -147,7 +142,7 @@ export class ColonySeedService {
     userId: number,
     username: string,
     preferredCelestialObjectId?: number,
-    factionId?: number | null,
+    startBuildingId?: number,
   ): Promise<Colony> {
     const starterTargets = await this.findStarterTargets();
     const planet = preferredCelestialObjectId
@@ -190,7 +185,10 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
-    await this.generateFields(colony, { factionId, fields: surface.fields });
+    await this.generateFields(colony, {
+      initialBuildingId: startBuildingId,
+      fields: surface.fields,
+    });
     await this.createInitialStats(colony);
     await this.createInitialChangeable(colony);
     assertOwnedColony(colony);
@@ -358,7 +356,7 @@ export class ColonySeedService {
     userId: number;
     username: string;
     celestialObjectId: number;
-    factionId?: number | null;
+    startBuildingId: number;
     archetype: SwuPlanetArchetype;
     rotation: SwuRotationType;
     bodyFeature: SwuBodyFeature;
@@ -382,9 +380,7 @@ export class ColonySeedService {
       userId: options.userId,
       username: options.username,
       celestialObjectId: options.celestialObjectId,
-      buildingId:
-        STU_STARTER_BUILDINGS_BY_FACTION_ID[options.factionId ?? 1] ??
-        STU_STARTER_BUILDINGS_BY_FACTION_ID[1],
+      buildingId: options.startBuildingId,
       archetype: options.archetype,
       rotation: options.rotation,
       bodyFeature: options.bodyFeature,
@@ -575,7 +571,6 @@ export class ColonySeedService {
   private async generateFields(
     colony: Colony,
     options: {
-      factionId?: number | null;
       initialBuildingId?: number;
       initialFieldIndex?: number;
       fields: StuColonyFieldData[];
@@ -600,10 +595,10 @@ export class ColonySeedService {
     hqField.fieldType = FIELD_TYPES.PLAINS;
     hqField.terrainTileId = String(FIELD_TYPES.PLAINS);
     hqField.layer = 'SURFACE';
-    hqField.buildingId =
-      options.initialBuildingId ??
-      STU_STARTER_BUILDINGS_BY_FACTION_ID[options.factionId ?? 1] ??
-      STU_STARTER_BUILDINGS_BY_FACTION_ID[1];
+    if (!options.initialBuildingId) {
+      throw new BadRequestException('Faction has no starter building configured');
+    }
+    hqField.buildingId = options.initialBuildingId;
     hqField.buildProgress = 100;
     hqField.isActive = true;
 

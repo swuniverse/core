@@ -440,6 +440,13 @@ export class OnboardingService {
     selection.completedAt = new Date();
     await this.onboardingRepo.save(selection);
 
+    const faction = await this.factionService.findById(factionId);
+    if (!faction) {
+      throw new NotFoundException('Faction not found');
+    }
+    if (!faction.startBuildingId) {
+      throw new BadRequestException('Faction has no starter building configured');
+    }
     const swuArchetype =
       chosenZone && object.classId != null
         ? findArchetypeBySwuClassId(object.classId)
@@ -450,7 +457,7 @@ export class OnboardingService {
             userId: user.id,
             username: user.username,
             celestialObjectId,
-            factionId,
+            startBuildingId: faction.startBuildingId,
             archetype: swuArchetype,
             rotation: resolveSwuInstance(object).rotation,
             bodyFeature: resolveSwuInstance(object).bodyFeature,
@@ -460,7 +467,7 @@ export class OnboardingService {
             user.id,
             user.username,
             celestialObjectId,
-            factionId,
+            faction.startBuildingId,
           );
     user.onboardingCompleted = true;
     user.starterColonyId = colony.id;
@@ -486,7 +493,11 @@ export class OnboardingService {
     userId: number,
     factionId: number,
   ): Promise<void> {
-    const baseResearchId = factionId === 2 ? 1003 : 1001;
+    const faction = await this.factionService.findById(factionId);
+    if (!faction?.startResearchTechId) {
+      return;
+    }
+    const baseResearchId = faction.startResearchTechId;
     const existing = await this.researchRepo.findOne({
       where: { userId, techId: baseResearchId },
     });

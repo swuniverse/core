@@ -1,6 +1,6 @@
 # Fraktionsattribute, Teil 1: Startforschung und Startausstattung als Fraktionsdaten
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -22,9 +22,11 @@ Was eine Fraktion beim Einstieg mitbringt, steht in STU als Daten an der Fraktio
 
 ## Akzeptanzkriterien
 
-- [ ] Die Fraktionsentität erhält `startResearchTechId` (und, falls die Starterkolonie fraktionsabhängige Startgebäude setzt, deren Schlüssel). Die Migration befüllt die heutigen Werte: Rebellenallianz 1001, Galaktisches Imperium 1003.
-- [ ] Das Onboarding liest Startforschung und Startausstattung aus der Fraktion. Es gibt keine fraktionsbezogenen Literale mehr im Onboarding.
-- [ ] Eine Notiz `docs/faction-modifiers.md` listet je Multiplikator (`hull`, `shield`, `cargo`, `research`, `colonyGrowth`, `trade`), ob und wo er wirkt (Stand: keiner wird außerhalb des Fraktionsmoduls gelesen). Sie verweist auf tmw-FA1b.
-- [ ] Backend-Tests: Onboarding beider Fraktionen ergibt dieselbe Startforschung wie vorher (Regressionstest), und die Werte kommen aus der Fraktion.
+- [x] Die Fraktionsentität erhält `startResearchTechId` (und, falls die Starterkolonie fraktionsabhängige Startgebäude setzt, deren Schlüssel). Die Migration befüllt die heutigen Werte: Rebellenallianz 1001, Galaktisches Imperium 1003.
+- [x] Das Onboarding liest Startforschung und Startausstattung aus der Fraktion. Es gibt keine fraktionsbezogenen Literale mehr im Onboarding.
+- [x] Eine Notiz `docs/faction-modifiers.md` listet je Multiplikator (`hull`, `shield`, `cargo`, `research`, `colonyGrowth`, `trade`), ob und wo er wirkt (Stand: keiner wird außerhalb des Fraktionsmoduls gelesen). Sie verweist auf tmw-FA1b.
+- [x] Backend-Tests: Onboarding beider Fraktionen ergibt dieselbe Startforschung wie vorher (Regressionstest), und die Werte kommen aus der Fraktion.
 
 ## Comments
+
+Fraktionsdaten, Migration und Onboarding auf datengetriebene Startforschung und Startgebäude umgestellt; die aktuelle Wirksamkeit der Multiplikatoren ist in `docs/faction-modifiers.md` dokumentiert. Folgepunkt bleibt tmw-FA1b.
