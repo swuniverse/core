@@ -4,6 +4,7 @@
 
 - Node.js 22+
 - Docker & Docker Compose
+- [just](https://github.com/casey/just)
 - Git
 
 ## Getting Started
@@ -11,11 +12,12 @@
 ```bash
 git clone --recurse-submodules https://github.com/swuniverse/core.git
 cd core
-npm install
 cp .env.example .env
-docker compose up db redis -d
-npm run dev
+just setup
+just up
 ```
+
+`just setup` installiert Abhängigkeiten, startet PostgreSQL und Redis im Hintergrund und führt ausstehende Migrationen aus. `just up` startet Infrastruktur, Backend und Frontend im Vordergrund.
 
 Backend: `http://localhost:3001` | Frontend: `http://localhost:5173`
 
@@ -47,11 +49,14 @@ game-data/          Private submodule (game balancing data)
 ## Commands
 
 ```bash
-npm run dev          # Start backend + frontend
-npm run build        # Build all projects
-npm run lint         # Lint all
-npm run test         # Run tests
-npm run typecheck    # TypeScript check (no emit)
+just up               # Start infrastructure, backend, and frontend
+just infra-detached   # Start PostgreSQL and Redis in the background
+just dev              # Start backend + frontend
+just migrate          # Run pending TypeORM migrations
+just build            # Build all projects
+just lint             # Lint all
+just test             # Run tests
+just typecheck        # TypeScript check (no emit)
 ```
 
 ## Development Workflow
@@ -81,8 +86,9 @@ npm run typecheck    # TypeScript check (no emit)
 ## Docker
 
 ```bash
-docker compose up              # Dev (with hot reload via volumes)
-docker compose -f docker-compose.prod.yml up -d  # Production
+just infra-detached                                  # lokale Datenbank und Redis
+just down                                            # lokale Infrastruktur stoppen
+docker compose -f docker-compose.prod.yml up -d      # Production
 ```
 
 ## License

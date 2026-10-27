@@ -33,8 +33,8 @@ Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberfläch
 
 - Node.js 22+
 - Docker & Docker Compose
+- [just](https://github.com/casey/just)
 - Git
-- optional: Nix (`nix develop`) für reproduzierbare Dev-Shells
 
 ### Repository klonen
 
@@ -54,27 +54,27 @@ git submodule update --init --recursive
 ### Entwicklungsumgebung starten
 
 ```bash
-npm install
 cp .env.example .env
-docker compose -f docker-compose.dev.yml up -d
-npm run typeorm:migrate
-npm run dev
+just setup
+just up
 ```
+
+`just setup` installiert Abhängigkeiten, startet PostgreSQL und Redis im Hintergrund und führt ausstehende Migrationen aus. `just up` startet anschließend Infrastruktur, Backend und Frontend im Vordergrund. Mit Ctrl-C werden alle drei wieder beendet; die Daten bleiben im lokalen Volume erhalten.
 
 - Frontend: <http://localhost:5173>
 - Backend API: <http://localhost:3001>
 - PostgreSQL: `127.0.0.1:5490`
 - Redis: `127.0.0.1:6379`
 
-### Alternative mit Nix
+### Häufige Entwicklungsbefehle
 
 ```bash
-nix develop
-npm install
-cp .env.example .env
-docker compose -f docker-compose.dev.yml up -d
-npm run typeorm:migrate
-npm run dev
+just infra-detached  # PostgreSQL und Redis im Hintergrund starten
+just dev             # Backend und Frontend starten
+just down            # lokale Infrastruktur stoppen
+just logs            # Infrastruktur-Logs verfolgen
+just migrate         # ausstehende Migrationen ausführen
+just migrate-revert  # letzte Migration zurücknehmen
 ```
 
 ## Umgebungsvariablen
@@ -87,6 +87,7 @@ cp .env.example .env
 
 Wichtige Variablen:
 
+- `NODE_ENV=development` — lokale Laufzeitumgebung
 - `DATABASE_URL` — lokale PostgreSQL-Verbindung
 - `REDIS_URL` — Redis-Verbindung
 - `JWT_SECRET` — Signaturschlüssel für Auth/JWT
@@ -98,19 +99,19 @@ Wichtige Variablen:
 Für migrationsbasierte Schemaänderungen stehen u. a. diese Befehle bereit:
 
 ```bash
-npm run typeorm:migrate
-npm run typeorm:migrate:revert
-npm run typeorm:migration:generate
+just migrate
+just migrate-revert
+just migration-generate
 npm run docker:typeorm:migrate
 ```
 
 ## Qualitätschecks
 
 ```bash
-npm run build      # alle Apps/Packages bauen
-npm run lint       # Linting im gesamten Workspace
-npm run test       # Jest/Vitest-Suites ausführen
-npm run typecheck  # TypeScript-Prüfung ohne Emit
+just build      # alle Apps/Packages bauen
+just lint       # Linting im gesamten Workspace
+just test       # Jest/Vitest-Suites ausführen
+just typecheck  # TypeScript-Prüfung ohne Emit
 ```
 
 Backend-Integrationstests gegen echtes Postgres 16 (Docker oder `INTEGRATION_DATABASE_URL`) laufen separat mit `npx nx run backend:test-integration`, siehe `apps/backend/src/testing/integration/README.md`.

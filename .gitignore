@@ -73,9 +73,6 @@ vitest.config.*.timestamp*
 *.tsbuildinfo
 
 # Local dev environment
-.devenv.flake.nix
-.devenv/
-.envrc
 nebula-demo.html
 
 # Local hooks
