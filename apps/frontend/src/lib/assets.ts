@@ -5,6 +5,10 @@ import {
 
 const ASSET_BASE = import.meta.env.VITE_ASSET_BASE_URL || '/assets';
 
+export function navigationIcon(name: string, hover = false): string {
+  return `${ASSET_BASE}/navigation/menu_${name}${hover ? 1 : 0}.png`;
+}
+
 export function alertStateImage(
   state: 'GREEN' | 'YELLOW' | 'RED',
   active = false,

@@ -187,3 +187,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-07b – Tick-Admin mit Laufhistorie, Einzeljobs und idempotenten Fehlernachrichten umgesetzt – siehe Feature-Commit
 - soc-F6 – E-Mail-Änderung mit Normalisierung, Formatprüfung, case-insensitiver Eindeutigkeit und Blocklist-Port abgesichert – siehe Feature-Commit
 - sh-AP-08a – Admin-Spielerliste und tickbasierte Spielersperren mit Login-Schutz umgesetzt – siehe Feature-Commit
+- sh-AP-14b – Sidebar und mobile Navigation auf gemeinsame Asset-Iconpaare mit aktivem und Hover-Zustand umgestellt – siehe Feature-Commit

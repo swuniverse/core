@@ -4,25 +4,26 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useStatusBar, formatTickCountdown } from '../../hooks/use-status-bar';
 import { api } from '../../services/api';
 import { useHolonetUnreadStore } from '../../stores/holonet-unread.store';
+import { NavigationIcon } from './navigation-icon';
 
 const NAV_ITEMS = [
-  { label: 'Maindesk', path: '/', icon: NavIconMaindesk },
-  { label: 'Kolonien', path: '/colonies', icon: NavIconColonies },
-  { label: 'Schiffe', path: '/spacecraft', icon: NavIconShips },
-  { label: 'HoloNet', path: '/holonet', icon: NavIconHolonet },
-  { label: 'Nachrichten', path: '/messages', icon: NavIconMessages },
-  { label: 'Allianzen', path: '/alliances', icon: NavIconAlliances },
-  { label: 'Forschung', path: '/research', icon: NavIconResearch },
-  { label: 'Datenbank', path: '/database', icon: NavIconDatabase },
-  { label: 'Ereignisse', path: '/events', icon: NavIconEvents },
-  { label: 'Karte', path: '/starmap', icon: NavIconMap },
+  { label: 'Maindesk', path: '/', icon: 'maindesk' },
+  { label: 'Kolonien', path: '/colonies', icon: 'planets' },
+  { label: 'Schiffe', path: '/spacecraft', icon: 'ships' },
+  { label: 'HoloNet', path: '/holonet', icon: 'comm' },
+  { label: 'Nachrichten', path: '/messages', icon: 'msg' },
+  { label: 'Allianzen', path: '/alliances', icon: 'ally' },
+  { label: 'Forschung', path: '/research', icon: 'forsch' },
+  { label: 'Datenbank', path: '/database', icon: 'data' },
+  { label: 'Ereignisse', path: '/events', icon: 'history' },
+  { label: 'Karte', path: '/starmap', icon: 'map' },
 ];
 
-const adminNavItem = { label: 'Admin', path: '/admin', icon: NavIconAdmin };
+const adminNavItem = { label: 'Admin', path: '/admin', icon: 'admin' };
 const mapEditorNavItem = {
   label: 'Karteneditor',
   path: '/admin/starmap',
-  icon: NavIconMap,
+  icon: 'mapeditor',
 };
 
 export function Sidebar() {
@@ -62,24 +63,30 @@ export function Sidebar() {
             key={item.path}
             to={item.path}
             end={item.path === '/'}
+            aria-label={item.label}
+            title={item.label}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 px-1 py-2 w-full text-center transition-colors hover:text-swu-accent ${
+              `group flex flex-col items-center gap-0.5 px-1 py-2 w-full text-center transition-colors hover:text-swu-accent ${
                 isActive ? 'text-swu-accent bg-swu-accent/10' : 'text-swu-muted'
               }`
             }
           >
-            <span className="relative">
-              <item.icon />
-              {item.path === '/holonet' && holonetUnread > 0 && (
-                <span
-                  aria-label={`${holonetUnread} neue HoloNet-Beiträge`}
-                  className="absolute -right-3 -top-2 min-w-4 rounded-full bg-swu-danger px-1 text-[9px] font-bold leading-4 text-white"
-                >
-                  {holonetUnread}
+            {({ isActive }) => (
+              <>
+                <span className="relative">
+                  <NavigationIcon name={item.icon} active={isActive} />
+                  {item.path === '/holonet' && holonetUnread > 0 && (
+                    <span
+                      aria-label={`${holonetUnread} neue HoloNet-Beiträge`}
+                      className="absolute -right-3 -top-2 min-w-4 rounded-full bg-swu-danger px-1 text-[9px] font-bold leading-4 text-white"
+                    >
+                      {holonetUnread}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span className="text-[10px] leading-tight">{item.label}</span>
+                <span className="text-[10px] leading-tight">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>
@@ -94,241 +101,6 @@ export function Sidebar() {
         />
       </div>
     </aside>
-  );
-}
-
-function NavIconMaindesk() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
-}
-
-function NavIconColonies() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3a15 15 0 0 1 0 18" />
-      <path d="M12 3a15 15 0 0 0 0 18" />
-      <path d="M3 12h18" />
-    </svg>
-  );
-}
-
-function NavIconEvents() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 5h16" />
-      <path d="M4 12h16" />
-      <path d="M4 19h16" />
-      <circle cx="7" cy="5" r="1" fill="currentColor" />
-      <circle cx="7" cy="12" r="1" fill="currentColor" />
-      <circle cx="7" cy="19" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function NavIconShips() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2L4 20h16L12 2z" />
-      <path d="M12 2v18" />
-    </svg>
-  );
-}
-
-function NavIconMap() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="2" x2="12" y2="4" />
-      <line x1="12" y1="20" x2="12" y2="22" />
-      <line x1="2" y1="12" x2="4" y2="12" />
-      <line x1="20" y1="12" x2="22" y2="12" />
-    </svg>
-  );
-}
-
-function NavIconResearch() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 3v12l-3 3h12l-3-3V3" />
-      <path d="M9 3h6" />
-      <circle cx="12" cy="17" r="1" />
-    </svg>
-  );
-}
-
-function NavIconAlliances() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
-      <circle cx="9.5" cy="11" r="1.5" />
-      <circle cx="14.5" cy="11" r="1.5" />
-      <path d="M7.5 16c.8-1.3 2.2-2 4.5-2s3.7.7 4.5 2" />
-    </svg>
-  );
-}
-
-function NavIconMessages() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M22 7l-10 6L2 7" />
-    </svg>
-  );
-}
-
-function NavIconHolonet() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 4h16v12H4z" />
-      <path d="M8 20h8" />
-      <path d="M12 16v4" />
-    </svg>
-  );
-}
-
-function NavIconDatabase() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <ellipse cx="12" cy="5" rx="8" ry="3" />
-      <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
-      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
-    </svg>
-  );
-}
-
-function NavIconSettings() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-    </svg>
-  );
-}
-
-function NavIconAdmin() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-      <path d="M2 17l10 5 10-5" />
-      <path d="M2 12l10 5 10-5" />
-    </svg>
   );
 }
 
