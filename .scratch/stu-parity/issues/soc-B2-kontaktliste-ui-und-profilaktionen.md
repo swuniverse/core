@@ -1,6 +1,6 @@
 # Kontaktliste: UI und Profilaktionen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-B1a, soc-A2
