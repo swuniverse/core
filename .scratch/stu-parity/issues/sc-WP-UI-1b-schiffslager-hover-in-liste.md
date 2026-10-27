@@ -1,6 +1,6 @@
 # Lager-Hover am Schiffbild in der Schiffsliste
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -32,3 +32,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-10-23: Umsetzung und fokussierter Frontend-Test sind grün; Build ist grün. Der vorgeschriebene Gesamt-Testlauf scheitert nach zwei Versuchen reproduzierbar an dem unabhängigen bestehenden Test `apps/frontend/src/pages/research.spec.tsx:648` (Button `/eine von/` fehlt). Produktcode gemäß Abbruchregel verworfen; bitte den Forschungs-Test/Stand reparieren oder bestätigen, dass dieser externe Fehler für den Abschluss ignoriert werden darf.
+- 2026-10-27: Erneuter test-first Versuch: fokussierter Frontend-Test grün (6/6), `nx run-many --targets=build` grün. `npx nx affected -t lint typecheck test --base=HEAD` scheitert erneut in zwei ernsthaften Versuchen, diesmal im Frontend-Typecheck mit zahlreichen bestehenden `TS6305`-Fehlern zu fehlenden `apps/frontend/dist/**/*.d.ts`-Ausgaben (zusätzlich bestehende Folgefehler in Tests). Produktcode gemäß Abbruchregel verworfen. Bitte den Frontend-Typecheck/Build-Referenzzustand reparieren oder bestätigen, wie dieser externe Fehler behandelt werden soll.
