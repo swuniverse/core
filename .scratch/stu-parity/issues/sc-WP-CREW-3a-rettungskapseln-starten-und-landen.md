@@ -1,6 +1,6 @@
 # Rettungskapseln: Start bei Zerstörung und Landung auf eigener Kolonie
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-6a
