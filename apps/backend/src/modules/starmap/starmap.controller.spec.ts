@@ -20,6 +20,35 @@ jest.mock('./wormhole.service', () => ({
 import { NotFoundException } from '@nestjs/common';
 import { StarmapController } from './starmap.controller';
 
+describe('StarmapController influence visibility', () => {
+  it('returns influence only for explored cells', async () => {
+    const influences = [
+      { cx: 1, cy: 1, sourceType: 'FACTION', sourceId: 1, strength: 1, color: '#2563eb' },
+      { cx: 2, cy: 2, sourceType: 'FACTION', sourceId: 1, strength: 0.5, color: '#2563eb' },
+    ];
+    const controller = new StarmapController(
+      { getLayerById: jest.fn().mockResolvedValue({ width: 20, height: 20, sectorSize: 10 }) } as any,
+      {} as any,
+      {
+        getExploredSectorFields: jest.fn().mockResolvedValue({
+          fields: [
+            { cx: 1, cy: 1, explorationLevel: 'TERRAIN' },
+            { cx: 2, cy: 2, explorationLevel: 'UNKNOWN' },
+          ],
+          hiddenCount: 1,
+        }),
+      } as any,
+      {} as any,
+      { getInfluenceInSector: jest.fn().mockResolvedValue(influences) } as any,
+      {} as any,
+    );
+
+    await expect(
+      controller.getInfluenceInSector(3, 0, 0, { user: { sub: 42 } }),
+    ).resolves.toEqual([influences[0]]);
+  });
+});
+
 describe('StarmapController system-entry access', () => {
   function createController(explored = false) {
     const starmapService = {

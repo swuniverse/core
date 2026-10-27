@@ -33,6 +33,8 @@ import { PlanetGeneratorService } from './generator/planet-generator.service';
 import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
 import { PrestigeModule } from '../prestige/prestige.module';
+import { Alliance } from '../alliance/entities/alliance.entity';
+import { FactionEntity } from '../faction/entities/faction.entity';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { PrestigeModule } from '../prestige/prestige.module';
       HyperspaceRouteSegment,
       Colony,
       ColonyChangeable,
+      Alliance,
+      FactionEntity,
     ]),
     PrestigeModule,
   ],

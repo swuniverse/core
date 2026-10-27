@@ -632,24 +632,38 @@ export class StarmapController {
   // --- Influence Areas ---
 
   @Get('layers/:layerId/influence/:sectorX/:sectorY')
-  getInfluenceInSector(
+  async getInfluenceInSector(
     @Param('layerId', ParseIntPipe) layerId: number,
     @Param('sectorX', ParseIntPipe) sectorX: number,
     @Param('sectorY', ParseIntPipe) sectorY: number,
+    @Req() req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapInfluenceAreaDto[]> {
-    return this.starmapService.getLayerById(layerId).then((layer) => {
-      const minX = sectorX * layer.sectorSize + 1;
-      const maxX = Math.min((sectorX + 1) * layer.sectorSize, layer.width);
-      const minY = sectorY * layer.sectorSize + 1;
-      const maxY = Math.min((sectorY + 1) * layer.sectorSize, layer.height);
-      return this.influenceService.getInfluenceInSector(
-        layerId,
-        minX,
-        maxX,
-        minY,
-        maxY,
-      );
-    });
+    const layer = await this.starmapService.getLayerById(layerId);
+    const minX = sectorX * layer.sectorSize + 1;
+    const maxX = Math.min((sectorX + 1) * layer.sectorSize, layer.width);
+    const minY = sectorY * layer.sectorSize + 1;
+    const maxY = Math.min((sectorY + 1) * layer.sectorSize, layer.height);
+    const influences = await this.influenceService.getInfluenceInSector(
+      layerId,
+      minX,
+      maxX,
+      minY,
+      maxY,
+    );
+    if (this.bypassFog(req.user)) return influences;
+    const explored = await this.starmapQueryService.getExploredSectorFields(
+      req.user.sub,
+      layerId,
+      sectorX,
+      sectorY,
+      this.explorationService,
+    );
+    const exploredCells = new Set(
+      explored.fields
+        .filter((field) => field.explorationLevel !== 'UNKNOWN')
+        .map((field) => `${field.cx}:${field.cy}`),
+    );
+    return influences.filter((area) => exploredCells.has(`${area.cx}:${area.cy}`));
   }
 
   @Post('admin/layers/:id/recalculate-influence')

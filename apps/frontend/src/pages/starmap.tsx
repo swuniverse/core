@@ -8,12 +8,16 @@ import {
   type StarmapSystemGridDto,
   type StarmapSystemListItemDto,
   type StarmapContactsDto,
+  type StarmapInfluenceAreaDto,
   type StarmapWormholeDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
 import { StarmapCanvas, type StarmapCanvasHandle } from '../components/starmap/StarmapCanvas';
-import { StarmapControlPanel } from '../components/starmap/StarmapControlPanel';
+import {
+  StarmapControlPanel,
+  type StarmapOverlays,
+} from '../components/starmap/StarmapControlPanel';
 import {
   StarmapShipOverlay,
   bundleStarmapContacts,
@@ -33,6 +37,22 @@ type HyperspaceRoute = HyperspaceRouteDto;
 
 /** Ship contacts are refreshed in this interval while the page is visible. */
 const CONTACT_REFRESH_MS = 30_000;
+const OVERLAY_STORAGE_KEY = 'swu-starmap-overlays';
+
+const DEFAULT_OVERLAYS: StarmapOverlays = {
+  territory: false,
+  impassable: false,
+  fieldEffects: false,
+  sensorCoverage: false,
+};
+
+function loadOverlays(): StarmapOverlays {
+  try {
+    return { ...DEFAULT_OVERLAYS, ...JSON.parse(localStorage.getItem(OVERLAY_STORAGE_KEY) ?? '{}') };
+  } catch {
+    return DEFAULT_OVERLAYS;
+  }
+}
 
 type StarmapUrlTarget = {
   layerId: number;
@@ -69,6 +89,8 @@ export function StarmapPage() {
   const [showShips, setShowShips] = useState(true);
   const [showAllianceShips, setShowAllianceShips] = useState(true);
   const [showPartnerShips, setShowPartnerShips] = useState(true);
+  const [overlays, setOverlays] = useState<StarmapOverlays>(loadOverlays);
+  const [influence, setInfluence] = useState<StarmapInfluenceAreaDto[]>([]);
   const [selectedContactKey, setSelectedContactKey] = useState<string | null>(null);
   const [inlineSystemsVisible, setInlineSystemsVisible] = useState(false);
   const contactLayerIdRef = useRef<number | null>(null);
@@ -157,6 +179,31 @@ export function StarmapPage() {
 
   useSocket(WsEventType.SHIP_MOVED, () => void loadContacts());
   useSocket(WsEventType.SPACECRAFT_EVENT, () => void loadContacts());
+
+  const loadInfluence = useCallback(async () => {
+    if (!selectedLayer || !overlays.territory) {
+      setInfluence([]);
+      return;
+    }
+    const sectorColumns = Math.ceil(selectedLayer.width / selectedLayer.sectorSize);
+    const sectorRows = Math.ceil(selectedLayer.height / selectedLayer.sectorSize);
+    const sectors = Array.from(
+      { length: sectorColumns * sectorRows },
+      (_, index) => ({ x: index % sectorColumns, y: Math.floor(index / sectorColumns) }),
+    );
+    const loaded = await Promise.all(
+      sectors.map(({ x, y }) =>
+        api.get<StarmapInfluenceAreaDto[]>(
+          `/starmap/layers/${selectedLayer.id}/influence/${x}/${y}`,
+        ),
+      ),
+    );
+    setInfluence(loaded.flat());
+  }, [overlays.territory, selectedLayer]);
+
+  useEffect(() => {
+    void loadInfluence();
+  }, [loadInfluence]);
 
   // While the zoom shows the system grids, ships in an opened system sit at
   // their system position; otherwise they stay bundled at the system cell.
@@ -269,6 +316,8 @@ export function StarmapPage() {
       api.get<GalaxyField[]>(`/starmap/layers/${selectedLayer.id}/fields`),
       api.get<HyperspaceRoute[]>(`/starmap/layers/${selectedLayer.id}/hyperspace-routes`),
       api.get<StarmapWormholeDto[]>(`/starmap/layers/${selectedLayer.id}/wormholes`),
+      loadContacts(),
+      loadInfluence(),
     ]);
     setFields(loadedFields);
     setHyperspaceRoutes(loadedRoutes);
@@ -319,7 +368,7 @@ export function StarmapPage() {
         </button>
         <button
           className="text-xs text-swu-primary border border-swu-border rounded px-2 py-1 hover:bg-swu-accent/10"
-          onClick={() => canvasRef.current?.fitView()}
+          onClick={() => canvasRef.current?.fitView(fields)}
         >
           Einpassen
         </button>
@@ -344,6 +393,12 @@ export function StarmapPage() {
               selectedField={selectedField}
               selectedSector={selectedSector}
               showGrid={showGrid}
+              showTerritory={overlays.territory}
+              influence={influence}
+              contacts={contacts?.contacts ?? []}
+              showImpassable={overlays.impassable}
+              showFieldEffects={overlays.fieldEffects}
+              showSensorCoverage={overlays.sensorCoverage}
               onInlineSystemsVisibleChange={setInlineSystemsVisible}
               worldOverlay={
                 showShips ? (
@@ -369,6 +424,14 @@ export function StarmapPage() {
               onToggleShips={(value) => {
                 setShowShips(value);
                 if (!value) setSelectedContactKey(null);
+              }}
+              overlays={overlays}
+              onToggleOverlay={(overlay, value) => {
+                setOverlays((current) => {
+                  const next = { ...current, [overlay]: value };
+                  localStorage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify(next));
+                  return next;
+                });
               }}
               // Alliance and partner ships only exist for alliance members.
               allianceShips={

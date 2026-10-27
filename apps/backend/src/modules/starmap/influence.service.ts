@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import type { StarmapInfluenceAreaDto } from '@swuniverse/shared';
+import { Alliance } from '../alliance/entities/alliance.entity';
+import { FactionEntity } from '../faction/entities/faction.entity';
 import { InfluenceArea, InfluenceSourceType } from './entities/influence-area.entity';
 
 export interface InfluenceSource {
@@ -26,6 +29,10 @@ export class InfluenceService {
   constructor(
     @InjectRepository(InfluenceArea)
     private readonly influenceRepo: Repository<InfluenceArea>,
+    @InjectRepository(Alliance)
+    private readonly allianceRepo: Repository<Alliance>,
+    @InjectRepository(FactionEntity)
+    private readonly factionRepo: Repository<FactionEntity>,
   ) {}
 
   async calculateInfluenceForLayer(
@@ -77,7 +84,7 @@ export class InfluenceService {
     maxX: number,
     minY: number,
     maxY: number,
-  ): Promise<FieldInfluence[]> {
+  ): Promise<StarmapInfluenceAreaDto[]> {
     const areas = await this.influenceRepo
       .createQueryBuilder('ia')
       .where('ia."layerId" = :layerId', { layerId })
@@ -85,12 +92,46 @@ export class InfluenceService {
       .andWhere('ia.cy BETWEEN :minY AND :maxY', { minY, maxY })
       .getMany();
 
-    return areas.map(a => ({
-      cx: a.cx,
-      cy: a.cy,
-      sourceType: a.sourceType,
-      sourceId: a.sourceId,
-      strength: a.strength,
+    const allianceIds = [
+      ...new Set(
+        areas
+          .filter((area) => area.sourceType === InfluenceSourceType.ALLIANCE)
+          .map((area) => area.sourceId),
+      ),
+    ];
+    const factionIds = [
+      ...new Set(
+        areas
+          .filter((area) => area.sourceType === InfluenceSourceType.FACTION)
+          .map((area) => area.sourceId),
+      ),
+    ];
+    const [alliances, factions] = await Promise.all([
+      allianceIds.length
+        ? this.allianceRepo.find({ where: { id: In(allianceIds) }, relations: ['faction'] })
+        : [],
+      factionIds.length ? this.factionRepo.findBy({ id: In(factionIds) }) : [],
+    ]);
+    const allianceColors = new Map(
+      alliances.map((alliance) => [
+        alliance.id,
+        alliance.color ?? alliance.faction.colorPrimary,
+      ]),
+    );
+    const factionColors = new Map(
+      factions.map((faction) => [faction.id, faction.colorPrimary]),
+    );
+
+    return areas.map((area) => ({
+      cx: area.cx,
+      cy: area.cy,
+      sourceType: area.sourceType,
+      sourceId: area.sourceId,
+      strength: area.strength,
+      color:
+        area.sourceType === InfluenceSourceType.ALLIANCE
+          ? allianceColors.get(area.sourceId) ?? '#64748b'
+          : factionColors.get(area.sourceId) ?? '#64748b',
     }));
   }
 

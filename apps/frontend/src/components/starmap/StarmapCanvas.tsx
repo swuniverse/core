@@ -10,7 +10,9 @@ import {
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type {
   HyperspaceRouteDto,
+  StarmapContactDto,
   StarmapGalaxyFieldDto,
+  StarmapInfluenceAreaDto,
   StarmapLayerDto,
   StarmapSystemGridDto,
   StarmapSystemListItemDto,
@@ -43,7 +45,7 @@ const AXIS_SIZE = 34;
 export interface StarmapCanvasHandle {
   zoomIn: () => void;
   zoomOut: () => void;
-  fitView: () => void;
+  fitView: (fields?: StarmapGalaxyFieldDto[]) => void;
   openSystem: () => void;
 }
 
@@ -68,6 +70,12 @@ interface StarmapCanvasProps {
   selectedField?: StarmapGalaxyFieldDto | null;
   selectedSector?: { x: number; y: number } | null;
   showGrid?: boolean;
+  showTerritory?: boolean;
+  influence?: StarmapInfluenceAreaDto[];
+  contacts?: StarmapContactDto[];
+  showImpassable?: boolean;
+  showFieldEffects?: boolean;
+  showSensorCoverage?: boolean;
   colonizationHints?: Record<number, ColonizationTargetHint>;
   /**
    * DOM content positioned in world pixels (cell size {@link STARMAP_CELL_SIZE}).
@@ -106,6 +114,12 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       selectedField,
       selectedSector,
       showGrid = true,
+      showTerritory = false,
+      influence = [],
+      contacts = [],
+      showImpassable = false,
+      showFieldEffects = false,
+      showSensorCoverage = false,
       worldOverlay,
       onInlineSystemsVisibleChange,
     },
@@ -121,6 +135,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const gridRef = useRef<Graphics | null>(null);
     const sectorRef = useRef<Graphics | null>(null);
     const selectionRef = useRef<Graphics | null>(null);
+    const mapOverlaysRef = useRef<Graphics | null>(null);
     const inlineSystemsRef = useRef<Container | null>(null);
     const [ready, setReady] = useState(false);
     const stateRef = useRef({
@@ -241,19 +256,88 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       drawOverlay();
     }, [drawOverlay, layer]);
 
-    const fitView = useCallback(() => {
+    const fitView = useCallback((visibleFields?: StarmapGalaxyFieldDto[]) => {
       const app = appRef.current;
       if (!app) return;
+      const extent = { minX: 0, maxX: layer.width, minY: 0, maxY: layer.height };
+      if (visibleFields?.length) {
+        extent.minX = visibleFields[0].cx - 1;
+        extent.maxX = visibleFields[0].cx;
+        extent.minY = visibleFields[0].cy - 1;
+        extent.maxY = visibleFields[0].cy;
+        for (const field of visibleFields.slice(1)) {
+          extent.minX = Math.min(extent.minX, field.cx - 1);
+          extent.maxX = Math.max(extent.maxX, field.cx);
+          extent.minY = Math.min(extent.minY, field.cy - 1);
+          extent.maxY = Math.max(extent.maxY, field.cy);
+        }
+      }
       const state = stateRef.current;
       state.scale = clamp(
-        Math.min((app.screen.width - AXIS_SIZE) / (layer.width * CELL_SIZE), (app.screen.height - AXIS_SIZE) / (layer.height * CELL_SIZE)),
+        Math.min(
+          (app.screen.width - AXIS_SIZE) / ((extent.maxX - extent.minX) * CELL_SIZE),
+          (app.screen.height - AXIS_SIZE) / ((extent.maxY - extent.minY) * CELL_SIZE),
+        ),
         MIN_SCALE,
         MAX_SCALE,
       );
-      state.viewX = 0;
-      state.viewY = 0;
+      state.viewX = extent.minX * CELL_SIZE;
+      state.viewY = extent.minY * CELL_SIZE;
       updateView();
     }, [layer, updateView]);
+
+    const drawMapOverlays = useCallback(() => {
+      const graphics = mapOverlaysRef.current;
+      if (!graphics) return;
+      graphics.clear();
+      const explored = new Set(fields.map((field) => `${field.cx}:${field.cy}`));
+      if (showTerritory) {
+        const strongest = new Map<string, StarmapInfluenceAreaDto>();
+        for (const area of influence) {
+          const key = `${area.cx}:${area.cy}`;
+          if (!explored.has(key) || (strongest.get(key)?.strength ?? -Infinity) >= area.strength) continue;
+          strongest.set(key, area);
+        }
+        for (const area of strongest.values()) {
+          const color = Number.parseInt(area.color.slice(1), 16) || 0x64748b;
+          const x = (area.cx - 1) * CELL_SIZE;
+          const y = (area.cy - 1) * CELL_SIZE;
+          graphics.rect(x, y, CELL_SIZE, CELL_SIZE).fill({ color, alpha: 0.22 });
+          for (const [dx, dy, edge] of [
+            [-1, 0, [x, y, x, y + CELL_SIZE]],
+            [1, 0, [x + CELL_SIZE, y, x + CELL_SIZE, y + CELL_SIZE]],
+            [0, -1, [x, y, x + CELL_SIZE, y]],
+            [0, 1, [x, y + CELL_SIZE, x + CELL_SIZE, y + CELL_SIZE]],
+          ] as const) {
+            const neighbor = strongest.get(`${area.cx + dx}:${area.cy + dy}`);
+            if (neighbor?.sourceType === area.sourceType && neighbor.sourceId === area.sourceId) continue;
+            graphics.moveTo(edge[0], edge[1]).lineTo(edge[2], edge[3]).stroke({ color, width: 1.2, alpha: 0.9 });
+          }
+        }
+      }
+      for (const field of fields) {
+        const x = (field.cx - 1) * CELL_SIZE;
+        const y = (field.cy - 1) * CELL_SIZE;
+        const passable = field.passableOverride ?? field.fieldType.passable;
+        if (showImpassable && !passable) {
+          graphics.rect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4).stroke({ color: 0xef4444, width: 2, alpha: 0.9 });
+          graphics.moveTo(x + 4, y + 4).lineTo(x + CELL_SIZE - 4, y + CELL_SIZE - 4).stroke({ color: 0xef4444, width: 1.5, alpha: 0.75 });
+        }
+        if (showFieldEffects && field.effects?.length) {
+          graphics.circle(x + CELL_SIZE - 7, y + 7, 4).fill({ color: 0xa855f7, alpha: 0.95 });
+        }
+      }
+      if (showSensorCoverage) {
+        for (const contact of contacts) {
+          if (contact.sensorRange == null || contact.location.scope !== 'GALAXY') continue;
+          const centerX = (contact.location.x - 0.5) * CELL_SIZE;
+          const centerY = (contact.location.y - 0.5) * CELL_SIZE;
+          const radius = contact.sensorRange * CELL_SIZE;
+          graphics.circle(centerX, centerY, radius).fill({ color: 0x22d3ee, alpha: 0.08 });
+          graphics.circle(centerX, centerY, radius).stroke({ color: 0x22d3ee, width: 1, alpha: 0.55 });
+        }
+      }
+    }, [contacts, fields, influence, showFieldEffects, showImpassable, showSensorCoverage, showTerritory]);
 
     const drawRoutes = useCallback(() => {
       const graphics = routeRef.current;
@@ -461,6 +545,9 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         app.stage.addChild(galaxy);
         void renderGalaxy(galaxy).then(() => {
           if (abort.signal.aborted) return;
+          const mapOverlays = new Graphics();
+          mapOverlaysRef.current = mapOverlays;
+          galaxy.addChild(mapOverlays);
           const routesLayer = new Graphics();
           routeRef.current = routesLayer;
           galaxy.addChild(routesLayer);
@@ -482,6 +569,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           for (let x = 1; x * layer.sectorSize < layer.width; x++) sector.moveTo(x * layer.sectorSize * CELL_SIZE, 0).lineTo(x * layer.sectorSize * CELL_SIZE, layer.height * CELL_SIZE);
           for (let y = 1; y * layer.sectorSize < layer.height; y++) sector.moveTo(0, y * layer.sectorSize * CELL_SIZE).lineTo(layer.width * CELL_SIZE, y * layer.sectorSize * CELL_SIZE);
           sector.stroke({ color: 0xf59e0b, width: 1, alpha: 0.12 });
+          drawMapOverlays();
           drawRoutes();
           drawSelection();
           renderInlineSystems();
@@ -495,8 +583,9 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         setReady(false);
         void initPromise.then(() => app.destroy(true, { children: true }));
       };
-    }, [drawRoutes, drawSelection, fitView, layer, renderGalaxy]);
+    }, [drawMapOverlays, drawRoutes, drawSelection, fitView, layer, renderGalaxy]);
 
+    useEffect(() => { drawMapOverlays(); }, [drawMapOverlays]);
     useEffect(() => { drawRoutes(); }, [drawRoutes]);
     useEffect(() => { drawSelection(); }, [drawSelection, selectedSystem]);
     useEffect(() => { renderInlineSystems(); }, [renderInlineSystems, openedSystemIds, systemGrids]);
@@ -561,7 +650,10 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         state.hoveredField = field;
         const tooltip = tooltipRef.current;
         if (tooltip && field) {
-          tooltip.textContent = `${field.cx}, ${field.cy}${field.starSystem ? ` · ${field.starSystem.name}` : ''}`;
+          const effects = showFieldEffects && field.effects?.length
+            ? ` · Effekte: ${field.effects.join(', ')}`
+            : '';
+          tooltip.textContent = `${field.cx}, ${field.cy}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${effects}`;
           tooltip.style.display = 'block';
           tooltip.style.left = `${state.mouseX + 12}px`;
           tooltip.style.top = `${state.mouseY + 12}px`;

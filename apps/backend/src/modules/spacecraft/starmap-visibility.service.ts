@@ -13,6 +13,7 @@ import { mayActOnAlliance } from '../alliance/alliance-permissions';
 import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import { SpacecraftService } from './spacecraft.service';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveSpacecraftLocation,
@@ -49,6 +50,7 @@ export class StarmapVisibilityService {
     private readonly relationships: RelationshipResolverService,
     @InjectRepository(Layer)
     private readonly layerRepo: Repository<Layer>,
+    private readonly spacecraftService: Pick<SpacecraftService, 'getSensorRange'>,
   ) {}
 
   /** Starmap contacts of the viewer on one map layer. */
@@ -76,11 +78,18 @@ export class StarmapVisibilityService {
       order: { id: 'ASC' },
     });
 
-    const contacts = ships.flatMap((ship) => {
-      const owner = visibility.get(ship.userId);
-      const contact = owner ? this.toContact(ship, owner, layerId) : null;
-      return contact ? [contact] : [];
-    });
+    const contacts = (
+      await Promise.all(
+        ships.map(async (ship) => {
+          const owner = visibility.get(ship.userId);
+          const contact = owner ? this.toContact(ship, owner, layerId) : null;
+          if (contact && (contact.reason === 'OWN' || contact.reason === 'ALLIANCE')) {
+            contact.sensorRange = await this.spacecraftService.getSensorRange(ship);
+          }
+          return contact;
+        }),
+      )
+    ).filter((contact): contact is StarmapContactDto => contact !== null);
 
     return {
       layerId,

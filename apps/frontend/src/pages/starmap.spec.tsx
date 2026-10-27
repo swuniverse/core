@@ -9,6 +9,7 @@ import {
 import { StarmapPage } from './starmap';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
+const canvasMocks = vi.hoisted(() => ({ fitView: vi.fn() }));
 vi.mock('../services/api', () => ({ api: apiMocks }));
 
 const socketHandlers = vi.hoisted(
@@ -22,21 +23,36 @@ vi.mock('../hooks/use-socket', () => ({
 
 // Pixi cannot render in jsdom; the canvas only has to host the DOM overlay.
 vi.mock('../components/starmap/StarmapCanvas', async () => {
-  const { forwardRef } = await import('react');
+  const { forwardRef, useImperativeHandle } = await import('react');
   return {
     StarmapCanvas: forwardRef<
       unknown,
       {
         worldOverlay?: ReactNode;
         onInlineSystemsVisibleChange?: (visible: boolean) => void;
+        showTerritory?: boolean;
+        showImpassable?: boolean;
+        showFieldEffects?: boolean;
+        showSensorCoverage?: boolean;
       }
     >(function StarmapCanvasMock(
-      { worldOverlay, onInlineSystemsVisibleChange },
+      { worldOverlay, onInlineSystemsVisibleChange, ...props },
       ref,
     ) {
-      void ref;
+      useImperativeHandle(ref, () => ({
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
+        fitView: canvasMocks.fitView,
+        openSystem: vi.fn(),
+      }));
       return (
-        <div data-testid="starmap-canvas">
+        <div
+          data-testid="starmap-canvas"
+          data-territory={String(props.showTerritory)}
+          data-impassable={String(props.showImpassable)}
+          data-effects={String(props.showFieldEffects)}
+          data-sensor-coverage={String(props.showSensorCoverage)}
+        >
           <button
             type="button"
             onClick={() => onInlineSystemsVisibleChange?.(true)}
@@ -203,6 +219,8 @@ describe('StarmapPage URL target', () => {
 describe('StarmapPage ship layer', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
+    canvasMocks.fitView.mockReset();
+    localStorage.clear();
     socketHandlers.clear();
     viewerAlliance = { id: 5, name: 'Rote Schwadron', color: '#ff8800' };
     contactsByLayer = {
@@ -249,6 +267,48 @@ describe('StarmapPage ship layer', () => {
       ],
     };
     mockApi();
+  });
+
+  it('toggles map overlays, persists them and fits the explored extent', async () => {
+    renderPage();
+    const canvas = await screen.findByTestId('starmap-canvas');
+
+    for (const [label, attribute] of [
+      ['Territorium', 'data-territory'],
+      ['Unpassierbar', 'data-impassable'],
+      ['Feldeffekte', 'data-effects'],
+      ['Sensorabdeckung', 'data-sensor-coverage'],
+    ] as const) {
+      const toggle = screen.getByRole('checkbox', { name: label });
+      expect((toggle as HTMLInputElement).checked).toBe(false);
+      fireEvent.click(toggle);
+      expect(canvas.getAttribute(attribute)).toBe('true');
+    }
+
+    expect(JSON.parse(localStorage.getItem('swu-starmap-overlays') ?? '{}')).toEqual({
+      territory: true,
+      impassable: true,
+      fieldEffects: true,
+      sensorCoverage: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Einpassen' }));
+    expect(canvasMocks.fitView).toHaveBeenCalledWith(layerThreeFields);
+  });
+
+  it('reloads fields, contacts and visible-sector overlays with Aktualisieren', async () => {
+    renderPage();
+    await screen.findByTestId('starmap-canvas');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Territorium' }));
+    const before = apiMocks.get.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }));
+
+    await act(async () => Promise.resolve());
+    const refreshed = apiMocks.get.mock.calls.slice(before).map(([path]) => path);
+    expect(refreshed).toContain('/starmap/layers/3/fields');
+    expect(refreshed).toContain('/spacecraft/starmap-contacts?layerId=3');
+    expect(refreshed.some((path) => String(path).includes('/influence/'))).toBe(true);
   });
 
   it('loads the contacts of the displayed layer and draws a marker per cell', async () => {

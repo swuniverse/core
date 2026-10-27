@@ -139,6 +139,7 @@ describe('Siedler relationships reach the game consumers (Postgres)', () => {
       dataSource.getRepository(Spacecraft),
       resolver(),
       dataSource.getRepository(Layer),
+      { getSensorRange: jest.fn().mockResolvedValue(4) },
     );
   }
 

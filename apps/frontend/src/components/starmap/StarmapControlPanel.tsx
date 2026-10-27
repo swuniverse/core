@@ -1,11 +1,16 @@
 import type { StarmapGalaxyFieldDto, StarmapLayerDto, StarmapSystemListItemDto } from '@swuniverse/shared';
 
+export type StarmapOverlayKey = 'territory' | 'impassable' | 'fieldEffects' | 'sensorCoverage';
+export type StarmapOverlays = Record<StarmapOverlayKey, boolean>;
+
 interface StarmapControlPanelProps {
   layer: Pick<StarmapLayerDto, 'width' | 'height' | 'sectorSize'>;
   showGrid: boolean;
   onToggleGrid: (value: boolean) => void;
   showShips: boolean;
   onToggleShips: (value: boolean) => void;
+  overlays: StarmapOverlays;
+  onToggleOverlay: (overlay: StarmapOverlayKey, value: boolean) => void;
   /** Switch for alliance ships; omitted when the viewer has no alliance. */
   allianceShips?: { visible: boolean; onToggle: (value: boolean) => void };
   /** Switch for partner ships; omitted when the viewer has no alliance. */
@@ -33,6 +38,8 @@ export function StarmapControlPanel({
   onToggleGrid,
   showShips,
   onToggleShips,
+  overlays,
+  onToggleOverlay,
   allianceShips,
   partnerShips,
   selectedSector,
@@ -74,6 +81,21 @@ export function StarmapControlPanel({
         <input type="checkbox" checked={showShips} onChange={(event) => onToggleShips(event.target.checked)} />
         Schiffe
       </label>
+      {([
+        ['territory', 'Territorium'],
+        ['impassable', 'Unpassierbar'],
+        ['fieldEffects', 'Feldeffekte'],
+        ['sensorCoverage', 'Sensorabdeckung'],
+      ] as const).map(([overlay, label]) => (
+        <label key={overlay} className="flex items-center gap-2 text-xs text-swu-muted">
+          <input
+            type="checkbox"
+            checked={overlays[overlay]}
+            onChange={(event) => onToggleOverlay(overlay, event.target.checked)}
+          />
+          {label}
+        </label>
+      ))}
       {allianceShips && (
         <label className="flex items-center gap-2 pl-4 text-xs text-swu-muted">
           <input

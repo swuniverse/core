@@ -513,6 +513,8 @@ export interface StarmapInfluenceAreaDto {
   sourceType: StarmapInfluenceSourceType;
   sourceId: number;
   strength: number;
+  /** Current display color of the owning alliance or faction. */
+  color: string;
 }
 
 export interface StarmapWormholeDto {

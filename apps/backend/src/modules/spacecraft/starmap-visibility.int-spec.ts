@@ -174,6 +174,7 @@ describe('starmap contacts (Postgres)', () => {
       dataSource.getRepository(Spacecraft),
       new RelationshipResolverService(store, new NoPersonalContactStatusPort()),
       dataSource.getRepository(Layer),
+      { getSensorRange: jest.fn().mockResolvedValue(4) },
     );
   }
 

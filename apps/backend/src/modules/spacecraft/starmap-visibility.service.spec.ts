@@ -34,6 +34,9 @@ const STARMAP_LAYER_ID = 3;
 
 /** Layer repository used for starmap contacts. */
 const starmapLayers = () => layerRepository([{ id: STARMAP_LAYER_ID }]);
+const sensors = () => ({
+  getSensorRange: jest.fn().mockResolvedValue(4),
+});
 
 const galaxyLocation = (id: number, layerId: number, x: number, y: number) => ({
   id,
@@ -106,6 +109,7 @@ describe('StarmapVisibilityService', () => {
         new NoPersonalContactStatusPort(),
       ),
       starmapLayers(),
+      sensors(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([
@@ -164,6 +168,7 @@ describe('StarmapVisibilityService', () => {
         new NoPersonalContactStatusPort(),
       ),
       starmapLayers(),
+      sensors(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([
@@ -241,6 +246,7 @@ describe('StarmapVisibilityService', () => {
         new NoPersonalContactStatusPort(),
       ),
       starmapLayers(),
+      sensors(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
@@ -264,6 +270,7 @@ describe('StarmapVisibilityService', () => {
         new NoPersonalContactStatusPort(),
       ),
       starmapLayers(),
+      sensors(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
@@ -292,6 +299,7 @@ describe('StarmapVisibilityService', () => {
       ]),
       relationships,
       starmapLayers(),
+      sensors(),
     );
 
     await expect(service.listSharedLivePositions(1)).resolves.toEqual([]);
@@ -325,6 +333,7 @@ describe('StarmapVisibilityService.listContacts', () => {
         new NoPersonalContactStatusPort(),
       ),
       starmapLayers(),
+      sensors(),
     );
   }
 
@@ -349,6 +358,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           },
           galaxyCell: { layerId: 3, x: 4, y: 5 },
           reason: 'OWN',
+          sensorRange: 4,
           management: {
             status: 'IDLE',
             alertState: 'YELLOW',
@@ -492,6 +502,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           new NoPersonalContactStatusPort(),
         ),
         starmapLayers(),
+        sensors(),
       );
 
     const contactIds = async (service: StarmapVisibilityService, viewer = 1) =>
@@ -521,6 +532,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           },
           galaxyCell: { layerId: STARMAP_LAYER_ID, x: 20, y: 21 },
           reason: 'ALLIANCE',
+          sensorRange: 4,
           stance: 'FRIEND',
           alliance: { id: alliance.id, name: 'Viewers', color: '#ff8800' },
           // The viewer presides the alliance, see 'management details'.
@@ -668,6 +680,7 @@ describe('StarmapVisibilityService.listContacts', () => {
             'ownerId',
             'ownerName',
             'reason',
+            'sensorRange',
             'shipClassId',
             'spacecraftId',
             'spacecraftName',
@@ -921,6 +934,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           shipRepository(partnerFleet()),
           relationships,
           starmapLayers(),
+          sensors(),
         );
 
         await service.listContacts(1, STARMAP_LAYER_ID);
@@ -1069,6 +1083,7 @@ describe('StarmapVisibilityService.listContacts', () => {
           shipRepository(partnerFleet()),
           relationships,
           starmapLayers(),
+          sensors(),
         );
 
         await expect(contactIds(service)).resolves.toEqual([

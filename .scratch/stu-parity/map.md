@@ -123,6 +123,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-K4 – Persistente Sternenkarten-Overlays für Territorium, Unpassierbarkeit, Feldeffekte und berechtigte Sensorabdeckung umgesetzt – siehe Feature-Commit
 - tmw-K1a – Erweiterbarer Flugfolgen-Kern, vollständiger Feldeffekt-Katalog und Zielfeldwarnungen umgesetzt – siehe Feature-Commit
 - sh-AP-19b – Responsives Tutorial-PADD mit Fortschritt, Zielhervorhebung, Aktions-Events und Einstellungen – siehe Feature-Commit
 - col-A1a – Werftqueues reagieren zentral auf Gebäudestatus und Abriss – siehe Feature-Commit

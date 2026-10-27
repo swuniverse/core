@@ -406,6 +406,8 @@ export interface StarmapContactDto {
   location: SpaceLocationDto;
   galaxyCell: StarmapContactGalaxyCellDto;
   reason: StarmapContactReason;
+  /** Operational long-range sensor radius; omitted without map-sharing permission. */
+  sensorRange?: number;
   /** Omitted for the viewer's own ships. */
   stance?: StarmapContactStance;
   /** Present for contacts with reason ALLIANCE. */
