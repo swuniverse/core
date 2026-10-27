@@ -55,6 +55,19 @@ describe('email verification behavior', () => {
     expect(mail.sendWelcomeMail).toHaveBeenCalledWith(user.email, user.username);
   });
 
+  it('normalizes a replacement email and checks duplicates case-insensitively', async () => {
+    const { service, user, userRepo } = setup();
+
+    await service.updateVerificationEmail(user.id, {
+      email: '  Leia.New@Example.Test  ',
+    });
+
+    expect(userRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.any(Object) }),
+    );
+    expect(user.email).toBe('leia.new@example.test');
+  });
+
   it('rejects an invalid or expired token', async () => {
     const { service, tokenService } = setup();
     tokenService.consume.mockResolvedValueOnce(null);

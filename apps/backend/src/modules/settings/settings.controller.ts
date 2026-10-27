@@ -11,6 +11,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { SettingsService } from './settings.service';
+import { ChangeEmailRequestDto } from './dto/change-email.dto';
 
 @Controller('user')
 @RequiresGameAccess()
@@ -59,7 +60,7 @@ export class SettingsController {
   @Patch('email')
   changeEmail(
     @Request() req: { user: { sub: number } },
-    @Body() body: { password: string; newEmail: string },
+    @Body() body: ChangeEmailRequestDto,
   ) {
     return this.settingsService.changeEmail(
       req.user.sub,

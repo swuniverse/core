@@ -7,6 +7,6 @@ export class VerifyEmailRequestDto {
 
 export class UpdateVerificationEmailRequestDto {
   @IsEmail()
-  @MaxLength(255)
+  @MaxLength(254)
   email: string;
 }

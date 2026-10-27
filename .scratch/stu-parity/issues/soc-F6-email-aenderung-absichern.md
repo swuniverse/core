@@ -1,6 +1,6 @@
 # E-Mail-Änderung absichern
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -21,10 +21,12 @@
 
 ## Akzeptanzkriterien
 
-- [ ] Neue E-Mail wird getrimmt und kleingeschrieben gespeichert; ungültiges Format (Validator wie `class-validator` `IsEmail`, max. 254 Zeichen) liefert 400 „Die E-Mail-Adresse ist ungültig“.
-- [ ] Eindeutigkeit wird case-insensitiv geprüft („Die E-Mail-Adresse wird bereits verwendet“).
-- [ ] Ein injizierbarer Port `EmailBlocklistPort.isBlocked(email)` wird abgefragt (Default-Implementierung: nie gesperrt); gesperrt liefert 400 „Die E-Mail-Adresse ist blockiert“.
-- [ ] Bestehende Login-/Registrierungsvergleiche funktionieren mit gemischt geschriebenen Altadressen weiter (case-insensitiver Vergleich oder Migration mit Kollisionsprüfung).
-- [ ] Backend-Tests: Format, Normalisierung, Duplikat in anderer Schreibweise, gesperrt via Port-Mock.
+- [x] Neue E-Mail wird getrimmt und kleingeschrieben gespeichert; ungültiges Format (Validator wie `class-validator` `IsEmail`, max. 254 Zeichen) liefert 400 „Die E-Mail-Adresse ist ungültig“.
+- [x] Eindeutigkeit wird case-insensitiv geprüft („Die E-Mail-Adresse wird bereits verwendet“).
+- [x] Ein injizierbarer Port `EmailBlocklistPort.isBlocked(email)` wird abgefragt (Default-Implementierung: nie gesperrt); gesperrt liefert 400 „Die E-Mail-Adresse ist blockiert“.
+- [x] Bestehende Login-/Registrierungsvergleiche funktionieren mit gemischt geschriebenen Altadressen weiter (case-insensitiver Vergleich oder Migration mit Kollisionsprüfung).
+- [x] Backend-Tests: Format, Normalisierung, Duplikat in anderer Schreibweise, gesperrt via Port-Mock.
 
 ## Comments
+
+E-Mail-Änderung in `settings` validiert und normalisiert, mit case-insensitiver Eindeutigkeitsprüfung und injizierbarem Default-Allow-Blocklist-Port abgesichert. Registrierung und Verifikationsadressänderung verwenden dieselbe Normalisierung und case-insensitive Duplikatsuche; Backend-Tests decken die neuen Regeln ab. Die persistente Sperrliste bleibt wie geplant Folgearbeit von sh-AP-08.

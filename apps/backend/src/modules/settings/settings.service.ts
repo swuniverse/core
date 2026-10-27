@@ -3,12 +3,18 @@ import {
   BadRequestException,
   ForbiddenException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Raw, Repository } from 'typeorm';
+import { isEmail } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import { User } from '../auth/user.entity';
 import { UserSetting } from './entities/user-setting.entity';
+import {
+  EMAIL_BLOCKLIST,
+  type EmailBlocklistPort,
+} from './email-blocklist.port';
 
 const SETTING_DEFAULTS: Record<string, string> = {
   email_notification: '1',
@@ -42,6 +48,8 @@ export class SettingsService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserSetting)
     private readonly settingRepo: Repository<UserSetting>,
+    @Inject(EMAIL_BLOCKLIST)
+    private readonly emailBlocklist: EmailBlocklistPort,
   ) {}
 
   async getSettings(userId: number): Promise<Record<string, string>> {
@@ -131,12 +139,24 @@ export class SettingsService {
       throw new BadRequestException('Password is incorrect');
     }
 
-    const existing = await this.userRepo.findOneBy({ email: newEmail });
-    if (existing && existing.id !== userId) {
-      throw new BadRequestException('Email already in use');
+    const email = typeof newEmail === 'string' ? newEmail.trim().toLowerCase() : '';
+    if (email.length > 254 || !isEmail(email)) {
+      throw new BadRequestException('Die E-Mail-Adresse ist ungültig');
     }
 
-    user.email = newEmail;
+    const existing = await this.userRepo.findOne({
+      where: {
+        email: Raw((column) => `LOWER(${column}) = :email`, { email }),
+      },
+    });
+    if (existing && existing.id !== userId) {
+      throw new BadRequestException('Die E-Mail-Adresse wird bereits verwendet');
+    }
+    if (await this.emailBlocklist.isBlocked(email)) {
+      throw new BadRequestException('Die E-Mail-Adresse ist blockiert');
+    }
+
+    user.email = email;
     await this.userRepo.save(user);
   }
 

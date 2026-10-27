@@ -14,6 +14,7 @@ export class RegisterRequestDto {
   username: string;
 
   @IsEmail()
+  @MaxLength(254)
   email: string;
 
   @IsString()

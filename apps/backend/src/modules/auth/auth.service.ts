@@ -152,7 +152,7 @@ export class AuthService {
     dto: UpdateVerificationEmailDto,
   ): Promise<AuthMessageDto> {
     this.assertEmailVerificationEnabled();
-    const email = dto.email.trim();
+    const email = dto.email.trim().toLowerCase();
     const user = await this.requireUnverifiedUser(userId);
     const duplicate = await this.userRepo.findOne({
       where: { email: Raw((column) => `LOWER(${column}) = LOWER(:email)`, { email }) },
@@ -278,6 +278,7 @@ export class AuthService {
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
     const passwordHash = await bcrypt.hash(dto.password, 12);
+    const email = dto.email.trim().toLowerCase();
 
     const user = await this.dataSource.transaction(async (manager) => {
       await this.acquireRegistrationLock(manager);
@@ -294,7 +295,9 @@ export class AuthService {
               username: dto.username,
             }),
           },
-          { email: dto.email },
+          {
+            email: Raw((col) => `LOWER(${col}) = :email`, { email }),
+          },
         ],
       });
       if (exists) {
@@ -339,7 +342,7 @@ export class AuthService {
 
       const createdUser = userRepo.create({
         username: dto.username,
-        email: dto.email,
+        email,
         passwordHash,
         faction: faction.key as any,
         factionId: faction.id,
