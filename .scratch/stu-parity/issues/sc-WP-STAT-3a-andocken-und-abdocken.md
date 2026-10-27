@@ -1,6 +1,6 @@
 # Andocken und Abdocken an Stationen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -34,3 +34,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-10-23: Umsetzung nach zwei Prüfversuchen abgebrochen. `npx nx affected -t lint typecheck test --base=HEAD` und der Fallback `npm run typecheck` scheitern reproduzierbar an bestehenden TypeScript-Buildartefaktfehlern (`TS6305`, Backend-`dist/*.d.ts` wurde nicht aus den Quelldateien gebaut), obwohl die betroffenen Tests (Backend 14/14, Frontend 14/14) und `npx nx run-many --targets=build` grün sind. Produktcode wurde gemäß Abbruchregel verworfen. Bitte den Backend-Typecheck-Buildgraph reparieren oder bestätigen, dass diese bekannte Infrastrukturabweichung für Ralph-Läufe akzeptiert wird.
+- 2026-10-27: Erneuter Durchlauf nach zwei ernsthaften Prüfversuchen abgebrochen. Die fokussierten Docking-Tests waren grün (Backend 14/14, Frontend 6/6) und `backend:build` war grün; die vorgeschriebene Gesamtsuite bleibt jedoch rot: `backend:typecheck` scheitert weiterhin massenhaft mit bestehenden `TS6305`-Deklarationsartefaktfehlern (auch nach Backend-Build), außerdem scheitert ein bestehender Frontend-Test in `research.spec.tsx` (fehlender Button `/eine von/`). Produktcode wurde gemäß Abbruchregel verworfen. Bitte Buildgraph und bestehenden Research-Test reparieren oder diese bekannten Basisfehler ausdrücklich für Ralph-Läufe ausnehmen.
