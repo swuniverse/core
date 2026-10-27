@@ -1,6 +1,6 @@
 # Lesebestätigung im Postausgang
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
 **Blocked by:** —

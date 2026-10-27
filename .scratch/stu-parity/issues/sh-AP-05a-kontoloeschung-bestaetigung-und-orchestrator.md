@@ -1,9 +1,9 @@
 # Kontolöschung: Bestätigung, Sperre und Lösch-Orchestrator
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** sh-AP-01, sh-AP-09
+**Blocked by:** —
 
 ## Ziel
 

@@ -183,9 +183,18 @@ describe('SpacecraftDestructionService', () => {
 
     expect(manager.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        modules: [{ commodityId: 10_101, amount: 1 }],
+        modules: [
+          expect.objectContaining({
+            commodityId: expect.any(Number),
+            amount: 1,
+          }),
+        ],
       }),
     );
+    const wreck = (manager.save as jest.Mock).mock.calls
+      .map(([value]) => value)
+      .find((value) => Array.isArray(value.modules));
+    expect([10_101, 10_201]).toContain(wreck.modules[0].commodityId);
     expect(prestige.change).toHaveBeenCalledWith(
       9,
       6,

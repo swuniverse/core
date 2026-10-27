@@ -1,9 +1,9 @@
 # Lager-Hover am Schiffbild in der Schiffsliste
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** sc-WP-UI-1a, sh-AP-11
+**Blocked by:** —
 
 ## Ziel
 

@@ -1,9 +1,9 @@
 # Lesende Handelsposten-API
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P1
 **Size:** S
-**Blocked by:** tmw-T1a, tmw-T1b
+**Blocked by:** —
 
 ## Ziel
 Autorisierte lesende Sichten für Posten, Konten und Schiffe am Ort.

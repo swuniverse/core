@@ -1,9 +1,9 @@
 # Andocken und Abdocken an Stationen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** sc-WP-STAT-2
+**Blocked by:** —
 
 ## Ziel
 

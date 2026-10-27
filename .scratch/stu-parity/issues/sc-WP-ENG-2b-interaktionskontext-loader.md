@@ -1,9 +1,9 @@
 # Dünner NestJS-Loader für Interaktionskontext
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P1
 **Size:** S
-**Blocked by:** sc-WP-ENG-2a
+**Blocked by:** —
 
 ## Ziel
 
