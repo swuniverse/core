@@ -1,6 +1,6 @@
 # Lesende Handelsseite und Warenübersicht-Integration
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** tmw-T1c, tmw-D1
