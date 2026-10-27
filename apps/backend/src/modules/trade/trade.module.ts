@@ -10,6 +10,10 @@ import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { TradeStorageService } from './trade-storage.service';
 import { TradePostSeedService } from './trade-post-seed.service';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { User } from '../auth/user.entity';
+import { TradeController } from './trade.controller';
+import { TradeQueryService } from './trade-query.service';
 
 @Module({
   imports: [
@@ -18,13 +22,16 @@ import { TradePostSeedService } from './trade-post-seed.service';
       TradePost,
       GalaxyField,
       SpaceLocation,
+      Spacecraft,
+      User,
       TradeAccountStorage,
       TradeOffer,
       TradeTransfer,
       TradeTransaction,
     ]),
   ],
-  providers: [TradeStorageService, TradePostSeedService],
-  exports: [TradeStorageService, TypeOrmModule],
+  controllers: [TradeController],
+  providers: [TradeStorageService, TradePostSeedService, TradeQueryService],
+  exports: [TradeStorageService, TradeQueryService, TypeOrmModule],
 })
 export class TradeModule {}
