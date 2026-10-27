@@ -34,4 +34,4 @@ SWU wählt diese Abweichung bewusst, damit jeder Messpunkt einen tatsächlichen 
 - Nicht-Laborschiffe desselben Spielers sehen im System den gemeinsamen Status schreibgeschützt; außerhalb des Systems sehen sie keinen fremden Systemplan.
 - Sensor- oder Laborverlust pausiert die Messpunktphase nur; bereits erreichte Punkte bleiben bestehen.
 - Nach einer erfolgreichen Finalisierung bleibt das Astrometrie-Labor aktiv, bis es manuell oder durch die bestehende Energie-/Systemlogik deaktiviert wird.
-- Die kanonische STU-Belohnung von Crew-Erfahrung wird nicht umgesetzt, weil SWU keine Crew-XP-Infrastruktur hat. Diese offene STU-Paritätslücke ist in `CONTEXT.md` vermerkt.
+- Die kanonische STU-Belohnung von Crew-Expertise wird über die zentrale Crew-Enhancement-Schnittstelle vergeben: Messpunkte und erfolgreiche Finalisierung erhöhen Navigation und Wissenschaft.

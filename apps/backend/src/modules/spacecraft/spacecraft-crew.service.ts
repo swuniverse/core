@@ -4,13 +4,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import type { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { CrewSkill } from './entities/crew-skill.entity';
+import {
+  CrewRank,
+  crewRankDefinition,
+  nextPromotableRank,
+} from './crew-expertise';
 
 @Injectable()
 export class SpacecraftCrewService {
@@ -31,6 +37,8 @@ export class SpacecraftCrewService {
     private readonly crewRepo: Repository<Crew>,
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
+    @InjectRepository(CrewSkill)
+    private readonly crewSkillRepo: Repository<CrewSkill>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
     private readonly gameData: GameDataService,
@@ -64,14 +72,37 @@ export class SpacecraftCrewService {
       }),
       this.getPositionTargets(ship),
     ]);
-    const member = (assignment: CrewAssignment) => ({
-      id: assignment.crewId,
-      name: assignment.crew.name,
-      type: assignment.crew.type,
-      gender: assignment.crew.gender,
-      originColony: null,
-      position: assignment.slot,
+    const skills = await this.crewSkillRepo.find({
+      where: { crewId: In(assignments.map((assignment) => assignment.crewId)) },
     });
+    for (const assignment of assignments) {
+      assignment.crew.skills = skills.filter((skill) => skill.crewId === assignment.crewId);
+    }
+    const member = (assignment: CrewAssignment) => {
+      const rank = assignment.crew.rank ?? CrewRank.CADET;
+      const expertise = (assignment.crew.skills ?? []).map((skill) => ({
+        position: skill.position,
+        amount: skill.expertise,
+      }));
+      const promotion = nextPromotableRank(
+        rank,
+        Math.max(0, ...expertise.map((skill) => skill.amount)),
+      );
+      return {
+        id: assignment.crewId,
+        name: assignment.crew.name,
+        type: assignment.crew.type,
+        gender: assignment.crew.gender,
+        originColony: null,
+        position: assignment.slot,
+        rank,
+        rankLabel: crewRankDefinition(rank).label,
+        expertise,
+        promotion: promotion
+          ? { rank: promotion.rank, label: promotion.label }
+          : null,
+      };
+    };
     return {
       positions: SpacecraftCrewService.positionOrder.map((slot) => ({
         slot,

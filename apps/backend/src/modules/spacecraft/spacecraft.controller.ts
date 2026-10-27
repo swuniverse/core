@@ -42,6 +42,7 @@ import { SpacecraftCommunicationService } from './spacecraft-communication.servi
 import { SpacecraftEngineeringService } from './spacecraft-engineering.service';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { CrewEnhancementService } from './crew-enhancement.service';
 import { CrewType } from '../colony/entities/crew.entity';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
@@ -331,6 +332,9 @@ export class SpacecraftController {
     private readonly destructionService: SpacecraftDestructionService,
     private readonly starmapVisibilityService: StarmapVisibilityService,
     private readonly crewService: SpacecraftCrewService,
+    private readonly crewEnhancementService: CrewEnhancementService = {
+      promote: async () => undefined,
+    } as unknown as CrewEnhancementService,
     private readonly repairService: SpacecraftRepairService = {
       getOptions: async () => ({
         targets: [],
@@ -626,6 +630,16 @@ export class SpacecraftController {
     @Body('slot') slot: CrewType | null,
   ) {
     return this.crewService.assignSlot(id, crewId, req.user.sub, slot);
+  }
+
+  @Post(':id/crew/:crewId/promote')
+  async promoteCrewMember(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('crewId', ParseIntPipe) crewId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    await this.crewEnhancementService.promote(req.user.sub, crewId);
+    return this.crewService.getCrewManagement(id, req.user.sub);
   }
 
   @Patch(':id/crew/:crewId/name')

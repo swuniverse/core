@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ShipOperationsPanel } from './ShipOperationsPanel';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
 vi.mock('../../services/api', () => ({ api: apiMocks }));
 
 const details = {
@@ -41,6 +41,7 @@ const details = {
 describe('ShipOperationsPanel', () => {
   beforeEach(() => {
     apiMocks.get.mockReset();
+    apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
   });
 
@@ -103,6 +104,10 @@ describe('ShipOperationsPanel', () => {
               gender: 'FEMALE',
               originColony: { id: 8, name: 'Alderaan' },
               position: 'CAPTAIN',
+              rank: 'LIEUTENANT_COMMANDER',
+              rankLabel: 'Oberleutnant',
+              expertise: [{ position: 'CAPTAIN', amount: 10000 }],
+              promotion: { rank: 'COMMANDER', label: 'Commander' },
             },
           ],
         },
@@ -126,6 +131,9 @@ describe('ShipOperationsPanel', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Crew verwalten' }));
     expect(await screen.findByText(/Alderaan/)).toBeTruthy();
+    expect(screen.getByText(/Oberleutnant/)).toBeTruthy();
+    expect(screen.getByText(/10.000 Expertise/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Leia zum Commander befördern' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Position für Leia'), {
       target: { value: 'COMMAND' },
     });

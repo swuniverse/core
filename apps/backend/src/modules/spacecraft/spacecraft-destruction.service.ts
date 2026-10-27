@@ -24,6 +24,8 @@ import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { PrestigeService } from '../prestige/prestige.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { User } from '../auth/user.entity';
+import { CrewEnhancementService } from './crew-enhancement.service';
+import { CrewEnhancementEvent } from './crew-expertise';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -40,6 +42,9 @@ export class SpacecraftDestructionService {
     private readonly gameEvents: GameEventService,
     private readonly prestige: PrestigeService,
     private readonly gameData: GameDataService,
+    private readonly crewEnhancement: CrewEnhancementService = {
+      enhanceSpacecraft: async () => undefined,
+    } as unknown as CrewEnhancementService,
   ) {}
 
   async selfDestruct(
@@ -138,6 +143,19 @@ export class SpacecraftDestructionService {
           ? null
           : await manager.findOne(User, { where: { id: destroyerUserId } });
       await this.finalizeInManager(manager, ship, 'COMBAT');
+      if (destroyerUserId != null) {
+        const destroyerShip = await manager.findOne(Spacecraft, {
+          where: { userId: destroyerUserId },
+          order: { id: 'ASC' },
+        });
+        if (destroyerShip) {
+          await this.crewEnhancement.enhanceSpacecraft(
+            destroyerShip.id,
+            CrewEnhancementEvent.SPACECRAFT_DESTRUCTION,
+            manager,
+          );
+        }
+      }
       if (destroyerUserId != null && ship.shipClass.prestige !== 0) {
         await this.prestige.change(
           destroyerUserId,

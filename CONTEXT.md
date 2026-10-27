@@ -222,6 +222,12 @@ _Avoid_: Hyperraumsprung (für normalen Galaxieflug), zeitbasierter Hyperraumspr
 **Haupttick**:
 Der stündliche Spieltakt, in dem das Universum fortgeschrieben wird. Er ist der Messzeitpunkt jedes **Snapshots**.
 
+**Crew-Expertise**:
+Die dauerhafte Erfahrung eines individuellen Crewmitglieds je Schiffsposition. Messpunkte, Kartographieabschluss, erfolgreiche Zerstörung und abgeschlossene Reparatur erhöhen die passende Expertise; Zuweisungen zwischen Kolonie, Schiff und später Rettungskapsel verändern sie nicht.
+
+**Crewrang**:
+Die persönliche Rangstufe eines Crewmitglieds. Kadett, Crewmitglied, Fähnrich, Unterleutnant, Leutnant und Oberleutnant folgen automatisch der höchsten Expertise; Commander, Captain, Commodore und Admiral erfordern eine ausdrückliche Beförderung und unterliegen Spielerlimits.
+
 **Statistik**:
 Der Zeitverlauf einer Kennzahl des gesamten Universums, etwa Spielerzahl oder Schiffsanzahl, in der Datenbank für alle angemeldeten Spieler sichtbar. Sie enthält nur Aggregate, keine Einzeldaten, und beginnt ab ihrer Einführung ohne zurückgerechnete Historie.
 _Avoid_: Highscore (das ist eine Rangliste einzelner Spieler)

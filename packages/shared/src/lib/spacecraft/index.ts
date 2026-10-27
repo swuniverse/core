@@ -97,6 +97,10 @@ export interface SpacecraftCrewManagementMemberDto {
   gender: 'MALE' | 'FEMALE' | 'DIVERSE';
   originColony: { id: number; name: string } | null;
   position: SpacecraftCrewPosition | null;
+  rank: string;
+  rankLabel: string;
+  expertise: Array<{ position: SpacecraftCrewPosition; amount: number }>;
+  promotion: { rank: string; label: string } | null;
 }
 
 export interface SpacecraftCrewManagementDto {

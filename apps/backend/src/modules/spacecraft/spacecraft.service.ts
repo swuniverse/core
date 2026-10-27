@@ -89,6 +89,8 @@ import { StationConstructionService } from './station-construction.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
+import { CrewEnhancementService } from './crew-enhancement.service';
+import { CrewEnhancementEvent } from './crew-expertise';
 
 @Injectable()
 export class SpacecraftService {
@@ -132,6 +134,9 @@ export class SpacecraftService {
     private readonly messagingService: MessagingService,
     private readonly prestigeService: PrestigeService,
     private readonly statisticsService: StatisticsService,
+    private readonly crewEnhancementService: CrewEnhancementService = {
+      enhanceSpacecraft: async () => undefined,
+    } as unknown as CrewEnhancementService,
     private readonly repairService: SpacecraftRepairService = {
       cancelForFlight: async () => undefined,
       processTick: async () => undefined,
@@ -1878,6 +1883,10 @@ export class SpacecraftService {
     );
     if (!result.claimed) return;
 
+    await this.crewEnhancementService.enhanceSpacecraft(
+      ship.id,
+      CrewEnhancementEvent.REACH_ASTRO_WAYPOINT,
+    );
     await this.prestigeService.change(
       ship.userId,
       1,
@@ -3812,6 +3821,10 @@ export class SpacecraftService {
       const finalization =
         await this.cartographyPlanService.progressFinalization(ship.id);
       if (finalization.completed) {
+        await this.crewEnhancementService.enhanceSpacecraft(
+          ship.id,
+          CrewEnhancementEvent.FINISH_ASTRO_MAPPING,
+        );
         await this.prestigeService.change(
           finalization.userId!,
           10,

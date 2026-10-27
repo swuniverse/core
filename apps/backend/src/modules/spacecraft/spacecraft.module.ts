@@ -64,6 +64,8 @@ import { FlightSignatureService } from './flight-signature.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { StationConstructionService } from './station-construction.service';
 import { InteractionContextService } from './interaction-context.service';
+import { CrewSkill } from './entities/crew-skill.entity';
+import { CrewEnhancementService } from './crew-enhancement.service';
 
 @Module({
   imports: [
@@ -96,6 +98,7 @@ import { InteractionContextService } from './interaction-context.service';
       ColonyStorage,
       CrewAssignment,
       Crew,
+      CrewSkill,
     ]),
     forwardRef(() => StarmapModule),
     ColonyModule,
@@ -122,6 +125,7 @@ import { InteractionContextService } from './interaction-context.service';
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    CrewEnhancementService,
     SpacecraftTorpedoService,
     SpacecraftRuntimeStateService,
     SpacecraftResourceFlowService,
@@ -144,6 +148,7 @@ import { InteractionContextService } from './interaction-context.service';
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    CrewEnhancementService,
     SpacecraftTorpedoService,
     SpacecraftRuntimeStateService,
     SpacecraftResourceFlowService,

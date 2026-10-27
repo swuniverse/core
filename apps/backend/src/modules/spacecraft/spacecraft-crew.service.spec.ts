@@ -26,6 +26,7 @@ function createService() {
     findOne: jest.fn(),
     save: jest.fn(async (value) => value),
   };
+  const crewSkillRepo = { find: jest.fn(async () => []) };
   const shipClassRepo = { findOneBy: jest.fn() };
   const gameData: {
     getAllFabricationItems: jest.Mock;
@@ -38,6 +39,7 @@ function createService() {
     crewAssignmentRepo as any,
     crewRepo as any,
     shipRepo as any,
+    crewSkillRepo as any,
     shipClassRepo as any,
     gameData as any,
   );
@@ -46,6 +48,7 @@ function createService() {
     crewAssignmentRepo,
     crewRepo,
     shipRepo,
+    crewSkillRepo,
     shipClassRepo,
     gameData,
   };
@@ -235,6 +238,43 @@ describe('SpacecraftCrewService', () => {
         expect.objectContaining({ name: 'Rogue 1' }),
         expect.objectContaining({ name: 'Rogue 2' }),
       ]),
+    );
+  });
+
+  it('returns expertise, automatic rank and promotion eligibility for crew management', async () => {
+    const { service, crewAssignmentRepo, crewSkillRepo, shipRepo, shipClassRepo } = createService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 10,
+      userId: 7,
+      shipClassId: 3,
+      status: 'IDLE',
+    });
+    shipClassRepo.findOneBy.mockResolvedValue({ id: 3, key: 'REBEL_CRUISER' });
+    crewSkillRepo.find.mockResolvedValue([
+      { crewId: 4, position: 'COMMAND', expertise: 10_000 },
+    ] as never);
+    crewAssignmentRepo.find.mockResolvedValue([
+      {
+        crewId: 4,
+        slot: 'COMMAND',
+        crew: {
+          name: 'Leia',
+          type: 'CAPTAIN',
+          gender: 'FEMALE',
+          rank: 'LIEUTENANT_COMMANDER',
+        },
+      },
+    ] as never);
+
+    const result = await service.getCrewManagement(10, 7);
+
+    expect(result.positions[1].crew[0]).toEqual(
+      expect.objectContaining({
+        rank: 'LIEUTENANT_COMMANDER',
+        rankLabel: 'Oberleutnant',
+        expertise: [{ position: 'COMMAND', amount: 10_000 }],
+        promotion: { rank: 'COMMANDER', label: 'Commander' },
+      }),
     );
   });
 

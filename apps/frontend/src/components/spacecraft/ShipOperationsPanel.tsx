@@ -109,6 +109,18 @@ export function ShipOperationsPanel({
     }
   };
 
+  const promoteMember = async (member: SpacecraftCrewManagementMemberDto) => {
+    try {
+      setCrew(
+        await api.post(`/spacecraft/${shipId}/crew/${member.id}/promote`, {}),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Crewmitglied konnte nicht befördert werden',
+      );
+    }
+  };
+
   const renameMember = async (member: SpacecraftCrewManagementMemberDto) => {
     try {
       setCrew(
@@ -292,6 +304,7 @@ export function ShipOperationsPanel({
                         setCrewNames((names) => ({ ...names, [member.id]: name }))
                       }
                       onRename={() => void renameMember(member)}
+                      onPromote={() => void promoteMember(member)}
                       onSlotChange={(slot) => void updateSlot(member, slot)}
                     />
                   ))}
@@ -308,6 +321,7 @@ export function ShipOperationsPanel({
                   setCrewNames((names) => ({ ...names, [member.id]: name }))
                 }
                 onRename={() => void renameMember(member)}
+                onPromote={() => void promoteMember(member)}
                 onSlotChange={(slot) => void updateSlot(member, slot)}
               />
             ))}
@@ -382,6 +396,7 @@ function CrewMemberRow({
   name,
   onNameChange,
   onRename,
+  onPromote,
   onSlotChange,
 }: {
   member: SpacecraftCrewManagementMemberDto;
@@ -389,6 +404,7 @@ function CrewMemberRow({
   name: string;
   onNameChange: (name: string) => void;
   onRename: () => void;
+  onPromote: () => void;
   onSlotChange: (slot: SpacecraftCrewPosition | null) => void;
 }) {
   return (
@@ -397,6 +413,20 @@ function CrewMemberRow({
       <span>
         {member.gender} · {member.type} · {member.originColony?.name ?? 'Unbekannt'}
       </span>
+      <span>
+        {member.rankLabel} ·{' '}
+        {member.expertise.map((skill) => `${skill.amount.toLocaleString('de-DE')} Expertise (${skill.position})`).join(', ') || '0 Expertise'}
+      </span>
+      {member.promotion && (
+        <button
+          type="button"
+          aria-label={`${member.name} zum ${member.promotion.label} befördern`}
+          onClick={onPromote}
+          className="w-fit border border-swu-border px-2"
+        >
+          Zum {member.promotion.label} befördern
+        </button>
+      )}
       <label>
         Position
         <select

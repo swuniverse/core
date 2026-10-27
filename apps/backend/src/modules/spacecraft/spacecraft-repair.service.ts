@@ -11,6 +11,8 @@ import type {
 } from '@swuniverse/shared';
 import { CrewType } from '../colony/entities/crew.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { CrewEnhancementService } from './crew-enhancement.service';
+import { CrewEnhancementEvent } from './crew-expertise';
 import { MessagingService } from '../messaging/messaging.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
@@ -52,6 +54,9 @@ export class SpacecraftRepairService {
     private readonly dataSource: DataSource,
     private readonly crewService: SpacecraftCrewService,
     private readonly messagingService: MessagingService,
+    private readonly crewEnhancement: CrewEnhancementService = {
+      enhanceSpacecraft: async () => undefined,
+    } as unknown as CrewEnhancementService,
   ) {}
 
   async getOptions(
@@ -216,6 +221,12 @@ export class SpacecraftRepairService {
       };
     });
     if (!outcome) return;
+    if (!outcome.cancelled && outcome.repaired) {
+      await this.crewEnhancement.enhanceSpacecraft(
+        ship.id,
+        CrewEnhancementEvent.REPAIR_COMPLETED,
+      );
+    }
     await this.messagingService.sendSystem(
       ship.userId,
       outcome.cancelled

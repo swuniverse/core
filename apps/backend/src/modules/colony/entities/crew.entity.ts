@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import { CrewRank } from '../../spacecraft/crew-rank';
 
 export enum CrewType {
   COMMAND = 'COMMAND',
@@ -33,4 +34,9 @@ export class Crew {
 
   @Column({ length: 255 })
   name!: string;
+
+  @Column({ type: 'varchar', default: CrewRank.CADET })
+  rank!: CrewRank;
+
+  skills?: Array<{ position: CrewType; expertise: number }>;
 }
