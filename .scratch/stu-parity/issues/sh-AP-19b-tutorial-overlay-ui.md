@@ -1,6 +1,6 @@
 # Tutorial: PADD-Overlay im Frontend
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-19a
