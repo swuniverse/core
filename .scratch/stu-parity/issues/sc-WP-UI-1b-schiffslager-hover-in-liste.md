@@ -1,6 +1,6 @@
 # Lager-Hover am Schiffbild in der Schiffsliste
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
