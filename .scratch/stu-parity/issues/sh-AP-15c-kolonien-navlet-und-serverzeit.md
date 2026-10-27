@@ -1,6 +1,6 @@
 # Kolonien-Navlet mit Tooltips und laufende Serverzeit
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-11
