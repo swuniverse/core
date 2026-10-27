@@ -63,6 +63,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
 import { FlightSignatureService } from './flight-signature.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { StationConstructionService } from './station-construction.service';
+import { InteractionContextService } from './interaction-context.service';
 
 @Module({
   imports: [
@@ -133,6 +134,7 @@ import { StationConstructionService } from './station-construction.service';
     FlightSignatureService,
     SpacecraftRepairService,
     StationConstructionService,
+    InteractionContextService,
   ],
   exports: [
     SpacecraftService,
@@ -148,6 +150,7 @@ import { StationConstructionService } from './station-construction.service';
     CartographyPlanService,
     SpacecraftDestructionService,
     FlightSignatureService,
+    InteractionContextService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {
