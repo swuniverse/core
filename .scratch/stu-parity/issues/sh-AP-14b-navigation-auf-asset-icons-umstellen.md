@@ -1,6 +1,6 @@
 # Sidebar und Bottom-Nav auf Asset-Icons umstellen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-14a
