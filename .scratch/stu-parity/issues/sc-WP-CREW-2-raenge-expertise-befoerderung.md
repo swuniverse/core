@@ -1,6 +1,6 @@
 # Crew-Expertise, Ränge und Beförderung
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-CREW-1
