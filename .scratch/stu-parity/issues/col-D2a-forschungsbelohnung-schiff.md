@@ -1,13 +1,13 @@
 # Forschungsbelohnung: Belohnungsschiff
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D1
 
 ## Ziel
 
-In STU erhalten Spieler für bestimmte Forschungen ein fertiges Schiff (`reward_buildplan_id`), das an der ersten Kolonie erzeugt wird, inklusive Crew und voll geladener Systeme, mit Nachricht im Schiffsordner. SWU kennt das Datenfeld nicht. Belohnungsschiffe sind laut Leitplanke 3 in Scope; die STU-Baupläne werden durch den Agenten auf passende SWU-Schiffsklassen und Module abgebildet (Leitplanke 2) und unter „Entscheidungen“ in `map.md` festgehalten.
+SWU erhält einen optionalen, datengetriebenen und idempotenten Mechanismus für Forschungs-Belohnungsschiffe. Da die autoritativen STU-Zuordnungen nicht vorliegen, wird keine produktive Zuordnung aus Freischaltungen oder anderen Indizien erfunden; produktive Forschungen vergeben bis zu einer separat bestätigten Mapping-Tabelle kein Schiff.
 
 ## STU-Quellen
 
@@ -17,7 +17,7 @@ In STU erhalten Spieler für bestimmte Forschungen ein fertiges Schiff (`reward_
 
 ## SWU-Pfade
 
-- `game-data/data/research/{rebels,imperials}.yaml`, `game-data/scripts/import-stu-research.ts`, `game-data/schemas/*` (neues optionales Feld, z. B. `rewardShip: { shipClassKey, moduleSelections? }`)
+- `game-data/data/research/{rebels,imperials}.yaml`, `game-data/scripts/import-stu-research.ts`, `game-data/schemas/*` (optionales `rewardShip` mit Klasse und vollständigen Modulwahlen)
 - `apps/backend/src/modules/game-data/game-data.service.ts` (Mapping)
 - `apps/backend/src/modules/research/research.service.ts` (Abschluss-Hook aus col-D1)
 - `apps/backend/src/modules/spacecraft/spacecraft.service.ts` (`adminSpawnShip` als Vorlage für Schiffserzeugung mit Crew und vollen Systemen)
@@ -26,17 +26,19 @@ In STU erhalten Spieler für bestimmte Forschungen ein fertiges Schiff (`reward_
 
 ## Akzeptanzkriterien
 
-- [ ] Techs können ein Belohnungsschiff definieren; die STU-Techs mit `reward_buildplan_id` sind auf SWU-Schiffsklassen der jeweiligen Fraktion abgebildet; die Zuordnung steht unter „Entscheidungen“ in `map.md`.
-- [ ] Beim Abschluss einer solchen Tech entsteht genau ein Schiff des Spielers im Orbit seiner ersten (ältesten) Kolonie, mit Crew und vollen Systemen; ohne Kolonie entsteht nichts.
-- [ ] Der Spieler erhält eine Nachricht im Ordner „Schiffe“ mit dem STU-Text und der Schiffsklasse.
-- [ ] Das Detailmodal der Forschung zeigt „Belohnung: <Schiffsklasse>“.
-- [ ] Backend-Tests: Schiffserzeugung, keine Kolonie, Idempotenz (kein zweites Schiff bei erneutem Tick).
-- [ ] Frontend-Test: Belohnung im Detailmodal.
+- [ ] Forschungsdaten können optional eine vollständige Belohnung aus Fraktion, SWU-Tech-ID, `shipClassKey` und exakten `moduleSelections` definieren; fehlendes Mapping bedeutet ausdrücklich keine Belohnung.
+- [ ] Der Abschlussmechanismus ist idempotent und besitzt einen dauerhaften Grant-Nachweis, sodass Wiederholungen weder ein zweites Schiff noch eine zweite Nachricht erzeugen.
+- [ ] Bei einem konfigurierten Mapping entsteht genau ein Schiff des Spielers im Orbit seiner ersten (ältesten) Kolonie, mit Crew und vollen Systemen; ohne Kolonie entsteht nichts.
+- [ ] Der Spieler erhält bei erfolgreicher Vergabe eine Nachricht im Ordner „Schiffe“ mit dem STU-Text und der Schiffsklasse.
+- [ ] Das Detailmodal zeigt „Belohnung: <Schiffsklasse>“ nur, wenn ein Mapping konfiguriert ist.
+- [ ] Alle produktiven Forschungsdaten bleiben zunächst ohne Belohnungsmapping; bestehende Forschungen erzeugen deshalb kein Schiff. Künftige Mappings werden erst nach separater Product-Owner-Freigabe in `map.md` dokumentiert.
+- [ ] Backend-Tests verwenden ausschließlich Test-Fixtures und decken Schiffserzeugung, fehlende Kolonie, fehlendes Mapping und Idempotenz ab; Frontend-Test deckt vorhandene und fehlende Belohnung ab.
 
-## Offene Frage
+## Entscheidung
 
-Welche konkrete Zuordnung soll für die STU-`reward_buildplan_id`-Werte zu den vorhandenen SWU-Schiffsklassen und Modulkonfigurationen gelten? Die im Issue genannte produktive SQLite-Migration enthält nur das Schema, während die Testdaten keine Reward-Baupläne setzen; ohne kanonische Quelldaten bzw. eine bestätigte Mapping-Liste kann nicht verlässlich bestimmt werden, welche Forschungen in beiden SWU-Fraktionen welches Schiff vergeben sollen.
+Der Mechanismus wird vollständig, optional und datengetrieben implementiert. Es werden keine Zuordnungen aus Forschungsfreischaltungen abgeleitet. Produktive Belohnungen benötigen später eine bestätigte Tabelle aus Fraktion, SWU-Tech-ID, Schiffsklasse und vollständiger Modulkonfiguration; bis dahin bleibt die produktive Mapping-Menge leer.
 
 ## Comments
 
 - 2026-10-22: Umsetzung blockiert, bevor Produktcode geändert wurde. Benötigt werden die produktiven STU-Forschungsdaten mit `reward_buildplan_id` samt Bauplänen oder eine vom Product Owner bestätigte SWU-Zuordnung.
+- 2026-10-27 Product Owner: Den idempotenten, datengetriebenen Mechanismus umsetzen, aber ohne bestätigte Tabelle keine produktiven Reward-Mappings anlegen und keine Belohnung aus Freischaltungen ableiten.
