@@ -1,6 +1,6 @@
 # Kontolöschung: Bestätigung, Sperre und Lösch-Orchestrator
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-01, sh-AP-09
@@ -42,3 +42,5 @@ Vorgabe gemäß Leitplanke 4: Bestätigungsmail und Ausführung stehen hinter `A
 - [ ] Backend-Tests: Token-Ablauf, Widerruf, Login-Sperre, Handler-Reihenfolge, Idempotenz, Flag aus. Frontend-Tests: Bestätigungsseite, Widerruf-Button.
 
 ## Comments
+
+- 2026-10-27: Abbruch nach zwei ernsthaften Prüfversuchen. Der vollständige Backend-Testlauf ist unabhängig von diesem Issue rot: `spacecraft-destruction.service.spec.ts` erwartet für das intakte Modul Commodity `10101`, die aktuelle Implementierung liefert `10201`. Produktcode wurde gemäß Abbruchregel verworfen. Bitte festlegen bzw. den bestehenden Test/Spieldaten-Stand auflösen, damit die verpflichtende Gesamtsuite grün werden kann.
