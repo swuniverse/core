@@ -1,6 +1,6 @@
 # Ebenenkenntnis je Spieler und Kartenzyklus
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -47,3 +47,4 @@ Vorgabe:
 ## Comments
 
 - 2026-10-21 Product Owner: Option 1a, 2a – Ebenen werden wie in STU bekannt (Startebene beim Onboarding, danach automatisch, sobald ein eigenes Schiff die Ebene erreicht, 1a). Der Kartenzyklus wird wie in STU übernommen: Status „erkundet“, Ereignis für den Award und Löschen der persönlichen Felderkundung der Ebene (2a).
+- 2026-10-27 Agent: Abbruch nach zwei ernsthaften Umsetzungs- und Prüfversuchen. Das Issue bündelt Migration/Bestands-Backfill, Autorisierung sämtlicher Kartenendpunkte, Onboarding und alle Positionswechsel, Datenbankfilter, vollständige EXPLORED-Semantik, täglichen Kartenzyklus mit genau-einmal-Ereignis sowie Frontend und ADR. Innerhalb eines Durchlaufs ließ sich diese Querschnittsänderung nicht vollständig test-first umsetzen und mit den Pflichtprüfungen absichern. Bitte in vertikale, separat prüfbare Folgeissues teilen (Fundament/Backfill; Zugriffs- und Filterregeln; Bekanntwerden; Kartenzyklus/Ereignis; EXPLORED-Darstellung/Frontend/ADR).
