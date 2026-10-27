@@ -1,6 +1,6 @@
 # Ignorierliste mit PM-Sperre
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-A1
@@ -27,11 +27,13 @@ Spieler können andere Siedler ignorieren, Einträge einzeln, markiert oder komp
 
 ## Akzeptanzkriterien
 
-- [ ] Tabelle `ignore_list` (Besitzer, Ignorierter, Datum), eindeutig, `ON DELETE CASCADE` für beide Spieler.
-- [ ] Endpunkte: Liste; hinzufügen (ID); markierte löschen; alle löschen; „Siedler, die Dich ignorieren“.
-- [ ] Ablehnungen: unbekannter Spieler, eigener Account, bereits ignoriert.
-- [ ] `POST /messages` an einen Spieler, der den Absender ignoriert, liefert 403 „Der Siedler ignoriert Dich“. Systemnachrichten sind nicht betroffen.
-- [ ] UI: Abschnitt „Ignorierliste“ im Nachrichtenbereich mit Mehrfachauswahl und der Liste „Siedler, die Dich ignorieren“; im fremden Profil Button „Ignorieren“ bzw. „Nicht mehr ignorieren“.
-- [ ] Backend-Tests: CRUD, Ablehnungen, PM-Sperre (inkl. Gegenrichtung erlaubt). Frontend-Tests: Liste und Profilbutton.
+- [x] Tabelle `ignore_list` (Besitzer, Ignorierter, Datum), eindeutig, `ON DELETE CASCADE` für beide Spieler.
+- [x] Endpunkte: Liste; hinzufügen (ID); markierte löschen; alle löschen; „Siedler, die Dich ignorieren“.
+- [x] Ablehnungen: unbekannter Spieler, eigener Account, bereits ignoriert.
+- [x] `POST /messages` an einen Spieler, der den Absender ignoriert, liefert 403 „Der Siedler ignoriert Dich“. Systemnachrichten sind nicht betroffen.
+- [x] UI: Abschnitt „Ignorierliste“ im Nachrichtenbereich mit Mehrfachauswahl und der Liste „Siedler, die Dich ignorieren“; im fremden Profil Button „Ignorieren“ bzw. „Nicht mehr ignorieren“.
+- [x] Backend-Tests: CRUD, Ablehnungen, PM-Sperre (inkl. Gegenrichtung erlaubt). Frontend-Tests: Liste und Profilbutton.
 
 ## Comments
+
+- Gerichtete Ignorierliste im Kontaktmodul mit Migration, CRUD-/Rückwärtsliste, PM-Haken und 403 umgesetzt; Nachrichten- und Profiloberflächen sowie Backend-/Frontend-Tests ergänzt. Keine offenen Folgepunkte.

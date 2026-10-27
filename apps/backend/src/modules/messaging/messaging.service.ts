@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -190,7 +191,7 @@ export class MessagingService {
       throw new NotFoundException('Dieser Siedler existiert nicht');
     }
     if (await this.ignoreCheck(recipientId, senderId)) {
-      throw new BadRequestException('Der Siedler ignoriert Dich');
+      throw new ForbiddenException('Der Siedler ignoriert Dich');
     }
 
     const message = this.messageRepo.create({

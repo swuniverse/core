@@ -210,3 +210,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-T1c – Autorisierte Handelspostenliste sowie eigene Konten und Schiffe vor Ort mit Standortredaktion umgesetzt – siehe Feature-Commit
 - tmw-FA1a – Startforschung und Startgebäude als Fraktionsdaten mit datengetriebenem Onboarding umgesetzt – siehe Feature-Commit
 - soc-B2 – Kontaktliste, Profilaktionen und Kontaktwahl beim Verfassen privater Nachrichten umgesetzt – siehe Feature-Commit
+- soc-C1a – Gerichtete Ignorierliste mit Verwaltungsoberfläche, Profilaktionen und PM-Sperre umgesetzt – siehe Feature-Commit

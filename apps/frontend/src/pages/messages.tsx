@@ -7,6 +7,8 @@ import { api } from '../services/api';
 import {
   ContactMode,
   type ContactDto,
+  type IgnoredByEntryDto,
+  type IgnoreListEntryDto,
   type ReceivedContactDto,
 } from '@swuniverse/shared';
 import { PlayerAvatar } from '../components/PlayerAvatar';
@@ -119,7 +121,7 @@ function MessageActionRail({
     <div className="space-y-3 rounded-lg border border-swu-border bg-swu-surface p-3 text-xs">
       <RailSection title="Aktionen">
         <RailButton onClick={onCompose}>Nachricht verfassen</RailButton>
-        <RailButton onClick={onContacts}>Kontakte</RailButton>
+        <RailButton onClick={onContacts}>Kontakte und Ignorierliste</RailButton>
         {!isCompose && incomingFolder && (
           <>
             <RailButton onClick={onSelectAll} disabled={messages.length === 0}>
@@ -234,18 +236,25 @@ function ConfirmationDialog({
 }) {
   const emptyFolder = kind === 'empty-folder';
   const contacts = kind === 'delete-contacts' || kind === 'delete-all-contacts';
+  const ignores = kind === 'delete-ignores' || kind === 'delete-all-ignores';
   const title = emptyFolder
     ? 'Ordner leeren?'
     : contacts
       ? 'Kontakte löschen?'
-      : 'Nachrichten löschen?';
+      : ignores
+        ? 'Ignorierungen löschen?'
+        : 'Nachrichten löschen?';
   const description = emptyFolder
     ? 'Alle Nachrichten im aktuellen Ordner werden entfernt.'
     : kind === 'delete-all-contacts'
       ? 'Alle Kontakte werden entfernt.'
-      : contacts
-        ? `${count} ausgewählte Kontakte werden entfernt.`
-        : `${count} ausgewählte Nachrichten werden entfernt.`;
+      : kind === 'delete-all-ignores'
+        ? 'Alle Ignorierungen werden entfernt.'
+        : contacts
+          ? `${count} ausgewählte Kontakte werden entfernt.`
+          : ignores
+            ? `${count} ausgewählte Ignorierungen werden entfernt.`
+            : `${count} ausgewählte Nachrichten werden entfernt.`;
   const dialogRef = useRef<HTMLElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -312,7 +321,15 @@ function ConfirmationDialog({
           <button
             type="button"
             onClick={onConfirm}
-            aria-label={emptyFolder ? 'Ordner leeren bestätigen' : 'Nachrichten löschen bestätigen'}
+            aria-label={
+              emptyFolder
+                ? 'Ordner leeren bestätigen'
+                : contacts
+                  ? 'Kontakte löschen bestätigen'
+                  : ignores
+                    ? 'Ignorierungen löschen bestätigen'
+                    : 'Nachrichten löschen bestätigen'
+            }
             className="rounded border border-red-500/70 bg-red-950/40 px-3 py-1.5 text-xs text-red-300"
           >
             {emptyFolder ? 'Ordner leeren' : 'Löschen'}
@@ -330,8 +347,15 @@ interface InboxResponse {
   limit: number;
 }
 
-type Tab = 'folders' | 'compose' | 'contacts';
-type Confirmation = 'bulk-delete' | 'empty-folder' | 'delete-contacts' | 'delete-all-contacts' | null;
+type Tab = 'folders' | 'compose' | 'contacts' | 'ignore-list';
+type Confirmation =
+  | 'bulk-delete'
+  | 'empty-folder'
+  | 'delete-contacts'
+  | 'delete-all-contacts'
+  | 'delete-ignores'
+  | 'delete-all-ignores'
+  | null;
 
 const CONTACT_MODE_LABELS: Record<ContactMode, string> = {
   [ContactMode.FRIEND]: 'Freund',
@@ -391,6 +415,10 @@ export function MessagesPage() {
   const [newContactName, setNewContactName] = useState('');
   const [newContactMode, setNewContactMode] = useState(ContactMode.NEUTRAL);
   const [contactSearchResults, setContactSearchResults] = useState<{ id: number; username: string }[]>([]);
+  const [ignoredPlayers, setIgnoredPlayers] = useState<IgnoreListEntryDto[]>([]);
+  const [ignoredBy, setIgnoredBy] = useState<IgnoredByEntryDto[]>([]);
+  const [selectedIgnoreIds, setSelectedIgnoreIds] = useState<Set<number>>(new Set());
+  const [newIgnoredPlayerId, setNewIgnoredPlayerId] = useState('');
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshFolders = async () => {
@@ -427,13 +455,24 @@ export function MessagesPage() {
         setReceivedContacts(received);
       });
     }
+    if (tab === 'ignore-list') {
+      void Promise.all([
+        api.get<IgnoreListEntryDto[]>('/ignore-list'),
+        api.get<IgnoredByEntryDto[]>('/ignore-list/ignored-by'),
+      ]).then(([owned, received]) => {
+        setIgnoredPlayers(owned);
+        setIgnoredBy(received);
+      });
+    }
   }, [folder, page, tab]);
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
     if (requestedTab === 'compose' && startsCompose) return;
     setTab(
-      requestedTab === 'compose' || requestedTab === 'contacts'
+      requestedTab === 'compose' ||
+        requestedTab === 'contacts' ||
+        requestedTab === 'ignore-list'
         ? requestedTab
         : 'folders',
     );
@@ -644,6 +683,28 @@ export function MessagesPage() {
     if (contact) selectRecipient({ id: contact.contactUserId, username: contact.contactUsername });
   };
 
+  const addIgnoredPlayer = async () => {
+    const playerId = Number(newIgnoredPlayerId);
+    if (!Number.isInteger(playerId) || playerId <= 0) return;
+    const created = await api.post<IgnoreListEntryDto>('/ignore-list', { playerId });
+    setIgnoredPlayers((current) => [...current, created]);
+    setNewIgnoredPlayerId('');
+  };
+
+  const removeIgnoredPlayers = async (all = false) => {
+    if (all) await api.delete('/ignore-list/all');
+    else await api.delete('/ignore-list', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids: [...selectedIgnoreIds] }),
+    });
+    const removed = all
+      ? new Set(ignoredPlayers.map((entry) => entry.id))
+      : selectedIgnoreIds;
+    setIgnoredPlayers((current) => current.filter((entry) => !removed.has(entry.id)));
+    setSelectedIgnoreIds(new Set());
+    setConfirmation(null);
+  };
+
   const sendMessage = async () => {
     if (!recipientId) return;
     try {
@@ -732,7 +793,32 @@ export function MessagesPage() {
           {actionError}
         </p>
       )}
-      {tab === 'contacts' ? (
+      {tab === 'ignore-list' ? (
+        <div className="space-y-4 text-xs">
+          <section className="border border-swu-border bg-swu-surface/70">
+            <header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Ignorierliste</header>
+            {ignoredPlayers.length === 0 ? (
+              <p className="p-3 text-swu-muted">Du ignorierst derzeit keinen Siedler.</p>
+            ) : (
+              <table className="w-full">
+                <tbody>
+                  {ignoredPlayers.map((entry) => (
+                    <tr key={entry.id} className="border-t border-swu-border">
+                      <td className="px-2 py-1"><input type="checkbox" aria-label={`${entry.ignoredUsername} markieren`} checked={selectedIgnoreIds.has(entry.id)} onChange={() => setSelectedIgnoreIds((current) => { const next = new Set(current); next.has(entry.id) ? next.delete(entry.id) : next.add(entry.id); return next; })} /></td>
+                      <td className="px-2 py-1"><Link to={`/players/${entry.ignoredUserId}`} className="text-swu-primary hover:text-swu-accent">{entry.ignoredUsername}</Link></td>
+                      <td className="px-2 py-1 text-swu-muted">{formatDateTime(entry.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="flex gap-2 border-t border-swu-border p-2"><button disabled={!selectedIgnoreIds.size} onClick={() => setConfirmation('delete-ignores')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Markierte löschen</button><button disabled={!ignoredPlayers.length} onClick={() => setConfirmation('delete-all-ignores')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Alle löschen</button></div>
+          </section>
+          <section className="border border-swu-border bg-swu-surface/70 p-3"><h2 className="mb-2 font-bold text-swu-primary">Siedler ignorieren</h2><div className="flex gap-2"><input aria-label="Siedler-ID ignorieren" value={newIgnoredPlayerId} onChange={(event) => setNewIgnoredPlayerId(event.target.value)} placeholder="Siedler-ID" className="border border-swu-border bg-swu-bg px-2 py-1" /><button onClick={() => void addIgnoredPlayer()} className="border border-swu-accent px-2 py-1 text-swu-accent">Ignorieren</button></div></section>
+          <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Siedler, die Dich ignorieren</header>{ignoredBy.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{ignoredBy.map((entry) => <tr key={entry.id} className="border-t border-swu-border"><td className="px-2 py-1"><Link to={`/players/${entry.ownerId}`} className="text-swu-primary">{entry.ownerUsername}</Link></td><td className="px-2 py-1 text-swu-muted">{formatDateTime(entry.createdAt)}</td></tr>)}</tbody></table>}</section>
+          <button type="button" onClick={() => setSearchParams({ tab: 'contacts' })} className="text-swu-primary hover:text-swu-accent">Zur Kontaktliste</button>
+        </div>
+      ) : tab === 'contacts' ? (
         <div className="space-y-4 text-xs">
           <section className="border border-swu-border bg-swu-surface/70">
             <header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Kontakte</header>
@@ -757,6 +843,7 @@ export function MessagesPage() {
           </section>
           <section className="border border-swu-border bg-swu-surface/70 p-3"><h2 className="mb-2 font-bold text-swu-primary">Kontakt hinzufügen</h2><div className="flex flex-wrap gap-2"><input aria-label="Siedler-ID" value={newContactId} onChange={(event) => setNewContactId(event.target.value)} placeholder="Siedler-ID" className="bg-swu-bg border border-swu-border px-2 py-1" /><div className="relative"><input aria-label="Siedlername" value={newContactName} onChange={(event) => searchContact(event.target.value)} placeholder="Name suchen" className="bg-swu-bg border border-swu-border px-2 py-1" />{contactSearchResults.length > 0 && <div className="absolute z-10 w-full border border-swu-border bg-swu-surface">{contactSearchResults.map((result) => <button key={result.id} onClick={() => { setNewContactId(String(result.id)); setNewContactName(result.username); setContactSearchResults([]); }} className="block w-full px-2 py-1 text-left">{result.username}</button>)}</div>}</div><select value={newContactMode} onChange={(event) => setNewContactMode(event.target.value as ContactMode)} className="bg-swu-bg border border-swu-border px-2 py-1">{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select><button onClick={() => void addContact()} className="border border-swu-accent px-2 py-1 text-swu-accent">Hinzufügen</button></div></section>
           <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Einträge anderer Siedler über Dich</header>{receivedContacts.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{receivedContacts.map((contact) => <tr key={contact.id} className="border-t border-swu-border"><td className={`px-2 py-1 ${CONTACT_MODE_STYLES[contact.mode]}`}>{CONTACT_MODE_LABELS[contact.mode]}</td><td className="px-2 py-1"><Link to={`/players/${contact.ownerId}`} className="text-swu-primary">{contact.ownerUsername}</Link></td><td>{formatDateTime(contact.createdAt)}</td></tr>)}</tbody></table>}</section>
+          <button type="button" onClick={() => setSearchParams({ tab: 'ignore-list' })} className="text-swu-primary hover:text-swu-accent">Ignorierliste öffnen</button>
         </div>
       ) : tab === 'compose' ? (
         <div className="bg-swu-surface border border-swu-border rounded-lg p-4 max-w-lg space-y-3">
@@ -995,12 +1082,21 @@ export function MessagesPage() {
       {confirmation && (
         <ConfirmationDialog
           kind={confirmation}
-          count={selectedIds.size}
+          count={
+            confirmation === 'delete-ignores'
+              ? selectedIgnoreIds.size
+              : confirmation === 'delete-contacts'
+                ? selectedContactIds.size
+                : selectedIds.size
+          }
           onCancel={() => setConfirmation(null)}
           onConfirm={() => {
             if (confirmation === 'bulk-delete') return deleteSelected();
             if (confirmation === 'empty-folder') return emptyFolder();
-            return removeContacts(confirmation === 'delete-all-contacts');
+            if (confirmation === 'delete-contacts' || confirmation === 'delete-all-contacts') {
+              return removeContacts(confirmation === 'delete-all-contacts');
+            }
+            return removeIgnoredPlayers(confirmation === 'delete-all-ignores');
           }}
         />
       )}

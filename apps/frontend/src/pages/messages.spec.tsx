@@ -508,6 +508,39 @@ describe('MessagesPage folders', () => {
     expect(screen.getByPlaceholderText('Username eingeben...')).toHaveProperty('value', 'Leia');
   });
 
+  it('shows the ignore list, who ignores the player, and deletes selected entries', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/ignore-list') return Promise.resolve([{
+        id: 8,
+        ignoredUserId: 7,
+        ignoredUsername: 'Leia',
+        createdAt: '2026-10-13T12:00:00.000Z',
+      }]);
+      if (url === '/ignore-list/ignored-by') return Promise.resolve([{
+        id: 9,
+        ownerId: 3,
+        ownerUsername: 'Tarkin',
+        createdAt: '2026-10-14T12:00:00.000Z',
+      }]);
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+    api.delete.mockResolvedValue({ deleted: 1 });
+
+    renderPage('/messages?tab=ignore-list');
+
+    expect(await screen.findByRole('link', { name: 'Leia' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Tarkin' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Leia markieren' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Markierte löschen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ignorierungen löschen bestätigen' }));
+
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/ignore-list', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids: [8] }),
+    }));
+  });
+
   it('shows a send error and keeps the draft', async () => {
     renderPage('/messages?tab=compose&to=7&name=Leia');
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/messages/folders'));

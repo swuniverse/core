@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { MessageFolder } from './message-folder';
 import { MessagingService } from './messaging.service';
 
@@ -94,7 +98,7 @@ describe('MessagingService', () => {
     service.setIgnoreCheck(ignored);
 
     await expect(service.send(1, 2, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
-      new BadRequestException('Der Siedler ignoriert Dich'),
+      new ForbiddenException('Der Siedler ignoriert Dich'),
     );
     expect(ignored).toHaveBeenCalledWith(2, 1);
   });

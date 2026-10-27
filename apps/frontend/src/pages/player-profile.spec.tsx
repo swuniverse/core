@@ -130,7 +130,7 @@ describe('PlayerProfilePage', () => {
           onVacation: false,
         });
       }
-      if (url === '/contacts') return Promise.resolve([]);
+      if (url === '/contacts' || url === '/ignore-list') return Promise.resolve([]);
       if (url.startsWith('/alliances/settlers/1/diplomacy')) {
         return Promise.resolve({ playerId: 1, name: 'Vader', relationships: [], entries: [], nextCursor: null });
       }
@@ -148,6 +148,37 @@ describe('PlayerProfilePage', () => {
       }),
     );
     expect(screen.getByLabelText('Kontaktmodus für Vader')).toBeTruthy();
+  });
+
+  it('ignores and unignores another player from their profile', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/settlers/1') return Promise.resolve({
+        id: 1, username: 'vader', displayName: 'Vader', avatar: null,
+        description: null, faction: 'GALACTIC_EMPIRE', factionName: 'Galaktisches Imperium',
+        prestige: 10, colonies: 1, ships: 2, completedResearch: 3,
+        onboardingCompleted: true, isAdmin: false, createdAt: '2026-08-04T00:00:00.000Z',
+        alliance: null, onVacation: false,
+      });
+      if (url === '/contacts' || url === '/ignore-list') return Promise.resolve([]);
+      if (url.startsWith('/alliances/settlers/1/diplomacy')) return Promise.resolve({ playerId: 1, name: 'Vader', relationships: [], entries: [], nextCursor: null });
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    apiMocks.post.mockResolvedValue({
+      id: 9,
+      ignoredUserId: 1,
+      ignoredUsername: 'Vader',
+      createdAt: '2026-10-27T12:00:00.000Z',
+    });
+    apiMocks.delete.mockResolvedValue({ deleted: 1 });
+
+    renderProfile();
+    fireEvent.click(await screen.findByRole('button', { name: 'Ignorieren' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/ignore-list', { playerId: 1 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Nicht mehr ignorieren' }));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/ignore-list', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids: [9] }),
+    }));
   });
 
   it('does not offer a quick message on the own profile', async () => {

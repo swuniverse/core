@@ -38,3 +38,25 @@ export interface UpdateContactCommentDto {
 export interface DeleteContactsDto {
   ids: number[];
 }
+
+export interface IgnoreListEntryDto {
+  id: number;
+  ignoredUserId: number;
+  ignoredUsername: string;
+  createdAt: string;
+}
+
+export interface IgnoredByEntryDto {
+  id: number;
+  ownerId: number;
+  ownerUsername: string;
+  createdAt: string;
+}
+
+export interface CreateIgnoreListEntryDto {
+  playerId: number;
+}
+
+export interface DeleteIgnoreListEntriesDto {
+  ids: number[];
+}

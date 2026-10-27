@@ -11,6 +11,7 @@ import {
   type UserCharacterDto,
   ContactMode,
   type ContactDto,
+  type IgnoreListEntryDto,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -60,6 +61,7 @@ export function PlayerProfilePage() {
   const [characters, setCharacters] = useState<UserCharacterDto[]>([]);
   const [editingCharacter, setEditingCharacter] = useState<UserCharacterDto | 'new' | null>(null);
   const [contact, setContact] = useState<ContactDto | null>(null);
+  const [ignored, setIgnored] = useState<IgnoreListEntryDto | null>(null);
   const currentUser = useAuthStore((state) => state.user);
 
   useEffect(() => {
@@ -79,10 +81,19 @@ export function PlayerProfilePage() {
         setPlayer(data);
         try {
           if (currentUser?.id !== data.id) {
-            const request = api.get<ContactDto[]>('/contacts');
-            Promise.resolve(request)
-              .then((items) => setContact(items.find((item) => item.contactUserId === data.id) ?? null))
-              .catch(() => setContact(null));
+            const requests = Promise.all([
+              api.get<ContactDto[]>('/contacts'),
+              api.get<IgnoreListEntryDto[]>('/ignore-list'),
+            ]);
+            void requests
+              .then(([contacts, ignores]) => {
+                setContact(contacts.find((item) => item.contactUserId === data.id) ?? null);
+                setIgnored(ignores.find((item) => item.ignoredUserId === data.id) ?? null);
+              })
+              .catch(() => {
+                setContact(null);
+                setIgnored(null);
+              });
           }
         } catch {
           setContact(null);
@@ -146,6 +157,20 @@ export function PlayerProfilePage() {
   async function changeContactMode(mode: ContactMode) {
     if (!contact) return;
     setContact(await api.patch<ContactDto>(`/contacts/${contact.id}/mode`, { mode }));
+  }
+
+  async function toggleIgnored() {
+    if (ignored) {
+      await api.delete('/ignore-list', {
+        method: 'DELETE',
+        body: JSON.stringify({ ids: [ignored.id] }),
+      });
+      setIgnored(null);
+      return;
+    }
+    setIgnored(await api.post<IgnoreListEntryDto>('/ignore-list', {
+      playerId: player!.id,
+    }));
   }
 
   async function deleteScan(scanId: number) {
@@ -231,6 +256,15 @@ export function PlayerProfilePage() {
                   Zu Kontakten hinzufügen
                 </button>
               )
+            )}
+            {currentUser?.id !== player.id && (
+              <button
+                type="button"
+                onClick={() => void toggleIgnored()}
+                className="border border-swu-border px-2 py-1 text-xs text-swu-primary hover:border-swu-accent hover:text-swu-accent"
+              >
+                {ignored ? 'Nicht mehr ignorieren' : 'Ignorieren'}
+              </button>
             )}
             <PmLink
               playerId={player.id}

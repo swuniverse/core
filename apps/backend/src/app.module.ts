@@ -124,6 +124,7 @@ import { RpgModule } from './modules/rpg/rpg.module';
 import { UserCharacter } from './modules/rpg/user-character.entity';
 import { ContactModule } from './modules/contacts/contact.module';
 import { Contact } from './modules/contacts/entities/contact.entity';
+import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
 
 @Module({
   imports: [
@@ -235,6 +236,7 @@ import { Contact } from './modules/contacts/entities/contact.entity';
           UserTutorialProgress,
           UserCharacter,
           Contact,
+          IgnoreList,
         ],
         synchronize: config.get('TYPEORM_SYNCHRONIZE') === 'true',
         logging: config.get('NODE_ENV') !== 'production',
