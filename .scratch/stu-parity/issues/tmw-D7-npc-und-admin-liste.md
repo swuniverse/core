@@ -1,6 +1,6 @@
 # Datenbank: „NPCs & Administratoren“
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-W1
