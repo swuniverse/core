@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2b: Kampf (Treffer-/Ausweichstörung, Energiewaffen ±)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
