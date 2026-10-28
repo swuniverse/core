@@ -1,6 +1,6 @@
 # Datenbankkategorie „Handelsstationen“ (Handelsposten)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-T1c
@@ -22,8 +22,10 @@ Der Platzhalter „Handelsstationen – Stationsnetz wird aufgebaut“ wird zu e
 
 ## Akzeptanzkriterien
 
-- [ ] `GET database/trade-posts` liefert alle Handelsposten mit Name, Beschreibung, Netz, Ort und Betreibername, sortiert nach Netz und Name.
-- [ ] Der Hub-Eintrag „Handelsstationen“ ist verlinkt. Die Liste nutzt den Spieltabellenstil, und ein Klick auf den Ort führt zur Sternenkarte an diese Position, sofern das Feld erkundet ist. Sonst wird kein Ort offengelegt (Nebel des Krieges).
-- [ ] Backend-Test: Liste, Sortierung, keine Ortsangabe für unerkundete Felder. Frontend-Test: Hub-Link und Liste.
+- [x] `GET database/trade-posts` liefert alle Handelsposten mit Name, Beschreibung, Netz, Ort und Betreibername, sortiert nach Netz und Name.
+- [x] Der Hub-Eintrag „Handelsstationen“ ist verlinkt. Die Liste nutzt den Spieltabellenstil, und ein Klick auf den Ort führt zur Sternenkarte an diese Position, sofern das Feld erkundet ist. Sonst wird kein Ort offengelegt (Nebel des Krieges).
+- [x] Backend-Test: Liste, Sortierung, keine Ortsangabe für unerkundete Felder. Frontend-Test: Hub-Link und Liste.
 
 ## Comments
+
+- Handelsposten stehen über `GET database/trade-posts` sortiert und mit erkundungsabhängig redigiertem Ort bereit; die Datenbank-UI verlinkt die Liste und bekannte Orte zur Sternenkarte. Backend- und Frontend-Tests decken Sortierung, Nebel des Krieges, Hub-Link und Tabelle ab. Keine offenen Folgepunkte.

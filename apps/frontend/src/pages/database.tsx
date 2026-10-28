@@ -21,6 +21,22 @@ import type {
   CommodityOverviewEntryDto,
 } from '@swuniverse/shared';
 
+type TradePostEntry = {
+  id: number;
+  name: string;
+  description: string;
+  networkId: number;
+  networkName: string;
+  ownerName: string;
+  location: {
+    layerId: number;
+    layerName: string | null;
+    x: number;
+    y: number;
+    systemName: string | null;
+  } | null;
+};
+
 type RankingKey =
   | 'discoveries'
   | 'research'
@@ -39,6 +55,7 @@ type View =
   | 'planet-types'
   | 'prestige-history'
   | 'commodity-overview'
+  | 'trade-posts'
   | 'statistics';
 
 type Settler = {
@@ -179,7 +196,7 @@ const groups: Array<{
     title: 'Wichtige Orte',
     entries: [
       { label: 'Regionen', note: 'Kartierung wird aufgebaut' },
-      { label: 'Handelsstationen', note: 'Stationsnetz wird aufgebaut' },
+      { label: 'Handelsstationen', view: 'trade-posts' },
     ],
   },
   {
@@ -555,7 +572,38 @@ function Detail({ view, data }: { view: View; data: unknown }) {
     return <PlanetTypes data={data as PlanetTypes} />;
   if (view === 'commodity-overview')
     return <CommodityOverview data={data as CommodityOverviewEntryDto[]} />;
+  if (view === 'trade-posts')
+    return <TradePosts data={data as TradePostEntry[]} />;
   return <ShipClasses data={data as ShipClasses} />;
+}
+
+function TradePosts({ data }: { data: TradePostEntry[] }) {
+  return (
+    <Table
+      headers={['Name', 'Beschreibung', 'Handelsnetz', 'Ort', 'Betreiber']}
+      rows={data.map((post) => [
+        post.name,
+        post.description || '—',
+        post.networkName,
+        post.location ? (
+          <Link
+            to={`/starmap?layer=${post.location.layerId}&x=${post.location.x}&y=${post.location.y}`}
+            className="text-swu-accent hover:underline"
+          >
+            {[
+              post.location.systemName,
+              `${post.location.layerName ? `${post.location.layerName} ` : `Ebene ${post.location.layerId} `}${post.location.x}:${post.location.y}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Link>
+        ) : (
+          <span className="text-swu-muted">Unbekannt</span>
+        ),
+        post.ownerName,
+      ])}
+    />
+  );
 }
 
 function CommodityOverview({ data }: { data: CommodityOverviewEntryDto[] }) {
@@ -1062,6 +1110,7 @@ function titleFor(view: View) {
       'planet-types': 'Planetentypen',
       'prestige-history': 'Prestigehistorie',
       'commodity-overview': 'Warenübersicht',
+      'trade-posts': 'Handelsstationen',
       statistics: 'Statistiken',
     } as Record<View, string>
   )[view];

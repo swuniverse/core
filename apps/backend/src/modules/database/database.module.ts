@@ -33,6 +33,8 @@ import { OwnedStorageCommodityLocationSource } from './owned-storage-commodity-l
 import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
 import { UserAward } from '../awards/entities/user-award.entity';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
+import { TradePost } from '../trade/entities/trade-post.entity';
+import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 
 @Module({
   imports: [
@@ -59,6 +61,8 @@ import { FlightSignature } from '../spacecraft/entities/flight-signature.entity'
       SpacecraftTorpedoStorage,
       UserAward,
       FlightSignature,
+      TradePost,
+      ExplorationState,
     ]),
     FactionModule,
     GameDataModule,

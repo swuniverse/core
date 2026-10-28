@@ -1,3 +1,4 @@
+jest.mock('../starmap/entities/space-location.entity', () => ({ SpaceLocation: class SpaceLocation {} }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('../colony/entities/colony.entity', () => ({
   Colony: class Colony {},
@@ -55,6 +56,8 @@ function createService() {
     userAwardRepo as any,
     {} as any,
     {} as any,
+    {} as never,
+    {} as never,
   );
   return {
     service,

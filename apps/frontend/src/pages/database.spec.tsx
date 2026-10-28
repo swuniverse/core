@@ -52,6 +52,55 @@ describe('DatabasePage', () => {
     });
   });
 
+  it('links the trade-post hub entry and renders fog-safe locations', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/trade-posts') {
+        return Promise.resolve([
+          {
+            id: 1,
+            name: 'Hutten-Handelsposten',
+            description: 'Geschäfte am Rand des Gesetzes.',
+            networkId: 3,
+            networkName: 'Hutten-Handelsnetz',
+            ownerName: 'Hutten-Kartell',
+            location: {
+              layerId: 2,
+              layerName: 'Äußerer Rand',
+              x: 7,
+              y: 8,
+              systemName: 'Nal Hutta',
+            },
+          },
+          {
+            id: 2,
+            name: 'Verborgener Posten',
+            description: '',
+            networkId: 3,
+            networkName: 'Hutten-Handelsnetz',
+            ownerName: 'Hutten-Kartell',
+            location: null,
+          },
+        ]);
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Handelsstationen' }));
+
+    expect(await screen.findByText('Geschäfte am Rand des Gesetzes.')).toBeTruthy();
+    expect(screen.getAllByText('Hutten-Handelsnetz')).toHaveLength(2);
+    expect(screen.getAllByText('Hutten-Kartell')).toHaveLength(2);
+    expect(screen.getByText('Unbekannt')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Nal Hutta · Äußerer Rand 7:8' }).getAttribute('href'),
+    ).toBe('/starmap?layer=2&x=7&y=8');
+  });
+
   it('opens the commodity overview and shows linked storage locations', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/database/commodities/overview') {

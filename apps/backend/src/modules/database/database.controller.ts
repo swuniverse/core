@@ -36,6 +36,13 @@ export class DatabaseController {
     return this.databaseService.getOnlinePlayers();
   }
 
+  @Get('trade-posts')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getTradePosts(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getTradePosts(req.user.sub);
+  }
+
   @Get('settlers')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))

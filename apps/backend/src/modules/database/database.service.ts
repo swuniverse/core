@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { TradePost } from '../trade/entities/trade-post.entity';
+import { ExplorationState } from '../starmap/entities/exploration-state.entity';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
 import { isVacationEffective } from '@swuniverse/shared';
@@ -39,6 +42,11 @@ import {
 } from '../spacecraft/entities/cartography-plan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 import { UserAward } from '../awards/entities/user-award.entity';
+
+type TradePostProjection = TradePost & {
+  owner?: User;
+  location?: SpaceLocation;
+};
 
 type RankingKey =
   | 'discoveries'
@@ -105,7 +113,84 @@ export class DatabaseService {
     private readonly colonyScanProjection: ColonyScanProjectionService,
     @InjectRepository(FlightSignature)
     private readonly flightSignatureRepo: Repository<FlightSignature>,
+    @InjectRepository(TradePost)
+    private readonly tradePostRepo: Repository<TradePost>,
+    @InjectRepository(ExplorationState)
+    private readonly explorationRepo: Repository<ExplorationState>,
   ) {}
+
+  async getTradePosts(userId: number) {
+    const [posts, explored] = await Promise.all([
+      this.tradePostRepo
+        .createQueryBuilder('post')
+        .leftJoinAndMapOne('post.owner', User, 'owner', 'owner.id = post.ownerId')
+        .leftJoinAndMapOne(
+          'post.location',
+          SpaceLocation,
+          'location',
+          'location.id = post.locationId',
+        )
+        .leftJoinAndSelect('location.galaxyField', 'galaxyField')
+        .leftJoinAndSelect('galaxyField.layer', 'galaxyLayer')
+        .leftJoinAndSelect('galaxyField.starSystem', 'galaxySystem')
+        .leftJoinAndSelect('location.systemField', 'systemField')
+        .leftJoinAndSelect('systemField.starSystem', 'system')
+        .leftJoinAndSelect('system.layer', 'systemLayer')
+        .orderBy('post.networkId', 'ASC')
+        .addOrderBy('post.name', 'ASC')
+        .addOrderBy('post.id', 'ASC')
+        .getMany() as Promise<TradePostProjection[]>,
+      this.explorationRepo.find({ where: { userId } }),
+    ]);
+    const exploredFields = new Set(
+      explored.map((field) => `${field.layerId}:${field.cx}:${field.cy}`),
+    );
+    const networkNames: Record<number, string> = {
+      1: 'Imperiales Versorgungsnetz',
+      2: 'Versorgungsnetz der Rebellenallianz',
+      3: 'Hutten-Handelsnetz',
+    };
+
+    return posts
+      .sort(
+        (left, right) =>
+          left.networkId - right.networkId ||
+          left.name.localeCompare(right.name) ||
+          left.id - right.id,
+      )
+      .map((post) => {
+        const galaxyField = post.location?.galaxyField;
+        const system = post.location?.systemField?.starSystem;
+        const layerId = galaxyField?.layerId ?? system?.layerId;
+        const x = galaxyField?.cx ?? system?.cx;
+        const y = galaxyField?.cy ?? system?.cy;
+        const isExplored =
+          layerId != null &&
+          x != null &&
+          y != null &&
+          exploredFields.has(`${layerId}:${x}:${y}`);
+        return {
+          id: post.id,
+          name: post.name,
+          description: post.description,
+          networkId: post.networkId,
+          networkName:
+            networkNames[post.networkId] ?? `Handelsnetz ${post.networkId}`,
+          ownerName: post.owner?.username ?? `Spieler #${post.ownerId}`,
+          location: isExplored
+            ? {
+                layerId,
+                layerName:
+                  galaxyField?.layer?.name ?? system?.layer?.name ?? null,
+                x,
+                y,
+                systemName:
+                  system?.name ?? galaxyField?.starSystem?.name ?? null,
+              }
+            : null,
+        };
+      });
+  }
 
   async getOnlinePlayers() {
     const onlineUserIds = this.gameGateway.onlineUserIds;

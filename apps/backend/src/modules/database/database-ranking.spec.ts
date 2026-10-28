@@ -1,6 +1,7 @@
 jest.mock('../faction/faction.service', () => ({
   FactionService: class FactionService {},
 }));
+jest.mock('../starmap/entities/space-location.entity', () => ({ SpaceLocation: class SpaceLocation {} }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('../colony/entities/colony.entity', () => ({ Colony: class Colony {} }));
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
@@ -59,6 +60,8 @@ function createService(overrides: { userRepo?: object; flightSignatureRepo?: obj
     {} as never,
     {} as never,
     (overrides.flightSignatureRepo ?? {}) as never,
+    {} as never,
+    {} as never,
   );
 }
 
@@ -122,6 +125,8 @@ describe('DatabaseService individual discovery ranking', () => {
       {} as never,
       {} as never,
       { find: jest.fn().mockResolvedValue([{ userId: 1 }]) } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

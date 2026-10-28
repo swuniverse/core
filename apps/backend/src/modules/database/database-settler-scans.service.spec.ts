@@ -4,6 +4,7 @@ jest.mock('../faction/faction.service', () => ({
 jest.mock('../alliance/alliance.service', () => ({
   AllianceService: class AllianceService {},
 }));
+jest.mock('../starmap/entities/space-location.entity', () => ({ SpaceLocation: class SpaceLocation {} }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('../colony/entities/colony.entity', () => ({
   Colony: class Colony {},
