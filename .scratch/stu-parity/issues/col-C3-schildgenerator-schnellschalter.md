@@ -1,6 +1,6 @@
 # Schildgenerator-Schnellschalter im Verteidigungspanel
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** col-A1b
