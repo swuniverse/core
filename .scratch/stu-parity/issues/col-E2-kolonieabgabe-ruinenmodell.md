@@ -1,6 +1,6 @@
 # Kolonieabgabe: Ruinenmodell bestätigen und dokumentieren
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -22,10 +22,10 @@ SWU weicht bei der Kolonieabgabe von STU ab: Die Kolonie bleibt als Ruine mit Ge
 
 ## Akzeptanzkriterien
 
-- [ ] ADR `docs/adr/<nächste freie Nummer>-kolonieabgabe-ruinenmodell.md` im Format der bestehenden ADRs beschreibt Ruinenmodell, Startkolonien-Sperre, Namensbestätigung und fehlenden Statusrücksprung inkl. Begründung; sie nennt, dass die Kontolöschung (sh-AP-05d) denselben Pfad nutzt.
-- [ ] Die ADR hält die Folgen für Blockierer und Verteidiger im Orbit fest (heute: Orbitzuweisungen werden gelöscht); ein Backend-Test sichert dieses Verhalten ab.
-- [ ] `CONTEXT.md` führt den Begriff „Ruine“ (aufgegebene, wiederbesiedelbare Kolonie), falls noch nicht vorhanden.
-- [ ] Kein Umbau von Produktcode außer dem absichernden Test.
+- [x] ADR `docs/adr/<nächste freie Nummer>-kolonieabgabe-ruinenmodell.md` im Format der bestehenden ADRs beschreibt Ruinenmodell, Startkolonien-Sperre, Namensbestätigung und fehlenden Statusrücksprung inkl. Begründung; sie nennt, dass die Kontolöschung (sh-AP-05d) denselben Pfad nutzt.
+- [x] Die ADR hält die Folgen für Blockierer und Verteidiger im Orbit fest (heute: Orbitzuweisungen werden gelöscht); ein Backend-Test sichert dieses Verhalten ab.
+- [x] `CONTEXT.md` führt den Begriff „Ruine“ (aufgegebene, wiederbesiedelbare Kolonie), falls noch nicht vorhanden.
+- [x] Kein Umbau von Produktcode außer dem absichernden Test.
 
 ## Entscheidung
 
@@ -34,3 +34,4 @@ Vorgabe: Variante (a). Ruinenmodell, Startkolonien-Sperre, Namensbestätigung un
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Das SWU-Ruinenmodell der Kolonieabgabe bleibt und wird per ADR als bewusste Abweichung von STU festgeschrieben.
+- 2026-10-28 Agent: Ruinenmodell, Sperr- und Bestätigungsregeln sowie Orbitfolgen in ADR-0007 dokumentiert, „Ruine“ in `CONTEXT.md` ergänzt und das Löschen aller Orbitzuweisungen im bestehenden Backend-Test abgesichert. `sh-AP-05d` bleibt der offene Folgepunkt für die gemeinsame Kontolöschungsnutzung.

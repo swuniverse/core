@@ -220,3 +220,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-D6b – Stationsrumpf-Entdeckung per Fremdscan, maskierter Datenbankkatalog und geschützte Detailansicht umgesetzt – siehe Feature-Commit
 - tmw-D7 – Getrennte NPC- und Administratorlisten mit Profilen und Schnell-PM im Datenbank-Hub umgesetzt – siehe Feature-Commit
 - tmw-K3b – Treffer-, Ausweich- und Energiewaffeneffekte wirken im Kampf und werden einmalig im Kampfbericht genannt – siehe Feature-Commit
+- col-E2 – Kolonieabgabe als wiederbesiedelbare Ruine samt Sperr-, Bestätigungs- und Orbitregeln in ADR-0007 festgehalten – siehe Feature-Commit

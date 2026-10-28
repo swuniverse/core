@@ -175,6 +175,10 @@ _Avoid_: Baustelle, Rohbau
 Die Funktion einer fertigen Station: **Versorgungsdepot**, **Logistikzentrum**, **Raumwerft**, **Sensorphalanx**, **Außenposten** oder **Raumstation**. Die Rolle bestimmt insbesondere Ort, Spielerlimit, Workbee-Bedarf und Dockplätze.
 _Avoid_: Stationsklasse, Rumpfrolle
 
+**Ruine**:
+Eine aufgegebene, besitzerlose und wiederbesiedelbare **Kolonie**. Ihre fertiggestellten Gebäude und ihr Lager bleiben erhalten, produzieren aber nicht weiter; laufende Vorgänge und Orbitzuweisungen werden bei der Aufgabe beendet.
+_Avoid_: zurückgesetzte Kolonie, leere Kolonie
+
 **Versorgungsdepot**:
 Eine kleine Depotstation innerhalb eines Sternsystems mit großem Lager und begrenzten Dockplätzen.
 _Avoid_: kleines Depot

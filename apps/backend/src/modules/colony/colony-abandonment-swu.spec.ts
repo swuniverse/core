@@ -88,7 +88,16 @@ function setup(object: Record<string, unknown>) {
     } as never,
     { createActionEvent: jest.fn() } as never,
   );
-  return { service, colony, colonyRepo, manager, queries };
+  return {
+    service,
+    colony,
+    colonyRepo,
+    manager,
+    queries,
+    orbitAssignmentRepo: service['orbitAssignmentRepo'] as {
+      delete: jest.Mock;
+    },
+  };
 }
 
 describe('giveUpColony on a still-STU planet/moon', () => {
@@ -126,11 +135,18 @@ describe('giveUpColony on a still-STU planet/moon', () => {
       originalClassId: stuClassId,
       name: 'Coruscant',
     };
-    const { service, colony, colonyRepo, queries } = setup(object);
+    const {
+      service,
+      colony,
+      colonyRepo,
+      orbitAssignmentRepo,
+      queries,
+    } = setup(object);
 
     await service.giveUpColony(5, 1, 'Testkolonie');
 
     expect(queries).toHaveLength(0);
+    expect(orbitAssignmentRepo.delete).toHaveBeenCalledWith({ colonyId: 5 });
     expect(colony.isAbandoned).toBe(true);
     expect(colonyRepo.save).toHaveBeenCalled();
   });
