@@ -1,6 +1,6 @@
 # Fraktionsattribute, Teil 2: Wählbarkeit, Spielerlimit, wirksame Boni
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-FA1a
@@ -36,5 +36,7 @@ Vorgabe:
 2. Multiplikatoren (a): Die vorhandenen Multiplikatoren werden an ihren Stellen wirksam (Rumpf `hullMultiplier`, Schild `shieldMultiplier`, Fracht `cargoMultiplier`, Forschung `researchMultiplier`, Koloniewachstum `colonyGrowthMultiplier`). Als Balancing-Werte gelten die heute in `faction.service.ts` (`DEFAULT_FACTIONS`) hinterlegten Werte. **Ausnahme Handel:** `tradeModifier` wird nicht wirksam gemacht, sondern gemäß tmw-T13 (Option 2b) entfernt.
 
 ## Comments
+
+- 2026-10-28 Agent: Das Issue ist in der vorgegebenen Größe S nicht seriös in einem Durchlauf umsetzbar. Die Akzeptanzkriterien betreffen mindestens vier getrennte Laufzeitpfade (Fraktions-Admin/API und Onboarding, Spacecraft-Statistik mit fehlendem Fraktionskontext, Forschungspunkterzeugung sowie Koloniewachstum), dazu Migration, Shared-Verträge und Frontend. Bitte in vertikale Teilissues aufteilen; insbesondere muss entschieden werden, ob Schiffsmultiplikatoren nach Eigentümerfraktion beim Erzeugen persistiert oder bei jeder Statistikberechnung dynamisch angewandt werden.
 
 - 2026-10-21 Product Owner: Option 1c, 2a – Fraktionen werden nicht begrenzt; es gibt nur ein von Admins gepflegtes `isSelectable` (1c). Die vorhandenen Fraktionsmultiplikatoren werden an ihren Stellen wirksam gemacht (2a); `tradeModifier` entfällt gemäß der spezielleren Entscheidung 2b in tmw-T13.
