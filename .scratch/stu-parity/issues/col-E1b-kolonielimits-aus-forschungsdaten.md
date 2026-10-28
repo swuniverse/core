@@ -1,6 +1,6 @@
 # Kolonielimits aus Forschungsdaten
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D4, col-E1a
@@ -35,3 +35,4 @@ Vorgabe: Variante (b). Limits aus den Forschungsdaten (`colonyLimit: { type, amo
 ## Comments
 
 - 2026-10-21 Product Owner: Option b – Kolonielimits werden wie in STU aus den Forschungsdaten berechnet; das feste SWU-Modell (Basis 1 + Fraktionstechs, Deckel 3/3/1) entfällt.
+- 2026-10-28 Agent: Umsetzung und fachbezogene Tests waren grün; die verpflichtende Gesamttypprüfung scheitert jedoch reproduzierbar an zwei bereits vorhandenen Frontend-Fehlern außerhalb dieses Issues (`apps/frontend/src/pages/database.tsx:1015` mit veraltetem Fraktionstyp sowie `apps/frontend/src/pages/colonies.spec.tsx:239` ohne `hasFighterShipyard`). Produktänderungen wurden gemäß Abbruchregel verworfen. Bitte diese Baseline-Typecheck-Fehler beheben oder ausdrücklich festlegen, wie mit unabhängigen Vorfehlern umzugehen ist.
