@@ -13,6 +13,7 @@ import {
   ModuleDef,
 } from '../game-data/game-data.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
+import { FieldEffect } from '@swuniverse/shared';
 
 export enum CombatAction {
   ENERGY_HIT = 'ENERGY_HIT',
@@ -28,6 +29,7 @@ export enum CombatAction {
   DESTROYED = 'DESTROYED',
   ARMOR_ABSORB = 'ARMOR_ABSORB',
   WEAPON_SHIELD_MOD = 'WEAPON_SHIELD_MOD',
+  FIELD_EFFECT = 'FIELD_EFFECT',
 }
 
 export interface CombatLogEntry {
@@ -61,6 +63,8 @@ export interface CombatResult {
 export interface BattleParticipant {
   ship: Spacecraft;
   modules: SpacecraftModule[];
+  fieldEffects?: FieldEffect[];
+  fieldTypeName?: string;
 }
 
 interface Combatant extends BattleParticipant {
@@ -95,6 +99,7 @@ export class CombatEngine {
       this.combatant(participant, 'defender'),
     );
     const log: CombatLogEntry[] = [];
+    this.logFieldEffects([...attackerParty, ...defenderParty], log);
 
     for (const combatant of [...attackerParty, ...defenderParty]) {
       combatant.ship.status = SpacecraftStatus.IN_COMBAT;
@@ -356,6 +361,9 @@ export class CombatEngine {
           projectileDamageMultiplier *
           formulas.damage.base_multiplier,
       );
+      if (!torpedo) {
+        damage = Math.ceil(damage * this.energyWeaponFieldMultiplier(shooter));
+      }
 
       const critChance = torpedo
         ? Math.max(0, torpedo.criticalChance) / 100
@@ -580,13 +588,81 @@ export class CombatEngine {
         speedDiff * formulas.hit_chance.speed_modifier;
 
     // STU formula: hitChance * (100 - evadeChance) / 100
-    const evadeChance = (target.ship.evadeChance ?? 0) / 100;
-    hitChance = hitChance * (1 - evadeChance);
+    if (shooter.fieldEffects?.includes(FieldEffect.HIT_CHANCE_INTERFERENCE)) {
+      hitChance = Math.ceil(hitChance * this.randomPercent(15, 60) * 100) / 100;
+    }
+
+    let evadeChance = target.ship.evadeChance ?? 0;
+    if (target.fieldEffects?.includes(FieldEffect.EVADE_CHANCE_INTERFERENCE)) {
+      const malus = Math.abs(
+        Math.trunc((evadeChance / 100) * this.randomPercent(40, 85) * 100),
+      );
+      evadeChance -= malus;
+    }
+    hitChance = hitChance * (1 - evadeChance / 100);
 
     return Math.max(
       formulas.hit_chance.min,
       Math.min(formulas.hit_chance.max, hitChance),
     );
+  }
+
+  private energyWeaponFieldMultiplier(shooter: Combatant): number {
+    let multiplier = 1;
+    if (shooter.fieldEffects?.includes(FieldEffect.ENERGY_WEAPON_BUFF)) {
+      multiplier *= this.randomPercent(115, 170);
+    }
+    if (shooter.fieldEffects?.includes(FieldEffect.ENERGY_WEAPON_NERF)) {
+      multiplier *= this.randomPercent(30, 85);
+    }
+    return multiplier;
+  }
+
+  private randomPercent(min: number, max: number): number {
+    return (min + Math.random() * (max - min)) / 100;
+  }
+
+  private logFieldEffects(
+    combatants: Combatant[],
+    log: CombatLogEntry[],
+  ): void {
+    const logged = new Set<string>();
+    for (const combatant of combatants) {
+      for (const effect of combatant.fieldEffects ?? []) {
+        if (
+          ![
+            FieldEffect.HIT_CHANCE_INTERFERENCE,
+            FieldEffect.EVADE_CHANCE_INTERFERENCE,
+            FieldEffect.ENERGY_WEAPON_BUFF,
+            FieldEffect.ENERGY_WEAPON_NERF,
+          ].includes(effect) ||
+          logged.has(effect)
+        ) {
+          continue;
+        }
+        logged.add(effect);
+        log.push({
+          action: CombatAction.FIELD_EFFECT,
+          source: combatant.role,
+          sourceId: combatant.ship.id,
+          detail: this.fieldEffectMessage(effect, combatant.fieldTypeName),
+        });
+      }
+    }
+  }
+
+  private fieldEffectMessage(effect: FieldEffect, fieldTypeName?: string): string {
+    const field = fieldTypeName ?? 'unbekannten Feldtyp';
+    switch (effect) {
+      case FieldEffect.HIT_CHANCE_INTERFERENCE:
+        return `Beeinträchtigung der Zielerfassung durch ${field}`;
+      case FieldEffect.EVADE_CHANCE_INTERFERENCE:
+        return `Beeinträchtigung der Ausweichmanöver durch ${field}`;
+      case FieldEffect.ENERGY_WEAPON_BUFF:
+        return `Verstärkung der Energiewaffen durch ${field}`;
+      default:
+        return `Abschwächung der Energiewaffen durch ${field}`;
+    }
   }
 
   private disableRandomSystem(

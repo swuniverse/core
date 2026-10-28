@@ -14,7 +14,7 @@ import {
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CombatEngine, CombatResult } from './combat.engine';
 import { GameGateway } from '../websocket/game.gateway';
-import { WsEventType } from '@swuniverse/shared';
+import { FieldEffect, knownFieldEffects, WsEventType } from '@swuniverse/shared';
 import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStats } from '../colony/entities/colony-stats.entity';
@@ -79,12 +79,14 @@ export class CombatService {
   ): Promise<ReturnType<CombatReportFormatter['formatBattle']>> {
     const attacker = await this.shipRepo.findOne({
       where: { id: attackerId, userId },
+      relations: this.combatLocationRelations,
     });
     if (!attacker) throw new NotFoundException('Attacker not found');
     assertSpacecraftNotInStandby(attacker, 'einem Angriff');
 
     const defender = await this.shipRepo.findOne({
       where: { id: targetId },
+      relations: this.combatLocationRelations,
     });
     if (!defender) throw new NotFoundException('Target not found');
 
@@ -108,7 +110,10 @@ export class CombatService {
       throw new BadRequestException('Target must be on same field');
     }
 
-    const nearby = await this.shipRepo.find({ where: { locationId: attacker.locationId } });
+    const nearby = await this.shipRepo.find({
+      where: { locationId: attacker.locationId },
+      relations: this.combatLocationRelations,
+    });
     const operational = (ship: Spacecraft) =>
       ship.status === SpacecraftStatus.IDLE &&
       ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
@@ -137,6 +142,7 @@ export class CombatService {
       ships.map((ship) => ({
         ship,
         modules: modules.filter((module) => module.spacecraftId === ship.id),
+        ...this.fieldEffectContext(ship),
       }));
 
     for (const ownerId of new Set(participants.map((ship) => ship.userId))) {
@@ -376,6 +382,31 @@ export class CombatService {
       defenderDestroyed: false,
     };
     return result;
+  }
+
+  private readonly combatLocationRelations = [
+    'location',
+    'location.galaxyField',
+    'location.galaxyField.fieldType',
+    'location.systemField',
+    'location.systemField.fieldType',
+  ];
+
+  private fieldEffectContext(ship: Spacecraft): {
+    fieldEffects: FieldEffect[];
+    fieldTypeName?: string;
+  } {
+    const field =
+      ship.location.kind === 'SYSTEM_FIELD'
+        ? ship.location.systemField
+        : ship.location.galaxyField;
+    return {
+      fieldEffects: knownFieldEffects([
+        ...(field?.fieldType?.effects ?? []),
+        ...(field && 'effects' in field ? (field.effects ?? []) : []),
+      ]),
+      fieldTypeName: field?.fieldType?.name,
+    };
   }
 
   /** Zählt ein abgeschlossenes Gefecht und die darin zerstörten Schiffe. */

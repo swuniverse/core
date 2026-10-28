@@ -637,6 +637,123 @@ describe('CombatEngine runtimeSystems integration', () => {
     ).toHaveLength(1);
   });
 
+  it('applies combat field effects with deterministic random values', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const engine = makeEngine();
+    const attacker = makeShip({ energy: 1000 });
+    const defender = makeShip({ evadeChance: 50 });
+
+    const result = await engine.resolveBattle(
+      [
+        {
+          ship: attacker as any,
+          modules: [weaponModule('WEAPONS')] as any,
+          fieldEffects: [
+            'HIT_CHANCE_INTERFERENCE',
+            'ENERGY_WEAPON_BUFF',
+          ] as any,
+          fieldTypeName: 'Tibanna-Nebel',
+        },
+      ],
+      [
+        {
+          ship: defender as any,
+          modules: [],
+          fieldEffects: ['EVADE_CHANCE_INTERFERENCE'] as any,
+          fieldTypeName: 'Tibanna-Nebel',
+        },
+      ],
+    );
+
+    expect(result.rounds[0].log).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: CombatAction.FIELD_EFFECT,
+          detail: 'Beeinträchtigung der Zielerfassung durch Tibanna-Nebel',
+        }),
+        expect.objectContaining({
+          action: CombatAction.FIELD_EFFECT,
+          detail: 'Beeinträchtigung der Ausweichmanöver durch Tibanna-Nebel',
+        }),
+      ]),
+    );
+    expect(
+      result.rounds[0].log.filter(
+        (entry) => entry.action === CombatAction.ENERGY_MISS,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('scales energy damage but leaves torpedo damage unchanged', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const engine = makeEngine();
+    const energyAttacker = makeShip({ energy: 1000 });
+    const energyDefender = makeShip({ shields: 0 });
+
+    const energyResult = await engine.resolveBattle(
+      [
+        {
+          ship: energyAttacker as any,
+          modules: [weaponModule('WEAPONS')] as any,
+          fieldEffects: ['ENERGY_WEAPON_BUFF'] as any,
+        },
+      ],
+      [{ ship: energyDefender as any, modules: [] }],
+    );
+    const energyHit = energyResult.rounds[0].log.find(
+      (entry) => entry.action === CombatAction.ENERGY_HIT,
+    );
+    expect(energyHit?.value).toBe(72);
+
+    const torpedo = {
+      name: 'Protonentorpedo',
+      baseDamage: 50,
+      criticalChance: 0,
+      hitFactor: 100,
+      hullDamageFactor: 100,
+      shieldDamageFactor: 100,
+      variance: 0,
+    };
+    (engine as any).torpedoService.consumeForAttack.mockResolvedValue(torpedo);
+    const projectileResult = await engine.resolveBattle(
+      [
+        {
+          ship: makeShip({ energy: 1000 }) as any,
+          modules: [weaponModule('PROJECTILE')] as any,
+          fieldEffects: ['ENERGY_WEAPON_BUFF'] as any,
+        },
+      ],
+      [{ ship: makeShip({ id: 2, shields: 0 }) as any, modules: [] }],
+    );
+    const projectileHit = projectileResult.rounds[0].log.find(
+      (entry) => entry.action === CombatAction.PROJECTILE_HIT,
+    );
+    expect(projectileHit?.value).toBe(50);
+  });
+
+  it('has no field-effect impact without effects', async () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const engine = makeEngine();
+    const result = await engine.resolveBattle(
+      [
+        {
+          ship: makeShip({ energy: 1000 }) as any,
+          modules: [weaponModule('WEAPONS')] as any,
+        },
+      ],
+      [{ ship: makeShip({ id: 2, shields: 0 }) as any, modules: [] }],
+    );
+    const hit = result.rounds[0].log.find(
+      (entry) => entry.action === CombatAction.ENERGY_HIT,
+    );
+    expect(hit?.value).toBe(50);
+    expect(
+      result.rounds[0].log.filter(
+        (entry) => entry.action === CombatAction.FIELD_EFFECT,
+      ),
+    ).toHaveLength(0);
+  });
+
   it('energy weapon does not fire when EPS is insufficient', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.1); // would hit
     const engine = makeEngine();

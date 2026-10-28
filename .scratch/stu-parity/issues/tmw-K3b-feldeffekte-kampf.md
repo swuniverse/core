@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2b: Kampf (Treffer-/Ausweichstörung, Energiewaffen ±)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
@@ -22,9 +22,11 @@ Felder beeinflussen den Kampf wie in STU. `HIT_CHANCE_INTERFERENCE` am Ort des A
 
 ## Akzeptanzkriterien
 
-- [ ] Die Kampf-Engine erhält je Teilnehmer die aktiven Feldeffekte seines Ortes (ohne zusätzliche N+1-Abfragen).
-- [ ] Die vier Effekte wirken nach den STU-Formeln. Torpedos sind von Buff/Nerf nicht betroffen.
-- [ ] Der Kampfbericht nennt einmalig den wirksamen Feldeffekt („Beeinträchtigung der Zielerfassung durch <Feldtyp>“).
-- [ ] Backend-Tests mit deterministischem Zufall: Treffer- und Ausweichchance, Energie- vs. Torpedoschaden, keine Wirkung ohne Effekt.
+- [x] Die Kampf-Engine erhält je Teilnehmer die aktiven Feldeffekte seines Ortes (ohne zusätzliche N+1-Abfragen).
+- [x] Die vier Effekte wirken nach den STU-Formeln. Torpedos sind von Buff/Nerf nicht betroffen.
+- [x] Der Kampfbericht nennt einmalig den wirksamen Feldeffekt („Beeinträchtigung der Zielerfassung durch <Feldtyp>“).
+- [x] Backend-Tests mit deterministischem Zufall: Treffer- und Ausweichchance, Energie- vs. Torpedoschaden, keine Wirkung ohne Effekt.
 
 ## Comments
+
+- Feldtyp- und feldspezifische Effekte werden beim Laden der Kampfteilnehmer ohne N+1-Abfragen an die Engine übergeben. Treffer, Ausweichen und Energiewaffenschaden folgen den STU-Spannen; Torpedos bleiben unverändert und der Bericht nennt jeden wirksamen Effekt einmalig. Deterministische Engine-Tests decken alle Varianten ab.
