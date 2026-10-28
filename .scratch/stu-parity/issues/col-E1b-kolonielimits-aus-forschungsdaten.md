@@ -1,6 +1,6 @@
 # Kolonielimits aus Forschungsdaten
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D4, col-E1a
