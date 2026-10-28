@@ -1,6 +1,6 @@
 # Jägerwerft: Rumpf ins Lager
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
