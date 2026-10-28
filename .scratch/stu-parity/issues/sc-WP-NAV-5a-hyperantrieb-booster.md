@@ -1,6 +1,6 @@
 # Hyperantriebs-Booster (Pendant zum STU-Warpantrieb-Boost)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -33,3 +33,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-28: Umsetzung nach zwei Prüfversuchen abgebrochen und Produktcode verworfen. Backend- und Frontend-Tests sowie alle Builds waren grün, aber die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=HEAD` scheitert reproduzierbar in `backend:typecheck` und `frontend:typecheck` an zahlreichen vorhandenen TS6305-Fehlern (fehlende `dist/**/*.d.ts`-Buildausgaben), auch nach expliziten Backend-, Frontend- und Gesamt-Builds. Bitte den Typecheck-Buildzustand bzw. das Prüfverfahren klären.
