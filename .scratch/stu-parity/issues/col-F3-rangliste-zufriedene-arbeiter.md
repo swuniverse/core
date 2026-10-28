@@ -1,6 +1,6 @@
 # Rangliste „Die besten Arbeitgeber“ (zufriedene Arbeiter)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -29,3 +29,5 @@ STU führt in der Datenbank eine Top-10-Rangliste der besten Arbeitgeber: je Spi
 - [ ] Backend-Test mit zwei Spielern und gemischten Kolonien; Frontend-Test für die Anzeige.
 
 ## Comments
+
+- 2026-10-28: Abgebrochen, weil der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` nach zwei ernsthaften Reparaturversuchen weiterhin an einem bereits vorhandenen, themenfremden TypeScript-Fehler in `apps/frontend/src/pages/colonies.spec.tsx:239` scheitert: Der Fixture-Wert benötigt das Pflichtfeld `hasFighterShipyard`. Die Änderungen für diese Aufgabe unter `apps/` wurden gemäß Abbruchregel zurückgesetzt. `npx nx run-many --targets=build` war zuvor erfolgreich.
