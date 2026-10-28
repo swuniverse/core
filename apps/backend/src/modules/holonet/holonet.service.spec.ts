@@ -17,6 +17,10 @@ jest.mock('./entities/holonet-checkpoint.entity', () => ({
   HolonetCheckpoint: class HolonetCheckpoint {},
 }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
+jest.mock('../rpg/rpg-plot.entity', () => ({ RpgPlot: class RpgPlot {} }));
+jest.mock('../rpg/rpg-plot-member.entity', () => ({
+  RpgPlotMember: class RpgPlotMember {},
+}));
 
 import { BadRequestException } from '@nestjs/common';
 import { HolonetService } from './holonet.service';
@@ -94,6 +98,8 @@ describe('HolonetService public behavior', () => {
       userRepo as never,
       messagingService as never,
       prestigeService as never,
+      {} as never,
+      {} as never,
     );
   });
 

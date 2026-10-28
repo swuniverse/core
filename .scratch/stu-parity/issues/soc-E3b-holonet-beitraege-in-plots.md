@@ -1,6 +1,6 @@
 # RPG-Plots: HoloNet-Beiträge im Plot
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** soc-E3a
@@ -27,11 +27,13 @@ Vorgabe zur Kategorie: Plotbeiträge sind immer `ROLEPLAY`. Der Server setzt die
 
 ## Akzeptanzkriterien
 
-- [ ] Create akzeptiert `plotId`; nur aktive Plots, in denen der Autor Mitglied ist (sonst 403/400).
-- [ ] Mit Plot: Titel optional (0 oder 6–80 Zeichen), Kategorie wird `ROLEPLAY`; ohne Plot gelten die Regeln aus soc-D1 unverändert.
-- [ ] Alle anderen Plotmitglieder erhalten eine Systemnachricht mit dem STU-Text (mit Ziel aus soc-A5, falls vorhanden).
-- [ ] Beiträge zeigen „Plot: <Titel>“ mit Link; die Plotdetailseite listet die Plotbeiträge chronologisch (paginiert).
-- [ ] Die Entscheidung „Plotbeiträge sind immer ROLEPLAY“ steht unter „Entscheidungen“ in `map.md`.
-- [ ] Backend-Tests: Mitgliedschaftsprüfung, optionaler Titel, Kategorie, Benachrichtigung ohne Autor. Frontend-Tests: Plotauswahl im Compose, Plotanzeige.
+- [x] Create akzeptiert `plotId`; nur aktive Plots, in denen der Autor Mitglied ist (sonst 403/400).
+- [x] Mit Plot: Titel optional (0 oder 6–80 Zeichen), Kategorie wird `ROLEPLAY`; ohne Plot gelten die Regeln aus soc-D1 unverändert.
+- [x] Alle anderen Plotmitglieder erhalten eine Systemnachricht mit dem STU-Text (mit Ziel aus soc-A5, falls vorhanden).
+- [x] Beiträge zeigen „Plot: <Titel>“ mit Link; die Plotdetailseite listet die Plotbeiträge chronologisch (paginiert).
+- [x] Die Entscheidung „Plotbeiträge sind immer ROLEPLAY“ steht unter „Entscheidungen“ in `map.md`.
+- [x] Backend-Tests: Mitgliedschaftsprüfung, optionaler Titel, Kategorie, Benachrichtigung ohne Autor. Frontend-Tests: Plotauswahl im Compose, Plotanzeige.
 
 ## Comments
+
+- 2026-10-28: HoloNet-Beiträge können aktiven eigenen RPG-Plots zugeordnet werden; Backend erzwingt Mitgliedschaft und ROLEPLAY, benachrichtigt andere Schreiber, und HoloNet/Plotdetail zeigen die Verknüpfung samt paginierter Beitragsliste. Migration und Backend-/Frontend-Tests ergänzt. Keine offenen Folgepunkte.

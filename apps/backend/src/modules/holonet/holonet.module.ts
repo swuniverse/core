@@ -9,6 +9,8 @@ import { HolonetCheckpoint } from './entities/holonet-checkpoint.entity';
 import { User } from '../auth/user.entity';
 import { MessagingModule } from '../messaging/messaging.module';
 import { PrestigeModule } from '../prestige/prestige.module';
+import { RpgPlot } from '../rpg/rpg-plot.entity';
+import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PrestigeModule } from '../prestige/prestige.module';
       HolonetRating,
       HolonetCheckpoint,
       User,
+      RpgPlot,
+      RpgPlotMember,
     ]),
     MessagingModule,
     PrestigeModule,

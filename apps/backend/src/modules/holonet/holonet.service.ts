@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, IsNull, MoreThan, Repository } from 'typeorm';
@@ -13,11 +14,14 @@ import { User } from '../auth/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { PrestigeService } from '../prestige/prestige.service';
+import { RpgPlot } from '../rpg/rpg-plot.entity';
+import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
 
 interface HolonetSearchFilters {
   text?: string;
   authorId?: number;
   postId?: number;
+  plotId?: number;
 }
 const HOLONET_EDIT_WINDOW_MS = 10 * 60 * 1000;
 const HOLONET_BODY_MAX_LENGTH = 20_000;
@@ -38,6 +42,10 @@ export class HolonetService {
     private readonly userRepo: Repository<User>,
     private readonly messagingService: MessagingService,
     private readonly prestigeService: PrestigeService,
+    @InjectRepository(RpgPlot)
+    private readonly plotRepo: Repository<RpgPlot>,
+    @InjectRepository(RpgPlotMember)
+    private readonly plotMemberRepo: Repository<RpgPlotMember>,
   ) {}
 
   async findAll(
@@ -51,6 +59,7 @@ export class HolonetService {
     if (category) baseWhere.category = category;
     if (filters.authorId) baseWhere.authorId = filters.authorId;
     if (filters.postId) baseWhere.id = filters.postId;
+    if (filters.plotId) baseWhere.plotId = filters.plotId;
 
     const where = filters.text
       ? [
@@ -61,7 +70,7 @@ export class HolonetService {
 
     const [data, total] = await this.postRepo.findAndCount({
       where,
-      relations: ['author'],
+      relations: ['author', 'plot'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -100,7 +109,7 @@ export class HolonetService {
   }> {
     const post = await this.postRepo.findOne({
       where: { id, deletedAt: IsNull() },
-      relations: ['author'],
+      relations: ['author', 'plot'],
     });
     if (!post) throw new NotFoundException('Post not found');
     const [positiveCount, totalCount] = await Promise.all([
@@ -118,10 +127,12 @@ export class HolonetService {
     title: string,
     body: string,
     category: PostCategory,
+    plotId?: number,
   ): Promise<HolonetPost> {
     const normalizedTitle = title?.trim() ?? '';
     const normalizedBody = body?.trim() ?? '';
-    this.validateTitle(normalizedTitle);
+    const plot = plotId ? await this.requireActivePlotMember(plotId, authorId) : null;
+    if (!plot || normalizedTitle) this.validateTitle(normalizedTitle);
     const bodyLength = codePointLength(normalizedBody);
     if (bodyLength < 50) {
       throw new BadRequestException('Der Text muss mindestens 50 Zeichen lang sein.');
@@ -136,9 +147,12 @@ export class HolonetService {
       authorId,
       title: normalizedTitle,
       body: normalizedBody,
-      category,
+      category: plot ? PostCategory.ROLEPLAY : category,
+      ...(plot ? { plotId: plot.id } : {}),
     });
-    return this.postRepo.save(post);
+    const saved = await this.postRepo.save(post);
+    if (plot) await this.notifyPlotMembers(saved, plot, authorId);
+    return saved;
   }
 
   async update(
@@ -216,7 +230,7 @@ export class HolonetService {
   async getComments(postId: number, page = 1, limit = 20) {
     const [data, total] = await this.commentRepo.findAndCount({
       where: { postId, deletedAt: IsNull() },
-      relations: ['author'],
+      relations: ['author', 'plot'],
       order: { createdAt: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -340,6 +354,40 @@ export class HolonetService {
     const checkpoint = await this.checkpointRepo.findOneBy({ userId });
     const lastId = checkpoint?.lastReadPostId ?? 0;
     return this.postRepo.count({ where: { id: MoreThan(lastId) } });
+  }
+
+  private async requireActivePlotMember(plotId: number, userId: number): Promise<RpgPlot> {
+    const plot = await this.plotRepo.findOne({ where: { id: plotId } });
+    if (!plot) throw new BadRequestException('RPG-Plot nicht gefunden.');
+    if (plot.endedAt) throw new BadRequestException('Der RPG-Plot ist bereits beendet.');
+    if (!(await this.plotMemberRepo.findOneBy({ plotId, userId }))) {
+      throw new ForbiddenException('Nur Schreiber dürfen Beiträge zu diesem Plot verfassen.');
+    }
+    return plot;
+  }
+
+  private async notifyPlotMembers(
+    post: HolonetPost,
+    plot: RpgPlot,
+    authorId: number,
+  ): Promise<void> {
+    const [author, members] = await Promise.all([
+      this.userRepo.findOneBy({ id: authorId }),
+      this.plotMemberRepo.find({ where: { plotId: plot.id } }),
+    ]);
+    const text = `Der Spieler ${author?.username ?? `#${authorId}`} hat einen neuen Beitrag zum Plot "${plot.title}" hinzugefügt.`;
+    await Promise.all(
+      members
+        .filter((member) => member.userId !== authorId)
+        .map((member) =>
+          this.messagingService.sendSystem(
+            member.userId,
+            'Neuer RPG-Plot-Beitrag',
+            text,
+            `rpg-plot-post:${post.id}:${member.userId}`,
+          ),
+        ),
+    );
   }
 
   private validateTitle(title: string): void {

@@ -9,6 +9,21 @@ import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 
+interface PlotPost {
+  id: number;
+  title: string;
+  body: string;
+  createdAt: string;
+  author: { username: string };
+}
+
+interface PlotPostsResponse {
+  data: PlotPost[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 const panel = 'border border-swu-border bg-black/40';
 const heading =
   'border-b border-swu-border bg-swu-surface/80 px-3 py-1 text-xs font-bold text-swu-primary';
@@ -115,13 +130,19 @@ export function RpgPlotDetailPage() {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [posts, setPosts] = useState<PlotPostsResponse | null>(null);
+  const [postPage, setPostPage] = useState(1);
 
   const load = useCallback(async () => {
-    const loaded = await api.get<RpgPlotDto>(`/rpg/plots/${id}`);
+    const [loaded, loadedPosts] = await Promise.all([
+      api.get<RpgPlotDto>(`/rpg/plots/${id}`),
+      api.get<PlotPostsResponse>(`/holonet?plotId=${id}&page=${postPage}`),
+    ]);
     setPlot(loaded);
+    setPosts(loadedPosts);
     setTitle(loaded.title);
     setDescription(loaded.description);
-  }, [id]);
+  }, [id, postPage]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -162,6 +183,35 @@ export function RpgPlotDetailPage() {
               <div className="p-3">
                 {editing ? <><label className="block text-xs">Titel<input className={`${input} mt-1`} value={title} maxLength={80} onChange={(event) => setTitle(event.target.value)} /></label><label className="mt-3 block text-xs">Beschreibung<textarea className={`${input} mt-1`} rows={12} maxLength={5000} value={description} onChange={(event) => setDescription(event.target.value)} /></label><button className={`${primary} mt-3`} onClick={() => void save()}>Speichern</button></> : <BbCodeText text={plot.description} className="whitespace-pre-wrap text-sm" />}
               </div>
+            </section>
+            <section className={panel}>
+              <h2 className={heading}>Beiträge</h2>
+              <div className="divide-y divide-swu-border/60">
+                {!posts || posts.data.length === 0 ? (
+                  <p className="p-3 text-xs">Noch keine Beiträge.</p>
+                ) : posts.data.map((post) => (
+                  <article key={post.id} className="p-3 text-xs">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <Link
+                        to={`/holonet/${post.id}`}
+                        className="font-bold text-swu-primary hover:text-swu-accent"
+                        aria-label={`Beitrag #${post.id} öffnen`}
+                      >
+                        {post.title || `Beitrag #${post.id}`}
+                      </Link>
+                      <span>{post.author.username} · {new Date(post.createdAt).toLocaleString('de-DE')}</span>
+                    </div>
+                    <BbCodeText text={post.body} className="whitespace-pre-wrap text-sm" />
+                  </article>
+                ))}
+              </div>
+              {posts && posts.total > posts.limit && (
+                <div className="flex items-center gap-3 border-t border-swu-border p-2 text-xs">
+                  <button className={button} disabled={postPage <= 1} onClick={() => setPostPage((value) => value - 1)}>Zurück</button>
+                  <span>Seite {postPage} von {Math.ceil(posts.total / posts.limit)}</span>
+                  <button className={button} disabled={postPage >= Math.ceil(posts.total / posts.limit)} onClick={() => setPostPage((value) => value + 1)}>Weiter</button>
+                </div>
+              )}
             </section>
             <section className={panel}>
               <h2 className={heading}>Schreiber</h2>

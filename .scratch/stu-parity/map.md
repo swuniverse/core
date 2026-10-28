@@ -119,6 +119,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-27 – sc-WP-CREW-3a – Dedizierte neutrale `EscapePod`-Entity mit individuellen Crew-Zuweisungen; Identität, Rang und Expertise bleiben erhalten, Landung nur für passende Crew bis zur Kapazität
 - 2026-10-27 – sc-WP-COMBAT-1 – Basisalarm nach jeder realen Feldtransition mit gemeinsamem Movement-Result; Gelb nur `ENEMY`, Rot außer `FRIEND`, beidseitiger Urlaubsschutz, höchstens ein deterministischer Kampf; Traktor/Tarnung später
 - 2026-10-27 – sc-WP-UI-3a – Exakte STU-Regel: Jede belegte Kolonie unabhängig von Eigentum und Haltung verteidigen oder blockieren; schiffsbezogene API, flottenbezogene Order, Urlaub/Gegenorder und Blockade-Orbitalverteidigung prüfen
+- 2026-10-28 – soc-E3b – Plotbeiträge sind immer HoloNet-Kategorie `ROLEPLAY`; eine abweichende Kategorie wird bei Plotzuordnung serverseitig überschrieben
 
 ## Erledigt
 
@@ -213,3 +214,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-C1a – Gerichtete Ignorierliste mit Verwaltungsoberfläche, Profilaktionen und PM-Sperre umgesetzt – siehe Feature-Commit
 - soc-D2 – Admins können fremde HoloNet-Beiträge mit optionaler Begründung weich löschen und den Autor benachrichtigen – siehe Feature-Commit
 - soc-E3a – RPG-Plots mit Erstellerverwaltung, Schreiberlisten, Systemnachrichten und HoloNet-Oberfläche umgesetzt – siehe Feature-Commit
+- soc-E3b – HoloNet-Beiträge können aktiven eigenen RPG-Plots zugeordnet werden und erscheinen samt Benachrichtigungen in der Plotdetailseite – siehe Feature-Commit

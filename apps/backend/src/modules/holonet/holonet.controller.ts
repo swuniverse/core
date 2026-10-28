@@ -31,6 +31,7 @@ export class HolonetController {
     @Query('text') text?: string,
     @Query('authorId') authorId?: string,
     @Query('postId') postId?: string,
+    @Query('plotId') plotId?: string,
   ) {
     return this.holonetService.findAll(
       req.user.sub,
@@ -46,6 +47,10 @@ export class HolonetController {
         postId:
           postId && Number.isFinite(Number(postId))
             ? Number(postId)
+            : undefined,
+        plotId:
+          plotId && Number.isFinite(Number(plotId))
+            ? Number(plotId)
             : undefined,
       },
     );
@@ -78,8 +83,9 @@ export class HolonetController {
     @Body('title') title: string,
     @Body('body') body: string,
     @Body('category') category: PostCategory,
+    @Body('plotId') plotId?: number,
   ) {
-    return this.holonetService.create(req.user.sub, title, body, category);
+    return this.holonetService.create(req.user.sub, title, body, category, plotId);
   }
 
   @Patch(':id')

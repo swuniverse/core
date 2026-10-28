@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useHolonetUnreadStore } from '../stores/holonet-unread.store';
 import { PmLink } from '../components/PmLink';
+import type { RpgPlotDto, RpgPlotListDto } from '@swuniverse/shared';
 
 interface HolonetPost {
   id: number;
@@ -19,6 +20,8 @@ interface HolonetPost {
   createdAt: string;
   authorId: number;
   author: { username: string };
+  plotId?: number | null;
+  plot?: { id: number; title: string } | null;
 }
 
 interface Comment {
@@ -428,6 +431,14 @@ export function HolonetPage() {
                                   <p className="text-[10px] text-swu-muted">
                                     Gesendet über HoloNet-Kanal {post.category}
                                   </p>
+                                  {post.plot && (
+                                    <Link
+                                      to={`/holonet/plots/${post.plot.id}`}
+                                      className="text-[11px] text-swu-accent hover:underline"
+                                    >
+                                      Plot: {post.plot.title}
+                                    </Link>
+                                  )}
                                 </div>
                                 <div className="flex gap-2">
                                   {post.authorId === user?.id && (
@@ -717,12 +728,25 @@ export function HolonetComposePage() {
     title: '',
     body: '',
     category: 'NEWS',
+    plotId: null as number | null,
   });
+  const [plots, setPlots] = useState<RpgPlotDto[]>([]);
   const [setBookmark, setSetBookmark] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  useEffect(() => {
+    void api.get<RpgPlotListDto>('/rpg/plots/mine?page=1').then((result) => {
+      setPlots(result.data.filter((plot) => plot.endedAt === null));
+    });
+  }, []);
+
   const createPost = async () => {
-    const post = await api.post<HolonetPost>('/holonet', compose);
+    const post = await api.post<HolonetPost>('/holonet', {
+      title: compose.title,
+      body: compose.body,
+      category: compose.plotId ? 'ROLEPLAY' : compose.category,
+      ...(compose.plotId ? { plotId: compose.plotId } : {}),
+    });
     if (setBookmark) {
       await api.post('/holonet/checkpoint', { postId: post.id });
     }
@@ -747,9 +771,31 @@ export function HolonetComposePage() {
           </label>
 
           <label className="block max-w-xs text-xs font-bold text-swu-primary">
+            Plot
+            <select
+              value={compose.plotId ?? ''}
+              onChange={(event) => {
+                const plotId = event.target.value ? Number(event.target.value) : null;
+                setCompose({
+                  ...compose,
+                  plotId,
+                  category: plotId ? 'ROLEPLAY' : compose.category,
+                });
+              }}
+              className="mt-1 w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm font-normal text-swu-primary"
+            >
+              <option value="">Kein Plot</option>
+              {plots.map((plot) => (
+                <option key={plot.id} value={plot.id}>{plot.title}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block max-w-xs text-xs font-bold text-swu-primary">
             Kategorie
             <select
-              value={compose.category}
+              value={compose.plotId ? 'ROLEPLAY' : compose.category}
+              disabled={compose.plotId !== null}
               onChange={(e) => setCompose({ ...compose, category: e.target.value })}
               className="mt-1 w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm font-normal text-swu-primary"
             >
@@ -804,7 +850,7 @@ export function HolonetComposePage() {
           <div className="flex flex-wrap items-center gap-2 border-t border-swu-border pt-3 text-xs">
             <button
               onClick={createPost}
-              disabled={!compose.title.trim() || !compose.body.trim()}
+              disabled={(!compose.plotId && !compose.title.trim()) || !compose.body.trim()}
               className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent hover:bg-swu-accent/20 disabled:opacity-40"
             >
               Hinzufügen

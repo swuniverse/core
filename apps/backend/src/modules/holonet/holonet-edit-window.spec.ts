@@ -17,6 +17,10 @@ jest.mock('./entities/holonet-checkpoint.entity', () => ({
   HolonetCheckpoint: class HolonetCheckpoint {},
 }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
+jest.mock('../rpg/rpg-plot.entity', () => ({ RpgPlot: class RpgPlot {} }));
+jest.mock('../rpg/rpg-plot-member.entity', () => ({
+  RpgPlotMember: class RpgPlotMember {},
+}));
 
 import {
   BadRequestException,
@@ -43,6 +47,8 @@ describe('HolonetService edit window', () => {
   };
   let messagingService: { sendSystem: jest.Mock };
   let userRepo: { findOneBy: jest.Mock };
+  let plotRepo: { findOne: jest.Mock };
+  let plotMemberRepo: { findOneBy: jest.Mock; find: jest.Mock };
   let service: HolonetService;
 
   beforeEach(() => {
@@ -62,6 +68,8 @@ describe('HolonetService edit window', () => {
       findOneBy: jest.fn().mockResolvedValue({ id: 99, username: 'Tarkin' }),
     };
     messagingService = { sendSystem: jest.fn().mockResolvedValue(undefined) };
+    plotRepo = { findOne: jest.fn() };
+    plotMemberRepo = { findOneBy: jest.fn(), find: jest.fn() };
     service = new HolonetService(
       postRepo as never,
       {} as never,
@@ -70,6 +78,8 @@ describe('HolonetService edit window', () => {
       userRepo as never,
       messagingService as never,
       {} as never,
+      plotRepo as never,
+      plotMemberRepo as never,
     );
   });
 
@@ -169,6 +179,8 @@ describe('HolonetService edit window', () => {
       {} as never,
       {} as never,
       {} as never,
+      plotRepo as never,
+      plotMemberRepo as never,
     );
 
     await expect(
@@ -196,6 +208,66 @@ describe('HolonetService edit window', () => {
       body: '🚀'.repeat(50),
       category: 'NEWS',
     });
+  });
+
+  it('creates a plot post for an active member with optional title and ROLEPLAY category', async () => {
+    const createRepo = {
+      ...postRepo,
+      create: jest.fn((value) => ({ id: 5, ...value })),
+    };
+    plotRepo.findOne.mockResolvedValue({ id: 11, title: 'Echo Base Rescue', endedAt: null });
+    plotMemberRepo.findOneBy.mockResolvedValue({ plotId: 11, userId });
+    plotMemberRepo.find.mockResolvedValue([
+      { plotId: 11, userId },
+      { plotId: 11, userId: 8 },
+    ]);
+    userRepo.findOneBy.mockResolvedValue({ id: userId, username: 'Leia' });
+    const createService = new HolonetService(
+      createRepo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      userRepo as never,
+      messagingService as never,
+      {} as never,
+      plotRepo as never,
+      plotMemberRepo as never,
+    );
+
+    await createService.create(userId, '', 'x'.repeat(50), 'TRADE' as never, 11);
+
+    expect(createRepo.create).toHaveBeenCalledWith({
+      authorId: userId,
+      title: '',
+      body: 'x'.repeat(50),
+      category: 'ROLEPLAY',
+      plotId: 11,
+    });
+    expect(messagingService.sendSystem).toHaveBeenCalledWith(
+      8,
+      'Neuer RPG-Plot-Beitrag',
+      'Der Spieler Leia hat einen neuen Beitrag zum Plot "Echo Base Rescue" hinzugefügt.',
+      'rpg-plot-post:5:8',
+    );
+    expect(messagingService.sendSystem).not.toHaveBeenCalledWith(
+      userId,
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('rejects ended plots and users who are not plot members', async () => {
+    plotRepo.findOne.mockResolvedValue({ id: 11, title: 'Ended', endedAt: new Date() });
+    plotMemberRepo.findOneBy.mockResolvedValue({ plotId: 11, userId });
+    await expect(
+      service.create(userId, '', 'x'.repeat(50), 'NEWS' as never, 11),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    plotRepo.findOne.mockResolvedValue({ id: 11, title: 'Active', endedAt: null });
+    plotMemberRepo.findOneBy.mockResolvedValue(null);
+    await expect(
+      service.create(userId, '', 'x'.repeat(50), 'NEWS' as never, 11),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('validates trimmed edit boundaries', async () => {

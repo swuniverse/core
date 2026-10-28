@@ -27,6 +27,22 @@ const user = {
   permissions: [],
 } satisfies UserProfile;
 
+const plotPost = {
+  id: 42,
+  title: '',
+  body: 'Rebel briefing',
+  category: 'ROLEPLAY',
+  commentCount: 0,
+  rating: 0,
+  positiveCount: 0,
+  totalCount: 0,
+  createdAt: '2026-10-28T12:00:00.000Z',
+  authorId: 8,
+  author: { username: 'Han' },
+  plotId: 11,
+  plot: { id: 11, title: 'Echo Base Rescue' },
+};
+
 const plot: RpgPlotDto = {
   id: 11,
   title: 'Echo Base Rescue',
@@ -96,7 +112,13 @@ it('creates a plot from the dedicated form', async () => {
 });
 
 it('shows plot details and lets the creator manage writers', async () => {
-  apiMocks.get.mockResolvedValue(plot);
+  apiMocks.get.mockImplementation((url: string) => {
+    if (url === '/rpg/plots/11') return Promise.resolve(plot);
+    if (url === '/holonet?plotId=11&page=1') {
+      return Promise.resolve({ data: [plotPost], total: 1, page: 1, limit: 20 });
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  });
   apiMocks.post.mockResolvedValue({});
   apiMocks.delete.mockResolvedValue({});
 
@@ -110,6 +132,10 @@ it('shows plot details and lets the creator manage writers', async () => {
 
   expect(await screen.findByText('Briefing')).toBeTruthy();
   expect(screen.getByText('Ersteller: Leia')).toBeTruthy();
+  expect(await screen.findByText('Rebel briefing')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Beitrag #42 öffnen' }).getAttribute('href')).toBe(
+    '/holonet/42',
+  );
   fireEvent.change(screen.getByLabelText('Spieler-ID'), { target: { value: '9' } });
   fireEvent.click(screen.getByRole('button', { name: 'Schreiber hinzufügen' }));
   await waitFor(() =>

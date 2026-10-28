@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
+import type { RpgPlot } from '../../rpg/rpg-plot.entity';
 
 export enum PostCategory {
   NEWS = 'NEWS',
@@ -38,6 +39,13 @@ export class HolonetPost {
 
   @Column({ type: 'varchar', default: PostCategory.NEWS })
   category: PostCategory;
+
+  @Column({ type: 'int', nullable: true })
+  plotId: number | null;
+
+  @ManyToOne('RpgPlot', { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'plotId' })
+  plot: RpgPlot | null;
 
   @Column({ default: false })
   isPinned: boolean;

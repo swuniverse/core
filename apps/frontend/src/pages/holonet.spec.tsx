@@ -85,6 +85,13 @@ describe('HolonetPage routing', () => {
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
     apiMocks.delete.mockReset();
+    apiMocks.get.mockResolvedValue({
+      data: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 1,
+    });
     useAuthStore.setState({
       accessToken: 'token',
       refreshToken: 'refresh',
@@ -471,6 +478,37 @@ describe('HolonetPage routing', () => {
     expect(screen.getByRole('heading', { name: 'Vorschau-Titel' })).toBeTruthy();
     expect(screen.getByText('Starke Übertragung').tagName).toBe('STRONG');
     expect(apiMocks.post).not.toHaveBeenCalled();
+  });
+
+  it('offers active member plots and creates a ROLEPLAY plot post without a title', async () => {
+    apiMocks.get.mockResolvedValue({
+      data: [{ id: 11, title: 'Echo Base Rescue', endedAt: null }],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    });
+    apiMocks.post.mockResolvedValue({ ...postFixture, id: 42 });
+
+    render(
+      <MemoryRouter initialEntries={['/holonet/new']}>
+        <Routes>
+          <Route path="/holonet/new" element={<HolonetComposePage />} />
+          <Route path="/holonet/:id" element={<div>created</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Plot'), { target: { value: '11' } });
+    fireEvent.change(screen.getByLabelText('Text'), { target: { value: 'x'.repeat(50) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hinzufügen' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/holonet', {
+      title: '',
+      body: 'x'.repeat(50),
+      category: 'ROLEPLAY',
+      plotId: 11,
+    }));
   });
 
   it('creates posts on the dedicated compose page and sets the requested bookmark', async () => {
