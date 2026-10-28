@@ -1,6 +1,6 @@
 # Schiffsmülleimer: Waren entsorgen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -29,3 +29,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-28: Umsetzung und fokussierte Backend-/Frontend-Tests waren erfolgreich, aber die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=HEAD` bleibt nach zwei ernsthaften Versuchen rot. `frontend:typecheck` meldet repo-weit TS6305 für nicht erzeugte `apps/frontend/dist/**/*.d.ts`-Ausgaben (auch nach erfolgreichem `npx nx run-many --targets=build`). Produktcode gemäß Abbruchregel verworfen. Bitte den Frontend-Typecheck-/Declaration-Build reparieren oder bestätigen, wie diese bekannte Infrastrukturblockade im Ralph-Lauf zu behandeln ist.
