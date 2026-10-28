@@ -1,6 +1,6 @@
 # Forschungsbaum: EXCLUDE- und REQUIRE_SOME-Kanten unterscheiden
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -25,3 +25,5 @@ Der SWU-Forschungsbaum zeichnet alle Abhängigkeiten gleich. Der STU-Admin-Baum 
 - [ ] Frontend-Test: die drei Kantentypen werden unterschiedlich gerendert.
 
 ## Comments
+
+- 2026-10-28: Implementierung und fokussierte Backend-/Frontend-Tests sind grün; `npx nx run-many --targets=build` ist grün. Der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` scheitert nach zwei ernsthaften Versuchen am bereits vorhandenen globalen Frontend-Typecheck (u. a. `database.tsx:1015` Faction-Typfehler sowie zahlreiche TS6305-Ausgabedateifehler außerhalb dieses Issues). Soll der Lauf trotz dieses bekannten Baseline-Blockers abgeschlossen werden, oder soll zuerst der globale Frontend-Typecheck repariert werden?
