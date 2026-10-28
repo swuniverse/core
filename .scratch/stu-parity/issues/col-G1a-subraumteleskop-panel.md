@@ -1,6 +1,6 @@
 # Subraumteleskop: Funktion und Kartenansicht
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -33,3 +33,5 @@ Das Gebäude „Hyperraum-Teleskop“ (100060100) ist baubar, hat aber keine Fun
 - [ ] Frontend-Tests: Kontextmenü erscheint nur mit Gebäude, Kostenanzeige.
 
 ## Comments
+
+- 2026-10-28: Blockiert durch fehlende Produktentscheidung zur Karten-Sichtbarkeit. Das Akzeptanzkriterium fordert „dieselbe Sichtbarkeit wie die eigene Sternenkarte“, aber STU lädt den Ausschnitt über den allgemeinen `RefreshSection`-Pfad, während SWU mehrere kontextabhängige Sichtbarkeitsquellen (Erkundung, Sensorabdeckung, Overlays) besitzt. Bitte festlegen, ob das Teleskop (a) ausschließlich dauerhaft erkundete Felder zeigt oder (b) zusätzlich aktuelle Sensorabdeckung/Allianzfreigaben wie die interaktive Sternenkarte übernimmt. Ohne diese Festlegung lässt sich der Backend-Vertrag nicht sicher implementieren.
