@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 1: Lecks, Ausfälle, Regeneration
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
