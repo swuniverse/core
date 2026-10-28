@@ -1,6 +1,6 @@
 # Fraktionsattribute, Teil 2: Wählbarkeit, Spielerlimit, wirksame Boni
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-FA1a
