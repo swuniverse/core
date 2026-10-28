@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2a: Sensorik (LSS-Störung, LSS-Blockade, Signaturanzeige)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
