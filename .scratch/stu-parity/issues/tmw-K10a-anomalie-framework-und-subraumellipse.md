@@ -1,6 +1,6 @@
 # Anomalie-Framework mit Subraumellipse
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a, tmw-K3c
@@ -36,3 +36,5 @@ SWU bekommt ein Anomalie-Framework nach STU-Vorbild: Entität (Typ, Ort, Resttic
 - [ ] Backend-Tests: Lebenszyklus (Erzeugen, Ticken, Verschwinden), Handler-Register, Subraumellipse (Schwelle, Schildwirkung), Sperre `NO_ANOMALIES`. Frontend-Tests: `LssMap` und `FieldContextPanel` zeigen die Anomalie.
 
 ## Comments
+
+- 2026-10-28: Blockiert durch fehlende Produktentscheidung zur Subraumellipse. Die STU-Referenz verwendet eine Schwellwertformel über Crew und `rump.mass`, während SWU-Schiffsklassen aktuell keine persistierte Masse besitzen. Zusätzlich verlangt das Issue eine 1–50-Schadensverteilung, legt aber weder Zufallsquelle/Determinismus noch den Lebensdauer- und Erzeugungsmodus für den Anomalietyp fest. Bitte festlegen: (1) welches SWU-Masseäquivalent bzw. welche Klassenmetrik und welcher Schwellwert gelten, (2) ob Schildemitterschaden deterministisch oder zufällig ist und wie getestet wird, (3) Lebensdauer und Erzeugungswahrscheinlichkeit/-häufigkeit der Subraumellipse.
