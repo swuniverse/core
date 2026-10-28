@@ -1,6 +1,6 @@
 # Kolonie-Sandbox: Datenmodell und Kopie der Oberfläche
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -36,3 +36,4 @@ Vorgabe: Variante (a), vollständig (col-G3a bis col-G3c). Höchstzahl Sandboxen
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Die Kolonie-Sandbox ist gewünscht und wird vollständig umgesetzt (col-G3a bis col-G3c), mit niedriger Priorität.
+- 2026-10-28 Blocker: Die vorgeschriebenen Prüfungen bleiben nach zwei ernsthaften Versuchen rot. `frontend:typecheck` scheitert bereits außerhalb dieses Issues an `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht `Faction`) und erzeugt danach zahlreiche TS6305-Folgefehler; der vollständige Frontend-Testlauf hat zusätzlich einen bestehenden Fehler in `src/pages/research.spec.tsx`. Die Sandbox-spezifischen Backend- und Frontend-Tests sowie `npx nx run-many --targets=build` waren grün. Bitte zuerst den Branch-Baseline-Fehler beheben oder bestätigen, dass bekannte unabhängige Fehler für diesen Durchlauf ausgenommen werden dürfen.
