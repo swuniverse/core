@@ -1,6 +1,6 @@
 # Regionskartographie
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K8a
@@ -38,3 +38,4 @@ Vorgabe: Variante (a). Regionen lassen sich per Messpunkt-Kartographie kartieren
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Die Regionskartographie wird mit neuer Folge-ADR zu ADR-0003 aufgenommen; ihr Abschluss ist die einzige Quelle der Regionsentdeckung, auf der tmw-D4 aufbaut.
+- 2026-10-28 Agent: Abbruch nach zwei ernsthaften Implementierungs-/Testversuchen. Das bestehende Kartographiemodell ist vollständig auf `starSystemId` und `SystemField` festgelegt; eine sichere Erweiterung auf Regionen betrifft Entity-Indizes, transaktionale Idempotenz, Tick-Ergebnisse, Flugfolgen und beide bestehenden Systemkartographie-Verträge gleichzeitig und überschreitet damit Size M. Bitte entscheiden: Soll das Issue in getrennte Teilissues (Datenmodell/Migration, Backend-Flug+Tick, Frontend) zerlegt werden, oder darf es auf Size L erweitert werden?
