@@ -1,6 +1,6 @@
 # STU-Sonderfeatures: Star-Wars-Pendants festlegen oder Weglassen begründen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -25,8 +25,10 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Je Feature ein Eintrag in `map.md` → Entscheidungen: SW-Pendant mit Kurzbegründung (z. B. Interdiktorfeld für das Netz, Signaturmaskierung für falsche Warpsignatur) oder „entfällt“ mit Begründung.
-- [ ] Je Pendant eine Issue-Datei `sc-WP-SPEC-<n>-<slug>.md` mit Status `needs-triage`, STU-Quellen und Abhängigkeiten (z. B. sc-WP-NAV-2a für Signaturmaskierung).
-- [ ] Kein Produktcode.
+- [x] Je Feature ein Eintrag in `map.md` → Entscheidungen: SW-Pendant mit Kurzbegründung (z. B. Interdiktorfeld für das Netz, Signaturmaskierung für falsche Warpsignatur) oder „entfällt“ mit Begründung.
+- [x] Je Pendant eine Issue-Datei `sc-WP-SPEC-<n>-<slug>.md` mit Status `needs-triage`, STU-Quellen und Abhängigkeiten (z. B. sc-WP-NAV-2a für Signaturmaskierung).
+- [x] Kein Produktcode.
 
 ## Comments
+
+2026-10-28: Sechs Star-Wars-Pendants in `map.md` festgelegt und als `sc-WP-SPEC-1` bis `sc-WP-SPEC-6` mit konkreten STU-Quellen, Abhängigkeiten und Akzeptanzkriterien zur Triage angelegt. Produktcode blieb unverändert.

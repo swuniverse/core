@@ -120,10 +120,17 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-27 – sc-WP-COMBAT-1 – Basisalarm nach jeder realen Feldtransition mit gemeinsamem Movement-Result; Gelb nur `ENEMY`, Rot außer `FRIEND`, beidseitiger Urlaubsschutz, höchstens ein deterministischer Kampf; Traktor/Tarnung später
 - 2026-10-27 – sc-WP-UI-3a – Exakte STU-Regel: Jede belegte Kolonie unabhängig von Eigentum und Haltung verteidigen oder blockieren; schiffsbezogene API, flottenbezogene Order, Urlaub/Gegenorder und Blockade-Orbitalverteidigung prüfen
 - 2026-10-28 – soc-E3b – Plotbeiträge sind immer HoloNet-Kategorie `ROLEPLAY`; eine abweichende Kategorie wird bei Plotzuordnung serverseitig überschrieben
+- 2026-10-28 – sc-WP-CLEAN-2 – Das Tholianische Netz wird zum **Interdiktornetz**: ein kooperativ aufgebautes Fang- und Schadensfeld, passend zu imperialer Interdiktortechnik.
+- 2026-10-28 – sc-WP-CLEAN-2 – Das RPG-Modul wird zum **RPG-Transponder**: rein administrative Szenenkennzeichnung mit Admin-Unsichtbarkeit, ausdrücklich kein taktisches Tarnsystem.
+- 2026-10-28 – sc-WP-CLEAN-2 – Der Uplink wird zum **Kooperationsuplink**: Er erlaubt berechtigte fremde Crew auf Stationen und bleibt damit eine organisatorische Stationsfunktion.
+- 2026-10-28 – sc-WP-CLEAN-2 – Der Beam-Blocker wird zum **Transferstörsender**: ein passives Feld, das Waren- und Crewtransfer blockiert.
+- 2026-10-28 – sc-WP-CLEAN-2 – Die falsche Warpsignatur wird zur **Signaturmaskierung**: Flugsignaturen geben zeitweise einen bekannten fremden Rumpf vor und passen so zum feldweisen Galaxieflug.
+- 2026-10-28 – sc-WP-CLEAN-2 – Der Singularitätsreaktor wird zum **Hypermaterie-Reservekern**: alternativer Hochkapazitätsreaktor ohne Star-Trek-Singularitätsterminologie.
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-CLEAN-2 – Sechs STU-Sonderfeatures auf kanonnahe Star-Wars-Pendants abgebildet und als SPEC-Folgeissues zur Triage erfasst – siehe Feature-Commit
 - col-A9 – Jägerwerften bauen Rümpfe ins Lager und starten sie über den Hangar; neue normale Bauqueue-Aufträge sind ausgeschlossen – siehe Feature-Commit
 - sh-AP-20 – Hauptticks sperren schreibende Spieleraktionen per TICK-Status, Banner und 503, mit sicherer Statuswiederherstellung – siehe Feature-Commit
 - tmw-K8a – Erkundungsabhängige Regions- und Verwaltungsregionsinfos in Feldkontext, Schiffskopf, LSS und geschütztem Detailendpunkt umgesetzt – siehe Feature-Commit
