@@ -1,6 +1,6 @@
 # Kolonieabgabe: Ruinenmodell bestätigen und dokumentieren
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
