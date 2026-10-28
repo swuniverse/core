@@ -10,7 +10,10 @@ import { isVacationEffective } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
 import { Colony } from '../colony/entities/colony.entity';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftKind,
+} from '../spacecraft/entities/spacecraft.entity';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
 import { FactionService } from '../faction/faction.service';
 import { GameDataService } from '../game-data/game-data.service';
@@ -21,6 +24,7 @@ import {
   SYSTEM_TYPE_DEFINITIONS,
 } from '../starmap/starmap-system-types';
 import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
+import { StationClassDiscovery } from '../spacecraft/entities/station-class-discovery.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
@@ -117,6 +121,9 @@ export class DatabaseService {
     private readonly tradePostRepo: Repository<TradePost>,
     @InjectRepository(ExplorationState)
     private readonly explorationRepo: Repository<ExplorationState>,
+    @InjectRepository(StationClassDiscovery)
+    private readonly stationClassDiscoveryRepo: Repository<StationClassDiscovery> =
+      {} as Repository<StationClassDiscovery>,
   ) {}
 
   async getTradePosts(userId: number) {
@@ -609,6 +616,70 @@ export class DatabaseService {
       }))
     ) {
       throw new NotFoundException('Schiffsrumpf nicht katalogisiert');
+    }
+    return definition;
+  }
+
+  async getStationClasses(userId: number) {
+    const stationClassIds = await this.shipRepo
+      .createQueryBuilder('station')
+      .select('DISTINCT station.shipClassId', 'shipClassId')
+      .where('station.kind = :kind', { kind: SpacecraftKind.STATION })
+      .getRawMany<{ shipClassId: number }>();
+    const ids = stationClassIds.map(({ shipClassId }) => shipClassId);
+    const [definitions, discoveries] = await Promise.all([
+      ids.length
+        ? this.shipClassRepo.find({
+            where: { id: In(ids), isNpc: false },
+            order: { id: 'ASC' },
+          })
+        : Promise.resolve([]),
+      this.stationClassDiscoveryRepo.find({ where: { userId } }),
+    ]);
+    const discoveredByClass = new Map(
+      discoveries.map((entry) => [entry.shipClassId, entry]),
+    );
+    return {
+      discovered: definitions.filter((definition) =>
+        discoveredByClass.has(definition.id),
+      ).length,
+      total: definitions.length,
+      entries: definitions.map((definition) => {
+        const discovery = discoveredByClass.get(definition.id);
+        return discovery
+          ? {
+              key: definition.key,
+              discovered: true,
+              name: definition.name,
+              discoveredAt: discovery.discoveredAt.toISOString(),
+            }
+          : {
+              key: definition.key,
+              discovered: false,
+              name: null,
+              discoveredAt: null,
+            };
+      }),
+    };
+  }
+
+  async getStationClassDetail(userId: number, key: string) {
+    const definition = await this.shipClassRepo.findOne({
+      where: { key, isNpc: false },
+    });
+    if (!definition) {
+      throw new NotFoundException('Stationsrumpf nicht katalogisiert');
+    }
+    const [isStationClass, isDiscovered] = await Promise.all([
+      this.shipRepo.exists({
+        where: { shipClassId: definition.id, kind: SpacecraftKind.STATION },
+      }),
+      this.stationClassDiscoveryRepo.exists({
+        where: { userId, shipClassId: definition.id },
+      }),
+    ]);
+    if (!isStationClass || !isDiscovered) {
+      throw new NotFoundException('Stationsrumpf nicht katalogisiert');
     }
     return definition;
   }

@@ -216,3 +216,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-E3a – RPG-Plots mit Erstellerverwaltung, Schreiberlisten, Systemnachrichten und HoloNet-Oberfläche umgesetzt – siehe Feature-Commit
 - soc-E3b – HoloNet-Beiträge können aktiven eigenen RPG-Plots zugeordnet werden und erscheinen samt Benachrichtigungen in der Plotdetailseite – siehe Feature-Commit
 - tmw-D6a – Handelsposten-Datenbankliste mit Betreiber, Netz und erkundungsabhängig redigiertem Kartenort umgesetzt – siehe Feature-Commit
+- tmw-D6b – Stationsrumpf-Entdeckung per Fremdscan, maskierter Datenbankkatalog und geschützte Detailansicht umgesetzt – siehe Feature-Commit

@@ -52,6 +52,45 @@ describe('DatabasePage', () => {
     });
   });
 
+  it('opens station hulls from the Ships & Stations group and masks discoveries', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/station-classes') {
+        return Promise.resolve({
+          discovered: 1,
+          total: 2,
+          entries: [
+            {
+              key: 'REBEL_SHIPYARD',
+              discovered: true,
+              name: 'Raumwerft',
+              discoveredAt: '2026-10-28T12:00:00.000Z',
+            },
+            {
+              key: 'EMPIRE_BASE',
+              discovered: false,
+              name: null,
+              discoveredAt: null,
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Schiffe & Stationen' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Stationsrümpfe' }));
+
+    expect(await screen.findByRole('heading', { name: 'Stationsrümpfe' })).toBeTruthy();
+    expect(screen.getByText('Raumwerft')).toBeTruthy();
+    expect(screen.getByText('???')).toBeTruthy();
+    expect(apiMocks.get).toHaveBeenCalledWith('/database/station-classes');
+  });
+
   it('links the trade-post hub entry and renders fog-safe locations', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/database/trade-posts') {

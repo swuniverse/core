@@ -71,6 +71,7 @@ import { findShieldedColonyObjectIds } from './shielded-colonies.util';
 import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
+import { StationClassDiscoveryService } from './station-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { CartographyPlanService } from './cartography-plan.service';
@@ -151,6 +152,8 @@ export class SpacecraftService {
     } as unknown as StationConstructionService,
     private readonly flightConsequencePipeline: FlightConsequencePipeline =
       new FlightConsequencePipeline(),
+    private readonly stationClassDiscoveryService: StationClassDiscoveryService =
+      {} as StationClassDiscoveryService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -2968,12 +2971,19 @@ export class SpacecraftService {
       );
     ship.energy--;
     await this.shipRepo.save(ship);
-    const discovery = await this.shipClassDiscoveryService.discover({
-      userId,
-      shipClassId: target.shipClassId,
-      sourceSpacecraftId: ship.id,
-      targetSpacecraftId: target.id,
-    });
+    const discoveryService =
+      target.kind === SpacecraftKind.STATION
+        ? this.stationClassDiscoveryService
+        : this.shipClassDiscoveryService;
+    const discovery =
+      target.userId === userId
+        ? { discovered: false, prestigeAwarded: 0, name: null }
+        : await discoveryService.discover({
+            userId,
+            shipClassId: target.shipClassId,
+            sourceSpacecraftId: ship.id,
+            targetSpacecraftId: target.id,
+          });
     return {
       id: target.id,
       name: target.name,

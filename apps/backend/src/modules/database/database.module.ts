@@ -9,6 +9,7 @@ import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { Research } from '../research/entities/research.entity';
 import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.entity';
 import { ShipClassDiscovery } from '../spacecraft/entities/ship-class-discovery.entity';
+import { StationClassDiscovery } from '../spacecraft/entities/station-class-discovery.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { FactionModule } from '../faction/faction.module';
 import { GameDataModule } from '../game-data/game-data.module';
@@ -45,6 +46,7 @@ import { ExplorationState } from '../starmap/entities/exploration-state.entity';
       Research,
       SystemTypeDiscovery,
       ShipClassDiscovery,
+      StationClassDiscovery,
       ShipClassDef,
       PrestigeHistoryEntry,
       CelestialClassDiscovery,

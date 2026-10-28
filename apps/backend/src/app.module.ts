@@ -74,6 +74,7 @@ import { ShipDistressSignal } from './modules/spacecraft/entities/ship-distress-
 import { Fleet } from './modules/spacecraft/entities/fleet.entity';
 import { ShipClassDef } from './modules/spacecraft/entities/ship-class-def.entity';
 import { ShipClassDiscovery } from './modules/spacecraft/entities/ship-class-discovery.entity';
+import { StationClassDiscovery } from './modules/spacecraft/entities/station-class-discovery.entity';
 import { AdminShipBuildplan } from './modules/spacecraft/entities/admin-ship-buildplan.entity';
 import { Research } from './modules/research/entities/research.entity';
 import { Message } from './modules/messaging/entities/message.entity';
@@ -198,6 +199,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           Fleet,
           ShipClassDef,
           ShipClassDiscovery,
+          StationClassDiscovery,
           AdminShipBuildplan,
           Research,
           Message,

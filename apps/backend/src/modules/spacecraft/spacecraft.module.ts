@@ -12,6 +12,7 @@ import { ShipDistressSignal } from './entities/ship-distress-signal.entity';
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { ShipClassDiscovery } from './entities/ship-class-discovery.entity';
+import { StationClassDiscovery } from './entities/station-class-discovery.entity';
 import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
@@ -52,6 +53,7 @@ import { SpacecraftCommunicationService } from './spacecraft-communication.servi
 import { SpacecraftEngineeringService } from './spacecraft-engineering.service';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
+import { StationClassDiscoveryService } from './station-class-discovery.service';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { PrestigeModule } from '../prestige/prestige.module';
@@ -83,6 +85,7 @@ import {
       Fleet,
       ShipClassDef,
       ShipClassDiscovery,
+      StationClassDiscovery,
       AdminShipBuildplan,
       CargoItem,
       SpacecraftTorpedoStorage,
@@ -122,6 +125,7 @@ import {
     SpacecraftService,
     ShipClassService,
     ShipClassDiscoveryService,
+    StationClassDiscoveryService,
     HyperdriveDisruptionService,
     SpacecraftAlertService,
     CartographyPlanService,

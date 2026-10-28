@@ -52,6 +52,7 @@ type View =
   | 'system-types'
   | 'systems'
   | 'ship-classes'
+  | 'station-classes'
   | 'planet-types'
   | 'prestige-history'
   | 'commodity-overview'
@@ -181,8 +182,11 @@ const groups: Array<{
   }>;
 }> = [
   {
-    title: 'Schiffe & Technik',
-    entries: [{ label: 'Schiffsrümpfe', view: 'ship-classes' }],
+    title: 'Schiffe & Stationen',
+    entries: [
+      { label: 'Schiffsrümpfe', view: 'ship-classes' },
+      { label: 'Stationsrümpfe', view: 'station-classes' },
+    ],
   },
   {
     title: 'Karte',
@@ -574,6 +578,8 @@ function Detail({ view, data }: { view: View; data: unknown }) {
     return <CommodityOverview data={data as CommodityOverviewEntryDto[]} />;
   if (view === 'trade-posts')
     return <TradePosts data={data as TradePostEntry[]} />;
+  if (view === 'station-classes')
+    return <ShipClasses data={data as ShipClasses} station />;
   return <ShipClasses data={data as ShipClasses} />;
 }
 
@@ -1031,11 +1037,17 @@ function RankingView({ data }: { data: RankingDetail }) {
     </div>
   );
 }
-function ShipClasses({ data }: { data: ShipClasses }) {
+function ShipClasses({
+  data,
+  station = false,
+}: {
+  data: ShipClasses;
+  station?: boolean;
+}) {
   return (
     <div className="max-w-2xl border border-swu-border bg-black/30">
       <h1 className="border-b border-swu-border px-2 py-1 font-bold text-swu-primary">
-        Schiffsrümpfe
+        {station ? 'Stationsrümpfe' : 'Schiffsrümpfe'}
       </h1>
       <p className="border-b border-swu-border px-2 py-1 text-xs text-swu-muted">
         Katalogfortschritt: {data.discovered} / {data.total}
@@ -1107,6 +1119,7 @@ function titleFor(view: View) {
       'system-types': 'Sternensystemtypen',
       systems: 'Sternensysteme',
       'ship-classes': 'Schiffsrümpfe',
+      'station-classes': 'Stationsrümpfe',
       'planet-types': 'Planetentypen',
       'prestige-history': 'Prestigehistorie',
       'commodity-overview': 'Warenübersicht',

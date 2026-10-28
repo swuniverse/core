@@ -1,6 +1,6 @@
 # Datenbankkategorie „Stationsrümpfe“
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-STAT-2
@@ -23,9 +23,11 @@ Analog zur Kategorie Schiffsrümpfe kommt eine Kategorie Stationsrümpfe hinzu. 
 
 ## Akzeptanzkriterien
 
-- [ ] Ein Scan einer Station (eigene ausgenommen) entdeckt deren Rumpf einmalig je Spieler und vergibt `SCAN_STATION_HULL` Prestige mit Prestigelog.
-- [ ] `GET database/station-classes` und `.../:key` liefern die Liste mit `???`-Maskierung bzw. Details nur für entdeckte Rümpfe. NPC-Rümpfe sind ausgeschlossen.
-- [ ] Die Hub-Gruppe heißt „Schiffe & Stationen“ und enthält „Stationsrümpfe“.
-- [ ] Backend-Tests: Entdeckung per Scan, Idempotenz, Maskierung. Frontend-Test: Kategorie und Detail.
+- [x] Ein Scan einer Station (eigene ausgenommen) entdeckt deren Rumpf einmalig je Spieler und vergibt `SCAN_STATION_HULL` Prestige mit Prestigelog.
+- [x] `GET database/station-classes` und `.../:key` liefern die Liste mit `???`-Maskierung bzw. Details nur für entdeckte Rümpfe. NPC-Rümpfe sind ausgeschlossen.
+- [x] Die Hub-Gruppe heißt „Schiffe & Stationen“ und enthält „Stationsrümpfe“.
+- [x] Backend-Tests: Entdeckung per Scan, Idempotenz, Maskierung. Frontend-Test: Kategorie und Detail.
 
 ## Comments
+
+Stationsrumpf-Entdeckungen werden getrennt und idempotent beim Fremdscan gespeichert, mit Prestigehistorie belohnt und über geschützte Listen-/Detailendpunkte bereitgestellt. Die Datenbank-UI führt die Kategorie unter „Schiffe & Stationen“ mit Maskierung; Backend- und Frontendtests decken Entdeckung, Idempotenz und Darstellung ab. Keine offenen Folgepunkte.

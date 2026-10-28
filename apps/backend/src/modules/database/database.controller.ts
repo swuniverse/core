@@ -91,6 +91,23 @@ export class DatabaseController {
     return this.databaseService.getShipClasses(req.user.sub);
   }
 
+  @Get('station-classes')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getStationClasses(@Request() req: { user: { sub: number } }) {
+    return this.databaseService.getStationClasses(req.user.sub);
+  }
+
+  @Get('station-classes/:key')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getStationClassDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('key') key: string,
+  ) {
+    return this.databaseService.getStationClassDetail(req.user.sub, key);
+  }
+
   @Get('planet-types')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
