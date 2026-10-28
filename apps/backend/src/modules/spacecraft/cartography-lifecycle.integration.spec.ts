@@ -381,6 +381,16 @@ describe('cartography lifecycle integration (in-process)', () => {
     expect(harness.moduleRepo.save).toHaveBeenCalledWith(module);
   });
 
+  it('excludes fields that forbid measurement points from new plans', async () => {
+    const harness = createHarness();
+    const fields = await (harness.service as any).systemFieldRepo.find();
+    fields[1].effects = ['NO_MEASUREPOINT'];
+
+    const planned = await harness.service.createCartographyPlan(1, 11);
+
+    expect(planned.remainingFieldIds).toEqual([12]);
+  });
+
   it('uses two ships for measurement points, awards prestige, finalizes over three ticks, and creates exactly one discovery', async () => {
     const harness = createHarness();
 

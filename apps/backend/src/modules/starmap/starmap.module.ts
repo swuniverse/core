@@ -35,6 +35,7 @@ import { WormholeService } from './wormhole.service';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { Alliance } from '../alliance/entities/alliance.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
+import { FieldEffectQuery } from './field-effect-query';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { FactionEntity } from '../faction/entities/faction.entity';
     PlanetGeneratorService,
     InfluenceService,
     WormholeService,
+    FieldEffectQuery,
   ],
   exports: [
     StarmapService,
@@ -88,6 +90,7 @@ import { FactionEntity } from '../faction/entities/faction.entity';
     PlanetGeneratorService,
     InfluenceService,
     WormholeService,
+    FieldEffectQuery,
   ],
 })
 export class StarmapModule {}

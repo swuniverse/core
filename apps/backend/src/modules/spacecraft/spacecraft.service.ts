@@ -57,6 +57,7 @@ import {
   type CartographyPlanDto,
   type SpacecraftLssMode as SpacecraftLssModeDto,
   WsEventType,
+  FieldEffect,
   getStuCelestialClass,
   SWU_PLANET_CLASS_NAME,
 } from '@swuniverse/shared';
@@ -94,6 +95,7 @@ import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import { FlightConsequencePipeline } from './flight-consequence-pipeline';
 import { CrewEnhancementEvent } from './crew-expertise';
+import { FieldEffectQuery } from '../starmap/field-effect-query';
 
 @Injectable()
 export class SpacecraftService {
@@ -154,6 +156,7 @@ export class SpacecraftService {
       new FlightConsequencePipeline(),
     private readonly stationClassDiscoveryService: StationClassDiscoveryService =
       {} as StationClassDiscoveryService,
+    private readonly fieldEffectQuery: FieldEffectQuery = new FieldEffectQuery(),
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -637,7 +640,7 @@ export class SpacecraftService {
 
     const fields = await this.systemFieldRepo.find({
       where: { starSystemId: location.systemId },
-      relations: ['celestialObject'],
+      relations: ['celestialObject', 'fieldType'],
       order: { id: 'ASC' },
     });
     const colonies = await this.dataSource.getRepository(Colony).find({
@@ -712,7 +715,11 @@ export class SpacecraftService {
   ): number[] {
     const isStart = (field: SystemField) =>
       field.sx === startX && field.sy === startY;
-    const available = fields.filter((field) => !isStart(field));
+    const available = fields.filter(
+      (field) =>
+        !isStart(field) &&
+        !this.fieldEffectQuery.has(field, FieldEffect.NO_MEASUREPOINT),
+    );
     const settledObjectIds = new Set(
       colonies
         .map((colony) => colony.celestialObjectId)

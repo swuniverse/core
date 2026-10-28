@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2c: Sperren (kein Messpunkt, kein Stationsbau, keine Subraumspuren, keine Anomalien)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
@@ -24,8 +24,10 @@ Die Sperr-Effekte werden durchgesetzt. Felder mit `NO_MEASUREPOINT` werden nie a
 
 ## Akzeptanzkriterien
 
-- [ ] Die Messpunktauswahl schließt Felder mit `NO_MEASUREPOINT` aus (Feldtyp oder Feld-Flag). Bestehende Kartographiepläne bleiben gültig, betroffen sind nur neu erzeugte.
-- [ ] Ein zentraler Dienst `FieldEffectQuery.has(field, effect)` ist bereitgestellt und dokumentiert. sc-WP-STAT-1a/1b, sc-WP-NAV-2a und tmw-K10a nutzen ihn für `NO_STATION_CONSTRUCTION`, `NO_SUBSPACE_LINES` und `NO_ANOMALIES`. Sind diese Verbraucher bei Umsetzung schon vorhanden, werden sie hier angeschlossen.
-- [ ] Backend-Tests: Die Messpunktauswahl überspringt gesperrte Felder, und der Abfragedienst erkennt Effekte aus Feldtyp und Feld-Flags.
+- [x] Die Messpunktauswahl schließt Felder mit `NO_MEASUREPOINT` aus (Feldtyp oder Feld-Flag). Bestehende Kartographiepläne bleiben gültig, betroffen sind nur neu erzeugte.
+- [x] Ein zentraler Dienst `FieldEffectQuery.has(field, effect)` ist bereitgestellt und dokumentiert. sc-WP-STAT-1a/1b, sc-WP-NAV-2a und tmw-K10a nutzen ihn für `NO_STATION_CONSTRUCTION`, `NO_SUBSPACE_LINES` und `NO_ANOMALIES`. Sind diese Verbraucher bei Umsetzung schon vorhanden, werden sie hier angeschlossen.
+- [x] Backend-Tests: Die Messpunktauswahl überspringt gesperrte Felder, und der Abfragedienst erkennt Effekte aus Feldtyp und Feld-Flags.
 
 ## Comments
+
+`FieldEffectQuery` wertet Feld- und Feldtyp-Effekte zentral aus. Neue Kartographiepläne filtern `NO_MEASUREPOINT`; der vorhandene Stationsbau nutzt den Dienst für `NO_STATION_CONSTRUCTION`. Verbraucher für `NO_SUBSPACE_LINES` und `NO_ANOMALIES` sind noch nicht vorhanden und können den exportierten Dienst in ihren Folgeissues verwenden.

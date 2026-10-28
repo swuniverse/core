@@ -1,7 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Faction, type StationExpansionOptionDto } from '@swuniverse/shared';
+import {
+  Faction,
+  FieldEffect,
+  type StationExpansionOptionDto,
+} from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
 import { GameDataService, type ShipClassYamlDef } from '../game-data/game-data.service';
+import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
@@ -25,6 +30,7 @@ export class StationConstructionService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly gameData?: GameDataService,
+    private readonly fieldEffectQuery: FieldEffectQuery = new FieldEffectQuery(),
   ) {}
 
   async build(shipId: number, userId: number) {
@@ -32,7 +38,15 @@ export class StationConstructionService {
       const shipRepo = manager.getRepository(Spacecraft);
       const ship = await shipRepo.findOne({
         where: { id: shipId, userId },
-        relations: ['location', 'location.systemField', 'location.systemField.starSystem', 'location.galaxyField', 'user'],
+        relations: [
+          'location',
+          'location.systemField',
+          'location.systemField.fieldType',
+          'location.systemField.starSystem',
+          'location.galaxyField',
+          'location.galaxyField.fieldType',
+          'user',
+        ],
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       if (!ship) throw new NotFoundException('Spacecraft not found');
@@ -460,8 +474,8 @@ export class StationConstructionService {
   }
 
   private fieldBlocksConstruction(ship: Spacecraft): boolean {
-    const effects = ship.location?.systemField?.effects ?? ship.location?.galaxyField?.effects ?? [];
-    return effects.includes('NO_STATION_CONSTRUCTION');
+    const field = ship.location?.systemField ?? ship.location?.galaxyField;
+    return this.fieldEffectQuery.has(field, FieldEffect.NO_STATION_CONSTRUCTION);
   }
 
   private isWormhole(ship: Spacecraft): boolean {
