@@ -172,7 +172,7 @@ describe('SpacecraftResourceFlowService', () => {
       energy: 0,
       battery: 0,
     });
-    service.recharge(ship as never, 1);
+    const result = service.recharge(ship as never, 1);
 
     // epsUsage=6, reactorOutput=3, so three non-critical systems brown out.
     // Deactivation: SPECIAL, TORPEDO_BANK, WEAPONS.
@@ -182,6 +182,18 @@ describe('SpacecraftResourceFlowService', () => {
     expect(systems.WEAPONS?.active).toBe(false);
     expect(systems.LONG_RANGE_SENSORS?.active).toBe(true);
     expect(systems.SHORT_RANGE_SENSORS?.active).toBe(true);
+    expect(result.deactivatedSystems).toEqual([
+      'Spezialsysteme',
+      'Torpedobank',
+      'Waffen',
+    ]);
+  });
+
+  it('reports no deactivated systems when no brownout occurs', () => {
+    const service = createService();
+    const ship = makeShip({ reactorOutput: 10 });
+
+    expect(service.recharge(ship as never).deactivatedSystems).toEqual([]);
   });
 
   it('handles flightCost=0 gracefully (no warp production)', () => {

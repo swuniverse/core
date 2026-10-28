@@ -27,6 +27,8 @@ import { GameStatusModule } from '../game-status/game-status.module';
 import { DatabaseModule } from '../database/database.module';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { TopFlightsRewardService } from './top-flights-reward.service';
+import { SpacecraftWreck } from '../spacecraft/entities/spacecraft-wreck.entity';
+import { WreckDecayService } from './wreck-decay.service';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { TopFlightsRewardService } from './top-flights-reward.service';
       Colony,
       ColonyField,
       Spacecraft,
+      SpacecraftWreck,
       User,
       GameTickState,
     ]),
@@ -57,6 +60,7 @@ import { TopFlightsRewardService } from './top-flights-reward.service';
     TickAdminService,
     MaintenanceService,
     TopFlightsRewardService,
+    WreckDecayService,
     {
       provide: MAINTENANCE_HANDLERS,
       useFactory: (topFlightsReward: TopFlightsRewardService) => [topFlightsReward],

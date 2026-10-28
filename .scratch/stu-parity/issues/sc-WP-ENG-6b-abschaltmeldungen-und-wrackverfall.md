@@ -1,6 +1,6 @@
 # Brownout-Meldungen sichtbar machen und Wrackverfall
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -24,9 +24,11 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Prüfen, ob Brownout-Abschaltungen bereits gemeldet werden; falls nicht: je betroffenem Schiff eine Meldung mit abgeschalteten Systemen (Ereignis bzw. Nachricht im Schiffsordner), sichtbar in der Schiffsansicht.
-- [ ] Wracks verlieren je Tick zufällig 5–15 Hülle und werden bei 0 samt Inhalt gelöscht.
-- [ ] Backend-Tests für Meldung und Wrackverfall (deterministischer Zufall).
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Prüfen, ob Brownout-Abschaltungen bereits gemeldet werden; falls nicht: je betroffenem Schiff eine Meldung mit abgeschalteten Systemen (Ereignis bzw. Nachricht im Schiffsordner), sichtbar in der Schiffsansicht.
+- [x] Wracks verlieren je Tick zufällig 5–15 Hülle und werden bei 0 samt Inhalt gelöscht.
+- [x] Backend-Tests für Meldung und Wrackverfall (deterministischer Zufall).
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Brownouts liefern nun die abgeschalteten Systeme zurück; der Schiffstick schreibt eine Nachricht in den Schiffsordner und sendet ein sichtbares `SPACECRAFT_EVENT`. Ein eigener Tick-Dienst reduziert Wrackhüllen deterministisch testbar um 5–15 und entfernt verbrauchte Wracks samt JSON-Inhalt. Affected-Checks und vollständiger Build sind grün.

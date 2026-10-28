@@ -45,13 +45,17 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
 export class SpacecraftResourceFlowService {
   constructor(private readonly runtimeState: SpacecraftRuntimeStateService) {}
 
-  recharge(ship: Spacecraft, flightCost = 1): void {
+  recharge(
+    ship: Spacecraft,
+    flightCost = 1,
+  ): { deactivatedSystems: string[] } {
     let flow = this.calculate(ship, flightCost);
     const systems = this.runtimeState.initialize(ship);
+    let deactivatedSystems: string[] = [];
 
     // Brownout: reactor output is capped by the remaining reactor load.
     if (flow.netEps < 0) {
-      this.handleBrownout(ship, systems, -flow.netEps);
+      deactivatedSystems = this.handleBrownout(ship, systems, -flow.netEps);
       flow = this.calculate(ship, flightCost);
     }
 
@@ -65,6 +69,7 @@ export class SpacecraftResourceFlowService {
     );
     ship.reactorFuel = Math.max(0, (ship.reactorFuel ?? 0) - reactorUsage);
     this.runtimeState.initialize(ship);
+    return { deactivatedSystems };
   }
 
   calculate(ship: Spacecraft, flightCost = 1): SpacecraftEnergyFlowDto {
@@ -168,7 +173,7 @@ export class SpacecraftResourceFlowService {
     ship: Spacecraft,
     systems: SpacecraftRuntimeSystems,
     deficit: number,
-  ): void {
+  ): string[] {
     // Deactivate systems in reverse priority until deficit is covered
     // ponytail: priority order — least critical first
     const deactivationOrder: SpacecraftRuntimeSystemKey[] = [
@@ -181,6 +186,7 @@ export class SpacecraftResourceFlowService {
     ];
 
     let remaining = deficit;
+    const deactivatedSystems: string[] = [];
     for (const key of deactivationOrder) {
       if (remaining <= 0) break;
       const system = systems[key];
@@ -188,6 +194,7 @@ export class SpacecraftResourceFlowService {
       const cost = SYSTEM_EPS_USAGE[key] ?? 0;
       if (cost <= 0) continue;
       systems[key] = { ...system, active: false };
+      deactivatedSystems.push(SYSTEM_LABELS[key] ?? key);
       remaining -= cost;
     }
 
@@ -199,5 +206,6 @@ export class SpacecraftResourceFlowService {
     ship.battery -= fromBattery;
 
     ship.runtimeSystems = systems;
+    return deactivatedSystems;
   }
 }

@@ -3858,10 +3858,24 @@ export class SpacecraftService {
       this.shipClassService.findById(ship.shipClassId),
     ]);
     ship.modules = modules;
-    this.spacecraftResourceFlowService.recharge(
+    const resourceFlow = this.spacecraftResourceFlowService.recharge(
       ship,
       shipClass?.flightEnergyCost ?? 1,
     );
+    if (resourceFlow?.deactivatedSystems.length > 0) {
+      const detail = `Wegen Energiemangels abgeschaltet: ${resourceFlow.deactivatedSystems.join(', ')}.`;
+      await this.messagingService.sendSystem(
+        ship.userId,
+        'Systemabschaltung wegen Energiemangels',
+        `${ship.name}: ${detail}`,
+        undefined,
+        MessageFolder.SHIP,
+      );
+      this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
+        shipId: ship.id,
+        detail,
+      });
+    }
 
     if (ship.shields < ship.shieldsMax && ship.energy > 10) {
       const formulas = this.gameData.getCombatFormulas();

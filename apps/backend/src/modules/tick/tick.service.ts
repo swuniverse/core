@@ -36,6 +36,7 @@ import {
 } from './maintenance.service';
 import { UserSettingsReader } from '../settings/user-settings-reader';
 import { GameStatusService } from '../game-status/game-status.service';
+import { WreckDecayService } from './wreck-decay.service';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
 type MainTickSchedule = '*' | number[];
@@ -75,6 +76,7 @@ export class TickService {
     private readonly userSettings?: UserSettingsReader,
     private readonly userLockService?: UserLockService,
     private readonly gameStatusService?: GameStatusService,
+    private readonly wreckDecayService?: WreckDecayService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -270,6 +272,7 @@ export class TickService {
         }
       }
 
+      await this.wreckDecayService?.processTick();
       await this.flightSignatureService.deleteExpired();
       await this.dashboardService.recordSnapshot();
       // Fehler werden in recordSnapshots protokolliert und brechen den Tick nicht ab.

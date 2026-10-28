@@ -130,6 +130,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-ENG-6b – Brownout-Systemabschaltungen werden im Schiffsordner und live gemeldet; Wracks verfallen je Haupttick um 5–15 Hülle – siehe Feature-Commit
 - sc-WP-CLEAN-2 – Sechs STU-Sonderfeatures auf kanonnahe Star-Wars-Pendants abgebildet und als SPEC-Folgeissues zur Triage erfasst – siehe Feature-Commit
 - col-A9 – Jägerwerften bauen Rümpfe ins Lager und starten sie über den Hangar; neue normale Bauqueue-Aufträge sind ausgeschlossen – siehe Feature-Commit
 - sh-AP-20 – Hauptticks sperren schreibende Spieleraktionen per TICK-Status, Banner und 503, mit sicherer Statuswiederherstellung – siehe Feature-Commit
