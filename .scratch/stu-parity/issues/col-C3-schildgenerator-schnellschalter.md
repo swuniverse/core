@@ -1,6 +1,6 @@
 # Schildgenerator-Schnellschalter im Verteidigungspanel
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** col-A1b
@@ -28,3 +28,5 @@ In STU lassen sich die Kolonieschilde im Verteidigungsmenü direkt aktivieren un
 - [ ] Backend-Test (falls neuer Endpunkt) und Frontend-Test für beide Richtungen.
 
 ## Comments
+
+- 2026-10-28: Blockiert durch die Test-Seam-Vorgabe des angeforderten TDD-Workflows. Vor dem Schreiben des geforderten Frontend-Tests muss bestätigt werden, dass `PanelDefense` als öffentliche Test-Seam verwendet werden soll (beobachtet Schnellschalterzustand und beide Umschaltrichtungen; deckt die serverseitigen Gebäuderegeln nicht ab). Für den bestehenden Backend-Endpunkt ist laut Akzeptanzkriterium kein neuer Backend-Test nötig.
