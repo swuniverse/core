@@ -1,6 +1,6 @@
 # Kolonielimits in Forschungsdetail und Dashboard anzeigen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
