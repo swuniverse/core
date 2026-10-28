@@ -1,6 +1,6 @@
 # Feldtyp-Flugkosten, Feldschaden und Deflektor
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
@@ -43,3 +43,4 @@ Vorgabe:
 ## Comments
 
 - 2026-10-21 Product Owner: Option 1a, 2a – Flugenergie folgt dem STU-Modell (Grundkosten plus Feldtyp-Kosten je Feld als Deflektorlast, 1a), und der Deflektor wird ein eigenes Schiffssystem `DEFLECTOR` (2a). Teilfrage 3 ergibt sich aus sc-WP-NAV-3 (Option b): Feldkosten und -schaden gelten für jedes durchflogene Feld.
+- 2026-10-28 Agent: Blockiert durch eine widersprüchliche Bewegungsgrundlage. `flyGalaxy` springt weiterhin in einem Aufruf direkt zum Zielfeld und lädt ausschließlich `warpdrive`, während Akzeptanzkriterium und ADR-0006 jede tatsächlich durchflogene Feldtransition mit Grund-EPS-Kosten plus Feld-Consequence verlangen. Soll tmw-K1b den Galaxieflug bereits auf schrittweise Feldtransitions samt EPS-Grundkosten umbauen (Scope-Erweiterung gegenüber dem Issue), oder soll es bis zum Rückbau des alten Flugpfads nach sc-WP-NAV-3 warten? Zusätzlich fehlt `sc-WP-TRACT-1a`, sodass `skipWhenTractored` noch nicht implementierbar oder testbar ist.
