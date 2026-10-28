@@ -1,6 +1,6 @@
 # Kolonielimits in Forschungsdetail und Dashboard anzeigen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -29,3 +29,5 @@ STU zeigt in den Forschungsdetails, um wie viele Planeten, Monde oder Asteroiden
 - [ ] Shared-Test für die Ableitungsfunktion; Frontend-Tests für Forschungsdetail und Dashboard.
 
 ## Comments
+
+- 2026-10-28: Die Umsetzung und die drei fokussierten Tests waren grün (Shared 6/6, Frontend 18/18), ebenso `nx run-many --targets=build`. Die verpflichtende Gesamtprüfung bleibt jedoch nach zwei ernsthaften Versuchen in `frontend:typecheck` rot: bestehender Fehler `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht `Faction`) sowie zahlreiche bestehende TS6305-Fehler wegen fehlender Frontend-Deklarationsausgaben. Produktcode wurde gemäß Abbruchregel verworfen. Bitte entscheiden, ob die bestehende Typecheck-Baseline zuerst separat repariert werden soll oder ob bekannte, issue-fremde Fehler für diesen Durchlauf ausgenommen werden dürfen.
