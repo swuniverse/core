@@ -1,6 +1,6 @@
 # Handelslizenzen: Bedingungen, Kauf, Verlängerung, Ablauf
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-T1a
@@ -40,3 +40,5 @@ Handel an einem Posten setzt eine gültige Lizenz voraus. Der Eigentümer legt d
 - [ ] Backend-Tests: alle Ablehnungsfälle (falscher Ort, fremdes Zahlschiff, zu wenig Ware, falsches Netz, Doppel-Lizenz), Verlängerung, Ablauf und Warnung. Frontend-Tests: Lizenzliste und Kaufdialog.
 
 ## Comments
+
+- 2026-10-28: Das Issue ist als Size M markiert, umfasst aber gleichzeitig ein neues Lizenz-Datenmodell samt Migration, transaktionale Zahlungen aus zwei Speicherarten, Eigentümer-Konfiguration, Presence-Policy, Nachrichten, täglichen Maintenance-Handler, fünf API-Endpunkte sowie zwei Frontend-Kontexte und deren Tests. Das ist für einen einzelnen Ralph-Durchlauf zu groß. Bitte in mindestens Backend-Fundament/Kauf, Maintenance/Abfragen und Frontend aufteilen und die Abhängigkeiten festlegen.
