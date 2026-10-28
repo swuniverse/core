@@ -18,7 +18,12 @@ jest.mock('./entities/holonet-checkpoint.entity', () => ({
 }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { AdminGuard } from '../auth/admin.guard';
 import { HolonetController } from './holonet.controller';
 import { HolonetService } from './holonet.service';
 
@@ -36,6 +41,8 @@ describe('HolonetService edit window', () => {
     save: jest.Mock;
     softRemove: jest.Mock;
   };
+  let messagingService: { sendSystem: jest.Mock };
+  let userRepo: { findOneBy: jest.Mock };
   let service: HolonetService;
 
   beforeEach(() => {
@@ -51,13 +58,17 @@ describe('HolonetService edit window', () => {
       save: jest.fn().mockImplementation(async (value) => value),
       softRemove: jest.fn().mockResolvedValue(undefined),
     };
+    userRepo = {
+      findOneBy: jest.fn().mockResolvedValue({ id: 99, username: 'Tarkin' }),
+    };
+    messagingService = { sendSystem: jest.fn().mockResolvedValue(undefined) };
     service = new HolonetService(
       postRepo as never,
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
+      userRepo as never,
+      messagingService as never,
       {} as never,
     );
   });
@@ -92,6 +103,41 @@ describe('HolonetService edit window', () => {
       BadRequestException,
     );
     expect(postRepo.softRemove).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-admin access to the admin deletion endpoint', () => {
+    const guard = new AdminGuard();
+    const context = {
+      switchToHttp: () => ({ getRequest: () => ({ user: { isAdmin: false } }) }),
+    };
+
+    expect(() => guard.canActivate(context as never)).toThrow(ForbiddenException);
+  });
+
+  it.each([
+    [undefined, 'Der HoloNet-Beitrag mit der ID 1 wurde vom Admin Tarkin gelöscht.'],
+    [
+      '  Verstoß gegen die Regeln  ',
+      'Der HoloNet-Beitrag mit der ID 1 wurde vom Admin Tarkin gelöscht. Begründung: Verstoß gegen die Regeln',
+    ],
+  ])('soft-deletes a foreign post as admin and notifies its author', async (reason, body) => {
+    await service.adminDelete(post.id, 99, reason);
+
+    expect(postRepo.softRemove).toHaveBeenCalledWith(post);
+    expect(userRepo.findOneBy).toHaveBeenCalledWith({ id: 99 });
+    expect(messagingService.sendSystem).toHaveBeenCalledWith(
+      userId,
+      'HoloNet-Beitrag gelöscht',
+      body,
+    );
+  });
+
+  it('rejects an admin deletion reason longer than 500 characters', async () => {
+    await expect(service.adminDelete(post.id, 99, 'x'.repeat(501))).rejects.toThrow(
+      'Die Begründung darf höchstens 500 Zeichen lang sein.',
+    );
+    expect(postRepo.softRemove).not.toHaveBeenCalled();
+    expect(messagingService.sendSystem).not.toHaveBeenCalled();
   });
 
   it('allows an admin to edit another player’s old post through the controller', async () => {

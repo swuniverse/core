@@ -106,6 +106,16 @@ export class HolonetController {
     return this.holonetService.delete(id, req.user.sub);
   }
 
+  @Delete(':id/admin')
+  @UseGuards(AdminGuard)
+  adminDelete(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('reason') reason?: string,
+  ) {
+    return this.holonetService.adminDelete(id, req.user.sub, reason);
+  }
+
   @Patch(':id/pin')
   @UseGuards(AdminGuard)
   togglePin(@Param('id', ParseIntPipe) id: number) {

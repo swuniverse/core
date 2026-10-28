@@ -130,6 +130,38 @@ describe('HolonetPage routing', () => {
     ).toBe('/players/8');
   });
 
+  it('offers admin deletion only to admins on foreign posts', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse());
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/holonet/1']}>
+        <Routes>
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Route-selected body');
+    expect(screen.queryByRole('button', { name: 'Löschen (Admin)' })).toBeNull();
+    unmount();
+
+    useAuthStore.setState({ user: { ...user, isAdmin: true } });
+    render(
+      <MemoryRouter initialEntries={['/holonet/1']}>
+        <Routes>
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Löschen (Admin)' })).toBeTruthy();
+  });
+
   it('does not offer a quick message for an own HoloNet post', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/holonet?page=1') {

@@ -1,6 +1,6 @@
 # HoloNet: Admin-Löschung mit Begründung
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** soc-D1
@@ -24,9 +24,11 @@ Ein Admin löscht einen fremden HoloNet-Beitrag weich und gibt optional eine Beg
 
 ## Akzeptanzkriterien
 
-- [ ] Endpunkt nur für Admins (403 sonst); Begründung optional, max. 500 Zeichen.
-- [ ] Beitrag wird weich gelöscht (Mechanik aus soc-D1); der Autor erhält die Systemnachricht mit Beitrags-ID, Admin-Namen und Begründung.
-- [ ] UI: Admins sehen an fremden Beiträgen „Löschen (Admin)“ mit Dialog für die Begründung.
-- [ ] Backend-Tests: Nicht-Admin abgelehnt, Löschung weich, Nachricht mit/ohne Begründung. Frontend-Test: Button nur für Admins.
+- [x] Endpunkt nur für Admins (403 sonst); Begründung optional, max. 500 Zeichen.
+- [x] Beitrag wird weich gelöscht (Mechanik aus soc-D1); der Autor erhält die Systemnachricht mit Beitrags-ID, Admin-Namen und Begründung.
+- [x] UI: Admins sehen an fremden Beiträgen „Löschen (Admin)“ mit Dialog für die Begründung.
+- [x] Backend-Tests: Nicht-Admin abgelehnt, Löschung weich, Nachricht mit/ohne Begründung. Frontend-Test: Button nur für Admins.
 
 ## Comments
+
+Admin-geschützten Soft-Delete-Endpunkt, Autor-Systemnachricht und HoloNet-Löschdialog mit optionaler Begründung umgesetzt. Keine offenen Folgepunkte.

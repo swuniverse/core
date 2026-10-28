@@ -183,6 +183,27 @@ export class HolonetService {
     await this.postRepo.softRemove(post);
   }
 
+  async adminDelete(id: number, adminId: number, reason?: string): Promise<void> {
+    const normalizedReason = reason?.trim() ?? '';
+    if (codePointLength(normalizedReason) > 500) {
+      throw new BadRequestException('Die Begründung darf höchstens 500 Zeichen lang sein.');
+    }
+
+    const [post, admin] = await Promise.all([
+      this.postRepo.findOne({ where: { id, deletedAt: IsNull() } }),
+      this.userRepo.findOneBy({ id: adminId }),
+    ]);
+    if (!post) throw new NotFoundException('Post not found');
+    if (!admin) throw new NotFoundException('Admin not found');
+
+    await this.postRepo.softRemove(post);
+    await this.messagingService.sendSystem(
+      post.authorId,
+      'HoloNet-Beitrag gelöscht',
+      `Der HoloNet-Beitrag mit der ID ${post.id} wurde vom Admin ${admin.username} gelöscht.${normalizedReason ? ` Begründung: ${normalizedReason}` : ''}`,
+    );
+  }
+
   async togglePin(id: number): Promise<HolonetPost> {
     const post = await this.postRepo.findOneBy({ id, deletedAt: IsNull() });
     if (!post) throw new NotFoundException('Post not found');

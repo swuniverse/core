@@ -80,6 +80,8 @@ export function HolonetPage() {
   const [commentsLoading, setCommentsLoading] = useState<Record<number, boolean>>({});
   const [ratingsByPost, setRatingsByPost] = useState<Record<number, number>>({});
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [adminDeletePost, setAdminDeletePost] = useState<HolonetPost | null>(null);
+  const [adminDeleteReason, setAdminDeleteReason] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
   const [textSearch, setTextSearch] = useState('');
@@ -262,10 +264,47 @@ export function HolonetPage() {
 
 
 
+  const confirmAdminDelete = async () => {
+    if (!adminDeletePost) return;
+    await api.delete(`/holonet/${adminDeletePost.id}/admin`, {
+      body: JSON.stringify({ reason: adminDeleteReason }),
+    });
+    setPosts((prev) => prev.filter((post) => post.id !== adminDeletePost.id));
+    setAdminDeletePost(null);
+    setAdminDeleteReason('');
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="p-2 text-swu-muted md:p-4">
+      {adminDeletePost && (
+        <div role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-lg border border-swu-border bg-swu-bg p-4">
+            <h2 id="admin-delete-title" className="mb-3 text-sm font-bold text-swu-primary">
+              HoloNet-Beitrag #{adminDeletePost.id} löschen
+            </h2>
+            <label className="block text-xs text-swu-muted">
+              Begründung (optional)
+              <textarea
+                value={adminDeleteReason}
+                maxLength={500}
+                onChange={(event) => setAdminDeleteReason(event.target.value)}
+                rows={4}
+                className="mt-1 w-full border border-swu-border bg-black/40 p-2 text-swu-primary"
+              />
+            </label>
+            <div className="mt-3 flex justify-end gap-2 text-xs">
+              <button onClick={() => setAdminDeletePost(null)} className="border border-swu-border px-3 py-1">
+                Abbrechen
+              </button>
+              <button onClick={confirmAdminDelete} className="border border-red-500/60 px-3 py-1 text-red-300">
+                Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="border border-swu-border bg-black/40">
         <div className="border-b border-swu-border bg-swu-surface/70 px-3 py-1 text-xs font-bold text-swu-primary">
           / HoloNet / Archiv
@@ -390,14 +429,24 @@ export function HolonetPage() {
                                     Gesendet über HoloNet-Kanal {post.category}
                                   </p>
                                 </div>
-                                {post.authorId === user?.id && (
-                                  <button
-                                    onClick={() => startEdit(post)}
-                                    className="text-[10px] text-swu-muted hover:text-swu-accent"
-                                  >
-                                    Bearbeiten
-                                  </button>
-                                )}
+                                <div className="flex gap-2">
+                                  {post.authorId === user?.id && (
+                                    <button
+                                      onClick={() => startEdit(post)}
+                                      className="text-[10px] text-swu-muted hover:text-swu-accent"
+                                    >
+                                      Bearbeiten
+                                    </button>
+                                  )}
+                                  {user?.isAdmin && post.authorId !== user.id && (
+                                    <button
+                                      onClick={() => setAdminDeletePost(post)}
+                                      className="text-[10px] text-red-400 hover:text-red-300"
+                                    >
+                                      Löschen (Admin)
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <BbCodeText
                                 text={post.body}
