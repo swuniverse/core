@@ -1,6 +1,6 @@
 # Kolonie-Sandbox: Datenmodell und Kopie der Oberfläche
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
