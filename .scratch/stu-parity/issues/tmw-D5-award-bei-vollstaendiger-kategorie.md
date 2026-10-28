@@ -1,6 +1,6 @@
 # Award bei vollständig entdeckter Datenbankkategorie und Meldung „Neuer Datenbankeintrag“
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-G1
@@ -34,3 +34,5 @@ Hat ein Spieler eine Datenbankkategorie vollständig entdeckt, erhält er den zu
 - [ ] Backend-Tests: Vollständigkeit erkannt (mit und ohne Ebene), keine doppelte Vergabe, keine Vergabe bei unvollständiger Kategorie. Frontend-Test: Fortschrittsanzeige und Meldung.
 
 ## Comments
+
+- 2026-10-28 – Blocker: Das Issue verlangt eine produktive Konfiguration für fünf Kategorien, aber zwei davon sind noch nicht vollständig implementiert: Regionen hängen von `tmw-D4`/`tmw-K8b` ab, und für die Systemkategorie fehlt eine eindeutige Produktentscheidung, welche Sternensysteme je Ebene zur Vollständigkeit zählen (alle kartierten Systeme, alle generierten Systeme oder nur betretbare Systeme). Außerdem ist `tmw-D4` derzeit selbst noch blockiert. Bitte die Vollständigkeitsmenge für „Sternensysteme je Ebene“ festlegen und entscheiden, ob Regionen in diesem Issue bis `tmw-D4` ausgenommen werden oder `tmw-D5` entsprechend blockiert werden soll.
