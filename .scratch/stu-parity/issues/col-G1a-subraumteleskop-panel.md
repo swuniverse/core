@@ -1,6 +1,6 @@
 # Subraumteleskop: Funktion und Kartenansicht
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
