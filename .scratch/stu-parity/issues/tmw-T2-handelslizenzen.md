@@ -1,6 +1,6 @@
 # Handelslizenzen: Bedingungen, Kauf, Verlängerung, Ablauf
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-T1a
