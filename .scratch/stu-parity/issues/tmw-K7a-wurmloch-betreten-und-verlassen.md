@@ -1,6 +1,6 @@
 # Wurmloch betreten und verlassen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
@@ -33,3 +33,5 @@ Ein Schiff auf einem Wurmlocheingang kann das Wurmloch betreten und erscheint am
 - [ ] Backend-Tests: Erfolgsfall, Rückrichtung, zufälliger Ausgang, alle Ablehnungsfälle, Flotte. Frontend-Test: Die Aktion erscheint nur auf Wurmlochfeldern und ruft die API auf.
 
 ## Comments
+
+- 2026-10-28: Blockiert durch eine fehlende Produktentscheidung: Das Akzeptanzkriterium verlangt „Kosten wie ein Flugschritt“, aber SWU hat zwei unterschiedliche Flugressourcen (Systemflug verbraucht rumpfabhängige EPS, Galaxieflug verbraucht Warpdrive). Bitte festlegen, ob eine Wurmlochpassage rumpfabhängige EPS, Warpdrive oder eine andere feste Ressource kostet. Zusätzlich bitte festlegen, ob der Kostenbegriff für jedes Flottenmitglied separat gilt.
