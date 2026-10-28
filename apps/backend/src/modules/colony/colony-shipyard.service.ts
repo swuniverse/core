@@ -63,6 +63,11 @@ export class ColonyShipyardService {
   private readonly legacyShipyardBuildingIds =
     COLONY_BUILDING_ID_SETS.LEGACY_SHIPYARD;
   private readonly shipyardFunctionIds = COLONY_FUNCTION_ID_SETS.SHIPYARD;
+  private readonly queuedBuildShipyardFunctionIds = new Set(
+    [...COLONY_FUNCTION_ID_SETS.SHIPYARD].filter(
+      (functionId) => functionId !== COLONY_FUNCTION_IDS.FIGHTER_SHIPYARD,
+    ),
+  );
   private readonly repairStationFunctionId = COLONY_FUNCTION_IDS.REPAIR_STATION;
   private readonly repairSparePartCommodityId = 10001;
   private readonly repairSystemComponentCommodityId = 10002;
@@ -964,7 +969,10 @@ export class ColonyShipyardService {
       );
     }
 
-    const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
+    const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(
+      colony,
+      this.queuedBuildShipyardFunctionIds,
+    );
     if (activeShipyardFunctionIds.length === 0) {
       throw new BadRequestException('Colony needs a completed Shipyard');
     }
@@ -1081,7 +1089,10 @@ export class ColonyShipyardService {
     return this.shipBuildQueueRepo.save(queue);
   }
 
-  private getActiveShipyardFunctionIds(colony: Colony): number[] {
+  private getActiveShipyardFunctionIds(
+    colony: Colony,
+    allowedFunctionIds = this.shipyardFunctionIds,
+  ): number[] {
     return [
       ...new Set(
         (colony.fields ?? [])
@@ -1091,7 +1102,7 @@ export class ColonyShipyardService {
           .flatMap((field) =>
             this.gameData.getBuildingFunctions(field.buildingId!),
           )
-          .filter((functionId) => this.shipyardFunctionIds.has(functionId)),
+          .filter((functionId) => allowedFunctionIds.has(functionId)),
       ),
     ];
   }

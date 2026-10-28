@@ -35,11 +35,11 @@ const BUILDING_CONTEXT_DEFINITIONS: Array<{
   functionIds: readonly number[];
   requiresActiveField?: boolean;
 }> = [
-  { view: 'hangar', label: 'Hangar öffnen', functionIds: [4] },
+  { view: 'hangar', label: 'Hangar öffnen', functionIds: [4, 5] },
   {
     view: 'shipyard',
     label: 'Werft öffnen',
-    functionIds: [5, 6, 7, 8, 21],
+    functionIds: [6, 7, 8, 21],
   },
   {
     view: 'waste',

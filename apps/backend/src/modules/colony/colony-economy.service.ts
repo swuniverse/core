@@ -180,11 +180,27 @@ export class ColonyEconomyService {
           activeFunctionIds: defenseGroup.activeFunctionIds,
         },
         hangar: {
-          visible: hasPresent(this.airfieldFunctionIds),
-          reason: 'Benötigt einen gebauten Raumhafen',
-          requiredFunctionIds: this.airfieldFunctionIds,
-          presentFunctionIds: airfieldGroup.presentFunctionIds,
-          activeFunctionIds: airfieldGroup.activeFunctionIds,
+          visible: hasPresent([
+            ...this.airfieldFunctionIds,
+            ...this.fighterShipyardFunctionIds,
+          ]),
+          reason: 'Benötigt einen gebauten Raumhafen oder eine Jägerwerft',
+          requiredFunctionIds: [
+            ...this.airfieldFunctionIds,
+            ...this.fighterShipyardFunctionIds,
+          ],
+          presentFunctionIds: [
+            ...airfieldGroup.presentFunctionIds,
+            ...shipyardGroup.presentFunctionIds.filter((id) =>
+              this.fighterShipyardFunctionIds.includes(id),
+            ),
+          ],
+          activeFunctionIds: [
+            ...airfieldGroup.activeFunctionIds,
+            ...shipyardGroup.activeFunctionIds.filter((id) =>
+              this.fighterShipyardFunctionIds.includes(id),
+            ),
+          ],
         },
       },
       functions: {

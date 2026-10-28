@@ -124,6 +124,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- col-A9 – Jägerwerften bauen Rümpfe ins Lager und starten sie über den Hangar; neue normale Bauqueue-Aufträge sind ausgeschlossen – siehe Feature-Commit
 - sh-AP-20 – Hauptticks sperren schreibende Spieleraktionen per TICK-Status, Banner und 503, mit sicherer Statuswiederherstellung – siehe Feature-Commit
 - tmw-K8a – Erkundungsabhängige Regions- und Verwaltungsregionsinfos in Feldkontext, Schiffskopf, LSS und geschütztem Detailendpunkt umgesetzt – siehe Feature-Commit
 - tmw-K4 – Persistente Sternenkarten-Overlays für Territorium, Unpassierbarkeit, Feldeffekte und berechtigte Sensorabdeckung umgesetzt – siehe Feature-Commit

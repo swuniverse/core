@@ -144,9 +144,9 @@ const isContextViewAvailable = (
 
   switch (view) {
     case 'hangar':
-      return active('airfield');
+      return active('airfield') || active('fighterShipyards');
     case 'shipyard':
-      return active('fighterShipyards') || active('shipyards');
+      return active('shipyards');
     case 'fabrication':
       return active('fabrication') || active('fabricationSupport');
     case 'defense':

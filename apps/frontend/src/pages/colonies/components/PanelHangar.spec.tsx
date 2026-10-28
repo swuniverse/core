@@ -7,6 +7,7 @@ describe('PanelHangar STU costs', () => {
       <PanelHangar
         hangar={{
           hasAirfield: true,
+          hasFighterShipyard: false,
           inventory: [],
           buildable: [
             {
@@ -58,5 +59,44 @@ describe('PanelHangar STU costs', () => {
     expect(screen.queryByText(/Matrix-Panzerung/)).toBeNull();
     expect(screen.queryByText(/Defaultmodule/)).toBeNull();
     expect(screen.queryByText(/Startet mit/)).toBeNull();
+  });
+
+  it('allows fighter construction with a fighter shipyard and no airfield', () => {
+    render(
+      <PanelHangar
+        hangar={{
+          hasAirfield: false,
+          hasFighterShipyard: true,
+          inventory: [],
+          buildable: [
+            {
+              shipClassId: 1,
+              shipClassKey: 'REBEL_SHUTTLE_LAAT',
+              shipClassName: 'LAAT Shuttle',
+              hangarCommodityId: 21401,
+              displayName: 'LAAT Shuttle Rumpf',
+              buildEnergyCost: 90,
+              startEnergyCost: 90,
+              buildCosts: [{ commodityId: 2, amount: 10 }],
+              defaultModules: [],
+              maxBuildable: 1,
+              crewRequired: 5,
+            },
+          ],
+          startable: [],
+          landableOrbitShips: [],
+        }}
+        commodityMap={{
+          2: { id: 2, name: 'Duranium', nameShort: 'DUR' },
+        }}
+        onBuildAirfieldRump={vi.fn()}
+        onStartHangarShip={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('Aktiver Raumhafen erforderlich.')).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Bauen' }).disabled,
+    ).toBe(false);
   });
 });

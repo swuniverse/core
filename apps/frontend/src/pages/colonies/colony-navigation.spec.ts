@@ -70,7 +70,7 @@ describe('colony navigation', () => {
         [5, 6, 7, 8, 21, 9, 18, 29, 30, 24, 28],
         true,
       ).map((action) => action.view),
-    ).toEqual(['shipyard', 'fabrication', 'defense']);
+    ).toEqual(['hangar', 'shipyard', 'fabrication', 'defense']);
   });
 
   it('deduplicates functions belonging to the same context view', () => {
@@ -78,7 +78,7 @@ describe('colony navigation', () => {
       getBuildingContextActions([5, 6, 9, 10, 24, 25], true).map(
         (action) => action.view,
       ),
-    ).toEqual(['shipyard', 'fabrication', 'defense']);
+    ).toEqual(['hangar', 'shipyard', 'fabrication', 'defense']);
   });
 
   it('ignores empty and unsupported function IDs', () => {

@@ -468,6 +468,9 @@ export class ColonyProjectionService {
     );
     const hasAirfield =
       featureAccess.functions.groups.airfield.activeFunctionIds.length > 0;
+    const hasFighterShipyard =
+      featureAccess.functions.groups.fighterShipyards.activeFunctionIds.length >
+      0;
     const completedTechIds = new Set(
       (await this.unlockResolver.getCompletedTechIds(userId)).values(),
     );
@@ -1182,6 +1185,7 @@ export class ColonyProjectionService {
         },
         hangar: {
           hasAirfield,
+          hasFighterShipyard,
           inventory: hangarInventory,
           buildable: startableHangarShips.map(({ shipClass, hangarDef }) => ({
             shipClassId: shipClass.id,

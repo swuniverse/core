@@ -1,6 +1,6 @@
 # Jägerwerft: Rumpf ins Lager
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -23,10 +23,10 @@ In STU baut die Jägerwerft (Funktion 5) Jägerrümpfe als Ware ins Kolonielager
 
 ## Akzeptanzkriterien
 
-- [ ] Endpunkt und Panel für Funktion 5 bauen Jägerrümpfe gegen Kosten als Ware ins Kolonielager (analog `buildAirfieldRump`).
-- [ ] Gelagerte Jägerrümpfe lassen sich über den bestehenden Hangar-Startpfad starten.
-- [ ] Funktion 5 ist nicht mehr Teil der normalen Bauqueue; laufende Altaufträge laufen regulär aus.
-- [ ] Backend- und Frontend-Tests.
+- [x] Endpunkt und Panel für Funktion 5 bauen Jägerrümpfe gegen Kosten als Ware ins Kolonielager (analog `buildAirfieldRump`).
+- [x] Gelagerte Jägerrümpfe lassen sich über den bestehenden Hangar-Startpfad starten.
+- [x] Funktion 5 ist nicht mehr Teil der normalen Bauqueue; laufende Altaufträge laufen regulär aus.
+- [x] Backend- und Frontend-Tests.
 
 ## Entscheidung
 
@@ -35,3 +35,4 @@ Vorgabe: Variante (b), STU-Modell. Funktion 5 baut Jägerrümpfe als Ware ins Ko
 ## Comments
 
 - 2026-10-21 Product Owner: Option b – Die Jägerwerft folgt dem STU-Modell: Jägerrümpfe werden als Ware ins Kolonielager gebaut und über den Hangar gestartet.
+- 2026-10-28 Agent: Funktion 5 nutzt nun den bestehenden Hangar-Bau- und Startpfad; neue normale Bauqueue-Aufträge sind ausgeschlossen, Legacy-Aufträge bleiben verarbeitbar. Backend- und Frontend-Tests ergänzt.

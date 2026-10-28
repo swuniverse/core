@@ -307,8 +307,8 @@ const contextPanelFixtures = [
   },
   {
     functionId: 5,
-    action: 'Werft öffnen',
-    content: 'Werften',
+    action: 'Hangar öffnen',
+    content: 'Hangarbestand',
     view: 'fighterShipyards',
   },
   {
@@ -336,9 +336,10 @@ function addContextPanelData(
     presentFunctionIds: [functionId],
     activeFunctionIds: [functionId],
   };
-  if (view === 'hangar') {
+  if (view === 'hangar' || view === 'fighterShipyards') {
     detail.hangar = {
-      hasAirfield: true,
+      hasAirfield: view === 'hangar',
+      hasFighterShipyard: view === 'fighterShipyards',
       inventory: [],
       buildable: [],
       startable: [],
@@ -1497,7 +1498,7 @@ describe('ColonyDetail', () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Werft öffnen' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
     fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
     expect(screen.getByText('Rumpf auswählen')).toBeTruthy();
 
@@ -1602,7 +1603,7 @@ describe('ColonyDetail', () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Werft öffnen' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
     fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
     const deleteButton = screen.getByRole('button', {
       name: 'Bauplan Aktiver Bauplan löschen',
@@ -1659,7 +1660,7 @@ describe('ColonyDetail', () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Werft öffnen' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
     fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
     fireEvent.click(screen.getByRole('button', { name: /Nebulon-B/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Schiff bauen' }));

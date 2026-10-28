@@ -764,6 +764,16 @@ export class ColonyService {
     return this.hasActiveBuildingFunction(colony, this.airfieldFunctionId);
   }
 
+  private hasActiveHangarRumpFacility(colony: Colony): boolean {
+    return (
+      this.hasActiveAirfield(colony) ||
+      this.hasActiveBuildingFunction(
+        colony,
+        COLONY_FUNCTION_IDS.FIGHTER_SHIPYARD,
+      )
+    );
+  }
+
   private getHangarDefForShipClass(
     shipClass: ShipClassDef,
   ): HangarShipDef | undefined {
@@ -964,8 +974,10 @@ export class ColonyService {
     amount = 1,
   ): Promise<Colony> {
     const colony = await this.findOne(colonyId, userId);
-    if (!this.hasActiveAirfield(colony)) {
-      throw new BadRequestException('Active airfield required');
+    if (!this.hasActiveHangarRumpFacility(colony)) {
+      throw new BadRequestException(
+        'Active airfield or fighter shipyard required',
+      );
     }
     if (!Number.isInteger(amount) || amount <= 0 || amount > 50) {
       throw new BadRequestException('Amount must be between 1 and 50');

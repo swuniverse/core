@@ -2240,6 +2240,9 @@ describe('colony tick calculations', () => {
     );
     expect(access.tabs.shipyard.presentFunctionIds).not.toContain(22);
     expect(access.tabs.shipyard.activeFunctionIds).toHaveLength(0);
+    expect(access.tabs.hangar.visible).toBe(true);
+    expect(access.tabs.hangar.presentFunctionIds).toEqual([5]);
+    expect(access.tabs.hangar.activeFunctionIds).toHaveLength(0);
     expect(access.functions.groups.fighterShipyards.presentFunctionIds).toEqual(
       [5],
     );
@@ -2266,6 +2269,7 @@ describe('colony tick calculations', () => {
       expect.arrayContaining([5]),
     );
     expect(access.tabs.shipyard.activeFunctionIds).not.toContain(22);
+    expect(access.tabs.hangar.activeFunctionIds).toEqual([5]);
     expect(access.functions.groups.fighterShipyards.activeFunctionIds).toEqual([
       5,
     ]);
@@ -4704,7 +4708,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -4784,7 +4788,7 @@ describe('ship building compatibility', () => {
       fields: [
         {
           id: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -4834,7 +4838,7 @@ describe('ship building compatibility', () => {
       fields: [
         {
           id: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -4906,7 +4910,7 @@ describe('ship building compatibility', () => {
       fields: [
         {
           id: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -5120,7 +5124,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -5159,7 +5163,7 @@ describe('ship building compatibility', () => {
       'Starter Plan',
     );
 
-    expect(gameData.getBuildingFunctions).toHaveBeenCalledWith(85110100);
+    expect(gameData.getBuildingFunctions).toHaveBeenCalledWith(85130100);
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Red One',
@@ -5209,7 +5213,7 @@ describe('ship building compatibility', () => {
           {
             id: 1,
             fieldIndex: 1,
-            buildingId: 85110100,
+            buildingId: 85130100,
             isBuilding: false,
             isActive: true,
           },
@@ -5298,7 +5302,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -5357,7 +5361,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -5423,7 +5427,7 @@ describe('ship building compatibility', () => {
       userId: 1,
       colonyClassId: 999,
       fields: [
-        { id: 1, buildingId: 85110100, isBuilding: false, isActive: true },
+        { id: 1, buildingId: 85130100, isBuilding: false, isActive: true },
       ],
       storage: [],
     });
@@ -5669,7 +5673,7 @@ describe('ship building compatibility', () => {
         {
           id: 1,
           fieldIndex: 1,
-          buildingId: 85110100,
+          buildingId: 85130100,
           isBuilding: false,
           isActive: true,
         },
@@ -8327,11 +8331,73 @@ describe('airfield hangar loop', () => {
     );
   });
 
-  it('rejects hangar rump construction without active airfield', async () => {
+  it('rejects normal build queues when only the fighter shipyard is active', async () => {
+    const { service, colonyRepo, gameData } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      ...airfieldColony(),
+      fields: [
+        {
+          id: 2,
+          fieldIndex: 2,
+          buildingId: 85020100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+    });
+    gameData.getBuildingFunctions.mockImplementation((buildingId: number) =>
+      buildingId === 85020100 ? [5] : [],
+    );
+
+    await expect(service.buildShip(1, 1, 1, 'Queued fighter')).rejects.toThrow(
+      'Colony needs a completed Shipyard',
+    );
+  });
+
+  it('builds fighter rumps with an active fighter shipyard', async () => {
+    const { service, colonyRepo, shipClassRepo, storageRepo, gameData } =
+      createColonyService();
+    const colony = {
+      ...airfieldColony(),
+      fields: [
+        {
+          id: 2,
+          fieldIndex: 2,
+          buildingId: 85020100,
+          isBuilding: false,
+          isActive: true,
+        },
+      ],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+    gameData.getBuildingFunctions.mockImplementation((buildingId: number) =>
+      buildingId === 85020100 ? [5] : [],
+    );
+    const storage: Record<number, any> = Object.fromEntries(
+      [10201, 10301, 10401, 10501, 10701, 10801].map((commodityId) => [
+        commodityId,
+        { colonyId: 1, commodityId, amount: 1 },
+      ]),
+    );
+    storageRepo.findOne.mockImplementation(
+      async ({ where }: any) => storage[where.commodityId] ?? null,
+    );
+    storageRepo.create.mockImplementation((value: any) => {
+      storage[value.commodityId] = { ...value };
+      return storage[value.commodityId];
+    });
+
+    await service.buildAirfieldRump(1, 1, 1, 1);
+
+    expect(storage[21401].amount).toBe(1);
+  });
+
+  it('rejects hangar rump construction without an active production facility', async () => {
     const { service, colonyRepo } = createColonyService();
     colonyRepo.findOne.mockResolvedValue({ ...airfieldColony(), fields: [] });
     await expect(service.buildAirfieldRump(1, 1, 1, 1)).rejects.toThrow(
-      'Active airfield required',
+      'Active airfield or fighter shipyard required',
     );
   });
 

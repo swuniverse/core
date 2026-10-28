@@ -62,14 +62,13 @@ const shipyardTypeLabels: Record<ShipyardTypeKey, string> = {
 };
 
 const SHIPYARD_FUNCTION_LABELS: Record<number, string> = {
-  5: 'Jägerwerft',
   6: 'Korvetten-Werft',
   7: 'Fregattenwerft',
   8: 'Kreuzer-Werft',
   21: 'MC-Kreuzer-Werft',
 };
 
-const SHIPYARD_FUNCTION_ORDER = [5, 6, 7, 8, 21];
+const SHIPYARD_FUNCTION_ORDER = [6, 7, 8, 21];
 const SHIPYARD_FUNCTION_IDS = new Set(SHIPYARD_FUNCTION_ORDER);
 const RESOURCE_ONLY_STU_RUMP_IDS = new Set([901, 903, 1501, 1503, 161, 163]);
 

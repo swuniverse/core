@@ -70,8 +70,10 @@ export function PanelHangar({
         <div className="text-[10px] font-bold text-swu-muted uppercase">
           Rumpf bauen
         </div>
-        {!hangar.hasAirfield && (
-          <div className="text-red-400">Aktiver Raumhafen erforderlich.</div>
+        {!hangar.hasAirfield && !hangar.hasFighterShipyard && (
+          <div className="text-red-400">
+            Aktiver Raumhafen oder aktive Jägerwerft erforderlich.
+          </div>
         )}
         {hangar.buildable.map((item) => {
           const amount = amountByClass[item.shipClassId] ?? 1;
@@ -131,7 +133,7 @@ export function PanelHangar({
                       )
                     }
                     disabled={
-                      !hangar.hasAirfield ||
+                      (!hangar.hasAirfield && !hangar.hasFighterShipyard) ||
                       amount > item.maxBuildable ||
                       busy === `build-${item.shipClassId}`
                     }

@@ -521,6 +521,7 @@ export interface ColonyDetailV2 {
   };
   hangar?: {
     hasAirfield: boolean;
+    hasFighterShipyard: boolean;
     inventory: Array<{
       shipClassKey: string;
       hangarCommodityId: number;
