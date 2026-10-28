@@ -50,6 +50,13 @@ export class DatabaseController {
     return this.databaseService.getSettlers();
   }
 
+  @Get('npcs')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getNpcsAndAdmins() {
+    return this.databaseService.getNpcsAndAdmins();
+  }
+
   @Get('settlers/:id')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))

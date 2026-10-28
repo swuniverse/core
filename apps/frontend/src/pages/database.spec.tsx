@@ -52,6 +52,54 @@ describe('DatabasePage', () => {
     });
   });
 
+  it('renders separate NPC and administrator sections with profile and PM links', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/npcs') {
+        return Promise.resolve({
+          npcs: [
+            {
+              id: 9,
+              username: 'Hutten-Kartell',
+              displayName: 'Hutten-Kartell',
+              avatar: null,
+              faction: null,
+              factionName: null,
+            },
+          ],
+          administrators: [
+            {
+              id: 2,
+              username: 'admin',
+              displayName: 'Leitstelle',
+              avatar: null,
+              faction: 'EMPIRE',
+              factionName: 'Galaktisches Imperium',
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'NPCs & Administratoren' }));
+
+    expect(await screen.findByRole('heading', { name: 'NPCs' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Administratoren' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Hutten-Kartell' }).getAttribute('href')).toBe(
+      '/players/9',
+    );
+    expect(screen.getByRole('link', { name: 'Leitstelle' }).getAttribute('href')).toBe(
+      '/players/2',
+    );
+    expect(screen.getByLabelText('Nachricht an Hutten-Kartell schreiben')).toBeTruthy();
+    expect(screen.getByLabelText('Nachricht an Leitstelle schreiben')).toBeTruthy();
+  });
+
   it('opens station hulls from the Ships & Stations group and masks discoveries', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/database/station-classes') {

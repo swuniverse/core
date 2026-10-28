@@ -1,6 +1,6 @@
 # Datenbank: „NPCs & Administratoren“
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-W1
@@ -21,9 +21,11 @@ Unter „Sonstiges“ im Datenbank-Hub kommt die Liste „NPCs & Administratoren
 
 ## Akzeptanzkriterien
 
-- [ ] `GET database/npcs` liefert zwei Listen: NPCs und Administratoren, jeweils mit ID, Name, Fraktion (falls vorhanden) und Avatar. E-Mail und andere private Daten werden nicht offengelegt.
-- [ ] Der Hub-Eintrag „NPCs & Administratoren“ unter „Sonstiges“ zeigt beide Listen mit Profillinks und einer Schnell-PM-Aktion, sofern es eine gibt.
-- [ ] Die Siedlerliste enthält keine NPCs (Regel aus tmw-W1, hier per Test abgesichert).
-- [ ] Backend-Test: Trennung NPC/Admin, keine privaten Felder. Frontend-Test: beide Abschnitte rendern.
+- [x] `GET database/npcs` liefert zwei Listen: NPCs und Administratoren, jeweils mit ID, Name, Fraktion (falls vorhanden) und Avatar. E-Mail und andere private Daten werden nicht offengelegt.
+- [x] Der Hub-Eintrag „NPCs & Administratoren“ unter „Sonstiges“ zeigt beide Listen mit Profillinks und einer Schnell-PM-Aktion, sofern es eine gibt.
+- [x] Die Siedlerliste enthält keine NPCs (Regel aus tmw-W1, hier per Test abgesichert).
+- [x] Backend-Test: Trennung NPC/Admin, keine privaten Felder. Frontend-Test: beide Abschnitte rendern.
 
 ## Comments
+
+- `GET /database/npcs` liefert getrennte, datensparsame NPC- und Administratorlisten. Der Datenbank-Hub zeigt beide Abschnitte mit Avatar, Fraktion, Profil und Schnell-PM; die bestehende NPC-Ausfilterung der Siedlerliste ist getestet. Keine offenen Folgepunkte.

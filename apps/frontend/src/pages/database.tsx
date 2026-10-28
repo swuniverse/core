@@ -13,6 +13,8 @@ import {
 } from '../components/database/SystemRasterMap';
 import { StatisticsView } from '../components/database/StatisticsView';
 import { PageHeader } from '../components/PageHeader';
+import { PlayerAvatar } from '../components/PlayerAvatar';
+import { PmLink } from '../components/PmLink';
 import { commodityImage, systemTypeImage } from '../lib/assets';
 import { formatNumber } from '../lib/format';
 import { api } from '../services/api';
@@ -57,6 +59,7 @@ type View =
   | 'prestige-history'
   | 'commodity-overview'
   | 'trade-posts'
+  | 'npcs'
   | 'statistics';
 
 type Settler = {
@@ -69,6 +72,18 @@ type Settler = {
   ships: number;
   completedResearch: number;
   onVacation: boolean;
+};
+type NpcAdminEntry = {
+  id: number;
+  username: string;
+  displayName: string | null;
+  avatar: string | null;
+  faction: 'REBEL' | 'EMPIRE' | null;
+  factionName: string | null;
+};
+type NpcsAndAdmins = {
+  npcs: NpcAdminEntry[];
+  administrators: NpcAdminEntry[];
 };
 type Ranking = {
   userId?: number;
@@ -248,6 +263,7 @@ const groups: Array<{
     title: 'Sonstiges',
     entries: [
       { label: 'Siedlerliste', view: 'settlers' },
+      { label: 'NPCs & Administratoren', view: 'npcs' },
       { label: 'Warenübersicht', view: 'commodity-overview' },
       { label: 'Statistiken', view: 'statistics' },
       { label: 'Prestigehistorie', view: 'prestige-history' },
@@ -569,6 +585,7 @@ function Detail({ view, data }: { view: View; data: unknown }) {
     return <SystemTypes data={data as SystemTypes} />;
   if (view === 'systems') return <Systems data={data as SystemCatalog} />;
   if (view === 'settlers') return <Settlers data={data as Settler[]} />;
+  if (view === 'npcs') return <NpcsAndAdmins data={data as NpcsAndAdmins} />;
   if (view === 'rankings') return <RankingView data={data as RankingDetail} />;
   if (view === 'prestige-history')
     return <PrestigeHistory data={data as PrestigeHistory} />;
@@ -977,6 +994,56 @@ function SystemTypes({ data }: { data: SystemTypes }) {
     </div>
   );
 }
+function NpcsAndAdmins({ data }: { data: NpcsAndAdmins }) {
+  const section = (title: string, entries: NpcAdminEntry[]) => (
+    <section className="space-y-2">
+      <h2 className="text-sm font-bold text-swu-primary">{title}</h2>
+      {entries.length === 0 ? (
+        <p className="text-sm text-swu-muted">Keine Einträge.</p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {entries.map((entry) => {
+            const name = entry.displayName || entry.username;
+            return (
+              <div
+                key={entry.id}
+                className="flex items-center gap-2 border border-swu-border bg-black/30 p-2"
+              >
+                <PlayerAvatar
+                  name={name}
+                  avatar={entry.avatar}
+                  faction={entry.faction}
+                  decorative
+                  className="size-10 text-sm"
+                />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/players/${entry.id}`}
+                    className="block truncate text-swu-primary hover:text-swu-accent"
+                  >
+                    {name}
+                  </Link>
+                  <span className="text-xs text-swu-muted">
+                    {entry.factionName ?? 'Keine Fraktion'}
+                  </span>
+                </div>
+                <PmLink playerId={entry.id} playerName={name} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
+  return (
+    <div className="max-w-4xl space-y-4">
+      {section('NPCs', data.npcs)}
+      {section('Administratoren', data.administrators)}
+    </div>
+  );
+}
+
 function Settlers({ data }: { data: Settler[] }) {
   return (
     <Table
@@ -1124,6 +1191,7 @@ function titleFor(view: View) {
       'prestige-history': 'Prestigehistorie',
       'commodity-overview': 'Warenübersicht',
       'trade-posts': 'Handelsstationen',
+      npcs: 'NPCs & Administratoren',
       statistics: 'Statistiken',
     } as Record<View, string>
   )[view];

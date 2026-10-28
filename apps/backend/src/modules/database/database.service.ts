@@ -265,6 +265,32 @@ export class DatabaseService {
     );
   }
 
+  async getNpcsAndAdmins() {
+    const [users, factions] = await Promise.all([
+      this.userRepo.find({
+        where: [{ isNpc: true }, { isAdmin: true }],
+        order: { username: 'ASC' },
+      }),
+      this.factionService.findAll(),
+    ]);
+    const factionById = new Map(
+      factions.map((faction) => [faction.id, faction.name]),
+    );
+    const toEntry = (user: User) => ({
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      avatar: user.avatar,
+      faction: user.faction,
+      factionName: user.factionId ? (factionById.get(user.factionId) ?? null) : null,
+    });
+
+    return {
+      npcs: users.filter((user) => user.isNpc).map(toEntry),
+      administrators: users.filter((user) => user.isAdmin).map(toEntry),
+    };
+  }
+
   async getSettler(viewerId: number, id: number) {
     const [user, factions] = await Promise.all([
       this.userRepo.findOne({ where: { id } }),

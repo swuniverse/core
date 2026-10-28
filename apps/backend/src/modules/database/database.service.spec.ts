@@ -185,6 +185,66 @@ describe('DatabaseService rankings', () => {
     );
   });
 
+  it('separates NPCs and administrators without exposing private fields', async () => {
+    const { service, userRepo, factionService } = createService();
+    userRepo.find.mockResolvedValue([
+      {
+        id: 9,
+        username: 'Hutten-Kartell',
+        displayName: 'Hutten-Kartell',
+        avatar: 'npc.png',
+        faction: null,
+        factionId: null,
+        isNpc: true,
+        isAdmin: false,
+        email: 'private@example.test',
+      },
+      {
+        id: 2,
+        username: 'admin',
+        displayName: null,
+        avatar: null,
+        faction: 'EMPIRE',
+        factionId: 4,
+        isNpc: false,
+        isAdmin: true,
+        passwordHash: 'secret',
+      },
+    ]);
+    factionService.findAll.mockResolvedValue([{ id: 4, name: 'Galaktisches Imperium' }]);
+
+    const result = await service.getNpcsAndAdmins();
+
+    expect(result).toEqual({
+      npcs: [
+        {
+          id: 9,
+          username: 'Hutten-Kartell',
+          displayName: 'Hutten-Kartell',
+          avatar: 'npc.png',
+          faction: null,
+          factionName: null,
+        },
+      ],
+      administrators: [
+        {
+          id: 2,
+          username: 'admin',
+          displayName: null,
+          avatar: null,
+          faction: 'EMPIRE',
+          factionName: 'Galaktisches Imperium',
+        },
+      ],
+    });
+    expect(userRepo.find).toHaveBeenCalledWith({
+      where: [{ isNpc: true }, { isAdmin: true }],
+      order: { username: 'ASC' },
+    });
+    expect(JSON.stringify(result)).not.toContain('private@example.test');
+    expect(JSON.stringify(result)).not.toContain('secret');
+  });
+
   it('adds the central non-NPC predicate to query-backed rankings', async () => {
     const { service, userRepo, colonyRepo, researchRepo } = createService();
     const research = rankingBuilder([]);
