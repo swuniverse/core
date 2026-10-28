@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2c: Sperren (kein Messpunkt, kein Stationsbau, keine Subraumspuren, keine Anomalien)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
