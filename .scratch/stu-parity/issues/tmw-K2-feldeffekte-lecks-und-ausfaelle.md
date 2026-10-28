@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 1: Lecks, Ausfälle, Regeneration
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
@@ -38,3 +38,5 @@ Die aktiven Feldeffekte bekommen Handler, die beim Einflug und, wo STU das vorsi
 - [ ] Backend-Tests je Handler mit deterministischem Zufall: Wirkung, Untergrenze 0, keine Wirkung ohne Effekt, Tick-Wirkung. Frontend: Die Meldungen werden angezeigt (Test an der Meldungsleiste).
 
 ## Comments
+
+- 2026-10-28: Umsetzung verworfen, weil die vorgeschriebene Prüfung nach zwei ernsthaften Versuchen nicht grün wird. `npx nx affected -t lint typecheck test --base=HEAD` scheitert in `frontend:typecheck` und `backend:typecheck` an bereits vorhandenen projektweiten Fehlern, insbesondere `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht `Faction`) sowie zahlreichen TS6305-Fehlern wegen fehlender Declaration-Ausgaben. Die betroffenen Lint-/Testläufe und `npx nx run-many --targets=build` sind grün; benötigt wird eine Entscheidung bzw. Bereinigung der Typecheck-Baseline, bevor dieses Issue erneut umgesetzt wird.
