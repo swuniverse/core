@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2a: Sensorik (LSS-Störung, LSS-Blockade, Signaturanzeige)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
@@ -30,3 +30,5 @@ Passive Sensorik-Effekte wirken auf die Langstreckensensoren. Steht ein Schiff i
 - [ ] Backend-Tests für alle vier Effekte (DTO-Ebene). Frontend-Test: `LssMap` rendert „!“ und den Störungshinweis.
 
 ## Comments
+
+- 2026-10-28 Agent: Blocked by a missing product decision: the acceptance criteria require LSS_BLOCKADE to follow STU’s LssBlockadeGridFactory, but the referenced STU FieldTypeEffectEnum still marks LSS_BLOCKADE as not implemented while a grid implementation exists. Please confirm whether SWU should intentionally activate that currently dormant STU algorithm, including that blockade fields themselves are returned without content, and whether the behavior must apply to both system and galaxy local maps.
