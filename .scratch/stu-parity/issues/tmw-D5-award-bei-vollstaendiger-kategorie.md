@@ -1,6 +1,6 @@
 # Award bei vollständig entdeckter Datenbankkategorie und Meldung „Neuer Datenbankeintrag“
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-G1
