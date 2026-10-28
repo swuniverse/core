@@ -1,6 +1,6 @@
 # RPG-Plots: anlegen, Mitglieder, Listen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-D1
@@ -25,11 +25,13 @@ Spieler legen RPG-Plots an (Titel 6–80 Zeichen, Beschreibung), bearbeiten und 
 
 ## Akzeptanzkriterien
 
-- [ ] Plot: Titel 6–80 Zeichen, Beschreibung ≤ 5.000 Zeichen BBCode, Ersteller, Startdatum, Enddatum (null = aktiv). Ersteller wird beim Anlegen automatisch Mitglied.
-- [ ] Bearbeiten und Beenden nur durch den Ersteller; beendete Plots sind nicht mehr bearbeitbar und nehmen keine Mitglieder auf.
-- [ ] Mitglied hinzufügen (Spieler-ID) / entfernen nur durch den Ersteller; Ersteller nicht entfernbar; doppelte Mitglieder abgelehnt; Betroffene erhalten eine Systemnachricht („Du wurdest dem RPG-Plot 'X' als Schreiber hinzugefügt“ bzw. „entfernt“).
-- [ ] Listen „alle Plots“ (aktive zuerst, paginiert) und „meine Plots“ (Mitglied); Detail mit Beschreibung, Ersteller, Mitgliedern, Laufzeit.
-- [ ] HoloNet-Navigation erhält den Eintrag „Plots“.
-- [ ] Backend-Tests: Validierung, Rechte (Nicht-Ersteller 403), Beenden, Mitgliederverwaltung und Benachrichtigung. Frontend-Tests: Liste, Anlegen, Detail.
+- [x] Plot: Titel 6–80 Zeichen, Beschreibung ≤ 5.000 Zeichen BBCode, Ersteller, Startdatum, Enddatum (null = aktiv). Ersteller wird beim Anlegen automatisch Mitglied.
+- [x] Bearbeiten und Beenden nur durch den Ersteller; beendete Plots sind nicht mehr bearbeitbar und nehmen keine Mitglieder auf.
+- [x] Mitglied hinzufügen (Spieler-ID) / entfernen nur durch den Ersteller; Ersteller nicht entfernbar; doppelte Mitglieder abgelehnt; Betroffene erhalten eine Systemnachricht („Du wurdest dem RPG-Plot 'X' als Schreiber hinzugefügt“ bzw. „entfernt“).
+- [x] Listen „alle Plots“ (aktive zuerst, paginiert) und „meine Plots“ (Mitglied); Detail mit Beschreibung, Ersteller, Mitgliedern, Laufzeit.
+- [x] HoloNet-Navigation erhält den Eintrag „Plots“.
+- [x] Backend-Tests: Validierung, Rechte (Nicht-Ersteller 403), Beenden, Mitgliederverwaltung und Benachrichtigung. Frontend-Tests: Liste, Anlegen, Detail.
 
 ## Comments
+
+- 2026-10-28: RPG-Plots einschließlich Erstellerverwaltung, Mitgliederbenachrichtigungen, paginierter Listen, Detail-/Anlegeoberfläche und HoloNet-Navigation umgesetzt und getestet.

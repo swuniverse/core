@@ -121,6 +121,8 @@ import { TradeTransaction } from './modules/trade/entities/trade-transaction.ent
 import { TutorialModule } from './modules/tutorial/tutorial.module';
 import { UserTutorialProgress } from './modules/tutorial/entities/user-tutorial-progress.entity';
 import { RpgModule } from './modules/rpg/rpg.module';
+import { RpgPlotMember } from './modules/rpg/rpg-plot-member.entity';
+import { RpgPlot } from './modules/rpg/rpg-plot.entity';
 import { UserCharacter } from './modules/rpg/user-character.entity';
 import { ContactModule } from './modules/contacts/contact.module';
 import { Contact } from './modules/contacts/entities/contact.entity';
@@ -235,6 +237,8 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           TradeTransaction,
           UserTutorialProgress,
           UserCharacter,
+          RpgPlot,
+          RpgPlotMember,
           Contact,
           IgnoreList,
         ],

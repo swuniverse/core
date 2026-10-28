@@ -212,3 +212,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-B2 – Kontaktliste, Profilaktionen und Kontaktwahl beim Verfassen privater Nachrichten umgesetzt – siehe Feature-Commit
 - soc-C1a – Gerichtete Ignorierliste mit Verwaltungsoberfläche, Profilaktionen und PM-Sperre umgesetzt – siehe Feature-Commit
 - soc-D2 – Admins können fremde HoloNet-Beiträge mit optionaler Begründung weich löschen und den Autor benachrichtigen – siehe Feature-Commit
+- soc-E3a – RPG-Plots mit Erstellerverwaltung, Schreiberlisten, Systemnachrichten und HoloNet-Oberfläche umgesetzt – siehe Feature-Commit

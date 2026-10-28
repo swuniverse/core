@@ -627,6 +627,12 @@ export function HolonetPage() {
                 >
                   ▣ Beitrag schreiben
                 </button>
+                <button
+                  onClick={() => navigate('/holonet/plots')}
+                  className="w-full border border-swu-border px-2 py-1 text-left text-swu-primary hover:border-swu-accent"
+                >
+                  ▣ Plots
+                </button>
                 <div>
                   <h4 className="mb-1 font-bold text-swu-primary">Übersicht</h4>
                   <p>&gt; Neue Beiträge ab Lesezeichen: {unreadCount}</p>

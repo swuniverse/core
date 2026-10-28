@@ -16,6 +16,11 @@ import { ResearchPage } from '../pages/research';
 import { ResearchTreePage } from '../pages/research-tree';
 import { MessagesPage } from '../pages/messages';
 import { HolonetComposePage, HolonetPage } from '../pages/holonet';
+import {
+  RpgPlotCreatePage,
+  RpgPlotDetailPage,
+  RpgPlotListPage,
+} from '../pages/rpg-plots';
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
 import { DatabasePage, DatabaseSystemDetailPage } from '../pages/database';
@@ -181,6 +186,9 @@ export function App() {
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/holonet" element={<HolonetPage />} />
             <Route path="/holonet/new" element={<HolonetComposePage />} />
+            <Route path="/holonet/plots" element={<RpgPlotListPage />} />
+            <Route path="/holonet/plots/new" element={<RpgPlotCreatePage />} />
+            <Route path="/holonet/plots/:id" element={<RpgPlotDetailPage />} />
             <Route path="/holonet/:id" element={<HolonetPage />} />
             <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
             <Route path="/database" element={<DatabasePage />} />

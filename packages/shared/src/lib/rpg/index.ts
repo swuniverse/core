@@ -1,3 +1,5 @@
+export * from './plots.js';
+
 export interface UserCharacterDto {
   id: number;
   userId: number;
