@@ -1,6 +1,6 @@
 # Allianzdepot zuordnen und lösen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-STAT-2
