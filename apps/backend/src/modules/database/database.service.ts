@@ -46,6 +46,7 @@ import {
 } from '../spacecraft/entities/cartography-plan.entity';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 import { UserAward } from '../awards/entities/user-award.entity';
+import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
 
 type TradePostProjection = TradePost & {
   owner?: User;
@@ -124,6 +125,8 @@ export class DatabaseService {
     @InjectRepository(StationClassDiscovery)
     private readonly stationClassDiscoveryRepo: Repository<StationClassDiscovery> =
       {} as Repository<StationClassDiscovery>,
+    private readonly profileVisitorService: ProfileVisitorService =
+      {} as ProfileVisitorService,
   ) {}
 
   async getTradePosts(userId: number) {
@@ -300,6 +303,8 @@ export class DatabaseService {
     if (!user) {
       throw new NotFoundException('Settler not found');
     }
+
+    await this.profileVisitorService.registerVisit(viewerId, user.id);
 
     const factionById = new Map(
       factions.map((faction) => [faction.id, faction]),

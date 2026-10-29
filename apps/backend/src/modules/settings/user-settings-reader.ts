@@ -7,6 +7,7 @@ export const BOOLEAN_SETTING_DEFAULTS = {
   email_notification: true,
   storage_notification: false,
   show_pm_read_receipt: true,
+  profile_visit_optout: false,
 } as const;
 
 export type BooleanSettingKey = keyof typeof BOOLEAN_SETTING_DEFAULTS;
@@ -15,6 +16,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   email_notification: '1',
   storage_notification: '0',
   show_pm_read_receipt: '1',
+  profile_visit_optout: '0',
   default_view: 'maindesk',
 };
 

@@ -234,3 +234,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-K3c – Zentrale Feldeffektabfrage, Messpunktsperren und feldtypbasierte Stationsbausperren umgesetzt – siehe Feature-Commit
 - soc-A5 – Typisierte Meldungsziele mit Kolonie-Backfill, HoloNet-Verlinkung und zentraler Frontend-Routenauflösung umgesetzt – siehe Feature-Commit
 - soc-A8 – Fraktionsspezifische, idempotente Willkommens-Systemnachricht nach der Heimatweltwahl umgesetzt – siehe Feature-Commit
+- soc-F1b – Profilbesucher mit Opt-out, sieben Tagen Aufbewahrung und Maindesk-Anzeige umgesetzt – siehe Feature-Commit

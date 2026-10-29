@@ -19,6 +19,7 @@ import {
   RecentEvents,
   DashboardMessages,
   DashboardLimits,
+  DashboardProfileVisitors,
 } from './dashboard/DashboardLowerSections';
 
 /**
@@ -58,6 +59,7 @@ export function DashboardPage() {
       forumTopics,
       holonetNewCount,
       shipyardProcesses,
+      profileVisitors,
     ] = await Promise.all([
       api.get<
         Array<{
@@ -179,6 +181,9 @@ export function DashboardPage() {
             paused: boolean;
           }>
         >('/dashboard/shipyard-processes')
+        .catch(() => []),
+      api
+        .get<DashboardData['profileVisitors']>('/dashboard/profile-visitors')
         .catch(() => []),
     ]);
 
@@ -442,6 +447,7 @@ export function DashboardPage() {
       baustelleAlerts,
       distressSignals,
       forumTopics,
+      profileVisitors,
     });
     setLoading(false);
   }, []);
@@ -475,6 +481,7 @@ export function DashboardPage() {
         </div>
         <aside className="space-y-3">
           <DashboardLimits data={data} />
+          <DashboardProfileVisitors visitors={data.profileVisitors} />
           <DashboardProcesses data={data} />
         </aside>
       </div>

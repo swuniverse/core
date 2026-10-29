@@ -20,6 +20,7 @@ import type {
 import { AllianceService } from '../alliance/alliance.service';
 import { ForumService } from '../alliance/forum.service';
 import { ColonyStatsService } from '../colony/colony-stats.service';
+import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
 import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueStatus,
@@ -47,7 +48,12 @@ export class DashboardService {
     private readonly colonyStatsService: ColonyStatsService,
     @InjectRepository(ColonyShipBuildQueue)
     private readonly shipyardQueueRepo: Repository<ColonyShipBuildQueue>,
+    private readonly profileVisitorService: ProfileVisitorService,
   ) {}
+
+  getProfileVisitors(userId: number) {
+    return this.profileVisitorService.getRecentVisitors(userId);
+  }
 
   /** Latest forum topics of the player's alliance; empty without membership. */
   getForumTopics(userId: number): Promise<DashboardForumTopicDto[]> {

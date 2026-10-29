@@ -4,6 +4,41 @@ import { PlayerAvatar } from '../../components/PlayerAvatar';
 import { formatDateTime } from '../../lib/format';
 import type { DashboardData } from './types';
 
+export function DashboardProfileVisitors({
+  visitors,
+}: {
+  visitors: DashboardData['profileVisitors'];
+}) {
+  return (
+    <section className="border border-swu-border bg-swu-surface/70">
+      <header className="border-b border-swu-border px-3 py-1.5">
+        <h2 className="text-xs font-bold text-swu-primary">Profilbesucher</h2>
+      </header>
+      {visitors.length === 0 ? (
+        <p className="px-3 py-3 text-center text-xs text-swu-muted">
+          Keine Besucher
+        </p>
+      ) : (
+        <ul className="divide-y divide-swu-border/60">
+          {visitors.map((visitor) => (
+            <li key={visitor.userId} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+              <Link
+                to={`/players/${visitor.userId}`}
+                className="truncate text-swu-primary hover:text-swu-accent"
+              >
+                {visitor.displayName || visitor.username}
+              </Link>
+              <time className="shrink-0 text-[9px] text-swu-muted" dateTime={visitor.visitedAt}>
+                {formatDateTime(visitor.visitedAt)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function RecentEvents({ data }: { data: DashboardData }) {
   return (
     <section className="border border-swu-border bg-swu-surface/70">

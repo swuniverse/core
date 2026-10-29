@@ -192,4 +192,10 @@ export interface DashboardData {
   distressSignals?: DistressSignal[];
   /** Empty for players without an alliance. */
   forumTopics?: DashboardForumTopicDto[];
+  profileVisitors: Array<{
+    userId: number;
+    username: string;
+    displayName: string | null;
+    visitedAt: string;
+  }>;
 }

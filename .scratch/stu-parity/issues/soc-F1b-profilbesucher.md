@@ -1,6 +1,6 @@
 # Profilbesucher erfassen und anzeigen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -23,11 +23,11 @@ STU erfasst Besuche fremder Profile (einmal je Besucher, mit Datum) und zeigt si
 
 ## Akzeptanzkriterien
 
-- [ ] Besuch je Besucher/Profil upsert mit Datum, keine Selbstbesuche; Besucher mit aktivem Opt-out werden nicht erfasst.
-- [ ] Einstellung „Meine Profilbesuche nicht erfassen“ in den Einstellungen (Default aus).
-- [ ] Ein Bereinigungsjob löscht Besuche älter als 7 Tage (Maintenance aus sh-AP-07a, falls vorhanden, sonst eigener Cron).
-- [ ] Dashboard-Box mit den letzten Besuchern.
-- [ ] Backend- und Frontend-Tests (Upsert, Selbstbesuch, Opt-out, Bereinigung, Box).
+- [x] Besuch je Besucher/Profil upsert mit Datum, keine Selbstbesuche; Besucher mit aktivem Opt-out werden nicht erfasst.
+- [x] Einstellung „Meine Profilbesuche nicht erfassen“ in den Einstellungen (Default aus).
+- [x] Ein Bereinigungsjob löscht Besuche älter als 7 Tage (Maintenance aus sh-AP-07a, falls vorhanden, sonst eigener Cron).
+- [x] Dashboard-Box mit den letzten Besuchern.
+- [x] Backend- und Frontend-Tests (Upsert, Selbstbesuch, Opt-out, Bereinigung, Box).
 
 ## Entscheidung
 
@@ -36,3 +36,4 @@ Vorgabe: Variante (a). Erfassung wie STU, Aufbewahrung 7 Tage, Opt-out-Einstellu
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Profilbesuche werden wie in STU erfasst und dem Profilinhaber angezeigt, mit 7 Tagen Aufbewahrung und einer Opt-out-Einstellung.
+- 2026-10-29 Umsetzung: Profilaufrufe erfassen eindeutige Besucherpaare, respektieren Selbstbesuche und Opt-out, erscheinen im Maindesk und werden über Maintenance nach sieben Tagen bereinigt. Fokus-Suites, Backend-Typecheck und Gesamt-Build sind grün; der verpflichtende Affected-Lauf bleibt an einem vorbestehenden Frontend-Typecheckfehler in `database.tsx` hängen.

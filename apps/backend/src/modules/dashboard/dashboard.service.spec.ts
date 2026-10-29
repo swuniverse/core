@@ -102,6 +102,7 @@ describe('DashboardService header', () => {
         })),
       } as never,
       {} as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({
@@ -168,6 +169,7 @@ describe('DashboardService header', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await expect(service.getHeader(4)).resolves.toMatchObject({ alliance });
@@ -214,6 +216,7 @@ describe('DashboardService shipyard processes', () => {
     const service = new DashboardService(
       ...(Array(12).fill({}) as [never, never, never, never, never, never, never, never, never, never, never, never]),
       queueRepo as never,
+      {} as never,
     );
 
     await expect(service.getShipyardProcesses(4)).resolves.toEqual([
@@ -248,6 +251,7 @@ describe('DashboardService forum topics', () => {
     const service = new DashboardService(
       ...(Array(10).fill({}) as [never, never, never, never, never, never, never, never, never, never]),
       forum as never,
+      {} as never,
       {} as never,
       {} as never,
     );

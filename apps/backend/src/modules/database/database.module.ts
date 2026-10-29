@@ -36,6 +36,7 @@ import { UserAward } from '../awards/entities/user-award.entity';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { ExplorationState } from '../starmap/entities/exploration-state.entity';
+import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { ExplorationState } from '../starmap/entities/exploration-state.entity';
     WebsocketModule,
     AllianceModule,
     StatisticsModule,
+    ProfileVisitorModule,
   ],
   controllers: [DatabaseController],
   providers: [

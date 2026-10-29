@@ -29,6 +29,8 @@ import { PrestigeModule } from '../prestige/prestige.module';
 import { TopFlightsRewardService } from './top-flights-reward.service';
 import { SpacecraftWreck } from '../spacecraft/entities/spacecraft-wreck.entity';
 import { WreckDecayService } from './wreck-decay.service';
+import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module';
+import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
 
 @Module({
   imports: [
@@ -53,6 +55,7 @@ import { WreckDecayService } from './wreck-decay.service';
     GameStatusModule,
     DatabaseModule,
     PrestigeModule,
+    ProfileVisitorModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
@@ -63,8 +66,11 @@ import { WreckDecayService } from './wreck-decay.service';
     WreckDecayService,
     {
       provide: MAINTENANCE_HANDLERS,
-      useFactory: (topFlightsReward: TopFlightsRewardService) => [topFlightsReward],
-      inject: [TopFlightsRewardService],
+      useFactory: (
+        topFlightsReward: TopFlightsRewardService,
+        profileVisitors: ProfileVisitorService,
+      ) => [topFlightsReward, profileVisitors],
+      inject: [TopFlightsRewardService, ProfileVisitorService],
     },
   ],
 })

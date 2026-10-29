@@ -20,6 +20,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   email_notification: '1',
   storage_notification: '0',
   show_pm_read_receipt: '1',
+  profile_visit_optout: '0',
   default_view: 'maindesk',
 };
 
@@ -27,6 +28,7 @@ const BOOLEAN_SETTINGS = new Set([
   'email_notification',
   'storage_notification',
   'show_pm_read_receipt',
+  'profile_visit_optout',
 ]);
 const DEFAULT_VIEWS = new Set([
   'maindesk',

@@ -84,6 +84,7 @@ import { HolonetRating } from './modules/holonet/entities/holonet-rating.entity'
 import { HolonetCheckpoint } from './modules/holonet/entities/holonet-checkpoint.entity';
 import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
 import { UserSetting } from './modules/settings/entities/user-setting.entity';
+import { ProfileVisit } from './modules/profile-visitor/entities/profile-visit.entity';
 import { GameEvent } from './modules/events/entities/game-event.entity';
 import { GameStatus } from './modules/game-status/entities/game-status.entity';
 import { PrestigeHistoryEntry } from './modules/prestige/entities/prestige-history-entry.entity';
@@ -209,6 +210,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           HolonetCheckpoint,
           GameTickState,
           UserSetting,
+          ProfileVisit,
           GameEvent,
           GameStatus,
           PrestigeHistoryEntry,

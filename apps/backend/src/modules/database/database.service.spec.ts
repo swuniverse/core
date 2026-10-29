@@ -32,6 +32,10 @@ function createService() {
   const prestigeHistoryRepo = { find: jest.fn() };
   const allianceService = { getRef: jest.fn().mockResolvedValue(null) };
   const userAwardRepo = { find: jest.fn().mockResolvedValue([]) };
+  const profileVisitorService = { registerVisit: jest.fn() };
+  const colonyScanProjection = {
+    newestAccessibleForColonies: jest.fn().mockResolvedValue([]),
+  };
   const service = new DatabaseService(
     userRepo as any,
     colonyRepo as any,
@@ -54,10 +58,12 @@ function createService() {
     {} as any,
     {} as any,
     userAwardRepo as any,
-    {} as any,
+    colonyScanProjection as any,
     {} as any,
     {} as never,
     {} as never,
+    {} as never,
+    profileVisitorService as never,
   );
   return {
     service,
@@ -68,6 +74,7 @@ function createService() {
     factionService,
     prestigeHistoryRepo,
     allianceService,
+    profileVisitorService,
   };
 }
 
@@ -328,6 +335,40 @@ describe('DatabaseService settlers', () => {
     expect(JSON.stringify(result)).not.toContain('refreshToken');
     expect(JSON.stringify(result)).not.toContain('email');
     expect(JSON.stringify(result)).not.toContain('notes');
+  });
+
+  it('registers the authenticated viewer when requesting a foreign profile', async () => {
+    const {
+      service,
+      userRepo,
+      colonyRepo,
+      shipRepo,
+      researchRepo,
+      factionService,
+      profileVisitorService,
+    } = createService();
+    userRepo.findOne.mockResolvedValue({
+      id: 9,
+      username: 'leia',
+      displayName: null,
+      avatar: null,
+      description: null,
+      factionId: null,
+      faction: 'REBEL_ALLIANCE',
+      prestige: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: new Date('2026-01-02T03:04:05.000Z'),
+      vacationMode: false,
+    });
+    factionService.findAll.mockResolvedValue([]);
+    colonyRepo.count.mockResolvedValue(0);
+    shipRepo.count.mockResolvedValue(0);
+    researchRepo.count.mockResolvedValue(0);
+
+    await service.getSettler(4, 9);
+
+    expect(profileVisitorService.registerVisit).toHaveBeenCalledWith(4, 9);
   });
 
   it('includes the settler’s alliance reference', async () => {

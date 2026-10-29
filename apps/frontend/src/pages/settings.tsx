@@ -444,6 +444,22 @@ function GameplayTab() {
     await api.patch('/user/settings', { default_view: value });
   };
 
+  const setProfileVisitOptOut = async (enabled: boolean) => {
+    const value = enabled ? '1' : '0';
+    setSettings((current) => ({ ...current, profile_visit_optout: value }));
+    try {
+      await api.patch('/user/settings', { profile_visit_optout: value });
+    } catch (error: unknown) {
+      setSettings((current) => ({
+        ...current,
+        profile_visit_optout: enabled ? '0' : '1',
+      }));
+      setError(
+        getErrorMessage(error, 'Datenschutzeinstellung konnte nicht gespeichert werden.'),
+      );
+    }
+  };
+
   const setTutorials = async (enabled: boolean) => {
     setTutorialsBusy(true);
     setTutorialsError('');
@@ -478,6 +494,18 @@ function GameplayTab() {
           <option value="research">Forschung</option>
           <option value="holonet">HoloNet</option>
         </select>
+      </Section>
+      <Section title="Datenschutz">
+        <label className="flex items-center gap-2 text-sm text-swu-primary">
+          <input
+            type="checkbox"
+            checked={settings.profile_visit_optout === '1'}
+            onChange={(event) =>
+              void setProfileVisitOptOut(event.target.checked)
+            }
+          />
+          Meine Profilbesuche nicht erfassen
+        </label>
       </Section>
       <Section title="Tutorial">
         <div className="flex items-center justify-between gap-4 text-xs">

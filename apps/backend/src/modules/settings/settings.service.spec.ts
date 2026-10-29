@@ -28,6 +28,20 @@ const createService = (
 };
 
 describe('SettingsService settings validation', () => {
+  it('returns profile visit opt-out disabled by default and accepts enabling it', async () => {
+    const { service, settingRepo } = createService();
+
+    await expect(service.getSettings(7)).resolves.toMatchObject({
+      profile_visit_optout: '0',
+    });
+    await service.updateSettings(7, { profile_visit_optout: '1' });
+
+    expect(settingRepo.upsert).toHaveBeenCalledWith(
+      { userId: 7, key: 'profile_visit_optout', value: '1' },
+      ['userId', 'key'],
+    );
+  });
+
   it.each([
     ['email_notification', 'yes'],
     ['storage_notification', '2'],

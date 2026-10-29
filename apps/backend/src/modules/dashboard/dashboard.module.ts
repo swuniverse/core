@@ -13,6 +13,7 @@ import { Research } from '../research/entities/research.entity';
 import { AllianceModule } from '../alliance/alliance.module';
 import { ColonyModule } from '../colony/colony.module';
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
+import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
     WebsocketModule,
     AllianceModule,
     ColonyModule,
+    ProfileVisitorModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
