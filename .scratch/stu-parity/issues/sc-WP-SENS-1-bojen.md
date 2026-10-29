@@ -1,6 +1,6 @@
 # Bojen setzen, analysieren und aufnehmen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -30,3 +30,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Blockiert durch fehlende Produktentscheidung: STU setzt Bojen nur mit gesunder Torpedorampe, 1 EPS und einer Ware „Boje“, erlaubt höchstens 16 eigene Bojen und begrenzt den Text auf 60 Zeichen. In SWU existieren weder eine kanonische Bojen-Waren-ID noch eine festgelegte Kosten-/Rückgabe-Regel. Soll eine neue Ware „Boje“ eingeführt werden (bitte ID und Herstellungs-/Bezugsweg festlegen), oder sollen Bojen vorerst nur 1 EPS ohne Warenverbrauch kosten? Zusätzlich widerspricht das Akzeptanzkriterium „Nur der Eigentümer nimmt die Boje auf“ dem STU-Verhalten, das auch Fremdaufnahme mit Eigentümerbenachrichtigung erlaubt; bitte bestätigen, dass SWU bewusst eigentümerexklusiv bleiben soll.
