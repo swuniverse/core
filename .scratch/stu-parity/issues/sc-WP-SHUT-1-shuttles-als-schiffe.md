@@ -1,6 +1,6 @@
 # Shuttles als eigenständige Schiffe starten und aufnehmen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -36,3 +36,5 @@ Vorgabe: Variante (a), STU-Parität. Shuttlerampe als Laufzeitsystem, Start/Aufn
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Shuttles werden wie in STU startbare Schiffe (Start, Aufnahme, Landung, Shuttle-Management an Stationen), mit derselben Mechanik wie das Starten der Workbees.
+
+- 2026-10-29 Agent: Umsetzung nach zwei ernsthaften Prüfversuchen abgebrochen. Der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` scheitert reproduzierbar im bereits bestehenden Frontend-Typecheck außerhalb dieses Issues (`apps/frontend/src/pages/database.tsx:1015` inkompatibler Faction-Typ sowie zahlreiche TS6305-Ausgabedatei-Fehler). Die isolierten Shuttle-Tests waren grün (Backend 5/5, Frontend 13/13), aber gemäß Ablauf darf das Issue erst fortgesetzt werden, wenn der Basis-Typecheck wieder grün ist.
