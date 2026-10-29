@@ -1,6 +1,6 @@
 # Forschungsabschluss: Auszeichnung und Award-Gate
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** col-D1, soc-G1
@@ -30,3 +30,5 @@ STU vergibt für einige Forschungen eine Auszeichnung (`award_id`) und blendet F
 - [ ] Frontend-Test: Auszeichnung im Detailmodal.
 
 ## Comments
+
+- 2026-10-29: Blockiert durch fehlende produktive Zuordnung. Der aktuelle STU-Quellstand definiert zwar `award_id` und `needed_award`, enthält im Repo aber keine produktiven Forschungszeilen bzw. Seed-Daten mit konkreten IDs; die Referenzdaten in SWU (`rebels.yaml`, `imperials.yaml`) und der Importer enthalten die Felder ebenfalls noch nicht. Welche konkreten Forschungen sollen auf `RESEARCH_STATIONS` bzw. `RESEARCH_INTERSTELLAR` abgebildet werden, und welche Forschung(en) benötigen welchen Award? Ohne diese Tabelle könnte die Mechanik nur mit ungenutzten Feldern umgesetzt werden; das erfüllt die Spielerparität und die Akzeptanzkriterien nicht belastbar.
