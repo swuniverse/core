@@ -1,6 +1,6 @@
 # Subraumanalyse und Subraumspuren-Ebene im LSS
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-NAV-2a
