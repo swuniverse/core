@@ -27,6 +27,9 @@ jest.mock('../faction/faction.service', () => ({
 jest.mock('../colony/colony-seed.service', () => ({
   ColonySeedService: class ColonySeedService {},
 }));
+jest.mock('../messaging/messaging.service', () => ({
+  MessagingService: class MessagingService {},
+}));
 
 import { BadRequestException } from '@nestjs/common';
 import { Faction } from '@swuniverse/shared';
@@ -69,6 +72,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const planets = await service.listPlanets(7, 12);
@@ -107,6 +111,7 @@ describe('OnboardingService', () => {
         factionService as never,
         {} as never,
         {} as never,
+        {} as never,
       );
 
       await (service as never as {
@@ -123,6 +128,74 @@ describe('OnboardingService', () => {
     },
   );
 
+  it.each([
+    [Faction.REBEL_ALLIANCE, 'Oberkommando der Rebellenallianz'],
+    [Faction.GALACTIC_EMPIRE, 'Imperiales Oberkommando'],
+  ])(
+    'sends the %s welcome message after claiming a homeworld',
+    async (factionKey, commandName) => {
+      const messagingService = { sendSystem: jest.fn(async () => ({})) };
+      const service = new OnboardingService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        messagingService as never,
+      );
+
+      await (service as never as {
+        sendWelcomeMessage(userId: number, factionKey: Faction): Promise<void>;
+      }).sendWelcomeMessage(7, factionKey);
+
+      expect(messagingService.sendSystem).toHaveBeenCalledWith(
+        7,
+        `Willkommen – ${commandName}`,
+        expect.stringMatching(/Kolonie[\s\S]*Forschung[\s\S]*HoloNet[\s\S]*Datenbank[\s\S]*Allianz/),
+        'welcome:7',
+      );
+    },
+  );
+
+  it('keeps onboarding successful when welcome delivery fails', async () => {
+    const messagingService = {
+      sendSystem: jest.fn(async () => {
+        throw new Error('delivery failed');
+      }),
+    };
+    const service = new OnboardingService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      messagingService as never,
+    );
+    const loggerError = jest
+      .spyOn((service as never as { logger: { error: () => void } }).logger, 'error')
+      .mockImplementation();
+
+    await expect(
+      (service as never as {
+        deliverWelcomeMessage(userId: number, factionKey: Faction): Promise<void>;
+      }).deliverWelcomeMessage(7, Faction.REBEL_ALLIANCE),
+    ).resolves.toBeUndefined();
+    expect(loggerError).toHaveBeenCalledWith(
+      'Failed to send welcome message to user 7',
+      expect.any(String),
+    );
+  });
+
   it('does not allow changing a retained faction while claiming a new homeworld', async () => {
     const userRepo = {
       findOneBy: jest.fn(async () => ({ id: 7, factionId: 2 })),
@@ -138,6 +211,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       factionService as never,
+      {} as never,
       {} as never,
       {} as never,
     );

@@ -1,6 +1,6 @@
 # Willkommensnachricht der Fraktion
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ Vorgabe gemäß Leitplanke 2: Text und Absender wählt der umsetzende Agent als 
 
 ## Akzeptanzkriterien
 
-- [ ] Nach erfolgreichem `claimHomeworld` wird eine Systemnachricht mit `deliveryKey` `welcome:<userId>` zugestellt; wiederholte Aufrufe erzeugen keine zweite Nachricht.
-- [ ] Text je Fraktion (Rebellenallianz, Galaktisches Imperium) auf Deutsch mit Hinweisen auf Kolonie, Forschung, HoloNet, Datenbank und Allianzen; Domänenbegriffe gemäß `CONTEXT.md`.
-- [ ] Ein Fehler beim Zustellen bricht das Onboarding nicht ab (geloggt).
-- [ ] Die Absender-/Textwahl ist als Zeile unter „Entscheidungen“ in `map.md` dokumentiert.
-- [ ] Backend-Tests: Nachricht wird für beide Fraktionen erzeugt; Idempotenz; Onboarding bleibt bei Zustellfehler erfolgreich.
+- [x] Nach erfolgreichem `claimHomeworld` wird eine Systemnachricht mit `deliveryKey` `welcome:<userId>` zugestellt; wiederholte Aufrufe erzeugen keine zweite Nachricht.
+- [x] Text je Fraktion (Rebellenallianz, Galaktisches Imperium) auf Deutsch mit Hinweisen auf Kolonie, Forschung, HoloNet, Datenbank und Allianzen; Domänenbegriffe gemäß `CONTEXT.md`.
+- [x] Ein Fehler beim Zustellen bricht das Onboarding nicht ab (geloggt).
+- [x] Die Absender-/Textwahl ist als Zeile unter „Entscheidungen“ in `map.md` dokumentiert.
+- [x] Backend-Tests: Nachricht wird für beide Fraktionen erzeugt; Idempotenz; Onboarding bleibt bei Zustellfehler erfolgreich.
 
 ## Comments
+
+Implemented faction-specific, idempotent welcome system messages after successful homeworld claims in `OnboardingService`. Delivery failures are logged without rolling back onboarding; backend tests cover both factions and failure handling. No follow-up gaps identified.

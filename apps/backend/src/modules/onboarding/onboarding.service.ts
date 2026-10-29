@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -42,6 +43,7 @@ import {
   type SwuZoneSlot,
 } from '../starmap/generator/swu-planet-archetypes.generator';
 import { TutorialService } from '../tutorial/tutorial.service';
+import { MessagingService } from '../messaging/messaging.service';
 
 const INVALID_STARTER_PLANET_MESSAGE =
   'Only colonizable planets with biome C or E can be claimed as homeworld (STU M, L or O class only if no SWU starter planet is free)';
@@ -59,6 +61,8 @@ interface FreeSwuStarterRow {
 
 @Injectable()
 export class OnboardingService {
+  private readonly logger = new Logger(OnboardingService.name);
+
   constructor(
     @InjectRepository(OnboardingSelection)
     private readonly onboardingRepo: Repository<OnboardingSelection>,
@@ -77,6 +81,7 @@ export class OnboardingService {
     private readonly factionService: FactionService,
     private readonly colonySeedService: ColonySeedService,
     private readonly tutorialService: TutorialService,
+    private readonly messagingService: MessagingService,
   ) {}
 
   async getOrCreateSelection(userId: number): Promise<OnboardingSelection> {
@@ -475,6 +480,7 @@ export class OnboardingService {
     await this.userRepo.save(user);
     await this.ensureBaseResearchCompleted(user.id, factionId);
     await this.tutorialService.activateForNewPlayer(user.id);
+    await this.deliverWelcomeMessage(user.id, faction.key as Faction);
 
     return {
       success: true,
@@ -487,6 +493,48 @@ export class OnboardingService {
         href: '/research?focus=220101',
       },
     };
+  }
+
+  private async deliverWelcomeMessage(
+    userId: number,
+    factionKey: Faction,
+  ): Promise<void> {
+    try {
+      await this.sendWelcomeMessage(userId, factionKey);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send welcome message to user ${userId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private async sendWelcomeMessage(
+    userId: number,
+    factionKey: Faction,
+  ): Promise<void> {
+    const commandName =
+      factionKey === Faction.GALACTIC_EMPIRE
+        ? 'Imperiales Oberkommando'
+        : 'Oberkommando der Rebellenallianz';
+    const body = `Willkommen in der Galaxis!
+
+Deine Heimatwelt wurde erfolgreich als Kolonie registriert. Sichere zunächst Energie, Bevölkerung und Rohstoffe und baue Deine Infrastruktur schrittweise aus.
+
+Nutze die Forschung, um neue Gebäude, Schiffe und Systeme freizuschalten. Im HoloNet findest Du Neuigkeiten und Diskussionen, während die Datenbank Dein Wissen über Waren, Systeme und bekannte Einrichtungen bündelt.
+
+Wenn Du gemeinsam mit anderen Siedlern handeln und planen möchtest, kannst Du einer Allianz beitreten oder selbst eine gründen.
+
+Viel Erfolg bei Deinen ersten Schritten.
+
+[i]– ${commandName}[/i]`;
+
+    await this.messagingService.sendSystem(
+      userId,
+      `Willkommen – ${commandName}`,
+      body,
+      `welcome:${userId}`,
+    );
   }
 
   private async ensureBaseResearchCompleted(

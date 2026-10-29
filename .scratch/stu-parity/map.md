@@ -126,6 +126,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-28 – sc-WP-CLEAN-2 – Der Beam-Blocker wird zum **Transferstörsender**: ein passives Feld, das Waren- und Crewtransfer blockiert.
 - 2026-10-28 – sc-WP-CLEAN-2 – Die falsche Warpsignatur wird zur **Signaturmaskierung**: Flugsignaturen geben zeitweise einen bekannten fremden Rumpf vor und passen so zum feldweisen Galaxieflug.
 - 2026-10-28 – sc-WP-CLEAN-2 – Der Singularitätsreaktor wird zum **Hypermaterie-Reservekern**: alternativer Hochkapazitätsreaktor ohne Star-Trek-Singularitätsterminologie.
+- 2026-10-29 – soc-A8 – Fraktionswillkommen wird als idempotente Systemnachricht vom **Oberkommando der Rebellenallianz** beziehungsweise **Imperialen Oberkommando** versandt.
 
 ## Erledigt
 
@@ -232,3 +233,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-E2 – Kolonieabgabe als wiederbesiedelbare Ruine samt Sperr-, Bestätigungs- und Orbitregeln in ADR-0007 festgehalten – siehe Feature-Commit
 - tmw-K3c – Zentrale Feldeffektabfrage, Messpunktsperren und feldtypbasierte Stationsbausperren umgesetzt – siehe Feature-Commit
 - soc-A5 – Typisierte Meldungsziele mit Kolonie-Backfill, HoloNet-Verlinkung und zentraler Frontend-Routenauflösung umgesetzt – siehe Feature-Commit
+- soc-A8 – Fraktionsspezifische, idempotente Willkommens-Systemnachricht nach der Heimatweltwahl umgesetzt – siehe Feature-Commit
