@@ -1,6 +1,6 @@
 # Stationswerft: Schiffe an Werftstationen bauen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-STAT-2
@@ -29,3 +29,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Nach zwei ernsthaften Verifikationsversuchen abgebrochen. Der neue Stationswerft-Service löste beim Laden über `spacecraft.controller.ts` in bestehenden Controller-Tests eine TypeORM-Zirkularabhängigkeit in `@InjectRepository()` aus; zusätzlich blieben die vorgeschriebenen `nx affected`-Prüfungen für Backend-Test sowie Frontend-Test/Typecheck rot. Der vorgeschriebene Build war grün. Der Produktcode wurde gemäß Ralph-Abbruchregel vollständig verworfen. Vor einer erneuten Umsetzung muss geklärt werden, wie die Werftlogik ohne diese Modul-/Entity-Zirkularabhängigkeit über den Spacecraft-Controller eingebunden und zugleich die vorhandene Kolonie-Bauqueue-Logik ohne Kopie wiederverwendet werden soll.
