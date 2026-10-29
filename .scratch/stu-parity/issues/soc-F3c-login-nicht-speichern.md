@@ -1,6 +1,6 @@
 # Einstellung „Login nicht speichern“
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -31,3 +31,5 @@ STU erlaubt mit `SAVE_LOGIN`, die Anmeldung nicht dauerhaft zu speichern. In SWU
 - [ ] Frontend-Tests: Speicherort je Option, Logout leert beide.
 
 ## Comments
+
+- 2026-10-29: Umsetzung und fokussierte Frontend-Tests waren erfolgreich, aber die Pflichtprüfung `npx nx affected -t lint typecheck test --base=HEAD` scheitert nach zwei ernsthaften Versuchen an bereits bestehenden Frontend-Typecheck-Fehlern (u. a. `database.tsx:1015` Faction-Typfehler und zahlreiche TS6305-Fehler zu fehlenden Declaration-Ausgaben). `npx nx run-many --targets=build` ist grün. Bitte den Frontend-Typecheck-Basiszustand reparieren oder bestätigen, dass diese bekannten Fehler für diesen Durchlauf ausgenommen werden dürfen. Produktcode wurde gemäß Abbruchregel verworfen.
