@@ -1,6 +1,6 @@
 # Tarnvorrichtung: Laufzeitsystem und Unsichtbarkeit
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-2d
@@ -37,3 +37,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Abbruch nach zwei ernsthaften Umsetzungsversuchen. Die serverseitige Aktivierungsregel soll laut Issue zugleich beim Bau/Ausrüsten greifen, aber das heutige Fertigungs-/Bauplandatenmodell enthält keine bestätigte Fraktionszuordnung für die Tarnvorrichtung. Bitte festlegen, ob (a) Tarnvorrichtungs-Fertigungsitem und Bauplan ausschließlich dem Galaktischen Imperium zugeordnet werden sollen oder (b) beide Fraktionen sie ausrüsten dürfen und nur die Aktivierung eingeschränkt wird. Zusätzlich ist zu bestätigen, ob eigene Allianzmitglieder getarnte Schiffe sehen dürfen; das Akzeptanzkriterium sagt „fremde“ unsichtbar, STU behandelt Tarnung jedoch grundsätzlich als Sensorsichtbarkeit.
