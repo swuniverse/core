@@ -1,6 +1,6 @@
 # Forschungsabschluss: Datenbankeinträge
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** col-D1
@@ -29,3 +29,5 @@ STU legt beim Abschluss bestimmter Forschungen Datenbankeinträge für den Spiel
 - [ ] Backend-Tests: Eintrag wird angelegt, zweiter Abschluss erzeugt keinen Doppeleintrag.
 
 ## Comments
+
+- 2026-10-29: Blockiert durch fehlende autoritative STU-Datenzuordnung. Die drei genannten STU-Codequellen enthalten nur numerische `database_entries`-IDs; im verfügbaren Referenz-Repo/Assets liegen weder die produktiven `stu_research.database_entries`-Werte noch die zugehörigen `stu_database_entry`-Datensätze vor. Ohne diese Tabelle lassen sich die geforderten STU-Einträge nicht belastbar auf SWU-Kategorien und Schlüssel (insbesondere Schiffsklassen) abbilden. Bitte einen STU-Dump bzw. eine bestätigte Mapping-Tabelle Research-ID → Database-Entry-ID → SWU-Kategorie/Schlüssel bereitstellen oder bestätigen, dass zunächst nur Schema/Hook ohne produktive Mappings umgesetzt werden soll.
