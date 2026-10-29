@@ -1,6 +1,6 @@
 # Admin-Massennachricht (Ingame und optional E-Mail)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
