@@ -1,6 +1,6 @@
 # Admin-Ansicht der Flugsignaturen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-NAV-2a
