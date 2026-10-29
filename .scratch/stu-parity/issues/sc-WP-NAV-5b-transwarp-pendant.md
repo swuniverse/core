@@ -1,6 +1,6 @@
 # Langstreckensprung (Pendant zu STU-Transwarp)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-NAV-3
@@ -34,3 +34,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Die STU-Mechanik verlangt einen Sprung in jede bekannte Ebene. SWU besitzt zwar persistente Ebenenkenntnis, aber das Issue legt die produktentscheidende Kostenregel des sofortigen Sprungs nicht fest: STU berechnet nur 55 EPS Aktivierungskosten, während das Akzeptanzkriterium zusätzlich allgemein „Kosten“ fordert. Soll der **Navicomputer-Sprung** (vorgeschlagener Star-Wars-Name) exakt 55 EPS kosten, oder sollen zusätzlich Hyperantriebspunkte abhängig von der Sprungdistanz verbraucht werden? Ohne diese Entscheidung wären Balance, UI-Kostenvorschau und Backend-Tests spekulativ.
