@@ -1,6 +1,6 @@
 # Subraumanalyse und Subraumspuren-Ebene im LSS
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-NAV-2a
@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Blockiert durch eine widersprüchliche Modulspezifikation: Das Issue nennt „Subraumsensor (bzw. Matrixsensoren, Modul 19008)“, fordert aber zugleich „Laufzeitsystem für den Subraumsensor aus dem Modul“. STU behandelt `SubspaceSensorShipSystem` und `MatrixScannerShipSystem` als verschiedene Systeme, während SWU nur das Fabrication-Item `module.special.matrixsensoren` (19008) sowie den unabhängig definierten `Hyperraumfeldscanner` kennt. Bitte festlegen, welches bestehende SWU-Modul das neue Laufzeitsystem tragen soll (19008 Matrixsensoren oder Hyperraumfeldscanner) und ob beide STU-Systeme bewusst zu einem SWU-System zusammengeführt werden. Ohne diese Entscheidung würden Modulidentität, Aktivierung und Balancing eigenmächtig festgeschrieben.
