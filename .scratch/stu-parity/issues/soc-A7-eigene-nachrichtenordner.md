@@ -1,6 +1,6 @@
 # Eigene Nachrichtenordner und Verschieben
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
