@@ -1,6 +1,6 @@
 # Wählbares Interface-Farbschema
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -35,3 +35,4 @@ Vorgabe: Variante (a). Zwei bis drei Schemata (Standard, Kontrast/Hell, Imperial
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – SWU erhält zwei bis drei wählbare Farbschemata (Standard, Kontrast/Hell, Imperial/Rebellen-Akzent) als Token-Overrides.
+- 2026-10-29 Agent: Umsetzung und fokussierte Tests sind grün, aber die vorgeschriebene Gesamtsuite scheitert nach zwei ernsthaften Versuchen an bereits vorhandenen, issuefremden Fehlern: `frontend:typecheck` (u. a. `database.tsx:1015` Faction-Typ sowie zahlreiche TS6305-Ausgabefehler) und `backend:test` (`database-settler-scans.service.spec.ts`, fehlender `profileVisitService.registerVisit`). Produktcode wurde gemäß Abbruchregel verworfen; bitte die Baseline-Prüfungen reparieren und das Issue erneut freigeben.
