@@ -1,6 +1,6 @@
 # E-Mail-Benachrichtigung bei neuer persönlicher Nachricht (hinter Flag)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -34,3 +34,5 @@ Abgrenzung: sh-AP-16 nennt `email_notification` als wirksam zu machende Einstell
 - [ ] Hinweis im Einstellungs-UI bei der Option, dass E-Mails nur verschickt werden, wenn der Betreiber sie aktiviert hat (optional über einen Statusendpunkt).
 
 ## Comments
+
+- 2026-10-29: Umsetzung test-first begonnen; die gezielten Backend-Tests waren grün (2 Suites, 18 Tests). Die verpflichtende Prüfung `npx nx affected -t lint typecheck test --base=HEAD` scheiterte in zwei ernsthaften Versuchen projektweit am bestehenden Frontend-Typecheck mit zahlreichen `TS6305`-Fehlern (fehlende `apps/frontend/dist/**/*.d.ts`-Buildartefakte), auch nach `npx nx run frontend:build`. Produktcode gemäß Abbruchverfahren verworfen. Bitte den Frontend-Typecheck/Buildgraph reparieren oder bestätigen, wie diese bestehende Baseline-Störung für Ralph-Läufe behandelt werden soll.
