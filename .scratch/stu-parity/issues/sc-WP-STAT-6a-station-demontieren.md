@@ -1,6 +1,6 @@
 # Station demontieren
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-STAT-2
@@ -27,3 +27,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Blockiert nach zwei ernsthaften Verifikationsläufen. Die fokussierten Backend- und Frontend-Tests sowie alle Builds sind grün, aber der vorgeschriebene affected-Lauf scheitert weiterhin an bereits vorhandenen, issue-fremden Frontend-Typecheck- und Backend-/Frontend-Testfehlern. Produktänderungen wurden gemäß Ralph-Abbruchregel verworfen.
