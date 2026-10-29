@@ -1,6 +1,6 @@
 # Eigene Nachrichtenordner und Verschieben
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -39,3 +39,5 @@ Vorgabe: Variante (a). Eigene Ordner als zweite, spielerdefinierte Ebene nur fü
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Eigene Nachrichtenordner werden als zweite Ebene nur für persönliche Nachrichten eingeführt; die sieben Systemordner bleiben geschlossen und die Spec erhält einen Nachtrag.
+
+- 2026-10-29 Agent: Abbruch nach zwei ernsthaften Prüfversuchen: Die verpflichtende affected-Prüfung scheitert reproduzierbar im bestehenden Frontend-Typecheck mit zahlreichen TS6305-Fehlern für nicht gebaute Deklarationsdateien, auch nach `nx reset`; der fokussierte Nachrichten-Frontendtest war grün (22/22). Produktcode wurde gemäß Abbruchregel verworfen. Blocker: Bitte den Frontend-Typecheck-/Build-Artefakt-Zustand reparieren oder bestätigen, wie die verpflichtende Prüfung in diesem Zustand bewertet werden soll.
