@@ -1,6 +1,6 @@
 # Flottenpflege: ausblenden, priorisieren, Sichtbarkeit
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-FLEET-1b
