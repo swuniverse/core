@@ -8,6 +8,7 @@ import {
   TorpedoTypeDef,
 } from '../game-data/game-data.service';
 import { ShipClassDef } from './entities/ship-class-def.entity';
+import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 
@@ -20,6 +21,8 @@ export class SpacecraftTorpedoService {
     private readonly shipClassRepo: Repository<ShipClassDef>,
     private readonly gameData: GameDataService,
     private readonly colonyStorageService: ColonyStorageService,
+    @InjectRepository(SpacecraftModule)
+    private readonly spacecraftModuleRepo: Repository<SpacecraftModule>,
   ) {}
 
   getStorage(spacecraftId: number) {
@@ -44,12 +47,29 @@ export class SpacecraftTorpedoService {
   }
 
   async getCapacity(ship: Spacecraft): Promise<number> {
-    return (await this.getShipClass(ship)).torpedoStorageBase;
+    const [shipClass, modules] = await Promise.all([
+      this.getShipClass(ship),
+      this.spacecraftModuleRepo.find({ where: { spacecraftId: ship.id } }),
+    ]);
+    const definition = this.gameData
+      .getAllModules()
+      .find((entry) => entry.name === 'Torpedotransportmodul');
+    const bonus = definition?.secret.torpedoStorageBonus;
+    const installed = modules.filter(
+      (module) =>
+        module.moduleType === 'Torpedotransportmodul' &&
+        module.isActive &&
+        module.integrity > 0,
+    ).length;
+    return (
+      shipClass.torpedoStorageBase +
+      (typeof bonus === 'number' ? bonus * installed : 0)
+    );
   }
 
   async getCompatibleTorpedoTypes(ship: Spacecraft): Promise<TorpedoTypeDef[]> {
     const shipClass = await this.getShipClass(ship);
-    if (shipClass.torpedoStorageBase <= 0) return [];
+    if ((await this.getCapacity(ship)) <= 0) return [];
     return this.gameData
       .getAllTorpedoTypes()
       .filter((type) =>

@@ -1,6 +1,6 @@
 # Crewtransport- und Torpedotransportmodul wirksam machen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Prüfen und ggf. herstellen, dass beide Module in der Werft wählbar und fabrizierbar sind (Audit aktualisieren).
-- [ ] Verbautes Crewtransport-Modul erhöht die Crewkapazität für Transporte um `baseCrewCapacity × Level`-Regel gemäß Moduldaten.
-- [ ] Verbautes Torpedotransportmodul erhöht die Torpedokapazität um `torpedoStorageBonus`.
-- [ ] Backend-Tests für beide Effekte.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Prüfen und ggf. herstellen, dass beide Module in der Werft wählbar und fabrizierbar sind (Audit aktualisieren).
+- [x] Verbautes Crewtransport-Modul erhöht die Crewkapazität für Transporte um `baseCrewCapacity × Level`-Regel gemäß Moduldaten.
+- [x] Verbautes Torpedotransportmodul erhöht die Torpedokapazität um `torpedoStorageBonus`.
+- [x] Backend-Tests für beide Effekte.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Crew- und Torpedotransportmodule nutzen die vorhandenen SPECIAL-Slots und Fabrication-Items. Ihre Kapazitätsboni sind zentral in der Schiffsstatistik beziehungsweise Torpedolagerkapazität wirksam und durch Backend-Tests abgedeckt.

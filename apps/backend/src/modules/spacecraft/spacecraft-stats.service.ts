@@ -112,6 +112,13 @@ export class SpacecraftStatsService {
     const scaled = (value: unknown) =>
       typeof value === 'number' ? Math.round(value * levelScale) : 0;
 
+    if (definition.name === 'Crewtransport-Modul') {
+      const crewCapacity = publicStats.baseCrewCapacity;
+      if (typeof crewCapacity === 'number') {
+        stats.crewMax += crewCapacity * Math.max(1, level);
+      }
+    }
+
     switch (definition.category) {
       case 'HULL':
         stats.hullMax += scaled(publicStats.baseHullPoints);

@@ -21,6 +21,7 @@ function createService() {
     save: jest.fn(async (value) => value),
   };
   const shipClassRepo = { findOneBy: jest.fn() };
+  const spacecraftModuleRepo = { find: jest.fn<Promise<any[]>, any[]>(async () => []) };
   const torpedoType = {
     id: 81,
     commodityId: 81,
@@ -33,6 +34,14 @@ function createService() {
       id === 81 ? torpedoType : undefined,
     ),
     getAllTorpedoTypes: jest.fn(() => [torpedoType]),
+    getAllModules: jest.fn(() => [
+      {
+        name: 'Torpedotransportmodul',
+        category: 'SPECIAL',
+        public: {},
+        secret: { torpedoStorageBonus: 20 },
+      },
+    ]),
   };
   const colonyStorageService = {
     lowerStorage: jest.fn(async () => 1),
@@ -43,13 +52,35 @@ function createService() {
     shipClassRepo as any,
     gameData as any,
     colonyStorageService as any,
+    spacecraftModuleRepo as any,
   );
-  return { service, torpedoRepo, shipClassRepo, colonyStorageService };
+  return {
+    service,
+    torpedoRepo,
+    shipClassRepo,
+    spacecraftModuleRepo,
+    colonyStorageService,
+  };
 }
 
 describe('SpacecraftTorpedoService', () => {
   const colony = { id: 1, storageMax: 100 } as any;
   const ship = { id: 7, shipClassId: 1 } as any;
+
+  it('adds the installed torpedo transport module bonus', async () => {
+    const { service, shipClassRepo, spacecraftModuleRepo } = createService();
+    shipClassRepo.findOneBy.mockResolvedValue({ torpedoStorageBase: 4 });
+    spacecraftModuleRepo.find.mockResolvedValue([
+      {
+        moduleType: 'Torpedotransportmodul',
+        level: 3,
+        integrity: 100,
+        isActive: true,
+      },
+    ]);
+
+    await expect(service.getCapacity(ship)).resolves.toBe(24);
+  });
 
   it('loads torpedoes from colony storage into empty ship storage', async () => {
     const { service, torpedoRepo, shipClassRepo, colonyStorageService } =

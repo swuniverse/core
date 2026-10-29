@@ -27,6 +27,12 @@ function createService() {
       secret: {},
     },
     {
+      name: 'Crewtransport-Modul',
+      category: 'SPECIAL',
+      public: { baseCrewCapacity: 10 },
+      secret: {},
+    },
+    {
       name: 'Ion-Triebwerk',
       category: 'SUBLIGHT_ENGINE',
       public: { baseEvadeChance: 0, baseCrewCapacity: 1 },
@@ -138,7 +144,21 @@ describe('SpacecraftStatsService', () => {
       cargoMax: 90,
       batteryMax: 8,
     });
+  });
 
+  it('adds crew transport capacity using the installed module level', () => {
+    const service = createService();
+
+    const stats = service.calculateStats(shipClass, [
+      {
+        moduleType: 'Crewtransport-Modul',
+        level: 3,
+        integrity: 100,
+        isActive: true,
+      },
+    ] as any);
+
+    expect(stats.crewMax).toBe(40);
   });
 
   it('keeps drive families separate from legacy warp speed and projects custom fields', () => {
