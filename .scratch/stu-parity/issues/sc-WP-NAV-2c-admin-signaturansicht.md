@@ -1,6 +1,6 @@
 # Admin-Ansicht der Flugsignaturen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-NAV-2a
@@ -29,3 +29,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Blockiert durch die verpflichtende Gesamtprüfung: Zwei ernsthafte Implementierungs-/Prüfversuche scheiterten an bereits auf dem sauberen Claim-Stand vorhandenen Frontend-Typecheck-Fehlern (`apps/frontend/src/pages/database.tsx:1015`, `Faction`-Typkonflikt) sowie zahlreichen TS6305-Fehlern zu fehlenden Declaration-Ausgaben. Backend-Service- und Frontend-Filter-Fokustests waren grün, der Frontend-Build ebenfalls; da `npx nx affected -t lint typecheck test --base=HEAD` nicht vollständig grün werden kann, wurden alle Produktcodeänderungen gemäß Abbruchregel verworfen. Bitte den Baseline-Typecheck reparieren oder bestätigen, dass diese bekannten Fehler für diesen Durchlauf ausgenommen werden dürfen.
