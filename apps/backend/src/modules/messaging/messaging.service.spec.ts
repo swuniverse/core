@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { MessageTargetKind } from '@swuniverse/shared';
 import { MessageFolder } from './message-folder';
 import { MessagingService } from './messaging.service';
 
@@ -127,9 +128,18 @@ describe('MessagingService', () => {
     });
   });
 
-  it('notifies the recipient after persisting a system message', async () => {
-    await service.sendSystem(2, 'System', 'Meldung');
+  it('persists an optional target for a system message', async () => {
+    await service.sendSystem(2, 'System', 'Meldung', undefined, MessageFolder.SYSTEM, {
+      kind: MessageTargetKind.SPACECRAFT,
+      id: 17,
+    });
 
+    expect(messageRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetKind: MessageTargetKind.SPACECRAFT,
+        targetId: 17,
+      }),
+    );
     expect(gateway.emitToUser).toHaveBeenCalledWith(2, 'MESSAGE_RECEIVED', {
       folder: MessageFolder.SYSTEM,
     });

@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
+import { MessageTargetKind } from '@swuniverse/shared';
 import { User } from '../../auth/user.entity';
 import { MessageFolder } from '../message-folder';
 
@@ -76,6 +77,12 @@ export class Message {
 
   @Column({ type: 'bigint', nullable: true })
   originTickId: number | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  targetKind: MessageTargetKind | null;
+
+  @Column({ type: 'integer', nullable: true })
+  targetId: number | null;
 
   @Column({ default: false })
   deletedBySender: boolean;

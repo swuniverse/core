@@ -1,3 +1,4 @@
+import { MessageTargetKind } from '@swuniverse/shared';
 import { ColonyEventService } from './colony-event.service';
 import { ColonyEventType } from './colony-event.types';
 import { Message } from './entities/message.entity';
@@ -64,6 +65,8 @@ describe('ColonyEventService', () => {
         originEventId: 91,
         originEventType: ColonyEventType.BUILDING_FINISHED,
         originColonyId: 7,
+        targetKind: MessageTargetKind.COLONY,
+        targetId: 7,
         originPayload: { buildingId: 12, output: { amount: 3 } },
         originTickId: 123456,
       }),

@@ -172,6 +172,53 @@ describe('MessagesPage folders', () => {
     expect(screen.getAllByText('CRITICAL')).toHaveLength(2);
   });
 
+  it.each([
+    ['COLONY', 5, '/colonies/5'],
+    ['SPACECRAFT', 6, '/spacecraft/6'],
+    ['HOLONET_POST', 7, '/holonet/7'],
+    ['ALLIANCE_TOPIC', 8, '/alliances/8/forum/topics/8'],
+  ])('links a %s message target from its detail', async (targetKind, targetId, href) => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/personal?page=1') {
+        return Promise.resolve({
+          data: [{ id: 31, subject: 'Verlinkte Meldung', isRead: true, isSystem: true, createdAt: '2026-10-13T12:00:00.000Z' }],
+          total: 1,
+          page: 1,
+          limit: 20,
+        });
+      }
+      if (url === '/messages/31') {
+        return Promise.resolve({
+          id: 31,
+          subject: 'Verlinkte Meldung',
+          body: 'Ziel öffnen.',
+          isRead: true,
+          isSystem: true,
+          createdAt: '2026-10-13T12:00:00.000Z',
+          senderId: 1,
+          recipientId: 1,
+          targetKind,
+          targetId,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByText('Verlinkte Meldung'));
+
+    expect((await screen.findByRole('link', { name: 'ansehen' })).getAttribute('href')).toBe(href);
+  });
+
+  it('does not render a target link without a complete target', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText('Private Nachricht'));
+
+    await screen.findByText('Bitte antworten.');
+    expect(screen.queryByRole('link', { name: 'ansehen' })).toBeNull();
+  });
+
   it('refreshes the folder summary after reading a received message', async () => {
     const refreshedFolders = folders.map((entry) =>
       entry.folder === 'PERSONAL' ? { ...entry, unread: 0, total: 2 } : entry,

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { MessageTargetKind } from '@swuniverse/shared';
 import { FindOptionsWhere, ILike, IsNull, MoreThan, Repository } from 'typeorm';
 import { HolonetPost, PostCategory } from './entities/holonet-post.entity';
 import { HolonetComment } from './entities/holonet-comment.entity';
@@ -280,6 +281,9 @@ export class HolonetService {
         isAuthor
           ? `${commenter?.username || 'Unbekannt'} hat kommentiert: ${normalizedBody}`
           : `${commenter?.username || 'Unbekannt'} hat einen HoloNet-Beitrag ebenfalls kommentiert: ${normalizedBody}`,
+        undefined,
+        undefined,
+        { kind: MessageTargetKind.HOLONET_POST, id: post.id },
       );
     }
 

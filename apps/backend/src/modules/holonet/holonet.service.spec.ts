@@ -23,6 +23,7 @@ jest.mock('../rpg/rpg-plot-member.entity', () => ({
 }));
 
 import { BadRequestException } from '@nestjs/common';
+import { MessageTargetKind } from '@swuniverse/shared';
 import { HolonetService } from './holonet.service';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 
@@ -176,11 +177,17 @@ describe('HolonetService public behavior', () => {
       authorId,
       'Neuer Kommentar auf: Titel',
       expect.stringContaining('Kommentator'),
+      undefined,
+      undefined,
+      { kind: MessageTargetKind.HOLONET_POST, id: post.id },
     );
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       33,
       'Neuer Kommentar auf: Titel',
       expect.stringContaining('ebenfalls kommentiert'),
+      undefined,
+      undefined,
+      { kind: MessageTargetKind.HOLONET_POST, id: post.id },
     );
   });
 

@@ -231,3 +231,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-K3b – Treffer-, Ausweich- und Energiewaffeneffekte wirken im Kampf und werden einmalig im Kampfbericht genannt – siehe Feature-Commit
 - col-E2 – Kolonieabgabe als wiederbesiedelbare Ruine samt Sperr-, Bestätigungs- und Orbitregeln in ADR-0007 festgehalten – siehe Feature-Commit
 - tmw-K3c – Zentrale Feldeffektabfrage, Messpunktsperren und feldtypbasierte Stationsbausperren umgesetzt – siehe Feature-Commit
+- soc-A5 – Typisierte Meldungsziele mit Kolonie-Backfill, HoloNet-Verlinkung und zentraler Frontend-Routenauflösung umgesetzt – siehe Feature-Commit

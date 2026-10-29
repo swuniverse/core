@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { WsEventType } from '@swuniverse/shared';
+import {
+  type MessageTarget,
+  WsEventType,
+} from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
@@ -236,6 +239,7 @@ export class MessagingService {
     body: string,
     deliveryKey?: string,
     folder: MessageFolder = MessageFolder.SYSTEM,
+    target?: MessageTarget,
   ): Promise<Message> {
     if (!deliveryKey) {
       const message = this.messageRepo.create({
@@ -245,6 +249,8 @@ export class MessagingService {
         body,
         isSystem: true,
         folder,
+        targetKind: target?.kind ?? null,
+        targetId: target?.id ?? null,
       });
       const saved = await this.messageRepo.save(message);
       this.notifyRecipient(recipientId, folder);
@@ -263,6 +269,8 @@ export class MessagingService {
         isSystem: true,
         folder,
         deliveryKey,
+        targetKind: target?.kind ?? null,
+        targetId: target?.id ?? null,
       })
       .orIgnore()
       .returning('*')

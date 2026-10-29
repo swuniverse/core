@@ -6,6 +6,7 @@ import { formatDateTime } from '../lib/format';
 import { api } from '../services/api';
 import {
   ContactMode,
+  MessageTargetKind,
   type ContactDto,
   type IgnoredByEntryDto,
   type IgnoreListEntryDto,
@@ -31,6 +32,8 @@ interface MessageDetail extends MessageSummary {
   body: string;
   senderId: number;
   recipientId: number;
+  targetKind?: MessageTargetKind | null;
+  targetId?: number | null;
 }
 
 interface FolderSummary {
@@ -62,6 +65,21 @@ const MESSAGE_FOLDERS: Array<{
   { folder: 'OUTBOX', label: 'Postausgang', route: 'outbox', icon: '↗' },
   { folder: 'STATION', label: 'Station', route: 'station', icon: '▣' },
 ];
+
+export function getMessageTargetRoute(
+  kind: MessageTargetKind | null | undefined,
+  id: number | null | undefined,
+): string | null {
+  if (!kind || !Number.isInteger(id) || id == null || id < 1) return null;
+  const routes: Record<MessageTargetKind, (targetId: number) => string> = {
+    [MessageTargetKind.COLONY]: (targetId) => `/colonies/${targetId}`,
+    [MessageTargetKind.SPACECRAFT]: (targetId) => `/spacecraft/${targetId}`,
+    [MessageTargetKind.HOLONET_POST]: (targetId) => `/holonet/${targetId}`,
+    [MessageTargetKind.ALLIANCE_TOPIC]: (targetId) =>
+      `/alliances/${targetId}/forum/topics/${targetId}`,
+  };
+  return routes[kind]?.(id) ?? null;
+}
 
 function parseFolder(value: string | null): MessageFolder {
   const selected = MESSAGE_FOLDERS.find((folder) => folder.route === value);
@@ -1064,6 +1082,20 @@ export function MessagesPage() {
                 text={selected.body}
                 className="text-sm text-swu-muted whitespace-pre-wrap mb-4"
               />
+              {(() => {
+                const targetRoute = getMessageTargetRoute(
+                  selected.targetKind,
+                  selected.targetId,
+                );
+                return targetRoute ? (
+                  <Link
+                    to={targetRoute}
+                    className="mr-2 inline-block border border-swu-accent px-3 py-1 text-xs text-swu-accent hover:bg-swu-accent/20"
+                  >
+                    ansehen
+                  </Link>
+                ) : null;
+              })()}
               {!selected.isSystem && folder !== 'OUTBOX' && (
                 <button
                   onClick={replyTo}

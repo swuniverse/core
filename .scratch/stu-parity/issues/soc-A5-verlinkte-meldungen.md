@@ -1,6 +1,6 @@
 # Verlinkte Meldungen („ansehen“)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -26,11 +26,13 @@ Nachrichten bekommen ein generisches, serverseitig erzeugtes Ziel (Kolonie, Schi
 
 ## Akzeptanzkriterien
 
-- [ ] Nachrichten tragen optional `targetKind` + `targetId`; die API liefert sie aus; die Route wird im Frontend aus einer zentralen Zuordnung gebaut (keine URLs in der DB).
-- [ ] Koloniemeldungen (auch bestehende über `originColonyId`) zeigen „ansehen“ → `/colonies/:id` bzw. die vorhandene Koloniedetail-Route.
-- [ ] HoloNet-Kommentarbenachrichtigungen zeigen „ansehen“ → `/holonet/:postId`.
-- [ ] Ziele werden beim Anzeigen nicht auf Zugriffsrechte geprüft; die Zielseite prüft selbst (kein Datenleck durch die Nachricht).
-- [ ] Backend-Tests: Ziel wird gespeichert und ausgeliefert; Migration läuft hoch und runter.
-- [ ] Frontend-Test: Link wird je Zieltyp korrekt gerendert, ohne Ziel kein Link.
+- [x] Nachrichten tragen optional `targetKind` + `targetId`; die API liefert sie aus; die Route wird im Frontend aus einer zentralen Zuordnung gebaut (keine URLs in der DB).
+- [x] Koloniemeldungen (auch bestehende über `originColonyId`) zeigen „ansehen“ → `/colonies/:id` bzw. die vorhandene Koloniedetail-Route.
+- [x] HoloNet-Kommentarbenachrichtigungen zeigen „ansehen“ → `/holonet/:postId`.
+- [x] Ziele werden beim Anzeigen nicht auf Zugriffsrechte geprüft; die Zielseite prüft selbst (kein Datenleck durch die Nachricht).
+- [x] Backend-Tests: Ziel wird gespeichert und ausgeliefert; Migration läuft hoch und runter.
+- [x] Frontend-Test: Link wird je Zieltyp korrekt gerendert, ohne Ziel kein Link.
 
 ## Comments
+
+Implemented typed message targets in shared/backend persistence, including migration backfill for existing colony events, colony and HoloNet-comment producers, and centralized frontend route rendering. Added public-seam backend/frontend tests plus migration up/down coverage. The repository-wide Nx affected typecheck remains blocked by pre-existing frontend TS6305 declaration-output failures; focused tests and all builds pass.

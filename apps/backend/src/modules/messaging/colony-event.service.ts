@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { ColonyTickEvent } from '@swuniverse/shared';
+import {
+  type ColonyTickEvent,
+  MessageTargetKind,
+} from '@swuniverse/shared';
 import { EntityManager, QueryDeepPartialEntity, Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { MessageFolder } from './message-folder';
@@ -59,6 +62,8 @@ export class ColonyEventService {
       originEventType: input.type,
       originSeverity: input.severity ?? ColonyEventSeverity.INFO,
       originColonyId: input.colonyId,
+      targetKind: MessageTargetKind.COLONY,
+      targetId: input.colonyId,
       originPayload: input.payload ?? {},
       originTickId: input.tickId ?? null,
     };

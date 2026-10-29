@@ -11,3 +11,4 @@ export * from './lib/tutorial/index.js';
 export * from './lib/rpg/index.js';
 export * from './lib/contacts/index.js';
 export * from './lib/trade/index.js';
+export * from './lib/messaging/index.js';
