@@ -1,6 +1,6 @@
 # E-Mail-Benachrichtigung bei neuer persönlicher Nachricht (hinter Flag)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
