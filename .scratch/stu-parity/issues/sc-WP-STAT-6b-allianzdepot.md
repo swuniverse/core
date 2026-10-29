@@ -1,6 +1,6 @@
 # Allianzdepot zuordnen und lösen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-STAT-2
@@ -29,3 +29,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-29: Blockiert nach zwei ernsthaften Verifikationsläufen. Der Produktpfad mit Zuordnung, Cleanup-Consumer, Verwaltungsansicht und Migration ließ sich bauen; der Frontend-Test wurde grün. Der vorgeschriebene Backend-Testlauf scheitert jedoch bereits beim Laden bestehender STU-Entities an `ReferenceError: Cannot access 'StarSystem' before initialization`, und der Frontend-Typecheck scheitert an bereits vorhandenen issue-fremden Fehlern (`database.tsx`-Faction-Typ sowie zahlreiche TS6305-Artefakte). Produktänderungen wurden gemäß Ralph-Abbruchregel verworfen.
