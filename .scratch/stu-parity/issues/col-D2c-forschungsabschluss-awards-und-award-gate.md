@@ -1,6 +1,6 @@
 # Forschungsabschluss: Auszeichnung und Award-Gate
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** col-D1, soc-G1
