@@ -1,6 +1,6 @@
 # Admin-Massennachricht (Ingame und optional E-Mail)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -34,3 +34,5 @@ Vorgabe gemäß Leitplanke 4: Der E-Mail-Weg steht hinter derselben Konfiguratio
 - [ ] Backend-Tests: Admin-Pflicht, Fraktionsfilter, Idempotenz, Mail nur bei Flag und Einstellung. Frontend-Test: Formular und Ergebnisanzeige.
 
 ## Comments
+
+- 2026-10-29: Produktcode nach zwei ernsthaften Prüfversuchen verworfen. Backend- und Frontend-Fokustests sowie der vollständige Build waren grün; die vorgeschriebene affected-Prüfung scheitert reproduzierbar ausschließlich an `frontend:typecheck`. Der erste Fehler liegt außerhalb dieses Issues in `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht mit `Faction` kompatibel), gefolgt von vielen TS6305-Folgefehlern in bestehenden Specs. Bitte den Frontend-Typecheck-Baselinefehler beheben oder bestätigen, dass dieser bekannte Fehler für den Durchlauf ausgenommen werden darf.
