@@ -1,6 +1,6 @@
 # Stationswerft: Schiffe an Werftstationen bauen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-STAT-2
