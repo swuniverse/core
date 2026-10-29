@@ -1,6 +1,6 @@
 # In-Universe-Datum
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -32,3 +32,4 @@ Vorgabe: Variante (a). Jahr „n NSY“ (nach der Schlacht von Yavin), berechnet
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – SWU zeigt Spieldaten als In-Universe-Jahr „n NSY“ (reales Jahr − 2023) für Spielereignisse an; rechtlich oder organisatorisch nötige Daten bleiben real.
+- 2026-10-29 Agent: Produktänderungen nach zwei Prüfversuchen verworfen. `npx nx affected -t lint typecheck test --base=HEAD` bleibt im bestehenden Frontend-Typecheck rot: `apps/frontend/src/pages/database.tsx:1015` übergibt `"REBEL" | "EMPIRE" | null` an `PlayerAvatar`, das `Faction | null` erwartet; danach entstehen zahlreiche TS6305-Folgefehler. `npx nx run-many --targets=build` ist grün. Bitte den bestehenden Typecheck-Blocker beheben oder ausdrücklich freigeben, bevor dieses Issue erneut bearbeitet wird.
