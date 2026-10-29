@@ -1,6 +1,6 @@
 # Bojen setzen, analysieren und aufnehmen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
