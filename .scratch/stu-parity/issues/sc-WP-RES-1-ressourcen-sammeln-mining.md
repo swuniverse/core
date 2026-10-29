@@ -1,6 +1,6 @@
 # Ressourcen am Feld sammeln (Mining mit Sammelsystem)
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -37,3 +37,4 @@ Vorgabe: Variante (a), wie STU mit Star-Wars-Waren: Nebel liefern Gase (insbeson
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – SWU erhält Ressourcensammeln wie STU: Nebel liefern Gase (Tibanna-Gas), Asteroidenfelder Erze, gesammelt per Spezialsystem.
+- 2026-10-29 Agent: Blockiert durch die verbindliche TDD-Vorgabe, Tests nur an vorab mit dem Product Owner bestätigten öffentlichen Seams zu schreiben. Bitte bestätigen: (1) Backend-Service/API für Auswahl, Start, Tickfortschritt und Flugabbruch, (2) Admin-Feldtyp-API für abbaubare Waren und Raten, (3) `ShipControlCenter` als Frontend-Seam für Auswahl und Status.
