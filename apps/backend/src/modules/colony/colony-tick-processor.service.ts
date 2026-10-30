@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { ColonyTickEvent } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
+import { User } from '../auth/user.entity';
+import { FactionService } from '../faction/faction.service';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { ColonyEventService } from '../messaging/colony-event.service';
 import {
@@ -58,6 +60,8 @@ export class ColonyTickProcessorService {
     private readonly depositMiningRepo: Repository<ColonyDepositMining>,
     @InjectRepository(ColonyCrewTrainingQueue)
     private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly gameData: GameDataService,
     private readonly colonyStatsService: ColonyStatsService,
     private readonly colonyStorageService: ColonyStorageService,
@@ -68,6 +72,7 @@ export class ColonyTickProcessorService {
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyFabricationService: ColonyFabricationService,
     private readonly colonyShipyardService: ColonyShipyardService,
+    private readonly factionService: FactionService,
   ) {}
 
   async processCrewTrainingQueue(colony: Colony): Promise<void> {
@@ -658,7 +663,17 @@ export class ColonyTickProcessorService {
     }
 
     const populationAfterMigration = getEffectiveCurrentPopulation(colony);
-    const growth = this.calculatePopulationGrowth(colony, summary);
+    const baseGrowth = this.calculatePopulationGrowth(colony, summary);
+    const owner =
+      colony.userId == null
+        ? null
+        : await this.userRepo.findOneBy({ id: colony.userId });
+    const faction = owner?.faction
+      ? await this.factionService.findByKey(owner.faction)
+      : null;
+    const growth = Math.floor(
+      baseGrowth * (faction?.modifiers[0]?.colonyGrowthMultiplier ?? 1),
+    );
     if (growth <= 0) {
       if (colony.population !== populationAfterMigration) {
         syncLegacyColonySnapshot(colony);

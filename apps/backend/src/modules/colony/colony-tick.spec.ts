@@ -1350,6 +1350,12 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     timingService,
   );
 
+  const factionService = {
+    findByKey: jest.fn(async (key) => ({
+      key,
+      modifiers: [{ colonyGrowthMultiplier: 1 }],
+    })),
+  };
   const tickProcessorService = new ColonyTickProcessorService(
     colonyRepo as any,
     statsRepo as any,
@@ -1357,6 +1363,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     storageRepo as any,
     depositMiningRepo as any,
     crewTrainingQueueRepo as any,
+    userRepo as any,
     gameData as any,
     statsService,
     colonyStorageService,
@@ -1367,6 +1374,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyDefenseService as any,
     fabricationService as any,
     shipyardService as any,
+    factionService as any,
   );
 
   const service = new ColonyService(
@@ -1452,6 +1460,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       dataSource,
       constructionService,
       tickProcessorService,
+      factionService,
       config,
     },
     overrides,
@@ -1593,6 +1602,90 @@ describe('colony tick calculations', () => {
     expect(summary.researchPoints).toBe(2);
     expect(summary.effectivePopulationMax).toBe(100);
     expect(summary.effectiveStorageMax).toBe(4000);
+  });
+
+  it('applies the current owner faction growth multiplier once before capacity limits', async () => {
+    const { service, statsService, userRepo, factionService } =
+      createColonyService();
+    const colony = {
+      id: 1,
+      userId: 7,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 168,
+      storageMax: 3000,
+      stats: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+    userRepo.findOneBy.mockResolvedValueOnce({
+      id: 7,
+      faction: 'REBEL_ALLIANCE',
+    });
+    factionService.findByKey.mockResolvedValueOnce({
+      key: 'REBEL_ALLIANCE',
+      modifiers: [{ colonyGrowthMultiplier: 1.25 }],
+    });
+
+    await service.growPopulation(colony as never);
+
+    expect(colony.stats.workless).toBe(131);
+    expect(colony.population).toBe(155);
+    expect(userRepo.findOneBy).toHaveBeenCalledWith({ id: 7 });
+    expect(factionService.findByKey).toHaveBeenCalledWith('REBEL_ALLIANCE');
+    expect(statsService.calculateSummary(colony as never).maxHousing).toBe(168);
+  });
+
+  it('floors fractional faction growth and uses the new owner faction on the next tick', async () => {
+    const { service, userRepo, factionService } = createColonyService();
+    const colony = {
+      id: 1,
+      userId: 7,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 168,
+      storageMax: 3000,
+      stats: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 168,
+        populationLimit: 0,
+        immigrationEnabled: true,
+      },
+      fields: [
+        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+      ],
+    };
+    userRepo.findOneBy
+      .mockResolvedValueOnce({ id: 7, faction: 'REBEL_ALLIANCE' })
+      .mockResolvedValueOnce({ id: 8, faction: 'GALACTIC_EMPIRE' });
+    factionService.findByKey
+      .mockResolvedValueOnce({
+        key: 'REBEL_ALLIANCE',
+        modifiers: [{ colonyGrowthMultiplier: 1 }],
+      })
+      .mockResolvedValueOnce({
+        key: 'GALACTIC_EMPIRE',
+        modifiers: [{ colonyGrowthMultiplier: 0.5 }],
+      });
+
+    await service.growPopulation(colony as never);
+    expect(colony.population).toBe(141);
+
+    colony.userId = 8;
+    colony.stats.workless = 60;
+    colony.population = 84;
+    await service.growPopulation(colony as never);
+
+    expect(colony.population).toBe(112);
+    expect(userRepo.findOneBy).toHaveBeenNthCalledWith(2, { id: 8 });
   });
 
   it('matches STU screenshot-style housing and immigration numbers', () => {

@@ -53,6 +53,7 @@ import { ShipManagementService } from '../spacecraft/ship-management.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { ResearchModule } from '../research/research.module';
+import { FactionModule } from '../faction/faction.module';
 import { Research } from '../research/entities/research.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { User } from '../auth/user.entity';
@@ -89,6 +90,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
       SpaceLocation,
     ]),
     ResearchModule,
+    FactionModule,
     StarmapModule,
     forwardRef(() => SpacecraftFeatureModule),
   ],
