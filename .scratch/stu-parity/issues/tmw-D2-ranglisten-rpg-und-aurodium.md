@@ -1,6 +1,6 @@
 # Ranglisten „RPG-Schreiber“ und „Aurodium-Besitz“, Highscore-Gliederung wie STU
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -36,3 +36,4 @@ Zwei fehlende Ranglisten kommen hinzu: „Die 10 bestbewerteten RPG-Schreiber“
 ## Comments
 
 - 2026-10-27 Agent: Abbruch wegen fehlender Produktentscheidung: Akzeptanzkriterium nennt Aurodium als Ware `id 50`, während das aktuelle SWU-Schema und `game-data/data/commodities/stu-commodity-map.yaml` STU-IDs in den 10000ern verwendet und keinen bestätigten SWU-Commodity-Schlüssel 50 bereitstellt. Bitte den kanonischen SWU-Aurodium-Commodity-Key festlegen (oder bestätigen, dass `50` als neue SWU-ID einzuführen ist), damit Kolonie- und Schiffslager korrekt aggregiert werden können.
+- 2026-10-30 Product Owner: Option 1. Der kanonische Commodity-Key für Aurodium ist `50`, wie im aktuellen `stu-commodity-map.yaml` mit `sourceId: 50`, `rawName: Latinum` und `name: Aurodium` hinterlegt. Die Rangliste aggregiert ausschließlich Ware 50 aus Kolonielagern und Schiffsfrachträumen; Ware 51 „Flüssiges Aurodium“ zählt nicht. Handelskonten ergänzt später `tmw-T11a` über den vorgesehenen Quellen-Port. Der Titel bleibt „Die 10 Günstlinge der Hutten“. Das Issue ist `ready-for-agent`.
