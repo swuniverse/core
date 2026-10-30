@@ -3350,7 +3350,7 @@ export class SpacecraftService {
               contact:
                 target.userId !== ship.userId && interactionAllowed('CONTACT'),
               transfer: interactionAllowed('TRANSFER'),
-              energyTransfer: false,
+              energyTransfer: interactionAllowed('TRANSFER'),
               tractor: false,
               boarding: false,
             },

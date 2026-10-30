@@ -132,6 +132,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-30 – tmw-K8b – In K8b1–K8b3 geteilt: gemeinsames Zielmodell/Regionsentdeckung, produktiver Regionslebenszyklus und Frontend/ADR; Regionsentdeckung nur durch Abschluss, höchstens fünf geeignete Messpunkte statt STU-25-%-Route; tmw-D4 hängt nur von K8b2 ab
 - 2026-10-27 – sc-WP-CREW-2 – Expertise-/Rangfundament jetzt vollständig umsetzen; obere Ranglimits 25/15/5/3, Rettungskapsel-Bergungs-XP später nicht blockierend über sc-WP-CREW-3b
 - 2026-10-27 – sc-WP-CREW-3a – Dedizierte neutrale `EscapePod`-Entity mit individuellen Crew-Zuweisungen; Identität, Rang und Expertise bleiben erhalten, Landung nur für passende Crew bis zur Kapazität
+- 2026-10-30 – sc-WP-CREW-3a – Schiffbau reserviert keine individuelle Crew: Der Auftrag beschreibt nur den Crewbedarf, das Schiff wird unbemannt fertiggestellt und anschließend regulär von Kolonie oder geeignetem Transporter bemannt; Bauqueues sind kein Crew-Aufenthaltsort, bestehende `crewIds`-/Nullort-Reservierungen werden entfernt oder sicher migriert
 - 2026-10-27 – sc-WP-COMBAT-1 – Basisalarm nach jeder realen Feldtransition mit gemeinsamem Movement-Result; Gelb nur `ENEMY`, Rot außer `FRIEND`, beidseitiger Urlaubsschutz, höchstens ein deterministischer Kampf; Traktor/Tarnung später
 - 2026-10-27 – sc-WP-UI-3a – Exakte STU-Regel: Jede belegte Kolonie unabhängig von Eigentum und Haltung verteidigen oder blockieren; schiffsbezogene API, flottenbezogene Order, Urlaub/Gegenorder und Blockade-Orbitalverteidigung prüfen
 - 2026-10-28 – soc-E3b – Plotbeiträge sind immer HoloNet-Kategorie `ROLEPLAY`; eine abweichende Kategorie wird bei Plotzuordnung serverseitig überschrieben
@@ -261,3 +262,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-ENG-2e – Nachrichten (sendNearbyMessage) und Wrackbergung (recoverWreckCargo) nutzen die Interaction Policy mit unveränderten Meldungen; Traktor-Hook dokumentiert – siehe Feature-Commit
 - tmw-T1d – Lesende Handelsseite /trade mit Tabs Warenkonten/Handelsposten, Posteninfo, Navigation und Kontobeständen als Warenortquelle umgesetzt – siehe Feature-Commit
 - col-A3b – Werft zieht Rumpf-EPS ab (`epsCost` je `stuRumpId`) und erlaubt je gewählter Werftfunktion einen BUILD-/RETROFIT-Auftrag (transaktional, Legacy-Aufträge ungebunden) – siehe Feature-Commit
+- sc-WP-ENG-1 – EPS-Transfer Schiff→Schiff (`POST :id/nearby/:targetId/eps-transfer`, Kosten 3:1, Kürzung, Systemnachricht an Fremde, NBS-Icon + Mengendialog) – siehe Feature-Commit

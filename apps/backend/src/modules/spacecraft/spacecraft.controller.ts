@@ -31,6 +31,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
+import { EpsTransferService } from './eps-transfer.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonizationService } from '../colonization/colonization.service';
@@ -296,6 +297,13 @@ class ShipCrewTransferDto {
   direction: 'TO_TARGET' | 'FROM_TARGET';
 }
 
+class EpsTransferDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+}
+
 class ShipCargoTransferDto {
   @Type(() => Number)
   @IsInt()
@@ -351,6 +359,14 @@ export class SpacecraftController {
       expand: async () => null,
       remove: async () => undefined,
     } as unknown as StationConstructionService,
+    private readonly epsTransferService: EpsTransferService = {
+      transfer: async () => ({
+        transferred: 0,
+        requested: 0,
+        energy: 0,
+        message: '',
+      }),
+    } as unknown as EpsTransferService,
   ) {}
 
   // Static routes first (before :id)
@@ -1274,6 +1290,21 @@ export class SpacecraftController {
       dto.targetShipId,
       dto.amount,
       dto.direction,
+    );
+  }
+
+  @Post(':id/nearby/:targetId/eps-transfer')
+  transferEps(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: EpsTransferDto,
+  ) {
+    return this.epsTransferService.transfer(
+      id,
+      req.user.sub,
+      targetId,
+      dto.amount,
     );
   }
 

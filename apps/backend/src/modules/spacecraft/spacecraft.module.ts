@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SpacecraftController } from './spacecraft.controller';
 import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
+import { EpsTransferService } from './eps-transfer.service';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './entities/spacecraft-module.entity';
 import { ColonyScan } from './entities/colony-scan.entity';
@@ -132,6 +133,7 @@ import {
     SpacecraftAlertService,
     CartographyPlanService,
     TransferService,
+    EpsTransferService,
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
@@ -158,6 +160,7 @@ import {
     ShipColonyContextService,
     ShipClassService,
     TransferService,
+    EpsTransferService,
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,

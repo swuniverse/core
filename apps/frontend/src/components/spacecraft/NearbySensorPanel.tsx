@@ -10,6 +10,7 @@ import { api } from '../../services/api';
 import { useSocket } from '../../hooks/use-socket';
 import { WsEventType } from '@swuniverse/shared';
 import { TransferDialog } from './TransferDialog';
+import { EpsTransferDialog } from './EpsTransferDialog';
 import { TargetScanDialog } from './TargetScanDialog';
 import { NearbyMessageDialog } from './NearbyMessageDialog';
 import { CombatReportDialog } from './CombatReportDialog';
@@ -45,6 +46,9 @@ export function NearbySensorPanel({
     target: SpacecraftNearbyTargetDto;
     direction: 'TO_TARGET' | 'FROM_TARGET';
   } | null>(null);
+  const [epsTarget, setEpsTarget] = useState<SpacecraftNearbyTargetDto | null>(
+    null,
+  );
   const nbsActive = systems?.SHORT_RANGE_SENSORS?.active === true;
 
   const refreshNearby = useCallback(async () => {
@@ -249,6 +253,20 @@ export function NearbySensorPanel({
                         />
                       </button>
                     )}
+                    {target.actions.energyTransfer && (
+                      <button
+                        type="button"
+                        onClick={() => setEpsTarget(target)}
+                        title={`Energie zur ${target.name} transferieren`}
+                        className="ml-1"
+                      >
+                        <img
+                          src="/assets/buttons/e_trans2.png"
+                          alt={`Energie zur ${target.name} transferieren`}
+                          className="inline size-4"
+                        />
+                      </button>
+                    )}
                     {target.actions.transfer && (
                       <>
                         <button
@@ -407,6 +425,14 @@ export function NearbySensorPanel({
           shipId={shipId}
           target={messageTarget}
           onClose={() => setMessageTarget(null)}
+        />
+      )}
+      {epsTarget && (
+        <EpsTransferDialog
+          shipId={shipId}
+          target={epsTarget}
+          onClose={() => setEpsTarget(null)}
+          onTransfer={onUpdate}
         />
       )}
       {transfer && (

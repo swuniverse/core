@@ -702,6 +702,14 @@ export interface SpacecraftCommunicationRecipientDto {
 
 export type SpacecraftEngineeringAmount = number | 'MAX';
 
+export interface SpacecraftEpsTransferResultDto {
+  transferred: number;
+  requested: number;
+  /** Source ship EPS after the transfer. */
+  energy: number;
+  message: string;
+}
+
 export interface SpacecraftEngineeringResultDto {
   transferred: number;
   energy: number;

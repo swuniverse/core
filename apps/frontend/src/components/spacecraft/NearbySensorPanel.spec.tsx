@@ -66,6 +66,48 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('opens the EPS transfer dialog and posts the amount', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          actions: { ...nearby.ships[0].actions, energyTransfer: true },
+        },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({
+      transferred: 2,
+      requested: 5,
+      energy: 10,
+      message: 'Es wurden 2 von 5 Energie zur Ziel transferiert',
+    });
+    const onUpdate = vi.fn();
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTitle('Energie zur Ziel transferieren'));
+    fireEvent.change(await screen.findByLabelText('Energiemenge'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(screen.getByText('Transferieren'));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/2/nearby/3/eps-transfer',
+        { amount: 5 },
+      ),
+    );
+    expect(await screen.findByText(/2 von 5 Energie/)).toBeTruthy();
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
   it('renders a multi-ship combat report', async () => {
     apiMocks.get.mockResolvedValue(nearby);
     apiMocks.post.mockResolvedValue({
