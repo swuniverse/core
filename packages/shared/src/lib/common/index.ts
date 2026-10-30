@@ -112,7 +112,9 @@ export interface SpacecraftEventPayload {
     | 'BROWNOUT'
     | 'NAVIGATION'
     | 'ENGINEERING_TRANSFER'
+    | 'FIELD_EFFECT'
     | 'DESTROYED';
+  severity?: 'INFO' | 'WARNING' | 'SUCCESS';
   detail: string;
 }
 

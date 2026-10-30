@@ -53,6 +53,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 <!-- Ralph und der Product Owner ergänzen hier: Datum – Issue-ID – Entscheidung -->
 
+- 2026-10-30 – tmw-K2 – Sieben aktive Feldeffekte laufen über die zentrale Einflug-/Tick-Pipeline; NBS-Ausfall nutzt einen eigenen persistenten Wall-Clock-Cooldown, Meldungen gehen in Schiffsordner und Live-Meldungsleiste.
+
 - 2026-10-21 – col-A2 – Option b: Modul-/Torpedofertigung nach STU (EPS je Stück, Kürzung, Aufstocken, Teilabbruch 100 %, Fertigstellung im Tick, Torpedos sofort)
 - 2026-10-21 – col-A3b – Option b: Werft mit Rumpf-EPS-Kosten und einem Auftrag je Werftfunktion
 - 2026-10-21 – col-A5 – Option b: Werftreparatur passiv in Schritten mit Ersatzteilverbrauch und Slots; Vorabzahlung entfällt

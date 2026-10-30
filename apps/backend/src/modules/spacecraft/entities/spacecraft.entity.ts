@@ -212,6 +212,10 @@ export class Spacecraft {
   @Column({ type: 'jsonb', default: () => "'{}'" })
   runtimeSystems: Record<string, unknown>;
 
+  /** Wall-clock outage caused by a short-range sensor field malfunction. */
+  @Column({ type: 'timestamp', nullable: true })
+  shortRangeSensorsCooldownUntil: Date | null;
+
   @Column({ type: 'varchar', length: 6, nullable: true })
   lastGalaxyFlightDirection: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT' | null;
 
