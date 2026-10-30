@@ -1,6 +1,6 @@
 # Dynamische Fraktionsmultiplikatoren für Schiffswerte
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-FA1a
@@ -30,3 +30,7 @@ Rumpf-, Schild- und Frachtmultiplikatoren der aktuellen Eigentümerfraktion wirk
 ## Entscheidung
 
 Option 1: Die aktuelle Eigentümerfraktion wird bei jeder autoritativen Statistikberechnung dynamisch angewandt. Basiseigenschaften bleiben persistiert und unverändert.
+
+## Comments
+
+- 2026-10-30: Umsetzung nach zwei vollständigen Validierungsversuchen abgebrochen und Produktcode zurückgesetzt. Der Pflicht-Gate ist bereits außerhalb dieses Issues rot: `backend:typecheck` scheitert in `wreck-decay.service.spec.ts` (Zeilen 20/38) und `tutorial.service.spec.ts` (Zeile 22) an veralteten Konstruktoraufrufen; `backend:test` scheitert zusätzlich in `spacecraft-core-controls.spec.ts` (`shipRepo.findOneBy` fehlt im Fixture), `faction.service.spec.ts`, `wreck-decay.service.spec.ts` und `tutorial.service.spec.ts`. Die fokussierten Multiplikator-/Transfer-Tests waren zuvor grün (36/36), der globale Gate kann aber nicht erfüllt werden, ohne fremde Baseline-Arbeiten zu übernehmen.
