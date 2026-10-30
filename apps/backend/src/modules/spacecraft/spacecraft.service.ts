@@ -113,6 +113,7 @@ import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { EscapePodService } from './escape-pod.service';
 import { DockingPrivilegeService } from './docking-privilege.service';
 import { DOCK_EPS_COST } from './docking.constants';
+import { FieldTransitionExecutor } from './field-transition-executor';
 
 @Injectable()
 export class SpacecraftService {
@@ -167,12 +168,14 @@ export class SpacecraftService {
       createMovement: async () => undefined,
     } as unknown as FlightSignatureService,
     private readonly stationConstructionService: StationConstructionService = {
-      processTick: async () => ({ paused: false, completed: false, station: null }),
+      processTick: async () => ({
+        paused: false,
+        completed: false,
+        station: null,
+      }),
     } as unknown as StationConstructionService,
-    private readonly flightConsequencePipeline: FlightConsequencePipeline =
-      new FlightConsequencePipeline(),
-    private readonly stationClassDiscoveryService: StationClassDiscoveryService =
-      {} as StationClassDiscoveryService,
+    private readonly flightConsequencePipeline: FlightConsequencePipeline = new FlightConsequencePipeline(),
+    private readonly stationClassDiscoveryService: StationClassDiscoveryService = {} as StationClassDiscoveryService,
     private readonly fieldEffectQuery: FieldEffectQuery = new FieldEffectQuery(),
     private readonly escapePodService: EscapePodService = {
       evacuateLifeSupportFailure: async () => 0,
@@ -190,6 +193,7 @@ export class SpacecraftService {
     private readonly stationRepairService: StationRepairService = {
       processTick: async () => undefined,
     } as unknown as StationRepairService,
+    private readonly fieldTransitionExecutor: FieldTransitionExecutor = new FieldTransitionExecutor(),
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -378,8 +382,7 @@ export class SpacecraftService {
             galaxyField.layerId,
           )
         ).some(
-          (field) =>
-            field.cx === galaxyField.cx && field.cy === galaxyField.cy,
+          (field) => field.cx === galaxyField.cx && field.cy === galaxyField.cy,
         )
       : false;
     const normal =
@@ -401,19 +404,21 @@ export class SpacecraftService {
       alertState: ship.alertState,
       arrivalAt: ship.arrivalAt?.toISOString() ?? null,
       location: location!,
-      region: fieldExplored && galaxyField?.region
-        ? {
-            id: galaxyField.region.id,
-            name: galaxyField.region.name,
-            description: galaxyField.region.description,
-          }
-        : null,
-      adminRegion: fieldExplored && galaxyField?.adminRegionKey
-        ? {
-            key: galaxyField.adminRegionKey,
-            name: adminRegionName(galaxyField.adminRegionKey),
-          }
-        : null,
+      region:
+        fieldExplored && galaxyField?.region
+          ? {
+              id: galaxyField.region.id,
+              name: galaxyField.region.name,
+              description: galaxyField.region.description,
+            }
+          : null,
+      adminRegion:
+        fieldExplored && galaxyField?.adminRegionKey
+          ? {
+              key: galaxyField.adminRegionKey,
+              name: adminRegionName(galaxyField.adminRegionKey),
+            }
+          : null,
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(ship),
       tractor: {
         heldBy: tractoringShip
@@ -422,8 +427,8 @@ export class SpacecraftService {
         canEscape:
           tractoringShip != null &&
           ship.energy >= 20 &&
-          (this.spacecraftRuntimeStateService.initialize(ship).SHIELDS?.integrity ?? 0) >
-            0,
+          (this.spacecraftRuntimeStateService.initialize(ship).SHIELDS
+            ?.integrity ?? 0) > 0,
       },
       crewRoster,
       crewRequired,
@@ -1100,9 +1105,11 @@ export class SpacecraftService {
     if (
       (active && systemKey === 'CLOAK' && labWasActive) ||
       (!active &&
-        ['ASTROMETRY_LAB', 'SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(
-          systemKey,
-        ))
+        [
+          'ASTROMETRY_LAB',
+          'SHORT_RANGE_SENSORS',
+          'LONG_RANGE_SENSORS',
+        ].includes(systemKey))
     ) {
       await this.abortCartographyFinalization(
         ship,
@@ -1899,7 +1906,7 @@ export class SpacecraftService {
     }
   }
 
-  // In-system impulse navigation: 1 EPS per field, 5s per field
+  // In-system impulse navigation: ship-class EPS per entered field
   async navigate(
     shipId: number,
     userId: number,
@@ -1908,40 +1915,30 @@ export class SpacecraftService {
   ): Promise<Spacecraft> {
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     const ship = await this.findOne(shipId, userId);
-    if (ship.kind === 'STATION') {
+    if (ship.kind === 'STATION')
       throw new BadRequestException('Stationen können nicht fliegen');
-    }
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
-
     await this.assertNotTractored(ship);
-    if (ship.status === SpacecraftStatus.IN_COMBAT) {
+    if (ship.status === SpacecraftStatus.IN_COMBAT)
       throw new BadRequestException('Cannot navigate during combat');
-    }
-    if (ship.status === SpacecraftStatus.DESTROYED) {
+    if (ship.status === SpacecraftStatus.DESTROYED)
       throw new BadRequestException('Ship is destroyed');
-    }
-    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
+    if (ship.status === SpacecraftStatus.IN_FLIGHT)
       throw new BadRequestException('Ship already in flight');
-    }
     if (currentLocation?.scope !== 'SYSTEM') {
       throw new BadRequestException(
         'Ship is not in a system. Use galaxy flight instead.',
       );
     }
-    const currentSystemId = currentLocation.systemId;
     await this.assertEnoughCrew(ship);
     this.activateDriveForFlight(ship, 'SUBLIGHT_DRIVE');
     this.assertSystemsForFlight(ship, 'sublight');
-
     const system = await this.systemRepo.findOne({
-      where: { id: currentSystemId },
+      where: { id: currentLocation.systemId },
     });
-    if (!system) {
-      throw new NotFoundException('Current star system not found');
-    }
-
+    if (!system) throw new NotFoundException('Current star system not found');
     if (
       targetX < 1 ||
       targetX > system.maxX ||
@@ -1952,118 +1949,109 @@ export class SpacecraftService {
         `Target out of bounds. System size: ${system.maxX}x${system.maxY}`,
       );
     }
-
-    const targetField = await this.systemFieldRepo.findOne({
-      where: { starSystemId: currentSystemId, sx: targetX, sy: targetY },
-    });
-    if (targetField && !targetField.isPassable) {
-      throw new BadRequestException('Target field is not passable');
-    }
-
-    const startX = currentLocation.x;
-    const startY = currentLocation.y;
-    const dx = Math.abs(targetX - startX);
-    const dy = Math.abs(targetY - startY);
-
-    if (dx > 0 && dy > 0) {
-      throw new BadRequestException(
-        'Only orthogonal movement allowed (horizontal or vertical)',
-      );
-    }
-
-    const distance = dx + dy;
-
+    const distance =
+      Math.abs(targetX - currentLocation.x) +
+      Math.abs(targetY - currentLocation.y);
     this.assertBlindFlightDistance(
       this.spacecraftRuntimeStateService.initialize(ship),
       distance,
     );
-    if (distance === 0) {
-      throw new BadRequestException('Already at target position');
-    }
-
     const shipClass = await this.shipClassService.findById(ship.shipClassId);
     if (!shipClass) throw new NotFoundException('Ship class not found');
-    const energyCost = distance * shipClass.flightEnergyCost;
+    this.undockForFlight(ship);
+    const fleetMembers = await this.prepareFleetMembers(
+      ship,
+      userId,
+      (member) => {
+        this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
+        this.assertSystemsForFlight(member, 'sublight');
+        this.undockForFlight(member);
+      },
+    );
     const tractoredShip = ship.tractoredShipId
       ? await this.findOne(ship.tractoredShipId, userId)
       : null;
     const tractoredShipClass = tractoredShip
       ? await this.shipClassService.findById(tractoredShip.shipClassId)
       : null;
-    const towingEnergyCost = tractoredShipClass
-      ? distance * tractoredShipClass.flightEnergyCost
-      : 0;
-    this.undockForFlight(ship);
-    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
-      this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
-      this.assertSystemsForFlight(member, 'sublight');
-      this.consumeEps(member, energyCost, 'navigation');
-      this.undockForFlight(member);
-    });
-    if (tractoredShip && ship.energy < energyCost + towingEnergyCost) {
+    if (
+      tractoredShip &&
+      tractoredShipClass &&
+      ship.energy <
+        shipClass.flightEnergyCost + tractoredShipClass.flightEnergyCost
+    ) {
       ship.tractoredShipId = null;
       ship.tractoredShip = null;
       const systems = this.spacecraftRuntimeStateService.initialize(ship);
       if (systems.TRACTOR_BEAM) systems.TRACTOR_BEAM.active = false;
       ship.runtimeSystems = systems;
     }
-    this.consumeEps(
-      ship,
-      energyCost + (ship.tractoredShipId ? towingEnergyCost : 0),
-      'navigation',
+    const participants = [ship, ...fleetMembers];
+    const direction = this.directionFromMove(
+      currentLocation.x,
+      currentLocation.y,
+      targetX,
+      targetY,
     );
-
-    const previousField = resolveSpacecraftField(ship);
-    const previousLocation = ship.location;
-    if (!targetField) throw new NotFoundException('Target field not found');
-    const destination = await this.findLocationBySystemField(targetField.id);
-    await this.setCurrentLocation(ship, destination);
-    if (tractoredShip && ship.tractoredShipId) {
-      await this.setCurrentLocation(tractoredShip, destination);
-      await this.shipRepo.save(tractoredShip);
+    const result = await this.fieldTransitionExecutor.execute({
+      start: { x: currentLocation.x, y: currentLocation.y },
+      target: { x: targetX, y: targetY },
+      resolveField: (x, y) =>
+        this.systemFieldRepo.findOne({
+          where: { starSystemId: currentLocation.systemId, sx: x, sy: y },
+        }),
+      isPassable: (field) => field.isPassable,
+      participants: participants.map((member) => ({
+        canPay: () =>
+          member.energy >=
+          shipClass.flightEnergyCost +
+            (member === ship && ship.tractoredShipId && tractoredShipClass
+              ? tractoredShipClass.flightEnergyCost
+              : 0),
+        pay: () => {
+          member.energy -=
+            shipClass.flightEnergyCost +
+            (member === ship && ship.tractoredShipId && tractoredShipClass
+              ? tractoredShipClass.flightEnergyCost
+              : 0);
+        },
+        isDestroyed: () => member.status === SpacecraftStatus.DESTROYED,
+      })),
+      enter: async (field) => {
+        const destination = await this.findLocationBySystemField(field.id);
+        for (const member of participants) {
+          const origin = member.location;
+          await this.setCurrentLocation(member, destination);
+          member.status = SpacecraftStatus.IDLE;
+          if (!(await this.destructionService.saveUnlessDestroyed(member)))
+            continue;
+          await this.flightSignatureService.createMovement(
+            member,
+            origin,
+            member.location,
+            this.flightDirection(direction),
+          );
+        }
+        if (tractoredShip && ship.tractoredShipId) {
+          await this.setCurrentLocation(tractoredShip, destination);
+          await this.shipRepo.save(tractoredShip);
+        }
+        await this.flightConsequencePipeline.onEnterField(ship, field);
+        await this.processCartographyArrival(
+          ship,
+          currentLocation.systemId,
+          field.id,
+        );
+        await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
+      },
+    });
+    if (result.completedSteps === 0 && result.stopped === 'INSUFFICIENT_COST') {
+      throw new BadRequestException('Not enough EPS for navigation');
     }
-    for (const member of fleetMembers) {
-      const origin = member.location;
-      await this.setCurrentLocation(member, destination);
-      member.status = SpacecraftStatus.IDLE;
-      await this.shipRepo.save(member);
-      await this.flightSignatureService.createMovement(
-        member,
-        origin,
-        member.location,
-        this.flightDirection(
-          this.directionFromMove(startX, startY, targetX, targetY),
-        ),
-      );
-    }
-    ship.targetLocationId = null;
-    ship.targetLocation = null;
-    ship.arrivalAt = null;
-    ship.status = SpacecraftStatus.IDLE;
-
-    this.spacecraftRuntimeStateService.initialize(ship);
-
-    if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
-      throw new BadRequestException('Ship is destroyed');
-    }
-    await this.flightSignatureService.createMovement(
-      ship,
-      previousLocation,
-      ship.location,
-      this.flightDirection(
-        this.directionFromMove(startX, startY, targetX, targetY),
-      ),
+    await this.emitOrbitUpdates(currentLocation, resolveSpacecraftField(ship));
+    await this.repairService.cancelForFlight(
+      participants.map((member) => member.id),
     );
-
-    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
-    await this.flightConsequencePipeline.onEnterField(ship, targetField);
-    await this.processCartographyArrival(ship, currentSystemId, targetField.id);
-    await this.emitOrbitUpdates(previousField, resolveSpacecraftField(ship));
-    await this.repairService.cancelForFlight([
-      ship.id,
-      ...fleetMembers.map((member) => member.id),
-    ]);
-
     return this.findOne(ship.id, userId);
   }
 
@@ -2119,7 +2107,7 @@ export class SpacecraftService {
     });
   }
 
-  // Galaxy-map flight: move between galaxy fields when NOT in a system
+  // Galaxy-map flight: ship-class EPS per entered field
   async flyGalaxy(
     shipId: number,
     userId: number,
@@ -2127,125 +2115,101 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
-    if (ship.kind === 'STATION') {
+    if (ship.kind === 'STATION')
       throw new BadRequestException('Stationen können nicht fliegen');
-    }
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
     await this.assertNotTractored(ship);
-
-    if (ship.status === SpacecraftStatus.IN_COMBAT) {
+    if (ship.status === SpacecraftStatus.IN_COMBAT)
       throw new BadRequestException('Cannot fly during combat');
-    }
-    if (ship.status === SpacecraftStatus.DESTROYED) {
+    if (ship.status === SpacecraftStatus.DESTROYED)
       throw new BadRequestException('Ship is destroyed');
-    }
-    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
+    if (ship.status === SpacecraftStatus.IN_FLIGHT)
       throw new BadRequestException('Ship already in flight');
-    }
     if (currentLocation?.scope !== 'GALAXY') {
       throw new BadRequestException(
         'Ship is inside a system. Leave system first.',
       );
     }
-    const currentLayerId = currentLocation.layerId;
     await this.assertEnoughCrew(ship);
     this.activateDriveForFlight(ship, 'WARPDRIVE');
     this.assertSystemsForFlight(ship, 'warp');
-
-    const targetField = await this.galaxyFieldRepo.findOne({
-      where: { layerId: currentLayerId, cx: targetX, cy: targetY },
-    });
-    if (!targetField) {
-      throw new BadRequestException('Target galaxy field does not exist');
-    }
-    if (!targetField.isPassable) {
-      throw new BadRequestException('Target galaxy field is not passable');
-    }
-
-    const dx = Math.abs(targetX - currentLocation.x);
-    const dy = Math.abs(targetY - currentLocation.y);
-
-    if (dx > 0 && dy > 0) {
-      throw new BadRequestException(
-        'Only orthogonal movement allowed (horizontal or vertical)',
-      );
-    }
-
-    const distance = dx + dy;
-
+    const distance =
+      Math.abs(targetX - currentLocation.x) +
+      Math.abs(targetY - currentLocation.y);
     this.assertBlindFlightDistance(
       this.spacecraftRuntimeStateService.initialize(ship),
       distance,
     );
-    if (distance === 0) {
-      throw new BadRequestException('Already at target position');
-    }
-
-    const warpdriveCost = distance;
+    const shipClass = await this.shipClassService.findById(ship.shipClassId);
+    if (!shipClass) throw new NotFoundException('Ship class not found');
     this.undockForFlight(ship);
-    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
-      this.activateDriveForFlight(member, 'WARPDRIVE');
-      this.assertSystemsForFlight(member, 'warp');
-      this.consumeWarpdrive(member, warpdriveCost, 'galaxy flight');
-      this.undockForFlight(member);
-    });
-    this.consumeWarpdrive(ship, warpdriveCost, 'galaxy flight');
-    ship.lastGalaxyFlightDirection = this.directionFromMove(
+    const fleetMembers = await this.prepareFleetMembers(
+      ship,
+      userId,
+      (member) => {
+        this.activateDriveForFlight(member, 'WARPDRIVE');
+        this.assertSystemsForFlight(member, 'warp');
+        this.undockForFlight(member);
+      },
+    );
+    const participants = [ship, ...fleetMembers];
+    const direction = this.directionFromMove(
       currentLocation.x,
       currentLocation.y,
       targetX,
       targetY,
     );
-    const previousLocation = ship.location;
-    const destination = await this.findLocationByGalaxyField(targetField.id);
-
-    await this.setCurrentLocation(ship, destination);
-    for (const member of fleetMembers) {
-      const origin = member.location;
-      member.lastGalaxyFlightDirection = ship.lastGalaxyFlightDirection;
-      await this.setCurrentLocation(member, destination);
-      member.status = SpacecraftStatus.IDLE;
-      await this.shipRepo.save(member);
-      await this.flightSignatureService.createMovement(
-        member,
-        origin,
-        member.location,
-        this.flightDirection(ship.lastGalaxyFlightDirection),
-      );
+    ship.lastGalaxyFlightDirection = direction;
+    const result = await this.fieldTransitionExecutor.execute({
+      start: { x: currentLocation.x, y: currentLocation.y },
+      target: { x: targetX, y: targetY },
+      resolveField: (x, y) =>
+        this.galaxyFieldRepo.findOne({
+          where: { layerId: currentLocation.layerId, cx: x, cy: y },
+        }),
+      isPassable: (field) => field.isPassable,
+      participants: participants.map((member) => ({
+        canPay: () => member.energy >= shipClass.flightEnergyCost,
+        pay: () => {
+          member.energy -= shipClass.flightEnergyCost;
+        },
+        isDestroyed: () => member.status === SpacecraftStatus.DESTROYED,
+      })),
+      enter: async (field, coordinate) => {
+        const destination = await this.findLocationByGalaxyField(field.id);
+        for (const member of participants) {
+          const origin = member.location;
+          member.lastGalaxyFlightDirection = direction;
+          await this.setCurrentLocation(member, destination);
+          member.status = SpacecraftStatus.IDLE;
+          if (!(await this.destructionService.saveUnlessDestroyed(member)))
+            continue;
+          await this.flightSignatureService.createMovement(
+            member,
+            origin,
+            member.location,
+            this.flightDirection(direction),
+          );
+        }
+        await this.discoverGalaxyAroundShip(
+          ship,
+          currentLocation.layerId,
+          coordinate.x,
+          coordinate.y,
+          'FLIGHT',
+        );
+        await this.flightConsequencePipeline.onEnterField(ship, field);
+        await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
+      },
+    });
+    if (result.completedSteps === 0 && result.stopped === 'INSUFFICIENT_COST') {
+      throw new BadRequestException('Not enough EPS for galaxy flight');
     }
-    ship.targetLocationId = null;
-    ship.targetLocation = null;
-    ship.arrivalAt = null;
-    ship.status = SpacecraftStatus.IDLE;
-
-    this.spacecraftRuntimeStateService.initialize(ship);
-
-    if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
-      throw new BadRequestException('Ship is destroyed');
-    }
-
-    await this.flightSignatureService.createMovement(
-      ship,
-      previousLocation,
-      ship.location,
-      this.flightDirection(ship.lastGalaxyFlightDirection),
+    await this.repairService.cancelForFlight(
+      participants.map((member) => member.id),
     );
-    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, distance);
-    await this.discoverGalaxyAroundShip(
-      ship,
-      currentLayerId,
-      targetX,
-      targetY,
-      'FLIGHT',
-    );
-    await this.flightConsequencePipeline.onEnterField(ship, targetField);
-    await this.repairService.cancelForFlight([
-      ship.id,
-      ...fleetMembers.map((member) => member.id),
-    ]);
-
     return this.findOne(ship.id, userId);
   }
 
@@ -2342,11 +2306,15 @@ export class SpacecraftService {
     );
 
     this.undockForFlight(ship);
-    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
-      this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
-      this.assertSystemsForFlight(member, 'sublight');
-      this.undockForFlight(member);
-    });
+    const fleetMembers = await this.prepareFleetMembers(
+      ship,
+      userId,
+      (member) => {
+        this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
+        this.assertSystemsForFlight(member, 'sublight');
+        this.undockForFlight(member);
+      },
+    );
     const previousLocation = ship.location;
     const destination = await this.findLocationBySystemField(entryField.id);
     await this.setCurrentLocation(ship, destination);
@@ -2354,7 +2322,8 @@ export class SpacecraftService {
       const origin = member.location;
       await this.setCurrentLocation(member, destination);
       member.status = SpacecraftStatus.IDLE;
-      const memberSystems = this.spacecraftRuntimeStateService.initialize(member);
+      const memberSystems =
+        this.spacecraftRuntimeStateService.initialize(member);
       if (memberSystems.WARPDRIVE) memberSystems.WARPDRIVE.active = false;
       member.runtimeSystems = memberSystems;
       await this.shipRepo.save(member);
@@ -2486,11 +2455,15 @@ export class SpacecraftService {
       where: { layerId: system.layerId, cx: system.cx, cy: system.cy },
     });
     this.undockForFlight(ship);
-    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
-      this.activateDriveForFlight(member, 'WARPDRIVE');
-      this.assertSystemsForFlight(member, 'warp');
-      this.undockForFlight(member);
-    });
+    const fleetMembers = await this.prepareFleetMembers(
+      ship,
+      userId,
+      (member) => {
+        this.activateDriveForFlight(member, 'WARPDRIVE');
+        this.assertSystemsForFlight(member, 'warp');
+        this.undockForFlight(member);
+      },
+    );
     const previousLocation = ship.location;
     const destination = galaxyField
       ? await this.findLocationByGalaxyField(galaxyField.id)
@@ -2578,11 +2551,15 @@ export class SpacecraftService {
 
     const warpdriveCost = Math.max(1, galaxyDistance);
     this.undockForFlight(ship);
-    const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
-      this.assertSystemsForFlight(member, 'warp');
-      this.consumeWarpdrive(member, warpdriveCost, 'warp');
-      this.undockForFlight(member);
-    });
+    const fleetMembers = await this.prepareFleetMembers(
+      ship,
+      userId,
+      (member) => {
+        this.assertSystemsForFlight(member, 'warp');
+        this.consumeWarpdrive(member, warpdriveCost, 'warp');
+        this.undockForFlight(member);
+      },
+    );
     this.consumeWarpdrive(ship, warpdriveCost, 'warp');
 
     const warpTimeMs = galaxyDistance * 60_000;
@@ -2692,15 +2669,6 @@ export class SpacecraftService {
     ship.dockedAt = null;
   }
 
-  private consumeEps(ship: Spacecraft, amount: number, action: string): void {
-    if (ship.energy < amount) {
-      throw new BadRequestException(
-        `Not enough EPS for ${action}: need ${amount}, have ${ship.energy}`,
-      );
-    }
-    ship.energy -= amount;
-  }
-
   private consumeWarpdrive(
     ship: Spacecraft,
     amount: number,
@@ -2743,7 +2711,8 @@ export class SpacecraftService {
       Pick<Spacecraft, 'energy' | 'warpdrive' | 'runtimeSystems' | 'dockedAtId'>
     >();
     for (const member of members) {
-      if (member.id === leader.id || !sameSpacecraftLocation(member, leader)) continue;
+      if (member.id === leader.id || !sameSpacecraftLocation(member, leader))
+        continue;
       try {
         if (member.status === SpacecraftStatus.DESTROYED) {
           throw new BadRequestException('Schiff ist zerstört');
@@ -2887,7 +2856,8 @@ export class SpacecraftService {
     await this.requireFleet(userId, fleetId);
     const members = await this.shipRepo.find({ where: { fleetId, userId } });
     const applied: Array<{ shipId: number; shipName: string }> = [];
-    const failed: Array<{ shipId: number; shipName: string; reason: string }> = [];
+    const failed: Array<{ shipId: number; shipName: string; reason: string }> =
+      [];
 
     for (const member of members) {
       try {
@@ -2897,7 +2867,10 @@ export class SpacecraftService {
         failed.push({
           shipId: member.id,
           shipName: member.name,
-          reason: error instanceof Error ? error.message : 'Alarmstufe konnte nicht geändert werden',
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'Alarmstufe konnte nicht geändert werden',
         });
       }
     }
@@ -3020,7 +2993,8 @@ export class SpacecraftService {
       ship.targetLocation = null;
       ship.status = SpacecraftStatus.IDLE;
 
-      const arrivedField = targetLocation?.systemField ?? targetLocation?.galaxyField;
+      const arrivedField =
+        targetLocation?.systemField ?? targetLocation?.galaxyField;
       if (arrivedField) {
         await this.flightConsequencePipeline.onEnterField(ship, arrivedField);
       }
@@ -3249,11 +3223,12 @@ export class SpacecraftService {
       viewer?.factionId != null &&
       colonyOwner?.factionId != null &&
       viewer.factionId !== colonyOwner.factionId;
-    const attackReason = colony?.userId === userId
-      ? 'Eigene Kolonie kann nicht angegriffen werden'
-      : canAttack
-        ? null
-        : 'Kolonie ist nicht feindlich';
+    const attackReason =
+      colony?.userId === userId
+        ? 'Eigene Kolonie kann nicht angegriffen werden'
+        : canAttack
+          ? null
+          : 'Kolonie ist nicht feindlich';
     const station = await this.shipRepo.findOne({
       where: { locationId: ship.locationId, kind: SpacecraftKind.STATION },
     });
@@ -3294,25 +3269,26 @@ export class SpacecraftService {
             entryField.layerId,
           )
         ).some(
-          (field) =>
-            field.cx === entryField.cx && field.cy === entryField.cy,
+          (field) => field.cx === entryField.cx && field.cy === entryField.cy,
         )
       : false;
     return {
       coordinates: { x: location?.x ?? 0, y: location?.y ?? 0 },
-      region: fieldExplored && entryField?.region
-        ? {
-            id: entryField.region.id,
-            name: entryField.region.name,
-            description: entryField.region.description,
-          }
-        : null,
-      adminRegion: fieldExplored && entryField?.adminRegionKey
-        ? {
-            key: entryField.adminRegionKey,
-            name: adminRegionName(entryField.adminRegionKey),
-          }
-        : null,
+      region:
+        fieldExplored && entryField?.region
+          ? {
+              id: entryField.region.id,
+              name: entryField.region.name,
+              description: entryField.region.description,
+            }
+          : null,
+      adminRegion:
+        fieldExplored && entryField?.adminRegionKey
+          ? {
+              key: entryField.adminRegionKey,
+              name: adminRegionName(entryField.adminRegionKey),
+            }
+          : null,
       starSystem:
         location?.scope === 'SYSTEM'
           ? {
@@ -3340,7 +3316,11 @@ export class SpacecraftService {
       runtimeSystems: systems,
       construction: {
         station: station
-          ? { id: station.id, name: station.name, isOwn: station.userId === userId }
+          ? {
+              id: station.id,
+              name: station.name,
+              isOwn: station.userId === userId,
+            }
           : null,
         canBuild: station == null && ship.kind !== 'STATION',
       },
@@ -3468,10 +3448,11 @@ export class SpacecraftService {
       shipQuery.getMany(),
       wreckQuery.getMany(),
     ]);
-    const dockableStationIds = await this.dockingPrivilegeService.allowedStationIds(
-      ship,
-      ships.filter((target) => target.kind === 'STATION'),
-    );
+    const dockableStationIds =
+      await this.dockingPrivilegeService.allowedStationIds(
+        ship,
+        ships.filter((target) => target.kind === 'STATION'),
+      );
     return {
       actionsAvailable: !hyperdriveActive,
       hyperdriveActive,
@@ -3555,15 +3536,22 @@ export class SpacecraftService {
                 systems.SHIELDS?.active !== true &&
                 ship.tractoredShipId == null &&
                 target.tractoredShipId == null &&
-                !ships.some((candidate) => candidate.tractoredShipId === ship.id) &&
-                !ships.some((candidate) => candidate.tractoredShipId === target.id) &&
+                !ships.some(
+                  (candidate) => candidate.tractoredShipId === ship.id,
+                ) &&
+                !ships.some(
+                  (candidate) => candidate.tractoredShipId === target.id,
+                ) &&
                 !hyperdriveActive &&
                 !targetHyperdriveActive,
               boarding: false,
             },
           };
         }),
-      escapePods: await this.escapePodService.listNearby(ship.locationId, userId),
+      escapePods: await this.escapePodService.listNearby(
+        ship.locationId,
+        userId,
+      ),
       wrecks: wrecks.map((wreck) => ({
         id: wreck.id,
         hull: wreck.hull,
@@ -4049,7 +4037,9 @@ export class SpacecraftService {
     ship: Spacecraft,
     options: { skipRepair?: boolean } = {},
   ): Promise<void> {
-    const construction = await this.stationConstructionService.processTick(ship.id);
+    const construction = await this.stationConstructionService.processTick(
+      ship.id,
+    );
     if (construction.completed) {
       await this.messagingService.sendSystem(
         ship.userId,
@@ -4075,7 +4065,8 @@ export class SpacecraftService {
       await this.stationRepairService.processTick(ship.id, options);
     }
     await this.processMovement(ship);
-    const tickLocation = ship.location?.systemField ?? ship.location?.galaxyField;
+    const tickLocation =
+      ship.location?.systemField ?? ship.location?.galaxyField;
     if (tickLocation) {
       await this.flightConsequencePipeline.onTick(ship, tickLocation);
     }
@@ -4096,7 +4087,10 @@ export class SpacecraftService {
       ship,
       shipClass?.flightEnergyCost ?? 1,
     );
-    const batteryReload = stationBatteryReload(ship, ship.energy - energyBefore);
+    const batteryReload = stationBatteryReload(
+      ship,
+      ship.energy - energyBefore,
+    );
     ship.energy -= batteryReload;
     ship.battery += batteryReload;
     if (resourceFlow?.deactivatedSystems.length > 0) {

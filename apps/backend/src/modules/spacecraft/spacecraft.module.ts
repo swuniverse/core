@@ -85,6 +85,7 @@ import {
   FLIGHT_CONSEQUENCES,
   FlightConsequencePipeline,
 } from './flight-consequence-pipeline';
+import { FieldTransitionExecutor } from './field-transition-executor';
 
 @Module({
   imports: [
@@ -172,6 +173,7 @@ import {
     StationConstructionService,
     InteractionContextService,
     SpacecraftTractorService,
+    FieldTransitionExecutor,
     FlightConsequencePipeline,
     { provide: FLIGHT_CONSEQUENCES, useValue: [] },
   ],

@@ -62,7 +62,9 @@ import { SpacecraftStatus } from './entities/spacecraft.entity';
 function createService() {
   const shipRepo = {
     findOne: jest.fn(),
-    findOneBy: jest.fn<Promise<{ id: number } | null>, [unknown]>(async () => null),
+    findOneBy: jest.fn<Promise<{ id: number } | null>, [unknown]>(
+      async () => null,
+    ),
     save: jest.fn(async (ship) => ship),
     create: jest.fn((ship) => ship),
   };
@@ -122,6 +124,10 @@ function createService() {
     }),
   };
   const statistics = { countEvent: jest.fn(async () => undefined) };
+  const flightConsequencePipeline = { onEnterField: jest.fn(async () => []) };
+  const flightSignatureService = {
+    createMovement: jest.fn(async () => undefined),
+  };
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
     moduleRepo as unknown as ConstructorParameters<typeof SpacecraftService>[1],
@@ -185,6 +191,15 @@ function createService() {
     statistics as unknown as ConstructorParameters<
       typeof SpacecraftService
     >[29],
+    undefined,
+    undefined,
+    flightSignatureService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[32],
+    undefined,
+    flightConsequencePipeline as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[34],
   );
 
   return {
@@ -198,6 +213,8 @@ function createService() {
     runtimeState,
     explorationService,
     statistics,
+    flightConsequencePipeline,
+    flightSignatureService,
   };
 }
 
@@ -245,19 +262,12 @@ describe('SpacecraftService movement resources', () => {
     shipRepo.findOne.mockResolvedValue(ship);
     shipRepo.findOneBy.mockResolvedValue({ id: 8 });
 
-    await expect(service.navigate(7, 1, 1, 2)).rejects.toThrow(
-      'Traktorstrahl',
-    );
+    await expect(service.navigate(7, 1, 1, 2)).rejects.toThrow('Traktorstrahl');
   });
 
   it('moves a tractored ship and charges its flight EPS cost', async () => {
-    const {
-      service,
-      shipRepo,
-      systemRepo,
-      systemFieldRepo,
-      locationRepo,
-    } = createService();
+    const { service, shipRepo, systemRepo, systemFieldRepo, locationRepo } =
+      createService();
     const ship = {
       id: 7,
       userId: 1,
@@ -403,7 +413,13 @@ describe('SpacecraftService movement resources', () => {
       dockedAtId: 100,
       modules: [],
     };
-    const targetField = { id: 31, starSystemId: 3, sx: 1, sy: 3, isPassable: true };
+    const targetField = {
+      id: 31,
+      starSystemId: 3,
+      sx: 1,
+      sy: 3,
+      isPassable: true,
+    };
     shipRepo.findOne.mockResolvedValue(ship);
     systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
     systemFieldRepo.findOne.mockResolvedValue(targetField);
@@ -428,7 +444,13 @@ describe('SpacecraftService movement resources', () => {
     };
     shipRepo.findOne.mockResolvedValue(ship);
     systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
-    systemFieldRepo.findOne.mockResolvedValue({ id: 31, starSystemId: 3, sx: 1, sy: 3, isPassable: true });
+    systemFieldRepo.findOne.mockResolvedValue({
+      id: 31,
+      starSystemId: 3,
+      sx: 1,
+      sy: 3,
+      isPassable: true,
+    });
 
     await expect(service.navigate(7, 1, 1, 3)).rejects.toThrow('abgedockt');
     expect(shipRepo.save).not.toHaveBeenCalled();
@@ -521,7 +543,8 @@ describe('SpacecraftService movement resources', () => {
 
     await service.navigate(7, 1, 1, 4);
 
-    expect(statistics.countEvent).toHaveBeenCalledWith('flown-fields', 3);
+    expect(statistics.countEvent).toHaveBeenCalledTimes(3);
+    expect(statistics.countEvent).toHaveBeenLastCalledWith('flown-fields');
 
     ship.status = SpacecraftStatus.IDLE;
     Object.assign(ship, galaxyLocation());
@@ -529,7 +552,8 @@ describe('SpacecraftService movement resources', () => {
 
     await service.flyGalaxy(7, 1, 3, 1);
 
-    expect(statistics.countEvent).toHaveBeenLastCalledWith('flown-fields', 2);
+    expect(statistics.countEvent).toHaveBeenCalledTimes(5);
+    expect(statistics.countEvent).toHaveBeenLastCalledWith('flown-fields');
   });
 
   it('does not count fields of a failed movement', async () => {
@@ -579,6 +603,7 @@ describe('SpacecraftService movement resources', () => {
       userId: 1,
       status: SpacecraftStatus.IDLE,
       ...galaxyLocation(),
+      energy: 10,
       warpdrive: 5,
       runtimeSystems: {
         WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
@@ -590,7 +615,8 @@ describe('SpacecraftService movement resources', () => {
 
     await service.flyGalaxy(7, 1, 4, 1);
 
-    expect(ship.warpdrive).toBe(2);
+    expect(ship.warpdrive).toBe(5);
+    expect(ship.energy).toBe(7);
     expect(ship.runtimeSystems?.WARPDRIVE.active).toBe(true);
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
 
@@ -602,7 +628,7 @@ describe('SpacecraftService movement resources', () => {
 
     await service.warp(7, 1, 12);
 
-    expect(ship.warpdrive).toBe(0);
+    expect(ship.warpdrive).toBe(3);
     expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
   });
 

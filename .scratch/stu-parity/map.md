@@ -292,3 +292,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-STAT-4a – Schiffsmanagement angedockter Schiffe an der Station über gemeinsamen Management-Dienst (Kolonie/Station) und Schalter „Batterie automatisch nachladen“ – siehe Feature-Commit
 - sc-WP-STAT-4b – Stationsreparatur: Queue mit Abbrechen/Reaktivieren, passive Stationsselbstreparatur mit Workbees und Ersatzteilen, Abbruch bei Flug/Abdocken – siehe Feature-Commit
 - tmw-D2 – RPG-Schreiber- und Aurodium-Ranglisten mit erweiterbaren Besitzquellen sowie STU-Highscore-Gliederung umgesetzt – siehe Feature-Commit
+- tmw-K1b1 – Gemeinsamer Feldtransition-Executor verarbeitet System- und Galaxierouten mit EPS und allen Bewegungsfolgen je tatsächlich betretenem Feld – siehe Feature-Commit
