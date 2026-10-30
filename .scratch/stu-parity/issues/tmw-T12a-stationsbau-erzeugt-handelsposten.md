@@ -1,6 +1,6 @@
 # Spielerbetriebene Handelsposten: Stationsbau erzeugt Posten
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-0, sc-WP-STAT-1b, tmw-T2
@@ -28,3 +28,5 @@ Wird eine Station der Handelsposten-Rolle fertiggestellt (STU: `OUTPOST`; die SW
 - [ ] Backend-Tests: Postenerzeugung nur für die passende Rolle, Werte, Eigentümerlizenz, Handel am Spielerposten Ende zu Ende (Lizenz kaufen, einzahlen, Angebot).
 
 ## Comments
+
+- 2026-10-30: Blockiert durch die noch nicht umgesetzten Child-Issues `tmw-T2a` bis `tmw-T2d` (alle `ready-for-agent`). Im aktuellen Produktcode existieren weder `TradeLicense`/Lizenzbedingung noch `TradePostPresencePolicy`, Kauf- oder Angebots-API. Damit können die geforderte unbefristete Eigentümerlizenz, die konfigurierbare Lizenzbedingung, Fremdkäufe und der Ende-zu-Ende-Handel nicht implementiert oder getestet werden, ohne den Scope der ausgewählten Issue zu verlassen. Bitte `Blocked by` auf die tatsächlich benötigten Child-Issues umstellen und T12a erst nach deren Auflösung wieder freigeben.
