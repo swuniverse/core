@@ -47,6 +47,40 @@ function systemMap(
 }
 
 describe('LssMap', () => {
+  it('renders dubious signatures without a numeric count', () => {
+    const localMap = systemMap(201);
+    localMap.overlays = {
+      signatures: [{ x: 1, y: 14, state: 'DUBIOUS' }],
+    };
+
+    render(
+      <LssMap
+        localMap={localMap}
+        navTarget={null}
+        onFieldClick={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('!')).toBeTruthy();
+  });
+
+  it('renders the long-range sensor malfunction warning', () => {
+    const localMap = systemMap(201);
+    localMap.warning = 'Langstreckensensoren liefern keine verwertbaren Daten';
+
+    render(
+      <LssMap
+        localMap={localMap}
+        navTarget={null}
+        onFieldClick={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText('Langstreckensensoren liefern keine verwertbaren Daten'),
+    ).toBeTruthy();
+  });
+
   it('includes field effect descriptions in the tooltip', () => {
     const localMap = systemMap(201);
     localMap.fields[0].effects = ['SHIELD_MALFUNCTION'];
@@ -95,7 +129,7 @@ describe('LssMap', () => {
     const localMap = systemMap(201);
     localMap.wrecks = [{ id: 1, x: 1, y: 14, hull: 47 }];
     localMap.overlays = {
-      signatures: [{ x: 1, y: 14, visibleCount: 1 }],
+      signatures: [{ x: 1, y: 14, state: 'COUNT', count: 1 }],
     };
 
     render(

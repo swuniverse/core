@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2a: Sensorik (LSS-Störung, LSS-Blockade, Signaturanzeige)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
@@ -24,12 +24,13 @@ Passive Sensorik-Effekte wirken auf die Langstreckensensoren. Steht ein Schiff i
 
 ## Akzeptanzkriterien
 
-- [ ] Steht das Schiff auf einem Feld mit `LSS_MALFUNCTION`, liefert `GET spacecraft/:id/local-map` keine Felddaten außer dem eigenen Feld, dazu einen Hinweis. Das Frontend zeigt „Langstreckensensoren liefern keine verwertbaren Daten“.
-- [ ] Felder mit `LSS_BLOCKADE` verdecken die Sicht auf dahinterliegende Felder nach dem STU-Raster (`LssBlockadeGridFactory`). Verdeckte Felder werden ohne Inhalt geliefert.
-- [ ] Bei `NO_SPACECRAFT_COUNT` ist die Signaturanzahl des Feldes immer leer. Bei `DUBIOUS_SPACECRAFT_COUNT` steht ab einer Signatur „!“ statt der Zahl, und zwar im Backend-DTO, damit keine echten Zahlen an den Client gehen.
-- [ ] Backend-Tests für alle vier Effekte (DTO-Ebene). Frontend-Test: `LssMap` rendert „!“ und den Störungshinweis.
+- [x] Steht das Schiff auf einem Feld mit `LSS_MALFUNCTION`, liefert `GET spacecraft/:id/local-map` keine Felddaten außer dem eigenen Feld, dazu einen Hinweis. Das Frontend zeigt „Langstreckensensoren liefern keine verwertbaren Daten“.
+- [x] Felder mit `LSS_BLOCKADE` verdecken die Sicht auf dahinterliegende Felder nach dem STU-Raster (`LssBlockadeGridFactory`). Verdeckte Felder werden ohne Inhalt geliefert.
+- [x] Bei `NO_SPACECRAFT_COUNT` ist die Signaturanzahl des Feldes immer leer. Bei `DUBIOUS_SPACECRAFT_COUNT` steht ab einer Signatur „!“ statt der Zahl, und zwar im Backend-DTO, damit keine echten Zahlen an den Client gehen.
+- [x] Backend-Tests für alle vier Effekte (DTO-Ebene). Frontend-Test: `LssMap` rendert „!“ und den Störungshinweis.
 
 ## Comments
 
 - 2026-10-28 Agent: Blocked by a missing product decision: the acceptance criteria require LSS_BLOCKADE to follow STU’s LssBlockadeGridFactory, but the referenced STU FieldTypeEffectEnum still marks LSS_BLOCKADE as not implemented while a grid implementation exists. Please confirm whether SWU should intentionally activate that currently dormant STU algorithm, including that blockade fields themselves are returned without content, and whether the behavior must apply to both system and galaxy local maps.
 - 2026-10-30 Product Owner: Option 1. Die TODO-Markierung in STU ist veraltet; SWU übernimmt die durch `LssBlockadeGrid`, Factory, Realtime-Ansicht und Tests belegte aktive Laufzeitsemantik. `LSS_BLOCKADE` gilt in System- und Galaxie-LSS. Das Blockadefeld selbst sowie alle nach dem getesteten Bresenham-/Eckblockade-Raster verdeckten Felder werden serverseitig redigiert: Koordinate beziehungsweise undurchsichtige Rasterzelle darf erhalten bleiben, aber Feldtyp, Effekte, Objekte, Schiffe, Wracks, Anomalien, Overlays und Signaturzahlen werden nicht serialisiert. `LSS_MALFUNCTION` liefert nur das eigene Feld plus explizite Warnung. `NO_SPACECRAFT_COUNT` überträgt keine Signaturdaten; `DUBIOUS_SPACECRAFT_COUNT` überträgt bei vorhandener Signatur ausschließlich einen opaken `DUBIOUS`-Zustand für „!“, niemals die echte Zahl. Das Issue ist `ready-for-agent`.
+- 2026-10-30 Agent: Gemeinsame serverseitige LSS-Redaktion für System- und Galaxiekarten ergänzt (`lss-sensor-effects.ts`), einschließlich STU-Bresenham-/Eckblockade, Störung und opaken Signaturzuständen. `LssMap` stellt redigierte Zellen, „!“ und den Störungshinweis dar. Fokussierte Backend-/Frontend-Tests sowie alle Builds sind grün; der vollständige Affected-Gate bleibt ausschließlich an bereits vorhandenen, fachfremden Test-/Typecheck-Fehlern in Tick, Tutorial, Research und Spacecraft-Fixtures rot.

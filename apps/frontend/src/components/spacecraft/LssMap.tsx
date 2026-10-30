@@ -29,13 +29,14 @@ interface FieldType {
 }
 
 interface GalaxyLocalField {
-  id: number;
+  id?: number;
   cx: number;
   cy: number;
-  fieldType: FieldType;
-  starSystemId: number | null;
+  redacted?: boolean;
+  fieldType?: FieldType;
+  starSystemId?: number | null;
   systemTypeId?: number | null;
-  starSystem: { id: number; name: string } | null;
+  starSystem?: { id: number; name: string } | null;
   regionName?: string | null;
   isPassable?: boolean;
   effects?: string[] | null;
@@ -44,12 +45,13 @@ interface GalaxyLocalField {
 }
 
 interface SystemLocalField {
-  id: number;
+  id?: number;
   sx: number;
   sy: number;
-  fieldType: FieldType;
-  celestialObjectId: number | null;
-  celestialObject: {
+  redacted?: boolean;
+  fieldType?: FieldType;
+  celestialObjectId?: number | null;
+  celestialObject?: {
     id: number;
     name: string | null;
     objectType: number;
@@ -66,11 +68,9 @@ interface SystemLocalField {
   damage?: number;
 }
 
-export interface FieldSignatureOverlay {
-  x: number;
-  y: number;
-  visibleCount: number;
-}
+export type FieldSignatureOverlay =
+  | { x: number; y: number; state: 'COUNT'; count: number }
+  | { x: number; y: number; state: 'DUBIOUS' };
 
 export interface LocalMapContext {
   layerId: number | null;
@@ -113,6 +113,7 @@ export interface LocalMapGalaxy {
   }>;
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
+  warning?: string;
   context?: LocalMapContext;
 }
 export interface LocalMapSystem {
@@ -141,6 +142,7 @@ export interface LocalMapSystem {
   entrySystem?: { id: number; name: string; x: number; y: number } | null;
   canEnterSystem: boolean;
   canLeaveSystem: boolean;
+  warning?: string;
   context?: LocalMapContext;
 }
 
@@ -155,14 +157,14 @@ interface LssMapProps {
 
 function fieldEffects(field: {
   effects?: string[] | null;
-  fieldType: FieldType;
+  fieldType?: FieldType;
 }): FieldEffect[] {
-  return knownFieldEffects(field.effects ?? field.fieldType.effects);
+  return knownFieldEffects(field.effects ?? field.fieldType?.effects);
 }
 
 function fieldEffectText(field: {
   effects?: string[] | null;
-  fieldType: FieldType;
+  fieldType?: FieldType;
 }): string {
   const descriptions = fieldEffects(field).map(
     (effect) => fieldEffectDefinition(effect).description,
@@ -201,11 +203,11 @@ export function LssMap({
     (_, index) => bounds.minY + index,
   );
 
-  const signaturesByPosition = new Map<string, number>(
+  const signaturesByPosition = new Map<string, string | number>(
     (localMap.overlays?.signatures ?? []).map(
       (signature: FieldSignatureOverlay) => [
         `${signature.x},${signature.y}`,
-        signature.visibleCount,
+        signature.state === 'DUBIOUS' ? '!' : signature.count,
       ],
     ),
   );
@@ -216,6 +218,11 @@ export function LssMap({
 
   return (
     <div className="overflow-auto">
+      {localMap.warning && (
+        <div className="mb-2 border border-amber-500/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+          {localMap.warning}
+        </div>
+      )}
       <div
         className="grid min-w-max"
         style={{
@@ -257,6 +264,16 @@ export function LssMap({
                     return (
                       <div
                         key={`void-${x}-${y}`}
+                        className="bg-black border border-slate-900/50"
+                        style={{ width: cellSize, height: cellSize }}
+                      />
+                    );
+                  }
+                  if (field.redacted || !field.fieldType) {
+                    return (
+                      <div
+                        key={`redacted-${x}-${y}`}
+                        aria-label={`Feld ${x},${y}: Sensordaten blockiert`}
                         className="bg-black border border-slate-900/50"
                         style={{ width: cellSize, height: cellSize }}
                       />
@@ -325,6 +342,16 @@ export function LssMap({
                   return (
                     <div
                       key={`void-${x}-${y}`}
+                      className="bg-black border border-slate-900/50"
+                      style={{ width: cellSize, height: cellSize }}
+                    />
+                  );
+                }
+                if (field.redacted || !field.fieldType) {
+                  return (
+                    <div
+                      key={`redacted-${x}-${y}`}
+                      aria-label={`Feld ${x},${y}: Sensordaten blockiert`}
                       className="bg-black border border-slate-900/50"
                       style={{ width: cellSize, height: cellSize }}
                     />

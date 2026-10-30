@@ -114,6 +114,7 @@ import { EscapePodService } from './escape-pod.service';
 import { DockingPrivilegeService } from './docking-privilege.service';
 import { DOCK_EPS_COST } from './docking.constants';
 import { FieldTransitionExecutor } from './field-transition-executor';
+import { applyLssSensorEffects } from './lss-sensor-effects';
 
 @Injectable()
 export class SpacecraftService {
@@ -3658,48 +3659,75 @@ export class SpacecraftService {
         (candidate) => !isHiddenFromViewer(candidate, userId),
       );
 
+      const sensorView = applyLssSensorEffects({
+        fields,
+        observer: { x: shipX, y: shipY },
+        position: (field) => ({ x: field.sx, y: field.sy }),
+        signatures: this.countFieldSignatures(
+          [ship, ...nearbyShips],
+          (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
+          (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
+        ),
+      });
+      const visiblePositions = new Set(
+        sensorView.fields.flatMap((field) =>
+          'redacted' in field ? [] : [`${field.sx},${field.sy}`],
+        ),
+      );
+
       return {
         mode: 'system' as const,
         shipX,
         shipY,
         sensorRange,
         bounds,
+        warning: sensorView.warning,
         systemId: location.systemId,
         systemName: starSystem?.name ?? null,
         systemTypeId: starSystem?.systemTypeId ?? null,
-        stars: starObjects.map((star) => ({
-          centerX: star.posX,
-          centerY: star.posY,
-          role: star.classId === 9002 ? 'secondary' : 'primary',
-        })),
-        fields: fields.map((f) => ({
-          id: f.id,
-          sx: f.sx,
-          sy: f.sy,
-          fieldType: {
-            id: f.fieldType.id,
-            key: f.fieldType.key,
-            name: f.fieldType.name,
-          },
-          celestialObjectId: f.celestialObjectId,
-          celestialObject: f.celestialObject
-            ? {
-                id: f.celestialObject.id,
-                name: f.celestialObject.name,
-                objectType: f.celestialObject.objectType,
-                classId: f.celestialObject.classId,
-                isColonizable: f.celestialObject.isColonizable,
-                shielded: shieldedObjectIds.has(f.celestialObject.id),
-                posX: f.celestialObject.posX,
-                posY: f.celestialObject.posY,
-              }
-            : null,
-        })),
+        stars: starObjects
+          .filter((star) => visiblePositions.has(`${star.posX},${star.posY}`))
+          .map((star) => ({
+            centerX: star.posX,
+            centerY: star.posY,
+            role: star.classId === 9002 ? 'secondary' : 'primary',
+          })),
+        fields: sensorView.fields.map((f) => {
+          if ('redacted' in f) return { sx: f.x, sy: f.y, redacted: true as const };
+          return {
+            id: f.id,
+            sx: f.sx,
+            sy: f.sy,
+            effects: f.effects,
+            fieldType: {
+              id: f.fieldType.id,
+              key: f.fieldType.key,
+              name: f.fieldType.name,
+              effects: f.fieldType.effects,
+            },
+            celestialObjectId: f.celestialObjectId,
+            celestialObject: f.celestialObject
+              ? {
+                  id: f.celestialObject.id,
+                  name: f.celestialObject.name,
+                  objectType: f.celestialObject.objectType,
+                  classId: f.celestialObject.classId,
+                  isColonizable: f.celestialObject.isColonizable,
+                  shielded: shieldedObjectIds.has(f.celestialObject.id),
+                  posX: f.celestialObject.posX,
+                  posY: f.celestialObject.posY,
+                }
+              : null,
+          };
+        }),
         wrecks: wrecks
           .filter(
             (wreck) =>
               wreck.location?.systemField?.sx != null &&
-              wreck.location.systemField.sy != null,
+              wreck.location.systemField.sy != null &&
+              visiblePositions.has(
+                `${wreck.location.systemField.sx},${wreck.location.systemField.sy}`,
+              ),
           )
           .map((wreck) => ({
             id: wreck.id,
@@ -3709,14 +3737,13 @@ export class SpacecraftService {
             cargo: wreck.cargo,
             modules: wreck.modules,
           })),
-        overlays: {
-          signatures: this.countFieldSignatures(
-            [ship, ...nearbyShips],
-            (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
-            (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
-          ),
-        },
-        ships: nearbyShips.map((s) => ({
+        overlays: { signatures: sensorView.signatures },
+        ships: nearbyShips
+          .filter((s) => {
+            const position = resolveSpacecraftLocation(s);
+            return position && visiblePositions.has(`${position.x},${position.y}`);
+          })
+          .map((s) => ({
           id: s.id,
           name: s.name,
           userId: s.userId,
@@ -3814,31 +3841,59 @@ export class SpacecraftService {
         field.starSystemId != null,
     );
 
+    const sensorView = applyLssSensorEffects({
+      fields,
+      observer: { x: location.x, y: location.y },
+      position: (field) => ({ x: field.cx, y: field.cy }),
+      signatures: this.countFieldSignatures(
+        [ship, ...nearbyShips],
+        (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
+        (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
+      ),
+    });
+    const visiblePositions = new Set(
+      sensorView.fields.flatMap((field) =>
+        'redacted' in field ? [] : [`${field.cx},${field.cy}`],
+      ),
+    );
+
     return {
       mode: 'galaxy' as const,
       shipX: location.x,
       shipY: location.y,
       sensorRange,
       bounds,
-      fields: fields.map((f) => ({
-        id: f.id,
-        cx: f.cx,
-        cy: f.cy,
-        fieldType: {
-          id: f.fieldType.id,
-          key: f.fieldType.key,
-          name: f.fieldType.name,
-        },
-        starSystemId: f.starSystemId,
-        systemTypeId: f.starSystem?.systemTypeId ?? null,
-        starSystem: f.starSystem
-          ? { id: f.starSystem.id, name: f.starSystem.name }
-          : null,
-        regionName: f.region?.name ?? null,
-        isPassable: f.isPassable,
-      })),
+      warning: sensorView.warning,
+      fields: sensorView.fields.map((f) => {
+        if ('redacted' in f) return { cx: f.x, cy: f.y, redacted: true as const };
+        return {
+          id: f.id,
+          cx: f.cx,
+          cy: f.cy,
+          effects: f.effects,
+          fieldType: {
+            id: f.fieldType.id,
+            key: f.fieldType.key,
+            name: f.fieldType.name,
+            effects: f.fieldType.effects,
+          },
+          starSystemId: f.starSystemId,
+          systemTypeId: f.starSystem?.systemTypeId ?? null,
+          starSystem: f.starSystem
+            ? { id: f.starSystem.id, name: f.starSystem.name }
+            : null,
+          regionName: f.region?.name ?? null,
+          isPassable: f.isPassable,
+        };
+      }),
       wrecks: wrecks
-        .filter((wreck) => wreck.location?.galaxyField != null)
+        .filter(
+          (wreck) =>
+            wreck.location?.galaxyField != null &&
+            visiblePositions.has(
+              `${wreck.location.galaxyField.cx},${wreck.location.galaxyField.cy}`,
+            ),
+        )
         .map((wreck) => ({
           id: wreck.id,
           x: wreck.location!.galaxyField!.cx,
@@ -3846,14 +3901,13 @@ export class SpacecraftService {
           hull: wreck.hull,
           cargo: wreck.cargo,
         })),
-      overlays: {
-        signatures: this.countFieldSignatures(
-          [ship, ...nearbyShips],
-          (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
-          (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
-        ),
-      },
-      ships: nearbyShips.map((s) => ({
+      overlays: { signatures: sensorView.signatures },
+      ships: nearbyShips
+        .filter((s) => {
+          const position = resolveSpacecraftLocation(s);
+          return position && visiblePositions.has(`${position.x},${position.y}`);
+        })
+        .map((s) => ({
         id: s.id,
         name: s.name,
         userId: s.userId,

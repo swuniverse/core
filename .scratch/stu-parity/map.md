@@ -162,6 +162,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-K3a – LSS-Störung, Bresenham-/Eckblockade und serverseitig opake Signaturzustände für System- und Galaxiekarten umgesetzt – siehe Feature-Commit
 - tmw-FA1b4 – Positives Koloniewachstum wird je Tick einmalig mit der aktuellen Eigentümerfraktion multipliziert und vor Kapazitätsgrenzen abgerundet – siehe Feature-Commit
 - tmw-FA1b3 – Fraktionsabhängige Forschungspunkte werden je Tick einmalig multipliziert und deterministisch abgerundet – siehe Feature-Commit
 - tmw-FA1b1 – Administrativ gepflegte Fraktionswählbarkeit wird im Onboarding angezeigt und serverseitig erzwungen – siehe Feature-Commit

@@ -151,11 +151,11 @@ export function NavigationPanel({
           : 'cx' in field && field.cx === navTarget.x && field.cy === navTarget.y,
       )
     : undefined;
-  const targetEffects = targetField
+  const targetEffects = targetField?.fieldType
     ? knownFieldEffects(targetField.effects ?? targetField.fieldType.effects)
     : [];
-  const targetEnergy = targetField?.energyCost ?? targetField?.fieldType.energyCost ?? 0;
-  const targetDamage = targetField?.damage ?? targetField?.fieldType.damage ?? 0;
+  const targetEnergy = targetField?.energyCost ?? targetField?.fieldType?.energyCost ?? 0;
+  const targetDamage = targetField?.damage ?? targetField?.fieldType?.damage ?? 0;
 
   const handleEnterSystem = async () => {
     setChangingSystem(true);
