@@ -1,6 +1,6 @@
 # Kontolöschung: Umgang mit Kolonien
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-05a, col-E2
@@ -35,3 +35,4 @@ Vorgabe: Variante (a). Ruinenmodell wie die freiwillige Abgabe (col-E2): Gebäud
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Kolonien eines gelöschten Kontos werden wie bei der freiwilligen SWU-Abgabe zu wiederbesiedelbaren Ruinen mit Gebäuden und Lager (gleicher Codepfad wie `giveUpColony`, Startkolonien-Sperre umgangen).
+- 2026-10-30: Blockiert durch sh-AP-05c. Der erforderliche Schiffs-Handler existiert nicht (`sh-AP-05c` steht auf `needs-info`), der Admin-Löschpfad lehnt Konten mit Schiffen weiterhin ab, und damit kann weder die geforderte Reihenfolge „Schiffe vor Kolonien“ registriert noch der Postgres-Integrationstest für eine vollständige Kontolöschung sinnvoll erfüllt werden. Produktcode wurde verworfen. Bitte zuerst sh-AP-05c lösen und dieses Issue danach erneut auf `ready-for-agent` setzen.
