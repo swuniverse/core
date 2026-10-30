@@ -1,6 +1,6 @@
 # Award bei vollständig entdeckter Datenbankkategorie und Meldung „Neuer Datenbankeintrag“
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-G1
@@ -44,3 +44,4 @@ Regions-Awards sind nicht Teil der ersten produktiven Konfiguration. Sie werden 
 
 - 2026-10-28 – Blocker: Das Issue verlangt eine produktive Konfiguration für fünf Kategorien, aber zwei davon sind noch nicht vollständig implementiert: Regionen hängen von `tmw-D4`/`tmw-K8b` ab, und für die Systemkategorie fehlt eine eindeutige Produktentscheidung, welche Sternensysteme je Ebene zur Vollständigkeit zählen (alle kartierten Systeme, alle generierten Systeme oder nur betretbare Systeme). Außerdem ist `tmw-D4` derzeit selbst noch blockiert. Bitte die Vollständigkeitsmenge für „Sternensysteme je Ebene“ festlegen und entscheiden, ob Regionen in diesem Issue bis `tmw-D4` ausgenommen werden oder `tmw-D5` entsprechend blockiert werden soll.
 - 2026-10-30 Product Owner: Option 3. Die Vollständigkeitsmenge je Ebene besteht aus Sternensystemen mit expliziter persistenter Katalogberechtigung. Bestehende produktive Systeme werden als berechtigt migriert; versteckte, Test- und Admin-Experimentsysteme können ausgeschlossen werden. Weder bloße Persistenz noch dynamische Erreichbarkeit definiert den Nenner. Regions-Awards werden bis zum autoritativen Katalog aus `tmw-K8b2` und `tmw-D4` zurückgestellt und blockieren die erste Umsetzung nicht.
+- 2026-10-30 – Blocker nach Implementierungsanalyse: Das Issue verlangt vier voneinander unabhängige Entdeckungspfade, persistente Meldungen, NPC-Ausschluss, katalog-/ebenenabhängige Vollständigkeit, Migration/Backfill, Award-Seeds und Frontend-Fortschritt samt Tests. Das überschreitet die verbindliche Issue-Größe M deutlich und lässt sich nicht in einem sicheren vertikalen Durchlauf umsetzen. Bitte in mindestens folgende Children teilen: (1) gemeinsame Kategorie-Award-Konfiguration und Completion-Service, (2) Schiffsrumpf-/Planetentyp-/Systemtyp-Integration mit Meldungen, (3) Systemkatalogmerkmal, Backfill und Systementdeckungsintegration je Ebene, (4) Datenbank-Hub-Fortschritt und Frontend-Meldungstests.
