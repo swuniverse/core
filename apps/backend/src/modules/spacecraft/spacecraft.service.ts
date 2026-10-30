@@ -108,6 +108,7 @@ import { FlightConsequencePipeline } from './flight-consequence-pipeline';
 import { CrewEnhancementEvent } from './crew-expertise';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { EscapePodService } from './escape-pod.service';
+import { DOCK_EPS_COST } from './docking.constants';
 
 @Injectable()
 export class SpacecraftService {
@@ -275,6 +276,7 @@ export class SpacecraftService {
       where: { userId },
       relations: [
         'modules',
+        'dockedAt',
         'fleet',
         'fleet.members',
         'location',
@@ -367,8 +369,13 @@ export class SpacecraftService {
     const normal =
       (ship.operatingMode ?? SpacecraftOperatingMode.NORMAL) !==
       SpacecraftOperatingMode.STANDBY;
+    const dockedAt = ship.dockedAtId
+      ? await this.shipRepo.findOneBy({ id: ship.dockedAtId })
+      : null;
     return {
       ...ship,
+      dockedAtId: ship.dockedAtId ?? null,
+      dockedAtName: dockedAt?.name ?? null,
       crew: crewRoster.length,
       crewMax: effective?.crewMax ?? ship.crewMax,
       operatingMode: ship.operatingMode ?? SpacecraftOperatingMode.NORMAL,
@@ -1400,6 +1407,8 @@ export class SpacecraftService {
       kind: ship.kind,
       stationRole: ship.stationRole,
       dockCapacity: ship.dockCapacity,
+      dockedAtId: ship.dockedAtId ?? null,
+      dockedAtName: ship.dockedAt?.name ?? null,
       dockedShips:
         ship.kind === 'STATION'
           ? await this.shipRepo.countBy({ dockedAtId: ship.id })
@@ -1935,10 +1944,12 @@ export class SpacecraftService {
     const shipClass = await this.shipClassService.findById(ship.shipClassId);
     if (!shipClass) throw new NotFoundException('Ship class not found');
     const energyCost = distance * shipClass.flightEnergyCost;
+    this.undockForFlight(ship);
     const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
       this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
       this.assertSystemsForFlight(member, 'sublight');
       this.consumeEps(member, energyCost, 'navigation');
+      this.undockForFlight(member);
     });
     this.consumeEps(ship, energyCost, 'navigation');
 
@@ -2108,10 +2119,12 @@ export class SpacecraftService {
     }
 
     const warpdriveCost = distance;
+    this.undockForFlight(ship);
     const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
       this.activateDriveForFlight(member, 'WARPDRIVE');
       this.assertSystemsForFlight(member, 'warp');
       this.consumeWarpdrive(member, warpdriveCost, 'galaxy flight');
+      this.undockForFlight(member);
     });
     this.consumeWarpdrive(ship, warpdriveCost, 'galaxy flight');
     ship.lastGalaxyFlightDirection = this.directionFromMove(
@@ -2262,9 +2275,11 @@ export class SpacecraftService {
       ship.lastGalaxyFlightDirection,
     );
 
+    this.undockForFlight(ship);
     const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
       this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
       this.assertSystemsForFlight(member, 'sublight');
+      this.undockForFlight(member);
     });
     const previousLocation = ship.location;
     const destination = await this.findLocationBySystemField(entryField.id);
@@ -2403,9 +2418,11 @@ export class SpacecraftService {
     const galaxyField = await this.galaxyFieldRepo.findOne({
       where: { layerId: system.layerId, cx: system.cx, cy: system.cy },
     });
+    this.undockForFlight(ship);
     const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
       this.activateDriveForFlight(member, 'WARPDRIVE');
       this.assertSystemsForFlight(member, 'warp');
+      this.undockForFlight(member);
     });
     const previousLocation = ship.location;
     const destination = galaxyField
@@ -2492,9 +2509,11 @@ export class SpacecraftService {
       : 1;
 
     const warpdriveCost = Math.max(1, galaxyDistance);
+    this.undockForFlight(ship);
     const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
       this.assertSystemsForFlight(member, 'warp');
       this.consumeWarpdrive(member, warpdriveCost, 'warp');
+      this.undockForFlight(member);
     });
     this.consumeWarpdrive(ship, warpdriveCost, 'warp');
 
@@ -2592,6 +2611,19 @@ export class SpacecraftService {
     }
   }
 
+  /** A docked ship leaves its station when a flight starts; the undocking costs 1 EPS (STU `DockConsequence`). */
+  private undockForFlight(ship: Spacecraft): void {
+    if (ship.dockedAtId == null) return;
+    if (ship.energy < DOCK_EPS_COST) {
+      throw new BadRequestException(
+        `${ship.name} konnte wegen Energiemangels nicht abgedockt werden`,
+      );
+    }
+    ship.energy -= DOCK_EPS_COST;
+    ship.dockedAtId = null;
+    ship.dockedAt = null;
+  }
+
   private consumeEps(ship: Spacecraft, amount: number, action: string): void {
     if (ship.energy < amount) {
       throw new BadRequestException(
@@ -2640,7 +2672,7 @@ export class SpacecraftService {
     const blocked: Array<{ member: Spacecraft; reason: string }> = [];
     const snapshots = new Map<
       Spacecraft,
-      Pick<Spacecraft, 'energy' | 'warpdrive' | 'runtimeSystems'>
+      Pick<Spacecraft, 'energy' | 'warpdrive' | 'runtimeSystems' | 'dockedAtId'>
     >();
     for (const member of members) {
       if (member.id === leader.id || !sameSpacecraftLocation(member, leader)) continue;
@@ -2657,6 +2689,7 @@ export class SpacecraftService {
         snapshots.set(member, {
           energy: member.energy,
           warpdrive: member.warpdrive,
+          dockedAtId: member.dockedAtId,
           runtimeSystems: structuredClone(member.runtimeSystems),
         });
         validate(member);
@@ -3405,7 +3438,14 @@ export class SpacecraftService {
               resolveSpacecraftLocation(target)?.scope === 'GALAXY' &&
               target.status === SpacecraftStatus.IDLE &&
               targetHyperdriveActive,
+            kind: target.kind,
             actions: {
+              dock:
+                target.kind === 'STATION' &&
+                target.userId === ship.userId &&
+                ship.kind === 'SHIP' &&
+                ship.dockedAtId == null &&
+                interactionAllowed('DOCK'),
               attack:
                 interactionAllowed('ATTACK') &&
                 systems.WEAPONS?.active === true,

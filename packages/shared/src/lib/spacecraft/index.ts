@@ -222,6 +222,8 @@ export interface SpacecraftListDto {
   stationRole: string | null;
   dockCapacity: number;
   dockedShips: number;
+  dockedAtId: number | null;
+  dockedAtName: string | null;
   status: string;
   specialStatus: 'IN_FLIGHT' | 'STANDBY' | 'CARTOGRAPHY_FINALIZATION' | null;
   alertState: SpacecraftAlertState;
@@ -292,6 +294,8 @@ export interface SpacecraftDetailDto {
   kind?: 'SHIP' | 'STATION';
   stationRole?: string | null;
   dockCapacity?: number;
+  dockedAtId?: number | null;
+  dockedAtName?: string | null;
   dockedShips?: Array<{
     id: number;
     name: string;
@@ -570,7 +574,9 @@ export interface SpacecraftNearbyTargetDto {
   inHyperspace: boolean;
   fleetId?: number | null;
   isFleetLeader?: boolean;
+  kind?: 'SHIP' | 'STATION';
   actions: {
+    dock?: boolean;
     attack: boolean;
     scan: boolean;
     intercept: boolean;
@@ -580,6 +586,12 @@ export interface SpacecraftNearbyTargetDto {
     tractor: boolean;
     boarding: boolean;
   };
+}
+
+export interface SpacecraftDockResultDto {
+  message: string;
+  /** Ships whose docking state changed. */
+  shipIds: number[];
 }
 
 export interface SpacecraftFieldContextDto {

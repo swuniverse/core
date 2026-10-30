@@ -405,4 +405,39 @@ describe('NearbySensorPanel', () => {
     await screen.findByText(/von Fremd/);
     expect(screen.queryByTitle('Rettungskapseln bergen')).toBeNull();
   });
+  it('docks at an own station from the NBS list', async () => {
+    const onUpdate = vi.fn();
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          id: 9,
+          name: 'Hoth-Depot',
+          isOwn: true,
+          kind: 'STATION',
+          actions: { ...nearby.ships[0].actions, dock: true },
+        },
+        { ...nearby.ships[0], id: 3, name: 'Fremd' },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({ message: 'Andockvorgang abgeschlossen', shipIds: [2] });
+    render(
+      <MemoryRouter>
+        <NearbySensorPanel
+          shipId={2}
+          locationKey="system:1:5:5"
+          systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTitle('An Fremd andocken')).toBeNull();
+    fireEvent.click(await screen.findByTitle('An Hoth-Depot andocken'));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/dock/9', {}),
+    );
+    expect(await screen.findByText('Andockvorgang abgeschlossen')).toBeTruthy();
+    expect(onUpdate).toHaveBeenCalled();
+  });
 });

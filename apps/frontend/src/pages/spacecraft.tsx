@@ -229,7 +229,7 @@ function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; le
   return (
     <tr onClick={onOpen} className="cursor-pointer hover:bg-white/5">
       <td className={cell}><img src={shipImage(ship.shipClassId, ship.shipClassKey)} alt={ship.shipClassName ?? ''} className="h-8 w-auto object-contain" /></td>
-      <td className={`${cell} font-medium text-swu-primary`}>{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">◆ {ship.name}</span> : ship.name}</td>
+      <td className={`${cell} font-medium text-swu-primary`}>{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">◆ {ship.name}</span> : ship.name}{ship.dockedAtId != null && <img src="/assets/buttons/dock1.png" title={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} alt={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} className="ml-1 inline-block size-4 align-middle" />}</td>
       <td className={`${cell} text-center`}><span role="img" title={alert.label} aria-label={alert.label} className={`inline-block size-3 border border-swu-border ${alert.className}`} /></td>
       <td className={`${cell} text-center`}><span title={ship.layer.name} aria-label={`Ebene ${ship.layer.name}`} className="font-mono text-swu-primary">L{ship.layer.id}</span></td>
       <td className={numberCell}>{location}</td>

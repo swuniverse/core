@@ -18,7 +18,8 @@ export type NearbyInteraction =
   | 'CONTACT'
   | 'TRANSFER'
   | 'MESSAGE'
-  | 'SALVAGE';
+  | 'SALVAGE'
+  | 'DOCK';
 
 /**
  * Rule sets for interactions offered by scan, NBS (`getNearby`) and intercept.
@@ -31,7 +32,8 @@ export type NearbyInteraction =
  * - Tractor beam (Traktorstrahl): a hook rejects MESSAGE and SALVAGE (and
  *   transfer) while the source is towed or towing, as in STU's tractor checks.
  * - Ion storm: a hook returns a rejection while the shared position carries an
- *   ion storm field effect that disables sensors or weapons.
+ *   ion storm field effect that disables sensors or weapons. Ships that are
+ *   docked (`sourceDocked` / `targetDocked` in the context) are exempt from it.
  */
 export const NEARBY_INTERACTION_RULES: Record<
   NearbyInteraction,
@@ -69,6 +71,14 @@ export const NEARBY_INTERACTION_RULES: Record<
     InteractionRule.SOURCE_UNCLOAKED,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.SOURCE_UNSHIELDED,
+  ],
+  // The station must have its shields down; the docking ship drops its own.
+  DOCK: [
+    InteractionRule.POSITION,
+    InteractionRule.SOURCE_UNCLOAKED,
+    InteractionRule.SOURCE_UNHYPERSPACED,
+    InteractionRule.TARGET_UNHYPERSPACED,
+    InteractionRule.TARGET_UNSHIELDED,
   ],
 };
 
@@ -113,6 +123,8 @@ export function buildNearbyInteractionContext(
     sourceBlocked: false,
     targetBlocked: false,
     stanceAllowed: true,
+    sourceDocked: (source as { dockedAtId?: number | null }).dockedAtId != null,
+    targetDocked: (target as { dockedAtId?: number | null }).dockedAtId != null,
   };
 }
 

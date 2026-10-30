@@ -141,7 +141,7 @@ describe('SpacecraftDetailPage', () => {
     );
 
     expect(await screen.findByText('Sensorphalanx')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Angedockte Schiffe' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Angedockte Schiffe/ })).toBeTruthy();
     expect(screen.getByText('Keine Schiffe angedockt')).toBeTruthy();
     expect(screen.getByText(/Lagerraum 0\/20/)).toBeTruthy();
     expect(screen.queryByText('Navigation')).toBeNull();

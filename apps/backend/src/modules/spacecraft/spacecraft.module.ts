@@ -4,6 +4,7 @@ import { SpacecraftController } from './spacecraft.controller';
 import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
+import { SpacecraftDockingService } from './spacecraft-docking.service';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './entities/spacecraft-module.entity';
 import { ColonyScan } from './entities/colony-scan.entity';
@@ -137,6 +138,7 @@ import {
     CartographyPlanService,
     TransferService,
     EpsTransferService,
+    SpacecraftDockingService,
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,

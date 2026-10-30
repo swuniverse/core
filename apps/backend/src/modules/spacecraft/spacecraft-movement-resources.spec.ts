@@ -278,6 +278,49 @@ describe('SpacecraftService movement resources', () => {
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
   });
 
+  it('undocks a docked ship for 1 EPS when the flight starts', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      shipClassId: 42,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      energy: 20,
+      dockedAtId: 100,
+      modules: [],
+    };
+    const targetField = { id: 31, starSystemId: 3, sx: 1, sy: 3, isPassable: true };
+    shipRepo.findOne.mockResolvedValue(ship);
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue(targetField);
+
+    await service.navigate(7, 1, 1, 3);
+
+    expect(ship.dockedAtId).toBeNull();
+    expect(ship.energy).toBe(17);
+  });
+
+  it('does not start the flight of a docked ship without the undocking EPS', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      shipClassId: 42,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      energy: 0,
+      dockedAtId: 100,
+      modules: [],
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ id: 31, starSystemId: 3, sx: 1, sy: 3, isPassable: true });
+
+    await expect(service.navigate(7, 1, 1, 3)).rejects.toThrow('abgedockt');
+    expect(shipRepo.save).not.toHaveBeenCalled();
+  });
+
   it('writes the canonical system location during navigation', async () => {
     const { service, shipRepo, systemRepo, systemFieldRepo, locationRepo } =
       createService();

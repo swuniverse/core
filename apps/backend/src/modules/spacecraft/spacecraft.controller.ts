@@ -32,6 +32,7 @@ import { SpacecraftService } from './spacecraft.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
+import { SpacecraftDockingService } from './spacecraft-docking.service';
 import { EscapePodService } from './escape-pod.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
@@ -372,6 +373,12 @@ export class SpacecraftController {
       salvage: async () => ({}),
       listLostCrew: async () => [],
     } as unknown as EscapePodService,
+    private readonly dockingService: SpacecraftDockingService = {
+      dock: async () => ({ message: '', shipIds: [] }),
+      undock: async () => ({ message: '', shipIds: [] }),
+      undockFromStation: async () => ({ message: '', shipIds: [] }),
+      undockAll: async () => ({ message: '', shipIds: [] }),
+    } as unknown as SpacecraftDockingService,
   ) {}
 
   // Static routes first (before :id)
@@ -1317,6 +1324,40 @@ export class SpacecraftController {
       targetId,
       dto.amount,
     );
+  }
+
+  @Post(':id/dock/:stationId')
+  dock(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('stationId', ParseIntPipe) stationId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingService.dock(id, req.user.sub, stationId);
+  }
+
+  @Post(':id/undock')
+  undock(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingService.undock(id, req.user.sub);
+  }
+
+  @Post(':id/docked/undock-all')
+  undockAll(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingService.undockAll(id, req.user.sub);
+  }
+
+  @Post(':id/docked/:targetId/undock')
+  undockStationShip(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingService.undockFromStation(id, req.user.sub, targetId);
   }
 
   @Post(':id/nearby/escape-pods/:podId/salvage')

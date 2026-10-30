@@ -267,3 +267,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-CREW-3a – Neutrale `EscapePod`-Entität, Crew-Ortsconstraint, Kapselstart bei Zerstörung/Lebenserhaltungsausfall, Tick-Landung, NBS-Eintrag; Baucrew-Reservierung entfernt – siehe Feature-Commit
 - sc-WP-CREW-3b – Rettungskapseln bergen (1 EPS, eigene Crew bis Kapazität) und Liste „Verschollene Crew“ – siehe Feature-Commit
 - sc-WP-CLOAK-1a – `CLOAK`-Laufzeitsystem (nur Imperium), Aktivierungsregeln, Unsichtbarkeit in NBS/LSS/Sternkarte/Kolonie-Scan, Interaktionssperren und Tarn-Icon/Schalter umgesetzt – siehe Feature-Commit
+- sc-WP-STAT-3a – Andocken/Abdocken (einzeln, Flotte atomar, Station einzeln/alle), Auto-Abdocken beim Flug für 1 EPS, Andock-Icon in der Schiffsliste, Ionensturm-Hook-Kontext (`sourceDocked`/`targetDocked`) – siehe Feature-Commit

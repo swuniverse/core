@@ -145,3 +145,34 @@ describe('nearby interaction decisions', () => {
     expect(decideNearbyInteraction('SCAN', cloakedSource).allowed).toBe(true);
   });
 });
+
+describe('dock interaction', () => {
+  afterEach(() => (INTERACTION_HOOKS.length = 0));
+
+  it('rejects a shielded station and a cloaked ship, and allows a plain dock', () => {
+    const base = buildNearbyInteractionContext(ship(1), systems(), ship(1), systems());
+    expect(decideNearbyInteraction('DOCK', base).allowed).toBe(true);
+    const shielded = buildNearbyInteractionContext(ship(1), systems(), ship(1), systems(false, true));
+    expect(decideNearbyInteraction('DOCK', shielded).reason).toBe('Das Ziel hat die Schilde aktiviert');
+    const cloaked = buildNearbyInteractionContext(
+      ship(1),
+      { CLOAK: { active: true } } as unknown as SpacecraftRuntimeSystems,
+      ship(1),
+      systems(),
+    );
+    expect(decideNearbyInteraction('DOCK', cloaked).reason).toBe('Die Tarnung ist aktiviert');
+  });
+
+  it('exposes docked state so ion storm hooks can exempt docked ships', () => {
+    const docked = { ...ship(1), dockedAtId: 9 } as unknown as Spacecraft;
+    const context = buildNearbyInteractionContext(docked, systems(), ship(1), systems());
+    expect(context.sourceDocked).toBe(true);
+    expect(context.targetDocked).toBe(false);
+    INTERACTION_HOOKS.push((_interaction, ctx) =>
+      ctx.sourceDocked ? null : { allowed: false, reason: 'Ionensturm' },
+    );
+    expect(decideNearbyInteraction('SCAN', context).allowed).toBe(true);
+    const free = buildNearbyInteractionContext(ship(1), systems(), ship(1), systems());
+    expect(decideNearbyInteraction('SCAN', free).allowed).toBe(false);
+  });
+});

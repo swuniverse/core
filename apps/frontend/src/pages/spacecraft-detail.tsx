@@ -17,6 +17,7 @@ import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
+import { DockingPanel } from '../components/spacecraft/DockingPanel';
 import { StationExpansionPanel } from '../components/spacecraft/StationExpansionPanel';
 import {
   spaceBackgroundTile,
@@ -258,14 +259,7 @@ export function SpacecraftDetailPage() {
         systems={ship.runtimeSystems}
         onUpdate={refreshShipAndStorage}
       />
-      {ship.kind === 'STATION' && (
-        <section className="mt-2 border border-swu-border bg-swu-surface text-xs">
-          <h2 className="border-b border-swu-border bg-black/30 px-3 py-2 font-bold text-swu-primary">Angedockte Schiffe</h2>
-          {ship.dockedShips?.length ? (
-            <ul>{ship.dockedShips.map((docked) => <li key={docked.id} className="flex justify-between border-b border-swu-border/50 px-3 py-2 last:border-0"><Link to={`/spacecraft/${docked.id}`} className="text-swu-primary">{docked.name}</Link><span>{docked.shipClassName} · Hülle {docked.hull}/{docked.hullMax}</span></li>)}</ul>
-          ) : <p className="px-3 py-2 text-swu-muted">Keine Schiffe angedockt</p>}
-        </section>
-      )}
+      <DockingPanel ship={ship} onChanged={refreshShipAndStorage} />
       <div className="mt-2">
         <div id="ship-storage">
           <ShipStoragePanel

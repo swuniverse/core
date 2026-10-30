@@ -216,6 +216,23 @@ describe('SpacecraftPage', () => {
     expect(screen.getAllByText('Hoth-Phalanx')).toHaveLength(1);
   });
 
+  it('shows the dock icon for docked ships only', async () => {
+    apiMocks.get.mockResolvedValue([
+      { ...ship, dockedAtId: 9, dockedAtName: 'Hoth-Depot' },
+      { ...ship, id: 3, name: 'Adler', dockedAtId: null, dockedAtName: null },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    const icons = await screen.findAllByAltText('Angedockt an Hoth-Depot');
+    expect(icons).toHaveLength(1);
+    expect(icons[0].getAttribute('src')).toBe('/assets/buttons/dock1.png');
+  });
+
   it('shows the cloak icon only for ships with a cloak generator', async () => {
     apiMocks.get.mockResolvedValue([
       {

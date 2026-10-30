@@ -240,43 +240,61 @@ export class SpacecraftRepairService {
     );
   }
 
-  async cancelForFlight(spacecraftIds: number | number[]): Promise<void> {
+  async cancelForFlight(
+    spacecraftIds: number | number[],
+    cause = 'Der Flug',
+  ): Promise<void> {
     const ids = Array.isArray(spacecraftIds) ? spacecraftIds : [spacecraftIds];
-    const cancelled = await this.dataSource.transaction(async (manager) => {
-      const results: Array<{ userId: number; name: string }> = [];
-      for (const spacecraftId of ids) {
-        const task = await manager.findOne(SpacecraftRepairTask, {
-          where: { spacecraftId },
-          relations: ['spacecraft'],
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!task) continue;
-        await this.refund(
-          manager,
-          spacecraftId,
-          SPARE_PARTS_ID,
-          task.spareParts,
-        );
-        await this.refund(
-          manager,
-          spacecraftId,
-          SYSTEM_COMPONENTS_ID,
-          task.systemComponents,
-        );
-        await manager.remove(task);
-        results.push({
-          userId: task.spacecraft.userId,
-          name: task.spacecraft.name,
-        });
-      }
-      return results;
-    });
+    const cancelled = await this.dataSource.transaction((manager) =>
+      this.cancelTasks(manager, ids),
+    );
+    await this.notifyCancelled(cancelled, cause);
+  }
+
+  /** Cancels and refunds running repairs inside the caller's transaction. */
+  async cancelTasks(
+    manager: EntityManager,
+    spacecraftIds: number[],
+  ): Promise<Array<{ userId: number; name: string }>> {
+    const results: Array<{ userId: number; name: string }> = [];
+    for (const spacecraftId of spacecraftIds) {
+      const task = await manager.findOne(SpacecraftRepairTask, {
+        where: { spacecraftId },
+        relations: ['spacecraft'],
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft_repair_tasks'] },
+      });
+      if (!task) continue;
+      await this.refund(
+        manager,
+        spacecraftId,
+        SPARE_PARTS_ID,
+        task.spareParts,
+      );
+      await this.refund(
+        manager,
+        spacecraftId,
+        SYSTEM_COMPONENTS_ID,
+        task.systemComponents,
+      );
+      await manager.remove(task);
+      results.push({
+        userId: task.spacecraft.userId,
+        name: task.spacecraft.name,
+      });
+    }
+    return results;
+  }
+
+  async notifyCancelled(
+    cancelled: Array<{ userId: number; name: string }>,
+    cause = 'Der Flug',
+  ): Promise<void> {
     await Promise.all(
       cancelled.map(({ userId, name }) =>
         this.messagingService.sendSystem(
           userId,
           'Schiffsreparatur abgebrochen',
-          `Der Flug der ${name} hat die laufende Reparatur abgebrochen. Die eingesetzten Teile wurden zurückerstattet.`,
+          `${cause} der ${name} hat die laufende Reparatur abgebrochen. Die eingesetzten Teile wurden zurückerstattet.`,
         ),
       ),
     );

@@ -32,6 +32,9 @@ export interface InteractionContext {
   sourceBlocked: boolean;
   targetBlocked: boolean;
   stanceAllowed: boolean;
+  /** Docked to a station; ion storm hooks exempt docked ships. Absent means not docked. */
+  sourceDocked?: boolean;
+  targetDocked?: boolean;
 }
 
 export interface InteractionDecision {

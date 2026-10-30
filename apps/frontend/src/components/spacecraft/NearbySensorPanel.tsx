@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type {
+  SpacecraftDockResultDto,
   SpacecraftNearbyDto,
   SpacecraftNearbyTargetDto,
   SpacecraftSalvagePodsResultDto,
@@ -96,6 +97,22 @@ export function NearbySensorPanel({
       active: !nbsActive,
     });
     onUpdate();
+  }
+
+  async function dock(target: SpacecraftNearbyTargetDto) {
+    setSalvageMessage(null);
+    setError(null);
+    try {
+      const result = await api.post<SpacecraftDockResultDto>(
+        `/spacecraft/${shipId}/dock/${target.id}`,
+        {},
+      );
+      setSalvageMessage(result.message);
+      await refreshNearby();
+      await onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Andocken fehlgeschlagen');
+    }
   }
 
   async function attack(target: SpacecraftNearbyTargetDto) {
@@ -212,6 +229,20 @@ export function NearbySensorPanel({
                         <img
                           src="/assets/buttons/fleet.png"
                           alt="Flotte beitreten"
+                          className="inline size-4"
+                        />
+                      </button>
+                    )}
+                    {target.actions.dock && (
+                      <button
+                        type="button"
+                        onClick={() => void dock(target)}
+                        title={`An ${target.name} andocken`}
+                        className="mr-1"
+                      >
+                        <img
+                          src="/assets/buttons/dock1.png"
+                          alt={`An ${target.name} andocken`}
                           className="inline size-4"
                         />
                       </button>
