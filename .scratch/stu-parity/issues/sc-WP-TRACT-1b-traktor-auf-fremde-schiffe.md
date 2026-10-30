@@ -1,6 +1,6 @@
 # Traktorstrahl auf fremde Schiffe und Entkommen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-TRACT-1a
