@@ -8,6 +8,10 @@ import { WsEventType } from '@swuniverse/shared';
 import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '../events/entities/game-event.entity';
 import {
+  buildNearbyInteractionContext,
+  decideNearbyInteraction,
+} from './nearby-interaction';
+import {
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
 } from './spacecraft-field';
@@ -58,8 +62,19 @@ export class HyperdriveDisruptionService {
     ) {
       throw new BadRequestException('Ziel befindet sich nicht im Hyperraum');
     }
-    if (!sameSpacecraftLocation(interceptor, target)) {
-      throw new BadRequestException('Ziel ist nicht auf diesem Feld');
+    const decision = decideNearbyInteraction(
+      'INTERCEPT',
+      buildNearbyInteractionContext(
+        interceptor,
+        interceptorSystems,
+        target,
+        this.runtimeState.initialize(target),
+      ),
+    );
+    if (!decision.allowed) {
+      throw new BadRequestException(
+        decision.reason ?? 'Ziel ist nicht auf diesem Feld',
+      );
     }
     const targetFleet = target.fleetId
       ? await this.shipRepo.find({

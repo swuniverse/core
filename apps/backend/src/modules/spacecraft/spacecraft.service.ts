@@ -73,6 +73,11 @@ import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { StationClassDiscoveryService } from './station-class-discovery.service';
+import {
+  buildNearbyInteractionContext,
+  decideNearbyInteraction,
+  type NearbyInteraction,
+} from './nearby-interaction';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
 import { CartographyPlanService } from './cartography-plan.service';
@@ -2972,9 +2977,18 @@ export class SpacecraftService {
     });
     if (!target || target.status === SpacecraftStatus.DESTROYED)
       throw new NotFoundException('Zielschiff nicht gefunden');
-    if (!sameSpacecraftLocation(ship, target))
+    const scanDecision = decideNearbyInteraction(
+      'SCAN',
+      buildNearbyInteractionContext(
+        ship,
+        systems,
+        target,
+        this.spacecraftRuntimeStateService.initialize(target),
+      ),
+    );
+    if (!scanDecision.allowed)
       throw new BadRequestException(
-        'Ziel muss sich auf demselben Feld befinden',
+        scanDecision.reason ?? 'Ziel muss sich auf demselben Feld befinden',
       );
     ship.energy--;
     await this.shipRepo.save(ship);
@@ -3295,6 +3309,14 @@ export class SpacecraftService {
             this.spacecraftRuntimeStateService.initialize(target);
           const targetHyperdriveActive =
             targetSystems.WARPDRIVE?.active === true;
+          const interactionContext = buildNearbyInteractionContext(
+            ship,
+            systems,
+            target,
+            targetSystems,
+          );
+          const interactionAllowed = (interaction: NearbyInteraction) =>
+            decideNearbyInteraction(interaction, interactionContext).allowed;
           return {
             id: target.id,
             name: target.name,
@@ -3315,25 +3337,19 @@ export class SpacecraftService {
               targetHyperdriveActive,
             actions: {
               attack:
-                !hyperdriveActive &&
-                !targetHyperdriveActive &&
+                interactionAllowed('ATTACK') &&
                 systems.WEAPONS?.active === true,
-              scan: true,
+              scan: interactionAllowed('SCAN'),
               intercept:
+                interactionAllowed('INTERCEPT') &&
                 location.scope === 'GALAXY' &&
                 resolveSpacecraftLocation(target)?.scope === 'GALAXY' &&
                 targetHyperdriveActive &&
                 ship.status === SpacecraftStatus.IDLE &&
                 (systems.WARPDRIVE?.integrity ?? 0) > 0,
               contact:
-                target.userId !== ship.userId &&
-                (location.scope === 'SYSTEM' || !hyperdriveActive) &&
-                (resolveSpacecraftLocation(target)?.scope === 'SYSTEM' ||
-                  !targetHyperdriveActive),
-              transfer:
-                (location.scope === 'SYSTEM' || !hyperdriveActive) &&
-                (resolveSpacecraftLocation(target)?.scope === 'SYSTEM' ||
-                  !targetHyperdriveActive),
+                target.userId !== ship.userId && interactionAllowed('CONTACT'),
+              transfer: interactionAllowed('TRANSFER'),
               energyTransfer: false,
               tractor: false,
               boarding: false,

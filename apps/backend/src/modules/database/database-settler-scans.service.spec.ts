@@ -79,7 +79,9 @@ function createService(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   const service = Object.create(DatabaseService.prototype) as DatabaseService;
-  Object.assign(service as object, repos);
+  Object.assign(service as object, repos, {
+    profileVisitorService: { registerVisit: jest.fn() },
+  });
   return { service, repos };
 }
 
