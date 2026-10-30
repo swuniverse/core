@@ -17,9 +17,8 @@ import {
   AlertState,
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
-import { CombatEngine, CombatResult } from './combat.engine';
-import { GameGateway } from '../websocket/game.gateway';
-import { FieldEffect, knownFieldEffects, WsEventType } from '@swuniverse/shared';
+import { CombatResult } from './combat.engine';
+import { BattleResolverService } from './battle-resolver.service';
 import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStats } from '../colony/entities/colony-stats.entity';
@@ -65,17 +64,15 @@ export class CombatService {
     private readonly colonyStatsRepo: Repository<ColonyStats>,
     @InjectRepository(ColonyField)
     private readonly colonyFieldRepo: Repository<ColonyField>,
-    private readonly engine: CombatEngine,
-    private readonly gateway: GameGateway,
     private readonly spacecraftCrewService: SpacecraftCrewService,
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly gameData: GameDataService,
     private readonly colonyEventService: ColonyEventService,
     private readonly colonyDamageService: ColonyDamageService,
     private readonly destructionService: SpacecraftDestructionService,
-    private readonly reportFormatter: CombatReportFormatter,
     private readonly statisticsService: StatisticsService,
     private readonly interactionContext: InteractionContextService,
+    private readonly battleResolver: BattleResolverService,
   ) {}
 
   async attack(
@@ -151,47 +148,19 @@ export class CombatService {
           (defender.fleetId != null && ship.fleetId === defender.fleetId) ||
           [AlertState.YELLOW, AlertState.RED].includes(ship.alertState)),
     );
-    if (!attackers.some((ship) => ship.id === attacker.id)) attackers.push(attacker);
-    if (!defenders.some((ship) => ship.id === defender.id)) defenders.push(defender);
-    const participants = [...attackers, ...defenders];
-    const modules = await this.moduleRepo.find({
-      where: participants.map((ship) => ({ spacecraftId: ship.id })),
+    if (!attackers.some((ship) => ship.id === attacker.id))
+      attackers.push(attacker);
+    if (!defenders.some((ship) => ship.id === defender.id))
+      defenders.push(defender);
+
+    return this.battleResolver.resolve({
+      attackers,
+      defenders,
+      initiatorShipId: attacker.id,
+      targetShipId: defender.id,
+      attackerUserId: attacker.userId,
+      defenderUserId: defender.userId,
     });
-    const party = (ships: Spacecraft[]) =>
-      ships.map((ship) => ({
-        ship,
-        modules: modules.filter((module) => module.spacecraftId === ship.id),
-        ...this.fieldEffectContext(ship),
-      }));
-
-    for (const ownerId of new Set(participants.map((ship) => ship.userId))) {
-      this.gateway.emitToUser(ownerId, WsEventType.COMBAT_STARTED, {
-        attackerId: attacker.id,
-        defenderId: defender.id,
-      });
-    }
-
-    const result = await this.engine.resolveBattle(party(attackers), party(defenders));
-    const destroyedIds = new Set(result.destroyedShipIds);
-    for (const ship of participants) {
-      if (destroyedIds.has(ship.id)) {
-        const destroyerUserId = attackers.some(
-          (participant) => participant.id === ship.id,
-        )
-          ? defender.userId
-          : attacker.userId;
-        await this.destructionService.destroyFromCombat(
-          ship.id,
-          destroyerUserId,
-        );
-      } else {
-        await this.destructionService.saveCombatSurvivor(ship);
-      }
-    }
-    await this.moduleRepo.save(modules);
-    await this.countCombat(destroyedIds.size);
-
-    return this.reportFormatter.formatBattle(result, attackers, defenders);
   }
 
   async attackColony(
@@ -410,23 +379,6 @@ export class CombatService {
     'location.systemField',
     'location.systemField.fieldType',
   ];
-
-  private fieldEffectContext(ship: Spacecraft): {
-    fieldEffects: FieldEffect[];
-    fieldTypeName?: string;
-  } {
-    const field =
-      ship.location.kind === 'SYSTEM_FIELD'
-        ? ship.location.systemField
-        : ship.location.galaxyField;
-    return {
-      fieldEffects: knownFieldEffects([
-        ...(field?.fieldType?.effects ?? []),
-        ...(field && 'effects' in field ? (field.effects ?? []) : []),
-      ]),
-      fieldTypeName: field?.fieldType?.name,
-    };
-  }
 
   /** Zählt ein abgeschlossenes Gefecht und die darin zerstörten Schiffe. */
   private async countCombat(destroyedShips: number): Promise<void> {

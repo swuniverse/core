@@ -185,6 +185,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-F2 – Warenmetadaten, Beam- und Kontobindungsregeln sowie sortierte sichtbare Lageranzeigen umgesetzt – siehe Feature-Commit
 - sc-WP-FLEET-1a – Flottenverwaltung und Schiffsaktionen vollständig – siehe Feature-Commit
 - sc-WP-COMBAT-2 – Mehrparteienkampf für Flotten und alarmierte Mitverteidiger – siehe Feature-Commit
+- sc-WP-COMBAT-1b – interner kontextfreier Battle-Resolver (`BattleResolverService`) – siehe Feature-Commit
 - sc-WP-COMBAT-3 – Kampfprestige, intakte Module im Wrack und globale Zerstörungshistory – siehe Feature-Commit
 - sc-WP-CLEAN-1 – Freie Modulinstallation, -aufrüstung und -entfernung aus der Spieler-API entfernt – siehe Feature-Commit
 - sc-WP-CREW-1 – Crewposten, Crewdetails und Umbenennen am Schiff umgesetzt – siehe Feature-Commit

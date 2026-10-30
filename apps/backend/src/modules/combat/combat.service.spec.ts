@@ -29,6 +29,7 @@ jest.mock('../messaging/messaging.service', () => ({
 }));
 
 import { CombatService } from './combat.service';
+import { BattleResolverService } from './battle-resolver.service';
 import { SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
 import { ColonyDefenseService } from '../colony/colony-defense.service';
 
@@ -117,23 +118,29 @@ function createService() {
   const interactionContext = {
     load: jest.fn(async () => ({ targetOnVacation: false })),
   };
+  const battleResolver = new BattleResolverService(
+    moduleRepo as any,
+    engine as any,
+    gateway as any,
+    destructionService as any,
+    reportFormatter as any,
+    statistics as any,
+  );
   const service = new CombatService(
     shipRepo as any,
     moduleRepo as any,
     colonyRepo as any,
     colonyStatsRepo as any,
     colonyFieldRepo as any,
-    engine as any,
-    gateway as any,
     spacecraftCrewService as any,
     colonyDefenseService as any,
     gameData as any,
     colonyEventService as any,
     colonyDamageService as any,
     destructionService as any,
-    reportFormatter as any,
     statistics as any,
     interactionContext as any,
+    battleResolver as any,
   );
   return {
     service,
@@ -147,6 +154,9 @@ function createService() {
     colonyDamageService,
     colonyFieldRepo,
     engine,
+    gateway,
+    reportFormatter,
+    battleResolver,
     statistics,
     destructionService,
     interactionContext,

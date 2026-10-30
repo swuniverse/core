@@ -55,8 +55,12 @@ export class CombatReportFormatter {
       rounds: result.rounds.map((round) => ({
         number: round.round,
         lines: round.log.map((entry) => {
-          const source = entry.sourceId ? ships.get(entry.sourceId)?.name : undefined;
-          const target = entry.targetId ? ships.get(entry.targetId)?.name : undefined;
+          const source = entry.sourceId
+            ? ships.get(entry.sourceId)?.name
+            : undefined;
+          const target = entry.targetId
+            ? ships.get(entry.targetId)?.name
+            : undefined;
           return {
             kind: entry.action,
             text: this.battleLine(entry, source, target),
@@ -91,7 +95,9 @@ export class CombatReportFormatter {
     target?: string,
   ): string {
     if (
-      [CombatAction.ENERGY_HIT, CombatAction.PROJECTILE_HIT].includes(entry.action)
+      [CombatAction.ENERGY_HIT, CombatAction.PROJECTILE_HIT].includes(
+        entry.action,
+      )
     ) {
       return `${source ?? 'Schiff'} feuert mit ${entry.weapon ?? 'Waffe'} auf ${target ?? 'Ziel'} (${entry.value ?? 0} Schaden).`;
     }

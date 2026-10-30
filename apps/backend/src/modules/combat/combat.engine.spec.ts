@@ -87,9 +87,12 @@ describe('CombatEngine battle parties', () => {
       ]),
       getWeaponShieldModifier: jest.fn(() => 100),
     };
-    const engine = new CombatEngine(gameData as any, {
-      consumeForAttack: jest.fn(async () => null),
-    } as any);
+    const engine = new CombatEngine(
+      gameData as any,
+      {
+        consumeForAttack: jest.fn(async () => null),
+      } as any,
+    );
     const ship = (id: number, hull = 100) =>
       ({
         id,
@@ -132,9 +135,9 @@ describe('CombatEngine battle parties', () => {
       ]),
     );
     expect(result.destroyedShipIds).toContain(3);
-    expect(
-      result.rounds[0].log.some((entry) => entry.sourceId === 3),
-    ).toBe(false);
+    expect(result.rounds[0].log.some((entry) => entry.sourceId === 3)).toBe(
+      false,
+    );
   });
 });
 

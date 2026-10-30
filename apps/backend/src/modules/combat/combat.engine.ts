@@ -651,7 +651,10 @@ export class CombatEngine {
     }
   }
 
-  private fieldEffectMessage(effect: FieldEffect, fieldTypeName?: string): string {
+  private fieldEffectMessage(
+    effect: FieldEffect,
+    fieldTypeName?: string,
+  ): string {
     const field = fieldTypeName ?? 'unbekannten Feldtyp';
     switch (effect) {
       case FieldEffect.HIT_CHANCE_INTERFERENCE:
