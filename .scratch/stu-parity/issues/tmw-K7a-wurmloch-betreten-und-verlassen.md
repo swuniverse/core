@@ -1,6 +1,6 @@
 # Wurmloch betreten und verlassen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
@@ -36,3 +36,5 @@ Ein Schiff auf einem Wurmlocheingang kann das Wurmloch betreten und erscheint am
 
 - 2026-10-28: Blockiert durch eine fehlende Produktentscheidung: Das Akzeptanzkriterium verlangt „Kosten wie ein Flugschritt“, aber SWU hat zwei unterschiedliche Flugressourcen (Systemflug verbraucht rumpfabhängige EPS, Galaxieflug verbraucht Warpdrive). Bitte festlegen, ob eine Wurmlochpassage rumpfabhängige EPS, Warpdrive oder eine andere feste Ressource kostet. Zusätzlich bitte festlegen, ob der Kostenbegriff für jedes Flottenmitglied separat gilt.
 - 2026-10-30 Product Owner: Option 1. Wurmlochpassagen folgen der aktuellen STU-Laufzeitsemantik statt der ungenauen Formulierung „Kosten wie ein Flugschritt“. Beim Eintritt muss jedes bewegte Schiff einen funktionsfähigen Sublight-/Impulsantrieb besitzen; nur wenn dieser inaktiv ist, fällt für dieses Schiff dessen normale Aktivierungs-EPS an. Die Passage selbst verbraucht weder rumpfabhängige Flug-EPS noch Warpdrive. Beim Austritt fällt keine Antriebs- oder Streckenressource an. Flotten werden in SWU vollständig vorab und atomar validiert; jedes Mitglied muss seine eigene gegebenenfalls anfallende Aktivierungs-EPS tragen, Teilresultate wie in STU werden nicht übernommen. `isRandomExit` bleibt eine SWU-Funktion und wählt über einen injizierbaren RNG deterministisch testbar ein passierbares Feld der Zielebene. Ankunft führt Zielfeld-Pipeline, Erkundung, Ebenenkenntnis aus `tmw-K5c`, Signatur/Log und Reparaturabbruch in derselben erfolgreichen Operation aus. Das Issue ist `ready-for-agent`.
+
+- 2026-10-30 Ralph: Abbruch vor Produktcode: Das Issue ist trotz markierter Größe M ein vertikaler Querschnitt über transaktionale/atomare Flottenbewegung, neue Zugriffs-Policy, deterministische Zufallsauswahl, Zielfeld-Pipeline, Signaturen/Schiffslog, Reparaturabbruch, Ebenenkenntnis, Shared-DTO, Feldkontext und Frontend-Test. Die bestehende `SpacecraftService`-Flottenlogik ist zudem bei nicht fixierten Flotten bewusst partiell und damit nicht direkt für die geforderte vollständige atomare Vorabvalidierung wiederverwendbar. Bitte das Issue in geordnete Backend-Kern-, Integrations-/Flotten- und Frontend-Children aufteilen oder ausdrücklich als L/XL-Einzelissue freigeben.
