@@ -1,6 +1,6 @@
 # Rettungskapseln: Start bei Zerstörung und Landung auf eigener Kolonie
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-6a
@@ -30,7 +30,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Akzeptanzkriterien
 
 - [ ] Rettungskapseln sind eine dedizierte neutrale `EscapePod`-Entity, keine `Spacecraft`-Variante und kein Objekt eines Fake-Systemspielers. Sie speichert Position, unveränderliche Herkunftsschiff-Metadaten, Ursprungsfraktion, Präsentationsschlüssel, Startgrund und individuelle Crew-Zuweisungen.
-- [ ] Crew-Zuweisungen erzwingen genau einen Aufenthaltsort aus Kolonie, Schiff und Rettungskapsel. Crew-ID, Eigner, Name, Typ, Rang, Expertise und sonstiger Individualzustand bleiben bei Transfers erhalten.
+- [ ] Crew-Zuweisungen erzwingen genau einen Aufenthaltsort aus Kolonie, Schiff und Rettungskapsel. Crew-ID, Eigner, Name, Typ, Rang, Expertise und sonstiger Individualzustand bleiben bei Transfers erhalten. Schiffbauaufträge sind kein Crew-Aufenthaltsort und reservieren keine individuellen Crew-Zuweisungen.
 - [ ] Zerstörung, Selbstzerstörung und Lebenserhaltungsausfall verschieben Crew und erzeugen die Kapsel atomar statt Crew zu löschen; Wrack-Aggregate dürfen Kapselinsassen nicht doppelt zählen. Kampf- bzw. Tickbericht meldet die Evakuierung.
 - [ ] Bei Spezialschaden wird zuerst ein existierendes passierbares Nachbarfeld in letzter Flugrichtung gewählt, sonst deterministisch ein gültiges orthogonales Nachbarfeld; existiert keines, bleibt die Kapsel auf dem Ursprungsfeld.
 - [ ] Tick-Landung überträgt nur Crew, deren Eigner dem Kolonieeigner entspricht, bis zur lokalen freien Crewkapazität. Fremde und überschüssige Crew bleibt in der Kapsel; nur leere Kapseln werden entfernt; der Eigner erhält eine aggregierte Meldung.
@@ -43,8 +43,11 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 Rettungskapseln werden als eigener neutraler Aggregate Root modelliert und bewahren einzelne Crewmitglieder vollständig. Die fraktionsbezogenen Definitionen dienen ausschließlich Sensorik und Darstellung, nicht als normale Schiffsklassen. Landung überträgt nur passende eigene Crew im Rahmen der lokalen Kapazität; Restinsassen bleiben erhalten.
 
+Schiffbau reserviert keine individuelle Crew. Ein Bauauftrag beschreibt lediglich den Crewbedarf der Schiffsklasse; das fertiggestellte Schiff entsteht unbemannt. Crew wird anschließend über den normalen Crewtransfer von einer Kolonie oder einem dafür geeigneten Transporter zugewiesen. Bauaufträge sind daher kein vierter Aufenthaltsort von `CrewAssignment`; bestehende `crewIds`-Reservierungen und ortlose Baucrew sind aus dem produktiven Modell zu entfernen beziehungsweise sicher zu migrieren.
+
 ## Comments
 
 - 2026-10-22: Abbruch vor Produktcodeänderungen: Die geforderte „Kapselklasse je Fraktion in `game-data`“ braucht konkrete, kanonnahe Star-Wars-Klassen (Namen, IDs/Keys und Assets) sowie eine Entscheidung, ob Rettungskapseln trotz neutralem Besitz als `Spacecraft` mit der ursprünglichen Fraktionsklasse oder als eigene Entity modelliert werden. Das bestehende `Spacecraft`-Modell verlangt einen Spieler-Eigner und eine `ShipClassDef`; STU nutzt dagegen den Fallback-Spieler „niemand“. Bitte diese Eigentums- und Klassenzuordnung festlegen.
 - 2026-10-27 Product Owner: Eigene neutrale `EscapePod`-Entität mit individuellen Crew-Zuweisungen. Fraktionsdefinitionen sind reine Präsentationsdaten; Crew-Identität, Rang und Expertise bleiben erhalten, und Landung überträgt nur Crew des Kolonieeigners bis zur freien Kapazität.
 - 2026-10-27: Abbruch ohne Produktcodeänderungen: Das Issue kollidiert mit dem bestehenden Schiffbau-Reservierungsmodell, in dem `CrewAssignment` während eines Bauauftrags weder Kolonie noch Schiff zugeordnet ist. Für den geforderten Integritätsconstraint braucht es eine Produkt-/Domänenentscheidung: Soll `shipBuildQueueId` als vierter kanonischer Aufenthaltsort modelliert und das Kriterium entsprechend erweitert werden, oder sollen Bauaufträge Crew künftig an der Kolonie belassen und lediglich reservieren? Diese Vorarbeit betrifft Schiffbau, Abbruch, Hangarstart und Destruktions-Hooks und ist nicht als Voraussetzung im Issue erfasst.
+- 2026-10-30 Product Owner: Option 4, präzisiert nach STU-Spielsemantik. Beim Bau wird keine individuelle Crew reserviert. Der Auftrag enthält nur den Crewbedarf der Schiffsklasse; das Schiff wird unbemannt fertiggestellt. Crew gelangt erst danach über den normalen Transfer von einer Kolonie oder einem geeigneten Transporter auf das Schiff. `shipBuildQueueId` wird deshalb kein Crew-Aufenthaltsort. Die bestehende SWU-Reservierung über `queue.crewIds` und Crew ohne kanonischen Ort ist zu entfernen beziehungsweise bei Bestandsdaten sicher zurückzuführen. Damit bleibt der Integritätsconstraint auf genau Kolonie, Schiff oder Rettungskapsel beschränkt und das Issue ist vollständig spezifiziert.
