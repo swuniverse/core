@@ -71,6 +71,8 @@ describe('InteractionContextService', () => {
       sourceCombatCapable: true,
       sourceInHyperspace: false,
       targetInHyperspace: true,
+      sourceCloaked: false,
+      targetCloaked: false,
       sourceShieldsActive: true,
       targetShieldsActive: false,
       targetOnVacation: true,

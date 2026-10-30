@@ -104,6 +104,7 @@ export function ShipControlCenter({
   };
   const torpedoState = systems?.TORPEDO_BANK;
   const laboratory = systems?.ASTROMETRY_LAB;
+  const cloak = systems?.CLOAK;
   return (
     <section>
       <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface text-xs">
@@ -184,6 +185,23 @@ export function ShipControlCenter({
             <span className="leading-5">
               Astrometrisches Labor{' '}
               {laboratory.active ? 'deaktivieren' : 'aktivieren'}
+            </span>
+          </button>
+        )}
+        {cloak && (
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => void toggle('CLOAK', !cloak.active)}
+            className="flex w-full items-center gap-2 border-b border-swu-border px-2 py-1.5 text-left text-swu-primary hover:bg-white/5 disabled:opacity-40"
+          >
+            <img
+              src={`/assets/buttons/${cloak.active ? 'tarn1.png' : 'tarn2.png'}`}
+              alt=""
+              className="size-5 shrink-0 self-center"
+            />
+            <span className="leading-5">
+              Tarnung {cloak.active ? 'deaktivieren' : 'aktivieren'}
             </span>
           </button>
         )}

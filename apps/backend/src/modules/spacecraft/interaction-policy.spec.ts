@@ -10,6 +10,8 @@ const allowedContext = (): InteractionContext => ({
   sourceCombatCapable: true,
   sourceInHyperspace: false,
   targetInHyperspace: false,
+  sourceCloaked: false,
+  targetCloaked: false,
   sourceShieldsActive: false,
   targetShieldsActive: false,
   targetOnVacation: false,

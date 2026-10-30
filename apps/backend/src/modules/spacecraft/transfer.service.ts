@@ -613,6 +613,14 @@ export class TransferService {
   ): Promise<string | null> {
     const systems = (ship: Spacecraft) =>
       ship.runtimeSystems as Record<string, { active?: boolean }>;
+    const cloakDecision = checkInteraction(
+      await this.interactionContext.load(sourceShip.id, targetShip.id, [
+        'sourceCloaked',
+        'targetCloaked',
+      ]),
+      [InteractionRule.SOURCE_UNCLOAKED, InteractionRule.TARGET_UNCLOAKED],
+    );
+    if (!cloakDecision.allowed) return cloakDecision.reason;
     if (sourceShip.userId !== targetShip.userId) {
       const decision = checkInteraction(
         await this.interactionContext.load(sourceShip.id, targetShip.id, [

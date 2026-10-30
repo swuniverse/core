@@ -387,4 +387,135 @@ describe('spacecraft core detail controls', () => {
       service.toggleSystem(2, 1, 'LONG_RANGE_SENSORS', true),
     ).resolves.toEqual(expect.objectContaining({ systems: expect.anything() }));
   });
+
+  describe('cloak', () => {
+    const cloakShip = (faction: string | null = 'GALACTIC_EMPIRE') => {
+      const { service, ship } = createService();
+      ship.modules = [
+        {
+          moduleType: 'Tarnvorrichtung',
+          category: 'SPECIAL',
+          isActive: false,
+          integrity: 100,
+        } as never,
+      ];
+      ship.runtimeSystems = {
+        CLOAK: { active: false, cooldown: 0, integrity: 100 },
+        SHIELDS: { active: true, cooldown: 0, integrity: 100 },
+        WEAPONS: { active: true, cooldown: 0, integrity: 100 },
+        TORPEDO_BANK: { active: true, cooldown: 0, integrity: 100 },
+        ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 },
+      };
+      (ship as any).dockedAtId = 9;
+      (service as any).userRepo = {
+        findOneBy: jest.fn(async () => ({ id: 1, faction })),
+      };
+      (
+        service as any
+      ).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(1);
+      return { service, ship: ship as any };
+    };
+
+    it('shuts down shields, weapons and the laboratory, undocks and charges EPS', async () => {
+      const { service, ship } = cloakShip();
+
+      await service.toggleSystem(2, 1, 'CLOAK', true);
+
+      expect(ship.runtimeSystems.CLOAK.active).toBe(true);
+      for (const key of ['SHIELDS', 'WEAPONS', 'TORPEDO_BANK', 'ASTROMETRY_LAB']) {
+        expect(ship.runtimeSystems[key].active).toBe(false);
+      }
+      expect(ship.dockedAtId).toBeNull();
+      expect(ship.energy).toBe(10);
+      expect(
+        (service as any).cartographyPlanService.resetFinishingForSpacecraft,
+      ).toHaveBeenCalledWith(2);
+    });
+
+    it('refuses activation for the Rebel Alliance and deactivates stored cloaks', async () => {
+      const { service, ship } = cloakShip('REBEL_ALLIANCE');
+      ship.runtimeSystems.CLOAK.active = true;
+
+      await expect(service.toggleSystem(2, 1, 'CLOAK', true)).rejects.toThrow(
+        'Galaktischen Imperium vorbehalten',
+      );
+      await service.toggleSystem(2, 1, 'SHIELDS', false);
+
+      expect(ship.runtimeSystems.CLOAK.active).toBe(false);
+    });
+
+    it('refuses activation under red alert and without EPS', async () => {
+      const { service, ship } = cloakShip();
+      ship.alertState = AlertState.RED;
+      await expect(service.toggleSystem(2, 1, 'CLOAK', true)).rejects.toThrow(
+        'Alarmstufe Rot',
+      );
+      ship.alertState = AlertState.GREEN;
+      ship.energy = 9;
+      await expect(service.toggleSystem(2, 1, 'CLOAK', true)).rejects.toThrow(
+        'Nicht genug EPS',
+      );
+    });
+
+    it.each(['SHIELDS', 'WEAPONS', 'TORPEDO_BANK', 'ASTROMETRY_LAB'] as const)(
+      'refuses %s activation while cloaked',
+      async (key) => {
+        const { service, ship } = cloakShip();
+        ship.runtimeSystems.CLOAK.active = true;
+        ship.runtimeSystems[key].active = false;
+
+        await expect(service.toggleSystem(2, 1, key, true)).rejects.toThrow(
+          'Tarnung',
+        );
+      },
+    );
+  });
+
+  describe('nearby sensors and cloak', () => {
+    it('lists foreign cloaked ships for nobody but their owner', async () => {
+      const { service, ship } = createService();
+      const query: any = {
+        leftJoinAndSelect: jest.fn(() => query),
+        where: jest.fn(() => query),
+        andWhere: jest.fn(() => query),
+        leftJoin: jest.fn(() => query),
+        getMany: jest.fn(async () => [
+          { id: 7, userId: 5, status: 'IDLE', runtimeSystems: {} },
+          {
+            id: 8,
+            userId: 5,
+            status: 'IDLE',
+            runtimeSystems: { CLOAK: { active: true } },
+          },
+          {
+            id: 9,
+            userId: 1,
+            status: 'IDLE',
+            runtimeSystems: { CLOAK: { active: true } },
+          },
+        ]),
+      };
+      (ship as any).locationId = 100;
+      (ship as any).location = {
+        id: 100,
+        kind: 'GALAXY_FIELD',
+        galaxyField: { layerId: 1, cx: 1, cy: 1 },
+        systemField: null,
+      };
+      (service as any).shipRepo.createQueryBuilder = jest.fn(() => query);
+      (service as any).dataSource = {
+        getRepository: jest.fn(() => ({ createQueryBuilder: () => query })),
+      };
+      (service as any).escapePodService = { listNearby: jest.fn(async () => []) };
+      jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);
+      const systems = (service as any).spacecraftRuntimeStateService;
+      systems.initialize.mockImplementation((value: any) => ({
+        SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+        ...value.runtimeSystems,
+      }));
+      const result = await service.getNearby(2, 1);
+
+      expect(result.ships.map((target) => target.id)).toEqual([7, 9]);
+    });
+  });
 });

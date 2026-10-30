@@ -4,6 +4,8 @@ export enum InteractionRule {
   SOURCE_COMBAT_CAPABLE = 'SOURCE_COMBAT_CAPABLE',
   SOURCE_UNHYPERSPACED = 'SOURCE_UNHYPERSPACED',
   TARGET_UNHYPERSPACED = 'TARGET_UNHYPERSPACED',
+  SOURCE_UNCLOAKED = 'SOURCE_UNCLOAKED',
+  TARGET_UNCLOAKED = 'TARGET_UNCLOAKED',
   SOURCE_UNSHIELDED = 'SOURCE_UNSHIELDED',
   TARGET_UNSHIELDED = 'TARGET_UNSHIELDED',
   TARGET_VACATION = 'TARGET_VACATION',
@@ -20,6 +22,8 @@ export interface InteractionContext {
   sourceCombatCapable: boolean;
   sourceInHyperspace: boolean;
   targetInHyperspace: boolean;
+  sourceCloaked: boolean;
+  targetCloaked: boolean;
   sourceShieldsActive: boolean;
   targetShieldsActive: boolean;
   targetOnVacation: boolean;
@@ -60,6 +64,14 @@ const CHECKS: Record<InteractionRule, InteractionCheck> = {
   [InteractionRule.TARGET_UNHYPERSPACED]: {
     rejected: (context) => context.targetInHyperspace,
     reason: 'Das Ziel hat den Warpantrieb aktiviert',
+  },
+  [InteractionRule.SOURCE_UNCLOAKED]: {
+    rejected: (context) => context.sourceCloaked,
+    reason: 'Die Tarnung ist aktiviert',
+  },
+  [InteractionRule.TARGET_UNCLOAKED]: {
+    rejected: (context) => context.targetCloaked,
+    reason: 'Das Ziel ist nicht erreichbar',
   },
   [InteractionRule.SOURCE_UNSHIELDED]: {
     rejected: (context) => context.sourceShieldsActive,

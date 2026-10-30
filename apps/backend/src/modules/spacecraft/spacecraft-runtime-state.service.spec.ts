@@ -121,6 +121,27 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.SPECIAL).toBeDefined();
   });
 
+  it('maps the Tarnvorrichtung module to an initially inactive CLOAK system', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const ship = {
+      modules: [
+        {
+          category: 'SPECIAL',
+          moduleType: 'Tarnvorrichtung',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
+      ],
+      runtimeSystems: {},
+    } as never;
+
+    const systems = service.initialize(ship);
+
+    expect(systems.CLOAK).toMatchObject({ active: false, integrity: 100 });
+    expect(systems.SPECIAL).toBeUndefined();
+  });
+
   it('uses installed module state and category aliases consistently', () => {
     const service = new SpacecraftRuntimeStateService();
     const ship = {

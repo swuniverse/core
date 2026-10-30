@@ -495,6 +495,8 @@ describe('CombatService attack', () => {
     );
     expect(interactionContext.load).toHaveBeenCalledWith(1, 2, [
       'targetOnVacation',
+      'sourceCloaked',
+      'targetCloaked',
     ]);
     expect(engine.resolveBattle).not.toHaveBeenCalled();
   });

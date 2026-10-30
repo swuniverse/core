@@ -9,6 +9,7 @@ import {
 } from '../spacecraft/entities/spacecraft.entity';
 import { resolveSpacecraftLocation } from '../spacecraft/spacecraft-field';
 import { FlightSignatureService } from '../spacecraft/flight-signature.service';
+import { isHiddenFromViewer } from '../spacecraft/spacecraft-cloak';
 import { resolveColonyLocation } from './colony-location';
 import { ColonyOwnershipService } from './colony-ownership.service';
 
@@ -66,6 +67,7 @@ export class ColonyEnvironmentScanService {
     >();
     for (const ship of ships) {
       if (ship.status === SpacecraftStatus.DESTROYED) continue;
+      if (isHiddenFromViewer(ship, userId)) continue;
       const shipLocation = resolveSpacecraftLocation(ship);
       if (
         shipLocation?.scope !== 'SYSTEM' ||

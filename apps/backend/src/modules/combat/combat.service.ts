@@ -105,8 +105,14 @@ export class CombatService {
     const vacation = checkInteraction(
       await this.interactionContext.load(attacker.id, defender.id, [
         'targetOnVacation',
+        'sourceCloaked',
+        'targetCloaked',
       ]),
-      [InteractionRule.TARGET_VACATION],
+      [
+        InteractionRule.SOURCE_UNCLOAKED,
+        InteractionRule.TARGET_UNCLOAKED,
+        InteractionRule.TARGET_VACATION,
+      ],
     );
     if (!vacation.allowed) throw new BadRequestException(vacation.reason);
     if (defender.status === SpacecraftStatus.DESTROYED) {

@@ -8,6 +8,7 @@ import {
 } from './entities/flight-signature.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { ShipClassService } from './ship-class.service';
+import { isCloaked } from './spacecraft-cloak';
 
 const HOUR = 60 * 60 * 1000;
 export const FLIGHT_SIGNATURE_RETENTION_MS = 48 * HOUR;
@@ -45,7 +46,7 @@ export class FlightSignatureService {
       spacecraftName: ship.name,
       shipClassId: ship.shipClassId,
       shipClassName: shipClass?.name ?? `Klasse #${ship.shipClassId}`,
-      isCloaked: false,
+      isCloaked: isCloaked(ship),
     };
     await this.signatureRepo.save([
       this.signatureRepo.create({

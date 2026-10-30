@@ -150,6 +150,47 @@ describe('ShipControlCenter', () => {
     );
   });
 
+  it('toggles the cloak with its STU icon', async () => {
+    apiMocks.patch.mockResolvedValue({});
+    render(
+      <ShipControlCenter
+        shipId={baseProps.shipId}
+        onUpdate={baseProps.onUpdate}
+        systems={{ CLOAK: { active: false, cooldown: 0, integrity: 100 } }}
+      />,
+    );
+
+    const activate = screen.getByRole('button', { name: 'Tarnung aktivieren' });
+    expect(activate.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/buttons/tarn2.png',
+    );
+    fireEvent.click(activate);
+
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/2/systems/CLOAK',
+        { active: true },
+      ),
+    );
+  });
+
+  it('offers deactivation with the active cloak icon', () => {
+    render(
+      <ShipControlCenter
+        shipId={baseProps.shipId}
+        onUpdate={baseProps.onUpdate}
+        systems={{ CLOAK: { active: true, cooldown: 0, integrity: 100 } }}
+      />,
+    );
+
+    expect(
+      screen
+        .getByRole('button', { name: 'Tarnung deaktivieren' })
+        .querySelector('img')
+        ?.getAttribute('src'),
+    ).toBe('/assets/buttons/tarn1.png');
+  });
+
   it('uses the active laboratory asset for deactivation', () => {
     render(
       <ShipControlCenter

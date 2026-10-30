@@ -14,6 +14,7 @@ import { RelationshipResolverService } from '../alliance/relationship-resolver.s
 import { Layer } from '../starmap/entities/layer.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftService } from './spacecraft.service';
+import { isHiddenFromViewer } from './spacecraft-cloak';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveSpacecraftLocation,
@@ -81,6 +82,7 @@ export class StarmapVisibilityService {
     const contacts = (
       await Promise.all(
         ships.map(async (ship) => {
+          if (isHiddenFromViewer(ship, viewerId)) return null;
           const owner = visibility.get(ship.userId);
           const contact = owner ? this.toContact(ship, owner, layerId) : null;
           if (contact && (contact.reason === 'OWN' || contact.reason === 'ALLIANCE')) {
@@ -205,6 +207,7 @@ export class StarmapVisibilityService {
       ships.map((ship) => ship.userId),
     );
     return ships.flatMap((ship) => {
+      if (isHiddenFromViewer(ship, viewerId)) return [];
       if (!stances.get(ship.userId)?.mayShareLivePosition) return [];
       const position = toBaseContact(ship);
       return position ? [position] : [];

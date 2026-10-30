@@ -520,6 +520,18 @@ describe('GameDataService fabrication items', () => {
     ).toBe(true);
   });
 
+  it('reserves the cloaking field generator for the Galactic Empire', () => {
+    expect(
+      service.getFabricationItem('module.special.tarnvorrichtung'),
+    ).toMatchObject({
+      queueType: 'MODULE',
+      shipyardType: 'SPECIAL',
+      moduleType: 'Tarnvorrichtung',
+      researchId: 60100,
+      faction: 'GALACTIC_EMPIRE',
+    });
+  });
+
   it('keeps fabrication catalog references, names and classifications consistent', () => {
     for (const item of service.getAllFabricationItems()) {
       const outputCommodity = service.getCommodity(item.outputCommodityId);

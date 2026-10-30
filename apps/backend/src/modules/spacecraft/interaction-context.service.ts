@@ -19,6 +19,8 @@ const ALL_FIELDS: InteractionContextField[] = [
   'sourceCombatCapable',
   'sourceInHyperspace',
   'targetInHyperspace',
+  'sourceCloaked',
+  'targetCloaked',
   'sourceShieldsActive',
   'targetShieldsActive',
   'targetOnVacation',
@@ -49,7 +51,9 @@ export class InteractionContextService {
     const requested = new Set(fields);
     const needsModules =
       requested.has('sourceShieldsActive') ||
-      requested.has('targetShieldsActive');
+      requested.has('targetShieldsActive') ||
+      requested.has('sourceCloaked') ||
+      requested.has('targetCloaked');
     const relations = needsModules ? ['modules'] : undefined;
     const [source, target] = await Promise.all([
       this.shipRepo.findOne({ where: { id: sourceId }, relations }),
@@ -68,12 +72,14 @@ export class InteractionContextService {
         ? this.relationships.resolve(source.userId, target.userId)
         : null,
     ]);
-    const sourceSystems = requested.has('sourceShieldsActive')
-      ? this.runtimeState.initialize(source)
-      : {};
-    const targetSystems = requested.has('targetShieldsActive')
-      ? this.runtimeState.initialize(target)
-      : {};
+    const sourceSystems =
+      requested.has('sourceShieldsActive') || requested.has('sourceCloaked')
+        ? this.runtimeState.initialize(source)
+        : {};
+    const targetSystems =
+      requested.has('targetShieldsActive') || requested.has('targetCloaked')
+        ? this.runtimeState.initialize(target)
+        : {};
 
     return {
       samePosition: source.locationId === target.locationId,
@@ -81,6 +87,8 @@ export class InteractionContextService {
       sourceCombatCapable: source.hull > 0,
       sourceInHyperspace: source.status === SpacecraftStatus.IN_FLIGHT,
       targetInHyperspace: target.status === SpacecraftStatus.IN_FLIGHT,
+      sourceCloaked: sourceSystems.CLOAK?.active === true,
+      targetCloaked: targetSystems.CLOAK?.active === true,
       sourceShieldsActive: sourceSystems.SHIELDS?.active === true,
       targetShieldsActive: targetSystems.SHIELDS?.active === true,
       targetOnVacation: targetOwner?.vacationMode === true,

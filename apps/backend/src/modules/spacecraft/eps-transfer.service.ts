@@ -18,6 +18,8 @@ const FOREIGN_RULES = [
 
 const SHARED_RULES = [
   InteractionRule.POSITION,
+  InteractionRule.SOURCE_UNCLOAKED,
+  InteractionRule.TARGET_UNCLOAKED,
   InteractionRule.SOURCE_CREW,
   InteractionRule.SOURCE_UNSHIELDED,
   InteractionRule.SOURCE_UNHYPERSPACED,

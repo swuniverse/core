@@ -216,6 +216,29 @@ describe('SpacecraftPage', () => {
     expect(screen.getAllByText('Hoth-Phalanx')).toHaveLength(1);
   });
 
+  it('shows the cloak icon only for ships with a cloak generator', async () => {
+    apiMocks.get.mockResolvedValue([
+      {
+        ...ship,
+        systems: {
+          ...ship.systems,
+          CLOAK: { present: true, active: true, damaged: false },
+        },
+      },
+      { ...ship, id: 3, name: 'Adler' },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    const icons = await screen.findAllByAltText('Tarnung aktiviert');
+    expect(icons).toHaveLength(1);
+    expect(icons[0].getAttribute('src')).toBe('/assets/buttons/tarn1.png');
+  });
+
   it('renders the dense STU status columns and system availability', async () => {
     apiMocks.get.mockResolvedValue([ship]);
 

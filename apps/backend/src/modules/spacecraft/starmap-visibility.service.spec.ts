@@ -541,6 +541,26 @@ describe('StarmapVisibilityService.listContacts', () => {
       ]);
     });
 
+    it('hides cloaked alliance ships from the mate but not from the owner', async () => {
+      const { store } = allianceWorld();
+      const cloaked = shipOf(20, 2, 'Mate');
+      (cloaked as unknown as { runtimeSystems: unknown }).runtimeSystems = {
+        CLOAK: { active: true },
+      };
+      const ships = [ownShip(), cloaked, shipOf(30, 3, 'Loner')];
+
+      expect(await contactIds(serviceFor(store, ships), 1)).toEqual([
+        [10, 'OWN'],
+      ]);
+      const asOwner = await serviceFor(store, ships).listContacts(
+        2,
+        STARMAP_LAYER_ID,
+      );
+      expect(asOwner.contacts.map((contact) => contact.spacecraftId)).toContain(
+        20,
+      );
+    });
+
     it('keeps own ships as OWN without stance or alliance and lists each ship once', async () => {
       const { store } = allianceWorld();
 

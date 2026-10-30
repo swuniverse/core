@@ -31,6 +31,8 @@ const context = (overrides = {}) => ({
   sourceCombatCapable: true,
   sourceInHyperspace: false,
   targetInHyperspace: false,
+  sourceCloaked: false,
+  targetCloaked: false,
   sourceShieldsActive: false,
   targetShieldsActive: false,
   targetOnVacation: false,

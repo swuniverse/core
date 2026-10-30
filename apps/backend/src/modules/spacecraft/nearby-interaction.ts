@@ -25,9 +25,9 @@ export type NearbyInteraction =
  * Every caller derives permission and reason from `decideNearbyInteraction`.
  *
  * Extension hooks (not yet active, see INTERACTION_HOOKS):
- * - Cloaking (Tarnung): a hook returns a rejection when the target is cloaked
- *   and the source has no detection capability; scan and NBS then hide or
- *   refuse the target.
+ * - Cloaking (Tarnung): the cloaked-source and cloaked-target rules below
+ *   mirror STU's EXPECT_SOURCE/TARGET_UNCLOAKED; NBS hides foreign cloaked
+ *   ships entirely, so the target rule is a defence for direct API calls.
  * - Tractor beam (Traktorstrahl): a hook rejects MESSAGE and SALVAGE (and
  *   transfer) while the source is towed or towing, as in STU's tractor checks.
  * - Ion storm: a hook returns a rejection while the shared position carries an
@@ -37,29 +37,36 @@ export const NEARBY_INTERACTION_RULES: Record<
   NearbyInteraction,
   readonly InteractionRule[]
 > = {
-  SCAN: [InteractionRule.POSITION],
+  SCAN: [InteractionRule.POSITION, InteractionRule.TARGET_UNCLOAKED],
   // The target must be in hyperspace; that inverse check stays with the intercept service.
-  INTERCEPT: [InteractionRule.POSITION],
+  INTERCEPT: [InteractionRule.POSITION, InteractionRule.TARGET_UNCLOAKED],
   ATTACK: [
+    InteractionRule.SOURCE_UNCLOAKED,
+    InteractionRule.TARGET_UNCLOAKED,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
   ],
   CONTACT: [
+    InteractionRule.TARGET_UNCLOAKED,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
   ],
   TRANSFER: [
+    InteractionRule.SOURCE_UNCLOAKED,
+    InteractionRule.TARGET_UNCLOAKED,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
   ],
   MESSAGE: [
     InteractionRule.POSITION,
+    InteractionRule.TARGET_UNCLOAKED,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
   ],
   // Wrecks carry no hyperdrive or shields, so only the source side applies.
   SALVAGE: [
     InteractionRule.POSITION,
+    InteractionRule.SOURCE_UNCLOAKED,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.SOURCE_UNSHIELDED,
   ],
@@ -96,6 +103,8 @@ export function buildNearbyInteractionContext(
     sourceCombatCapable: true,
     sourceInHyperspace: inHyperspace(source, sourceSystems),
     targetInHyperspace: inHyperspace(target, targetSystems),
+    sourceCloaked: sourceSystems.CLOAK?.active === true,
+    targetCloaked: targetSystems.CLOAK?.active === true,
     sourceShieldsActive: sourceSystems.SHIELDS?.active === true,
     targetShieldsActive: targetSystems.SHIELDS?.active === true,
     targetOnVacation: false,

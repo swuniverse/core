@@ -118,4 +118,30 @@ describe('nearby interaction decisions', () => {
     expect(decideNearbyInteraction('SALVAGE', context).allowed).toBe(false);
     expect(decideNearbyInteraction('SCAN', context).allowed).toBe(true);
   });
+
+  it('applies STU\'s uncloaked expectations to cloaked sources and targets', () => {
+    const cloaked = { CLOAK: { active: true } } as unknown as SpacecraftRuntimeSystems;
+    const cloakedTarget = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(1),
+      cloaked,
+    );
+    for (const interaction of ['ATTACK', 'SCAN', 'TRANSFER', 'MESSAGE'] as const) {
+      expect(decideNearbyInteraction(interaction, cloakedTarget).allowed).toBe(
+        false,
+      );
+    }
+    const cloakedSource = buildNearbyInteractionContext(
+      ship(1),
+      cloaked,
+      ship(1),
+      systems(),
+    );
+    expect(decideNearbyInteraction('ATTACK', cloakedSource)).toEqual({
+      allowed: false,
+      reason: 'Die Tarnung ist aktiviert',
+    });
+    expect(decideNearbyInteraction('SCAN', cloakedSource).allowed).toBe(true);
+  });
 });

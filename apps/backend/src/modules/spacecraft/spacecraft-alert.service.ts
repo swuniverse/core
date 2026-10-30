@@ -14,6 +14,7 @@ const LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   SHORT_RANGE_SENSORS: 'Nahbereichssensoren',
   WEAPONS: 'Strahlenwaffen',
   TORPEDO_BANK: 'Projektilwaffe',
+  CLOAK: 'Tarnung',
 };
 
 @Injectable()
@@ -36,8 +37,18 @@ export class SpacecraftAlertService {
     const deactivate: SpacecraftRuntimeSystemKey[] =
       alertState === AlertState.GREEN
         ? ['SHIELDS', 'WEAPONS', 'TORPEDO_BANK']
-        : [];
+        : alertState === AlertState.RED
+          ? ['CLOAK']
+          : [];
 
+    // Red alert uncloaks before shields and weapons are raised.
+    for (const key of deactivate) {
+      const system = systems[key];
+      if (key === 'CLOAK' && system?.active) {
+        systems[key] = { ...system, active: false };
+        messages.push(`${LABELS[key]} deaktiviert`);
+      }
+    }
     for (const key of activate) {
       const system = systems[key];
       if (!system) continue;
@@ -55,7 +66,7 @@ export class SpacecraftAlertService {
     }
     for (const key of deactivate) {
       const system = systems[key];
-      if (!system) continue;
+      if (!system || key === 'CLOAK') continue;
       if (system.active) {
         systems[key] = { ...system, active: false };
         messages.push(`${LABELS[key]} deaktiviert`);

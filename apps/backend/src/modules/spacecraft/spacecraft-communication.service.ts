@@ -26,6 +26,7 @@ import {
   resolveSpacecraftLocation,
   sameSpaceLocation,
 } from './spacecraft-field';
+import { isCloaked } from './spacecraft-cloak';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 const BROADCAST_COOLDOWN_MS = 30_000;
@@ -123,6 +124,7 @@ export class SpacecraftCommunicationService {
       const otherField = resolveSpacecraftLocation(other);
       if (
         other.userId !== userId &&
+        !isCloaked(other) &&
         other.status !== SpacecraftStatus.DESTROYED &&
         otherField?.scope === field.scope &&
         (field.scope === 'SYSTEM'

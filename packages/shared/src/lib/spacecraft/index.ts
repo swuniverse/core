@@ -14,6 +14,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'TORPEDO_BANK',
   'SPECIAL',
   'ASTROMETRY_LAB',
+  'CLOAK',
   'LIFE_SUPPORT',
 ] as const;
 
@@ -257,7 +258,7 @@ export interface SpacecraftListDto {
   systems: Record<
     'SHORT_RANGE_SENSORS' | 'LONG_RANGE_SENSORS' | 'WEAPONS' | 'TORPEDO_BANK',
     SpacecraftListSystemDto
-  >;
+  > & { CLOAK?: SpacecraftListSystemDto };
 }
 
 export interface StationExpansionOptionDto {

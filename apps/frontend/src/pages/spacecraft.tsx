@@ -240,7 +240,7 @@ function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; le
       <td className={numberCell}>{ship.reactorFuel}/{ship.reactorFuelMax}</td>
       <td className={numberCell}>{ship.battery}/{ship.batteryMax}</td>
       <td className={`${numberCell} ${crewOk ? 'text-green-500' : 'text-red-500'}`} aria-label={crewLabel}>{ship.crew}/{ship.crewRequired}/{ship.crewMax}</td>
-      <td className={`${cell} whitespace-nowrap text-center`}>{SYSTEMS.map(([key, short, label]) => <SystemIcon key={key} label={label} short={short} system={ship.systems[key]} />)}</td>
+      <td className={`${cell} whitespace-nowrap text-center`}>{SYSTEMS.map(([key, short, label]) => <SystemIcon key={key} label={label} short={short} system={ship.systems[key]} />)}{ship.systems.CLOAK?.present && <CloakIcon system={ship.systems.CLOAK} />}</td>
       <td className={`${cell} text-center`}>{ship.specialStatus && <span role="img" title={STATUS[ship.specialStatus]} aria-label={STATUS[ship.specialStatus]} className="inline-block size-3 border border-swu-accent bg-swu-accent/30" />}</td>
     </tr>
   );
@@ -250,6 +250,11 @@ function Hull({ current, max }: { current: number; max: number }) {
   const ratio = max > 0 ? current / max : 0;
   const tone = ratio <= 0.25 ? 'text-red-500' : ratio <= 0.5 ? 'text-swu-warning' : ratio < 1 ? 'text-swu-accent' : 'text-swu-text';
   return <span className={tone}>{current}/{max}</span>;
+}
+
+function CloakIcon({ system }: { system: SpacecraftListSystemDto }) {
+  const title = system.active ? 'Tarnung aktiviert' : 'Tarnung deaktiviert';
+  return <img src={`/assets/buttons/${system.active ? 'tarn1.png' : 'tarn2.png'}`} title={title} alt={title} className="mx-0.5 inline-block size-4 align-middle" />;
 }
 
 function SystemIcon({ label, short, system }: { label: string; short: string; system: SpacecraftListSystemDto }) {

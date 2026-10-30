@@ -31,6 +31,12 @@ import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { adminRegionName } from '../starmap/admin-region';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import {
+  CLOAK_ACTIVATION_EPS,
+  CLOAK_EXCLUSIVE_SYSTEMS,
+  isHiddenFromViewer,
+  mayUseCloak,
+} from './spacecraft-cloak';
 import { GameDataService } from '../game-data/game-data.service';
 import { ShipClassService } from './ship-class.service';
 import { ExplorationService } from '../starmap/exploration.service';
@@ -957,6 +963,38 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     const system = systems[systemKey];
     if (!system) throw new BadRequestException(`Unknown system: ${systemKey}`);
+    const cloakState = systems.CLOAK;
+    const labWasActive = systems.ASTROMETRY_LAB?.active === true;
+    if (cloakState) {
+      const owner = await this.userRepo.findOneBy({ id: ship.userId });
+      if (!mayUseCloak(owner?.faction)) {
+        // Foreign installations stay stored but can never run.
+        if (cloakState.active) systems.CLOAK = { ...cloakState, active: false };
+        if (active && systemKey === 'CLOAK') {
+          throw new BadRequestException(
+            'Der Tarnfeld-Generator ist dem Galaktischen Imperium vorbehalten',
+          );
+        }
+      }
+    }
+    if (active && systemKey !== 'CLOAK' && systems.CLOAK?.active) {
+      if (CLOAK_EXCLUSIVE_SYSTEMS.includes(systemKey as never)) {
+        throw new BadRequestException(
+          `${systemKey} kann nicht aktiviert werden, solange die Tarnung aktiviert ist`,
+        );
+      }
+    }
+    if (active && systemKey === 'CLOAK') {
+      const cloakBlock = this.cloakActivationBlock(ship);
+      if (cloakBlock) {
+        throw new BadRequestException(
+          `Die Tarnung kann nicht aktiviert werden, ${cloakBlock}`,
+        );
+      }
+      if (!system.active && ship.energy < CLOAK_ACTIVATION_EPS) {
+        throw new BadRequestException('Nicht genug EPS');
+      }
+    }
     if (active && systemKey === 'ASTROMETRY_LAB') {
       const shortRangeSensors = systems.SHORT_RANGE_SENSORS;
       const longRangeSensors = systems.LONG_RANGE_SENSORS;
@@ -990,6 +1028,14 @@ export class SpacecraftService {
       if (systemKey === 'ASTROMETRY_LAB' && !system.active) {
         ship.energy--;
       }
+      if (systemKey === 'CLOAK' && !system.active) {
+        ship.energy -= CLOAK_ACTIVATION_EPS;
+        for (const key of CLOAK_EXCLUSIVE_SYSTEMS) {
+          const other = systems[key];
+          if (other?.active) systems[key] = { ...other, active: false };
+        }
+        ship.dockedAtId = null;
+      }
       if (['SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(systemKey)) {
         if (systemKey === 'SHORT_RANGE_SENSORS') {
           const colonies = await this.dataSource
@@ -1016,10 +1062,11 @@ export class SpacecraftService {
     systems[systemKey] = { ...system, active };
     ship.runtimeSystems = systems;
     if (
-      !active &&
-      ['ASTROMETRY_LAB', 'SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(
-        systemKey,
-      )
+      (active && systemKey === 'CLOAK' && labWasActive) ||
+      (!active &&
+        ['ASTROMETRY_LAB', 'SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'].includes(
+          systemKey,
+        ))
     ) {
       await this.abortCartographyFinalization(
         ship,
@@ -1040,6 +1087,7 @@ export class SpacecraftService {
       TORPEDO_BANK: 'Projektilwaffe',
       SPECIAL: 'Spezialsysteme',
       ASTROMETRY_LAB: 'Astrometrie-Labor',
+      CLOAK: 'Tarnung',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
@@ -1048,6 +1096,19 @@ export class SpacecraftService {
       detail: `${systemName[systemKey]} ${active ? 'aktiviert' : 'deaktiviert'}`,
     });
     return { systems };
+  }
+
+  /** STU `CloakShipSystem::checkActivationConditions`, reason as a clause. */
+  private cloakActivationBlock(ship: Spacecraft): string | null {
+    if (ship.alertState === AlertState.RED) return 'weil Alarmstufe Rot ist';
+    if (
+      [ship.location?.galaxyField, ship.location?.systemField].some((field) =>
+        this.fieldEffectQuery.has(field, FieldEffect.CLOAK_UNUSEABLE),
+      )
+    ) {
+      return 'weil das Feld den Einsatz der Tarnvorrichtung verhindert';
+    }
+    return null;
   }
 
   async setReactorDistribution(
@@ -1369,6 +1430,7 @@ export class SpacecraftService {
         LONG_RANGE_SENSORS: system('LONG_RANGE_SENSORS'),
         WEAPONS: system('WEAPONS'),
         TORPEDO_BANK: system('TORPEDO_BANK'),
+        ...(runtimeSystems.CLOAK ? { CLOAK: system('CLOAK') } : {}),
       },
       specialStatus: finalization
         ? 'CARTOGRAPHY_FINALIZATION'
@@ -3308,7 +3370,10 @@ export class SpacecraftService {
       actionsAvailable: !hyperdriveActive,
       hyperdriveActive,
       ships: ships
-        .filter((target) => target.id !== ship.id)
+        .filter(
+          (target) =>
+            target.id !== ship.id && !isHiddenFromViewer(target, userId),
+        )
         .map((target) => {
           const targetSystems =
             this.spacecraftRuntimeStateService.initialize(target);
@@ -3403,7 +3468,7 @@ export class SpacecraftService {
         minY: Math.max(1, shipY - sensorRange),
         maxY: Math.min(starSystem?.maxY ?? shipY, shipY + sensorRange),
       };
-      const [fields, nearbyShips, starObjects, wrecks, shieldedObjectIds] =
+      const [fields, allNearbyShips, starObjects, wrecks, shieldedObjectIds] =
         await Promise.all([
           this.systemFieldRepo
             .createQueryBuilder('sf')
@@ -3464,6 +3529,9 @@ export class SpacecraftService {
             location.systemId,
           ),
         ]);
+      const nearbyShips = allNearbyShips.filter(
+        (candidate) => !isHiddenFromViewer(candidate, userId),
+      );
 
       return {
         mode: 'system' as const,
@@ -3564,7 +3632,7 @@ export class SpacecraftService {
       minY: Math.max(1, location.y - sensorRange),
       maxY: Math.min(layer.height, location.y + sensorRange),
     };
-    const [fields, nearbyShips, wrecks] = await Promise.all([
+    const [fields, allNearbyShips, wrecks] = await Promise.all([
       this.galaxyFieldRepo
         .createQueryBuilder('gf')
         .leftJoinAndSelect('gf.fieldType', 'ft')
@@ -3610,6 +3678,9 @@ export class SpacecraftService {
         .andWhere('wgf.cy BETWEEN :minY AND :maxY', bounds)
         .getMany(),
     ]);
+    const nearbyShips = allNearbyShips.filter(
+      (candidate) => !isHiddenFromViewer(candidate, userId),
+    );
 
     const onSystemField = fields.find(
       (field) =>
