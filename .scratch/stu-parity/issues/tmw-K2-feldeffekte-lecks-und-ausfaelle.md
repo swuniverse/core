@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 1: Lecks, Ausfälle, Regeneration
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
@@ -40,3 +40,4 @@ Die aktiven Feldeffekte bekommen Handler, die beim Einflug und, wo STU das vorsi
 ## Comments
 
 - 2026-10-28: Umsetzung verworfen, weil die vorgeschriebene Prüfung nach zwei ernsthaften Versuchen nicht grün wird. `npx nx affected -t lint typecheck test --base=HEAD` scheitert in `frontend:typecheck` und `backend:typecheck` an bereits vorhandenen projektweiten Fehlern, insbesondere `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht `Faction`) sowie zahlreichen TS6305-Fehlern wegen fehlender Declaration-Ausgaben. Die betroffenen Lint-/Testläufe und `npx nx run-many --targets=build` sind grün; benötigt wird eine Entscheidung bzw. Bereinigung der Typecheck-Baseline, bevor dieses Issue erneut umgesetzt wird.
+- 2026-10-30 Product Owner: Option 1. Das M-Issue ist mit der aktuellen STU-Laufzeitsemantik `ready-for-agent`; bei Abweichungen gilt der aktuelle Handlercode statt der verkürzten Akzeptanzformulierung. Reaktoreffekte verändern `reactorFuel` gegen `reactorFuelMax`. Das Warpantriebsleck verliert beim Einflug deterministisch `min(aktuell, ceil(warpdriveMax / 10))`; Reaktor- und EPS-Leck verwenden beim Einflug den injizierbaren STU-Zufall und bleiben bei 0 begrenzt. Tarnung und NBS-Cooldown sind ebenfalls nur Einflugfolgen. Nur Schildstörung und Regeneration wirken beim Einflug und je Tick. Schildstörung deaktiviert aktive Schilde und reduziert den aktuellen Schildwert zufällig, nicht zwingend auf 0. Regeneration hat 20 % Auslösechance, wählt ein vorhandenes gesundes System aus EPS, Reaktor, Schild oder Warpantrieb und bleibt am verfügbaren Headroom begrenzt. Der NBS-Cooldown ist ein eigener Wall-Clock-Zeitstempel von zufällig 10–20 Minuten und verkürzt keinen späteren bestehenden Ablauf; das bestehende Tick-Cooldown-Feld wird dafür nicht zweckentfremdet. Zustandsänderungen werden autoritativ persistiert und erzeugen echte Schiffsordner- sowie Live-Meldungen. Die Typecheck-Baseline-Ausnahme aus `sh-AP-21` gilt: fokussierte Tests und Builds müssen grün sein, neue Typecheck-Fehler sind unzulässig.
