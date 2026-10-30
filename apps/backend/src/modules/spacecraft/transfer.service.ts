@@ -19,7 +19,12 @@ import {
   type TransferInitiator,
 } from './ship-colony-context.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
+import {
+  buildNearbyInteractionContext,
+  decideNearbyInteraction,
+} from './nearby-interaction';
 import { sameSpacecraftLocation } from './spacecraft-field';
+import type { SpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
 
 type ShipTransferDirection = 'TO_TARGET' | 'FROM_TARGET';
 
@@ -481,16 +486,24 @@ export class TransferService {
       });
       if (!ship || !wreck)
         throw new BadRequestException('Ship or wreck not found');
-      if (!sameSpacecraftLocation(ship, wreck))
-        throw new BadRequestException('Wreck must be on the same field');
-      const systems = ship.runtimeSystems as Record<
-        string,
-        { active?: boolean }
-      >;
-      if (systems.WARPDRIVE?.active)
-        throw new BadRequestException('Hyperantrieb muss deaktiviert sein');
-      if (systems.SHIELDS?.active)
-        throw new BadRequestException('Schilde müssen deaktiviert sein');
+      const context = buildNearbyInteractionContext(
+        ship,
+        (ship.runtimeSystems ?? {}) as SpacecraftRuntimeSystems,
+        wreck,
+        {},
+      );
+      const decision = decideNearbyInteraction('SALVAGE', context);
+      if (!decision.allowed) {
+        throw new BadRequestException(
+          !context.samePosition
+            ? 'Wreck must be on the same field'
+            : context.sourceInHyperspace
+              ? 'Hyperantrieb muss deaktiviert sein'
+              : context.sourceShieldsActive
+                ? 'Schilde müssen deaktiviert sein'
+                : (decision.reason ?? 'Bergung nicht möglich'),
+        );
+      }
       const entry = [...wreck.cargo, ...wreck.modules].find(
         (item) => item.commodityId === commodityId,
       );
@@ -534,7 +547,8 @@ export class TransferService {
         commodity: this.gameData.getCommodity(item.commodityId),
       }))
       .filter(
-        ({ commodity }) => commodity?.visible !== false && commodity?.type !== 2,
+        ({ commodity }) =>
+          commodity?.visible !== false && commodity?.type !== 2,
       )
       .sort(
         (a, b) =>

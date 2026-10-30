@@ -1,4 +1,3 @@
-import type { Spacecraft } from './entities/spacecraft.entity';
 import {
   checkInteraction,
   InteractionRule,
@@ -9,10 +8,17 @@ import type { SpacecraftRuntimeSystems } from './spacecraft-runtime-state.servic
 import {
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
+  type SpacecraftLocationSource,
 } from './spacecraft-field';
 
 export type NearbyInteraction =
-  'SCAN' | 'INTERCEPT' | 'ATTACK' | 'CONTACT' | 'TRANSFER';
+  | 'SCAN'
+  | 'INTERCEPT'
+  | 'ATTACK'
+  | 'CONTACT'
+  | 'TRANSFER'
+  | 'MESSAGE'
+  | 'SALVAGE';
 
 /**
  * Rule sets for interactions offered by scan, NBS (`getNearby`) and intercept.
@@ -22,6 +28,8 @@ export type NearbyInteraction =
  * - Cloaking (Tarnung): a hook returns a rejection when the target is cloaked
  *   and the source has no detection capability; scan and NBS then hide or
  *   refuse the target.
+ * - Tractor beam (Traktorstrahl): a hook rejects MESSAGE and SALVAGE (and
+ *   transfer) while the source is towed or towing, as in STU's tractor checks.
  * - Ion storm: a hook returns a rejection while the shared position carries an
  *   ion storm field effect that disables sensors or weapons.
  */
@@ -44,6 +52,17 @@ export const NEARBY_INTERACTION_RULES: Record<
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
   ],
+  MESSAGE: [
+    InteractionRule.POSITION,
+    InteractionRule.SOURCE_UNHYPERSPACED,
+    InteractionRule.TARGET_UNHYPERSPACED,
+  ],
+  // Wrecks carry no hyperdrive or shields, so only the source side applies.
+  SALVAGE: [
+    InteractionRule.POSITION,
+    InteractionRule.SOURCE_UNHYPERSPACED,
+    InteractionRule.SOURCE_UNSHIELDED,
+  ],
 };
 
 export type InteractionHook = (
@@ -55,7 +74,7 @@ export type InteractionHook = (
 export const INTERACTION_HOOKS: InteractionHook[] = [];
 
 function inHyperspace(
-  ship: Spacecraft,
+  ship: SpacecraftLocationSource,
   systems: SpacecraftRuntimeSystems,
 ): boolean {
   return (
@@ -64,11 +83,11 @@ function inHyperspace(
   );
 }
 
-/** Pure mapping of already loaded ships; fields no nearby interaction rule reads stay neutral. */
+/** Pure mapping of already loaded ships (the target may also be a wreck with empty systems); fields no nearby interaction rule reads stay neutral. */
 export function buildNearbyInteractionContext(
-  source: Spacecraft,
+  source: SpacecraftLocationSource,
   sourceSystems: SpacecraftRuntimeSystems,
-  target: Spacecraft,
+  target: SpacecraftLocationSource,
   targetSystems: SpacecraftRuntimeSystems,
 ): InteractionContext {
   return {

@@ -1,5 +1,7 @@
 jest.mock('./spacecraft-field', () => ({
-  resolveSpacecraftLocation: (ship: { scope: string }) => ({ scope: ship.scope }),
+  resolveSpacecraftLocation: (ship: { scope: string }) => ({
+    scope: ship.scope,
+  }),
   sameSpacecraftLocation: (a: { pos: number }, b: { pos: number }) =>
     a.pos === b.pos,
 }));
@@ -73,5 +75,47 @@ describe('nearby interaction decisions', () => {
       allowed: false,
       reason: 'Ionensturm',
     });
+  });
+
+  it('applies communication and salvage rules', () => {
+    const apart = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(2),
+      systems(),
+    );
+    expect(decideNearbyInteraction('MESSAGE', apart).allowed).toBe(false);
+    expect(decideNearbyInteraction('SALVAGE', apart).allowed).toBe(false);
+
+    const shielded = buildNearbyInteractionContext(
+      ship(1),
+      systems(false, true),
+      ship(1),
+      {},
+    );
+    expect(decideNearbyInteraction('SALVAGE', shielded)).toEqual({
+      allowed: false,
+      reason: 'Die Schilde sind aktiviert',
+    });
+    expect(decideNearbyInteraction('MESSAGE', shielded).allowed).toBe(true);
+  });
+
+  it('lets a tractor hook veto messages and salvage', () => {
+    INTERACTION_HOOKS.push((interaction) =>
+      interaction === 'SALVAGE' || interaction === 'MESSAGE'
+        ? { allowed: false, reason: 'Traktorstrahl aktiv' }
+        : null,
+    );
+    const context = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(1),
+      systems(),
+    );
+    expect(decideNearbyInteraction('MESSAGE', context).reason).toBe(
+      'Traktorstrahl aktiv',
+    );
+    expect(decideNearbyInteraction('SALVAGE', context).allowed).toBe(false);
+    expect(decideNearbyInteraction('SCAN', context).allowed).toBe(true);
   });
 });

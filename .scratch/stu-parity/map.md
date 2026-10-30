@@ -249,3 +249,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-A8 – Fraktionsspezifische, idempotente Willkommens-Systemnachricht nach der Heimatweltwahl umgesetzt – siehe Feature-Commit
 - soc-F1b – Profilbesucher mit Opt-out, sieben Tagen Aufbewahrung und Maindesk-Anzeige umgesetzt – siehe Feature-Commit
 - sc-WP-ENG-2d – Scan, Abfangen und NBS-Aktionen (getNearby) beziehen Erlaubnis/Grund aus der Interaction Policy; Hooks für Tarnung/Ionensturm dokumentiert – siehe Feature-Commit
+- sc-WP-ENG-2e – Nachrichten (sendNearbyMessage) und Wrackbergung (recoverWreckCargo) nutzen die Interaction Policy mit unveränderten Meldungen; Traktor-Hook dokumentiert – siehe Feature-Commit

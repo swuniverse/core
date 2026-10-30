@@ -19,9 +19,12 @@ import { ShipDistressSignal } from './entities/ship-distress-signal.entity';
 import { ShipLogEntry } from './entities/ship-log-entry.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import {
+  buildNearbyInteractionContext,
+  decideNearbyInteraction,
+} from './nearby-interaction';
+import {
   resolveSpacecraftLocation,
   sameSpaceLocation,
-  sameSpacecraftLocation,
 } from './spacecraft-field';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
@@ -169,17 +172,21 @@ export class SpacecraftCommunicationService {
     ) {
       throw new BadRequestException('Empfänger nicht verfügbar');
     }
-    if (!sameSpacecraftLocation(source, target)) {
+    const sourceSystems = this.runtimeState.initialize(source);
+    const context = buildNearbyInteractionContext(
+      source,
+      sourceSystems,
+      target,
+      this.runtimeState.initialize(target),
+    );
+    const decision = decideNearbyInteraction('MESSAGE', context);
+    if (!decision.allowed) {
       throw new BadRequestException(
-        'Empfänger befindet sich nicht auf diesem Feld',
-      );
-    }
-    if (
-      this.runtimeState.initialize(source).WARPDRIVE?.active ||
-      this.runtimeState.initialize(target).WARPDRIVE?.active
-    ) {
-      throw new BadRequestException(
-        'Nachrichten sind im Hyperraum nicht möglich',
+        !context.samePosition
+          ? 'Empfänger befindet sich nicht auf diesem Feld'
+          : context.sourceInHyperspace || context.targetInHyperspace
+            ? 'Nachrichten sind im Hyperraum nicht möglich'
+            : (decision.reason ?? 'Nachricht nicht möglich'),
       );
     }
     const text = body.trim();
