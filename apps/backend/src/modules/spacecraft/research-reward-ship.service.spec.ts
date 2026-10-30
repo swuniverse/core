@@ -149,7 +149,11 @@ describe('ResearchRewardShipService', () => {
       colony: { id: 1, systemFieldId: 5 },
     });
     const result = await service.grantShipReward(1, 7);
-    expect(result).toEqual({ outcome: 'granted', shipId: 1 });
+    expect(result).toEqual({
+      outcome: 'granted',
+      shipId: 1,
+      shipClassName: 'Frigate',
+    });
     expect(saved.Spacecraft[0]).toMatchObject({
       userId: 1,
       locationId: 9,

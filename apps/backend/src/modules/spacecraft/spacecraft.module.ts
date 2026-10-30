@@ -42,6 +42,7 @@ import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.servic
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchRewardShipService } from './research-reward-ship.service';
+import { ResearchService } from '../research/research.service';
 import { ResearchModule } from '../research/research.module';
 import { GameDataModule } from '../game-data/game-data.module';
 import { ColonizationModule } from '../colonization/colonization.module';
@@ -172,9 +173,16 @@ import {
   ],
 })
 export class SpacecraftModule implements OnModuleInit {
-  constructor(private readonly shipClassService: ShipClassService) {}
+  constructor(
+    private readonly shipClassService: ShipClassService,
+    private readonly researchService: ResearchService,
+    private readonly researchRewardShipService: ResearchRewardShipService,
+  ) {}
 
   async onModuleInit() {
+    this.researchService.registerShipRewardGranter((userId, techId) =>
+      this.researchRewardShipService.grantShipReward(userId, techId),
+    );
     await this.shipClassService.seedDefaults();
   }
 }

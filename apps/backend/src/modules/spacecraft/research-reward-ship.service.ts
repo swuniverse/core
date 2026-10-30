@@ -20,7 +20,7 @@ import { SpacecraftStatsService } from './spacecraft-stats.service';
 
 export type ResearchRewardShipResult =
   | { outcome: 'no-mapping' | 'already-granted' | 'no-colony' }
-  | { outcome: 'granted'; shipId: number };
+  | { outcome: 'granted'; shipId: number; shipClassName: string };
 
 /**
  * Spawns the explicitly mapped reward ship of a completed research in the
@@ -74,7 +74,11 @@ export class ResearchRewardShipService {
         location,
       );
       await this.grantService.complete(manager, userId, techId);
-      return { outcome: 'granted', shipId: ship.id };
+      return {
+        outcome: 'granted',
+        shipId: ship.id,
+        shipClassName: shipClass.name,
+      };
     });
   }
 

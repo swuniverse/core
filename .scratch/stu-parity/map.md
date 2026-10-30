@@ -171,6 +171,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-D2a1 – Forschungsdaten können optional eine Schiffsbelohnung beschreiben; Detail zeigt sie nur bei Mapping – siehe Feature-Commit
 - col-D2a2 – Dauerhafter Grant-Nachweis (research_reward_grant, unique Spieler+Forschung) mit transaktionalem reserve/complete – siehe Feature-Commit
 - col-D2a3 – Transaktionaler Forschungs-Belohnungsschiff-Spawn (ResearchRewardShipService) im Orbit der ältesten Kolonie – siehe Feature-Commit
+- col-D2a4 – Forschungsabschluss vergibt Belohnungsschiff idempotent und meldet es einmalig im Ordner „Schiffe“ – siehe Feature-Commit
 - col-D3a – Forschungsliste und -detail zeigen Bilder, Abschlussdatum, Folgeforschungen sowie Rumpf-/Modulfreischaltungen – siehe Feature-Commit
 - col-D4 – Forschungsdaten tragen validierte explizite Fraktionen; EXCLUDE-Import und -Richtung entsprechen STU – siehe Feature-Commit
 - col-D5 – SWU-Forschungsqueue mit zehn Plätzen, Auto-Pfad und Fortschrittserhalt als bewusste STU-Abweichung dokumentiert – siehe Feature-Commit

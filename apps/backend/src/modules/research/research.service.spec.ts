@@ -457,3 +457,82 @@ describe('ResearchService – restart state', () => {
     expect(research.status).toBe('IN_PROGRESS');
   });
 });
+
+describe('ResearchService – ship reward completion', () => {
+  const rewardTech = {
+    ...makeTech(10, 5),
+    mappedCommodityId: 7,
+    shipReward: { shipClassKey: 'frigate', moduleSelections: [] },
+  } as unknown as TechDef;
+
+  function setup(tech: TechDef, result: any) {
+    const research = {
+      id: 91,
+      userId: 42,
+      techId: 10,
+      status: 'IN_PROGRESS',
+      remainingPoints: 5,
+      spentPoints: 0,
+      progress: 0,
+      finishesAt: new Date(),
+      completedAt: null as Date | null,
+      blockedReason: null,
+    };
+    const repository = {
+      findOne: jest.fn().mockResolvedValueOnce(research),
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(async (value) => value),
+    };
+    const messaging = { sendSystem: jest.fn().mockResolvedValue({}) };
+    const service = new ResearchService(
+      repository as any,
+      { getTech: () => tech, getTechTree: () => [tech] } as any,
+      messaging as any,
+      { emitToUser: jest.fn() } as any,
+    );
+    const granter = jest.fn(async () => result);
+    service.registerShipRewardGranter(granter);
+    return { service, messaging, granter };
+  }
+  const production = new Map([[7, 5]]);
+
+  it('sends one ship folder message after a granted reward', async () => {
+    const ctx = setup(rewardTech, {
+      outcome: 'granted',
+      shipId: 1,
+      shipClassName: 'Frigate',
+    });
+    await ctx.service.processTick(42, 0, production);
+    expect(ctx.granter).toHaveBeenCalledWith(42, 10);
+    const calls = ctx.messaging.sendSystem.mock.calls.filter(
+      (c: any[]) => c[4] === 'SHIP',
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0][2]).toBe(
+      'Als Belohnung für den Abschluss der Forschung wurde dir ein Schiff vom Typ Frigate überstellt',
+    );
+    expect(calls[0][3]).toBe('research-reward-ship:42:10');
+  });
+
+  it.each(['no-mapping', 'no-colony', 'already-granted'])(
+    'sends no ship message for outcome %s',
+    async (outcome) => {
+      const ctx = setup(rewardTech, { outcome });
+      await ctx.service.processTick(42, 0, production);
+      expect(
+        ctx.messaging.sendSystem.mock.calls.filter(
+          (c: any[]) => c[4] === 'SHIP',
+        ),
+      ).toHaveLength(0);
+    },
+  );
+
+  it('does not call the granter without a reward mapping', async () => {
+    const ctx = setup({ ...rewardTech, shipReward: undefined } as TechDef, {
+      outcome: 'granted',
+      shipClassName: 'X',
+    });
+    await ctx.service.processTick(42, 0, production);
+    expect(ctx.granter).not.toHaveBeenCalled();
+  });
+});

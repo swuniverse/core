@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -12,6 +13,13 @@ import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { GameGateway } from '../websocket/game.gateway';
 
+export type ResearchShipRewardGranter = (
+  userId: number,
+  techId: number,
+) => Promise<
+  { outcome: 'granted'; shipClassName: string } | { outcome: string }
+>;
+
 const ROOT_TECH_IDS = new Set([1001, 1003]);
 const MAX_QUEUE_SIZE = 10;
 
@@ -21,6 +29,9 @@ function isTechForFaction(tech: TechDef, faction: Faction | null): boolean {
 
 @Injectable()
 export class ResearchService {
+  private readonly logger = new Logger(ResearchService.name);
+  private shipRewardGranter: ResearchShipRewardGranter | null = null;
+
   constructor(
     @InjectRepository(Research)
     private readonly researchRepo: Repository<Research>,
@@ -28,6 +39,11 @@ export class ResearchService {
     private readonly messagingService: MessagingService,
     private readonly gameGateway: GameGateway,
   ) {}
+
+  /** Registered by the spacecraft module; avoids a module import cycle. */
+  registerShipRewardGranter(granter: ResearchShipRewardGranter): void {
+    this.shipRewardGranter = granter;
+  }
 
   getTechTree(): TechDef[] {
     return this.gameData.getTechTree();
@@ -694,6 +710,28 @@ export class ResearchService {
       techId: tech.id,
       name: tech.name,
     });
+    await this.grantShipReward(userId, tech);
+  }
+
+  private async grantShipReward(userId: number, tech: TechDef): Promise<void> {
+    if (!this.shipRewardGranter || tech.shipReward === undefined) return;
+    try {
+      const result = await this.shipRewardGranter(userId, tech.id);
+      if (result.outcome !== 'granted') return;
+      const shipClassName = (result as { shipClassName: string }).shipClassName;
+      const message = `Als Belohnung für den Abschluss der Forschung wurde dir ein Schiff vom Typ ${shipClassName} überstellt`;
+      await this.messagingService.sendSystem(
+        userId,
+        message,
+        message,
+        `research-reward-ship:${userId}:${tech.id}`,
+        MessageFolder.SHIP,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Ship reward for tech ${tech.id} failed: ${(error as Error).message}`,
+      );
+    }
   }
 
   private getPointsRequired(tech: TechDef): number {

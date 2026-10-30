@@ -1,6 +1,6 @@
 # Forschungsbelohnung: Abschlussintegration und Nachricht
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** col-D2a1, col-D2a2, col-D2a3
@@ -22,12 +22,16 @@ Der Forschungsabschluss stößt die idempotente Schiffvergabe an und meldet eine
 
 ## Akzeptanzkriterien
 
-- [ ] Der Abschluss-Hook ruft die Belohnungsvergabe nur bei explizitem Mapping auf.
-- [ ] Bei erfolgreicher Vergabe erhält der Spieler genau eine Nachricht im Ordner „Schiffe“: „Als Belohnung für den Abschluss der Forschung wurde dir ein Schiff vom Typ <Schiffsklasse> überstellt“.
-- [ ] Ohne Mapping oder ohne Kolonie entsteht weder Schiff noch Erfolgsmeldung.
-- [ ] Wiederholte Abschlussverarbeitung erzeugt weder ein zweites Schiff noch eine zweite Nachricht.
-- [ ] Integrationstests decken Erfolg, fehlendes Mapping, fehlende Kolonie und Wiederholung ab.
+- [x] Der Abschluss-Hook ruft die Belohnungsvergabe nur bei explizitem Mapping auf.
+- [x] Bei erfolgreicher Vergabe erhält der Spieler genau eine Nachricht im Ordner „Schiffe“: „Als Belohnung für den Abschluss der Forschung wurde dir ein Schiff vom Typ <Schiffsklasse> überstellt“.
+- [x] Ohne Mapping oder ohne Kolonie entsteht weder Schiff noch Erfolgsmeldung.
+- [x] Wiederholte Abschlussverarbeitung erzeugt weder ein zweites Schiff noch eine zweite Nachricht.
+- [x] Integrationstests decken Erfolg, fehlendes Mapping, fehlende Kolonie und Wiederholung ab.
 
 ## Entscheidung
 
 Schiffvergabe, Grant-Abschluss und Erfolgsmeldung bilden den idempotenten Abschlussablauf; produktive Reward-Mappings bleiben bis zu einer gesonderten Freigabe leer.
+
+## Comments
+
+`ResearchService.notifyCompletion` ruft nach der Abschlussmeldung `grantShipReward` auf (nur bei `tech.shipReward`); der Granter wird von `SpacecraftModule.onModuleInit` registriert (`registerShipRewardGranter`), um einen Modulzyklus zu vermeiden. Bei `granted` genau eine Nachricht im Ordner SHIP (deliveryKey `research-reward-ship:<user>:<tech>`); Fehler werden geloggt und blockieren den Abschluss nicht. `ResearchRewardShipResult.granted` trägt nun `shipClassName`. Tests in `research.service.spec.ts`. Offen: Wiederholung nach `no-colony` (Grant bleibt RESERVED) wird erst bei erneutem Abschluss-Hook aufgenommen; es gibt keinen Retry-Auslöser — bei Bedarf eigenes Issue. Produktive Mappings bleiben leer.
