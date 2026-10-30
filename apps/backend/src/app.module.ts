@@ -123,6 +123,8 @@ import { NewsModule } from './modules/news/news.module';
 import { News } from './modules/news/entities/news.entity';
 import { TradeModule } from './modules/trade/trade.module';
 import { TradePost } from './modules/trade/entities/trade-post.entity';
+import { TradeLicenseCondition } from './modules/trade/entities/trade-license-condition.entity';
+import { TradeLicense } from './modules/trade/entities/trade-license.entity';
 import { TradeAccountStorage } from './modules/trade/entities/trade-account-storage.entity';
 import { TradeOffer } from './modules/trade/entities/trade-offer.entity';
 import { TradeTransfer } from './modules/trade/entities/trade-transfer.entity';
@@ -248,6 +250,8 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           UserAward,
           News,
           TradePost,
+          TradeLicenseCondition,
+          TradeLicense,
           TradeAccountStorage,
           TradeOffer,
           TradeTransfer,

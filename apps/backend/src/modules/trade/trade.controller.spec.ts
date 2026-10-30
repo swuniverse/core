@@ -15,7 +15,11 @@ describe('TradeController', () => {
     listPosts: jest.fn(),
     getOverview: jest.fn(),
   };
-  const controller = new TradeController(query as never);
+  const licenses = {
+    getCondition: jest.fn(),
+    setCondition: jest.fn(),
+  };
+  const controller = new TradeController(query as never, licenses as never);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -33,5 +37,15 @@ describe('TradeController', () => {
     await controller.getOverview({ user: { sub: 42 } });
 
     expect(query.getOverview).toHaveBeenCalledWith(42);
+  });
+
+  it('forwards owner condition reads and updates', async () => {
+    const input = { commodityId: 50, amount: 10, durationDays: 30 };
+
+    await controller.getLicenseCondition(7, { user: { sub: 42 } });
+    await controller.setLicenseCondition(7, { user: { sub: 42 } }, input);
+
+    expect(licenses.getCondition).toHaveBeenCalledWith(7, 42);
+    expect(licenses.setCondition).toHaveBeenCalledWith(7, 42, input);
   });
 });

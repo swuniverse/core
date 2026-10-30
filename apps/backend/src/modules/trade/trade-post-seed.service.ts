@@ -7,6 +7,7 @@ import {
   GalaxyField,
 } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import { TradeLicenseCondition } from './entities/trade-license-condition.entity';
 import {
   TRADE_POST_DEFAULT_LEVEL,
   TRADE_POST_DEFAULT_STORAGE_LIMIT,
@@ -61,6 +62,8 @@ export class TradePostSeedService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(TradePost)
     private readonly tradePostRepo: Repository<TradePost>,
+    @InjectRepository(TradeLicenseCondition)
+    private readonly licenseConditionRepo: Repository<TradeLicenseCondition>,
     @InjectRepository(GalaxyField)
     private readonly galaxyFieldRepo: Repository<GalaxyField>,
     @InjectRepository(SpaceLocation)
@@ -118,7 +121,7 @@ export class TradePostSeedService implements OnApplicationBootstrap {
       const existing = await this.tradePostRepo.findOneBy({
         name: definition.name,
       });
-      await this.tradePostRepo.save(
+      const post = await this.tradePostRepo.save(
         this.tradePostRepo.create({
           ...existing,
           name: definition.name,
@@ -132,6 +135,19 @@ export class TradePostSeedService implements OnApplicationBootstrap {
           stationId: null,
         }),
       );
+      const condition = await this.licenseConditionRepo.findOneBy({
+        tradePostId: post.id,
+      });
+      if (!condition) {
+        await this.licenseConditionRepo.save(
+          this.licenseConditionRepo.create({
+            tradePostId: post.id,
+            commodityId: 50,
+            amount: 10,
+            durationDays: 30,
+          }),
+        );
+      }
     }
   }
 }

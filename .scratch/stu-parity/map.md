@@ -162,6 +162,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T2a – Persistente Handelslizenzbedingungen und Spieler-Lizenzen, eigentümergeschützte Pflege, NPC-Default und gemeinsame Feld-Presence-Policy umgesetzt – siehe Feature-Commit
 - tmw-K5d – Täglicher Kartenzyklus schließt vollständig erkundete Ebenen atomar ab, löscht persönlichen Ebenennebel und persistiert das Abschlussereignis genau einmal – siehe Feature-Commit
 - tmw-K5c – Heimatweltabschluss und erfolgreiche eigene Galaxieankünfte machen Ebenen autoritativ und idempotent bekannt – siehe Feature-Commit
 - tmw-K5a – Persistente Ebenenkenntnis mit monotonem Status, Service-API und dedupliziertem Bestands-Backfill umgesetzt – siehe Feature-Commit

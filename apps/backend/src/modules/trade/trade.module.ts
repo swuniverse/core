@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TradeAccountStorage } from './entities/trade-account-storage.entity';
+import { TradeLicenseCondition } from './entities/trade-license-condition.entity';
+import { TradeLicense } from './entities/trade-license.entity';
 import { TradeOffer } from './entities/trade-offer.entity';
 import { TradePost } from './entities/trade-post.entity';
 import { TradeTransaction } from './entities/trade-transaction.entity';
@@ -13,6 +15,8 @@ import { TradePostSeedService } from './trade-post-seed.service';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { TradeController } from './trade.controller';
+import { TradeLicenseService } from './trade-license.service';
+import { TradePostPresencePolicy } from './trade-post-presence.policy';
 import { TradeQueryService } from './trade-query.service';
 
 @Module({
@@ -20,6 +24,8 @@ import { TradeQueryService } from './trade-query.service';
     AuthModule,
     TypeOrmModule.forFeature([
       TradePost,
+      TradeLicenseCondition,
+      TradeLicense,
       GalaxyField,
       SpaceLocation,
       Spacecraft,
@@ -31,7 +37,19 @@ import { TradeQueryService } from './trade-query.service';
     ]),
   ],
   controllers: [TradeController],
-  providers: [TradeStorageService, TradePostSeedService, TradeQueryService],
-  exports: [TradeStorageService, TradeQueryService, TypeOrmModule],
+  providers: [
+    TradeStorageService,
+    TradePostSeedService,
+    TradeQueryService,
+    TradeLicenseService,
+    TradePostPresencePolicy,
+  ],
+  exports: [
+    TradeStorageService,
+    TradeQueryService,
+    TradeLicenseService,
+    TradePostPresencePolicy,
+    TypeOrmModule,
+  ],
 })
 export class TradeModule {}
