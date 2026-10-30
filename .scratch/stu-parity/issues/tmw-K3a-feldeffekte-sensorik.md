@@ -1,6 +1,6 @@
 # Feldeffekte, Teil 2a: Sensorik (LSS-Störung, LSS-Blockade, Signaturanzeige)
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1a
@@ -32,3 +32,4 @@ Passive Sensorik-Effekte wirken auf die Langstreckensensoren. Steht ein Schiff i
 ## Comments
 
 - 2026-10-28 Agent: Blocked by a missing product decision: the acceptance criteria require LSS_BLOCKADE to follow STU’s LssBlockadeGridFactory, but the referenced STU FieldTypeEffectEnum still marks LSS_BLOCKADE as not implemented while a grid implementation exists. Please confirm whether SWU should intentionally activate that currently dormant STU algorithm, including that blockade fields themselves are returned without content, and whether the behavior must apply to both system and galaxy local maps.
+- 2026-10-30 Product Owner: Option 1. Die TODO-Markierung in STU ist veraltet; SWU übernimmt die durch `LssBlockadeGrid`, Factory, Realtime-Ansicht und Tests belegte aktive Laufzeitsemantik. `LSS_BLOCKADE` gilt in System- und Galaxie-LSS. Das Blockadefeld selbst sowie alle nach dem getesteten Bresenham-/Eckblockade-Raster verdeckten Felder werden serverseitig redigiert: Koordinate beziehungsweise undurchsichtige Rasterzelle darf erhalten bleiben, aber Feldtyp, Effekte, Objekte, Schiffe, Wracks, Anomalien, Overlays und Signaturzahlen werden nicht serialisiert. `LSS_MALFUNCTION` liefert nur das eigene Feld plus explizite Warnung. `NO_SPACECRAFT_COUNT` überträgt keine Signaturdaten; `DUBIOUS_SPACECRAFT_COUNT` überträgt bei vorhandener Signatur ausschließlich einen opaken `DUBIOUS`-Zustand für „!“, niemals die echte Zahl. Das Issue ist `ready-for-agent`.
