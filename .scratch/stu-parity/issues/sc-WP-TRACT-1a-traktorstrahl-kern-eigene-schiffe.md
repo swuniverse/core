@@ -1,6 +1,6 @@
 # Traktorstrahl-Kern (eigene Schiffe und Wracks)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-2e
