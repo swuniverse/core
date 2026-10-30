@@ -4,6 +4,8 @@ import { ResearchController } from './research.controller';
 import { ResearchService } from './research.service';
 import { UnlockResolverService } from './unlock-resolver.service';
 import { Research } from './entities/research.entity';
+import { ResearchRewardGrant } from './entities/research-reward-grant.entity';
+import { ResearchRewardGrantService } from './research-reward-grant.service';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
@@ -11,11 +13,21 @@ import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Research, Colony, ColonyStorage, ShipClassDef]),
+    TypeOrmModule.forFeature([
+      Research,
+      ResearchRewardGrant,
+      Colony,
+      ColonyStorage,
+      ShipClassDef,
+    ]),
     WebsocketModule,
   ],
   controllers: [ResearchController],
-  providers: [ResearchService, UnlockResolverService],
-  exports: [ResearchService, UnlockResolverService],
+  providers: [
+    ResearchService,
+    UnlockResolverService,
+    ResearchRewardGrantService,
+  ],
+  exports: [ResearchService, UnlockResolverService, ResearchRewardGrantService],
 })
 export class ResearchModule {}

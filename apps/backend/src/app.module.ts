@@ -77,6 +77,7 @@ import { ShipClassDiscovery } from './modules/spacecraft/entities/ship-class-dis
 import { StationClassDiscovery } from './modules/spacecraft/entities/station-class-discovery.entity';
 import { AdminShipBuildplan } from './modules/spacecraft/entities/admin-ship-buildplan.entity';
 import { Research } from './modules/research/entities/research.entity';
+import { ResearchRewardGrant } from './modules/research/entities/research-reward-grant.entity';
 import { Message } from './modules/messaging/entities/message.entity';
 import { HolonetPost } from './modules/holonet/entities/holonet-post.entity';
 import { HolonetComment } from './modules/holonet/entities/holonet-comment.entity';
@@ -203,6 +204,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           StationClassDiscovery,
           AdminShipBuildplan,
           Research,
+          ResearchRewardGrant,
           Message,
           HolonetPost,
           HolonetComment,
