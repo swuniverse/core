@@ -1,6 +1,6 @@
 # Warenkonto ↔ Schiff (Handelsmenü am Posten)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-T2
