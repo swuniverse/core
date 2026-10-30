@@ -107,6 +107,10 @@ export class Spacecraft {
   @Column({ default: 0 })
   dockCapacity: number;
 
+  /** Station owner setting: foreign-docking notices arrive already read. */
+  @Column({ default: false })
+  dockPmAutoRead: boolean;
+
   @Column({ default: 0 })
   constructionTicksRemaining: number;
 

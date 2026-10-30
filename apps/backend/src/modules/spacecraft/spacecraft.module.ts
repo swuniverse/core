@@ -5,6 +5,8 @@ import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
 import { SpacecraftDockingService } from './spacecraft-docking.service';
+import { DockingPrivilegeService } from './docking-privilege.service';
+import { DockingPrivilege } from './entities/docking-privilege.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './entities/spacecraft-module.entity';
 import { ColonyScan } from './entities/colony-scan.entity';
@@ -100,6 +102,7 @@ import {
       CartographyPlan,
       FlightSignature,
       SpacecraftRepairTask,
+      DockingPrivilege,
       StarSystem,
       Layer,
       CelestialObject,
@@ -139,6 +142,7 @@ import {
     TransferService,
     EpsTransferService,
     SpacecraftDockingService,
+    DockingPrivilegeService,
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,

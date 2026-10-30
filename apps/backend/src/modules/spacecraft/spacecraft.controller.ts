@@ -47,6 +47,8 @@ import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import { CrewType } from '../colony/entities/crew.entity';
+import { DockingPrivilegeDto, ToggleDockPmAutoReadDto } from './docking-privilege.dto';
+import { DockingPrivilegeService } from './docking-privilege.service';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
@@ -379,6 +381,12 @@ export class SpacecraftController {
       undockFromStation: async () => ({ message: '', shipIds: [] }),
       undockAll: async () => ({ message: '', shipIds: [] }),
     } as unknown as SpacecraftDockingService,
+    private readonly dockingPrivilegeService: DockingPrivilegeService = {
+      list: async () => ({ privileges: [], autoRead: false }),
+      add: async () => ({ privileges: [], autoRead: false }),
+      remove: async () => ({ privileges: [], autoRead: false }),
+      setAutoRead: async () => ({ privileges: [], autoRead: false }),
+    } as unknown as DockingPrivilegeService,
   ) {}
 
   // Static routes first (before :id)
@@ -1341,6 +1349,47 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.dockingService.undock(id, req.user.sub);
+  }
+
+  @Get(':id/docking-privileges')
+  dockingPrivileges(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingPrivilegeService.list(id, req.user.sub);
+  }
+
+  @Post(':id/docking-privileges')
+  addDockingPrivilege(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: DockingPrivilegeDto,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingPrivilegeService.add(
+      id,
+      req.user.sub,
+      dto.targetType,
+      dto.targetId,
+      dto.mode,
+    );
+  }
+
+  @Post(':id/docking-privileges/auto-read')
+  setDockingAutoRead(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ToggleDockPmAutoReadDto,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingPrivilegeService.setAutoRead(id, req.user.sub, dto.enabled);
+  }
+
+  @Delete(':id/docking-privileges/:privilegeId')
+  removeDockingPrivilege(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('privilegeId', ParseIntPipe) privilegeId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingPrivilegeService.remove(id, req.user.sub, privilegeId);
   }
 
   @Post(':id/docked/undock-all')

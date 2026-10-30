@@ -49,7 +49,12 @@ const station = (overrides: Row = {}): Row => ({
   ...overrides,
 });
 
-function setup(rows: Row[], fleet: Row | null = null, occupied = 0) {
+function setup(
+  rows: Row[],
+  fleet: Row | null = null,
+  occupied = 0,
+  access: { allowed: boolean } = { allowed: false },
+) {
   const save = jest.fn(async (value: unknown) => value);
   const spacecraftRepo = {
     find: jest.fn(async (options: { where: Row }) => {
@@ -75,8 +80,21 @@ function setup(rows: Row[], fleet: Row | null = null, occupied = 0) {
     cancelTasks: jest.fn(async () => []),
     notifyCancelled: jest.fn(async () => undefined),
   };
-  const service = new SpacecraftDockingService(dataSource as any, crew as any, repair as any);
-  return { service, save, crew, repair, spacecraftRepo, dataSource };
+  const privileges = {
+    decide: jest.fn(async (_manager: unknown, st: Row, sh: Row) =>
+      st.userId === sh.userId || access.allowed
+        ? { allowed: true }
+        : { allowed: false, reason: 'Das Andocken wurde verweigert' },
+    ),
+    notifyForeignDocking: jest.fn(async () => undefined),
+  };
+  const service = new SpacecraftDockingService(
+    dataSource as any,
+    crew as any,
+    repair as any,
+    privileges as any,
+  );
+  return { service, save, crew, repair, spacecraftRepo, dataSource, privileges };
 }
 
 jest.mock('typeorm', () => ({
@@ -85,6 +103,22 @@ jest.mock('typeorm', () => ({
 }));
 
 describe('SpacecraftDockingService', () => {
+  it('docks a foreign ship when the access rules allow it and notifies the owner', async () => {
+    const a = ship(1);
+    const { service, privileges } = setup(
+      [a, station({ userId: 2, dockPmAutoRead: true })],
+      null,
+      0,
+      { allowed: true },
+    );
+    await service.dock(1, 1, 100);
+    expect(a.dockedAtId).toBe(100);
+    expect(privileges.notifyForeignDocking).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 100, userId: 2, dockPmAutoRead: true }),
+      [a],
+    );
+  });
+
   it('docks a ship for 1 EPS, drops shields and warp, and fills a slot', async () => {
     const a = ship(1);
     const { service, save } = setup([a, station()]);

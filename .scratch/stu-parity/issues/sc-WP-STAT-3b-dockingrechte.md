@@ -1,6 +1,6 @@
 # Dockingrechte (Spieler, Allianz, Fraktion, Schiff)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-3a
@@ -25,11 +25,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Entity für Dockrechte (Typ, Ziel-ID, Modus), Migration; Eigner verwaltet sie in der Stationsansicht.
-- [ ] Andock-Prüfung: Eigner immer; sonst Verbot vor Erlaubnis über Spieler, Allianz, Fraktion, Schiff.
-- [ ] Bei Austritt, Rauswurf und Auflösung einer Allianz werden Allianzrechte gemäß Vertrag bereinigt (Registrierung am `AllianceContextCleanup`).
-- [ ] Fremdes Andocken erzeugt eine Nachricht an den Eigner; Schalter „automatisch gelesen“.
-- [ ] Backend-Tests (Rangfolge, Bereinigung), Frontend-Test Rechteverwaltung.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Entity für Dockrechte (Typ, Ziel-ID, Modus), Migration; Eigner verwaltet sie in der Stationsansicht.
+- [x] Andock-Prüfung: Eigner immer; sonst Verbot vor Erlaubnis über Spieler, Allianz, Fraktion, Schiff.
+- [x] Bei Austritt, Rauswurf und Auflösung einer Allianz werden Allianzrechte gemäß Vertrag bereinigt (Registrierung am `AllianceContextCleanup`).
+- [x] Fremdes Andocken erzeugt eine Nachricht an den Eigner; Schalter „automatisch gelesen“.
+- [x] Backend-Tests (Rangfolge, Bereinigung), Frontend-Test Rechteverwaltung.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Umgesetzt: Entity `docking_privileges` (Typ USER/ALLIANCE/FACTION/SHIP, Ziel-ID, Modus ALLOW/DENY) plus `spacecraft.dockPmAutoRead`, Migration `20261030170000`. Reine Policy `docking-access.ts` (Eigner immer, Verbot vor Erlaubnis, sonst verweigert); `DockingPrivilegeService` (Verwaltung nur Eigner, Zielvalidierung, Auswertung, Eignernachricht im Ordner Station mit Auto-gelesen-Schalter) ist in `SpacecraftDockingService` und die NBS-Dock-Aktion eingebunden. Allianzregeln werden bei jeder Prüfung aus der aktuellen Mitgliedschaft abgeleitet (Austritt/Rauswurf braucht keine Bereinigung); Auflösung und Reset löschen Allianzregeln über `AllianceContextCleanup`. Frontend: `DockingPrivilegesPanel` in der Stationsansicht.
+Offen: Regelziele werden per ID eingegeben (keine Namenssuche); Wurmloch-/Handelspostenzugang kann das Modell später wiederverwenden.

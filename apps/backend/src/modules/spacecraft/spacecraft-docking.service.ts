@@ -12,6 +12,7 @@ import {
   buildNearbyInteractionContext,
   decideNearbyInteraction,
 } from './nearby-interaction';
+import { DockingPrivilegeService } from './docking-privilege.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
@@ -27,6 +28,11 @@ type Outcome = {
   message: string;
   shipIds: number[];
   cancelled: Array<{ userId: number; name: string }>;
+  /** Foreign docking to report to the station owner after the commit. */
+  foreignDocking?: {
+    station: Pick<Spacecraft, 'id' | 'userId' | 'name' | 'dockPmAutoRead'>;
+    ships: Array<Pick<Spacecraft, 'id' | 'userId' | 'name'>>;
+  };
 };
 
 /** Docking of ships and fleets at stations; every action is atomic and runs in one transaction. */
@@ -36,6 +42,7 @@ export class SpacecraftDockingService {
     private readonly dataSource: DataSource,
     private readonly crewService: SpacecraftCrewService,
     private readonly repairService: SpacecraftRepairService,
+    private readonly privileges: DockingPrivilegeService,
   ) {}
 
   /** Docks the ship, or its whole fleet when the ship leads one. */
@@ -103,6 +110,12 @@ export class SpacecraftDockingService {
   ): Promise<SpacecraftDockResultDto> {
     const outcome = await this.dataSource.transaction(work);
     await this.repairService.notifyCancelled(outcome.cancelled, 'Das Andocken oder Abdocken');
+    if (outcome.foreignDocking) {
+      await this.privileges.notifyForeignDocking(
+        outcome.foreignDocking.station,
+        outcome.foreignDocking.ships,
+      );
+    }
     return { message: outcome.message, shipIds: outcome.shipIds };
   }
 
@@ -117,8 +130,6 @@ export class SpacecraftDockingService {
     if (!station || station.kind !== SpacecraftKind.STATION) {
       throw new BadRequestException('Ziel ist keine Station');
     }
-    // Until station access rules exist (sc-WP-STAT-3b) only the owner may dock.
-    if (station.userId !== userId) throw new BadRequestException('Das Andocken wurde verweigert');
     if (lead.kind !== SpacecraftKind.SHIP) {
       throw new BadRequestException('Nur Schiffe können andocken');
     }
@@ -157,6 +168,12 @@ export class SpacecraftDockingService {
       }
       if (!sameSpacecraftLocation(ship, station)) {
         throw new BadRequestException(`${label}Das Schiff befindet sich nicht am Feld der Station`);
+      }
+      const access = await this.privileges.decide(manager, station, ship);
+      if (!access.allowed) {
+        throw new BadRequestException(
+          `${label}${access.reason ?? 'Das Andocken wurde verweigert'}`,
+        );
       }
       const decision = decideNearbyInteraction(
         'DOCK',
@@ -208,6 +225,10 @@ export class SpacecraftDockingService {
         manager,
         pending.map((ship) => ship.id),
       ),
+      foreignDocking: {
+        station,
+        ships: pending,
+      },
     };
   }
 

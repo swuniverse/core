@@ -594,6 +594,23 @@ export interface SpacecraftDockResultDto {
   shipIds: number[];
 }
 
+export type DockingPrivilegeTargetType = 'USER' | 'ALLIANCE' | 'FACTION' | 'SHIP';
+export type DockingPrivilegeMode = 'ALLOW' | 'DENY';
+
+export interface DockingPrivilegeDto {
+  id: number;
+  targetType: DockingPrivilegeTargetType;
+  targetId: number;
+  targetName: string;
+  mode: DockingPrivilegeMode;
+}
+
+export interface DockingPrivilegesDto {
+  privileges: DockingPrivilegeDto[];
+  /** Notices about foreign docking arrive already read. */
+  autoRead: boolean;
+}
+
 export interface SpacecraftFieldContextDto {
   coordinates: { x: number; y: number };
   region?: {

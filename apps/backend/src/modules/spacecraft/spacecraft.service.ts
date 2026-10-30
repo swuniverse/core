@@ -108,6 +108,7 @@ import { FlightConsequencePipeline } from './flight-consequence-pipeline';
 import { CrewEnhancementEvent } from './crew-expertise';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { EscapePodService } from './escape-pod.service';
+import { DockingPrivilegeService } from './docking-privilege.service';
 import { DOCK_EPS_COST } from './docking.constants';
 
 @Injectable()
@@ -174,6 +175,15 @@ export class SpacecraftService {
       evacuateLifeSupportFailure: async () => 0,
       listNearby: async () => [],
     } as unknown as EscapePodService,
+    private readonly dockingPrivilegeService: DockingPrivilegeService = {
+      allowedStationIds: async (
+        ship: { userId: number },
+        stations: Array<{ id: number; userId: number }>,
+      ) =>
+        new Set(
+          stations.filter((s) => s.userId === ship.userId).map((s) => s.id),
+        ),
+    } as unknown as DockingPrivilegeService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3399,6 +3409,10 @@ export class SpacecraftService {
       shipQuery.getMany(),
       wreckQuery.getMany(),
     ]);
+    const dockableStationIds = await this.dockingPrivilegeService.allowedStationIds(
+      ship,
+      ships.filter((target) => target.kind === 'STATION'),
+    );
     return {
       actionsAvailable: !hyperdriveActive,
       hyperdriveActive,
@@ -3442,7 +3456,7 @@ export class SpacecraftService {
             actions: {
               dock:
                 target.kind === 'STATION' &&
-                target.userId === ship.userId &&
+                dockableStationIds.has(target.id) &&
                 ship.kind === 'SHIP' &&
                 ship.dockedAtId == null &&
                 interactionAllowed('DOCK'),

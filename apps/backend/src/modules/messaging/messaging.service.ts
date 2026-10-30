@@ -240,6 +240,7 @@ export class MessagingService {
     deliveryKey?: string,
     folder: MessageFolder = MessageFolder.SYSTEM,
     target?: MessageTarget,
+    markRead = false,
   ): Promise<Message> {
     if (!deliveryKey) {
       const message = this.messageRepo.create({
@@ -247,6 +248,7 @@ export class MessagingService {
         recipientId,
         subject,
         body,
+        isRead: markRead,
         isSystem: true,
         folder,
         targetKind: target?.kind ?? null,
