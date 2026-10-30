@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { VACATION_DELAY_MS } from '@swuniverse/shared';
+import { AccountDeletionMark, VACATION_DELAY_MS, type AuthFeaturesDto } from '@swuniverse/shared';
 import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
 import { PlayerAvatar } from '../components/PlayerAvatar';
@@ -696,11 +696,13 @@ function DangerTab() {
   const [deleteMsg, setDeleteMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [features, setFeatures] = useState<AuthFeaturesDto | null>(null);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/auth/me').then(setProfile);
+    api.get<AuthFeaturesDto>('/auth/features').then(setFeatures);
   }, []);
 
   const toggleVacation = async () => {
@@ -728,11 +730,27 @@ function DangerTab() {
     setDeleteMsg('');
     try {
       await api.post('/user/delete', { password: deletePw });
-      setDeleteMsg('Löschung beantragt. Du wirst ausgeloggt.');
-      setTimeout(() => logout(), 2000);
+      setDeleteMsg(
+        features?.accountDeletion
+          ? 'Löschung beantragt. Bitte bestätige den Link in der E-Mail.'
+          : 'Löschung beantragt.',
+      );
+      setProfile((current: any) => ({
+        ...current,
+        deletionMark: AccountDeletionMark.Requested,
+      }));
     } catch (error: unknown) {
       setDeleteMsg(getErrorMessage(error, 'Fehler'));
     }
+  };
+
+  const revokeDeletion = async () => {
+    await api.post('/user/delete/revoke', {});
+    setProfile((current: any) => ({
+      ...current,
+      deletionMark: AccountDeletionMark.None,
+    }));
+    setDeleteMsg('Löschantrag zurückgezogen.');
   };
 
   return (
@@ -772,7 +790,14 @@ function DangerTab() {
           Diese Aktion kann nicht rueckgaengig gemacht werden. Alle Daten werden
           dauerhaft geloescht.
         </p>
-        {!confirmDelete ? (
+        {profile?.deletionMark === AccountDeletionMark.Requested ? (
+          <button
+            onClick={() => void revokeDeletion()}
+            className="px-4 py-2 border border-swu-border text-swu-primary text-sm rounded"
+          >
+            Löschantrag zurückziehen
+          </button>
+        ) : !confirmDelete ? (
           <button
             onClick={() => setConfirmDelete(true)}
             className="px-4 py-2 bg-red-500/20 border border-red-500 text-red-400 text-sm font-semibold rounded hover:bg-red-500/30 transition-colors"

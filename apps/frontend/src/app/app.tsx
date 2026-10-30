@@ -6,6 +6,7 @@ import { LoginPage } from '../pages/login';
 import { RegisterPage } from '../pages/register';
 import { LostPasswordPage, ResetPasswordPage } from '../pages/password-reset';
 import { VerifyEmailPage } from '../pages/verify-email';
+import { ConfirmDeletionPage } from '../pages/confirm-deletion';
 import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
 import { SpacecraftPage } from '../pages/spacecraft';
@@ -121,6 +122,7 @@ export function App() {
             }
           />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/confirm-deletion" element={<ConfirmDeletionPage />} />
           <Route
             element={
               <ProtectedRoute>

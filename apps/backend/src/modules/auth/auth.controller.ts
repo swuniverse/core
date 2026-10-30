@@ -65,6 +65,11 @@ export class AuthController {
     return this.authService.resetPassword(dto);
   }
 
+  @Post('confirm-deletion')
+  confirmDeletion(@Body('token') token: string) {
+    return this.authService.confirmDeletion(token);
+  }
+
   @Post('verify-email')
   verifyEmail(@Body() dto: VerifyEmailRequestDto) {
     return this.authService.verifyEmail(dto);
@@ -128,6 +133,13 @@ export class AuthController {
   @Get('admin/users')
   listUsers(@Query('q') query?: string) {
     return this.authService.listUsers(query);
+  }
+
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('admin/users/:id/delete')
+  deleteUserNow(@Param('id') id: string) {
+    return this.authService.deleteUserNow(Number(id));
   }
 
   @RequiresGameAccess()

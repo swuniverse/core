@@ -43,9 +43,18 @@ export interface UpdateVerificationEmailDto {
   email: string;
 }
 
+export enum AccountDeletionMark {
+  None = 0,
+  Requested = 1,
+  Confirmed = 2,
+  Forbidden = 3,
+  Executed = 4,
+}
+
 export interface AuthFeaturesDto {
   passwordReset: boolean;
   emailVerification: boolean;
+  accountDeletion: boolean;
 }
 
 export interface AuthMessageDto {
@@ -74,6 +83,7 @@ export interface UserProfile {
   isAdmin?: boolean;
   permissions?: string[];
   createdAt: string;
+  deletionMark?: AccountDeletionMark;
 }
 
 export interface JwtPayload {

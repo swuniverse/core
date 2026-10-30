@@ -103,6 +103,11 @@ export class SettingsController {
     return this.settingsService.requestDeletion(req.user.sub, body.password);
   }
 
+  @Post('delete/revoke')
+  revokeDeletion(@Request() req: { user: { sub: number } }) {
+    return this.settingsService.revokeDeletion(req.user.sub);
+  }
+
   @Get('search')
   searchUsers(@Query('q') query: string) {
     return this.settingsService.searchUsers(query);

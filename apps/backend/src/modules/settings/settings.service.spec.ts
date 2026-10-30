@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { SettingsService } from './settings.service';
+import { AccountDeletionMark } from '@swuniverse/shared';
+import { AccountTokenPurpose } from '../auth/account-token.entity';
 
 const createService = (
   user?: Record<string, unknown>,
@@ -15,12 +17,29 @@ const createService = (
     find: jest.fn(async () => []),
     upsert: jest.fn(async () => undefined),
   };
+  const tokenService = {
+    create: jest.fn(async () => ({ token: 'deletion-token', expiresAt: new Date() })),
+  };
+  const mail = {
+    sendAccountDeletionMail: jest.fn(async () => true),
+  };
+  const config = {
+    get: jest.fn<string, [string]>((key: string) =>
+      key === 'ACCOUNT_DELETION_ENABLED' ? 'true' : 'https://game.test',
+    ),
+  };
   return {
     service: new SettingsService(
       userRepo as any,
       settingRepo as any,
       emailBlocklist,
+      tokenService as any,
+      mail as any,
+      config as any,
     ),
+    tokenService,
+    mail,
+    config,
     emailBlocklist,
     settingRepo,
     userRepo,
@@ -129,6 +148,67 @@ describe('SettingsService email changes', () => {
     await expect(
       service.changeEmail(user.id, 'secret', 'blocked@example.test'),
     ).rejects.toThrow('Die E-Mail-Adresse ist blockiert');
+  });
+});
+
+describe('SettingsService account deletion', () => {
+  beforeEach(() => {
+    jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('marks a request and sends a dedicated 48-hour confirmation link', async () => {
+    const user = {
+      id: 7,
+      username: 'Leia',
+      email: 'leia@example.test',
+      passwordHash: 'hash',
+      deletionMark: AccountDeletionMark.None,
+    };
+    const { service, tokenService, mail } = createService(user);
+
+    await service.requestDeletion(user.id, 'secret');
+
+    expect(user.deletionMark).toBe(AccountDeletionMark.Requested);
+    expect(tokenService.create).toHaveBeenCalledWith(
+      user.id,
+      AccountTokenPurpose.AccountDeletion,
+      48 * 60 * 60 * 1000,
+    );
+    expect(mail.sendAccountDeletionMail).toHaveBeenCalledWith(
+      user.email,
+      user.username,
+      'https://game.test/confirm-deletion?token=deletion-token',
+    );
+  });
+
+  it('keeps the existing request-only behavior while the feature is disabled', async () => {
+    const user = {
+      id: 7,
+      passwordHash: 'hash',
+      deletionMark: AccountDeletionMark.None,
+    };
+    const setup = createService(user);
+    setup.config.get.mockImplementation((key: string) =>
+      key === 'ACCOUNT_DELETION_ENABLED' ? 'false' : 'https://game.test',
+    );
+
+    await setup.service.requestDeletion(user.id, 'secret');
+
+    expect(user.deletionMark).toBe(AccountDeletionMark.Requested);
+    expect(setup.tokenService.create).not.toHaveBeenCalled();
+    expect(setup.mail.sendAccountDeletionMail).not.toHaveBeenCalled();
+  });
+
+  it('revokes only a pending deletion request', async () => {
+    const user = { deletionMark: AccountDeletionMark.Requested };
+    const { service, userRepo } = createService(user);
+
+    await service.revokeDeletion(7);
+
+    expect(user.deletionMark).toBe(AccountDeletionMark.None);
+    expect(userRepo.save).toHaveBeenCalledWith(user);
   });
 });
 

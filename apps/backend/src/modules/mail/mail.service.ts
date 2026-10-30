@@ -118,6 +118,29 @@ export class MailService {
     return this.sendMail({ to, subject, text, html });
   }
 
+  sendAccountDeletionMail(
+    to: string,
+    username: string,
+    confirmationUrl: string,
+  ): Promise<boolean> {
+    const subject = 'Kontolöschung für Star Wars Universe bestätigen';
+    const text = [
+      `Hallo ${username},`,
+      '',
+      'über diesen Link bestätigst du die Löschung deines Kontos:',
+      confirmationUrl,
+      '',
+      'Der Link ist 48 Stunden gültig und kann nur einmal verwendet werden.',
+    ].join('\n');
+    const html = `
+      <p>Hallo ${this.escapeHtml(username)},</p>
+      <p>Über diesen Link bestätigst du die Löschung deines Kontos:</p>
+      <p><a href="${this.escapeHtml(confirmationUrl)}">Kontolöschung bestätigen</a></p>
+      <p>Der Link ist 48 Stunden gültig und kann nur einmal verwendet werden.</p>
+    `;
+    return this.sendMail({ to, subject, text, html });
+  }
+
   sendWelcomeMail(to: string, username: string): Promise<boolean> {
     const subject = 'Willkommen bei Star Wars Universe';
     const text = [

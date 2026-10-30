@@ -97,6 +97,7 @@ describe('password reset behavior', () => {
     expect(setup().service.features()).toEqual({
       passwordReset: true,
       emailVerification: false,
+      accountDeletion: false,
     });
   });
 

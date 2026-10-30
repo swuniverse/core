@@ -10,6 +10,11 @@ import { Raw, Repository } from 'typeorm';
 import { isEmail } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import { User } from '../auth/user.entity';
+import { AccountDeletionMark } from '@swuniverse/shared';
+import { AccountTokenPurpose } from '../auth/account-token.entity';
+import { AccountTokenService } from '../auth/account-token.service';
+import { MailService } from '../mail/mail.service';
+import { ConfigService } from '@nestjs/config';
 import { UserSetting } from './entities/user-setting.entity';
 import {
   EMAIL_BLOCKLIST,
@@ -42,6 +47,7 @@ const DEFAULT_VIEWS = new Set([
 const VALID_SETTINGS = Object.keys(SETTING_DEFAULTS);
 
 const VACATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const ACCOUNT_DELETION_LIFETIME_MS = 48 * 60 * 60 * 1000;
 
 @Injectable()
 export class SettingsService {
@@ -52,6 +58,9 @@ export class SettingsService {
     private readonly settingRepo: Repository<UserSetting>,
     @Inject(EMAIL_BLOCKLIST)
     private readonly emailBlocklist: EmailBlocklistPort,
+    private readonly accountTokenService: AccountTokenService,
+    private readonly mailService: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async getSettings(userId: number): Promise<Record<string, string>> {
@@ -252,13 +261,36 @@ export class SettingsService {
       throw new BadRequestException('Password is incorrect');
     }
 
-    if (user.deletionMark === 3) {
+    if (user.deletionMark === AccountDeletionMark.Forbidden) {
       throw new ForbiddenException(
         'Account deletion has been forbidden by admin',
       );
     }
 
-    user.deletionMark = 1;
+    user.deletionMark = AccountDeletionMark.Requested;
+    await this.userRepo.save(user);
+    if (this.config.get<string>('ACCOUNT_DELETION_ENABLED') !== 'true') return;
+
+    const { token } = await this.accountTokenService.create(
+      user.id,
+      AccountTokenPurpose.AccountDeletion,
+      ACCOUNT_DELETION_LIFETIME_MS,
+    );
+    const baseUrl = (this.config.get<string>('APP_BASE_URL') ?? '').replace(/\/$/, '');
+    void this.mailService.sendAccountDeletionMail(
+      user.email,
+      user.username,
+      `${baseUrl}/confirm-deletion?token=${encodeURIComponent(token)}`,
+    );
+  }
+
+  async revokeDeletion(userId: number): Promise<void> {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException();
+    if (user.deletionMark !== AccountDeletionMark.Requested) {
+      throw new BadRequestException('Deletion request cannot be revoked');
+    }
+    user.deletionMark = AccountDeletionMark.None;
     await this.userRepo.save(user);
   }
 

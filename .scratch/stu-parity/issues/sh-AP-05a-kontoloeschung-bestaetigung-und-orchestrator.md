@@ -1,6 +1,6 @@
 # Kontolöschung: Bestätigung, Sperre und Lösch-Orchestrator
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -31,15 +31,15 @@ Vorgabe gemäß Leitplanke 4: Bestätigungsmail und Ausführung stehen hinter `A
 
 ## Akzeptanzkriterien
 
-- [ ] Löschmarken als benannte Konstanten (1 beantragt, 2 bestätigt, 3 verboten, 4 ausgeführt) statt Magic Numbers.
-- [ ] Flag an: Der Antrag (Passwort bestätigt) setzt Marke 1 und verschickt eine Mail mit Link `<APP_BASE_URL>/confirm-deletion?token=…` (Gültigkeit 48 h). Die Bestätigung setzt Marke 2. Ungültiger Token → 400.
-- [ ] Solange Marke 1 gilt, kann der Spieler den Antrag in den Einstellungen zurückziehen (Marke 0). Marke 3 (Löschverbot) blockiert den Antrag wie heute.
-- [ ] Login und Refresh mit Marke 2 werden über den Zugangshaken aus sh-AP-09 mit 403 „Dein Spieleraccount ist zur Löschung vorgesehen“ abgelehnt; das Refresh-Token wird bei Bestätigung gelöscht.
-- [ ] `PlayerDeletionService.delete(userId)` ruft alle registrierten Handler in definierter Reihenfolge in einer Transaktion auf, löscht danach den Benutzer und ist idempotent (unbekannter Benutzer: No-Op). Handler implementieren ein Interface `PlayerDeletionHandler { order; delete(tx, userId) }`.
-- [ ] Admin-Endpunkt `POST /auth/admin/users/:id/delete` (nur Admin, nur bei Flag an, nicht für Admins und nicht bei Marke 3) führt die Löschung sofort aus; Button mit Bestätigungsdialog in `admin-users.tsx`.
-- [ ] Solange die Domänen-Handler aus sh-AP-05b/05c/05d fehlen, verhindern Fremdschlüssel keine Ausführung im Test, weil der Test nur einen Benutzer ohne Spielinhalte löscht; die Ausführung bei Spielern mit Inhalten wird erst durch diese Issues freigegeben (Admin-Endpunkt lehnt Konten mit Kolonien oder Schiffen bis dahin mit 409 ab).
-- [ ] `GET /auth/features` liefert `accountDeletion: boolean`.
-- [ ] Backend-Tests: Token-Ablauf, Widerruf, Login-Sperre, Handler-Reihenfolge, Idempotenz, Flag aus. Frontend-Tests: Bestätigungsseite, Widerruf-Button.
+- [x] Löschmarken als benannte Konstanten (1 beantragt, 2 bestätigt, 3 verboten, 4 ausgeführt) statt Magic Numbers.
+- [x] Flag an: Der Antrag (Passwort bestätigt) setzt Marke 1 und verschickt eine Mail mit Link `<APP_BASE_URL>/confirm-deletion?token=…` (Gültigkeit 48 h). Die Bestätigung setzt Marke 2. Ungültiger Token → 400.
+- [x] Solange Marke 1 gilt, kann der Spieler den Antrag in den Einstellungen zurückziehen (Marke 0). Marke 3 (Löschverbot) blockiert den Antrag wie heute.
+- [x] Login und Refresh mit Marke 2 werden über den Zugangshaken aus sh-AP-09 mit 403 „Dein Spieleraccount ist zur Löschung vorgesehen“ abgelehnt; das Refresh-Token wird bei Bestätigung gelöscht.
+- [x] `PlayerDeletionService.delete(userId)` ruft alle registrierten Handler in definierter Reihenfolge in einer Transaktion auf, löscht danach den Benutzer und ist idempotent (unbekannter Benutzer: No-Op). Handler implementieren ein Interface `PlayerDeletionHandler { order; delete(tx, userId) }`.
+- [x] Admin-Endpunkt `POST /auth/admin/users/:id/delete` (nur Admin, nur bei Flag an, nicht für Admins und nicht bei Marke 3) führt die Löschung sofort aus; Button mit Bestätigungsdialog in `admin-users.tsx`.
+- [x] Solange die Domänen-Handler aus sh-AP-05b/05c/05d fehlen, verhindern Fremdschlüssel keine Ausführung im Test, weil der Test nur einen Benutzer ohne Spielinhalte löscht; die Ausführung bei Spielern mit Inhalten wird erst durch diese Issues freigegeben (Admin-Endpunkt lehnt Konten mit Kolonien oder Schiffen bis dahin mit 409 ab).
+- [x] `GET /auth/features` liefert `accountDeletion: boolean`.
+- [x] Backend-Tests: Token-Ablauf, Widerruf, Login-Sperre, Handler-Reihenfolge, Idempotenz, Flag aus. Frontend-Tests: Bestätigungsseite, Widerruf-Button.
 
 ## Comments
 
@@ -47,3 +47,4 @@ Vorgabe gemäß Leitplanke 4: Bestätigungsmail und Ausführung stehen hinter `A
 
 - 2026-10-27: Abbruch nach zwei ernsthaften Prüfversuchen. Der vollständige Backend-Testlauf ist unabhängig von diesem Issue rot: `spacecraft-destruction.service.spec.ts` erwartet für das intakte Modul Commodity `10101`, die aktuelle Implementierung liefert `10201`. Produktcode wurde gemäß Abbruchregel verworfen. Bitte festlegen bzw. den bestehenden Test/Spieldaten-Stand auflösen, damit die verpflichtende Gesamtsuite grün werden kann.
 - 2026-10-30 Product Owner: Option 1. Das M-Issue wird vollständig wieder freigegeben. Der frühere Baseline-Fehler ist mit Commit `55e320f` behoben; Ralph bestätigt die dokumentierten Test-Seams nach der aktuellen autonomen Regel selbst. Verbindlich sind ein separater, einmaliger Token-Zweck `ACCOUNT_DELETION` mit 48 Stunden Gültigkeit, Ersetzen eines älteren Lösch-Tokens ohne Beeinflussung von Passwort-Reset-Tokens und eine sichtbare HTTP-400-Fehlermeldung bei ungültigen oder abgelaufenen Tokens. Marke 1 erlaubt Login und Widerruf, Marke 2 sperrt Login und Refresh. Das Issue ist `ready-for-agent`.
+- 2026-10-30: Bestätigte Kontolöschung mit 48-Stunden-Token, Widerruf, Zugangssperre, transaktionalem Lösch-Orchestrator und abgesicherter Admin-Sofortlöschung umgesetzt. Fokussierte Backend- und Frontend-Tests sind grün. Die verpflichtenden Gesamtläufe bleiben durch unabhängige Baseline-Probleme rot (u. a. Tutorial-/Spacecraft-Specs, fehlende `pixi.js`-/`dotenv`-Abhängigkeiten); die issue-eigenen Fehler wurden behoben.

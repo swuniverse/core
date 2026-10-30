@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GameDataModule } from './modules/game-data/game-data.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AccountDeletionModule } from './modules/account-deletion/account-deletion.module';
 import { ColonyModule } from './modules/colony/colony.module';
 import { StarmapModule } from './modules/starmap/starmap.module';
 import { SpacecraftModule } from './modules/spacecraft/spacecraft.module';
@@ -262,6 +263,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
     FactionModule,
     GameStatusModule,
     NewsModule,
+    AccountDeletionModule,
     AuthModule,
     OnboardingModule,
     ColonyModule,

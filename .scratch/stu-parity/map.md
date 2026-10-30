@@ -160,6 +160,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-05a – Bestätigte Kontolöschung mit Widerruf, Zugangssperre, transaktionalem Handler-Orchestrator und abgesicherter Admin-Sofortlöschung – siehe Feature-Commit
 - sh-AP-04b – Wirksamer Urlaub schützt Schiffe und Kolonien zentral vor Angriff, Abfangen und Blockade; das NBS begründet deaktivierte Angriffe – siehe Feature-Commit
 - sc-WP-TRACT-1b – Fremde ungeschildete Nicht-NPC-Schiffe außerhalb wirksamen Urlaubs können unabhängig von Haltung erfasst werden; Opfer können mit STU-Folgen entkommen – siehe Feature-Commit
 - sc-WP-TRACT-1a – Traktorstrahl-Laufzeitsystem für eigene Schiffe mit Flugmitnahme, Zusatz-EPS, Abriss, Flugblockade, Zerstörungsbereinigung und NBS-Aktion – siehe Feature-Commit

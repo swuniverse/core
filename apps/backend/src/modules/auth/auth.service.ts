@@ -28,6 +28,7 @@ import {
   AuthFeaturesDto,
   AuthMessageDto,
   VerifyEmailDto,
+  AccountDeletionMark,
   UpdateVerificationEmailDto,
 } from '@swuniverse/shared';
 import { MailService } from '../mail/mail.service';
@@ -41,6 +42,7 @@ import {
 } from './account-access-check';
 import { UserSettingsReader } from '../settings/user-settings-reader';
 import { UserLock } from './user-lock.entity';
+import { PlayerDeletionService } from '../account-deletion/player-deletion.service';
 
 const INITIAL_INVITE_QUOTA = 2;
 const PASSWORD_RESET_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -105,13 +107,60 @@ export class AuthService {
     @Optional()
     @InjectRepository(UserLock)
     private readonly userLockRepo?: Repository<UserLock>,
+    @Optional()
+    private readonly playerDeletionService?: PlayerDeletionService,
   ) {}
 
   features(): AuthFeaturesDto {
     return {
       passwordReset: this.isPasswordResetEnabled(),
       emailVerification: this.isEmailVerificationEnabled(),
+      accountDeletion: this.isAccountDeletionEnabled(),
     };
+  }
+
+  async confirmDeletion(token: string): Promise<AuthMessageDto> {
+    this.assertAccountDeletionEnabled();
+    const confirmed = await this.dataSource.transaction(async (manager) => {
+      const accountToken = await this.accountTokenService.consume(
+        token,
+        AccountTokenPurpose.AccountDeletion,
+        manager,
+      );
+      if (!accountToken) return false;
+      const repository = manager.getRepository(User);
+      const user = await repository.findOneBy({ id: accountToken.userId });
+      if (!user || user.deletionMark !== AccountDeletionMark.Requested) return false;
+      await repository.update(user.id, {
+        deletionMark: AccountDeletionMark.Confirmed,
+        refreshToken: null,
+      });
+      return true;
+    });
+    if (!confirmed) throw new BadRequestException(INVALID_RESET_LINK_MESSAGE);
+    return { message: 'Kontolöschung bestätigt' };
+  }
+
+  async deleteUserNow(userId: number): Promise<void> {
+    this.assertAccountDeletionEnabled();
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) return;
+    if (user.isAdmin) throw new BadRequestException('Admins können nicht gelöscht werden');
+    if (user.deletionMark === AccountDeletionMark.Forbidden) {
+      throw new ForbiddenException('Account deletion has been forbidden by admin');
+    }
+    const [colonies, ships] = await Promise.all([
+      this.dataSource.query('SELECT COUNT(*)::int AS count FROM "colonies" WHERE "userId" = $1', [userId]),
+      this.dataSource.query('SELECT COUNT(*)::int AS count FROM "spacecraft" WHERE "userId" = $1', [userId]),
+    ]);
+    const colonyCount = Number(colonies[0]?.count ?? 0);
+    const shipCount = Number(ships[0]?.count ?? 0);
+    if (colonyCount > 0 || shipCount > 0) {
+      throw new ConflictException(
+        'Konten mit Kolonien oder Schiffen können noch nicht gelöscht werden',
+      );
+    }
+    await this.playerDeletionService!.delete(userId);
   }
 
   async verifyEmail(dto: VerifyEmailDto): Promise<AuthMessageDto> {
@@ -247,6 +296,14 @@ export class AuthService {
 
   private assertPasswordResetEnabled(): void {
     if (!this.isPasswordResetEnabled()) throw new NotFoundException();
+  }
+
+  private isAccountDeletionEnabled(): boolean {
+    return this.config.get<string>('ACCOUNT_DELETION_ENABLED') === 'true';
+  }
+
+  private assertAccountDeletionEnabled(): void {
+    if (!this.isAccountDeletionEnabled()) throw new NotFoundException();
   }
 
   private isEmailVerificationEnabled(): boolean {
@@ -787,6 +844,9 @@ export class AuthService {
   }
 
   private async assertAccountAccess(user: User): Promise<void> {
+    if (user.deletionMark === AccountDeletionMark.Confirmed) {
+      throw new ForbiddenException('Dein Spieleraccount ist zur Löschung vorgesehen');
+    }
     const lock = await this.userLockRepo?.findOne({ where: { userId: user.id } });
     if (lock && lock.remainingTicks > 0) {
       throw new ForbiddenException({
@@ -845,6 +905,7 @@ export class AuthService {
         isAdmin: user.isAdmin,
         permissions: user.permissions ?? [],
         createdAt: user.createdAt.toISOString(),
+        deletionMark: user.deletionMark,
       },
     };
   }

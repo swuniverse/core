@@ -23,6 +23,7 @@ function setup(checks: AccountAccessCheck[] = []) {
       vacationStartedAt: null as Date | null,
       vacationEndedAt: null as Date | null,
       lock: null as { remainingTicks: number; reason: string } | null,
+      deletionMark: 0,
     },
     {
       id: 7,
@@ -42,6 +43,7 @@ function setup(checks: AccountAccessCheck[] = []) {
       vacationStartedAt: null as Date | null,
       vacationEndedAt: null as Date | null,
       lock: null as { remainingTicks: number; reason: string } | null,
+      deletionMark: 0,
     },
   ];
   const userRepo = {
@@ -152,6 +154,28 @@ describe('auth session behavior', () => {
     ).resolves.toMatchObject({ vacationEnded: true });
     expect(users[0].vacationMode).toBe(false);
     expect(users[0].vacationEndedAt).toBeInstanceOf(Date);
+  });
+
+  it('allows a requested deletion but blocks login and refresh after confirmation', async () => {
+    const { service, users } = setup();
+    users[0].deletionMark = 1;
+
+    await expect(
+      service.login({ username: 'Leia', password: 'secret' }),
+    ).resolves.toMatchObject({ user: { id: 42 } });
+    users[0].deletionMark = 2;
+
+    for (const operation of [
+      () => service.login({ username: 'Leia', password: 'secret' }),
+      () => service.refresh(users[0].refreshToken!),
+    ]) {
+      await expect(operation()).rejects.toMatchObject({
+        response: {
+          message: 'Dein Spieleraccount ist zur Löschung vorgesehen',
+          statusCode: 403,
+        },
+      });
+    }
   });
 
   it('runs registered account access checks before game access for login and refresh', async () => {

@@ -51,6 +51,14 @@ describe('AdminUsersPage', () => {
     );
   });
 
+  it('confirms and immediately deletes an account', async () => {
+    render(<AdminUsersPage />);
+    await screen.findByText('NPC');
+    fireEvent.click(screen.getByRole('button', { name: 'Sofort löschen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Konto endgültig löschen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/auth/admin/users/9/delete', {}));
+  });
+
   it('shows player details and submits the lock dialog', async () => {
     render(<AdminUsersPage />);
     expect(await screen.findByText('01.01.2026, 13:00')).toBeTruthy();

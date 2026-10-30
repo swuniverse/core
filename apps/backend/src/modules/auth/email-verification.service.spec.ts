@@ -38,8 +38,16 @@ function setup(enabled = true) {
 
 describe('email verification behavior', () => {
   it('advertises the feature flag', () => {
-    expect(setup(true).service.features()).toEqual({ passwordReset: false, emailVerification: true });
-    expect(setup(false).service.features()).toEqual({ passwordReset: false, emailVerification: false });
+    expect(setup(true).service.features()).toEqual({
+      passwordReset: false,
+      emailVerification: true,
+      accountDeletion: false,
+    });
+    expect(setup(false).service.features()).toEqual({
+      passwordReset: false,
+      emailVerification: false,
+      accountDeletion: false,
+    });
   });
 
   it('consumes a verification token and welcomes the verified player', async () => {

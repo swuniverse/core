@@ -28,6 +28,7 @@ import { ACCOUNT_ACCESS_CHECKS } from './account-access-check';
 import { EmailVerificationAccessCheck } from './email-verification-access-check';
 import { UserLock } from './user-lock.entity';
 import { UserLockService } from './user-lock.service';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UserLockService } from './user-lock.service';
     MailModule,
     GameStatusModule,
     SettingsModule,
+    AccountDeletionModule,
   ],
   controllers: [AuthController],
   providers: [
