@@ -497,6 +497,7 @@ export interface ColonyDetailV2 {
     researchRequired?: string | null;
     faction?: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE';
     buildingFunctionIds: number[];
+    energyCost?: number;
     durationSeconds: number;
     source?: string;
     costSource?: string;

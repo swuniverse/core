@@ -377,6 +377,9 @@ export interface FabricationItemDef {
   researchRequired?: string | null;
   faction?: Faction;
   buildingFunctionIds: number[];
+  /** EPS per produced unit (STU `ecost` / torpedo energy cost). */
+  energyCost?: number;
+  /** Legacy timed-queue field; no longer evaluated. */
   durationSeconds: number;
   source?: string;
   costSource?: string;

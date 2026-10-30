@@ -51,7 +51,10 @@ import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.servi
 import { ColonyOwnershipService } from './colony-ownership.service';
 import { ColonyAbandonmentService } from './colony-abandonment.service';
 import { ColonySettingsService } from './colony-settings.service';
-import { ColonyFabricationService } from './colony-fabrication.service';
+import {
+  ColonyFabricationService,
+  FabricationQueueResult,
+} from './colony-fabrication.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyProjectionService } from './colony-projection.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
@@ -841,7 +844,7 @@ export class ColonyService {
     itemKey: string,
     amount: number,
     buildingFunctionId: number,
-  ): Promise<ColonyFabricationQueue> {
+  ): Promise<FabricationQueueResult> {
     return this.colonyFabricationService.queueFabrication(
       colonyId,
       userId,
@@ -856,11 +859,13 @@ export class ColonyService {
     colonyId: number,
     userId: number,
     queueId: number,
+    amount?: number,
   ): Promise<ColonyFabricationQueue> {
     return this.colonyFabricationService.cancelFabricationQueue(
       colonyId,
       userId,
       queueId,
+      amount,
     );
   }
 

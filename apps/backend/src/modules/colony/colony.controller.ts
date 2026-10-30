@@ -361,8 +361,14 @@ export class ColonyController {
     @Param('id', ParseIntPipe) id: number,
     @Param('queueId', ParseIntPipe) queueId: number,
     @Request() req: { user: { sub: number } },
+    @Query('amount') amount?: string,
   ) {
-    return this.colonyService.cancelFabricationQueue(id, req.user.sub, queueId);
+    return this.colonyService.cancelFabricationQueue(
+      id,
+      req.user.sub,
+      queueId,
+      amount === undefined ? undefined : Number(amount),
+    );
   }
 
   @Post(':id/ships/:shipId/land')

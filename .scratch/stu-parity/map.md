@@ -128,6 +128,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-30 – tmw-K3a – Aktive STU-LSS-Blockade in System und Galaxie: Blockadefeld und verdeckte Sensorinhalte werden serverseitig redigiert; LSS-Störung liefert nur Eigenfeld, Signaturunterdrückung überträgt keine Zahl und zweifelhafte Signatur nur `DUBIOUS`
 - 2026-10-30 – tmw-K2 – Aktuelle STU-Handlersemantik ist autoritativ: Lecks/Tarnung/NBS nur beim Einflug, Schildstörung und Regeneration zusätzlich je Tick; Reaktor nutzt `reactorFuel`, Warpleck feste 10 %, sonst injizierbarer RNG; NBS-Cooldown als Wall-Clock-Zeitstempel 10–20 Minuten, echte Schiffsordner-/Live-Meldungen
 - 2026-10-30 – tmw-K7a – Wurmlochpassage ohne Flug-EPS oder Warpdrive; Eintritt benötigt pro Schiff funktionsfähigen Sublight-Antrieb und nur bei dessen Aktivierung eigene Aktivierungs-EPS, Austritt ist ressourcenfrei; Flotten atomar, zufälliger Ausgang über injizierbaren RNG
+- 2026-10-30 – sc-WP-ENG-2c – Fachfremde rote Backend-Testfixture zuerst separat in `sh-AP-23` beheben, ohne produktive Profilbesuchersemantik zu optionalisieren; danach Policy-Integration ohne Baseline-Ausnahme freigeben, transferspezifische Versorgungsausnahmen bleiben erhalten
+- 2026-10-30 – tmw-K8b – In K8b1–K8b3 geteilt: gemeinsames Zielmodell/Regionsentdeckung, produktiver Regionslebenszyklus und Frontend/ADR; Regionsentdeckung nur durch Abschluss, höchstens fünf geeignete Messpunkte statt STU-25-%-Route; tmw-D4 hängt nur von K8b2 ab
 - 2026-10-27 – sc-WP-CREW-2 – Expertise-/Rangfundament jetzt vollständig umsetzen; obere Ranglimits 25/15/5/3, Rettungskapsel-Bergungs-XP später nicht blockierend über sc-WP-CREW-3b
 - 2026-10-27 – sc-WP-CREW-3a – Dedizierte neutrale `EscapePod`-Entity mit individuellen Crew-Zuweisungen; Identität, Rang und Expertise bleiben erhalten, Landung nur für passende Crew bis zur Kapazität
 - 2026-10-27 – sc-WP-COMBAT-1 – Basisalarm nach jeder realen Feldtransition mit gemeinsamem Movement-Result; Gelb nur `ENEMY`, Rot außer `FRIEND`, beidseitiger Urlaubsschutz, höchstens ein deterministischer Kampf; Traktor/Tarnung später
@@ -156,6 +158,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sh-AP-19b – Responsives Tutorial-PADD mit Fortschritt, Zielhervorhebung, Aktions-Events und Einstellungen – siehe Feature-Commit
 - col-A1a – Werftqueues reagieren zentral auf Gebäudestatus und Abriss – siehe Feature-Commit
 - col-A1b – Fabrikation, Akademie und Schilde reagieren auf Gebäudestatus – siehe Feature-Commit
+- col-A2 – Modul-/Torpedofertigung nach STU-Regeln (EPS, Kürzung, Aufstocken, Teilabbruch, Tick, Torpedos sofort) – siehe Feature-Commit
 - col-A10 – Phalanx-Torpedotypen sind an abgeschlossene Forschung gebunden – siehe Feature-Commit
 - col-A5 – Werftreparaturen laufen passiv in materialgebundenen Schritten mit Slots und Eignernachrichten – siehe Feature-Commit
 - col-A3a – Werftbau und Umrüstung prüfen Blockade, Crew-Maximum und Spezialslots – siehe Feature-Commit

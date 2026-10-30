@@ -33,9 +33,14 @@ export class ColonyFabricationQueue {
   @Column({ default: 1 })
   amount: number;
 
+  /** Amount carried over from the timed queue without EPS payment; refunds no EPS. */
+  @Column({ default: 0 })
+  legacyAmount: number;
+
   @Column()
   buildingFunctionId: number;
 
+  /** No longer evaluated; modules finish with the next colony tick. */
   @Column({ type: 'timestamp' })
   finishesAt: Date;
 

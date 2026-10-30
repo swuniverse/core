@@ -1,6 +1,6 @@
 # Modul- und Torpedofertigung nach STU-Regeln
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-A1b
@@ -25,14 +25,14 @@ SWU fertigt Module und Torpedos über eine zeitbasierte Queue ohne Energiekosten
 
 ## Akzeptanzkriterien
 
-- [ ] Modulaufträge kosten EPS je Stück (`energyCost` in den Fabrikationsdaten, Werte aus STU `ecost`); die Menge wird auf verfügbare EPS und Material gekürzt, mit Meldung „Es wurden X von Y Modulen in Auftrag gegeben“.
-- [ ] Ein weiterer Auftrag für dasselbe Modul in derselben Funktion stockt den bestehenden Auftrag auf; mehrere verschiedene Module je Funktion sind möglich.
-- [ ] Teilmengen können abgebrochen werden; Material und EPS werden zu 100 % erstattet (Lager gekappt).
-- [ ] Module werden im nächsten Kolonie-Tick fertig, nur bei aktiver Funktion; `durationSeconds` wird nicht mehr ausgewertet.
-- [ ] Torpedos werden sofort gegen Material und EPS produziert (keine Queue).
-- [ ] Laufende Altaufträge der Zeitqueue werden per Migration in das neue Modell überführt (verlustfrei, ohne Doppelerstattung).
-- [ ] `PanelFabrication.tsx` zeigt EPS-Kosten, „In Bau“, „Lagernd“, Mengenfeld und Teilabbruch wie `moduleFab.twig`/`torpedoFab.twig` (UI-Konventionen aus `inventory/shell-admin-runtime.md` Abschnitt 3).
-- [ ] Backend- und Frontend-Tests für Kürzung, Aufstocken, Teilabbruch, Tick-Fertigstellung, Torpedo-Sofortbau.
+- [x] Modulaufträge kosten EPS je Stück (`energyCost` in den Fabrikationsdaten, Werte aus STU `ecost`); die Menge wird auf verfügbare EPS und Material gekürzt, mit Meldung „Es wurden X von Y Modulen in Auftrag gegeben“.
+- [x] Ein weiterer Auftrag für dasselbe Modul in derselben Funktion stockt den bestehenden Auftrag auf; mehrere verschiedene Module je Funktion sind möglich.
+- [x] Teilmengen können abgebrochen werden; Material und EPS werden zu 100 % erstattet (Lager gekappt).
+- [x] Module werden im nächsten Kolonie-Tick fertig, nur bei aktiver Funktion; `durationSeconds` wird nicht mehr ausgewertet.
+- [x] Torpedos werden sofort gegen Material und EPS produziert (keine Queue).
+- [x] Laufende Altaufträge der Zeitqueue werden per Migration in das neue Modell überführt (verlustfrei, ohne Doppelerstattung).
+- [x] `PanelFabrication.tsx` zeigt EPS-Kosten, „In Bau“, „Lagernd“, Mengenfeld und Teilabbruch wie `moduleFab.twig`/`torpedoFab.twig` (UI-Konventionen aus `inventory/shell-admin-runtime.md` Abschnitt 3).
+- [x] Backend- und Frontend-Tests für Kürzung, Aufstocken, Teilabbruch, Tick-Fertigstellung, Torpedo-Sofortbau.
 
 ## Entscheidung
 
@@ -44,3 +44,6 @@ Vorgabe: Variante (b), STU-Modell. EPS-Kosten je Stück, Kürzung der Menge auf 
 
 - 2026-10-21 Product Owner: Option b – Modul- und Torpedofertigung folgen dem STU-Modell: EPS-Kosten je Stück, Kürzung auf EPS/Lager, Aufstocken, Teilabbruch mit 100 % Erstattung, Modulfertigstellung im nächsten Kolonie-Tick und Torpedos sofort.
 - 2026-10-30 Product Owner: Option 1. Die Detailentscheidung aus `map.md` gilt: Die im STU-Dump hinterlegten Funktionsmodifikatoren werden auf die SWU-Funktions-IDs 10–18 abgebildet. Bestehende Legacy-Mengen werden ohne rückwirkende EPS-Belastung oder Erstattung übernommen; nur spätere Aufstockungen zahlen die neuen EPS-Kosten. Damit sind Datenquelle und Migration festgelegt; das Issue ist `ready-for-agent`.
+
+- 2026-10-30 Agent: Umgesetzt. `colony-fabrication.service.ts`: EPS je Stück (`energyCost` in `stu-fabrication.yaml`, Module aus `stu_modules.ecost` des STU-Dumps je `stuModuleId`, Torpedos aus `stu-torpedoes.yaml`), Kürzung auf EPS/Lager mit Meldung „X von Y“, Aufstocken je (Funktion, Item), Teilabbruch (`DELETE …/fabrication-queue/:id?amount=`) mit 100 % Material und EPS, Module fertig im nächsten Kolonie-Tick nur bei aktiver Funktion, Torpedos sofort. Migration `20261030120000` führt `legacyAmount` ein: laufende Altmengen werden ohne EPS-Belastung/-Erstattung übernommen (Abbruch erstattet für sie nur Material). `PanelFabrication.tsx`: Menge, Energie, In Bau, Lagernd, Teilabbruch.
+- Offene Punkte: Die Modifikator-/Level-Berechnung der STU-Funktionen wurde nicht benötigt, weil `stu_modules.ecost` direkt vorliegt; 6 Moduldatensätze (19005–19010, Fraktionsmodule) haben dort `ecost` 0 und kosten somit keine EPS. `game-data` ist ein Submodul (Änderung dort separat committen/pushen). `durationSeconds`/`finishesAt` bleiben als tote Felder bestehen. `game-data/scripts/validate.ts` meldet bereits vorher fehlende Rumpfwerte (ship-building), unabhängig von diesem Issue.

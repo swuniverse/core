@@ -393,21 +393,22 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onStartFabrication={(itemKey, queueType, buildingFunctionId) =>
+      onStartFabrication={(itemKey, queueType, buildingFunctionId, amount) =>
         act(async () => {
-          await api.post(`/colonies/${selected.id}/fabrication-queue`, {
-            itemKey,
-            queueType,
-            amount: 1,
-            buildingFunctionId,
-          });
+          const result = await api.post<{ message?: string }>(
+            `/colonies/${selected.id}/fabrication-queue`,
+            { itemKey, queueType, amount, buildingFunctionId },
+          );
+          if (result?.message) toast.info(result.message);
           loadColonyDetail(selected.id);
         })
       }
-      onCancelFabrication={(queueId) =>
+      onCancelFabrication={(queueId, amount) =>
         act(async () => {
           await api.delete(
-            `/colonies/${selected.id}/fabrication-queue/${queueId}`,
+            `/colonies/${selected.id}/fabrication-queue/${queueId}${
+              amount != null ? `?amount=${amount}` : ''
+            }`,
           );
           loadColonyDetail(selected.id);
         })
@@ -737,8 +738,12 @@ export function ColonyDetail({
     itemKey: string,
     queueType: 'MODULE' | 'TORPEDO',
     buildingFunctionId: number,
+    amount: number,
   ) => Promise<void> | void;
-  onCancelFabrication: (queueId: number) => Promise<void> | void;
+  onCancelFabrication: (
+    queueId: number,
+    amount?: number,
+  ) => Promise<void> | void;
   onQueueCrewTraining: (amount: number) => Promise<void> | void;
   onAssignCrewToShip: (shipId: number, amount: number) => Promise<void> | void;
   onUnassignCrewFromShip: (
@@ -1142,6 +1147,9 @@ export function ColonyDetail({
               ) ?? []
             }
             commodityMap={commodityMap}
+            storageAmounts={Object.fromEntries(
+              storage.map((row) => [row.commodityId, row.amount]),
+            )}
             onStartFabrication={onStartFabrication}
             onCancelFabrication={onCancelFabrication}
           />

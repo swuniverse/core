@@ -4,7 +4,6 @@ import type {
   ColonyEffectiveFunction,
   CommodityDef,
 } from '../types';
-import { formatBuildTime } from '../utils';
 
 // ─── Panel: Fabrikation ──────────────────────────────────────
 
@@ -97,22 +96,13 @@ function getTierLabel(item: FabricationCatalogItem): string {
   return classLabel ?? 'Ohne Stufe';
 }
 
-function getDurationLabel(item: FabricationCatalogItem): string {
-  if (
-    item.durationSeconds === 0 &&
-    item.durationSource === 'stu_modules_queue_tick'
-  ) {
-    return 'nächster Kolonie-Tick (STU)';
-  }
-  return formatBuildTime(item.durationSeconds);
-}
-
 export function PanelFabrication({
   catalog,
   queue,
   activeFunctionIds,
   presentFunctions = [],
   commodityMap,
+  storageAmounts = {},
   onStartFabrication,
   onCancelFabrication,
 }: {
@@ -121,12 +111,17 @@ export function PanelFabrication({
   activeFunctionIds: number[];
   presentFunctions?: ColonyEffectiveFunction[];
   commodityMap: Record<number, CommodityDef>;
+  storageAmounts?: Record<number, number>;
   onStartFabrication: (
     itemKey: string,
     queueType: 'MODULE' | 'TORPEDO',
     buildingFunctionId: number,
+    amount: number,
   ) => Promise<void> | void;
-  onCancelFabrication: (queueId: number) => Promise<void> | void;
+  onCancelFabrication: (
+    queueId: number,
+    amount?: number,
+  ) => Promise<void> | void;
 }) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +130,17 @@ export function PanelFabrication({
     new Set(),
   );
   const [openTypes, setOpenTypes] = useState<Set<string>>(new Set());
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [cancelAmounts, setCancelAmounts] = useState<Record<number, string>>(
+    {},
+  );
+  const queuedByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const job of queue) {
+      map.set(job.itemKey, (map.get(job.itemKey) ?? 0) + job.amount);
+    }
+    return map;
+  }, [queue]);
   const activeFunctionSet = useMemo(
     () => new Set(activeFunctionIds),
     [activeFunctionIds],
@@ -145,6 +151,11 @@ export function PanelFabrication({
       activeFunctionSet.has(functionId),
     );
     if (!buildingFunctionId) return;
+    const amount = Math.floor(Number(amounts[item.itemKey] ?? 1));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Bitte eine positive Menge angeben');
+      return;
+    }
     setBusyKey(item.itemKey);
     setError(null);
     try {
@@ -152,6 +163,7 @@ export function PanelFabrication({
         item.itemKey,
         item.queueType,
         buildingFunctionId,
+        amount,
       );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Fabrikation fehlgeschlagen');
@@ -160,11 +172,21 @@ export function PanelFabrication({
     }
   };
 
-  const cancelJob = async (queueId: number) => {
+  const cancelJob = async (queueId: number, jobAmount: number) => {
+    const requested = Math.floor(Number(cancelAmounts[queueId] ?? jobAmount));
+    if (!Number.isFinite(requested) || requested <= 0) {
+      setError('Bitte eine positive Menge angeben');
+      return;
+    }
     setBusyKey(`queue-${queueId}`);
     setError(null);
     try {
-      await onCancelFabrication(queueId);
+      await onCancelFabrication(queueId, Math.min(requested, jobAmount));
+      setCancelAmounts((prev) => {
+        const next = { ...prev };
+        delete next[queueId];
+        return next;
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Abbruch fehlgeschlagen');
     } finally {
@@ -316,16 +338,32 @@ export function PanelFabrication({
                     {job.amount}× {job.displayName}
                   </div>
                   <div className="text-[10px] text-swu-muted">
-                    {job.functionName} · nächster Kolonie-Tick
+                    {job.functionName} · fertig im nächsten Kolonie-Tick
                   </div>
                 </div>
-                <button
-                  onClick={() => cancelJob(job.id)}
-                  disabled={busyKey === `queue-${job.id}`}
-                  className="px-2 py-1 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20 disabled:opacity-50"
-                >
-                  Abbrechen
-                </button>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={job.amount}
+                    value={cancelAmounts[job.id] ?? String(job.amount)}
+                    onChange={(e) =>
+                      setCancelAmounts((prev) => ({
+                        ...prev,
+                        [job.id]: e.target.value,
+                      }))
+                    }
+                    aria-label={`Abbruchmenge ${job.displayName}`}
+                    className="w-14 bg-swu-bg/60 border border-swu-border/40 rounded px-1 py-1 text-xs text-swu-primary"
+                  />
+                  <button
+                    onClick={() => cancelJob(job.id, job.amount)}
+                    disabled={busyKey === `queue-${job.id}`}
+                    className="px-2 py-1 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -421,8 +459,7 @@ export function PanelFabrication({
                                                 Output: {item.outputAmount}×{' '}
                                                 {output?.name ??
                                                   `Ware #${item.outputCommodityId}`}{' '}
-                                                · {getDurationLabel(item)} ·{' '}
-                                                {getFunctionLabel(item)}
+                                                · {getFunctionLabel(item)}
                                               </div>
                                               {(item.stuRawName ||
                                                 item.stuSourceTechId) && (
@@ -442,18 +479,55 @@ export function PanelFabrication({
                                                 </div>
                                               )}
                                             </div>
-                                            <button
-                                              onClick={() => startItem(item)}
-                                              disabled={
-                                                !canStart ||
-                                                busyKey === item.itemKey
-                                              }
-                                              className="px-2 py-1 rounded bg-swu-accent/15 text-swu-accent hover:bg-swu-accent/25 disabled:opacity-40 disabled:cursor-not-allowed"
-                                            >
-                                              Starten
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                              <input
+                                                type="number"
+                                                min={1}
+                                                value={
+                                                  amounts[item.itemKey] ?? '1'
+                                                }
+                                                onChange={(e) =>
+                                                  setAmounts((prev) => ({
+                                                    ...prev,
+                                                    [item.itemKey]:
+                                                      e.target.value,
+                                                  }))
+                                                }
+                                                aria-label={`Menge ${item.displayName}`}
+                                                className="w-14 bg-swu-bg/60 border border-swu-border/40 rounded px-1 py-1 text-xs text-swu-primary"
+                                              />
+                                              <button
+                                                onClick={() => startItem(item)}
+                                                disabled={
+                                                  !canStart ||
+                                                  busyKey === item.itemKey
+                                                }
+                                                className="px-2 py-1 rounded bg-swu-accent/15 text-swu-accent hover:bg-swu-accent/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                                              >
+                                                {item.queueType === 'TORPEDO'
+                                                  ? 'Herstellen'
+                                                  : 'Starten'}
+                                              </button>
+                                            </div>
                                           </div>
                                           <div className="flex flex-wrap gap-2 text-[10px] text-swu-muted">
+                                            <span>
+                                              Lagernd:{' '}
+                                              {storageAmounts[
+                                                item.outputCommodityId
+                                              ] ?? 0}
+                                            </span>
+                                            {item.queueType === 'MODULE' && (
+                                              <span>
+                                                In Bau:{' '}
+                                                {queuedByItem.get(
+                                                  item.itemKey,
+                                                ) ?? 0}
+                                              </span>
+                                            )}
+                                            <span>
+                                              Energie: {item.energyCost ?? 0}
+                                            </span>
                                             {item.costs.map((cost) => (
                                               <span key={cost.commodityId}>
                                                 {cost.amount}{' '}

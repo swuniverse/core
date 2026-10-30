@@ -143,15 +143,20 @@ export const colonyApi = {
     itemKey: string,
     queueType: 'MODULE' | 'TORPEDO',
     buildingFunctionId: number,
+    amount = 1,
   ) =>
     api.post(`/colonies/${colonyId}/fabrication-queue`, {
       itemKey,
       queueType,
-      amount: 1,
+      amount,
       buildingFunctionId,
     }),
-  cancelFabrication: (colonyId: number, queueId: number) =>
-    api.delete(`/colonies/${colonyId}/fabrication-queue/${queueId}`),
+  cancelFabrication: (colonyId: number, queueId: number, amount?: number) =>
+    api.delete(
+      `/colonies/${colonyId}/fabrication-queue/${queueId}${
+        amount != null ? `?amount=${amount}` : ''
+      }`,
+    ),
 
   queueCrewTraining: (colonyId: number, amount: number) =>
     api.post(`/colonies/${colonyId}/crew-training`, { amount }),

@@ -703,6 +703,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           shipyardType: 'ENERGY_WEAPON',
           moduleLevel: 1,
           buildingFunctionIds: [10],
+          energyCost: 20,
           durationSeconds: 60,
           costs: [{ commodityId: 2, amount: 10 }],
         },
@@ -728,6 +729,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           outputCommodityId: 81,
           outputAmount: 1,
           buildingFunctionIds: [9],
+          energyCost: 4,
           durationSeconds: 30,
           costs: [{ commodityId: 2, amount: 4 }],
         },
@@ -1243,9 +1245,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     gameData as any,
     statsService,
     colonyStorageService,
-    timingService,
     ownershipService as any,
     unlockResolver as any,
+    colonyRepo as any,
   );
   const orbitService = new ColonyOrbitService(
     colonyRepo as any,
@@ -4418,18 +4420,30 @@ describe('fabrication queues', () => {
     storage: [],
   };
 
-  it('queues mapped module fabrication when matching building function is active', async () => {
+  const storedCommodity2 = (amount: number) => [
+    { id: 1, colonyId: 1, commodityId: 2, amount },
+  ];
+  const fabColony = (energy: number, stored: number) => ({
+    ...activeWeaponFabColony,
+    energy,
+    energyMax: 500,
+    storage: storedCommodity2(stored),
+  });
+
+  it('queues module fabrication, charging materials and EPS per unit', async () => {
     const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
       createColonyService();
-    colonyRepo.findOne.mockResolvedValue(activeWeaponFabColony);
+    const colony = fabColony(100, 999);
+    colonyRepo.findOne.mockResolvedValue(colony);
     storageRepo.findOne.mockResolvedValue({
       id: 1,
       colonyId: 1,
       commodityId: 2,
       amount: 999,
     });
+    fabricationQueueRepo.findOne.mockResolvedValue(null);
 
-    const queue = await service.queueFabrication(
+    const result = await service.queueFabrication(
       1,
       1,
       'MODULE' as any,
@@ -4441,6 +4455,7 @@ describe('fabrication queues', () => {
     expect(storageRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ commodityId: 2, amount: 979 }),
     );
+    expect(colony.energy).toBe(60);
     expect(fabricationQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         queueType: 'MODULE',
@@ -4449,48 +4464,125 @@ describe('fabrication queues', () => {
         buildingFunctionId: 10,
       }),
     );
-    expect(queue).toMatchObject({
-      itemKey: 'module.weapon.turbolaser-k1',
-      amount: 2,
-    });
+    expect(result).toMatchObject({ requested: 2, accepted: 2 });
+    expect(result.queue).toMatchObject({ amount: 2 });
   });
 
-  it('scales fabrication queue finish time with the configured alpha multiplier', async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
-    try {
-      const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
-        createColonyService({
-          config: {
-            get: jest.fn((key: string) =>
-              key === 'GAME_BUILD_TIME_MULTIPLIER' ? '0.5' : undefined,
-            ),
-          },
-        });
-      colonyRepo.findOne.mockResolvedValue(activeWeaponFabColony);
-      storageRepo.findOne.mockResolvedValue({
-        id: 1,
-        colonyId: 1,
-        commodityId: 2,
-        amount: 999,
-      });
+  it('clamps the module amount to available EPS and reports X of Y', async () => {
+    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+      createColonyService();
+    const colony = fabColony(45, 999);
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue({ commodityId: 2, amount: 999 });
+    fabricationQueueRepo.findOne.mockResolvedValue(null);
 
-      await service.queueFabrication(
-        1,
-        1,
-        'MODULE' as any,
-        'module.weapon.turbolaser-k1',
-        2,
-        10,
-      );
+    const result = await service.queueFabrication(
+      1,
+      1,
+      'MODULE' as any,
+      'module.weapon.turbolaser-k1',
+      5,
+      10,
+    );
 
-      expect(fabricationQueueRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          finishesAt: new Date('2026-07-03T10:01:00.000Z'),
-        }),
-      );
-    } finally {
-      jest.useRealTimers();
-    }
+    expect(result).toMatchObject({ requested: 5, accepted: 2 });
+    expect(result.message).toContain('2 von 5 Modulen in Auftrag gegeben');
+    expect(colony.energy).toBe(5);
+  });
+
+  it('clamps the module amount to stored materials', async () => {
+    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue(fabColony(500, 25));
+    storageRepo.findOne.mockResolvedValue({ commodityId: 2, amount: 25 });
+    fabricationQueueRepo.findOne.mockResolvedValue(null);
+
+    const result = await service.queueFabrication(
+      1,
+      1,
+      'MODULE' as any,
+      'module.weapon.turbolaser-k1',
+      5,
+      10,
+    );
+
+    expect(result.accepted).toBe(2);
+  });
+
+  it('queues nothing when neither EPS nor materials suffice', async () => {
+    const { service, colonyRepo, fabricationQueueRepo } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue(fabColony(5, 999));
+
+    const result = await service.queueFabrication(
+      1,
+      1,
+      'MODULE' as any,
+      'module.weapon.turbolaser-k1',
+      3,
+      10,
+    );
+
+    expect(result).toMatchObject({ queue: null, accepted: 0 });
+    expect(fabricationQueueRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('tops up an existing queued job for the same module and function', async () => {
+    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue(fabColony(100, 999));
+    storageRepo.findOne.mockResolvedValue({ commodityId: 2, amount: 999 });
+    const existing = { id: 5, amount: 3, legacyAmount: 0, status: 'QUEUED' };
+    fabricationQueueRepo.findOne.mockResolvedValue(existing);
+
+    const result = await service.queueFabrication(
+      1,
+      1,
+      'MODULE' as any,
+      'module.weapon.turbolaser-k1',
+      2,
+      10,
+    );
+
+    expect(existing.amount).toBe(5);
+    expect(fabricationQueueRepo.create).not.toHaveBeenCalled();
+    expect(result.queue).toBe(existing);
+  });
+
+  it('produces torpedoes immediately against materials and EPS without a queue', async () => {
+    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+      createColonyService();
+    const colony = {
+      ...fabColony(30, 999),
+      fields: [
+        { id: 2, buildingId: 81710100, isBuilding: false, isActive: true },
+      ],
+    };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    const rows: Record<number, any> = {
+      2: { commodityId: 2, amount: 999 },
+    };
+    storageRepo.findOne.mockImplementation(async ({ where }: any) =>
+      rows[where.commodityId] ?? null,
+    );
+
+    const result = await service.queueFabrication(
+      1,
+      1,
+      'TORPEDO' as any,
+      'torpedo.micro-proton',
+      10,
+      9,
+    );
+
+    expect(result.queue).toBeNull();
+    expect(fabricationQueueRepo.save).not.toHaveBeenCalled();
+    expect(result.accepted).toBe(7);
+    expect(colony.energy).toBe(2);
+    expect(storageRepo.create).toHaveBeenCalledWith({
+      colonyId: 1,
+      commodityId: 81,
+      amount: 7,
+    });
   });
 
   it('rejects unknown fabrication items', async () => {
@@ -4555,26 +4647,7 @@ describe('fabrication queues', () => {
     ).rejects.toThrow('Required fabrication building is not active');
   });
 
-  it('allows only one active queue per building function', async () => {
-    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
-      createColonyService();
-    colonyRepo.findOne.mockResolvedValue(activeWeaponFabColony);
-    fabricationQueueRepo.find.mockResolvedValueOnce([{ id: 99 }]);
-    storageRepo.findOne.mockResolvedValue({ amount: 999 });
-
-    await expect(
-      service.queueFabrication(
-        1,
-        1,
-        'MODULE' as any,
-        'module.weapon.turbolaser-k1',
-        1,
-        10,
-      ),
-    ).rejects.toThrow('already active');
-  });
-
-  it('completes finished fabrication queue jobs into storage with cap', async () => {
+  it('completes queued module jobs into storage with cap at the next tick', async () => {
     const { service, fabricationQueueRepo, storageRepo } =
       createColonyService();
     const job = {
@@ -4584,8 +4657,9 @@ describe('fabrication queues', () => {
       queueType: 'MODULE',
       itemKey: 'module.weapon.turbolaser-k1',
       amount: 2,
+      legacyAmount: 0,
       buildingFunctionId: 10,
-      finishesAt: new Date(Date.now() - 1000),
+      finishesAt: new Date(Date.now() + 60_000),
       status: 'QUEUED',
     };
     fabricationQueueRepo.find.mockResolvedValue([job]);
@@ -4618,21 +4692,77 @@ describe('fabrication queues', () => {
     expect(fabricationQueueRepo.save).toHaveBeenCalledWith(job);
   });
 
-  it('cancels queued jobs with a 50 percent refund', async () => {
-    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
-      createColonyService();
-    colonyRepo.findOne.mockResolvedValue(activeWeaponFabColony);
+  it('keeps queued module jobs while the fabrication function is inactive', async () => {
+    const { service, fabricationQueueRepo } = createColonyService();
     const job = {
-      id: 7,
+      id: 1,
       colonyId: 1,
-      userId: 1,
-      queueType: 'MODULE',
       itemKey: 'module.weapon.turbolaser-k1',
-      amount: 3,
+      amount: 2,
       buildingFunctionId: 10,
-      finishesAt: new Date(Date.now() + 1000),
       status: 'QUEUED',
     };
+    fabricationQueueRepo.find.mockResolvedValue([job]);
+
+    await (service as any).processFabricationQueue({
+      id: 1,
+      colonyClassId: 999,
+      storageMax: 100,
+      fields: [
+        { buildingId: 81810100, isBuilding: false, isActive: false },
+      ],
+    });
+
+    expect(job.status).toBe('QUEUED');
+    expect(fabricationQueueRepo.save).not.toHaveBeenCalled();
+  });
+
+  const queuedJob = (overrides = {}) => ({
+    id: 7,
+    colonyId: 1,
+    userId: 1,
+    queueType: 'MODULE',
+    itemKey: 'module.weapon.turbolaser-k1',
+    amount: 3,
+    legacyAmount: 0,
+    buildingFunctionId: 10,
+    finishesAt: new Date(),
+    status: 'QUEUED',
+    ...overrides,
+  });
+
+  it('cancels a partial amount with a full material and EPS refund', async () => {
+    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+      createColonyService();
+    const colony = fabColony(10, 0);
+    colonyRepo.findOne.mockResolvedValue(colony);
+    const job = queuedJob();
+    fabricationQueueRepo.findOne.mockResolvedValue(job);
+    storageRepo.createQueryBuilder.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn(async () => ({ total: 0 })),
+    });
+    storageRepo.findOne.mockResolvedValue(null);
+
+    await service.cancelFabricationQueue(1, 1, 7, 2);
+
+    expect(storageRepo.create).toHaveBeenCalledWith({
+      colonyId: 1,
+      commodityId: 2,
+      amount: 20,
+    });
+    expect(colony.energy).toBe(50);
+    expect(job.amount).toBe(1);
+    expect(job.status).toBe('QUEUED');
+  });
+
+  it('cancels the whole job by default and refunds no EPS for legacy amounts', async () => {
+    const { service, colonyRepo, fabricationQueueRepo, storageRepo } =
+      createColonyService();
+    const colony = fabColony(10, 0);
+    colonyRepo.findOne.mockResolvedValue(colony);
+    const job = queuedJob({ amount: 3, legacyAmount: 2 });
     fabricationQueueRepo.findOne.mockResolvedValue(job);
     storageRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
@@ -4646,10 +4776,11 @@ describe('fabrication queues', () => {
     expect(storageRepo.create).toHaveBeenCalledWith({
       colonyId: 1,
       commodityId: 2,
-      amount: 15,
+      amount: 30,
     });
+    expect(colony.energy).toBe(30);
     expect(job.status).toBe('CANCELLED');
-    expect(fabricationQueueRepo.save).toHaveBeenCalledWith(job);
+    expect(job.amount).toBe(0);
   });
 });
 
