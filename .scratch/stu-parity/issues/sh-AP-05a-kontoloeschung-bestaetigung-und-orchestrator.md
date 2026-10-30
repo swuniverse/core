@@ -1,6 +1,6 @@
 # Kontolöschung: Bestätigung, Sperre und Lösch-Orchestrator
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -46,3 +46,4 @@ Vorgabe gemäß Leitplanke 4: Bestätigungsmail und Ausführung stehen hinter `A
 - 2026-10-27: Erneuter Abbruch gemäß Prüfregel. Der vorgeschriebene Befehl `npx nx affected -t lint typecheck test --base=HEAD` führt direkt nach dem Claim-Commit keine Tasks aus (`NX No tasks were run`), weil noch keine Produktänderungen vorliegen; der Build ist grün. Die bereits dokumentierte unabhängige Gesamtsuite-Störung wurde zwar mit Commit `55e320f` adressiert, aber ohne bestätigte Test-Seams kann die umfangreiche Kontolöschungsänderung nicht regelkonform test-first begonnen werden. Bitte die öffentlichen Test-Seams bestätigen (Settings-Service/API für Antrag/Widerruf, Auth-API für Bestätigung/Adminlöschung, Login/Refresh-Zugangshaken, `PlayerDeletionService`, React-Seiten) oder eine Ausnahme von der Seam-Bestätigung vorgeben.
 
 - 2026-10-27: Abbruch nach zwei ernsthaften Prüfversuchen. Der vollständige Backend-Testlauf ist unabhängig von diesem Issue rot: `spacecraft-destruction.service.spec.ts` erwartet für das intakte Modul Commodity `10101`, die aktuelle Implementierung liefert `10201`. Produktcode wurde gemäß Abbruchregel verworfen. Bitte festlegen bzw. den bestehenden Test/Spieldaten-Stand auflösen, damit die verpflichtende Gesamtsuite grün werden kann.
+- 2026-10-30 Product Owner: Option 1. Das M-Issue wird vollständig wieder freigegeben. Der frühere Baseline-Fehler ist mit Commit `55e320f` behoben; Ralph bestätigt die dokumentierten Test-Seams nach der aktuellen autonomen Regel selbst. Verbindlich sind ein separater, einmaliger Token-Zweck `ACCOUNT_DELETION` mit 48 Stunden Gültigkeit, Ersetzen eines älteren Lösch-Tokens ohne Beeinflussung von Passwort-Reset-Tokens und eine sichtbare HTTP-400-Fehlermeldung bei ungültigen oder abgelaufenen Tokens. Marke 1 erlaubt Login und Widerruf, Marke 2 sperrt Login und Refresh. Das Issue ist `ready-for-agent`.
