@@ -36,11 +36,14 @@ import { PrestigeModule } from '../prestige/prestige.module';
 import { Alliance } from '../alliance/entities/alliance.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { FieldEffectQuery } from './field-effect-query';
+import { LayerKnowledge } from './entities/layer-knowledge.entity';
+import { LayerKnowledgeService } from './layer-knowledge.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Layer,
+      LayerKnowledge,
       StarSystem,
       CelestialObject,
       GalaxyFieldType,
@@ -78,6 +81,7 @@ import { FieldEffectQuery } from './field-effect-query';
     InfluenceService,
     WormholeService,
     FieldEffectQuery,
+    LayerKnowledgeService,
   ],
   exports: [
     StarmapService,
@@ -91,6 +95,7 @@ import { FieldEffectQuery } from './field-effect-query';
     InfluenceService,
     WormholeService,
     FieldEffectQuery,
+    LayerKnowledgeService,
   ],
 })
 export class StarmapModule {}

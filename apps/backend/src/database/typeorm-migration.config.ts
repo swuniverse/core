@@ -3,6 +3,7 @@ import { config as loadEnv } from 'dotenv';
 import { DataSource } from 'typeorm';
 import { User } from './migration-entities/user.entity';
 import { Layer } from '../modules/starmap/entities/layer.entity';
+import { LayerKnowledge } from '../modules/starmap/entities/layer-knowledge.entity';
 import { StarSystem } from '../modules/starmap/entities/star-system.entity';
 import { CelestialObject } from '../modules/starmap/entities/celestial-object.entity';
 import { GalaxyFieldType } from '../modules/starmap/entities/galaxy-field-type.entity';
@@ -39,6 +40,7 @@ const appDataSource = new DataSource({
   entities: [
     User,
     Layer,
+    LayerKnowledge,
     StarSystem,
     CelestialObject,
     GalaxyFieldType,

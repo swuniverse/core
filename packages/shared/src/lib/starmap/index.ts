@@ -32,6 +32,19 @@ export interface StarmapLayerDto {
   isHidden: boolean;
 }
 
+export enum LayerKnowledgeStatus {
+  KNOWN = 'KNOWN',
+  EXPLORED = 'EXPLORED',
+}
+
+export interface LayerKnowledgeDto {
+  userId: number;
+  layerId: number;
+  status: LayerKnowledgeStatus;
+  knownAt: string;
+  exploredAt: string | null;
+}
+
 export interface StarmapSystemListItemDto {
   id: number;
   name: string;
