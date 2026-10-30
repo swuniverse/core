@@ -263,6 +263,33 @@ export interface SpacecraftListDto {
   > & { CLOAK?: SpacecraftListSystemDto };
 }
 
+export interface StationRepairJobDto {
+  shipId: number;
+  name: string;
+  hull: number;
+  hullMax: number;
+  status: 'ACTIVE' | 'WAITING' | 'STOPPED';
+  finishesAt: string | null;
+  steps: number;
+}
+
+export interface StationRepairDto {
+  canRepairShips: boolean;
+  queue: StationRepairJobDto[];
+  repairable: Array<{
+    shipId: number;
+    name: string;
+    hull: number;
+    hullMax: number;
+    steps: number;
+  }>;
+  selfRepair: {
+    needed: boolean;
+    active: boolean;
+    workbees: { docked: number; required: number };
+  };
+}
+
 export interface StationExpansionOptionDto {
   classKey: string;
   name: string;

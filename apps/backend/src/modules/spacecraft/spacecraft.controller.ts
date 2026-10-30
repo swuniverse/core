@@ -50,6 +50,7 @@ import { CrewType } from '../colony/entities/crew.entity';
 import { DockingPrivilegeDto, ToggleBatteryReloadDto, ToggleDockPmAutoReadDto } from './docking-privilege.dto';
 import { DockingPrivilegeService } from './docking-privilege.service';
 import { StationShipManagementService } from './station-ship-management.service';
+import { StationRepairService } from './station-repair.service';
 import { ShipManagementRequest } from './ship-management.service';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
@@ -394,6 +395,13 @@ export class SpacecraftController {
       execute: async () => ({ results: [] }),
       setBatteryReload: async () => ({ reloadBattery: false, message: '' }),
     } as unknown as StationShipManagementService,
+    private readonly stationRepairService: StationRepairService = {
+      getOverview: async () => ({}),
+      queueShip: async () => ({ message: '' }),
+      cancel: async () => ({ message: '' }),
+      reactivate: async () => ({ message: '' }),
+      startSelfRepair: async () => ({ message: '' }),
+    } as unknown as StationRepairService,
   ) {}
 
   // Static routes first (before :id)
@@ -1414,6 +1422,48 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.stationShipManagementService.execute(id, req.user.sub, ships ?? []);
+  }
+
+  @Get(':id/station-repair')
+  stationRepair(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationRepairService.getOverview(id, req.user.sub);
+  }
+
+  @Post(':id/station-repair/self')
+  startStationSelfRepair(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationRepairService.startSelfRepair(id, req.user.sub);
+  }
+
+  @Post(':id/station-repair/reactivate')
+  reactivateStationRepair(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationRepairService.reactivate(id, req.user.sub);
+  }
+
+  @Post(':id/station-repair/:shipId')
+  queueStationRepair(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('shipId', ParseIntPipe) shipId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationRepairService.queueShip(id, req.user.sub, shipId);
+  }
+
+  @Delete(':id/station-repair/:shipId')
+  cancelStationRepair(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('shipId', ParseIntPipe) shipId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationRepairService.cancel(id, req.user.sub, shipId);
   }
 
   @Post(':id/battery-reload')

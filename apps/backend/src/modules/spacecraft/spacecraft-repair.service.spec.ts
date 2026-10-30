@@ -159,4 +159,15 @@ describe('SpacecraftRepairService', () => {
     expect(ctx.messaging.sendSystem).toHaveBeenCalledTimes(2);
     expect(ctx.dataSource.transaction).toHaveBeenCalledTimes(1);
   });
+
+  it('drops the station repair queue entry when the ship flies or undocks', async () => {
+    const ctx = setup();
+    const job = { shipId: 1, ship: { ...ctx.state.ship } };
+    ctx.manager.findOne.mockImplementation(async (entity: any) =>
+      entity.name === 'StationShipRepair' ? job : null,
+    );
+    await ctx.service.cancelForFlight(1);
+    expect(ctx.manager.remove).toHaveBeenCalledWith(job);
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, 'Schiffsreparatur abgebrochen', expect.any(String));
+  });
 });

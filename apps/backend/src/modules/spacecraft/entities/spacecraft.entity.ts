@@ -115,6 +115,10 @@ export class Spacecraft {
   @Column({ default: false })
   reloadBattery: boolean;
 
+  /** Station repairs itself passively from its own spare parts while enough workbees are docked. */
+  @Column({ default: false })
+  passiveRepair: boolean;
+
   @Column({ default: 0 })
   constructionTicksRemaining: number;
 

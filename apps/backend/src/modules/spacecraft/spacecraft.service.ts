@@ -101,6 +101,7 @@ import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { StationConstructionService } from './station-construction.service';
+import { StationRepairService } from './station-repair.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
@@ -185,6 +186,9 @@ export class SpacecraftService {
           stations.filter((s) => s.userId === ship.userId).map((s) => s.id),
         ),
     } as unknown as DockingPrivilegeService,
+    private readonly stationRepairService: StationRepairService = {
+      processTick: async () => undefined,
+    } as unknown as StationRepairService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3989,6 +3993,9 @@ export class SpacecraftService {
       return;
     }
     if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION) return;
+    if (ship.kind === 'STATION') {
+      await this.stationRepairService.processTick(ship.id, options);
+    }
     await this.processMovement(ship);
     const tickLocation = ship.location?.systemField ?? ship.location?.galaxyField;
     if (tickLocation) {

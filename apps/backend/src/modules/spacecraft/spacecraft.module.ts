@@ -28,6 +28,8 @@ import { EscapePodService } from './escape-pod.service';
 import { CartographyPlan } from './entities/cartography-plan.entity';
 import { FlightSignature } from './entities/flight-signature.entity';
 import { SpacecraftRepairTask } from './entities/spacecraft-repair-task.entity';
+import { StationShipRepair } from './entities/station-ship-repair.entity';
+import { StationRepairService } from './station-repair.service';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
@@ -104,6 +106,7 @@ import {
       CartographyPlan,
       FlightSignature,
       SpacecraftRepairTask,
+      StationShipRepair,
       DockingPrivilege,
       StarSystem,
       Layer,
@@ -146,6 +149,7 @@ import {
     SpacecraftDockingService,
     ShipManagementService,
     StationShipManagementService,
+    StationRepairService,
     DockingPrivilegeService,
     SpacecraftScanService,
     SpacecraftStatsService,

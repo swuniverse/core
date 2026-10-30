@@ -16,6 +16,7 @@ import { CrewEnhancementEvent } from './crew-expertise';
 import { MessagingService } from '../messaging/messaging.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { StationShipRepair } from './entities/station-ship-repair.entity';
 import {
   RepairPartsType,
   RepairTargetType,
@@ -258,6 +259,16 @@ export class SpacecraftRepairService {
   ): Promise<Array<{ userId: number; name: string }>> {
     const results: Array<{ userId: number; name: string }> = [];
     for (const spacecraftId of spacecraftIds) {
+      // A station repair queue entry is dropped when the ship flies or docks elsewhere.
+      const stationJob = await manager.findOne(StationShipRepair, {
+        where: { shipId: spacecraftId },
+        relations: ['ship'],
+        lock: { mode: 'pessimistic_write', tables: ['station_ship_repairs'] },
+      });
+      if (stationJob) {
+        await manager.remove(stationJob);
+        results.push({ userId: stationJob.ship.userId, name: stationJob.ship.name });
+      }
       const task = await manager.findOne(SpacecraftRepairTask, {
         where: { spacecraftId },
         relations: ['spacecraft'],
