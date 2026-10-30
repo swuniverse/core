@@ -1,6 +1,6 @@
 # Anomalie-Framework mit Subraumellipse
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a, tmw-K3c
@@ -38,3 +38,4 @@ SWU bekommt ein Anomalie-Framework nach STU-Vorbild: Entität (Typ, Ort, Resttic
 ## Comments
 
 - 2026-10-28: Blockiert durch fehlende Produktentscheidung zur Subraumellipse. Die STU-Referenz verwendet eine Schwellwertformel über Crew und `rump.mass`, während SWU-Schiffsklassen aktuell keine persistierte Masse besitzen. Zusätzlich verlangt das Issue eine 1–50-Schadensverteilung, legt aber weder Zufallsquelle/Determinismus noch den Lebensdauer- und Erzeugungsmodus für den Anomalietyp fest. Bitte festlegen: (1) welches SWU-Masseäquivalent bzw. welche Klassenmetrik und welcher Schwellwert gelten, (2) ob Schildemitterschaden deterministisch oder zufällig ist und wie getestet wird, (3) Lebensdauer und Erzeugungswahrscheinlichkeit/-häufigkeit der Subraumellipse.
+- 2026-10-30 Product Owner: Option 1. Jede Schiffsklasse erhält den expliziten Integerwert `anomalyMass`. Bei eindeutig zugeordneten STU-Rümpfen wird er aus `tractor_mass` übernommen; SWU-eigene Klassen benötigen einen bewusst gepflegten Wert und dürfen nicht still aus Kampfwerten abgeleitet werden. Der Score folgt STU: mobile Schiffe zählen mit voller `anomalyMass`, Stationen mit `anomalyMass / 10`, hinzu kommen `Crewzahl × Anzahl aktiver Systeme × 100`; NPC-/Systemschiffe, Schiffe im Bau und Schiffe mit aktivem Hyperraumantrieb zählen nicht. Schwelle ist `33_333_333`. Oberhalb davon beträgt die Chance je Haupttick `clamp(5 + ceil(Überschuss / 1_000_000), 0, 100)` Prozent. Ein injizierbarer RNG wird sowohl für diese Chance als auch für zufällige `1–50` Schildemitterschäden verwendet; Tests steuern ihn deterministisch. Anders als der fehlerhafte strikte STU-Vergleich gilt eine explizite Prozentprobe `roll <= chance`. Lebensdauer ist ein Tick: Erzeugung erfolgt nach Verarbeitung bestehender Anomalien, Wirkung im folgenden Haupttick, danach verschwindet die Ellipse. Das Issue ist `ready-for-agent`.
