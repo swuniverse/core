@@ -1,6 +1,6 @@
 # Kontolöschung: Handler für Konto, Kommunikation und Allianz
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-05a
