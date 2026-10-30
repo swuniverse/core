@@ -159,6 +159,14 @@ export interface ResearchUnlocks {
   colonyTypes?: number[];
 }
 
+/** Optional ship granted on research completion; absent means no reward. */
+export interface ResearchShipRewardDef {
+  faction: Faction;
+  techId: number;
+  shipClassKey: string;
+  moduleSelections: Array<{ slotId: string; commodityId: number }>;
+}
+
 export interface TechDef {
   id: number;
   key?: string;
@@ -181,6 +189,7 @@ export interface TechDef {
   excludeFromNormalProgression?: boolean;
   dependencies: TechDependency[];
   unlocks?: ResearchUnlocks;
+  shipReward?: ResearchShipRewardDef;
 }
 
 export interface TerraformingDef {
@@ -1083,10 +1092,65 @@ export class GameDataService implements OnModuleInit {
             `Technology ${tech.id} in ${file} has invalid or missing faction`,
           );
         }
+        if (tech.shipReward !== undefined) {
+          this.validateShipReward(tech, file);
+        }
         this.techTree.push(tech);
       }
     }
     this.logger.log(`Loaded ${this.techTree.length} technologies`);
+  }
+
+  private validateShipReward(tech: TechDef, file: string) {
+    const reward = tech.shipReward as Partial<ResearchShipRewardDef> | null;
+    const fail = (reason: string): never => {
+      throw new Error(
+        `Technology ${tech.id} in ${file} has an incomplete ship reward: ${reason}`,
+      );
+    };
+    if (!reward || typeof reward !== 'object') fail('reward must be an object');
+    const { faction, techId, shipClassKey, moduleSelections } = reward!;
+    if (
+      faction !== Faction.REBEL_ALLIANCE &&
+      faction !== Faction.GALACTIC_EMPIRE
+    ) {
+      fail('faction is missing or invalid');
+    }
+    if (faction !== tech.faction) fail('faction does not match technology');
+    if (techId !== tech.id) fail('techId does not match technology');
+    if (typeof shipClassKey !== 'string' || !shipClassKey) {
+      fail('shipClassKey is missing');
+    }
+    const shipClass = this.getShipClassDefByKey(shipClassKey!);
+    if (!shipClass) fail(`unknown shipClassKey ${shipClassKey}`);
+    if (!Array.isArray(moduleSelections) || moduleSelections.length === 0) {
+      fail('moduleSelections are missing');
+    }
+    const selected = new Set<string>();
+    for (const selection of moduleSelections!) {
+      if (
+        typeof selection?.slotId !== 'string' ||
+        !selection.slotId ||
+        !Number.isInteger(selection.commodityId) ||
+        selection.commodityId < 1
+      ) {
+        fail('moduleSelections contain an invalid entry');
+      }
+      if (selected.has(selection.slotId)) {
+        fail(`duplicate slot ${selection.slotId}`);
+      }
+      selected.add(selection.slotId);
+    }
+    const rule = this.getShipClassSlotRuleForShipClass(shipClass!);
+    if (rule) {
+      const slotIds = new Set(rule.slots.map((slot) => slot.slotId));
+      for (const slotId of slotIds) {
+        if (!selected.has(slotId)) fail(`slot ${slotId} has no module`);
+      }
+      for (const slotId of selected) {
+        if (!slotIds.has(slotId)) fail(`unknown slot ${slotId}`);
+      }
+    }
   }
 
   private loadColonyClasses() {
@@ -1109,11 +1173,17 @@ export class GameDataService implements OnModuleInit {
 
   private loadSwuLetterResources() {
     const data = this.loadYaml<{
-      letterResources: Array<{ letter: string; resources: SwuLetterResourceEntry[] }>;
+      letterResources: Array<{
+        letter: string;
+        resources: SwuLetterResourceEntry[];
+      }>;
     }>('colony-classes/swu-letter-resources.yaml');
     if (data?.letterResources?.length) {
       for (const entry of data.letterResources) {
-        this.swuLetterResources.set(entry.letter.toUpperCase(), entry.resources);
+        this.swuLetterResources.set(
+          entry.letter.toUpperCase(),
+          entry.resources,
+        );
       }
       this.logger.log(
         `Loaded SWU letter resource profiles for ${this.swuLetterResources.size} letters`,

@@ -62,6 +62,7 @@ export interface TechState {
     modules?: UnlockModule[];
   };
   researchMode?: 'commodity' | 'points';
+  shipReward?: { shipClassKey: string; name: string } | null;
   status: string;
   progress: number;
   pointsRequired: number;
@@ -510,9 +511,8 @@ export function TechDetailModal({
       return dependency ? { tech: candidate, dependency } : null;
     })
     .filter(
-      (
-        entry,
-      ): entry is { tech: TechState; dependency: TechDependency } => !!entry,
+      (entry): entry is { tech: TechState; dependency: TechDependency } =>
+        !!entry,
     );
   const excludedTechIds = tech.dependencies
     .filter((dep) => dep.type === 'EXCLUDE')
@@ -624,6 +624,12 @@ export function TechDetailModal({
               </div>
             </div>
           </div>
+
+          {tech.shipReward && (
+            <p className="text-xs text-swu-text">
+              Belohnung: {tech.shipReward.name}
+            </p>
+          )}
 
           {/* Progress (if in progress) */}
           {isInProgress && (
@@ -799,7 +805,8 @@ export function TechDetailModal({
             </div>
           )}
 
-          {(tech.unlocks?.shipClasses?.length || tech.unlocks?.modules?.length) && (
+          {(tech.unlocks?.shipClasses?.length ||
+            tech.unlocks?.modules?.length) && (
             <div className="border-t border-swu-border/30 pt-3">
               <div className="text-[10px] text-swu-muted font-bold uppercase tracking-wider mb-2 text-center">
                 Freigeschaltete Schiffe und Module

@@ -637,23 +637,60 @@ describe('ResearchPage routing', () => {
     );
 
     expect(
-      (await screen.findByAltText('Fusionskern Mathematik')).getAttribute('src'),
+      (await screen.findByAltText('Fusionskern Mathematik')).getAttribute(
+        'src',
+      ),
     ).toBe('/assets/research/211200.png');
-    expect(screen.getAllByText(/Erforscht am 22\.10\.2026/).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText(/Erforscht am 22\.10\.2026/).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText('Alternative Reaktortheorie').length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /eine von/ })).toBeTruthy();
     expect(screen.getByText('A-Wing Aufklärer')).toBeTruthy();
     expect(screen.getByText('Militär-Scanner')).toBeTruthy();
-    expect(
-      screen.getByAltText('A-Wing Aufklärer').getAttribute('src'),
-    ).toBe('/assets/ships/701.png');
+    expect(screen.getByAltText('A-Wing Aufklärer').getAttribute('src')).toBe(
+      '/assets/ships/701.png',
+    );
     expect(
       screen.getByAltText('Militär-Scanner').getAttribute('src'),
     ).toContain('9901');
+  });
+
+  it('shows the ship reward only when the research has a mapping', async () => {
+    apiMocks.get.mockResolvedValue([
+      {
+        ...techs[0],
+        shipReward: {
+          shipClassKey: 'REBEL_FIGHTER_A_WING',
+          name: 'A-Wing Abfangjäger',
+        },
+      },
+      ...techs.slice(1),
+    ]);
+    const view = render(
+      <MemoryRouter initialEntries={['/research?focus=211200']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByText('Belohnung: A-Wing Abfangjäger'),
+    ).toBeTruthy();
+    view.unmount();
+
+    apiMocks.get.mockResolvedValue(techs);
+    render(
+      <MemoryRouter initialEntries={['/research?focus=211200']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByAltText('Fusionskern Mathematik');
+    expect(screen.queryByText(/Belohnung:/)).toBeNull();
   });
 
   it('replaces a missing research image with an accessible fallback', async () => {

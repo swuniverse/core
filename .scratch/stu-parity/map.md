@@ -168,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-C1 – Gebäudeschaltung bietet Gruppenaktionen und warenbezogene Massensteuerung – siehe Feature-Commit
 - col-C2 – Baumenü lässt sich nach Feld und produzierter Ware filtern – siehe Feature-Commit
 - col-D1 – Forschungsabschluss meldet sich im Kolonie-Ordner und aktualisiert die UI live – siehe Feature-Commit
+- col-D2a1 – Forschungsdaten können optional eine Schiffsbelohnung beschreiben; Detail zeigt sie nur bei Mapping – siehe Feature-Commit
 - col-D3a – Forschungsliste und -detail zeigen Bilder, Abschlussdatum, Folgeforschungen sowie Rumpf-/Modulfreischaltungen – siehe Feature-Commit
 - col-D4 – Forschungsdaten tragen validierte explizite Fraktionen; EXCLUDE-Import und -Richtung entsprechen STU – siehe Feature-Commit
 - col-D5 – SWU-Forschungsqueue mit zehn Plätzen, Auto-Pfad und Fortschrittserhalt als bewusste STU-Abweichung dokumentiert – siehe Feature-Commit

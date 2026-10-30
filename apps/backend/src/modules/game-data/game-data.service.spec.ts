@@ -22,6 +22,82 @@ describe('GameDataService research validation', () => {
   });
 });
 
+describe('GameDataService research ship rewards', () => {
+  let service: GameDataService;
+  let slotIds: string[];
+
+  beforeAll(() => {
+    service = new GameDataService();
+    service.onModuleInit();
+    const shipClass = service.getShipClassDefByKey('REBEL_FIGHTER_A_WING')!;
+    slotIds = service
+      .getShipClassSlotRuleForShipClass(shipClass)!
+      .slots.map((slot) => slot.slotId);
+  });
+
+  const loadWith = (shipReward?: unknown) => {
+    const loadYaml = jest.spyOn(service as any, 'loadYaml');
+    loadYaml
+      .mockReturnValueOnce({
+        technologies: [
+          {
+            id: 10,
+            faction: 'REBEL_ALLIANCE',
+            dependencies: [],
+            ...(shipReward === undefined ? {} : { shipReward }),
+          },
+        ],
+      })
+      .mockReturnValueOnce({ technologies: [] });
+    (service as any).loadTechTree();
+    loadYaml.mockRestore();
+    return service.getTechTree();
+  };
+
+  const completeReward = () => ({
+    faction: 'REBEL_ALLIANCE',
+    techId: 10,
+    shipClassKey: 'REBEL_FIGHTER_A_WING',
+    moduleSelections: slotIds.map((slotId) => ({ slotId, commodityId: 10501 })),
+  });
+
+  it('keeps a complete reward on the technology', () => {
+    expect(loadWith(completeReward())[0].shipReward?.shipClassKey).toBe(
+      'REBEL_FIGHTER_A_WING',
+    );
+  });
+
+  it('treats a missing mapping as no reward', () => {
+    expect(loadWith()[0].shipReward).toBeUndefined();
+  });
+
+  it.each([
+    ['shipClassKey', { shipClassKey: undefined }],
+    ['unknown ship class', { shipClassKey: 'NOPE' }],
+    ['moduleSelections', { moduleSelections: [] }],
+    ['faction mismatch', { faction: 'GALACTIC_EMPIRE' }],
+    ['techId mismatch', { techId: 11 }],
+  ])('rejects an incomplete reward (%s)', (_label, override) => {
+    expect(() => loadWith({ ...completeReward(), ...override })).toThrow(
+      'has an incomplete ship reward',
+    );
+  });
+
+  it('rejects a reward that leaves a slot unconfigured', () => {
+    const reward = completeReward();
+    reward.moduleSelections.pop();
+    expect(() => loadWith(reward)).toThrow('has no module');
+  });
+
+  it('ships productive research data without reward mappings', () => {
+    const productive = new GameDataService();
+    productive.onModuleInit();
+    expect(productive.getTechTree().filter((tech) => tech.shipReward)).toEqual(
+      [],
+    );
+  });
+});
+
 const FUNCTIONS = {
   COLONY_CENTRAL: 1,
   ENERGY_PHALANX: 26,

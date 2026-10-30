@@ -131,6 +131,14 @@ export class ResearchService {
             })
           : null,
         blockedReason: existing?.blockedReason ?? null,
+        shipReward: tech.shipReward
+          ? {
+              shipClassKey: tech.shipReward.shipClassKey,
+              name:
+                this.gameData.getShipClassDefByKey(tech.shipReward.shipClassKey)
+                  ?.name ?? tech.shipReward.shipClassKey,
+            }
+          : null,
         unlocks: {
           ...tech.unlocks,
           shipClasses: (tech.unlocks?.shipClasses ?? []).map((id) => {
@@ -148,7 +156,8 @@ export class ResearchService {
               .getAllFabricationItems()
               .find(
                 (candidate) =>
-                  candidate.moduleType === name || candidate.displayName === name,
+                  candidate.moduleType === name ||
+                  candidate.displayName === name,
               );
             return {
               name: item?.displayName ?? name,
