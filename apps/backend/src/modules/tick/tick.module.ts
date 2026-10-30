@@ -31,6 +31,8 @@ import { SpacecraftWreck } from '../spacecraft/entities/spacecraft-wreck.entity'
 import { WreckDecayService } from './wreck-decay.service';
 import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module';
 import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
+import { StarmapModule } from '../starmap/starmap.module';
+import { LayerMapCycleService } from '../starmap/layer-map-cycle.service';
 
 @Module({
   imports: [
@@ -56,10 +58,12 @@ import { ProfileVisitorService } from '../profile-visitor/profile-visitor.servic
     DatabaseModule,
     PrestigeModule,
     ProfileVisitorModule,
+    StarmapModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
     TickService,
+    { provide: 'TickService', useExisting: TickService },
     TickAdminService,
     MaintenanceService,
     TopFlightsRewardService,
@@ -69,8 +73,13 @@ import { ProfileVisitorService } from '../profile-visitor/profile-visitor.servic
       useFactory: (
         topFlightsReward: TopFlightsRewardService,
         profileVisitors: ProfileVisitorService,
-      ) => [topFlightsReward, profileVisitors],
-      inject: [TopFlightsRewardService, ProfileVisitorService],
+        layerMapCycle: LayerMapCycleService,
+      ) => [topFlightsReward, profileVisitors, layerMapCycle],
+      inject: [
+        TopFlightsRewardService,
+        ProfileVisitorService,
+        LayerMapCycleService,
+      ],
     },
   ],
 })

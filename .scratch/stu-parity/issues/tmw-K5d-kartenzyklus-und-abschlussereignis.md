@@ -1,6 +1,6 @@
 # Kartenzyklus und Ereignis „Ebene vollständig erkundet“
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K5a, sh-AP-07a
@@ -25,14 +25,18 @@ Der tägliche Kartenzyklus erkennt vollständig erkundete Ebenen, setzt ihren Sp
 
 ## Akzeptanzkriterien
 
-- [ ] Ein täglicher Maintenance-Handler verarbeitet ausschließlich Spieler-Ebenen im Status `KNOWN`.
-- [ ] Vollständig erkundet bedeutet: Für jedes tatsächlich in der Ebene vorhandene Kartenfeld existiert für den Spieler persönliche Felderkundung; gezählt werden eindeutige Feldkoordinaten, und `>=` gilt als vollständig.
-- [ ] Statuswechsel zu `EXPLORED`, Setzen von `exploredAt` und Löschen aller persönlichen Felderkundungszeilen dieser Spieler-Ebene erfolgen atomar mit geeigneten Sperren.
-- [ ] Der erfolgreiche erste Übergang veröffentlicht genau einmal ein internes Ereignis mit Spieler-ID, Ebenen-ID und Abschlusszeitpunkt; Wiederholungen oder parallele Läufe veröffentlichen es nicht erneut.
-- [ ] Das Ereignis vergibt selbst keinen Award. `soc-G2b` bindet die Award-Vergabe später als Consumer an.
-- [ ] Persönliche Systementdeckungen und Kartographiepläne bleiben unverändert.
-- [ ] Backend-Tests decken unvollständige und vollständige Ebenen, überschüssige beziehungsweise doppelte Daten, Nebellöschung, Transaktionsrollback, Parallelität und genau-einmal-Semantik ab.
+- [x] Ein täglicher Maintenance-Handler verarbeitet ausschließlich Spieler-Ebenen im Status `KNOWN`.
+- [x] Vollständig erkundet bedeutet: Für jedes tatsächlich in der Ebene vorhandene Kartenfeld existiert für den Spieler persönliche Felderkundung; gezählt werden eindeutige Feldkoordinaten, und `>=` gilt als vollständig.
+- [x] Statuswechsel zu `EXPLORED`, Setzen von `exploredAt` und Löschen aller persönlichen Felderkundungszeilen dieser Spieler-Ebene erfolgen atomar mit geeigneten Sperren.
+- [x] Der erfolgreiche erste Übergang veröffentlicht genau einmal ein internes Ereignis mit Spieler-ID, Ebenen-ID und Abschlusszeitpunkt; Wiederholungen oder parallele Läufe veröffentlichen es nicht erneut.
+- [x] Das Ereignis vergibt selbst keinen Award. `soc-G2b` bindet die Award-Vergabe später als Consumer an.
+- [x] Persönliche Systementdeckungen und Kartographiepläne bleiben unverändert.
+- [x] Backend-Tests decken unvollständige und vollständige Ebenen, überschüssige beziehungsweise doppelte Daten, Nebellöschung, Transaktionsrollback, Parallelität und genau-einmal-Semantik ab.
 
 ## Entscheidung
 
 Wie STU wird der Abschluss im täglichen Kartenzyklus festgestellt. SWU entkoppelt die spätere Award-Vergabe über ein idempotentes Domainereignis.
+
+## Comments
+
+`LayerMapCycleService` verarbeitet bekannte Ebenen im täglichen Maintenance-Lauf, sperrt und aktualisiert den Ebenenstatus transaktional, löscht nur persönlichen Ebenennebel und persistiert genau ein `LayerExploredEvent` je Spieler und Ebene. Systementdeckungen und Kartographiepläne bleiben unberührt; die Award-Anbindung bleibt `soc-G2b` vorbehalten. Fokussierte Tests und alle Builds sind grün; die vollständigen Gates bleiben wegen bereits vorhandener, fachfremder Fixture-/Konstruktorfehler in Spacecraft-, Wreck-Decay- und Tutorial-Tests beziehungsweise Typecheck rot.

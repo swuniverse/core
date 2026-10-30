@@ -38,12 +38,15 @@ import { FactionEntity } from '../faction/entities/faction.entity';
 import { FieldEffectQuery } from './field-effect-query';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { LayerKnowledgeService } from './layer-knowledge.service';
+import { LayerExploredEvent } from './entities/layer-explored-event.entity';
+import { LayerMapCycleService } from './layer-map-cycle.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Layer,
       LayerKnowledge,
+      LayerExploredEvent,
       StarSystem,
       CelestialObject,
       GalaxyFieldType,
@@ -82,6 +85,7 @@ import { LayerKnowledgeService } from './layer-knowledge.service';
     WormholeService,
     FieldEffectQuery,
     LayerKnowledgeService,
+    LayerMapCycleService,
   ],
   exports: [
     StarmapService,
@@ -96,6 +100,7 @@ import { LayerKnowledgeService } from './layer-knowledge.service';
     WormholeService,
     FieldEffectQuery,
     LayerKnowledgeService,
+    LayerMapCycleService,
   ],
 })
 export class StarmapModule {}

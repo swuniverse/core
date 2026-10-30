@@ -41,6 +41,7 @@ import { Crew } from './modules/colony/entities/crew.entity';
 import { CrewAssignment } from './modules/colony/entities/crew-assignment.entity';
 import { Layer } from './modules/starmap/entities/layer.entity';
 import { LayerKnowledge } from './modules/starmap/entities/layer-knowledge.entity';
+import { LayerExploredEvent } from './modules/starmap/entities/layer-explored-event.entity';
 import { StarSystem } from './modules/starmap/entities/star-system.entity';
 import { CelestialObject } from './modules/starmap/entities/celestial-object.entity';
 import { GalaxyFieldType } from './modules/starmap/entities/galaxy-field-type.entity';
@@ -172,6 +173,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           CrewAssignment,
           Layer,
           LayerKnowledge,
+          LayerExploredEvent,
           StarSystem,
           CelestialObject,
           GalaxyFieldType,

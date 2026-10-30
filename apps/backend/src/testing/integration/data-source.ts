@@ -20,6 +20,7 @@ import { ForumPost } from '../../modules/alliance/entities/forum-post.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
 import { LayerKnowledge } from '../../modules/starmap/entities/layer-knowledge.entity';
+import { LayerExploredEvent } from '../../modules/starmap/entities/layer-explored-event.entity';
 import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
 import { CelestialObject } from '../../modules/starmap/entities/celestial-object.entity';
 import { GalaxyFieldType } from '../../modules/starmap/entities/galaxy-field-type.entity';
@@ -72,6 +73,7 @@ export const INTEGRATION_ENTITIES = [
   Message,
   Layer,
   LayerKnowledge,
+  LayerExploredEvent,
   StarSystem,
   CelestialObject,
   GalaxyFieldType,
