@@ -1,6 +1,6 @@
 # Kartographie-Zielmodell und Regionsentdeckung
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K8a
@@ -36,3 +36,7 @@ Das systemgebundene Kartographiemodell wird ohne Verhaltensänderung bestehender
 ## Entscheidung
 
 STU nutzt ein gemeinsames polymorphes Modell. SWU bildet es explizit mit Zieltyp und Exactly-one-Constraint ab, statt einen zweiten parallelen Kartographieablauf anzulegen.
+
+## Comments
+
+- 2026-10-30: Umsetzung nach zwei Prüfversuchen abgebrochen. Die fokussierten Kartographie-/Migrations-/DTO-/Regionsentdeckungs-Tests (30 Tests) und alle Builds sind grün, aber das verpflichtende affected-Test-Gate bleibt wegen zwei fachfremder bestehender Spacecraft-Testfixture-Fehler rot: `spacecraft-core-controls.spec.ts` stellt kein `shipRepo.findOneBy` bereit; `spacecraft-fleet.service.spec.ts` endet in `Not enough EPS for navigation`. Produktcode wurde gemäß Abbruchregel verworfen. Bitte zuerst die Backend-Testfixture-Baseline (`sh-AP-23`) reparieren oder dieses Issue ausdrücklich mit dokumentierter Baseline-Ausnahme erneut freigeben.
