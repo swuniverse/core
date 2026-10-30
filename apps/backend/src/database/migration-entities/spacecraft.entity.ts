@@ -20,6 +20,9 @@ export class MigrationSpacecraft {
   @Column({ type: 'int', nullable: true })
   dockedAtId: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  tractoredShipId: number | null;
+
   @Column({ default: 0 })
   dockCapacity: number;
 

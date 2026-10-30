@@ -62,6 +62,7 @@ import { SpacecraftStatus } from './entities/spacecraft.entity';
 function createService() {
   const shipRepo = {
     findOne: jest.fn(),
+    findOneBy: jest.fn<Promise<{ id: number } | null>, [unknown]>(async () => null),
     save: jest.fn(async (ship) => ship),
     create: jest.fn((ship) => ship),
   };
@@ -229,6 +230,118 @@ describe('SpacecraftService movement resources', () => {
       modules: [],
     });
     await expect(service.navigate(7, 1, 2, 2)).rejects.toThrow(/Standby/);
+  });
+
+  it('blocks movement while the ship is held by a tractor beam', async () => {
+    const { service, shipRepo } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      modules: [],
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    shipRepo.findOne.mockResolvedValue(ship);
+    shipRepo.findOneBy.mockResolvedValue({ id: 8 });
+
+    await expect(service.navigate(7, 1, 1, 2)).rejects.toThrow(
+      'Traktorstrahl',
+    );
+  });
+
+  it('moves a tractored ship and charges its flight EPS cost', async () => {
+    const {
+      service,
+      shipRepo,
+      systemRepo,
+      systemFieldRepo,
+      locationRepo,
+    } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      name: 'Falcon',
+      shipClassId: 1,
+      status: SpacecraftStatus.IDLE,
+      energy: 10,
+      tractoredShipId: 8,
+      ...systemLocation(),
+      modules: [],
+    };
+    const target = {
+      id: 8,
+      userId: 1,
+      name: 'Ghost',
+      shipClassId: 2,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      modules: [],
+    };
+    shipRepo.findOne.mockImplementation(async ({ where }) => {
+      if ('tractoredShipId' in where) return null;
+      return where.id === target.id ? target : ship;
+    });
+    systemRepo.findOne.mockResolvedValue({ maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ id: 31, isPassable: true });
+    locationRepo.findOne.mockResolvedValue({
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      systemFieldId: 31,
+    });
+
+    await service.navigate(ship.id, ship.userId, 2, 1);
+
+    expect(ship.energy).toBe(8);
+    expect(target.locationId).toBe(91);
+    expect(shipRepo.save).toHaveBeenCalledWith(target);
+  });
+
+  it('releases the tractor beam when towing EPS are insufficient', async () => {
+    const { service, shipRepo, systemRepo, systemFieldRepo, locationRepo } =
+      createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      name: 'Falcon',
+      shipClassId: 1,
+      status: SpacecraftStatus.IDLE,
+      energy: 1,
+      tractoredShipId: 8,
+      ...systemLocation(),
+      modules: [],
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
+        TRACTOR_BEAM: { active: true, cooldown: 0, integrity: 100 },
+      },
+    };
+    const target = {
+      id: 8,
+      userId: 1,
+      name: 'Ghost',
+      shipClassId: 2,
+      status: SpacecraftStatus.IDLE,
+      ...systemLocation(),
+      modules: [],
+    };
+    shipRepo.findOne.mockImplementation(async ({ where }) => {
+      if ('tractoredShipId' in where) return null;
+      return where.id === target.id ? target : ship;
+    });
+    systemRepo.findOne.mockResolvedValue({ maxX: 10, maxY: 10 });
+    systemFieldRepo.findOne.mockResolvedValue({ id: 31, isPassable: true });
+    locationRepo.findOne.mockResolvedValue({
+      id: 91,
+      kind: 'SYSTEM_FIELD',
+      systemFieldId: 31,
+    });
+
+    await service.navigate(ship.id, ship.userId, 2, 1);
+
+    expect(ship.tractoredShipId).toBeNull();
+    expect(ship.runtimeSystems.TRACTOR_BEAM.active).toBe(false);
+    expect(target.locationId).toBe(90);
+    expect(ship.locationId).toBe(91);
   });
 
   it('uses EPS for in-system navigation and syncs runtime systems', async () => {

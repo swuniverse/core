@@ -104,6 +104,13 @@ export class Spacecraft {
   @JoinColumn({ name: 'dockedAtId' })
   dockedAt: Spacecraft | null;
 
+  @Column({ type: 'int', nullable: true, unique: true })
+  tractoredShipId: number | null;
+
+  @ManyToOne(() => Spacecraft, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'tractoredShipId' })
+  tractoredShip: Spacecraft | null;
+
   @Column({ default: 0 })
   dockCapacity: number;
 

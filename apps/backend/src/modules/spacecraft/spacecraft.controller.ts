@@ -29,6 +29,7 @@ import {
 } from 'class-validator';
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
+import { SpacecraftTractorService } from './spacecraft-tractor.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
@@ -337,6 +338,7 @@ class ShipCargoTransferDto {
 export class SpacecraftController {
   constructor(
     private readonly spacecraftService: SpacecraftService,
+    private readonly tractorService: SpacecraftTractorService,
     private readonly transferService: TransferService,
     private readonly scanService: SpacecraftScanService,
     private readonly gameData: GameDataService,
@@ -1112,6 +1114,23 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.scanNearbyTarget(id, req.user.sub, targetId);
+  }
+
+  @Post(':id/nearby/:targetId/tractor')
+  activateTractorBeam(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.tractorService.activate(id, req.user.sub, targetId);
+  }
+
+  @Delete(':id/tractor')
+  deactivateTractorBeam(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.tractorService.deactivate(id, req.user.sub);
   }
 
   @Post(':id/nearby/:targetId/intercept')

@@ -15,6 +15,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'SPECIAL',
   'ASTROMETRY_LAB',
   'CLOAK',
+  'TRACTOR_BEAM',
   'LIFE_SUPPORT',
 ] as const;
 
@@ -604,6 +605,8 @@ export interface SpacecraftNearbyTargetDto {
   fleetId?: number | null;
   isFleetLeader?: boolean;
   kind?: 'SHIP' | 'STATION';
+  /** The ship is held by a tractor beam (and cannot fly on its own). */
+  tractored?: boolean;
   actions: {
     dock?: boolean;
     attack: boolean;

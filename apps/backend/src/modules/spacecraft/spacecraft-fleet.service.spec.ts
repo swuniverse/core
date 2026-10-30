@@ -61,6 +61,7 @@ import { AlertState, SpacecraftStatus } from './entities/spacecraft.entity';
 function createService() {
   const shipRepo = {
     findOne: jest.fn(),
+    findOneBy: jest.fn(async () => null),
     save: jest.fn(async (ship) => ship),
     create: jest.fn((ship) => ship),
     find: jest.fn(),

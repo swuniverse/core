@@ -153,6 +153,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-TRACT-1a – Traktorstrahl-Laufzeitsystem für eigene Schiffe mit Flugmitnahme, Zusatz-EPS, Abriss, Flugblockade, Zerstörungsbereinigung und NBS-Aktion – siehe Feature-Commit
 - sc-WP-SHUT-2 – Crewtransport- und Torpedotransportmodule erhöhen wirksam die jeweilige Transportkapazität – siehe Feature-Commit
 - sh-AP-21 – Frontend-Typecheck-Baseline grün (Faction-Typ in database.tsx, Spec-Fixture, Typecheck-Schritt in CI)
 - sc-WP-ENG-6b – Brownout-Systemabschaltungen werden im Schiffsordner und live gemeldet; Wracks verfallen je Haupttick um 5–15 Hülle – siehe Feature-Commit

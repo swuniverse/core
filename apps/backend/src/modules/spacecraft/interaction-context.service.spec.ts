@@ -79,6 +79,7 @@ describe('InteractionContextService', () => {
       sourceDestroyed: false,
       targetDestroyed: true,
       sourceBlocked: false,
+      sourceTractored: false,
       targetBlocked: false,
       stanceAllowed: true,
     });

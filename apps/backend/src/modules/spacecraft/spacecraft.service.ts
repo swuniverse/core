@@ -1110,6 +1110,7 @@ export class SpacecraftService {
       SPECIAL: 'Spezialsysteme',
       ASTROMETRY_LAB: 'Astrometrie-Labor',
       CLOAK: 'Tarnung',
+      TRACTOR_BEAM: 'Traktorstrahl',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
@@ -1875,6 +1876,15 @@ export class SpacecraftService {
     }
   }
 
+  private async assertNotTractored(ship: Spacecraft): Promise<void> {
+    const tractor = await this.shipRepo.findOneBy({ tractoredShipId: ship.id });
+    if (tractor) {
+      throw new BadRequestException(
+        `Die ${ship.name ?? 'Schiff'} wird von einem Traktorstrahl gehalten`,
+      );
+    }
+  }
+
   // In-system impulse navigation: 1 EPS per field, 5s per field
   async navigate(
     shipId: number,
@@ -1891,6 +1901,7 @@ export class SpacecraftService {
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
 
+    await this.assertNotTractored(ship);
     if (ship.status === SpacecraftStatus.IN_COMBAT) {
       throw new BadRequestException('Cannot navigate during combat');
     }
@@ -1959,6 +1970,15 @@ export class SpacecraftService {
     const shipClass = await this.shipClassService.findById(ship.shipClassId);
     if (!shipClass) throw new NotFoundException('Ship class not found');
     const energyCost = distance * shipClass.flightEnergyCost;
+    const tractoredShip = ship.tractoredShipId
+      ? await this.findOne(ship.tractoredShipId, userId)
+      : null;
+    const tractoredShipClass = tractoredShip
+      ? await this.shipClassService.findById(tractoredShip.shipClassId)
+      : null;
+    const towingEnergyCost = tractoredShipClass
+      ? distance * tractoredShipClass.flightEnergyCost
+      : 0;
     this.undockForFlight(ship);
     const fleetMembers = await this.prepareFleetMembers(ship, userId, (member) => {
       this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
@@ -1966,13 +1986,28 @@ export class SpacecraftService {
       this.consumeEps(member, energyCost, 'navigation');
       this.undockForFlight(member);
     });
-    this.consumeEps(ship, energyCost, 'navigation');
+    if (tractoredShip && ship.energy < energyCost + towingEnergyCost) {
+      ship.tractoredShipId = null;
+      ship.tractoredShip = null;
+      const systems = this.spacecraftRuntimeStateService.initialize(ship);
+      if (systems.TRACTOR_BEAM) systems.TRACTOR_BEAM.active = false;
+      ship.runtimeSystems = systems;
+    }
+    this.consumeEps(
+      ship,
+      energyCost + (ship.tractoredShipId ? towingEnergyCost : 0),
+      'navigation',
+    );
 
     const previousField = resolveSpacecraftField(ship);
     const previousLocation = ship.location;
     if (!targetField) throw new NotFoundException('Target field not found');
     const destination = await this.findLocationBySystemField(targetField.id);
     await this.setCurrentLocation(ship, destination);
+    if (tractoredShip && ship.tractoredShipId) {
+      await this.setCurrentLocation(tractoredShip, destination);
+      await this.shipRepo.save(tractoredShip);
+    }
     for (const member of fleetMembers) {
       const origin = member.location;
       await this.setCurrentLocation(member, destination);
@@ -2084,6 +2119,7 @@ export class SpacecraftService {
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Flug');
+    await this.assertNotTractored(ship);
 
     if (ship.status === SpacecraftStatus.IN_COMBAT) {
       throw new BadRequestException('Cannot fly during combat');
@@ -2251,6 +2287,7 @@ export class SpacecraftService {
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemeintritt');
+    await this.assertNotTractored(ship);
 
     if (ship.status === SpacecraftStatus.IN_COMBAT) {
       throw new BadRequestException('Cannot enter system during combat');
@@ -2402,6 +2439,7 @@ export class SpacecraftService {
     await this.assertFleetLeader(ship, userId);
     const currentLocation = resolveSpacecraftField(ship);
     assertSpacecraftNotInStandby(ship, 'dem Systemaustritt');
+    await this.assertNotTractored(ship);
 
     if (ship.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Ship is destroyed');
@@ -2488,6 +2526,7 @@ export class SpacecraftService {
     await this.assertFleetLeader(ship, userId);
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
+    await this.assertNotTractored(ship);
 
     if (
       ship.status === SpacecraftStatus.IN_COMBAT ||
@@ -3357,6 +3396,7 @@ export class SpacecraftService {
       .createQueryBuilder('target')
       .leftJoinAndSelect('target.user', 'user')
       .leftJoinAndSelect('target.fleet', 'fleet')
+      .leftJoinAndSelect('target.modules', 'targetModules')
       .leftJoinAndSelect('target.location', 'targetLocation')
       .leftJoinAndSelect('targetLocation.galaxyField', 'targetGalaxyField')
       .leftJoinAndSelect('targetLocation.systemField', 'targetSystemField')
@@ -3458,6 +3498,9 @@ export class SpacecraftService {
               target.status === SpacecraftStatus.IDLE &&
               targetHyperdriveActive,
             kind: target.kind,
+            tractored: ships.some(
+              (candidate) => candidate.tractoredShipId === target.id,
+            ),
             actions: {
               dock:
                 target.kind === 'STATION' &&
@@ -3480,7 +3523,18 @@ export class SpacecraftService {
                 target.userId !== ship.userId && interactionAllowed('CONTACT'),
               transfer: interactionAllowed('TRANSFER'),
               energyTransfer: interactionAllowed('TRANSFER'),
-              tractor: false,
+              tractor:
+                target.userId === ship.userId &&
+                target.kind === 'SHIP' &&
+                systems.TRACTOR_BEAM != null &&
+                systems.TRACTOR_BEAM.integrity > 0 &&
+                systems.SHIELDS?.active !== true &&
+                ship.tractoredShipId == null &&
+                target.tractoredShipId == null &&
+                !ships.some((candidate) => candidate.tractoredShipId === ship.id) &&
+                !ships.some((candidate) => candidate.tractoredShipId === target.id) &&
+                !hyperdriveActive &&
+                !targetHyperdriveActive,
               boarding: false,
             },
           };

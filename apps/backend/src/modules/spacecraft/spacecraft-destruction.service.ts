@@ -275,6 +275,20 @@ export class SpacecraftDestructionService {
         })),
       }),
     );
+    const puller = await manager.findOne(Spacecraft, {
+      where: { tractoredShipId: ship.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (puller) {
+      puller.tractoredShipId = null;
+      puller.tractoredShip = null;
+      const pullerSystems = this.runtimeState.initialize(puller);
+      if (pullerSystems.TRACTOR_BEAM) pullerSystems.TRACTOR_BEAM.active = false;
+      puller.runtimeSystems = pullerSystems;
+      await manager.save(puller);
+    }
+    ship.tractoredShipId = null;
+    ship.tractoredShip = null;
     ship.hull = 0;
     ship.status = SpacecraftStatus.DESTROYED;
     ship.arrivalAt = null;

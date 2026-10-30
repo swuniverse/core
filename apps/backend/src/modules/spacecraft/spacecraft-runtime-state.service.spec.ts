@@ -121,6 +121,26 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.SPECIAL).toBeDefined();
   });
 
+  it('maps tractor beam modules to an initially inactive runtime system', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const ship = {
+      modules: [
+        {
+          category: 'TRACTOR_BEAM',
+          moduleType: 'Standard-Traktorstrahl',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
+      ],
+      runtimeSystems: {},
+    } as never;
+
+    const systems = service.initialize(ship);
+
+    expect(systems.TRACTOR_BEAM).toMatchObject({ active: false, integrity: 100 });
+  });
+
   it('maps the Tarnvorrichtung module to an initially inactive CLOAK system', () => {
     const service = new SpacecraftRuntimeStateService();
     const ship = {

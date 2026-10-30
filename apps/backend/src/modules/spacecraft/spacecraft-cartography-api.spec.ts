@@ -70,6 +70,7 @@ describe('SpacecraftController cartography API contract', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return { controller, service };
   }

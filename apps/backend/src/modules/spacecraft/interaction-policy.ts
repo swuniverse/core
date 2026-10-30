@@ -12,6 +12,7 @@ export enum InteractionRule {
   SOURCE_INTACT = 'SOURCE_INTACT',
   TARGET_INTACT = 'TARGET_INTACT',
   SOURCE_UNBLOCKED = 'SOURCE_UNBLOCKED',
+  SOURCE_UNTRACTORED = 'SOURCE_UNTRACTORED',
   TARGET_UNBLOCKED = 'TARGET_UNBLOCKED',
   STANCE = 'STANCE',
 }
@@ -30,6 +31,7 @@ export interface InteractionContext {
   sourceDestroyed: boolean;
   targetDestroyed: boolean;
   sourceBlocked: boolean;
+  sourceTractored?: boolean;
   targetBlocked: boolean;
   stanceAllowed: boolean;
   /** Docked to a station; ion storm hooks exempt docked ships. Absent means not docked. */
@@ -99,6 +101,10 @@ const CHECKS: Record<InteractionRule, InteractionCheck> = {
   [InteractionRule.SOURCE_UNBLOCKED]: {
     rejected: (context) => context.sourceBlocked,
     reason: 'Die Kolonie wird blockiert.',
+  },
+  [InteractionRule.SOURCE_UNTRACTORED]: {
+    rejected: (context) => context.sourceTractored === true,
+    reason: 'Das Schiff wird von einem Traktorstrahl gehalten',
   },
   [InteractionRule.TARGET_UNBLOCKED]: {
     rejected: (context) => context.targetBlocked,

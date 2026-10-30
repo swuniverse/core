@@ -27,6 +27,7 @@ const ALL_FIELDS: InteractionContextField[] = [
   'sourceDestroyed',
   'targetDestroyed',
   'sourceBlocked',
+  'sourceTractored',
   'targetBlocked',
   'stanceAllowed',
 ];
@@ -72,6 +73,9 @@ export class InteractionContextService {
         ? this.relationships.resolve(source.userId, target.userId)
         : null,
     ]);
+    const sourceTractor = requested.has('sourceTractored')
+      ? await this.shipRepo.findOne({ where: { tractoredShipId: source.id } })
+      : null;
     const sourceSystems =
       requested.has('sourceShieldsActive') || requested.has('sourceCloaked')
         ? this.runtimeState.initialize(source)
@@ -95,6 +99,9 @@ export class InteractionContextService {
       sourceDestroyed: source.status === SpacecraftStatus.DESTROYED || source.hull <= 0,
       targetDestroyed: target.status === SpacecraftStatus.DESTROYED || target.hull <= 0,
       sourceBlocked: false,
+      ...(requested.has('sourceTractored')
+        ? { sourceTractored: sourceTractor != null }
+        : {}),
       targetBlocked: false,
       stanceAllowed: stance?.mayTransferSafely === true,
     };

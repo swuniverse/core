@@ -155,6 +155,17 @@ export function NearbySensorPanel({
     }
   }
 
+  async function activateTractor(target: SpacecraftNearbyTargetDto) {
+    setError(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/nearby/${target.id}/tractor`, {});
+      await refreshNearby();
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Traktorstrahl fehlgeschlagen');
+    }
+  }
+
   async function scan(target: SpacecraftNearbyTargetDto) {
     try {
       const result = await api.post<SpacecraftTargetScanDto>(
@@ -302,6 +313,16 @@ export function NearbySensorPanel({
                         />
                       </button>
                     )}
+                    {target.actions.tractor && (
+                      <button
+                        type="button"
+                        onClick={() => void activateTractor(target)}
+                        title={`${target.name} mit Traktorstrahl erfassen`}
+                        className="ml-1"
+                      >
+                        <span aria-hidden="true">⌁</span>
+                      </button>
+                    )}
                     {target.actions.energyTransfer && (
                       <button
                         type="button"
@@ -388,6 +409,9 @@ export function NearbySensorPanel({
                   </td>
                   <td className="border border-swu-border p-1 font-mono">
                     {target.hull}/{target.hullMax}
+                    {target.tractored && (
+                      <span className="ml-1 text-swu-accent">Traktor</span>
+                    )}
                     {target.shieldsActive && (
                       <span className="text-cyan-300"> ({target.shields})</span>
                     )}

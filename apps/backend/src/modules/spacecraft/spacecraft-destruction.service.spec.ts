@@ -169,6 +169,25 @@ describe('SpacecraftDestructionService', () => {
     expect(manager.remove).toHaveBeenCalledWith(ship);
   });
 
+  it('releases tractor beams involving a destroyed ship', async () => {
+    const { service, ship, manager } = setup({ tractoredShipId: 3 });
+    const puller = { id: 4, tractoredShipId: ship.id, runtimeSystems: {} };
+    (manager.findOne as jest.Mock).mockImplementation(async (entity, options) => {
+      if (entity.name === 'Spacecraft' && options.where.id === ship.id) return ship;
+      if (entity.name === 'Spacecraft' && options.where.tractoredShipId === ship.id)
+        return puller;
+      if (entity.name === 'SpaceLocation') return ship.location;
+      if (entity.name === 'ShipDistressSignal') return null;
+      return null;
+    });
+
+    await service.selfDestruct(ship.id, ship.userId);
+
+    expect((ship as typeof ship & { tractoredShipId: number | null }).tractoredShipId).toBeNull();
+    expect(puller.tractoredShipId).toBeNull();
+    expect(manager.save).toHaveBeenCalledWith(puller);
+  });
+
   it('awards combat prestige and stores half of the intact modules', async () => {
     const { service, manager, prestige } = setup({
       shipClass: { name: 'X-Wing Jäger', prestige: 6 },

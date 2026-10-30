@@ -34,6 +34,7 @@ export function getRuntimeSystemsForModule(
   }
   if (category === 'REACTOR' || name.includes('reaktor')) return ['REACTOR'];
   if (category === 'EPS' || name.includes('energieverteiler')) return ['EPS'];
+  if (category === 'TRACTOR_BEAM') return ['TRACTOR_BEAM'];
   if (category === 'SPECIAL') {
     if (name === 'astrometrie-labor') return ['ASTROMETRY_LAB'];
     if (name === 'tarnvorrichtung') return ['CLOAK'];
@@ -101,6 +102,7 @@ export function initializeSpacecraftRuntimeSystems(
         // shields and weapons, so the owner has to switch it on explicitly.
         active:
           key !== 'CLOAK' &&
+          key !== 'TRACTOR_BEAM' &&
           (key === 'LIFE_SUPPORT' ||
             backingModules.length === 0 ||
             backingModules.some((module) => module.isActive !== false)),

@@ -67,6 +67,41 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('activates a tractor beam on an eligible own ship', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          isOwn: true,
+          actions: { ...nearby.ships[0].actions, tractor: true },
+        },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({});
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <NearbySensorPanel
+          shipId={2}
+          locationKey="system:1:5:5"
+          systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByTitle('Ziel mit Traktorstrahl erfassen'));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/2/nearby/3/tractor',
+        {},
+      ),
+    );
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
   it('lists escape pods as passive targets without ship actions', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

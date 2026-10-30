@@ -61,6 +61,11 @@ describe('interaction policy', () => {
     ['source destruction', { sourceDestroyed: true }, 'Schiff ist zerstört'],
     ['target destruction', { targetDestroyed: true }, 'Ziel ist zerstört'],
     ['source blockade', { sourceBlocked: true }, 'Die Kolonie wird blockiert.'],
+    [
+      'source tractor beam',
+      { sourceTractored: true },
+      'Das Schiff wird von einem Traktorstrahl gehalten',
+    ],
     ['target blockade', { targetBlocked: true }, 'Das Ziel wird blockiert.'],
     ['stance', { stanceAllowed: false }, 'Transfer nur zwischen Freunden erlaubt'],
   ] satisfies Array<[string, Partial<InteractionContext>, string | null]>) (

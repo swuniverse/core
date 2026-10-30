@@ -78,6 +78,7 @@ import { FlightSignatureService } from './flight-signature.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { StationConstructionService } from './station-construction.service';
 import { InteractionContextService } from './interaction-context.service';
+import { SpacecraftTractorService } from './spacecraft-tractor.service';
 import { CrewSkill } from './entities/crew-skill.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import {
@@ -123,7 +124,7 @@ import {
       CrewSkill,
     ]),
     forwardRef(() => StarmapModule),
-    ColonyModule,
+    forwardRef(() => ColonyModule),
     ResearchModule,
     GameDataModule,
     ColonizationModule,
@@ -170,6 +171,7 @@ import {
     SpacecraftRepairService,
     StationConstructionService,
     InteractionContextService,
+    SpacecraftTractorService,
     FlightConsequencePipeline,
     { provide: FLIGHT_CONSEQUENCES, useValue: [] },
   ],

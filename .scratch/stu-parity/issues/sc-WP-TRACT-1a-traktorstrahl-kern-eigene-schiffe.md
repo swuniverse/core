@@ -1,6 +1,6 @@
 # Traktorstrahl-Kern (eigene Schiffe und Wracks)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-ENG-2e
@@ -30,13 +30,15 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Modulkategorie `TRACTOR_BEAM` erzeugt das Laufzeitsystem; ohne Modul keine Traktoraktion.
-- [ ] Aktivieren auf ein eigenes Schiff am Feld (nicht im Hyperraumflug, nicht selbst gezogen, kein Ziel mit eigenem aktiven Traktor, eigene Schilde aus wie STU), EPS-Kosten wie STU; Deaktivieren jederzeit.
-- [ ] Beim Flug des Ziehenden fliegt das gezogene Schiff mit; zusätzliche EPS-Kosten je Feld wie STU; reicht die Energie nicht, reißt der Strahl mit Meldung ab.
-- [ ] Ein gezogenes Schiff kann nicht selbst fliegen (Pre-Flight „blockiert“).
-- [ ] Zerstörung eines Beteiligten löst den Strahl.
-- [ ] Der Interaktions-Check `Quelle nicht gezogen` ist im Dienst aus sc-WP-ENG-2e aktiv.
-- [ ] Backend-Tests: Aktivieren, Mitfliegen, Abriss bei EPS-Mangel, Blockade des Gezogenen, Bereinigung bei Zerstörung; Frontend-Test für NBS-Aktion.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Modulkategorie `TRACTOR_BEAM` erzeugt das Laufzeitsystem; ohne Modul keine Traktoraktion.
+- [x] Aktivieren auf ein eigenes Schiff am Feld (nicht im Hyperraumflug, nicht selbst gezogen, kein Ziel mit eigenem aktiven Traktor, eigene Schilde aus wie STU), EPS-Kosten wie STU; Deaktivieren jederzeit.
+- [x] Beim Flug des Ziehenden fliegt das gezogene Schiff mit; zusätzliche EPS-Kosten je Feld wie STU; reicht die Energie nicht, reißt der Strahl mit Meldung ab.
+- [x] Ein gezogenes Schiff kann nicht selbst fliegen (Pre-Flight „blockiert“).
+- [x] Zerstörung eines Beteiligten löst den Strahl.
+- [x] Der Interaktions-Check `Quelle nicht gezogen` ist im Dienst aus sc-WP-ENG-2e aktiv.
+- [x] Backend-Tests: Aktivieren, Mitfliegen, Abriss bei EPS-Mangel, Blockade des Gezogenen, Bereinigung bei Zerstörung; Frontend-Test für NBS-Aktion.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-10-30: `TRACTOR_BEAM` als Laufzeitsystem, persistente Zielreferenz samt Migration, Aktivieren/Deaktivieren für eigene Schiffe, Flugmitnahme mit Zusatz-EPS und Abriss bei EPS-Mangel, Flugblockade und Zerstörungsbereinigung umgesetzt. NBS-Aktion und Zustandsanzeige ergänzt; fokussierte Backend-/Frontend-Tests sowie `nx affected` und alle Builds sind grün. Fremde Ziele bleiben wie vorgesehen sc-WP-TRACT-1b vorbehalten.

@@ -258,6 +258,11 @@ function createHarness() {
   };
   const shipRepo = {
     findOne: jest.fn(async ({ where }: any) => ships.get(where.id) ?? null),
+    findOneBy: jest.fn(async ({ tractoredShipId }: any) =>
+      [...ships.values()].find(
+        (ship) => ship.tractoredShipId === tractoredShipId,
+      ) ?? null,
+    ),
     save: jest.fn(async (ship: any) => {
       ships.set(ship.id, ship);
       return ship;
