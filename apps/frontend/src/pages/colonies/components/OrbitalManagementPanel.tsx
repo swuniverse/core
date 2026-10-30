@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { commodityImage } from '../../../lib/assets';
 import { api } from '../../../services/api';
 
+type ManagementSource = {
+  energy: number;
+  energyMax: number;
+  storage: Array<{ commodityId: number; amount: number }>;
+};
+
 type ManagementData = {
-  colony: {
-    energy: number;
-    energyMax: number;
-    storage: Array<{ commodityId: number; amount: number }>;
-  };
+  colony?: ManagementSource;
+  station?: ManagementSource;
   ships: Array<{
     id: number;
     name: string;
@@ -26,11 +29,26 @@ type ManagementData = {
     cargo: { used: number; max: number };
     shieldsActive: boolean;
     hyperdriveActive: boolean;
-    orbitAssignment: 'DEFEND' | 'BLOCKADE' | null;
+    orbitAssignment?: 'DEFEND' | 'BLOCKADE' | null;
   }>;
 };
 
-export function OrbitalManagementPanel({ colonyId }: { colonyId: number }) {
+type OrbitalManagementPanelProps = {
+  /** Colony whose orbit is managed; ignored when `endpoint` is given. */
+  colonyId?: number;
+  /** Management endpoint of another source, e.g. a station's `/spacecraft/:id/ship-management`. */
+  endpoint?: string;
+  title?: string;
+  sourceLabel?: string;
+};
+
+/** Crew, battery, reactor and torpedo supply table for ships in a colony orbit or docked at a station. */
+export function OrbitalManagementPanel({
+  colonyId,
+  endpoint = `/colonies/${colonyId}/orbital-management`,
+  title = 'Orbitalmanagement',
+  sourceLabel = 'Kolonie-EPS',
+}: OrbitalManagementPanelProps) {
   const [data, setData] = useState<ManagementData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [values, setValues] = useState<
@@ -53,7 +71,7 @@ export function OrbitalManagementPanel({ colonyId }: { colonyId: number }) {
 
   useEffect(() => {
     void api
-      .get<ManagementData>(`/colonies/${colonyId}/orbital-management`)
+      .get<ManagementData>(endpoint)
       .then((next) => {
         setData(next);
         setValues(
@@ -79,7 +97,7 @@ export function OrbitalManagementPanel({ colonyId }: { colonyId: number }) {
             : 'Orbitalmanagement nicht verfügbar',
         ),
       );
-  }, [colonyId]);
+  }, [endpoint]);
 
   if (error)
     return (
@@ -138,10 +156,10 @@ export function OrbitalManagementPanel({ colonyId }: { colonyId: number }) {
           applied: string[];
           rejected: string[];
         }>;
-      }>(`/colonies/${colonyId}/orbital-management`, { ships });
+      }>(endpoint, { ships });
       setResults(result.results);
       const next = await api.get<ManagementData>(
-        `/colonies/${colonyId}/orbital-management`,
+        endpoint,
       );
       setData(next);
     } catch (err: unknown) {
@@ -156,9 +174,10 @@ export function OrbitalManagementPanel({ colonyId }: { colonyId: number }) {
   return (
     <section className="border border-swu-border bg-swu-surface text-xs">
       <header className="flex items-center justify-between border-b border-swu-border px-2 py-1">
-        <h3 className="font-bold text-swu-primary">Orbitalmanagement</h3>
+        <h3 className="font-bold text-swu-primary">{title}</h3>
         <span className="font-mono text-swu-muted">
-          Kolonie-EPS {data.colony.energy}/{data.colony.energyMax}
+          {sourceLabel} {(data.colony ?? data.station)?.energy ?? 0}/
+          {(data.colony ?? data.station)?.energyMax ?? 0}
         </span>
       </header>
       <div className="overflow-x-auto">
@@ -371,7 +390,7 @@ export function OrbitalManagementPanel({ colonyId }: { colonyId: number }) {
                   colSpan={8}
                   className="border border-swu-border p-2 text-swu-muted"
                 >
-                  Keine eigenen Schiffe im Orbit.
+                  Keine Schiffe verfügbar.
                 </td>
               </tr>
             )}

@@ -137,6 +137,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-30 – sc-WP-CLOAK-1a – Tarnfeld-Generator ausschließlich für das Galaktische Imperium; Berechtigung bei Angebot, Fertigung, Bauplan, Bau/Umrüstung und Aktivierung, gegnerische Altinstallationen bleiben inaktiv; ohne explizite Ortung sieht nur der Eigner das getarnte Schiff, Allianzmitglieder erhalten keine Ausnahme
 - 2026-10-27 – sc-WP-COMBAT-1 – Basisalarm nach jeder realen Feldtransition mit gemeinsamem Movement-Result; Gelb nur `ENEMY`, Rot außer `FRIEND`, beidseitiger Urlaubsschutz, höchstens ein deterministischer Kampf; Traktor/Tarnung später
 - 2026-10-27 – sc-WP-UI-3a – Exakte STU-Regel: Jede belegte Kolonie unabhängig von Eigentum und Haltung verteidigen oder blockieren; schiffsbezogene API, flottenbezogene Order, Urlaub/Gegenorder und Blockade-Orbitalverteidigung prüfen
+- 2026-10-30 – sc-WP-UI-3a – In `sc-WP-UI-3a1` für zentrale Policy/schiffsbezogene API und `sc-WP-UI-3a2` für autoritativen Feldkontext/Schiff-UI geteilt; Parent als Tracking-Split abgeschlossen
+- 2026-10-30 – sc-WP-UI-1b – Gegen aktuellen Repository-Stand mit unveränderten Lint-/Typecheck-/Test-/Build-Gates erneut freigegeben; historische Research- und TS6305-Fehler sind weder stehende Blocker noch dauerhafte Baseline-Ausnahmen
 - 2026-10-28 – soc-E3b – Plotbeiträge sind immer HoloNet-Kategorie `ROLEPLAY`; eine abweichende Kategorie wird bei Plotzuordnung serverseitig überschrieben
 - 2026-10-28 – sc-WP-CLEAN-2 – Das Tholianische Netz wird zum **Interdiktornetz**: ein kooperativ aufgebautes Fang- und Schadensfeld, passend zu imperialer Interdiktortechnik.
 - 2026-10-28 – sc-WP-CLEAN-2 – Das RPG-Modul wird zum **RPG-Transponder**: rein administrative Szenenkennzeichnung mit Admin-Unsichtbarkeit, ausdrücklich kein taktisches Tarnsystem.
@@ -270,3 +272,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-CLOAK-1a – `CLOAK`-Laufzeitsystem (nur Imperium), Aktivierungsregeln, Unsichtbarkeit in NBS/LSS/Sternkarte/Kolonie-Scan, Interaktionssperren und Tarn-Icon/Schalter umgesetzt – siehe Feature-Commit
 - sc-WP-STAT-3a – Andocken/Abdocken (einzeln, Flotte atomar, Station einzeln/alle), Auto-Abdocken beim Flug für 1 EPS, Andock-Icon in der Schiffsliste, Ionensturm-Hook-Kontext (`sourceDocked`/`targetDocked`) – siehe Feature-Commit
 - sc-WP-STAT-3b – Dockingrechte (Spieler/Allianz/Fraktion/Schiff, Verbot vor Erlaubnis), Allianz-Bereinigung und Dock-Nachricht mit Auto-gelesen – siehe Feature-Commit
+- sc-WP-STAT-4a – Schiffsmanagement angedockter Schiffe an der Station über gemeinsamen Management-Dienst (Kolonie/Station) und Schalter „Batterie automatisch nachladen“ – siehe Feature-Commit

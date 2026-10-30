@@ -49,6 +49,7 @@ import { SpacecraftModule as SpacecraftFeatureModule } from '../spacecraft/space
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
+import { ShipManagementService } from '../spacecraft/ship-management.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { ResearchModule } from '../research/research.module';
@@ -121,6 +122,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
     ColonyCommodityLocationsService,
     SpacecraftStatsService,
     SpacecraftTorpedoService,
+    ShipManagementService,
   ],
   exports: [
     ColonyService,

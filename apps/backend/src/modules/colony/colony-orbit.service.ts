@@ -9,7 +9,6 @@ import { GameDataService } from '../game-data/game-data.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
-import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import {
   Spacecraft,
   SpacecraftStatus,
@@ -36,6 +35,11 @@ import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
 import { assertOwnedColony } from './colony-owner.util';
 import { reactorFuelProfile } from '../spacecraft/reactor-fuel-profile';
+import {
+  ShipManagementResult,
+  ShipManagementService,
+  ShipManagementSource,
+} from '../spacecraft/ship-management.service';
 import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 
 @Injectable()
@@ -63,7 +67,7 @@ export class ColonyOrbitService {
     private readonly colonyStorageService: ColonyStorageService,
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyEventService: ColonyEventService,
-    private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
+    private readonly shipManagement: ShipManagementService,
   ) {}
 
   async getManagement(colonyId: number, userId: number) {
@@ -167,166 +171,73 @@ export class ColonyOrbitService {
     }>,
   ) {
     const colony = await this.ownership.findOwnedColony(colonyId, userId);
-    const results: Array<{
-      shipId: number;
-      applied: string[];
-      rejected: string[];
-    }> = [];
-    for (const request of requests ?? []) {
-      const applied: string[] = [];
-      const rejected: string[] = [];
-      try {
-        const ship = await this.shipRepo.findOne({
-          where: { id: request.shipId, userId },
-          relations: ['modules', 'location', 'location.systemField'],
+    const changeable = getColonyChangeable(colony);
+    const source: ShipManagementSource = {
+      getEps: () => changeable.energy,
+      lowerEps: async (amount) => {
+        changeable.energy -= amount;
+        await this.changeableRepo.save(changeable);
+      },
+      availableCrew: () =>
+        this.crewRepo.count({ where: { colonyId: colony.id } }),
+      freeCrewQuarters: async () => Number.MAX_SAFE_INTEGER,
+      moveCrewToShip: async (shipId, amount) => {
+        const available = await this.crewRepo.find({
+          where: { colonyId: colony.id },
+          take: amount,
+          order: { crewId: 'ASC' },
         });
-        if (!ship || !this.isShipInColonyOrbit(colony, ship))
-          throw new BadRequestException('Schiff ist nicht im Kolonieorbit');
-        const targetCrew = request.targetCrew;
-        const crewToShip =
-          targetCrew == null
-            ? 0
-            : Math.max(0, Math.floor(targetCrew) - ship.crew);
-        if (crewToShip) {
-          const available = await this.crewRepo.find({
-            where: { colonyId: colony.id },
-            take: crewToShip,
-            order: { crewId: 'ASC' },
-          });
-          if (
-            available.length < crewToShip ||
-            ship.crew + crewToShip > ship.crewMax
-          )
-            throw new BadRequestException(
-              'Nicht genug freie Crew oder Schiffskapazität',
-            );
-          for (const entry of available) {
-            entry.colonyId = null;
-            entry.spacecraftId = ship.id;
-          }
-          await this.crewRepo.save(available);
-          ship.crew += crewToShip;
-          applied.push(`Crew: +${crewToShip}`);
+        for (const entry of available) {
+          entry.colonyId = null;
+          entry.spacecraftId = shipId;
         }
-        const batteryCharge = Math.max(
-          0,
-          Math.floor(request.batteryCharge ?? 0),
+        await this.crewRepo.save(available);
+      },
+      moveCrewFromShip: async (shipId, amount) => {
+        const assigned = await this.crewRepo.find({
+          where: { spacecraftId: shipId },
+          take: amount,
+          order: { crewId: 'ASC' },
+        });
+        for (const entry of assigned) {
+          entry.spacecraftId = null;
+          entry.colonyId = colony.id;
+        }
+        await this.crewRepo.save(assigned);
+      },
+      getStock: (commodityId) =>
+        (colony.storage ?? []).find((item) => item.commodityId === commodityId)
+          ?.amount ?? 0,
+      lowerStock: async (commodityId, amount) => {
+        await this.colonyStorageService.lowerStorage(
+          colony,
+          commodityId,
+          amount,
         );
-        if (batteryCharge) {
-          const changeable = getColonyChangeable(colony);
-          const amount = Math.min(
-            batteryCharge,
-            changeable.energy,
-            Math.max(0, ship.batteryMax - ship.battery),
-          );
-          if (!amount)
-            throw new BadRequestException(
-              'Keine Kolonie-EPS oder Batteriekapazität verfügbar',
-            );
-          changeable.energy -= amount;
-          ship.battery += amount;
-          await this.changeableRepo.save(changeable);
-          applied.push(`Batterie: +${amount}`);
-        }
-        const requestedLoad = Math.max(0, Math.floor(request.reactorLoad ?? 0));
-        if (requestedLoad) {
-          const profile = reactorFuelProfile(ship.modules ?? []);
-          const capacityUnits = Math.floor(
-            Math.max(0, ship.reactorFuelMax - ship.reactorFuel) /
-              profile.loadUnits,
-          );
-          const stock = new Map(
-            (colony.storage ?? []).map((item) => [
-              item.commodityId,
-              item.amount,
-            ]),
-          );
-          const stockUnits = Math.min(
-            ...profile.costs.map((cost) =>
-              Math.floor((stock.get(cost.commodityId) ?? 0) / cost.amount),
-            ),
-          );
-          const units = Math.min(
-            Math.ceil(requestedLoad / profile.loadUnits),
-            capacityUnits,
-            stockUnits,
-          );
-          if (!units)
-            throw new BadRequestException(
-              'Nicht genug Reaktorkapazität oder Rohstoffe',
-            );
-          for (const cost of profile.costs)
-            await this.colonyStorageService.lowerStorage(
-              colony,
-              cost.commodityId,
-              cost.amount * units,
-            );
-          const gained = units * profile.loadUnits;
-          ship.reactorFuel += gained;
-          applied.push(`Reaktor: +${gained}`);
-        }
-        const crewToColony =
-          targetCrew == null
-            ? 0
-            : Math.max(0, ship.crew - Math.floor(targetCrew));
-        if (crewToColony) {
-          const assigned = await this.crewRepo.find({
-            where: { spacecraftId: ship.id },
-            take: crewToColony,
-            order: { crewId: 'ASC' },
-          });
-          if (assigned.length < crewToColony)
-            throw new BadRequestException('Nicht genug Crew an Bord');
-          for (const entry of assigned) {
-            entry.spacecraftId = null;
-            entry.colonyId = colony.id;
-          }
-          await this.crewRepo.save(assigned);
-          ship.crew -= crewToColony;
-          applied.push(`Crew: -${crewToColony}`);
-        }
-        const torpedoLoad = Math.max(0, Math.floor(request.torpedoLoad ?? 0));
-        if (torpedoLoad) {
-          const type = request.torpedoTypeId;
-          if (!type) throw new BadRequestException('Torpedotyp fehlt');
-          const torpedo = this.gameData.getTorpedoType(type);
-          if (!torpedo) throw new BadRequestException('Unbekannter Torpedotyp');
-          const repo = this.colonyRepo.manager.getRepository(
-            SpacecraftTorpedoStorage,
-          );
-          let storage = await repo.findOneBy({ spacecraftId: ship.id });
-          if (storage && storage.amount > 0 && storage.torpedoTypeId !== type)
-            throw new BadRequestException(
-              'Geladenen Torpedotyp zuerst entladen',
-            );
-          const capacity =
-            await this.spacecraftTorpedoService.getCapacity(ship);
-          if ((storage?.amount ?? 0) + torpedoLoad > capacity)
-            throw new BadRequestException('Nicht genug Torpedokapazität');
-          await this.colonyStorageService.lowerStorage(
-            colony,
-            torpedo.commodityId,
-            torpedoLoad,
-          );
-          storage ??= repo.create({
-            spacecraftId: ship.id,
-            torpedoTypeId: type,
-            commodityId: torpedo.commodityId,
-            amount: 0,
-          });
-          storage.torpedoTypeId = type;
-          storage.commodityId = torpedo.commodityId;
-          storage.amount += torpedoLoad;
-          await repo.save(storage);
-          applied.push(`Torpedos: +${torpedoLoad}`);
-        }
-        await this.shipRepo.save(ship);
-      } catch (error) {
-        rejected.push(
-          error instanceof Error ? error.message : 'Versorgung fehlgeschlagen',
-        );
+      },
+    };
+    const results: ShipManagementResult[] = [];
+    for (const request of requests ?? []) {
+      const ship = await this.shipRepo.findOne({
+        where: { id: request.shipId, userId },
+        relations: ['modules', 'location', 'location.systemField'],
+      });
+      if (!ship || !this.isShipInColonyOrbit(colony, ship)) {
+        results.push({
+          shipId: request.shipId,
+          applied: [],
+          rejected: ['Schiff ist nicht im Kolonieorbit'],
+        });
+        continue;
       }
-      results.push({ shipId: request.shipId, applied, rejected });
+      results.push(
+        await this.shipManagement.manage(
+          this.shipRepo.manager,
+          source,
+          ship,
+          request,
+        ),
+      );
     }
     return { results };
   }

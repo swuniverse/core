@@ -111,6 +111,10 @@ export class Spacecraft {
   @Column({ default: false })
   dockPmAutoRead: boolean;
 
+  /** Station setting: the tick tops up the station's own backup battery from newly produced EPS (STU `reloadBattery`). */
+  @Column({ default: false })
+  reloadBattery: boolean;
+
   @Column({ default: 0 })
   constructionTicksRemaining: number;
 

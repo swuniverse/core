@@ -5,6 +5,8 @@ import { SpacecraftService } from './spacecraft.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
 import { SpacecraftDockingService } from './spacecraft-docking.service';
+import { ShipManagementService } from './ship-management.service';
+import { StationShipManagementService } from './station-ship-management.service';
 import { DockingPrivilegeService } from './docking-privilege.service';
 import { DockingPrivilege } from './entities/docking-privilege.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
@@ -142,6 +144,8 @@ import {
     TransferService,
     EpsTransferService,
     SpacecraftDockingService,
+    ShipManagementService,
+    StationShipManagementService,
     DockingPrivilegeService,
     SpacecraftScanService,
     SpacecraftStatsService,
@@ -178,6 +182,7 @@ import {
     ResearchRewardShipService,
     CrewEnhancementService,
     SpacecraftTorpedoService,
+    ShipManagementService,
     SpacecraftRuntimeStateService,
     SpacecraftResourceFlowService,
     CartographyPlanService,

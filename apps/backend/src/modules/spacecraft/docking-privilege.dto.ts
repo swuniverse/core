@@ -20,3 +20,8 @@ export class ToggleDockPmAutoReadDto {
   @IsBoolean()
   enabled: boolean;
 }
+
+export class ToggleBatteryReloadDto {
+  @IsBoolean()
+  enabled: boolean;
+}

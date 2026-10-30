@@ -47,8 +47,10 @@ import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import { CrewType } from '../colony/entities/crew.entity';
-import { DockingPrivilegeDto, ToggleDockPmAutoReadDto } from './docking-privilege.dto';
+import { DockingPrivilegeDto, ToggleBatteryReloadDto, ToggleDockPmAutoReadDto } from './docking-privilege.dto';
 import { DockingPrivilegeService } from './docking-privilege.service';
+import { StationShipManagementService } from './station-ship-management.service';
+import { ShipManagementRequest } from './ship-management.service';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
@@ -387,6 +389,11 @@ export class SpacecraftController {
       remove: async () => ({ privileges: [], autoRead: false }),
       setAutoRead: async () => ({ privileges: [], autoRead: false }),
     } as unknown as DockingPrivilegeService,
+    private readonly stationShipManagementService: StationShipManagementService = {
+      getManagement: async () => ({ station: null, ships: [] }),
+      execute: async () => ({ results: [] }),
+      setBatteryReload: async () => ({ reloadBattery: false, message: '' }),
+    } as unknown as StationShipManagementService,
   ) {}
 
   // Static routes first (before :id)
@@ -1390,6 +1397,32 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.dockingPrivilegeService.remove(id, req.user.sub, privilegeId);
+  }
+
+  @Get(':id/ship-management')
+  stationShipManagement(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationShipManagementService.getManagement(id, req.user.sub);
+  }
+
+  @Post(':id/ship-management')
+  executeStationShipManagement(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('ships') ships: ShipManagementRequest[],
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationShipManagementService.execute(id, req.user.sub, ships ?? []);
+  }
+
+  @Post(':id/battery-reload')
+  setStationBatteryReload(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ToggleBatteryReloadDto,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.stationShipManagementService.setBatteryReload(id, req.user.sub, dto.enabled);
   }
 
   @Post(':id/docked/undock-all')

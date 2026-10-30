@@ -1,3 +1,4 @@
+import { stationBatteryReload } from './station-battery-reload';
 import {
   Injectable,
   NotFoundException,
@@ -4005,10 +4006,14 @@ export class SpacecraftService {
       this.shipClassService.findById(ship.shipClassId),
     ]);
     ship.modules = modules;
+    const energyBefore = ship.energy;
     const resourceFlow = this.spacecraftResourceFlowService.recharge(
       ship,
       shipClass?.flightEnergyCost ?? 1,
     );
+    const batteryReload = stationBatteryReload(ship, ship.energy - energyBefore);
+    ship.energy -= batteryReload;
+    ship.battery += batteryReload;
     if (resourceFlow?.deactivatedSystems.length > 0) {
       const detail = `Wegen Energiemangels abgeschaltet: ${resourceFlow.deactivatedSystems.join(', ')}.`;
       await this.messagingService.sendSystem(

@@ -294,6 +294,8 @@ export interface SpacecraftDetailDto {
   kind?: 'SHIP' | 'STATION';
   stationRole?: string | null;
   dockCapacity?: number;
+  /** Station switch: the tick reloads the backup battery from produced EPS. */
+  reloadBattery?: boolean;
   dockedAtId?: number | null;
   dockedAtName?: string | null;
   dockedShips?: Array<{

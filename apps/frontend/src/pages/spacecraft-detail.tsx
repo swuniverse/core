@@ -18,6 +18,7 @@ import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPane
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
 import { DockingPanel } from '../components/spacecraft/DockingPanel';
+import { StationShipManagementPanel } from '../components/spacecraft/StationShipManagementPanel';
 import { DockingPrivilegesPanel } from '../components/spacecraft/DockingPrivilegesPanel';
 import { StationExpansionPanel } from '../components/spacecraft/StationExpansionPanel';
 import {
@@ -261,6 +262,7 @@ export function SpacecraftDetailPage() {
         onUpdate={refreshShipAndStorage}
       />
       <DockingPanel ship={ship} onChanged={refreshShipAndStorage} />
+      <StationShipManagementPanel ship={ship} />
       {ship.kind === 'STATION' && <DockingPrivilegesPanel stationId={ship.id} />}
       <div className="mt-2">
         <div id="ship-storage">

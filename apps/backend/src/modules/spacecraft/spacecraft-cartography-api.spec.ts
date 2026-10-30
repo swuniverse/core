@@ -1,3 +1,6 @@
+jest.mock('./station-ship-management.service', () => ({
+  StationShipManagementService: class StationShipManagementService {},
+}));
 jest.mock('./spacecraft.service', () => ({
   SpacecraftService: class SpacecraftService {},
 }));
