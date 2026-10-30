@@ -1,6 +1,6 @@
 # Movement-Result und neutraler Reaktionsport
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1b1
@@ -38,3 +38,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Entscheidung
 
 `tmw-K1b1` besitzt den feldweisen Executor. Dieses Issue erweitert ihn ausschließlich um den gemeinsamen Ergebnisvertrag und einen neutralen Reaktionsport. Die konkrete Alarm- und Kampfimplementierung folgt nach Extraktion des internen Battle-Resolvers.
+
+## Comments
+
+Blocker nach zwei ernsthaften Umsetzungs-/Prüfversuchen: Das Issue verlangt Systemeintritt, Systemaustritt und Abfangen über denselben `MovementResult`-/Reaktionsvertrag. Diese Aktionen umgehen im aktuellen Stand den einzigen `FieldTransitionExecutor`; die geforderte Einbindung ist damit kein isoliertes Vertragsextension-Issue, sondern erfordert einen fachlichen Umbau der drei Bewegungsabläufe (inklusive Kosten-, Flotten-, Signatur- und Konsequenzreihenfolge). Zusätzlich bleibt der verpflichtende Affected-Gate wegen bereits vorhandener fachfremder Änderungen rot (`wreck-decay`, `tutorial` und ältere Spacecraft-Testfixtures). Die versuchten Produktänderungen wurden gemäß Abbruchregel verworfen. Bitte entscheiden, ob der Scope um die Migration dieser drei Pfade erweitert oder in Folgeissues geteilt werden soll.
