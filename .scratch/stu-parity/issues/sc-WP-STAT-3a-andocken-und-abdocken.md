@@ -1,6 +1,6 @@
 # Andocken und Abdocken an Stationen
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -35,3 +35,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 - 2026-10-23: Umsetzung nach zwei Prüfversuchen abgebrochen. `npx nx affected -t lint typecheck test --base=HEAD` und der Fallback `npm run typecheck` scheitern reproduzierbar an bestehenden TypeScript-Buildartefaktfehlern (`TS6305`, Backend-`dist/*.d.ts` wurde nicht aus den Quelldateien gebaut), obwohl die betroffenen Tests (Backend 14/14, Frontend 14/14) und `npx nx run-many --targets=build` grün sind. Produktcode wurde gemäß Abbruchregel verworfen. Bitte den Backend-Typecheck-Buildgraph reparieren oder bestätigen, dass diese bekannte Infrastrukturabweichung für Ralph-Läufe akzeptiert wird.
 - 2026-10-27: Erneuter Durchlauf nach zwei ernsthaften Prüfversuchen abgebrochen. Die fokussierten Docking-Tests waren grün (Backend 14/14, Frontend 6/6) und `backend:build` war grün; die vorgeschriebene Gesamtsuite bleibt jedoch rot: `backend:typecheck` scheitert weiterhin massenhaft mit bestehenden `TS6305`-Deklarationsartefaktfehlern (auch nach Backend-Build), außerdem scheitert ein bestehender Frontend-Test in `research.spec.tsx` (fehlender Button `/eine von/`). Produktcode wurde gemäß Abbruchregel verworfen. Bitte Buildgraph und bestehenden Research-Test reparieren oder diese bekannten Basisfehler ausdrücklich für Ralph-Läufe ausnehmen.
+- 2026-10-30 Product Owner: Option 1. Das M-Issue wird mit atomaren Flottenaktionen wieder `ready-for-agent`; die historischen Blocker sind aktuell grün (`backend:typecheck`, `research.spec.tsx` 10/10). Einzelnes Andocken und Abdocken kostet jeweils 1 EPS des Schiffs. Flottenaktionen sind alles oder nichts und validieren alle Mitglieder, gemeinsame Position, Dockplätze, Crew, EPS, Schilde, Tarnung und Flugstatus vor der Änderung in einer Transaktion mit geeigneten Sperren. Bereits an derselben Station angedockte Mitglieder gelten als erfüllt, eine andere Station lehnt ab. Reparatur oder Umrüstung wird erst beim erfolgreichen Übergang abgebrochen. Flugstart dockt für 1 EPS automatisch ab und startet ohne diese EPS nicht. Bis `sc-WP-STAT-3b` darf nur der Eigentümer andocken; erzwungenes Abdocken durch die eigene Station kostet das Zielschiff keine EPS.
