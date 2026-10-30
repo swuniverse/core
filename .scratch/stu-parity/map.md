@@ -288,3 +288,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-STAT-3b – Dockingrechte (Spieler/Allianz/Fraktion/Schiff, Verbot vor Erlaubnis), Allianz-Bereinigung und Dock-Nachricht mit Auto-gelesen – siehe Feature-Commit
 - sc-WP-STAT-4a – Schiffsmanagement angedockter Schiffe an der Station über gemeinsamen Management-Dienst (Kolonie/Station) und Schalter „Batterie automatisch nachladen“ – siehe Feature-Commit
 - sc-WP-STAT-4b – Stationsreparatur: Queue mit Abbrechen/Reaktivieren, passive Stationsselbstreparatur mit Workbees und Ersatzteilen, Abbruch bei Flug/Abdocken – siehe Feature-Commit
+- tmw-D2 – RPG-Schreiber- und Aurodium-Ranglisten mit erweiterbaren Besitzquellen sowie STU-Highscore-Gliederung umgesetzt – siehe Feature-Commit

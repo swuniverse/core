@@ -46,6 +46,8 @@ type RankingKey =
   | 'prestige'
   | 'crew-training'
   | 'flights'
+  | 'rpg'
+  | 'aurodium'
   | 'colony-worth'
   | 'colony-production';
 
@@ -220,17 +222,7 @@ const groups: Array<{
     ],
   },
   {
-    title: 'Schiffe (anonym)',
-    entries: [
-      {
-        label: 'Die Top 10 der Vielflieger',
-        view: 'rankings',
-        ranking: 'flights',
-      },
-    ],
-  },
-  {
-    title: 'Highscores',
+    title: 'Siedler',
     entries: [
       {
         label: 'Die 10 besten Entdecker',
@@ -242,12 +234,42 @@ const groups: Array<{
         view: 'rankings',
         ranking: 'research',
       },
+      {
+        label: 'Die 10 bestbewerteten RPG-Schreiber',
+        view: 'rankings',
+        ranking: 'rpg',
+      },
       { label: 'Höchstes Prestige', view: 'rankings', ranking: 'prestige' },
+    ],
+  },
+  {
+    title: 'Schiffe (anonym)',
+    entries: [
+      {
+        label: 'Die Top 10 der Vielflieger',
+        view: 'rankings',
+        ranking: 'flights',
+      },
       {
         label: 'Die 10 besten Ausbilder',
         view: 'rankings',
         ranking: 'crew-training',
       },
+    ],
+  },
+  {
+    title: 'Handel',
+    entries: [
+      {
+        label: 'Die 10 Günstlinge der Hutten',
+        view: 'rankings',
+        ranking: 'aurodium',
+      },
+    ],
+  },
+  {
+    title: 'Kolonien',
+    entries: [
       {
         label: 'Die Top 10 der Architekten',
         view: 'rankings',

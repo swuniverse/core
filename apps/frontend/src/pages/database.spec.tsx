@@ -52,6 +52,20 @@ describe('DatabasePage', () => {
     });
   });
 
+  it('groups all available highscores and opens the RPG and Aurodium rankings', async () => {
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    for (const heading of ['Siedler', 'Schiffe (anonym)', 'Handel', 'Kolonien']) {
+      expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
+    }
+    expect(screen.getByRole('button', { name: 'Die 10 bestbewerteten RPG-Schreiber' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Die 10 Günstlinge der Hutten' })).toBeTruthy();
+  });
+
   it('renders separate NPC and administrator sections with profile and PM links', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/database/npcs') {

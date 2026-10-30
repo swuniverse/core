@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { TradePost } from '../trade/entities/trade-post.entity';
@@ -47,6 +47,14 @@ import {
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 import { UserAward } from '../awards/entities/user-award.entity';
 import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
+import { HolonetRating } from '../holonet/entities/holonet-rating.entity';
+import { HolonetPost } from '../holonet/entities/holonet-post.entity';
+import {
+  AURODIUM_RANKING_SOURCES,
+  type AurodiumRankingSource,
+} from './aurodium-ranking-source';
+
+const AURODIUM_COMMODITY_ID = 50;
 
 type TradePostProjection = TradePost & {
   owner?: User;
@@ -59,6 +67,8 @@ type RankingKey =
   | 'prestige'
   | 'crew-training'
   | 'flights'
+  | 'rpg'
+  | 'aurodium'
   | 'colony-worth'
   | 'colony-production';
 type RankingEntry = {
@@ -127,6 +137,11 @@ export class DatabaseService {
       {} as Repository<StationClassDiscovery>,
     private readonly profileVisitorService: ProfileVisitorService =
       {} as ProfileVisitorService,
+    @InjectRepository(HolonetRating)
+    private readonly holonetRatingRepo: Repository<HolonetRating> =
+      {} as Repository<HolonetRating>,
+    @Inject(AURODIUM_RANKING_SOURCES)
+    private readonly aurodiumRankingSources: AurodiumRankingSource[] = [],
   ) {}
 
   async getTradePosts(userId: number) {
@@ -886,6 +901,18 @@ export class DatabaseService {
         };
       case 'flights':
         throw new Error('Anonymous flight rankings use getRanking directly');
+      case 'rpg':
+        return {
+          title: 'Die 10 bestbewerteten RPG-Schreiber',
+          metricLabel: 'Positive Bewertungen',
+          entries: await this.getRpgRanking(),
+        };
+      case 'aurodium':
+        return {
+          title: 'Die 10 Günstlinge der Hutten',
+          metricLabel: 'Aurodium',
+          entries: await this.getAurodiumRanking(),
+        };
       case 'colony-worth':
         return {
           title: 'Die Top 10 der Architekten',
@@ -899,6 +926,43 @@ export class DatabaseService {
           entries: await this.getColonyProductionWorthRanking(topOnly),
         };
     }
+  }
+
+  private async getRpgRanking() {
+    const rows = await this.holonetRatingRepo
+      .createQueryBuilder('rating')
+      .innerJoin(HolonetPost, 'post', 'post.id = rating.postId')
+      .innerJoin(User, 'author', 'author.id = post.authorId')
+      .select('author.id', 'userId')
+      .addSelect('author.username', 'username')
+      .addSelect('SUM(rating.value)', 'score')
+      .where('rating.value > 0')
+      .andWhere('post.deletedAt IS NULL')
+      .andWhere('author.isNpc = false')
+      .groupBy('author.id')
+      .addGroupBy('author.username')
+      .orderBy('SUM(rating.value)', 'DESC')
+      .addOrderBy('author.username', 'ASC')
+      .getRawMany();
+    return rows.map((row) => ({ ...row, score: Number(row.score) }));
+  }
+
+  private async getAurodiumRanking() {
+    const totals = new Map<number, RankingEntry>();
+    for (const source of this.aurodiumRankingSources) {
+      for (const entry of await source.totals(AURODIUM_COMMODITY_ID)) {
+        const existing = totals.get(entry.userId);
+        totals.set(entry.userId, {
+          userId: entry.userId,
+          username: entry.username,
+          score: (existing?.score ?? 0) + Number(entry.amount),
+        });
+      }
+    }
+    return [...totals.values()].sort(
+      (left, right) =>
+        right.score - left.score || left.username.localeCompare(right.username),
+    );
   }
 
   private async getDiscoveryRanking(topOnly = true) {

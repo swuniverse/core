@@ -39,6 +39,10 @@ import { FlightSignature } from '../spacecraft/entities/flight-signature.entity'
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module';
+import { HolonetRating } from '../holonet/entities/holonet-rating.entity';
+import { ColonyAurodiumRankingSource } from './colony-aurodium-ranking.source';
+import { SpacecraftAurodiumRankingSource } from './spacecraft-aurodium-ranking.source';
+import { AURODIUM_RANKING_SOURCES } from './aurodium-ranking-source';
 
 @Module({
   imports: [
@@ -69,6 +73,7 @@ import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module'
       TradePost,
       TradeAccountStorage,
       ExplorationState,
+      HolonetRating,
     ]),
     FactionModule,
     GameDataModule,
@@ -84,6 +89,16 @@ import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module'
     CommodityOverviewService,
     OwnedStorageCommodityLocationSource,
     TradeAccountCommodityLocationSource,
+    ColonyAurodiumRankingSource,
+    SpacecraftAurodiumRankingSource,
+    {
+      provide: AURODIUM_RANKING_SOURCES,
+      useFactory: (
+        colonies: ColonyAurodiumRankingSource,
+        spacecraft: SpacecraftAurodiumRankingSource,
+      ) => [colonies, spacecraft],
+      inject: [ColonyAurodiumRankingSource, SpacecraftAurodiumRankingSource],
+    },
     {
       provide: COMMODITY_LOCATION_SOURCES,
       useFactory: (

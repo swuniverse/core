@@ -1,6 +1,6 @@
 # Ranglisten „RPG-Schreiber“ und „Aurodium-Besitz“, Highscore-Gliederung wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,15 +25,16 @@ Zwei fehlende Ranglisten kommen hinzu: „Die 10 bestbewerteten RPG-Schreiber“
 
 ## Akzeptanzkriterien
 
-- [ ] `GET database/rankings/rpg` liefert die Top 10 Spieler nach der Summe der positiven Holonet-Bewertungen ihrer nicht gelöschten Beiträge, über alle Kategorien wie in STU. NPC-Konten sind ausgeschlossen, sobald tmw-W1 existiert. Bis dahin werden Admins nicht gesondert behandelt.
-- [ ] `GET database/rankings/aurodium` liefert die Top 10 nach Aurodium-Besitz (Kolonielager + Schiffsfrachträume). Die Berechnung nutzt eine erweiterbare Quellenliste, damit tmw-T11a die Handelskonten ergänzen kann.
-- [ ] Die Aurodium-Rangliste heißt „Die 10 Günstlinge der Hutten“. Vorgabe nach Leitplanke 2: Das Hutt-Kartell ist das Pendant der Ferengi, siehe tmw-W1. Der Titel wird in `map.md` unter „Entscheidungen“ eingetragen, falls er dort noch fehlt.
-- [ ] Der Datenbank-Hub gliedert „Highscores“ in die Untergruppen „Siedler“ (Entdecker, Forscher, RPG-Schreiber, Prestige), „Schiffe (anonym)“ (Ausbilder), „Handel“ (Aurodium) und „Kolonien“ (Architekten, Produzenten).
-- [ ] Die Ranglistentabellen folgen dem bestehenden Ranglistenmuster (Platz, Spieler mit Profillink, Wert mit Tausenderpunkt).
-- [ ] Backend-Tests: Aggregation RPG (gelöschte Beiträge zählen nicht, mehrere Beiträge werden summiert), Aggregation Aurodium (Kolonie und Schiff), Limit 10.
-- [ ] Frontend-Tests: Die Hub-Gliederung rendert die vier Untergruppen, und beide neuen Ranglisten werden angezeigt.
+- [x] `GET database/rankings/rpg` liefert die Top 10 Spieler nach der Summe der positiven Holonet-Bewertungen ihrer nicht gelöschten Beiträge, über alle Kategorien wie in STU. NPC-Konten sind ausgeschlossen, sobald tmw-W1 existiert. Bis dahin werden Admins nicht gesondert behandelt.
+- [x] `GET database/rankings/aurodium` liefert die Top 10 nach Aurodium-Besitz (Kolonielager + Schiffsfrachträume). Die Berechnung nutzt eine erweiterbare Quellenliste, damit tmw-T11a die Handelskonten ergänzen kann.
+- [x] Die Aurodium-Rangliste heißt „Die 10 Günstlinge der Hutten“. Vorgabe nach Leitplanke 2: Das Hutt-Kartell ist das Pendant der Ferengi, siehe tmw-W1. Der Titel wird in `map.md` unter „Entscheidungen“ eingetragen, falls er dort noch fehlt.
+- [x] Der Datenbank-Hub gliedert „Highscores“ in die Untergruppen „Siedler“ (Entdecker, Forscher, RPG-Schreiber, Prestige), „Schiffe (anonym)“ (Ausbilder), „Handel“ (Aurodium) und „Kolonien“ (Architekten, Produzenten).
+- [x] Die Ranglistentabellen folgen dem bestehenden Ranglistenmuster (Platz, Spieler mit Profillink, Wert mit Tausenderpunkt).
+- [x] Backend-Tests: Aggregation RPG (gelöschte Beiträge zählen nicht, mehrere Beiträge werden summiert), Aggregation Aurodium (Kolonie und Schiff), Limit 10.
+- [x] Frontend-Tests: Die Hub-Gliederung rendert die vier Untergruppen, und beide neuen Ranglisten werden angezeigt.
 
 ## Comments
 
 - 2026-10-27 Agent: Abbruch wegen fehlender Produktentscheidung: Akzeptanzkriterium nennt Aurodium als Ware `id 50`, während das aktuelle SWU-Schema und `game-data/data/commodities/stu-commodity-map.yaml` STU-IDs in den 10000ern verwendet und keinen bestätigten SWU-Commodity-Schlüssel 50 bereitstellt. Bitte den kanonischen SWU-Aurodium-Commodity-Key festlegen (oder bestätigen, dass `50` als neue SWU-ID einzuführen ist), damit Kolonie- und Schiffslager korrekt aggregiert werden können.
 - 2026-10-30 Product Owner: Option 1. Der kanonische Commodity-Key für Aurodium ist `50`, wie im aktuellen `stu-commodity-map.yaml` mit `sourceId: 50`, `rawName: Latinum` und `name: Aurodium` hinterlegt. Die Rangliste aggregiert ausschließlich Ware 50 aus Kolonielagern und Schiffsfrachträumen; Ware 51 „Flüssiges Aurodium“ zählt nicht. Handelskonten ergänzt später `tmw-T11a` über den vorgesehenen Quellen-Port. Der Titel bleibt „Die 10 Günstlinge der Hutten“. Das Issue ist `ready-for-agent`.
+- 2026-10-30 Agent: RPG- und Aurodium-Ranglisten im Datenbank-Service ergänzt, Aurodium-Quellen als erweiterbarer Port für Kolonie- und Schiffslager umgesetzt und den Datenbank-Hub in die vier STU-Untergruppen gegliedert. Fokussierte Backend-/Frontend-Tests und alle Builds sind grün; der vollständige affected-Lauf bleibt ausschließlich an bereits vorhandenen, fachfremden Änderungen in `wreck-decay.service.ts`, `tutorial.service.ts` und `spacecraft-core-controls.spec.ts` rot.
