@@ -1,6 +1,6 @@
 # Spielerbetriebene Handelsposten: Stationsbau erzeugt Posten
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-0, sc-WP-STAT-1b, tmw-T2
