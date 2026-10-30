@@ -17,6 +17,7 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEconomyService } from './colony-economy.service';
+import { colonyWreckRepairPlan, isWreckColonyField } from './wreck-repair';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonySocialService } from './colony-social.service';
 import {
@@ -252,6 +253,8 @@ export class ColonyProjectionService {
             terraformingFinishesAt: null,
             hasDome: false,
             domeFinishesAt: null,
+            wreckRepaired: false,
+            wreckRepairFinishesAt: null,
             locked: true,
           };
         }
@@ -283,6 +286,13 @@ export class ColonyProjectionService {
             field.terraformingFinishesAt?.toISOString() ?? null,
           hasDome: field.hasDome,
           domeFinishesAt: field.domeFinishesAt?.toISOString() ?? null,
+          wreckRepaired: field.wreckRepaired,
+          wreckRepairFinishesAt:
+            field.wreckRepairFinishesAt?.toISOString() ?? null,
+          wreckRepair:
+            !field.wreckRepaired && isWreckColonyField(this.gameData, field)
+              ? colonyWreckRepairPlan(this.gameData, colony, field)
+              : null,
           ...(locked ? { locked: true, adminPreview: true } : {}),
         };
       }),
@@ -1185,19 +1195,21 @@ export class ColonyProjectionService {
         hangar: {
           hasAirfield,
           inventory: hangarInventory,
-          buildable: startableHangarShips.map(({ shipClass, hangarDef }) => ({
-            shipClassId: shipClass.id,
-            shipClassKey: shipClass.key,
-            shipClassName: shipClass.name,
-            hangarCommodityId: hangarDef.hangarCommodityId,
-            displayName: hangarDef.displayName,
-            buildEnergyCost: hangarDef.buildEnergyCost,
-            startEnergyCost: hangarDef.startEnergyCost,
-            buildCosts: this.getHangarBuildCosts(hangarDef, 1),
-            defaultModules: this.defaultModuleSummaries(hangarDef),
-            maxBuildable: this.maxBuildableHangarAmount(colony, hangarDef),
-            crewRequired: hangarDef.crewRequired,
-          })),
+          buildable: startableHangarShips
+            .filter(({ hangarDef }) => !hangarDef.salvageOnly)
+            .map(({ shipClass, hangarDef }) => ({
+              shipClassId: shipClass.id,
+              shipClassKey: shipClass.key,
+              shipClassName: shipClass.name,
+              hangarCommodityId: hangarDef.hangarCommodityId,
+              displayName: hangarDef.displayName,
+              buildEnergyCost: hangarDef.buildEnergyCost,
+              startEnergyCost: hangarDef.startEnergyCost,
+              buildCosts: this.getHangarBuildCosts(hangarDef, 1),
+              defaultModules: this.defaultModuleSummaries(hangarDef),
+              maxBuildable: this.maxBuildableHangarAmount(colony, hangarDef),
+              crewRequired: hangarDef.crewRequired,
+            })),
           startable: startableHangarShips.map(
             ({ shipClass, hangarDef, amount }) => ({
               shipClassId: shipClass.id,

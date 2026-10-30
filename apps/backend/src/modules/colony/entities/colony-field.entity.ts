@@ -76,4 +76,11 @@ export class ColonyField {
 
   @Column({ type: 'timestamp', nullable: true })
   domeFinishesAt: Date | null;
+
+  /** Wrack-Kachel (Kategorie "wrack") wurde repariert, das Schiff ist im Inventar. */
+  @Column({ default: false })
+  wreckRepaired: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  wreckRepairFinishesAt: Date | null;
 }

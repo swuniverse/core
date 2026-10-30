@@ -736,6 +736,15 @@ export class ColonyController {
     return this.colonyService.buildDome(id, req.user.sub, fieldIndex);
   }
 
+  @Post(':id/fields/:fieldIndex/repair-wreck')
+  repairWreck(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('fieldIndex', ParseIntPipe) fieldIndex: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyService.repairWreck(id, req.user.sub, fieldIndex);
+  }
+
   @Post(':id/fields/:fieldIndex/upgrade')
   upgradeBuilding(
     @Param('id', ParseIntPipe) id: number,

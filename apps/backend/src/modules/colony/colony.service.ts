@@ -313,11 +313,7 @@ export class ColonyService {
       colonyId,
       userId,
     );
-    return this.colonyProjectionService.toColonyDetail(
-      colony,
-      userId,
-      isAdmin,
-    );
+    return this.colonyProjectionService.toColonyDetail(colony, userId, isAdmin);
   }
 
   async getCurrentObjective(userId: number) {
@@ -655,6 +651,18 @@ export class ColonyService {
     );
   }
 
+  async repairWreck(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    return this.colonyConstructionService.repairWreck(
+      colonyId,
+      userId,
+      fieldIndex,
+    );
+  }
+
   async upgradeBuilding(
     colonyId: number,
     userId: number,
@@ -982,6 +990,9 @@ export class ColonyService {
     const hangarDef = this.getHangarDefForShipClass(shipClass);
     if (!hangarDef)
       throw new BadRequestException('Ship class is not hangar-buildable');
+    if (hangarDef.salvageOnly) {
+      throw new BadRequestException('Ship class can only be salvaged');
+    }
     const unlocked = await this.unlockResolver.isShipClassUnlocked(
       userId,
       shipClass.id,

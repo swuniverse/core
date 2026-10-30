@@ -65,6 +65,7 @@ export function ColonyFieldDialog({
   onOpenAcademy,
   onTerraform,
   onBuildDome,
+  onRepairWreck,
   onUpgrade,
   onDemolish,
   onToggle,
@@ -84,6 +85,7 @@ export function ColonyFieldDialog({
     terraformingId: string,
   ) => Promise<void> | void;
   onBuildDome: (fieldIndex: number) => Promise<void> | void;
+  onRepairWreck: (fieldIndex: number) => Promise<void> | void;
   onUpgrade: (fieldIndex: number, upgradeId: number) => Promise<void> | void;
   onDemolish: (fieldIndex: number) => Promise<void> | void;
   onToggle: (fieldIndex: number) => Promise<void> | void;
@@ -749,6 +751,101 @@ export function ColonyFieldDialog({
                 <div className="text-xs text-swu-muted">
                   Keine Optionen verfügbar.
                 </div>
+              )}
+            </Section>
+          )}
+
+          {(field.wreckRepair || field.wreckRepaired) && (
+            <Section title="Wrack">
+              {field.wreckRepaired ? (
+                <div className="text-xs text-swu-muted">
+                  Das Wrack wurde repariert. Der Jäger liegt im Inventar des
+                  Planeten und ist startbar.
+                </div>
+              ) : field.wreckRepairFinishesAt ? (
+                <div className="rounded border border-sky-400/40 bg-sky-950/20 p-3 text-center text-xs">
+                  <div className="font-bold text-sky-300">
+                    Wrack wird repariert
+                  </div>
+                  <div className="mt-1 text-swu-muted">
+                    Fertigstellung:{' '}
+                    {new Date(field.wreckRepairFinishesAt).toLocaleString(
+                      'de-DE',
+                      {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      },
+                    )}
+                  </div>
+                </div>
+              ) : (
+                field.wreckRepair && (
+                  <div className="grid grid-cols-[1fr_auto] gap-3 rounded border border-swu-border/70 bg-swu-bg/50 p-3">
+                    <div className="flex min-w-0 flex-col items-center justify-center text-xs">
+                      <div className="text-swu-muted">
+                        Schaden{' '}
+                        <span className="font-bold text-swu-primary">
+                          {field.wreckRepair.damage}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={pendingActions.has('wreck')}
+                        onClick={() =>
+                          runAction('wreck', () =>
+                            onRepairWreck(field.fieldIndex),
+                          )
+                        }
+                        className="mt-3 border border-swu-accent/60 bg-swu-accent/15 px-3 py-1 text-xs font-bold text-swu-accent hover:bg-swu-accent/25 disabled:opacity-50"
+                      >
+                        Wrack reparieren
+                      </button>
+                      <div className="mt-1 text-center text-swu-muted">
+                        Dauer{' '}
+                        <span className="font-bold text-swu-primary">
+                          {formatDuration(
+                            field.wreckRepair.durationMinutes * 60,
+                          )}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-center text-swu-muted">
+                        Danach liegt ein zufälliger Jäger im Inventar.
+                      </div>
+                    </div>
+                    <div className="min-w-20 border-l border-swu-border/40 pl-3 text-xs">
+                      <div className="mb-1 font-bold text-swu-primary">
+                        Kosten
+                      </div>
+                      {field.wreckRepair.costs.map((cost) => {
+                        const commodity = commodityMap[cost.commodityId];
+                        return (
+                          <div
+                            key={cost.commodityId}
+                            className="mt-1 flex items-center gap-1 text-swu-primary"
+                          >
+                            <img
+                              src={commodityImage(
+                                cost.commodityId,
+                                commodity?.name,
+                              )}
+                              alt={
+                                commodity?.name ?? `Ware #${cost.commodityId}`
+                              }
+                              title={
+                                commodity?.name ?? `Ware #${cost.commodityId}`
+                              }
+                              className="h-5 w-5 object-contain"
+                              loading="lazy"
+                            />
+                            {cost.amount}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
               )}
             </Section>
           )}

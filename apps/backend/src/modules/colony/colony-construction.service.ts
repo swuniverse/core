@@ -29,6 +29,7 @@ import {
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
 import { COLONY_BUILDING_ID_SETS } from './colony.constants';
+import { colonyWreckRepairPlan, isWreckColonyField } from './wreck-repair';
 import {
   ColonyEventSeverity,
   ColonyEventType,
@@ -628,7 +629,10 @@ export class ColonyConstructionService {
     const candidates = this.getFieldTypeCandidates(field).map((candidate) =>
       String(candidate),
     );
-    if (field.terrainTileId != null && !candidates.includes(field.terrainTileId)) {
+    if (
+      field.terrainTileId != null &&
+      !candidates.includes(field.terrainTileId)
+    ) {
       candidates.push(field.terrainTileId);
     }
     return candidates;
@@ -735,7 +739,8 @@ export class ColonyConstructionService {
         .filter(
           (production) =>
             production.amount > 0 &&
-            (production.commodityId === 1801 || production.commodityId === 1802),
+            (production.commodityId === 1801 ||
+              production.commodityId === 1802),
         )
         .map((production) => production.commodityId),
     );
@@ -1056,8 +1061,32 @@ export class ColonyConstructionService {
 
     await this.deductBuildCosts(colony, [...DOME_COSTS]);
     await this.colonyRepo.save(colony);
-    field.domeFinishesAt = this.timing.dateAfterScaledSeconds(
-      DOME_BUILD_SECONDS,
+    field.domeFinishesAt =
+      this.timing.dateAfterScaledSeconds(DOME_BUILD_SECONDS);
+    return this.fieldRepo.save(field);
+  }
+
+  /** Repariert ein abgestuerztes Wrack (Kategorie "wrack"); Ergebnis: Schiff im Inventar. */
+  async repairWreck(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    if (!isWreckColonyField(this.gameData, field)) {
+      throw new BadRequestException('This field is not a wreck');
+    }
+    if (field.wreckRepaired || field.wreckRepairFinishesAt) {
+      throw new BadRequestException('This wreck is already repaired');
+    }
+
+    const plan = colonyWreckRepairPlan(this.gameData, colony, field);
+    await this.deductBuildCosts(colony, plan.costs);
+    await this.colonyRepo.save(colony);
+    field.wreckRepairFinishesAt = this.timing.dateAfterScaledMinutes(
+      plan.durationMinutes,
     );
     return this.fieldRepo.save(field);
   }

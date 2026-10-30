@@ -31,6 +31,9 @@ function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   if (first.type === 'TERRAFORMING_FINISHED') {
     return `Kolonie ${payload.colonyId}: Geoengineering abgeschlossen${suffix}`;
   }
+  if (first.type === 'WRECK_REPAIRED') {
+    return `Kolonie ${payload.colonyId}: Wrack repariert${suffix}`;
+  }
   if (first.type === 'DOME_FINISHED') {
     return `Kolonie ${payload.colonyId}: Kuppel fertiggestellt${suffix}`;
   }
@@ -53,7 +56,10 @@ export function AppShell() {
   }, [setUser]);
 
   useEffect(() => {
-    void api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
+    void api
+      .get<GameStatus>('/game-status')
+      .then(setGameStatus)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {

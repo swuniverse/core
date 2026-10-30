@@ -1,5 +1,6 @@
 export * from './asteroid.js';
 export * from './dome.js';
+export * from './wreck.js';
 export * from './solar-buildings.js';
 
 export type ColonyTickEventType =
@@ -8,6 +9,7 @@ export type ColonyTickEventType =
   | 'BUILDING_FINISHED'
   | 'TERRAFORMING_FINISHED'
   | 'DOME_FINISHED'
+  | 'WRECK_REPAIRED'
   | 'CREW_LIMIT_EXCEEDED';
 
 export interface ColonyTickEvent {
