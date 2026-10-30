@@ -1,6 +1,6 @@
 # Urlaubsmodus: Schutz vor feindlichen Interaktionen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-04a, sc-WP-ENG-2c
