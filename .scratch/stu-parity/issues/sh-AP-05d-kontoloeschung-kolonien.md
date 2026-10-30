@@ -1,6 +1,6 @@
 # Kontolöschung: Umgang mit Kolonien
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-05a, col-E2
