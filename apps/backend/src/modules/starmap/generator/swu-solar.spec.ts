@@ -1,4 +1,9 @@
-import { solarOutputFactor, solarOutputTJ, SWU_SOLAR_MAX_OUTPUT_TJ } from './swu-solar';
+import {
+  asteroidSolarOutputTJ,
+  solarOutputFactor,
+  solarOutputTJ,
+  SWU_SOLAR_MAX_OUTPUT_TJ,
+} from './swu-solar';
 
 describe('swu-solar', () => {
   it('gives the exact worked example from the design note: tidal-locked hot Wueste, sonnennah', () => {
@@ -39,5 +44,11 @@ describe('swu-solar', () => {
     expect(solarOutputFactor(5, 2, 'rotating', 'A')).toBe(
       solarOutputFactor(1, 2, 'rotating', 'A'),
     );
+  });
+
+  it('treats asteroids as airless rotating bodies in the reference zone', () => {
+    expect(asteroidSolarOutputTJ(0.5)).toBe(1920); // 1.0 * 1.2 (keine Atmosphaere) * 1600
+    expect(asteroidSolarOutputTJ(0)).toBeGreaterThan(asteroidSolarOutputTJ(1));
+    expect(asteroidSolarOutputTJ(0)).toBeLessThanOrEqual(SWU_SOLAR_MAX_OUTPUT_TJ);
   });
 });

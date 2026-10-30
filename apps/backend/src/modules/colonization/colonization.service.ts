@@ -55,6 +55,7 @@ import {
 import {
   computeSwuOrbitDistance,
   solarOutputTJ,
+  asteroidSolarOutputTJ,
 } from '../starmap/generator/swu-solar';
 import { GameDataService } from '../game-data/game-data.service';
 import { classifyZoneOres, oreDisplayName, zoneDeuteriumSources, zoneOreSources, type SwuZoneOre } from './swu-zone-ores';
@@ -595,6 +596,10 @@ export class ColonizationService {
         }
       }
     }
+    const asteroidSnapshot = this.colonySeedService.generateAsteroidSnapshot(
+      target.classId,
+      `colony-${userId}-${target.id}`,
+    );
     const colony = abandonedColony
       ? await this.reclaimAbandonedColony(abandonedColony, userId)
       : swuArchetype
@@ -618,10 +623,7 @@ export class ColonizationService {
               swuArchetype.variant,
             ),
           })
-        : await (this.colonySeedService.generateAsteroidSnapshot(
-            target.classId,
-            `colony-${userId}-${target.id}`,
-          )
+        : await (asteroidSnapshot
             ? this.colonySeedService.createFollowUpAsteroidColony
             : this.colonySeedService.createFollowUpColony
           ).call(this.colonySeedService, {
@@ -630,6 +632,9 @@ export class ColonizationService {
             celestialObjectId,
             buildingId: shipClass.colonizationBuildingId,
             initialFieldIndex,
+            solarOutputTJ: asteroidSnapshot
+              ? asteroidSolarOutputTJ(await this.computeSwuOrbitDistance(target))
+              : undefined,
           });
     if (target.objectType === CelestialObjectType.ASTEROID) {
       await this.colonySeedService.ensureAsteroidDepositMining(userId, target);

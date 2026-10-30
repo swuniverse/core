@@ -35,6 +35,8 @@ export const SWU_ASTEROID_WRECK_FIELD = 'G910';
 
 const SIZE = 6;
 const GENERATION_ATTEMPTS = 40;
+const SPACE_WEIGHT_MIN = 2;
+const SPACE_WEIGHT_MAX = 14;
 
 type Edge = 'R' | 'S' | 'H1' | 'H2';
 /** Kanten in der Reihenfolge [oben, unten, links, rechts]. */
@@ -151,6 +153,9 @@ function tileLayout(inner: number, rng: SeededRNG): string[][] | null {
     return result;
   };
 
+  // Pro Seed unterschiedlich stark bevorzugter Weltraum: wenige Felder = dichtes
+  // Gebilde, viele = kleine, gestreute Brocken mit viel freiem All dazwischen.
+  const spaceWeight = rng.nextInt(SPACE_WEIGHT_MIN, SPACE_WEIGHT_MAX);
   const grid: string[][] = Array.from({ length: SIZE }, () => []);
   let bottoms: Edge[] = Array.from({ length: SIZE }, () => 'S');
   let left: Edge = 'S';
@@ -164,7 +169,9 @@ function tileLayout(inner: number, rng: SeededRNG): string[][] | null {
       return canFinish(index + 1, next, edges[3], innerLeft - (tile === INNER ? 1 : 0));
     });
     if (options.length === 0) return null;
-    const tile = rng.choice(options);
+    const tile = rng.weightedChoice(
+      options.map((item) => ({ item, weight: item === SPACE ? spaceWeight : 1 })),
+    );
     grid[Math.floor(index / SIZE)][x] = tile;
     bottoms = bottoms.slice();
     bottoms[x] = TILE_EDGES[tile][1];

@@ -121,6 +121,8 @@ export interface CreateFollowUpColonyOptions {
   name?: string;
   initialFieldIndex?: number;
   systemFieldId?: number | null;
+  /** Solarertrag in TJ (siehe swu-solar.ts); nur fuer SWU-Asteroiden gesetzt. */
+  solarOutputTJ?: number | null;
 }
 
 @Injectable()
@@ -412,6 +414,7 @@ export class ColonySeedService {
       posX: object?.posX || 10,
       posY: object?.posY || 10,
       colonyClassId: classId,
+      solarOutputTJ: options.solarOutputTJ ?? null,
       surfaceMask: mask,
       surfaceWidth: snapshot.width,
       rotationFactor: 1,
