@@ -58,6 +58,7 @@ jest.mock('../faction/entities/faction-modifier.entity', () => ({
 
 import { SpacecraftService } from './spacecraft.service';
 import { SpacecraftStatus } from './entities/spacecraft.entity';
+import { FieldTransitionExecutor } from './field-transition-executor';
 
 function createService() {
   const shipRepo = {
@@ -127,6 +128,9 @@ function createService() {
   const flightConsequencePipeline = { onEnterField: jest.fn(async () => []) };
   const flightSignatureService = {
     createMovement: jest.fn(async () => undefined),
+  };
+  const layerKnowledgeService = {
+    markKnown: jest.fn(async () => undefined),
   };
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
@@ -200,6 +204,15 @@ function createService() {
     flightConsequencePipeline as unknown as ConstructorParameters<
       typeof SpacecraftService
     >[34],
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    new FieldTransitionExecutor(),
+    layerKnowledgeService as unknown as ConstructorParameters<
+      typeof SpacecraftService
+    >[41],
   );
 
   return {
@@ -215,6 +228,7 @@ function createService() {
     statistics,
     flightConsequencePipeline,
     flightSignatureService,
+    layerKnowledgeService,
   };
 }
 
@@ -234,6 +248,71 @@ describe('SpacecraftService movement resources', () => {
       kind: 'GALAXY_FIELD',
       galaxyField: { id: 30, layerId, cx: x, cy: y },
     },
+  });
+
+  it('marks an arrived galaxy layer known once for every owned fleet ship', async () => {
+    const {
+      service,
+      shipRepo,
+      galaxyFieldRepo,
+      layerKnowledgeService,
+    } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      shipClassId: 42,
+      kind: 'SHIP',
+      status: SpacecraftStatus.IDLE,
+      ...galaxyLocation(3),
+      energy: 20,
+      modules: [],
+      fleetId: null,
+    };
+    shipRepo.findOne.mockResolvedValue(ship);
+    galaxyFieldRepo.findOne.mockImplementation(
+      async ({ where }: { where: { cx: number; cy: number } }) => ({
+        id: where.cx === 2 ? 31 : 30,
+        layerId: 3,
+        cx: where.cx,
+        cy: where.cy,
+        isPassable: true,
+      }),
+    );
+
+    await service.flyGalaxy(7, 1, 2, 1);
+    ship.location = galaxyLocation(3, 2, 1).location;
+    await service.flyGalaxy(7, 1, 1, 1);
+
+    expect(layerKnowledgeService.markKnown).toHaveBeenCalledTimes(2);
+    expect(layerKnowledgeService.markKnown).toHaveBeenNthCalledWith(1, 1, 3);
+    expect(layerKnowledgeService.markKnown).toHaveBeenNthCalledWith(2, 1, 3);
+  });
+
+  it('does not mark a layer known when galaxy movement fails', async () => {
+    const {
+      service,
+      shipRepo,
+      galaxyFieldRepo,
+      layerKnowledgeService,
+    } = createService();
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 42,
+      kind: 'SHIP',
+      status: SpacecraftStatus.IDLE,
+      ...galaxyLocation(3),
+      energy: 20,
+      modules: [],
+      fleetId: null,
+    });
+    galaxyFieldRepo.findOne.mockResolvedValue({ isPassable: false });
+
+    await expect(service.flyGalaxy(7, 1, 2, 1)).rejects.toThrow(
+      'Next field is not passable',
+    );
+
+    expect(layerKnowledgeService.markKnown).not.toHaveBeenCalled();
   });
 
   it('blocks movement while the ship is in standby', async () => {

@@ -44,6 +44,7 @@ import {
 } from '../starmap/generator/swu-planet-archetypes.generator';
 import { TutorialService } from '../tutorial/tutorial.service';
 import { MessagingService } from '../messaging/messaging.service';
+import { LayerKnowledgeService } from '../starmap/layer-knowledge.service';
 
 const INVALID_STARTER_PLANET_MESSAGE =
   'Only colonizable planets with biome C or E can be claimed as homeworld (STU M, L or O class only if no SWU starter planet is free)';
@@ -82,6 +83,7 @@ export class OnboardingService {
     private readonly colonySeedService: ColonySeedService,
     private readonly tutorialService: TutorialService,
     private readonly messagingService: MessagingService,
+    private readonly layerKnowledgeService: LayerKnowledgeService,
   ) {}
 
   async getOrCreateSelection(userId: number): Promise<OnboardingSelection> {
@@ -481,6 +483,7 @@ export class OnboardingService {
     user.starterColonyId = colony.id;
     user.factionId = factionId;
     await this.userRepo.save(user);
+    await this.layerKnowledgeService.markKnown(user.id, system.layerId);
     await this.ensureBaseResearchCompleted(user.id, factionId);
     await this.tutorialService.activateForNewPlayer(user.id);
     await this.deliverWelcomeMessage(user.id, faction.key as Faction);

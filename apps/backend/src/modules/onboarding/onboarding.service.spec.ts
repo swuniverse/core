@@ -65,6 +65,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await expect(
@@ -113,6 +114,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const planets = await service.listPlanets(7, 12);
@@ -152,6 +154,7 @@ describe('OnboardingService', () => {
         {} as never,
         {} as never,
         {} as never,
+        {} as never,
       );
 
       await (service as never as {
@@ -187,6 +190,7 @@ describe('OnboardingService', () => {
         {} as never,
         {} as never,
         messagingService as never,
+        {} as never,
       );
 
       await (service as never as {
@@ -220,6 +224,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       messagingService as never,
+      {} as never,
     );
     const loggerError = jest
       .spyOn((service as never as { logger: { error: () => void } }).logger, 'error')
@@ -234,6 +239,86 @@ describe('OnboardingService', () => {
       'Failed to send welcome message to user 7',
       expect.any(String),
     );
+  });
+
+  it('marks the claimed homeworld layer known after successful onboarding', async () => {
+    const selection = { id: 4, factionId: 1, status: 'STARTED', completedAt: null };
+    const onboardingRepo = {
+      findOne: jest.fn(async () => selection),
+      save: jest.fn(async (value) => value),
+    };
+    const user = {
+      id: 7,
+      username: 'Leia',
+      factionId: 1,
+      onboardingCompleted: false,
+      starterColonyId: null,
+    };
+    const userRepo = {
+      findOneBy: jest.fn(async () => user),
+      save: jest.fn(async (value) => value),
+    };
+    const object = {
+      id: 23,
+      systemId: 12,
+      objectType: 1,
+      isColonizable: true,
+      name: 'Alderaan',
+      classId: 201,
+    };
+    const objectRepo = {
+      findOneBy: jest.fn(async () => object),
+      createQueryBuilder: jest.fn(() => ({
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn(async () => null),
+      })),
+    };
+    const starSystemRepo = {
+      findOneBy: jest.fn(async () => ({
+        id: 12,
+        layerId: 3,
+        landmarkKey: null,
+      })),
+    };
+    const galaxyFieldRepo = {
+      findOne: jest.fn(async () => ({ factionZone: 'REBEL' })),
+      query: jest.fn(async () => []),
+    };
+    const factionService = {
+      findById: jest.fn(async () => ({
+        id: 1,
+        key: Faction.REBEL_ALLIANCE,
+        startBuildingId: 10,
+        startResearchTechId: null,
+      })),
+    };
+    const colonySeedService = {
+      createStarterColony: jest.fn(async () => ({ id: 99 })),
+    };
+    const tutorialService = {
+      activateForNewPlayer: jest.fn(async () => undefined),
+    };
+    const messagingService = { sendSystem: jest.fn(async () => ({})) };
+    const layerKnowledgeService = { markKnown: jest.fn(async () => undefined) };
+    const service = new OnboardingService(
+      onboardingRepo as never,
+      userRepo as never,
+      {} as never,
+      starSystemRepo as never,
+      objectRepo as never,
+      galaxyFieldRepo as never,
+      {} as never,
+      factionService as never,
+      colonySeedService as never,
+      tutorialService as never,
+      messagingService as never,
+      layerKnowledgeService as never,
+    );
+
+    await service.claimHomeworld(7, 23);
+
+    expect(layerKnowledgeService.markKnown).toHaveBeenCalledWith(7, 3);
   });
 
   it('does not allow changing a retained faction while claiming a new homeworld', async () => {
@@ -251,6 +336,7 @@ describe('OnboardingService', () => {
       {} as never,
       {} as never,
       factionService as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

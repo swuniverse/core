@@ -12,6 +12,7 @@ import { Research } from '../research/entities/research.entity';
 import { FactionModule } from '../faction/faction.module';
 import { ColonyModule } from '../colony/colony.module';
 import { TutorialModule } from '../tutorial/tutorial.module';
+import { StarmapModule } from '../starmap/starmap.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TutorialModule } from '../tutorial/tutorial.module';
     FactionModule,
     ColonyModule,
     TutorialModule,
+    StarmapModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],

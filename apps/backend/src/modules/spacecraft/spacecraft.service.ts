@@ -27,6 +27,7 @@ import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { Layer } from '../starmap/entities/layer.entity';
+import { LayerKnowledgeService } from '../starmap/layer-knowledge.service';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { adminRegionName } from '../starmap/admin-region';
@@ -195,6 +196,9 @@ export class SpacecraftService {
       processTick: async () => undefined,
     } as unknown as StationRepairService,
     private readonly fieldTransitionExecutor: FieldTransitionExecutor = new FieldTransitionExecutor(),
+    private readonly layerKnowledgeService: LayerKnowledgeService = {
+      markKnown: async () => undefined,
+    } as unknown as LayerKnowledgeService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -2192,6 +2196,10 @@ export class SpacecraftService {
             origin,
             member.location,
             this.flightDirection(direction),
+          );
+          await this.layerKnowledgeService.markKnown(
+            member.userId,
+            currentLocation.layerId,
           );
         }
         await this.discoverGalaxyAroundShip(
