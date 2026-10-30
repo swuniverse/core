@@ -36,6 +36,46 @@ import { Faction } from '@swuniverse/shared';
 import { OnboardingService } from './onboarding.service';
 
 describe('OnboardingService', () => {
+  it('rejects a faction that is not selectable before changing the user', async () => {
+    const userRepo = {
+      findOneBy: jest.fn(async () => ({ id: 7, factionId: null })),
+      update: jest.fn(),
+    };
+    const factionService = {
+      findByKey: jest.fn(async () => ({
+        id: 2,
+        key: Faction.GALACTIC_EMPIRE,
+        isSelectable: false,
+      })),
+    };
+    const onboardingRepo = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new OnboardingService(
+      onboardingRepo as never,
+      userRepo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      factionService as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.selectFaction(7, Faction.GALACTIC_EMPIRE),
+    ).rejects.toThrow(
+      new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.'),
+    );
+    expect(userRepo.update).not.toHaveBeenCalled();
+    expect(onboardingRepo.save).not.toHaveBeenCalled();
+  });
+
   it('excludes already claimed planets from the available homeworlds', async () => {
     const selection = { factionId: 1, selectedSystemId: null };
     const onboardingRepo = {

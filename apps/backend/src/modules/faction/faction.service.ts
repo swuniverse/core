@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Faction } from '@swuniverse/shared';
@@ -137,6 +137,19 @@ export class FactionService {
 
   findById(id: number): Promise<FactionEntity | null> {
     return this.factionRepo.findOneBy({ id });
+  }
+
+  async updateSelectability(
+    id: number,
+    isSelectable: boolean,
+  ): Promise<FactionEntity> {
+    const faction = await this.findById(id);
+    if (!faction) {
+      throw new NotFoundException('Faction not found');
+    }
+
+    faction.isSelectable = isSelectable;
+    return this.factionRepo.save(faction);
   }
 
   findByKey(key: Faction | string): Promise<FactionEntity | null> {

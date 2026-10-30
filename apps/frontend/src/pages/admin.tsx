@@ -48,6 +48,12 @@ const adminCards = [
       'Berechtigungen für Spieler verwalten (z.B. Map Editor Zugang).',
     badge: 'Users',
   },
+  {
+    title: 'Fraktionen',
+    path: '/admin/factions',
+    description: 'Wählbarkeit der Fraktionen für neue Spieler verwalten.',
+    badge: 'Onboarding',
+  },
 ];
 
 function GameStatusControl() {

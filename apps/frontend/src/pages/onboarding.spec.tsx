@@ -103,6 +103,53 @@ describe('OnboardingPage', () => {
     });
   });
 
+  it('explains and disables factions that are not selectable', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ ...profile, faction: null });
+      }
+      if (url === '/onboarding/selection') {
+        return Promise.resolve({ ...selection, factionId: null });
+      }
+      if (url === '/factions') {
+        return Promise.resolve([
+          {
+            id: 1,
+            key: Faction.REBEL_ALLIANCE,
+            name: 'Rebellenallianz',
+            colorPrimary: '#f00',
+            colorSecondary: '#000',
+            homeZone: 'REBEL',
+            isSelectable: true,
+          },
+          {
+            id: 2,
+            key: Faction.GALACTIC_EMPIRE,
+            name: 'Galaktisches Imperium',
+            colorPrimary: '#fff',
+            colorSecondary: '#000',
+            homeZone: 'EMPIRE',
+            isSelectable: false,
+          },
+        ]);
+      }
+      if (url === '/onboarding/sectors') return Promise.resolve(sectors);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    renderPage();
+
+    const unavailableFaction = await screen.findByRole('button', {
+      name: /Galaktisches Imperium/,
+    });
+    expect((unavailableFaction as HTMLButtonElement).disabled).toBe(true);
+    expect(unavailableFaction.textContent).toContain(
+      'Derzeit nicht für neue Spieler wählbar',
+    );
+
+    fireEvent.click(unavailableFaction);
+    expect(apiMocks.post).not.toHaveBeenCalled();
+  });
+
   it('shows a failed claim beside the claim action and refreshes availability', async () => {
     apiMocks.post.mockRejectedValue(
       new ApiError(400, 'Celestial object already claimed'),

@@ -28,6 +28,9 @@ export class FactionEntity {
   @Column({ type: 'varchar', length: 64, nullable: true })
   homeZone: string | null;
 
+  @Column({ type: 'boolean', default: true })
+  isSelectable: boolean;
+
   @Column({ type: 'int', nullable: true })
   starterShipClassId: number | null;
 

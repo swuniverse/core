@@ -34,6 +34,7 @@ import { AdminTicksPage } from '../pages/admin-ticks';
 import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
+import { AdminFactionsPage } from '../pages/admin-factions';
 import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
 import { ImprintPage } from '../pages/imprint';
@@ -182,6 +183,14 @@ export function App() {
               element={
                 <AdminRoute>
                   <AdminUsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/factions"
+              element={
+                <AdminRoute>
+                  <AdminFactionsPage />
                 </AdminRoute>
               }
             />

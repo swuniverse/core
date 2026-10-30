@@ -109,6 +109,9 @@ export class OnboardingService {
     if (!faction) {
       throw new NotFoundException('Faction not found');
     }
+    if (!faction.isSelectable) {
+      throw new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.');
+    }
 
     const selection = await this.getOrCreateSelection(userId);
     selection.factionId = faction.id;

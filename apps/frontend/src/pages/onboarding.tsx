@@ -35,6 +35,7 @@ interface FactionOption {
   colorPrimary: string;
   colorSecondary: string;
   homeZone: string | null;
+  isSelectable: boolean;
 }
 
 interface SelectionDto {
@@ -497,9 +498,9 @@ export function OnboardingPage() {
                     <button
                       key={faction.id}
                       type="button"
-                      disabled={saving}
+                      disabled={saving || !faction.isSelectable}
                       onClick={() => void selectFaction(faction.key)}
-                      className="rounded border border-swu-border p-4 text-left transition hover:border-swu-primary"
+                      className="rounded border border-swu-border p-4 text-left transition hover:border-swu-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-swu-border"
                     >
                       <span
                         className="mb-2 block h-1 w-12 rounded"
@@ -508,6 +509,11 @@ export function OnboardingPage() {
                       <span className="font-bold text-swu-primary">
                         {faction.name}
                       </span>
+                      {!faction.isSelectable && (
+                        <span className="mt-2 block text-xs text-swu-muted">
+                          Derzeit nicht für neue Spieler wählbar
+                        </span>
+                      )}
                     </button>
                   );
                 })}
