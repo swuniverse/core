@@ -1,6 +1,6 @@
 # Orbitauftrag-Policy und schiffsbezogene API
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -39,3 +39,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Entscheidung
 
 SWU übernimmt die bestätigte STU-Regel: Haltung und Eigentum filtern weder Verteidigung noch Blockade. Die kanonische Mutation ist schiffsbezogen, die Order flottenbezogen. Dieses Issue besitzt Mutation, zentrale Policy und Backend-Kompatibilität; Feldkontext und UI folgen in `sc-WP-UI-3a2`.
+
+## Comments
+
+- 2026-10-30: Produktcode nach zwei Prüfversuchen verworfen. Der fokussierte Orbit-Test war grün (201/201), aber das verpflichtende Gate `npx nx affected -t lint typecheck test --base=HEAD` bleibt repositoryweit rot: Backend-Typecheck mit zahlreichen TS6305-Ausgabedateifehlern sowie unabhängige bestehende Fehler in `tutorial.service.spec.ts`, `spacecraft-core-controls.spec.ts` und `spacecraft-cartography-api.spec.ts`. Bitte diese Baseline reparieren oder eine ausdrückliche Ausnahme für dieses Issue festlegen.
