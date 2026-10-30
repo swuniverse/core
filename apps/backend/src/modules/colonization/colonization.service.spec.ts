@@ -59,6 +59,7 @@ describe('ColonizationService', () => {
       createFollowUpColony: jest.fn(),
       createFollowUpSwuColony: jest.fn(),
       createStarterColony: jest.fn(),
+      generateAsteroidSnapshot: jest.fn(() => null),
       generateSurfaceSnapshot: jest.fn(() => ({
         width: 1,
         fields: [

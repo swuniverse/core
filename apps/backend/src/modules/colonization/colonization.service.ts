@@ -128,7 +128,7 @@ export interface ColonizationTargetCheckDto {
     fields: Array<{
       fieldIndex: number;
       fieldType: number;
-      terrainTileId: number | null;
+      terrainTileId: number | string | null;
       layer: string | null;
       selectable: boolean;
     }>;
@@ -415,6 +415,22 @@ export class ColonizationService {
         existing?.isAbandoned || swuArchetype
           ? null
           : (() => {
+              const asteroid = this.colonySeedService.generateAsteroidSnapshot(
+                target.classId,
+                `colony-${userId}-${target.id}`,
+              );
+              if (asteroid) {
+                return {
+                  width: asteroid.width,
+                  fields: asteroid.fields.map((field) => ({
+                    fieldIndex: field.fieldIndex,
+                    fieldType: field.fieldType,
+                    terrainTileId: field.terrainTileId ?? null,
+                    layer: field.layer ?? null,
+                    selectable: field.selectable,
+                  })),
+                };
+              }
               const surface = this.colonySeedService.generateSurfaceSnapshot(
                 target.classId ?? 0,
                 `colony-${userId}-${target.id}`,
@@ -557,6 +573,14 @@ export class ColonizationService {
         if (!proposal || !proposal.colonizable) {
           throw new BadRequestException('Gewählte Zone ist nicht kolonisierbar');
         }
+      } else if (
+        this.colonySeedService.generateAsteroidSnapshot(
+          target.classId,
+          `colony-${userId}-${target.id}`,
+        )
+      ) {
+        // Asteroiden: das Startfeld ist optional, ohne gueltige Angabe waehlt
+        // die Gruendung das mittlerste bebaubare Feld.
       } else {
         const surface = this.colonySeedService.generateSurfaceSnapshot(
           target.classId ?? 0,
@@ -594,7 +618,13 @@ export class ColonizationService {
               swuArchetype.variant,
             ),
           })
-        : await this.colonySeedService.createFollowUpColony({
+        : await (this.colonySeedService.generateAsteroidSnapshot(
+            target.classId,
+            `colony-${userId}-${target.id}`,
+          )
+            ? this.colonySeedService.createFollowUpAsteroidColony
+            : this.colonySeedService.createFollowUpColony
+          ).call(this.colonySeedService, {
             userId,
             username: user.username,
             celestialObjectId,

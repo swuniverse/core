@@ -43,7 +43,7 @@ type Check = {
     fields: Array<{
       fieldIndex: number;
       fieldType: number;
-      terrainTileId: number | null;
+      terrainTileId: number | string | null;
       layer: string | null;
       selectable: boolean;
     }>;
