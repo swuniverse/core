@@ -1,6 +1,6 @@
 # Ebenenkenntnis: Zugriff und Datenbankfilter
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K5a
@@ -35,3 +35,7 @@ Spieler können Karten- und Datenbankdaten nur für bekannte Ebenen abrufen. Adm
 ## Entscheidung
 
 SWU wendet die STU-`hasSeen`-Semantik konsistent an. Anders als gemischte STU-Datenbankansichten dürfen keine Karten- oder Datenbankpfade unbekannte Ebenen offenlegen.
+
+## Comments
+
+- 2026-10-30: Backend-Zugriffsschutz und Datenbank-Ebenenfilter wurden umgesetzt; fokussierte Tests (19/19) sowie alle Builds sind grün. Der verpflichtende Gesamt-Gate bleibt jedoch nach zwei Versuchen an drei fachfremden bestehenden Typecheck-Fehlern in `wreck-decay.service.spec.ts` und `tutorial.service.spec.ts` (TS2554, dokumentiert in sh-AP-23) rot. Produktcode wurde gemäß Abbruchregel verworfen. Bitte nach Behebung der Baseline erneut auf `ready-for-agent` setzen.
