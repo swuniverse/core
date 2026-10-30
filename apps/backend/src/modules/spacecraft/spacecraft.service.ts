@@ -3361,7 +3361,7 @@ export class SpacecraftService {
             },
           };
         }),
-      escapePods: await this.escapePodService.listNearby(ship.locationId),
+      escapePods: await this.escapePodService.listNearby(ship.locationId, userId),
       wrecks: wrecks.map((wreck) => ({
         id: wreck.id,
         hull: wreck.hull,

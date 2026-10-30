@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ColonyDetailV2 } from '../types';
 import { CrewSocialSection } from './CrewSocialSection';
+import { LostCrewSection } from './LostCrewSection';
 
 // ─── Panel: Crew ─────────────────────────────────────────────
 
@@ -133,6 +134,8 @@ export function PanelCrew({
           Keine Sozialdaten verfügbar. Bitte Backend/Seite neu laden.
         </div>
       )}
+
+      <LostCrewSection />
 
       <div className="border border-swu-border bg-swu-surface px-2 py-1.5 text-xs">
         <div className="text-[10px] font-bold text-swu-muted uppercase mb-1">

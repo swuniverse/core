@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type {
   SpacecraftNearbyDto,
   SpacecraftNearbyTargetDto,
+  SpacecraftSalvagePodsResultDto,
   SpacecraftTargetScanDto,
 } from '@swuniverse/shared';
 import { shipImage } from '../../lib/assets';
@@ -49,6 +50,7 @@ export function NearbySensorPanel({
   const [epsTarget, setEpsTarget] = useState<SpacecraftNearbyTargetDto | null>(
     null,
   );
+  const [salvageMessage, setSalvageMessage] = useState<string | null>(null);
   const nbsActive = systems?.SHORT_RANGE_SENSORS?.active === true;
 
   const refreshNearby = useCallback(async () => {
@@ -61,6 +63,22 @@ export function NearbySensorPanel({
       setError(err instanceof Error ? err.message : 'Nahbereichsdaten fehlen');
     }
   }, [nbsActive, shipId]);
+
+  const salvagePod = async (podId: number) => {
+    setSalvageMessage(null);
+    setError(null);
+    try {
+      const result = await api.post<SpacecraftSalvagePodsResultDto>(
+        `/spacecraft/${shipId}/nearby/escape-pods/${podId}/salvage`,
+        {},
+      );
+      setSalvageMessage(result.message);
+      onUpdate();
+      await refreshNearby();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Bergung fehlgeschlagen');
+    }
+  };
 
   useEffect(() => {
     setNearby(null);
@@ -360,7 +378,17 @@ export function NearbySensorPanel({
               )}
               {nearby?.escapePods?.map((pod) => (
                 <tr key={`pod-${pod.id}`} data-target-type={pod.targetType}>
-                  <td className="border border-swu-border p-1" />
+                  <td className="border border-swu-border p-1">
+                    {pod.canSalvage && nearby.actionsAvailable && (
+                      <button
+                        type="button"
+                        title="Rettungskapseln bergen"
+                        onClick={() => salvagePod(pod.id)}
+                      >
+                        ⇪
+                      </button>
+                    )}
+                  </td>
                   <td className="border border-swu-border p-1">
                     {pod.icon ? (
                       <img
@@ -416,6 +444,11 @@ export function NearbySensorPanel({
               ))}
             </tbody>
           </table>
+          {salvageMessage && (
+            <p role="status" className="p-2 text-swu-muted">
+              {salvageMessage}
+            </p>
+          )}
           {error && (
             <p role="alert" className="p-2 text-red-300">
               {error}

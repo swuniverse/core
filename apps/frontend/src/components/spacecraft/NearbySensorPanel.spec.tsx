@@ -331,4 +331,78 @@ describe('NearbySensorPanel', () => {
       ),
     );
   });
+  it('salvages own crew from an escape pod with the NBS action', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [],
+      escapePods: [
+        {
+          id: 5,
+          targetType: 'ESCAPE_POD',
+          originShipName: 'Falcon',
+          occupantCount: 2,
+          presentationKey: 'REBEL_ESCAPE_PODS',
+          displayName: 'Rettungskapseln',
+          icon: null,
+          canSalvage: true,
+        },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({
+      salvaged: 2,
+      remaining: 0,
+      foreign: 0,
+      energy: 4,
+      message: '2 Crewmitglieder wurden von den Rettungskapseln geborgen',
+    });
+    const onUpdate = vi.fn();
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTitle('Rettungskapseln bergen'));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/2/nearby/escape-pods/5/salvage',
+        {},
+      ),
+    );
+    expect(await screen.findByText(/2 Crewmitglieder wurden/)).toBeTruthy();
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('offers no salvage for pods without own crew', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [],
+      escapePods: [
+        {
+          id: 6,
+          targetType: 'ESCAPE_POD',
+          originShipName: 'Fremd',
+          occupantCount: 1,
+          presentationKey: 'REBEL_ESCAPE_PODS',
+          displayName: 'Rettungskapseln',
+          icon: null,
+          canSalvage: false,
+        },
+      ],
+    });
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={vi.fn()}
+      />,
+    );
+    await screen.findByText(/von Fremd/);
+    expect(screen.queryByTitle('Rettungskapseln bergen')).toBeNull();
+  });
 });

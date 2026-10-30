@@ -32,6 +32,7 @@ import { SpacecraftService } from './spacecraft.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
+import { EscapePodService } from './escape-pod.service';
 import { SpacecraftScanService } from './spacecraft-scan.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonizationService } from '../colonization/colonization.service';
@@ -367,6 +368,10 @@ export class SpacecraftController {
         message: '',
       }),
     } as unknown as EpsTransferService,
+    private readonly escapePodService: EscapePodService = {
+      salvage: async () => ({}),
+      listLostCrew: async () => [],
+    } as unknown as EscapePodService,
   ) {}
 
   // Static routes first (before :id)
@@ -540,6 +545,12 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.starmapVisibilityService.listContacts(req.user.sub, layerId);
+  }
+
+  /** Escape pods holding crew of the caller ("Verschollene Crew"). */
+  @Get('lost-crew')
+  getLostCrew(@Request() req: { user: { sub: number } }) {
+    return this.escapePodService.listLostCrew(req.user.sub);
   }
 
   @Get('colony-scans')
@@ -1306,6 +1317,15 @@ export class SpacecraftController {
       targetId,
       dto.amount,
     );
+  }
+
+  @Post(':id/nearby/escape-pods/:podId/salvage')
+  salvageEscapePods(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('podId', ParseIntPipe) podId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.escapePodService.salvage(id, req.user.sub, podId);
   }
 
   @Post(':id/cargo/ship-transfer')

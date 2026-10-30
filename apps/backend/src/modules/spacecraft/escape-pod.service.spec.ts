@@ -34,6 +34,10 @@ jest.mock('./entities/escape-pod.entity', () => ({
     LIFE_SUPPORT_FAILURE: 'LIFE_SUPPORT_FAILURE',
   },
 }));
+jest.mock('./entities/spacecraft.entity', () => ({
+  Spacecraft: class Spacecraft {},
+  SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT' },
+}));
 
 import { EscapePodService } from './escape-pod.service';
 import { EscapePodLaunchReason } from './entities/escape-pod.entity';

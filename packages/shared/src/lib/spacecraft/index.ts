@@ -37,9 +37,7 @@ export type SpacecraftAlertState = 'GREEN' | 'YELLOW' | 'RED';
 
 export type SpacecraftRepairTargetType = 'HULL' | 'MODULE';
 export type SpacecraftRepairPartsType =
-  | 'SPARE_PARTS'
-  | 'SYSTEM_COMPONENTS'
-  | 'BOTH';
+  'SPARE_PARTS' | 'SYSTEM_COMPONENTS' | 'BOTH';
 
 export interface SpacecraftRepairOptionsDto {
   targets: Array<{
@@ -643,6 +641,8 @@ export interface SpacecraftNearbyEscapePodDto {
   presentationKey: string;
   displayName: string;
   icon: string | null;
+  /** The viewer can salvage own crew from this pod right now. */
+  canSalvage?: boolean;
 }
 
 export interface SpacecraftNearbyDto {
@@ -713,6 +713,33 @@ export interface SpacecraftCommunicationRecipientDto {
 }
 
 export type SpacecraftEngineeringAmount = number | 'MAX';
+
+export interface SpacecraftSalvagePodsResultDto {
+  salvaged: number;
+  /** Own crew that stays in the pod because the ship is full. */
+  remaining: number;
+  /** Crew of other players that cannot be salvaged yet. */
+  foreign: number;
+  /** Source ship EPS after the action. */
+  energy: number;
+  message: string;
+}
+
+/** One escape pod holding crew of the viewer ("Verschollene Crew"). */
+export interface LostCrewPodDto {
+  podId: number;
+  originShipName: string;
+  crewCount: number;
+  displayName: string;
+  icon: string | null;
+  location: {
+    scope: 'SYSTEM' | 'GALAXY';
+    x: number;
+    y: number;
+    systemId?: number;
+    layerId?: number;
+  } | null;
+}
 
 export interface SpacecraftEpsTransferResultDto {
   transferred: number;

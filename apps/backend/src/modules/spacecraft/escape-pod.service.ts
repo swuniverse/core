@@ -1,5 +1,14 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import type {
+  LostCrewPodDto,
+  SpacecraftSalvagePodsResultDto,
+} from '@swuniverse/shared';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { ColonyCrewService } from '../colony/colony-crew.service';
 import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
@@ -12,7 +21,9 @@ import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { EscapePod, EscapePodLaunchReason } from './entities/escape-pod.entity';
-import type { Spacecraft } from './entities/spacecraft.entity';
+import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { resolveSpaceLocation } from './spacecraft-field';
 
 type FlightDirection = 'TOP' | 'RIGHT' | 'BOTTOM' | 'LEFT';
 
@@ -32,6 +43,9 @@ const DIRECTION_DELTA: Record<FlightDirection, [number, number]> = {
 
 const FALLBACK_PRESENTATION_KEY = 'REBEL_ESCAPE_PODS';
 
+/** EPS cost of one salvage action (STU parity). */
+export const SALVAGE_EPS_COST = 1;
+
 export interface EscapePodLaunchResult {
   podId: number;
   crewCount: number;
@@ -45,6 +59,7 @@ export interface NearbyEscapePod {
   presentationKey: string;
   displayName: string;
   icon: string | null;
+  canSalvage: boolean;
 }
 
 /**
@@ -60,6 +75,9 @@ export class EscapePodService {
     private readonly gameData: GameDataService,
     private readonly colonyCrewService: ColonyCrewService,
     private readonly messagingService: MessagingService,
+    private readonly runtimeState: SpacecraftRuntimeStateService = {
+      initialize: () => ({}),
+    } as unknown as SpacecraftRuntimeStateService,
   ) {}
 
   /**
@@ -119,21 +137,34 @@ export class EscapePodService {
     });
   }
 
-  async listNearby(locationId: number | null): Promise<NearbyEscapePod[]> {
+  async listNearby(
+    locationId: number | null,
+    viewerId?: number,
+  ): Promise<NearbyEscapePod[]> {
     if (locationId == null) return [];
     const pods = await this.dataSource
       .getRepository(EscapePod)
       .find({ where: { locationId }, order: { id: 'ASC' } });
     if (pods.length === 0) return [];
-    const rows: Array<{ podId: number; cnt: string }> = await this.dataSource
-      .getRepository(CrewAssignment)
-      .createQueryBuilder('ca')
-      .select('ca.escapePodId', 'podId')
-      .addSelect('COUNT(*)', 'cnt')
-      .where('ca.escapePodId IN (:...ids)', { ids: pods.map((pod) => pod.id) })
-      .groupBy('ca.escapePodId')
-      .getRawMany();
-    const counts = new Map(rows.map((row) => [row.podId, Number(row.cnt)]));
+    const rows: Array<{ podId: number; userId: number; cnt: string }> =
+      await this.dataSource
+        .getRepository(CrewAssignment)
+        .createQueryBuilder('ca')
+        .select('ca.escapePodId', 'podId')
+        .addSelect('ca.userId', 'userId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('ca.escapePodId IN (:...ids)', {
+          ids: pods.map((pod) => pod.id),
+        })
+        .groupBy('ca.escapePodId')
+        .addGroupBy('ca.userId')
+        .getRawMany();
+    const counts = new Map<number, number>();
+    const ownPods = new Set<number>();
+    for (const row of rows) {
+      counts.set(row.podId, (counts.get(row.podId) ?? 0) + Number(row.cnt));
+      if (viewerId != null && row.userId === viewerId) ownPods.add(row.podId);
+    }
     return pods.map((pod) => {
       const presentation = this.gameData.getEscapePodPresentation(
         pod.presentationKey,
@@ -146,6 +177,139 @@ export class EscapePodService {
         presentationKey: pod.presentationKey,
         displayName: presentation?.displayName ?? 'Rettungskapseln',
         icon: presentation?.icon ?? null,
+        canSalvage: ownPods.has(pod.id),
+      };
+    });
+  }
+
+  /** Pods holding crew of `userId`, for the "Verschollene Crew" list. */
+  async listLostCrew(userId: number): Promise<LostCrewPodDto[]> {
+    const rows: Array<{ podId: number; cnt: string }> = await this.dataSource
+      .getRepository(CrewAssignment)
+      .createQueryBuilder('ca')
+      .select('ca.escapePodId', 'podId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('ca.userId = :userId AND ca.escapePodId IS NOT NULL', { userId })
+      .groupBy('ca.escapePodId')
+      .getRawMany();
+    if (rows.length === 0) return [];
+    const pods = await this.dataSource.getRepository(EscapePod).find({
+      where: { id: In(rows.map((row) => row.podId)) },
+      relations: { location: { galaxyField: true, systemField: true } },
+      order: { id: 'ASC' },
+    });
+    const counts = new Map(rows.map((row) => [row.podId, Number(row.cnt)]));
+    return pods.map((pod) => {
+      const presentation = this.gameData.getEscapePodPresentation(
+        pod.presentationKey,
+      );
+      const location = resolveSpaceLocation(pod.location);
+      return {
+        podId: pod.id,
+        originShipName: pod.originShipName,
+        crewCount: counts.get(pod.id) ?? 0,
+        displayName: presentation?.displayName ?? 'Rettungskapseln',
+        icon: presentation?.icon ?? null,
+        location: location
+          ? {
+              scope: location.scope,
+              x: location.x,
+              y: location.y,
+              ...(location.scope === 'SYSTEM'
+                ? { systemId: location.systemId }
+                : { layerId: location.layerId }),
+            }
+          : null,
+      };
+    });
+  }
+
+  /**
+   * Salvages the caller's own crew from a pod at the ship's field (STU
+   * `SalvageEmergencyPods`). Crew of other players stays in the pod.
+   */
+  async salvage(
+    shipId: number,
+    userId: number,
+    podId: number,
+  ): Promise<SpacecraftSalvagePodsResultDto> {
+    return this.dataSource.transaction(async (manager) => {
+      const ship = await manager.findOne(Spacecraft, {
+        where: { id: shipId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!ship) throw new NotFoundException('Schiff nicht gefunden');
+      const pod = await manager.findOne(EscapePod, {
+        where: { id: podId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!pod || pod.locationId !== ship.locationId) {
+        throw new BadRequestException('Rettungskapseln nicht gefunden');
+      }
+      if (ship.status !== SpacecraftStatus.IDLE) {
+        throw new BadRequestException('Das Schiff ist nicht bereit');
+      }
+      const systems = this.runtimeState.initialize(ship);
+      if (systems.WARPDRIVE?.active === true) {
+        throw new BadRequestException('Der Warpantrieb ist aktiviert');
+      }
+      if (systems.SHIELDS?.active === true) {
+        throw new BadRequestException('Die Schilde sind aktiviert');
+      }
+      if (ship.energy < SALVAGE_EPS_COST) {
+        throw new BadRequestException('Nicht genug Energie vorhanden');
+      }
+
+      const podCrew = await manager.find(CrewAssignment, {
+        where: { escapePodId: pod.id },
+        order: { crewId: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const own = podCrew.filter((member) => member.userId === userId);
+      const foreign = podCrew.length - own.length;
+      if (own.length === 0) {
+        throw new BadRequestException(
+          foreign > 0
+            ? 'Die Insassen gehören einem anderen Spieler und können noch nicht geborgen werden'
+            : 'In den Rettungskapseln befindet sich keine Crew',
+        );
+      }
+      const aboard = await manager.count(CrewAssignment, {
+        where: { spacecraftId: ship.id },
+      });
+      if ((ship.crewRequired ?? 0) > 0 && aboard < ship.crewRequired) {
+        throw new BadRequestException('Nicht genügend Crew vorhanden');
+      }
+      const free = Math.max(0, ship.crewMax - aboard);
+      if (free === 0) {
+        throw new BadRequestException('Nicht genug Crewkapazität');
+      }
+      const boarding = own.slice(0, free);
+      for (const member of boarding) {
+        member.escapePodId = null;
+        member.spacecraftId = ship.id;
+        member.slot = null;
+      }
+      await manager.save(boarding);
+      if (boarding.length === podCrew.length) await manager.remove(pod);
+      ship.crew = aboard + boarding.length;
+      ship.energy -= SALVAGE_EPS_COST;
+      await manager.save(ship);
+
+      const remaining = own.length - boarding.length;
+      return {
+        salvaged: boarding.length,
+        remaining,
+        foreign,
+        energy: ship.energy,
+        message:
+          `${boarding.length} Crewmitglieder wurden von den Rettungskapseln geborgen` +
+          (remaining > 0
+            ? `, ${remaining} weitere haben keinen Platz mehr an Bord`
+            : '') +
+          (foreign > 0
+            ? `, ${foreign} fremde Insassen können noch nicht geborgen werden`
+            : ''),
       };
     });
   }
