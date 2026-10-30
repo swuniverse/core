@@ -41,6 +41,7 @@ import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.servic
 import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { StarmapModule } from '../starmap/starmap.module';
+import { ResearchRewardShipService } from './research-reward-ship.service';
 import { ResearchModule } from '../research/research.module';
 import { GameDataModule } from '../game-data/game-data.module';
 import { ColonizationModule } from '../colonization/colonization.module';
@@ -133,6 +134,7 @@ import {
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    ResearchRewardShipService,
     CrewEnhancementService,
     SpacecraftTorpedoService,
     SpacecraftRuntimeStateService,
@@ -158,6 +160,7 @@ import {
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    ResearchRewardShipService,
     CrewEnhancementService,
     SpacecraftTorpedoService,
     SpacecraftRuntimeStateService,
