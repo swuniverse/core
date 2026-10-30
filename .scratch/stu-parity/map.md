@@ -62,6 +62,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – sc-WP-CREW-2 – Option a: STU-Expertisemodell vollständig (Skills, 10 Ränge mit SW-Namen, Beförderungslimits)
 - 2026-10-21 – sc-WP-ENG-3b – Option a: passive 1-%-Modulreparatur entfällt; Reparatur nur Werft, Station, Eigenreparatur
 - 2026-10-21 – sc-WP-NAV-3 – Option b: kein zeitbasierter Hyperraumsprung; feldweiser STU-Galaxieflug, Langstreckensprung nur über sc-WP-NAV-5b; ADR + Rückbau-Folgeissue
+- 2026-10-30 – sc-WP-NAV-5b – `Hyperraum-Spule`/`Navicomputer-Sprung` zu jeder passierbaren Koordinate einer bekannten Ebene; atomarer Sprung der gesamten nicht fixierten Flotte, eigene Spule/aktiver Hyperantrieb/55 EPS je Schiff, 300 s Cooldown, keine Hyperantriebspunkte oder Routenpflicht; ungültiges Mitglied lehnt alles ab
+- 2026-10-30 – sc-WP-NAV-5a – `Hyperantriebs-Notladegerät` als Einzel-Schiff-System: 100 EPS laden `round(max/3)` Hyperantriebspunkte bis zum Maximum, danach sofort inaktiv mit 24 h Cooldown; ausschließlich für normalen feldweisen Galaxieflug, ohne Wirkung auf den Navicomputer-Sprung
 - 2026-10-21 – sc-WP-TRACT-1b – Option a: Traktor auf jedes fremde ungeschildete Schiff unabhängig von der Haltung (außer Urlauber/NPC)
 - 2026-10-21 – sc-WP-UI-3b – Option a: Kolonieangriff gezielt auf Gebäude/Feld wie STU AttackBuilding
 - 2026-10-21 – sh-AP-02 – Option a: System-News als eigene Entität `news`, nur Admins, unabhängig vom HoloNet
@@ -84,12 +86,15 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – col-A9 – Option b: Jägerwerft baut Rümpfe ins Lager, Start über Hangar
 - 2026-10-21 – col-E2 – Option a: Ruinenmodell der Kolonieabgabe bleibt; ADR, kein Umbau
 - 2026-10-21 – col-G1b – Option a: Teleskop-Scan zeigt momentan Schiffe je Rumpfkategorie, ohne Speicherung; Nachtrag ADR-0002
+- 2026-10-30 – col-G1a – Teleskop-Zielkarte zeigt ausschließlich persönliche dauerhafte Felderkundung über den bestehenden `UNKNOWN`/`TERRAIN`/`FULL`-Redaktionsvertrag; keine aktuelle Sensorabdeckung, Kontakte, Schiffe, Allianz-Livepositionen oder dynamischen Overlays
 - 2026-10-21 – col-G3a – Option a: Kolonie-Sandbox vollständig, Höchstzahl 3 je Spieler (Vorschlag übernommen, konfigurierbar)
 - 2026-10-21 – col-G3b – folgt col-G3a (Option a): umsetzen
 - 2026-10-21 – col-G3c – folgt col-G3a (Option a): umsetzen
 - 2026-10-21 – sc-WP-CREW-4a – Option a: Entern wie STU gegen jedes fremde ungeschildete Schiff, auch in der eigenen Fraktion
 - 2026-10-21 – sc-WP-CREW-4b – Option a: Übernahme unbemannter Schiffe wie STU gegen jeden Spieler
 - 2026-10-21 – sc-WP-RES-1 – Option a: Ressourcensammeln (Tibanna-Gas aus Nebeln, Erze aus Asteroiden) per Spezialsystem
+- 2026-10-30 – sc-WP-SENS-1 – Sondenbojen folgen vollständig STU: Ware ID 88/Forschung 500400, gesunde Torpedorampe, 1 EPS und eine Ware beim Setzen, Limit 16 und Text 1–60; jedes Schiff am Feld darf für 1 EPS bergen und erhält die Ware zurück, Fremdbergung benachrichtigt den Eigner; datengetriebenes Fertigungsrezept
+- 2026-10-30 – sc-WP-SENS-2a – STU-Zwei-System-Modell: 19007 `Hyperraumfeldscanner` aktiv für Subraumspuren (30 EPS Aktivierung, 15 EPS/Tick, nicht während Tarnung), 19008 `Matrixsensoren` getrennt passiv; gezielte Analyse benötigt beide gesund/aktiv gemäß Rolle und kostet 100 EPS
 - 2026-10-21 – sc-WP-SHUT-1 – Option a: Shuttles als startbare Schiffe (gemeinsame Mechanik mit Workbees)
 - 2026-10-21 – sh-AP-13b – Option a: In-Universe-Jahr „n NSY“ (reales Jahr − 2023) für Spielereignisse
 - 2026-10-21 – soc-A7 – Option a: eigene Nachrichtenordner als zweite Ebene nur für persönliche Nachrichten
@@ -153,6 +158,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-TRACT-1b – Fremde ungeschildete Nicht-NPC-Schiffe außerhalb wirksamen Urlaubs können unabhängig von Haltung erfasst werden; Opfer können mit STU-Folgen entkommen – siehe Feature-Commit
 - sc-WP-TRACT-1a – Traktorstrahl-Laufzeitsystem für eigene Schiffe mit Flugmitnahme, Zusatz-EPS, Abriss, Flugblockade, Zerstörungsbereinigung und NBS-Aktion – siehe Feature-Commit
 - sc-WP-SHUT-2 – Crewtransport- und Torpedotransportmodule erhöhen wirksam die jeweilige Transportkapazität – siehe Feature-Commit
 - sh-AP-21 – Frontend-Typecheck-Baseline grün (Faction-Typ in database.tsx, Spec-Fixture, Typecheck-Schritt in CI)

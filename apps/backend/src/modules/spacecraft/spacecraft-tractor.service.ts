@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isVacationEffective } from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
 import { MessagingService } from '../messaging/messaging.service';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 const TRACTOR_ACTIVATION_EPS = 2;
+const TRACTOR_ESCAPE_EPS = 20;
+
+type TractorEscapeOutcome = 'ESCAPED' | 'SHIELD_DAMAGE' | 'HULL_DAMAGE';
 
 @Injectable()
 export class SpacecraftTractorService {
@@ -23,8 +27,12 @@ export class SpacecraftTractorService {
       if (!source || source.userId !== userId) {
         throw new NotFoundException('Spacecraft not found');
       }
-      if (!target || target.userId !== userId) {
-        throw new BadRequestException('Nur eigene Schiffe können erfasst werden');
+      if (!target) throw new BadRequestException('Ziel nicht gefunden');
+      if (target.user?.isNpc) {
+        throw new BadRequestException('NPC-Schiffe können nicht erfasst werden');
+      }
+      if (target.user && isVacationEffective(target.user)) {
+        throw new BadRequestException('Der Spieler befindet sich im Urlaubsmodus');
       }
       if (source.id === target.id || source.locationId !== target.locationId) {
         throw new BadRequestException('Das Ziel befindet sich nicht am selben Feld');
@@ -53,6 +61,10 @@ export class SpacecraftTractorService {
       if (systems.SHIELDS?.active) {
         throw new BadRequestException('Die Schilde sind aktiviert');
       }
+      const targetSystems = this.runtimeState.initialize(target);
+      if (targetSystems.SHIELDS?.active) {
+        throw new BadRequestException('Die Schilde des Ziels sind aktiviert');
+      }
       if (source.energy < TRACTOR_ACTIVATION_EPS) {
         throw new BadRequestException('Nicht genug EPS für den Traktorstrahl');
       }
@@ -68,6 +80,72 @@ export class SpacecraftTractorService {
         `${target.name} wurde vom Traktorstrahl der ${source.name} erfasst.`,
       );
       return source;
+    });
+  }
+
+  escape(
+    targetId: number,
+    userId: number,
+    roll: (min: number, max: number) => number = randomInt,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const target = await this.lock(manager, targetId);
+      if (!target || target.userId !== userId) {
+        throw new NotFoundException('Spacecraft not found');
+      }
+      const source = await manager.findOne(Spacecraft, {
+        where: { tractoredShipId: target.id },
+        relations: ['modules', 'user'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!source) throw new BadRequestException('Das Schiff wird nicht festgehalten');
+      if (target.energy < TRACTOR_ESCAPE_EPS) {
+        throw new BadRequestException('Nicht genug Energie für Fluchtversuch (20 benötigt)');
+      }
+
+      const targetSystems = this.runtimeState.initialize(target);
+      const shields = targetSystems.SHIELDS;
+      if (!shields || shields.integrity <= 0) {
+        throw new BadRequestException('Deflektorschilde sind nicht funktionsfähig');
+      }
+      target.energy -= TRACTOR_ESCAPE_EPS;
+
+      let outcome: TractorEscapeOutcome;
+      let message: string;
+      const chance = roll(1, 100);
+      if (chance < 11) {
+        outcome = 'ESCAPED';
+        message = 'Der Fluchtversuch ist gelungen';
+        source.tractoredShipId = null;
+        source.tractoredShip = null;
+        const sourceSystems = this.runtimeState.initialize(source);
+        if (sourceSystems.TRACTOR_BEAM) sourceSystems.TRACTOR_BEAM.active = false;
+        source.runtimeSystems = sourceSystems;
+        await manager.save(source);
+      } else if (chance < 55) {
+        outcome = 'SHIELD_DAMAGE';
+        const damage = roll(5, 25);
+        shields.integrity = Math.max(0, shields.integrity - damage);
+        if (shields.integrity === 0) shields.active = false;
+        target.runtimeSystems = targetSystems;
+        message = `Der Fluchtversuch ist fehlgeschlagen: Schilde ${damage} % beschädigt`;
+      } else {
+        outcome = 'HULL_DAMAGE';
+        const damagePercent = roll(10, 25);
+        const damage = Math.ceil(target.hullMax * damagePercent / 100);
+        target.hull = Math.max(0, target.hull - damage);
+        if (target.hull === 0) target.status = SpacecraftStatus.DESTROYED;
+        message = `Der Fluchtversuch ist fehlgeschlagen: Hülle ${damage} beschädigt`;
+      }
+      await manager.save(target);
+      await this.messaging.sendSystem(
+        source.userId,
+        'Traktorstrahl',
+        outcome === 'ESCAPED'
+          ? `${target.name} ist dem Traktorstrahl der ${source.name} entkommen.`
+          : `Der Fluchtversuch der ${target.name} ist gescheitert.`,
+      );
+      return { outcome, message, energy: target.energy };
     });
   }
 
@@ -89,8 +167,12 @@ export class SpacecraftTractorService {
   private lock(manager: EntityManager, id: number) {
     return manager.findOne(Spacecraft, {
       where: { id },
-      relations: ['modules'],
+      relations: ['modules', 'user'],
       lock: { mode: 'pessimistic_write' },
     });
   }
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }

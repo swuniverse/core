@@ -1125,6 +1125,14 @@ export class SpacecraftController {
     return this.tractorService.activate(id, req.user.sub, targetId);
   }
 
+  @Post(':id/tractor/escape')
+  escapeTractorBeam(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.tractorService.escape(id, req.user.sub);
+  }
+
   @Delete(':id/tractor')
   deactivateTractorBeam(
     @Param('id', ParseIntPipe) id: number,

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SpacecraftDetailPage } from './spacecraft-detail';
 
@@ -63,6 +63,10 @@ const ship = {
   },
   location: { scope: 'GALAXY' as const, layerId: 3, x: 5, y: 5 },
   arrivalAt: null,
+  tractor: {
+    heldBy: { id: 9, name: 'Imperialer Schlepper' },
+    canEscape: true,
+  },
 };
 const map = {
   mode: 'galaxy',
@@ -85,6 +89,46 @@ const map = {
 };
 
 describe('SpacecraftDetailPage', () => {
+  it('lets a tractored ship attempt to escape', async () => {
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft/2') return Promise.resolve(ship);
+      if (path === '/spacecraft/2/local-map') return Promise.resolve(map);
+      if (path === '/spacecraft/2/field-context') {
+        return Promise.resolve({
+          coordinates: { x: 5, y: 5 },
+          region: null,
+          adminRegion: null,
+          information: {},
+          colony: null,
+          actions: {},
+        });
+      }
+      if (path === '/spacecraft/2/modules' || path === '/spacecraft/2/cargo')
+        return Promise.resolve([]);
+      if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+      if (path === '/colonies') return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+    apiMocks.post.mockResolvedValue({
+      outcome: 'ESCAPED',
+      message: 'Der Fluchtversuch ist gelungen',
+    });
+    render(
+      <MemoryRouter initialEntries={['/spacecraft/2']}>
+        <Routes>
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Entkommen' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/tractor/escape', {}),
+    );
+    expect(await screen.findByText('Der Fluchtversuch ist gelungen')).toBeTruthy();
+  });
+
   it('keeps the primary desktop regions in three columns and auxiliary panels below', async () => {
     apiMocks.get.mockImplementation((path: string) => {
       if (path === '/spacecraft/2') return Promise.resolve(ship);

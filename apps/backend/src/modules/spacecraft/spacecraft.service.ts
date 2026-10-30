@@ -67,6 +67,7 @@ import {
   FieldEffect,
   getStuCelestialClass,
   SWU_PLANET_CLASS_NAME,
+  isVacationEffective,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 import { CartographyPlanStatus } from './entities/cartography-plan.entity';
@@ -387,6 +388,9 @@ export class SpacecraftService {
     const dockedAt = ship.dockedAtId
       ? await this.shipRepo.findOneBy({ id: ship.dockedAtId })
       : null;
+    const tractoringShip = await this.shipRepo.findOneBy({
+      tractoredShipId: ship.id,
+    });
     return {
       ...ship,
       dockedAtId: ship.dockedAtId ?? null,
@@ -411,6 +415,16 @@ export class SpacecraftService {
           }
         : null,
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(ship),
+      tractor: {
+        heldBy: tractoringShip
+          ? { id: tractoringShip.id, name: tractoringShip.name }
+          : null,
+        canEscape:
+          tractoringShip != null &&
+          ship.energy >= 20 &&
+          (this.spacecraftRuntimeStateService.initialize(ship).SHIELDS?.integrity ?? 0) >
+            0,
+      },
       crewRoster,
       crewRequired,
       dockedShips: dockedShips.map((docked) => ({
@@ -3524,8 +3538,10 @@ export class SpacecraftService {
               transfer: interactionAllowed('TRANSFER'),
               energyTransfer: interactionAllowed('TRANSFER'),
               tractor:
-                target.userId === ship.userId &&
                 target.kind === 'SHIP' &&
+                target.user != null &&
+                target.user.isNpc !== true &&
+                !isVacationEffective(target.user) &&
                 systems.TRACTOR_BEAM != null &&
                 systems.TRACTOR_BEAM.integrity > 0 &&
                 systems.SHIELDS?.active !== true &&

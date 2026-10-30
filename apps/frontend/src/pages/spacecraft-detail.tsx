@@ -48,6 +48,7 @@ export function SpacecraftDetailPage() {
   const [sensorsOpen, setSensorsOpen] = useState(false);
   const [storageVersion, setStorageVersion] = useState(0);
   const [shipRefreshVersion, setShipRefreshVersion] = useState(0);
+  const [tractorMessage, setTractorMessage] = useState<string | null>(null);
 
   const fetchShip = useCallback(async () => {
     const data = await api.get<Spacecraft>(`/spacecraft/${id}`);
@@ -151,6 +152,33 @@ export function SpacecraftDetailPage() {
       </Link>
 
       <SpacecraftMessageBar shipId={ship.id} />
+      {ship.tractor?.heldBy && (
+        <section className="mb-2 flex items-center gap-3 border border-swu-accent bg-swu-surface p-2 text-xs">
+          <span className="flex-1">
+            Traktorstrahl: festgehalten von {ship.tractor.heldBy.name}
+          </span>
+          <button
+            type="button"
+            disabled={!ship.tractor.canEscape}
+            onClick={async () => {
+              const result = await api.post<{ message: string }>(
+                `/spacecraft/${ship.id}/tractor/escape`,
+                {},
+              );
+              setTractorMessage(result.message);
+              await fetchShip();
+            }}
+            className="border border-swu-accent px-2 py-1 disabled:opacity-50"
+          >
+            Entkommen
+          </button>
+        </section>
+      )}
+      {tractorMessage && (
+        <p role="status" className="mb-2 text-xs text-swu-primary">
+          {tractorMessage}
+        </p>
+      )}
       {ship.kind === 'STATION' && ship.stationRole === 'CONSTRUCTION' && (
         <div className="mb-2">
           <StationExpansionPanel

@@ -364,6 +364,10 @@ export interface SpacecraftDetailDto {
   reactorWarpSplit: number;
   reactorAutoCarryOver: boolean;
   runtimeSystems: SpacecraftRuntimeSystemsDto;
+  tractor?: {
+    heldBy: { id: number; name: string } | null;
+    canEscape: boolean;
+  };
   location: SpaceLocationDto;
   region?: {
     id: number;

@@ -1,6 +1,6 @@
 # Traktorstrahl auf fremde Schiffe und Entkommen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-TRACT-1a
@@ -24,11 +24,11 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Fremde Ziele unabhängig von der Haltung erlaubt, sofern Zielschilde aus, Eigner kein wirksamer Urlauber und kein NPC; sonst Ablehnung mit Meldung.
-- [ ] Das Opfer sieht den Zustand und kann „Entkommen“ versuchen (STU-Chance und -Folgen).
-- [ ] Der Eigner des Ziels erhält eine Meldung.
-- [ ] Backend-Tests für Freund/Neutral/Feind (alle erlaubt), geschildetes Ziel, Urlauber, NPC; Frontend-Test für „Entkommen“.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Fremde Ziele unabhängig von der Haltung erlaubt, sofern Zielschilde aus, Eigner kein wirksamer Urlauber und kein NPC; sonst Ablehnung mit Meldung.
+- [x] Das Opfer sieht den Zustand und kann „Entkommen“ versuchen (STU-Chance und -Folgen).
+- [x] Der Eigner des Ziels erhält eine Meldung.
+- [x] Backend-Tests für Freund/Neutral/Feind (alle erlaubt), geschildetes Ziel, Urlauber, NPC; Frontend-Test für „Entkommen“.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün (fachbezogene Tests, Frontend-Typecheck und Builds grün; Gesamt-Backend-Typecheck bleibt durch den vorbestehenden Fehler in `tutorial.service.spec.ts:22` rot).
 
 ## Entscheidung
 
@@ -37,3 +37,4 @@ Vorgabe: Variante (a), wie STU. Jedes fremde ungeschildete Schiff, unabhängig v
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Fremde Schiffe dürfen wie in STU unabhängig von der Haltung per Traktor gezogen werden, sofern das Ziel ungeschildet ist und kein Urlauber oder NPC ist.
+- 2026-10-30: Fremdtraktor mit Zielschutz, Eigentümermeldung und Opferanzeige umgesetzt; Entkommen kostet 20 EPS und folgt STU-Erfolg, Schildschaden (5–25 %) oder Hüllenschaden (10–25 %). Der vorbestehende Backend-Typecheck-Fehler in `tutorial.service.spec.ts:22` bleibt fachfremd offen.
