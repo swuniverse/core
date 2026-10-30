@@ -718,7 +718,9 @@ function CommodityOverview({ data }: { data: CommodityOverviewEntryDto[] }) {
                       to={
                         location.type === 'COLONY'
                           ? `/colonies?colony=${location.id}`
-                          : `/spacecraft/${location.id}`
+                          : location.type === 'TRADE_ACCOUNT'
+                            ? `/trade?post=${location.id}`
+                            : `/spacecraft/${location.id}`
                       }
                       className="text-swu-accent hover:underline"
                     >
@@ -756,6 +758,7 @@ function CommodityOverview({ data }: { data: CommodityOverviewEntryDto[] }) {
 function locationTypeLabel(type: CommodityLocationsOverviewDto['locations'][number]['type']) {
   if (type === 'COLONY') return 'Kolonie';
   if (type === 'TORPEDO_STORAGE') return 'Torpedolager';
+  if (type === 'TRADE_ACCOUNT') return 'Warenkonto';
   return 'Schiff';
 }
 

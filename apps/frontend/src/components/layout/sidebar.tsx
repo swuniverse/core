@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { label: 'Nachrichten', path: '/messages', icon: 'msg' },
   { label: 'Allianzen', path: '/alliances', icon: 'ally' },
   { label: 'Forschung', path: '/research', icon: 'forsch' },
+  { label: 'Handel', path: '/trade', icon: 'trade' },
   { label: 'Datenbank', path: '/database', icon: 'data' },
   { label: 'Ereignisse', path: '/events', icon: 'history' },
   { label: 'Karte', path: '/starmap', icon: 'map' },

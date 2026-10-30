@@ -31,6 +31,8 @@ import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { CommodityOverviewService } from './commodity-overview.service';
 import { OwnedStorageCommodityLocationSource } from './owned-storage-commodity-location.source';
+import { TradeAccountStorage } from '../trade/entities/trade-account-storage.entity';
+import { TradeAccountCommodityLocationSource } from './trade-account-commodity-location.source';
 import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
 import { UserAward } from '../awards/entities/user-award.entity';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
@@ -65,6 +67,7 @@ import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module'
       UserAward,
       FlightSignature,
       TradePost,
+      TradeAccountStorage,
       ExplorationState,
     ]),
     FactionModule,
@@ -80,12 +83,17 @@ import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module'
     ColonyScanProjectionService,
     CommodityOverviewService,
     OwnedStorageCommodityLocationSource,
+    TradeAccountCommodityLocationSource,
     {
       provide: COMMODITY_LOCATION_SOURCES,
-      useFactory: (ownedStorage: OwnedStorageCommodityLocationSource) => [
-        ownedStorage,
+      useFactory: (
+        ownedStorage: OwnedStorageCommodityLocationSource,
+        tradeAccounts: TradeAccountCommodityLocationSource,
+      ) => [ownedStorage, tradeAccounts],
+      inject: [
+        OwnedStorageCommodityLocationSource,
+        TradeAccountCommodityLocationSource,
       ],
-      inject: [OwnedStorageCommodityLocationSource],
     },
   ],
   exports: [DatabaseService, ColonyScanProjectionService],

@@ -12,6 +12,7 @@ import { SpacecraftPage } from '../pages/spacecraft';
 import { SpacecraftDetailPage } from '../pages/spacecraft-detail';
 import { StarmapPage } from '../pages/starmap';
 import { EventsPage } from '../pages/events';
+import { TradePage } from '../pages/trade';
 import { ResearchPage } from '../pages/research';
 import { ResearchTreePage } from '../pages/research-tree';
 import { MessagesPage } from '../pages/messages';
@@ -133,6 +134,7 @@ export function App() {
             <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
             <Route path="/starmap" element={<StarmapPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/trade" element={<TradePage />} />
             <Route
               path="/admin"
               element={

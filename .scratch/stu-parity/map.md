@@ -251,3 +251,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-F1b – Profilbesucher mit Opt-out, sieben Tagen Aufbewahrung und Maindesk-Anzeige umgesetzt – siehe Feature-Commit
 - sc-WP-ENG-2d – Scan, Abfangen und NBS-Aktionen (getNearby) beziehen Erlaubnis/Grund aus der Interaction Policy; Hooks für Tarnung/Ionensturm dokumentiert – siehe Feature-Commit
 - sc-WP-ENG-2e – Nachrichten (sendNearbyMessage) und Wrackbergung (recoverWreckCargo) nutzen die Interaction Policy mit unveränderten Meldungen; Traktor-Hook dokumentiert – siehe Feature-Commit
+- tmw-T1d – Lesende Handelsseite /trade mit Tabs Warenkonten/Handelsposten, Posteninfo, Navigation und Kontobeständen als Warenortquelle umgesetzt – siehe Feature-Commit

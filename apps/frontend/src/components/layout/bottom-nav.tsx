@@ -16,6 +16,7 @@ const moreItems = [
   { label: 'Nachrichten', path: '/messages', icon: 'msg' },
   { label: 'HoloNet', path: '/holonet', icon: 'comm' },
   { label: 'Allianzen', path: '/alliances', icon: 'ally' },
+  { label: 'Handel', path: '/trade', icon: 'trade' },
   { label: 'Datenbank', path: '/database', icon: 'data' },
   { label: 'Ereignisse', path: '/events', icon: 'history' },
   { label: 'Einstellungen', path: '/settings', icon: 'option' },
