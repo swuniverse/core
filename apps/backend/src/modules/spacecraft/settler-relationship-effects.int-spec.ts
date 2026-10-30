@@ -131,6 +131,7 @@ describe('Siedler relationships reach the game consumers (Postgres)', () => {
       null as never,
       { getCommodity: () => undefined } as never,
       resolver(),
+      null as never,
     );
   }
 

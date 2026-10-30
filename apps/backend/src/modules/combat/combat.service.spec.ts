@@ -114,6 +114,9 @@ function createService() {
       return true;
     }),
   };
+  const interactionContext = {
+    load: jest.fn(async () => ({ targetOnVacation: false })),
+  };
   const service = new CombatService(
     shipRepo as any,
     moduleRepo as any,
@@ -130,6 +133,7 @@ function createService() {
     destructionService as any,
     reportFormatter as any,
     statistics as any,
+    interactionContext as any,
   );
   return {
     service,
@@ -145,6 +149,7 @@ function createService() {
     engine,
     statistics,
     destructionService,
+    interactionContext,
   };
 }
 
@@ -165,7 +170,13 @@ describe('CombatService attackColony', () => {
 
   const colony = (
     fields: any[] = [
-      { fieldIndex: 2, buildingId: 100030100, isActive: true, isBuilding: false, integrity: 100 },
+      {
+        fieldIndex: 2,
+        buildingId: 100030100,
+        isActive: true,
+        isBuilding: false,
+        integrity: 100,
+      },
     ],
   ): any => ({
     id: 5,
@@ -196,7 +207,14 @@ describe('CombatService attackColony', () => {
     } = createService();
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(
-      colony([{ fieldIndex: 2, buildingId: 100010100, isActive: true, isBuilding: false }]),
+      colony([
+        {
+          fieldIndex: 2,
+          buildingId: 100010100,
+          isActive: true,
+          isBuilding: false,
+        },
+      ]),
     );
     moduleRepo.find.mockResolvedValue([
       {
@@ -282,7 +300,6 @@ describe('CombatService attackColony', () => {
     );
   });
 
-
   it('rejects a selected field without a finished building', async () => {
     const { service, shipRepo, colonyRepo } = createService();
     shipRepo.findOne.mockResolvedValue(attacker());
@@ -311,8 +328,18 @@ describe('CombatService attackColony', () => {
     const { service, shipRepo, colonyRepo } = createService();
     const ship = attacker();
     const target = colony([
-      { fieldIndex: 2, buildingId: 100010100, isActive: true, isBuilding: false },
-      { fieldIndex: 2, buildingId: 100030100, isActive: true, isBuilding: false },
+      {
+        fieldIndex: 2,
+        buildingId: 100010100,
+        isActive: true,
+        isBuilding: false,
+      },
+      {
+        fieldIndex: 2,
+        buildingId: 100030100,
+        isActive: true,
+        isBuilding: false,
+      },
     ]);
     target.stats.shields = 0;
     shipRepo.findOne.mockResolvedValue(ship);
@@ -331,7 +358,12 @@ describe('CombatService attackColony', () => {
     const { service, shipRepo, colonyRepo, storageService } = createService();
     const ship = attacker();
     const target = colony([
-      { fieldIndex: 2, buildingId: 100040100, isActive: true, isBuilding: false },
+      {
+        fieldIndex: 2,
+        buildingId: 100040100,
+        isActive: true,
+        isBuilding: false,
+      },
     ]);
     target.stats.shields = 0;
     target.stats.torpedoTypeId = 81;
@@ -353,8 +385,18 @@ describe('CombatService attackColony', () => {
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(
       colony([
-        { fieldIndex: 2, buildingId: 100010100, isActive: true, isBuilding: false },
-        { fieldIndex: 2, buildingId: 100050100, isActive: true, isBuilding: false },
+        {
+          fieldIndex: 2,
+          buildingId: 100010100,
+          isActive: true,
+          isBuilding: false,
+        },
+        {
+          fieldIndex: 2,
+          buildingId: 100050100,
+          isActive: true,
+          isBuilding: false,
+        },
       ]),
     );
     moduleRepo.find.mockResolvedValue([
@@ -431,6 +473,32 @@ describe('CombatService attackColony', () => {
 });
 
 describe('CombatService attack', () => {
+  it('rejects attacking a player in vacation mode', async () => {
+    const { service, shipRepo, engine, interactionContext } = createService();
+    const ship = (id: number, userId: number) => ({
+      id,
+      userId,
+      status: SpacecraftStatus.IDLE,
+      alertState: 'GREEN',
+      operatingMode: 'NORMAL',
+      fleetId: null,
+      locationId: 42,
+      location: { id: 42, kind: 'GALAXY_FIELD' },
+    });
+    shipRepo.findOne
+      .mockResolvedValueOnce(ship(1, 1))
+      .mockResolvedValueOnce(ship(2, 2));
+    interactionContext.load.mockResolvedValue({ targetOnVacation: true });
+
+    await expect(service.attack(1, 2, 1)).rejects.toThrow(
+      'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+    );
+    expect(interactionContext.load).toHaveBeenCalledWith(1, 2, [
+      'targetOnVacation',
+    ]);
+    expect(engine.resolveBattle).not.toHaveBeenCalled();
+  });
+
   it('forms attacker fleet and target fleet plus alerted defenders', async () => {
     const { service, shipRepo, engine } = createService();
     const ship = (id: number, userId: number, overrides = {}) => ({
@@ -481,7 +549,9 @@ describe('CombatService attack', () => {
       ]),
     );
     expect(
-      engine.resolveBattle.mock.calls[0][1].some(({ ship }: any) => ship.id === 6),
+      engine.resolveBattle.mock.calls[0][1].some(
+        ({ ship }: any) => ship.id === 6,
+      ),
     ).toBe(false);
   });
 

@@ -1,3 +1,5 @@
+import { InteractionContextService } from './interaction-context.service';
+import { checkInteraction, InteractionRule } from './interaction-policy';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -56,6 +58,7 @@ export class TransferService {
     private readonly crewService: ColonyCrewService,
     private readonly gameData: GameDataService,
     private readonly relationshipResolver: RelationshipResolverService,
+    private readonly interactionContext: InteractionContextService,
   ) {}
 
   private assertCommodityBeamable(
@@ -610,6 +613,15 @@ export class TransferService {
   ): Promise<string | null> {
     const systems = (ship: Spacecraft) =>
       ship.runtimeSystems as Record<string, { active?: boolean }>;
+    if (sourceShip.userId !== targetShip.userId) {
+      const decision = checkInteraction(
+        await this.interactionContext.load(sourceShip.id, targetShip.id, [
+          'targetOnVacation',
+        ]),
+        [InteractionRule.TARGET_VACATION],
+      );
+      if (!decision.allowed) return decision.reason;
+    }
     const provisionsProtectedTarget = isProtectedProvisioning(
       sourceShip,
       targetShip,

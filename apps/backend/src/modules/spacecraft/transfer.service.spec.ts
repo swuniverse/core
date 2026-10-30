@@ -128,6 +128,7 @@ function cargoTransfer(
     (resolver ?? {
       resolve: jest.fn().mockResolvedValue(relationship(status)),
     }) as never,
+    { load: jest.fn().mockResolvedValue({ targetOnVacation: false }) } as never,
   );
 
   return { service, targetCargo };
@@ -192,6 +193,9 @@ describe('TransferService ship transfers', () => {
           mayTransferSafely: false,
           mayProvisionProtectedShip: true,
         }),
+      } as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
       } as never,
     );
 
@@ -261,6 +265,9 @@ describe('TransferService ship transfers', () => {
         {
           resolve: jest.fn().mockResolvedValue(relationship(status)),
         } as never,
+        {
+          load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
+        } as never,
       );
 
       const quote = await service.getShipTransferQuote(1, 10, 2);
@@ -307,11 +314,7 @@ describe('TransferService ship transfers', () => {
   });
 
   it('lets a friend provision a protected foreign ship with cargo', async () => {
-    const { service, targetCargo } = cargoTransfer(
-      'FRIEND',
-      undefined,
-      true,
-    );
+    const { service, targetCargo } = cargoTransfer('FRIEND', undefined, true);
 
     await service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET');
 
@@ -408,6 +411,9 @@ describe('TransferService ship transfers', () => {
           mayProvisionProtectedShip: true,
         }),
       } as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
+      } as never,
     );
 
     await service.transferShipTorpedoes(1, 10, 2, 1, 'TO_TARGET');
@@ -415,12 +421,22 @@ describe('TransferService ship transfers', () => {
     expect(targetStorage.amount).toBe(1);
   });
 
-  it('rejects provisioning a protected neutral ship', async () => {
-    const { service, targetCargo } = cargoTransfer(
-      'NEUTRAL',
-      undefined,
-      true,
+  it('rejects ship cargo transfer to a player in vacation mode', async () => {
+    const { service, targetCargo } = cargoTransfer('FRIEND');
+    (service as any).interactionContext.load.mockResolvedValue({
+      targetOnVacation: true,
+    });
+
+    await expect(
+      service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
+    ).rejects.toThrow(
+      'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
     );
+    expect(targetCargo.amount).toBe(0);
+  });
+
+  it('rejects provisioning a protected neutral ship', async () => {
+    const { service, targetCargo } = cargoTransfer('NEUTRAL', undefined, true);
 
     await expect(
       service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
@@ -462,6 +478,9 @@ describe('TransferService ship transfers', () => {
       {} as never,
       {
         resolve: jest.fn().mockResolvedValue(relationship('NEUTRAL')),
+      } as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
       } as never,
     );
 
@@ -523,6 +542,9 @@ describe('TransferService ship transfers', () => {
           mayTransferSafely: false,
           mayProvisionProtectedShip: true,
         }),
+      } as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
       } as never,
     );
 
@@ -586,6 +608,9 @@ describe('TransferService ship transfer quote matches the transfer action', () =
       {} as never,
       { getCommodity: jest.fn() } as never,
       { resolve: jest.fn().mockResolvedValue(relationship(status)) } as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
+      } as never,
     );
     return {
       quote: () => service.getShipTransferQuote(1, 10, 2, direction),
@@ -671,6 +696,9 @@ describe('TransferService wreck recovery', () => {
       {} as never,
       {} as never,
       {} as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
+      } as never,
     );
 
     await expect(
@@ -715,7 +743,11 @@ describe('TransferService wreck recovery', () => {
     };
     const manager = {
       findOne: jest.fn(async (entity) =>
-        entity === Spacecraft ? ship : entity === SpacecraftWreck ? wreck : cargo,
+        entity === Spacecraft
+          ? ship
+          : entity === SpacecraftWreck
+            ? wreck
+            : cargo,
       ),
       getRepository: jest.fn(() => cargoRepo),
       create: jest.fn((_entity, value) => value),
@@ -730,6 +762,9 @@ describe('TransferService wreck recovery', () => {
       {} as never,
       {} as never,
       {} as never,
+      {
+        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
+      } as never,
     );
 
     await service.recoverWreckCargo(1, 10, 2, 10101, 1);
@@ -738,5 +773,4 @@ describe('TransferService wreck recovery', () => {
     expect(wreck.modules).toEqual([]);
     expect(manager.remove).toHaveBeenCalledWith(wreck);
   });
-
 });

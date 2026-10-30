@@ -1,3 +1,8 @@
+import { InteractionContextService } from '../spacecraft/interaction-context.service';
+import {
+  checkInteraction,
+  InteractionRule,
+} from '../spacecraft/interaction-policy';
 import {
   Injectable,
   BadRequestException,
@@ -70,6 +75,7 @@ export class CombatService {
     private readonly destructionService: SpacecraftDestructionService,
     private readonly reportFormatter: CombatReportFormatter,
     private readonly statisticsService: StatisticsService,
+    private readonly interactionContext: InteractionContextService,
   ) {}
 
   async attack(
@@ -96,6 +102,13 @@ export class CombatService {
     if (attacker.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle to initiate combat');
     }
+    const vacation = checkInteraction(
+      await this.interactionContext.load(attacker.id, defender.id, [
+        'targetOnVacation',
+      ]),
+      [InteractionRule.TARGET_VACATION],
+    );
+    if (!vacation.allowed) throw new BadRequestException(vacation.reason);
     if (defender.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Target already destroyed');
     }
