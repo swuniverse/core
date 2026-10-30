@@ -1,6 +1,6 @@
 # Deflektor, Feldkosten und Feldschaden
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1b1
@@ -38,3 +38,11 @@ Jede Feldtransition wendet die zusätzlichen Deflektorkosten, normalen Feldschad
 ## Entscheidung
 
 Grundflugkosten und Feldtyp-`energyCost` sind getrennte Kosten je betretenem Feld. `DEFLECTOR` ist ein eigenes Laufzeitsystem; STU-Schadensreihenfolge wird übernommen.
+
+## Offene Frage
+
+Welche autoritative STU-Produktionsquelle und welche Abbildung von `x_damage_system`-IDs auf SWU-`SpacecraftRuntimeSystemKey` sollen für `specialDamage`/`specialDamageSystem` verwendet werden? Die drei genannten STU-PHP-Quellen definieren nur Vertrag und Ausführung, aber keine Feldtypwerte beziehungsweise ID-Zuordnung. Die verfügbare Testfixture enthält tausende testgenerierte Werte und ist keine belastbare Produktionsdatenquelle; ohne bestätigte Zuordnung würden Migration und Seed fachlich erfundene Daten persistieren.
+
+## Comments
+
+2026-10-30: Runtime-/Pipeline-Implementierung test-first prototypisiert; fokussierte Tests (19) und alle Builds waren grün. Der vorgeschriebene Gesamtcheck blieb ausschließlich an bereits vorhandenen, fachfremden Typecheck-Fehlern in `wreck-decay.service.spec.ts` und `tutorial.service.spec.ts` rot. Produktcode gemäß Abbruchregel verworfen; zur korrekten Seed-/Migrationsumsetzung wird die oben genannte Datenquelle und System-ID-Abbildung benötigt.
