@@ -107,6 +107,11 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
   REBEL_SHUTTLE_U_WING: 'u-wing.png',
   EMPIRE_FIGHTER_TIE_LN: 'tie-ln.png',
   EMPIRE_FIGHTER_TIE_INTERCEPTOR: 'tie-interceptor.png',
+  SALVAGE_FIGHTER_N1: 'n1.png',
+  SALVAGE_FIGHTER_ARC_170: 'arc-170.png',
+  SALVAGE_FIGHTER_ETA_2: 'eta-2.png',
+  SALVAGE_FIGHTER_DELTA_7: 'delta-7.png',
+  SALVAGE_FIGHTER_VULTURE_DROID: 'vulture-droid.png',
 };
 
 /** Top-down graphic drawn on the overview map in place of the position marker. */
@@ -116,6 +121,11 @@ const SHIP_CLASS_KEY_CURSOR_FILES: Record<string, string> = {
   REBEL_SHUTTLE_U_WING: 'u-wing-cursor.png',
   EMPIRE_FIGHTER_TIE_LN: 'tie-ln-cursor.png',
   EMPIRE_FIGHTER_TIE_INTERCEPTOR: 'tie-interceptor-cursor.png',
+  SALVAGE_FIGHTER_N1: 'n1-cursor.png',
+  SALVAGE_FIGHTER_ARC_170: 'arc-170-cursor.png',
+  SALVAGE_FIGHTER_ETA_2: 'eta-2-cursor.png',
+  SALVAGE_FIGHTER_DELTA_7: 'delta-7-cursor.png',
+  SALVAGE_FIGHTER_VULTURE_DROID: 'vulture-droid-cursor.png',
 };
 
 export function shipCursorImage(shipClassKey?: string | null): string | null {
