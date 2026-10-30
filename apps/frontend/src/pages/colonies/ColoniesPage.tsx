@@ -382,13 +382,20 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onBuildShip={(sci, name, moduleSelections, buildPlanName) =>
+      onBuildShip={(
+        sci,
+        name,
+        moduleSelections,
+        buildPlanName,
+        buildingFunctionId,
+      ) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/build-ship`, {
             shipClassId: sci,
             name,
             moduleSelections,
             buildPlanName,
+            buildingFunctionId,
           });
           loadColonyDetail(selected.id);
         })
@@ -490,11 +497,16 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onQueueShipRetrofit={(shipId, moduleSelections, buildPlanName) =>
+      onQueueShipRetrofit={(
+        shipId,
+        moduleSelections,
+        buildPlanName,
+        buildingFunctionId,
+      ) =>
         act(async () => {
           await api.post(
             `/colonies/${selected.id}/ships/${shipId}/retrofit-queue`,
-            { moduleSelections, buildPlanName },
+            { moduleSelections, buildPlanName, buildingFunctionId },
           );
           loadColonyDetail(selected.id);
         })
@@ -540,11 +552,11 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onBuildFromBuildplan={(planId, name) =>
+      onBuildFromBuildplan={(planId, name, buildingFunctionId) =>
         act(async () => {
           await api.post(
             `/colonies/${selected.id}/buildplans/${planId}/build`,
-            { name },
+            { name, buildingFunctionId },
           );
           loadColonyDetail(selected.id);
         })
@@ -733,6 +745,7 @@ export function ColonyDetail({
     name: string,
     moduleSelections?: ShipModuleSelection[],
     buildPlanName?: string,
+    buildingFunctionId?: number,
   ) => Promise<void> | void;
   onStartFabrication: (
     itemKey: string,
@@ -763,6 +776,7 @@ export function ColonyDetail({
     shipId: number,
     moduleSelections: ShipModuleSelection[],
     buildPlanName?: string,
+    buildingFunctionId?: number,
   ) => Promise<void> | void;
   onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
   onReactivateShipyardQueue: (queueId: number) => Promise<void> | void;
@@ -773,7 +787,11 @@ export function ColonyDetail({
   ) => Promise<void> | void;
   onRenameBuildplan: (planId: number, name: string) => Promise<void> | void;
   onDeleteBuildplan: (planId: number) => Promise<void> | void;
-  onBuildFromBuildplan: (planId: number, name: string) => Promise<void> | void;
+  onBuildFromBuildplan: (
+    planId: number,
+    name: string,
+    buildingFunctionId?: number,
+  ) => Promise<void> | void;
   onBuildAirfieldRump: (
     shipClassId: number,
     amount: number,
@@ -1118,6 +1136,7 @@ export function ColonyDetail({
             availableModules={detail.availableShipModules ?? []}
             slotRules={detail.shipyard.slotRules ?? []}
             availableCrew={detail.crew?.available ?? 0}
+            availableEnergy={detail.energy?.current}
             commodityMap={commodityMap}
             orbitShips={detail.orbitShips}
             buildplans={detail.buildplans ?? []}

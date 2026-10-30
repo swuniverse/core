@@ -49,6 +49,8 @@ export type ShipyardQueueEntry = {
   id: number;
   shipClassId: number;
   spacecraftId?: number | null;
+  /** Shipyard function a BUILD/RETROFIT job occupies; null for legacy/repair jobs. */
+  buildingFunctionId?: number | null;
   mode?: ShipyardQueueMode;
   name: string;
   canReactivate?: boolean;
@@ -689,6 +691,8 @@ export interface ColonyDetailV2 {
         baseWarpdrive: number;
         baseEps: number;
         baseReactor: number;
+        /** EPS paid by the colony to build or retrofit this hull. */
+        epsCost?: number;
       } | null;
       slots: Array<{
         slotId: string;

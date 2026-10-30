@@ -199,6 +199,8 @@ type PanelShipyardProps = {
   availableModules: NonNullable<ColonyDetailV2['availableShipModules']>;
   slotRules: NonNullable<ColonyDetailV2['shipyard']['slotRules']>;
   availableCrew: number;
+  /** Current colony energy, shown against the hull's EPS cost. */
+  availableEnergy?: number;
   commodityMap: Record<number, CommodityDef>;
   orbitShips: ColonyDetailV2['orbitShips'];
   buildplans: NonNullable<ColonyDetailV2['buildplans']>;
@@ -207,6 +209,7 @@ type PanelShipyardProps = {
     name: string,
     moduleSelections?: ShipModuleSelection[],
     buildPlanName?: string,
+    buildingFunctionId?: number,
   ) => Promise<void> | void;
   onDisassembleShip: (shipId: number) => Promise<void> | void;
   onQueueShipRepair: (shipId: number) => Promise<void> | void;
@@ -214,6 +217,7 @@ type PanelShipyardProps = {
     shipId: number,
     moduleSelections: ShipModuleSelection[],
     buildPlanName?: string,
+    buildingFunctionId?: number,
   ) => Promise<void> | void;
   onCancelShipyardQueue: (queueId: number) => Promise<void> | void;
   onReactivateShipyardQueue: (queueId: number) => Promise<void> | void;
@@ -224,7 +228,11 @@ type PanelShipyardProps = {
   ) => Promise<void> | void;
   onRenameBuildplan: (planId: number, name: string) => Promise<void> | void;
   onDeleteBuildplan: (planId: number) => Promise<void> | void;
-  onBuildFromBuildplan: (planId: number, name: string) => Promise<void> | void;
+  onBuildFromBuildplan: (
+    planId: number,
+    name: string,
+    buildingFunctionId?: number,
+  ) => Promise<void> | void;
 };
 
 const queueModeLabel: Record<ShipyardQueueMode, string> = {
@@ -748,6 +756,7 @@ export function PanelShipyard({
   availableModules,
   slotRules,
   availableCrew,
+  availableEnergy,
   commodityMap,
   orbitShips,
   buildplans,
@@ -916,6 +925,7 @@ export function PanelShipyard({
         shipName.trim(),
         designerModuleSelections,
         buildPlanName.trim() || undefined,
+        selectedShipyardFunctionId ?? undefined,
       );
       resetDesigner();
     } catch (e: unknown) {
@@ -943,6 +953,7 @@ export function PanelShipyard({
         retrofitShipId,
         designerModuleSelections,
         buildPlanName.trim() || undefined,
+        selectedShipyardFunctionId ?? undefined,
       );
       resetDesigner();
     });
@@ -996,6 +1007,14 @@ export function PanelShipyard({
       shipClasses.find((entry) => entry.id === job.shipClassId),
     ),
   );
+  const occupyingJob = queue.find(
+    (job) =>
+      job.buildingFunctionId != null &&
+      job.buildingFunctionId === selectedShipyardFunctionId &&
+      (job.mode ?? 'BUILD') !== 'REPAIR' &&
+      (job.status === 'QUEUED' || job.status === 'PAUSED'),
+  );
+  const designerEpsCost = selectedLayout?.baseStats?.epsCost ?? 0;
   const repairStationActive =
     (shipyard?.repairActiveFunctionIds ?? []).length > 0;
   const repairStationPresent =
@@ -1047,6 +1066,13 @@ export function PanelShipyard({
                     Reparaturstation vorhanden, aber nicht aktiv.
                   </div>
                 ) : null}
+                <div
+                  className={`text-[10px] ${occupyingJob ? 'text-yellow-300' : 'text-swu-muted'}`}
+                >
+                  {occupyingJob
+                    ? `Belegt: ${queueModeLabel[occupyingJob.mode ?? 'BUILD']} „${occupyingJob.name}“ – Bau und Umrüstung nur nacheinander.`
+                    : 'Frei: ein Bau- oder Umrüstauftrag möglich.'}
+                </div>
                 {queueForSelectedShipyard.length > 0 && (
                   <div className="text-[10px] text-swu-muted">
                     Warteschlange: {queueForSelectedShipyard.length} Job
@@ -1422,6 +1448,7 @@ export function PanelShipyard({
                           onBuildFromBuildplan(
                             plan.id,
                             buildplanShipName(plan.id, defaultShipName),
+                            selectedShipyardFunctionId ?? undefined,
                           ),
                         )
                       }
@@ -1558,6 +1585,21 @@ export function PanelShipyard({
               <div className="text-[10px] text-swu-muted whitespace-nowrap">
                 Crew {availableCrew}/{selectedClass.crewMin ?? 0}
               </div>
+              <div
+                className={`text-[10px] whitespace-nowrap ${
+                  availableEnergy != null && availableEnergy < designerEpsCost
+                    ? 'text-red-400'
+                    : 'text-swu-muted'
+                }`}
+              >
+                EPS-Kosten {designerEpsCost}
+                {availableEnergy != null ? ` (vorhanden ${availableEnergy})` : ''}
+              </div>
+              {occupyingJob && (
+                <div className="text-[10px] text-yellow-300 whitespace-nowrap">
+                  Werft belegt
+                </div>
+              )}
               {!isResourceOnlyFixedRump && (
                 <button
                   onClick={handleCreateBuildplan}

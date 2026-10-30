@@ -102,6 +102,12 @@ class BuildShipDto {
   @IsOptional()
   @IsString()
   buildPlanName?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  buildingFunctionId?: number;
 }
 
 class CreateBuildplanDto {
@@ -128,6 +134,12 @@ class RenameBuildplanDto {
 class BuildFromBuildplanDto {
   @IsString()
   name: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  buildingFunctionId?: number;
 }
 
 class TerraformFieldDto {
@@ -517,6 +529,7 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
     @Body('moduleSelections') moduleSelections: ShipModuleSelection[],
     @Body('buildPlanName') buildPlanName?: string,
+    @Body('buildingFunctionId') buildingFunctionId?: number,
   ) {
     return this.colonyService.queueShipRetrofit(
       id,
@@ -524,6 +537,7 @@ export class ColonyController {
       shipId,
       moduleSelections ?? [],
       buildPlanName,
+      buildingFunctionId,
     );
   }
 
@@ -661,6 +675,8 @@ export class ColonyController {
       dto.name,
       dto.moduleSelections,
       dto.buildPlanName,
+      undefined,
+      dto.buildingFunctionId,
     );
   }
 
@@ -715,6 +731,7 @@ export class ColonyController {
       req.user.sub,
       planId,
       dto.name,
+      dto.buildingFunctionId,
     );
   }
 

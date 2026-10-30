@@ -1289,6 +1289,26 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     orbitService as any,
   );
   const messagingService = { sendSystem: jest.fn() };
+  // Occupied BUILD/RETROFIT slots seen by the transactional slot check.
+  const shipyardSlotCount = jest.fn(async (..._args: unknown[]) => 0);
+  const transactionManager = {
+    findOne: jest.fn(async () => null),
+    count: shipyardSlotCount,
+    save: jest.fn(async (_entity: unknown, value: unknown) =>
+      shipBuildQueueRepo.save(value as never),
+    ),
+    update: jest.fn(async () => ({ affected: 1 })),
+    getRepository: jest.fn((entity: { name?: string }) =>
+      entity?.name === 'ColonyStorage'
+        ? storageRepo
+        : { update: jest.fn(async () => ({ affected: 1 })) },
+    ),
+  };
+  const dataSource = {
+    transaction: jest.fn(async (work: (manager: unknown) => unknown) =>
+      work(transactionManager),
+    ),
+  };
   const shipyardService = new ColonyShipyardService(
     storageRepo as any,
     shipRepo as any,
@@ -1310,6 +1330,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     unlockResolver as any,
     timingService,
     userRepo as never,
+    dataSource as never,
   );
   const constructionService = new ColonyConstructionService(
     colonyRepo as any,
@@ -1422,6 +1443,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       orbitService,
       projectionService,
       shipyardService,
+      shipyardSlotCount,
+      transactionManager,
+      dataSource,
       constructionService,
       tickProcessorService,
       config,
@@ -4880,10 +4904,10 @@ describe('ship building compatibility', () => {
     });
 
     await expect(
-      service.buildShip(1, 1, 1, 'Imperial Build', [imperialSelection]),
+      service.buildShip(1, 1, 1, 'Imperial Build', [imperialSelection], undefined, undefined, 6),
     ).rejects.toThrow('Ship module is faction-locked');
     await expect(
-      service.queueShipRetrofit(1, 1, 7, [imperialSelection]),
+      service.queueShipRetrofit(1, 1, 7, [imperialSelection], undefined, 6),
     ).rejects.toThrow('Ship module is faction-locked');
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Imperial Plan', [
@@ -5020,13 +5044,13 @@ describe('ship building compatibility', () => {
     ]);
 
     await expect(
-      service.buildShip(1, 1, 1, 'Overcrewed', [weaponSelection]),
+      service.buildShip(1, 1, 1, 'Overcrewed', [weaponSelection], undefined, undefined, 6),
     ).rejects.toThrow('Crew maximum exceeded');
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Overcrewed', [weaponSelection]),
     ).rejects.toThrow('Crew maximum exceeded');
     await expect(
-      service.queueShipRetrofit(1, 1, 7, [weaponSelection]),
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection], undefined, 6),
     ).rejects.toThrow('Crew maximum exceeded');
   });
 
@@ -5097,13 +5121,13 @@ describe('ship building compatibility', () => {
     );
 
     await expect(
-      service.buildShip(1, 1, 1, 'Too Special', selections),
+      service.buildShip(1, 1, 1, 'Too Special', selections, undefined, undefined, 6),
     ).rejects.toThrow('More special modules selected than the hull allows');
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Too Special', selections),
     ).rejects.toThrow('More special modules selected than the hull allows');
     await expect(
-      service.queueShipRetrofit(1, 1, 7, selections),
+      service.queueShipRetrofit(1, 1, 7, selections, undefined, 6),
     ).rejects.toThrow('More special modules selected than the hull allows');
   });
 
@@ -5292,6 +5316,8 @@ describe('ship building compatibility', () => {
       'Red One',
       [],
       'Starter Plan',
+      undefined,
+      6,
     );
 
     expect(gameData.getBuildingFunctions).toHaveBeenCalledWith(85130100);
@@ -5370,7 +5396,7 @@ describe('ship building compatibility', () => {
         buildTimeTicks: 4,
       });
 
-      await service.buildShip(1, 1, 1, 'Red One', [], undefined);
+      await service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6);
 
       expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -5465,6 +5491,8 @@ describe('ship building compatibility', () => {
         'Too Many Lasers',
         [weaponSelection, { slotId: 'corvette-weapons-2', commodityId: 10701 }],
         'Plan',
+        undefined,
+        6,
       ),
     ).rejects.toThrow('Duplicate module selection for ENERGY_WEAPON');
   });
@@ -5528,6 +5556,8 @@ describe('ship building compatibility', () => {
       'Module Red',
       [weaponSelection],
       'Module Plan',
+      undefined,
+      6,
     );
 
     expect(shipBuildplanRepo.save).toHaveBeenCalledWith(
@@ -5584,7 +5614,7 @@ describe('ship building compatibility', () => {
     unlockResolver.hasTech.mockResolvedValueOnce(false);
 
     await expect(
-      service.buildShip(1, 1, 1, 'Locked Module', [weaponSelection], 'Plan'),
+      service.buildShip(1, 1, 1, 'Locked Module', [weaponSelection], 'Plan', undefined, 6),
     ).rejects.toThrow('Research required: Lasertechnik');
   });
 
@@ -5841,7 +5871,7 @@ describe('ship building compatibility', () => {
     });
     shipBuildplanRepo.findOne.mockResolvedValueOnce(buildplan);
 
-    const queue = await service.buildShipFromBuildplan(1, 1, 7, 'Planned Ship');
+    const queue = await service.buildShipFromBuildplan(1, 1, 7, 'Planned Ship', 6);
 
     expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -7999,6 +8029,7 @@ describe('ship retrofit queues', () => {
       7,
       [weaponSelection],
       'Retro',
+      6,
     );
 
     expect(storage[10701].amount).toBe(1);
@@ -8053,7 +8084,7 @@ describe('ship retrofit queues', () => {
     unlockResolver.hasTech.mockResolvedValueOnce(false);
 
     await expect(
-      service.queueShipRetrofit(1, 1, 7, [weaponSelection]),
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection], undefined, 6),
     ).rejects.toThrow('Research required: Lasertechnik');
   });
 
@@ -8094,7 +8125,7 @@ describe('ship retrofit queues', () => {
     });
 
     await expect(
-      service.queueShipRetrofit(1, 1, 7, [weaponSelection]),
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection], undefined, 6),
     ).rejects.toThrow('No retrofit changes selected');
   });
 
@@ -9270,5 +9301,198 @@ describe('colony orbit assignments', () => {
     await expect(
       service.transferShuttles(1, 1, 7, [{ commodityId: 21601, amount: 2 }]),
     ).rejects.toThrow('Shuttle capacity exceeded');
+  });
+});
+
+describe('shipyard EPS cost and one job per shipyard function', () => {
+  const corvette = {
+    id: 1,
+    key: 'TEST_CORVETTE',
+    name: 'Test Corvette',
+    category: 'CORVETTE',
+    isNpc: false,
+    buildTimeTicks: 1,
+    hullBase: 100,
+    shieldBase: 10,
+    epsBase: 10,
+    warpBase: 1,
+    crewMin: 0,
+    crewMax: 5,
+    cargoCapacity: 10,
+    batteryBase: 0,
+  };
+  const yardColony = (energy: number) => ({
+    id: 1,
+    userId: 1,
+    ...orbitColonyLocation,
+    starSystemId: 10,
+    celestialObjectId: 20,
+    colonyClassId: 999,
+    energy,
+    energyMax: 500,
+    storageMax: 100,
+    fields: [
+      {
+        id: 1,
+        fieldIndex: 1,
+        buildingId: 85130100,
+        isBuilding: false,
+        isActive: true,
+      },
+    ],
+    storage: [],
+    stats: { workless: 0, trainedCrew: 0, maxStorage: 100 },
+  });
+  const setup = (energy: number, epsCost = 50) => {
+    const ctx = createColonyService();
+    ctx.colonyRepo.findOne.mockResolvedValue(yardColony(energy));
+    ctx.shipClassRepo.findOneBy.mockResolvedValue(corvette);
+    ctx.storageRepo.findOne.mockImplementation(async ({ where }: any) => ({
+      colonyId: 1,
+      commodityId: where.commodityId,
+      amount: 999,
+    }));
+    ctx.gameData.getShipClassDefByKey.mockImplementation((key: string) => ({
+      key,
+      buildCosts: [],
+      stuRumpId: 6501,
+    }));
+    ctx.gameData.getShipyardRumpStats.mockImplementation((id: number) =>
+      id === 6501 ? { epsCost } : null,
+    );
+    ctx.shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      shipClassId: 1,
+      ...orbitShipLocation,
+      starSystemId: 10,
+      celestialObjectId: 20,
+      name: 'Corvette',
+    });
+    ctx.spacecraftModuleRepo.find.mockResolvedValue([]);
+    return ctx;
+  };
+  const weaponSelection = {
+    slotId: 'corvette-weapons-1',
+    commodityId: 10701,
+  };
+
+  it('deducts the hull EPS cost when a build is queued', async () => {
+    const { service, transactionManager } = setup(120);
+
+    const queue = await service.buildShip(
+      1,
+      1,
+      1,
+      'Red One',
+      [],
+      undefined,
+      undefined,
+      6,
+    );
+
+    expect(queue.buildingFunctionId).toBe(6);
+    expect(transactionManager.update).toHaveBeenCalledWith(
+      expect.anything(),
+      { colonyId: 1 },
+      { energy: 70 },
+    );
+  });
+
+  it('rejects a build without enough EPS and queues nothing', async () => {
+    const { service, shipBuildQueueRepo, transactionManager } = setup(30);
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6),
+    ).rejects.toThrow('need 50 energy, have 30');
+    expect(transactionManager.save).not.toHaveBeenCalled();
+    expect(shipBuildQueueRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a retrofit without enough EPS before consuming modules', async () => {
+    const { service, storageRepo } = setup(10);
+    storageRepo.save.mockClear();
+
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection], 'Retro', 6),
+    ).rejects.toThrow('need 50 energy, have 10');
+    expect(storageRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('deducts the hull EPS cost for a retrofit and persists the function', async () => {
+    const { service, transactionManager } = setup(100);
+
+    const queue = await service.queueShipRetrofit(
+      1,
+      1,
+      7,
+      [weaponSelection],
+      'Retro',
+      6,
+    );
+
+    expect(queue.buildingFunctionId).toBe(6);
+    expect(queue.mode).toBe('RETROFIT');
+    expect(transactionManager.update).toHaveBeenCalledWith(
+      expect.anything(),
+      { colonyId: 1 },
+      { energy: 50 },
+    );
+  });
+
+  it('requires an explicit active, compatible shipyard function', async () => {
+    const { service } = setup(500);
+
+    await expect(service.buildShip(1, 1, 1, 'Red One')).rejects.toThrow(
+      'Shipyard function required',
+    );
+    await expect(
+      service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 7),
+    ).rejects.toThrow('Selected shipyard function is not active');
+  });
+
+  it('rejects a build when the selected function already has a build or retrofit job', async () => {
+    const { service, shipyardSlotCount, shipBuildQueueRepo } = setup(500);
+    shipyardSlotCount.mockResolvedValue(1);
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6),
+    ).rejects.toThrow('already building or retrofitting');
+    await expect(
+      service.queueShipRetrofit(1, 1, 7, [weaponSelection], 'Retro', 6),
+    ).rejects.toThrow('already building or retrofitting');
+    expect(shipBuildQueueRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('counts only active BUILD/RETROFIT jobs bound to the function', async () => {
+    const { service, shipyardSlotCount } = setup(500);
+
+    await service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6);
+
+    const where = (shipyardSlotCount.mock.calls[0][1] as any).where;
+    expect(where.colonyId).toBe(1);
+    expect(where.buildingFunctionId).toBe(6);
+    // REPAIR jobs and unbound legacy jobs (NULL function) never match.
+    expect(where.mode.value).toEqual(['BUILD', 'RETROFIT']);
+    expect(where.status.value).toEqual(['QUEUED', 'PAUSED']);
+  });
+
+  it('does not charge EPS when the resource reservation fails', async () => {
+    const { service, storageRepo, gameData, transactionManager } = setup(500);
+    gameData.getShipClassDefByKey.mockImplementation((key: string) => ({
+      key,
+      stuRumpId: 6501,
+      buildCosts: [{ commodityId: 1, amount: 5 }],
+    }));
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 1,
+      amount: 0,
+    });
+
+    await expect(
+      service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6),
+    ).rejects.toThrow('Not enough');
+    expect(transactionManager.update).not.toHaveBeenCalled();
   });
 });

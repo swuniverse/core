@@ -1397,6 +1397,7 @@ export class ColonyService {
     shipId: number,
     moduleSelections: ShipModuleSelection[] = [],
     buildPlanName?: string,
+    buildingFunctionId?: number,
   ): Promise<ColonyShipBuildQueue> {
     return this.colonyShipyardService.queueShipRetrofit(
       colonyId,
@@ -1404,6 +1405,7 @@ export class ColonyService {
       shipId,
       moduleSelections,
       buildPlanName,
+      buildingFunctionId,
     );
   }
 
@@ -1451,6 +1453,7 @@ export class ColonyService {
     moduleSelections: ShipModuleSelection[] = [],
     buildPlanName?: string,
     sourceBuildplan?: ColonyShipBuildplan,
+    buildingFunctionId?: number,
   ): Promise<ColonyShipBuildQueue> {
     return this.colonyShipyardService.buildShip(
       colonyId,
@@ -1460,6 +1463,7 @@ export class ColonyService {
       moduleSelections,
       buildPlanName,
       sourceBuildplan,
+      buildingFunctionId,
     );
   }
 
@@ -1524,12 +1528,14 @@ export class ColonyService {
     userId: number,
     planId: number,
     name: string,
+    buildingFunctionId?: number,
   ): Promise<ColonyShipBuildQueue> {
     return this.colonyShipyardService.buildShipFromBuildplan(
       colonyId,
       userId,
       planId,
       name,
+      buildingFunctionId,
     );
   }
 

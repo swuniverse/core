@@ -327,6 +327,8 @@ export interface ShipyardRumpStatsDef {
   baseHitChance: number;
   baseWarpdrive: number;
   specialSlots: number;
+  /** EPS the colony pays to build or retrofit this hull (STU `eps_cost`). */
+  epsCost?: number;
 }
 
 export interface ShipyardRumpCrewDef {

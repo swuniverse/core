@@ -63,6 +63,13 @@ export class ColonyShipBuildQueue {
   @Column({ type: 'varchar', default: ColonyShipBuildQueueMode.BUILD })
   mode: ColonyShipBuildQueueMode;
 
+  /**
+   * Shipyard building function the BUILD/RETROFIT job occupies (STU: one job
+   * per function). Null for REPAIR jobs and for jobs queued before binding.
+   */
+  @Column({ type: 'int', nullable: true })
+  buildingFunctionId: number | null;
+
   @Column({ type: 'int', nullable: true })
   spacecraftId: number | null;
 

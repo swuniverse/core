@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { ColonySocialService } from './colony-social.service';
 import {
@@ -158,8 +158,31 @@ export class ColonyCrewService {
   async reserveCrewForShipBuild(
     colony: Colony,
     amount: number,
+    manager?: EntityManager,
   ): Promise<number[]> {
     if (amount <= 0) return [];
+    if (manager) {
+      const available = await manager.find(CrewAssignment, {
+        where: { colonyId: colony.id },
+        order: { crewId: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (available.length < amount) return [];
+      const selected = available.slice(0, amount);
+      for (const assignment of selected) {
+        assignment.colonyId = null;
+        assignment.spacecraftId = null;
+      }
+      await manager.save(selected);
+      const changeable = getColonyChangeable(colony);
+      changeable.trainedCrew = available.length - amount;
+      await manager.update(
+        ColonyChangeable,
+        { colonyId: colony.id },
+        { trainedCrew: changeable.trainedCrew },
+      );
+      return selected.map((assignment) => assignment.crewId);
+    }
     const available = await this.getAvailableColonyCrew(colony.id);
     if (available.length < amount) return [];
     const selected = available.slice(0, amount);
