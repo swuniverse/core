@@ -1,6 +1,6 @@
 # Admin: Spieler blockieren und Löschverbot setzen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-08a, sh-AP-05a
@@ -33,3 +33,5 @@ Admins können einen Spieler blockieren: Seine E-Mail-Adresse wird als Hash auf 
 - [ ] Backend-Tests: Hash statt Klartext, Registrierung blockiert (auch andere Groß-/Kleinschreibung), Marke 2 gesetzt, Löschverbot. Frontend-Test: Aktionen in der Liste.
 
 ## Comments
+
+- 2026-10-30: Blockiert durch die verpflichtenden Repository-Gates: `npx nx affected -t lint typecheck test --base=HEAD` und `npx nx run-many --targets=build` scheitern bereits außerhalb dieses Issues im Backend an `TS2307: Cannot find module 'dotenv'` in `apps/backend/src/database/typeorm-migration.config.ts` sowie zahlreichen bestehenden `TS6305`-Fehlern. Zwei Umsetzungs-/Prüfversuche mit grünen fokussierten Backend- und Frontend-Tests konnten die vorgeschriebenen Gesamtprüfungen daher nicht grün bekommen. Produktcode gemäß Abbruchregel verworfen. Bitte zuerst die Baseline (z. B. sh-AP-23 oder Abhängigkeits-/Build-Artefakt-Reparatur) beheben und das Issue danach erneut freigeben.
