@@ -101,6 +101,7 @@ import { CrewEnhancementService } from './crew-enhancement.service';
 import { FlightConsequencePipeline } from './flight-consequence-pipeline';
 import { CrewEnhancementEvent } from './crew-expertise';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
+import { EscapePodService } from './escape-pod.service';
 
 @Injectable()
 export class SpacecraftService {
@@ -162,6 +163,10 @@ export class SpacecraftService {
     private readonly stationClassDiscoveryService: StationClassDiscoveryService =
       {} as StationClassDiscoveryService,
     private readonly fieldEffectQuery: FieldEffectQuery = new FieldEffectQuery(),
+    private readonly escapePodService: EscapePodService = {
+      evacuateLifeSupportFailure: async () => 0,
+      listNearby: async () => [],
+    } as unknown as EscapePodService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3356,6 +3361,7 @@ export class SpacecraftService {
             },
           };
         }),
+      escapePods: await this.escapePodService.listNearby(ship.locationId),
       wrecks: wrecks.map((wreck) => ({
         id: wreck.id,
         hull: wreck.hull,
@@ -3918,12 +3924,13 @@ export class SpacecraftService {
       ship.crew > 0 &&
       (!lifeSupport || !lifeSupport.active || lifeSupport.integrity <= 0)
     ) {
-      const evacuated = await this.spacecraftCrewService.evacuateSpacecraft(ship);
+      const evacuated =
+        await this.escapePodService.evacuateLifeSupportFailure(ship);
       if (evacuated > 0) {
         await this.messagingService.sendSystem(
           ship.userId,
           'Lebenserhaltung ausgefallen',
-          `Die Lebenserhaltung der ${ship.name} ist ausgefallen. ${evacuated} Crewmitglieder konnten nicht gerettet werden.`,
+          `Die Lebenserhaltung der ${ship.name} ist ausgefallen. ${evacuated} Crewmitglieder haben das Schiff in Rettungskapseln verlassen.`,
         );
       }
     }

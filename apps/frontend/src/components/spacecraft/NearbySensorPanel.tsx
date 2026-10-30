@@ -358,6 +358,29 @@ export function NearbySensorPanel({
                   </td>
                 </tr>
               )}
+              {nearby?.escapePods?.map((pod) => (
+                <tr key={`pod-${pod.id}`} data-target-type={pod.targetType}>
+                  <td className="border border-swu-border p-1" />
+                  <td className="border border-swu-border p-1">
+                    {pod.icon ? (
+                      <img
+                        src={`${import.meta.env.VITE_ASSET_BASE_URL || '/assets'}/${pod.icon}`}
+                        alt={pod.displayName}
+                        className="inline size-4"
+                      />
+                    ) : (
+                      '◌'
+                    )}
+                  </td>
+                  <td className="border border-swu-border p-1">
+                    {pod.displayName} von {pod.originShipName}
+                  </td>
+                  <td className="border border-swu-border p-1">
+                    {pod.occupantCount} Insassen
+                  </td>
+                  <td className="border border-swu-border p-1">Niemand</td>
+                </tr>
+              ))}
               {(nearby?.wrecks.length ?? 0) > 0 && (
                 <tr>
                   <td

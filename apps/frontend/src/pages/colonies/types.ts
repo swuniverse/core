@@ -62,8 +62,6 @@ export type ShipyardQueueEntry = {
   moduleTypes: string[];
   moduleCommodityIds?: number[];
   moduleNames?: string[];
-  crewAssigned?: number;
-  crewIds?: number[];
   repairSnapshot?: {
     hullBefore: number;
     hullAfter: number;

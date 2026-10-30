@@ -1160,7 +1160,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       Array.from({ length: amount }, (_value, index) => index + 1),
     ),
     assignCrewToShip: jest.fn(async () => undefined),
-    returnCrewToColony: jest.fn(async () => undefined),
+    transferCrewFromColonyToShip: jest.fn(async () => undefined),
     transferCrewFromShipToColony: jest.fn(async () => undefined),
     landCrewWithShip: jest.fn(async () => undefined),
     removeExcessColonyCrew: jest.fn(async () => 0),
@@ -1320,7 +1320,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     locationRepo as any,
     gameData as any,
     ownershipService as any,
-    colonyCrewService as any,
     colonyStorageService as any,
     statsService,
     orbitService as any,
@@ -8601,10 +8600,10 @@ describe('airfield hangar loop', () => {
         status: 'IDLE',
       }),
     );
-    expect(colonyCrewService.assignCrewToShip).toHaveBeenCalledWith(
-      1,
-      77,
-      [1, 2, 3, 4, 5],
+    expect(colonyCrewService.transferCrewFromColonyToShip).toHaveBeenCalledWith(
+      colony,
+      expect.objectContaining({ id: 77 }),
+      5,
     );
     expect(spacecraftModuleRepo.create).toHaveBeenCalledTimes(6);
     expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(

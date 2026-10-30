@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { ColonySocialService } from './colony-social.service';
 import {
@@ -153,62 +153,6 @@ export class ColonyCrewService {
     }
     await this.refreshColonyCrewCache(colony);
     return created;
-  }
-
-  async reserveCrewForShipBuild(
-    colony: Colony,
-    amount: number,
-    manager?: EntityManager,
-  ): Promise<number[]> {
-    if (amount <= 0) return [];
-    if (manager) {
-      const available = await manager.find(CrewAssignment, {
-        where: { colonyId: colony.id },
-        order: { crewId: 'ASC' },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (available.length < amount) return [];
-      const selected = available.slice(0, amount);
-      for (const assignment of selected) {
-        assignment.colonyId = null;
-        assignment.spacecraftId = null;
-      }
-      await manager.save(selected);
-      const changeable = getColonyChangeable(colony);
-      changeable.trainedCrew = available.length - amount;
-      await manager.update(
-        ColonyChangeable,
-        { colonyId: colony.id },
-        { trainedCrew: changeable.trainedCrew },
-      );
-      return selected.map((assignment) => assignment.crewId);
-    }
-    const available = await this.getAvailableColonyCrew(colony.id);
-    if (available.length < amount) return [];
-    const selected = available.slice(0, amount);
-    for (const assignment of selected) {
-      assignment.colonyId = null;
-      assignment.spacecraftId = null;
-      await this.crewAssignmentRepo.save(assignment);
-    }
-    await this.refreshColonyCrewCache(colony);
-    return selected.map((assignment) => assignment.crewId);
-  }
-
-  async assignCrewToShip(
-    userId: number,
-    spacecraftId: number,
-    crewIds: number[],
-  ): Promise<void> {
-    if (crewIds.length === 0) return;
-    const assignments = await this.crewAssignmentRepo.find({
-      where: { userId, crewId: In(crewIds) },
-    });
-    for (const assignment of assignments) {
-      assignment.colonyId = null;
-      assignment.spacecraftId = spacecraftId;
-      await this.crewAssignmentRepo.save(assignment);
-    }
   }
 
   async transferCrewFromColonyToShip(
@@ -372,20 +316,6 @@ export class ColonyCrewService {
     if (!matchesColonyOrbit(ship, colony)) {
       throw new BadRequestException('Ship is not in colony orbit');
     }
-  }
-
-  async returnCrewToColony(colony: Colony, crewIds: number[]): Promise<void> {
-    assertOwnedColony(colony);
-    if (crewIds.length === 0) return;
-    const assignments = await this.crewAssignmentRepo.find({
-      where: { userId: colony.userId, crewId: In(crewIds) },
-    });
-    for (const assignment of assignments) {
-      assignment.colonyId = colony.id;
-      assignment.spacecraftId = null;
-      await this.crewAssignmentRepo.save(assignment);
-    }
-    await this.refreshColonyCrewCache(colony);
   }
 
   async enforceGlobalCrewLimit(userId: number): Promise<number> {

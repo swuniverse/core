@@ -102,12 +102,6 @@ export class ColonyShipBuildQueue {
   @Column({ type: 'jsonb', default: () => "'[]'" })
   moduleCommodityIds: number[];
 
-  @Column({ default: 0 })
-  crewAssigned: number;
-
-  @Column({ type: 'jsonb', default: () => "'[]'" })
-  crewIds: number[];
-
   @Column({ type: 'jsonb', nullable: true })
   repairSnapshot: ColonyShipRepairSnapshot | null;
 

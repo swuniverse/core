@@ -8,7 +8,6 @@ import {
   ColonyEventType,
 } from '../messaging/colony-event.types';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
-import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyStatsService } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
@@ -24,7 +23,6 @@ import {
 } from './entities/colony-crew-training-queue.entity';
 import {
   ColonyShipBuildQueue,
-  ColonyShipBuildQueueMode,
   ColonyShipBuildQueueStatus,
 } from './entities/colony-ship-build-queue.entity';
 import { Colony } from './entities/colony.entity';
@@ -41,7 +39,6 @@ export class BuildingFunctionHooksService {
     @InjectRepository(ColonyCrewTrainingQueue)
     private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
     private readonly gameData: GameDataService,
-    private readonly crewService: ColonyCrewService,
     private readonly eventService: ColonyEventService,
     private readonly storageService: ColonyStorageService,
     private readonly statsService: ColonyStatsService,
@@ -159,9 +156,6 @@ export class BuildingFunctionHooksService {
         this.isCompatible(shipClasses.get(job.shipClassId), activeFunctions)
       ) {
         continue;
-      }
-      if (!job.mode || job.mode === ColonyShipBuildQueueMode.BUILD) {
-        await this.crewService.returnCrewToColony(colony, job.crewIds ?? []);
       }
       job.status = ColonyShipBuildQueueStatus.CANCELLED;
       await this.queueRepo.save(job);

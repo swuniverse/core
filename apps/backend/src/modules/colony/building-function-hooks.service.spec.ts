@@ -52,9 +52,6 @@ function createService() {
     })),
     getCommodity: jest.fn(() => ({ name: 'Durastahl' })),
   };
-  const crewService = {
-    returnCrewToColony: jest.fn(async () => undefined),
-  };
   const eventService = {
     createActionEvent: jest.fn(async (value) => value),
   };
@@ -75,7 +72,6 @@ function createService() {
       fabricationQueueRepo as any,
       crewTrainingQueueRepo as any,
       gameData as any,
-      crewService as any,
       eventService as any,
       storageService as any,
       statsService as any,
@@ -84,7 +80,6 @@ function createService() {
     queueRepo,
     fabricationQueueRepo,
     crewTrainingQueueRepo,
-    crewService,
     eventService,
     storageService,
     defenseService,
@@ -107,7 +102,6 @@ const queue = (overrides = {}) => ({
   status: ColonyShipBuildQueueStatus.QUEUED,
   stoppedAt: null,
   finishesAt: new Date('2026-10-22T12:00:00Z'),
-  crewIds: [11, 12],
   ...overrides,
 });
 
@@ -219,8 +213,8 @@ describe('BuildingFunctionHooksService', () => {
     expect(defenseService.syncShieldCapacity).toHaveBeenCalledWith(shieldColony, 0);
   });
 
-  it('cancels open jobs when their shipyard is demolished and releases build crew', async () => {
-    const { service, queueRepo, crewService, eventService } = createService();
+  it('cancels open jobs when their shipyard is demolished', async () => {
+    const { service, queueRepo, eventService } = createService();
     const build = queue();
     const retrofit = queue({ id: 4, mode: ColonyShipBuildQueueMode.RETROFIT });
     queueRepo.find.mockResolvedValue([build, retrofit]);
@@ -233,10 +227,6 @@ describe('BuildingFunctionHooksService', () => {
 
     expect(build.status).toBe(ColonyShipBuildQueueStatus.CANCELLED);
     expect(retrofit.status).toBe(ColonyShipBuildQueueStatus.CANCELLED);
-    expect(crewService.returnCrewToColony).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 1 }),
-      [11, 12],
-    );
     expect(eventService.createActionEvent).toHaveBeenCalledTimes(2);
   });
 });

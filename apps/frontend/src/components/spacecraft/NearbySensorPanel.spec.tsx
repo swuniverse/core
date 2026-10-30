@@ -38,6 +38,7 @@ const nearby = {
       },
     },
   ],
+  escapePods: [],
   wrecks: [],
 };
 
@@ -66,6 +67,38 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('lists escape pods as passive targets without ship actions', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [],
+      escapePods: [
+        {
+          id: 5,
+          targetType: 'ESCAPE_POD',
+          originShipName: 'Falcon',
+          occupantCount: 4,
+          presentationKey: 'REBEL_ESCAPE_PODS',
+          displayName: 'Rettungskapseln der Rebellenallianz',
+          icon: 'ships/buoy/1.png',
+        },
+      ],
+    });
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(/Rettungskapseln der Rebellenallianz von Falcon/),
+    ).toBeTruthy();
+    expect(screen.getByText('4 Insassen')).toBeTruthy();
+    expect(screen.queryByTitle(/angreifen|übergeben|transferieren/)).toBeNull();
+  });
+
   it('opens the EPS transfer dialog and posts the amount', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

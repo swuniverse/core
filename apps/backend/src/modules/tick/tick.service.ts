@@ -37,6 +37,7 @@ import {
 import { UserSettingsReader } from '../settings/user-settings-reader';
 import { GameStatusService } from '../game-status/game-status.service';
 import { WreckDecayService } from './wreck-decay.service';
+import { EscapePodService } from '../spacecraft/escape-pod.service';
 
 type StartedTick = { tickState: GameTickState; shouldRun: boolean };
 type MainTickSchedule = '*' | number[];
@@ -77,6 +78,7 @@ export class TickService {
     private readonly userLockService?: UserLockService,
     private readonly gameStatusService?: GameStatusService,
     private readonly wreckDecayService?: WreckDecayService,
+    private readonly escapePodService?: EscapePodService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -272,6 +274,7 @@ export class TickService {
         }
       }
 
+      await this.escapePodService?.processTick();
       await this.wreckDecayService?.processTick();
       await this.flightSignatureService.deleteExpired();
       await this.dashboardService.recordSnapshot();

@@ -263,3 +263,4 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-T1d – Lesende Handelsseite /trade mit Tabs Warenkonten/Handelsposten, Posteninfo, Navigation und Kontobeständen als Warenortquelle umgesetzt – siehe Feature-Commit
 - col-A3b – Werft zieht Rumpf-EPS ab (`epsCost` je `stuRumpId`) und erlaubt je gewählter Werftfunktion einen BUILD-/RETROFIT-Auftrag (transaktional, Legacy-Aufträge ungebunden) – siehe Feature-Commit
 - sc-WP-ENG-1 – EPS-Transfer Schiff→Schiff (`POST :id/nearby/:targetId/eps-transfer`, Kosten 3:1, Kürzung, Systemnachricht an Fremde, NBS-Icon + Mengendialog) – siehe Feature-Commit
+- sc-WP-CREW-3a – Neutrale `EscapePod`-Entität, Crew-Ortsconstraint, Kapselstart bei Zerstörung/Lebenserhaltungsausfall, Tick-Landung, NBS-Eintrag; Baucrew-Reservierung entfernt – siehe Feature-Commit

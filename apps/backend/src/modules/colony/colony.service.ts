@@ -1068,21 +1068,13 @@ export class ColonyService {
     );
     deductColonyEnergy(colony, hangarDef.startEnergyCost);
     await this.colonyRepo.save(colony);
-    const crewIds = await this.colonyCrewService.reserveCrewForShipBuild(
-      colony,
-      crewRequired,
-    );
-    if (crewIds.length < crewRequired) {
-      throw new BadRequestException('Unable to reserve trained crew');
-    }
-
     const ship = await this.createShipFromClass(
       colony,
       userId,
       shipClass,
       name?.trim() || shipClass.name,
     );
-    ship.crew = crewRequired;
+    ship.crew = 0;
     ship.crewRequired = crewRequired;
     const savedShip = await this.shipRepo.save(ship);
     const installedModules = await this.createDefaultModulesForHangarShip(
@@ -1090,10 +1082,10 @@ export class ColonyService {
       hangarDef,
     );
     if (crewRequired > 0) {
-      await this.colonyCrewService.assignCrewToShip(
-        userId,
-        savedShip.id,
-        crewIds,
+      await this.colonyCrewService.transferCrewFromColonyToShip(
+        colony,
+        savedShip,
+        crewRequired,
       );
     }
     await this.colonyEventService.createActionEvent({

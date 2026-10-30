@@ -526,6 +526,7 @@ export class StarmapAdminService {
   private async deleteWorldState(manager: EntityManager): Promise<void> {
     await manager.query('DELETE FROM "colony_orbit_assignments"');
     await manager.query('DELETE FROM "crew_assignments"');
+    await manager.query('DELETE FROM "escape_pods"');
     await manager.query('DELETE FROM "spacecraft_torpedo_storage"');
     await manager.query('DELETE FROM "spacecraft_modules"');
     await manager.query('DELETE FROM "cargo_items"');
@@ -584,6 +585,39 @@ export class StarmapAdminService {
               SELECT id FROM "celestial_objects"
               WHERE "systemId" IN (SELECT id FROM "star_systems" WHERE "layerId" = $1)
             )`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "crew"
+         WHERE "id" IN (
+           SELECT "crewId" FROM "crew_assignments"
+           WHERE "escapePodId" IN (SELECT id FROM "escape_pods" WHERE "locationId" IN (
+           SELECT location.id
+           FROM "space_locations" location
+           LEFT JOIN "galaxy_fields" galaxy_field
+             ON galaxy_field.id = location."galaxyFieldId"
+           LEFT JOIN "system_fields" system_field
+             ON system_field.id = location."systemFieldId"
+           LEFT JOIN "star_systems" system
+             ON system.id = system_field."starSystemId"
+           WHERE galaxy_field."layerId" = $1 OR system."layerId" = $1
+         ))
+         )`,
+        [layerId],
+      );
+      await manager.query(
+        `DELETE FROM "escape_pods"
+         WHERE "locationId" IN (
+           SELECT location.id
+           FROM "space_locations" location
+           LEFT JOIN "galaxy_fields" galaxy_field
+             ON galaxy_field.id = location."galaxyFieldId"
+           LEFT JOIN "system_fields" system_field
+             ON system_field.id = location."systemFieldId"
+           LEFT JOIN "star_systems" system
+             ON system.id = system_field."starSystemId"
+           WHERE galaxy_field."layerId" = $1 OR system."layerId" = $1
+         )`,
         [layerId],
       );
       await manager.query(

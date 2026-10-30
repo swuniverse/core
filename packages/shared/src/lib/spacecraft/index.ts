@@ -634,10 +634,22 @@ export interface SpacecraftFieldContextDto {
   };
 }
 
+/** Neutral escape pod in the NBS; offers no regular ship actions. */
+export interface SpacecraftNearbyEscapePodDto {
+  id: number;
+  targetType: 'ESCAPE_POD';
+  originShipName: string;
+  occupantCount: number;
+  presentationKey: string;
+  displayName: string;
+  icon: string | null;
+}
+
 export interface SpacecraftNearbyDto {
   actionsAvailable: boolean;
   hyperdriveActive: boolean;
   ships: SpacecraftNearbyTargetDto[];
+  escapePods: SpacecraftNearbyEscapePodDto[];
   wrecks: Array<{
     id: number;
     hull: number;

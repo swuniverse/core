@@ -18,6 +18,8 @@ import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
+import { EscapePod } from './entities/escape-pod.entity';
+import { EscapePodService } from './escape-pod.service';
 import { CartographyPlan } from './entities/cartography-plan.entity';
 import { FlightSignature } from './entities/flight-signature.entity';
 import { SpacecraftRepairTask } from './entities/spacecraft-repair-task.entity';
@@ -93,6 +95,7 @@ import {
       CargoItem,
       SpacecraftTorpedoStorage,
       SpacecraftWreck,
+      EscapePod,
       CartographyPlan,
       FlightSignature,
       SpacecraftRepairTask,
@@ -137,6 +140,7 @@ import {
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    EscapePodService,
     ResearchRewardShipService,
     CrewEnhancementService,
     SpacecraftTorpedoService,
@@ -164,6 +168,7 @@ import {
     SpacecraftScanService,
     SpacecraftStatsService,
     SpacecraftCrewService,
+    EscapePodService,
     ResearchRewardShipService,
     CrewEnhancementService,
     SpacecraftTorpedoService,

@@ -26,6 +26,8 @@ import { GameDataService } from '../game-data/game-data.service';
 import { User } from '../auth/user.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import { CrewEnhancementEvent } from './crew-expertise';
+import { EscapePodService } from './escape-pod.service';
+import { EscapePodLaunchReason } from './entities/escape-pod.entity';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -45,12 +47,16 @@ export class SpacecraftDestructionService {
     private readonly crewEnhancement: CrewEnhancementService = {
       enhanceSpacecraft: async () => undefined,
     } as unknown as CrewEnhancementService,
+    private readonly escapePods: EscapePodService = {
+      launchForShip: async () => null,
+    } as unknown as EscapePodService,
   ) {}
 
   async selfDestruct(
     shipId: number,
     userId: number,
   ): Promise<SpacecraftSelfDestructResultDto> {
+    let evacuatedCrew = 0;
     const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId, userId },
@@ -73,8 +79,9 @@ export class SpacecraftDestructionService {
           'At least one assigned crew member is required to self-destruct',
         );
       }
-      await this.finalizeInManager(manager, ship, 'SELF_DESTRUCT');
-      await manager.remove(assignments);
+      evacuatedCrew = (
+        await this.finalizeInManager(manager, ship, 'SELF_DESTRUCT')
+      ).evacuatedCrew;
       return {
         spacecraftId: ship.id,
         status: 'DESTROYED' as const,
@@ -102,7 +109,7 @@ export class SpacecraftDestructionService {
       await this.messagingService.sendSystem(
         userId,
         'Schiff zerstört',
-        `Schiff #${shipId} wurde durch Selbstzerstörung vernichtet.`,
+        `Schiff #${shipId} wurde durch Selbstzerstörung vernichtet.${this.evacuationNote(evacuatedCrew)}`,
       );
     }
     return result;
@@ -142,7 +149,11 @@ export class SpacecraftDestructionService {
         destroyerUserId == null
           ? null
           : await manager.findOne(User, { where: { id: destroyerUserId } });
-      await this.finalizeInManager(manager, ship, 'COMBAT');
+      const { evacuatedCrew } = await this.finalizeInManager(
+        manager,
+        ship,
+        'COMBAT',
+      );
       if (destroyerUserId != null) {
         const destroyerShip = await manager.findOne(Spacecraft, {
           where: { userId: destroyerUserId },
@@ -164,7 +175,12 @@ export class SpacecraftDestructionService {
           manager,
         );
       }
-      return { ownerId: ship.userId, ship, destroyerName: destroyer?.username };
+      return {
+        ownerId: ship.userId,
+        ship,
+        destroyerName: destroyer?.username,
+        evacuatedCrew,
+      };
     });
     if (result) {
       await this.gameEvents.recordSpacecraft(
@@ -176,9 +192,15 @@ export class SpacecraftDestructionService {
       await this.messagingService.sendSystem(
         result.ownerId,
         'Schiff zerstört',
-        `Schiff #${shipId} wurde im Kampf zerstört.`,
+        `Schiff #${shipId} wurde im Kampf zerstört.${this.evacuationNote(result.evacuatedCrew)}`,
       );
     }
+  }
+
+  private evacuationNote(evacuatedCrew: number): string {
+    return evacuatedCrew > 0
+      ? ` ${evacuatedCrew} Crewmitglieder konnten sich in Rettungskapseln retten.`
+      : '';
   }
 
   private emitDestroyed(userId: number, shipId: number, detail: string): void {
@@ -196,8 +218,8 @@ export class SpacecraftDestructionService {
   async finalizeInManager(
     manager: EntityManager,
     ship: Spacecraft,
-    _reason: 'COMBAT' | 'SELF_DESTRUCT',
-  ): Promise<void> {
+    reason: 'COMBAT' | 'SELF_DESTRUCT',
+  ): Promise<{ evacuatedCrew: number }> {
     const [cargo, torpedoes, installedModules] = await Promise.all([
       manager.find(CargoItem, { where: { spacecraftId: ship.id } }),
       manager.find(SpacecraftTorpedoStorage, {
@@ -226,13 +248,21 @@ export class SpacecraftDestructionService {
         return item ? [{ commodityId: item.outputCommodityId, amount: 1 }] : [];
       });
     const location = ship.location ?? (await this.loadLocation(ship, manager));
+    // Crew moves into a pod, so the wreck must not count it a second time.
+    const evacuation = await this.escapePods.launchForShip(
+      manager,
+      ship,
+      reason === 'COMBAT'
+        ? EscapePodLaunchReason.COMBAT_DESTRUCTION
+        : EscapePodLaunchReason.SELF_DESTRUCTION,
+    );
     await manager.save(
       manager.create(SpacecraftWreck, {
         formerShipClassId: ship.shipClassId,
         locationId: ship.locationId,
         location,
         hull: Math.ceil(ship.hullMax / 20),
-        crewCount: ship.crew,
+        crewCount: 0,
         cargo: cargo.map((item) => ({
           commodityId: item.commodityId,
           amount: item.amount,
@@ -266,7 +296,7 @@ export class SpacecraftDestructionService {
       await manager.save(distress);
     }
     await manager.remove(ship);
-    void _reason;
+    return { evacuatedCrew: evacuation?.crewCount ?? 0 };
   }
 
   private async loadLocation(

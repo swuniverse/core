@@ -55,24 +55,6 @@ function createService() {
 }
 
 describe('SpacecraftCrewService', () => {
-  it('evacuates all spacecraft crew and synchronizes the crew cache', async () => {
-    const { service, crewAssignmentRepo, crewRepo, shipRepo } = createService();
-    crewAssignmentRepo.find.mockResolvedValue([
-      { crewId: 11, spacecraftId: 7 },
-      { crewId: 12, spacecraftId: 7 },
-    ] as never);
-    const ship = { id: 7, crew: 2 } as any;
-
-    await expect(service.evacuateSpacecraft(ship)).resolves.toBe(2);
-
-    expect(crewAssignmentRepo.delete.mock.calls.map(([where]) => where)).toEqual([
-      { crewId: 11 },
-      { crewId: 12 },
-    ]);
-    expect(crewRepo.delete).toHaveBeenCalledTimes(2);
-    expect(shipRepo.save).toHaveBeenCalledWith(expect.objectContaining({ crew: 0 }));
-  });
-
   it('checks assigned crew count against required ship class crew', async () => {
     const { service, crewAssignmentRepo } = createService();
     crewAssignmentRepo.count.mockResolvedValue(1);

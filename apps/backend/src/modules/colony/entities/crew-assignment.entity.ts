@@ -5,6 +5,7 @@ import {
   OneToOne,
   JoinColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { Crew, CrewType } from './crew.entity';
 
@@ -12,6 +13,11 @@ import { Crew, CrewType } from './crew.entity';
 @Index(['userId'])
 @Index(['colonyId'])
 @Index(['spacecraftId'])
+@Index(['escapePodId'])
+@Check(
+  'CHK_crew_assignments_single_location',
+  `num_nonnulls("colonyId", "spacecraftId", "escapePodId") = 1`,
+)
 export class CrewAssignment {
   @PrimaryColumn()
   crewId!: number;
@@ -28,6 +34,10 @@ export class CrewAssignment {
 
   @Column({ type: 'int', nullable: true })
   spacecraftId!: number | null;
+
+  /** Neutral escape pod holding the crew member; mutually exclusive with colony and ship. */
+  @Column({ type: 'int', nullable: true })
+  escapePodId!: number | null;
 
   @Column({ type: 'varchar', nullable: true })
   slot!: CrewType | null;

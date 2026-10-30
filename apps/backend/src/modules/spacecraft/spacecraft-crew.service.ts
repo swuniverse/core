@@ -219,20 +219,6 @@ export class SpacecraftCrewService {
     return required <= 0 || assigned >= required;
   }
 
-  async evacuateSpacecraft(ship: Spacecraft): Promise<number> {
-    const assignments = await this.crewAssignmentRepo.find({
-      where: { spacecraftId: ship.id },
-      order: { crewId: 'ASC' },
-    });
-    for (const assignment of assignments) {
-      await this.crewAssignmentRepo.delete({ crewId: assignment.crewId });
-      await this.crewRepo.delete({ id: assignment.crewId });
-    }
-    ship.crew = 0;
-    await this.shipRepo.save(ship);
-    return assignments.length;
-  }
-
   async syncCrewCache(ship: Spacecraft): Promise<Spacecraft> {
     ship.crew = await this.getAssignedCrewCount(ship.id);
     return this.shipRepo.save(ship);

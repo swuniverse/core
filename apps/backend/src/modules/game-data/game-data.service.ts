@@ -441,6 +441,14 @@ export interface ShipyardRumpSpecialDef {
   fullyLoadedStart: boolean;
 }
 
+/** Presentation-only data for neutral escape pods; not a ship class. */
+export interface EscapePodPresentationDef {
+  key: string;
+  faction: Faction;
+  displayName: string;
+  icon: string;
+}
+
 export interface ShipClassYamlDef {
   key: string;
   name: string;
@@ -550,6 +558,8 @@ export class GameDataService implements OnModuleInit {
   private hangarShipDefsByClassKey: Map<string, HangarShipDef> = new Map();
   private hangarShipDefsByCommodity: Map<number, HangarShipDef> = new Map();
   private shipClassDefs: ShipClassYamlDef[] = [];
+  private escapePodPresentations: Map<string, EscapePodPresentationDef> =
+    new Map();
   private moduleStatsByOutputCommodity: Map<number, ShipyardModuleStatsDef> =
     new Map();
   private rumpStatsByStuRumpId: Map<number, ShipyardRumpStatsDef> = new Map();
@@ -592,6 +602,7 @@ export class GameDataService implements OnModuleInit {
     this.loadTorpedoTypes();
     this.loadShipClasses();
     this.loadHangarShipDefs();
+    this.loadEscapePodPresentations();
     this.loadTechTree();
     this.loadColonyClasses();
     this.loadSwuLetterResources();
@@ -1029,6 +1040,15 @@ export class GameDataService implements OnModuleInit {
     }
   }
 
+  private loadEscapePodPresentations() {
+    const data = this.loadYaml<{
+      escapePodPresentations: EscapePodPresentationDef[];
+    }>('ship-building/escape-pod-presentations.yaml');
+    for (const def of data?.escapePodPresentations ?? []) {
+      this.escapePodPresentations.set(def.key, def);
+    }
+  }
+
   private loadHangarShipDefs() {
     const data = this.loadYaml<{ hangarShips: HangarShipDef[] }>(
       'ship-building/ship-class-hangar.yaml',
@@ -1432,6 +1452,19 @@ export class GameDataService implements OnModuleInit {
 
   getAllTorpedoTypes(): TorpedoTypeDef[] {
     return Array.from(this.torpedoTypes.values());
+  }
+
+  getEscapePodPresentation(key: string): EscapePodPresentationDef | undefined {
+    return this.escapePodPresentations.get(key);
+  }
+
+  getEscapePodPresentationForFaction(
+    faction: Faction | string | null | undefined,
+  ): EscapePodPresentationDef | undefined {
+    for (const def of this.escapePodPresentations.values()) {
+      if (def.faction === faction) return def;
+    }
+    return undefined;
   }
 
   getHangarShipDef(shipClassKey: string): HangarShipDef | undefined {

@@ -1035,8 +1035,6 @@ export class ColonyProjectionService {
             moduleSelections: job.moduleSelections,
             moduleTypes: job.moduleTypes,
             moduleCommodityIds: job.moduleCommodityIds,
-            crewAssigned: job.crewAssigned,
-            crewIds: job.crewIds,
             repairSnapshot: job.repairSnapshot,
             retrofitSnapshot: job.retrofitSnapshot,
             moduleNames: this.moduleSelectionNames(job.moduleSelections ?? []),

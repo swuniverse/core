@@ -16,6 +16,10 @@ jest.mock('./entities/spacecraft-module.entity', () => ({
 }));
 jest.mock('./entities/fleet.entity', () => ({ Fleet: class Fleet {} }));
 
+jest.mock('./escape-pod.service', () => ({
+  EscapePodService: class EscapePodService {},
+}));
+
 import { BadRequestException } from '@nestjs/common';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 
@@ -78,6 +82,11 @@ function setup(
   const gameEvents = { recordSpacecraft: jest.fn(async () => undefined) };
   const destroyer = { id: 9, username: 'Sieger' };
   const prestige = { change: jest.fn(async () => undefined) };
+  const escapePods = {
+    launchForShip: jest.fn(async (_manager: unknown, value: any) =>
+      value.crew > 0 ? { podId: 3, crewCount: value.crew } : null,
+    ),
+  };
   const gameData = {
     getAllFabricationItems: jest.fn(() => [
       {
@@ -105,7 +114,10 @@ function setup(
       gameEvents as any,
       prestige as any,
       gameData as any,
+      undefined,
+      escapePods as any,
     ),
+    escapePods,
     ship,
     distress,
     manager,
@@ -118,7 +130,8 @@ function setup(
 
 describe('SpacecraftDestructionService', () => {
   it('replaces a crewed ship with a wreck at its current field', async () => {
-    const { service, ship, distress, manager } = setup();
+    const { service, ship, distress, manager, escapePods, messaging } =
+      setup();
     const result = await service.selfDestruct(2, 1);
     expect(result).toEqual({
       spacecraftId: 2,
@@ -133,14 +146,24 @@ describe('SpacecraftDestructionService', () => {
     });
     expect(ship.runtimeSystems.SHIELDS.active).toBe(false);
     expect(distress.active).toBe(false);
-    expect(manager.remove).toHaveBeenCalledWith([{ crewId: 9 }]);
+    expect(escapePods.launchForShip).toHaveBeenCalledWith(
+      manager,
+      ship,
+      'SELF_DESTRUCTION',
+    );
+    expect(manager.remove).not.toHaveBeenCalledWith([{ crewId: 9 }]);
+    expect(messaging.sendSystem).toHaveBeenCalledWith(
+      1,
+      'Schiff zerstört',
+      expect.stringContaining('1 Crewmitglieder konnten sich in Rettungskapseln retten'),
+    );
     expect(manager.save).toHaveBeenCalledWith(
       expect.objectContaining({
         formerShipClassId: 7,
         locationId: 42,
         location: ship.location,
         hull: 5,
-        crewCount: 1,
+        crewCount: 0,
       }),
     );
     expect(manager.remove).toHaveBeenCalledWith(ship);
@@ -250,7 +273,7 @@ describe('SpacecraftDestructionService', () => {
       spacecraftId: 2,
       status: 'DESTROYED',
     });
-    expect(manager.remove).toHaveBeenCalledWith([]);
+    expect(manager.remove).not.toHaveBeenCalledWith([]);
   });
 
   it('preserves the canonical location on the wreck', async () => {

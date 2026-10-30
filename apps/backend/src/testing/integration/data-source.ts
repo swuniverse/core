@@ -31,6 +31,7 @@ import { Spacecraft } from '../../modules/spacecraft/entities/spacecraft.entity'
 import { CargoItem } from '../../modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from '../../modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftModule } from '../../modules/spacecraft/entities/spacecraft-module.entity';
+import { EscapePod } from '../../modules/spacecraft/entities/escape-pod.entity';
 import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
 import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.entity';
 import { Colony } from '../../modules/colony/entities/colony.entity';
@@ -82,6 +83,7 @@ export const INTEGRATION_ENTITIES = [
   SpacecraftTorpedoStorage,
   SpacecraftModule,
   Fleet,
+  EscapePod,
   ShipClassDef,
   Colony,
   ColonyField,

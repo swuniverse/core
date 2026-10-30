@@ -24,7 +24,6 @@ import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
-import { ColonyCrewService } from './colony-crew.service';
 import { ColonyEventService } from '../messaging/colony-event.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { MessagingService } from '../messaging/messaging.service';
@@ -94,7 +93,6 @@ export class ColonyShipyardService {
     private readonly locationRepo: Repository<SpaceLocation>,
     private readonly gameData: GameDataService,
     private readonly colonyOwnershipService: ColonyOwnershipService,
-    private readonly colonyCrewService: ColonyCrewService,
     private readonly colonyStorageService: ColonyStorageService,
     private readonly colonyStatsService: ColonyStatsService,
     private readonly colonyOrbitService: ColonyOrbitService,
@@ -709,8 +707,6 @@ export class ColonyShipyardService {
       moduleSelections: [],
       moduleTypes: [],
       moduleCommodityIds: [],
-      crewAssigned: 0,
-      crewIds: [],
       repairSnapshot: {
         hullBefore: ship.hull,
         hullAfter: ship.hullMax,
@@ -857,8 +853,6 @@ export class ColonyShipyardService {
       moduleSelections: selectedModuleSelections,
       moduleTypes: selectedModuleTypes,
       moduleCommodityIds: selectedModuleCommodityIds,
-      crewAssigned: 0,
-      crewIds: [],
       repairSnapshot: null,
       retrofitSnapshot: {
         oldModuleSelections,
@@ -910,13 +904,6 @@ export class ColonyShipyardService {
     ) {
       throw new BadRequestException(
         'Only queued shipyard jobs can be cancelled',
-      );
-    }
-
-    if (!queue.mode || queue.mode === ColonyShipBuildQueueMode.BUILD) {
-      await this.colonyCrewService.returnCrewToColony(
-        colony,
-        queue.crewIds ?? [],
       );
     }
 
@@ -1131,18 +1118,8 @@ export class ColonyShipyardService {
       selectedModuleSelections,
     );
 
-    const crewRequired = this.assertCrewWithinHullMaximum(
-      shipClass,
-      selectedModuleSelections,
-    );
-    const availableCrew = await this.colonyCrewService.getAvailableColonyCrew(
-      colony.id,
-    );
-    if (availableCrew.length < crewRequired) {
-      throw new BadRequestException(
-        `Not enough trained crew: need ${crewRequired}, have ${availableCrew.length}`,
-      );
-    }
+    // The queue only describes the crew demand; the finished ship is unmanned.
+    this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
 
     await this.assertModuleCommoditiesAvailable(
       colony,
@@ -1190,14 +1167,6 @@ export class ColonyShipyardService {
             manager,
           );
         }
-        const crewIds = await this.colonyCrewService.reserveCrewForShipBuild(
-          colony,
-          crewRequired,
-          manager,
-        );
-        if (crewIds.length < crewRequired) {
-          throw new BadRequestException('Unable to reserve trained crew');
-        }
         const queue = this.shipBuildQueueRepo.create({
           colonyId: colony.id,
           userId,
@@ -1210,8 +1179,6 @@ export class ColonyShipyardService {
           moduleSelections: selectedModuleSelections,
           moduleTypes: selectedModuleTypes,
           moduleCommodityIds: selectedModuleCommodityIds,
-          crewAssigned: crewRequired,
-          crewIds,
           finishesAt,
           mode: ColonyShipBuildQueueMode.BUILD,
           spacecraftId: null,
@@ -1687,14 +1654,6 @@ export class ColonyShipyardService {
     ship.buildPlanId = job.buildPlanId;
     const savedShip = await this.shipRepo.save(ship);
     const modules = await this.createModulesForBuiltShip(savedShip.id, job);
-    if ((job.crewAssigned ?? 0) > 0) {
-      savedShip.crew = job.crewAssigned;
-      await this.colonyCrewService.assignCrewToShip(
-        job.userId,
-        savedShip.id,
-        job.crewIds ?? [],
-      );
-    }
     this.spacecraftStatsService.applyStats(savedShip, shipClass, modules);
     savedShip.crewRequired = this.calculateCrewRequired(
       shipClass,
@@ -1988,7 +1947,7 @@ export class ColonyShipyardService {
       energy: shipClass.epsBase,
       energyMax: shipClass.epsBase,
       warpSpeed: shipClass.warpdriveBase,
-      crew: shipClass.crewMin,
+      crew: 0,
       crewMax: shipClass.crewMax,
       cargoUsed: 0,
       cargoMax: shipClass.cargoCapacity,

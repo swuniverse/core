@@ -64,6 +64,7 @@ import { CargoItem } from './modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './modules/spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './modules/spacecraft/entities/spacecraft-wreck.entity';
+import { EscapePod } from './modules/spacecraft/entities/escape-pod.entity';
 import { CartographyPlan } from './modules/spacecraft/entities/cartography-plan.entity';
 import { FlightSignature } from './modules/spacecraft/entities/flight-signature.entity';
 import { SpacecraftRepairTask } from './modules/spacecraft/entities/spacecraft-repair-task.entity';
@@ -191,6 +192,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           SpacecraftModuleEntity,
           SpacecraftTorpedoStorage,
           SpacecraftWreck,
+          EscapePod,
           CartographyPlan,
           FlightSignature,
           SpacecraftRepairTask,
