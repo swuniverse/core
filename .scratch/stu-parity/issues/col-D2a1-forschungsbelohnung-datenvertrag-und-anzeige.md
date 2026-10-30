@@ -1,6 +1,6 @@
 # Forschungsbelohnung: Datenvertrag und Anzeige
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** col-D1
@@ -25,12 +25,16 @@ Forschungsdaten können optional eine vollständig konfigurierte Schiffbelohnung
 
 ## Akzeptanzkriterien
 
-- [ ] Forschungsdaten können optional eine Belohnung aus Fraktion, SWU-Tech-ID, `shipClassKey` und vollständigen `moduleSelections` definieren.
-- [ ] Schema und Import validieren, dass eine vorhandene Belohnung vollständig ist; fehlendes Mapping bedeutet ausdrücklich keine Belohnung.
-- [ ] Alle produktiven Forschungsdaten bleiben zunächst ohne Belohnungsmapping; aus Freischaltungen oder anderen Indizien wird nichts abgeleitet.
-- [ ] Das Forschungsdetail zeigt „Belohnung: <Schiffsklasse>“ ausschließlich bei konfiguriertem Mapping.
-- [ ] Game-Data- und Frontend-Tests decken vorhandene, fehlende und unvollständige Belohnungen ab.
+- [x] Forschungsdaten können optional eine Belohnung aus Fraktion, SWU-Tech-ID, `shipClassKey` und vollständigen `moduleSelections` definieren.
+- [x] Schema und Import validieren, dass eine vorhandene Belohnung vollständig ist; fehlendes Mapping bedeutet ausdrücklich keine Belohnung.
+- [x] Alle produktiven Forschungsdaten bleiben zunächst ohne Belohnungsmapping; aus Freischaltungen oder anderen Indizien wird nichts abgeleitet.
+- [x] Das Forschungsdetail zeigt „Belohnung: <Schiffsklasse>“ ausschließlich bei konfiguriertem Mapping.
+- [x] Game-Data- und Frontend-Tests decken vorhandene, fehlende und unvollständige Belohnungen ab.
 
 ## Entscheidung
 
 Der Vertrag wird optional und datengetrieben. Produktive Zuordnungen benötigen eine separat bestätigte Tabelle aus Fraktion, SWU-Tech-ID, Schiffsklasse und vollständiger Modulkonfiguration.
+
+## Comments
+
+Optional `shipReward` (faction, techId, shipClassKey, complete moduleSelections) added to `TechDef`; `GameDataService.validateShipReward` rejects incomplete rewards at load (unknown class, missing/unknown slots, faction/techId mismatch). Research state exposes `shipReward {shipClassKey,name}`; `TechDetailModal` shows "Belohnung: <Klasse>" only when mapped. No productive mappings added. The import script does not emit rewards, so validation lives in the loader (tested). Follow-ups: col-D2a2..4.
