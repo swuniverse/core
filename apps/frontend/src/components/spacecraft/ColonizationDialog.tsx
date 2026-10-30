@@ -420,7 +420,22 @@ export function ColonizationDialog({
                   type="button"
                   disabled={!field.selectable}
                   onClick={() => setFieldIndex(field.fieldIndex)}
-                  className={`aspect-square border text-[9px] ${field.selectable ? 'bg-swu-surface hover:border-swu-accent' : 'bg-black/40 opacity-50'} ${fieldIndex === field.fieldIndex ? 'ring-2 ring-swu-accent' : ''}`}
+                  className={`aspect-square border bg-cover bg-center text-[9px] ${
+                    typeof field.terrainTileId === 'string'
+                      ? field.selectable
+                        ? 'border-swu-accent/60 hover:border-swu-accent'
+                        : 'border-transparent opacity-70'
+                      : field.selectable
+                        ? 'bg-swu-surface hover:border-swu-accent'
+                        : 'bg-black/40 opacity-50'
+                  } ${fieldIndex === field.fieldIndex ? 'ring-2 ring-swu-accent' : ''}`}
+                  style={
+                    typeof field.terrainTileId === 'string'
+                      ? {
+                          backgroundImage: `url(${colonyFieldTileImage(field.terrainTileId)})`,
+                        }
+                      : undefined
+                  }
                   title={`Feld ${field.fieldIndex}`}
                 >
                   {field.selectable ? field.fieldIndex : ''}
