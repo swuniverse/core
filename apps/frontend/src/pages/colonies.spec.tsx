@@ -238,6 +238,7 @@ function createAirfieldColony(active: boolean): Colony {
   };
   detail.hangar = {
     hasAirfield: active,
+    hasFighterShipyard: false,
     inventory: [],
     buildable: [],
     startable: [],

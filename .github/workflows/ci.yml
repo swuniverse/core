@@ -47,6 +47,10 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - run: npm ci
+
+      # Runs before build on purpose: typecheck must work from a clean checkout.
+      - run: npx nx run-many --target=typecheck --all
+
       - run: npx nx run-many --target=build --all
 
       - run: npx nx run-many --target=lint --all

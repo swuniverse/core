@@ -21,6 +21,7 @@ import { api } from '../services/api';
 import type {
   CommodityLocationsOverviewDto,
   CommodityOverviewEntryDto,
+  Faction,
 } from '@swuniverse/shared';
 
 type TradePostEntry = {
@@ -78,7 +79,7 @@ type NpcAdminEntry = {
   username: string;
   displayName: string | null;
   avatar: string | null;
-  faction: 'REBEL' | 'EMPIRE' | null;
+  faction: Faction | null;
   factionName: string | null;
 };
 type NpcsAndAdmins = {
