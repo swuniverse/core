@@ -1,6 +1,6 @@
 # Reparatur an Stationen (Schiffe und Station selbst)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-STAT-3a, col-A5
