@@ -1,6 +1,6 @@
 # Kontolöschung: Handler für Konto, Kommunikation und Allianz
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-05a
@@ -34,3 +34,5 @@ Die Lösch-Handler für alle konto- und kommunikationsbezogenen Daten werden am 
 - [ ] Integrationstest (Postgres): Spieler mit Nachrichten in beide Richtungen, HoloNet-Beitrag, Allianzmitgliedschaft und Einstellungen wird gelöscht; andere Spieler sehen die Inhalte mit „Gelöschter Siedler“; keine FK-Fehler.
 
 ## Comments
+
+- 2026-10-30: Abbruch nach zwei Prüfversuchen. Die fokussierten Account-/Messaging-/HoloNet-Tests waren grün (22 Tests), aber die verpflichtenden Gates sind in der vorhandenen Arbeitskopie fachfremd rot: Backend-Typecheck/Build scheitern an fehlendem `dotenv` sowie zahlreichen stale TS6305-Buildartefakten; der Frontend-Build findet `pixi.js` nicht. Bitte die Dependency-/Build-Baseline wiederherstellen oder bestätigen, welche bestehende Baseline-Ausnahme für diesen Durchlauf gilt. Produktcode wurde gemäß Abbruchregel verworfen.
