@@ -1,6 +1,6 @@
 # Modul- und Torpedofertigung nach STU-Regeln
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-A1b
@@ -43,3 +43,4 @@ Vorgabe: Variante (b), STU-Modell. EPS-Kosten je Stück, Kürzung der Menge auf 
 - 2026-10-22 Agent: Blocker: Die verbindlichen STU-`ecost`-Werte für die 172 Moduldatensätze sind weder in `stu-fabrication.yaml` noch in den genannten Laufzeitquellen enthalten; dort werden sie nur aus `module_building_function.modificator * module.level` berechnet. Für eine verlustfreie Migration laufender Altaufträge fehlt außerdem die historische, bereits abgezogene EPS-Menge in der Queue. Bitte festlegen, (1) aus welcher konkreten STU-Datenquelle/Zuordnung die Modifikatoren für die SWU-Funktions-IDs 10–18 übernommen werden sollen und (2) ob bestehende Queuezeilen ohne gespeicherte EPS-Kosten mit berechneten aktuellen Kosten weitergeführt, ohne zusätzliche EPS migriert oder erstattet werden sollen.
 
 - 2026-10-21 Product Owner: Option b – Modul- und Torpedofertigung folgen dem STU-Modell: EPS-Kosten je Stück, Kürzung auf EPS/Lager, Aufstocken, Teilabbruch mit 100 % Erstattung, Modulfertigstellung im nächsten Kolonie-Tick und Torpedos sofort.
+- 2026-10-30 Product Owner: Option 1. Die Detailentscheidung aus `map.md` gilt: Die im STU-Dump hinterlegten Funktionsmodifikatoren werden auf die SWU-Funktions-IDs 10–18 abgebildet. Bestehende Legacy-Mengen werden ohne rückwirkende EPS-Belastung oder Erstattung übernommen; nur spätere Aufstockungen zahlen die neuen EPS-Kosten. Damit sind Datenquelle und Migration festgelegt; das Issue ist `ready-for-agent`.
