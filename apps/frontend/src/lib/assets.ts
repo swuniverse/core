@@ -102,7 +102,28 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
   REBEL_FREIGHTER_GR75: 'gr75-medium-transport.png',
   EMPIRE_COLONIZER_SENTINEL: 'sentinel-class-landing-craft.png',
   EMPIRE_FREIGHTER_GOZANTI: 'gozanti-class-cruiser.png',
+  REBEL_FIGHTER_X_WING: 'x-wing.png',
+  REBEL_FIGHTER_A_WING: 'a-wing.png',
+  REBEL_SHUTTLE_U_WING: 'u-wing.png',
+  EMPIRE_FIGHTER_TIE_LN: 'tie-ln.png',
+  EMPIRE_FIGHTER_TIE_INTERCEPTOR: 'tie-interceptor.png',
 };
+
+/** Top-down graphic drawn on the overview map in place of the position marker. */
+const SHIP_CLASS_KEY_CURSOR_FILES: Record<string, string> = {
+  REBEL_FIGHTER_X_WING: 'x-wing-cursor.png',
+  REBEL_FIGHTER_A_WING: 'a-wing-cursor.png',
+  REBEL_SHUTTLE_U_WING: 'u-wing-cursor.png',
+  EMPIRE_FIGHTER_TIE_LN: 'tie-ln-cursor.png',
+  EMPIRE_FIGHTER_TIE_INTERCEPTOR: 'tie-interceptor-cursor.png',
+};
+
+export function shipCursorImage(shipClassKey?: string | null): string | null {
+  const file = shipClassKey
+    ? SHIP_CLASS_KEY_CURSOR_FILES[shipClassKey]
+    : undefined;
+  return file ? `${ASSET_BASE}/ships/${file}` : null;
+}
 
 export function shipImage(
   shipClassId: number,

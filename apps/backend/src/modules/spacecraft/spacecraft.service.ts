@@ -1281,6 +1281,11 @@ export class SpacecraftService {
       where: { spacecraftId: ship.id },
     });
 
+    const flagshipClassKey = await this.resolveFlagshipClassKey(
+      ship,
+      shipClass?.key ?? null,
+    );
+
     return Object.assign(ship, {
       shipClassName: shipClass?.name || `Class ${ship.shipClassId}`,
       shipClassKey: shipClass?.key || null,
@@ -1294,7 +1299,25 @@ export class SpacecraftService {
         'Deep Space',
       moduleCount,
       fleetName: ship.fleet?.name || null,
+      fleetFlagshipClassKey: flagshipClassKey,
     });
+  }
+
+  /** Class key of the fleet's flagship (the leader); null when not in a fleet. */
+  private async resolveFlagshipClassKey(
+    ship: Spacecraft,
+    ownClassKey: string | null,
+  ): Promise<string | null> {
+    if (!ship.fleet) return null;
+    if (ship.fleet.leaderId === ship.id) return ownClassKey;
+    const leader = await this.shipRepo.findOne({
+      where: { id: ship.fleet.leaderId },
+      select: { id: true, shipClassId: true },
+    });
+    if (!leader) return null;
+    return (
+      (await this.shipClassService.findById(leader.shipClassId))?.key ?? null
+    );
   }
 
   private async toShipDetail(ship: Spacecraft): Promise<Spacecraft> {
@@ -2204,10 +2227,7 @@ export class SpacecraftService {
     if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
       throw new BadRequestException('Ship is destroyed');
     }
-    await this.statisticsService.countEvent(
-      FLOWN_FIELDS_EVENT,
-      galaxyDistance,
-    );
+    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, galaxyDistance);
     return ship;
   }
 

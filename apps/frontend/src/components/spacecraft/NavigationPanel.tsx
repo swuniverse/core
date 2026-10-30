@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CartographyPlanDto, SpaceLocationDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { shipCursorImage } from '../../lib/assets';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
 import type { LocalMapResponse } from './LssMap';
@@ -8,6 +9,8 @@ import type { LocalMapResponse } from './LssMap';
 interface Ship {
   id: number;
   name: string;
+  shipClassKey?: string | null;
+  fleetFlagshipClassKey?: string | null;
   status: string;
   energy: number;
   energyMax: number;
@@ -48,6 +51,25 @@ export function NavigationPanel({
     ship.location.scope === 'SYSTEM'
       ? ship.location.systemId
       : ship.location.layerId;
+  // The cursor graphic faces right; turn it towards the last move.
+  const lastPosition = useRef<{ scope: string; x: number; y: number } | null>(
+    null,
+  );
+  const [heading, setHeading] = useState(0);
+  useEffect(() => {
+    const scope = `${inSystem ? 'system' : 'galaxy'}:${locationId ?? ''}`;
+    const previous = lastPosition.current;
+    if (
+      previous &&
+      previous.scope === scope &&
+      (previous.x !== shipX || previous.y !== shipY)
+    ) {
+      setHeading(
+        (Math.atan2(shipY - previous.y, shipX - previous.x) * 180) / Math.PI,
+      );
+    }
+    lastPosition.current = { scope, x: shipX, y: shipY };
+  }, [inSystem, locationId, shipX, shipY]);
   const navigationLocationKey = `${inSystem ? 'system' : 'galaxy'}:${locationId ?? ''}:${shipX}:${shipY}`;
 
   const fetchLocalMap = useCallback(async () => {
@@ -303,6 +325,10 @@ export function NavigationPanel({
             localMap={localMap}
             navTarget={navTarget}
             cartographyPoints={cartographyPoints}
+            shipCursorUrl={shipCursorImage(
+              ship.fleetFlagshipClassKey ?? ship.shipClassKey,
+            )}
+            shipHeading={heading}
             onFieldClick={handleFieldClick}
           />
 

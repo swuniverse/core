@@ -192,6 +192,8 @@ export interface SpacecraftDetailDto {
   moduleCount?: number;
   moduleCategories?: string[];
   fleetName?: string | null;
+  /** Class key of the fleet's flagship; drives the map cursor of all members. */
+  fleetFlagshipClassKey?: string | null;
   starSystem?: { id: number; name: string } | null;
   celestialObject?: { id: number; name: string | null } | null;
   isColonizer?: boolean;
