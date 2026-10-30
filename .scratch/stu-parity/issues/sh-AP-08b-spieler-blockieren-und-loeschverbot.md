@@ -1,6 +1,6 @@
 # Admin: Spieler blockieren und Löschverbot setzen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-08a, sh-AP-05a
