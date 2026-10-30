@@ -1,6 +1,6 @@
 # Handelslizenzen: transaktionaler Kauf
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-T2a
@@ -36,3 +36,7 @@ Ein Spieler kauft eine Handelslizenz am Posten atomar aus dem Frachtraum eines e
 ## Entscheidung
 
 SWU übernimmt das STU-Zahlungsmodell, korrigiert aber fehlende Autorisierungen, unbezahlte Erfolgswege und nicht-atomare Buchungen.
+
+## Comments
+
+Abbruch am verpflichtenden Prüf-Gate: Die fokussierten Handelslizenztests und alle Builds sind grün, aber `npx nx affected -t lint typecheck test --base=HEAD` scheitert auch nach zwei Läufen an fachfremden bestehenden Spacecraft-Tests (`spacecraft-core-controls.spec.ts`: `shipRepo.findOneBy is not a function`; `spacecraft-fleet.service.spec.ts`: `socket failed`). Der Produktcode wurde gemäß Abbruchregel verworfen. Bitte die Testbaseline reparieren oder eine explizite Baseline-Ausnahme für diese beiden Fehler bestätigen.
