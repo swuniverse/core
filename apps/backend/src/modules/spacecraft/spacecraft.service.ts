@@ -3485,14 +3485,18 @@ export class SpacecraftService {
             this.spacecraftRuntimeStateService.initialize(target);
           const targetHyperdriveActive =
             targetSystems.WARPDRIVE?.active === true;
+          const targetOnVacation =
+            target.user != null && isVacationEffective(target.user);
           const interactionContext = buildNearbyInteractionContext(
             ship,
             systems,
             target,
             targetSystems,
+            targetOnVacation,
           );
-          const interactionAllowed = (interaction: NearbyInteraction) =>
-            decideNearbyInteraction(interaction, interactionContext).allowed;
+          const interactionDecision = (interaction: NearbyInteraction) =>
+            decideNearbyInteraction(interaction, interactionContext);
+          const attackDecision = interactionDecision('ATTACK');
           return {
             id: target.id,
             name: target.name,
@@ -3521,22 +3525,26 @@ export class SpacecraftService {
                 dockableStationIds.has(target.id) &&
                 ship.kind === 'SHIP' &&
                 ship.dockedAtId == null &&
-                interactionAllowed('DOCK'),
+                interactionDecision('DOCK').allowed,
               attack:
-                interactionAllowed('ATTACK') &&
-                systems.WEAPONS?.active === true,
-              scan: interactionAllowed('SCAN'),
+                attackDecision.allowed && systems.WEAPONS?.active === true,
+              attackReason:
+                targetOnVacation && !attackDecision.allowed
+                  ? attackDecision.reason
+                  : null,
+              scan: interactionDecision('SCAN').allowed,
               intercept:
-                interactionAllowed('INTERCEPT') &&
+                interactionDecision('INTERCEPT').allowed &&
                 location.scope === 'GALAXY' &&
                 resolveSpacecraftLocation(target)?.scope === 'GALAXY' &&
                 targetHyperdriveActive &&
                 ship.status === SpacecraftStatus.IDLE &&
                 (systems.WARPDRIVE?.integrity ?? 0) > 0,
               contact:
-                target.userId !== ship.userId && interactionAllowed('CONTACT'),
-              transfer: interactionAllowed('TRANSFER'),
-              energyTransfer: interactionAllowed('TRANSFER'),
+                target.userId !== ship.userId &&
+                interactionDecision('CONTACT').allowed,
+              transfer: interactionDecision('TRANSFER').allowed,
+              energyTransfer: interactionDecision('TRANSFER').allowed,
               tractor:
                 target.kind === 'SHIP' &&
                 target.user != null &&

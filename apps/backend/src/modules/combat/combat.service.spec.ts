@@ -116,7 +116,11 @@ function createService() {
     }),
   };
   const interactionContext = {
-    load: jest.fn(async () => ({ targetOnVacation: false })),
+    load: jest.fn(async () => ({
+      targetOnVacation: false,
+      sourceCloaked: false,
+      targetCloaked: false,
+    })),
   };
   const battleResolver = new BattleResolverService(
     moduleRepo as any,
@@ -203,6 +207,33 @@ describe('CombatService attackColony', () => {
       shieldFrequency: null,
       torpedoTypeId: null,
     },
+  });
+
+  it.each([
+    ['effective vacation', true, true],
+    ['pending vacation', false, false],
+    ['no vacation', false, false],
+  ])('protects a colony during %s', async (_label, effective, rejected) => {
+    const { service, shipRepo, colonyRepo, interactionContext } = createService();
+    shipRepo.findOne.mockResolvedValue(attacker());
+    colonyRepo.findOne.mockResolvedValue(colony());
+    interactionContext.load.mockResolvedValue({
+      targetOnVacation: effective,
+      sourceCloaked: false,
+      targetCloaked: false,
+    });
+
+    const action = service.attackColony(7, 5, 2, 1);
+
+    if (rejected) {
+      await expect(action).rejects.toThrow(
+        'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+      );
+    } else {
+      await expect(action).resolves.toEqual(expect.objectContaining({
+        defenderType: 'COLONY',
+      }));
+    }
   });
 
   it('absorbs incoming damage with colony shields', async () => {
@@ -498,7 +529,11 @@ describe('CombatService attack', () => {
     shipRepo.findOne
       .mockResolvedValueOnce(ship(1, 1))
       .mockResolvedValueOnce(ship(2, 2));
-    interactionContext.load.mockResolvedValue({ targetOnVacation: true });
+    interactionContext.load.mockResolvedValue({
+      targetOnVacation: true,
+      sourceCloaked: false,
+      targetCloaked: false,
+    });
 
     await expect(service.attack(1, 2, 1)).rejects.toThrow(
       'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',

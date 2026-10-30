@@ -67,6 +67,40 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('disables attacks against vacation ships with the server reason', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          name: 'Ziel (Urlaub)',
+          actions: {
+            ...nearby.ships[0].actions,
+            attack: false,
+            attackReason:
+              'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+          },
+        },
+      ],
+    });
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('Ziel (Urlaub)')).toBeTruthy();
+    const attack = screen.getByTitle(
+      'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+    );
+    expect((attack as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(attack);
+    expect(apiMocks.post).not.toHaveBeenCalled();
+  });
+
   it('activates a tractor beam on an eligible own ship', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

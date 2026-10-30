@@ -258,12 +258,15 @@ export function NearbySensorPanel({
                         />
                       </button>
                     )}
-                    {target.actions.attack && (
+                    {(target.actions.attack || target.actions.attackReason) && (
                       <button
                         type="button"
                         onClick={() => void attack(target)}
-                        title={`${target.name} angreifen`}
-                        className="mr-1"
+                        title={
+                          target.actions.attackReason ?? `${target.name} angreifen`
+                        }
+                        className="mr-1 disabled:opacity-40"
+                        disabled={!target.actions.attack}
                       >
                         <img
                           src="/assets/buttons/act_phaser1.png"

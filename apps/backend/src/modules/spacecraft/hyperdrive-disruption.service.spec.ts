@@ -42,14 +42,19 @@ function setup(target: any = galaxyField(2)) {
   };
   const gateway = { emitToUser: jest.fn() };
   const gameEvents = { recordSpacecraft: jest.fn(async () => undefined) };
+  const interactionContext = {
+    load: jest.fn(async () => ({ targetOnVacation: false })),
+  };
   return {
     service: new HyperdriveDisruptionService(
       shipRepo as never,
       runtimeState as never,
       gateway as never,
       gameEvents as never,
+      interactionContext as never,
     ),
     shipRepo,
+    interactionContext,
   };
 }
 
@@ -69,6 +74,27 @@ describe('HyperdriveDisruptionService', () => {
       where: { id: 2 },
       relations: ['location', 'location.galaxyField', 'location.systemField'],
     });
+  });
+
+  it.each([
+    ['effective vacation', true, true],
+    ['pending vacation', false, false],
+    ['no vacation', false, false],
+  ])('protects interception targets during %s', async (_label, effective, rejected) => {
+    const target = galaxyField(2);
+    const interceptor = galaxyField(1);
+    const { service, interactionContext } = setup(target);
+    interactionContext.load.mockResolvedValue({ targetOnVacation: effective });
+
+    const action = service.intercept(interceptor as never, 2);
+
+    if (rejected) {
+      await expect(action).rejects.toThrow(
+        'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+      );
+    } else {
+      await expect(action).resolves.toMatchObject({ intercepted: true });
+    }
   });
 
   it('pulls both co-located fleets out of hyperspace', async () => {

@@ -1249,6 +1249,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     unlockResolver as any,
     colonyRepo as any,
   );
+  const interactionContext = {
+    load: jest.fn(async () => ({ targetOnVacation: false })),
+  };
   const orbitService = new ColonyOrbitService(
     colonyRepo as any,
     statsRepo as any,
@@ -1265,6 +1268,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyDefenseService as any,
     colonyEventService as any,
     spacecraftTorpedoService as any,
+    interactionContext as any,
   );
   const projectionService = new ColonyProjectionService(
     colonyRepo as any,
@@ -1440,6 +1444,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       timingService,
       fabricationService,
       orbitService,
+      interactionContext,
       projectionService,
       shipyardService,
       shipyardSlotCount,
@@ -9119,6 +9124,51 @@ describe('colony orbit assignments', () => {
     expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'ORBIT_DEFENSE_STARTED' }),
     );
+  });
+
+  it.each([
+    ['effective vacation', true, true],
+    ['pending vacation', false, false],
+    ['no vacation', false, false],
+  ])('protects a colony from blockade during %s', async (_label, effective, rejected) => {
+    const {
+      service,
+      colonyRepo,
+      shipRepo,
+      orbitAssignmentRepo,
+      interactionContext,
+    } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 2,
+      ...orbitColonyLocation,
+      fields: [],
+      stats: { isBlockaded: false },
+    });
+    shipRepo.findOne.mockResolvedValue({
+      id: 7,
+      userId: 1,
+      fleetId: 99,
+      fleet: { id: 99, leaderId: 7 },
+      ...orbitShipLocation,
+      status: 'IDLE',
+    });
+    orbitAssignmentRepo.find.mockResolvedValue([]);
+    orbitAssignmentRepo.findOne.mockResolvedValue(null);
+    orbitAssignmentRepo.count.mockResolvedValue(0);
+    interactionContext.load.mockResolvedValue({ targetOnVacation: effective });
+
+    const action = service.setOrbitAssignment(1, 1, 7, 'BLOCKADE' as any);
+
+    if (rejected) {
+      await expect(action).rejects.toThrow(
+        'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+      );
+    } else {
+      await expect(action).resolves.toEqual(
+        expect.objectContaining({ mode: 'BLOCKADE' }),
+      );
+    }
   });
 
   it('starts blockade and syncs colony blockade flag', async () => {

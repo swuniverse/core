@@ -614,6 +614,7 @@ export interface SpacecraftNearbyTargetDto {
   actions: {
     dock?: boolean;
     attack: boolean;
+    attackReason?: string | null;
     scan: boolean;
     intercept: boolean;
     contact: boolean;

@@ -58,7 +58,10 @@ describe('InteractionContextService', () => {
     (shipRepo.findOne as jest.Mock)
       .mockResolvedValueOnce(source)
       .mockResolvedValueOnce(target);
-    (userRepo.findOneBy as jest.Mock).mockResolvedValue({ vacationMode: true });
+    (userRepo.findOneBy as jest.Mock).mockResolvedValue({
+      vacationMode: true,
+      vacationStartedAt: new Date(Date.now() - 49 * 60 * 60 * 1000),
+    });
     (crewService.hasEnoughCrew as jest.Mock).mockResolvedValue(true);
     (runtimeState.initialize as jest.Mock)
       .mockReturnValueOnce({ SHIELDS: { active: true, integrity: 100, cooldown: 0 } })
@@ -83,6 +86,23 @@ describe('InteractionContextService', () => {
       targetBlocked: false,
       stanceAllowed: true,
     });
+  });
+
+  it.each([
+    ['pending vacation', 47, false],
+    ['effective vacation', 49, true],
+  ])('maps %s by the 48 hour delay', async (_label, hours, effective) => {
+    (shipRepo.findOne as jest.Mock)
+      .mockResolvedValueOnce(ship({ id: 1 }))
+      .mockResolvedValueOnce(ship({ id: 2, userId: 11 }));
+    (userRepo.findOneBy as jest.Mock).mockResolvedValue({
+      vacationMode: true,
+      vacationStartedAt: new Date(Date.now() - hours * 60 * 60 * 1000),
+    });
+
+    const context = await service.load(1, 2, ['targetOnVacation']);
+
+    expect(context.targetOnVacation).toBe(effective);
   });
 
   it('loads only data requested by the selected context fields', async () => {

@@ -41,6 +41,11 @@ import {
   ShipManagementSource,
 } from '../spacecraft/ship-management.service';
 import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
+import { InteractionContextService } from '../spacecraft/interaction-context.service';
+import {
+  checkInteraction,
+  InteractionRule,
+} from '../spacecraft/interaction-policy';
 
 @Injectable()
 export class ColonyOrbitService {
@@ -68,6 +73,7 @@ export class ColonyOrbitService {
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyEventService: ColonyEventService,
     private readonly shipManagement: ShipManagementService,
+    private readonly interactionContext: InteractionContextService,
   ) {}
 
   async getManagement(colonyId: number, userId: number) {
@@ -364,6 +370,18 @@ export class ColonyOrbitService {
     }
 
     if (mode === ColonyOrbitAssignmentMode.BLOCKADE) {
+      const vacation = checkInteraction(
+        await this.interactionContext.load(
+          ship.id,
+          ship.id,
+          ['targetOnVacation'],
+          colony.userId,
+        ),
+        [InteractionRule.TARGET_VACATION],
+      );
+      if (!vacation.allowed) {
+        throw new BadRequestException(vacation.reason);
+      }
       const functionIds = this.getActiveBuildingFunctionIds(colony);
       if (
         this.colonyDefenseService.hasEnergyPhalanx(functionIds) ||

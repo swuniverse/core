@@ -121,6 +121,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-27 – col-A3b – Die UI-gewählte Werftfunktion am BUILD-/RETROFIT-Auftrag persistieren; Legacy-Aufträge bleiben ungebunden und nicht blockierend, EPS folgen `stuRumpId`, REPAIR belegt keinen Slot
 - 2026-10-27 – col-D2a – Datengetriebenen idempotenten Reward-Ship-Mechanismus umsetzen, aber ohne bestätigte Tabelle keine produktiven Mappings oder abgeleiteten Belohnungen anlegen
 - 2026-10-30 – col-D2a – In col-D2a1 bis col-D2a4 geteilt: Datenvertrag/UI, Grant-Persistenz, transaktionaler Schiff-Spawn und Abschlussintegration; Parent dient als abgeschlossener Tracking-Split
+- 2026-10-30 – col-D2b – STU-Produktionsdump ist autoritative Quelle für Research→Datenbankeintrag; nur eindeutig auf bestehende SWU-Kategorien/stabile Schlüssel abbildbare Einträge werden importiert, rohe STU-IDs nicht persistiert; Unmappbares wird berichtet und ausgelassen, neue Kategorien folgen separat
+- 2026-10-30 – col-D2c – STU-Produktionsdump ist autoritative Quelle für Forschungs-Awards/Gates; IDs 1/15 werden auf `RESEARCH_STATIONS`/`RESEARCH_INTERSTELLAR` gemappt, unbekannte IDs berichtet/ausgelassen; leere Dump-Zuordnung bleibt leer, keine kuratierten Fallbacks ohne Folgeentscheidung
 - 2026-10-30 – sh-AP-05a – Als M-Issue vollständig freigegeben; separater einmaliger `ACCOUNT_DELETION`-Token mit 48 Stunden Laufzeit, unabhängig von Passwort-Reset; Marke 1 bleibt widerrufbar und loginfähig, Marke 2 sperrt Login und Refresh
 - 2026-10-30 – tmw-T2 – In T2a–T2d geteilt: Datenmodell/Presence-Policy, transaktionaler Kauf, Verlängerung/Ablauf und Frontend; Alpha-Default 10 Aurodium/30 Tage, NPC-Zahlungen gehen an das NPC-Konto, Verlängerung ab `max(jetzt, Ablauf)`, Warnung einmalig sieben Tage vorher
 - 2026-10-30 – sc-WP-STAT-3a – Atomare Flottenaktionen statt STU-Teilergebnissen; Andocken/Abdocken kostet 1 Schiffs-EPS, alle Mitglieder werden vorab transaktional validiert, Flug dockt nur mit verfügbarer zusätzlicher EPS automatisch ab
@@ -158,6 +160,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-04b – Wirksamer Urlaub schützt Schiffe und Kolonien zentral vor Angriff, Abfangen und Blockade; das NBS begründet deaktivierte Angriffe – siehe Feature-Commit
 - sc-WP-TRACT-1b – Fremde ungeschildete Nicht-NPC-Schiffe außerhalb wirksamen Urlaubs können unabhängig von Haltung erfasst werden; Opfer können mit STU-Folgen entkommen – siehe Feature-Commit
 - sc-WP-TRACT-1a – Traktorstrahl-Laufzeitsystem für eigene Schiffe mit Flugmitnahme, Zusatz-EPS, Abriss, Flugblockade, Zerstörungsbereinigung und NBS-Aktion – siehe Feature-Commit
 - sc-WP-SHUT-2 – Crewtransport- und Torpedotransportmodule erhöhen wirksam die jeweilige Transportkapazität – siehe Feature-Commit

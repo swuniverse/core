@@ -1,6 +1,6 @@
 # Urlaubsmodus: Schutz vor feindlichen Interaktionen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-04a, sc-WP-ENG-2c
@@ -25,10 +25,12 @@ Schiffe und Kolonien wirksamer Urlauber (sh-AP-04a) können nicht angegriffen, a
 
 ## Akzeptanzkriterien
 
-- [ ] Die zentrale Interaktionsprüfung kennt den Prüftyp „Ziel nicht im Urlaub“ und liefert die STU-Meldung „Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!“.
-- [ ] Angriff auf Schiff, Angriff auf Kolonie, Abfangen und Kolonieblockade gegen wirksame Urlauber werden serverseitig mit dieser Meldung abgelehnt; vor Ablauf der 48 h bleiben sie möglich.
-- [ ] Eigene und freundliche Aktionen (Transfer an eigene Schiffe, Verteidigen der eigenen Kolonie) bleiben unberührt.
-- [ ] Die NBS-Liste markiert Urlauber-Schiffe (Namenszusatz aus sh-AP-04a) und deaktiviert die Angriffsaktion mit `title`-Begründung.
-- [ ] Backend-Tests je Aktion (Urlaub wirksam, Urlaub < 48 h, kein Urlaub). Frontend-Test: deaktivierte Angriffsaktion.
+- [x] Die zentrale Interaktionsprüfung kennt den Prüftyp „Ziel nicht im Urlaub“ und liefert die STU-Meldung „Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!“.
+- [x] Angriff auf Schiff, Angriff auf Kolonie, Abfangen und Kolonieblockade gegen wirksame Urlauber werden serverseitig mit dieser Meldung abgelehnt; vor Ablauf der 48 h bleiben sie möglich.
+- [x] Eigene und freundliche Aktionen (Transfer an eigene Schiffe, Verteidigen der eigenen Kolonie) bleiben unberührt.
+- [x] Die NBS-Liste markiert Urlauber-Schiffe (Namenszusatz aus sh-AP-04a) und deaktiviert die Angriffsaktion mit `title`-Begründung.
+- [x] Backend-Tests je Aktion (Urlaub wirksam, Urlaub < 48 h, kein Urlaub). Frontend-Test: deaktivierte Angriffsaktion.
 
 ## Comments
+
+Umgesetzt über die zentrale `TARGET_VACATION`-Regel mit wirksamer 48-h-Prüfung für Schiffs-/Kolonieangriff, Abfangen und Blockade. Eigene/freundliche Aktionen bleiben erlaubt; das NBS zeigt die bestehende Urlaubsmarkierung und eine deaktivierte Angriffsaktion mit serverseitiger Begründung. Fokus-Tests und Builds sind grün; der vollständige Affected-Gate bleibt an vorbestehenden Baseline-Fehlern außerhalb dieses Issues hängen.

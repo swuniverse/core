@@ -53,6 +53,24 @@ describe('nearby interaction decisions', () => {
     expect(decideNearbyInteraction('SCAN', context).allowed).toBe(true);
   });
 
+  it('rejects attacks and intercepts against effective vacation targets', () => {
+    const context = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(1),
+      systems(),
+      true,
+    );
+    for (const interaction of ['ATTACK', 'INTERCEPT'] as const) {
+      expect(decideNearbyInteraction(interaction, context)).toEqual({
+        allowed: false,
+        reason:
+          'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+      });
+    }
+    expect(decideNearbyInteraction('TRANSFER', context).allowed).toBe(true);
+  });
+
   it('ignores hyperdrive state in a system', () => {
     const context = buildNearbyInteractionContext(
       ship(1, 'SYSTEM'),

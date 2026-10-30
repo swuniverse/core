@@ -10,6 +10,7 @@ import {
 } from './entities/spacecraft.entity';
 import type { InteractionContext } from './interaction-policy';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { isVacationEffective } from '@swuniverse/shared';
 
 export type InteractionContextField = keyof InteractionContext;
 
@@ -48,6 +49,7 @@ export class InteractionContextService {
     sourceId: number,
     targetId: number,
     fields: readonly InteractionContextField[] = ALL_FIELDS,
+    targetOwnerId?: number,
   ): Promise<InteractionContext> {
     const requested = new Set(fields);
     const needsModules =
@@ -67,7 +69,7 @@ export class InteractionContextService {
         ? this.crewService.hasEnoughCrew(source)
         : false,
       requested.has('targetOnVacation')
-        ? this.userRepo.findOneBy({ id: target.userId })
+        ? this.userRepo.findOneBy({ id: targetOwnerId ?? target.userId })
         : null,
       requested.has('stanceAllowed')
         ? this.relationships.resolve(source.userId, target.userId)
@@ -95,7 +97,8 @@ export class InteractionContextService {
       targetCloaked: targetSystems.CLOAK?.active === true,
       sourceShieldsActive: sourceSystems.SHIELDS?.active === true,
       targetShieldsActive: targetSystems.SHIELDS?.active === true,
-      targetOnVacation: targetOwner?.vacationMode === true,
+      targetOnVacation:
+        targetOwner != null && isVacationEffective(targetOwner),
       sourceDestroyed: source.status === SpacecraftStatus.DESTROYED || source.hull <= 0,
       targetDestroyed: target.status === SpacecraftStatus.DESTROYED || target.hull <= 0,
       sourceBlocked: false,

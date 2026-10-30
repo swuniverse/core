@@ -41,10 +41,15 @@ export const NEARBY_INTERACTION_RULES: Record<
 > = {
   SCAN: [InteractionRule.POSITION, InteractionRule.TARGET_UNCLOAKED],
   // The target must be in hyperspace; that inverse check stays with the intercept service.
-  INTERCEPT: [InteractionRule.POSITION, InteractionRule.TARGET_UNCLOAKED],
+  INTERCEPT: [
+    InteractionRule.POSITION,
+    InteractionRule.TARGET_UNCLOAKED,
+    InteractionRule.TARGET_VACATION,
+  ],
   ATTACK: [
     InteractionRule.SOURCE_UNCLOAKED,
     InteractionRule.TARGET_UNCLOAKED,
+    InteractionRule.TARGET_VACATION,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
   ],
@@ -106,6 +111,7 @@ export function buildNearbyInteractionContext(
   sourceSystems: SpacecraftRuntimeSystems,
   target: SpacecraftLocationSource,
   targetSystems: SpacecraftRuntimeSystems,
+  targetOnVacation = false,
 ): InteractionContext {
   return {
     samePosition: sameSpacecraftLocation(source, target),
@@ -117,7 +123,7 @@ export function buildNearbyInteractionContext(
     targetCloaked: targetSystems.CLOAK?.active === true,
     sourceShieldsActive: sourceSystems.SHIELDS?.active === true,
     targetShieldsActive: targetSystems.SHIELDS?.active === true,
-    targetOnVacation: false,
+    targetOnVacation,
     sourceDestroyed: false,
     targetDestroyed: false,
     sourceBlocked: false,

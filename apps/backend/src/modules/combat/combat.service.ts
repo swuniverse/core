@@ -192,6 +192,13 @@ export class CombatService {
     if (colony.userId === attacker.userId) {
       throw new BadRequestException('Cannot attack own colony');
     }
+    const vacation = checkInteraction(
+      await this.interactionContext.load(attacker.id, attacker.id, [
+        'targetOnVacation',
+      ], colony.userId),
+      [InteractionRule.TARGET_VACATION],
+    );
+    if (!vacation.allowed) throw new BadRequestException(vacation.reason);
     if (attacker.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle to initiate combat');
     }

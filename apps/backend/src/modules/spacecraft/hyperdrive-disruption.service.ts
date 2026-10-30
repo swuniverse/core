@@ -15,6 +15,7 @@ import {
   resolveSpacecraftLocation,
   sameSpacecraftLocation,
 } from './spacecraft-field';
+import { InteractionContextService } from './interaction-context.service';
 
 export type HyperdriveDisruptionCause =
   'MANUAL_INTERCEPT' | 'INTERDICTION_FIELD';
@@ -27,6 +28,7 @@ export class HyperdriveDisruptionService {
     private readonly runtimeState: SpacecraftRuntimeStateService,
     private readonly gameGateway: GameGateway,
     private readonly gameEvents: GameEventService,
+    private readonly interactionContext: InteractionContextService,
   ) {}
 
   async intercept(interceptor: Spacecraft, targetId: number) {
@@ -62,6 +64,11 @@ export class HyperdriveDisruptionService {
     ) {
       throw new BadRequestException('Ziel befindet sich nicht im Hyperraum');
     }
+    const interactionContext = await this.interactionContext.load(
+      interceptor.id,
+      target.id,
+      ['targetOnVacation'],
+    );
     const decision = decideNearbyInteraction(
       'INTERCEPT',
       buildNearbyInteractionContext(
@@ -69,6 +76,7 @@ export class HyperdriveDisruptionService {
         interceptorSystems,
         target,
         this.runtimeState.initialize(target),
+        interactionContext.targetOnVacation,
       ),
     );
     if (!decision.allowed) {
