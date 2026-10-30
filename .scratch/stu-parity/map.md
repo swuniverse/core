@@ -160,6 +160,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-FA1b3 – Fraktionsabhängige Forschungspunkte werden je Tick einmalig multipliziert und deterministisch abgerundet – siehe Feature-Commit
 - tmw-FA1b1 – Administrativ gepflegte Fraktionswählbarkeit wird im Onboarding angezeigt und serverseitig erzwungen – siehe Feature-Commit
 - sh-AP-05a – Bestätigte Kontolöschung mit Widerruf, Zugangssperre, transaktionalem Handler-Orchestrator und abgesicherter Admin-Sofortlöschung – siehe Feature-Commit
 - sh-AP-04b – Wirksamer Urlaub schützt Schiffe und Kolonien zentral vor Angriff, Abfangen und Blockade; das NBS begründet deaktivierte Angriffe – siehe Feature-Commit

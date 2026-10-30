@@ -12,6 +12,7 @@ import { Faction, WsEventType } from '@swuniverse/shared';
 import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { GameGateway } from '../websocket/game.gateway';
+import { FactionService } from '../faction/faction.service';
 
 export type ResearchShipRewardGranter = (
   userId: number,
@@ -38,6 +39,7 @@ export class ResearchService {
     private readonly gameData: GameDataService,
     private readonly messagingService: MessagingService,
     private readonly gameGateway: GameGateway,
+    private readonly factionService?: FactionService,
   ) {}
 
   /** Registered by the spacecraft module; avoids a module import cycle. */
@@ -607,6 +609,7 @@ export class ResearchService {
     userId: number,
     _producedResearchPoints = 0,
     commodityProduction: Map<number, number> = new Map(),
+    faction?: Faction | null,
   ): Promise<void> {
     let current = await this.researchRepo.findOne({
       where: { userId, status: ResearchStatus.IN_PROGRESS },
@@ -620,8 +623,15 @@ export class ResearchService {
     if (!tech) return;
 
     const commodityId = tech.mappedCommodityId ?? tech.commodityId ?? null;
-    const totalPoints =
+    const basePoints =
       commodityId != null ? commodityProduction.get(commodityId) || 0 : 0;
+    const factionConfig =
+      faction && this.factionService
+        ? await this.factionService.findByKey(faction)
+        : null;
+    const researchMultiplier =
+      factionConfig?.modifiers[0]?.researchMultiplier ?? 1;
+    const totalPoints = Math.floor(basePoints * researchMultiplier);
 
     if (totalPoints <= 0) {
       current.blockedReason =

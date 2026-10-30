@@ -409,6 +409,64 @@ describe('ResearchService – completion notifications', () => {
     expect(context.gateway.emitToUser).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [Faction.REBEL_ALLIANCE, 1.1, 11],
+    [Faction.GALACTIC_EMPIRE, 1, 10],
+  ])(
+    'applies the %s research multiplier once to produced points',
+    async (faction, researchMultiplier, expectedPoints) => {
+      const context = setup(100, 10);
+      const findByKey = jest.fn().mockResolvedValue({
+        key: faction,
+        modifiers: [{ researchMultiplier }],
+      });
+      const service = new ResearchService(
+        context.repository as any,
+        {
+          getTech: () => completedTech,
+          getTechTree: () => [completedTech],
+        } as any,
+        context.messaging as any,
+        context.gateway as any,
+        { findByKey } as any,
+      );
+
+      await service.processTick(42, 0, context.commodityProduction, faction);
+
+      expect(context.research.spentPoints).toBe(expectedPoints);
+      expect(context.research.remainingPoints).toBe(100 - expectedPoints);
+      expect(findByKey).toHaveBeenCalledWith(faction);
+    },
+  );
+
+  it('floors multiplied production without carrying fractional points', async () => {
+    const context = setup(100, 5);
+    const service = new ResearchService(
+      context.repository as any,
+      {
+        getTech: () => completedTech,
+        getTechTree: () => [completedTech],
+      } as any,
+      context.messaging as any,
+      context.gateway as any,
+      {
+        findByKey: jest.fn().mockResolvedValue({
+          modifiers: [{ researchMultiplier: 0.9 }],
+        }),
+      } as any,
+    );
+
+    await service.processTick(
+      42,
+      0,
+      context.commodityProduction,
+      Faction.GALACTIC_EMPIRE,
+    );
+
+    expect(context.research.spentPoints).toBe(4);
+    expect(context.research.remainingPoints).toBe(96);
+  });
+
   it('does not duplicate a durable completion message on a repeated tick', async () => {
     const context = setup(5);
 

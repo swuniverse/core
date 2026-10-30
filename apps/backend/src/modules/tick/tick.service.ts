@@ -153,7 +153,7 @@ export class TickService {
       const researchByUser = new Map<number, number>();
       const commodityProductionByUser = new Map<number, Map<number, number>>();
       const users = await this.userRepo.find({
-        select: ['id', 'vacationMode'],
+        select: ['id', 'vacationMode', 'faction'],
       });
       const vacationUsers = new Set(
         users.filter((user) => user.vacationMode).map((user) => user.id),
@@ -257,6 +257,7 @@ export class TickService {
           user.id,
           researchByUser.get(user.id) || 0,
           commodityProductionByUser.get(user.id) || new Map(),
+          user.faction,
         );
         if (!user.vacationMode && this.colonyCrewService) {
           const removed = await this.colonyCrewService.enforceGlobalCrewLimit(
