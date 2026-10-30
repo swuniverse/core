@@ -1,6 +1,6 @@
 # Kontolöschung: Handler für Schiffe, Flotten, Forschung und Kartenwissen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-05a
@@ -31,3 +31,5 @@ Schiffe, Flotten, Baupläne, Forschung und das persönliche Kartenwissen eines g
 - [ ] Integrationstest (Postgres): Spieler mit Schiff in Flotte, Bauplan, Forschung, Kartographieplan und Kolonie-Scan wird gelöscht; Schiffe und Wissen sind weg; Daten anderer Spieler unverändert.
 
 ## Comments
+
+- 2026-10-30: Die Implementierung und der fokussierte Postgres-Integrationstest sind grün, aber die verpflichtenden Workspace-Gates scheitern nach zwei ernsthaften Läufen an unabhängigen Baseline-Fehlern: Backend-Build/Typecheck kann `dotenv` aus `typeorm-migration.config.ts` nicht auflösen (zusätzlich TS6305-Artefaktfehler), Frontend-Build kann `pixi.js` aus `SystemViewDialog.tsx` nicht auflösen. Produktcode wurde gemäß Ralph-Abbruchregel verworfen. Bitte zuerst die Build-/Dependency-Baseline reparieren (vgl. `sh-AP-23`) und dieses Issue danach erneut auf `ready-for-agent` setzen.
