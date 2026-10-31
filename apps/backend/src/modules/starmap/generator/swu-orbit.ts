@@ -95,7 +95,8 @@ export function getArchetypeKey(typeId: number, variant: string | null): string 
 
 /**
  * Baut die untere Orbit-Reihe: die aeusserste Spalte links UND rechts (Pol-
- * naehe) bekommt IMMER Feld 9, unabhaengig von der Rotation. Die mittleren
+ * naehe) bekommt IMMER Feld 9 (Polarlicht), unabhaengig von der Rotation - ausser
+ * ohne Atmosphaere (E), dort gibt es keine Polarlichter und es rotiert durchgehend. Die mittleren
  * Spalten rotieren fest gleichmaessig 1-2-3-4-1-2-... (eigener Zaehler, startet
  * bei der ersten Nicht-Pol-Spalte neu bei 1).
  */
@@ -103,7 +104,8 @@ export function buildLowerOrbitRow(atmosphere: SwuOrbitAtmosphereType, width = 1
   const row: string[] = [];
   let middleCounter = 0;
   for (let x = 0; x < width; x++) {
-    const isPoleRegion = x === 0 || x === width - 1;
+    // Ohne Atmosphaere (E) gibt es keine Polarlichter (OU9*), also auch keine Pol-Sonderregel.
+    const isPoleRegion = atmosphere !== 'E' && (x === 0 || x === width - 1);
     if (isPoleRegion) {
       row.push(`OU9${atmosphere}`);
     } else {

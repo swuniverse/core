@@ -496,6 +496,11 @@ export class ColonizationService {
                   );
                   return {
                     ...proposal,
+                    // Fuer die Startfeld-Wahl: welche Oberflaechenfelder duerfen die Koloniezentrale tragen.
+                    startable:
+                      proposal.previewSurface?.map((row) =>
+                        row.map((tile) => this.isSwuStartTile(tile)),
+                      ) ?? null,
                     ores,
                     settlement: this.assessSwuZone(
                       swuArchetype,
@@ -574,6 +579,23 @@ export class ColonizationService {
         if (!proposal || !proposal.colonizable) {
           throw new BadRequestException('Gewählte Zone ist nicht kolonisierbar');
         }
+        if (initialFieldIndex != null) {
+          const surface = getColonizationProposals(
+            swuArchetype,
+            swuInstance!.rotation,
+            {
+              seed: `colony-${userId}-${target.id}`,
+              bodyFeature: swuInstance!.bodyFeature,
+            },
+          ).find((entry) => entry.zoneSlot === swuZoneSlot)?.previewSurface;
+          const width = surface?.[0]?.length ?? 0;
+          const tile = surface?.[Math.floor(initialFieldIndex / width)]?.[
+            initialFieldIndex % width
+          ];
+          if (!tile || !this.isSwuStartTile(tile)) {
+            throw new BadRequestException('Ungültiges Startfeld');
+          }
+        }
       } else if (
         this.colonySeedService.generateAsteroidSnapshot(
           target.classId,
@@ -612,6 +634,7 @@ export class ColonizationService {
             rotation: swuInstance!.rotation,
             bodyFeature: swuInstance!.bodyFeature,
             zoneSlot: swuZoneSlot!,
+            initialSurfaceIndex: initialFieldIndex,
             // Aendert sich nach der Gruendung nie mehr (Zone/Rotation/Archetyp/
             // Orbit-Distanz sind fix) - einmalig berechnen und speichern, statt
             // bei jeder Tick-Berechnung erneut die Sternposition abzufragen.
@@ -835,6 +858,11 @@ export class ColonizationService {
    * fuer swu-solar.ts. 0.5 (neutral) als Fallback, wenn kein Stern gefunden
    * wird oder Systemgroesse fehlt (sollte in der Praxis nicht vorkommen).
    */
+  /** Die Koloniezentrale darf nur auf "standard"-Felder (siehe swu-field-build-categories). */
+  private isSwuStartTile(tile: string): boolean {
+    return this.gameData.getCategoriesForTerrainTile(tile).includes('standard');
+  }
+
   private async computeSwuOrbitDistance(
     target: CelestialObject,
   ): Promise<number> {

@@ -51,8 +51,8 @@ const FIELD_TYPES = {
  */
 const SWU_PLACEHOLDER_FIELD_TYPE = 0;
 
-/** Monde haben nur 6 Orbit-Spalten (Planeten 10). */
-const SWU_MOON_ORBIT_WIDTH = 6;
+/** Monde haben nur 7 Orbit-Spalten (Planeten 10) - so breit wie ihre Oberflaeche. */
+const SWU_MOON_ORBIT_WIDTH = 7;
 
 /**
  * Aurodium (Latinum)-Vorkommen: jeder Planet/Mond bekommt eines (kein
@@ -110,6 +110,8 @@ export interface CreateFollowUpSwuColonyOptions {
   name?: string;
   /** Solarertrag in TJ (siehe swu-solar.ts) - vom Aufrufer berechnet, der die Sternposition kennt. */
   solarOutputTJ?: number | null;
+  /** Gewuenschtes Startfeld als Index innerhalb der SURFACE-Ebene (y * Breite + x). */
+  initialSurfaceIndex?: number;
 }
 
 export interface CreateFollowUpColonyOptions {
@@ -286,6 +288,8 @@ export class ColonySeedService {
       relations: ['starSystem'],
     });
     const classId = object?.classId ?? 0;
+    // Monde haben niemals einen Untergrund.
+    const isMoon = object?.objectType === CelestialObjectType.MOON;
     const founded = foundSwuColony(
       options.archetype,
       options.rotation,
@@ -293,16 +297,9 @@ export class ColonySeedService {
       options.zoneSlot,
       `colony-${options.userId}-${options.celestialObjectId}`,
       (tile) => this.gameData.getCategoriesForTerrainTile(tile),
+      isMoon ? SWU_MOON_ORBIT_WIDTH : undefined,
     );
-    // Monde haben niemals einen Untergrund.
-    const isMoon = object?.objectType === CelestialObjectType.MOON;
-    const orbit = isMoon
-      ? {
-          upper: founded.orbit.upper.slice(0, SWU_MOON_ORBIT_WIDTH),
-          lower: founded.orbit.lower.slice(0, SWU_MOON_ORBIT_WIDTH),
-        }
-      : founded.orbit;
-    const fields = this.flattenSwuFoundedColony({ ...founded, orbit }, !isMoon);
+    const fields = this.flattenSwuFoundedColony(founded, !isMoon);
     const surfaceWidth = founded.surface[0]?.length ?? 10;
     const mask = Buffer.from(
       JSON.stringify(
@@ -337,9 +334,18 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
+    // initialSurfaceIndex zaehlt nur innerhalb der SURFACE-Ebene (y * Breite + x).
+    const initialFieldIndex =
+      options.initialSurfaceIndex != null
+        ? fields.filter((field) => field.layer === 'SURFACE')[
+            options.initialSurfaceIndex
+          ]?.fieldIndex
+        : undefined;
     await this.generateSwuFields(colony, {
       buildingId: options.buildingId,
       fields,
+      surfaceWidth,
+      initialFieldIndex,
     });
     await this.createInitialStats(colony);
     await this.createInitialChangeable(colony);

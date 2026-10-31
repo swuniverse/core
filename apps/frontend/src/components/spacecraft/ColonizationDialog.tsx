@@ -15,6 +15,8 @@ type SwuColonizationProposal = {
   seedQuality: 'JA' | 'OPT' | 'GAP';
   colonizable: boolean;
   previewSurface: string[][] | null;
+  /** Pro Oberflaechenfeld: darf die Koloniezentrale hier stehen? */
+  startable?: boolean[][] | null;
   bonusMarkers?: Array<{
     type: string;
     layer: 'SURFACE' | 'UNDERGROUND';
@@ -73,11 +75,15 @@ function SwuZoneProposals({
   aurodiumDeposit,
   selected,
   onSelect,
+  fieldIndex,
+  onSelectField,
 }: {
   proposals: SwuColonizationProposal[];
   aurodiumDeposit?: { min: number; max: number };
   selected: SwuZoneSlot | null;
   onSelect: (slot: SwuZoneSlot) => void;
+  fieldIndex: number | null;
+  onSelectField: (slot: SwuZoneSlot, index: number) => void;
 }) {
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -246,10 +252,26 @@ function SwuZoneProposals({
                             entry.x === x &&
                             entry.y === y,
                         );
+                        const width = proposal.previewSurface?.[0]?.length ?? 1;
+                        const index = y * width + x;
+                        const startable = proposal.startable?.[y]?.[x] ?? false;
+                        const chosen = isSelected && fieldIndex === index;
                         return (
                           <div
                             key={`${y}-${x}`}
-                            className={`relative ${marker ? BONUS_MARKER_FRAME_CLASS : ''}`}
+                            role={startable ? 'button' : undefined}
+                            title={startable ? 'Koloniezentrale hier bauen' : undefined}
+                            onClick={
+                              startable
+                                ? (event) => {
+                                    event.stopPropagation();
+                                    onSelectField(proposal.zoneSlot, index);
+                                  }
+                                : undefined
+                            }
+                            className={`relative ${marker ? BONUS_MARKER_FRAME_CLASS : ''} ${
+                              startable ? 'cursor-pointer hover:outline hover:outline-1 hover:outline-swu-accent' : ''
+                            } ${chosen ? 'outline outline-2 outline-swu-accent' : ''}`}
                           >
                             <img
                               src={colonyFieldTileImage(code)}
@@ -326,7 +348,7 @@ export function ColonizationDialog({
   const isSwu = !!check?.swu;
   const canSubmit =
     check?.canColonize &&
-    (isRuins || (isSwu ? zoneSlot != null : fieldIndex != null));
+    (isRuins || (isSwu ? zoneSlot != null && fieldIndex != null : fieldIndex != null));
 
   async function colonize() {
     if (!canSubmit) return;
@@ -379,7 +401,7 @@ export function ColonizationDialog({
             {isRuins
               ? 'Bestehende Gebäude und Lager werden übernommen. Das Kolonieschiff wird verbraucht.'
               : isSwu
-                ? 'Wähle eine Zone für die Kolonie. Das Kolonieschiff wird verbraucht.'
+                ? 'Wähle eine Zone und das Feld für die Koloniezentrale. Das Kolonieschiff wird verbraucht.'
                 : 'Wähle das Feld für das Startgebäude. Das Kolonieschiff wird verbraucht.'}
           </p>
           {check?.reasons.length ? (
@@ -404,7 +426,15 @@ export function ColonizationDialog({
               proposals={check.swu.proposals}
               aurodiumDeposit={check.swu.aurodiumDeposit}
               selected={zoneSlot}
-              onSelect={setZoneSlot}
+              onSelect={(slot) => {
+                if (slot !== zoneSlot) setFieldIndex(null);
+                setZoneSlot(slot);
+              }}
+              fieldIndex={fieldIndex}
+              onSelectField={(slot, index) => {
+                setZoneSlot(slot);
+                setFieldIndex(index);
+              }}
             />
           )}
           {!isRuins && !check?.swu && check?.surface && (
