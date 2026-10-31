@@ -47,7 +47,7 @@ export type SwuSeedQuality = 'JA' | 'OPT' | 'GAP';
 export interface SwuArchetypeGeneratorBundle {
   generateColonySurface: (zoneSlot: SwuZoneSlot, rotation: SwuRotationType, seed: string, bodyFeature?: SwuBodyFeature) => string[][];
   generateUntergrund: (zoneSlot: SwuZoneSlot, rotation: SwuRotationType, seed: string, bodyFeature?: SwuBodyFeature) => string[][];
-  generateOrbit: (hasRing: boolean) => { lower: string[]; upper: string[] };
+  generateOrbit: (hasRing: boolean, width?: number) => { lower: string[]; upper: string[] };
   /** Seed-Qualitaet je Zone, aus den Tests dieser Session ermittelt (siehe Kopfkommentar). */
   seedQuality: Record<SwuZoneSlot, SwuSeedQuality>;
   /**
@@ -75,7 +75,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '1': {
     generateColonySurface: generateErdaehnlichColonySurface,
     generateUntergrund: generateErdaehnlichUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(1, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(1, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'OPT', 3: 'JA' },
     getZoneLetter: (zoneSlot, rotation, seed) =>
       getErdaehnlichZoneConfig(zoneSlot, rotation, seed).baseField.charAt(0).toUpperCase(),
@@ -83,77 +83,77 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '2': {
     generateColonySurface: generateOzeanweltColonySurface,
     generateUntergrund: generateOzeanweltUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(2, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(2, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot) => getOzeanweltZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '3': {
     generateColonySurface: generateWaldplanetColonySurface,
     generateUntergrund: generateWaldplanetUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(3, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(3, null, hasRing, width),
     seedQuality: { 1: 'OPT', 2: 'OPT', 3: 'JA' },
     getZoneLetter: (zoneSlot) => getWaldplanetZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '4': {
     generateColonySurface: generateSumpfColonySurface,
     generateUntergrund: generateSumpfUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(4, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(4, null, hasRing, width),
     seedQuality: { 1: 'OPT', 2: 'OPT', 3: 'JA' },
     getZoneLetter: (zoneSlot) => getSumpfZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '5': {
     generateColonySurface: generateSavanneColonySurface,
     generateUntergrund: generateSavanneUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(5, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(5, null, hasRing, width),
     seedQuality: { 1: 'OPT', 2: 'OPT', 3: 'OPT' },
     getZoneLetter: (zoneSlot) => getSavanneZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '6': {
     generateColonySurface: generateWuesteColonySurface,
     generateUntergrund: generateWuesteUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(6, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(6, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'OPT' },
     getZoneLetter: (zoneSlot) => getWuesteZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '7': {
     generateColonySurface: generateGebirgsweltColonySurface,
     generateUntergrund: generateGebirgsweltUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(7, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(7, null, hasRing, width),
     seedQuality: { 1: 'OPT', 2: 'OPT', 3: 'OPT' },
     getZoneLetter: (zoneSlot) => getGebirgsweltZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '8': {
     generateColonySurface: generateTundraartigColonySurface,
     generateUntergrund: generateTundraartigUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(8, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(8, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'OPT', 3: 'OPT' },
     getZoneLetter: (zoneSlot) => getTundraartigZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '9': {
     generateColonySurface: generateMarsartigColonySurface,
     generateUntergrund: generateMarsartigUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(9, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(9, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot) => getMarsartigZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '10': {
     generateColonySurface: generateArktischColonySurface,
     generateUntergrund: generateArktischUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(10, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(10, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'OPT' },
     getZoneLetter: (zoneSlot) => getArktischZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '11': {
     generateColonySurface: generateArchipelColonySurface,
     generateUntergrund: generateArchipelUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(11, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(11, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot) => getArchipelZoneConfig(zoneSlot).baseField.charAt(0).toUpperCase(),
   },
   '12': {
     generateColonySurface: generateMondartigColonySurface,
     generateUntergrund: generateMondartigUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(12, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(12, null, hasRing, width),
     seedQuality: { 1: 'OPT', 2: 'OPT', 3: 'OPT' },
     getZoneLetter: (zoneSlot, _rotation, _seed, bodyFeature) =>
       getMondartigZoneConfig(zoneSlot, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -161,7 +161,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '13': {
     generateColonySurface: generateLavaplanetColonySurface,
     generateUntergrund: generateLavaplanetUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(13, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(13, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot, _rotation, seed, bodyFeature) =>
       getLavaplanetZoneConfig(zoneSlot, seed, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -169,7 +169,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '14': {
     generateColonySurface: generateGiftweltColonySurface,
     generateUntergrund: generateGiftweltUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(14, null, hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(14, null, hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot, _rotation, _seed, bodyFeature) =>
       getGiftweltZoneConfig(zoneSlot, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -177,7 +177,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '15-A': {
     generateColonySurface: generateGasplanetColonySurface,
     generateUntergrund: generateGasplanetUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(15, 'A', hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(15, 'A', hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot, _rotation, _seed, bodyFeature) =>
       getGasplanetZoneConfig(zoneSlot, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -186,7 +186,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '15-B': {
     generateColonySurface: generateGasplanetColonySurface,
     generateUntergrund: generateGasplanetUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(15, 'B', hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(15, 'B', hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot, _rotation, _seed, bodyFeature) =>
       getGasplanetZoneConfig(zoneSlot, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -195,7 +195,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '15-C': {
     generateColonySurface: generateGasplanetColonySurface,
     generateUntergrund: generateGasplanetUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(15, 'C', hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(15, 'C', hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot, _rotation, _seed, bodyFeature) =>
       getGasplanetZoneConfig(zoneSlot, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -204,7 +204,7 @@ const SWU_ARCHETYPE_REGISTRY: Record<string, SwuArchetypeGeneratorBundle> = {
   '15-D': {
     generateColonySurface: generateGasplanetColonySurface,
     generateUntergrund: generateGasplanetUntergrund,
-    generateOrbit: (hasRing) => buildOrbitRows(15, 'D', hasRing),
+    generateOrbit: (hasRing, width) => buildOrbitRows(15, 'D', hasRing, width),
     seedQuality: { 1: 'JA', 2: 'JA', 3: 'JA' },
     getZoneLetter: (zoneSlot, _rotation, _seed, bodyFeature) =>
       getGasplanetZoneConfig(zoneSlot, bodyFeature).baseField.charAt(0).toUpperCase(),
@@ -391,6 +391,7 @@ export function foundSwuColony(
   zoneSlot: SwuZoneSlot,
   seed: string,
   classify?: (tile: string) => string[],
+  orbitWidth?: number,
 ): SwuFoundedColony {
   const bundle = getArchetypeGeneratorBundle(archetype.typeId, archetype.variant);
   if (!bundle) {
@@ -410,7 +411,7 @@ export function foundSwuColony(
     zoneSlot,
     surface,
     untergrund,
-    orbit: bundle.generateOrbit(bodyFeature === 'ring'),
+    orbit: bundle.generateOrbit(bodyFeature === 'ring', orbitWidth),
     bonusMarkers: classify
       ? generateSwuBonusMarkers({
           surface,
