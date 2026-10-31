@@ -503,7 +503,13 @@ export function colonyFieldTileImage(
   // (z.B. "A540", "OU1A", "U101") liegen in generated/SWUfields, dort mit
   // Praefix t (Tag) / n (Nacht); Untergrund-Codes (U...) ohne Praefix.
   const id = String(tileId);
-  if (/^\d+$/.test(id)) return `${ASSET_BASE}/generated/fields/${id}.png`;
+  if (/^\d+$/.test(id)) {
+    // STU-Asteroidenklassen (701-718) erzeugen 6-stellige Kachel-IDs
+    // (Klasse*1000 + n*10, z.B. 718080); die Dateien heissen ohne die
+    // letzte Null (71808.png).
+    const file = id.length === 6 && id.endsWith('0') ? id.slice(0, -1) : id;
+    return `${ASSET_BASE}/generated/fields/${file}.png`;
+  }
   const prefix = id.startsWith('U') ? '' : timeState === 'night' ? 'n' : 't';
   return `${ASSET_BASE}/generated/SWUfields/${prefix}${id}.png`;
 }
