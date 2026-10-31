@@ -50,6 +50,18 @@ type Check = {
       selectable: boolean;
     }>;
   } | null;
+  ruins?: {
+    needsHeadquarters: boolean;
+    replacesForeignHeadquarters: boolean;
+    surface: {
+      width: number;
+      fields: Array<{
+        fieldIndex: number;
+        terrainTileId: string | null;
+        selectable: boolean;
+      }>;
+    } | null;
+  } | null;
   swu?: {
     archetype: string;
     rotation: 'rotating' | 'tidal-locked';
@@ -346,9 +358,10 @@ export function ColonizationDialog({
   }, [celestialObjectId, shipId]);
 
   const isSwu = !!check?.swu;
+  const ruinsNeedHq = isRuins && !!check?.ruins?.needsHeadquarters;
   const canSubmit =
     check?.canColonize &&
-    (isRuins || (isSwu ? zoneSlot != null && fieldIndex != null : fieldIndex != null));
+    ((isRuins && (!ruinsNeedHq || fieldIndex != null)) || (!isRuins && isSwu ? zoneSlot != null && fieldIndex != null : fieldIndex != null));
 
   async function colonize() {
     if (!canSubmit) return;
@@ -399,7 +412,11 @@ export function ColonizationDialog({
           </p>
           <p className="text-swu-muted">
             {isRuins
-              ? 'Bestehende Gebäude und Lager werden übernommen. Das Kolonieschiff wird verbraucht.'
+              ? ruinsNeedHq
+                ? 'Bestehende Gebäude und Lager werden übernommen. Es ist keine Koloniezentrale vorhanden – wähle das Feld, auf dem sie errichtet wird. Das Kolonieschiff wird verbraucht.'
+                : check?.ruins?.replacesForeignHeadquarters
+                  ? 'Bestehende Gebäude und Lager werden übernommen. Die fremde Koloniezentrale wird durch die deiner Fraktion ersetzt. Das Kolonieschiff wird verbraucht.'
+                  : 'Bestehende Gebäude und Lager werden übernommen. Das Kolonieschiff wird verbraucht.'
               : isSwu
                 ? 'Wähle eine Zone und das Feld für die Koloniezentrale. Das Kolonieschiff wird verbraucht.'
                 : 'Wähle das Feld für das Startgebäude. Das Kolonieschiff wird verbraucht.'}
@@ -437,14 +454,23 @@ export function ColonizationDialog({
               }}
             />
           )}
-          {!isRuins && !check?.swu && check?.surface && (
+          {(() => {
+            const grid = isRuins
+              ? ruinsNeedHq
+                ? check?.ruins?.surface
+                : null
+              : !check?.swu
+                ? check?.surface
+                : null;
+            if (!grid) return null;
+            return (
             <div
               className="grid gap-px bg-swu-border"
               style={{
-                gridTemplateColumns: `repeat(${check.surface.width}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${grid.width}, minmax(0, 1fr))`,
               }}
             >
-              {check.surface.fields.map((field) => (
+              {grid.fields.map((field) => (
                 <button
                   key={field.fieldIndex}
                   type="button"
@@ -472,7 +498,8 @@ export function ColonizationDialog({
                 </button>
               ))}
             </div>
-          )}
+            );
+          })()}
           <button
             type="button"
             disabled={!canSubmit || pending}

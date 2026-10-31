@@ -73,6 +73,7 @@ describe('ColonizationService', () => {
       })),
     };
     const colonyEventService = { createActionEvent: jest.fn() };
+    const fieldRepo = repo({ find: jest.fn(async () => []), save: jest.fn(async (v) => v) });
 
     const service = new ColonizationService(
       userRepo,
@@ -81,6 +82,7 @@ describe('ColonizationService', () => {
       shipRepo,
       shipClassRepo,
       repo({ find: jest.fn(async () => []) }) as never,
+      fieldRepo as never,
       unlockResolver as never,
       colonySeedService as never,
       colonyEventService as never,
@@ -97,6 +99,7 @@ describe('ColonizationService', () => {
       unlockResolver,
       colonySeedService,
       colonyEventService,
+      fieldRepo,
     };
   }
 
@@ -925,5 +928,77 @@ describe('ColonizationService', () => {
     await expect(service.colonize(1, 1, 8)).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  describe('taking over ruins', () => {
+    function setupRuins(fields: Array<Record<string, unknown>>) {
+      const ctx = createService();
+      const { userRepo, colonyRepo, objectRepo, shipRepo, shipClassRepo, unlockResolver, fieldRepo } = ctx;
+      userRepo.findOne.mockResolvedValue({ ...rebelUser, createdAt: new Date(), factionId: 1 });
+      colonyRepo.find.mockResolvedValue([]);
+      colonyRepo.findOne.mockResolvedValue({
+        id: 99,
+        isAbandoned: true,
+        energy: 0,
+        surfaceWidth: 2,
+        swuZoneSlot: null,
+        changeable: null,
+      });
+      colonyRepo.save.mockImplementation(async (v: unknown) => v);
+      colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+      const target = {
+        id: 7, objectType: 2, isColonizable: true, classId: 401,
+        systemId: 44, posX: 8, posY: 9,
+        starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+      };
+      objectRepo.findOne.mockResolvedValue(target);
+      shipRepo.findOne.mockResolvedValue({
+        id: 15, userId: 1, shipClassId: 56, status: 'IDLE', locationId: 43,
+        location: { id: 43, kind: 'SYSTEM_FIELD', systemField: { starSystemId: 44, sx: 8, sy: 9 } },
+        name: 'Aerie',
+      });
+      shipClassRepo.findOneBy.mockResolvedValue({
+        id: 56, isColonizer: true, colonizerTier: 2, colonizationBuildingId: 82010100,
+      });
+      unlockResolver.hasTech.mockResolvedValue(true);
+      fieldRepo.find.mockResolvedValue(fields);
+      return ctx;
+    }
+    const field = (fieldIndex: number, buildingId: number | null = null) => ({
+      colonyId: 99, fieldIndex, fieldType: 1, terrainTileId: '1', layer: 'SURFACE',
+      buildingId, isBuilding: false,
+    });
+
+    it('keeps a headquarters of the own faction', async () => {
+      const { service, fieldRepo } = setupRuins([field(0, 82010100), field(1)]);
+      const check = await service.explainTarget(1, 7, 15);
+      expect(check.ruins).toMatchObject({ needsHeadquarters: false, replacesForeignHeadquarters: false });
+      await service.colonize(1, 15, 7);
+      expect(fieldRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('replaces a headquarters of a foreign faction', async () => {
+      const { service, fieldRepo } = setupRuins([field(0, 82010300), field(1, 81010300)]);
+      const check = await service.explainTarget(1, 7, 15);
+      expect(check.ruins).toMatchObject({ needsHeadquarters: false, replacesForeignHeadquarters: true });
+      await service.colonize(1, 15, 7);
+      const saved = fieldRepo.save.mock.calls[0][0];
+      expect(saved.map((f: { buildingId: number }) => f.buildingId)).toEqual([82010100, 81010100]);
+    });
+
+    it('asks for a field when no headquarters exists and builds it there', async () => {
+      const { service, fieldRepo } = setupRuins([field(0, 12345), field(1), field(2)]);
+      const check = await service.explainTarget(1, 7, 15);
+      expect(check.ruins?.needsHeadquarters).toBe(true);
+      expect(check.ruins?.surface?.fields.map((f) => f.selectable)).toEqual([false, true, true]);
+
+      await expect(service.colonize(1, 15, 7)).rejects.toThrow(BadRequestException);
+      await expect(service.colonize(1, 15, 7, 0)).rejects.toThrow(BadRequestException);
+
+      await service.colonize(1, 15, 7, 2);
+      expect(fieldRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ fieldIndex: 2, buildingId: 82010100, buildProgress: 100 }),
+      );
+    });
   });
 });
