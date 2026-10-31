@@ -25,6 +25,17 @@ import { CelestialObjectType } from '../starmap/entities/celestial-object.entity
 import { convertObjectToSwu } from '../starmap/generator/swu-stu-class-mapping';
 import { purgeColonies } from './colony-purge';
 
+/** Alte STU-Oberflaechen haben ausschliesslich numerische Kachel-Codes, SWU-Felder alphanumerische (z.B. "G649"). */
+function hasStuSurface(fields: Array<Pick<ColonyField, 'terrainTileId'>>): boolean {
+  return (
+    fields.length > 0 &&
+    !fields.some(
+      (field) =>
+        field.terrainTileId != null && !/^\d+$/.test(field.terrainTileId),
+    )
+  );
+}
+
 @Injectable()
 export class ColonyAbandonmentService {
   constructor(
@@ -87,6 +98,21 @@ export class ColonyAbandonmentService {
       await this.colonyRepo.manager.transaction(async (manager) => {
         await purgeColonies(manager, [colony.id]);
         await manager.save(object);
+      });
+      return { abandoned: true, colonyId: colony.id };
+    }
+
+    // Asteroiden mit noch alter STU-Oberflaeche (nur numerische Kachel-Codes)
+    // werden ebenfalls gesaeubert: die naechste Besiedlung erzeugt dann die
+    // SWU-Oberflaeche (siehe swu-asteroid-biomes.ts) statt die alte Ruine zu
+    // uebernehmen. Die Lagerstaetten pro Account (asteroid_resource_deposits)
+    // bleiben dabei bestehen, ein erschoepfter Asteroid bleibt erschoepft.
+    if (
+      object?.objectType === CelestialObjectType.ASTEROID &&
+      hasStuSurface(colony.fields ?? [])
+    ) {
+      await this.colonyRepo.manager.transaction(async (manager) => {
+        await purgeColonies(manager, [colony.id]);
       });
       return { abandoned: true, colonyId: colony.id };
     }
