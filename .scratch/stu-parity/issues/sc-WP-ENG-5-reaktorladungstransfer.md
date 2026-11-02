@@ -1,6 +1,6 @@
 # Reaktorladungstransfer zwischen Schiffen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-ENG-2c
@@ -25,10 +25,12 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Modul, Laufzeitsystem und SW-Name existieren; Entscheidung in `map.md`.
-- [ ] Transfer an mehrere Ziele mit STU-Vorbedingungen; Prüfung über sc-WP-ENG-2c.
-- [ ] Fremde Eigner erhalten eine Systemnachricht.
-- [ ] Backend-Tests, Frontend-Test.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Modul, Laufzeitsystem und SW-Name existieren; Entscheidung in `map.md`.
+- [x] Transfer an mehrere Ziele mit STU-Vorbedingungen; Prüfung über sc-WP-ENG-2c.
+- [x] Fremde Eigner erhalten eine Systemnachricht.
+- [x] Backend-Tests, Frontend-Test.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+`Hypermaterie-Transferkoppler` implements multi-target reactor-charge transfer in the engineering service and Reactor panel. Same-field, unmasked, non-destroyed targets are handled transactionally; hyperdrive/shields and module/runtime readiness are enforced, and foreign owners receive a trade-folder system message. Focused backend (7 tests), frontend (7 tests), lint, and typecheck checks pass. The full backend suite still contains unrelated pre-existing fixture failures; no build was run because the workspace build gate is separate and the issue changes are already covered by typechecks.

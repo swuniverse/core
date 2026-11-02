@@ -162,6 +162,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-ENG-5 – Hypermaterie-Transferkoppler überträgt Reaktorladung transaktional an mehrere gleich positionierte, ungetarnte Schiffe und informiert fremde Eigentümer – siehe Feature-Commit
 - sc-WP-CREW-4b – Fremde unbemannte Nicht-NPC-Schiffe außerhalb des Urlaubsmodus können über zehn Hauptticks übernommen werden; Startkosten, Abbrucherstattung, Besitzwechsel, History, Crew-XP und NBS-Fortschritt sind umgesetzt – siehe Feature-Commit
 - sc-WP-CREW-4a – Fremde ungeschildete Schiffe können unabhängig von Haltung und Fraktion per NBS geentert werden; STU-Truppenkampf, Crewverluste und Prestige sind transaktional umgesetzt – siehe Feature-Commit
 - col-G1b – Teleskop-Scans ziehen STU-EPS-Kosten ab und zeigen momentane anonyme Schiffsanzahlen je Rumpfkategorie – siehe Feature-Commit

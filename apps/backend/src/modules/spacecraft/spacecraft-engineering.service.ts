@@ -6,16 +6,27 @@ import {
 import type {
   SpacecraftEngineeringAmount,
   SpacecraftEngineeringResultDto,
+  SpacecraftReactorTransferResultDto,
+  SpacecraftReactorTransferTargetDto,
 } from '@swuniverse/shared';
 import { DataSource, EntityManager, In } from 'typeorm';
+import { MessageFolder } from '../messaging/message-folder';
+import { MessagingService } from '../messaging/messaging.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { reactorFuelProfile } from './reactor-fuel-profile';
+import { resolveSpacecraftLocation } from './spacecraft-field';
+import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
+
+const REACTOR_TRANSFER_MODULE = 'Hypermaterie-Transferkoppler';
 
 @Injectable()
 export class SpacecraftEngineeringService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly messaging: MessagingService,
+  ) {}
 
   async loadReactor(
     shipId: number,
@@ -84,6 +95,115 @@ export class SpacecraftEngineeringService {
     });
   }
 
+  async reactorTransferTargets(
+    shipId: number,
+    userId: number,
+  ): Promise<SpacecraftReactorTransferTargetDto[]> {
+    const source = await this.dataSource.manager.findOne(Spacecraft, {
+      where: { id: shipId, userId },
+      relations: { modules: true, location: { galaxyField: true, systemField: true } },
+    });
+    if (!source) throw new NotFoundException('Spacecraft not found');
+    this.assertReactorTransferAvailable(source);
+    const location = resolveSpacecraftLocation(source);
+    if (!location) return [];
+    const ships = await this.dataSource.manager.find(Spacecraft, {
+      relations: { modules: true, location: { galaxyField: true, systemField: true } },
+    });
+    return ships
+      .filter(
+        (target) =>
+          target.id !== source.id &&
+          target.status !== SpacecraftStatus.DESTROYED &&
+          this.samePosition(source, target) &&
+          !initializeSpacecraftRuntimeSystems(target).CLOAK?.active,
+      )
+      .map((target) => ({
+        shipId: target.id,
+        name: target.name,
+        reactorFuel: target.reactorFuel,
+        reactorFuelMax: target.reactorFuelMax,
+      }));
+  }
+
+  async transferReactorCharge(
+    shipId: number,
+    userId: number,
+    transfers: Array<{ targetShipId: number; amount: number }>,
+  ): Promise<SpacecraftReactorTransferResultDto> {
+    if (!Array.isArray(transfers) || transfers.length === 0) {
+      throw new BadRequestException('Es wurden keine Schiffe ausgewählt');
+    }
+    const requestedIds = [...new Set(transfers.map((item) => item.targetShipId))];
+    if (
+      requestedIds.includes(shipId) ||
+      requestedIds.length !== transfers.length ||
+      transfers.some(
+        (item) =>
+          !Number.isInteger(item.targetShipId) ||
+          !Number.isInteger(item.amount) ||
+          item.amount < 1,
+      )
+    ) {
+      throw new BadRequestException('Ungültige Transferauswahl');
+    }
+    const outcome = await this.dataSource.transaction(async (manager) => {
+      const ships = await manager.find(Spacecraft, {
+        where: [{ id: shipId }, ...requestedIds.map((id) => ({ id }))],
+        relations: { modules: true, location: { galaxyField: true, systemField: true } },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
+      });
+      const source = ships.find((ship) => ship.id === shipId && ship.userId === userId);
+      if (!source) throw new NotFoundException('Spacecraft not found');
+      this.assertReactorTransferAvailable(source);
+      let transferred = 0;
+      const notices: Array<{ userId: number; targetName: string }> = [];
+      for (const request of transfers) {
+        const target = ships.find((ship) => ship.id === request.targetShipId);
+        if (
+          !target ||
+          target.status === SpacecraftStatus.DESTROYED ||
+          !this.samePosition(source, target) ||
+          initializeSpacecraftRuntimeSystems(target).CLOAK?.active
+        ) {
+          continue;
+        }
+        const amount = Math.min(
+          request.amount,
+          source.reactorFuel,
+          Math.max(0, target.reactorFuelMax - target.reactorFuel),
+        );
+        if (amount < 1) continue;
+        source.reactorFuel -= amount;
+        target.reactorFuel += amount;
+        transferred += amount;
+        if (target.userId !== source.userId) {
+          notices.push({ userId: target.userId, targetName: target.name });
+        }
+      }
+      if (transferred < 1) {
+        throw new BadRequestException('Keine Reaktorladung übertragen');
+      }
+      await manager.save(ships);
+      const location = resolveSpacecraftLocation(source);
+      return { source, transferred, notices, location };
+    });
+    for (const notice of outcome.notices) {
+      await this.messaging.sendSystem(
+        notice.userId,
+        'Reaktorladungstransfer',
+        `Die ${outcome.source.name} hat in Sektor ${outcome.location ? `${outcome.location.x}|${outcome.location.y}` : '?'} den Reaktor der ${notice.targetName} aufgeladen`,
+        undefined,
+        MessageFolder.TRADE,
+      );
+    }
+    return {
+      transferred: outcome.transferred,
+      reactorFuel: outcome.source.reactorFuel,
+      message: `${outcome.transferred} Reaktorladung übertragen`,
+    };
+  }
+
   async dischargeBattery(
     shipId: number,
     userId: number,
@@ -110,6 +230,54 @@ export class SpacecraftEngineeringService {
       await manager.save(ship);
       return this.result(ship, amount);
     });
+  }
+
+  private assertReactorTransferAvailable(ship: Spacecraft): void {
+    const hyperdriveActive =
+      (ship.runtimeSystems?.WARPDRIVE as { active?: boolean } | undefined)
+        ?.active === true;
+    const shieldsActive =
+      (ship.runtimeSystems?.SHIELDS as { active?: boolean } | undefined)
+        ?.active === true;
+    const systems = initializeSpacecraftRuntimeSystems(ship);
+    const transfer = systems.REACTOR_CHARGE_TRANSFER;
+    const module = ship.modules?.find(
+      (candidate) => candidate.moduleType === REACTOR_TRANSFER_MODULE,
+    );
+    if (!module || !module.isActive || module.integrity <= 0 || !transfer?.active) {
+      throw new BadRequestException(
+        'Dieses Schiff verfügt über keinen einsatzbereiten Hypermaterie-Transferkoppler',
+      );
+    }
+    if (
+      hyperdriveActive ||
+      shieldsActive ||
+      systems.WARPDRIVE?.active ||
+      systems.SHIELDS?.active
+    ) {
+      throw new BadRequestException(
+        'Hyperantrieb und Schilde müssen deaktiviert sein',
+      );
+    }
+    if (ship.reactorFuel <= 0) {
+      throw new BadRequestException('Keine Reaktorladung vorhanden');
+    }
+  }
+
+  private samePosition(source: Spacecraft, target: Spacecraft): boolean {
+    const sourceLocation = resolveSpacecraftLocation(source);
+    const targetLocation = resolveSpacecraftLocation(target);
+    return (
+      sourceLocation != null &&
+      targetLocation != null &&
+      sourceLocation.scope === targetLocation.scope &&
+      sourceLocation.x === targetLocation.x &&
+      sourceLocation.y === targetLocation.y &&
+      ('systemId' in sourceLocation
+        ? 'systemId' in targetLocation &&
+          sourceLocation.systemId === targetLocation.systemId
+        : true)
+    );
   }
 
   private resolveAmount(

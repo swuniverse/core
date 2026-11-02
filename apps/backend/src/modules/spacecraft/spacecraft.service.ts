@@ -1143,6 +1143,7 @@ export class SpacecraftService {
       ASTROMETRY_LAB: 'Astrometrie-Labor',
       CLOAK: 'Tarnung',
       TRACTOR_BEAM: 'Traktorstrahl',
+      REACTOR_CHARGE_TRANSFER: 'Reaktorladungstransfer',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {

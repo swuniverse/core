@@ -14,6 +14,9 @@ jest.mock('../starmap/entities/layer.entity', () => ({
 jest.mock('./entities/spacecraft-module.entity', () => ({
   SpacecraftModule: class SpacecraftModule {},
 }));
+jest.mock('../messaging/messaging.service', () => ({
+  MessagingService: class MessagingService {},
+}));
 jest.mock('./entities/fleet.entity', () => ({ Fleet: class Fleet {} }));
 
 import { BadRequestException } from '@nestjs/common';
@@ -32,6 +35,9 @@ function setup(shipOverrides = {}, cargoAmount = 5) {
     reactorFuel: 2,
     reactorFuelMax: 8,
     cargoUsed: cargoAmount,
+    modules: [],
+    runtimeSystems: {},
+    location: { id: 5, kind: 'GALAXY_FIELD', galaxyField: { cx: 4, cy: 7 } },
     ...shipOverrides,
   };
   const cargo = { id: 3, spacecraftId: 2, commodityId: 5, amount: cargoAmount };
@@ -54,11 +60,13 @@ function setup(shipOverrides = {}, cargoAmount = 5) {
   const dataSource = {
     transaction: jest.fn(async (work) => work(manager)),
   };
+  const messaging = { sendSystem: jest.fn() };
   return {
-    service: new SpacecraftEngineeringService(dataSource as any),
+    service: new SpacecraftEngineeringService(dataSource as any, messaging as any),
     ship,
     cargo,
     manager,
+    messaging,
   };
 }
 
@@ -100,6 +108,97 @@ describe('SpacecraftEngineeringService', () => {
     expect(result.transferred).toBe(30);
     expect(ship.reactorFuel).toBe(30);
     expect(cargo.map((item) => item.amount)).toEqual([0, 0, 0]);
+  });
+
+  it('transfers reactor charge to multiple co-located ships and notifies foreign owners', async () => {
+    const { service, ship, manager, messaging } = setup({
+      reactorFuel: 20,
+      modules: [
+        {
+          moduleType: 'Hypermaterie-Transferkoppler',
+          category: 'SPECIAL',
+          integrity: 100,
+          isActive: true,
+        },
+      ],
+      runtimeSystems: {
+        REACTOR_CHARGE_TRANSFER: { active: true, cooldown: 0, integrity: 100 },
+        WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
+        SHIELDS: { active: false, cooldown: 0, integrity: 100 },
+      },
+    });
+    const ownTarget = {
+      ...ship,
+      id: 3,
+      name: 'Gamma',
+      reactorFuel: 2,
+      reactorFuelMax: 10,
+      modules: [],
+    };
+    const foreignTarget = {
+      ...ship,
+      id: 4,
+      userId: 2,
+      name: 'Delta',
+      reactorFuel: 0,
+      reactorFuelMax: 5,
+      modules: [],
+    };
+    manager.find.mockResolvedValueOnce([ship, ownTarget, foreignTarget] as any);
+
+    const result = await service.transferReactorCharge(2, 1, [
+      { targetShipId: 3, amount: 8 },
+      { targetShipId: 4, amount: 8 },
+    ]);
+
+    expect(result.transferred).toBe(13);
+    expect(ship.reactorFuel).toBe(7);
+    expect(ownTarget.reactorFuel).toBe(10);
+    expect(foreignTarget.reactorFuel).toBe(5);
+    expect(messaging.sendSystem).toHaveBeenCalledWith(
+      2,
+      'Reaktorladungstransfer',
+      expect.stringContaining('Delta'),
+      undefined,
+      expect.anything(),
+    );
+  });
+
+  it('rejects reactor charge transfer while hyperdrive is active', async () => {
+    const { service, ship, manager } = setup({
+      reactorFuel: 20,
+      modules: [
+        {
+          moduleType: 'Hypermaterie-Transferkoppler',
+          category: 'SPECIAL',
+          integrity: 100,
+          isActive: true,
+        },
+      ],
+      runtimeSystems: {
+        REACTOR_CHARGE_TRANSFER: { active: true, cooldown: 0, integrity: 100 },
+        WARPDRIVE: { active: true, cooldown: 0, integrity: 100 },
+        SHIELDS: { active: false, cooldown: 0, integrity: 100 },
+      },
+    });
+
+    const target = {
+      id: 3,
+      userId: 1,
+      name: 'Gamma',
+      status: 'IDLE',
+      reactorFuel: 0,
+      reactorFuelMax: 10,
+      modules: [],
+      runtimeSystems: {},
+      location: { id: 5, kind: 'GALAXY_FIELD', galaxyField: { cx: 4, cy: 7 } },
+    };
+    (ship.runtimeSystems as any).WARPDRIVE.active = true;
+    manager.find.mockResolvedValueOnce([ship, target] as any);
+
+    await expect(
+      service.transferReactorCharge(2, 1, [{ targetShipId: 3, amount: 1 }]),
+    ).rejects.toThrow('Hyperantrieb und Schilde müssen deaktiviert sein');
   });
 
   it('discharges MAX battery into EPS within capacity', async () => {
