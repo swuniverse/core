@@ -1,6 +1,6 @@
 # Fremde Crew aus Kapseln an Handelsposten überstellen und fremde Crew ablegen
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-CREW-3b, tmw-T1c
@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-11-02: Umsetzung nach zwei ernsthaften Prüfversuchen abgebrochen. Die fokussierten Backend-/Frontend-Tests, Typechecks und Builds sind grün, aber das verbindliche Gate `npx nx affected -t lint typecheck test --base=HEAD` bleibt wegen zweier fachfremder Backend-Baselinefehler rot: `spacecraft-fleet.service.spec.ts` scheitert mit `Not enough EPS for navigation`, `spacecraft-core-controls.spec.ts` mit fehlendem `shipRepo.findOneBy` im Test-Double. Benötigt Entscheidung bzw. separates Baseline-Issue, bevor dieses Issue erneut umgesetzt wird.
