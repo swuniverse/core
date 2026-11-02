@@ -1,6 +1,6 @@
 # Subraumteleskop: Scan eines Kartenfelds
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** col-G1a
