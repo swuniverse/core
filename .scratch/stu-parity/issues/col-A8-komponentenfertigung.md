@@ -1,6 +1,6 @@
 # Komponentenfertigung in Fabrikationshalle und Technologiezentrum
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** col-A2, col-A5
