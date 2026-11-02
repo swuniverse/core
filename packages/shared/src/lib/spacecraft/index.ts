@@ -72,6 +72,20 @@ export interface SpacecraftActionAvailabilityDto {
   reason: string | null;
 }
 
+export interface SpacecraftBoardingResultDto {
+  attackerId: number;
+  targetId: number;
+  outcome: 'ATTACKER_VICTORY' | 'DEFENDER_VICTORY';
+  attackerCrewBefore: number;
+  attackerCrewLost: number;
+  attackerCrewAfter: number;
+  defenderCrewBefore: number;
+  defenderCrewLost: number;
+  defenderCrewAfter: number;
+  prestigeCost: number;
+  message: string;
+}
+
 export interface SpacecraftCrewMemberDto {
   id: number;
   name: string;

@@ -19,7 +19,8 @@ export type NearbyInteraction =
   | 'TRANSFER'
   | 'MESSAGE'
   | 'SALVAGE'
-  | 'DOCK';
+  | 'DOCK'
+  | 'BOARDING';
 
 /**
  * Rule sets for interactions offered by scan, NBS (`getNearby`) and intercept.
@@ -84,6 +85,19 @@ export const NEARBY_INTERACTION_RULES: Record<
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
     InteractionRule.TARGET_UNSHIELDED,
+  ],
+  BOARDING: [
+    InteractionRule.POSITION,
+    InteractionRule.SOURCE_CREW,
+    InteractionRule.SOURCE_INTACT,
+    InteractionRule.TARGET_INTACT,
+    InteractionRule.SOURCE_UNCLOAKED,
+    InteractionRule.TARGET_UNCLOAKED,
+    InteractionRule.SOURCE_UNHYPERSPACED,
+    InteractionRule.TARGET_UNHYPERSPACED,
+    InteractionRule.SOURCE_UNSHIELDED,
+    InteractionRule.TARGET_UNSHIELDED,
+    InteractionRule.TARGET_VACATION,
   ],
 };
 

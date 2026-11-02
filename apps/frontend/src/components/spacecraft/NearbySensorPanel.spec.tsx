@@ -67,6 +67,43 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('boards an eligible nearby ship and shows the combat result', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          actions: { ...nearby.ships[0].actions, boarding: true },
+        },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({
+      message: 'Die Crew der Ziel wurde getötet.',
+    });
+    const onUpdate = vi.fn();
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTitle('Ziel entern'));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/2/nearby/3/board',
+        {},
+      ),
+    );
+    expect(
+      await screen.findByText('Die Crew der Ziel wurde getötet.'),
+    ).toBeTruthy();
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
   it('disables attacks against vacation ships with the server reason', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

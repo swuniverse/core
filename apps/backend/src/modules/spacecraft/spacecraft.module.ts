@@ -79,6 +79,7 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { StationConstructionService } from './station-construction.service';
 import { InteractionContextService } from './interaction-context.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
+import { SpacecraftBoardingService } from './spacecraft-boarding.service';
 import { CrewSkill } from './entities/crew-skill.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import {
@@ -174,6 +175,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
     StationConstructionService,
     InteractionContextService,
     SpacecraftTractorService,
+    SpacecraftBoardingService,
     FieldTransitionExecutor,
     FieldEffectConsequence,
     FlightConsequencePipeline,

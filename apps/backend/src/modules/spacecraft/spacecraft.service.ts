@@ -3553,7 +3553,20 @@ export class SpacecraftService {
                 ) &&
                 !hyperdriveActive &&
                 !targetHyperdriveActive,
-              boarding: false,
+              boarding:
+                target.kind === 'SHIP' &&
+                target.userId !== ship.userId &&
+                target.user?.isNpc !== true &&
+                !targetOnVacation &&
+                ship.crew > 0 &&
+                target.crew > 0 &&
+                ship.modules.some(
+                  (module) =>
+                    module.moduleType === 'Truppenquartiere' &&
+                    module.integrity > 0 &&
+                    module.isActive,
+                ) &&
+                interactionDecision('BOARDING').allowed,
             },
           };
         }),

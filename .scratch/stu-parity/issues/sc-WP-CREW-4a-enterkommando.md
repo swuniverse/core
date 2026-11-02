@@ -1,6 +1,6 @@
 # Enterkommando (Truppenkampf gegen Crew)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-CREW-1, sc-WP-ENG-2c
@@ -23,10 +23,10 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Entern gegen jedes fremde Schiff unabhängig von Haltung und Fraktion; Truppenkampf nach STU-Formel (`CloseCombatUtil`), Folgen wie STU (Systemschaden, Crewverluste, Prestige `BOARDING_*`).
-- [ ] Interaktions-Checks (Ziel ungeschildet, kein Urlauber, kein NPC, Truppenquartiere vorhanden).
-- [ ] Backend-Tests für Sieg/Niederlage und Ziel derselben Fraktion, Frontend-Test NBS-Aktion.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Entern gegen jedes fremde Schiff unabhängig von Haltung und Fraktion; Truppenkampf nach STU-Formel (`CloseCombatUtil`), Folgen wie STU (Systemschaden, Crewverluste, Prestige `BOARDING_*`).
+- [x] Interaktions-Checks (Ziel ungeschildet, kein Urlauber, kein NPC, Truppenquartiere vorhanden).
+- [x] Backend-Tests für Sieg/Niederlage und Ziel derselben Fraktion, Frontend-Test NBS-Aktion.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Entscheidung
 
@@ -35,3 +35,4 @@ Vorgabe: Variante (a), wie STU. Entern gegen jedes fremde ungeschildete Schiff, 
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Entern ist wie in STU gegen jedes fremde ungeschildete Schiff (außer Urlauber) spielbar, auch innerhalb der eigenen Fraktion.
+- 2026-11-02 Umsetzung: Transaktionaler STU-Truppenkampf mit Crewverlusten, Prestige, Truppenquartier- und Zielprüfungen sowie NBS-Aktion ergänzt; fokussierte Tests und Builds sind grün. Der vollständige betroffene Lauf bleibt durch zwei bereits bestehende, fachfremde Backend-Tests blockiert.

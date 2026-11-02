@@ -53,6 +53,37 @@ describe('nearby interaction decisions', () => {
     expect(decideNearbyInteraction('SCAN', context).allowed).toBe(true);
   });
 
+  it('allows boarding without a stance check but rejects shields and vacation', () => {
+    const available = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(1),
+      systems(),
+    );
+    available.stanceAllowed = false;
+    expect(decideNearbyInteraction('BOARDING', available).allowed).toBe(true);
+
+    const shielded = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(1),
+      systems(false, true),
+    );
+    expect(decideNearbyInteraction('BOARDING', shielded)).toEqual({
+      allowed: false,
+      reason: 'Das Ziel hat die Schilde aktiviert',
+    });
+
+    const vacation = buildNearbyInteractionContext(
+      ship(1),
+      systems(),
+      ship(1),
+      systems(),
+      true,
+    );
+    expect(decideNearbyInteraction('BOARDING', vacation).allowed).toBe(false);
+  });
+
   it('rejects attacks and intercepts against effective vacation targets', () => {
     const context = buildNearbyInteractionContext(
       ship(1),

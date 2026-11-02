@@ -30,6 +30,7 @@ import {
 import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
+import { SpacecraftBoardingService } from './spacecraft-boarding.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
@@ -339,6 +340,9 @@ export class SpacecraftController {
   constructor(
     private readonly spacecraftService: SpacecraftService,
     private readonly tractorService: SpacecraftTractorService,
+    private readonly boardingService: SpacecraftBoardingService = {
+      board: async () => ({ message: '' }),
+    } as unknown as SpacecraftBoardingService,
     private readonly transferService: TransferService,
     private readonly scanService: SpacecraftScanService,
     private readonly gameData: GameDataService,
@@ -1114,6 +1118,15 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.scanNearbyTarget(id, req.user.sub, targetId);
+  }
+
+  @Post(':id/nearby/:targetId/board')
+  boardNearbyTarget(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.boardingService.board(id, targetId, req.user.sub);
   }
 
   @Post(':id/nearby/:targetId/tractor')

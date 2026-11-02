@@ -162,6 +162,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-CREW-4a – Fremde ungeschildete Schiffe können unabhängig von Haltung und Fraktion per NBS geentert werden; STU-Truppenkampf, Crewverluste und Prestige sind transaktional umgesetzt – siehe Feature-Commit
 - col-G1b – Teleskop-Scans ziehen STU-EPS-Kosten ab und zeigen momentane anonyme Schiffsanzahlen je Rumpfkategorie – siehe Feature-Commit
 - col-G1a – Hyperraum-Teleskope öffnen einen navigierbaren, persönlich erkundungsredigierten Kartenausschnitt mit serverseitiger STU-Energiekostenvorschau – siehe Feature-Commit
 - col-E1b – Kolonielimits werden ohne festen Deckel aus abgeschlossenen Forschungsdaten summiert und im Forschungsdetail angezeigt – siehe Feature-Commit

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type {
+  SpacecraftBoardingResultDto,
   SpacecraftDockResultDto,
   SpacecraftNearbyDto,
   SpacecraftNearbyTargetDto,
@@ -127,6 +128,22 @@ export function NearbySensorPanel({
       onUpdate();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Angriff fehlgeschlagen');
+    }
+  }
+
+  async function board(target: SpacecraftNearbyTargetDto) {
+    setSalvageMessage(null);
+    setError(null);
+    try {
+      const result = await api.post<SpacecraftBoardingResultDto>(
+        `/spacecraft/${shipId}/nearby/${target.id}/board`,
+        {},
+      );
+      setSalvageMessage(result.message);
+      await refreshNearby();
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Enterversuch fehlgeschlagen');
     }
   }
 
@@ -273,6 +290,16 @@ export function NearbySensorPanel({
                           alt="Angreifen"
                           className="inline size-4"
                         />
+                      </button>
+                    )}
+                    {target.actions.boarding && (
+                      <button
+                        type="button"
+                        onClick={() => void board(target)}
+                        title={`${target.name} entern`}
+                        className="mr-1"
+                      >
+                        <span aria-hidden="true">⚔</span>
                       </button>
                     )}
                     {target.actions.intercept && (
