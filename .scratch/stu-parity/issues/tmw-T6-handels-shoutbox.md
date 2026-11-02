@@ -1,6 +1,6 @@
 # Handels-Shoutbox je Netzwerk
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-T2
