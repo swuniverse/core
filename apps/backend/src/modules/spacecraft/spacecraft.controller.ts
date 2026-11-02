@@ -31,6 +31,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { SpacecraftService } from './spacecraft.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
 import { SpacecraftBoardingService } from './spacecraft-boarding.service';
+import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
@@ -343,6 +344,10 @@ export class SpacecraftController {
     private readonly boardingService: SpacecraftBoardingService = {
       board: async () => ({ message: '' }),
     } as unknown as SpacecraftBoardingService,
+    private readonly takeoverService: SpacecraftTakeoverService = {
+      start: async () => ({}),
+      cancel: async () => ({}),
+    } as unknown as SpacecraftTakeoverService,
     private readonly transferService: TransferService,
     private readonly scanService: SpacecraftScanService,
     private readonly gameData: GameDataService,
@@ -1127,6 +1132,23 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.boardingService.board(id, targetId, req.user.sub);
+  }
+
+  @Post(':id/nearby/:targetId/takeover')
+  startTakeover(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.takeoverService.start(id, targetId, req.user.sub);
+  }
+
+  @Delete(':id/takeover')
+  cancelTakeover(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.takeoverService.cancel(id, req.user.sub);
   }
 
   @Post(':id/nearby/:targetId/tractor')

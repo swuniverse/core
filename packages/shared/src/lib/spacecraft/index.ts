@@ -72,6 +72,15 @@ export interface SpacecraftActionAvailabilityDto {
   reason: string | null;
 }
 
+export interface SpacecraftTakeoverDto {
+  attackerId: number;
+  targetId: number;
+  ticksRemaining: number;
+  totalTicks: number;
+  prestigeCost: number;
+  completed: boolean;
+}
+
 export interface SpacecraftBoardingResultDto {
   attackerId: number;
   targetId: number;
@@ -625,6 +634,7 @@ export interface SpacecraftNearbyTargetDto {
   kind?: 'SHIP' | 'STATION';
   /** The ship is held by a tractor beam (and cannot fly on its own). */
   tractored?: boolean;
+  takeover?: SpacecraftTakeoverDto | null;
   actions: {
     dock?: boolean;
     attack: boolean;
@@ -636,6 +646,7 @@ export interface SpacecraftNearbyTargetDto {
     energyTransfer: boolean;
     tractor: boolean;
     boarding: boolean;
+    takeover?: boolean;
   };
 }
 

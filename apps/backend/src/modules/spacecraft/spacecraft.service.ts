@@ -23,6 +23,8 @@ import {
 } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
+import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
+import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
@@ -199,6 +201,10 @@ export class SpacecraftService {
     private readonly layerKnowledgeService: LayerKnowledgeService = {
       markKnown: async () => undefined,
     } as unknown as LayerKnowledgeService,
+    private readonly takeoverService: SpacecraftTakeoverService = {
+      cancelForShip: async () => false,
+      processTick: async () => null,
+    } as unknown as SpacecraftTakeoverService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1919,6 +1925,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
+    await this.takeoverService.cancelForShip(shipId);
     const ship = await this.findOne(shipId, userId);
     if (ship.kind === 'STATION')
       throw new BadRequestException('Stationen können nicht fliegen');
@@ -3453,9 +3460,12 @@ export class SpacecraftService {
           y: location.y,
         });
     }
-    const [ships, wrecks] = await Promise.all([
+    const [ships, wrecks, takeovers] = await Promise.all([
       shipQuery.getMany(),
       wreckQuery.getMany(),
+      this.dataSource.getRepository(SpacecraftTakeover).find({
+        where: [{ attackerId: ship.id }, { targetId: ship.id }],
+      }),
     ]);
     const dockableStationIds =
       await this.dockingPrivilegeService.allowedStationIds(
@@ -3509,6 +3519,14 @@ export class SpacecraftService {
             tractored: ships.some(
               (candidate) => candidate.tractoredShipId === target.id,
             ),
+            takeover: (() => {
+              const takeover = takeovers.find(
+                (entry) => entry.attackerId === target.id || entry.targetId === target.id,
+              );
+              return takeover
+                ? { attackerId: takeover.attackerId, targetId: takeover.targetId, ticksRemaining: takeover.ticksRemaining, totalTicks: 10, prestigeCost: takeover.prestigeCost, completed: false }
+                : null;
+            })(),
             actions: {
               dock:
                 target.kind === 'STATION' &&
@@ -3553,6 +3571,16 @@ export class SpacecraftService {
                 ) &&
                 !hyperdriveActive &&
                 !targetHyperdriveActive,
+              takeover:
+                target.kind === 'SHIP' &&
+                target.userId !== ship.userId &&
+                target.user?.isNpc !== true &&
+                !targetOnVacation &&
+                ship.crew >= Math.max(1, ship.crewRequired) &&
+                target.crew === 0 &&
+                !takeovers.some((entry) =>
+                  [entry.attackerId, entry.targetId].includes(target.id),
+                ),
               boarding:
                 target.kind === 'SHIP' &&
                 target.userId !== ship.userId &&
@@ -4136,6 +4164,7 @@ export class SpacecraftService {
       return;
     }
     if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION) return;
+    await this.takeoverService.processTick(ship.id);
     if (ship.kind === 'STATION') {
       await this.stationRepairService.processTick(ship.id, options);
     }

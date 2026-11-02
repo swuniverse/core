@@ -80,6 +80,8 @@ import { StationConstructionService } from './station-construction.service';
 import { InteractionContextService } from './interaction-context.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
 import { SpacecraftBoardingService } from './spacecraft-boarding.service';
+import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
+import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { CrewSkill } from './entities/crew-skill.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import {
@@ -125,6 +127,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
       CrewAssignment,
       Crew,
       CrewSkill,
+      SpacecraftTakeover,
     ]),
     forwardRef(() => StarmapModule),
     forwardRef(() => ColonyModule),
@@ -176,6 +179,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
     InteractionContextService,
     SpacecraftTractorService,
     SpacecraftBoardingService,
+    SpacecraftTakeoverService,
     FieldTransitionExecutor,
     FieldEffectConsequence,
     FlightConsequencePipeline,
@@ -205,6 +209,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
     SpacecraftDestructionService,
     FlightSignatureService,
     InteractionContextService,
+    SpacecraftTakeoverService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

@@ -7,6 +7,7 @@ import type {
   SpacecraftNearbyTargetDto,
   SpacecraftSalvagePodsResultDto,
   SpacecraftTargetScanDto,
+  SpacecraftTakeoverDto,
 } from '@swuniverse/shared';
 import { shipImage } from '../../lib/assets';
 import { api } from '../../services/api';
@@ -144,6 +145,31 @@ export function NearbySensorPanel({
       onUpdate();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Enterversuch fehlgeschlagen');
+    }
+  }
+
+  async function startTakeover(target: SpacecraftNearbyTargetDto) {
+    setError(null);
+    try {
+      await api.post<SpacecraftTakeoverDto>(
+        `/spacecraft/${shipId}/nearby/${target.id}/takeover`,
+        {},
+      );
+      await refreshNearby();
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Übernahme fehlgeschlagen');
+    }
+  }
+
+  async function cancelTakeover() {
+    setError(null);
+    try {
+      await api.delete(`/spacecraft/${shipId}/takeover`);
+      await refreshNearby();
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Abbruch fehlgeschlagen');
     }
   }
 
@@ -290,6 +316,17 @@ export function NearbySensorPanel({
                           alt="Angreifen"
                           className="inline size-4"
                         />
+                      </button>
+                    )}
+                    {target.takeover && target.takeover.attackerId === shipId && (
+                      <span className="mr-1 inline-flex items-center gap-1" aria-label={`Übernahmefortschritt ${target.takeover.totalTicks - target.takeover.ticksRemaining} von ${target.takeover.totalTicks}`}>
+                        Übernahme {target.takeover.totalTicks - target.takeover.ticksRemaining}/{target.takeover.totalTicks}
+                        <button type="button" onClick={() => void cancelTakeover()} title="Übernahme abbrechen">×</button>
+                      </span>
+                    )}
+                    {target.actions.takeover && !target.takeover && (
+                      <button type="button" onClick={() => void startTakeover(target)} title={`${target.name} übernehmen`} className="mr-1">
+                        Übernehmen
                       </button>
                     )}
                     {target.actions.boarding && (

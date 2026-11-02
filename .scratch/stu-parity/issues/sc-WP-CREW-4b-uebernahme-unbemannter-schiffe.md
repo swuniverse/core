@@ -1,6 +1,6 @@
 # Übernahme unbemannter Schiffe
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-CREW-1, sc-WP-ENG-2c
@@ -36,3 +36,8 @@ Vorgabe: Variante (a), wie STU. Übernahme unbemannter fremder Schiffe gegen jed
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Die Übernahme unbemannter Schiffe ist wie in STU gegen jeden Spieler spielbar.
+- 2026-11-02 Umsetzung: Die aktuelle STU-Quelle zieht dem Opfer bei Abschluss kein Prestige ab; entgegen der Formulierung im Ziel/Akzeptanzkriterium wurde daher kein Opferabzug implementiert. Der Angreifer zahlt beim Start `5 + 3 × Summe der Zielmodullevel` und erhält diesen Betrag bei Abbruch zurück.
+
+## Answer
+
+Die Übernahme läuft persistent über zehn Hauptticks. Start, manueller Abbruch, Tickabschluss sowie Abbruch durch Flug oder Zerstörung sind über öffentliche Service- und Controller-Seams angebunden. Abschluss überträgt das Ziel, löst Flotte und Traktor, vergibt Crew-Expertise, schreibt die globale Schiffshistory und meldet beiden Spielern; NBS zeigt Start, Fortschritt und Abbruch.

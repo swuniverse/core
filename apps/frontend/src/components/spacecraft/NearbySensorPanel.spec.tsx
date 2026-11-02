@@ -6,6 +6,7 @@ const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  delete: vi.fn(),
 }));
 vi.mock('../../services/api', () => ({ api: apiMocks }));
 vi.mock('../../lib/assets', () => ({ shipImage: () => '/ship.png' }));
@@ -47,6 +48,7 @@ describe('NearbySensorPanel', () => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
+    apiMocks.delete.mockReset();
   });
   it('uses active NBS and shows STU actions', async () => {
     apiMocks.get.mockImplementation((path: string) =>
@@ -102,6 +104,26 @@ describe('NearbySensorPanel', () => {
       await screen.findByText('Die Crew der Ziel wurde getötet.'),
     ).toBeTruthy();
     expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('shows takeover progress and lets the attacker cancel', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [{ ...nearby.ships[0], takeover: { attackerId: 2, targetId: 3, ticksRemaining: 6, totalTicks: 10, prestigeCost: 8, completed: false } }],
+    });
+    apiMocks.delete.mockResolvedValue({});
+    render(<NearbySensorPanel shipId={2} locationKey="system:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={vi.fn()} />);
+    expect(await screen.findByLabelText('Übernahmefortschritt 4 von 10')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('Übernahme abbrechen'));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/2/takeover'));
+  });
+
+  it('starts takeover of an eligible unmanned target', async () => {
+    apiMocks.get.mockResolvedValue({ ...nearby, ships: [{ ...nearby.ships[0], actions: { ...nearby.ships[0].actions, takeover: true } }] });
+    apiMocks.post.mockResolvedValue({});
+    render(<NearbySensorPanel shipId={2} locationKey="system:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={vi.fn()} />);
+    fireEvent.click(await screen.findByTitle('Ziel übernehmen'));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/nearby/3/takeover', {}));
   });
 
   it('disables attacks against vacation ships with the server reason', async () => {
