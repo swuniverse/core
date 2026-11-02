@@ -70,6 +70,29 @@ describe('STU-style Maindesk overview', () => {
     );
   });
 
+  it('hides asteroid limits until asteroid colonization is unlocked', () => {
+    const data = {
+      colonizationLimits: {
+        limits: {
+          planet: { type: 'PLANET', count: 1, limit: 2, max: 3 },
+          moon: { type: 'MOON', count: 0, limit: 1, max: 3 },
+          asteroid: { type: 'ASTEROID', count: 0, limit: 0, max: 1 },
+        },
+      },
+      onlinePlayers: [],
+    } as DashboardData;
+
+    render(
+      <MemoryRouter>
+        <DashboardLimits data={data} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Planeten')).toBeTruthy();
+    expect(screen.getByText('Monde')).toBeTruthy();
+    expect(screen.queryByText('Asteroiden')).toBeNull();
+  });
+
   it('shows the total new HoloNet count and links to the first unread post', () => {
     const data = {
       holonetNewCount: 12,

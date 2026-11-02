@@ -658,6 +658,30 @@ describe('ResearchPage routing', () => {
     ).toContain('9901');
   });
 
+  it('shows the colony limit increase in the research detail modal', async () => {
+    apiMocks.get.mockResolvedValue([
+      {
+        ...techs[1],
+        id: 101101,
+        name: 'Feindliche Planeten',
+      },
+      ...techs.slice(2),
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/research?focus=101101']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Kolonielimit: +1 Planet')).toBeTruthy();
+    expect(screen.getByAltText('Planet').getAttribute('src')).toBe(
+      '/assets/planets/201s.png',
+    );
+  });
+
   it('shows the award image and name in the research detail modal', async () => {
     apiMocks.get.mockResolvedValue([
       {

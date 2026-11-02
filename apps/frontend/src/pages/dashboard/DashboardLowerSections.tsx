@@ -164,7 +164,15 @@ export function DashboardLimits({ data }: { data: DashboardData }) {
             {([
               { label: 'Planeten', image: '/assets/planets/201s.png', limit: limits?.planet },
               { label: 'Monde', image: '/assets/planets/401s.png', limit: limits?.moon },
-              { label: 'Asteroiden', image: '/assets/planets/701s.png', limit: limits?.asteroid },
+              ...(limits?.asteroid?.limit
+                ? [
+                    {
+                      label: 'Asteroiden',
+                      image: '/assets/planets/701s.png',
+                      limit: limits.asteroid,
+                    },
+                  ]
+                : []),
             ]).map(({ label, image, limit }) => (
               <tr key={label}>
                 <td>

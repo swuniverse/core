@@ -132,6 +132,21 @@ export const COLONIZATION_LIMIT_RULES: readonly ColonizationLimitRule[] = [
   },
 ] as const;
 
+export interface ColonizationLimitIncrease {
+  type: ColonizationLimitType;
+  amount: number;
+}
+
+export function getColonizationLimitIncrease(
+  techId: number,
+): ColonizationLimitIncrease | null {
+  const rule = COLONIZATION_LIMIT_RULES.find(
+    (candidate) =>
+      candidate.tech?.rebel === techId || candidate.tech?.empire === techId,
+  );
+  return rule ? { type: rule.type, amount: 1 } : null;
+}
+
 export interface ColonizationClassGateRule {
   gate: ColonizationClassGate;
   label: string;

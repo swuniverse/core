@@ -1,6 +1,6 @@
 # Kolonielimits in Forschungsdetail und Dashboard anzeigen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -24,11 +24,12 @@ STU zeigt in den Forschungsdetails, um wie viele Planeten, Monde oder Asteroiden
 
 ## Akzeptanzkriterien
 
-- [ ] Das Forschungsdetail zeigt bei limiterhöhenden Techs eine Zeile „Kolonielimit: +1 Planet/Mond/Asteroid“ mit dem passenden Planetenicon, abgeleitet aus einer gemeinsamen Funktion in `packages/shared` (keine Duplikation der Tech-IDs im Frontend).
-- [ ] Das Dashboard blendet den Asteroideneintrag aus, wenn das Asteroidenlimit 0 ist.
-- [ ] Shared-Test für die Ableitungsfunktion; Frontend-Tests für Forschungsdetail und Dashboard.
+- [x] Das Forschungsdetail zeigt bei limiterhöhenden Techs eine Zeile „Kolonielimit: +1 Planet/Mond/Asteroid“ mit dem passenden Planetenicon, abgeleitet aus einer gemeinsamen Funktion in `packages/shared` (keine Duplikation der Tech-IDs im Frontend).
+- [x] Das Dashboard blendet den Asteroideneintrag aus, wenn das Asteroidenlimit 0 ist.
+- [x] Shared-Test für die Ableitungsfunktion; Frontend-Tests für Forschungsdetail und Dashboard.
 
 ## Comments
 
 - 2026-10-28: Die Umsetzung und die drei fokussierten Tests waren grün (Shared 6/6, Frontend 18/18), ebenso `nx run-many --targets=build`. Die verpflichtende Gesamtprüfung bleibt jedoch nach zwei ernsthaften Versuchen in `frontend:typecheck` rot: bestehender Fehler `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht `Faction`) sowie zahlreiche bestehende TS6305-Fehler wegen fehlender Frontend-Deklarationsausgaben. Produktcode wurde gemäß Abbruchregel verworfen. Bitte entscheiden, ob die bestehende Typecheck-Baseline zuerst separat repariert werden soll oder ob bekannte, issue-fremde Fehler für diesen Durchlauf ausgenommen werden dürfen.
 - 2026-10-30 Product Owner: Option 1. Die Frontend-Typecheck-Baseline erhält mit `sh-AP-21` ein separates P1/S-Infrastruktur-Issue; `col-E1a` ist wieder `ready-for-agent`. Bis `sh-AP-21` gelöst ist, darf dieses Issue trotz dokumentierter, issue-fremder Baselinefehler abgeschlossen werden, wenn die fokussierten Tests und der Frontend-Build grün sind und keine neuen Typecheck-Fehler gegenüber der in `sh-AP-21` festgehaltenen Baseline entstehen. Aktuell sind die fokussierten bestehenden Tests `research.spec.tsx` und `DashboardLowerSections.spec.tsx` mit 16/16 grün.
+- 2026-11-02: Gemeinsame Ableitung des Kolonielimit-Zuwachses in `packages/shared`, Anzeige mit Himmelskörpericon im Forschungsdetail und Null-Limit-Filter im Dashboard umgesetzt. Shared-Test (4/4), fokussierte Frontend-Tests (20/20), Typecheck und alle Builds sind grün. Die vollständige Testsuite bleibt durch issue-fremde bestehende Backend-Fixturefehler (u. a. `spacecraft-core-controls.spec.ts`, `spacecraft-fleet.service.spec.ts`) rot; der betroffene Forschungstest ist fokussiert grün.

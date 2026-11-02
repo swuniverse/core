@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getColonizationLimitIncrease } from '@swuniverse/shared';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -501,6 +502,20 @@ export function TechDetailModal({
 }) {
   const [queuePreview, setQueuePreview] = useState<TechState[] | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const colonizationLimitIncrease = getColonizationLimitIncrease(tech.id);
+  const colonizationLimitDisplay = colonizationLimitIncrease
+    ? {
+        planet: {
+          label: 'Planet',
+          image: '/assets/planets/201s.png',
+        },
+        moon: { label: 'Mond', image: '/assets/planets/401s.png' },
+        asteroid: {
+          label: 'Asteroid',
+          image: '/assets/planets/701s.png',
+        },
+      }[colonizationLimitIncrease.type]
+    : null;
 
   const downstreamTechs = techs
     .map((candidate) => {
@@ -625,6 +640,20 @@ export function TechDetailModal({
               </div>
             </div>
           </div>
+
+          {colonizationLimitIncrease && colonizationLimitDisplay && (
+            <div className="flex items-center gap-2 text-xs text-swu-text">
+              <img
+                src={colonizationLimitDisplay.image}
+                alt={colonizationLimitDisplay.label}
+                className="size-6 object-contain"
+              />
+              <span>
+                Kolonielimit: +{colonizationLimitIncrease.amount}{' '}
+                {colonizationLimitDisplay.label}
+              </span>
+            </div>
+          )}
 
           {tech.shipReward && (
             <p className="text-xs text-swu-text">
