@@ -1,6 +1,6 @@
 # Subraumanalyse und Subraumspuren-Ebene im LSS
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-NAV-2a
@@ -25,12 +25,18 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Laufzeitsystem für den Subraumsensor aus dem Modul; ohne Modul keine Ebene.
-- [ ] Bei aktivem Sensor liefert die Local-Map je Feld die Spurrichtungen fremder Signaturen (ohne eigene); `LssMap` zeichnet sie als Linien.
-- [ ] Subraumanalyse auf ein Schiff (aus Sektor-Scan) markiert dessen Spur im Sensorbereich; EPS-Kosten wie STU.
+- [ ] Ware/Modul 19007 `Hyperraumfeldscanner` bildet ein eigenes aktives Laufzeitsystem für Subraumspuren. Aktivierung kostet 30 EPS, laufender Betrieb 15 EPS je Tick; während Tarnung ist die Aktivierung verboten. Ohne intaktes und aktives 19007 gibt es keine Spurenebene.
+- [ ] Ware/Modul 19008 `Matrixsensoren` bleibt ein getrenntes passives System und wird nicht mit dem Hyperraumfeldscanner zusammengeführt.
+- [ ] Bei aktivem Hyperraumfeldscanner liefert die Local-Map je Feld die Spurrichtungen fremder Signaturen (ohne eigene); `LssMap` zeichnet sie als Linien.
+- [ ] Subraumanalyse auf ein Schiff aus dem Sektor-Scan erfordert aktives/intaktes 19007 und zusätzlich gesundes 19008, kostet beim Start 100 EPS und markiert dessen Spur im Sensorbereich.
 - [ ] Backend-Tests (Ebene nur mit Sensor, eigene Spuren ausgeblendet), Frontend-Test.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+
+## Entscheidung
+
+SWU bewahrt STUs Zwei-System-Modell. Der `Hyperraumfeldscanner` 19007 ist das aktive Laufzeitsystem für Subraumspuren mit 30 EPS Aktivierung, 15 EPS Tick-Unterhalt und Tarn-Inkompatibilität. `Matrixsensoren` 19008 bleiben ein getrenntes passives System. Eine gezielte Subraumanalyse benötigt aktives/intaktes 19007 plus gesundes 19008 und kostet beim Start 100 EPS.
 
 ## Comments
 
 - 2026-10-29: Blockiert durch eine widersprüchliche Modulspezifikation: Das Issue nennt „Subraumsensor (bzw. Matrixsensoren, Modul 19008)“, fordert aber zugleich „Laufzeitsystem für den Subraumsensor aus dem Modul“. STU behandelt `SubspaceSensorShipSystem` und `MatrixScannerShipSystem` als verschiedene Systeme, während SWU nur das Fabrication-Item `module.special.matrixsensoren` (19008) sowie den unabhängig definierten `Hyperraumfeldscanner` kennt. Bitte festlegen, welches bestehende SWU-Modul das neue Laufzeitsystem tragen soll (19008 Matrixsensoren oder Hyperraumfeldscanner) und ob beide STU-Systeme bewusst zu einem SWU-System zusammengeführt werden. Ohne diese Entscheidung würden Modulidentität, Aktivierung und Balancing eigenmächtig festgeschrieben.
+- 2026-10-30 Product Owner: Option 1. Das STU-Zwei-System-Modell bleibt erhalten: 19007 `Hyperraumfeldscanner` wird das aktive Subraumspuren-System mit 30 EPS Aktivierung, 15 EPS je Tick und Aktivierungssperre während Tarnung; 19008 `Matrixsensoren` bleibt passiv. Gezielte Subraumanalyse erfordert aktives/intaktes 19007 sowie gesundes 19008 und kostet 100 EPS beim Start. Beide bestehenden SWU-Module und Forschungswege bleiben damit fachlich eigenständig.
