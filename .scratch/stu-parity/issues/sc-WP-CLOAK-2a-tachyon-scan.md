@@ -1,6 +1,6 @@
 # Tachyon-Scan: getarnte Schiffe aufdecken
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-CLOAK-1a, sc-WP-NAV-2a
