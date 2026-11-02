@@ -1,6 +1,6 @@
 # Hyperantriebs-Booster (Pendant zum STU-Warpantrieb-Boost)
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -25,13 +25,18 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] SW-Name und Moduldefinition (Kategorie SPECIAL, Forschung, Kosten) in `game-data`; Entscheidung in `map.md` festgehalten.
-- [ ] Neuer Laufzeitsystem-Schlüssel, nur bei verbautem Modul vorhanden.
-- [ ] Aktion „Booster zünden“ erhöht den Hyperantrieb um `round(max/3)` (max. bis Maximum), setzt das System inaktiv mit Cooldown und meldet die Menge.
+- [ ] SW-Name `Hyperantriebs-Notladegerät` und Moduldefinition (Kategorie SPECIAL, Forschung, Kosten) in `game-data`; Entscheidung in `map.md` festgehalten.
+- [ ] Neuer Laufzeitsystem-Schlüssel, nur bei verbautem Modul vorhanden. Das System betrifft ausschließlich die Hyperantriebspunkte des normalen feldweisen Galaxieflugs und hat keinen Einfluss auf den `Navicomputer-Sprung` aus `sc-WP-NAV-5b`.
+- [ ] Einzelne-Schiff-Aktion „Notladung auslösen“ kostet 100 EPS und erhöht die Hyperantriebspunkte um `round(max/3)`, gedeckelt auf das Maximum. Anschließend deaktiviert sich das System sofort und erhält 24 Stunden Cooldown; die tatsächlich geladene Menge wird gemeldet.
 - [ ] Abgelehnt bei Cooldown, zerstörtem System oder fehlender Crew.
 - [ ] Backend-Tests für Regel und Ablehnung; Frontend-Test für den Knopf.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
+## Entscheidung
+
+Das `Hyperantriebs-Notladegerät` übernimmt die STU-Regel für ein einzelnes Schiff: 100 EPS erzeugen sofort `round(warpdriveMax / 3)` Hyperantriebspunkte, gedeckelt auf das Maximum; danach deaktiviert sich das System mit 24 Stunden Cooldown. Es lädt ausschließlich den Vorrat für den normalen feldweisen Galaxieflug und beeinflusst weder Kosten noch Cooldown des `Navicomputer-Sprungs`.
+
 ## Comments
 
 - 2026-10-28: Umsetzung nach zwei Prüfversuchen abgebrochen und Produktcode verworfen. Backend- und Frontend-Tests sowie alle Builds waren grün, aber die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=HEAD` scheitert reproduzierbar in `backend:typecheck` und `frontend:typecheck` an zahlreichen vorhandenen TS6305-Fehlern (fehlende `dist/**/*.d.ts`-Buildausgaben), auch nach expliziten Backend-, Frontend- und Gesamt-Builds. Bitte den Typecheck-Buildzustand bzw. das Prüfverfahren klären.
+- 2026-10-30 Product Owner: Option 1. `Hyperantriebs-Notladegerät` als Einzel-Schiff-System nach STU: Aktivierung kostet 100 EPS, lädt gerundet ein Drittel der maximalen Hyperantriebspunkte bis höchstens zum Maximum, deaktiviert sich sofort und erhält 24 Stunden Cooldown. Es gilt nur für die Ladung des normalen Galaxieflugs und hat keinerlei Auswirkung auf `sc-WP-NAV-5b`. Die historischen TS6305-Probleme sind durch die inzwischen reparierte Typecheck-Baseline kein stehender Blocker oder Ausnahmegrund.
