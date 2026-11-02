@@ -1,6 +1,6 @@
 # Enterkommando (Truppenkampf gegen Crew)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-CREW-1, sc-WP-ENG-2c
