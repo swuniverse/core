@@ -27,6 +27,7 @@ import { ColonyConstructionService } from './colony-construction.service';
 import { ColonyTickProcessorService } from './colony-tick-processor.service';
 import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
 import { ColonyCommodityLocationsService } from './colony-commodity-locations.service';
+import { ColonyTelescopeService } from './colony-telescope.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
@@ -59,6 +60,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { User } from '../auth/user.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import { Layer } from '../starmap/entities/layer.entity';
 
 @Module({
   imports: [
@@ -88,6 +90,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
       User,
       SystemField,
       SpaceLocation,
+      Layer,
     ]),
     ResearchModule,
     FactionModule,
@@ -122,6 +125,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
     ColonyTickProcessorService,
     ColonyEnvironmentScanService,
     ColonyCommodityLocationsService,
+    ColonyTelescopeService,
     SpacecraftStatsService,
     SpacecraftTorpedoService,
     ShipManagementService,

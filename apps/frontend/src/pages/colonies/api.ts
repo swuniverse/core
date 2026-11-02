@@ -1,6 +1,7 @@
 import { api } from '../../services/api';
 import type {
   ColonyEnvironmentScanDto,
+  ColonyTelescopeDto,
   CommodityLocationsDto,
 } from '@swuniverse/shared';
 import type {
@@ -22,6 +23,21 @@ export const colonyApi = {
   fetchColonyDetail: (id: number) => api.get<Colony>(`/colonies/${id}`),
   fetchEnvironmentScan: (colonyId: number) =>
     api.get<ColonyEnvironmentScanDto>(`/colonies/${colonyId}/environment-scan`),
+  fetchTelescope: (
+    colonyId: number,
+    centerX?: number,
+    centerY?: number,
+    targetX?: number,
+    targetY?: number,
+  ) => {
+    const params = new URLSearchParams();
+    if (centerX != null) params.set('centerX', String(centerX));
+    if (centerY != null) params.set('centerY', String(centerY));
+    if (targetX != null) params.set('targetX', String(targetX));
+    if (targetY != null) params.set('targetY', String(targetY));
+    const query = params.size ? `?${params}` : '';
+    return api.get<ColonyTelescopeDto>(`/colonies/${colonyId}/telescope${query}`);
+  },
   fetchCommodityLocations: (colonyId: number, commodityId: number) =>
     api.get<CommodityLocationsDto>(
       `/colonies/${colonyId}/commodity-locations/${commodityId}`,

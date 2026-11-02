@@ -28,10 +28,33 @@ import {
 import { ColonyService } from './colony.service';
 import { ColonyEnvironmentScanService } from './colony-environment-scan.service';
 import { ColonyCommodityLocationsService } from './colony-commodity-locations.service';
+import { ColonyTelescopeService } from './colony-telescope.service';
 import { ColonyOrbitAssignmentMode } from './entities/colony-orbit-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
 import type { ShipModuleSelection } from '@swuniverse/shared';
+
+class TelescopeQueryDto {
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  centerX?: number;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  centerY?: number;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  targetX?: number;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  targetY?: number;
+}
 
 class BuildBuildingDto {
   @Type(() => Number)
@@ -156,6 +179,7 @@ export class ColonyController {
     private readonly gameData: GameDataService,
     private readonly colonyEnvironmentScanService: ColonyEnvironmentScanService,
     private readonly colonyCommodityLocationsService: ColonyCommodityLocationsService,
+    private readonly colonyTelescopeService: ColonyTelescopeService,
   ) {}
 
   @Get('buildings/available')
@@ -194,6 +218,15 @@ export class ColonyController {
   @Get()
   findAll(@Request() req: { user: { sub: number } }) {
     return this.colonyService.findAllByUser(req.user.sub);
+  }
+
+  @Get(':id/telescope')
+  getTelescope(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Query() query: TelescopeQueryDto,
+  ) {
+    return this.colonyTelescopeService.getView(id, req.user.sub, query);
   }
 
   @Get('objectives/current')

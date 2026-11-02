@@ -1,6 +1,6 @@
 # Subraumteleskop: Funktion und Kartenansicht
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -25,12 +25,12 @@ Das Gebäude „Hyperraum-Teleskop“ (100060100) ist baubar, hat aber keine Fun
 
 ## Akzeptanzkriterien
 
-- [ ] Das Hyperraum-Teleskop trägt Funktion 31; bei vorhandenem Gebäude erscheint ein Kontextmenü „Subraumteleskop“.
-- [ ] Das Panel zeigt einen Kartenausschnitt um das Koloniesystem mit Navigation (Pfeile/Verschieben) und verwendet ausschließlich die persönliche dauerhafte Felderkundung über denselben serverseitigen `UNKNOWN`/`TERRAIN`/`FULL`-Redaktionsvertrag wie `getExploredSectorFields`. Aktuelle Sensorabdeckung, Schiffe/Sensorkontakte, Allianz-Livepositionen und andere dynamische Overlays werden nicht eingeblendet.
-- [ ] Bei Auswahl eines Felds zeigt das Panel „Energie verfügbar / benötigt“ nach der STU-Kostenformel (Backend-Endpunkt liefert die Kosten).
-- [ ] Der Scan-Knopf ist sichtbar, aber deaktiviert mit Hinweis, bis col-G1b umgesetzt ist.
-- [ ] Backend-Tests: Funktion 31 nötig (sonst 403/400), Kostenformel an Rand- und Mittelpunkten.
-- [ ] Frontend-Tests: Kontextmenü erscheint nur mit Gebäude, Kostenanzeige.
+- [x] Das Hyperraum-Teleskop trägt Funktion 31; bei vorhandenem Gebäude erscheint ein Kontextmenü „Subraumteleskop“.
+- [x] Das Panel zeigt einen Kartenausschnitt um das Koloniesystem mit Navigation (Pfeile/Verschieben) und verwendet ausschließlich die persönliche dauerhafte Felderkundung über denselben serverseitigen `UNKNOWN`/`TERRAIN`/`FULL`-Redaktionsvertrag wie `getExploredSectorFields`. Aktuelle Sensorabdeckung, Schiffe/Sensorkontakte, Allianz-Livepositionen und andere dynamische Overlays werden nicht eingeblendet.
+- [x] Bei Auswahl eines Felds zeigt das Panel „Energie verfügbar / benötigt“ nach der STU-Kostenformel (Backend-Endpunkt liefert die Kosten).
+- [x] Der Scan-Knopf ist sichtbar, aber deaktiviert mit Hinweis, bis col-G1b umgesetzt ist.
+- [x] Backend-Tests: Funktion 31 nötig (sonst 403/400), Kostenformel an Rand- und Mittelpunkten.
+- [x] Frontend-Tests: Kontextmenü erscheint nur mit Gebäude, Kostenanzeige.
 
 ## Entscheidung
 
@@ -40,3 +40,4 @@ Die Zielkarte des Hyperraum-Teleskops zeigt ausschließlich die persönliche dau
 
 - 2026-10-28: Blockiert durch fehlende Produktentscheidung zur Karten-Sichtbarkeit. Das Akzeptanzkriterium fordert „dieselbe Sichtbarkeit wie die eigene Sternenkarte“, aber STU lädt den Ausschnitt über den allgemeinen `RefreshSection`-Pfad, während SWU mehrere kontextabhängige Sichtbarkeitsquellen (Erkundung, Sensorabdeckung, Overlays) besitzt. Bitte festlegen, ob das Teleskop (a) ausschließlich dauerhaft erkundete Felder zeigt oder (b) zusätzlich aktuelle Sensorabdeckung/Allianzfreigaben wie die interaktive Sternenkarte übernimmt. Ohne diese Festlegung lässt sich der Backend-Vertrag nicht sicher implementieren.
 - 2026-10-30 Product Owner: Option 1. Der Teleskop-Zielselektor verwendet ausschließlich die persönliche dauerhafte Felderkundung mit derselben `UNKNOWN`/`TERRAIN`/`FULL`-Redaktion wie der bestehende Explored-Sector-Pfad. Aktuelle Sensorabdeckung, Kontakte, Schiffe, Allianz-Livepositionen und dynamische Overlays werden nicht eingeblendet. Dies entspricht STU; die zusätzliche momentane Information bleibt dem bezahlten Scan aus `col-G1b` vorbehalten.
+- 2026-11-02: Funktion 31 für beide Hyperraum-Teleskopvarianten ergänzt, persönliches redigiertes Sektorfeld-Panel samt Navigation und serverseitiger STU-Kostenvorschau umgesetzt. Der Scan bleibt bis col-G1b sichtbar deaktiviert. Fokus- und Build-Prüfungen sind grün; der vollständige Affected-Testlauf scheitert ausschließlich an zwei bereits vorhandenen Spacecraft-Specs (`spacecraft-fleet.service.spec.ts`, `spacecraft-core-controls.spec.ts`).

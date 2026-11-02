@@ -12,6 +12,7 @@ export type ColonyContextView =
   | 'fabrication'
   | 'defense'
   | 'waste'
+  | 'telescope'
   | null;
 
 export const COLONY_MAIN_VIEWS = [
@@ -56,6 +57,12 @@ const BUILDING_CONTEXT_DEFINITIONS: Array<{
     view: 'defense',
     label: 'Verteidigung öffnen',
     functionIds: [24, 25, 26, 27, 28],
+  },
+  {
+    view: 'telescope',
+    label: 'Subraumteleskop',
+    functionIds: [31],
+    requiresActiveField: false,
   },
 ];
 

@@ -35,6 +35,7 @@ import { PanelCrew } from './components/PanelCrew';
 import { PanelHangar } from './components/PanelHangar';
 import { PanelOrbit } from './components/PanelOrbit';
 import { PanelWaste } from './components/PanelWaste';
+import { PanelTelescope } from './components/PanelTelescope';
 import { ColonyContextPanel } from './components/ColonyContextPanel';
 import { ColonyCommandBar } from './components/ColonyCommandBar';
 import { ColonyMap } from './components/ColonyMap';
@@ -151,6 +152,8 @@ const isContextViewAvailable = (
       return active('fabrication') || active('fabricationSupport');
     case 'defense':
       return active('defense');
+    case 'telescope':
+      return detail.featureAccess?.functions.present.some((fn) => fn.id === 31) ?? false;
   }
 };
 
@@ -1192,6 +1195,10 @@ export function ColonyDetail({
         content = (
           <PanelWaste detail={detail} onDiscardStorage={onDiscardStorage} />
         );
+        break;
+      case 'telescope':
+        title = 'Subraumteleskop';
+        content = <PanelTelescope colonyId={colony.id} />;
         break;
     }
 

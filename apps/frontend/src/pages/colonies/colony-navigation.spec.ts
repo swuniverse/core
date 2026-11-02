@@ -28,6 +28,15 @@ describe('colony navigation', () => {
     ]);
   });
 
+  it('shows the telescope context action only for function 31', () => {
+    expect(getBuildingContextActions([31], false)).toEqual([
+      { view: 'telescope', label: 'Subraumteleskop', enabled: true },
+    ]);
+    expect(getBuildingContextActions([30], true)).not.toContainEqual(
+      expect.objectContaining({ view: 'telescope' }),
+    );
+  });
+
   it('keeps an inactive function visible with a reason', () => {
     expect(getBuildingContextActions([4], false)).toEqual([
       {
