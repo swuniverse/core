@@ -9,3 +9,9 @@ export interface ColonyTelescopeDto {
   hiddenCount: number;
   energy: { available: number; required: number | null };
 }
+
+export interface ColonyTelescopeScanDto {
+  target: { x: number; y: number };
+  energy: { available: number; spent: number };
+  categories: Array<{ category: string; amount: number }>;
+}

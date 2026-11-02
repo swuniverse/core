@@ -2,6 +2,7 @@ import { api } from '../../services/api';
 import type {
   ColonyEnvironmentScanDto,
   ColonyTelescopeDto,
+  ColonyTelescopeScanDto,
   CommodityLocationsDto,
 } from '@swuniverse/shared';
 import type {
@@ -38,6 +39,11 @@ export const colonyApi = {
     const query = params.size ? `?${params}` : '';
     return api.get<ColonyTelescopeDto>(`/colonies/${colonyId}/telescope${query}`);
   },
+  scanTelescope: (colonyId: number, targetX: number, targetY: number) =>
+    api.post<ColonyTelescopeScanDto>(`/colonies/${colonyId}/telescope/scan`, {
+      targetX,
+      targetY,
+    }),
   fetchCommodityLocations: (colonyId: number, commodityId: number) =>
     api.get<CommodityLocationsDto>(
       `/colonies/${colonyId}/commodity-locations/${commodityId}`,

@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { ColonyTelescopeDto, StarmapExploredGalaxyFieldDto } from '@swuniverse/shared';
+import type {
+  ColonyTelescopeDto,
+  ColonyTelescopeScanDto,
+  StarmapExploredGalaxyFieldDto,
+} from '@swuniverse/shared';
 import { starTileImage, systemTypeImage } from '../../../lib/assets';
 import { colonyApi } from '../api';
 
@@ -9,7 +13,9 @@ export function PanelTelescope({ colonyId }: { colonyId: number }) {
   const [center, setCenter] = useState<Center | null>(null);
   const [selected, setSelected] = useState<Center | null>(null);
   const [data, setData] = useState<ColonyTelescopeDto | null>(null);
+  const [result, setResult] = useState<ColonyTelescopeScanDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +46,32 @@ export function PanelTelescope({ colonyId }: { colonyId: number }) {
       x: Math.max(1, Math.min(data.layer.width, data.center.x + dx)),
       y: Math.max(1, Math.min(data.layer.height, data.center.y + dy)),
     });
+  };
+
+  const scan = async () => {
+    if (!selected || scanning) return;
+    setScanning(true);
+    setError(null);
+    try {
+      const scanResult = await colonyApi.scanTelescope(
+        colonyId,
+        selected.x,
+        selected.y,
+      );
+      setResult(scanResult);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              energy: { ...current.energy, available: scanResult.energy.available },
+            }
+          : current,
+      );
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : 'Scan fehlgeschlagen');
+    } finally {
+      setScanning(false);
+    }
   };
 
   if (loading && !data) return <p className="text-xs text-swu-muted">Lade Kartenausschnitt…</p>;
@@ -75,9 +107,40 @@ export function PanelTelescope({ colonyId }: { colonyId: number }) {
         </div>
       </div>
 
-      <button type="button" disabled className="w-full border border-swu-border bg-swu-surface px-3 py-2 font-bold text-swu-muted opacity-60" title="Der Teleskop-Scan folgt mit col-G1b">
-        Scan starten (noch nicht verfügbar)
+      <button
+        type="button"
+        disabled={!selected || data.energy.required == null || data.energy.available < data.energy.required || scanning}
+        onClick={() => void scan()}
+        className="w-full border border-swu-accent bg-swu-surface px-3 py-2 font-bold text-swu-primary disabled:border-swu-border disabled:text-swu-muted disabled:opacity-60"
+      >
+        {scanning ? 'Scan läuft…' : 'Scan starten'}
       </button>
+
+      {result && (
+        <table className="w-full border-collapse border border-swu-border text-left">
+          <thead>
+            <tr className="bg-swu-surface">
+              <th className="border border-swu-border px-2 py-1">Rumpfkategorie</th>
+              <th className="border border-swu-border px-2 py-1">Anzahl</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.categories.map((entry) => (
+              <tr key={entry.category}>
+                <td className="border border-swu-border px-2 py-1">{entry.category}</td>
+                <td className="border border-swu-border px-2 py-1">{entry.amount}</td>
+              </tr>
+            ))}
+            {result.categories.length === 0 && (
+              <tr>
+                <td colSpan={2} className="border border-swu-border px-2 py-1 text-swu-muted">
+                  Keine Schiffe erfasst.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

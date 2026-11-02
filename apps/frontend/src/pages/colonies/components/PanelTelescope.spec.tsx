@@ -5,7 +5,7 @@ import { colonyApi } from '../api';
 import { PanelTelescope } from './PanelTelescope';
 
 vi.mock('../api', () => ({
-  colonyApi: { fetchTelescope: vi.fn() },
+  colonyApi: { fetchTelescope: vi.fn(), scanTelescope: vi.fn() },
 }));
 
 const field = {
@@ -32,9 +32,40 @@ const view = (required: number | null): ColonyTelescopeDto => ({
 describe('PanelTelescope', () => {
   beforeEach(() => {
     vi.mocked(colonyApi.fetchTelescope).mockReset();
+    vi.mocked(colonyApi.scanTelescope).mockReset();
   });
 
-  it('shows backend-calculated energy after selecting a field and keeps scanning disabled', async () => {
+  it('scans the selected field and shows anonymous hull-category counts', async () => {
+    vi.mocked(colonyApi.fetchTelescope).mockImplementation(
+      (_colonyId, _centerX, _centerY, targetX, targetY) =>
+        Promise.resolve(view(targetX != null && targetY != null ? 23 : null)),
+    );
+    vi.mocked(colonyApi.scanTelescope).mockResolvedValue({
+      target: { x: 2, y: 2 },
+      energy: { available: 100, spent: 23 },
+      categories: [
+        { category: 'Jäger', amount: 4 },
+        { category: 'Kreuzer', amount: 1 },
+      ],
+    });
+
+    render(<PanelTelescope colonyId={7} />);
+
+    fireEvent.click(await screen.findByTitle('2|2 · Leerer Raum'));
+    const scanButton = await screen.findByRole('button', { name: 'Scan starten' });
+    await waitFor(() => expect((scanButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(scanButton);
+
+    expect(await screen.findByText('Jäger')).toBeTruthy();
+    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByText('Kreuzer')).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.queryByText(/Eigentümer/)).toBeNull();
+    expect(colonyApi.scanTelescope).toHaveBeenCalledWith(7, 2, 2);
+    expect(screen.getByText('Energie verfügbar / benötigt: 100 / 23')).toBeTruthy();
+  });
+
+  it('shows backend-calculated energy after selecting a field', async () => {
     vi.mocked(colonyApi.fetchTelescope).mockImplementation(
       (_colonyId, _centerX, _centerY, targetX, targetY) =>
         Promise.resolve(view(targetX != null && targetY != null ? 23 : null)),
@@ -50,6 +81,6 @@ describe('PanelTelescope', () => {
     expect(colonyApi.fetchTelescope).toHaveBeenLastCalledWith(7, 1, 1, 2, 2);
     expect(
       (screen.getByRole('button', { name: /Scan starten/ }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    ).toBe(false);
   });
 });

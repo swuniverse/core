@@ -8,6 +8,8 @@ Ein **Kolonie-Scan** gehört dagegen dem Scanner. Aktuelle Mitglieder derselben 
 
 Systemeinträge und Fremdprofile zeigen pro Kolonie nur den neuesten zugänglichen Scan. Sie verbinden aktuelle Systemdaten mit dem historischen **Scan-Snapshot** und kennzeichnen daher erkennbare Abweichungen zwischen heutigem Besitzer oder Koloniestatus und den beim Scan gespeicherten Daten. Das globale Scanarchiv bleibt erhalten, zeigt jedoch bewusst die vollständige Historie je Kolonie als SWU-Komfortfunktion und nicht als primären STU-Navigationspfad.
 
+Ein **Teleskop-Scan** ist als momentane Fernaufklärung zulässig. Er kostet Kolonie-EPS und zeigt ausschließlich die aktuelle Anzahl von Schiffen je Rumpfkategorie auf einem gewählten Galaxiefeld, ohne Eigentümerdaten. Das Ergebnis wird nicht gespeichert, erzeugt keine Systementdeckung und gewährt keinen Systemeintrag oder andere taktische Fernaktionen.
+
 ## Considered Options
 
 - **Systementdeckungen innerhalb der Allianz teilen**: verworfen. Kartographie soll persönliches, durch Astrometrie erworbenes Wissen bleiben.

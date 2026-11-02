@@ -34,6 +34,16 @@ import { GameDataService } from '../game-data/game-data.service';
 import { ColonyFabricationQueueType } from './entities/colony-fabrication-queue.entity';
 import type { ShipModuleSelection } from '@swuniverse/shared';
 
+class TelescopeScanDto {
+  @Type(() => Number)
+  @IsInt()
+  targetX: number;
+
+  @Type(() => Number)
+  @IsInt()
+  targetY: number;
+}
+
 class TelescopeQueryDto {
   @Type(() => Number)
   @IsOptional()
@@ -227,6 +237,15 @@ export class ColonyController {
     @Query() query: TelescopeQueryDto,
   ) {
     return this.colonyTelescopeService.getView(id, req.user.sub, query);
+  }
+
+  @Post(':id/telescope/scan')
+  scanTelescope(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: TelescopeScanDto,
+  ) {
+    return this.colonyTelescopeService.scan(id, req.user.sub, dto);
   }
 
   @Get('objectives/current')

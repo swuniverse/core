@@ -1,13 +1,19 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { ColonyTelescopeDto } from '@swuniverse/shared';
+import type { ColonyTelescopeDto, ColonyTelescopeScanDto } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { ExplorationService } from '../starmap/exploration.service';
+import {
+  Spacecraft,
+  SpacecraftKind,
+  SpacecraftStatus,
+} from '../spacecraft/entities/spacecraft.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarmapQueryService } from '../starmap/starmap-query.service';
 import { ColonyFunctionManagerService } from './colony-function-manager.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
-import { getColonyChangeable } from './colony-stats.service';
+import { Colony } from './entities/colony.entity';
+import { deductColonyEnergy, getColonyChangeable } from './colony-stats.service';
 
 const TELESCOPE_FUNCTION_ID = 31;
 
@@ -39,6 +45,8 @@ export class ColonyTelescopeService {
     @InjectRepository(Layer) private readonly layerRepo: Repository<Layer>,
     private readonly starmapQuery: StarmapQueryService,
     private readonly exploration: ExplorationService,
+    @InjectRepository(Colony) private readonly colonyRepo: Repository<Colony>,
+    @InjectRepository(Spacecraft) private readonly shipRepo: Repository<Spacecraft>,
   ) {}
 
   async getView(
@@ -98,6 +106,57 @@ export class ColonyTelescopeService {
             )
           : null,
       },
+    };
+  }
+
+  async scan(
+    colonyId: number,
+    userId: number,
+    target: { targetX: number; targetY: number },
+  ): Promise<ColonyTelescopeScanDto> {
+    const colony = await this.ownership.findOwnedColony(colonyId, userId);
+    if (!this.functions.getPresentFunctionIds(colony).includes(TELESCOPE_FUNCTION_ID)) {
+      throw new BadRequestException('Subspace telescope required');
+    }
+    if (!colony.starSystem) {
+      throw new BadRequestException('Colony star system required');
+    }
+    const layer = await this.layerRepo.findOneBy({ id: colony.starSystem.layerId });
+    if (!layer) throw new BadRequestException('Colony layer required');
+
+    const x = this.clamp(target.targetX, 1, layer.width);
+    const y = this.clamp(target.targetY, 1, layer.height);
+    const cost = calculateTelescopeEnergyCost(
+      colony.starSystem.cx,
+      colony.starSystem.cy,
+      x,
+      y,
+      layer.width,
+      layer.height,
+    );
+    deductColonyEnergy(colony, cost);
+
+    const ships = await this.shipRepo.find({
+      where: {
+        kind: SpacecraftKind.SHIP,
+        status: SpacecraftStatus.IDLE,
+        location: { galaxyField: { layerId: layer.id, cx: x, cy: y } },
+      },
+      relations: ['shipClass'],
+    });
+    const counts = new Map<string, number>();
+    for (const ship of ships) {
+      if (ship.kind !== 'SHIP' || ship.status === 'DESTROYED') continue;
+      counts.set(ship.shipClass.category, (counts.get(ship.shipClass.category) ?? 0) + 1);
+    }
+    await this.colonyRepo.save(colony);
+
+    return {
+      target: { x, y },
+      energy: { available: getColonyChangeable(colony).energy, spent: cost },
+      categories: [...counts.entries()]
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => a.category.localeCompare(b.category, 'de')),
     };
   }
 
