@@ -1,6 +1,6 @@
 # Forschungsbelohnung: Belohnungsschiff
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D1
@@ -44,3 +44,4 @@ Der Mechanismus wird vollständig, optional und datengetrieben implementiert. Es
 
 - 2026-10-22: Umsetzung blockiert, bevor Produktcode geändert wurde. Benötigt werden die produktiven STU-Forschungsdaten mit `reward_buildplan_id` samt Bauplänen oder eine vom Product Owner bestätigte SWU-Zuordnung.
 - 2026-10-27 Product Owner: Den idempotenten, datengetriebenen Mechanismus umsetzen, aber ohne bestätigte Tabelle keine produktiven Reward-Mappings anlegen und keine Belohnung aus Freischaltungen ableiten.
+- 2026-10-30 Product Owner: Option 1. Das Issue wird in vier ausführbare Teilissues aufgeteilt: `col-D2a1` Datenvertrag und Anzeige, `col-D2a2` Grant-Persistenz, `col-D2a3` transaktionaler Schiff-Spawn sowie `col-D2a4` Abschlussintegration und Nachricht. Der Parent ist als Tracking-Split `resolved`; produktive Reward-Mappings bleiben leer.

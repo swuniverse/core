@@ -1,6 +1,6 @@
 # Ebenenkenntnis je Spieler und Kartenzyklus
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -48,3 +48,4 @@ Vorgabe:
 
 - 2026-10-21 Product Owner: Option 1a, 2a – Ebenen werden wie in STU bekannt (Startebene beim Onboarding, danach automatisch, sobald ein eigenes Schiff die Ebene erreicht, 1a). Der Kartenzyklus wird wie in STU übernommen: Status „erkundet“, Ereignis für den Award und Löschen der persönlichen Felderkundung der Ebene (2a).
 - 2026-10-27 Agent: Abbruch nach zwei ernsthaften Umsetzungs- und Prüfversuchen. Das Issue bündelt Migration/Bestands-Backfill, Autorisierung sämtlicher Kartenendpunkte, Onboarding und alle Positionswechsel, Datenbankfilter, vollständige EXPLORED-Semantik, täglichen Kartenzyklus mit genau-einmal-Ereignis sowie Frontend und ADR. Innerhalb eines Durchlaufs ließ sich diese Querschnittsänderung nicht vollständig test-first umsetzen und mit den Pflichtprüfungen absichern. Bitte in vertikale, separat prüfbare Folgeissues teilen (Fundament/Backfill; Zugriffs- und Filterregeln; Bekanntwerden; Kartenzyklus/Ereignis; EXPLORED-Darstellung/Frontend/ADR).
+- 2026-10-30 Product Owner: Option 1. Das Issue wird in fünf ausführbare Teilissues geteilt: `tmw-K5a` Fundament und Bestands-Backfill, `tmw-K5b` Zugriffs- und Datenbankfilter, `tmw-K5c` Bekanntwerden beim Onboarding und Positionswechsel, `tmw-K5d` täglicher Kartenzyklus mit genau-einmal-Abschlussereignis sowie `tmw-K5e` vollständige EXPLORED-Darstellung und ADR. Der Parent ist als Tracking-Split `resolved`. SWU übernimmt das fachliche STU-Modell, behebt aber die View-Time-Abhängigkeit: Eine eigene Schiffsankunft macht die Ebene unmittelbar und ohne LSS, Kolonie oder Öffnen der Schiffsansicht bekannt. Vollständigkeit zählt alle tatsächlich vorhandenen Kartenfelder; `EXPLORED` deckt die Ebene auf, entdeckt aber keine Sternensysteme.

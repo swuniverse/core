@@ -1,9 +1,9 @@
 # Langstreckensprung (Pendant zu STU-Transwarp)
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** M
-**Blocked by:** sc-WP-NAV-3
+**Blocked by:** sc-WP-NAV-3, tmw-K5a, tmw-K5b, tmw-K5c
 
 ## Ziel
 
@@ -26,13 +26,19 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Entscheidung zu Name und Mechanik in `map.md`, konsistent mit der ADR aus sc-WP-NAV-3 (feldweiser Galaxieflug; kein zeitbasierter Sprung, also sofortiger Sprung mit Kosten und Cooldown wie STU-Transwarp).
-- [ ] Modul und Laufzeitsystem existieren; ohne Modul ist die Aktion nicht verfügbar.
-- [ ] Vorbedingungen wie STU (außerhalb von Systemen, Antrieb aktiv, kein Traktor, keine Flotte, Ziel passierbar, Cooldown) mit deutschen Fehlermeldungen.
-- [ ] Erfolgreicher Sprung setzt Position, Kosten und Cooldown und erzeugt Flugsignaturen, sofern sc-WP-NAV-2a erledigt ist.
+- [ ] Modul `Hyperraum-Spule`, Laufzeitsystem und Aktion `Navicomputer-Sprung` existieren; ohne intakte Spule ist die Aktion nicht verfügbar.
+- [ ] Ziel ist jede existierende passierbare freie X/Y-Koordinate auf einer nach K5 bekannten Ebene; es gibt weder Routenpflicht noch Distanzkosten. Der Sprung ist unmittelbar und kein zeitbasierter Flug.
+- [ ] Der Sprung wird vom Flottenführer für die gesamte nicht fixierte Flotte angefordert. Alle Mitglieder werden vollständig vorvalidiert: kopräsent außerhalb eines Systems, intakte Hyperraum-Spule, funktionsfähiger aktiver Hyperantrieb, kein Traktor, ausreichende 55 EPS und kein aktiver Cooldown. Fehlt eine Voraussetzung, wird der gesamte Sprung atomar abgelehnt; Mitglieder werden nicht abgetrennt.
+- [ ] Jedes Flottenmitglied bezahlt genau 55 EPS, verbraucht keine Hyperantriebspunkte und erhält einen Cooldown von 300 Sekunden.
+- [ ] Erfolgreicher Sprung setzt alle Flottenpositionen atomar und erzeugt je Schiff Ausgangs- und Zielsprungsignaturen ohne erfundene kardinale Flugrichtung.
 - [ ] Backend-Tests für Erfolg und jede Ablehnung; Frontend-Test für Zielwahl.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+
+## Entscheidung
+
+Die `Hyperraum-Spule` ermöglicht den unmittelbaren `Navicomputer-Sprung` zu jeder passierbaren Koordinate einer bekannten Ebene, ohne Routenpflicht oder distanzabhängige Hyperantriebspunkte. SWU integriert die bestehende Flottendomäne: Der Flottenführer springt die gesamte nicht fixierte Flotte nach vollständiger atomarer Vorvalidierung. Jedes Schiff benötigt eigene Spule, aktiven funktionsfähigen Hyperantrieb und 55 EPS und erhält 300 Sekunden Cooldown. Ein ungültiges Mitglied lehnt den gesamten Sprung ab.
 
 ## Comments
 
 - 2026-10-29: Die STU-Mechanik verlangt einen Sprung in jede bekannte Ebene. SWU besitzt zwar persistente Ebenenkenntnis, aber das Issue legt die produktentscheidende Kostenregel des sofortigen Sprungs nicht fest: STU berechnet nur 55 EPS Aktivierungskosten, während das Akzeptanzkriterium zusätzlich allgemein „Kosten“ fordert. Soll der **Navicomputer-Sprung** (vorgeschlagener Star-Wars-Name) exakt 55 EPS kosten, oder sollen zusätzlich Hyperantriebspunkte abhängig von der Sprungdistanz verbraucht werden? Ohne diese Entscheidung wären Balance, UI-Kostenvorschau und Backend-Tests spekulativ.
+- 2026-10-30 Product Owner: Option 2. `Hyperraum-Spule` und Aktion `Navicomputer-Sprung`; freie passierbare Koordinate auf jeder bekannten Ebene, 55 EPS pro Schiff, 300 Sekunden Cooldown, keine Hyperantriebspunkte und keine Routenpflicht. Der Flottenführer springt die gesamte nicht fixierte Flotte. Jedes Mitglied muss kopräsent, ausgerüstet, sprungfähig und ausreichend versorgt sein; andernfalls wird der Sprung atomar abgelehnt, ohne Mitglieder abzutrennen. Ebenenkenntnis aus K5a–c ist Implementierungsvoraussetzung.

@@ -38,8 +38,13 @@ KEY_FILE="${RALPH_KEY_FILE:-$HOME/.config/sops-nix/secrets/litellm_master_key}"
 KEY="$(cat "$KEY_FILE")"
 MAX_RETRIES="${RALPH_MAX_RETRIES:-5}"
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 DIR=".scratch/stu-parity"
 LOG_DIR="$DIR/logs"
+SELECTOR="$DIR/select-next-issue.py"
+STATUS_FILE="$DIR/ralph-status.md"
 mkdir -p "$LOG_DIR"
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -87,11 +92,49 @@ export CLAUDE_CODE_SUBAGENT_MODEL="$MODEL"
 export DISABLE_NON_ESSENTIAL_MODEL_CALLS=1
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
+select_next_issue() {
+  local output exit_code
+  set +e
+  output="$(python3 -I "$SELECTOR" --issues-dir "$DIR/issues")"
+  exit_code=$?
+  set -e
+  case "$exit_code" in
+    0)
+      rm -f "$STATUS_FILE"
+      printf '%s\n' "$output"
+      ;;
+    2)
+      printf 'RALPH_IDLE\n' >"$STATUS_FILE.tmp"
+      mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+      return 2
+      ;;
+    *)
+      rm -f "$STATUS_FILE" "$STATUS_FILE.tmp"
+      return "$exit_code"
+      ;;
+  esac
+}
+
 for ((i = 1; i <= MAX; i++)); do
-  if grep -qs RALPH_DONE "$DIR/ralph-status.md"; then
-    echo "Backlog leer – fertig nach $((i - 1)) Durchläufen."
+  set +e
+  selected_json="$(python3 -I "$SELECTOR" --issues-dir "$DIR/issues" --format json)"
+  selector_exit=$?
+  set -e
+  if ((selector_exit == 2)); then
+    echo "Keine ausführbaren Issues – pausiert nach $((i - 1)) Durchläufen."
     exit 0
   fi
+  if ((selector_exit != 0)); then
+    echo "Issue-Auswahl fehlgeschlagen – Ralph stoppt." >&2
+    exit 4
+  fi
+  selected_issue="$(jq -r '.selected.path' <<<"$selected_json")"
+  selected_size="$(jq -r '.selected.size' <<<"$selected_json")"
+  run_model="$MODEL"
+  if [[ "$selected_size" == "S" ]]; then
+    run_model="$SMALL"
+  fi
+  echo "Ausgewählt: $selected_issue (Size: $selected_size, Modell: $run_model)"
 
   attempt=0
   while :; do
@@ -100,8 +143,13 @@ for ((i = 1; i <= MAX; i++)); do
     log="$LOG_DIR/run-$(date +%Y%m%d-%H%M%S).jsonl"
     echo "=== Ralph-Durchlauf $i/$MAX, Versuch $((attempt + 1)) ($(date '+%F %T')) → $log ==="
     # --dangerously-skip-permissions nur in isolierter Umgebung (Worktree/Container) verwenden.
-    if command claude -p "$(cat "$DIR/PROMPT.md")" \
-      --model "$MODEL" \
+    prompt="$(cat "$DIR/PROMPT.md")
+
+## Vom Runner ausgewähltes Issue
+
+Arbeite ausschließlich an \`$selected_issue\`. Wähle kein anderes Issue und ändere \`$STATUS_FILE\` nicht."
+    if command claude -p "$prompt" \
+      --model "$run_model" \
       --dangerously-skip-permissions \
       --output-format stream-json --verbose \
       >"$log" 2>&1; then
@@ -119,7 +167,7 @@ for ((i = 1; i <= MAX; i++)); do
       continue
     fi
     echo "Durchlauf $i mit Fehler beendet (kein API-Fehler) – siehe $log" >&2
-    break
+    exit 5
   done
 
   if [[ "$(git rev-parse HEAD)" == "$head_before" ]]; then

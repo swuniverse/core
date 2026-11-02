@@ -1,6 +1,6 @@
 # Handelslizenzen: Bedingungen, Kauf, Verlängerung, Ablauf
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-T1a
@@ -42,3 +42,4 @@ Handel an einem Posten setzt eine gültige Lizenz voraus. Der Eigentümer legt d
 ## Comments
 
 - 2026-10-28: Das Issue ist als Size M markiert, umfasst aber gleichzeitig ein neues Lizenz-Datenmodell samt Migration, transaktionale Zahlungen aus zwei Speicherarten, Eigentümer-Konfiguration, Presence-Policy, Nachrichten, täglichen Maintenance-Handler, fünf API-Endpunkte sowie zwei Frontend-Kontexte und deren Tests. Das ist für einen einzelnen Ralph-Durchlauf zu groß. Bitte in mindestens Backend-Fundament/Kauf, Maintenance/Abfragen und Frontend aufteilen und die Abhängigkeiten festlegen.
+- 2026-10-30 Product Owner: Option 1. Das Issue wird in `tmw-T2a` Datenmodell/Bedingungen/Presence-Policy, `tmw-T2b` transaktionaler Kauf, `tmw-T2c` Verlängerung/Ablauf/Abfragen und `tmw-T2d` Frontend geteilt. Der Parent ist als Tracking-Split `resolved`. Verbindlich: 10 Aurodium/30 Tage als Alpha-Default; NPC-Zahlungen werden dem Konto des NPC-Eigentümers gutgeschrieben; Verlängerung gilt ab `max(jetzt, aktueller Ablauf)`; Warnung einmalig beim Eintritt in das Sieben-Tage-Fenster; nur Eigentümer sehen ausgestellte Lizenzen; kein globaler Lizenzdeckel; ausschließlich handelbare Waren als Preis.

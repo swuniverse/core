@@ -1,6 +1,6 @@
 # Kolonie verteidigen und blockieren direkt vom Schiff
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -45,3 +45,4 @@ SWU übernimmt das bestätigte STU-Verhalten exakt: Haltung und Eigentum filtern
 - 2026-10-27 Product Owner: Exakte STU-Regel: Jede belegte Kolonie kann unabhängig von Eigentum und Haltung verteidigt oder blockiert werden. Die API ist kanonisch schiffsbezogen, die Order flottenbezogen; Urlaub, Gegenorder und Blockade-Orbitalverteidigung werden geprüft.
 
 - 2026-10-27: Abbruch wegen Issue-Größe: Die geforderte zentrale Policy umfasst neue schiffsbezogene API, flottenweiten DTO-Zustand und Verfügbarkeitsgründe, Urlaubseignerprüfung, Idle-/Orbit-/Leader-Regeln, Colony-Kompatibilitätsalias sowie Backend- und Frontend-Testmatrizen. Das ist kein Size-S-Issue und konnte in diesem Durchlauf nicht mit zwei ernsthaften Implementierungs-/Prüfversuchen sicher abgeschlossen werden. Bitte in Backend-Policy/API und Field-Context/UI aufteilen. Produktcode wurde verworfen.
+- 2026-10-30 Product Owner: Option 1. Das Issue wird exakt zweigeteilt: `sc-WP-UI-3a1` besitzt zentrale Policy, kanonische schiffsbezogene Mutation, flottenweiten Auftrag, Urlaub/Orbitalverteidigung, Ereignisse und Colony-Kompatibilitätsalias. `sc-WP-UI-3a2` besitzt darauf aufbauend den autoritativen Field-Context-Vertrag mit Verfügbarkeit und Gründen sowie die Schiff-UI. Der Parent ist als Tracking-Split abgeschlossen.

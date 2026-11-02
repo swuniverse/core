@@ -1,6 +1,6 @@
 # Feldtyp-Flugkosten, Feldschaden und Deflektor
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a
@@ -44,3 +44,4 @@ Vorgabe:
 
 - 2026-10-21 Product Owner: Option 1a, 2a – Flugenergie folgt dem STU-Modell (Grundkosten plus Feldtyp-Kosten je Feld als Deflektorlast, 1a), und der Deflektor wird ein eigenes Schiffssystem `DEFLECTOR` (2a). Teilfrage 3 ergibt sich aus sc-WP-NAV-3 (Option b): Feldkosten und -schaden gelten für jedes durchflogene Feld.
 - 2026-10-28 Agent: Blockiert durch eine widersprüchliche Bewegungsgrundlage. `flyGalaxy` springt weiterhin in einem Aufruf direkt zum Zielfeld und lädt ausschließlich `warpdrive`, während Akzeptanzkriterium und ADR-0006 jede tatsächlich durchflogene Feldtransition mit Grund-EPS-Kosten plus Feld-Consequence verlangen. Soll tmw-K1b den Galaxieflug bereits auf schrittweise Feldtransitions samt EPS-Grundkosten umbauen (Scope-Erweiterung gegenüber dem Issue), oder soll es bis zum Rückbau des alten Flugpfads nach sc-WP-NAV-3 warten? Zusätzlich fehlt `sc-WP-TRACT-1a`, sodass `skipWhenTractored` noch nicht implementierbar oder testbar ist.
+- 2026-10-30 Product Owner: Option 1. Das Issue wird in `tmw-K1b1` gemeinsamen Feldtransition-/Routenexecutor, `tmw-K1b2` Deflektor und Feldschaden sowie `tmw-K1b3` autoritative Routenwarnung geteilt; der Parent ist als Tracking-Split `resolved`. Mehrfeldziele bleiben in der API erhalten, werden aber als geordnete beobachtbare Feldschritte ausgeführt. Jedes tatsächlich betretene Feld kostet Grund-EPS und führt die Pipeline genau einmal aus; Zwischenfelder werden geprüft, Bewegung stoppt bei fehlender EPS oder Zerstörung. Normaler Galaxieflug verbraucht nicht länger `warpdrive` je Distanz. `sc-WP-NAV-3b` entfernt nur den alten Zeitflug. Der Transition-Kern erhält eine Traktor-Erweiterungsstelle; tatsächliche Schleppkosten und `skipWhenTractored` bleiben `sc-WP-TRACT-1a`.

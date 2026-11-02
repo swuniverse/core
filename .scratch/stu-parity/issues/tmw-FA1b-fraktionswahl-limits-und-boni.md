@@ -1,6 +1,6 @@
 # Fraktionsattribute, Teil 2: Wählbarkeit, Spielerlimit, wirksame Boni
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-FA1a
@@ -40,3 +40,4 @@ Vorgabe:
 - 2026-10-28 Agent: Das Issue ist in der vorgegebenen Größe S nicht seriös in einem Durchlauf umsetzbar. Die Akzeptanzkriterien betreffen mindestens vier getrennte Laufzeitpfade (Fraktions-Admin/API und Onboarding, Spacecraft-Statistik mit fehlendem Fraktionskontext, Forschungspunkterzeugung sowie Koloniewachstum), dazu Migration, Shared-Verträge und Frontend. Bitte in vertikale Teilissues aufteilen; insbesondere muss entschieden werden, ob Schiffsmultiplikatoren nach Eigentümerfraktion beim Erzeugen persistiert oder bei jeder Statistikberechnung dynamisch angewandt werden.
 
 - 2026-10-21 Product Owner: Option 1c, 2a – Fraktionen werden nicht begrenzt; es gibt nur ein von Admins gepflegtes `isSelectable` (1c). Die vorhandenen Fraktionsmultiplikatoren werden an ihren Stellen wirksam gemacht (2a); `tradeModifier` entfällt gemäß der spezielleren Entscheidung 2b in tmw-T13.
+- 2026-10-30 Product Owner: Option 1. Das Issue wird in vier ausführbare Teilissues geteilt: `tmw-FA1b1` Fraktionswählbarkeit, `tmw-FA1b2` dynamische Schiffsmultiplikatoren, `tmw-FA1b3` Forschungsmultiplikator und `tmw-FA1b4` Koloniewachstumsmultiplikator. Der Parent ist als Tracking-Split `resolved`. Rumpf-, Schild- und Frachtboni werden in der autoritativen Statistikprojektion dynamisch anhand der aktuellen Eigentümerfraktion angewandt; persistierte Basiswerte bleiben unverändert. Forschung und Koloniewachstum lesen ihre Multiplikatoren ebenfalls zur Laufzeit. `tradeModifier` bleibt ausgeschlossen.

@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** tmw-K8a, tmw-K8b
+**Blocked by:** tmw-K8a, tmw-K8b2
 
 ## Ziel
 
