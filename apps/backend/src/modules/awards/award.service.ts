@@ -15,6 +15,10 @@ export class AwardService {
     private readonly messagingService: MessagingService,
   ) {}
 
+  async hasAward(userId: number, awardKey: string): Promise<boolean> {
+    return this.userAwardRepo.existsBy({ userId, awardKey });
+  }
+
   async grant(
     userId: number,
     awardKey: string,

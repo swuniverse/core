@@ -212,6 +212,22 @@ describe('ResearchService – state deduplication', () => {
     expect(empireState.map((tech) => tech.id)).toEqual([910000]);
   });
 
+  it('hides research gated by an unowned award and reveals it after the award is granted', async () => {
+    techs = [
+      makeTech(910001, 10),
+      { ...makeTech(910002, 20), neededAwardKey: 'RESEARCH_STATIONS' },
+    ];
+    const hasAward = jest.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    (service as any).awardService = { hasAward };
+
+    const withoutAward = await service.getResearchState(42, null);
+    const withAward = await service.getResearchState(42, null);
+
+    expect(withoutAward.map((tech) => tech.id)).toEqual([910001]);
+    expect(withAward.map((tech) => tech.id)).toEqual([910001, 910002]);
+    expect(hasAward).toHaveBeenCalledWith(42, 'RESEARCH_STATIONS');
+  });
+
   it('deduplicates repeated tech definitions by id in research state', async () => {
     techs = [
       makeTech(910001, 10),
@@ -481,6 +497,64 @@ describe('ResearchService – completion notifications', () => {
       'research-completed:91',
       expect.anything(),
     );
+  });
+});
+
+describe('ResearchService – award integration', () => {
+  it('rejects starting research when its required award is not owned', async () => {
+    const tech = {
+      ...makeTech(10, 5),
+      neededAwardKey: 'RESEARCH_STATIONS',
+    } as TechDef;
+    const service = new ResearchService(
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      { getTechTree: () => [tech], getTech: () => tech } as any,
+      {} as any,
+      {} as any,
+      undefined,
+      { hasAward: jest.fn().mockResolvedValue(false) } as any,
+    );
+
+    await expect(service.startResearch(42, 10)).rejects.toThrow(
+      'Required award not owned',
+    );
+  });
+
+  it('grants the configured award when research completes', async () => {
+    const tech = {
+      ...makeTech(10, 5),
+      mappedCommodityId: 7,
+      awardKey: 'RESEARCH_INTERSTELLAR',
+    } as TechDef;
+    const research = {
+      id: 91,
+      userId: 42,
+      techId: 10,
+      status: 'IN_PROGRESS',
+      remainingPoints: 5,
+      spentPoints: 0,
+      progress: 0,
+      finishesAt: new Date(),
+      completedAt: null,
+      blockedReason: null,
+    };
+    const grant = jest.fn().mockResolvedValue({ granted: true, count: 1 });
+    const service = new ResearchService(
+      {
+        findOne: jest.fn().mockResolvedValueOnce(research),
+        find: jest.fn().mockResolvedValue([]),
+        save: jest.fn(async (value) => value),
+      } as any,
+      { getTech: () => tech, getTechTree: () => [tech] } as any,
+      { sendSystem: jest.fn().mockResolvedValue({}) } as any,
+      { emitToUser: jest.fn() } as any,
+      undefined,
+      { grant } as any,
+    );
+
+    await service.processTick(42, 0, new Map([[7, 5]]));
+
+    expect(grant).toHaveBeenCalledWith(42, 'RESEARCH_INTERSTELLAR');
   });
 });
 

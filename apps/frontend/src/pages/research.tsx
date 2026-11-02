@@ -63,6 +63,7 @@ export interface TechState {
   };
   researchMode?: 'commodity' | 'points';
   shipReward?: { shipClassKey: string; name: string } | null;
+  award?: { key: string; name: string; image: string } | null;
   status: string;
   progress: number;
   pointsRequired: number;
@@ -629,6 +630,16 @@ export function TechDetailModal({
             <p className="text-xs text-swu-text">
               Belohnung: {tech.shipReward.name}
             </p>
+          )}
+          {tech.award && (
+            <div className="flex items-center gap-2 text-xs text-swu-text">
+              <img
+                src={tech.award.image}
+                alt={tech.award.name}
+                className="size-8 object-contain"
+              />
+              <span>Auszeichnung: {tech.award.name}</span>
+            </div>
           )}
 
           {/* Progress (if in progress) */}

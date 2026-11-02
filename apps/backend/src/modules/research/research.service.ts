@@ -13,6 +13,8 @@ import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { GameGateway } from '../websocket/game.gateway';
 import { FactionService } from '../faction/faction.service';
+import { AwardService } from '../awards/award.service';
+import { AWARD_CATALOG, AWARD_IMAGE } from '../awards/award.catalog';
 
 export type ResearchShipRewardGranter = (
   userId: number,
@@ -40,6 +42,7 @@ export class ResearchService {
     private readonly messagingService: MessagingService,
     private readonly gameGateway: GameGateway,
     private readonly factionService?: FactionService,
+    private readonly awardService?: AwardService,
   ) {}
 
   /** Registered by the spacecraft module; avoids a module import cycle. */
@@ -87,6 +90,19 @@ export class ResearchService {
         )
         .map((r) => r.techId),
     );
+    const requiredAwardKeys = [
+      ...new Set(
+        techTree
+          .map((tech) => tech.neededAwardKey)
+          .filter((key): key is string => key !== undefined),
+      ),
+    ];
+    const ownedAwardKeys = new Set<string>();
+    for (const awardKey of requiredAwardKeys) {
+      if (await this.awardService?.hasAward(userId, awardKey)) {
+        ownedAwardKeys.add(awardKey);
+      }
+    }
     const excludedByStartedResearch = new Set<number>();
     for (const sourceTechId of exclusionSources) {
       const sourceTech = this.getTechForFaction(sourceTechId, faction ?? null);
@@ -101,6 +117,10 @@ export class ResearchService {
     const visibleTechs = new Map<number, TechDef>();
     for (const tech of techTree) {
       if (tech.hidden || tech.excludeFromNormalProgression) continue;
+      if (
+        tech.neededAwardKey &&
+        !ownedAwardKeys.has(tech.neededAwardKey)
+      ) continue;
       if (excludedByStartedResearch.has(tech.id)) continue;
       if (!isTechForFaction(tech, faction ?? null)) continue;
       if (
@@ -156,6 +176,20 @@ export class ResearchService {
                 this.gameData.getShipClassDefByKey(tech.shipReward.shipClassKey)
                   ?.name ?? tech.shipReward.shipClassKey,
             }
+          : null,
+        award: tech.awardKey
+          ? (() => {
+              const definition = AWARD_CATALOG.find(
+                (award) => award.key === tech.awardKey,
+              );
+              return definition
+                ? {
+                    key: definition.key,
+                    name: definition.description,
+                    image: AWARD_IMAGE,
+                  }
+                : null;
+            })()
           : null,
         unlocks: {
           ...tech.unlocks,
@@ -247,6 +281,12 @@ export class ResearchService {
     if (completed.has(techId)) {
       throw new BadRequestException('Already researched');
     }
+    if (
+      tech.neededAwardKey &&
+      !(await this.awardService?.hasAward(userId, tech.neededAwardKey))
+    ) {
+      throw new BadRequestException('Required award not owned');
+    }
     if (!this.areDependenciesMet(tech, completed)) {
       throw new BadRequestException('Dependencies not met');
     }
@@ -325,6 +365,12 @@ export class ResearchService {
 
     if (completed.has(targetTechId)) {
       throw new BadRequestException('Already researched');
+    }
+    if (
+      tech.neededAwardKey &&
+      !(await this.awardService?.hasAward(userId, tech.neededAwardKey))
+    ) {
+      throw new BadRequestException('Required award not owned');
     }
 
     const path = this.resolvePrerequisitePath(
@@ -720,6 +766,9 @@ export class ResearchService {
       techId: tech.id,
       name: tech.name,
     });
+    if (tech.awardKey) {
+      await this.awardService?.grant(userId, tech.awardKey);
+    }
     await this.grantShipReward(userId, tech);
   }
 

@@ -658,6 +658,35 @@ describe('ResearchPage routing', () => {
     ).toContain('9901');
   });
 
+  it('shows the award image and name in the research detail modal', async () => {
+    apiMocks.get.mockResolvedValue([
+      {
+        ...techs[0],
+        award: {
+          key: 'RESEARCH_STATIONS',
+          name: 'Stationsforschung abgeschlossen',
+          image: '/favicon.ico',
+        },
+      },
+      ...techs.slice(1),
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/research?focus=211200']}>
+        <Routes>
+          <Route path="/research" element={<ResearchPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('Auszeichnung: Stationsforschung abgeschlossen'),
+    ).toBeTruthy();
+    expect(
+      screen.getByAltText('Stationsforschung abgeschlossen').getAttribute('src'),
+    ).toBe('/favicon.ico');
+  });
+
   it('shows the ship reward only when the research has a mapping', async () => {
     apiMocks.get.mockResolvedValue([
       {

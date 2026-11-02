@@ -190,6 +190,8 @@ export interface TechDef {
   dependencies: TechDependency[];
   unlocks?: ResearchUnlocks;
   shipReward?: ResearchShipRewardDef;
+  awardKey?: string;
+  neededAwardKey?: string;
 }
 
 export interface TerraformingDef {

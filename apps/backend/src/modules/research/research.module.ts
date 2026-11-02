@@ -11,6 +11,7 @@ import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { FactionModule } from '../faction/faction.module';
+import { AwardsModule } from '../awards/awards.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { FactionModule } from '../faction/faction.module';
     ]),
     WebsocketModule,
     FactionModule,
+    AwardsModule,
   ],
   controllers: [ResearchController],
   providers: [
