@@ -188,6 +188,10 @@ export interface TechDef {
   adminOnly?: boolean;
   excludeFromNormalProgression?: boolean;
   dependencies: TechDependency[];
+  colonyLimit?: {
+    type: 'planet' | 'moon' | 'asteroid';
+    amount: number;
+  };
   unlocks?: ResearchUnlocks;
   shipReward?: ResearchShipRewardDef;
   awardKey?: string;

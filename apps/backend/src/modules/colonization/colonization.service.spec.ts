@@ -83,7 +83,33 @@ describe('ColonizationService', () => {
       unlockResolver as never,
       colonySeedService as never,
       colonyEventService as never,
-      { getSwuLetterResources: jest.fn(() => []), getCommodity: jest.fn(), getCategoriesForTerrainTile: jest.fn(() => []) } as never,
+      {
+        getSwuLetterResources: jest.fn(() => []),
+        getCommodity: jest.fn(),
+        getCategoriesForTerrainTile: jest.fn(() => []),
+        getTechTree: jest.fn(() => [
+          {
+            id: 1001,
+            faction: 'REBEL_ALLIANCE',
+            colonyLimit: { type: 'planet', amount: 1 },
+          },
+          {
+            id: 101101,
+            faction: 'REBEL_ALLIANCE',
+            colonyLimit: { type: 'planet', amount: 2 },
+          },
+          {
+            id: 101201,
+            faction: 'REBEL_ALLIANCE',
+            colonyLimit: { type: 'planet', amount: 2 },
+          },
+          {
+            id: 102101,
+            faction: 'REBEL_ALLIANCE',
+            colonyLimit: { type: 'moon', amount: 1 },
+          },
+        ]),
+      } as never,
     );
 
     return {
@@ -115,19 +141,23 @@ describe('ColonizationService', () => {
     };
   }
 
-  it('calculates moon limit from colonizer and moon techs', async () => {
+  it('sums colony limits from completed research data without a fixed maximum', async () => {
     const { service, userRepo, colonyRepo, unlockResolver } = createService();
     userRepo.findOne.mockResolvedValue(rebelUser);
     colonyRepo.find.mockResolvedValue([]);
     unlockResolver.hasTech.mockImplementation(
       async (_userId: number, techId: number) =>
-        [415001, 102101].includes(techId),
+        [1001, 101101, 101201, 102101].includes(techId),
     );
 
     const status = await service.getColonizationStatus(1);
 
-    expect(status.limits.moon.limit).toBe(2);
-    expect(status.limits.planet.limit).toBe(1);
+    expect(status.limits.planet).toEqual({
+      type: 'planet',
+      count: 0,
+      limit: 5,
+    });
+    expect(status.limits.moon.limit).toBe(1);
     expect(status.limits.asteroid.limit).toBe(0);
   });
 
@@ -394,7 +424,10 @@ describe('ColonizationService', () => {
       'Kolonieklasse ist nicht freigeschaltet oder unbewohnbar',
     );
     expect(result.surface).toBeNull();
-    expect(result.swu).toMatchObject({ archetype: 'Sumpf', rotation: 'rotating' });
+    expect(result.swu).toMatchObject({
+      archetype: 'Sumpf',
+      rotation: 'rotating',
+    });
     expect(result.swu?.proposals).toHaveLength(3);
   });
 
@@ -453,7 +486,9 @@ describe('ColonizationService', () => {
     const midZone = result.swu?.proposals.find((p) => p.zoneSlot === 2);
     expect(midZone?.solarOutputTJ).toBe(expected);
     // Rotierend: Aequator (Zone 3) +25 %, Polregion (Zone 1) -25 % gegenueber gemaessigt.
-    const [polar, temperate, equator] = result.swu!.proposals.map((p) => p.solarOutputTJ!);
+    const [polar, temperate, equator] = result.swu!.proposals.map(
+      (p) => p.solarOutputTJ!,
+    );
     expect(polar).toBeLessThan(temperate);
     expect(temperate).toBeLessThan(equator);
   });
@@ -657,13 +692,8 @@ describe('ColonizationService', () => {
   });
 
   it('shows the same dayNightSwitchMinutes before and after founding (same celestial object)', async () => {
-    const {
-      service,
-      userRepo,
-      colonyRepo,
-      objectRepo,
-      unlockResolver,
-    } = createService();
+    const { service, userRepo, colonyRepo, objectRepo, unlockResolver } =
+      createService();
     userRepo.findOne.mockResolvedValue({
       ...rebelUser,
       createdAt: new Date(),
@@ -777,7 +807,11 @@ describe('ColonizationService', () => {
       },
     });
     const tidalLocked = await service.getSwuColonyEcosystem(56, 1);
-    expect(tidalLocked).toMatchObject({ tidalLocked: true, dayNightSwitchMinutes: null, terminatorShiftHours: expect.any(Number) });
+    expect(tidalLocked).toMatchObject({
+      tidalLocked: true,
+      dayNightSwitchMinutes: null,
+      terminatorShiftHours: expect.any(Number),
+    });
 
     colonyRepo.findOne.mockResolvedValueOnce({
       id: 57,

@@ -647,7 +647,7 @@ describe('ResearchPage routing', () => {
     expect(
       screen.getAllByText('Alternative Reaktortheorie').length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /eine von/ })).toBeTruthy();
+    expect(screen.getByText('(eine von)')).toBeTruthy();
     expect(screen.getByText('A-Wing Aufklärer')).toBeTruthy();
     expect(screen.getByText('Militär-Scanner')).toBeTruthy();
     expect(screen.getByAltText('A-Wing Aufklärer').getAttribute('src')).toBe(
@@ -658,12 +658,13 @@ describe('ResearchPage routing', () => {
     ).toContain('9901');
   });
 
-  it('shows the colony limit increase in the research detail modal', async () => {
+  it('shows the data-driven colony limit increase in the research detail modal', async () => {
     apiMocks.get.mockResolvedValue([
       {
         ...techs[1],
         id: 101101,
         name: 'Feindliche Planeten',
+        colonyLimit: { type: 'planet', amount: 2 },
       },
       ...techs.slice(2),
     ]);
@@ -676,7 +677,7 @@ describe('ResearchPage routing', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Kolonielimit: +1 Planet')).toBeTruthy();
+    expect(await screen.findByText('Kolonielimit: +2 Planeten')).toBeTruthy();
     expect(screen.getByAltText('Planet').getAttribute('src')).toBe(
       '/assets/planets/201s.png',
     );
@@ -707,7 +708,9 @@ describe('ResearchPage routing', () => {
       await screen.findByText('Auszeichnung: Stationsforschung abgeschlossen'),
     ).toBeTruthy();
     expect(
-      screen.getByAltText('Stationsforschung abgeschlossen').getAttribute('src'),
+      screen
+        .getByAltText('Stationsforschung abgeschlossen')
+        .getAttribute('src'),
     ).toBe('/favicon.ico');
   });
 

@@ -57,94 +57,14 @@ export const COLONIZATION_OBJECT_TYPES: Record<
   asteroid: 'ASTEROID',
 };
 
-export const COLONIZATION_BASE_LIMITS: Record<ColonizationLimitType, number> = {
-  planet: 1,
-  moon: 0,
-  asteroid: 0,
-};
-
-export const COLONIZATION_MAX_LIMITS: Record<ColonizationLimitType, number> = {
-  planet: 3,
-  moon: 3,
-  asteroid: 1,
-};
-
-export interface ColonizationTechPair {
-  rebel: number;
-  empire: number;
-}
-
-export interface ColonizationLimitRule {
-  type: ColonizationLimitType;
-  label: string;
-  tech?: ColonizationTechPair;
-}
-
-export const COLONIZATION_LIMIT_RULES: readonly ColonizationLimitRule[] = [
-  { type: 'planet', label: 'Heimatplanet' },
-  {
-    type: 'planet',
-    label: 'weiterer Planet',
-    tech: {
-      rebel: COLONIZATION_TECH_IDS.REBEL_HOSTILE_PLANETS,
-      empire: COLONIZATION_TECH_IDS.EMPIRE_HOSTILE_PLANETS,
-    },
-  },
-  {
-    type: 'planet',
-    label: 'weiterer Planet',
-    tech: {
-      rebel: COLONIZATION_TECH_IDS.REBEL_EXTREME_PLANETS,
-      empire: COLONIZATION_TECH_IDS.EMPIRE_EXTREME_PLANETS,
-    },
-  },
-  {
-    type: 'moon',
-    label: 'erster Mond',
-    tech: {
-      rebel: COLONIZATION_TECH_IDS.REBEL_TIER_1_COLONIZER,
-      empire: COLONIZATION_TECH_IDS.EMPIRE_TIER_1_COLONIZER,
-    },
-  },
-  {
-    type: 'moon',
-    label: 'weiterer Mond',
-    tech: {
-      rebel: COLONIZATION_TECH_IDS.REBEL_MOON_COLONIZATION_1,
-      empire: COLONIZATION_TECH_IDS.EMPIRE_MOON_COLONIZATION_1,
-    },
-  },
-  {
-    type: 'moon',
-    label: 'weiterer Mond',
-    tech: {
-      rebel: COLONIZATION_TECH_IDS.REBEL_MOON_COLONIZATION_2,
-      empire: COLONIZATION_TECH_IDS.EMPIRE_MOON_COLONIZATION_2,
-    },
-  },
-  {
-    type: 'asteroid',
-    label: 'erster Asteroid',
-    tech: {
-      rebel: COLONIZATION_TECH_IDS.REBEL_ASTEROID_THIN,
-      empire: COLONIZATION_TECH_IDS.EMPIRE_ASTEROID_THIN,
-    },
-  },
-] as const;
-
 export interface ColonizationLimitIncrease {
   type: ColonizationLimitType;
   amount: number;
 }
 
-export function getColonizationLimitIncrease(
-  techId: number,
-): ColonizationLimitIncrease | null {
-  const rule = COLONIZATION_LIMIT_RULES.find(
-    (candidate) =>
-      candidate.tech?.rebel === techId || candidate.tech?.empire === techId,
-  );
-  return rule ? { type: rule.type, amount: 1 } : null;
+export interface ColonizationTechPair {
+  rebel: number;
+  empire: number;
 }
 
 export interface ColonizationClassGateRule {

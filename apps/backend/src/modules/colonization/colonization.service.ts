@@ -8,8 +8,6 @@ import { Repository } from 'typeorm';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import {
   COLONIZATION_CLASS_GATE_RULES,
-  COLONIZATION_LIMIT_RULES,
-  COLONIZATION_MAX_LIMITS,
   type ColonizationLimitType,
   getClassGateRequiredTechPair,
   getColonizationClassGate,
@@ -33,7 +31,10 @@ import {
   CelestialObject,
   CelestialObjectType,
 } from '../starmap/entities/celestial-object.entity';
-import { Spacecraft, SpacecraftStatus } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftStatus,
+} from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import {
@@ -57,7 +58,13 @@ import {
   solarOutputTJ,
 } from '../starmap/generator/swu-solar';
 import { GameDataService } from '../game-data/game-data.service';
-import { classifyZoneOres, oreDisplayName, zoneDeuteriumSources, zoneOreSources, type SwuZoneOre } from './swu-zone-ores';
+import {
+  classifyZoneOres,
+  oreDisplayName,
+  zoneDeuteriumSources,
+  zoneOreSources,
+  type SwuZoneOre,
+} from './swu-zone-ores';
 import {
   rateSwuSettlement,
   type SwuSettlementAssessment,
@@ -92,7 +99,6 @@ export interface ColonizationLimitStatus {
   type: ColonizationLimitType;
   count: number;
   limit: number;
-  max: number;
 }
 
 export interface ColonizationStatusDto {
@@ -199,19 +205,16 @@ export class ColonizationService {
           type: 'planet',
           count: counts.planet,
           limit: planetLimit,
-          max: COLONIZATION_MAX_LIMITS.planet,
         },
         moon: {
           type: 'moon',
           count: counts.moon,
           limit: moonLimit,
-          max: COLONIZATION_MAX_LIMITS.moon,
         },
         asteroid: {
           type: 'asteroid',
           count: counts.asteroid,
           limit: asteroidLimit,
-          max: COLONIZATION_MAX_LIMITS.asteroid,
         },
       },
     };
@@ -224,7 +227,11 @@ export class ColonizationService {
   async getSwuColonizationProposals(
     celestialObjectId: number,
     rotation: SwuRotationType = 'rotating',
-  ): Promise<{ archetype: string; rotation: SwuRotationType; proposals: SwuColonizationProposal[] }> {
+  ): Promise<{
+    archetype: string;
+    rotation: SwuRotationType;
+    proposals: SwuColonizationProposal[];
+  }> {
     const target = await this.objectRepo.findOneBy({ id: celestialObjectId });
     if (!target) throw new NotFoundException('Ziel nicht gefunden');
     const archetype =
@@ -242,7 +249,10 @@ export class ColonizationService {
   /** Besiedlungs-Bedingungen einer Zone aus Erzquellen, Bergbaufeldern, Atmosphaere und Solareintrag. */
   private assessSwuZone(
     archetype: NonNullable<ReturnType<typeof findArchetypeBySwuClassId>>,
-    proposal: Pick<SwuColonizationProposal, 'miningFields' | 'solarOutputTJ' | 'colonizable'>,
+    proposal: Pick<
+      SwuColonizationProposal,
+      'miningFields' | 'solarOutputTJ' | 'colonizable'
+    >,
     ores: SwuZoneOre[],
     isMoon: boolean,
   ): SwuSettlementAssessment | null {
@@ -274,9 +284,14 @@ export class ColonizationService {
     const addLetter = (letter: string | null, factor = 1) => {
       if (!letter) return;
       for (const entry of this.gameData.getSwuLetterResources(letter)) {
-        const amount = Math.round((isMoon ? entry.moon : entry.planet) * factor);
+        const amount = Math.round(
+          (isMoon ? entry.moon : entry.planet) * factor,
+        );
         if (amount === 0) continue;
-        amounts.set(entry.commodityId, (amounts.get(entry.commodityId) ?? 0) + amount);
+        amounts.set(
+          entry.commodityId,
+          (amounts.get(entry.commodityId) ?? 0) + amount,
+        );
       }
     };
     addLetter(getSwuZoneLetter(archetype, zoneSlot, rotation, bodyFeature));
@@ -330,7 +345,9 @@ export class ColonizationService {
     // SWU-Archetypen sind der STU-Klassen-Gate-Tabelle unbekannt (keine STU-
     // classId) - fuer sie gilt stattdessen nur archetype.landable (bereits in
     // target.isColonizable eingeflossen, siehe swu-system-generator.ts).
-    const classGate = swuArchetype ? null : getColonizationClassGate(target.classId);
+    const classGate = swuArchetype
+      ? null
+      : getColonizationClassGate(target.classId);
 
     if (!target.isColonizable) reasons.push('Ziel ist nicht kolonisierbar');
     if (!limitType) reasons.push('Unbekannter Zieltyp');
@@ -460,13 +477,17 @@ export class ColonizationService {
                   : null,
                 // Gleicher seed wie createFollowUpSwuColony() spaeter verwendet -
                 // die Vorschau zeigt exakt das, was beim Gruenden entsteht.
-                proposals: getColonizationProposals(swuArchetype, instance.rotation, {
-                  seed: `colony-${userId}-${target.id}`,
-                  bodyFeature: instance.bodyFeature,
-                  orbitDistance: swuOrbitDistance ?? undefined,
-                  classify: (tile) =>
-                    this.gameData.getCategoriesForTerrainTile(tile),
-                }).map((proposal) => {
+                proposals: getColonizationProposals(
+                  swuArchetype,
+                  instance.rotation,
+                  {
+                    seed: `colony-${userId}-${target.id}`,
+                    bodyFeature: instance.bodyFeature,
+                    orbitDistance: swuOrbitDistance ?? undefined,
+                    classify: (tile) =>
+                      this.gameData.getCategoriesForTerrainTile(tile),
+                  },
+                ).map((proposal) => {
                   const ores = this.getSwuZoneOres(
                     swuArchetype,
                     proposal.zoneSlot,
@@ -555,7 +576,9 @@ export class ColonizationService {
           swuInstance!.rotation,
         ).find((entry) => entry.zoneSlot === swuZoneSlot);
         if (!proposal || !proposal.colonizable) {
-          throw new BadRequestException('Gewählte Zone ist nicht kolonisierbar');
+          throw new BadRequestException(
+            'Gewählte Zone ist nicht kolonisierbar',
+          );
         }
       } else {
         const surface = this.colonySeedService.generateSurfaceSnapshot(
@@ -684,17 +707,18 @@ export class ColonizationService {
     type: ColonizationLimitType,
   ): Promise<number> {
     let limit = 0;
-    for (const rule of COLONIZATION_LIMIT_RULES.filter(
-      (candidate) => candidate.type === type,
-    )) {
-      if (!rule.tech) {
-        limit += 1;
+    for (const tech of this.gameData.getTechTree()) {
+      if (
+        tech.colonyLimit?.type !== type ||
+        (tech.faction !== 'SHARED' && tech.faction !== factionKey)
+      ) {
         continue;
       }
-      const techId = getFactionTechId(rule.tech, factionKey);
-      if (await this.unlockResolver.hasTech(userId, techId)) limit += 1;
+      if (await this.unlockResolver.hasTech(userId, tech.id)) {
+        limit += tech.colonyLimit.amount;
+      }
     }
-    return Math.min(limit, COLONIZATION_MAX_LIMITS[type]);
+    return limit;
   }
 
   private async getColonyCountsByType(
@@ -768,7 +792,8 @@ export class ColonizationService {
     );
 
     const tidalLocked = instance.rotation === 'tidal-locked';
-    const isMoon = colony.celestialObject.objectType === CelestialObjectType.MOON;
+    const isMoon =
+      colony.celestialObject.objectType === CelestialObjectType.MOON;
     const seedKey = `celestial-${colony.celestialObject.id}`;
     const dayNightSwitchMinutes = tidalLocked
       ? null

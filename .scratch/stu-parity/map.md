@@ -162,6 +162,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- col-E1b – Kolonielimits werden ohne festen Deckel aus abgeschlossenen Forschungsdaten summiert und im Forschungsdetail angezeigt – siehe Feature-Commit
 - col-E1a – Forschungsdetails zeigen datengetriebene Kolonielimit-Erhöhungen; das Dashboard verbirgt Asteroiden bis zur Freischaltung – siehe Feature-Commit
 - col-D2c – Forschungs-Awards werden aus stabilen Dump-Mappings vergeben, Besitz-Gates serverseitig erzwungen und im Detailmodal angezeigt – siehe Feature-Commit
 - col-A8 – Instandhaltungssets und Schiffssystem-Baugruppen für Funktionen 29/30 datengetrieben gefertigt, im Komponentenmenü angezeigt und an bestehende Reparaturverbräuche angebunden – siehe Feature-Commit

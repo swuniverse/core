@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getColonizationLimitIncrease } from '@swuniverse/shared';
+import type { ColonizationLimitIncrease } from '@swuniverse/shared';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -63,6 +63,7 @@ export interface TechState {
     modules?: UnlockModule[];
   };
   researchMode?: 'commodity' | 'points';
+  colonyLimit?: ColonizationLimitIncrease;
   shipReward?: { shipClassKey: string; name: string } | null;
   award?: { key: string; name: string; image: string } | null;
   status: string;
@@ -502,16 +503,19 @@ export function TechDetailModal({
 }) {
   const [queuePreview, setQueuePreview] = useState<TechState[] | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const colonizationLimitIncrease = getColonizationLimitIncrease(tech.id);
+  const colonizationLimitIncrease = tech.colonyLimit;
   const colonizationLimitDisplay = colonizationLimitIncrease
     ? {
         planet: {
-          label: 'Planet',
+          labels: ['Planet', 'Planeten'],
           image: '/assets/planets/201s.png',
         },
-        moon: { label: 'Mond', image: '/assets/planets/401s.png' },
+        moon: {
+          labels: ['Mond', 'Monde'],
+          image: '/assets/planets/401s.png',
+        },
         asteroid: {
-          label: 'Asteroid',
+          labels: ['Asteroid', 'Asteroiden'],
           image: '/assets/planets/701s.png',
         },
       }[colonizationLimitIncrease.type]
@@ -645,12 +649,16 @@ export function TechDetailModal({
             <div className="flex items-center gap-2 text-xs text-swu-text">
               <img
                 src={colonizationLimitDisplay.image}
-                alt={colonizationLimitDisplay.label}
+                alt={colonizationLimitDisplay.labels[0]}
                 className="size-6 object-contain"
               />
               <span>
                 Kolonielimit: +{colonizationLimitIncrease.amount}{' '}
-                {colonizationLimitDisplay.label}
+                {
+                  colonizationLimitDisplay.labels[
+                    colonizationLimitIncrease.amount === 1 ? 0 : 1
+                  ]
+                }
               </span>
             </div>
           )}

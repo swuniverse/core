@@ -1,20 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  COLONIZATION_TECH_IDS,
-  getColonizationLimitIncrease,
+  getColonizationLimitType,
+  type ColonizationLimitIncrease,
 } from './colonization-rules.js';
 
-describe('getColonizationLimitIncrease', () => {
-  it.each([
-    [COLONIZATION_TECH_IDS.REBEL_HOSTILE_PLANETS, 'planet'],
-    [COLONIZATION_TECH_IDS.EMPIRE_MOON_COLONIZATION_1, 'moon'],
-    [COLONIZATION_TECH_IDS.REBEL_ASTEROID_THIN, 'asteroid'],
-  ] as const)('maps research %i to a +1 %s limit', (techId, type) => {
-    expect(getColonizationLimitIncrease(techId)).toEqual({ type, amount: 1 });
+describe('colonization limits', () => {
+  it('exposes a shared data contract for research-defined increases', () => {
+    const increase: ColonizationLimitIncrease = { type: 'moon', amount: 2 };
+
+    expect(increase).toEqual({ type: 'moon', amount: 2 });
   });
 
-  it('returns null for research without a colony limit increase', () => {
-    expect(getColonizationLimitIncrease(999999)).toBeNull();
+  it.each([
+    [1, 'planet'],
+    [2, 'moon'],
+    [3, 'asteroid'],
+  ] as const)('maps celestial object type %i to %s', (objectType, type) => {
+    expect(getColonizationLimitType(objectType)).toBe(type);
   });
 });
