@@ -306,6 +306,40 @@ describe('spacecraft core detail controls', () => {
     expect((ship.runtimeSystems as any).ASTROMETRY_LAB.active).toBe(true);
   });
 
+  it('charges 30 EPS to activate the Hyperraumfeldscanner and blocks it while cloaked', async () => {
+    const { service, ship } = createService();
+    ship.energy = 100;
+    ship.modules = [
+      {
+        moduleType: 'Hyperraumfeldscanner',
+        category: 'SPECIAL',
+        isActive: false,
+        integrity: 100,
+      } as never,
+    ];
+    ship.runtimeSystems = {
+      SUBSPACE_SCANNER: { active: false, cooldown: 0, integrity: 100 },
+      CLOAK: { active: false, cooldown: 0, integrity: 100 },
+    };
+    (service as any).userRepo = {
+      findOneBy: jest.fn(async () => ({ id: 1, faction: 'GALACTIC_EMPIRE' })),
+    };
+    (
+      service as any
+    ).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(1);
+
+    await service.toggleSystem(2, 1, 'SUBSPACE_SCANNER', true);
+
+    expect(ship.energy).toBe(70);
+    expect((ship.runtimeSystems as any).SUBSPACE_SCANNER.active).toBe(true);
+
+    (ship.runtimeSystems as any).SUBSPACE_SCANNER.active = false;
+    (ship.runtimeSystems as any).CLOAK.active = true;
+    await expect(
+      service.toggleSystem(2, 1, 'SUBSPACE_SCANNER', true),
+    ).rejects.toThrow('Tarnung');
+  });
+
   it.each(['SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'] as const)(
     'resets a running cartography finalization when %s is deactivated',
     async (systemKey) => {

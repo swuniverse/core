@@ -13,6 +13,7 @@ export const CLOAK_EXCLUSIVE_SYSTEMS = [
   'WEAPONS',
   'TORPEDO_BANK',
   'ASTROMETRY_LAB',
+  'SUBSPACE_SCANNER',
 ] as const;
 
 export function mayUseCloak(faction: Faction | null | undefined): boolean {

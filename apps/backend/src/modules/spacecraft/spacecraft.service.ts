@@ -1058,6 +1058,12 @@ export class SpacecraftService {
         throw new BadRequestException('Nicht genug EPS');
       }
     }
+    if (active && systemKey === 'SUBSPACE_SCANNER' && !system.active) {
+      if (ship.energy < 30) throw new BadRequestException('Nicht genug EPS');
+    }
+    if (active && systemKey === 'MATRIX_SCANNER') {
+      throw new BadRequestException('Matrixsensoren sind ein passives System');
+    }
     if (active && systemKey === 'ASTROMETRY_LAB') {
       const shortRangeSensors = systems.SHORT_RANGE_SENSORS;
       const longRangeSensors = systems.LONG_RANGE_SENSORS;
@@ -1090,6 +1096,9 @@ export class SpacecraftService {
       await this.assertCrewForActivation(ship, systemKey);
       if (systemKey === 'ASTROMETRY_LAB' && !system.active) {
         ship.energy--;
+      }
+      if (systemKey === 'SUBSPACE_SCANNER' && !system.active) {
+        ship.energy -= 30;
       }
       if (systemKey === 'CLOAK' && !system.active) {
         ship.energy -= CLOAK_ACTIVATION_EPS;
@@ -1156,6 +1165,8 @@ export class SpacecraftService {
       TRACTOR_BEAM: 'Traktorstrahl',
       REACTOR_CHARGE_TRANSFER: 'Reaktorladungstransfer',
       HYPERDRIVE_BOOSTER: 'Hyperantriebs-Notladegerät',
+      SUBSPACE_SCANNER: 'Hyperraumfeldscanner',
+      MATRIX_SCANNER: 'Matrixsensoren',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
@@ -3944,6 +3955,20 @@ export class SpacecraftService {
         .andWhere('wgf.cy BETWEEN :minY AND :maxY', bounds)
         .getMany(),
     ]);
+    const flightSignatures =
+      systems.SUBSPACE_SCANNER?.active === true &&
+      systems.SUBSPACE_SCANNER.integrity > 0
+        ? await Promise.all(
+            fields.map(async (field) => ({
+              x: field.cx,
+              y: field.cy,
+              result: await this.flightSignatureService.getVisibleAt(
+                field.id,
+                userId,
+              ),
+            })),
+          )
+        : [];
     const nearbyShips = allNearbyShips.filter(
       (candidate) => !isHiddenFromViewer(candidate, userId),
     );
@@ -4015,7 +4040,22 @@ export class SpacecraftService {
           hull: wreck.hull,
           cargo: wreck.cargo,
         })),
-      overlays: { signatures: sensorView.signatures },
+      overlays: {
+        signatures: sensorView.signatures,
+        subspaceTraces: flightSignatures.flatMap(({ x, y, result }) =>
+          result.signatures.map((signature) => ({
+            signatureId: signature.id,
+            spacecraftId: signature.spacecraftId,
+            x,
+            y,
+            directions: [signature.fromDirection, signature.toDirection].filter(
+              (direction): direction is NonNullable<typeof direction> =>
+                direction != null,
+            ),
+            analyzed: ship.analyzedFlightSignatureId === signature.id,
+          })),
+        ),
+      },
       ships: nearbyShips
         .filter((s) => {
           const position = resolveSpacecraftLocation(s);

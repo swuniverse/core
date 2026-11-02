@@ -93,6 +93,20 @@ export const SHIP_SYSTEMS: ShipSystemPresentation[] = [
     'border-fuchsia-400/60 bg-fuchsia-500/10 text-fuchsia-100',
   ),
   system(
+    'SUBSPACE_SCANNER',
+    'Hyperraumfeldscanner',
+    'Aktive Erfassung und Analyse von Subraumspuren',
+    '⌁',
+    'border-cyan-400/60 bg-cyan-500/10 text-cyan-100',
+  ),
+  system(
+    'MATRIX_SCANNER',
+    'Matrixsensoren',
+    'Passive Matrixsensoren für gezielte Subraumanalysen',
+    '⌗',
+    'border-amber-400/60 bg-amber-500/10 text-amber-100',
+  ),
+  system(
     'LIFE_SUPPORT',
     'Lebenserhaltung',
     'Atmosphäre und Lebenserhaltung',

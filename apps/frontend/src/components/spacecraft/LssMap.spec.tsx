@@ -64,6 +64,32 @@ describe('LssMap', () => {
     expect(screen.getByText('!')).toBeTruthy();
   });
 
+  it('renders subspace trace directions and highlights an analyzed trace', () => {
+    const localMap = systemMap(201);
+    localMap.overlays = {
+      signatures: [],
+      subspaceTraces: [
+        {
+          signatureId: 77,
+          x: 1,
+          y: 14,
+          directions: ['WEST', 'EAST'],
+          analyzed: true,
+        },
+      ],
+    };
+
+    render(
+      <LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />,
+    );
+
+    const trace = screen.getByLabelText(
+      'Subraumspur auf Feld 1,14: WEST, EAST, analysiert',
+    );
+    expect(trace.className).toContain('text-amber-300');
+    expect(trace.querySelectorAll('span')).toHaveLength(2);
+  });
+
   it('renders the long-range sensor malfunction warning', () => {
     const localMap = systemMap(201);
     localMap.warning = 'Langstreckensensoren liefern keine verwertbaren Daten';

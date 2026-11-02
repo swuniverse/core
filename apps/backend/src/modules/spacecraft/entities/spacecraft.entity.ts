@@ -212,6 +212,9 @@ export class Spacecraft {
   @Column({ type: 'jsonb', default: () => "'{}'" })
   runtimeSystems: Record<string, unknown>;
 
+  @Column({ type: 'int', nullable: true })
+  analyzedFlightSignatureId: number | null;
+
   /** Wall-clock outage caused by a short-range sensor field malfunction. */
   @Column({ type: 'timestamp', nullable: true })
   shortRangeSensorsCooldownUntil: Date | null;

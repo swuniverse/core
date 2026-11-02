@@ -44,6 +44,8 @@ export function getRuntimeSystemsForModule(
     if (name === 'hyperantriebs-notladegerät') {
       return ['HYPERDRIVE_BOOSTER'];
     }
+    if (name === 'hyperraumfeldscanner') return ['SUBSPACE_SCANNER'];
+    if (name === 'matrixsensoren') return ['MATRIX_SCANNER'];
     return ['SPECIAL'];
   }
   return [];
@@ -166,7 +168,12 @@ function getAvailableSystems(
   const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT']);
   if (!modules) {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
-      if (key !== 'ASTROMETRY_LAB' && key !== 'CLOAK') systems.add(key);
+      if (
+        !['ASTROMETRY_LAB', 'CLOAK', 'SUBSPACE_SCANNER', 'MATRIX_SCANNER'].includes(
+          key,
+        )
+      )
+        systems.add(key);
     }
     return systems;
   }

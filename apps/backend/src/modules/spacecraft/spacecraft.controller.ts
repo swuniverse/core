@@ -905,6 +905,15 @@ export class SpacecraftController {
     return this.scanService.sectorScan(id, req.user.sub);
   }
 
+  @Post(':id/subspace-analysis/:signatureId')
+  analyzeSubspace(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('signatureId', ParseIntPipe) signatureId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.scanService.analyzeSubspace(id, req.user.sub, signatureId);
+  }
+
   @Post(':id/system-field-scan')
   systemFieldScan(
     @Param('id', ParseIntPipe) id: number,

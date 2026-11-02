@@ -186,6 +186,42 @@ export class SpacecraftScanService {
     });
   }
 
+  async analyzeSubspace(shipId: number, userId: number, signatureId: number) {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['modules', 'location'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+    const systems = this.runtimeState.initialize(ship);
+    const subspace = systems.SUBSPACE_SCANNER;
+    if (!subspace?.active || subspace.integrity <= 0) {
+      throw new BadRequestException('Hyperraumfeldscanner ist nicht betriebsbereit');
+    }
+    const matrix = systems.MATRIX_SCANNER;
+    if (!matrix || matrix.integrity <= 0) {
+      throw new BadRequestException('Matrixsensoren sind nicht betriebsbereit');
+    }
+    if (ship.energy < 100) {
+      throw new BadRequestException('Es wird 100 EPS für die Analyse benötigt');
+    }
+    const visible = ship.locationId
+      ? await this.flightSignatureService.getVisibleAt(ship.locationId, userId)
+      : { signatures: [], fadedSignatures: { uncloaked: 0, cloaked: 0 } };
+    const signature = visible.signatures.find((entry) => entry.id === signatureId);
+    if (!signature) throw new BadRequestException('Subraumspur nicht gefunden');
+    ship.energy -= 100;
+    (ship as Spacecraft & { analyzedFlightSignatureId?: number | null }).analyzedFlightSignatureId =
+      signatureId;
+    ship.runtimeSystems = systems;
+    await this.shipRepo.save(ship);
+    return {
+      signatureId,
+      spacecraftId: signature.spacecraftId,
+      spacecraftName: signature.spacecraftName,
+      energy: ship.energy,
+    };
+  }
+
   async systemFieldScan(
     shipId: number,
     userId: number,

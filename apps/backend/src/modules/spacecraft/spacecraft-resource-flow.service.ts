@@ -22,6 +22,8 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   SPECIAL: 1,
   ASTROMETRY_LAB: 1,
   CLOAK: 8,
+  SUBSPACE_SCANNER: 15,
+  MATRIX_SCANNER: 0,
   LIFE_SUPPORT: 1,
 };
 
@@ -39,6 +41,8 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   WEAPONS: 'Waffen',
   TORPEDO_BANK: 'Torpedobank',
   SPECIAL: 'Spezialsysteme',
+  SUBSPACE_SCANNER: 'Hyperraumfeldscanner',
+  MATRIX_SCANNER: 'Matrixsensoren',
   LIFE_SUPPORT: 'Lebenserhaltung',
 };
 

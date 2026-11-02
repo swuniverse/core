@@ -77,6 +77,20 @@ describe('Spacecraft sensor operations', () => {
       })),
       findAndCount: jest.fn().mockResolvedValue([[], 0]),
     };
+    const flightSignatures = {
+      getVisibleAt: jest.fn().mockResolvedValue({
+        signatures: [
+          {
+            id: 77,
+            spacecraftId: 9,
+            spacecraftName: 'Ziel',
+            fromDirection: 'WEST',
+            toDirection: 'EAST',
+          },
+        ],
+        fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      }),
+    };
     const galaxyFieldRepo = {
       findOne: jest.fn().mockResolvedValue({
         cx: 4,
@@ -106,6 +120,8 @@ describe('Spacecraft sensor operations', () => {
       { discover: jest.fn() } as never,
       { discover: jest.fn() } as never,
       { resolve: jest.fn() } as never,
+      { find: jest.fn().mockResolvedValue([]) } as never,
+      flightSignatures as never,
     );
     return {
       service,
@@ -114,6 +130,7 @@ describe('Spacecraft sensor operations', () => {
       scanRepo,
       galaxyFieldRepo,
       exploration,
+      flightSignatures,
     };
   }
 
@@ -148,6 +165,29 @@ describe('Spacecraft sensor operations', () => {
       expect.objectContaining({ locationId: 42, location: ship.location }),
     );
     expect(result.id).toBe(9);
+  });
+
+  it('starts targeted subspace analysis from a sector scan for 100 EPS', async () => {
+    const { service, ship, shipRepo } = setup();
+    ship.energy = 150;
+    (ship.runtimeSystems as Record<string, unknown>).SUBSPACE_SCANNER = {
+      active: true,
+      cooldown: 0,
+      integrity: 100,
+    };
+    (ship.runtimeSystems as Record<string, unknown>).MATRIX_SCANNER = {
+      active: true,
+      cooldown: 0,
+      integrity: 100,
+    };
+
+    await expect(service.analyzeSubspace(2, 1, 77)).resolves.toEqual({
+      signatureId: 77,
+      spacecraftId: 9,
+      spacecraftName: 'Ziel',
+      energy: 50,
+    });
+    expect(shipRepo.save).toHaveBeenCalledWith(ship);
   });
 
   it('rejects scans when the required sensor is inactive', async () => {

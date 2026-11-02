@@ -14,6 +14,7 @@ const HOUR = 60 * 60 * 1000;
 export const FLIGHT_SIGNATURE_RETENTION_MS = 48 * HOUR;
 
 export interface VisibleFlightSignature {
+  id: number;
   spacecraftId: number;
   shipClassId: number | null;
   shipClassName: string | null;
@@ -98,6 +99,7 @@ export class FlightSignatureService {
         continue;
       }
       signatures.push({
+        id: row.id,
         spacecraftId: row.spacecraftId,
         shipClassId: row.shipClassId,
         shipClassName: row.shipClassName,

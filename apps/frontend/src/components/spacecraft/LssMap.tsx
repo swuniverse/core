@@ -72,6 +72,20 @@ export type FieldSignatureOverlay =
   | { x: number; y: number; state: 'COUNT'; count: number }
   | { x: number; y: number; state: 'DUBIOUS' };
 
+export interface SubspaceTraceOverlay {
+  signatureId: number;
+  spacecraftId?: number;
+  x: number;
+  y: number;
+  directions: Array<'NORTH' | 'EAST' | 'SOUTH' | 'WEST'>;
+  analyzed: boolean;
+}
+
+interface LocalMapOverlays {
+  signatures: FieldSignatureOverlay[];
+  subspaceTraces?: SubspaceTraceOverlay[];
+}
+
 export interface LocalMapContext {
   layerId: number | null;
   sectorX: number | null;
@@ -102,7 +116,7 @@ export interface LocalMapGalaxy {
   sensorRange: number;
   bounds?: { minX: number; maxX: number; minY: number; maxY: number };
   fields: GalaxyLocalField[];
-  overlays?: { signatures: FieldSignatureOverlay[] };
+  overlays?: LocalMapOverlays;
   entrySystem?: { id: number; name: string; x: number; y: number } | null;
   wrecks?: Array<{
     id: number;
@@ -131,7 +145,7 @@ export interface LocalMapSystem {
     centerY: number;
     role: 'primary' | 'secondary';
   }>;
-  overlays?: { signatures: FieldSignatureOverlay[] };
+  overlays?: LocalMapOverlays;
   wrecks?: Array<{
     id: number;
     x: number;
@@ -178,6 +192,35 @@ const OBJECT_TYPE_EMOJI: Record<number, string> = {
   3: '☄️',
 };
 
+const TRACE_ROTATION = {
+  NORTH: 90,
+  EAST: 180,
+  SOUTH: 270,
+  WEST: 0,
+} as const;
+
+function SubspaceTraces({ traces }: { traces: SubspaceTraceOverlay[] }) {
+  return (
+    <>
+      {traces.map((trace) => (
+        <span
+          key={trace.signatureId}
+          aria-label={`Subraumspur auf Feld ${trace.x},${trace.y}: ${trace.directions.join(', ')}${trace.analyzed ? ', analysiert' : ''}`}
+          className={`pointer-events-none absolute inset-0 z-10 ${trace.analyzed ? 'text-amber-300' : 'text-cyan-300/80'}`}
+        >
+          {trace.directions.map((direction) => (
+            <span
+              key={direction}
+              className="absolute left-1/2 top-1/2 h-0.5 w-1/2 origin-left bg-current"
+              style={{ transform: `rotate(${TRACE_ROTATION[direction]}deg)` }}
+            />
+          ))}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function LssMap({
   localMap,
   navTarget,
@@ -203,6 +246,11 @@ export function LssMap({
     (_, index) => bounds.minY + index,
   );
 
+  const tracesByPosition = new Map<string, SubspaceTraceOverlay[]>();
+  for (const trace of localMap.overlays?.subspaceTraces ?? []) {
+    const key = `${trace.x},${trace.y}`;
+    tracesByPosition.set(key, [...(tracesByPosition.get(key) ?? []), trace]);
+  }
   const signaturesByPosition = new Map<string, string | number>(
     (localMap.overlays?.signatures ?? []).map(
       (signature: FieldSignatureOverlay) => [
@@ -252,6 +300,7 @@ export function LssMap({
                 const isTarget = navTarget?.x === x && navTarget?.y === y;
                 const isCartographyPoint = cartographyPointKeys.has(`${x}:${y}`);
                 const signatureCount = signaturesByPosition.get(`${x},${y}`);
+                const subspaceTraces = tracesByPosition.get(`${x},${y}`) ?? [];
                 const signatureLabel = signatureCount
                   ? `, ${signatureCount} sichtbare ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
                   : '';
@@ -326,6 +375,7 @@ export function LssMap({
                       {field.starSystemId
                         ? '✦'
                         : getGalaxyFieldMarker(field.fieldType.key)}
+                      <SubspaceTraces traces={subspaceTraces} />
                       {signatureCount != null && (
                         <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
                           {signatureCount}
@@ -471,6 +521,7 @@ export function LssMap({
                     ) : (
                       fallbackLabel
                     )}
+                    <SubspaceTraces traces={subspaceTraces} />
                     {signatureCount != null && (
                       <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
                         {signatureCount}
