@@ -29,7 +29,7 @@ const GROUP_LABELS: Record<FabricationGroupKey, string> = {
   DEFENSE_SYSTEMS: 'Defensivsysteme',
   OFFENSE_SYSTEMS: 'Offensivsysteme',
   TORPEDO: 'Torpedos',
-  OTHER: 'Sonstige Fertigung',
+  OTHER: 'Komponenten',
 };
 
 const TYPE_ORDER: ShipyardTypeKey[] = [

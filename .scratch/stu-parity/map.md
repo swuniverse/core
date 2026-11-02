@@ -84,7 +84,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – tmw-T3 – Option a: Kontotransfer per Feld-Kopräsenz, kein Docking
 - 2026-10-21 – tmw-T7b – Option a: Basishandel mit Doonium, Transparistahl, Durastahl-Legierung zu STU-Startwerten in beiden Netzen
 - 2026-10-21 – col-A6 – Option b1: Demontage mit STU-Rückgabe (Module, Reaktorladung, Torpedos); Werftpflicht bleibt als SWU-Regel
-- 2026-10-21 – col-A8 – Option a: STU-Komponentensatz 1:1 mit Star-Wars-Namen
+- 2026-10-21 – col-A8 – Option a: STU-Komponentensatz 1:1; `Ersatzteil` wird zum **Instandhaltungsset**, `Systemkomponente` zur **Schiffssystem-Baugruppe**; Commodity-IDs 10001/10002 und STU-Kosten bleiben erhalten
 - 2026-10-21 – col-A9 – Option b: Jägerwerft baut Rümpfe ins Lager, Start über Hangar
 - 2026-10-21 – col-E2 – Option a: Ruinenmodell der Kolonieabgabe bleibt; ADR, kein Umbau
 - 2026-10-21 – col-G1b – Option a: Teleskop-Scan zeigt momentan Schiffe je Rumpfkategorie, ohne Speicherung; Nachtrag ADR-0002
@@ -162,6 +162,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- col-A8 – Instandhaltungssets und Schiffssystem-Baugruppen für Funktionen 29/30 datengetrieben gefertigt, im Komponentenmenü angezeigt und an bestehende Reparaturverbräuche angebunden – siehe Feature-Commit
 - tmw-T2a – Persistente Handelslizenzbedingungen und Spieler-Lizenzen, eigentümergeschützte Pflege, NPC-Default und gemeinsame Feld-Presence-Policy umgesetzt – siehe Feature-Commit
 - tmw-K5d – Täglicher Kartenzyklus schließt vollständig erkundete Ebenen atomar ab, löscht persönlichen Ebenennebel und persistiert das Abschlussereignis genau einmal – siehe Feature-Commit
 - tmw-K5c – Heimatweltabschluss und erfolgreiche eigene Galaxieankünfte machen Ebenen autoritativ und idempotent bekannt – siehe Feature-Commit

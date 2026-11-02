@@ -311,6 +311,43 @@ describe('GameDataService fabrication items', () => {
     service.onModuleInit();
   });
 
+  it('loads the complete repair component catalog with STU costs', () => {
+    expect(service.getFabricationItem('component.repair.spare-part')).toMatchObject({
+      queueType: 'MODULE',
+      displayName: 'Instandhaltungsset',
+      outputCommodityId: 10001,
+      energyCost: 2,
+      researchId: null,
+      buildingFunctionIds: [29],
+      costs: [
+        { commodityId: 2, amount: 5 },
+        { commodityId: 4, amount: 4 },
+        { commodityId: 20, amount: 3 },
+        { commodityId: 21, amount: 2 },
+        { commodityId: 7, amount: 1 },
+      ],
+    });
+    expect(
+      service.getFabricationItem('component.repair.system-component'),
+    ).toMatchObject({
+      queueType: 'MODULE',
+      displayName: 'Schiffssystem-Baugruppe',
+      outputCommodityId: 10002,
+      energyCost: 3,
+      researchId: null,
+      buildingFunctionIds: [30],
+      costs: [
+        { commodityId: 31, amount: 1 },
+        { commodityId: 33, amount: 1 },
+        { commodityId: 34, amount: 1 },
+        { commodityId: 35, amount: 1 },
+        { commodityId: 36, amount: 1 },
+        { commodityId: 29, amount: 1 },
+        { commodityId: 32, amount: 1 },
+      ],
+    });
+  });
+
   it('loads representative module and torpedo fabrication items', () => {
     expect(service.getFabricationItem('torpedo.micro-proton')).toMatchObject({
       queueType: 'TORPEDO',
@@ -546,8 +583,7 @@ describe('GameDataService fabrication items', () => {
       for (const functionId of item.buildingFunctionIds) {
         expect(service.getBuildingFunction(functionId)).toBeDefined();
       }
-      if (item.queueType === 'MODULE') {
-        expect(item.moduleType).toBeTruthy();
+      if (item.queueType === 'MODULE' && item.moduleType) {
         expect(item.shipyardType).toBeDefined();
         expect(item.shipyardGroup).toBeDefined();
         expect(
@@ -555,10 +591,10 @@ describe('GameDataService fabrication items', () => {
             .getAllModules()
             .some((module) => module.name === item.moduleType),
         ).toBe(true);
-        expect(
-          service.getFabricationItemByOutputCommodity(item.outputCommodityId),
-        ).toEqual(item);
       }
+      expect(
+        service.getFabricationItemByOutputCommodity(item.outputCommodityId),
+      ).toEqual(item);
       if (item.queueType === 'TORPEDO') {
         expect(item.displayName).toBe(
           service.getTorpedoTypeByCommodity(item.outputCommodityId)?.name,

@@ -70,6 +70,53 @@ describe('PanelFabrication', () => {
     expect(screen.getByText('Lagernd: 3')).toBeTruthy();
   });
 
+  it('shows repair components in the component construction menu', () => {
+    const componentCatalog = [
+      {
+        itemKey: 'component.repair.spare-part',
+        queueType: 'MODULE',
+        displayName: 'Instandhaltungsset',
+        outputCommodityId: 10001,
+        outputAmount: 1,
+        buildingFunctionIds: [29],
+        energyCost: 2,
+        durationSeconds: 0,
+        costs: [{ commodityId: 2, amount: 5 }],
+        available: true,
+      },
+    ] as unknown as NonNullable<ColonyDetailV2['fabricationCatalog']>;
+
+    render(
+      <PanelFabrication
+        catalog={componentCatalog}
+        queue={[]}
+        activeFunctionIds={[29]}
+        presentFunctions={[
+          {
+            id: 29,
+            key: 'FABRICATION_HALL',
+            name: 'Fabrikationshalle',
+            buildingIds: [1],
+          },
+        ]}
+        commodityMap={{
+          ...commodityMap,
+          10001: { id: 10001, name: 'Instandhaltungsset' },
+        } as Record<number, CommodityDef>}
+        storageAmounts={{ 10001: 6 }}
+        onStartFabrication={vi.fn()}
+        onCancelFabrication={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByText('Komponenten')[0]);
+    fireEvent.click(screen.getAllByText('Komponenten')[1]);
+    expect(screen.getByText('Instandhaltungsset')).toBeTruthy();
+    expect(screen.getByText(/Fabrikationshalle · aktiv/)).toBeTruthy();
+    expect(screen.getByText('Lagernd: 6')).toBeTruthy();
+    expect(screen.getByText('In Bau: 0')).toBeTruthy();
+  });
+
   it('starts fabrication with the entered amount', async () => {
     const onStart = vi.fn();
     renderPanel(onStart);
