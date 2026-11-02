@@ -1,6 +1,6 @@
 # Kolonielimits aus Forschungsdaten
 
-**Status:** needs-info
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-D4, col-E1a
@@ -36,3 +36,4 @@ Vorgabe: Variante (b). Limits aus den Forschungsdaten (`colonyLimit: { type, amo
 
 - 2026-10-21 Product Owner: Option b – Kolonielimits werden wie in STU aus den Forschungsdaten berechnet; das feste SWU-Modell (Basis 1 + Fraktionstechs, Deckel 3/3/1) entfällt.
 - 2026-10-28 Agent: Umsetzung und fachbezogene Tests waren grün; die verpflichtende Gesamttypprüfung scheitert jedoch reproduzierbar an zwei bereits vorhandenen Frontend-Fehlern außerhalb dieses Issues (`apps/frontend/src/pages/database.tsx:1015` mit veraltetem Fraktionstyp sowie `apps/frontend/src/pages/colonies.spec.tsx:239` ohne `hasFighterShipyard`). Produktänderungen wurden gemäß Abbruchregel verworfen. Bitte diese Baseline-Typecheck-Fehler beheben oder ausdrücklich festlegen, wie mit unabhängigen Vorfehlern umzugehen ist.
+- 2026-10-30 Product Owner: Die für `col-E1a` gewählte Option 1 gilt auch für diesen bereits fachlich entschiedenen Folgeauftrag. `sh-AP-21` besitzt die Frontend-Typecheck-Baseline; `col-E1b` ist `ready-for-agent`. Bis zur Baseline-Reparatur darf das Issue bei grünen fokussierten Tests und Build abgeschlossen werden, sofern gegenüber der dokumentierten Baseline keine neuen Typecheck-Fehler entstehen.
