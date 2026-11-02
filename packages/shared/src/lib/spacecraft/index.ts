@@ -20,6 +20,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'HYPERDRIVE_BOOSTER',
   'SUBSPACE_SCANNER',
   'MATRIX_SCANNER',
+  'TRACKER',
   'LIFE_SUPPORT',
 ] as const;
 
@@ -32,6 +33,20 @@ export interface SpacecraftRuntimeSystemStateDto {
   integrity: number;
   current?: number;
   max?: number;
+  targetId?: number;
+  ticksRemaining?: number;
+}
+
+export interface SpacecraftTrackerDto {
+  targetId: number;
+  targetName: string;
+  ticksRemaining: number;
+  location: {
+    scope: 'SYSTEM' | 'GALAXY';
+    x: number;
+    y: number;
+    fieldId: number;
+  } | null;
 }
 
 export type SpacecraftRuntimeSystemsDto = Partial<

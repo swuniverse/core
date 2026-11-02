@@ -115,6 +115,9 @@ function createService() {
       return true;
     }),
   };
+  const trackerService = {
+    assertTrackedTarget: jest.fn(),
+  };
   const interactionContext = {
     load: jest.fn(async () => ({
       targetOnVacation: false,
@@ -145,6 +148,7 @@ function createService() {
     statistics as any,
     interactionContext as any,
     battleResolver as any,
+    trackerService as any,
   );
   return {
     service,
@@ -164,8 +168,42 @@ function createService() {
     statistics,
     destructionService,
     interactionContext,
+    trackerService,
   };
 }
+
+describe('CombatService tracked attack', () => {
+  it('requires the requested target to be marked by the attacker', async () => {
+    const { service, shipRepo, trackerService } = createService();
+    const attacker = {
+      id: 2,
+      userId: 1,
+      status: 'IDLE',
+      operatingMode: 'NORMAL',
+      locationId: 40,
+      location: { kind: 'GALAXY_FIELD', galaxyField: { id: 40, layerId: 1, cx: 5, cy: 5 } },
+      fleetId: null,
+    };
+    const defender = {
+      id: 3,
+      userId: 2,
+      status: 'IDLE',
+      operatingMode: 'NORMAL',
+      locationId: 40,
+      location: { kind: 'GALAXY_FIELD', galaxyField: { id: 40, layerId: 1, cx: 5, cy: 5 } },
+      fleetId: null,
+    };
+    shipRepo.findOne
+      .mockResolvedValueOnce(attacker)
+      .mockResolvedValueOnce(attacker)
+      .mockResolvedValueOnce(defender);
+    shipRepo.find.mockResolvedValue([attacker, defender]);
+
+    await service.attackTracked(2, 3, 1);
+
+    expect(trackerService.assertTrackedTarget).toHaveBeenCalledWith(attacker, 3);
+  });
+});
 
 describe('CombatService attackColony', () => {
   const attacker = () => ({

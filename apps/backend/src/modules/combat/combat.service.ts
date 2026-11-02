@@ -1,4 +1,5 @@
 import { InteractionContextService } from '../spacecraft/interaction-context.service';
+import { SpacecraftTrackerService } from '../spacecraft/spacecraft-tracker.service';
 import {
   checkInteraction,
   InteractionRule,
@@ -73,7 +74,22 @@ export class CombatService {
     private readonly statisticsService: StatisticsService,
     private readonly interactionContext: InteractionContextService,
     private readonly battleResolver: BattleResolverService,
+    private readonly trackerService: SpacecraftTrackerService,
   ) {}
+
+  async attackTracked(
+    attackerId: number,
+    targetId: number,
+    userId: number,
+  ): Promise<ReturnType<CombatReportFormatter['formatBattle']>> {
+    const attacker = await this.shipRepo.findOne({
+      where: { id: attackerId, userId },
+      relations: this.combatLocationRelations,
+    });
+    if (!attacker) throw new NotFoundException('Attacker not found');
+    this.trackerService.assertTrackedTarget(attacker, targetId);
+    return this.attack(attackerId, targetId, userId);
+  }
 
   async attack(
     attackerId: number,

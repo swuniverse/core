@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { SpacecraftTrackerDto } from '@swuniverse/shared';
 import { commodityImage } from '../../lib/assets';
 import { api } from '../../services/api';
 import { type RuntimeSystemState } from './ship-system-presentation';
@@ -43,14 +44,23 @@ export function ShipControlCenter({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [torpedoes, setTorpedoes] = useState<TorpedoStorage | null>(null);
+  const [tracker, setTracker] = useState<SpacecraftTrackerDto | null>(null);
+  const [combatReport, setCombatReport] = useState<unknown>(null);
   const loadTorpedoes = () =>
     api
       .get<TorpedoStorage>(`/spacecraft/${shipId}/torpedoes`)
       .then(setTorpedoes)
       .catch(() => setTorpedoes(null));
+  const loadTracker = () =>
+    api
+      .get<SpacecraftTrackerDto | null>(`/spacecraft/${shipId}/tracker`)
+      .then(setTracker)
+      .catch(() => setTracker(null));
   useEffect(() => {
     void loadTorpedoes();
-  }, [shipId]);
+    if (systems?.TRACKER) void loadTracker();
+    else setTracker(null);
+  }, [shipId, systems?.TRACKER?.active]);
   async function toggle(key: string, active: boolean) {
     setPending(key);
     setError(null);
@@ -105,7 +115,36 @@ export function ShipControlCenter({
   const torpedoState = systems?.TORPEDO_BANK;
   const laboratory = systems?.ASTROMETRY_LAB;
   const cloak = systems?.CLOAK;
+  const trackerSystem = systems?.TRACKER;
   const hyperdriveBooster = systems?.HYPERDRIVE_BOOSTER;
+  async function deactivateTracker() {
+    setPending('TRACKER');
+    setError(null);
+    try {
+      await api.delete(`/spacecraft/${shipId}/tracker`);
+      setTracker(null);
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Peilsender konnte nicht deaktiviert werden');
+    } finally {
+      setPending(null);
+    }
+  }
+  async function attackTracked() {
+    if (!tracker) return;
+    setError(null);
+    try {
+      setCombatReport(
+        await api.post('/combat/attack-tracked', {
+          attackerId: shipId,
+          targetId: tracker.targetId,
+        }),
+      );
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Angriff fehlgeschlagen');
+    }
+  }
   async function boostHyperdrive() {
     setPending('HYPERDRIVE_BOOSTER');
     setError(null);
@@ -228,6 +267,45 @@ export function ShipControlCenter({
             </span>
           </button>
         )}
+        {trackerSystem && (
+          <div className="border-b border-swu-border p-2 text-swu-primary">
+            <div className="font-bold">Peilsender</div>
+            {tracker ? (
+              <>
+                <p>
+                  {tracker.targetName} · {tracker.ticksRemaining} Ticks
+                </p>
+                <p className="text-swu-muted">
+                  {tracker.location
+                    ? `${tracker.location.x}|${tracker.location.y} · Feld #${tracker.location.fieldId}`
+                    : 'Position unbekannt'}
+                </p>
+                <div className="mt-1 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={pending !== null}
+                    onClick={() => void deactivateTracker()}
+                    className="text-swu-accent disabled:opacity-40"
+                  >
+                    Peilsender deaktivieren
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void attackTracked()}
+                    className="text-swu-accent"
+                  >
+                    Getracktes Ziel angreifen
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-swu-muted">Kein Ziel markiert.</p>
+            )}
+          </div>
+        )}
+        {combatReport ? (
+          <p className="p-2 text-swu-accent">Angriff abgeschlossen.</p>
+        ) : null}
         {error && (
           <p role="alert" className="p-2 text-red-300">
             {error}

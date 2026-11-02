@@ -102,6 +102,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – sc-WP-RES-1 – Option a: Ressourcensammeln (Tibanna-Gas aus Nebeln, Erze aus Asteroiden) per Spezialsystem
 - 2026-10-30 – sc-WP-SENS-1 – Sondenbojen folgen vollständig STU: Ware ID 88/Forschung 500400, gesunde Torpedorampe, 1 EPS und eine Ware beim Setzen, Limit 16 und Text 1–60; jedes Schiff am Feld darf für 1 EPS bergen und erhält die Ware zurück, Fremdbergung benachrichtigt den Eigner; datengetriebenes Fertigungsrezept
 - 2026-10-30 – sc-WP-SENS-2a – STU-Zwei-System-Modell: 19007 `Hyperraumfeldscanner` aktiv für Subraumspuren (30 EPS Aktivierung, 15 EPS/Tick, nicht während Tarnung), 19008 `Matrixsensoren` getrennt passiv; gezielte Analyse benötigt beide gesund/aktiv gemäß Rolle und kostet 100 EPS
+- 2026-11-02 – sc-WP-SENS-2b – Der STU-Tracker heißt in SWU `Peilsender`: 15 EPS Aktivierung, 7 EPS je Tick und maximal 70 Ticks; Markierung benötigt aktive intakte Kurz- und Langstreckensensoren und die STU-Interaktionsregeln.
 - 2026-10-21 – sc-WP-SHUT-1 – Option a: Shuttles als startbare Schiffe (gemeinsame Mechanik mit Workbees)
 - 2026-10-21 – sh-AP-13b – Option a: In-Universe-Jahr „n NSY“ (reales Jahr − 2023) für Spielereignisse
 - 2026-10-21 – soc-A7 – Option a: eigene Nachrichtenordner als zweite Ebene nur für persönliche Nachrichten
@@ -167,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-SENS-2b – Peilsender markieren fremde Schiffe am Feld, melden Position und Restlaufzeit und erlauben den Angriff auf das getrackte Ziel – siehe Feature-Commit
 - sc-WP-SENS-2a – Hyperraumfeldscanner zeigt fremde Subraumspuren im LSS; Matrixsensoren ermöglichen die gezielte 100-EPS-Analyse – siehe Feature-Commit
 - sc-WP-ENG-5 – Hypermaterie-Transferkoppler überträgt Reaktorladung transaktional an mehrere gleich positionierte, ungetarnte Schiffe und informiert fremde Eigentümer – siehe Feature-Commit
 - sc-WP-CREW-4b – Fremde unbemannte Nicht-NPC-Schiffe außerhalb des Urlaubsmodus können über zehn Hauptticks übernommen werden; Startkosten, Abbrucherstattung, Besitzwechsel, History, Crew-XP und NBS-Fortschritt sind umgesetzt – siehe Feature-Commit

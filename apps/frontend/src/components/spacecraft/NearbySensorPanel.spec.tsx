@@ -69,6 +69,30 @@ describe('NearbySensorPanel', () => {
       await screen.findByRole('dialog', { name: 'Fracht an Ziel übergeben' }),
     ).toBeTruthy();
   });
+  it('marks a foreign nearby ship with the installed tracker', async () => {
+    apiMocks.get.mockResolvedValue(nearby);
+    apiMocks.post.mockResolvedValue({ targetId: 3 });
+    const onUpdate = vi.fn();
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{
+          SHORT_RANGE_SENSORS: { active: true },
+          TRACKER: { active: false },
+        }}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTitle('Ziel mit Peilsender markieren'));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/tracker/3', {}),
+    );
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
   it('boards an eligible nearby ship and shows the combat result', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,

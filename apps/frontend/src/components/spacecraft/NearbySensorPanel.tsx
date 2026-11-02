@@ -55,6 +55,7 @@ export function NearbySensorPanel({
   );
   const [salvageMessage, setSalvageMessage] = useState<string | null>(null);
   const nbsActive = systems?.SHORT_RANGE_SENSORS?.active === true;
+  const trackerAvailable = systems?.TRACKER?.active === false;
 
   const refreshNearby = useCallback(async () => {
     if (!nbsActive) return;
@@ -129,6 +130,16 @@ export function NearbySensorPanel({
       onUpdate();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Angriff fehlgeschlagen');
+    }
+  }
+
+  async function track(target: SpacecraftNearbyTargetDto) {
+    setError(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/tracker/${target.id}`, {});
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Markierung fehlgeschlagen');
     }
   }
 
@@ -316,6 +327,16 @@ export function NearbySensorPanel({
                           alt="Angreifen"
                           className="inline size-4"
                         />
+                      </button>
+                    )}
+                    {trackerAvailable && !target.isOwn && !target.inHyperspace && (
+                      <button
+                        type="button"
+                        onClick={() => void track(target)}
+                        title={`${target.name} mit Peilsender markieren`}
+                        className="mr-1 text-swu-accent"
+                      >
+                        ◎
                       </button>
                     )}
                     {target.takeover && target.takeover.attackerId === shipId && (

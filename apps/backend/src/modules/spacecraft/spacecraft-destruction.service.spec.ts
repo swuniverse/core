@@ -50,7 +50,7 @@ function setup(
     arrivalAt: new Date(),
     runtimeSystems: {
       SHIELDS: { active: true, cooldown: 0, integrity: 100 },
-    },
+    } as Record<string, any>,
     ...overrides,
   };
   const distress = { id: 5, spacecraftId: 2, active: true, stoppedAt: null };
@@ -87,6 +87,9 @@ function setup(
       value.crew > 0 ? { podId: 3, crewCount: value.crew } : null,
     ),
   };
+  const trackerService = {
+    clearTrackingTarget: jest.fn(async () => undefined),
+  };
   const gameData = {
     getAllFabricationItems: jest.fn(() => [
       {
@@ -116,6 +119,8 @@ function setup(
       gameData as any,
       undefined,
       escapePods as any,
+      undefined,
+      trackerService as any,
     ),
     escapePods,
     ship,
@@ -167,6 +172,18 @@ describe('SpacecraftDestructionService', () => {
       }),
     );
     expect(manager.remove).toHaveBeenCalledWith(ship);
+  });
+
+  it('clears trackers that point to a destroyed ship', async () => {
+    const { service, ship } = setup();
+    const trackerService = (service as any).trackerService;
+
+    await service.selfDestruct(ship.id, ship.userId);
+
+    expect(trackerService.clearTrackingTarget).toHaveBeenCalledWith(
+      expect.anything(),
+      ship.id,
+    );
   });
 
   it('releases tractor beams involving a destroyed ship', async () => {

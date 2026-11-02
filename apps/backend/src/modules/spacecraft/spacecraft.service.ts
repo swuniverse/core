@@ -27,6 +27,7 @@ import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
 import { Buoy } from './entities/buoy.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
+import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
@@ -216,6 +217,9 @@ export class SpacecraftService {
     private readonly cargoRepo: Repository<CargoItem> = {
       findOneBy: async () => null,
     } as unknown as Repository<CargoItem>,
+    private readonly trackerService: SpacecraftTrackerService = {
+      processTick: async () => undefined,
+    } as unknown as SpacecraftTrackerService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -1167,6 +1171,7 @@ export class SpacecraftService {
       HYPERDRIVE_BOOSTER: 'Hyperantriebs-Notladegerät',
       SUBSPACE_SCANNER: 'Hyperraumfeldscanner',
       MATRIX_SCANNER: 'Matrixsensoren',
+      TRACKER: 'Peilsender',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
@@ -4391,6 +4396,7 @@ export class SpacecraftService {
       }
     }
 
+    await this.trackerService.processTick(ship);
     await this.shipRepo.save(ship);
   }
 }

@@ -34,6 +34,7 @@ import { SpacecraftService } from './spacecraft.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
 import { SpacecraftBoardingService } from './spacecraft-boarding.service';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
+import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
@@ -434,6 +435,11 @@ export class SpacecraftController {
       reactivate: async () => ({ message: '' }),
       startSelfRepair: async () => ({ message: '' }),
     } as unknown as StationRepairService,
+    private readonly trackerService: SpacecraftTrackerService = {
+      track: async () => ({}),
+      get: async () => null,
+      deactivate: async () => undefined,
+    } as unknown as SpacecraftTrackerService,
   ) {}
 
   // Static routes first (before :id)
@@ -1295,6 +1301,31 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.getNearby(id, req.user.sub);
+  }
+
+  @Post(':id/tracker/:targetId')
+  trackTarget(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.trackerService.track(id, targetId, req.user.sub);
+  }
+
+  @Get(':id/tracker')
+  getTracker(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.trackerService.get(id, req.user.sub);
+  }
+
+  @Delete(':id/tracker')
+  deactivateTracker(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.trackerService.deactivate(id, req.user.sub);
   }
 
   @Get(':id/transfer-quote')

@@ -46,6 +46,7 @@ export function getRuntimeSystemsForModule(
     }
     if (name === 'hyperraumfeldscanner') return ['SUBSPACE_SCANNER'];
     if (name === 'matrixsensoren') return ['MATRIX_SCANNER'];
+    if (name === 'peilsender') return ['TRACKER'];
     return ['SPECIAL'];
   }
   return [];
@@ -111,6 +112,7 @@ export function initializeSpacecraftRuntimeSystems(
         active:
           key !== 'CLOAK' &&
           key !== 'TRACTOR_BEAM' &&
+          key !== 'TRACKER' &&
           (key === 'LIFE_SUPPORT' ||
             backingModules.length === 0 ||
             backingModules.some((module) => module.isActive !== false)),
@@ -169,9 +171,13 @@ function getAvailableSystems(
   if (!modules) {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
       if (
-        !['ASTROMETRY_LAB', 'CLOAK', 'SUBSPACE_SCANNER', 'MATRIX_SCANNER'].includes(
-          key,
-        )
+        ![
+          'ASTROMETRY_LAB',
+          'CLOAK',
+          'SUBSPACE_SCANNER',
+          'MATRIX_SCANNER',
+          'TRACKER',
+        ].includes(key)
       )
         systems.add(key);
     }

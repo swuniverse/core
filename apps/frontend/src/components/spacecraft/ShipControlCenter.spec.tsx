@@ -211,6 +211,40 @@ describe('ShipControlCenter', () => {
     expect(deactivate.querySelector('span')?.className).toContain('leading-5');
   });
 
+  it('shows a tracked target location and attacks it from the control center', async () => {
+    apiMocks.get.mockImplementation((path: string) =>
+      path.endsWith('/tracker')
+        ? Promise.resolve({
+            targetId: 7,
+            targetName: 'Vagrant Hope',
+            ticksRemaining: 42,
+            location: { scope: 'GALAXY', x: 12, y: 9, fieldId: 33 },
+          })
+        : Promise.resolve(null),
+    );
+    apiMocks.post.mockResolvedValue({ rounds: [] });
+
+    render(
+      <ShipControlCenter
+        shipId={baseProps.shipId}
+        onUpdate={baseProps.onUpdate}
+        systems={{ TRACKER: { active: true, cooldown: 0, integrity: 100 } }}
+      />,
+    );
+
+    expect(await screen.findByText(/Vagrant Hope/)).toBeTruthy();
+    expect(screen.getByText(/12\|9.*Feld #33/)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Getracktes Ziel angreifen' }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/combat/attack-tracked', {
+        attackerId: 2,
+        targetId: 7,
+      }),
+    );
+  });
+
   it('shows empty torpedo storage when a torpedo bank is present', async () => {
     apiMocks.get.mockResolvedValue({
       capacity: 6,

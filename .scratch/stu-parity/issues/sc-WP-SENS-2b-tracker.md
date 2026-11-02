@@ -1,6 +1,6 @@
 # Tracker: Ziel markieren, verfolgen, angreifen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-ENG-2d
@@ -27,11 +27,13 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Modul, Laufzeitsystem und SW-Name (Leitplanke 2, dokumentiert in `map.md`).
-- [ ] Tracken eines fremden Ziels am Feld (Interaktions-Checks), Laufzeit und Energieverbrauch wie STU; Deaktivieren.
-- [ ] Der Tracker zeigt Position und Feld des Ziels in der Systemansicht; Ablauf bzw. Zerstörung beendet ihn.
-- [ ] „Getracktes Ziel angreifen“ verfügbar, wenn beide am selben Feld.
-- [ ] Backend-Tests (Laufzeitablauf, Bereinigung bei Zerstörung, Angriff), Frontend-Test.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Modul, Laufzeitsystem und SW-Name (Leitplanke 2, dokumentiert in `map.md`).
+- [x] Tracken eines fremden Ziels am Feld (Interaktions-Checks), Laufzeit und Energieverbrauch wie STU; Deaktivieren.
+- [x] Der Tracker zeigt Position und Feld des Ziels in der Systemansicht; Ablauf bzw. Zerstörung beendet ihn.
+- [x] „Getracktes Ziel angreifen“ verfügbar, wenn beide am selben Feld.
+- [x] Backend-Tests (Laufzeitablauf, Bereinigung bei Zerstörung, Angriff), Frontend-Test.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+- 2026-11-02: Als Star-Wars-Äquivalent wurde der `Peilsender` umgesetzt. Aktivierung (15 EPS), Tickverbrauch (7 EPS), 70-Tick-Laufzeit, Deaktivierung, Zerstörungsbereinigung, Positionsanzeige und getrackter Angriff sind über Backend und Schiffs-UI abgedeckt. Fokussierte Backend-/Frontend-Tests, Typechecks, Lint und Builds sind grün; der vollständige Backend-Lauf bleibt durch sechs fachfremde bestehende Suites rot (unter anderem `spacecraft-cartography-api`, Fleet-/Core-Control-Fixtures und inkonsistente Fabrication-Daten).

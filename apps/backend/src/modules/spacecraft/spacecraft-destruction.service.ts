@@ -29,6 +29,7 @@ import { CrewEnhancementEvent } from './crew-expertise';
 import { EscapePodService } from './escape-pod.service';
 import { EscapePodLaunchReason } from './entities/escape-pod.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
+import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -54,6 +55,9 @@ export class SpacecraftDestructionService {
     private readonly takeoverService: SpacecraftTakeoverService = {
       cancelForShip: async () => false,
     } as unknown as SpacecraftTakeoverService,
+    private readonly trackerService: SpacecraftTrackerService = {
+      clearTrackingTarget: async () => undefined,
+    } as unknown as SpacecraftTrackerService,
   ) {}
 
   async selfDestruct(
@@ -225,6 +229,7 @@ export class SpacecraftDestructionService {
     reason: 'COMBAT' | 'SELF_DESTRUCT',
   ): Promise<{ evacuatedCrew: number }> {
     await this.takeoverService.cancelForShip(ship.id, 'ein beteiligtes Schiff wurde zerstört');
+    await this.trackerService.clearTrackingTarget(manager, ship.id);
     const [cargo, torpedoes, installedModules] = await Promise.all([
       manager.find(CargoItem, { where: { spacecraftId: ship.id } }),
       manager.find(SpacecraftTorpedoStorage, {

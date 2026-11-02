@@ -24,6 +24,15 @@ export class CombatController {
     );
   }
 
+  @Post('attack-tracked')
+  attackTracked(
+    @Request() req: { user: { sub: number } },
+    @Body('attackerId') attackerId: number,
+    @Body('targetId') targetId: number,
+  ) {
+    return this.combatService.attackTracked(attackerId, targetId, req.user.sub);
+  }
+
   @Post('attack')
   attack(
     @Request() req: { user: { sub: number } },

@@ -83,6 +83,7 @@ import { SpacecraftBoardingService } from './spacecraft-boarding.service';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
 import { Buoy } from './entities/buoy.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
+import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 import { CrewSkill } from './entities/crew-skill.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import {
@@ -182,6 +183,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
     SpacecraftTractorService,
     SpacecraftBoardingService,
     SpacecraftTakeoverService,
+    SpacecraftTrackerService,
     FieldTransitionExecutor,
     FieldEffectConsequence,
     FlightConsequencePipeline,
@@ -212,6 +214,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
     FlightSignatureService,
     InteractionContextService,
     SpacecraftTakeoverService,
+    SpacecraftTrackerService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

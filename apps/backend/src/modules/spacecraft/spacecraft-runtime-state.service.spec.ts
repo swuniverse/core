@@ -121,6 +121,27 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.SPECIAL).toBeDefined();
   });
 
+  it('maps the tracking beacon to an initially inactive runtime system', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const ship = {
+      modules: [
+        {
+          category: 'SPECIAL',
+          moduleType: 'Peilsender',
+          isActive: true,
+          cooldown: 0,
+          integrity: 100,
+        },
+      ],
+      runtimeSystems: {},
+    } as never;
+
+    const systems = service.initialize(ship);
+
+    expect(systems.TRACKER).toMatchObject({ active: false, integrity: 100 });
+    expect(systems.SPECIAL).toBeUndefined();
+  });
+
   it('maps tractor beam modules to an initially inactive runtime system', () => {
     const service = new SpacecraftRuntimeStateService();
     const ship = {
