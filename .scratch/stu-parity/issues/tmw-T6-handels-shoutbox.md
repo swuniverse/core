@@ -1,6 +1,6 @@
 # Handels-Shoutbox je Netzwerk
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-T2
@@ -28,3 +28,5 @@ Jedes Handelsnetz hat eine Shoutbox: eine kurze Chatliste mit den letzten Eintr�
 - [ ] Backend-Tests: Lizenzpflicht, Längen- und Anzahlgrenze, Bereinigung. Frontend-Test: Senden und Anzeige.
 
 ## Comments
+
+- 2026-11-02: Umsetzung lokal vollständig (Entity/Migration, lizenzgeschützte GET/POST-API, HTML-Bereinigung, 200-Zeichen-/30-Einträge-Grenze, Rate-Limit und Handelsseiten-UI). Fokussierte Backend- und Frontend-Tests sowie alle Builds sind grün. Der verpflichtende `nx affected`-Gate bleibt nach zwei ernsthaften Läufen an fachfremden, bereits vorhandenen Backend-Baselinefehlern rot: Typecheck in `field-effect-consequence.spec.ts`, `wreck-decay.service.spec.ts` und `tutorial.service.spec.ts`; außerdem sechs bestehende Spacecraft-/Tick-Tests. Produktcode wurde gemäß Abbruchregel verworfen. Bitte Baseline reparieren und Issue erneut auf `ready-for-agent` setzen.
