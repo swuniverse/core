@@ -1,6 +1,6 @@
 # Tracker: Ziel markieren, verfolgen, angreifen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-ENG-2d
