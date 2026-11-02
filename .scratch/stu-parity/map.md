@@ -66,6 +66,10 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – sc-WP-NAV-3 – Option b: kein zeitbasierter Hyperraumsprung; feldweiser STU-Galaxieflug, Langstreckensprung nur über sc-WP-NAV-5b; ADR + Rückbau-Folgeissue
 - 2026-10-30 – sc-WP-NAV-5b – `Hyperraum-Spule`/`Navicomputer-Sprung` zu jeder passierbaren Koordinate einer bekannten Ebene; atomarer Sprung der gesamten nicht fixierten Flotte, eigene Spule/aktiver Hyperantrieb/55 EPS je Schiff, 300 s Cooldown, keine Hyperantriebspunkte oder Routenpflicht; ungültiges Mitglied lehnt alles ab
 - 2026-10-30 – sc-WP-NAV-5a – `Hyperantriebs-Notladegerät` als Einzel-Schiff-System: 100 EPS laden `round(max/3)` Hyperantriebspunkte bis zum Maximum, danach sofort inaktiv mit 24 h Cooldown; ausschließlich für normalen feldweisen Galaxieflug, ohne Wirkung auf den Navicomputer-Sprung
+
+## Erledigt
+
+- 2026-11-02 – sc-WP-NAV-5a – Hyperantriebs-Notladegerät als datengetriebenes Spezialsystem mit Backend-Aktion, Cooldown und Schiffssteuerungsbutton umgesetzt.
 - 2026-10-21 – sc-WP-TRACT-1b – Option a: Traktor auf jedes fremde ungeschildete Schiff unabhängig von der Haltung (außer Urlauber/NPC)
 - 2026-10-21 – sc-WP-UI-3b – Option a: Kolonieangriff gezielt auf Gebäude/Feld wie STU AttackBuilding
 - 2026-10-21 – sh-AP-02 – Option a: System-News als eigene Entität `news`, nur Admins, unabhängig vom HoloNet

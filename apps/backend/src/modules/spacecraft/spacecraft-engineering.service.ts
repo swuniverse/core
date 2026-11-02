@@ -204,6 +204,55 @@ export class SpacecraftEngineeringService {
     };
   }
 
+  async boostHyperdrive(
+    shipId: number,
+    userId: number,
+  ): Promise<SpacecraftEngineeringResultDto> {
+    return this.dataSource.transaction(async (manager) => {
+      const ship = await this.lockOwnedShip(manager, shipId, userId);
+      const modules = await manager.find(SpacecraftModule, {
+        where: { spacecraftId: ship.id },
+      });
+      const booster = modules.find(
+        (module) =>
+          module.moduleType.toLowerCase() === 'hyperantriebs-notladegerät' &&
+          module.isActive &&
+          module.integrity > 0,
+      );
+      if (!booster) {
+        throw new BadRequestException(
+          'Hyperantriebs-Notladegerät ist nicht verfügbar',
+        );
+      }
+      const systems = initializeSpacecraftRuntimeSystems(ship);
+      const runtime = systems.HYPERDRIVE_BOOSTER;
+      if (!runtime || !runtime.active) {
+        throw new BadRequestException(
+          'Hyperantriebs-Notladegerät ist nicht verfügbar',
+        );
+      }
+      if (runtime.cooldown && runtime.cooldown > Date.now()) {
+        throw new BadRequestException(
+          'Hyperantriebs-Notladegerät ist noch nicht bereit',
+        );
+      }
+      if (ship.energy < 100) {
+        throw new BadRequestException('Not enough EPS capacity');
+      }
+      const amount = Math.min(
+        Math.round(ship.warpdriveMax / 3),
+        Math.max(0, ship.warpdriveMax - ship.warpdrive),
+      );
+      ship.energy -= 100;
+      ship.warpdrive += amount;
+      runtime.active = false;
+      runtime.cooldown = Date.now() + 24 * 60 * 60 * 1000;
+      ship.runtimeSystems = systems;
+      await manager.save(ship);
+      return this.result(ship, amount);
+    });
+  }
+
   async dischargeBattery(
     shipId: number,
     userId: number,

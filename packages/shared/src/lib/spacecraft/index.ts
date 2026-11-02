@@ -16,6 +16,8 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'ASTROMETRY_LAB',
   'CLOAK',
   'TRACTOR_BEAM',
+  'REACTOR_CHARGE_TRANSFER',
+  'HYPERDRIVE_BOOSTER',
   'LIFE_SUPPORT',
 ] as const;
 
@@ -838,6 +840,23 @@ export interface SpacecraftEpsTransferResultDto {
   requested: number;
   /** Source ship EPS after the transfer. */
   energy: number;
+  message: string;
+}
+
+export interface SpacecraftReactorTransferTargetDto {
+  shipId: number;
+  name: string;
+  reactorFuel: number;
+  reactorFuelMax: number;
+}
+
+export interface SpacecraftReactorTransferRequestDto {
+  transfers: Array<{ targetShipId: number; amount: number }>;
+}
+
+export interface SpacecraftReactorTransferResultDto {
+  transferred: number;
+  reactorFuel: number;
   message: string;
 }
 

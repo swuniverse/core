@@ -105,6 +105,19 @@ export function ShipControlCenter({
   const torpedoState = systems?.TORPEDO_BANK;
   const laboratory = systems?.ASTROMETRY_LAB;
   const cloak = systems?.CLOAK;
+  const hyperdriveBooster = systems?.HYPERDRIVE_BOOSTER;
+  async function boostHyperdrive() {
+    setPending('HYPERDRIVE_BOOSTER');
+    setError(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/hyperdrive-boost`, {});
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Notladung fehlgeschlagen');
+    } finally {
+      setPending(null);
+    }
+  }
   return (
     <section>
       <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface text-xs">
@@ -113,6 +126,16 @@ export function ShipControlCenter({
         </h3>
         {systemRow('SHIELDS')}
         {systemRow('WEAPONS')}
+        {hyperdriveBooster && (
+          <button
+            type="button"
+            disabled={pending !== null || !hyperdriveBooster.active}
+            onClick={() => void boostHyperdrive()}
+            className="flex w-full items-center gap-2 border-b border-swu-border px-2 py-1.5 text-left text-swu-primary hover:bg-white/5 disabled:opacity-40"
+          >
+            Hyperantriebs-Notladung auslösen
+          </button>
+        )}
         {torpedoState && (
           <div className="grid grid-cols-2 border-b border-swu-border">
             <button

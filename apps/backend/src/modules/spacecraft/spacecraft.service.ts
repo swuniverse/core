@@ -1144,6 +1144,7 @@ export class SpacecraftService {
       CLOAK: 'Tarnung',
       TRACTOR_BEAM: 'Traktorstrahl',
       REACTOR_CHARGE_TRANSFER: 'Reaktorladungstransfer',
+      HYPERDRIVE_BOOSTER: 'Hyperantriebs-Notladegerät',
       LIFE_SUPPORT: 'Lebenserhaltung',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {

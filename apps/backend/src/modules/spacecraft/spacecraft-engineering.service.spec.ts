@@ -30,6 +30,8 @@ function setup(shipOverrides = {}, cargoAmount = 5) {
     energy: 5,
     energyMax: 10,
     epsMax: 10,
+    warpdrive: 0,
+    warpdriveMax: 0,
     battery: 4,
     batteryMax: 6,
     reactorFuel: 2,
@@ -199,6 +201,57 @@ describe('SpacecraftEngineeringService', () => {
     await expect(
       service.transferReactorCharge(2, 1, [{ targetShipId: 3, amount: 1 }]),
     ).rejects.toThrow('Hyperantrieb und Schilde müssen deaktiviert sein');
+  });
+
+  it('boosts the hyperdrive by one third of its maximum for 100 EPS', async () => {
+    const { service, ship, manager } = setup({
+      energy: 150,
+      warpdrive: 10,
+      warpdriveMax: 100,
+      modules: [
+        {
+          moduleType: 'Hyperantriebs-Notladegerät',
+          category: 'SPECIAL',
+          integrity: 100,
+          isActive: true,
+        },
+      ],
+      runtimeSystems: {
+        WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
+        HYPERDRIVE_BOOSTER: { active: true, cooldown: 0, integrity: 100 },
+      },
+    });
+
+    const result = await service.boostHyperdrive(2, 1);
+
+    expect(result.transferred).toBe(33);
+    expect(ship.warpdrive).toBe(43);
+    expect(ship.energy).toBe(50);
+    expect((ship.runtimeSystems as any).HYPERDRIVE_BOOSTER).toMatchObject({
+      active: false,
+      cooldown: expect.any(Number),
+    });
+    expect(manager.save).toHaveBeenCalledWith(ship);
+  });
+
+  it('rejects hyperdrive boost while on cooldown', async () => {
+    const { service } = setup({
+      modules: [
+        {
+          moduleType: 'Hyperantriebs-Notladegerät',
+          category: 'SPECIAL',
+          integrity: 100,
+          isActive: true,
+        },
+      ],
+      runtimeSystems: {
+        HYPERDRIVE_BOOSTER: { active: false, cooldown: 1, integrity: 100 },
+      },
+    });
+
+    await expect(service.boostHyperdrive(2, 1)).rejects.toThrow(
+      'Hyperantriebs-Notladegerät ist noch nicht bereit',
+    );
   });
 
   it('discharges MAX battery into EPS within capacity', async () => {

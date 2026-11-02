@@ -38,6 +38,12 @@ export function getRuntimeSystemsForModule(
   if (category === 'SPECIAL') {
     if (name === 'astrometrie-labor') return ['ASTROMETRY_LAB'];
     if (name === 'tarnvorrichtung') return ['CLOAK'];
+    if (name === 'hypermaterie-transferkoppler') {
+      return ['REACTOR_CHARGE_TRANSFER'];
+    }
+    if (name === 'hyperantriebs-notladegerät') {
+      return ['HYPERDRIVE_BOOSTER'];
+    }
     return ['SPECIAL'];
   }
   return [];

@@ -24,6 +24,8 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsArray,
+  ValidateNested,
   Max,
   Min,
 } from 'class-validator';
@@ -312,6 +314,25 @@ class EpsTransferDto {
   @IsInt()
   @Min(1)
   amount: number;
+}
+
+class ReactorChargeTransferItemDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  targetShipId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+}
+
+class ReactorChargeTransferDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReactorChargeTransferItemDto)
+  transfers: ReactorChargeTransferItemDto[];
 }
 
 class ShipCargoTransferDto {
@@ -1014,6 +1035,35 @@ export class SpacecraftController {
     @Body() dto: EngineeringAmountDto,
   ) {
     return this.engineeringService.loadReactor(id, req.user.sub, dto.amount);
+  }
+
+  @Get(':id/reactor-transfer-targets')
+  reactorTransferTargets(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.engineeringService.reactorTransferTargets(id, req.user.sub);
+  }
+
+  @Post(':id/reactor-charge/transfer')
+  transferReactorCharge(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: ReactorChargeTransferDto,
+  ) {
+    return this.engineeringService.transferReactorCharge(
+      id,
+      req.user.sub,
+      dto.transfers,
+    );
+  }
+
+  @Post(':id/hyperdrive-boost')
+  boostHyperdrive(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.engineeringService.boostHyperdrive(id, req.user.sub);
   }
 
   @Post(':id/battery/discharge')
