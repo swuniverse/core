@@ -92,6 +92,9 @@ import {
 } from './flight-consequence-pipeline';
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { FieldEffectConsequence } from './field-effect-consequence';
+import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
+import { ShipbuildingCoreService } from './shipbuilding-core.service';
+import { StationShipyardService } from './station-shipyard.service';
 
 @Module({
   imports: [
@@ -131,6 +134,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
       CrewSkill,
       SpacecraftTakeover,
       Buoy,
+      ColonyShipBuildQueue,
     ]),
     forwardRef(() => StarmapModule),
     forwardRef(() => ColonyModule),
@@ -160,6 +164,8 @@ import { FieldEffectConsequence } from './field-effect-consequence';
     ShipManagementService,
     StationShipManagementService,
     StationRepairService,
+    ShipbuildingCoreService,
+    StationShipyardService,
     DockingPrivilegeService,
     SpacecraftScanService,
     SpacecraftStatsService,

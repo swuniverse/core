@@ -8,6 +8,11 @@ import {
 } from 'typeorm';
 import { Colony } from './colony.entity';
 import { ShipClassDef } from '../../spacecraft/entities/ship-class-def.entity';
+
+export enum ShipBuildSource {
+  COLONY = 'COLONY',
+  STATION = 'STATION',
+}
 import { Spacecraft } from '../../spacecraft/entities/spacecraft.entity';
 import type { ShipModuleSelection } from '@swuniverse/shared';
 
@@ -47,12 +52,22 @@ export class ColonyShipBuildQueue {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  colonyId: number;
+  @Column({ type: 'varchar', default: ShipBuildSource.COLONY })
+  source: ShipBuildSource;
 
-  @ManyToOne(() => Colony, { onDelete: 'CASCADE' })
+  @Column({ type: 'int', nullable: true })
+  colonyId: number | null;
+
+  @ManyToOne(() => Colony, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'colonyId' })
-  colony: Colony;
+  colony: Colony | null;
+
+  @Column({ type: 'int', nullable: true })
+  stationId: number | null;
+
+  @ManyToOne(() => Spacecraft, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'stationId' })
+  station: Spacecraft | null;
 
   @Column()
   userId: number;

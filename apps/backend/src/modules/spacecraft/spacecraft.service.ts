@@ -109,6 +109,7 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { StationConstructionService } from './station-construction.service';
 import { StationRepairService } from './station-repair.service';
+import { StationShipyardService } from './station-shipyard.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
@@ -200,6 +201,9 @@ export class SpacecraftService {
     private readonly stationRepairService: StationRepairService = {
       processTick: async () => undefined,
     } as unknown as StationRepairService,
+    private readonly stationShipyardService: StationShipyardService = {
+      processTick: async () => undefined,
+    } as unknown as StationShipyardService,
     private readonly fieldTransitionExecutor: FieldTransitionExecutor = new FieldTransitionExecutor(),
     private readonly layerKnowledgeService: LayerKnowledgeService = {
       markKnown: async () => undefined,
@@ -4277,6 +4281,7 @@ export class SpacecraftService {
     await this.takeoverService.processTick(ship.id);
     if (ship.kind === 'STATION') {
       await this.stationRepairService.processTick(ship.id, options);
+      await this.stationShipyardService.processTick(ship.id);
     }
     await this.processMovement(ship);
     const tickLocation =

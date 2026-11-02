@@ -57,6 +57,7 @@ import { DockingPrivilegeDto, ToggleBatteryReloadDto, ToggleDockPmAutoReadDto } 
 import { DockingPrivilegeService } from './docking-privilege.service';
 import { StationShipManagementService } from './station-ship-management.service';
 import { StationRepairService } from './station-repair.service';
+import { StationShipyardService } from './station-shipyard.service';
 import { ShipManagementRequest } from './ship-management.service';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
@@ -67,6 +68,12 @@ import {
   SpacecraftOperatingMode,
   SpacecraftLssMode,
 } from './entities/spacecraft.entity';
+
+class StationShipBuildDto {
+  @Type(() => Number) @IsInt() @Min(1) shipClassId: number;
+  @IsString() name: string;
+  @IsOptional() @IsArray() moduleSelections?: Array<{ slotId: string; commodityId: number }>;
+}
 
 class CreateFleetDto {
   @IsString()
@@ -435,6 +442,11 @@ export class SpacecraftController {
       reactivate: async () => ({ message: '' }),
       startSelfRepair: async () => ({ message: '' }),
     } as unknown as StationRepairService,
+    private readonly stationShipyardService: StationShipyardService = {
+      overview: async () => ({}),
+      build: async () => ({}),
+      processTick: async () => undefined,
+    } as unknown as StationShipyardService,
     private readonly trackerService: SpacecraftTrackerService = {
       track: async () => ({}),
       get: async () => null,
@@ -1600,6 +1612,16 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.stationShipManagementService.execute(id, req.user.sub, ships ?? []);
+  }
+
+  @Get(':id/station-shipyard')
+  getStationShipyard(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.stationShipyardService.overview(id, req.user.sub);
+  }
+
+  @Post(':id/station-shipyard/build')
+  buildStationShip(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }, @Body() dto: StationShipBuildDto) {
+    return this.stationShipyardService.build(id, req.user.sub, dto);
   }
 
   @Get(':id/station-repair')

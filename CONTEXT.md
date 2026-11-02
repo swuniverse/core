@@ -154,7 +154,7 @@ Die nur für Mitglieder sichtbare Übersicht einer **Allianz** über Kolonien, S
 _Avoid_: Mitgliederliste, Memberlist
 
 **Online-Status**:
-Die Angabe, ob ein Mitglied zuletzt kürzlich aktiv war. Sie ist nur für Mitglieder derselben **Allianz** sichtbar.
+Die Angabe, ob ein Spieler zuletzt kürzlich aktiv war. Sie ist öffentlich sichtbar, sofern der Spieler sie nicht abschaltet; in der **Mitgliederübersicht** der eigenen **Allianz** bleibt sie unabhängig davon sichtbar.
 _Avoid_: Präsenz
 
 **Allianzdepot**:

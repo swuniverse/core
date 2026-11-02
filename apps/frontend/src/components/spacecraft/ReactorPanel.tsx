@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SpacecraftEnergyFlowDto } from '@swuniverse/shared';
+import type {
+  SpacecraftEnergyFlowDto,
+  SpacecraftReactorTransferTargetDto,
+} from '@swuniverse/shared';
 import { api } from '../../services/api';
 
 interface ReactorPanelProps {
@@ -14,6 +17,7 @@ interface ReactorPanelProps {
   reactorAutoCarryOver: boolean;
   hyperdriveActive: boolean;
   inSystem: boolean;
+  canTransferReactorCharge?: boolean;
   onUpdate: () => void;
 }
 
@@ -29,6 +33,7 @@ export function ReactorPanel({
   reactorAutoCarryOver,
   hyperdriveActive,
   inSystem,
+  canTransferReactorCharge = false,
   onUpdate,
 }: ReactorPanelProps) {
   const [split, setSplit] = useState(reactorWarpSplit);
@@ -43,6 +48,11 @@ export function ReactorPanel({
     null,
   );
   const [amount, setAmount] = useState(1);
+  const [transferTargets, setTransferTargets] = useState<
+    SpacecraftReactorTransferTargetDto[] | null
+  >(null);
+  const [transferAmounts, setTransferAmounts] = useState<Record<number, number>>({});
+  const [transferringCharge, setTransferringCharge] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -125,6 +135,44 @@ export function ReactorPanel({
     }
   }
 
+  async function openReactorTransfer() {
+    setError(null);
+    try {
+      const targets = await api.get<SpacecraftReactorTransferTargetDto[]>(
+        `/spacecraft/${shipId}/reactor-transfer-targets`,
+      );
+      setTransferTargets(targets);
+      setTransferAmounts(
+        Object.fromEntries(targets.map((target) => [target.shipId, 0])),
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Transferziele fehlen');
+    }
+  }
+
+  async function transferReactorCharge() {
+    const transfers = Object.entries(transferAmounts)
+      .map(([targetShipId, transferAmount]) => ({
+        targetShipId: Number(targetShipId),
+        amount: transferAmount,
+      }))
+      .filter((transfer) => transfer.amount > 0);
+    if (!transfers.length) return;
+    setTransferringCharge(true);
+    setError(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/reactor-charge/transfer`, {
+        transfers,
+      });
+      setTransferTargets(null);
+      onUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Transfer fehlgeschlagen');
+    } finally {
+      setTransferringCharge(false);
+    }
+  }
+
   async function toggleHyperdrive() {
     setError(null);
     try {
@@ -181,7 +229,56 @@ export function ReactorPanel({
             onAmount={setAmount}
             onSubmit={(value) => transferEngineering('reactor/load', value)}
           />
+          {canTransferReactorCharge && (
+            <button
+              type="button"
+              onClick={() => void openReactorTransfer()}
+              className="border border-swu-border bg-swu-surface px-2 py-0.5 text-[10px] hover:bg-white/5"
+            >
+              Reaktorladung übertragen
+            </button>
+          )}
         </div>
+
+        {transferTargets && (
+          <div className="space-y-1 p-2">
+            {transferTargets.map((target) => (
+              <label key={target.shipId} className="flex items-center gap-2">
+                <span className="flex-1">
+                  {target.name} {target.reactorFuel}/{target.reactorFuelMax}
+                </span>
+                <input
+                  aria-label={`${target.name} Transfermenge`}
+                  type="number"
+                  min={0}
+                  max={target.reactorFuelMax - target.reactorFuel}
+                  value={transferAmounts[target.shipId] ?? 0}
+                  onChange={(event) =>
+                    setTransferAmounts((current) => ({
+                      ...current,
+                      [target.shipId]: Math.max(
+                        0,
+                        Math.min(
+                          target.reactorFuelMax - target.reactorFuel,
+                          Number(event.target.value) || 0,
+                        ),
+                      ),
+                    }))
+                  }
+                  className="w-14 border border-swu-border bg-swu-bg px-1"
+                />
+              </label>
+            ))}
+            <button
+              type="button"
+              disabled={transferringCharge}
+              onClick={() => void transferReactorCharge()}
+              className="border border-swu-border bg-swu-surface px-2 py-0.5 text-[10px] hover:bg-white/5 disabled:opacity-40"
+            >
+              Transfer ausführen
+            </button>
+          </div>
+        )}
 
         <div className="space-y-2 p-2">
           <div className="flex items-center gap-1">

@@ -26,6 +26,7 @@ const props = {
   reactorAutoCarryOver: false,
   hyperdriveActive: true,
   inSystem: false,
+  canTransferReactorCharge: true,
   onUpdate: vi.fn(),
 };
 
@@ -136,6 +137,47 @@ describe('ReactorPanel', () => {
       expect(apiMocks.post).toHaveBeenCalledWith(
         '/spacecraft/2/battery/discharge',
         { amount: 'MAX' },
+      ),
+    );
+  });
+
+  it('loads transfer targets and sends selected reactor charges together', async () => {
+    apiMocks.get.mockImplementation(async (path: string) =>
+      path.endsWith('/reactor-transfer-targets')
+        ? [
+            { shipId: 3, name: 'Gamma', reactorFuel: 2, reactorFuelMax: 10 },
+            { shipId: 4, name: 'Delta', reactorFuel: 0, reactorFuelMax: 5 },
+          ]
+        : {
+            epsProduction: 8,
+            warpProduction: 2,
+            effectiveEpsProduction: 8,
+            effectiveWarpProduction: 2,
+          },
+    );
+    apiMocks.post.mockResolvedValue({ transferred: 9 });
+    render(<ReactorPanel {...props} />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reaktorladung übertragen' }),
+    );
+    fireEvent.change(await screen.findByLabelText('Gamma Transfermenge'), {
+      target: { value: '4' },
+    });
+    fireEvent.change(screen.getByLabelText('Delta Transfermenge'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Transfer ausführen' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/2/reactor-charge/transfer',
+        {
+          transfers: [
+            { targetShipId: 3, amount: 4 },
+            { targetShipId: 4, amount: 5 },
+          ],
+        },
       ),
     );
   });

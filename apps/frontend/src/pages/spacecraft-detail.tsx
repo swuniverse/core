@@ -20,6 +20,7 @@ import { SensorOperationsPanel } from '../components/spacecraft/SensorOperations
 import { DockingPanel } from '../components/spacecraft/DockingPanel';
 import { StationShipManagementPanel } from '../components/spacecraft/StationShipManagementPanel';
 import { StationRepairPanel } from '../components/spacecraft/StationRepairPanel';
+import { StationShipyardPanel } from '../components/spacecraft/StationShipyardPanel';
 import { DockingPrivilegesPanel } from '../components/spacecraft/DockingPrivilegesPanel';
 import { StationExpansionPanel } from '../components/spacecraft/StationExpansionPanel';
 import {
@@ -255,6 +256,9 @@ export function SpacecraftDetailPage() {
               reactorAutoCarryOver={ship.reactorAutoCarryOver ?? false}
               hyperdriveActive={ship.runtimeSystems?.WARPDRIVE?.active === true}
               inSystem={ship.location.scope === 'SYSTEM'}
+              canTransferReactorCharge={
+                ship.runtimeSystems?.REACTOR_CHARGE_TRANSFER?.active === true
+              }
               onUpdate={refreshShipAndStorage}
             />
           </div>
@@ -292,6 +296,9 @@ export function SpacecraftDetailPage() {
       />
       <DockingPanel ship={ship} onChanged={refreshShipAndStorage} />
       <StationShipManagementPanel ship={ship} />
+      {ship.kind === 'STATION' && ship.stationRole === 'SHIPYARD' && (
+        <div className="mb-2"><StationShipyardPanel stationId={ship.id} onChanged={refreshShipAndStorage} /></div>
+      )}
       <StationRepairPanel ship={ship} onChanged={refreshShipAndStorage} />
       {ship.kind === 'STATION' && <DockingPrivilegesPanel stationId={ship.id} />}
       <div className="mt-2">
