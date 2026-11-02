@@ -1,6 +1,6 @@
 # Fremde Crew aus Kapseln an Handelsposten überstellen und fremde Crew ablegen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-CREW-3b, tmw-T1c
