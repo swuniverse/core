@@ -1,6 +1,6 @@
 # Reaktorladungstransfer zwischen Schiffen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-ENG-2c
