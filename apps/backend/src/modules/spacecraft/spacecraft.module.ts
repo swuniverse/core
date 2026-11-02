@@ -81,6 +81,7 @@ import { InteractionContextService } from './interaction-context.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
 import { SpacecraftBoardingService } from './spacecraft-boarding.service';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
+import { Buoy } from './entities/buoy.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { CrewSkill } from './entities/crew-skill.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
@@ -128,6 +129,7 @@ import { FieldEffectConsequence } from './field-effect-consequence';
       Crew,
       CrewSkill,
       SpacecraftTakeover,
+      Buoy,
     ]),
     forwardRef(() => StarmapModule),
     forwardRef(() => ColonyModule),

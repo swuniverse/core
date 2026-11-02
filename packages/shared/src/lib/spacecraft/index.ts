@@ -549,6 +549,14 @@ export interface SpacecraftScanResultDto {
   x: number;
   y: number;
   result: unknown;
+  buoys?: SpacecraftBuoyDto[];
+}
+
+export interface SpacecraftBuoyDto {
+  id: number;
+  text: string;
+  ownerId: number;
+  createdAt: string;
 }
 
 export interface SpacecraftScanPageDto {
@@ -705,6 +713,7 @@ export interface SpacecraftFieldContextDto {
     station: { id: number; name: string; isOwn: boolean } | null;
     canBuild: boolean;
   };
+  buoys?: SpacecraftBuoyDto[];
   information: {
     canSectorScan: boolean;
     cartographyKnown: boolean;

@@ -24,6 +24,8 @@ import {
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
+import { Buoy } from './entities/buoy.entity';
+import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { Fleet } from './entities/fleet.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
@@ -205,6 +207,15 @@ export class SpacecraftService {
       cancelForShip: async () => false,
       processTick: async () => null,
     } as unknown as SpacecraftTakeoverService,
+    private readonly buoyRepo: Repository<Buoy> = {
+      find: async () => [],
+      countBy: async () => 0,
+      create: (value: Partial<Buoy>) => value as Buoy,
+      findOneBy: async () => null,
+    } as unknown as Repository<Buoy>,
+    private readonly cargoRepo: Repository<CargoItem> = {
+      findOneBy: async () => null,
+    } as unknown as Repository<CargoItem>,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3192,6 +3203,57 @@ export class SpacecraftService {
     };
   }
 
+  async listBuoys(shipId: number, userId: number) {
+    await this.findOne(shipId, userId);
+    return this.buoyRepo.find({ where: { userId }, order: { createdAt: 'DESC' } });
+  }
+
+  async dropBuoy(shipId: number, userId: number, rawText: string) {
+    const ship = await this.findOne(shipId, userId);
+    const text = rawText?.trim() ?? '';
+    if (!text || text.length > 60) throw new BadRequestException('Bojen-Text muss 1 bis 60 Zeichen enthalten');
+    if (ship.status !== SpacecraftStatus.IDLE || ship.energy < 1) throw new BadRequestException('Schiff kann derzeit keine Boje setzen');
+    const systems = this.spacecraftRuntimeStateService.initialize(ship) as Record<string, { active?: boolean; integrity?: number }>;
+    if (systems.SHIELDS?.active === true || systems.CLOAK?.active === true) throw new BadRequestException('Schilde und Tarnung müssen deaktiviert sein');
+    const torpedo = await this.cargoRepo.findOneBy({ spacecraftId: ship.id, commodityId: 88 });
+    if (!torpedo || torpedo.amount < 1) throw new BadRequestException('Keine Sondenboje geladen');
+    const count = await this.buoyRepo.countBy({ userId });
+    if (count >= 16) throw new BadRequestException('Maximal 16 aktive Bojen erlaubt');
+    torpedo.amount -= 1;
+    ship.energy -= 1;
+    const buoy = this.buoyRepo.create({ userId, spacecraftId: ship.id, locationId: ship.locationId, text });
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(CargoItem).save(torpedo);
+      await manager.getRepository(Spacecraft).save(ship);
+      await manager.getRepository(Buoy).save(buoy);
+    });
+    return buoy;
+  }
+
+  async pickUpBuoy(shipId: number, buoyId: number, userId: number) {
+    const ship = await this.findOne(shipId, userId);
+    if (ship.status !== SpacecraftStatus.IDLE || ship.energy < 1) throw new BadRequestException('Schiff kann derzeit keine Boje aufnehmen');
+    const buoy = await this.buoyRepo.findOneBy({ id: buoyId });
+    if (!buoy || buoy.locationId !== ship.locationId) throw new NotFoundException('Boje nicht gefunden');
+    const result = await this.dataSource.transaction(async (manager) => {
+      const current = await manager.getRepository(Buoy).findOneBy({ id: buoyId });
+      if (!current) throw new NotFoundException('Boje wurde bereits aufgenommen');
+      await manager.getRepository(Buoy).remove(current);
+      ship.energy -= 1;
+      await manager.getRepository(Spacecraft).save(ship);
+      const cargoRepo = manager.getRepository(CargoItem);
+      let cargo = await cargoRepo.findOneBy({ spacecraftId: ship.id, commodityId: 88 });
+      if (!cargo) cargo = cargoRepo.create({ spacecraftId: ship.id, commodityId: 88, amount: 0 });
+      cargo.amount += 1;
+      await cargoRepo.save(cargo);
+      return current;
+    });
+    if (result.userId !== userId) {
+      await this.messagingService.sendSystem(result.userId, 'Sondenboje aufgenommen', `Deine Boje "${result.text}" wurde von Schiff #${ship.id} aufgenommen.`);
+    }
+    return { pickedUp: true, buoy: result };
+  }
+
   async getFieldContext(shipId: number, userId: number) {
     const ship = await this.findOne(shipId, userId);
     const location = resolveSpacecraftLocation(ship);
@@ -3318,6 +3380,7 @@ export class SpacecraftService {
               leaveReason,
             }
           : null,
+      buoys: await this.buoyRepo.find({ where: { locationId: ship.locationId }, order: { createdAt: 'ASC' } }),
       colony: colony
         ? {
             id: colony.id,

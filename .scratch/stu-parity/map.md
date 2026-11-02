@@ -69,6 +69,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Erledigt
 
+- 2026-11-02 – sc-WP-SENS-1 – Bojen-Entity, Drop/Pick-up-API sowie Sektor-Scan- und Feldkontext-Daten ergänzt.
 - 2026-11-02 – sc-WP-NAV-5a – Hyperantriebs-Notladegerät als datengetriebenes Spezialsystem mit Backend-Aktion, Cooldown und Schiffssteuerungsbutton umgesetzt.
 - 2026-10-21 – sc-WP-TRACT-1b – Option a: Traktor auf jedes fremde ungeschildete Schiff unabhängig von der Haltung (außer Urlauber/NPC)
 - 2026-10-21 – sc-WP-UI-3b – Option a: Kolonieangriff gezielt auf Gebäude/Feld wie STU AttackBuilding

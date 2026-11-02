@@ -10,6 +10,7 @@ import type {
   SpacecraftScanResultDto,
 } from '@swuniverse/shared';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import { Buoy } from './entities/buoy.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { resolveColonyLocation } from '../colony/colony-location';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
@@ -67,6 +68,9 @@ export class SpacecraftScanService {
     private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
     private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
     private readonly colonyScanProjection: ColonyScanProjectionService,
+    private readonly buoyRepo: Repository<Buoy> = {
+      find: async () => [],
+    } as unknown as Repository<Buoy>,
     private readonly flightSignatureService: FlightSignatureService = {
       getVisibleAt: async () => ({
         signatures: [],
@@ -111,6 +115,7 @@ export class SpacecraftScanService {
       });
     }
     const object = 'celestialObject' in field ? field.celestialObject : null;
+    const buoys = await this.buoyRepo.find({ where: { locationId: ship.locationId }, order: { createdAt: 'ASC' } });
     const celestialDiscovery = object
       ? await this.celestialClassDiscoveryService.discover({
           userId,
@@ -177,7 +182,7 @@ export class SpacecraftScanService {
       celestialDiscovery,
       signatures: signatureResult.signatures,
       fadedSignatures: signatureResult.fadedSignatures,
-      buoys: [],
+      buoys: buoys.map((buoy) => ({ id: buoy.id, text: buoy.text, ownerId: buoy.userId, createdAt: buoy.createdAt.toISOString() })),
     });
   }
 

@@ -871,6 +871,32 @@ export class SpacecraftController {
     );
   }
 
+  @Get(':id/buoys')
+  listBuoys(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.listBuoys(id, req.user.sub);
+  }
+
+  @Post(':id/buoys')
+  dropBuoy(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() body: { text: string },
+  ) {
+    return this.spacecraftService.dropBuoy(id, req.user.sub, body.text);
+  }
+
+  @Post(':id/buoys/:buoyId/pick-up')
+  pickUpBuoy(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('buoyId', ParseIntPipe) buoyId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.pickUpBuoy(id, buoyId, req.user.sub);
+  }
+
   @Post(':id/sector-scan')
   sectorScan(
     @Param('id', ParseIntPipe) id: number,
