@@ -1,6 +1,6 @@
 # Tachyon-Scan: getarnte Schiffe aufdecken
 
-**Status:** claimed
+**Status:** needs-info
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-CLOAK-1a, sc-WP-NAV-2a
@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
+
+Blocked after two serious validation attempts: the full backend suite has one unrelated pre-existing failure in `spacecraft-fleet.service.spec.ts` (`detaches an incapable member but blocks a fixed fleet`, `Not enough EPS for navigation`). Focused tachyon backend/frontend tests, affected lint/typecheck, and all builds pass. Product code was discarded per Ralph step 7; rerun after the backend baseline is green.
