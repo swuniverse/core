@@ -68,6 +68,10 @@ class CoordinatorTest(unittest.TestCase):
 **Priority:** P2
 **Size:** S
 **Blocked by:** {blocked_by}
+
+## Akzeptanzkriterien
+
+- [ ] Test criterion
 """,
             encoding="utf-8",
         )
@@ -129,11 +133,84 @@ class CoordinatorTest(unittest.TestCase):
         if issue_path.is_absolute():
             issue_path = issue_path.relative_to(self.repo)
         issue = worker.worktree / issue_path
-        issue.write_text(issue.read_text(encoding="utf-8").replace("ready-for-agent", "resolved"), encoding="utf-8")
+        issue.write_text(issue.read_text(encoding="utf-8").replace("ready-for-agent", "resolved").replace("- [ ] Test criterion", "- [x] Test criterion"), encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=worker.worktree, check=True)
         subprocess.run(["git", "commit", "-m", f"feat(test): done (stu-parity {worker.issue_id})"], cwd=worker.worktree, check=True)
         coordinator.validate_worker(worker)
         self.assertIsNotNone(worker.head_after)
+
+    def prepare_terminal_worker(self, status: str, criteria: str) -> tuple[object, Path]:
+        coordinator = self.coordinator()
+        coordinator.acquire_lock()
+        coordinator.preflight()
+        coordinator.init_or_resume()
+        worker = coordinator.prepare_worker(coordinator.query_frontier(1)[0])
+        issue_path = Path(worker.issue_path)
+        if issue_path.is_absolute():
+            issue_path = issue_path.relative_to(self.repo)
+        issue = worker.worktree / issue_path
+        text = issue.read_text(encoding="utf-8")
+        text = text.replace("ready-for-agent", status)
+        text = text.replace("- [ ] Test criterion", criteria)
+        issue.write_text(text, encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=worker.worktree, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", f"feat(test): done (stu-parity {worker.issue_id})"],
+            cwd=worker.worktree,
+            check=True,
+        )
+        return coordinator, worker
+
+    def test_resolved_worker_rejects_unchecked_acceptance_criterion(self):
+        coordinator, worker = self.prepare_terminal_worker(
+            "resolved", "- [ ] Test criterion"
+        )
+        with self.assertRaisesRegex(
+            parallel.CoordinatorError, "unchecked acceptance criterion.*Test criterion"
+        ):
+            coordinator.validate_worker(worker)
+
+    def test_needs_info_worker_allows_unchecked_acceptance_criterion(self):
+        coordinator, worker = self.prepare_terminal_worker(
+            "needs-info", "- [ ] Test criterion"
+        )
+        coordinator.validate_worker(worker)
+
+    def test_resolved_worker_rejects_missing_acceptance_section(self):
+        coordinator, worker = self.prepare_terminal_worker(
+            "resolved", "Test criterion"
+        )
+        issue = worker.worktree / worker.issue_path
+        text = issue.read_text(encoding="utf-8").replace(
+            "## Akzeptanzkriterien\n\nTest criterion\n", "Test criterion\n"
+        )
+        issue.write_text(text, encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=worker.worktree, check=True)
+        subprocess.run(["git", "commit", "--amend", "--no-edit"], cwd=worker.worktree, check=True)
+        with self.assertRaisesRegex(parallel.CoordinatorError, "acceptance section"):
+            coordinator.validate_worker(worker)
+
+    def test_resolved_worker_rejects_duplicate_acceptance_sections(self):
+        coordinator, worker = self.prepare_terminal_worker(
+            "resolved", "- [x] Test criterion\n\n## Akzeptanzkriterien\n\n- [x] Duplicate"
+        )
+        with self.assertRaisesRegex(parallel.CoordinatorError, "multiple acceptance sections"):
+            coordinator.validate_worker(worker)
+
+    def test_explicit_split_parent_allows_unchecked_criteria(self):
+        parallel.SPLIT_PARENT_ISSUES.add("soc-A1")
+        self.addCleanup(parallel.SPLIT_PARENT_ISSUES.discard, "soc-A1")
+        coordinator, worker = self.prepare_terminal_worker(
+            "resolved", "- [ ] Delegated criterion"
+        )
+        coordinator.validate_worker(worker)
+
+    def test_unlisted_parent_like_issue_is_not_exempt(self):
+        coordinator, worker = self.prepare_terminal_worker(
+            "resolved", "- [ ] Delegated criterion"
+        )
+        with self.assertRaisesRegex(parallel.CoordinatorError, "unchecked acceptance criterion"):
+            coordinator.validate_worker(worker)
 
     def test_reconcile_does_not_accept_dirty_interrupted_worker(self):
         coordinator = self.coordinator()
@@ -170,7 +247,7 @@ class CoordinatorTest(unittest.TestCase):
         coordinator.init_or_resume()
         worker = coordinator.prepare_worker(coordinator.query_frontier(1)[0])
         issue = worker.worktree / worker.issue_path
-        issue.write_text(issue.read_text(encoding="utf-8").replace("ready-for-agent", "resolved"), encoding="utf-8")
+        issue.write_text(issue.read_text(encoding="utf-8").replace("ready-for-agent", "resolved").replace("- [ ] Test criterion", "- [x] Test criterion"), encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=worker.worktree, check=True)
         subprocess.run(["git", "commit", "-m", f"feat(test): done (stu-parity {worker.issue_id})"], cwd=worker.worktree, check=True)
         coordinator.validate_worker(worker)

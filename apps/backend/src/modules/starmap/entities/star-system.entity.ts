@@ -8,7 +8,7 @@ import {
   Index,
 } from 'typeorm';
 import { Layer } from './layer.entity';
-import { CelestialObject } from './celestial-object.entity';
+import type { CelestialObject } from './celestial-object.entity';
 
 @Entity('star_systems')
 @Index(['cx', 'cy', 'layerId'], { unique: true })
@@ -53,6 +53,9 @@ export class StarSystem {
   @Column({ type: 'smallint', default: 2 })
   bonusFields: number;
 
-  @OneToMany(() => CelestialObject, (obj) => obj.starSystem)
+  @OneToMany(
+    () => require('./celestial-object.entity').CelestialObject,
+    (object: CelestialObject) => object.starSystem,
+  )
   celestialObjects: CelestialObject[];
 }

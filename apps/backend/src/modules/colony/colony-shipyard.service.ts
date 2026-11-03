@@ -1687,7 +1687,7 @@ export class ColonyShipyardService {
       this.shipClassRepo.findOneBy({ id: ship.shipClassId }),
       this.spacecraftModuleRepo.find({ where: { spacecraftId: ship.id } }),
     ]);
-    if (!shipClass) return;
+    if (!shipClass || !job.colony) return;
 
     const hasRepairStationBonus = this.hasActiveBuildingFunction(
       job.colony,

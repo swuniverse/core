@@ -3,50 +3,155 @@ import type { ShipModuleSelection } from '@swuniverse/shared';
 import type { User } from '../auth/user.entity';
 import { ColonyFabricationQueueType } from '../colony/entities/colony-fabrication-queue.entity';
 import { GameDataService } from '../game-data/game-data.service';
+import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ShipClassDef } from './entities/ship-class-def.entity';
+import { SpacecraftModule } from './entities/spacecraft-module.entity';
+
+export interface PreparedShipModule {
+  slotId: string;
+  commodityId: number;
+  moduleType: string;
+  category: string;
+  level: number;
+}
 
 export interface PreparedShipBuild {
   moduleSelections: ShipModuleSelection[];
   moduleCommodityIds: number[];
   moduleTypes: string[];
+  modules: PreparedShipModule[];
   materialCosts: Array<{ commodityId: number; amount: number }>;
   crewRequired: number;
 }
 
 @Injectable()
 export class ShipbuildingCoreService {
-  constructor(private readonly gameData: GameDataService) {}
+  constructor(
+    private readonly gameData: GameDataService,
+    private readonly unlocks: UnlockResolverService,
+  ) {}
 
-  prepare(shipClass: ShipClassDef, selections: ShipModuleSelection[], faction: User['faction']): PreparedShipBuild {
-    const layout = this.gameData.getShipClassSlotRuleForShipClass?.(shipClass)
-      ?? this.gameData.getShipClassSlotRule(shipClass.category);
-    if (!layout) throw new BadRequestException(`Missing ship layout for ${shipClass.category}`);
+  async prepare(
+    userId: number,
+    shipClass: ShipClassDef,
+    selections: ShipModuleSelection[],
+    faction: User['faction'],
+  ): Promise<PreparedShipBuild> {
+    const layout =
+      this.gameData.getShipClassSlotRuleForShipClass?.(shipClass) ??
+      this.gameData.getShipClassSlotRule(shipClass.category);
+    if (!layout) {
+      throw new BadRequestException(`Missing ship layout for ${shipClass.category}`);
+    }
+
     const slots = new Map(layout.slots.map((slot) => [slot.slotId, slot]));
     const seen = new Set<string>();
-    const normalized = (selections ?? []).map((selection) => {
+    const modules: PreparedShipModule[] = [];
+
+    for (const selection of selections ?? []) {
       const slotId = String(selection?.slotId ?? '').trim();
       const commodityId = Number(selection?.commodityId);
       const slot = slots.get(slotId);
-      if (!slot || !Number.isInteger(commodityId)) throw new BadRequestException('Invalid module selection');
-      if (slot.moduleCategory !== 'SPECIAL' && seen.has(slot.moduleCategory)) throw new BadRequestException(`Duplicate module selection for ${slot.moduleCategory}`);
+      if (!slot || !Number.isInteger(commodityId)) {
+        throw new BadRequestException('Invalid module selection');
+      }
+      if (slot.moduleCategory !== 'SPECIAL' && seen.has(slot.moduleCategory)) {
+        throw new BadRequestException(
+          `Duplicate module selection for ${slot.moduleCategory}`,
+        );
+      }
+
       const item = this.gameData.getFabricationItemByOutputCommodity(commodityId);
-      if (!item || item.queueType !== ColonyFabricationQueueType.MODULE) throw new BadRequestException(`Commodity #${commodityId} is not a ship module`);
-      if (item.faction != null && item.faction !== faction) throw new BadRequestException('Ship module is faction-locked');
-      if ((item.shipyardType ?? 'UNKNOWN') !== slot.moduleCategory) throw new BadRequestException(`${item.displayName ?? `Module #${commodityId}`} does not fit ${slot.label}`);
-      if (!this.gameData.isShipyardModuleAllowedForShipClass(item, shipClass)) throw new BadRequestException(`${item.displayName ?? `Module #${commodityId}`} is not allowed for ${shipClass.name}`);
+      if (
+        !item ||
+        item.queueType !== ColonyFabricationQueueType.MODULE ||
+        !item.moduleType
+      ) {
+        throw new BadRequestException(`Commodity #${commodityId} is not a ship module`);
+      }
+      if (item.faction != null && item.faction !== faction) {
+        throw new BadRequestException('Ship module is faction-locked');
+      }
+      if ((item.shipyardType ?? 'UNKNOWN') !== slot.moduleCategory) {
+        throw new BadRequestException(
+          `${item.displayName ?? `Module #${commodityId}`} does not fit ${slot.label}`,
+        );
+      }
+      if (!this.gameData.isShipyardModuleAllowedForShipClass(item, shipClass)) {
+        throw new BadRequestException(
+          `${item.displayName ?? `Module #${commodityId}`} is not allowed for ${shipClass.name}`,
+        );
+      }
+      if (
+        item.researchId != null &&
+        !(await this.unlocks.hasTech(userId, item.researchId))
+      ) {
+        throw new BadRequestException(
+          `Research required: ${item.researchRequired || item.researchId}`,
+        );
+      }
+
       seen.add(slot.moduleCategory);
-      return { slotId, commodityId };
-    });
-    const special = normalized.filter((selection) => slots.get(selection.slotId)?.moduleCategory === 'SPECIAL').length;
-    if (special > (layout.moduleSlots.SPECIAL ?? 0)) throw new BadRequestException('More special modules selected than the hull allows');
-    const crewRequired = shipClass.crewMin + normalized.reduce((sum, selection) => sum + (this.gameData.getFabricationItemByOutputCommodity(selection.commodityId)?.shipyardModuleStats?.crew ?? 0), 0);
-    if (crewRequired > shipClass.crewMax) throw new BadRequestException(`Crew maximum exceeded: build requires ${crewRequired}, hull allows ${shipClass.crewMax}`);
+      modules.push({
+        slotId,
+        commodityId,
+        moduleType: item.moduleType,
+        category: item.shipyardType ?? 'UNKNOWN',
+        level: item.moduleLevel ?? 1,
+      });
+    }
+
+    const special = modules.filter(
+      (module) => slots.get(module.slotId)?.moduleCategory === 'SPECIAL',
+    ).length;
+    if (special > (layout.moduleSlots.SPECIAL ?? 0)) {
+      throw new BadRequestException(
+        'More special modules selected than the hull allows',
+      );
+    }
+
+    const crewRequired =
+      shipClass.crewMin +
+      modules.reduce(
+        (sum, module) =>
+          sum +
+          (this.gameData.getFabricationItemByOutputCommodity(module.commodityId)
+            ?.shipyardModuleStats?.crew ?? 0),
+        0,
+      );
+    if (crewRequired > shipClass.crewMax) {
+      throw new BadRequestException(
+        `Crew maximum exceeded: build requires ${crewRequired}, hull allows ${shipClass.crewMax}`,
+      );
+    }
+
     return {
-      moduleSelections: normalized,
-      moduleCommodityIds: normalized.map((x) => x.commodityId),
-      moduleTypes: normalized.map((x) => slots.get(x.slotId)!.moduleCategory),
-      materialCosts: (this.gameData.getShipClassDefByKey(shipClass.key)?.buildCosts ?? []).filter((x) => x.amount > 0),
+      moduleSelections: modules.map(({ slotId, commodityId }) => ({
+        slotId,
+        commodityId,
+      })),
+      moduleCommodityIds: modules.map((module) => module.commodityId),
+      moduleTypes: modules.map((module) => module.moduleType),
+      modules,
+      materialCosts: (
+        this.gameData.getShipClassDefByKey(shipClass.key)?.buildCosts ?? []
+      ).filter((cost) => cost.amount > 0),
       crewRequired,
     };
+  }
+
+  createModules(spacecraftId: number, build: PreparedShipBuild): SpacecraftModule[] {
+    return build.modules.map((module) =>
+      Object.assign(new SpacecraftModule(), {
+        spacecraftId,
+        slotId: module.slotId,
+        moduleType: module.moduleType,
+        category: module.category,
+        level: module.level,
+        integrity: 100,
+        cooldown: 0,
+        isActive: true,
+      }),
+    );
   }
 }

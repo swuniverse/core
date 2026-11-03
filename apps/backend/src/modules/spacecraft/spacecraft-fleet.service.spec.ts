@@ -92,7 +92,7 @@ function createService() {
   const userRepo = { find: jest.fn() };
   const gameData = { getCombatFormulas: jest.fn() };
   const shipClassService = {
-    findById: jest.fn(async () => ({ flightEnergyCost: 1 })),
+    findById: jest.fn(async () => ({ id: 1, flightEnergyCost: 1 })),
     findAll: jest.fn(),
   };
   const explorationService = {
@@ -105,7 +105,7 @@ function createService() {
   const statsService = { applyStats: jest.fn() };
   const crewService = { hasEnoughCrew: jest.fn(async () => true) };
   const torpedoService = { getStorage: jest.fn() };
-  const resourceFlow = { recharge: jest.fn() };
+  const resourceFlow = { recharge: jest.fn(), getSystemCost: jest.fn(() => 0) };
   const cartographyPlanService = {
     resetFinishingForSpacecraft: jest.fn(async () => undefined),
   };
@@ -216,7 +216,9 @@ const ship = (overrides: Record<string, unknown> = {}): any => ({
   fleetId: null,
   locationId: 10,
   location,
+  shipClassId: 1,
   modules: [],
+  energy: 10,
   ...overrides,
 });
 
@@ -315,6 +317,7 @@ describe('SpacecraftService fleet management', () => {
       id: 3,
       name: 'Möwe',
       fleetId: 7,
+      status: SpacecraftStatus.DESTROYED,
       energy: 0,
       runtimeSystems: {
         SUBLIGHT_DRIVE: { active: true, cooldown: 0, integrity: 100 },
@@ -341,7 +344,9 @@ describe('SpacecraftService fleet management', () => {
 
     await service.navigate(2, 5, 11, 10);
     expect(stranded.fleetId).toBeNull();
+    expect(leader.energy).toBe(9);
 
+    leader.energy = 10;
     leader.location = {
       id: 10,
       kind: 'SYSTEM_FIELD',
@@ -351,6 +356,7 @@ describe('SpacecraftService fleet management', () => {
     stranded.location = leader.location;
     stranded.locationId = 10;
     stranded.fleetId = 7;
+    stranded.status = SpacecraftStatus.DESTROYED;
     fleet.isFixed = true;
     fleetRepo.findOne.mockResolvedValue(fleet);
     await expect(service.navigate(2, 5, 11, 10)).rejects.toThrow('Möwe');

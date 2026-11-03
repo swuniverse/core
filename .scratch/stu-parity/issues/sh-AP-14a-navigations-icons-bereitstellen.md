@@ -27,12 +27,14 @@ Dieses Issue umfasst ausschließlich das separate Asset-Repository und die spät
 
 ## Akzeptanzkriterien
 
-- [ ] In `swuniverse/assets/navigation/` liegen je `0`/`1`-Paar (40×40 px wie STU): `menu_maindesk`, `menu_planets` (Kolonien), `menu_comm` (HoloNet), `menu_msg` (Nachrichten), `menu_forsch` (Forschung), `menu_ally` (Allianzen), `menu_data` (Datenbank), `menu_history` (Ereignisse), `menu_map` (Karte), `menu_admin` (Admin), `menu_mapeditor` (Karteneditor); für spätere Bereiche zusätzlich `menu_station` und `menu_trade`.
-- [ ] Neutrale STU-Motive (Planet, Datenbank, Forschung, Ereignisse, Karte, Nachrichten, Funk) dürfen übernommen werden; Star-Trek-Motive (z. B. Sternenflotten-Uniformen in `menu_ally`) werden durch Star-Wars-Motive ersetzt; eine Zeile unter „Entscheidungen“ in `map.md` dokumentiert die Auswahl.
-- [ ] Submodul-Zeiger in diesem Repo zeigt auf den Commit mit den neuen Icons.
+- [x] In `swuniverse/assets/navigation/` liegen je `0`/`1`-Paar (40×40 px wie STU): `menu_maindesk`, `menu_planets` (Kolonien), `menu_comm` (HoloNet), `menu_msg` (Nachrichten), `menu_forsch` (Forschung), `menu_ally` (Allianzen), `menu_data` (Datenbank), `menu_history` (Ereignisse), `menu_map` (Karte), `menu_admin` (Admin), `menu_mapeditor` (Karteneditor); für spätere Bereiche zusätzlich `menu_station` und `menu_trade`.
+- [x] Neutrale STU-Motive (Planet, Datenbank, Forschung, Ereignisse, Karte, Nachrichten, Funk) wurden übernommen; Star-Trek-Motive wurden durch Star-Wars-neutrale Motive ersetzt und die Auswahl dokumentiert.
+- [x] Submodul-Zeiger in diesem Repo zeigt auf einen Nachfolgecommit, der den Icon-Commit enthält.
 
 ## Answer
 
 Die neutralen MIT-lizenzierten STU-Paare wurden übernommen und die Star-Wars-neutralen Paare für Maindesk, Allianzen, Admin, Karteneditor und den mobilen Mehr-Schalter ergänzt. Alle Paare sind 40×40-PNGs; Normal- und Hoverzustand sind unterscheidbar. Der Asset-Commit `5c7b0e7c31` ist auf `swuniverse/assets` `main` veröffentlicht und der Submodul-Zeiger dieses Arbeitsbaums verweist darauf.
 
 ## Comments
+
+- 2026-11-03 Audit: Asset-Commit `5c7b0e7c31` ist Vorfahr des aktuellen Submodul-HEAD `38aa9340e4a2d553b02d9331dab37176729c6a56`; der Root-Gitlink zeigt auf dieses HEAD. Alle 13 geforderten `0`/`1`-Paare sind vorhanden und als 40×40-PNGs verifiziert.

@@ -26,10 +26,59 @@ TRANSIENT_PATTERN = re.compile(
 )
 ACTIVE_STATES = {"prepared", "running", "retry_wait", "integration_pending"}
 TERMINAL_FAILURE_STATES = {"worker_failed", "conflict", "verification_failed"}
+SPLIT_PARENT_ISSUES = {
+    "col-D2a",
+    "sc-WP-COMBAT-1",
+    "sc-WP-ENG-2",
+    "sc-WP-UI-3a",
+    "tmw-FA1b",
+    "tmw-K1b",
+    "tmw-K5",
+    "tmw-K8b",
+    "tmw-T1",
+    "tmw-T2",
+}
+STATUS_PATTERN = re.compile(r"^\*\*Status:\*\*\s+(\S+)\s*$", re.MULTILINE)
+ACCEPTANCE_HEADING_PATTERN = re.compile(r"^##\s+Akzeptanzkriterien\s*$", re.MULTILINE)
+CHECKBOX_PATTERN = re.compile(r"^\s*-\s+\[([ xX])\]\s+(.+?)\s*$", re.MULTILINE)
+SECTION_HEADING_PATTERN = re.compile(r"^##\s+.+$", re.MULTILINE)
 
 
 class CoordinatorError(Exception):
     pass
+
+
+def validate_terminal_issue(issue_id: str, issue_path: Path, text: str) -> None:
+    status_match = STATUS_PATTERN.search(text)
+    if not status_match or status_match.group(1) not in {"resolved", "needs-info"}:
+        raise CoordinatorError(f"{issue_id} did not reach resolved or needs-info")
+    if status_match.group(1) == "needs-info" or issue_id in SPLIT_PARENT_ISSUES:
+        return
+
+    headings = list(ACCEPTANCE_HEADING_PATTERN.finditer(text))
+    if not headings:
+        raise CoordinatorError(
+            f"{issue_id} resolved without an acceptance section in {issue_path}"
+        )
+    if len(headings) > 1:
+        raise CoordinatorError(
+            f"{issue_id} has multiple acceptance sections in {issue_path}"
+        )
+
+    start = headings[0].end()
+    next_heading = SECTION_HEADING_PATTERN.search(text, start)
+    section = text[start : next_heading.start() if next_heading else len(text)]
+    criteria = list(CHECKBOX_PATTERN.finditer(section))
+    if not criteria:
+        raise CoordinatorError(
+            f"{issue_id} acceptance section has no criteria in {issue_path}"
+        )
+    unchecked = next((match for match in criteria if match.group(1) == " "), None)
+    if unchecked:
+        raise CoordinatorError(
+            f"{issue_id} has unchecked acceptance criterion in {issue_path}: "
+            f"{unchecked.group(2)}"
+        )
 
 
 @dataclass
@@ -455,8 +504,7 @@ push, merge, or modify coordinator manifests. The coordinator owns integration.
             issue_relative = issue_relative.relative_to(self.repo)
         issue_file = worker.worktree / issue_relative
         text = issue_file.read_text(encoding="utf-8")
-        if not re.search(r"^\*\*Status:\*\*\s+(resolved|needs-info)\s*$", text, re.MULTILINE):
-            raise CoordinatorError(f"{worker.issue_id} did not reach resolved or needs-info")
+        validate_terminal_issue(worker.issue_id, issue_file, text)
         changed = self.git("diff", "--name-only", f"{worker.base_commit}..{head}", cwd=worker.worktree).splitlines()
         issue_prefix = ".scratch/stu-parity/issues/"
         foreign = [path for path in changed if path.startswith(issue_prefix) and path != str(issue_relative)]

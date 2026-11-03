@@ -91,7 +91,10 @@ function createService() {
     posX: 1,
     posY: 1,
   };
-  const shipRepo = { save: jest.fn(async (value) => value) };
+  const shipRepo = {
+    save: jest.fn(async (value) => value),
+    findOneBy: jest.fn(async () => null),
+  };
   const runtime = {
     initialize: jest.fn((value) => {
       const systems = value.runtimeSystems as Record<string, any>;
@@ -538,7 +541,10 @@ describe('spacecraft core detail controls', () => {
       };
       (service as any).shipRepo.createQueryBuilder = jest.fn(() => query);
       (service as any).dataSource = {
-        getRepository: jest.fn(() => ({ createQueryBuilder: () => query })),
+        getRepository: jest.fn(() => ({
+          createQueryBuilder: () => query,
+          find: jest.fn(async () => []),
+        })),
       };
       (service as any).escapePodService = { listNearby: jest.fn(async () => []) };
       jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);

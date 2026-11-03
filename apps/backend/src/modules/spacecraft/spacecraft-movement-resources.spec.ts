@@ -209,10 +209,11 @@ function createService() {
     undefined,
     undefined,
     undefined,
+    undefined,
     new FieldTransitionExecutor(),
     layerKnowledgeService as unknown as ConstructorParameters<
       typeof SpacecraftService
-    >[41],
+    >[42],
   );
 
   return {

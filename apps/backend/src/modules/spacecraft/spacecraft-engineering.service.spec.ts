@@ -51,7 +51,11 @@ function setup(shipOverrides = {}, cargoAmount = 5) {
   };
   const manager = {
     find: jest.fn(async (entity) =>
-      String(entity.name).includes('SpacecraftModule') ? [reactor] : [cargo],
+      String(entity.name).includes('SpacecraftModule')
+        ? (ship.modules as unknown[]).length > 0
+          ? (ship.modules as unknown[])
+          : [reactor]
+        : [cargo],
     ),
     findOne: jest.fn(async (entity) =>
       String(entity.name).includes('Spacecraft') ? ship : cargo,
@@ -245,7 +249,11 @@ describe('SpacecraftEngineeringService', () => {
         },
       ],
       runtimeSystems: {
-        HYPERDRIVE_BOOSTER: { active: false, cooldown: 1, integrity: 100 },
+        HYPERDRIVE_BOOSTER: {
+          active: false,
+          cooldown: Date.now() + 60_000,
+          integrity: 100,
+        },
       },
     });
 

@@ -70,7 +70,7 @@ const techs = [
     tier: 1,
     duration: 60,
     finishesAt: null,
-    dependencies: [{ type: 'REQUIRE', techIds: [211200] }],
+    dependencies: [{ type: 'REQUIRE_SOME', techIds: [211200] }],
     unlocks: {},
     status: 'COMPLETED',
     progress: 120,
@@ -647,7 +647,12 @@ describe('ResearchPage routing', () => {
     expect(
       screen.getAllByText('Alternative Reaktortheorie').length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText('(eine von)')).toBeTruthy();
+    expect(
+      screen
+        .getAllByText('Alternative Reaktortheorie')
+        .find((element) => element.closest('button'))
+        ?.closest('button')?.textContent,
+    ).toContain('(eine von)');
     expect(screen.getByText('A-Wing Aufklärer')).toBeTruthy();
     expect(screen.getByText('Militär-Scanner')).toBeTruthy();
     expect(screen.getByAltText('A-Wing Aufklärer').getAttribute('src')).toBe(

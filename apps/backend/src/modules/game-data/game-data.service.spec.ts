@@ -364,6 +364,12 @@ describe('GameDataService fabrication items', () => {
       moduleLevel: 1,
       buildingFunctionIds: [FUNCTIONS.MODULEFAB_TYPE1_LVL1],
     });
+    expect(service.getFabricationItem('utility.probe-buoy')).toMatchObject({
+      queueType: 'MODULE',
+      outputCommodityId: 88,
+      researchId: 500400,
+      buildingFunctionIds: [FUNCTIONS.MODULEFAB_TYPE1_LVL1],
+    });
     expect(service.getAllFabricationItems().length).toBeGreaterThanOrEqual(7);
   });
 

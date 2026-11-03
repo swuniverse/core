@@ -24,11 +24,11 @@ type LayoutSlot = NonNullable<
   NonNullable<ColonyDetailV2['shipyard']['shipClassLayouts']>
 >[number]['slots'][number];
 
-type ShipLayout = NonNullable<
+export type ShipLayout = NonNullable<
   NonNullable<ColonyDetailV2['shipyard']['shipClassLayouts']>
 >[number];
 
-type ShipModuleOption = NonNullable<
+export type ShipModuleOption = NonNullable<
   ColonyDetailV2['availableShipModules']
 >[number];
 type ShipyardTypeKey = NonNullable<ShipModuleOption['shipyardType']>;
@@ -410,7 +410,7 @@ function getSelectedModuleEffects(
   });
 }
 
-function ShipHullDesigner({
+export function ShipHullDesigner({
   layout,
   shipClassKey,
   availableModules,

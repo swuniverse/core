@@ -69,10 +69,30 @@ import {
   SpacecraftLssMode,
 } from './entities/spacecraft.entity';
 
+class StationShipModuleSelectionDto {
+  @IsString()
+  slotId: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  commodityId: number;
+}
+
 class StationShipBuildDto {
-  @Type(() => Number) @IsInt() @Min(1) shipClassId: number;
-  @IsString() name: string;
-  @IsOptional() @IsArray() moduleSelections?: Array<{ slotId: string; commodityId: number }>;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  shipClassId: number;
+
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StationShipModuleSelectionDto)
+  moduleSelections?: StationShipModuleSelectionDto[];
 }
 
 class CreateFleetDto {

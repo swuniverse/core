@@ -1,6 +1,6 @@
 # Stationswerft: Schiffe an Werftstationen bauen
 
-**Status:** claimed
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-STAT-2
@@ -31,6 +31,8 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] Backend-Tests, Frontend-Test.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
+> **Offene Umsetzung:** Der aktuelle `ShipbuildingCoreService` wird nur von der Stationswerft verwendet und teilt lediglich Vorbereitung und Modulerzeugung. Kolonie und Station besitzen weiterhin getrennte Queue-Erzeugungs- und Fertigstellungspfade. Vor Auflösung müssen beide Quellen denselben quellneutralen Workflow verwenden; außerdem fehlen belastbare Architektur-/Migrationstests und die Station verwendet noch keine gespeicherten Baupläne.
+
 ## Entscheidung
 
 Kolonie und Raumwerft teilen einen autoritativen, quellneutralen Schiffbau-Workflow samt generalisiertem Queue- und Fertigstellungsprozess. Die Queue modelliert genau einen Ursprung `COLONY` oder `STATION`; die jeweiligen Endpunkte adaptieren Lager, Slots und Ursprung in dünnen Adaptern. `ColonyShipyardService` ist nicht Eigentümer des gemeinsamen Workflows und wird nicht in den `SpacecraftController` injiziert. Neue `forwardRef`-, `ModuleRef`- oder Lazy-Auflösungen zur Umgehung des Modulzyklus sind ausgeschlossen.
@@ -39,3 +41,4 @@ Kolonie und Raumwerft teilen einen autoritativen, quellneutralen Schiffbau-Workf
 
 - 2026-10-29: Nach zwei ernsthaften Verifikationsversuchen abgebrochen. Der neue Stationswerft-Service löste beim Laden über `spacecraft.controller.ts` in bestehenden Controller-Tests eine TypeORM-Zirkularabhängigkeit in `@InjectRepository()` aus; zusätzlich blieben die vorgeschriebenen `nx affected`-Prüfungen für Backend-Test sowie Frontend-Test/Typecheck rot. Der vorgeschriebene Build war grün. Der Produktcode wurde gemäß Ralph-Abbruchregel vollständig verworfen. Vor einer erneuten Umsetzung muss geklärt werden, wie die Werftlogik ohne diese Modul-/Entity-Zirkularabhängigkeit über den Spacecraft-Controller eingebunden und zugleich die vorhandene Kolonie-Bauqueue-Logik ohne Kopie wiederverwendet werden soll.
 - 2026-10-30 Product Owner: Option 1. Schiffbau wird in einen quellneutralen Anwendungskern mit gemeinsamer Validierung, Kostenberechnung, Queue-Erzeugung und Fertigstellung extrahiert. Queue-Persistenz besitzt genau einen Ursprung `COLONY` oder `STATION`; Kolonie und Raumwerft verwenden dünne Adapter. Die `col-A3b`-Semantik bleibt bei Migration und Kolonieadapter erhalten. Eine direkte Injection von `ColonyShipyardService` in den Spacecraft-Controller oder ein zusätzlicher `forwardRef`-/Lazy-Service-Workaround ist ausgeschlossen.
+- 2026-11-03 Audit: Stationsrolle, atomare Lagerentnahme, kanonische Module, Crew-/Stat-/Runtime-Initialisierung, Dockkapazitäts-Retry sowie Backend- und Frontend-Tests wurden repariert. Vollständige Backend-Tests (200 Suites/1.896 Tests), vollständige Frontend-Tests (88 Dateien/585 Tests), Typechecks und Ralph-Tests sind grün. Das Issue wurde dennoch auf `ready-for-agent` zurückgesetzt: `ColonyShipyardService` verwendet den gemeinsamen Core nicht, Queue-Erzeugung und Fertigstellung sind weiterhin quellenspezifisch dupliziert, und Stationsaufträge persistieren keine echten Baupläne. Diese offenen Architektur-Kriterien dürfen nicht als erledigt markiert werden.

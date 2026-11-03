@@ -210,7 +210,7 @@ export class DashboardService {
       mode: queue.mode,
       label: queue.spacecraft?.name ?? queue.shipClass.name,
       colonyId: queue.colonyId,
-      colonyName: queue.colony.name,
+      colonyName: queue.colony?.name ?? queue.station?.name ?? null,
       finishesAt: queue.finishesAt.toISOString(),
       paused: queue.stoppedAt !== null,
     }));

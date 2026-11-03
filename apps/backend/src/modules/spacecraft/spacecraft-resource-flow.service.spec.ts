@@ -23,7 +23,20 @@ describe('SpacecraftResourceFlowService', () => {
       reactorWarpSplit: 100,
       shields: 0,
       shieldsMax: 0,
-      runtimeSystems: {},
+      modules: [
+        { category: 'SENSORS', moduleType: 'Sensorphalanx' },
+        { category: 'WEAPONS', moduleType: 'Laserbank' },
+        { category: 'TORPEDO_BANK', moduleType: 'Torpedobank' },
+        { category: 'SPECIAL', moduleType: 'Mehrzweckmodul' },
+      ],
+      runtimeSystems: {
+        LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+        SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+        WEAPONS: { active: true, cooldown: 0, integrity: 100 },
+        TORPEDO_BANK: { active: true, cooldown: 0, integrity: 100 },
+        SPECIAL: { active: true, cooldown: 0, integrity: 100 },
+        LIFE_SUPPORT: { active: true, cooldown: 0, integrity: 100 },
+      },
       ...overrides,
     };
   }

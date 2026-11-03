@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import { SpaceLocation } from '../../starmap/entities/space-location.entity';
-import { SpacecraftModule } from './spacecraft-module.entity';
+import type { SpacecraftModule } from './spacecraft-module.entity';
 import { Fleet } from './fleet.entity';
 import { ShipClassDef } from './ship-class-def.entity';
 
@@ -255,7 +255,11 @@ export class Spacecraft {
   @JoinColumn({ name: 'fleetId' })
   fleet: Fleet | null;
 
-  @OneToMany(() => SpacecraftModule, (m) => m.spacecraft, { eager: false })
+  @OneToMany(
+    () => require('./spacecraft-module.entity').SpacecraftModule,
+    (module: SpacecraftModule) => module.spacecraft,
+    { eager: false },
+  )
   modules: SpacecraftModule[];
 
   @CreateDateColumn()

@@ -226,7 +226,7 @@ export class SpacecraftEngineeringService {
       }
       const systems = initializeSpacecraftRuntimeSystems(ship);
       const runtime = systems.HYPERDRIVE_BOOSTER;
-      if (!runtime || !runtime.active) {
+      if (!runtime) {
         throw new BadRequestException(
           'Hyperantriebs-Notladegerät ist nicht verfügbar',
         );
@@ -234,6 +234,11 @@ export class SpacecraftEngineeringService {
       if (runtime.cooldown && runtime.cooldown > Date.now()) {
         throw new BadRequestException(
           'Hyperantriebs-Notladegerät ist noch nicht bereit',
+        );
+      }
+      if (!runtime.active) {
+        throw new BadRequestException(
+          'Hyperantriebs-Notladegerät ist nicht verfügbar',
         );
       }
       if (ship.energy < 100) {

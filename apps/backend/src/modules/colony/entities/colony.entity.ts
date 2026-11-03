@@ -12,10 +12,10 @@ import {
 import { User } from '../../auth/user.entity';
 import { StarSystem } from '../../starmap/entities/star-system.entity';
 import { CelestialObject } from '../../starmap/entities/celestial-object.entity';
-import { ColonyField } from './colony-field.entity';
-import { ColonyStorage } from './colony-storage.entity';
-import { ColonyStats } from './colony-stats.entity';
-import { ColonyChangeable } from './colony-changeable.entity';
+import type { ColonyField } from './colony-field.entity';
+import type { ColonyStorage } from './colony-storage.entity';
+import type { ColonyStats } from './colony-stats.entity';
+import type { ColonyChangeable } from './colony-changeable.entity';
 import { SystemField } from '../../starmap/entities/system-field.entity';
 
 @Entity('colonies')
@@ -123,20 +123,32 @@ export class Colony {
   @Column({ default: 3000 })
   storageMax: number;
 
-  @OneToMany(() => ColonyField, (field) => field.colony, { cascade: true })
+  @OneToMany(
+    () => require('./colony-field.entity').ColonyField,
+    (field: ColonyField) => field.colony,
+    { cascade: true },
+  )
   fields: ColonyField[];
 
-  @OneToMany(() => ColonyStorage, (storage) => storage.colony, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => require('./colony-storage.entity').ColonyStorage,
+    (storage: ColonyStorage) => storage.colony,
+    { cascade: true },
+  )
   storage: ColonyStorage[];
 
-  @OneToOne(() => ColonyStats, (stats) => stats.colony, { cascade: true })
+  @OneToOne(
+    () => require('./colony-stats.entity').ColonyStats,
+    (stats: ColonyStats) => stats.colony,
+    { cascade: true },
+  )
   stats: ColonyStats;
 
-  @OneToOne(() => ColonyChangeable, (changeable) => changeable.colony, {
-    cascade: true,
-  })
+  @OneToOne(
+    () => require('./colony-changeable.entity').ColonyChangeable,
+    (changeable: ColonyChangeable) => changeable.colony,
+    { cascade: true },
+  )
   changeable: ColonyChangeable;
 
   @CreateDateColumn()

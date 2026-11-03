@@ -117,6 +117,9 @@ export class ColonyShipBuildQueue {
   @Column({ type: 'jsonb', default: () => "'[]'" })
   moduleCommodityIds: number[];
 
+  @Column({ type: 'int', nullable: true })
+  crewRequired: number | null;
+
   @Column({ type: 'jsonb', nullable: true })
   repairSnapshot: ColonyShipRepairSnapshot | null;
 
