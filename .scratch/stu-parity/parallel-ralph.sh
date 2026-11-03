@@ -43,7 +43,7 @@ case "$PROXY" in
 esac
 
 KEY_FILE="${RALPH_KEY_FILE:-$HOME/.config/sops-nix/secrets/litellm_master_key}"
-KEY="${RALPH_AUTH_TOKEN:-}"
+KEY="${RALPH_AUTH_TOKEN:-${LITELLM_MASTER_KEY:-}}"
 if [[ -z "$KEY" && -r "$KEY_FILE" ]]; then
   KEY="$(<"$KEY_FILE")"
 fi
