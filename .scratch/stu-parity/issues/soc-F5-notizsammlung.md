@@ -1,6 +1,6 @@
 # Notizen als Notizsammlung
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -23,10 +23,10 @@ STU bietet mehrere Notizen mit Titel und Datum (Liste, Anlegen, Bearbeiten, Mehr
 
 ## Akzeptanzkriterien
 
-- [ ] Entity `notes` (Titel 1–100, Text, Datum), CRUD und Mehrfachlöschen.
-- [ ] Migration übernimmt den bisherigen Zettel als erste Notiz „Notizzettel“ (nur wenn nicht leer); `User.notes` entfällt danach.
-- [ ] Autosave bleibt; der Header-Button öffnet die Notizsammlung.
-- [ ] Backend- und Frontend-Tests.
+- [x] Entity `notes` (Titel 1–100, Text, Datum), CRUD und Mehrfachlöschen.
+- [x] Migration übernimmt den bisherigen Zettel als erste Notiz „Notizzettel“ (nur wenn nicht leer); `User.notes` entfällt danach.
+- [x] Autosave bleibt; der Header-Button öffnet die Notizsammlung.
+- [x] Backend- und Frontend-Tests.
 
 ## Entscheidung
 
@@ -35,3 +35,4 @@ Vorgabe: Variante (a). Notizsammlung wie STU (Titel, Text, Datum, Liste, Anlegen
 ## Comments
 
 - 2026-10-21 Product Owner: Option a – Der Einzelzettel wird durch eine Notizsammlung wie in STU ersetzt; der bestehende Zettel wird als erste Notiz migriert.
+- 2026-11-04 Verification: Alle Akzeptanzkriterien umgesetzt. RED beobachtet für Einzeltext statt Liste, fehlendes Anlegen/Ändern/Löschen, Autosave und Header sowie Migration/Rollback; zusätzliche REDs für Save-Reihenfolge beim Wechsel und Speichern nach Löschen. GREEN: direkte Jest-HTTP-/PostgreSQL-Tests 20/20, Migration/Rollback 5/5 (isolierte PG16-Schemas; Unicode, Leertext, 100.000 Zeichen, Eigentümerschutz); Vitest Notizen 14/14 und Header 10/10; Backend-Regressionen 41/41. `npx tsc -b packages/shared/tsconfig.lib.json apps/backend/tsconfig.app.json apps/frontend/tsconfig.app.json`, fokussierte Test-Typechecks, direkte ESLint-Prüfungen und `git diff --check` erfolgreich. Nx unter npm durch pnpm-Lockfile/fehlende `.modules.yaml` blockiert; keine Paketmanagerdateien verändert. Gesamt-Test-Typechecks melden bestehende Fehler außerhalb soc-F5; ESLint überspringt die Nx-Graph-Regel, bestehende Auth-/Header-Warnungen bleiben. Rollback stellt einen einzelnen „Notizzettel“ exakt wieder her, sonst sämtliche Notizdaten als JSON im alten Textfeld (ohne Kürzung; vorhandener Text wird erhalten).

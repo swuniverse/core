@@ -129,12 +129,12 @@ describe('Global status header', () => {
     expect(screen.getByRole('link', { name: 'Alpha' })).toBeTruthy();
     expect(screen.queryByText('Kolonien 1')).toBeNull();
     expect(screen.queryByText('HoloNet')).toBeNull();
-    expect(screen.getByTitle('Notizzettel öffnen').getAttribute('href')).toBe(
+    expect(screen.getByTitle('Notizsammlung öffnen').getAttribute('href')).toBe(
       '/notes',
     );
     expect(
       screen
-        .getByTitle('Notizzettel öffnen')
+        .getByTitle('Notizsammlung öffnen')
         .querySelector('img')
         ?.getAttribute('src'),
     ).toBe('/assets/buttons/notiz1.png');

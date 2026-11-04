@@ -87,9 +87,6 @@ export class User {
   deletionMark: number;
 
   @Column({ type: 'text', nullable: true })
-  notes: string | null;
-
-  @Column({ type: 'text', nullable: true })
   refreshToken: string | null;
 
   @CreateDateColumn()

@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Note } from './entities/note.entity';
+import { NotesController } from './notes.controller';
+import { NotesService } from './notes.service';
 import { SettingsController } from './settings.controller';
 import { SettingsService } from './settings.service';
 import { UserSetting } from './entities/user-setting.entity';
@@ -14,10 +17,11 @@ import {
 } from './email-blocklist.port';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([UserSetting, User, AccountToken]), MailModule],
-  controllers: [SettingsController],
+  imports: [TypeOrmModule.forFeature([UserSetting, User, AccountToken, Note]), MailModule],
+  controllers: [SettingsController, NotesController],
   providers: [
     SettingsService,
+    NotesService,
     UserSettingsReader,
     AccountTokenService,
     { provide: EMAIL_BLOCKLIST, useClass: AllowAllEmailBlocklist },

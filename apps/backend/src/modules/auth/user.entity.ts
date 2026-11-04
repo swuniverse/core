@@ -77,9 +77,6 @@ export class User {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  notes: string | null;
-
   @Column({ type: 'boolean', default: false })
   vacationMode: boolean;
 

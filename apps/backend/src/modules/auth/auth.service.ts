@@ -501,7 +501,7 @@ export class AuthService {
   async getProfile(userId: number) {
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) throw new UnauthorizedException();
-    const { passwordHash, refreshToken, notes, ...profile } = user;
+    const { passwordHash, refreshToken, ...profile } = user;
     return profile;
   }
 

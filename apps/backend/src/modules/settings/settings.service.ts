@@ -108,25 +108,6 @@ export class SettingsService {
     return this.getSettings(userId);
   }
 
-  async getNotes(userId: number): Promise<{ notes: string }> {
-    const user = await this.userRepo.findOneBy({ id: userId });
-    if (!user) throw new UnauthorizedException();
-    return { notes: user.notes ?? '' };
-  }
-
-  async updateNotes(userId: number, notes: string): Promise<{ notes: string }> {
-    if (typeof notes !== 'string') {
-      throw new BadRequestException('Notes must be a string');
-    }
-
-    if (notes.length > 100_000) {
-      throw new BadRequestException('Notes are too long');
-    }
-
-    await this.userRepo.update(userId, { notes });
-    return { notes };
-  }
-
   async changePassword(
     userId: number,
     oldPassword: string,

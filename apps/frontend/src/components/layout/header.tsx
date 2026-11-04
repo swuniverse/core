@@ -205,7 +205,8 @@ export function Header() {
           </Link>
           <Link
             to="/notes"
-            title="Notizzettel öffnen"
+            title="Notizsammlung öffnen"
+            aria-label="Notizsammlung öffnen"
             className="group hidden shrink-0 px-2 sm:block"
           >
             <img
