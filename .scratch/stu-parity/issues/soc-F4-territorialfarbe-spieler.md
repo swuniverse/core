@@ -1,6 +1,6 @@
 # Territorialfarbe des Spielers
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -24,9 +24,11 @@ Spieler speichern wie STU eine eigene RGB-Farbe (`#RRGGBB`), die als Territorial
 
 ## Akzeptanzkriterien
 
-- [ ] Einstellung `rgb_code` akzeptiert leer oder `#` + 6 Hex-Zeichen (Groß-/Kleinschreibung egal, normalisiert auf Kleinbuchstaben); sonst 400 „Ungültiger Farbcode“.
-- [ ] Einstellungs-UI mit Farbwähler und Vorschau, „zurücksetzen“ leert den Wert.
-- [ ] Der Einfluss-/Territoriumsvertrag liefert für Spielerparteien ohne Allianz die Spielerfarbe (Allianzfarbe hat Vorrang gemäß Allianzvertrag).
-- [ ] Backend-Tests: Validierung, Normalisierung, Auslieferung im Vertrag. Frontend-Test: Formular.
+- [x] Einstellung `rgb_code` akzeptiert leer oder `#` + 6 Hex-Zeichen (Groß-/Kleinschreibung egal, normalisiert auf Kleinbuchstaben); sonst 400 „Ungültiger Farbcode“.
+- [x] Einstellungs-UI mit Farbwähler und Vorschau, „zurücksetzen“ leert den Wert.
+- [x] Der Einfluss-/Territoriumsvertrag liefert für Spielerparteien ohne Allianz die Spielerfarbe (Allianzfarbe hat Vorrang gemäß Allianzvertrag).
+- [x] Backend-Tests: Validierung, Normalisierung, Auslieferung im Vertrag. Frontend-Test: Formular.
 
 ## Comments
+
+- Verifiziert: fokussierte Backend-/Frontend-Tests und Postgres-Integration (isoliertes Schema), TypeScript für Apps/Shared, ESLint und `git diff --check`. Nx ist unter npm wegen `pnpm-lock.yaml`/fehlender `.modules.yaml` blockiert; direkte Befehle verwendet. Testprojekt-Typechecks melden bestehende Fehler in fremden Specs. Vollständige Migrationen benötigen das fehlende private `game-data`.

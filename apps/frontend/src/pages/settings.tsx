@@ -415,6 +415,8 @@ function GameplayTab() {
   const [tutorialsEnabled, setTutorialsEnabled] = useState(false);
   const [tutorialsBusy, setTutorialsBusy] = useState(false);
   const [tutorialsError, setTutorialsError] = useState('');
+  const [colorError, setColorError] = useState('');
+  const [colorBusy, setColorBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -476,6 +478,21 @@ function GameplayTab() {
     }
   };
 
+  const setTerritorialColor = async (value: string) => {
+    const previous = settings.rgb_code || '';
+    setSettings((current) => ({ ...current, rgb_code: value }));
+    setColorBusy(true);
+    setColorError('');
+    try {
+      await api.patch('/user/settings', { rgb_code: value });
+    } catch (error: unknown) {
+      setSettings((current) => ({ ...current, rgb_code: previous }));
+      setColorError(getErrorMessage(error, 'Territorialfarbe konnte nicht gespeichert werden.'));
+    } finally {
+      setColorBusy(false);
+    }
+  };
+
   const setTutorials = async (enabled: boolean) => {
     setTutorialsBusy(true);
     setTutorialsError('');
@@ -510,6 +527,28 @@ function GameplayTab() {
           <option value="research">Forschung</option>
           <option value="holonet">HoloNet</option>
         </select>
+      </Section>
+      <Section title="Territorialfarbe">
+        <div className="flex items-center gap-3 text-sm text-swu-primary">
+          <input
+            type="color"
+            aria-label="Territorialfarbe"
+            value={settings.rgb_code || '#000000'}
+            disabled={colorBusy}
+            onChange={(event) => void setTerritorialColor(event.target.value)}
+          />
+          <span>{settings.rgb_code || 'Keine Territorialfarbe'}</span>
+          <button
+            type="button"
+            aria-label="Territorialfarbe zurücksetzen"
+            disabled={colorBusy || !settings.rgb_code}
+            onClick={() => void setTerritorialColor('')}
+            className="border border-swu-border bg-swu-bg px-3 py-2 text-xs hover:border-swu-accent disabled:opacity-40"
+          >
+            Zurücksetzen
+          </button>
+        </div>
+        {colorError && <p role="alert" className="mt-2 text-xs text-red-300">{colorError}</p>}
       </Section>
       <Section title="Datenschutz">
         <label className="flex items-center gap-2 text-sm text-swu-primary">

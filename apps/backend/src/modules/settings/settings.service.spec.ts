@@ -52,6 +52,34 @@ const createService = (
 };
 
 describe('SettingsService settings validation', () => {
+  it('defaults to no territorial color and saves normalized colors or an empty reset', async () => {
+    const { service, settingRepo } = createService();
+
+    await expect(service.getSettings(7)).resolves.toMatchObject({ rgb_code: '' });
+    await service.updateSettings(7, { rgb_code: '#A1b2C3' });
+    expect(settingRepo.upsert).toHaveBeenLastCalledWith(
+      { userId: 7, key: 'rgb_code', value: '#a1b2c3' },
+      ['userId', 'key'],
+    );
+    await service.updateSettings(7, { rgb_code: '' });
+    expect(settingRepo.upsert).toHaveBeenLastCalledWith(
+      { userId: 7, key: 'rgb_code', value: '' },
+      ['userId', 'key'],
+    );
+  });
+
+  it.each(['#123', '#1234567', '#xyz123', '123456', ' #123456', '#123456\n', null, 123456])(
+    'rejects invalid territorial color %p without saving any settings',
+    async (value) => {
+      const { service, settingRepo } = createService();
+
+      await expect(
+        service.updateSettings(7, { default_view: 'colonies', rgb_code: value as string }),
+      ).rejects.toThrow(new BadRequestException('Ungültiger Farbcode'));
+      expect(settingRepo.upsert).not.toHaveBeenCalled();
+    },
+  );
+
   it('returns profile visit opt-out disabled by default and accepts enabling it', async () => {
     const { service, settingRepo } = createService();
 

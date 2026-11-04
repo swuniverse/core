@@ -34,6 +34,8 @@ import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { Alliance } from '../alliance/entities/alliance.entity';
+import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
+import { UserSetting } from '../settings/entities/user-setting.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { FieldEffectQuery } from './field-effect-query';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
@@ -67,6 +69,8 @@ import { LayerMapCycleService } from './layer-map-cycle.service';
       Colony,
       ColonyChangeable,
       Alliance,
+      AllianceMembership,
+      UserSetting,
       FactionEntity,
     ]),
     PrestigeModule,

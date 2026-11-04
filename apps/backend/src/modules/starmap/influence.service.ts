@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { StarmapInfluenceAreaDto } from '@swuniverse/shared';
 import { Alliance } from '../alliance/entities/alliance.entity';
+import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
+import { UserSetting } from '../settings/entities/user-setting.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { InfluenceArea, InfluenceSourceType } from './entities/influence-area.entity';
 
@@ -33,6 +35,10 @@ export class InfluenceService {
     private readonly allianceRepo: Repository<Alliance>,
     @InjectRepository(FactionEntity)
     private readonly factionRepo: Repository<FactionEntity>,
+    @InjectRepository(AllianceMembership)
+    private readonly membershipRepo: Repository<AllianceMembership>,
+    @InjectRepository(UserSetting)
+    private readonly settingRepo: Repository<UserSetting>,
   ) {}
 
   async calculateInfluenceForLayer(
@@ -106,11 +112,24 @@ export class InfluenceService {
           .map((area) => area.sourceId),
       ),
     ];
-    const [alliances, factions] = await Promise.all([
+    const playerIds = [
+      ...new Set(
+        areas
+          .filter((area) => area.sourceType === InfluenceSourceType.PLAYER)
+          .map((area) => area.sourceId),
+      ),
+    ];
+    const [alliances, factions, memberships, settings] = await Promise.all([
       allianceIds.length
         ? this.allianceRepo.find({ where: { id: In(allianceIds) }, relations: ['faction'] })
         : [],
       factionIds.length ? this.factionRepo.findBy({ id: In(factionIds) }) : [],
+      playerIds.length
+        ? this.membershipRepo.find({ where: { userId: In(playerIds) }, relations: ['alliance'] })
+        : [],
+      playerIds.length
+        ? this.settingRepo.find({ where: { userId: In(playerIds), key: 'rgb_code' } })
+        : [],
     ]);
     const allianceColors = new Map(
       alliances.map((alliance) => [
@@ -121,6 +140,12 @@ export class InfluenceService {
     const factionColors = new Map(
       factions.map((faction) => [faction.id, faction.colorPrimary]),
     );
+    const playerColors = new Map(settings.map((setting) => [setting.userId, setting.value]));
+    for (const membership of memberships) {
+      if (membership.alliance.color) {
+        playerColors.set(membership.userId, membership.alliance.color);
+      }
+    }
 
     return areas.map((area) => ({
       cx: area.cx,
@@ -131,7 +156,9 @@ export class InfluenceService {
       color:
         area.sourceType === InfluenceSourceType.ALLIANCE
           ? allianceColors.get(area.sourceId) ?? '#64748b'
-          : factionColors.get(area.sourceId) ?? '#64748b',
+          : area.sourceType === InfluenceSourceType.PLAYER
+            ? playerColors.get(area.sourceId) || '#64748b'
+            : factionColors.get(area.sourceId) ?? '#64748b',
     }));
   }
 

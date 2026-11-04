@@ -524,7 +524,7 @@ export interface StarmapGeneratePlanetSurfaceDto {
 
 // --- Phase 6: Influence Areas & Wormholes ---
 
-export type StarmapInfluenceSourceType = 'STATION' | 'ALLIANCE' | 'FACTION';
+export type StarmapInfluenceSourceType = 'STATION' | 'PLAYER' | 'ALLIANCE' | 'FACTION';
 
 export interface StarmapInfluenceAreaDto {
   cx: number;
@@ -532,7 +532,7 @@ export interface StarmapInfluenceAreaDto {
   sourceType: StarmapInfluenceSourceType;
   sourceId: number;
   strength: number;
-  /** Current display color of the owning alliance or faction. */
+  /** Current display color of the player, alliance, or faction. */
   color: string;
 }
 

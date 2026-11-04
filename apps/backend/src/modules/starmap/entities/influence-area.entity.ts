@@ -8,6 +8,7 @@ import {
 
 export enum InfluenceSourceType {
   STATION = 'STATION',
+  PLAYER = 'PLAYER',
   ALLIANCE = 'ALLIANCE',
   FACTION = 'FACTION',
 }

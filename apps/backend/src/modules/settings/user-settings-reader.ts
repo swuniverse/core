@@ -19,6 +19,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',
   inbox_messenger_style: '0',
+  rgb_code: '',
   default_view: 'maindesk',
 };
 

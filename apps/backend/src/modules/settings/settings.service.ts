@@ -27,6 +27,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',
   inbox_messenger_style: '0',
+  rgb_code: '',
   default_view: 'maindesk',
 };
 
@@ -88,10 +89,20 @@ export class SettingsService {
       if (key === 'default_view' && !DEFAULT_VIEWS.has(value)) {
         throw new BadRequestException(`Invalid setting value: ${key}`);
       }
+      if (
+        key === 'rgb_code' &&
+        (typeof value !== 'string' ||
+          (value !== '' && (value.length !== 7 || !/^#[0-9a-f]{6}$/i.test(value))))
+      ) {
+        throw new BadRequestException('Ungültiger Farbcode');
+      }
     }
 
     for (const [key, value] of Object.entries(updates)) {
-      await this.settingRepo.upsert({ userId, key, value }, ['userId', 'key']);
+      await this.settingRepo.upsert(
+        { userId, key, value: key === 'rgb_code' ? value.toLowerCase() : value },
+        ['userId', 'key'],
+      );
     }
 
     return this.getSettings(userId);
