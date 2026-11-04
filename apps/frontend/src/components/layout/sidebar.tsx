@@ -61,7 +61,10 @@ export function Sidebar() {
   }, [accessToken, setUser, user?.isAdmin]);
 
   return (
-    <aside className="fixed left-0 top-[86px] z-40 hidden h-[calc(100vh-86px)] w-[68px] flex-col items-center border-r border-swu-border bg-swu-surface py-3 md:flex">
+    <aside
+      data-tutorial="main-navigation"
+      className="fixed left-0 top-[86px] z-40 hidden h-[calc(100vh-86px)] w-[68px] flex-col items-center border-r border-swu-border bg-swu-surface py-3 md:flex"
+    >
       <div className="flex flex-col items-center gap-1 flex-1">
         {items.map((item) => (
           <NavLink
@@ -146,7 +149,9 @@ function TickRing({
   return (
     <div
       className="relative w-[52px] h-[52px] flex items-center justify-center"
-      title={loaded ? `Nächster Tick: ${formatTickTime(nextTickAt)}` : undefined}
+      title={
+        loaded ? `Nächster Tick: ${formatTickTime(nextTickAt)}` : undefined
+      }
     >
       <svg width="52" height="52" className="absolute -rotate-90">
         <circle

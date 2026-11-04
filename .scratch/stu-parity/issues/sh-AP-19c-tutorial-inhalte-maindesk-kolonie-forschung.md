@@ -1,6 +1,6 @@
 # Tutorial-Inhalte: Maindesk, Kolonie und Forschung
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** sh-AP-19b
@@ -23,11 +23,13 @@ Die ersten Tutorials führen neue Spieler durch Maindesk, Kolonie (Oberfläche, 
 
 ## Akzeptanzkriterien
 
-- [ ] Maindesk: 4–6 Schritte (Header mit Kolonien/Forschung/Nachrichten, Kolonieliste, Limits, Prozesse, Navigation).
-- [ ] Kolonie: 6–10 Schritte (Oberfläche, Feld wählen, Gebäude bauen mit `waitFor` auf den ersten Bauauftrag, Energie- und Lagerbilanz, Bevölkerung, Gebäudeschaltung).
-- [ ] Forschung: 3–5 Schritte (Liste, Detail, Forschung starten mit `waitFor`, Queue).
-- [ ] Alle Ziele über `data-tutorial`-Attribute an stabilen Elementen; keine Abhängigkeit von CSS-Klassen.
-- [ ] Die Frontend-Aufrufe von `tutorialEvent(...)` sitzen an den erfolgreichen Aktionen (Bau gestartet, Forschung gestartet).
-- [ ] Backend-Test: Definitionen valide. Frontend-Tests: `data-tutorial`-Ziele je Schritt existieren auf den jeweiligen Seiten (Render-Test je Ansicht).
+- [x] Maindesk: 4–6 Schritte (Header mit Kolonien/Forschung/Nachrichten, Kolonieliste, Limits, Prozesse, Navigation).
+- [x] Kolonie: 6–10 Schritte (Oberfläche, Feld wählen, Gebäude bauen mit `waitFor` auf den ersten Bauauftrag, Energie- und Lagerbilanz, Bevölkerung, Gebäudeschaltung).
+- [x] Forschung: 3–5 Schritte (Liste, Detail, Forschung starten mit `waitFor`, Queue).
+- [x] Alle Ziele über `data-tutorial`-Attribute an stabilen Elementen; keine Abhängigkeit von CSS-Klassen.
+- [x] Die Frontend-Aufrufe von `tutorialEvent(...)` sitzen an den erfolgreichen Aktionen (Bau gestartet, Forschung gestartet).
+- [x] Backend-Test: Definitionen valide. Frontend-Tests: `data-tutorial`-Ziele je Schritt existieren auf den jeweiligen Seiten (Render-Test je Ansicht).
 
 ## Comments
+
+- 2026-11-04 Agent: Deutsche Tutorials für Maindesk (5), Kolonie (8) und Forschung (4) ergänzt; stabile `data-tutorial`-Ziele sowie Ereignisse für erfolgreichen Baubeginn und Forschungsstart integriert. Validierung, Tutorial-/Kolonie-Komponententests, Typechecks und Frontend-Build grün.

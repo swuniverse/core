@@ -19,7 +19,9 @@ const validDefinitions = {
 
 describe('tutorial definitions', () => {
   it('accepts versioned tutorials with unique step ids and valid fallbacks', () => {
-    expect(validateTutorialDefinitions(validDefinitions)).toEqual(validDefinitions);
+    expect(validateTutorialDefinitions(validDefinitions)).toEqual(
+      validDefinitions,
+    );
   });
 
   it('rejects duplicate step ids', () => {
@@ -47,5 +49,25 @@ describe('tutorial definitions', () => {
         },
       }),
     ).toThrow('Invalid fallbackIndex 1');
+  });
+
+  it('defines the German maindesk, colony, and research walkthroughs', () => {
+    const definitions = validateTutorialDefinitions(
+      require('./tutorial-definitions').TUTORIAL_DEFINITIONS,
+    );
+
+    expect(definitions.views.maindesk).toHaveLength(5);
+    expect(definitions.views.colony).toHaveLength(8);
+    expect(definitions.views.research).toHaveLength(4);
+    expect(
+      definitions.views.colony?.some(
+        (step) => step.waitFor === 'colony.build.started',
+      ),
+    ).toBe(true);
+    expect(
+      definitions.views.research?.some(
+        (step) => step.waitFor === 'research.started',
+      ),
+    ).toBe(true);
   });
 });

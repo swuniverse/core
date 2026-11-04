@@ -1,3 +1,5 @@
+import { tutorialEvent } from '../../components/tutorial/useTutorial';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
@@ -354,6 +356,7 @@ export function ColoniesPage() {
             buildingId: bi,
             activateAfterBuild,
           });
+          await tutorialEvent('colony.build.started');
           loadColonyDetail(selected.id);
         })
       }

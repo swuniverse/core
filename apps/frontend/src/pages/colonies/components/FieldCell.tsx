@@ -77,6 +77,7 @@ export function FieldCell({
 
   return (
     <button
+      data-tutorial="colony-field"
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

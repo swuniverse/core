@@ -155,18 +155,20 @@ export function DashboardPage() {
         }>('/tick/status')
         .catch(() => null),
       api
-        .get<NonNullable<DashboardData['distressSignals']>>(
-          '/spacecraft/distress-signals/active',
-        )
+        .get<
+          NonNullable<DashboardData['distressSignals']>
+        >('/spacecraft/distress-signals/active')
         .catch(() => []),
       api
-        .get<{ events: DashboardData['recentEvents'] }>('/events/recent?limit=10')
+        .get<{ events: DashboardData['recentEvents'] }>(
+          '/events/recent?limit=10',
+        )
         .then((response) => response.events)
         .catch(() => []),
       api
-        .get<NonNullable<DashboardData['forumTopics']>>(
-          '/dashboard/forum-topics',
-        )
+        .get<
+          NonNullable<DashboardData['forumTopics']>
+        >('/dashboard/forum-topics')
         .catch(() => []),
       api.get<number>('/holonet/new-count').catch(() => 0),
       api
@@ -469,10 +471,14 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-3 p-2 sm:p-4">
-      <PageHeader segments={[{ label: 'Maindesk' }]} />
+      <div data-tutorial="maindesk-header">
+        <PageHeader segments={[{ label: 'Maindesk' }]} />
+      </div>
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_350px] xl:items-start">
         <div className="space-y-3">
-          <DashboardColonies data={data} />
+          <div data-tutorial="maindesk-colonies">
+            <DashboardColonies data={data} />
+          </div>
           <DashboardAttention data={data} />
           <DashboardFleet data={data} />
           <DashboardMessages data={data} />
@@ -480,9 +486,13 @@ export function DashboardPage() {
           <RecentEvents data={data} />
         </div>
         <aside className="space-y-3">
-          <DashboardLimits data={data} />
+          <div data-tutorial="maindesk-limits">
+            <DashboardLimits data={data} />
+          </div>
           <DashboardProfileVisitors visitors={data.profileVisitors} />
-          <DashboardProcesses data={data} />
+          <div data-tutorial="maindesk-processes">
+            <DashboardProcesses data={data} />
+          </div>
         </aside>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { tutorialEvent } from '../components/tutorial/useTutorial';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ColonizationLimitIncrease } from '@swuniverse/shared';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -130,6 +132,7 @@ export function ResearchPage() {
 
   const startResearch = async (techId: number) => {
     await api.post('/research/start', { techId });
+    await tutorialEvent('research.started');
     closeTechDetail();
     load();
   };
@@ -211,6 +214,7 @@ export function ResearchPage() {
       {/* Active Research */}
       {activeResearch && (
         <div
+          data-tutorial="research-queue"
           className="bg-swu-surface border border-swu-success/30 rounded px-4 py-3 cursor-pointer hover:border-swu-success/60 transition-colors"
           onClick={() => openTechDetail(activeResearch)}
         >
@@ -275,7 +279,7 @@ export function ResearchPage() {
 
       {/* Research Queue */}
       {queuedResearch.length > 0 && (
-        <div>
+        <div data-tutorial="research-queue">
           <div className="flex items-center justify-between px-1 py-1.5">
             <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">
               Warteschlange ({queuedResearch.length})
@@ -321,7 +325,7 @@ export function ResearchPage() {
 
       {/* Available Research */}
       {availableTechs.length > 0 && (
-        <div>
+        <div data-tutorial="research-list">
           <div className="px-1 py-1.5">
             <span className="text-xs font-bold text-swu-muted uppercase tracking-wider">
               Verfuegbare Forschungen
@@ -377,16 +381,18 @@ export function ResearchPage() {
 
       {/* Detail Modal */}
       {selectedTech && (
-        <TechDetailModal
-          tech={selectedTech}
-          techs={techs}
-          activeResearch={activeResearch ?? null}
-          queuedCount={queuedResearch.length}
-          onStart={() => startResearch(selectedTech.id)}
-          onQueueTarget={() => queueTarget(selectedTech.id)}
-          onSelect={(t) => setSelectedTech(t)}
-          onClose={closeTechDetail}
-        />
+        <div data-tutorial="research-detail">
+          <TechDetailModal
+            tech={selectedTech}
+            techs={techs}
+            activeResearch={activeResearch ?? null}
+            queuedCount={queuedResearch.length}
+            onStart={() => startResearch(selectedTech.id)}
+            onQueueTarget={() => queueTarget(selectedTech.id)}
+            onSelect={(t) => setSelectedTech(t)}
+            onClose={closeTechDetail}
+          />
+        </div>
       )}
     </div>
   );
@@ -734,6 +740,7 @@ export function TechDetailModal({
           {canStart && (
             <div className="text-center pt-1">
               <button
+                data-tutorial="research-start"
                 onClick={onStart}
                 className="px-4 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-xs font-bold rounded hover:bg-swu-accent/30 transition-colors"
               >

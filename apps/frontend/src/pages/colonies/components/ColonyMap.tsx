@@ -89,12 +89,21 @@ export function ColonyMap({
   surfaceWidth: surfaceWidthProp,
 }: ColonyMapProps) {
   // Orbit besteht aus zwei Reihen (Planeten 10 Spalten, Monde 6).
-  const orbitColumns = orbitFields.length >= 2 ? Math.round(orbitFields.length / 2) : DEFAULT_COLUMNS;
-  const surfaceWidth = surfaceWidthProp && surfaceWidthProp > 0 ? surfaceWidthProp : DEFAULT_COLUMNS;
+  const orbitColumns =
+    orbitFields.length >= 2
+      ? Math.round(orbitFields.length / 2)
+      : DEFAULT_COLUMNS;
+  const surfaceWidth =
+    surfaceWidthProp && surfaceWidthProp > 0
+      ? surfaceWidthProp
+      : DEFAULT_COLUMNS;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!ecosystem) return;
-    const timer = window.setInterval(() => setNow(Date.now()), DAYLIGHT_REFRESH_MS);
+    const timer = window.setInterval(
+      () => setNow(Date.now()),
+      DAYLIGHT_REFRESH_MS,
+    );
     return () => window.clearInterval(timer);
   }, [ecosystem]);
 
@@ -103,7 +112,9 @@ export function ColonyMap({
   // z.B. der vulkanische Untergrund von Gasplaneten).
   const columnIndex = new Map<string, number>();
   orbitFields.forEach((f, i) => columnIndex.set(`ORBIT-${f.fieldIndex}`, i));
-  surfaceFields.forEach((f, i) => columnIndex.set(`SURFACE-${f.fieldIndex}`, i));
+  surfaceFields.forEach((f, i) =>
+    columnIndex.set(`SURFACE-${f.fieldIndex}`, i),
+  );
   const timeStateOf = (field: ColonyField) => {
     if (!ecosystem) return undefined;
     if (field.layer === 'UNDERGROUND') return 'night' as const;
@@ -138,7 +149,10 @@ export function ColonyMap({
   );
 
   return (
-    <div className="rounded border border-swu-border bg-swu-surface p-2 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+    <div
+      data-tutorial="colony-energy"
+      className="rounded border border-swu-border bg-swu-surface p-2 shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
+    >
       <div className="mb-2 border-b border-swu-border/60 pb-2">
         <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
           <span className="font-bold uppercase tracking-wide text-swu-muted">
