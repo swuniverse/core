@@ -26,6 +26,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   storage_notification: '0',
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',
+  inbox_messenger_style: '0',
   default_view: 'maindesk',
 };
 
@@ -34,6 +35,7 @@ const BOOLEAN_SETTINGS = new Set([
   'storage_notification',
   'show_pm_read_receipt',
   'profile_visit_optout',
+  'inbox_messenger_style',
 ]);
 const DEFAULT_VIEWS = new Set([
   'maindesk',
@@ -150,7 +152,8 @@ export class SettingsService {
       throw new BadRequestException('Password is incorrect');
     }
 
-    const email = typeof newEmail === 'string' ? newEmail.trim().toLowerCase() : '';
+    const email =
+      typeof newEmail === 'string' ? newEmail.trim().toLowerCase() : '';
     if (email.length > 254 || !isEmail(email)) {
       throw new BadRequestException('Die E-Mail-Adresse ist ungültig');
     }
@@ -161,7 +164,9 @@ export class SettingsService {
       },
     });
     if (existing && existing.id !== userId) {
-      throw new BadRequestException('Die E-Mail-Adresse wird bereits verwendet');
+      throw new BadRequestException(
+        'Die E-Mail-Adresse wird bereits verwendet',
+      );
     }
     if (await this.emailBlocklist.isBlocked(email)) {
       throw new BadRequestException('Die E-Mail-Adresse ist blockiert');
@@ -188,7 +193,9 @@ export class SettingsService {
     if (data.displayName !== undefined) {
       const name = data.displayName.trim();
       if (name.length > 0 && name.length < 3) {
-        throw new BadRequestException('Display name must be at least 3 characters');
+        throw new BadRequestException(
+          'Display name must be at least 3 characters',
+        );
       }
       if (name.length > 60) {
         throw new BadRequestException('Display name too long (max 60)');
@@ -200,7 +207,10 @@ export class SettingsService {
     return { description: user.description, displayName: user.displayName };
   }
 
-  async updateAvatar(userId: number, avatar: string | null): Promise<{ avatar: string | null }> {
+  async updateAvatar(
+    userId: number,
+    avatar: string | null,
+  ): Promise<{ avatar: string | null }> {
     if (avatar && avatar.length > 350_000) {
       throw new BadRequestException('Avatar too large (max ~250KB)');
     }
@@ -276,7 +286,10 @@ export class SettingsService {
       AccountTokenPurpose.AccountDeletion,
       ACCOUNT_DELETION_LIFETIME_MS,
     );
-    const baseUrl = (this.config.get<string>('APP_BASE_URL') ?? '').replace(/\/$/, '');
+    const baseUrl = (this.config.get<string>('APP_BASE_URL') ?? '').replace(
+      /\/$/,
+      '',
+    );
     void this.mailService.sendAccountDeletionMail(
       user.email,
       user.username,

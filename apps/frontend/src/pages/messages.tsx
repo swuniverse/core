@@ -8,6 +8,7 @@ import {
   ContactMode,
   MessageTargetKind,
   type ContactDto,
+  type Faction,
   type IgnoredByEntryDto,
   type IgnoreListEntryDto,
   type ReceivedContactDto,
@@ -365,6 +366,15 @@ interface InboxResponse {
   limit: number;
 }
 
+interface Conversation {
+  partnerId: number;
+  partner: { username: string; avatar: string | null; faction: Faction | null };
+  subject: string;
+  body: string;
+  createdAt: string;
+  unread: number;
+}
+
 type Tab = 'folders' | 'compose' | 'contacts' | 'ignore-list';
 type Confirmation =
   | 'bulk-delete'
@@ -411,6 +421,8 @@ export function MessagesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const [messengerStyle, setMessengerStyle] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const [compose, setCompose] = useState({
     recipientName: startsCompose ? (searchParams.get('name') ?? '') : '',
@@ -458,12 +470,32 @@ export function MessagesPage() {
     }
   };
 
+  const loadConversations = async (p: number) => {
+    setLoading(true);
+    try {
+      const response = await api.get<InboxResponse & { data: Conversation[] }>(
+        `/messages/conversations?page=${p}`,
+      );
+      setConversations(response.data);
+      setTotal(response.total);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     void refreshFolders().catch(() => undefined);
+    void api
+      .get<Record<string, string>>('/user/settings')
+      .then((settings) => setMessengerStyle(settings.inbox_messenger_style === '1'))
+      .catch(() => setMessengerStyle(false));
   }, []);
 
   useEffect(() => {
-    if (tab === 'folders') void loadMessages(folder, page);
+    if (tab === 'folders') {
+      if (folder === 'PERSONAL' && messengerStyle) void loadConversations(page);
+      else void loadMessages(folder, page);
+    }
     if (tab === 'contacts') {
       void Promise.all([
         api.get<ContactDto[]>('/contacts'),
@@ -482,7 +514,7 @@ export function MessagesPage() {
         setIgnoredBy(received);
       });
     }
-  }, [folder, page, tab]);
+  }, [folder, page, tab, messengerStyle]);
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
@@ -627,6 +659,22 @@ export function MessagesPage() {
       body: '',
     });
     setRecipientId(selected.senderId);
+    switchToCompose();
+  };
+
+  const openConversation = (conversation: Conversation) => {
+    void api
+      .get<MessageDetail[]>(`/messages/correspondence/${conversation.partnerId}`)
+      .then(setCorrespondence)
+      .catch(() => setCorrespondence([]));
+    setCompose({
+      recipientName: conversation.partner.username,
+      subject: conversation.subject.startsWith('Re: ')
+        ? conversation.subject
+        : `Re: ${conversation.subject}`,
+      body: '',
+    });
+    setRecipientId(conversation.partnerId);
     switchToCompose();
   };
 
@@ -822,7 +870,7 @@ export function MessagesPage() {
                 <tbody>
                   {ignoredPlayers.map((entry) => (
                     <tr key={entry.id} className="border-t border-swu-border">
-                      <td className="px-2 py-1"><input type="checkbox" aria-label={`${entry.ignoredUsername} markieren`} checked={selectedIgnoreIds.has(entry.id)} onChange={() => setSelectedIgnoreIds((current) => { const next = new Set(current); next.has(entry.id) ? next.delete(entry.id) : next.add(entry.id); return next; })} /></td>
+                      <td className="px-2 py-1"><input type="checkbox" aria-label={`${entry.ignoredUsername} markieren`} checked={selectedIgnoreIds.has(entry.id)} onChange={() => setSelectedIgnoreIds((current) => { const next = new Set(current); if (next.has(entry.id)) next.delete(entry.id); else next.add(entry.id); return next; })} /></td>
                       <td className="px-2 py-1"><Link to={`/players/${entry.ignoredUserId}`} className="text-swu-primary hover:text-swu-accent">{entry.ignoredUsername}</Link></td>
                       <td className="px-2 py-1 text-swu-muted">{formatDateTime(entry.createdAt)}</td>
                     </tr>
@@ -846,7 +894,7 @@ export function MessagesPage() {
                 <tbody>
                   {contacts.map((contact) => (
                     <tr key={contact.id} className="border-t border-swu-border">
-                      <td className="px-2 py-1"><input type="checkbox" aria-label={`${contact.contactUsername} markieren`} checked={selectedContactIds.has(contact.id)} onChange={() => setSelectedContactIds((current) => { const next = new Set(current); next.has(contact.id) ? next.delete(contact.id) : next.add(contact.id); return next; })} /></td>
+                      <td className="px-2 py-1"><input type="checkbox" aria-label={`${contact.contactUsername} markieren`} checked={selectedContactIds.has(contact.id)} onChange={() => setSelectedContactIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
                       <td className="px-2 py-1"><PlayerAvatar name={contact.contactUsername} avatar={null} faction={null} decorative className="mr-2 size-7" /><Link to={`/players/${contact.contactUserId}`} className="text-swu-primary hover:text-swu-accent">{contact.contactUsername}</Link></td>
                       <td className="px-2 py-1"><select aria-label={`Modus für ${contact.contactUsername}`} value={contact.mode} onChange={(event) => void updateContactMode(contact, event.target.value as ContactMode)} className={`bg-swu-bg border border-swu-border px-1 py-0.5 ${CONTACT_MODE_STYLES[contact.mode]}`}>{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select></td>
                       <td className="px-2 py-1"><input defaultValue={contact.comment} aria-label={`Kommentar für ${contact.contactUsername}`} onBlur={(event) => void updateContactComment(contact, event.target.value)} className="bg-swu-bg border border-swu-border px-1 py-0.5" /></td>
@@ -967,6 +1015,47 @@ export function MessagesPage() {
           <div className="flex-1 bg-swu-surface border border-swu-border rounded-lg overflow-hidden">
             {loading ? (
               <div className="p-4 text-swu-muted text-sm">Laden...</div>
+            ) : folder === 'PERSONAL' && messengerStyle ? (
+              conversations.length === 0 ? (
+                <div className="p-4 text-swu-muted text-sm">Keine Nachrichten.</div>
+              ) : (
+                <div className="divide-y divide-swu-border/50">
+                  {conversations.map((conversation) => (
+                    <button
+                      key={conversation.partnerId}
+                      type="button"
+                      onClick={() => openConversation(conversation)}
+                      className="flex w-full items-center gap-3 p-3 text-left hover:bg-swu-bg/50"
+                    >
+                      <PlayerAvatar
+                        name={conversation.partner.username}
+                        avatar={conversation.partner.avatar}
+                        faction={conversation.partner.faction}
+                        decorative
+                        className="size-9"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-swu-primary">
+                            {conversation.partner.username}
+                          </span>
+                          <span className="text-[10px] text-swu-muted">
+                            {timeAgo(conversation.createdAt)}
+                          </span>
+                        </span>
+                        <span className="block truncate text-xs text-swu-muted">
+                          {conversation.body}
+                        </span>
+                      </span>
+                      {conversation.unread > 0 && (
+                        <span className="rounded-full bg-swu-accent px-2 py-0.5 text-[10px] font-bold text-swu-bg">
+                          {conversation.unread}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )
             ) : messages.length === 0 ? (
               <div className="p-4 text-swu-muted text-sm">
                 Keine Nachrichten.

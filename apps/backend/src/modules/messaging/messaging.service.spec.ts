@@ -15,7 +15,7 @@ describe('MessagingService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => ({ id: 1, ...value })),
   };
-  const userRepo = { findOneBy: jest.fn() };
+  const userRepo = { findOneBy: jest.fn(), findByIds: jest.fn() };
   const statisticsService = { countEvent: jest.fn() };
   const gateway = { emitToUser: jest.fn() };
   const settingsReader = { getManyBoolean: jest.fn() };
@@ -33,7 +33,6 @@ describe('MessagingService', () => {
     );
   });
 
-
   it.each([
     [true, true, true, true],
     [false, true, true, false],
@@ -43,7 +42,15 @@ describe('MessagingService', () => {
     'returns readReceipt=%s/%s/read=%s as %s without exposing isRead',
     async (senderEnabled, recipientEnabled, isRead, expected) => {
       messageRepo.findAndCount.mockResolvedValue([
-        [{ id: 7, senderId: 1, recipientId: 2, isRead, recipient: { username: 'Han' } }],
+        [
+          {
+            id: 7,
+            senderId: 1,
+            recipientId: 2,
+            isRead,
+            recipient: { username: 'Han' },
+          },
+        ],
         1,
       ]);
       settingsReader.getManyBoolean.mockResolvedValue(
@@ -55,7 +62,9 @@ describe('MessagingService', () => {
 
       const result = await service.getSent(1);
 
-      expect(result.data[0]).toEqual(expect.objectContaining({ readReceipt: expected }));
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({ readReceipt: expected }),
+      );
       expect(result.data[0]).not.toHaveProperty('isRead');
       expect(settingsReader.getManyBoolean).toHaveBeenCalledTimes(1);
     },
@@ -81,14 +90,16 @@ describe('MessagingService', () => {
   it('rejects an unknown recipient', async () => {
     userRepo.findOneBy.mockResolvedValue(null);
 
-    await expect(service.send(1, 99, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
-      new NotFoundException('Dieser Siedler existiert nicht'),
-    );
+    await expect(
+      service.send(1, 99, 'Hallo', 'Lange Nachricht'),
+    ).rejects.toThrow(new NotFoundException('Dieser Siedler existiert nicht'));
     expect(messageRepo.save).not.toHaveBeenCalled();
   });
 
   it('rejects a message to the sender', async () => {
-    await expect(service.send(1, 1, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
+    await expect(
+      service.send(1, 1, 'Hallo', 'Lange Nachricht'),
+    ).rejects.toThrow(
       new BadRequestException('Du kannst Dir keine Nachricht schicken'),
     );
   });
@@ -98,9 +109,9 @@ describe('MessagingService', () => {
     const ignored = jest.fn().mockResolvedValue(true);
     service.setIgnoreCheck(ignored);
 
-    await expect(service.send(1, 2, 'Hallo', 'Lange Nachricht')).rejects.toThrow(
-      new ForbiddenException('Der Siedler ignoriert Dich'),
-    );
+    await expect(
+      service.send(1, 2, 'Hallo', 'Lange Nachricht'),
+    ).rejects.toThrow(new ForbiddenException('Der Siedler ignoriert Dich'));
     expect(ignored).toHaveBeenCalledWith(2, 1);
   });
 
@@ -109,13 +120,15 @@ describe('MessagingService', () => {
 
     await service.send(1, 2, '  Hallo  ', '  Lange Nachricht  ');
 
-    expect(messageRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      senderId: 1,
-      recipientId: 2,
-      subject: 'Hallo',
-      body: 'Lange Nachricht',
-      folder: MessageFolder.PERSONAL,
-    }));
+    expect(messageRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderId: 1,
+        recipientId: 2,
+        subject: 'Hallo',
+        body: 'Lange Nachricht',
+        folder: MessageFolder.PERSONAL,
+      }),
+    );
   });
 
   it('notifies the recipient after persisting a personal message', async () => {
@@ -129,10 +142,17 @@ describe('MessagingService', () => {
   });
 
   it('persists an optional target for a system message', async () => {
-    await service.sendSystem(2, 'System', 'Meldung', undefined, MessageFolder.SYSTEM, {
-      kind: MessageTargetKind.SPACECRAFT,
-      id: 17,
-    });
+    await service.sendSystem(
+      2,
+      'System',
+      'Meldung',
+      undefined,
+      MessageFolder.SYSTEM,
+      {
+        kind: MessageTargetKind.SPACECRAFT,
+        id: 17,
+      },
+    );
 
     expect(messageRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -149,25 +169,68 @@ describe('MessagingService', () => {
     messageRepo.find.mockResolvedValue([{ id: 4 }]);
 
     await expect(service.getCorrespondence(1, 2)).resolves.toEqual([{ id: 4 }]);
-    expect(messageRepo.find).toHaveBeenCalledWith(expect.objectContaining({
-      relations: ['sender'],
-      order: { createdAt: 'DESC' },
-      take: 10,
-    }));
+    expect(messageRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: ['sender'],
+        order: { createdAt: 'DESC' },
+        take: 10,
+      }),
+    );
     const where = messageRepo.find.mock.calls[0][0].where;
-    expect(where).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        senderId: 2,
-        recipientId: 1,
-        isSystem: false,
-        deletedByRecipient: false,
-      }),
-      expect.objectContaining({
-        senderId: 1,
-        recipientId: 2,
-        isSystem: false,
-        deletedBySender: false,
-      }),
-    ]));
+    expect(where).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          senderId: 2,
+          recipientId: 1,
+          isSystem: false,
+          deletedByRecipient: false,
+        }),
+        expect.objectContaining({
+          senderId: 1,
+          recipientId: 2,
+          isSystem: false,
+          deletedBySender: false,
+        }),
+      ]),
+    );
+  });
+
+  it('queries paginated personal conversations without exposing foreign messages', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      offset: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      clone: jest.fn(),
+      getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+      getRawMany: jest.fn().mockResolvedValue([]),
+      getOne: jest.fn(),
+    };
+    queryBuilder.clone.mockReturnValue(queryBuilder);
+    (messageRepo as Record<string, jest.Mock>).createQueryBuilder = jest.fn(
+      () => queryBuilder,
+    );
+    userRepo.findByIds.mockResolvedValue([]);
+
+    await expect(service.getConversations(7, 2)).resolves.toEqual({
+      data: [],
+      total: 0,
+      page: 2,
+      limit: 20,
+    });
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      '(message."senderId" = :userId AND message."deletedBySender" = false) OR (message."recipientId" = :userId AND message."deletedByRecipient" = false)',
+      { userId: 7 },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'message.folder = :folder AND message."isSystem" = false',
+      { folder: MessageFolder.PERSONAL },
+    );
+    expect(queryBuilder.offset).toHaveBeenCalledWith(20);
+    expect(queryBuilder.limit).toHaveBeenCalledWith(20);
   });
 });

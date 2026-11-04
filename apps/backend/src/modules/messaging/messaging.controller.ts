@@ -24,15 +24,21 @@ export class SendMessageDto implements SharedSendMessageDto {
   @Min(1, { message: 'Der Empfänger muss eine positive Ganzzahl sein' })
   recipientId: number;
 
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'Der Betreff muss Text sein' })
-  @MaxLength(255, { message: 'Der Betreff darf höchstens 255 Zeichen lang sein' })
+  @MaxLength(255, {
+    message: 'Der Betreff darf höchstens 255 Zeichen lang sein',
+  })
   subject: string;
 
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'Die Nachricht muss Text sein' })
-  @MinLength(5, { message: 'Die Nachricht muss mindestens 5 Zeichen lang sein' })
-  @MaxLength(10_000, { message: 'Die Nachricht darf höchstens 10.000 Zeichen lang sein' })
+  @MinLength(5, {
+    message: 'Die Nachricht muss mindestens 5 Zeichen lang sein',
+  })
+  @MaxLength(10_000, {
+    message: 'Die Nachricht darf höchstens 10.000 Zeichen lang sein',
+  })
   body: string;
 }
 
@@ -118,6 +124,17 @@ export class MessagingController {
     return this.messagingService.getUnreadCount(req.user.sub);
   }
 
+  @Get('conversations')
+  conversations(
+    @Request() req: { user: { sub: number } },
+    @Query('page') page?: string,
+  ) {
+    return this.messagingService.getConversations(
+      req.user.sub,
+      Number(page) || 1,
+    );
+  }
+
   @Get('correspondence/:partnerId')
   correspondence(
     @Param('partnerId', ParseIntPipe) partnerId: number,
@@ -135,10 +152,7 @@ export class MessagingController {
   }
 
   @Post()
-  send(
-    @Request() req: { user: { sub: number } },
-    @Body() dto: SendMessageDto,
-  ) {
+  send(@Request() req: { user: { sub: number } }, @Body() dto: SendMessageDto) {
     return this.messagingService.send(
       req.user.sub,
       dto.recipientId,
@@ -163,7 +177,9 @@ export class MessagingController {
     return parsedFolder;
   }
 
-  private parseIncomingFolder(folder: string): Exclude<MessageFolder, MessageFolder.OUTBOX> {
+  private parseIncomingFolder(
+    folder: string,
+  ): Exclude<MessageFolder, MessageFolder.OUTBOX> {
     const parsedFolder = this.parseFolder(folder);
     if (parsedFolder === MessageFolder.OUTBOX) {
       throw new BadRequestException('Outbox does not support folder actions');

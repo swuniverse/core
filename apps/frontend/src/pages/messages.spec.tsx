@@ -642,3 +642,41 @@ describe('MessagesPage folders', () => {
     );
   });
 });
+
+describe('MessagesPage messenger inbox', () => {
+  beforeEach(() => {
+    api.get.mockReset();
+    api.post.mockReset();
+    api.delete.mockReset();
+    api.patch.mockReset();
+    api.get.mockImplementation((url: string) => {
+      if (url === '/user/settings') {
+        return Promise.resolve({ inbox_messenger_style: '1' });
+      }
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/conversations?page=1') {
+        return Promise.resolve({
+          data: [{ partnerId: 7, partner: { username: 'Leia', avatar: null, faction: null }, subject: 'Private Nachricht', body: 'Bitte antworten.', createdAt: '2026-10-13T12:00:00.000Z', unread: 1 }],
+          total: 1,
+          page: 1,
+          limit: 20,
+        });
+      }
+      if (url === '/messages/correspondence/7') return Promise.resolve([]);
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+  });
+
+  it('switches Personal to conversations and opens a conversation for reply', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /Leia/ })).toBeTruthy();
+    expect(screen.getByText('Bitte antworten.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Leia/ }));
+
+    expect((await screen.findByPlaceholderText('Username eingeben...') as HTMLInputElement).value).toBe('Leia');
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/messages/correspondence/7'),
+    );
+  });
+});

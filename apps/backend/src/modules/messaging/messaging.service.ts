@@ -5,10 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  type MessageTarget,
-  WsEventType,
-} from '@swuniverse/shared';
+import { type MessageTarget, WsEventType } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
@@ -24,8 +21,10 @@ import {
 
 @Injectable()
 export class MessagingService {
-  private ignoreCheck: (recipientId: number, senderId: number) => Promise<boolean> =
-    async () => false;
+  private ignoreCheck: (
+    recipientId: number,
+    senderId: number,
+  ) => Promise<boolean> = async () => false;
 
   constructor(
     @InjectRepository(Message)
@@ -55,12 +54,7 @@ export class MessagingService {
     return { data, total, page, limit };
   }
 
-  async getFolder(
-    userId: number,
-    folder: MessageFolder,
-    page = 1,
-    limit = 20,
-  ) {
+  async getFolder(userId: number, folder: MessageFolder, page = 1, limit = 20) {
     const normalizedPage = Math.max(1, page);
     if (folder === MessageFolder.OUTBOX) {
       return this.getSent(userId, normalizedPage, limit);
@@ -86,10 +80,7 @@ export class MessagingService {
       .createQueryBuilder('message')
       .select('message.folder', 'folder')
       .addSelect('COUNT(*)', 'total')
-      .addSelect(
-        'COUNT(*) FILTER (WHERE message."isRead" = false)',
-        'unread',
-      )
+      .addSelect('COUNT(*) FILTER (WHERE message."isRead" = false)', 'unread')
       .where('message."recipientId" = :userId', { userId })
       .andWhere('message."deletedByRecipient" = false')
       .groupBy('message.folder')
@@ -185,7 +176,88 @@ export class MessagingService {
     });
   }
 
-  async send(senderId: number, recipientId: number, subject: string, body: string): Promise<Message> {
+  async getConversations(userId: number, page = 1, limit = 20) {
+    const normalizedPage = Math.max(1, page);
+    const normalizedLimit = Math.min(Math.max(1, limit), 20);
+    const visibleMessages = this.messageRepo
+      .createQueryBuilder('message')
+      .where(
+        '(message."senderId" = :userId AND message."deletedBySender" = false) OR (message."recipientId" = :userId AND message."deletedByRecipient" = false)',
+        { userId },
+      )
+      .andWhere('message.folder = :folder AND message."isSystem" = false', {
+        folder: MessageFolder.PERSONAL,
+      });
+    const partnerId =
+      'CASE WHEN message."senderId" = :userId THEN message."recipientId" ELSE message."senderId" END';
+    const total = await visibleMessages
+      .clone()
+      .select(`COUNT(DISTINCT ${partnerId})`, 'total')
+      .getRawOne<{ total: string }>();
+    const rows = await visibleMessages
+      .select(partnerId, 'partnerId')
+      .addSelect('MAX(message."createdAt")', 'createdAt')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE message."recipientId" = :userId AND message."isRead" = false)',
+        'unread',
+      )
+      .groupBy(partnerId)
+      .orderBy('MAX(message."createdAt")', 'DESC')
+      .offset((normalizedPage - 1) * normalizedLimit)
+      .limit(normalizedLimit)
+      .getRawMany<{ partnerId: string; createdAt: Date; unread: string }>();
+    const partnerIds = rows.map((row) => Number(row.partnerId));
+    const lastMessages = await Promise.all(
+      partnerIds.map((partnerId) =>
+        this.messageRepo
+          .createQueryBuilder('message')
+          .where(
+            '(message."senderId" = :userId AND message."recipientId" = :partnerId AND message."deletedBySender" = false) OR (message."recipientId" = :userId AND message."senderId" = :partnerId AND message."deletedByRecipient" = false)',
+            { userId, partnerId },
+          )
+          .andWhere('message.folder = :folder AND message."isSystem" = false', {
+            folder: MessageFolder.PERSONAL,
+          })
+          .orderBy('message."createdAt"', 'DESC')
+          .getOne(),
+      ),
+    );
+    const partners = await this.userRepo.findByIds(partnerIds);
+    const partnerById = new Map(
+      partners.map((partner) => [partner.id, partner]),
+    );
+    return {
+      data: rows.flatMap((row, index) => {
+        const partner = partnerById.get(Number(row.partnerId));
+        const message = lastMessages[index];
+        if (!partner || !message) return [];
+        return [
+          {
+            partnerId: partner.id,
+            partner: {
+              username: partner.username,
+              avatar: partner.avatar,
+              faction: partner.faction,
+            },
+            subject: message.subject,
+            body: message.body.slice(0, 255),
+            createdAt: message.createdAt,
+            unread: Number(row.unread),
+          },
+        ];
+      }),
+      total: Number(total?.total ?? 0),
+      page: normalizedPage,
+      limit: normalizedLimit,
+    };
+  }
+
+  async send(
+    senderId: number,
+    recipientId: number,
+    subject: string,
+    body: string,
+  ): Promise<Message> {
     if (senderId === recipientId) {
       throw new BadRequestException('Du kannst Dir keine Nachricht schicken');
     }
@@ -221,7 +293,8 @@ export class MessagingService {
       this.userRepo.findOneBy({ id: recipientId }),
     ]);
     if (!sender?.isNpc) throw new BadRequestException('Invalid NPC sender');
-    if (!recipient) throw new NotFoundException('Dieser Siedler existiert nicht');
+    if (!recipient)
+      throw new NotFoundException('Dieser Siedler existiert nicht');
     return this.messageRepo.save(
       this.messageRepo.create({
         senderId,
@@ -286,12 +359,15 @@ export class MessagingService {
       }
     }
     const existing = await this.messageRepo.findOneBy({ deliveryKey });
-    if (!existing) throw new Error('System message delivery key was not persisted');
+    if (!existing)
+      throw new Error('System message delivery key was not persisted');
     return existing;
   }
 
   private notifyRecipient(recipientId: number, folder: MessageFolder): void {
-    this.gateway.emitToUser(recipientId, WsEventType.MESSAGE_RECEIVED, { folder });
+    this.gateway.emitToUser(recipientId, WsEventType.MESSAGE_RECEIVED, {
+      folder,
+    });
   }
 
   async getUnreadCount(userId: number): Promise<number> {

@@ -5,14 +5,24 @@ describe('MessagingController', () => {
   const service = {
     send: jest.fn(),
     getCorrespondence: jest.fn(),
+    getConversations: jest.fn(),
   };
   const controller = new MessagingController(service as never);
 
   it.each([
-    [{ recipientId: 0, subject: 'Hallo', body: 'Lange Nachricht' }, 'Empfänger'],
-    [{ recipientId: 2, subject: 'x'.repeat(256), body: 'Lange Nachricht' }, 'Betreff'],
+    [
+      { recipientId: 0, subject: 'Hallo', body: 'Lange Nachricht' },
+      'Empfänger',
+    ],
+    [
+      { recipientId: 2, subject: 'x'.repeat(256), body: 'Lange Nachricht' },
+      'Betreff',
+    ],
     [{ recipientId: 2, subject: 'Hallo', body: 'kurz' }, 'Nachricht'],
-    [{ recipientId: 2, subject: 'Hallo', body: 'x'.repeat(10_001) }, 'Nachricht'],
+    [
+      { recipientId: 2, subject: 'Hallo', body: 'x'.repeat(10_001) },
+      'Nachricht',
+    ],
   ])('validates rejected send input %#', async (input, expectedMessage) => {
     const dto = Object.assign(new SendMessageDto(), input);
     const errors = await validate(dto);
@@ -30,11 +40,21 @@ describe('MessagingController', () => {
 
     controller.send({ user: { sub: 1 } }, dto);
 
-    expect(service.send).toHaveBeenCalledWith(1, 2, ' Hallo ', ' Lange Nachricht ');
+    expect(service.send).toHaveBeenCalledWith(
+      1,
+      2,
+      ' Hallo ',
+      ' Lange Nachricht ',
+    );
   });
 
   it('limits correspondence requests to ten messages', () => {
     controller.correspondence(2, { user: { sub: 1 } });
     expect(service.getCorrespondence).toHaveBeenCalledWith(1, 2, 10);
+  });
+
+  it('delegates paginated conversation requests', () => {
+    controller.conversations({ user: { sub: 1 } }, '2');
+    expect(service.getConversations).toHaveBeenCalledWith(1, 2);
   });
 });

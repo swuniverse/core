@@ -460,6 +460,22 @@ function GameplayTab() {
     }
   };
 
+  const setInboxMessengerStyle = async (enabled: boolean) => {
+    const value = enabled ? '1' : '0';
+    setSettings((current) => ({ ...current, inbox_messenger_style: value }));
+    try {
+      await api.patch('/user/settings', { inbox_messenger_style: value });
+    } catch (error: unknown) {
+      setSettings((current) => ({
+        ...current,
+        inbox_messenger_style: enabled ? '0' : '1',
+      }));
+      setError(
+        getErrorMessage(error, 'Nachrichtenansicht konnte nicht gespeichert werden.'),
+      );
+    }
+  };
+
   const setTutorials = async (enabled: boolean) => {
     setTutorialsBusy(true);
     setTutorialsError('');
@@ -506,6 +522,16 @@ function GameplayTab() {
           />
           Meine Profilbesuche nicht erfassen
         </label>
+      </Section>
+      <Section title="Nachrichten">
+        <Toggle
+          label="Persönliche Nachrichten als Messenger anzeigen"
+          description="Gespräche nach Siedlern gruppieren"
+          checked={settings.inbox_messenger_style === '1'}
+          onChange={() =>
+            void setInboxMessengerStyle(settings.inbox_messenger_style !== '1')
+          }
+        />
       </Section>
       <Section title="Tutorial">
         <div className="flex items-center justify-between gap-4 text-xs">

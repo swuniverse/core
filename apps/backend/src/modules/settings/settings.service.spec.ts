@@ -9,7 +9,9 @@ const createService = (
   emailBlocklist = { isBlocked: jest.fn(async () => false) },
 ) => {
   const userRepo = {
-    findOne: jest.fn<Promise<Record<string, unknown> | null>, []>(async () => null),
+    findOne: jest.fn<Promise<Record<string, unknown> | null>, []>(
+      async () => null,
+    ),
     findOneBy: jest.fn(async () => user ?? null),
     save: jest.fn(async (value) => value),
   };
@@ -18,7 +20,10 @@ const createService = (
     upsert: jest.fn(async () => undefined),
   };
   const tokenService = {
-    create: jest.fn(async () => ({ token: 'deletion-token', expiresAt: new Date() })),
+    create: jest.fn(async () => ({
+      token: 'deletion-token',
+      expiresAt: new Date(),
+    })),
   };
   const mail = {
     sendAccountDeletionMail: jest.fn(async () => true),
@@ -61,6 +66,23 @@ describe('SettingsService settings validation', () => {
     );
   });
 
+  it('returns messenger style disabled by default and validates its boolean values', async () => {
+    const { service, settingRepo } = createService();
+
+    await expect(service.getSettings(7)).resolves.toMatchObject({
+      inbox_messenger_style: '0',
+    });
+    await service.updateSettings(7, { inbox_messenger_style: '1' });
+
+    expect(settingRepo.upsert).toHaveBeenCalledWith(
+      { userId: 7, key: 'inbox_messenger_style', value: '1' },
+      ['userId', 'key'],
+    );
+    await expect(
+      service.updateSettings(7, { inbox_messenger_style: 'enabled' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it.each([
     ['email_notification', 'yes'],
     ['storage_notification', '2'],
@@ -69,9 +91,9 @@ describe('SettingsService settings validation', () => {
   ])('rejects invalid %s values', async (key, value) => {
     const { service, settingRepo } = createService();
 
-    await expect(service.updateSettings(7, { [key]: value })).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.updateSettings(7, { [key]: value }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(settingRepo.upsert).not.toHaveBeenCalled();
   });
 
@@ -113,9 +135,9 @@ describe('SettingsService email changes', () => {
     async (email) => {
       const { service, userRepo } = createService({ ...user });
 
-      await expect(service.changeEmail(user.id, 'secret', email)).rejects.toThrow(
-        'Die E-Mail-Adresse ist ungültig',
-      );
+      await expect(
+        service.changeEmail(user.id, 'secret', email),
+      ).rejects.toThrow('Die E-Mail-Adresse ist ungültig');
       expect(userRepo.save).not.toHaveBeenCalled();
     },
   );
@@ -126,7 +148,9 @@ describe('SettingsService email changes', () => {
 
     await service.changeEmail(user.id, 'secret', '  Leia@Example.Test  ');
 
-    expect(userRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: expect.any(Object) }));
+    expect(userRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.any(Object) }),
+    );
     expect(emailBlocklist.isBlocked).toHaveBeenCalledWith('leia@example.test');
     expect(changedUser.email).toBe('leia@example.test');
     expect(userRepo.save).toHaveBeenCalledWith(changedUser);
@@ -134,7 +158,10 @@ describe('SettingsService email changes', () => {
 
   it('rejects a duplicate email regardless of case', async () => {
     const { service, userRepo } = createService({ ...user });
-    userRepo.findOne.mockResolvedValueOnce({ id: 8, email: 'LEIA@example.test' });
+    userRepo.findOne.mockResolvedValueOnce({
+      id: 8,
+      email: 'LEIA@example.test',
+    });
 
     await expect(
       service.changeEmail(user.id, 'secret', 'leia@EXAMPLE.test'),
@@ -224,7 +251,9 @@ describe('SettingsService vacation cooldown', () => {
     };
     const { service, userRepo } = createService(user);
 
-    await expect(service.activateVacation(7)).rejects.toThrow('1 days remaining');
+    await expect(service.activateVacation(7)).rejects.toThrow(
+      '1 days remaining',
+    );
     expect(userRepo.save).not.toHaveBeenCalled();
   });
 
