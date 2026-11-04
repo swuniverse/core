@@ -117,6 +117,56 @@ describe('BbCodeText', () => {
     expect(code?.querySelector('span')).toBeNull();
   });
 
+  describe('external images', () => {
+    it('renders allowed HTTPS image URLs with privacy and size protections when enabled', () => {
+      const urls = [
+        'https://example.test/image.png',
+        'https://example.test/image.jpg',
+        'https://example.test/image.jpeg',
+        'https://example.test/image.webp?size=large',
+      ];
+      const { container } = render(
+        <BbCodeText
+          allowExternalImages
+          text={urls.map((url) => `[img]${url}[/img]`).join(' ')}
+        />,
+      );
+
+      const images = Array.from(container.querySelectorAll('img'));
+      expect(images.map((image) => image.src)).toEqual(urls);
+      expect(
+        images.map((image) => image.getAttribute('referrerpolicy')),
+      ).toEqual(urls.map(() => 'no-referrer'));
+      expect(images.map((image) => image.getAttribute('loading'))).toEqual(
+        urls.map(() => 'lazy'),
+      );
+      expect(
+        images.every((image) => image.className.includes('max-w-full')),
+      ).toBe(true);
+      expect(
+        images.every((image) => image.className.includes('max-h-96')),
+      ).toBe(true);
+    });
+
+    it('keeps disallowed image URLs literal and never renders them as images', () => {
+      const urls = [
+        'http://example.test/image.png',
+        'ftp://example.test/image.jpg',
+        'data:image/png;base64,AAAA',
+        'javascript:alert(1)',
+        'https://example.test/image.svg',
+        'https://example.test/image',
+      ];
+      const text = urls.map((url) => `[img]${url}[/img]`).join(' ');
+      const { container } = render(
+        <BbCodeText allowExternalImages text={text} />,
+      );
+
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.textContent).toBe(text);
+    });
+  });
+
   describe('banner images', () => {
     const text = '[img]/api/alliances/1/banner?v=1700000000000[/img]';
 

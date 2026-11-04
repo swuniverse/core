@@ -357,7 +357,7 @@ export function HolonetPage() {
           <div className="w-full max-w-lg space-y-3 border border-swu-border bg-swu-bg p-4">
             <h2 className="text-sm font-bold text-swu-primary">{viewCharacter.name}</h2>
             <CharacterAvatar character={viewCharacter} />
-            <BbCodeText text={viewCharacter.description} className="whitespace-pre-wrap text-sm" />
+            <BbCodeText allowExternalImages text={viewCharacter.description} className="whitespace-pre-wrap text-sm" />
             <p className="text-xs">Besitzer: <Link to={`/players/${viewCharacter.user.id}`} className="text-swu-accent">{viewCharacter.user.username}</Link></p>
             <button type="button" autoFocus onClick={() => setViewCharacter(null)} className="border border-swu-border px-3 py-1 text-xs">Schließen</button>
           </div>
@@ -545,6 +545,7 @@ export function HolonetPage() {
                               </div>
                               <BbCodeText
                                 text={post.body}
+                                allowExternalImages
                                 className="whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
                               />
                               {!!post.characters?.length && <section className="mt-3 space-y-2">
@@ -646,6 +647,7 @@ export function HolonetPage() {
                                   </div>
                                   <BbCodeText
                                     text={comment.body}
+                                    allowExternalImages
                                     className="whitespace-pre-wrap text-xs text-swu-muted"
                                   />
                                 </div>
@@ -930,6 +932,7 @@ export function HolonetComposePage() {
               </h2>
               <BbCodeText
                 text={compose.body}
+                allowExternalImages
                 className="whitespace-pre-wrap text-sm text-swu-primary"
               />
             </section>

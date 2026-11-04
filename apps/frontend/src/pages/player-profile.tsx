@@ -319,6 +319,7 @@ export function PlayerProfilePage() {
         {player.description ? (
           <BbCodeText
             text={player.description}
+            allowExternalImages
             className="text-sm text-swu-text whitespace-pre-wrap"
           />
         ) : (

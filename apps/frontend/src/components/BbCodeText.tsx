@@ -5,12 +5,10 @@ export type BbCodeTextProps = {
   text: string | null | undefined;
   className?: string;
   as?: 'div' | 'p' | 'span';
-  /**
-   * Renders `[img]` banner URLs as images. Opt-in for the one place that
-   * receives the server-rendered banner placeholder (alliance description);
-   * everywhere else `[img]` stays literal text.
-   */
+  /** Renders server-rendered `[img]` alliance banner URLs as images. */
   allowBannerImages?: boolean;
+  /** Renders validated HTTPS image URLs in player profiles and HoloNet posts. */
+  allowExternalImages?: boolean;
 };
 
 type Tag =
@@ -62,6 +60,18 @@ function isSafeUrl(value: string): boolean {
   try {
     const parsed = new URL(value);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isSafeExternalImageUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol === 'https:' &&
+      /\.(?:png|jpe?g|webp)$/i.test(parsed.pathname)
+    );
   } catch {
     return false;
   }
@@ -133,6 +143,7 @@ function renderFrame(
   endLiteral: string,
   nextKey: () => string,
   allowBannerImages: boolean,
+  allowExternalImages: boolean,
 ): Part {
   const translationLiteral = frame.translationChildren
     ? `[translation]${partsLiteral(frame.translationChildren)}`
@@ -239,7 +250,21 @@ function renderFrame(
     }
     case 'img': {
       const src = partsLiteral(frame.children).trim();
-      if (!allowBannerImages || !ALLIANCE_BANNER_URL_PATTERN.test(src)) {
+      if (allowBannerImages) {
+        if (!ALLIANCE_BANNER_URL_PATTERN.test(src)) return textPart(literal);
+        return {
+          literal,
+          node: (
+            <img
+              key={nextKey()}
+              src={src}
+              alt="Allianzbanner"
+              className="my-2 h-auto max-w-full"
+            />
+          ),
+        };
+      }
+      if (!allowExternalImages || !isSafeExternalImageUrl(src)) {
         return textPart(literal);
       }
       return {
@@ -248,8 +273,10 @@ function renderFrame(
           <img
             key={nextKey()}
             src={src}
-            alt="Allianzbanner"
-            className="my-2 h-auto max-w-full"
+            alt=""
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            className="my-2 h-auto max-h-96 max-w-full"
           />
         ),
       };
@@ -271,7 +298,11 @@ function renderFrame(
   }
 }
 
-function parseBbCode(text: string, allowBannerImages: boolean): ReactNode[] {
+function parseBbCode(
+  text: string,
+  allowBannerImages: boolean,
+  allowExternalImages: boolean,
+): ReactNode[] {
   const root: Part[] = [];
   const stack: Frame[] = [];
   let lastIndex = 0;
@@ -309,7 +340,17 @@ function parseBbCode(text: string, allowBannerImages: boolean): ReactNode[] {
       if (closingSlash) {
         if (top?.tag === tag) {
           const frame = stack.pop()!;
-          appendPart(stack, root, renderFrame(frame, token, nextKey, allowBannerImages));
+          appendPart(
+            stack,
+            root,
+            renderFrame(
+              frame,
+              token,
+              nextKey,
+              allowBannerImages,
+              allowExternalImages,
+            ),
+          );
         } else {
           appendPart(stack, root, textPart(token));
         }
@@ -331,7 +372,9 @@ function parseBbCode(text: string, allowBannerImages: boolean): ReactNode[] {
     appendPart(
       stack,
       root,
-      textPart(`${frame.startLiteral}${partsLiteral(frame.children)}${translationLiteral}`),
+      textPart(
+        `${frame.startLiteral}${partsLiteral(frame.children)}${translationLiteral}`,
+      ),
     );
   }
 
@@ -343,12 +386,13 @@ export function BbCodeText({
   className,
   as = 'div',
   allowBannerImages = false,
+  allowExternalImages = false,
 }: BbCodeTextProps) {
   const Component = as;
 
   return (
     <Component className={className}>
-      {parseBbCode(text ?? '', allowBannerImages)}
+      {parseBbCode(text ?? '', allowBannerImages, allowExternalImages)}
     </Component>
   );
 }
