@@ -4,22 +4,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHash } from 'crypto';
+import {
+  ShipbuildingCoreService,
+  type ShipbuildingSourceAdapter,
+} from '../spacecraft/shipbuilding-core.service';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
-import {
-  GameDataService,
-  HangarShipDef,
-  ShipyardType,
-} from '../game-data/game-data.service';
+import { GameDataService } from '../game-data/game-data.service';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
-import {
-  AlertState,
-  Spacecraft,
-  SpacecraftStatus,
-} from '../spacecraft/entities/spacecraft.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
@@ -31,7 +26,6 @@ import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import {
   ColonyStatsService,
-  deductColonyEnergy,
   getColonyChangeable,
   setColonyEnergy,
 } from './colony-stats.service';
@@ -55,6 +49,7 @@ import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueMode,
   ColonyShipBuildQueueStatus,
+  ShipBuildSource,
 } from './entities/colony-ship-build-queue.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
@@ -87,10 +82,6 @@ export class ColonyShipyardService {
     private readonly spacecraftModuleRepo: Repository<SpacecraftModule>,
     @InjectRepository(ShipClassDef)
     private readonly shipClassRepo: Repository<ShipClassDef>,
-    @InjectRepository(SystemField)
-    private readonly systemFieldRepo: Repository<SystemField>,
-    @InjectRepository(SpaceLocation)
-    private readonly locationRepo: Repository<SpaceLocation>,
     private readonly gameData: GameDataService,
     private readonly colonyOwnershipService: ColonyOwnershipService,
     private readonly colonyStorageService: ColonyStorageService,
@@ -104,6 +95,7 @@ export class ColonyShipyardService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly core: ShipbuildingCoreService,
   ) {}
 
   async findOne(colonyId: number, userId: number): Promise<Colony> {
@@ -263,49 +255,69 @@ export class ColonyShipyardService {
     reserve: (manager: EntityManager) => Promise<T>,
   ): Promise<T> {
     return this.dataSource.transaction(async (manager) => {
-      const locked = await manager.findOne(ColonyChangeable, {
-        where: { colonyId: colony.id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (locked) setColonyEnergy(colony, locked.energy);
-
-      const occupied = await manager.count(ColonyShipBuildQueue, {
-        where: {
-          colonyId: colony.id,
-          buildingFunctionId,
-          mode: In([
-            ColonyShipBuildQueueMode.BUILD,
-            ColonyShipBuildQueueMode.RETROFIT,
-          ]),
-          status: In([
-            ColonyShipBuildQueueStatus.QUEUED,
-            ColonyShipBuildQueueStatus.PAUSED,
-          ]),
-        },
-      });
-      if (occupied > 0) {
-        throw new BadRequestException(
-          'This shipyard is already building or retrofitting a ship',
-        );
-      }
-
-      const energy = getColonyChangeable(colony).energy ?? 0;
-      if (energy < epsCost) {
-        throw new BadRequestException(
-          `${epsMessage}: need ${epsCost} energy, have ${energy}`,
-        );
-      }
+      const energy = await this.reserveShipyardSlotWithManager(
+        manager,
+        colony,
+        buildingFunctionId,
+        epsCost,
+        epsMessage,
+      );
       const result = await reserve(manager);
-      if (epsCost > 0) {
-        deductColonyEnergy(colony, epsCost);
-        await manager.update(
-          ColonyChangeable,
-          { colonyId: colony.id },
-          { energy: getColonyChangeable(colony).energy },
-        );
-      }
+      await this.chargeShipyardEnergy(manager, colony, energy, epsCost);
       return result;
     });
+  }
+
+  private async reserveShipyardSlotWithManager(
+    manager: EntityManager,
+    colony: Colony,
+    buildingFunctionId: number,
+    epsCost: number,
+    epsMessage: string,
+  ): Promise<number> {
+    const locked = await manager.findOne(ColonyChangeable, {
+      where: { colonyId: colony.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const occupied = await manager.count(ColonyShipBuildQueue, {
+      where: {
+        colonyId: colony.id,
+        buildingFunctionId,
+        mode: In([
+          ColonyShipBuildQueueMode.BUILD,
+          ColonyShipBuildQueueMode.RETROFIT,
+        ]),
+        status: In([
+          ColonyShipBuildQueueStatus.QUEUED,
+          ColonyShipBuildQueueStatus.PAUSED,
+        ]),
+      },
+    });
+    if (occupied > 0)
+      throw new BadRequestException(
+        'This shipyard is already building or retrofitting a ship',
+      );
+    const energy = locked?.energy ?? getColonyChangeable(colony).energy ?? 0;
+    if (energy < epsCost)
+      throw new BadRequestException(
+        `${epsMessage}: need ${epsCost} energy, have ${energy}`,
+      );
+    return energy;
+  }
+
+  private async chargeShipyardEnergy(
+    manager: EntityManager,
+    colony: Colony,
+    energy: number,
+    epsCost: number,
+  ): Promise<void> {
+    if (epsCost > 0)
+      await manager.update(
+        ColonyChangeable,
+        { colonyId: colony.id },
+        { energy: energy - epsCost },
+      );
+    setColonyEnergy(colony, energy - epsCost);
   }
 
   private getActiveRepairQueueCount(colonyId: number): Promise<number> {
@@ -369,164 +381,6 @@ export class ColonyShipyardService {
     return user?.faction ?? null;
   }
 
-  private validateModuleSelections(
-    shipClass: ShipClassDef,
-    moduleSelections: ShipModuleSelection[],
-    userFaction: User['faction'],
-  ): ShipModuleSelection[] {
-    if (!Array.isArray(moduleSelections) || moduleSelections.length === 0) {
-      return [];
-    }
-
-    const layout = this.getShipLayout(shipClass);
-    const slotsById = new Map(layout.slots.map((slot) => [slot.slotId, slot]));
-    const seenTypes = new Set<string>();
-    const specialModuleCount = moduleSelections.filter(
-      (selection) =>
-        slotsById.get(String(selection?.slotId ?? '').trim())
-          ?.moduleCategory === 'SPECIAL',
-    ).length;
-    if (specialModuleCount > (layout.moduleSlots.SPECIAL ?? 0)) {
-      throw new BadRequestException(
-        'More special modules selected than the hull allows',
-      );
-    }
-
-    return moduleSelections.map((selection) => {
-      if (!selection || typeof selection !== 'object') {
-        throw new BadRequestException('Invalid module selection');
-      }
-      const slotId = String(selection.slotId ?? '').trim();
-      const commodityId = Number(selection.commodityId);
-      if (!slotId) {
-        throw new BadRequestException('Module selection requires slotId');
-      }
-      if (!Number.isInteger(commodityId)) {
-        throw new BadRequestException('Invalid module commodity id');
-      }
-      const slot = slotsById.get(slotId);
-      if (!slot) {
-        throw new BadRequestException(`Unknown ship slot: ${slotId}`);
-      }
-      if (
-        slot.moduleCategory !== 'SPECIAL' &&
-        seenTypes.has(slot.moduleCategory)
-      ) {
-        throw new BadRequestException(
-          `Duplicate module selection for ${slot.moduleCategory}`,
-        );
-      }
-      const item =
-        this.gameData.getFabricationItemByOutputCommodity(commodityId);
-      if (!item || item.queueType !== ColonyFabricationQueueType.MODULE) {
-        throw new BadRequestException(
-          `Commodity #${commodityId} is not a ship module`,
-        );
-      }
-      const moduleName = item.displayName ?? `Module #${commodityId}`;
-      if (item.faction != null && item.faction !== userFaction) {
-        throw new BadRequestException('Ship module is faction-locked');
-      }
-      if ((item.shipyardType ?? 'UNKNOWN') !== slot.moduleCategory) {
-        throw new BadRequestException(
-          `${moduleName} does not fit ${slot.label}`,
-        );
-      }
-      if (!this.gameData.isShipyardModuleAllowedForShipClass(item, shipClass)) {
-        throw new BadRequestException(
-          `${moduleName} is not allowed for ${shipClass.name}`,
-        );
-      }
-      seenTypes.add(slot.moduleCategory);
-      return { slotId, commodityId };
-    });
-  }
-
-  private normalizeFixedHangarModuleSelections(
-    shipClass: ShipClassDef,
-    moduleSelections: ShipModuleSelection[],
-    userFaction: User['faction'],
-  ): ShipModuleSelection[] {
-    const hangarDef = this.gameData.getHangarShipDef(shipClass.key);
-    if (!hangarDef) return moduleSelections;
-
-    const defaultSelections = this.createDefaultHangarModuleSelections(
-      shipClass,
-      hangarDef,
-    );
-    if (!Array.isArray(moduleSelections) || moduleSelections.length === 0) {
-      return defaultSelections;
-    }
-
-    const requestedSignature = this.createBuildplanSignature(
-      shipClass.id,
-      this.validateModuleSelections(shipClass, moduleSelections, userFaction),
-    );
-    const defaultSignature = this.createBuildplanSignature(
-      shipClass.id,
-      defaultSelections,
-    );
-    if (requestedSignature !== defaultSignature) {
-      throw new BadRequestException(
-        `${shipClass.name} uses a fixed module layout and cannot be customized`,
-      );
-    }
-    return defaultSelections;
-  }
-
-  private createDefaultHangarModuleSelections(
-    shipClass: ShipClassDef,
-    hangarDef: HangarShipDef,
-  ): ShipModuleSelection[] {
-    const layout = this.getShipLayout(shipClass);
-    const freeSlotsByType = new Map<ShipyardType, string[]>();
-    for (const slot of layout.slots) {
-      const slots = freeSlotsByType.get(slot.moduleCategory) ?? [];
-      slots.push(slot.slotId);
-      freeSlotsByType.set(slot.moduleCategory, slots);
-    }
-
-    return (hangarDef.defaultModuleCommodityIds ?? []).map((commodityId) => {
-      const item =
-        this.gameData.getFabricationItemByOutputCommodity(commodityId);
-      if (!item?.shipyardType) {
-        throw new BadRequestException(
-          `Default module commodity #${commodityId} has no shipyard type`,
-        );
-      }
-      const slots = freeSlotsByType.get(item.shipyardType) ?? [];
-      const slotId = slots.shift();
-      if (!slotId) {
-        throw new BadRequestException(
-          `${shipClass.name} has no free ${item.shipyardType} slot for ${item.displayName ?? `Module #${commodityId}`}`,
-        );
-      }
-      return { slotId, commodityId };
-    });
-  }
-
-  private moduleSelectionsToCommodityIds(
-    moduleSelections: ShipModuleSelection[],
-  ): number[] {
-    return moduleSelections.map((selection) => selection.commodityId);
-  }
-
-  private moduleSelectionsToModuleTypes(
-    moduleSelections: ShipModuleSelection[],
-  ): string[] {
-    return moduleSelections.map((selection) => {
-      const item = this.gameData.getFabricationItemByOutputCommodity(
-        selection.commodityId,
-      );
-      if (!item?.moduleType) {
-        throw new BadRequestException(
-          `Module commodity #${selection.commodityId} has no valid module type`,
-        );
-      }
-      return item.moduleType;
-    });
-  }
-
   private calculateCrewRequired(
     shipClass: ShipClassDef,
     moduleSelections: ShipModuleSelection[],
@@ -558,20 +412,6 @@ export class ColonyShipyardService {
           return sum + (item?.shipyardModuleStats?.crew ?? 0);
         }, 0),
     );
-  }
-
-  private assertCrewWithinHullMaximum(
-    shipClass: ShipClassDef,
-    moduleSelections: ShipModuleSelection[],
-  ): number {
-    const crewRequired = this.calculateCrewRequired(
-      shipClass,
-      moduleSelections,
-    );
-    if (crewRequired > shipClass.crewMax) {
-      throw new BadRequestException('Crew maximum exceeded');
-    }
-    return crewRequired;
   }
 
   private normalizeInstalledModuleSelections(
@@ -633,13 +473,7 @@ export class ColonyShipyardService {
     shipClassId: number,
     moduleSelections: ShipModuleSelection[],
   ): string {
-    const canonical = JSON.stringify({
-      shipClassId,
-      moduleSelections: [...moduleSelections].sort((a, b) =>
-        a.slotId.localeCompare(b.slotId),
-      ),
-    });
-    return createHash('sha256').update(canonical).digest('hex');
+    return this.core.signature(shipClassId, moduleSelections);
   }
 
   private resolveModuleCommodityId(module: SpacecraftModule): number | null {
@@ -780,23 +614,15 @@ export class ColonyShipyardService {
     );
 
     const userFaction = await this.getUserFaction(userId);
-    const selectedModuleSelections = this.validateModuleSelections(
+    const prepared = await this.core.prepare(
+      userId,
       shipClass,
-      this.normalizeFixedHangarModuleSelections(
-        shipClass,
-        moduleSelections,
-        userFaction,
-      ),
+      moduleSelections,
       userFaction,
     );
-    const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
-      selectedModuleSelections,
-    );
-    await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
-    const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
-      selectedModuleSelections,
-    );
-    this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
+    const selectedModuleSelections = prepared.moduleSelections;
+    const selectedModuleCommodityIds = prepared.moduleCommodityIds;
+    const selectedModuleTypes = prepared.moduleTypes;
     const epsCost = this.getRumpEpsCost(shipClass);
 
     const installedModules = await this.spacecraftModuleRepo.find({
@@ -827,15 +653,14 @@ export class ColonyShipyardService {
       ship.shipClassId,
       selectedModuleSelections,
     );
-    const buildPlan = await this.getOrCreateBuildplan(
-      colony.id,
-      userId,
-      ship.shipClassId,
-      buildPlanName?.trim() || `${shipClass.name} Retrofit`,
-      buildPlanSignature,
-      selectedModuleSelections,
-      selectedModuleTypes,
-      selectedModuleCommodityIds,
+    const buildPlan = await this.core.createBuildplan(
+      {
+        userId,
+        shipClassId: ship.shipClassId,
+        name: buildPlanName?.trim() || `${shipClass.name} Retrofit`,
+        moduleSelections: selectedModuleSelections,
+      },
+      true,
     );
 
     const buildMinutes = Math.max(1, shipClass.buildTimeTicks || 1);
@@ -1017,44 +842,6 @@ export class ColonyShipyardService {
     return this.shipBuildQueueRepo.save(queue);
   }
 
-  private async assertSingleColonizerAvailability(
-    userId: number,
-    shipClass: ShipClassDef,
-  ): Promise<void> {
-    if (!shipClass.isColonizer) return;
-
-    const activeColonizer = await this.shipRepo
-      .createQueryBuilder('ship')
-      .innerJoin(ShipClassDef, 'shipClass', 'shipClass.id = ship.shipClassId')
-      .where('ship.userId = :userId', { userId })
-      .andWhere('ship.status != :destroyed', {
-        destroyed: SpacecraftStatus.DESTROYED,
-      })
-      .andWhere('shipClass.isColonizer = true')
-      .getOne();
-    if (activeColonizer) {
-      throw new BadRequestException(
-        'Only one operational colonization ship is allowed',
-      );
-    }
-
-    const activeQueue = await this.shipBuildQueueRepo
-      .createQueryBuilder('queue')
-      .innerJoin(ShipClassDef, 'shipClass', 'shipClass.id = queue.shipClassId')
-      .where('queue.userId = :userId', { userId })
-      .andWhere('queue.status = :status', {
-        status: ColonyShipBuildQueueStatus.QUEUED,
-      })
-      .andWhere('queue.mode = :mode', { mode: ColonyShipBuildQueueMode.BUILD })
-      .andWhere('shipClass.isColonizer = true')
-      .getOne();
-    if (activeQueue) {
-      throw new BadRequestException(
-        'A colonization ship is already under construction',
-      );
-    }
-  }
-
   async buildShip(
     colonyId: number,
     userId: number,
@@ -1092,7 +879,6 @@ export class ColonyShipyardService {
     if (!unlocked) {
       throw new BadRequestException('Ship class is not unlocked');
     }
-    await this.assertSingleColonizerAvailability(userId, shipClass);
     this.assertShipyardCompatibility(shipClass, activeShipyardFunctionIds);
     const selectedFunctionId = this.assertSelectedShipyardFunction(
       shipClass,
@@ -1100,95 +886,102 @@ export class ColonyShipyardService {
       activeShipyardFunctionIds,
     );
 
-    const userFaction = await this.getUserFaction(userId);
-    const selectedModuleSelections = this.validateModuleSelections(
-      shipClass,
-      this.normalizeFixedHangarModuleSelections(
-        shipClass,
-        moduleSelections,
-        userFaction,
-      ),
-      userFaction,
-    );
-    const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
-      selectedModuleSelections,
-    );
-    await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
-    const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
-      selectedModuleSelections,
-    );
-
-    // The queue only describes the crew demand; the finished ship is unmanned.
-    this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
-
-    await this.assertModuleCommoditiesAvailable(
-      colony,
-      selectedModuleCommodityIds,
-    );
-
-    const buildPlanSignature = this.createBuildplanSignature(
-      shipClassId,
-      selectedModuleSelections,
-    );
-    const buildPlan =
-      sourceBuildplan ??
-      (await this.getOrCreateBuildplan(
-        colony.id,
+    // Inventory helpers update their loaded snapshot. Publish it only after
+    // the core transaction has committed, never after a late queue failure.
+    const reservedColony = Object.assign(new Colony(), colony, {
+      changeable: { ...getColonyChangeable(colony) },
+      storage: colony.storage?.map((item) => ({ ...item })),
+    });
+    const queue = await this.core.startBuild(
+      {
         userId,
         shipClassId,
-        buildPlanName?.trim() || `${shipClass.name} Buildplan`,
-        buildPlanSignature,
-        selectedModuleSelections,
-        selectedModuleTypes,
-        selectedModuleCommodityIds,
-      ));
-
-    const costs = this.calculateShipBuildCosts(shipClass);
-    const selectedModuleCommodityIdSet = new Set(selectedModuleCommodityIds);
-    const materialCosts = costs.filter(
-      (cost) => !selectedModuleCommodityIdSet.has(cost.commodityId),
+        name,
+        moduleSelections,
+        buildPlanName,
+        buildPlanId: sourceBuildplan?.id,
+      },
+      this.buildSourceAdapter(reservedColony, selectedFunctionId),
     );
-    const epsCost = this.getRumpEpsCost(shipClass);
+    setColonyEnergy(colony, getColonyChangeable(reservedColony).energy);
+    colony.storageUsed = reservedColony.storageUsed;
+    for (const item of colony.storage ?? []) {
+      const reserved = reservedColony.storage?.find(
+        (row) => row.commodityId === item.commodityId,
+      );
+      if (reserved) item.amount = reserved.amount;
+    }
+    return queue;
+  }
 
-    const buildMinutes = Math.max(1, shipClass.buildTimeTicks || 1);
-    const finishesAt = this.timing.dateAfterScaledMinutes(buildMinutes);
-    return this.reserveShipyardSlot(
-      colony,
-      selectedFunctionId,
-      epsCost,
-      'Not enough energy for construction',
-      async (manager) => {
-        await this.deductBuildCosts(colony, materialCosts, manager);
-        for (const commodityId of selectedModuleCommodityIds) {
+  private buildSourceAdapter(
+    colony: Colony,
+    buildingFunctionId: number | null,
+  ): ShipbuildingSourceAdapter {
+    let reservedEnergy = 0;
+    let epsCost = 0;
+    return {
+      source: ShipBuildSource.COLONY,
+      sourceId: colony.id,
+      reserve: async (manager, hull) => {
+        epsCost = this.getRumpEpsCost(hull);
+        reservedEnergy = await this.reserveShipyardSlotWithManager(
+          manager,
+          colony,
+          buildingFunctionId!,
+          epsCost,
+          'Not enough energy for construction',
+        );
+        return { buildingFunctionId };
+      },
+      inventory: (manager) =>
+        manager.find(ColonyStorage, {
+          where: { colonyId: colony.id },
+          order: { commodityId: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        }),
+      consume: async (manager, costs) => {
+        for (const cost of costs)
           await this.colonyStorageService.lowerStorage(
             colony,
-            commodityId,
-            1,
+            cost.commodityId,
+            cost.amount,
             manager,
           );
-        }
-        const queue = this.shipBuildQueueRepo.create({
-          colonyId: colony.id,
-          userId,
-          shipClassId,
-          buildingFunctionId: selectedFunctionId,
-          name: name?.trim() || shipClass.name,
-          buildPlanName: buildPlan.name,
-          buildPlanId: buildPlan.id,
-          buildPlanSignature,
-          moduleSelections: selectedModuleSelections,
-          moduleTypes: selectedModuleTypes,
-          moduleCommodityIds: selectedModuleCommodityIds,
-          finishesAt,
-          mode: ColonyShipBuildQueueMode.BUILD,
-          spacecraftId: null,
-          repairSnapshot: null,
-          retrofitSnapshot: null,
-          status: ColonyShipBuildQueueStatus.QUEUED,
-        });
-        return manager.save(ColonyShipBuildQueue, queue);
+        await this.chargeShipyardEnergy(
+          manager,
+          colony,
+          reservedEnergy,
+          epsCost,
+        );
       },
-    );
+      placement: async (manager) => {
+        const source = await manager.findOne(Colony, {
+          where: { id: colony.id, userId: colony.userId! },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!source) return null;
+        const colonyLocation = resolveColonyLocation(colony);
+        const starSystemId = colonyLocation?.systemId ?? colony.starSystemId;
+        if (starSystemId == null)
+          throw new NotFoundException('Colony star system not found');
+        const field = colony.systemFieldId
+          ? await manager.findOneOrFail(SystemField, {
+              where: { id: colony.systemFieldId },
+            })
+          : await manager.findOneOrFail(SystemField, {
+              where: {
+                starSystemId,
+                sx: colonyLocation?.x ?? colony.posX,
+                sy: colonyLocation?.y ?? colony.posY,
+              },
+            });
+        const location = await manager.findOneOrFail(SpaceLocation, {
+          where: { systemFieldId: field.id },
+        });
+        return { locationId: location.id, dockedAtId: null };
+      },
+    };
   }
 
   private getActiveShipyardFunctionIds(
@@ -1242,19 +1035,7 @@ export class ColonyShipyardService {
   }
 
   private validateBuildplanName(name: string): string {
-    const trimmed = name?.trim();
-    if (!trimmed) {
-      throw new BadRequestException('Buildplan name is required');
-    }
-    if (/\p{Cc}/u.test(trimmed)) {
-      throw new BadRequestException(
-        'Buildplan name contains control characters',
-      );
-    }
-    if ([...trimmed].length > 255) {
-      throw new BadRequestException('Buildplan name is too long');
-    }
-    return trimmed;
+    return this.core.validateBuildplanName(name);
   }
 
   private async assertBuildplanNameAvailable(
@@ -1346,56 +1127,14 @@ export class ColonyShipyardService {
     name: string,
     moduleSelections: ShipModuleSelection[],
   ) {
-    const trimmedName = this.validateBuildplanName(name);
-    await this.assertBuildplanNameAvailable(userId, trimmedName);
-
-    const shipClass = await this.shipClassRepo.findOneBy({ id: shipClassId });
-    if (!shipClass || shipClass.isNpc) {
-      throw new BadRequestException('Unknown ship class');
-    }
-
-    const userFaction = await this.getUserFaction(userId);
-    const selectedModuleSelections = this.validateModuleSelections(
-      shipClass,
-      this.normalizeFixedHangarModuleSelections(
-        shipClass,
+    return this.toBuildplanDto(
+      await this.core.createBuildplan({
+        userId,
+        shipClassId,
+        name,
         moduleSelections,
-        userFaction,
-      ),
-      userFaction,
+      }),
     );
-    const selectedModuleCommodityIds = this.moduleSelectionsToCommodityIds(
-      selectedModuleSelections,
-    );
-    await this.assertModuleResearchUnlocked(userId, selectedModuleCommodityIds);
-    const selectedModuleTypes = this.moduleSelectionsToModuleTypes(
-      selectedModuleSelections,
-    );
-    this.assertCrewWithinHullMaximum(shipClass, selectedModuleSelections);
-
-    const signature = this.createBuildplanSignature(
-      shipClassId,
-      selectedModuleSelections,
-    );
-    const existingBuildplan = await this.shipBuildplanRepo.findOne({
-      where: { userId, signature },
-    });
-    if (existingBuildplan) {
-      throw new BadRequestException(
-        `Ein Bauplan mit dieser Konfiguration existiert bereits: ${existingBuildplan.name}`,
-      );
-    }
-
-    const buildplan = this.shipBuildplanRepo.create({
-      userId,
-      shipClassId,
-      name: trimmedName,
-      signature,
-      moduleSelections: selectedModuleSelections,
-      moduleCommodityIds: selectedModuleCommodityIds,
-      moduleTypes: selectedModuleTypes,
-    });
-    return this.toBuildplanDto(await this.shipBuildplanRepo.save(buildplan));
   }
 
   async renameShipBuildplan(
@@ -1465,35 +1204,6 @@ export class ColonyShipyardService {
     );
   }
 
-  private async getOrCreateBuildplan(
-    _colonyId: number,
-    userId: number,
-    shipClassId: number,
-    name: string,
-    signature: string,
-    moduleSelections: ShipModuleSelection[],
-    moduleTypes: string[],
-    moduleCommodityIds: number[],
-  ): Promise<ColonyShipBuildplan> {
-    const existing = await this.shipBuildplanRepo.findOne({
-      where: { userId, signature },
-    });
-    if (existing) return existing;
-
-    const trimmedName = this.validateBuildplanName(name);
-    await this.assertBuildplanNameAvailable(userId, trimmedName);
-    const buildplan = this.shipBuildplanRepo.create({
-      userId,
-      shipClassId,
-      name: trimmedName,
-      signature,
-      moduleSelections,
-      moduleCommodityIds,
-      moduleTypes,
-    });
-    return this.shipBuildplanRepo.save(buildplan);
-  }
-
   private async assertModuleCommoditiesAvailable(
     colony: Colony,
     moduleCommodityIds: number[],
@@ -1510,26 +1220,6 @@ export class ColonyShipyardService {
         const commodity = this.gameData.getCommodity(commodityId);
         throw new BadRequestException(
           `Not enough ${commodity?.name ?? `module #${commodityId}`} in colony storage`,
-        );
-      }
-    }
-  }
-
-  private async assertModuleResearchUnlocked(
-    userId: number,
-    moduleCommodityIds: number[],
-  ): Promise<void> {
-    for (const commodityId of moduleCommodityIds) {
-      const item =
-        this.gameData.getFabricationItemByOutputCommodity(commodityId);
-      if (item?.researchId == null) continue;
-      const hasResearch = await this.unlockResolver.hasTech(
-        userId,
-        item.researchId,
-      );
-      if (!hasResearch) {
-        throw new BadRequestException(
-          `Research required: ${item.researchRequired || item.researchId}`,
         );
       }
     }
@@ -1641,30 +1331,10 @@ export class ColonyShipyardService {
     colony: Colony,
     job: ColonyShipBuildQueue,
   ): Promise<void> {
-    const shipClass =
-      job.shipClass ??
-      (await this.shipClassRepo.findOneBy({ id: job.shipClassId }));
-    if (!shipClass) return;
-    const ship = await this.createShipFromClass(
-      colony,
-      job.userId,
-      shipClass,
-      job.name,
+    await this.core.completeBuild(
+      job.id,
+      this.buildSourceAdapter(colony, job.buildingFunctionId),
     );
-    ship.buildPlanId = job.buildPlanId;
-    const savedShip = await this.shipRepo.save(ship);
-    const modules = await this.createModulesForBuiltShip(savedShip.id, job);
-    this.spacecraftStatsService.applyStats(savedShip, shipClass, modules);
-    savedShip.crewRequired = this.calculateCrewRequired(
-      shipClass,
-      job.moduleSelections ?? [],
-    );
-    savedShip.crewMax = Math.max(savedShip.crewMax, savedShip.crewRequired);
-    savedShip.modules = modules;
-    initializeSpacecraftRuntimeSystems(savedShip);
-    await this.shipRepo.save(savedShip);
-    job.status = ColonyShipBuildQueueStatus.COMPLETED;
-    await this.shipBuildQueueRepo.save(job);
   }
 
   private async finishShipRepairQueue(
@@ -1879,92 +1549,6 @@ export class ColonyShipyardService {
     };
     job.status = ColonyShipBuildQueueStatus.COMPLETED;
     await this.shipBuildQueueRepo.save(job);
-  }
-
-  private async createModulesForBuiltShip(
-    spacecraftId: number,
-    job: ColonyShipBuildQueue,
-  ): Promise<SpacecraftModule[]> {
-    const createdModules: SpacecraftModule[] = [];
-    for (const selection of job.moduleSelections ?? []) {
-      const item = this.gameData.getFabricationItemByOutputCommodity(
-        selection.commodityId,
-      );
-      if (!item?.moduleType) continue;
-      const savedModule = await this.spacecraftModuleRepo.save(
-        this.spacecraftModuleRepo.create({
-          spacecraftId,
-          slotId: selection.slotId,
-          moduleType: item.moduleType,
-          category: item.shipyardType ?? 'UNKNOWN',
-          level: item.moduleLevel ?? 1,
-          integrity: 100,
-          cooldown: 0,
-          isActive: true,
-        }),
-      );
-      createdModules.push(savedModule);
-    }
-    return createdModules;
-  }
-
-  private async createShipFromClass(
-    colony: Colony,
-    userId: number,
-    shipClass: ShipClassDef,
-    name: string,
-  ): Promise<Spacecraft> {
-    const colonyLocation = resolveColonyLocation(colony);
-    const starSystemId = colonyLocation?.systemId ?? colony.starSystemId;
-    if (starSystemId == null) {
-      throw new NotFoundException('Colony star system not found');
-    }
-    const systemField = colony.systemFieldId
-      ? (colony.systemField ??
-        (await this.systemFieldRepo.findOneByOrFail({
-          id: colony.systemFieldId,
-        })))
-      : await this.systemFieldRepo.findOneByOrFail({
-          starSystemId,
-          sx: colonyLocation?.x ?? colony.posX,
-          sy: colonyLocation?.y ?? colony.posY,
-        });
-    const location = await this.locationRepo.findOneByOrFail({
-      systemFieldId: systemField.id,
-    });
-    return this.shipRepo.create({
-      name: name?.trim() || shipClass.name,
-      shipClassId: shipClass.id,
-      userId,
-      locationId: location.id,
-      location,
-      status: SpacecraftStatus.IDLE,
-      alertState: AlertState.GREEN,
-      hull: shipClass.hullBase,
-      hullMax: shipClass.hullBase,
-      shields: shipClass.shieldBase,
-      shieldsMax: shipClass.shieldBase,
-      energy: shipClass.epsBase,
-      energyMax: shipClass.epsBase,
-      warpSpeed: shipClass.warpdriveBase,
-      crew: 0,
-      crewMax: shipClass.crewMax,
-      cargoUsed: 0,
-      cargoMax: shipClass.cargoCapacity,
-      battery: shipClass.batteryBase,
-      batteryMax: shipClass.batteryBase,
-      epsMax: shipClass.epsBase,
-      reactorOutput: 0,
-      warpdriveMax: shipClass.warpdriveBase,
-      evadeChance: 0,
-    });
-  }
-
-  private calculateShipBuildCosts(
-    shipClass: ShipClassDef,
-  ): Array<{ commodityId: number; amount: number }> {
-    const definition = this.gameData.getShipClassDefByKey(shipClass.key);
-    return (definition?.buildCosts ?? []).filter((cost) => cost.amount > 0);
   }
 
   private isShipRepairNeeded(

@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 jest.mock('../starmap/entities/space-location.entity', () => ({ SpaceLocation: class SpaceLocation {} }));
-import { SpacecraftStatsService } from './spacecraft-stats.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { StationRole } from './entities/spacecraft.entity';
+import { ShipbuildingCoreService } from './shipbuilding-core.service';
 import { StationShipyardService } from './station-shipyard.service';
 
 describe('StationShipyardService', () => {
@@ -11,31 +11,36 @@ describe('StationShipyardService', () => {
   const queueRepo = { create: jest.fn((x) => x), find: jest.fn(), save: jest.fn(async (x) => ({ id: 1, ...x })) };
   const state: any = { cargo: [{ spacecraftId: 10, commodityId: 1, amount: 1 }, { spacecraftId: 10, commodityId: 7, amount: 4 }], ships: [] };
   const manager: any = {
-    findOne: jest.fn(async (entity: any, options: any) => entity.name === 'Spacecraft' ? (options.where.id === 10 ? station : null) : null),
+    findOne: jest.fn(async (entity: any, options: any) => entity.name === 'Spacecraft' ? (options.where.id === 10 ? station : null) : entity.name === 'User' ? { id: 2, faction: null } : entity.name === 'ShipClassDef' ? hull : entity.name === 'ColonyShipBuildQueue' ? (await queueRepo.find())?.find((job: any) => job.id === options.where.id) : null),
     find: jest.fn(async (entity: any, options: any) => {
       if (entity.name === 'CargoItem') return state.cargo;
       if (entity.name === 'ColonyShipBuildQueue') return queueRepo.find();
       return state.ships;
     }),
-    count: jest.fn(async () => state.ships.filter((s: any) => s.dockedAtId === 10).length),
+    count: jest.fn(async (entity: any) => entity.name === 'ColonyShipBuildQueue' ? 0 : state.ships.filter((s: any) => s.dockedAtId === 10).length),
+    findOneOrFail: jest.fn(async (_entity: any, options: any) => state.cargo.find((item: any) => item.commodityId === options.where.commodityId)),
+    update: jest.fn(async () => ({})),
+    createQueryBuilder: jest.fn(() => ({ select: jest.fn().mockReturnThis(), where: jest.fn().mockReturnThis(), getRawOne: jest.fn(async () => ({ total: state.cargo.reduce((sum: number, item: any) => sum + item.amount, 0) })) })),
     create: jest.fn((_entity: any, value: any) => value),
     save: jest.fn(async (_entity: any, value: any) => {
       if (Array.isArray(value)) return value;
-      if (value?.name === 'Hope' && value.id == null) value.id = 50;
+      if (_entity.name === 'Spacecraft' && value.id == null) value.id = 50;
+      if (_entity.name === 'ColonyShipBuildplan' && value.id == null) value.id = 1;
       return value;
     }),
   };
   const prepared = { moduleSelections: [{ slotId: 'w', commodityId: 1 }], moduleCommodityIds: [1], moduleTypes: ['M1'], modules: [{ slotId: 'w', commodityId: 1, moduleType: 'M1', category: 'ENERGY_WEAPON', level: 3 }], materialCosts: [{ commodityId: 7, amount: 4 }], crewRequired: 4 };
-  const core: any = { prepare: jest.fn(async () => prepared), createModules: jest.fn((spacecraftId: number) => prepared.modules.map((module) => ({ ...module, spacecraftId, integrity: 100, cooldown: 0, isActive: true }))) };
   const stats: any = { applyStats: jest.fn((ship: any) => { ship.hullMax = 125; ship.cargoMax = 30; return ship; }) };
   const gameData: any = {
     getShipClassSlotRuleForShipClass: jest.fn(() => ({
       imageKey: 'corvette',
       layoutKey: 'corvette',
+      moduleSlots: { SPECIAL: 0 },
       slots: [{ slotId: 'w', moduleCategory: 'ENERGY_WEAPON', label: 'Waffe', anchorX: 0, anchorY: 0, calloutSide: 'left', order: 0 }],
     })),
-    getShipClassDefByKey: jest.fn(() => ({ stuRumpId: 4 })),
+    getShipClassDefByKey: jest.fn(() => ({ stuRumpId: 4, buildCosts: [{ commodityId: 7, amount: 4 }] })),
     getShipyardRumpStats: jest.fn(() => ({ moduleLevel: 1, specialSlots: 0 })),
+    getFabricationItemByOutputCommodity: jest.fn(() => ({ queueType: 'MODULE', moduleType: 'M1', shipyardType: 'ENERGY_WEAPON', moduleLevel: 3, shipyardModuleStats: { crew: 2 } })),
     getAllFabricationItems: jest.fn(() => [{
       outputCommodityId: 1,
       displayName: 'Laserkanone',
@@ -53,13 +58,13 @@ describe('StationShipyardService', () => {
     isShipyardModuleAllowedForShipClass: jest.fn(() => true),
     getCommodity: jest.fn(() => ({ name: 'Laserkanone' })),
   };
+  const dataSource: any = { transaction: (fn: any) => fn(manager), manager };
+  const core = new ShipbuildingCoreService(gameData as never, { isShipClassUnlocked: async () => true, hasTech: async () => true } as never, dataSource, stats as never, { dateAfterScaledMinutes: () => new Date() } as never);
   const service = new StationShipyardService(
     { transaction: (fn: any) => fn(manager), manager } as never,
     queueRepo as never,
     { find: jest.fn(async () => [hull]), findOneBy: jest.fn(async () => hull) } as never,
     core,
-    stats as SpacecraftStatsService,
-    { dateAfterScaledMinutes: jest.fn(() => new Date()) } as never,
     { isShipClassUnlocked: jest.fn(async () => true) } as never,
     { findOne: jest.fn(async () => ({ faction: null })) } as never,
     gameData as GameDataService,
@@ -91,7 +96,7 @@ describe('StationShipyardService', () => {
 
   it('atomically consumes station cargo and creates a STATION-origin queue', async () => {
     const queue = await service.build(10, 2, { shipClassId: 4, name: 'Hope', moduleSelections: [{ slotId: 'w', commodityId: 1 }] });
-    expect(queue).toMatchObject({ source: 'STATION', stationId: 10, colonyId: null, userId: 2 });
+    expect(queue).toMatchObject({ source: 'STATION', stationId: 10, colonyId: null, userId: 2, buildPlanId: 1, buildPlanName: 'Corvette Buildplan' });
     expect(state.cargo.map((x: any) => x.amount)).toEqual([0, 0]);
   });
 
@@ -101,7 +106,7 @@ describe('StationShipyardService', () => {
 
     await service.processTick(10);
 
-    expect(core.createModules).toHaveBeenCalledWith(50, expect.objectContaining({ crewRequired: 4 }));
+    expect(manager.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ buildPlanId: undefined, crewRequired: 4 }));
     expect(manager.save).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining([
       expect.objectContaining({ moduleType: 'M1', category: 'ENERGY_WEAPON', level: 3 }),
     ]));

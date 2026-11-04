@@ -1,5 +1,117 @@
 import type { Stance } from '../alliance/index.js';
 import type { SpaceLocationDto } from '../starmap/index.js';
+import type { ShipModuleSelection } from '../colony/index.js';
+
+export interface StationShipBuildRequestDto {
+  shipClassId?: number;
+  buildPlanId?: number;
+  buildPlanName?: string;
+  name: string;
+  moduleSelections?: ShipModuleSelection[];
+}
+
+export interface ShipBuildplanDto {
+  id: number;
+  shipClassId: number;
+  name: string;
+  signature: string;
+  moduleSelections: ShipModuleSelection[];
+  moduleCommodityIds: number[];
+  moduleTypes: string[];
+}
+
+export type ShipyardModuleCategory =
+  | 'HULL'
+  | 'SHIELDS'
+  | 'COMPUTER'
+  | 'SUBLIGHT_DRIVE'
+  | 'SENSORS'
+  | 'HYPERDRIVE'
+  | 'REACTOR'
+  | 'EPS'
+  | 'ENERGY_WEAPON'
+  | 'TORPEDO_BANK'
+  | 'SPECIAL';
+
+export interface ShipDesignerLayoutDto {
+  shipClassId: number;
+  imageKey: string;
+  layoutKey: string;
+  stuRumpId?: number | null;
+  fixedModuleCommodityIds?: number[] | null;
+  fixedBuildCosts?: Array<{ commodityId: number; amount: number }> | null;
+  baseStats: {
+    moduleLevel: number;
+    baseCrew: number;
+    baseEvadeChance: number;
+    baseHull: number;
+    baseShield: number;
+    baseDamage: number;
+    baseSensorRange: number;
+    baseWarpdrive: number;
+    baseEps: number;
+    baseReactor: number;
+    epsCost?: number;
+  } | null;
+  slots: Array<{
+    slotId: string;
+    moduleCategory: ShipyardModuleCategory;
+    label: string;
+    anchorX: number;
+    anchorY: number;
+    calloutSide: 'left' | 'right' | 'top' | 'bottom';
+    order: number;
+    required?: boolean;
+  }>;
+}
+
+export interface ShipDesignerModuleDto {
+  commodityId: number;
+  commodityName: string;
+  amount: number;
+  moduleType: string;
+  moduleCategory: string;
+  shipyardGroup: 'CORE_SYSTEMS' | 'DEFENSE_SYSTEMS' | 'OFFENSE_SYSTEMS';
+  shipyardType: ShipyardModuleCategory;
+  moduleLevel: number;
+  moduleClass: number;
+  researchRequired: string | null;
+  faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null;
+  displayName: string;
+  crewRequired: number;
+  effects: string[];
+  shipyardModuleStats: {
+    level: number;
+    upgradeFactor: number;
+    downgradeFactor: number;
+    crew: number;
+    energyCost: number;
+    defaultFactor: number;
+  } | null;
+  compatibleShipClassIds?: number[];
+}
+
+export interface StationShipyardOverviewDto {
+  stationId: number;
+  role: string;
+  options: Array<{
+    id: number;
+    key: string;
+    name: string;
+    buildTimeTicks: number;
+    crewMax: number;
+    buildCosts: Array<{ commodityId: number; amount: number; stored: number }>;
+    layout: ShipDesignerLayoutDto;
+  }>;
+  availableModules: ShipDesignerModuleDto[];
+  buildplans: ShipBuildplanDto[];
+  queues: Array<{
+    id: number;
+    name: string;
+    buildPlanName?: string | null;
+    finishesAt: string;
+  }>;
+}
 
 export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'SHIELDS',

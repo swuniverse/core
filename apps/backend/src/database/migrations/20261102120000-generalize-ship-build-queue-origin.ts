@@ -10,7 +10,11 @@ export class GeneralizeShipBuildQueueOrigin20261102120000 implements MigrationIn
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ship_build_queue_station_status" ON "colony_ship_build_queue" ("stationId", "status")`);
   }
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DELETE FROM "colony_ship_build_queue" WHERE "source" = 'STATION'`);
+    await queryRunner.query(`DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM "colony_ship_build_queue" WHERE "source" = 'STATION') THEN
+        RAISE EXCEPTION 'Cannot roll back ship build queue origin while station jobs exist';
+      END IF;
+    END $$`);
     await queryRunner.query(`ALTER TABLE "colony_ship_build_queue" DROP CONSTRAINT IF EXISTS "CHK_ship_build_queue_one_source", DROP CONSTRAINT IF EXISTS "FK_ship_build_queue_station"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ship_build_queue_station_status"`);
     await queryRunner.query(`ALTER TABLE "colony_ship_build_queue" ALTER COLUMN "colonyId" SET NOT NULL, DROP COLUMN IF EXISTS "stationId", DROP COLUMN IF EXISTS "source"`);

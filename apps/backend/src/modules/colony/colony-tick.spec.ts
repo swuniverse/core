@@ -9,6 +9,7 @@ jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   AlertState: { GREEN: 'GREEN' },
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT' },
+  SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
 }));
 jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
   ShipClassDef: class ShipClassDef {},
@@ -44,6 +45,7 @@ import { ColonyTimingService } from './colony-timing.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonyProjectionService } from './colony-projection.service';
+import { ShipbuildingCoreService } from '../spacecraft/shipbuilding-core.service';
 import { ColonyShipyardService } from './colony-shipyard.service';
 import { ColonyConstructionService } from './colony-construction.service';
 import { ColonyTickProcessorService } from './colony-tick-processor.service';
@@ -60,6 +62,7 @@ import { WsEventType } from '@swuniverse/shared';
 function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const colonyRepo = {
     save: jest.fn(async (value) => value),
+    update: jest.fn(async () => ({ affected: 1 })),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
     manager: { save: jest.fn(async (value) => value) },
@@ -1295,24 +1298,93 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const messagingService = { sendSystem: jest.fn() };
   // Occupied BUILD/RETROFIT slots seen by the transactional slot check.
   const shipyardSlotCount = jest.fn(async (..._args: unknown[]) => 0);
+  const entityRepo = (entity: { name?: string }) => {
+    switch (entity?.name) {
+      case 'ColonyStorage':
+        return storageRepo;
+      case 'ColonyShipBuildQueue':
+        return shipBuildQueueRepo;
+      case 'ColonyShipBuildplan':
+        return shipBuildplanRepo;
+      case 'Spacecraft':
+        return shipRepo;
+      case 'SpacecraftModule':
+        return spacecraftModuleRepo;
+      case 'ShipClassDef':
+        return shipClassRepo;
+      case 'User':
+        return userRepo;
+      case 'SystemField':
+        return systemFieldRepo;
+      case 'SpaceLocation':
+        return locationRepo;
+      case 'Colony':
+        return colonyRepo;
+      default:
+        return { update: jest.fn(async () => ({ affected: 1 })) };
+    }
+  };
   const transactionManager = {
-    findOne: jest.fn(async () => null),
+    findOne: jest.fn(async (entity: any, options: any) => {
+      if (entity.name === 'ColonyChangeable') return null;
+      if (entity.name === 'ShipClassDef')
+        return (
+          (await shipClassRepo.findOneBy(options.where)) ??
+          (await shipBuildQueueRepo.find()).find(
+            (job: any) => job.shipClassId === options.where.id,
+          )?.shipClass
+        );
+      if (entity.name === 'Colony') return colonyRepo.findOne(options);
+      return (entityRepo(entity) as any).findOne(options);
+    }),
+    findOneOrFail: jest.fn(async (entity: any, options: any) =>
+      (entityRepo(entity) as any).findOneByOrFail(options.where),
+    ),
+    find: jest.fn(async (entity: any, options: any) => {
+      if (entity.name === 'ColonyStorage') {
+        const ids = new Set([
+          ...(gameData.getShipClassDefByKey('CORVETTE')?.buildCosts ?? []).map(
+            (cost: any) => cost.commodityId,
+          ),
+          ...gameData
+            .getAllFabricationItems()
+            .map((item: any) => item.outputCommodityId),
+        ]);
+        return (
+          await Promise.all(
+            [...ids].map(async (commodityId) => {
+              const item = await storageRepo.findOne({
+                where: { colonyId: options.where.colonyId, commodityId },
+              });
+              return item ? { ...item, commodityId } : null;
+            }),
+          )
+        ).filter(Boolean);
+      }
+      return (entityRepo(entity) as any).find(options);
+    }),
+    create: jest.fn((entity: any, value: any) =>
+      (entityRepo(entity) as any).create(value),
+    ),
     count: shipyardSlotCount,
-    save: jest.fn(async (_entity: unknown, value: unknown) =>
-      shipBuildQueueRepo.save(value as never),
+    save: jest.fn(async (entity: any, value: any) =>
+      (entityRepo(entity) as any).save(value),
     ),
     update: jest.fn(async () => ({ affected: 1 })),
-    getRepository: jest.fn((entity: { name?: string }) =>
-      entity?.name === 'ColonyStorage'
-        ? storageRepo
-        : { update: jest.fn(async () => ({ affected: 1 })) },
-    ),
+    getRepository: jest.fn(entityRepo),
   };
   const dataSource = {
     transaction: jest.fn(async (work: (manager: unknown) => unknown) =>
       work(transactionManager),
     ),
   };
+  const shipbuildingCore = new ShipbuildingCoreService(
+    gameData as any,
+    unlockResolver as any,
+    dataSource as any,
+    spacecraftStatsService as any,
+    timingService,
+  );
   const shipyardService = new ColonyShipyardService(
     storageRepo as any,
     shipRepo as any,
@@ -1320,8 +1392,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     shipBuildplanRepo as any,
     spacecraftModuleRepo as any,
     shipClassRepo as any,
-    systemFieldRepo as any,
-    locationRepo as any,
     gameData as any,
     ownershipService as any,
     colonyStorageService as any,
@@ -1334,6 +1404,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     timingService,
     userRepo as never,
     dataSource as never,
+    shipbuildingCore,
   );
   const constructionService = new ColonyConstructionService(
     colonyRepo as any,
@@ -5235,9 +5306,12 @@ describe('ship building compatibility', () => {
       shipRepo,
       systemFieldRepo,
       locationRepo,
+      colonyRepo,
     } = createColonyService();
     const job = {
       id: 1,
+      source: 'COLONY',
+      mode: 'BUILD',
       colonyId: 1,
       userId: 1,
       shipClassId: 1,
@@ -5259,6 +5333,7 @@ describe('ship building compatibility', () => {
       },
     };
     shipBuildQueueRepo.find.mockResolvedValue([job]);
+    shipBuildQueueRepo.findOne.mockResolvedValue(job);
     const colony = {
       id: 1,
       starSystemId: 10,
@@ -5268,6 +5343,7 @@ describe('ship building compatibility', () => {
       starSystem: { layerId: 1 },
     };
 
+    colonyRepo.findOne.mockResolvedValue(colony);
     await (service as any).processShipBuildQueue(colony);
 
     expect(shipRepo.save).toHaveBeenCalledWith(
@@ -5297,9 +5373,13 @@ describe('ship building compatibility', () => {
       shipRepo,
       spacecraftModuleRepo,
       spacecraftStatsService,
+      colonyRepo,
     } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({ id: 1, userId: 1 });
     const job = {
       id: 1,
+      source: 'COLONY',
+      mode: 'BUILD',
       colonyId: 1,
       userId: 1,
       shipClassId: 1,
@@ -5322,6 +5402,7 @@ describe('ship building compatibility', () => {
       },
     };
     shipBuildQueueRepo.find.mockResolvedValue([job]);
+    shipBuildQueueRepo.findOne.mockResolvedValue(job);
     shipRepo.save.mockResolvedValueOnce({ id: 55, name: 'Module Ship' });
 
     await (service as any).processShipBuildQueue({
@@ -5333,13 +5414,13 @@ describe('ship building compatibility', () => {
       starSystem: { layerId: 1 },
     });
 
-    expect(spacecraftModuleRepo.create).toHaveBeenCalledWith(
+    expect(spacecraftModuleRepo.save).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({
         spacecraftId: 55,
         category: 'ENERGY_WEAPON',
         level: 1,
       }),
-    );
+    ]));
     expect(spacecraftStatsService.applyStats).toHaveBeenCalledWith(
       expect.objectContaining({ id: 55 }),
       job.shipClass,
@@ -5966,7 +6047,7 @@ describe('ship building compatibility', () => {
       cargoCapacity: 20,
       batteryBase: 5,
     });
-    shipBuildplanRepo.findOne.mockResolvedValueOnce(buildplan);
+    shipBuildplanRepo.findOne.mockResolvedValue(buildplan);
 
     const queue = await service.buildShipFromBuildplan(1, 1, 7, 'Planned Ship', 6);
 
@@ -7861,6 +7942,7 @@ describe('ship repair queues', () => {
       stoppedAt: null,
     };
     shipBuildQueueRepo.find.mockResolvedValue([job]);
+    shipBuildQueueRepo.findOne.mockResolvedValue(job);
 
     await service.processTick(colony as any);
 
@@ -9617,6 +9699,32 @@ describe('shipyard EPS cost and one job per shipyard function', () => {
     // REPAIR jobs and unbound legacy jobs (NULL function) never match.
     expect(where.mode.value).toEqual(['BUILD', 'RETROFIT']);
     expect(where.status.value).toEqual(['QUEUED', 'PAUSED']);
+  });
+
+  it('leaves the loaded colony inventory and EPS unchanged when queue persistence fails', async () => {
+    const { service, colonyRepo, storageRepo, shipBuildQueueRepo, gameData } =
+      setup(120);
+    const colony = yardColony(120);
+    const loadedStorage = { colonyId: 1, commodityId: 1, amount: 20 };
+    colony.storage = [loadedStorage] as never;
+    colonyRepo.findOne.mockResolvedValue(colony);
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 1,
+      amount: 20,
+    });
+    gameData.getShipClassDefByKey.mockReturnValue({
+      stuRumpId: 6501,
+      buildCosts: [{ commodityId: 1, amount: 5 }],
+    });
+    shipBuildQueueRepo.save.mockRejectedValueOnce(
+      new Error('Queue persistence failed'),
+    );
+    await expect(
+      service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6),
+    ).rejects.toThrow('Queue persistence failed');
+    expect(colony.energy).toBe(120);
+    expect(loadedStorage.amount).toBe(20);
   });
 
   it('does not charge EPS when the resource reservation fails', async () => {

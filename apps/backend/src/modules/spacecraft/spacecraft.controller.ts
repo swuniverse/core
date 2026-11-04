@@ -80,10 +80,21 @@ class StationShipModuleSelectionDto {
 }
 
 class StationShipBuildDto {
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  shipClassId: number;
+  shipClassId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  buildPlanId?: number;
+
+  @IsOptional()
+  @IsString()
+  buildPlanName?: string;
 
   @IsString()
   name: string;

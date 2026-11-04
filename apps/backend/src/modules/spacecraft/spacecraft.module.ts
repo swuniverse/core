@@ -93,7 +93,7 @@ import {
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { FieldEffectConsequence } from './field-effect-consequence';
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
-import { ShipbuildingCoreService } from './shipbuilding-core.service';
+import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
 import { StationShipyardService } from './station-shipyard.service';
 
 @Module({
@@ -138,6 +138,7 @@ import { StationShipyardService } from './station-shipyard.service';
     ]),
     forwardRef(() => StarmapModule),
     forwardRef(() => ColonyModule),
+    ShipbuildingModule,
     ResearchModule,
     GameDataModule,
     ColonizationModule,
@@ -164,7 +165,6 @@ import { StationShipyardService } from './station-shipyard.service';
     ShipManagementService,
     StationShipManagementService,
     StationRepairService,
-    ShipbuildingCoreService,
     StationShipyardService,
     DockingPrivilegeService,
     SpacecraftScanService,

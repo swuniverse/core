@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { Colony } from './colony.entity';
 import { ShipClassDef } from '../../spacecraft/entities/ship-class-def.entity';
@@ -36,7 +37,6 @@ export interface ColonyShipRepairSnapshot {
   costs: Array<{ commodityId: number; amount: number }>;
 }
 
-
 export interface ColonyShipRetrofitSnapshot {
   oldModuleSelections: ShipModuleSelection[];
   newModuleSelections: ShipModuleSelection[];
@@ -48,6 +48,11 @@ export interface ColonyShipRetrofitSnapshot {
 @Entity('colony_ship_build_queue')
 @Index(['colonyId', 'status'])
 @Index(['userId', 'status'])
+@Index('IDX_ship_build_queue_station_status', ['stationId', 'status'])
+@Check(
+  'CHK_ship_build_queue_one_source',
+  `("source" = 'COLONY' AND "colonyId" IS NOT NULL AND "stationId" IS NULL) OR ("source" = 'STATION' AND "stationId" IS NOT NULL AND "colonyId" IS NULL)`,
+)
 export class ColonyShipBuildQueue {
   @PrimaryGeneratedColumn()
   id: number;
@@ -119,6 +124,19 @@ export class ColonyShipBuildQueue {
 
   @Column({ type: 'int', nullable: true })
   crewRequired: number | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  buildSnapshot: {
+    version: 1;
+    modules: Array<{
+      slotId: string;
+      commodityId: number;
+      moduleType: string;
+      category: string;
+      level: number;
+    }>;
+    crewRequired: number;
+  } | null;
 
   @Column({ type: 'jsonb', nullable: true })
   repairSnapshot: ColonyShipRepairSnapshot | null;

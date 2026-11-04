@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
 import { ColonyController } from './colony.controller';
 import { ColonyService } from './colony.service';
 import { ColonySeedService } from './colony-seed.service';
@@ -92,6 +93,7 @@ import { Layer } from '../starmap/entities/layer.entity';
       SpaceLocation,
       Layer,
     ]),
+    ShipbuildingModule,
     ResearchModule,
     FactionModule,
     StarmapModule,

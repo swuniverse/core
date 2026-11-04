@@ -4,43 +4,35 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { ShipModuleSelection } from '@swuniverse/shared';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import type { StationShipBuildRequestDto } from '@swuniverse/shared';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import {
   FabricationItemDef,
   GameDataService,
 } from '../game-data/game-data.service';
-import { ColonyTimingService } from '../colony/colony-timing.service';
 import {
   ColonyShipBuildQueue,
   ColonyShipBuildQueueMode,
   ColonyShipBuildQueueStatus,
   ShipBuildSource,
 } from '../colony/entities/colony-ship-build-queue.entity';
+import { ColonyShipBuildplan } from '../colony/entities/colony-ship-buildplan.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
-import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import {
-  AlertState,
   Spacecraft,
   SpacecraftKind,
   SpacecraftStatus,
   StationRole,
 } from './entities/spacecraft.entity';
-import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
 import {
-  PreparedShipBuild,
+  ShipbuildingSourceAdapter,
   ShipbuildingCoreService,
 } from './shipbuilding-core.service';
-import { SpacecraftStatsService } from './spacecraft-stats.service';
 
-export interface StationShipBuildRequest {
-  shipClassId: number;
-  name: string;
-  moduleSelections?: ShipModuleSelection[];
-}
+export type StationShipBuildRequest = StationShipBuildRequestDto;
 
 @Injectable()
 export class StationShipyardService {
@@ -51,8 +43,6 @@ export class StationShipyardService {
     @InjectRepository(ShipClassDef)
     private readonly classRepo: Repository<ShipClassDef>,
     private readonly core: ShipbuildingCoreService,
-    private readonly stats: SpacecraftStatsService,
-    private readonly timing: ColonyTimingService,
     private readonly unlocks: UnlockResolverService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly gameData: GameDataService,
@@ -79,9 +69,12 @@ export class StationShipyardService {
       }),
       this.userRepo.findOne({ where: { id: userId } }),
     ]);
-    const amount = new Map(cargo.map((item) => [item.commodityId, item.amount]));
+    const amount = new Map(
+      cargo.map((item) => [item.commodityId, item.amount]),
+    );
     const options = [];
     for (const hull of classes) {
+      if (this.gameData.getShipClassDefByKey(hull.key)?.station) continue;
       if (!(await this.unlocks.isShipClassUnlocked(userId, hull.id))) continue;
       const prepared = await this.core.prepare(
         userId,
@@ -134,6 +127,10 @@ export class StationShipyardService {
       options,
       availableModules,
       queues,
+      buildplans: await this.dataSource.manager.find(ColonyShipBuildplan, {
+        where: { userId },
+        order: { name: 'ASC' },
+      }),
     };
   }
 
@@ -142,188 +139,99 @@ export class StationShipyardService {
     userId: number,
     request: StationShipBuildRequest,
   ) {
-    return this.dataSource.transaction(async (manager) => {
-      const station = await this.ownedShipyard(manager, stationId, userId, true);
-      if (
-        await manager.count(ColonyShipBuildQueue, {
-          where: {
-            stationId,
-            source: ShipBuildSource.STATION,
-            status: ColonyShipBuildQueueStatus.QUEUED,
-          },
-        })
-      ) {
-        throw new BadRequestException(
-          'In dieser Raumwerft wird bereits ein Schiff gebaut',
-        );
-      }
-      const hull = await this.classRepo.findOneBy({ id: request.shipClassId });
-      if (
-        !hull ||
-        hull.isNpc ||
-        !(await this.unlocks.isShipClassUnlocked(userId, hull.id))
-      ) {
-        throw new BadRequestException('Unknown or locked ship class');
-      }
-      const user = await this.userRepo.findOne({ where: { id: userId } });
-      const prepared = await this.core.prepare(
-        userId,
-        hull,
-        request.moduleSelections ?? [],
-        user?.faction ?? null,
-      );
-      const required = this.requiredCargo(prepared);
-      const cargo = await manager.find(CargoItem, {
-        where: { spacecraftId: station.id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      for (const [commodityId, amount] of required) {
-        if (
-          (cargo.find((item) => item.commodityId === commodityId)?.amount ?? 0) <
-          amount
-        ) {
-          throw new BadRequestException(
-            `Not enough commodity #${commodityId}`,
-          );
-        }
-      }
-      for (const [commodityId, amount] of required) {
-        cargo.find((item) => item.commodityId === commodityId)!.amount -= amount;
-      }
-      await manager.save(CargoItem, cargo);
-      const queue = manager.create(ColonyShipBuildQueue, {
-        source: ShipBuildSource.STATION,
-        colonyId: null,
-        stationId,
-        userId,
-        shipClassId: hull.id,
-        mode: ColonyShipBuildQueueMode.BUILD,
-        buildingFunctionId: null,
-        spacecraftId: null,
-        name: request.name?.trim() || hull.name,
-        buildPlanName: null,
-        buildPlanId: null,
-        buildPlanSignature: null,
-        moduleSelections: prepared.moduleSelections,
-        moduleCommodityIds: prepared.moduleCommodityIds,
-        moduleTypes: prepared.moduleTypes,
-        crewRequired: prepared.crewRequired,
-        repairSnapshot: null,
-        retrofitSnapshot: null,
-        finishesAt: this.timing.dateAfterScaledMinutes(
-          Math.max(1, hull.buildTimeTicks || 1),
-        ),
-        stoppedAt: null,
-        status: ColonyShipBuildQueueStatus.QUEUED,
-      });
-      return manager.save(ColonyShipBuildQueue, queue);
-    });
+    return this.core.startBuild(
+      { ...request, userId },
+      this.sourceAdapter(stationId, userId),
+    );
   }
 
   async processTick(stationId: number): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      const station = await manager.findOne(Spacecraft, {
-        where: { id: stationId, kind: SpacecraftKind.STATION },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!station || station.stationRole !== StationRole.SHIPYARD) return;
-      const due = await manager.find(ColonyShipBuildQueue, {
-        where: {
-          stationId,
-          source: ShipBuildSource.STATION,
-          mode: ColonyShipBuildQueueMode.BUILD,
-          status: ColonyShipBuildQueueStatus.QUEUED,
-        },
-        relations: { shipClass: true },
-        order: { finishesAt: 'ASC', id: 'ASC' },
-        lock: { mode: 'pessimistic_write' },
-      });
-      for (const job of due) {
-        if (job.finishesAt > new Date()) continue;
+    const jobs = await this.queueRepo.find({
+      where: {
+        stationId,
+        source: ShipBuildSource.STATION,
+        mode: ColonyShipBuildQueueMode.BUILD,
+        status: ColonyShipBuildQueueStatus.QUEUED,
+      },
+      order: { finishesAt: 'ASC', id: 'ASC' },
+    });
+    for (const job of jobs) {
+      if (job.finishesAt <= new Date())
+        await this.core.completeBuild(
+          job.id,
+          this.sourceAdapter(stationId, job.userId),
+        );
+    }
+  }
+
+  private sourceAdapter(
+    stationId: number,
+    userId: number,
+  ): ShipbuildingSourceAdapter {
+    return {
+      source: ShipBuildSource.STATION,
+      sourceId: stationId,
+      reserve: async (manager) => {
+        await this.ownedShipyard(manager, stationId, userId, true);
+        if (
+          await manager.count(ColonyShipBuildQueue, {
+            where: {
+              stationId,
+              source: ShipBuildSource.STATION,
+              status: In([
+                ColonyShipBuildQueueStatus.QUEUED,
+                ColonyShipBuildQueueStatus.PAUSED,
+              ]),
+            },
+          })
+        )
+          throw new BadRequestException(
+            'In dieser Raumwerft wird bereits ein Schiff gebaut',
+          );
+        return { buildingFunctionId: null };
+      },
+      inventory: (manager) =>
+        manager.find(CargoItem, {
+          where: { spacecraftId: stationId },
+          order: { commodityId: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        }),
+      consume: async (manager, costs) => {
+        for (const cost of costs) {
+          const cargo = await manager.findOneOrFail(CargoItem, {
+            where: { spacecraftId: stationId, commodityId: cost.commodityId },
+          });
+          cargo.amount -= cost.amount;
+          await manager.save(CargoItem, cargo);
+        }
+        const total = await manager
+          .createQueryBuilder(CargoItem, 'cargo')
+          .select('COALESCE(SUM(cargo.amount), 0)', 'total')
+          .where('cargo.spacecraftId = :stationId', { stationId })
+          .getRawOne();
+        await manager.update(Spacecraft, stationId, {
+          cargoUsed: Number(total.total),
+        });
+      },
+      placement: async (manager) => {
+        const station = await manager.findOne(Spacecraft, {
+          where: { id: stationId, userId, kind: SpacecraftKind.STATION },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (
+          !station ||
+          station.stationRole !== StationRole.SHIPYARD ||
+          station.status === SpacecraftStatus.DESTROYED
+        )
+          return null;
         if (
           (await manager.count(Spacecraft, {
-            where: { dockedAtId: station.id },
+            where: { dockedAtId: stationId },
           })) >= station.dockCapacity
-        ) {
-          return;
-        }
-        const hull =
-          job.shipClass ??
-          (await manager.findOne(ShipClassDef, {
-            where: { id: job.shipClassId },
-          }));
-        if (!hull) return;
-        await this.complete(manager, station, job, hull);
-      }
-    });
-  }
-
-  private async complete(
-    manager: EntityManager,
-    station: Spacecraft,
-    job: ColonyShipBuildQueue,
-    hull: ShipClassDef,
-  ): Promise<void> {
-    const ship = manager.create(Spacecraft, {
-      name: job.name,
-      shipClassId: hull.id,
-      userId: job.userId,
-      locationId: station.locationId,
-      dockedAtId: station.id,
-      kind: SpacecraftKind.SHIP,
-      status: SpacecraftStatus.IDLE,
-      alertState: AlertState.GREEN,
-      hull: hull.hullBase,
-      hullMax: hull.hullBase,
-      shields: hull.shieldBase,
-      shieldsMax: hull.shieldBase,
-      energy: hull.epsBase,
-      energyMax: hull.epsBase,
-      epsMax: hull.epsBase,
-      warpSpeed: hull.warpdriveBase,
-      warpdrive: hull.warpdriveBase,
-      warpdriveMax: hull.warpdriveBase,
-      crew: 0,
-      crewRequired: job.crewRequired ?? hull.crewMin,
-      crewMax: hull.crewMax,
-      cargoUsed: 0,
-      cargoMax: hull.cargoCapacity,
-      battery: hull.batteryBase,
-      batteryMax: hull.batteryBase,
-      reactorOutput: hull.reactorBase,
-      reactorFuel: 0,
-      reactorFuelMax: 0,
-      evadeChance: hull.evadeBase,
-      buildPlanId: job.buildPlanId,
-    });
-    const saved = await manager.save(Spacecraft, ship);
-    const prepared = await this.rehydrateBuild(job, hull);
-    const modules = this.core.createModules(saved.id, prepared);
-    if (modules.length) await manager.save(SpacecraftModule, modules);
-    saved.modules = modules;
-    saved.crewRequired = prepared.crewRequired;
-    this.stats.applyStats(saved, hull, modules);
-    saved.crewMax = Math.max(saved.crewMax, saved.crewRequired);
-    initializeSpacecraftRuntimeSystems(saved);
-    await manager.save(Spacecraft, saved);
-    job.status = ColonyShipBuildQueueStatus.COMPLETED;
-    await manager.save(ColonyShipBuildQueue, job);
-  }
-
-  private async rehydrateBuild(
-    job: ColonyShipBuildQueue,
-    hull: ShipClassDef,
-  ): Promise<PreparedShipBuild> {
-    const user = await this.userRepo.findOne({ where: { id: job.userId } });
-    const prepared = await this.core.prepare(
-      job.userId,
-      hull,
-      job.moduleSelections ?? [],
-      user?.faction ?? null,
-    );
-    return {
-      ...prepared,
-      crewRequired: job.crewRequired ?? prepared.crewRequired,
+        )
+          return null;
+        return { locationId: station.locationId, dockedAtId: stationId };
+      },
     };
   }
 
@@ -393,20 +301,6 @@ export class StationShipyardService {
     };
   }
 
-  private requiredCargo(build: PreparedShipBuild): Map<number, number> {
-    const required = new Map<number, number>();
-    for (const cost of build.materialCosts) {
-      required.set(
-        cost.commodityId,
-        (required.get(cost.commodityId) ?? 0) + cost.amount,
-      );
-    }
-    for (const commodityId of build.moduleCommodityIds) {
-      required.set(commodityId, (required.get(commodityId) ?? 0) + 1);
-    }
-    return required;
-  }
-
   private async ownedShipyard(
     manager: EntityManager,
     id: number,
@@ -420,6 +314,9 @@ export class StationShipyardService {
     if (!station) throw new NotFoundException('Station nicht gefunden');
     if (station.stationRole !== StationRole.SHIPYARD) {
       throw new BadRequestException('Diese Station ist keine Raumwerft');
+    }
+    if (station.status === SpacecraftStatus.DESTROYED) {
+      throw new BadRequestException('Diese Raumwerft wurde zerstört');
     }
     return station;
   }

@@ -1,32 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ShipModuleSelection } from '@swuniverse/shared';
+import type {
+  ShipBuildplanDto,
+  ShipModuleSelection,
+  StationShipBuildRequestDto,
+  StationShipyardOverviewDto,
+} from '@swuniverse/shared';
 import { api } from '../../services/api';
 import {
   ShipHullDesigner,
-  type ShipLayout,
   type ShipModuleOption,
 } from '../../pages/colonies/components/PanelShipyard';
 
-type Option = {
-  id: number;
-  key: string;
-  name: string;
-  buildTimeTicks: number;
-  crewMax: number;
-  buildCosts: Array<{
-    commodityId: number;
-    amount: number;
-    stored: number;
-  }>;
-  layout: ShipLayout;
-};
-
-type Queue = { id: number; name: string; finishesAt: string };
-type Overview = {
-  options: Option[];
-  availableModules: ShipModuleOption[];
-  queues: Queue[];
-};
+type Overview = StationShipyardOverviewDto;
+type Option = Overview['options'][number];
+type Queue = Overview['queues'][number];
 
 export function StationShipyardPanel({
   stationId,
@@ -36,11 +23,20 @@ export function StationShipyardPanel({
   onChanged: () => void;
 }) {
   const [options, setOptions] = useState<Option[]>([]);
-  const [availableModules, setAvailableModules] = useState<ShipModuleOption[]>([]);
+  const [availableModules, setAvailableModules] = useState<ShipModuleOption[]>(
+    [],
+  );
   const [queues, setQueues] = useState<Queue[]>([]);
+  const [buildplans, setBuildplans] = useState<ShipBuildplanDto[]>([]);
+  const [selectedBuildPlanId, setSelectedBuildPlanId] = useState<number | null>(
+    null,
+  );
   const [selected, setSelected] = useState<number | null>(null);
-  const [moduleSelections, setModuleSelections] = useState<ShipModuleSelection[]>([]);
+  const [moduleSelections, setModuleSelections] = useState<
+    ShipModuleSelection[]
+  >([]);
   const [name, setName] = useState('');
+  const [buildPlanName, setBuildPlanName] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +47,8 @@ export function StationShipyardPanel({
     [options, selected],
   );
   const hasShortage =
-    selectedOption?.buildCosts.some((cost) => cost.stored < cost.amount) ?? false;
+    selectedOption?.buildCosts.some((cost) => cost.stored < cost.amount) ??
+    false;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,14 +59,19 @@ export function StationShipyardPanel({
       );
       setOptions(data.options);
       setAvailableModules(data.availableModules ?? []);
+      setBuildplans(data.buildplans ?? []);
       setQueues(data.queues);
       setSelected((value) =>
         data.options.some((option) => option.id === value)
           ? value
           : (data.options[0]?.id ?? null),
       );
-    } catch {
-      setError('Raumwerft konnte nicht geladen werden.');
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Raumwerft konnte nicht geladen werden.',
+      );
     } finally {
       setLoading(false);
     }
@@ -81,8 +83,20 @@ export function StationShipyardPanel({
 
   const selectHull = (option: Option) => {
     setSelected(option.id);
+    setSelectedBuildPlanId(null);
     setName(option.name);
     setModuleSelections([]);
+    setMessage(null);
+  };
+
+  const selectBuildPlan = (id: number | null) => {
+    const plan = buildplans.find((candidate) => candidate.id === id);
+    setSelectedBuildPlanId(plan?.id ?? null);
+    if (plan) {
+      setSelected(plan.shipClassId);
+      setModuleSelections(plan.moduleSelections);
+      setName(plan.name);
+    }
     setMessage(null);
   };
 
@@ -91,17 +105,33 @@ export function StationShipyardPanel({
     setSubmitting(true);
     setError(null);
     try {
-      await api.post(`/spacecraft/${stationId}/station-shipyard/build`, {
-        shipClassId: selectedOption.id,
-        name,
-        moduleSelections,
-      });
+      const request: StationShipBuildRequestDto =
+        selectedBuildPlanId !== null
+          ? { buildPlanId: selectedBuildPlanId, name }
+          : {
+              shipClassId: selectedOption.id,
+              name,
+              moduleSelections,
+              ...(buildPlanName.trim()
+                ? { buildPlanName: buildPlanName.trim() }
+                : {}),
+            };
+      await api.post(
+        `/spacecraft/${stationId}/station-shipyard/build`,
+        request,
+      );
       setMessage('Schiffbau gestartet.');
       setModuleSelections([]);
+      setSelectedBuildPlanId(null);
+      setBuildPlanName('');
       await load();
       onChanged();
-    } catch {
-      setError('Schiffbau konnte nicht gestartet werden.');
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Schiffbau konnte nicht gestartet werden.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -115,10 +145,31 @@ export function StationShipyardPanel({
       {message && <p className="mb-2 text-swu-primary">{message}</p>}
       {queues.map((queue) => (
         <p key={queue.id} className="mb-2 text-swu-muted">
-          Im Bau: {queue.name} ·{' '}
+          Im Bau: {queue.name}
+          {queue.buildPlanName && ` · Bauplan: ${queue.buildPlanName}`} ·{' '}
           {new Date(queue.finishesAt).toLocaleString('de-DE')}
         </p>
       ))}
+      <label className="mb-3 block">
+        Bauplan
+        <select
+          aria-label="Bauplan"
+          className="ml-2 border border-swu-border bg-swu-bg px-2 py-1"
+          value={selectedBuildPlanId ?? ''}
+          onChange={(event) =>
+            selectBuildPlan(
+              event.target.value ? Number(event.target.value) : null,
+            )
+          }
+        >
+          <option value="">Eigener Entwurf</option>
+          {buildplans.map((plan) => (
+            <option key={plan.id} value={plan.id}>
+              {plan.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="grid gap-2 md:grid-cols-2">
         {options.map((option) => (
           <button
@@ -150,7 +201,11 @@ export function StationShipyardPanel({
             availableModules={availableModules}
             moduleSelections={moduleSelections}
             maxCrew={selectedOption.crewMax}
-            onChange={setModuleSelections}
+            onChange={(next) => {
+              setModuleSelections(next);
+              setSelectedBuildPlanId(null);
+              setMessage(null);
+            }}
           />
         </div>
       )}
@@ -163,6 +218,20 @@ export function StationShipyardPanel({
           onChange={(event) => setName(event.target.value)}
         />
       </label>
+      {selectedBuildPlanId === null && (
+        <label className="mt-2 block">
+          Bauplanname (optional)
+          <input
+            aria-label="Bauplanname"
+            className="ml-2 border border-swu-border bg-swu-bg px-2 py-1"
+            value={buildPlanName}
+            onChange={(event) => setBuildPlanName(event.target.value)}
+          />
+          <span className="mt-1 block text-swu-muted">
+            Wird beim Schiffbau als Bauplan gespeichert.
+          </span>
+        </label>
+      )}
       <button
         type="button"
         disabled={
