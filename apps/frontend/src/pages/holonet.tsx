@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { useHolonetUnreadStore } from '../stores/holonet-unread.store';
 import { PmLink } from '../components/PmLink';
 import type { RpgPlotDto, RpgPlotListDto, UserCharacterDto } from '@swuniverse/shared';
+import { tutorialEvent } from '../components/tutorial/useTutorial';
 
 type Character = Pick<UserCharacterDto, 'id' | 'userId' | 'name' | 'avatar' | 'description'>;
 type TaggedCharacter = Character & { user: { id: number; username: string } };
@@ -415,7 +416,7 @@ export function HolonetPage() {
         </div>
 
         <div className="flex flex-col gap-3 p-2 md:flex-row md:items-start">
-          <main className="min-w-0 flex-1 space-y-2">
+          <main data-tutorial="holonet-archive" className="min-w-0 flex-1 space-y-2">
             {loading ? (
               <div className="border border-swu-border bg-swu-surface/40 p-4 text-sm">
                 Archivdaten werden geladen...
@@ -848,6 +849,7 @@ export function HolonetComposePage() {
       setCreateError(cause instanceof Error ? cause.message : 'Beitrag konnte nicht erstellt werden.');
       return;
     }
+    await tutorialEvent('holonet.post.created');
     if (setBookmark) {
       await api.post('/holonet/checkpoint', { postId: post.id });
     }
@@ -860,7 +862,7 @@ export function HolonetComposePage() {
         <div className="border-b border-swu-border bg-swu-surface/70 px-3 py-1 text-xs font-bold text-swu-primary">
           / HoloNet / Beitrag schreiben
         </div>
-        <div className="space-y-4 p-3">
+        <div data-tutorial="holonet-compose" className="space-y-4 p-3">
           <label className="block text-xs font-bold text-swu-primary">
             Titel
             <input
@@ -953,6 +955,7 @@ export function HolonetComposePage() {
 
           <div className="flex flex-wrap items-center gap-2 border-t border-swu-border pt-3 text-xs">
             <button
+              data-tutorial="holonet-publish"
               onClick={createPost}
               disabled={(!compose.plotId && !compose.title.trim()) || !compose.body.trim()}
               className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent hover:bg-swu-accent/20 disabled:opacity-40"

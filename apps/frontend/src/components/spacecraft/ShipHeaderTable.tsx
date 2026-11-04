@@ -186,6 +186,7 @@ export function ShipHeaderTable({
     <section
       className="overflow-hidden rounded border border-swu-border bg-swu-surface"
       aria-label="Schiffskopf"
+      data-tutorial="ship-header"
     >
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[760px] border-collapse text-center text-xs">
@@ -245,6 +246,7 @@ export function ShipHeaderTable({
                   type="button"
                   onClick={() => setAlertOpen(true)}
                   aria-label="Alarmstufe ändern"
+                  data-tutorial="ship-alarm"
                   title="Alarmstufe ändern"
                   className={`size-4 border border-swu-border ${alertState === 'GREEN' ? 'bg-green-500' : alertState === 'YELLOW' ? 'bg-yellow-400' : 'bg-red-500'}`}
                 />

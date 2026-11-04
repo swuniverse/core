@@ -237,6 +237,7 @@ export function NearbySensorPanel({
     <section
       className="mt-2 border border-swu-border bg-swu-surface text-xs"
       aria-labelledby="nearby-sensor-heading"
+      data-tutorial="ship-nearby"
     >
       <h3
         id="nearby-sensor-heading"

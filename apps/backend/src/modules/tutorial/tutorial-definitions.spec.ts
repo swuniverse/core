@@ -59,6 +59,25 @@ describe('tutorial definitions', () => {
     expect(definitions.views.maindesk).toHaveLength(5);
     expect(definitions.views.colony).toHaveLength(8);
     expect(definitions.views.research).toHaveLength(4);
+    expect(definitions.views.spacecraft).toHaveLength(8);
+    expect(definitions.views.starmap).toHaveLength(4);
+    expect(definitions.views.messages).toHaveLength(3);
+    expect(definitions.views.holonet).toHaveLength(2);
+    expect(
+      definitions.views.spacecraft?.some(
+        (step) => step.waitFor === 'spacecraft.flight.started',
+      ),
+    ).toBe(true);
+    expect(
+      definitions.views.messages?.some(
+        (step) => step.waitFor === 'messages.sent',
+      ),
+    ).toBe(true);
+    expect(
+      definitions.views.holonet?.some(
+        (step) => step.waitFor === 'holonet.post.created',
+      ),
+    ).toBe(true);
     expect(
       definitions.views.colony?.some(
         (step) => step.waitFor === 'colony.build.started',

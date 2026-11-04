@@ -342,7 +342,7 @@ export function StarmapPage() {
   return (
     <div className="flex h-[calc(100svh-60px)] flex-col p-4 gap-3">
       {/* Header toolbar */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0" data-tutorial="map-layer">
         {layers.length > 1 ? (
           <select
             aria-label="Kartenebene"
@@ -456,6 +456,14 @@ export function StarmapPage() {
               onClose={() => setSelectedContactKey(null)}
             />
           )}
+          <section data-tutorial="map-legend" className="rounded-lg border border-swu-border bg-swu-surface p-3">
+            <h4 className="mb-2 text-xs font-bold text-swu-muted">Legende</h4>
+            <ul className="space-y-1 text-xs text-swu-muted">
+              <li><span aria-hidden="true" className="mr-2 text-swu-primary">✦</span>Sternensystem</li>
+              <li><span aria-hidden="true" className="mr-2 text-swu-primary">◆</span>Schiff</li>
+              <li><span aria-hidden="true" className="mr-2 text-swu-primary">━</span>Hyperraumroute</li>
+            </ul>
+          </section>
           {/* Hyperspace routes */}
           {hyperspaceRoutes.length > 0 && (
             <div className="rounded-lg border border-swu-border bg-swu-surface p-3">

@@ -67,7 +67,7 @@ export function StarmapControlPanel({
   };
 
   return (
-    <div className="rounded-lg border border-swu-border bg-swu-surface p-3 space-y-3">
+    <div className="rounded-lg border border-swu-border bg-swu-surface p-3 space-y-3" data-tutorial="map-view-controls">
       <h4 className="text-xs font-bold text-swu-muted">Ansicht</h4>
       <div className="flex gap-1">
         <button onClick={onZoomIn} className="flex-1 border border-swu-border rounded px-2 py-1 text-sm text-swu-primary hover:bg-swu-accent/10">+</button>
@@ -144,7 +144,7 @@ export function StarmapControlPanel({
           Systemfelder laden
         </button>
       )}
-      <div className="border-t border-swu-border pt-2 space-y-0.5">
+      <div className="border-t border-swu-border pt-2 space-y-0.5" data-tutorial="map-system-details">
         <p className="text-xs font-bold text-swu-primary">Feld</p>
         {selectedField ? (
           <>

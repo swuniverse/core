@@ -110,7 +110,7 @@ export function SpacecraftPage() {
   if (loading) return <div className="p-3 text-swu-muted md:p-6">Flotte wird geladen...</div>;
 
   return (
-    <div className="space-y-3 p-3 md:p-6">
+    <div className="space-y-3 p-3 md:p-6" data-tutorial="ship-list">
       <div className="border border-swu-border bg-black/30 px-3 py-1.5">
         <h1 className="text-xs font-bold text-swu-primary">/ Schiffe / Flotte</h1>
       </div>

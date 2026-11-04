@@ -6,6 +6,7 @@ import {
   type SpaceLocationDto,
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { tutorialEvent } from '../tutorial/useTutorial';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
 import type { LocalMapResponse } from './LssMap';
@@ -117,6 +118,7 @@ export function NavigationPanel({
       } else {
         await api.post(`/spacecraft/${ship.id}/fly`, { targetX, targetY });
       }
+      await tutorialEvent('spacecraft.flight.started');
       setNavTarget(null);
       setNavMessage('Position aktualisiert');
       await onShipUpdate();
@@ -222,6 +224,7 @@ export function NavigationPanel({
     <section
       className="rounded-lg border border-swu-border bg-swu-surface/80 p-2"
       aria-labelledby="navigation-panel-heading"
+      data-tutorial="ship-navigation"
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-swu-border/60 pb-1">
         <h3

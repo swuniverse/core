@@ -15,6 +15,7 @@ import {
   type UpdateContactPermissionsDto,
 } from '@swuniverse/shared';
 import { PlayerAvatar } from '../components/PlayerAvatar';
+import { tutorialEvent } from '../components/tutorial/useTutorial';
 
 type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
@@ -793,6 +794,7 @@ export function MessagesPage() {
         subject: compose.subject,
         body: compose.body,
       });
+      await tutorialEvent('messages.sent');
       setCompose({ recipientName: '', subject: '', body: '' });
       setRecipientId(null);
       setCorrespondence([]);
@@ -846,6 +848,7 @@ export function MessagesPage() {
 
       <div className="flex flex-col gap-4 md:flex-row">
         <aside
+          data-tutorial="message-folders"
           id="mobile-message-actions"
           aria-label="Nachrichtenaktionen"
           className={`${mobileActionsOpen ? 'block' : 'hidden'} order-first w-full md:order-last md:block md:w-60 md:shrink-0`}
@@ -928,7 +931,7 @@ export function MessagesPage() {
           <button type="button" onClick={() => setSearchParams({ tab: 'ignore-list' })} className="text-swu-primary hover:text-swu-accent">Ignorierliste öffnen</button>
         </div>
       ) : tab === 'compose' ? (
-        <div className="bg-swu-surface border border-swu-border rounded-lg p-4 max-w-lg space-y-3">
+        <div data-tutorial="message-compose" className="bg-swu-surface border border-swu-border rounded-lg p-4 max-w-lg space-y-3">
           {sendError && (
             <p role="alert" className="border border-red-500/60 bg-red-950/30 px-3 py-2 text-xs text-red-200">
               {sendError}
@@ -995,6 +998,7 @@ export function MessagesPage() {
             ))}
           </select>
           <button
+            data-tutorial="message-send"
             onClick={sendMessage}
             disabled={!recipientId}
             className="px-4 py-1.5 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"

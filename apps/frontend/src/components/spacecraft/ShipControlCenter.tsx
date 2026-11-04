@@ -159,7 +159,7 @@ export function ShipControlCenter({
   }
   return (
     <section>
-      <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface text-xs">
+      <div className="overflow-hidden rounded-lg border border-swu-border bg-swu-surface text-xs" data-tutorial="ship-systems">
         <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
           Schiffskontrolle
         </h3>
