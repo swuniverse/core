@@ -11,6 +11,8 @@ export interface ContactDto {
   contactUsername: string;
   mode: ContactMode;
   comment: string;
+  treatAsFriend: boolean;
+  shareLivePositions: boolean;
   createdAt: string;
 }
 
@@ -33,6 +35,11 @@ export interface UpdateContactModeDto {
 
 export interface UpdateContactCommentDto {
   comment: string;
+}
+
+export interface UpdateContactPermissionsDto {
+  treatAsFriend?: boolean;
+  shareLivePositions?: boolean;
 }
 
 export interface DeleteContactsDto {

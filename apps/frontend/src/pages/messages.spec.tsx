@@ -555,6 +555,42 @@ describe('MessagesPage folders', () => {
     expect(screen.getByPlaceholderText('Username eingeben...')).toHaveProperty('value', 'Leia');
   });
 
+  it('toggles both one-sided contact permissions independently and keeps failed changes closed', async () => {
+    let contact = {
+      id: 4, userId: 1, contactUserId: 7, contactUsername: 'Leia',
+      mode: 'NEUTRAL', comment: '', treatAsFriend: false, shareLivePositions: false,
+      createdAt: '2026-10-13T12:00:00.000Z',
+    };
+    api.get.mockImplementation((url: string) => Promise.resolve(
+      url === '/contacts' ? [contact] : url === '/contacts/received' ? [] : url === '/messages/folders' ? folders : { data: [], total: 0, page: 1, limit: 20 },
+    ));
+    api.patch.mockImplementation((_url: string, permissions: object) => {
+      contact = { ...contact, ...permissions };
+      return Promise.resolve(contact);
+    });
+    renderPage('/messages?tab=contacts');
+    const friend = await screen.findByRole('checkbox', { name: 'Als Freund behandeln: Leia' });
+    const position = screen.getByRole('checkbox', { name: 'Live-Position teilen mit Leia' });
+    expect(friend).toHaveProperty('checked', false);
+    expect(position).toHaveProperty('checked', false);
+    fireEvent.click(friend);
+    await waitFor(() => expect(friend).toHaveProperty('checked', true));
+    expect(api.patch).toHaveBeenLastCalledWith('/contacts/4/permissions', { treatAsFriend: true });
+    expect(position).toHaveProperty('checked', false);
+    fireEvent.click(position);
+    await waitFor(() => expect(position).toHaveProperty('checked', true));
+    expect(api.patch).toHaveBeenLastCalledWith('/contacts/4/permissions', { shareLivePositions: true });
+    fireEvent.click(friend);
+    await waitFor(() => expect(friend).toHaveProperty('checked', false));
+    expect(position).toHaveProperty('checked', true);
+    fireEvent.click(position);
+    await waitFor(() => expect(position).toHaveProperty('checked', false));
+    api.patch.mockRejectedValueOnce(new Error('Freigabe nicht gespeichert'));
+    fireEvent.click(position);
+    expect(await screen.findByText('Freigabe nicht gespeichert')).toBeTruthy();
+    expect(position).toHaveProperty('checked', false);
+  });
+
   it('shows the ignore list, who ignores the player, and deletes selected entries', async () => {
     api.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(folders);

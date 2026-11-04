@@ -12,4 +12,8 @@ export class ContactStatusAdapter implements PersonalContactStatusPort {
   ): Promise<Map<number, 'FRIEND' | 'ENEMY'>> {
     return this.contacts.statuses(firstPlayerId, secondPlayerIds);
   }
+
+  livePositionSharerIds(viewerId: number, ownerIds?: number[]): Promise<number[]> {
+    return this.contacts.livePositionSharerIds(viewerId, ownerIds);
+  }
 }

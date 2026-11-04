@@ -772,6 +772,25 @@ describe('RelationshipResolverService', () => {
     });
   });
 
+  describe('incoming contact position grants', () => {
+    it('resolves distinct owners in fixed-size batches and fails closed on unavailable grants', async () => {
+      const store = new InMemoryAllianceStore();
+      for (const id of [1, 2, 3]) store.addPlayer(id, `Player ${id}`);
+      const statuses = jest.fn(async () => new Map());
+      const livePositionSharerIds = jest.fn(async () => [2]);
+      const resolver = resolverFor(store, { statuses, livePositionSharerIds });
+      const stances = await resolver.resolveMany(1, [2, 2, 3]);
+      expect(stances.get(2)).toMatchObject({ status: 'NEUTRAL', mayShareLivePosition: true });
+      expect(stances.get(3)).toMatchObject({ status: 'NEUTRAL', mayShareLivePosition: false });
+      expect(statuses).toHaveBeenCalledTimes(1);
+      expect(livePositionSharerIds).toHaveBeenCalledTimes(1);
+      expect(livePositionSharerIds).toHaveBeenCalledWith(1, [2, 3]);
+      livePositionSharerIds.mockRejectedValue(new Error('contacts unavailable'));
+      expect((await resolver.resolve(1, 2)).mayShareLivePosition).toBe(false);
+      expect((await resolver.starmapCandidates(1)).partnerIds).toEqual([]);
+    });
+  });
+
   describe('resolveMany', () => {
     it('resolves each distinct player with the same answers as resolve', async () => {
       const store = new InMemoryAllianceStore();

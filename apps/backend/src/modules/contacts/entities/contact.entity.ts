@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -12,6 +13,7 @@ import { User } from '../../auth/user.entity';
 
 @Entity('contacts')
 @Unique('UQ_contacts_user_contact', ['userId', 'contactUserId'])
+@Index('IDX_contacts_live_position_recipient', ['contactUserId', 'userId'], { where: '"shareLivePositions" = true' })
 export class Contact {
   @PrimaryGeneratedColumn()
   id: number;
@@ -35,6 +37,12 @@ export class Contact {
 
   @Column({ type: 'varchar', length: 255, default: '' })
   comment: string;
+
+  @Column({ default: false })
+  treatAsFriend: boolean;
+
+  @Column({ default: false })
+  shareLivePositions: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

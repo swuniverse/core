@@ -16,6 +16,7 @@ import {
   type DeleteContactsDto,
   type UpdateContactCommentDto,
   type UpdateContactModeDto,
+  type UpdateContactPermissionsDto,
 } from '@swuniverse/shared';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { ContactService } from './contact.service';
@@ -60,6 +61,15 @@ export class ContactController {
     @Body() body: UpdateContactCommentDto,
   ) {
     return this.contacts.updateComment(req.user.sub, id, body.comment);
+  }
+
+  @Patch(':id/permissions')
+  updatePermissions(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: UpdateContactPermissionsDto,
+  ) {
+    return this.contacts.updatePermissions(req.user.sub, id, body);
   }
 
   @Delete()

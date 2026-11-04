@@ -38,6 +38,7 @@ function store(players: Array<{ id: number; factionId: number }>, war = false): 
 describe('ContactStatusAdapter relationship effect', () => {
   const contactService = (mode: ContactMode | null) =>
     ({
+      livePositionSharerIds: async () => [],
       statuses: jest.fn(async (_userId: number, contactUserIds: number[]) =>
         mode === ContactMode.FRIEND || mode === ContactMode.ENEMY
           ? new Map(contactUserIds.map((id) => [id, mode] as const))

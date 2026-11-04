@@ -9,6 +9,7 @@ import {
   type ContactDto,
   type CreateContactDto,
   type ReceivedContactDto,
+  type UpdateContactPermissionsDto,
 } from '@swuniverse/shared';
 import { In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
@@ -111,6 +112,32 @@ export class ContactService {
     return this.toDto(await this.contacts.save(contact));
   }
 
+  async updatePermissions(
+    userId: number,
+    id: number,
+    permissions: UpdateContactPermissionsDto,
+  ): Promise<ContactDto> {
+    if (
+      !permissions ||
+      typeof permissions !== 'object' ||
+      Array.isArray(permissions) ||
+      Object.keys(permissions).length === 0 ||
+      Object.entries(permissions).some(([key, value]) =>
+        !['treatAsFriend', 'shareLivePositions'].includes(key) || typeof value !== 'boolean',
+      )
+    ) {
+      throw new BadRequestException('Ungültige Kontaktfreigaben');
+    }
+    const contact = await this.owned(userId, id);
+    if (permissions.treatAsFriend !== undefined) {
+      contact.treatAsFriend = permissions.treatAsFriend;
+    }
+    if (permissions.shareLivePositions !== undefined) {
+      contact.shareLivePositions = permissions.shareLivePositions;
+    }
+    return this.toDto(await this.contacts.save(contact));
+  }
+
   async removeSelected(userId: number, ids: number[]): Promise<{ deleted: number }> {
     const uniqueIds = [...new Set(ids.filter(Number.isInteger))];
     if (uniqueIds.length === 0) return { deleted: 0 };
@@ -133,19 +160,31 @@ export class ContactService {
   ): Promise<Map<number, ContactMode.FRIEND | ContactMode.ENEMY>> {
     if (contactUserIds.length === 0) return new Map();
     const contacts = await this.contacts.find({
-      where: {
-        userId,
-        contactUserId: In(contactUserIds),
-        mode: In([ContactMode.FRIEND, ContactMode.ENEMY]),
-      },
-      select: { contactUserId: true, mode: true },
+      where: { userId, contactUserId: In(contactUserIds) },
+      select: { contactUserId: true, mode: true, treatAsFriend: true },
     });
     return new Map(
-      contacts.map((contact) => [
-        contact.contactUserId,
-        contact.mode as ContactMode.FRIEND | ContactMode.ENEMY,
-      ]),
+      contacts.flatMap((contact) => {
+        const mode = contact.treatAsFriend ? ContactMode.FRIEND : contact.mode;
+        return mode === ContactMode.FRIEND || mode === ContactMode.ENEMY
+          ? [[contact.contactUserId, mode] as const]
+          : [];
+      }),
     );
+  }
+
+  /** Incoming grants: each owner exposes their own ships to this recipient. */
+  async livePositionSharerIds(userId: number, ownerIds?: number[]): Promise<number[]> {
+    if (ownerIds?.length === 0) return [];
+    const contacts = await this.contacts.find({
+      where: {
+        contactUserId: userId,
+        shareLivePositions: true,
+        ...(ownerIds ? { userId: In(ownerIds) } : {}),
+      },
+      select: { userId: true },
+    });
+    return contacts.map((contact) => contact.userId);
   }
 
   private async owned(userId: number, id: number): Promise<Contact> {
@@ -180,6 +219,8 @@ export class ContactService {
       contactUsername: contact.contactUser.username,
       mode: contact.mode,
       comment: contact.comment,
+      treatAsFriend: contact.treatAsFriend,
+      shareLivePositions: contact.shareLivePositions,
       createdAt: contact.createdAt.toISOString(),
     };
   }

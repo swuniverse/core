@@ -96,7 +96,7 @@ _Avoid_: Live-Scan, aktuelle Scandaten
 Ein Spieler der jeweils anderen **Fraktion** oder ein Spieler derselben **Fraktion**, den ein persönlicher Kontakt als Feind markiert. Mitglieder derselben **Allianz** sind nie Feinde. Die fraktionsübergreifende Feindschaft ist grundsätzlich und hängt nicht von Diplomatie ab.
 
 **Freund**:
-Ein Spieler derselben **Fraktion**, der derselben **Allianz** angehört, dessen Allianz mit der eigenen eine aktive **Beziehung** mit der **Beziehungsfreigabe** „Als Freund behandeln“ hat oder den ein persönlicher Kontakt als Freund markiert. Ein Allianzkrieg hat Vorrang vor Freigabe und Kontakt, nicht aber vor derselben Allianz.
+Ein Spieler derselben **Fraktion**, der derselben **Allianz** angehört, mit dessen Partei die eigene eine aktive **Beziehung** mit der **Beziehungsfreigabe** „Als Freund behandeln“ hat oder den ein persönlicher Kontakt als Freund markiert bzw. über eine **Kontaktfreigabe** „Als Freund behandeln“ einseitig als Freund behandelt. Der Freigebende behandelt den Kontakt als Freund, nicht umgekehrt. Andere Fraktion und Allianzkrieg haben Vorrang vor Freigabe und Kontakt; innerhalb derselben Fraktion geht die gemeinsame Allianz vor. Eine Freund-Freigabe hat Vorrang vor dem persönlichen Feind-Kontaktmodus.
 
 **Haltung**:
 Ob ein Spieler für einen anderen **Freund**, **Feind** oder **Neutral** ist. Sie wird bei jeder Anfrage zentral aus Fraktion, Allianz, aktiven **Beziehungen** und persönlichem Kontakt abgeleitet und nie gespeichert. Anders als eine **Beziehung** besteht sie zwischen zwei Spielern, nicht zwischen Parteien.
@@ -122,8 +122,11 @@ Der gemeinsam sichtbare Beschreibungstext einer **Beziehung**. Das Vertragswerk 
 _Avoid_: Vertragstext
 
 **Beziehungsfreigabe**:
-Eine zusätzlich vereinbarte Wirkung einer **Beziehung**, etwa die gegenseitige Behandlung als **Freund** oder das Teilen von Live-Kartenpositionen. Sie folgt nicht automatisch aus dem Beziehungstyp.
+Eine zusätzlich beidseitig vereinbarte Wirkung einer **Beziehung**, etwa die gegenseitige Behandlung als **Freund** oder das Teilen von Live-Kartenpositionen. Sie folgt nicht automatisch aus dem Beziehungstyp. Die unabhängige, einseitige **Kontaktfreigabe** ergänzt sie und ersetzt sie nicht; ihr Widerruf hebt eine weiter bestehende Beziehungsfreigabe nicht auf.
 _Avoid_: Relationsrecht, Permission
+
+**Kontaktfreigabe**:
+Ein vom Eigentümer eines persönlichen Kontakts allein gespeichertes, jederzeit widerrufbares Recht. „Als Freund behandeln“ wirkt nur auf die **Haltung** des Freigebenden gegenüber dem Kontakt. „Live-Position teilen“ gibt ausschließlich die eigenen aktuellen Schiffspositionen des Freigebenden für diesen Kontakt preis, nicht die Positionen des Kontakts für den Freigebenden und nicht die seiner Allianz. Beide Freigaben sind unabhängig vom Kontaktmodus und standardmäßig aus. Andere Fraktion und Allianzkrieg sperren die Freigabewirkung; die gemeinsame Allianz bleibt vorrangig. Live-Freigaben gewähren keine Schiffsverwaltungsdetails, Systementdeckungen oder historischen Scans. Eingehende Positionsfreigaben und ausgehende Freund-Freigaben werden je Anfrage gebündelt aufgelöst.
 
 **Diplomatie-Chronik**:
 Die öffentliche, unveränderliche Folge abgeschlossener diplomatischer Ereignisse einer **Allianz**, beispielsweise Kriegserklärungen, Vertragsabschlüsse und Auflösungen.

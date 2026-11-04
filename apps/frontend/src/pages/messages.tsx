@@ -12,6 +12,7 @@ import {
   type IgnoredByEntryDto,
   type IgnoreListEntryDto,
   type ReceivedContactDto,
+  type UpdateContactPermissionsDto,
 } from '@swuniverse/shared';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 
@@ -441,6 +442,7 @@ export function MessagesPage() {
   const [contacts, setContacts] = useState<ContactDto[]>([]);
   const [receivedContacts, setReceivedContacts] = useState<ReceivedContactDto[]>([]);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
+  const [pendingContactPermissions, setPendingContactPermissions] = useState<Set<number>>(new Set());
   const [newContactId, setNewContactId] = useState('');
   const [newContactName, setNewContactName] = useState('');
   const [newContactMode, setNewContactMode] = useState(ContactMode.NEUTRAL);
@@ -707,6 +709,18 @@ export function MessagesPage() {
     setContacts((current) => current.map((entry) => entry.id === contact.id ? updated : entry));
   };
 
+  const updateContactPermissions = async (contact: ContactDto, permissions: UpdateContactPermissionsDto) => {
+    setPendingContactPermissions((current) => new Set(current).add(contact.id));
+    try {
+      const updated = await api.patch<ContactDto>(`/contacts/${contact.id}/permissions`, permissions);
+      setContacts((current) => current.map((entry) => entry.id === contact.id ? updated : entry));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Kontaktfreigabe konnte nicht gespeichert werden');
+    } finally {
+      setPendingContactPermissions((current) => { const next = new Set(current); next.delete(contact.id); return next; });
+    }
+  };
+
   const updateContactComment = async (contact: ContactDto, comment: string) => {
     const updated = await api.patch<ContactDto>(`/contacts/${contact.id}/comment`, { comment });
     setContacts((current) => current.map((entry) => entry.id === contact.id ? updated : entry));
@@ -890,13 +904,15 @@ export function MessagesPage() {
             <header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Kontakte</header>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
-                <thead><tr className="bg-swu-header text-swu-text"><th></th><th className="px-2 py-1">Siedler</th><th>Modus</th><th>Kommentar</th><th>Datum</th><th>Aktion</th></tr></thead>
+                <thead><tr className="bg-swu-header text-swu-text"><th></th><th className="px-2 py-1">Siedler</th><th>Modus</th><th>Als Freund behandeln</th><th>Live-Position teilen</th><th>Kommentar</th><th>Datum</th><th>Aktion</th></tr></thead>
                 <tbody>
                   {contacts.map((contact) => (
                     <tr key={contact.id} className="border-t border-swu-border">
                       <td className="px-2 py-1"><input type="checkbox" aria-label={`${contact.contactUsername} markieren`} checked={selectedContactIds.has(contact.id)} onChange={() => setSelectedContactIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
                       <td className="px-2 py-1"><PlayerAvatar name={contact.contactUsername} avatar={null} faction={null} decorative className="mr-2 size-7" /><Link to={`/players/${contact.contactUserId}`} className="text-swu-primary hover:text-swu-accent">{contact.contactUsername}</Link></td>
                       <td className="px-2 py-1"><select aria-label={`Modus für ${contact.contactUsername}`} value={contact.mode} onChange={(event) => void updateContactMode(contact, event.target.value as ContactMode)} className={`bg-swu-bg border border-swu-border px-1 py-0.5 ${CONTACT_MODE_STYLES[contact.mode]}`}>{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select></td>
+                      <td className="px-2 py-1 text-center"><input type="checkbox" aria-label={`Als Freund behandeln: ${contact.contactUsername}`} title="Du behandelst diesen Kontakt als Freund; die Gegenrichtung bleibt unverändert." checked={contact.treatAsFriend ?? false} disabled={pendingContactPermissions.has(contact.id)} onChange={(event) => void updateContactPermissions(contact, { treatAsFriend: event.target.checked })} /></td>
+                      <td className="px-2 py-1 text-center"><input type="checkbox" aria-label={`Live-Position teilen mit ${contact.contactUsername}`} title="Du teilst Deine eigenen Schiffspositionen mit diesem Kontakt, nicht umgekehrt." checked={contact.shareLivePositions ?? false} disabled={pendingContactPermissions.has(contact.id)} onChange={(event) => void updateContactPermissions(contact, { shareLivePositions: event.target.checked })} /></td>
                       <td className="px-2 py-1"><input defaultValue={contact.comment} aria-label={`Kommentar für ${contact.contactUsername}`} onBlur={(event) => void updateContactComment(contact, event.target.value)} className="bg-swu-bg border border-swu-border px-1 py-0.5" /></td>
                       <td className="px-2 py-1">{formatDateTime(contact.createdAt)}</td>
                       <td className="px-2 py-1"><Link to={`/messages?tab=compose&to=${contact.contactUserId}&name=${encodeURIComponent(contact.contactUsername)}`} className="text-swu-primary">PM</Link></td>

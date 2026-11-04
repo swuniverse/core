@@ -31,6 +31,7 @@ export interface ResolvedStance {
   mayReactAutomatically: boolean;
   mayTransferSafely: boolean;
   mayProvisionProtectedShip: boolean;
+  /** The viewer may see this other player's live positions (incoming grant). */
   mayShareLivePosition: boolean;
   mayShareHistoricalScans: boolean;
   /** Same-alliance only: the other player's ships appear on the alliance map. */
@@ -51,7 +52,7 @@ export interface StarmapCandidates {
   mateIds: number[];
   /** The viewer's current office in that alliance; null without alliance. */
   viewerRole: AllianceRole | null;
-  /** Current members of alliances in an active relationship with it. */
+  /** Relationship partners plus owners granting live positions to the viewer. */
   partnerIds: number[];
 }
 
@@ -73,6 +74,8 @@ export interface PersonalContactStatusPort {
     firstPlayerId: number,
     secondPlayerIds: number[],
   ): Promise<Map<number, 'FRIEND' | 'ENEMY'>>;
+  /** Incoming grants; never the viewer's outgoing position permissions. */
+  livePositionSharerIds?(viewerId: number, ownerIds?: number[]): Promise<number[]>;
 }
 
 export const PERSONAL_CONTACT_STATUS = Symbol('PERSONAL_CONTACT_STATUS');
@@ -111,17 +114,21 @@ export class RelationshipResolverService {
       return new Map(ids.map((id) => [id, resolved('NEUTRAL')]));
     }
     let personalContactStatuses: Map<number, 'FRIEND' | 'ENEMY'>;
+    let livePositionSharers: number[];
     try {
-      personalContactStatuses = await this.personalContactStatus.statuses(
-        viewerId,
-        ids,
-      );
+      [personalContactStatuses, livePositionSharers] = await Promise.all([
+        this.personalContactStatus.statuses(viewerId, ids),
+        this.personalContactStatus.livePositionSharerIds?.(viewerId, ids) ?? [],
+      ]);
     } catch {
       return new Map(ids.map((id) => [id, resolved('NEUTRAL')]));
     }
+    const sharerIds = new Set(livePositionSharers);
     const stances = await Promise.all(
       ids.map((id) =>
-        this.stanceWithin(context, viewerId, id, personalContactStatuses.get(id)),
+        this.stanceWithin(
+          context, viewerId, id, personalContactStatuses.get(id), sharerIds.has(id),
+        ),
       ),
     );
     return new Map(ids.map((id, index) => [id, stances[index]]));
@@ -161,7 +168,8 @@ export class RelationshipResolverService {
    * active relationship with it. Whether a candidate's ships are shown is
    * still decided by the capabilities of the resolved stance; pass
    * `viewerMembership` on to `resolveMany` so both use the same snapshot.
-   * Never throws; on failure or without an alliance there are no candidates.
+   * Incoming contact grants add individual owners, never their alliance mates.
+   * Never throws; unavailable sources contribute no candidates.
    */
   async starmapCandidates(viewerId: number): Promise<StarmapCandidates> {
     const none: StarmapCandidates = {
@@ -177,14 +185,17 @@ export class RelationshipResolverService {
     } catch {
       return none;
     }
-    const [allianceMap, partnerIds] = await Promise.all([
+    const [allianceMap, partnerIds, contactSharerIds] = await Promise.all([
       membership ? this.allianceMapOf(membership) : null,
       this.livePositionPartnersOf(viewerId, membership),
+      Promise.resolve()
+        .then(() => this.personalContactStatus.livePositionSharerIds?.(viewerId) ?? [])
+        .catch(() => []),
     ]);
     return {
       viewerMembership: membership,
       ...(allianceMap ?? { alliance: null, mateIds: [], viewerRole: null }),
-      partnerIds,
+      partnerIds: [...new Set([...partnerIds, ...contactSharerIds])].filter((id) => id !== viewerId),
     };
   }
 
@@ -295,6 +306,7 @@ export class RelationshipResolverService {
     viewerId: number,
     otherPlayerId: number,
     personalContactStatus: 'FRIEND' | 'ENEMY' | undefined,
+    contactSharesLivePosition: boolean,
   ): Promise<ResolvedStance> {
     try {
       const firstPlayer = context.players.get(viewerId);
@@ -315,12 +327,13 @@ export class RelationshipResolverService {
         firstMembership.allianceId === secondMembership.allianceId
       ) {
         return resolved('FRIEND', {
+          mayShareLivePosition: contactSharesLivePosition,
           mayShareHistoricalScans: true,
           mayShareAllianceMap: true,
         });
       }
 
-      let mayShareLivePosition = false;
+      let mayShareLivePosition = contactSharesLivePosition;
       const relationship = relationshipBetween(
         context.viewerRelationships,
         partyOf(firstPlayer.id, firstMembership),
@@ -330,7 +343,7 @@ export class RelationshipResolverService {
         return resolved('ENEMY');
       }
       if (relationship) {
-        mayShareLivePosition = relationship.shareLivePositions;
+        mayShareLivePosition ||= relationship.shareLivePositions;
         if (relationship.treatAsFriend) {
           return resolved('FRIEND', { mayShareLivePosition });
         }

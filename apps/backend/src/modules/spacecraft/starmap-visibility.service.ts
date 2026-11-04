@@ -41,7 +41,8 @@ const SHIP_LOCATION_RELATIONS = [
 /**
  * The single place that decides which ships a viewer sees on the starmap,
  * why, and with which level of detail. Visibility is derived on every request
- * from current ownership, membership and relationships; nothing is cached.
+ * from current ownership, membership, relationships and incoming one-sided
+ * contact grants; nothing is cached.
  */
 @Injectable()
 export class StarmapVisibilityService {
@@ -191,7 +192,8 @@ export class StarmapVisibilityService {
 
   /**
    * Backward-compatible contract of `GET /spacecraft/shared-live-positions`:
-   * only ships of other parties that share live positions with the viewer.
+   * only ships shared by negotiated relationships or by their owner's incoming
+   * contact grant. The viewer's outgoing contact grants never expose others.
    */
   async listSharedLivePositions(
     viewerId: number,

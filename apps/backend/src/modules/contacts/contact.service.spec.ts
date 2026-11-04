@@ -116,9 +116,8 @@ describe('ContactService', () => {
       where: {
         userId: owner.id,
         contactUserId: expect.anything(),
-        mode: expect.anything(),
       },
-      select: { contactUserId: true, mode: true },
+      select: { contactUserId: true, mode: true, treatAsFriend: true },
     });
   });
 });
