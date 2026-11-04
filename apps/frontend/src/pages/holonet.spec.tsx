@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import type { UserProfile } from '@swuniverse/shared';
@@ -135,6 +135,80 @@ describe('HolonetPage routing', () => {
         'href',
       ),
     ).toBe('/players/8');
+  });
+
+  it('shows tagged characters and their details in a popup', async () => {
+    const character = { id: 202, userId: 8, name: 'Han', avatar: 'data:image/png;base64,aA==', description: '[b]Pilot[/b]', user: { id: 8, username: 'rebel' } };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([{ ...postFixture, characters: [character] }]));
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(<MemoryRouter initialEntries={['/holonet/1']}><Routes>
+      <Route path="/holonet/:id" element={<HolonetPage />} />
+    </Routes></MemoryRouter>);
+
+    const tagged = await screen.findByRole('button', { name: 'Han' });
+    expect(within(tagged).getByRole('img', { name: 'Han Avatar' }).getAttribute('src')).toBe(character.avatar);
+    fireEvent.click(tagged);
+    const dialog = screen.getByRole('dialog', { name: 'Han' });
+    expect(within(dialog).getByText('Pilot').tagName).toBe('STRONG');
+    expect(within(dialog).getByRole('link', { name: 'rebel' }).getAttribute('href')).toBe('/players/8');
+    expect(within(dialog).getByRole('img', { name: 'Han Avatar' })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Schließen' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('preserves and changes tagged characters while editing a post', async () => {
+    const own = { id: 101, userId: 7, name: 'Leia', description: '', avatar: null, user: { id: 7, username: 'tester' } };
+    const foreign = { id: 202, userId: 8, name: 'Han', description: '', avatar: null, user: { id: 8, username: 'rebel' } };
+    const post = { ...postFixture, authorId: 7, author: { username: 'tester' }, characters: [foreign] };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([post]));
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      if (url === '/rpg/characters/player/7') return Promise.resolve([own]);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    apiMocks.patch.mockResolvedValue({ ...post, characters: [own] });
+    render(<MemoryRouter initialEntries={['/holonet/1']}><Routes>
+      <Route path="/holonet/:id" element={<HolonetPage />} />
+    </Routes></MemoryRouter>);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    const han = screen.getByRole('checkbox', { name: /Han/ }) as HTMLInputElement;
+    expect(han.checked).toBe(true);
+    fireEvent.click(han);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Leia/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/holonet/1', {
+      title: post.title, body: post.body, characterIds: [101],
+    }));
+    expect(await screen.findByRole('button', { name: 'Leia' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Han' })).toBeNull();
+  });
+
+  it('allows restoring a previously tagged foreign character during editing', async () => {
+    const foreign = { id: 202, userId: 8, name: 'Han', description: '', avatar: null, user: { id: 8, username: 'rebel' } };
+    const post = { ...postFixture, authorId: 7, author: { username: 'tester' }, characters: [foreign] };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([post]));
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      if (url === '/rpg/characters/player/7') return Promise.resolve([{ id: 101, userId: 7, name: 'Leia', description: '', avatar: null }]);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(<MemoryRouter initialEntries={['/holonet/1']}><Routes>
+      <Route path="/holonet/:id" element={<HolonetPage />} />
+    </Routes></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    await screen.findByRole('checkbox', { name: /Leia/ });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Han/ }));
+    const han = screen.getByRole('checkbox', { name: /Han/ }) as HTMLInputElement;
+    expect(han.checked).toBe(false);
+    fireEvent.click(han);
+    expect(han.checked).toBe(true);
   });
 
   it('offers admin deletion only to admins on foreign posts', async () => {
@@ -460,7 +534,7 @@ describe('HolonetPage routing', () => {
     expect(bar.className).toContain('yellow');
   });
 
-  it('renders a BBCode preview without creating a post', () => {
+  it('renders a BBCode preview without creating a post', async () => {
     render(
       <MemoryRouter initialEntries={['/holonet/new']}>
         <HolonetComposePage />
@@ -475,9 +549,66 @@ describe('HolonetPage routing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Vorschau' }));
 
-    expect(screen.getByRole('heading', { name: 'Vorschau-Titel' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Vorschau-Titel' })).toBeTruthy();
     expect(screen.getByText('Starke Übertragung').tagName).toBe('STRONG');
     expect(apiMocks.post).not.toHaveBeenCalled();
+  });
+
+  it('selects own and other players’ characters for a new HoloNet post', async () => {
+    const own = { id: 101, userId: 7, name: 'Leia', description: '', avatar: null };
+    const foreign = { id: 202, userId: 8, name: 'Han', description: '', avatar: null };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/rpg/plots/mine?page=1') return Promise.resolve({ data: [] });
+      if (url === '/rpg/characters/player/7') return Promise.resolve([own]);
+      if (url === '/rpg/characters/player/8') return Promise.resolve([foreign]);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    apiMocks.post.mockResolvedValue({ ...postFixture, id: 42 });
+
+    render(<MemoryRouter initialEntries={['/holonet/new']}><Routes>
+      <Route path="/holonet/new" element={<HolonetComposePage />} />
+      <Route path="/holonet/:id" element={<div>created</div>} />
+    </Routes></MemoryRouter>);
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Leia/ }));
+    fireEvent.change(screen.getByLabelText('Spieler-ID für Charaktere'), { target: { value: '8' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Charaktere laden' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Han/ }));
+    fireEvent.change(screen.getByLabelText('Titel'), { target: { value: 'Treffen' } });
+    fireEvent.change(screen.getByLabelText('Text'), { target: { value: 'Nachricht' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hinzufügen' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/holonet', {
+      title: 'Treffen', body: 'Nachricht', category: 'NEWS', characterIds: [101, 202],
+    }));
+  });
+
+  it('shows the server error if a selected character has been deleted before posting', async () => {
+    apiMocks.get.mockImplementation((url: string) => url === '/rpg/characters/player/7'
+      ? Promise.resolve([{ id: 101, userId: 7, name: 'Leia', description: '', avatar: null }])
+      : Promise.resolve({ data: [] }));
+    apiMocks.post.mockRejectedValue(new Error('Charakter 101 nicht gefunden'));
+    render(<MemoryRouter initialEntries={['/holonet/new']}><HolonetComposePage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Leia/ }));
+    fireEvent.change(screen.getByLabelText('Titel'), { target: { value: 'Treffen' } });
+    fireEvent.change(screen.getByLabelText('Text'), { target: { value: 'Nachricht' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hinzufügen' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Charakter 101 nicht gefunden');
+    expect((screen.getByLabelText('Text') as HTMLTextAreaElement).value).toBe('Nachricht');
+  });
+
+  it('limits the character selection to ten and lets the user replace a selection', async () => {
+    const characters = Array.from({ length: 11 }, (_, index) => ({ id: index + 1, userId: 7, name: `Pilot ${index + 1}`, description: '', avatar: null }));
+    apiMocks.get.mockImplementation((url: string) => url === '/rpg/characters/player/7' ? Promise.resolve(characters) : Promise.resolve({ data: [] }));
+    render(<MemoryRouter initialEntries={['/holonet/new']}><HolonetComposePage /></MemoryRouter>);
+    await screen.findByRole('checkbox', { name: /Pilot 1 \(/ });
+    for (let index = 1; index <= 10; index++) fireEvent.click(screen.getByRole('checkbox', { name: new RegExp(`Pilot ${index} \\(`) }));
+    const eleventh = screen.getByRole('checkbox', { name: /Pilot 11 \(/ }) as HTMLInputElement;
+    expect(eleventh.disabled).toBe(true);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Pilot 1 \(/ }));
+    expect(eleventh.disabled).toBe(false);
+    fireEvent.click(eleventh);
+    expect(eleventh.checked).toBe(true);
   });
 
   it('offers active member plots and creates a ROLEPLAY plot post without a title', async () => {

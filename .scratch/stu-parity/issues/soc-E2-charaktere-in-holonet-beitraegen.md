@@ -1,6 +1,6 @@
 # RPG: Charaktere in HoloNet-Beiträgen markieren
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** soc-E1, soc-D1
@@ -23,10 +23,12 @@ Beim Schreiben und Bearbeiten eines HoloNet-Beitrags können Charaktere (eigene 
 
 ## Akzeptanzkriterien
 
-- [ ] Create/Update akzeptieren `characterIds` (max. 10); unbekannte IDs liefern 400 mit Nennung der ID.
-- [ ] Besitzer fremder Charaktere (nicht der Autor) erhalten je Beitrag genau eine Systemnachricht „Dein Charakter X wurde im HoloNet-Beitrag Y erwähnt“ (mit Ziel aus soc-A5, falls vorhanden); beim Bearbeiten nur für neu hinzugekommene Charaktere.
-- [ ] Beitragsanzeige listet die Charaktere (Avatar + Name); Klick zeigt Name, Avatar, Beschreibung und Besitzer.
-- [ ] Gelöschte Charaktere verschwinden aus Beiträgen ohne Fehler.
-- [ ] Backend-Tests: Speicherung, Benachrichtigung (kein Selbsthinweis, keine Duplikate beim Bearbeiten). Frontend-Test: Auswahl im Compose und Anzeige.
+- [x] Create/Update akzeptieren `characterIds` (max. 10); unbekannte IDs liefern 400 mit Nennung der ID.
+- [x] Besitzer fremder Charaktere (nicht der Autor) erhalten je Beitrag genau eine Systemnachricht „Dein Charakter X wurde im HoloNet-Beitrag Y erwähnt“ (mit Ziel aus soc-A5, falls vorhanden); beim Bearbeiten nur für neu hinzugekommene Charaktere.
+- [x] Beitragsanzeige listet die Charaktere (Avatar + Name); Klick zeigt Name, Avatar, Beschreibung und Besitzer.
+- [x] Gelöschte Charaktere verschwinden aus Beiträgen ohne Fehler.
+- [x] Backend-Tests: Speicherung, Benachrichtigung (kein Selbsthinweis, keine Duplikate beim Bearbeiten). Frontend-Test: Auswahl im Compose und Anzeige.
 
 ## Comments
+
+- 2026-11-04: Create/Update-Validierung, Persistenz, deduplizierte Systemnachrichten, Löschung und UI-Auswahl/-Details geprüft. Direkte Jest-Tests: 31 bestanden; isolierter PostgreSQL-Test inkl. Migration/Rollback: 1 bestanden; Vitest: 22 bestanden; TypeScript-App-Build und ESLint erfolgreich. Nx-Projektgraph unter npm wegen pnpm-lock.yaml/.modules.yaml blockiert; ESLint überspringt daher die Nx-Modulgrenzenregel.

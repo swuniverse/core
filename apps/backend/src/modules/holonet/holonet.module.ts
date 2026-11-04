@@ -11,6 +11,7 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { RpgPlot } from '../rpg/rpg-plot.entity';
 import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
+import { UserCharacter } from '../rpg/user-character.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
       User,
       RpgPlot,
       RpgPlotMember,
+      UserCharacter,
     ]),
     MessagingModule,
     PrestigeModule,

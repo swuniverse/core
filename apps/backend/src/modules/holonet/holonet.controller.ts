@@ -84,8 +84,9 @@ export class HolonetController {
     @Body('body') body: string,
     @Body('category') category: PostCategory,
     @Body('plotId') plotId?: number,
+    @Body('characterIds') characterIds?: number[],
   ) {
-    return this.holonetService.create(req.user.sub, title, body, category, plotId);
+    return this.holonetService.create(req.user.sub, title, body, category, plotId, characterIds);
   }
 
   @Patch(':id')
@@ -94,6 +95,7 @@ export class HolonetController {
     @Request() req: { user: { sub: number; isAdmin?: boolean } },
     @Body('title') title: string,
     @Body('body') body: string,
+    @Body('characterIds') characterIds?: number[],
   ) {
     return this.holonetService.update(
       id,
@@ -101,6 +103,7 @@ export class HolonetController {
       title,
       body,
       req.user.isAdmin === true,
+      characterIds,
     );
   }
 

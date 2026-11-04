@@ -101,6 +101,7 @@ describe('HolonetService public behavior', () => {
       prestigeService as never,
       {} as never,
       {} as never,
+      {} as never,
     );
   });
 

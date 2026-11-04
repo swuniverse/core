@@ -80,6 +80,7 @@ describe('HolonetService edit window', () => {
       {} as never,
       plotRepo as never,
       plotMemberRepo as never,
+      {} as never,
     );
   });
 
@@ -181,6 +182,7 @@ describe('HolonetService edit window', () => {
       {} as never,
       plotRepo as never,
       plotMemberRepo as never,
+      {} as never,
     );
 
     await expect(
@@ -232,6 +234,7 @@ describe('HolonetService edit window', () => {
       {} as never,
       plotRepo as never,
       plotMemberRepo as never,
+      {} as never,
     );
 
     await createService.create(userId, '', 'x'.repeat(50), 'TRADE' as never, 11);

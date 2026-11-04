@@ -5,7 +5,65 @@ import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useHolonetUnreadStore } from '../stores/holonet-unread.store';
 import { PmLink } from '../components/PmLink';
-import type { RpgPlotDto, RpgPlotListDto } from '@swuniverse/shared';
+import type { RpgPlotDto, RpgPlotListDto, UserCharacterDto } from '@swuniverse/shared';
+
+type Character = Pick<UserCharacterDto, 'id' | 'userId' | 'name' | 'avatar' | 'description'>;
+type TaggedCharacter = Character & { user: { id: number; username: string } };
+
+function CharacterAvatar({ character }: { character: Character }) {
+  return character.avatar
+    ? <img src={character.avatar} alt={`${character.name} Avatar`} className="size-10 rounded object-cover" />
+    : <span aria-label={`${character.name} Avatar`} className="flex size-10 items-center justify-center rounded bg-swu-bg text-swu-primary">{character.name[0]}</span>;
+}
+
+function CharacterSelector({ selected, onChange }: {
+  selected: Character[];
+  onChange: (characters: Character[]) => void;
+}) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const [available, setAvailable] = useState<Character[]>(selected);
+  const [playerId, setPlayerId] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    void api.get<UserCharacterDto[]>(`/rpg/characters/player/${userId}`)
+      .then((characters) => { if (active && Array.isArray(characters)) setAvailable((current) => [...current, ...characters.filter((character) => !current.some((item) => item.id === character.id))]); })
+      .catch(() => { if (active) setError('Eigene Charaktere konnten nicht geladen werden.'); });
+    return () => { active = false; };
+  }, [userId]);
+
+  const loadPlayer = async () => {
+    try {
+      setError('');
+      const characters = await api.get<UserCharacterDto[]>(`/rpg/characters/player/${Number(playerId)}`);
+      setAvailable((current) => [...current, ...characters.filter((character) => !current.some((item) => item.id === character.id))]);
+      if (characters.length === 0) setError('Dieser Spieler hat keine Charaktere.');
+    } catch {
+      setError('Charaktere konnten nicht geladen werden.');
+    }
+  };
+  const characters = [...selected, ...available.filter((character) => !selected.some((item) => item.id === character.id))];
+
+  return <fieldset className="space-y-2 border border-swu-border p-3 text-xs">
+    <legend className="font-bold text-swu-primary">Charaktere markieren (maximal 10)</legend>
+    <div className="flex flex-wrap items-end gap-2">
+      <label>Spieler-ID für Charaktere
+        <input value={playerId} inputMode="numeric" onChange={(event) => setPlayerId(event.target.value.replace(/\D/g, ''))} className="ml-2 w-24 border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary" />
+      </label>
+      <button type="button" disabled={!Number(playerId)} onClick={loadPlayer} className="border border-swu-border px-2 py-1 disabled:opacity-40">Charaktere laden</button>
+    </div>
+    {error && <p role="status" className="text-swu-danger">{error}</p>}
+    {characters.map((character) => {
+      const checked = selected.some((item) => item.id === character.id);
+      return <label key={character.id} className="flex items-center gap-2">
+        <input type="checkbox" checked={checked} disabled={!checked && selected.length >= 10} onChange={() => onChange(checked ? selected.filter((item) => item.id !== character.id) : [...selected, character])} />
+        {character.name} (Spieler #{character.userId})
+      </label>;
+    })}
+  </fieldset>;
+}
 
 interface HolonetPost {
   id: number;
@@ -22,6 +80,7 @@ interface HolonetPost {
   author: { username: string };
   plotId?: number | null;
   plot?: { id: number; title: string } | null;
+  characters?: TaggedCharacter[];
 }
 
 interface Comment {
@@ -83,10 +142,13 @@ export function HolonetPage() {
   const [commentsLoading, setCommentsLoading] = useState<Record<number, boolean>>({});
   const [ratingsByPost, setRatingsByPost] = useState<Record<number, number>>({});
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [viewCharacter, setViewCharacter] = useState<TaggedCharacter | null>(null);
   const [adminDeletePost, setAdminDeletePost] = useState<HolonetPost | null>(null);
   const [adminDeleteReason, setAdminDeleteReason] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
+  const [editCharacters, setEditCharacters] = useState<Character[]>([]);
+  const [editError, setEditError] = useState('');
   const [textSearch, setTextSearch] = useState('');
   const [authorSearch, setAuthorSearch] = useState('');
   const [postSearch, setPostSearch] = useState('');
@@ -248,21 +310,29 @@ export function HolonetPage() {
     setEditingPostId(post.id);
     setEditTitle(post.title);
     setEditBody(post.body);
+    setEditCharacters(post.characters ?? []);
+    setEditError('');
   };
 
   const saveEdit = async (post: HolonetPost) => {
-    const updated = await api.patch<HolonetPost>(`/holonet/${post.id}`, {
-      title: editTitle,
-      body: editBody,
-    });
-    setPosts((prev) =>
-      prev.map((item) =>
-        item.id === post.id
-          ? { ...item, title: updated.title, body: updated.body }
-          : item,
-      ),
-    );
-    setEditingPostId(null);
+    try {
+      setEditError('');
+      const updated = await api.patch<HolonetPost>(`/holonet/${post.id}`, {
+        title: editTitle,
+        body: editBody,
+        characterIds: editCharacters.map((character) => character.id),
+      });
+      setPosts((prev) =>
+        prev.map((item) =>
+          item.id === post.id
+            ? { ...item, title: updated.title, body: updated.body, characters: updated.characters }
+            : item,
+        ),
+      );
+      setEditingPostId(null);
+    } catch (cause) {
+      setEditError(cause instanceof Error ? cause.message : 'Beitrag konnte nicht gespeichert werden.');
+    }
   };
 
 
@@ -281,6 +351,17 @@ export function HolonetPage() {
 
   return (
     <div className="p-2 text-swu-muted md:p-4">
+      {viewCharacter && (
+        <div role="dialog" aria-modal="true" aria-label={viewCharacter.name} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onKeyDown={(event) => { if (event.key === 'Escape') setViewCharacter(null); }}>
+          <div className="w-full max-w-lg space-y-3 border border-swu-border bg-swu-bg p-4">
+            <h2 className="text-sm font-bold text-swu-primary">{viewCharacter.name}</h2>
+            <CharacterAvatar character={viewCharacter} />
+            <BbCodeText text={viewCharacter.description} className="whitespace-pre-wrap text-sm" />
+            <p className="text-xs">Besitzer: <Link to={`/players/${viewCharacter.user.id}`} className="text-swu-accent">{viewCharacter.user.username}</Link></p>
+            <button type="button" autoFocus onClick={() => setViewCharacter(null)} className="border border-swu-border px-3 py-1 text-xs">Schließen</button>
+          </div>
+        </div>
+      )}
       {adminDeletePost && (
         <div role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-lg border border-swu-border bg-swu-bg p-4">
@@ -406,6 +487,8 @@ export function HolonetPage() {
                                 rows={6}
                                 className="w-full resize-y border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
                               />
+                              <CharacterSelector selected={editCharacters} onChange={setEditCharacters} />
+                              {editError && <p role="alert" className="text-xs text-swu-danger">{editError}</p>}
                               <div className="flex gap-2 text-xs">
                                 <button
                                   onClick={() => saveEdit(post)}
@@ -463,6 +546,14 @@ export function HolonetPage() {
                                 text={post.body}
                                 className="whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
                               />
+                              {!!post.characters?.length && <section className="mt-3 space-y-2">
+                                <h4 className="text-xs font-bold text-swu-primary">Markierte Charaktere</h4>
+                                <div className="flex flex-wrap gap-2">{post.characters.map((character) => (
+                                  <button key={character.id} type="button" aria-label={character.name} onClick={() => setViewCharacter(character)} className="flex items-center gap-2 border border-swu-border px-2 py-1 text-xs text-swu-accent">
+                                    <CharacterAvatar character={character} />{character.name}
+                                  </button>
+                                ))}</div>
+                              </section>}
                             </>
                           )}
 
@@ -731,8 +822,10 @@ export function HolonetComposePage() {
     plotId: null as number | null,
   });
   const [plots, setPlots] = useState<RpgPlotDto[]>([]);
+  const [selectedCharacters, setSelectedCharacters] = useState<Character[]>([]);
   const [setBookmark, setSetBookmark] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     void api.get<RpgPlotListDto>('/rpg/plots/mine?page=1').then((result) => {
@@ -741,12 +834,20 @@ export function HolonetComposePage() {
   }, []);
 
   const createPost = async () => {
-    const post = await api.post<HolonetPost>('/holonet', {
-      title: compose.title,
-      body: compose.body,
-      category: compose.plotId ? 'ROLEPLAY' : compose.category,
-      ...(compose.plotId ? { plotId: compose.plotId } : {}),
-    });
+    let post: HolonetPost;
+    try {
+      setCreateError('');
+      post = await api.post<HolonetPost>('/holonet', {
+        title: compose.title,
+        body: compose.body,
+        category: compose.plotId ? 'ROLEPLAY' : compose.category,
+        ...(compose.plotId ? { plotId: compose.plotId } : {}),
+        ...(selectedCharacters.length ? { characterIds: selectedCharacters.map((character) => character.id) } : {}),
+      });
+    } catch (cause) {
+      setCreateError(cause instanceof Error ? cause.message : 'Beitrag konnte nicht erstellt werden.');
+      return;
+    }
     if (setBookmark) {
       await api.post('/holonet/checkpoint', { postId: post.id });
     }
@@ -816,6 +917,9 @@ export function HolonetComposePage() {
               className="mt-1 w-full resize-y border border-swu-border bg-swu-bg px-2 py-1 text-sm font-normal text-swu-primary"
             />
           </label>
+
+          <CharacterSelector selected={selectedCharacters} onChange={setSelectedCharacters} />
+          {createError && <p role="alert" className="text-xs text-swu-danger">{createError}</p>}
 
           {showPreview && (
             <section className="border border-swu-accent/50 bg-black/30 p-3">

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MessageTargetKind } from '@swuniverse/shared';
-import { FindOptionsWhere, ILike, IsNull, MoreThan, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { HolonetPost, PostCategory } from './entities/holonet-post.entity';
 import { HolonetComment } from './entities/holonet-comment.entity';
 import { HolonetRating } from './entities/holonet-rating.entity';
@@ -17,6 +17,10 @@ import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { PrestigeService } from '../prestige/prestige.service';
 import { RpgPlot } from '../rpg/rpg-plot.entity';
 import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
+import { UserCharacter } from '../rpg/user-character.entity';
+
+type PublicCharacter = Omit<UserCharacter, 'user'> & { user: Pick<User, 'id' | 'username'> };
+type PublicHolonetPost = Omit<HolonetPost, 'characters'> & { characters: PublicCharacter[] };
 
 interface HolonetSearchFilters {
   text?: string;
@@ -47,6 +51,8 @@ export class HolonetService {
     private readonly plotRepo: Repository<RpgPlot>,
     @InjectRepository(RpgPlotMember)
     private readonly plotMemberRepo: Repository<RpgPlotMember>,
+    @InjectRepository(UserCharacter)
+    private readonly characterRepo: Repository<UserCharacter>,
   ) {}
 
   async findAll(
@@ -71,7 +77,7 @@ export class HolonetService {
 
     const [data, total] = await this.postRepo.findAndCount({
       where,
-      relations: ['author', 'plot'],
+      relations: ['author', 'plot', 'characters', 'characters.user'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -89,7 +95,7 @@ export class HolonetService {
           this.ratingRepo.count({ where: { postId: post.id } }),
         ]);
         return {
-          ...post,
+          ...this.publicCharacters(post),
           positiveCount,
           totalCount,
           isUnread: post.id > lastReadPostId,
@@ -103,21 +109,21 @@ export class HolonetService {
   async findOne(
     id: number,
     userId?: number,
-  ): Promise<HolonetPost & {
+  ): Promise<PublicHolonetPost & {
     isUnread?: boolean;
     positiveCount: number;
     totalCount: number;
   }> {
     const post = await this.postRepo.findOne({
       where: { id, deletedAt: IsNull() },
-      relations: ['author', 'plot'],
+      relations: ['author', 'plot', 'characters', 'characters.user'],
     });
     if (!post) throw new NotFoundException('Post not found');
     const [positiveCount, totalCount] = await Promise.all([
       this.ratingRepo.count({ where: { postId: id, value: 1 } }),
       this.ratingRepo.count({ where: { postId: id } }),
     ]);
-    const result = { ...post, positiveCount, totalCount };
+    const result = { ...this.publicCharacters(post), positiveCount, totalCount };
     if (!userId) return result;
     const checkpoint = await this.checkpointRepo.findOneBy({ userId });
     return { ...result, isUnread: post.id > (checkpoint?.lastReadPostId ?? 0) };
@@ -129,7 +135,8 @@ export class HolonetService {
     body: string,
     category: PostCategory,
     plotId?: number,
-  ): Promise<HolonetPost> {
+    characterIds?: number[],
+  ): Promise<PublicHolonetPost> {
     const normalizedTitle = title?.trim() ?? '';
     const normalizedBody = body?.trim() ?? '';
     const plot = plotId ? await this.requireActivePlotMember(plotId, authorId) : null;
@@ -144,16 +151,19 @@ export class HolonetService {
     if (!Object.values(PostCategory).includes(category)) {
       throw new BadRequestException('Ungültige HoloNet-Kategorie.');
     }
+    const characters = await this.resolveCharacters(characterIds === undefined ? [] : characterIds);
     const post = this.postRepo.create({
       authorId,
       title: normalizedTitle,
       body: normalizedBody,
       category: plot ? PostCategory.ROLEPLAY : category,
       ...(plot ? { plotId: plot.id } : {}),
+      ...(characterIds !== undefined ? { characters } : {}),
     });
     const saved = await this.postRepo.save(post);
     if (plot) await this.notifyPlotMembers(saved, plot, authorId);
-    return saved;
+    await this.notifyCharacterOwners(saved, characters);
+    return this.publicCharacters(saved);
   }
 
   async update(
@@ -162,11 +172,13 @@ export class HolonetService {
     title: string,
     body: string,
     isAdmin = false,
-  ): Promise<HolonetPost> {
+    characterIds?: number[],
+  ): Promise<PublicHolonetPost> {
     const post = await this.postRepo.findOne({
       where: isAdmin
         ? { id, deletedAt: IsNull() }
         : { id, authorId: userId, deletedAt: IsNull() },
+      relations: ['characters', 'characters.user'],
     });
     if (!post) throw new NotFoundException('Post not found');
     if (!isAdmin && Date.now() - post.createdAt.getTime() > HOLONET_EDIT_WINDOW_MS) {
@@ -182,9 +194,14 @@ export class HolonetService {
     if (bodyLength > HOLONET_BODY_MAX_LENGTH) {
       throw new BadRequestException('Der Text darf höchstens 20000 Zeichen lang sein.');
     }
+    const previousIds = new Set((post.characters ?? []).map((character) => character.id));
+    const characters = characterIds === undefined ? undefined : await this.resolveCharacters(characterIds);
     post.title = normalizedTitle;
     post.body = normalizedBody;
-    return this.postRepo.save(post);
+    if (characters) post.characters = characters;
+    const saved = await this.postRepo.save(post);
+    if (characters) await this.notifyCharacterOwners(saved, characters.filter((character) => !previousIds.has(character.id)));
+    return this.publicCharacters(saved);
   }
 
   async delete(id: number, userId: number): Promise<void> {
@@ -358,6 +375,53 @@ export class HolonetService {
     const checkpoint = await this.checkpointRepo.findOneBy({ userId });
     const lastId = checkpoint?.lastReadPostId ?? 0;
     return this.postRepo.count({ where: { id: MoreThan(lastId) } });
+  }
+
+  private async resolveCharacters(ids: number[]): Promise<UserCharacter[]> {
+    if (!Array.isArray(ids) || ids.length > 10 || ids.some((id) => !Number.isInteger(id) || id <= 0)) {
+      throw new BadRequestException('Es sind höchstens 10 gültige Charakter-IDs erlaubt.');
+    }
+    const uniqueIds = [...new Set(ids)];
+    if (!uniqueIds.length) return [];
+    const characters = await this.characterRepo.find({
+      where: { id: In(uniqueIds) },
+      relations: ['user'],
+    });
+    for (const id of uniqueIds) {
+      if (!characters.some((character) => character.id === id)) {
+        throw new BadRequestException(`Charakter ${id} nicht gefunden.`);
+      }
+    }
+    return characters;
+  }
+
+  private publicCharacters(post: HolonetPost): PublicHolonetPost {
+    return {
+      ...post,
+      characters: (post.characters ?? []).map((character) => ({
+        ...character,
+        user: { id: character.user.id, username: character.user.username },
+      })),
+    };
+  }
+
+  private async notifyCharacterOwners(post: HolonetPost, characters: UserCharacter[]): Promise<void> {
+    const owners = new Map<number, UserCharacter>();
+    for (const character of characters) {
+      if (character.userId !== post.authorId && !owners.has(character.userId)) {
+        owners.set(character.userId, character);
+      }
+    }
+    for (const [ownerId, character] of owners) {
+      await this.messagingService.sendSystem(
+        ownerId,
+        'Charakter im HoloNet erwähnt',
+        `Dein Charakter ${character.name} wurde im HoloNet-Beitrag ${post.title} erwähnt`,
+        `holonet-character:${post.id}:${ownerId}`,
+        undefined,
+        { kind: MessageTargetKind.HOLONET_POST, id: post.id },
+      );
+    }
   }
 
   private async requireActivePlotMember(plotId: number, userId: number): Promise<RpgPlot> {

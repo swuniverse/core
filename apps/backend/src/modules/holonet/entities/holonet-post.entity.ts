@@ -3,6 +3,8 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  ManyToMany,
+  JoinTable,
   JoinColumn,
   CreateDateColumn,
   DeleteDateColumn,
@@ -10,6 +12,7 @@ import {
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import type { RpgPlot } from '../../rpg/rpg-plot.entity';
+import type { UserCharacter } from '../../rpg/user-character.entity';
 
 export enum PostCategory {
   NEWS = 'NEWS',
@@ -46,6 +49,14 @@ export class HolonetPost {
   @ManyToOne('RpgPlot', { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'plotId' })
   plot: RpgPlot | null;
+
+  @ManyToMany('UserCharacter')
+  @JoinTable({
+    name: 'holonet_post_characters',
+    joinColumn: { name: 'postId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'characterId', referencedColumnName: 'id' },
+  })
+  characters: UserCharacter[];
 
   @Column({ default: false })
   isPinned: boolean;
