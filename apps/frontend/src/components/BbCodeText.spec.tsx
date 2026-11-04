@@ -42,6 +42,46 @@ describe('BbCodeText', () => {
     expect(strong?.querySelector('em')?.textContent).toBe('kursiv');
   });
 
+  it('renders allowlisted hex and named colors as inline color styles', () => {
+    const { container } = render(
+      <BbCodeText text="[color=#ff0000]long[/color] [color=#f00]short[/color] [color=red]named[/color]" />,
+    );
+
+    const colored = container.querySelectorAll('span[style]');
+    expect(Array.from(colored, (span) => span.textContent)).toEqual(['long', 'short', 'named']);
+    expect(Array.from(colored, (span) => (span as HTMLSpanElement).style.color)).toEqual([
+      'rgb(255, 0, 0)',
+      'rgb(255, 0, 0)',
+      'red',
+    ]);
+  });
+
+  it('keeps invalid, empty, and injection-shaped color options literal', () => {
+    const input =
+      '[color=expression(alert(1))]expression[/color] [color=url(javascript:alert(1))]url[/color] [color=red;background:blue]css[/color] [color=rgb(1, 2, 3)]rgb[/color] [color=#abcd]short-invalid[/color] [color=#fff\n]newline[/color] [color=transparent]transparent[/color] [color=currentColor]currentColor[/color] [color=]empty[/color] [b=]bold[/b]';
+    const { container } = render(<BbCodeText text={input} />);
+
+    expect(container.querySelector('span[style]')).toBeNull();
+    expect(container.textContent).toBe(input);
+  });
+
+  it('preserves color nesting and translated color content', () => {
+    const { container } = render(
+      <BbCodeText text="[b][color=#f00]Bold red[/color][/b] [translate][color=blue]Primary[/color][translation][color=green]Translated[/color][/translate]" />,
+    );
+
+    const bold = container.querySelector('strong');
+    expect(bold?.textContent).toBe('Bold red');
+    expect(bold?.querySelector('span')?.style.color).toBe('rgb(255, 0, 0)');
+
+    const translation = screen.getByRole('button', { name: 'Primary' });
+    expect(translation.querySelector('span')?.style.color).toBe('blue');
+    fireEvent.click(translation);
+    expect(screen.getByRole('button', { name: 'Translated' }).querySelector('span')?.style.color).toBe(
+      'green',
+    );
+  });
+
   it('renders safe urls as external links', () => {
     render(<BbCodeText text="[url=https://example.test]Link[/url]" />);
 
@@ -58,18 +98,23 @@ describe('BbCodeText', () => {
     expect(container.textContent).toBe('[url=javascript:alert(1)]x[/url]');
   });
 
-  it('keeps unknown or broken tags visible', () => {
-    const { container } = render(<BbCodeText text="[color=red]Rot[/color] [b]offen" />);
+  it('keeps invalid or broken tags visible', () => {
+    const { container } = render(
+      <BbCodeText text="[color=red;background:blue]Rot[/color] [b]offen" />,
+    );
 
-    expect(container.textContent).toBe('[color=red]Rot[/color] [b]offen');
+    expect(container.textContent).toBe('[color=red;background:blue]Rot[/color] [b]offen');
   });
 
   it('does not parse tags inside code blocks', () => {
-    const { container } = render(<BbCodeText text="[code][b]nicht fett[/b][/code]" />);
+    const { container } = render(
+      <BbCodeText text="[code][color=#f00][b]nicht fett[/b][/color][/code]" />,
+    );
 
     const code = container.querySelector('code');
-    expect(code?.textContent).toBe('[b]nicht fett[/b]');
+    expect(code?.textContent).toBe('[color=#f00][b]nicht fett[/b][/color]');
     expect(code?.querySelector('strong')).toBeNull();
+    expect(code?.querySelector('span')).toBeNull();
   });
 
   describe('banner images', () => {

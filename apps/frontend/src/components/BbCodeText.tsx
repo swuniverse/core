@@ -24,6 +24,7 @@ type Tag =
   | 'code'
   | 'url'
   | 'img'
+  | 'color'
   | 'translate';
 
 type Part = {
@@ -41,7 +42,7 @@ type Frame = {
 };
 
 const TAG_PATTERN =
-  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|img|translate|translation)(?:=([^\]]+))?\]/gi;
+  /\[(\/?)(b|i|u|s|h2|h3|quote|code|url|img|color|translate|translation)(?:=([^\]]*))?\]/gi;
 
 function textPart(text: string): Part {
   return { literal: text, node: text };
@@ -64,6 +65,33 @@ function isSafeUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+const SAFE_NAMED_COLORS = new Set([
+  'aqua',
+  'black',
+  'blue',
+  'fuchsia',
+  'gray',
+  'green',
+  'lime',
+  'maroon',
+  'navy',
+  'olive',
+  'purple',
+  'red',
+  'silver',
+  'teal',
+  'white',
+  'yellow',
+]);
+
+function safeColor(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+
+  const normalized = value.toLowerCase();
+  if (/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/.test(normalized)) return normalized;
+  return SAFE_NAMED_COLORS.has(normalized) ? normalized : undefined;
 }
 
 function frameChildren(frame: Frame): Part[] {
@@ -196,6 +224,19 @@ function renderFrame(
         ),
       };
     }
+    case 'color': {
+      const color = safeColor(frame.attr);
+      if (!color) return textPart(literal);
+
+      return {
+        literal,
+        node: (
+          <span key={nextKey()} style={{ color }}>
+            {children}
+          </span>
+        ),
+      };
+    }
     case 'img': {
       const src = partsLiteral(frame.children).trim();
       if (!allowBannerImages || !ALLIANCE_BANNER_URL_PATTERN.test(src)) {
@@ -242,6 +283,8 @@ function parseBbCode(text: string, allowBannerImages: boolean): ReactNode[] {
   for (let match = TAG_PATTERN.exec(text); match; match = TAG_PATTERN.exec(text)) {
     const [token, closingSlash, rawTag, attr] = match;
     const tokenIndex = match.index;
+
+    if (rawTag.toLowerCase() !== 'color' && token.endsWith('=]')) continue;
 
     if (tokenIndex > lastIndex) {
       appendPart(stack, root, textPart(text.slice(lastIndex, tokenIndex)));
