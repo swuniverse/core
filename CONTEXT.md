@@ -93,7 +93,7 @@ _Avoid_: Live-Scan, aktuelle Scandaten
 ## Beziehungen
 
 **Feind**:
-Ein Spieler der jeweils anderen **Fraktion**. Diese Feindschaft ist grundsätzlich und hängt nicht von Diplomatie ab.
+Ein Spieler der jeweils anderen **Fraktion** oder ein Spieler derselben **Fraktion**, den ein persönlicher Kontakt als Feind markiert. Mitglieder derselben **Allianz** sind nie Feinde. Die fraktionsübergreifende Feindschaft ist grundsätzlich und hängt nicht von Diplomatie ab.
 
 **Freund**:
 Ein Spieler derselben **Fraktion**, der derselben **Allianz** angehört, dessen Allianz mit der eigenen eine aktive **Beziehung** mit der **Beziehungsfreigabe** „Als Freund behandeln“ hat oder den ein persönlicher Kontakt als Freund markiert. Ein Allianzkrieg hat Vorrang vor Freigabe und Kontakt, nicht aber vor derselben Allianz.

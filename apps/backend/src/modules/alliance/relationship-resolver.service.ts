@@ -65,20 +65,22 @@ export interface ResolveManyOptions {
 }
 
 /**
- * Extension seam for the lowest-priority rule: a personal contact marking
- * another player as Freund. SWU has no contact list yet, so the default
- * implementation never reports one; the Siedler-Abkommen stage plugs in here.
+ * Extension seam for personal contact modes. Implementations resolve a batch
+ * in one read so relationship resolution does not create N+1 contact queries.
  */
 export interface PersonalContactStatusPort {
-  isFriend(firstPlayerId: number, secondPlayerId: number): Promise<boolean>;
+  statuses(
+    firstPlayerId: number,
+    secondPlayerIds: number[],
+  ): Promise<Map<number, 'FRIEND' | 'ENEMY'>>;
 }
 
 export const PERSONAL_CONTACT_STATUS = Symbol('PERSONAL_CONTACT_STATUS');
 
 @Injectable()
 export class NoPersonalContactStatusPort implements PersonalContactStatusPort {
-  async isFriend(): Promise<boolean> {
-    return false;
+  async statuses(): Promise<Map<number, 'FRIEND' | 'ENEMY'>> {
+    return new Map();
   }
 }
 
@@ -108,8 +110,19 @@ export class RelationshipResolverService {
     } catch {
       return new Map(ids.map((id) => [id, resolved('NEUTRAL')]));
     }
+    let personalContactStatuses: Map<number, 'FRIEND' | 'ENEMY'>;
+    try {
+      personalContactStatuses = await this.personalContactStatus.statuses(
+        viewerId,
+        ids,
+      );
+    } catch {
+      return new Map(ids.map((id) => [id, resolved('NEUTRAL')]));
+    }
     const stances = await Promise.all(
-      ids.map((id) => this.stanceWithin(context, viewerId, id)),
+      ids.map((id) =>
+        this.stanceWithin(context, viewerId, id, personalContactStatuses.get(id)),
+      ),
     );
     return new Map(ids.map((id, index) => [id, stances[index]]));
   }
@@ -281,6 +294,7 @@ export class RelationshipResolverService {
     context: StanceContext,
     viewerId: number,
     otherPlayerId: number,
+    personalContactStatus: 'FRIEND' | 'ENEMY' | undefined,
   ): Promise<ResolvedStance> {
     try {
       const firstPlayer = context.players.get(viewerId);
@@ -322,12 +336,10 @@ export class RelationshipResolverService {
         }
       }
 
-      if (
-        await this.personalContactStatus.isFriend(
-          firstPlayer.id,
-          secondPlayer.id,
-        )
-      ) {
+      if (personalContactStatus === 'ENEMY') {
+        return resolved('ENEMY', { mayShareLivePosition });
+      }
+      if (personalContactStatus === 'FRIEND') {
         return resolved('FRIEND', { mayShareLivePosition });
       }
       return resolved('NEUTRAL', { mayShareLivePosition });

@@ -33,8 +33,13 @@ describe('ContactService', () => {
       find: jest.fn(async ({ where }: { where: Record<string, unknown> }) =>
         [...contacts.values()].filter((contact) =>
           Object.entries(where).every(([key, value]) => {
-            if (key === 'id' && typeof value === 'object') {
-              return (value as { _value: number[] })._value.includes(contact.id);
+            if (
+              typeof value === 'object' &&
+              value !== null &&
+              '_value' in value &&
+              Array.isArray(value._value)
+            ) {
+              return value._value.includes(contact[key as keyof Contact]);
             }
             return contact[key as keyof Contact] === value;
           }),
@@ -99,5 +104,21 @@ describe('ContactService', () => {
     await service.create(owner.id, { playerId: target.id, mode: ContactMode.NEUTRAL });
     await service.removeAll(owner.id);
     expect([...contacts.values()].every((contact) => contact.userId !== owner.id)).toBe(true);
+  });
+
+  it('loads effective contact statuses for a batch in one query', async () => {
+    await service.create(owner.id, { playerId: target.id, mode: ContactMode.ENEMY });
+
+    await expect(service.statuses(owner.id, [target.id, 99])).resolves.toEqual(
+      new Map([[target.id, ContactMode.ENEMY]]),
+    );
+    expect(repository.find).toHaveBeenLastCalledWith({
+      where: {
+        userId: owner.id,
+        contactUserId: expect.anything(),
+        mode: expect.anything(),
+      },
+      select: { contactUserId: true, mode: true },
+    });
   });
 });

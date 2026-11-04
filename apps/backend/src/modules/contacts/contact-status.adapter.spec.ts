@@ -37,7 +37,13 @@ function store(players: Array<{ id: number; factionId: number }>, war = false): 
 
 describe('ContactStatusAdapter relationship effect', () => {
   const contactService = (mode: ContactMode | null) =>
-    ({ isFriend: jest.fn(async () => mode === ContactMode.FRIEND) }) as unknown as ContactService;
+    ({
+      statuses: jest.fn(async (_userId: number, contactUserIds: number[]) =>
+        mode === ContactMode.FRIEND || mode === ContactMode.ENEMY
+          ? new Map(contactUserIds.map((id) => [id, mode] as const))
+          : new Map(),
+      ),
+    }) as unknown as ContactService;
 
   it('resolves a same-faction friend contact as FRIEND', async () => {
     const resolver = new RelationshipResolverService(
@@ -47,10 +53,18 @@ describe('ContactStatusAdapter relationship effect', () => {
     expect((await resolver.resolve(1, 2)).status).toBe('FRIEND');
   });
 
-  it.each([ContactMode.ENEMY, ContactMode.NEUTRAL])('keeps %s contacts neutral', async (mode) => {
+  it('resolves a same-faction enemy contact as ENEMY', async () => {
     const resolver = new RelationshipResolverService(
       store([{ id: 1, factionId: 1 }, { id: 2, factionId: 1 }]),
-      new ContactStatusAdapter(contactService(mode)),
+      new ContactStatusAdapter(contactService(ContactMode.ENEMY)),
+    );
+    expect((await resolver.resolve(1, 2)).status).toBe('ENEMY');
+  });
+
+  it('keeps neutral contacts neutral', async () => {
+    const resolver = new RelationshipResolverService(
+      store([{ id: 1, factionId: 1 }, { id: 2, factionId: 1 }]),
+      new ContactStatusAdapter(contactService(ContactMode.NEUTRAL)),
     );
     expect((await resolver.resolve(1, 2)).status).toBe('NEUTRAL');
   });

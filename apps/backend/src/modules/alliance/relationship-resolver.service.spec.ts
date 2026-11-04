@@ -147,7 +147,7 @@ describe('RelationshipResolverService', () => {
     });
 
     const personalContactStatus: PersonalContactStatusPort = {
-      isFriend: jest.fn().mockResolvedValue(true),
+      statuses: jest.fn().mockResolvedValue(new Map([[2, 'FRIEND'] as const])),
     };
 
     await expect(
@@ -178,9 +178,9 @@ describe('RelationshipResolverService', () => {
 
   describe('priority conflicts', () => {
     const friendlyContact: PersonalContactStatusPort = {
-      isFriend: async () => true,
+      statuses: async (firstPlayerId, secondPlayerIds) =>
+        new Map(secondPlayerIds.map((playerId) => [playerId, 'FRIEND'] as const)),
     };
-
     function twoAlliances() {
       const store = new InMemoryAllianceStore();
       store.addPlayer(1, 'Rebel One');
@@ -273,12 +273,35 @@ describe('RelationshipResolverService', () => {
         [1, AllianceRole.PRESIDENT],
         [2, AllianceRole.NONE],
       ]);
-      const isFriend = jest.fn().mockResolvedValue(false);
+      const statuses = jest.fn().mockResolvedValue(new Map());
 
       await expect(
-        resolverFor(store, { isFriend }).resolve(1, 2),
+        resolverFor(store, { statuses }).resolve(1, 2),
       ).resolves.toMatchObject({ status: 'FRIEND' });
-      expect(isFriend).not.toHaveBeenCalled();
+
+      expect(statuses).toHaveBeenCalledWith(1, [2]);
+    });
+
+    it('resolves a directed enemy contact only for the marker, after same-alliance precedence', async () => {
+      const store = new InMemoryAllianceStore();
+      store.addPlayer(1, 'Rebel One');
+      store.addPlayer(2, 'Rebel Two');
+      store.addPlayer(3, 'Rebel Three');
+      store.seedAlliance({ name: 'Own' }, [
+        [1, AllianceRole.PRESIDENT],
+        [2, AllianceRole.NONE],
+      ]);
+      const statuses = jest.fn().mockResolvedValue(new Map([[3, 'ENEMY'] as const]));
+      const resolver = resolverFor(store, { statuses });
+
+      await expect(resolver.resolveMany(1, [2, 3])).resolves.toEqual(
+        new Map([
+          [2, expect.objectContaining({ status: 'FRIEND' })],
+          [3, expect.objectContaining({ status: 'ENEMY' })],
+        ]),
+      );
+      await expect(resolver.resolve(3, 1)).resolves.toMatchObject({ status: 'NEUTRAL' });
+      expect(statuses).toHaveBeenCalledWith(1, [2, 3]);
     });
 
     it('resolves the same answer regardless of argument order', async () => {
@@ -436,7 +459,7 @@ describe('RelationshipResolverService', () => {
       store.addPlayer(2, 'Settler Two');
 
       await expect(
-        resolverFor(store, { isFriend: async () => true }).resolve(1, 2),
+        resolverFor(store, { statuses: async () => new Map([[2, 'FRIEND']]) }).resolve(1, 2),
       ).resolves.toMatchObject({ status: 'FRIEND', mayTransferSafely: true });
     });
 
@@ -572,7 +595,7 @@ describe('RelationshipResolverService', () => {
       const store = settlerPair();
       store.addPlayer(3, 'Imperial Settler', EMPIRE.id);
       seedSettlers(store, { type: AllianceRelationshipType.WAR });
-      const friendlyContact = { isFriend: async () => true };
+      const friendlyContact = { statuses: async () => new Map([[3, 'FRIEND']]) };
 
       await expect(
         resolverFor(store, friendlyContact).resolve(1, 3),
@@ -587,7 +610,7 @@ describe('RelationshipResolverService', () => {
       seedSettlers(store, { type: AllianceRelationshipType.ALLIANCE });
 
       await expect(
-        resolverFor(store, { isFriend: async () => true }).resolve(1, 2),
+        resolverFor(store, { statuses: async () => new Map([[2, 'FRIEND']]) }).resolve(1, 2),
       ).resolves.toMatchObject({ status: 'FRIEND' });
     });
 
@@ -733,7 +756,7 @@ describe('RelationshipResolverService', () => {
 
       await expect(
         resolverFor(store, {
-          isFriend: () => Promise.reject(new Error('contacts unavailable')),
+          statuses: () => Promise.reject(new Error('contacts unavailable')),
         }).resolve(1, 2),
       ).resolves.toEqual(closed);
     });
@@ -744,7 +767,7 @@ describe('RelationshipResolverService', () => {
       store.addPlayer(2, 'Unassigned', null);
 
       await expect(
-        resolverFor(store, { isFriend: async () => true }).resolve(1, 2),
+        resolverFor(store, { statuses: async () => new Map([[2, 'FRIEND']]) }).resolve(1, 2),
       ).resolves.toEqual(closed);
     });
   });

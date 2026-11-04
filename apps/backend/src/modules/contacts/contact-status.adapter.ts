@@ -6,7 +6,10 @@ import { ContactService } from './contact.service';
 export class ContactStatusAdapter implements PersonalContactStatusPort {
   constructor(private readonly contacts: ContactService) {}
 
-  isFriend(firstPlayerId: number, secondPlayerId: number): Promise<boolean> {
-    return this.contacts.isFriend(firstPlayerId, secondPlayerId);
+  statuses(
+    firstPlayerId: number,
+    secondPlayerIds: number[],
+  ): Promise<Map<number, 'FRIEND' | 'ENEMY'>> {
+    return this.contacts.statuses(firstPlayerId, secondPlayerIds);
   }
 }

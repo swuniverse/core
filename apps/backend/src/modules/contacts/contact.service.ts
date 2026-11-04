@@ -126,12 +126,25 @@ export class ContactService {
     return { deleted: result.affected ?? 0 };
   }
 
-  async isFriend(userId: number, contactUserId: number): Promise<boolean> {
-    return Boolean(
-      await this.contacts.findOne({
-        where: { userId, contactUserId, mode: ContactMode.FRIEND },
-        select: { id: true },
-      }),
+
+  async statuses(
+    userId: number,
+    contactUserIds: number[],
+  ): Promise<Map<number, ContactMode.FRIEND | ContactMode.ENEMY>> {
+    if (contactUserIds.length === 0) return new Map();
+    const contacts = await this.contacts.find({
+      where: {
+        userId,
+        contactUserId: In(contactUserIds),
+        mode: In([ContactMode.FRIEND, ContactMode.ENEMY]),
+      },
+      select: { contactUserId: true, mode: true },
+    });
+    return new Map(
+      contacts.map((contact) => [
+        contact.contactUserId,
+        contact.mode as ContactMode.FRIEND | ContactMode.ENEMY,
+      ]),
     );
   }
 
