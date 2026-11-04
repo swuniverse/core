@@ -6,7 +6,7 @@ import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
-import { isVacationEffective } from '@swuniverse/shared';
+import { isVacationEffective, type ProfileFriendDto } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
 import { Colony } from '../colony/entities/colony.entity';
@@ -35,6 +35,7 @@ import {
 } from '../starmap/generator/swu-planet-type';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { AllianceService } from '../alliance/alliance.service';
+import { ContactService } from '../contacts/contact.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
@@ -55,6 +56,7 @@ import {
 } from './aurodium-ranking-source';
 
 const AURODIUM_COMMODITY_ID = 50;
+const PROFILE_FRIEND_LIMIT = 50;
 
 type TradePostProjection = TradePost & {
   owner?: User;
@@ -142,6 +144,7 @@ export class DatabaseService {
       {} as Repository<HolonetRating>,
     @Inject(AURODIUM_RANKING_SOURCES)
     private readonly aurodiumRankingSources: AurodiumRankingSource[] = [],
+    private readonly contacts: ContactService = {} as ContactService,
   ) {}
 
   async getTradePosts(userId: number) {
@@ -325,7 +328,7 @@ export class DatabaseService {
       factions.map((faction) => [faction.id, faction]),
     );
 
-    const [entry, alliance, awards, colonyScans] = await Promise.all([
+    const [entry, alliance, awards, colonyScans, friends] = await Promise.all([
       this.toSettlerEntry(user, factionById),
       this.allianceService.getRef(user.id),
       this.userAwardRepo.find({
@@ -339,6 +342,7 @@ export class DatabaseService {
             viewerId,
             user.id,
           ),
+      this.getProfileFriends(user.id),
     ]);
     const scansWithSystemContext =
       colonyScans === undefined
@@ -347,6 +351,7 @@ export class DatabaseService {
     return {
       ...entry,
       alliance,
+      friends,
       awards: awards.map(({ award, count }) => ({
         key: award.key,
         description: award.description,
@@ -357,6 +362,30 @@ export class DatabaseService {
         ? {}
         : { colonyScans: scansWithSystemContext }),
     };
+  }
+
+  private async getProfileFriends(userId: number): Promise<ProfileFriendDto[]> {
+    const [members, contacts] = await Promise.all([
+      this.allianceService.getMemberIds(userId),
+      this.contacts.incomingFriendIds(userId, PROFILE_FRIEND_LIMIT + 1),
+    ]);
+    const ids = [...new Set([...members, ...contacts])]
+      .filter((id) => id !== userId)
+      .sort((a, b) => a - b)
+      .slice(0, PROFILE_FRIEND_LIMIT);
+    if (ids.length === 0) return [];
+    const users = await this.userRepo.find({
+      where: { id: In(ids) },
+      select: ['id', 'username', 'displayName', 'avatar'],
+      order: { id: 'ASC' },
+    });
+    return users
+      .sort((a, b) => a.id - b.id)
+      .map(({ id, username, displayName, avatar }) => ({
+        id,
+        name: displayName || username,
+        avatar,
+      }));
   }
 
   private async withDiscoveredSystemContext<

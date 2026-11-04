@@ -59,7 +59,11 @@ function createService(overrides: Record<string, unknown> = {}) {
       }),
     },
     factionService: { findAll: jest.fn().mockResolvedValue([]) },
-    allianceService: { getRef: jest.fn().mockResolvedValue(null) },
+    allianceService: {
+      getRef: jest.fn().mockResolvedValue(null),
+      getMemberIds: jest.fn().mockResolvedValue([]),
+    },
+    contacts: { incomingFriendIds: jest.fn().mockResolvedValue([]) },
     colonyRepo: { count: jest.fn().mockResolvedValue(1) },
     systemExplorationRepo: {
       find: jest.fn().mockResolvedValue([{ userId: 42, starSystemId: 9 }]),

@@ -913,6 +913,13 @@ export class AllianceService {
     };
   }
 
+  async getMemberIds(userId: number): Promise<number[]> {
+    const membership = await this.store.findMembership(userId);
+    if (!membership) return [];
+    const members = await this.store.listMemberships(membership.allianceId);
+    return members.map((member) => member.userId);
+  }
+
   async getRef(userId: number): Promise<AllianceRefDto | null> {
     const membership = await this.store.findMembership(userId);
     if (!membership) return null;

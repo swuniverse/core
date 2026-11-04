@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { PlayerProfilePage } from './player-profile';
@@ -209,6 +209,70 @@ describe('PlayerProfilePage', () => {
     ).toBeNull();
   });
 
+  it('renders friends as linked avatars with their names as titles', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1,
+      username: 'leia',
+      displayName: null,
+      avatar: null,
+      description: null,
+      faction: 'REBEL_ALLIANCE',
+      factionName: 'Rebellenallianz',
+      prestige: 0,
+      colonies: 0,
+      ships: 0,
+      completedResearch: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null },
+      friends: [
+        { id: 2, name: 'Luke', avatar: '/luke.png' },
+        { id: 3, name: 'Han', avatar: null },
+      ],
+    });
+
+    renderProfile();
+
+    expect(await screen.findByRole('heading', { name: 'Freunde' })).toBeTruthy();
+    const link = screen.getByRole('link', { name: 'Luke Avatar' });
+    expect(link.getAttribute('href')).toBe('/players/2');
+    expect(link.getAttribute('title')).toBe('Luke');
+    expect(screen.getByRole('img', { name: 'Luke Avatar' }).getAttribute('src')).toBe('/luke.png');
+    const fallback = screen.getByRole('link', { name: 'Han Avatar' });
+    expect(fallback.getAttribute('href')).toBe('/players/3');
+    expect(fallback.getAttribute('title')).toBe('Han');
+    expect(fallback.textContent).toBe('H');
+  });
+
+  it('does not apply stale contact state after following a friend link', async () => {
+    let resolveOldContacts!: (value: unknown) => void;
+    let contactRequests = 0;
+    const oldContacts = new Promise((resolve) => { resolveOldContacts = resolve; });
+    const profile = (id: number) => ({
+      id, username: `player${id}`, displayName: null, avatar: null,
+      description: null, faction: 'REBEL_ALLIANCE', factionName: 'Rebellenallianz',
+      prestige: 0, colonies: 0, ships: 0, completedResearch: 0,
+      onboardingCompleted: true, isAdmin: false, createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null },
+      friends: id === 1 ? [{ id: 2, name: 'Luke', avatar: '/luke.png' }] : [],
+    });
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/settlers/1') return Promise.resolve(profile(1));
+      if (url === '/database/settlers/2') return Promise.resolve(profile(2));
+      if (url === '/contacts') return ++contactRequests === 1 ? oldContacts : Promise.resolve([]);
+      if (url === '/ignore-list' || url.startsWith('/rpg/characters/')) return Promise.resolve([]);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    renderProfile();
+    fireEvent.click(await screen.findByRole('link', { name: 'Luke Avatar' }));
+    expect(await screen.findByRole('heading', { name: 'player2' })).toBeTruthy();
+    await act(async () => resolveOldContacts([{ id: 10, contactUserId: 1, mode: 'FRIEND' }]));
+    expect(screen.queryByLabelText('Kontaktmodus für player2')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Zu Kontakten hinzufügen' })).toBeTruthy();
+  });
+
   it('renders awards with descriptions and repeat counts', async () => {
     apiMocks.get.mockResolvedValue({
       id: 1,
@@ -246,7 +310,7 @@ describe('PlayerProfilePage', () => {
     expect(screen.getByText('2')).toBeTruthy();
   });
 
-  it('renders an empty awards box', async () => {
+  it('renders empty awards and friends boxes', async () => {
     apiMocks.get.mockResolvedValue({
       id: 1,
       username: 'leia',
@@ -264,12 +328,14 @@ describe('PlayerProfilePage', () => {
       createdAt: '2026-08-04T00:00:00.000Z',
       alliance: { id: 5, name: 'Alderaan', color: null },
       awards: [],
+      friends: [],
     });
 
     renderProfile();
 
     expect(await screen.findByRole('heading', { name: 'Awards' })).toBeTruthy();
-    expect(screen.getByText('Keine')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Awards' }).parentElement?.textContent).toContain('Keine');
+    expect(screen.getByRole('heading', { name: 'Freunde' }).parentElement?.textContent).toContain('Keine');
   });
 
   it('links the player’s alliance', async () => {

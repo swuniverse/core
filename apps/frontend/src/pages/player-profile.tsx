@@ -12,6 +12,7 @@ import {
   ContactMode,
   type ContactDto,
   type IgnoreListEntryDto,
+  type ProfileFriendDto,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -40,6 +41,7 @@ interface PlayerProfile {
   createdAt: string;
   alliance: AllianceRefDto | null;
   awards?: AwardProfileDto[];
+  friends: ProfileFriendDto[];
   colonyScans?: ColonyScanProjection[];
   onVacation: boolean;
 }
@@ -73,6 +75,11 @@ export function PlayerProfilePage() {
 
     let cancelled = false;
     setLoading(true);
+    setContact(null);
+    setIgnored(null);
+    setCharacters([]);
+    setEditingCharacter(null);
+    setSelectedScan(null);
 
     api
       .get<PlayerProfile>(`/database/settlers/${id}`)
@@ -87,10 +94,12 @@ export function PlayerProfilePage() {
             ]);
             void requests
               .then(([contacts, ignores]) => {
+                if (cancelled) return;
                 setContact(contacts.find((item) => item.contactUserId === data.id) ?? null);
                 setIgnored(ignores.find((item) => item.ignoredUserId === data.id) ?? null);
               })
               .catch(() => {
+                if (cancelled) return;
                 setContact(null);
                 setIgnored(null);
               });
@@ -100,7 +109,13 @@ export function PlayerProfilePage() {
         }
         try {
           const request = api.get<UserCharacterDto[]>(`/rpg/characters/player/${id}`);
-          Promise.resolve(request).then((items) => setCharacters(Array.isArray(items) ? items : [])).catch(() => setCharacters([]));
+          Promise.resolve(request)
+            .then((items) => {
+              if (!cancelled) setCharacters(Array.isArray(items) ? items : []);
+            })
+            .catch(() => {
+              if (!cancelled) setCharacters([]);
+            });
         } catch {
           setCharacters([]);
         }
@@ -318,6 +333,21 @@ export function PlayerProfilePage() {
         onEdit={setEditingCharacter}
         onChange={setCharacters}
       />
+
+      <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
+        <h2 className="mb-3 text-sm font-bold text-swu-primary">Freunde</h2>
+        {(player.friends ?? []).length === 0 ? (
+          <p className="text-center text-sm text-swu-muted">Keine</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {player.friends.map((friend) => (
+              <Link key={friend.id} to={`/players/${friend.id}`} title={friend.name}>
+                <PlayerAvatar name={friend.name} avatar={friend.avatar} faction={null} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
         <h2 className="mb-3 text-sm font-bold text-swu-primary">Awards</h2>

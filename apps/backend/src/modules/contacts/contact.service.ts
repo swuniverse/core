@@ -56,6 +56,16 @@ export class ContactService {
     }));
   }
 
+  async incomingFriendIds(contactUserId: number, limit: number): Promise<number[]> {
+    const contacts = await this.contacts.find({
+      where: { contactUserId, mode: ContactMode.FRIEND },
+      select: { userId: true },
+      order: { userId: 'ASC' },
+      take: limit,
+    });
+    return contacts.map((contact) => contact.userId);
+  }
+
   async create(userId: number, input: CreateContactDto): Promise<ContactDto> {
     const mode = this.requireMode(input.mode);
     if (input.playerId === userId) {

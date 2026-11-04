@@ -18,6 +18,7 @@ jest.mock('../alliance/alliance.service', () => ({
 }));
 
 import { NotFoundException } from '@nestjs/common';
+import type { FindOperator } from 'typeorm';
 import { DatabaseService } from './database.service';
 import { ResearchStatus } from '../research/entities/research.entity';
 
@@ -30,7 +31,11 @@ function createService() {
   const gameData = { getAllCommodities: jest.fn() };
   const gameGateway = { onlineUserIds: [] as number[] };
   const prestigeHistoryRepo = { find: jest.fn() };
-  const allianceService = { getRef: jest.fn().mockResolvedValue(null) };
+  const allianceService = {
+    getRef: jest.fn().mockResolvedValue(null),
+    getMemberIds: jest.fn().mockResolvedValue([]),
+  };
+  const contacts = { incomingFriendIds: jest.fn().mockResolvedValue([]) };
   const userAwardRepo = { find: jest.fn().mockResolvedValue([]) };
   const profileVisitorService = { registerVisit: jest.fn() };
   const colonyScanProjection = {
@@ -64,6 +69,9 @@ function createService() {
     {} as never,
     {} as never,
     profileVisitorService as never,
+    {} as never,
+    [],
+    contacts as never,
   );
   return {
     service,
@@ -74,6 +82,7 @@ function createService() {
     factionService,
     prestigeHistoryRepo,
     allianceService,
+    contacts,
     profileVisitorService,
   };
 }
@@ -276,6 +285,34 @@ describe('DatabaseService rankings', () => {
   });
 
 describe('DatabaseService settlers', () => {
+  it('returns a sorted, capped union of alliance members and inbound friends without private data', async () => {
+    const { service, userRepo, colonyRepo, shipRepo, researchRepo, factionService, allianceService, contacts } = createService();
+    userRepo.findOne.mockResolvedValue({ id: 10, username: 'owner', factionId: null, createdAt: new Date() });
+    factionService.findAll.mockResolvedValue([]);
+    colonyRepo.count.mockResolvedValue(0);
+    shipRepo.count.mockResolvedValue(0);
+    researchRepo.count.mockResolvedValue(0);
+    allianceService.getMemberIds.mockResolvedValue([10, 52, 5, 2]);
+    contacts.incomingFriendIds.mockResolvedValue([5, 3, ...Array.from({ length: 48 }, (_, i) => i + 11)]);
+    userRepo.find.mockImplementation(async ({ where }: { where: { id: FindOperator<number> } }) =>
+      (where.id.value as unknown as number[]).map((id: number) => ({ id, username: `login${id}`, displayName: id === 2 ? 'Leia' : null, avatar: id === 2 ? '/leia.png' : null, email: 'private', passwordHash: 'secret' })).reverse(),
+    );
+
+    const result = await service.getSettler(99, 10);
+
+    expect(result.friends).toHaveLength(50);
+    expect(result.friends.slice(0, 3)).toEqual([
+      { id: 2, name: 'Leia', avatar: '/leia.png' },
+      { id: 3, name: 'login3', avatar: null },
+      { id: 5, name: 'login5', avatar: null },
+    ]);
+    expect(result.friends.at(-1)).toEqual({ id: 57, name: 'login57', avatar: null });
+    expect(result.friends.map((friend) => friend.id)).not.toContain(10);
+    expect(JSON.stringify(result.friends)).not.toMatch(/private|secret|email|password/);
+    expect(allianceService.getMemberIds).toHaveBeenCalledWith(10);
+    expect(contacts.incomingFriendIds).toHaveBeenCalledWith(10, 51);
+  });
+
   it('returns a single settler profile with public counts', async () => {
     const {
       service,
@@ -329,6 +366,7 @@ describe('DatabaseService settlers', () => {
       createdAt,
       onVacation: true,
       alliance: null,
+      friends: [],
       awards: [],
     });
     expect(JSON.stringify(result)).not.toContain('passwordHash');

@@ -106,6 +106,16 @@ describe('ContactService', () => {
     expect([...contacts.values()].every((contact) => contact.userId !== owner.id)).toBe(true);
   });
 
+  it('limits incoming FRIEND contacts by owner ID', async () => {
+    await service.incomingFriendIds(owner.id, 51);
+    expect(repository.find).toHaveBeenLastCalledWith({
+      where: { contactUserId: owner.id, mode: ContactMode.FRIEND },
+      select: { userId: true },
+      order: { userId: 'ASC' },
+      take: 51,
+    });
+  });
+
   it('loads effective contact statuses for a batch in one query', async () => {
     await service.create(owner.id, { playerId: target.id, mode: ContactMode.ENEMY });
 
