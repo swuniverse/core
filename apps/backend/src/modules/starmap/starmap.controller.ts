@@ -2,6 +2,7 @@ import {
   Controller,
   NotFoundException,
   Get,
+  Header,
   Post,
   Patch,
   Delete,
@@ -35,6 +36,7 @@ import type {
   StarmapCreateSystemDto,
   StarmapCreateWormholeDto,
   StarmapDiscoverFieldDto,
+  StarmapExportDto,
   StarmapExploredSectorDto,
   StarmapExplorationStateDto,
   StarmapFieldTypeDto,
@@ -149,6 +151,19 @@ export class StarmapController {
       return this.starmapQueryService.getAllLayerFields(layerId);
     }
     return this.starmapQueryService.getExploredLayerFields(
+      req.user.sub,
+      layerId,
+      this.explorationService,
+    );
+  }
+
+  @Get('layers/:layerId/export.json')
+  @Header('Cache-Control', 'private, no-store')
+  exportExploredLayer(
+    @Param('layerId', ParseIntPipe) layerId: number,
+    @Req() req: { user: { sub: number } },
+  ): Promise<StarmapExportDto> {
+    return this.starmapQueryService.exportExploredLayer(
       req.user.sub,
       layerId,
       this.explorationService,

@@ -124,6 +124,19 @@ export interface StarmapGalaxyFieldDto {
   starSystem: StarmapSystemListItemDto | null;
 }
 
+export interface StarmapExportDto {
+  version: 1;
+  exportedAt: string;
+  layer: Pick<StarmapLayerDto, 'id' | 'name' | 'width' | 'height' | 'sectorSize'>;
+  fields: {
+    cx: number;
+    cy: number;
+    fieldType: Pick<StarmapFieldTypeDto, 'id' | 'key' | 'name'>;
+    starSystem: Pick<StarmapSystemListItemDto, 'id' | 'name'> | null;
+  }[];
+  colonies: { id: number; name: string; cx: number; cy: number }[];
+}
+
 export interface StarmapSystemFieldDto {
   id: number;
   sx: number;
