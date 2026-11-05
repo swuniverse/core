@@ -108,6 +108,16 @@ interface CommentsResponse {
   limit: number;
 }
 
+interface PlotPostRequest {
+  id: number;
+  postId: number;
+  plotId: number;
+  requesterId: number;
+  post: Pick<HolonetPost, 'id' | 'title'>;
+  plot: Pick<RpgPlotDto, 'id' | 'title'>;
+  requester: { username: string };
+}
+
 const CATEGORIES = ['NEWS', 'ROLEPLAY', 'TRADE', 'RECRUITMENT'] as const;
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -153,6 +163,11 @@ export function HolonetPage() {
   const [textSearch, setTextSearch] = useState('');
   const [authorSearch, setAuthorSearch] = useState('');
   const [postSearch, setPostSearch] = useState('');
+  const [myPlots, setMyPlots] = useState<RpgPlotDto[]>([]);
+  const [plotRequests, setPlotRequests] = useState<PlotPostRequest[]>([]);
+  const [assigningPost, setAssigningPost] = useState<number | null>(null);
+  const [selectedPlotId, setSelectedPlotId] = useState('');
+  const [plotRequestError, setPlotRequestError] = useState('');
   const limit = 20;
 
   const selectedPostId = routePostId ? Number(routePostId) : null;
@@ -227,10 +242,24 @@ export function HolonetPage() {
     [authorSearch, filter, openPost, page, postSearch, selectedPostId, textSearch],
   );
 
+  const loadPlotWorkflow = useCallback(async () => {
+    const [plotsResult, requestsResult] = await Promise.allSettled([
+      Promise.resolve().then(() => api.get<RpgPlotListDto>('/rpg/plots/mine?page=1')),
+      Promise.resolve().then(() => api.get<PlotPostRequest[]>('/holonet/plot-post-requests')),
+    ]);
+    if (plotsResult.status === 'fulfilled') {
+      setMyPlots(plotsResult.value.data.filter((plot) => plot.endedAt === null));
+    }
+    if (requestsResult.status === 'fulfilled') {
+      setPlotRequests(requestsResult.value);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
     void refreshHolonetUnread();
-  }, [load, refreshHolonetUnread]);
+    if (user?.id) void loadPlotWorkflow();
+  }, [load, loadPlotWorkflow, refreshHolonetUnread, user?.id]);
 
   const togglePost = (post: HolonetPost) => {
     if (openPostIds.has(post.id)) {
@@ -270,6 +299,39 @@ export function HolonetPage() {
           : item,
       ),
     );
+  };
+
+  const addPostToPlot = async (post: HolonetPost) => {
+    if (!selectedPlotId) return;
+    setPlotRequestError('');
+    try {
+      await api.post(`/holonet/${post.id}/plots`, { plotId: Number(selectedPlotId) });
+      setAssigningPost(null);
+      setSelectedPlotId('');
+      if (post.authorId === user?.id) {
+        setPosts((current) => current.map((item) =>
+          item.id === post.id ? { ...item, plotId: Number(selectedPlotId), category: 'ROLEPLAY' } : item,
+        ));
+      }
+      await loadPlotWorkflow();
+    } catch (error) {
+      setPlotRequestError(error instanceof Error ? error.message : 'Der Beitrag konnte nicht zugeordnet werden.');
+    }
+  };
+
+  const decidePlotRequest = async (request: PlotPostRequest, accept: boolean) => {
+    setPlotRequestError('');
+    try {
+      await api.post(`/holonet/plot-post-requests/${request.id}/${accept ? 'accept' : 'reject'}`, {});
+      setPlotRequests((current) => current.filter((item) => item.id !== request.id));
+      if (accept) {
+        setPosts((current) => current.map((item) =>
+          item.id === request.postId ? { ...item, plotId: request.plotId, category: 'ROLEPLAY' } : item,
+        ));
+      }
+    } catch (error) {
+      setPlotRequestError(error instanceof Error ? error.message : 'Der Antrag konnte nicht bearbeitet werden.');
+    }
   };
 
   const deleteComment = async (post: HolonetPost, commentId: number) => {
@@ -416,6 +478,24 @@ export function HolonetPage() {
         </div>
 
         <div className="flex flex-col gap-3 p-2 md:flex-row md:items-start">
+          {user && plotRequests.length > 0 && (
+            <aside className="w-full space-y-2 md:w-64 md:shrink-0">
+              <section className="border border-swu-border bg-black/40">
+                <h2 className="border-b border-swu-border px-3 py-2 text-xs font-bold text-swu-primary">Offene Plot-Anträge</h2>
+                {plotRequests.map((request) => (
+                  <article key={request.id} className="space-y-2 border-b border-swu-border/60 p-3 text-xs">
+                    <p><Link className="text-swu-accent hover:underline" to={`/holonet/${request.postId}`}>{request.post.title}</Link> für Plot „{request.plot.title}“</p>
+                    <p className="text-swu-muted">Antrag von {request.requester.username}</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => void decidePlotRequest(request, true)} className="border border-green-500/50 px-2 py-1 text-green-400">Annehmen</button>
+                      <button type="button" onClick={() => void decidePlotRequest(request, false)} className="border border-red-500/50 px-2 py-1 text-red-400">Ablehnen</button>
+                    </div>
+                  </article>
+                ))}
+              </section>
+              {plotRequestError && <p role="alert" className="text-xs text-swu-danger">{plotRequestError}</p>}
+            </aside>
+          )}
           <main data-tutorial="holonet-archive" className="min-w-0 flex-1 space-y-2">
             {loading ? (
               <div className="border border-swu-border bg-swu-surface/40 p-4 text-sm">
@@ -525,6 +605,11 @@ export function HolonetPage() {
                                   )}
                                 </div>
                                 <div className="flex gap-2">
+                                  {user && myPlots.length > 0 && post.plotId == null && (post.authorId === user.id || post.category === 'ROLEPLAY') && (
+                                    <button type="button" onClick={() => { setAssigningPost(post.id); setSelectedPlotId(''); setPlotRequestError(''); }} className="text-[10px] text-swu-accent hover:underline">
+                                      Zu Plot hinzufügen
+                                    </button>
+                                  )}
                                   {post.authorId === user?.id && (
                                     <button
                                       onClick={() => startEdit(post)}
@@ -548,6 +633,19 @@ export function HolonetPage() {
                                 allowExternalImages
                                 className="whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
                               />
+                              {assigningPost === post.id && (
+                                <div className="mt-3 flex flex-wrap items-end gap-2 border border-swu-border p-2 text-xs">
+                                  <label>Plot auswählen
+                                    <select aria-label="Plot auswählen" value={selectedPlotId} onChange={(event) => setSelectedPlotId(event.target.value)} className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary">
+                                      <option value="">Plot wählen</option>
+                                      {myPlots.map((plot) => <option key={plot.id} value={plot.id}>{plot.title}</option>)}
+                                    </select>
+                                  </label>
+                                  <button type="button" disabled={!selectedPlotId} onClick={() => void addPostToPlot(post)} className="border border-swu-accent px-2 py-1 text-swu-accent disabled:opacity-40">{post.authorId === user?.id ? 'Zuordnen' : 'Antrag stellen'}</button>
+                                  <button type="button" onClick={() => setAssigningPost(null)} className="border border-swu-border px-2 py-1 text-swu-muted">Abbrechen</button>
+                                  {plotRequestError && <p role="alert" className="w-full text-swu-danger">{plotRequestError}</p>}
+                                </div>
+                              )}
                               {!!post.characters?.length && <section className="mt-3 space-y-2">
                                 <h4 className="text-xs font-bold text-swu-primary">Markierte Charaktere</h4>
                                 <div className="flex flex-wrap gap-2">{post.characters.map((character) => (

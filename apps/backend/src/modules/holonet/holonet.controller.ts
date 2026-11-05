@@ -61,6 +61,11 @@ export class HolonetController {
     return this.holonetService.getNewCount(req.user.sub);
   }
 
+  @Get('plot-post-requests')
+  getPlotPostRequests(@Request() req: { user: { sub: number } }) {
+    return this.holonetService.getPlotPostRequests(req.user.sub);
+  }
+
   @Post('checkpoint')
   updateCheckpoint(
     @Request() req: { user: { sub: number } },
@@ -87,6 +92,31 @@ export class HolonetController {
     @Body('characterIds') characterIds?: number[],
   ) {
     return this.holonetService.create(req.user.sub, title, body, category, plotId, characterIds);
+  }
+
+  @Post(':id/plots')
+  addPostToPlot(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('plotId', ParseIntPipe) plotId: number,
+  ) {
+    return this.holonetService.addPostToPlot(id, req.user.sub, plotId);
+  }
+
+  @Post('plot-post-requests/:id/accept')
+  acceptPlotPostRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.holonetService.decidePlotPostRequest(id, req.user.sub, true);
+  }
+
+  @Post('plot-post-requests/:id/reject')
+  rejectPlotPostRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.holonetService.decidePlotPostRequest(id, req.user.sub, false);
   }
 
   @Patch(':id')

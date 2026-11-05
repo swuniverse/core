@@ -34,6 +34,7 @@ describe('HoloNet character mentions', () => {
     const service = new HolonetService(
       posts as never, {} as never, {} as never, {} as never, {} as never,
       messages as never, {} as never, {} as never, {} as never, characterRepo as never,
+      {} as never,
     );
     controller = new HolonetController(service);
   });

@@ -611,6 +611,143 @@ describe('HolonetPage routing', () => {
     expect(eleventh.checked).toBe(true);
   });
 
+  it('directly assigns an own post to a selected plot', async () => {
+    const ownPost = { ...postFixture, authorId: user.id, author: { username: user.username } };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([ownPost]));
+      if (url === '/holonet/plot-post-requests') return Promise.resolve([]);
+      if (url === '/rpg/plots/mine?page=1') return Promise.resolve({ data: [{ id: 11, title: 'Echo Base Rescue', endedAt: null }] });
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      return Promise.resolve({ data: [] });
+    });
+    apiMocks.post.mockResolvedValue({ assigned: true });
+
+    render(
+      <MemoryRouter initialEntries={['/holonet/1']}>
+        <Routes><Route path="/holonet/:id" element={<HolonetPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Zu Plot hinzufügen/ }));
+    fireEvent.change(await screen.findByLabelText('Plot auswählen'), { target: { value: '11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zuordnen' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/holonet/1/plots', { plotId: 11 }));
+  });
+
+  it('shows plot assignment failures beside the selected post', async () => {
+    const roleplayPost = { ...postFixture, category: 'ROLEPLAY' };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([roleplayPost]));
+      if (url === '/holonet/plot-post-requests') return Promise.resolve([]);
+      if (url === '/rpg/plots/mine?page=1') return Promise.resolve({ data: [{ id: 11, title: 'Echo Base Rescue', endedAt: null }] });
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      return Promise.resolve({ data: [] });
+    });
+    apiMocks.post.mockRejectedValue(new Error('Nur Plotmitglieder können Beiträge zuordnen.'));
+
+    render(
+      <MemoryRouter initialEntries={['/holonet/1']}>
+        <Routes><Route path="/holonet/:id" element={<HolonetPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Zu Plot hinzufügen/ }));
+    fireEvent.change(await screen.findByLabelText('Plot auswählen'), { target: { value: '11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Antrag stellen' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Nur Plotmitglieder können Beiträge zuordnen.');
+  });
+
+  it('shows errors when the author cannot decide an open request', async () => {
+    const request = {
+      id: 9,
+      postId: 42,
+      plotId: 11,
+      requesterId: 8,
+      post: { id: 42, title: 'Fremder Roleplay-Beitrag' },
+      plot: { id: 11, title: 'Echo Base Rescue' },
+      requester: { username: 'rebel' },
+    };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([]));
+      if (url === '/holonet/plot-post-requests') return Promise.resolve([request]);
+      if (url === '/rpg/plots/mine?page=1') return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+    apiMocks.post.mockRejectedValue(new Error('Nur der Autor kann entscheiden.'));
+
+    render(<MemoryRouter initialEntries={['/holonet']}><Routes>
+      <Route path="/holonet" element={<HolonetPage />} />
+    </Routes></MemoryRouter>);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Annehmen' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Nur der Autor kann entscheiden.');
+  });
+
+  it('requests plot assignment and lets the post author accept an open request', async () => {
+    const foreignPost = {
+      ...postFixture,
+      id: 42,
+      title: 'Fremder Roleplay-Beitrag',
+      category: 'ROLEPLAY',
+      plotId: null,
+    };
+    const request = {
+      id: 9,
+      postId: 42,
+      plotId: 11,
+      requesterId: 8,
+      authorId: 7,
+      status: 'PENDING',
+      post: { id: 42, title: foreignPost.title },
+      plot: { id: 11, title: 'Echo Base Rescue' },
+      requester: { username: 'rebel' },
+    };
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([foreignPost]));
+      if (url === '/holonet/plot-post-requests') return Promise.resolve([]);
+      if (url === '/rpg/plots/mine?page=1') return Promise.resolve({ data: [{ id: 11, title: 'Echo Base Rescue', endedAt: null }] });
+      if (url === '/holonet/42/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/42/my-rating') return Promise.resolve(0);
+      return Promise.resolve({ data: [] });
+    });
+    apiMocks.post.mockResolvedValue(request);
+
+    render(
+      <MemoryRouter initialEntries={['/holonet/42']}>
+        <Routes>
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Zu Plot hinzufügen/ }));
+    fireEvent.change(await screen.findByLabelText('Plot auswählen'), { target: { value: '11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Antrag stellen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/holonet/42/plots', { plotId: 11 }));
+
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') return Promise.resolve(listResponse([{ ...foreignPost, authorId: 7 }]));
+      if (url === '/holonet/plot-post-requests') return Promise.resolve([request]);
+      if (url === '/holonet/42/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/42/my-rating') return Promise.resolve(0);
+      return Promise.resolve({ data: [] });
+    });
+    useAuthStore.setState({ accessToken: 'token', refreshToken: 'refresh', user });
+
+    render(
+      <MemoryRouter initialEntries={['/holonet']}>
+        <Routes><Route path="/holonet" element={<HolonetPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Annehmen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/holonet/plot-post-requests/9/accept', {}));
+  });
+
   it('offers active member plots and creates a ROLEPLAY plot post without a title', async () => {
     apiMocks.get.mockResolvedValue({
       data: [{ id: 11, title: 'Echo Base Rescue', endedAt: null }],

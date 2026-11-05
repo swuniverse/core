@@ -81,6 +81,7 @@ describe('HolonetService edit window', () => {
       plotRepo as never,
       plotMemberRepo as never,
       {} as never,
+      {} as never,
     );
   });
 
@@ -234,6 +235,7 @@ describe('HolonetService edit window', () => {
       {} as never,
       plotRepo as never,
       plotMemberRepo as never,
+      {} as never,
       {} as never,
     );
 

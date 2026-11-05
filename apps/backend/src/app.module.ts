@@ -89,6 +89,7 @@ import { HolonetPost } from './modules/holonet/entities/holonet-post.entity';
 import { HolonetComment } from './modules/holonet/entities/holonet-comment.entity';
 import { HolonetRating } from './modules/holonet/entities/holonet-rating.entity';
 import { HolonetCheckpoint } from './modules/holonet/entities/holonet-checkpoint.entity';
+import { PlotPostRequest } from './modules/holonet/entities/plot-post-request.entity';
 import { GameTickState } from './modules/tick/entities/game-tick-state.entity';
 import { Note } from './modules/settings/entities/note.entity';
 import { UserSetting } from './modules/settings/entities/user-setting.entity';
@@ -224,6 +225,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           HolonetComment,
           HolonetRating,
           HolonetCheckpoint,
+          PlotPostRequest,
           GameTickState,
           UserSetting,
           Note,

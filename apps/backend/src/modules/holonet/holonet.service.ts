@@ -11,6 +11,7 @@ import { HolonetPost, PostCategory } from './entities/holonet-post.entity';
 import { HolonetComment } from './entities/holonet-comment.entity';
 import { HolonetRating } from './entities/holonet-rating.entity';
 import { HolonetCheckpoint } from './entities/holonet-checkpoint.entity';
+import { PlotPostRequest, PlotPostRequestStatus } from './entities/plot-post-request.entity';
 import { User } from '../auth/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
@@ -53,6 +54,8 @@ export class HolonetService {
     private readonly plotMemberRepo: Repository<RpgPlotMember>,
     @InjectRepository(UserCharacter)
     private readonly characterRepo: Repository<UserCharacter>,
+    @InjectRepository(PlotPostRequest)
+    private readonly plotPostRequestRepo: Repository<PlotPostRequest>,
   ) {}
 
   async findAll(
@@ -164,6 +167,183 @@ export class HolonetService {
     if (plot) await this.notifyPlotMembers(saved, plot, authorId);
     await this.notifyCharacterOwners(saved, characters);
     return this.publicCharacters(saved);
+  }
+
+  async addPostToPlot(postId: number, requesterId: number, plotId: number) {
+    const post = await this.postRepo.findOne({
+      where: { id: postId, deletedAt: IsNull() },
+    });
+    if (!post) throw new NotFoundException('Beitrag nicht gefunden.');
+    const plot = await this.requireActivePlotMember(plotId, requesterId);
+    if (post.plotId !== null) {
+      throw new BadRequestException('Der Beitrag gehört bereits zu einem Plot.');
+    }
+    if (post.authorId === requesterId) {
+      await this.postRepo.manager.transaction(async (manager) => {
+        const posts = manager.getRepository(HolonetPost);
+        const requests = manager.getRepository(PlotPostRequest);
+        const currentPost = await posts.findOne({
+          where: { id: postId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!currentPost || currentPost.deletedAt) {
+          throw new NotFoundException('Beitrag nicht gefunden.');
+        }
+        if (currentPost.plotId !== null) {
+          throw new BadRequestException('Der Beitrag gehört bereits zu einem Plot.');
+        }
+        if (currentPost.authorId !== requesterId) {
+          throw new ForbiddenException('Nur der Autor kann eigene Beiträge direkt zuordnen.');
+        }
+        currentPost.plotId = plot.id;
+        currentPost.category = PostCategory.ROLEPLAY;
+        await posts.save(currentPost);
+        await requests.update(
+          { postId, status: PlotPostRequestStatus.PENDING },
+          { status: PlotPostRequestStatus.CANCELLED },
+        );
+      });
+      return { assigned: true };
+    }
+    if (post.category !== PostCategory.ROLEPLAY) {
+      throw new BadRequestException('Nur ROLEPLAY-Beiträge können einem Plot zugeordnet werden.');
+    }
+
+    const existingRequest = await this.plotPostRequestRepo.findOne({
+      where: {
+        postId,
+        plotId,
+        status: PlotPostRequestStatus.PENDING,
+      },
+    });
+    if (existingRequest) {
+      await this.notifyPlotPostRequestAuthor(
+        existingRequest.id,
+        existingRequest.requesterId,
+        post,
+        plot,
+      );
+      return existingRequest;
+    }
+
+    const request = await this.plotPostRequestRepo.save(
+      this.plotPostRequestRepo.create({
+        postId,
+        plotId,
+        requesterId,
+        authorId: post.authorId,
+        status: PlotPostRequestStatus.PENDING,
+      }),
+    );
+    await this.notifyPlotPostRequestAuthor(request.id, requesterId, post, plot);
+    return request;
+  }
+
+  private async notifyPlotPostRequestAuthor(
+    requestId: number,
+    requesterId: number,
+    post: HolonetPost,
+    plot: RpgPlot,
+  ): Promise<void> {
+    await this.messagingService.sendSystem(
+      post.authorId,
+      'Antrag auf RPG-Plot-Zuordnung',
+      `Spieler #${requesterId} möchte deinen Beitrag "${post.title}" dem Plot "${plot.title}" zuordnen.`,
+      `holonet-plot-post-request:${requestId}:author`,
+      undefined,
+      { kind: MessageTargetKind.HOLONET_POST, id: post.id },
+    );
+  }
+
+  private async notifyPlotPostRequestRequester(request: PlotPostRequest): Promise<void> {
+    await this.messagingService.sendSystem(
+      request.requesterId,
+      'RPG-Plot-Antrag angenommen',
+      `Dein Antrag für den Beitrag "${request.post.title}" wurde angenommen.`,
+      `holonet-plot-post-request:${request.id}:requester`,
+      undefined,
+      { kind: MessageTargetKind.HOLONET_POST, id: request.postId },
+    );
+  }
+
+  async getPlotPostRequests(authorId: number) {
+    const requests = await this.plotPostRequestRepo.find({
+      where: { authorId, status: PlotPostRequestStatus.PENDING, post: { deletedAt: IsNull() } },
+      relations: ['post', 'plot', 'requester'],
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    return requests.map((request) => ({
+      id: request.id,
+      postId: request.postId,
+      plotId: request.plotId,
+      requesterId: request.requesterId,
+      post: { id: request.post.id, title: request.post.title },
+      plot: { id: request.plot.id, title: request.plot.title },
+      requester: { username: request.requester.username },
+    }));
+  }
+
+  async decidePlotPostRequest(
+    requestId: number,
+    authorId: number,
+    accept: boolean,
+  ): Promise<PlotPostRequest> {
+    const targetStatus = accept
+      ? PlotPostRequestStatus.ACCEPTED
+      : PlotPostRequestStatus.REJECTED;
+    const result = await this.plotPostRequestRepo.manager.transaction(
+      async (manager) => {
+        const requests = manager.getRepository(PlotPostRequest);
+        const posts = manager.getRepository(HolonetPost);
+        const request = await requests.findOne({
+          where: { id: requestId },
+          relations: ['post'],
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!request) throw new NotFoundException('Antrag nicht gefunden.');
+        if (request.authorId !== authorId) {
+          throw new ForbiddenException('Nur der Autor kann über diesen Antrag entscheiden.');
+        }
+        if (request.status === targetStatus) {
+          return { request, changed: false, accepted: accept };
+        }
+        if (request.status !== PlotPostRequestStatus.PENDING) {
+          throw new BadRequestException('Über diesen Antrag wurde bereits entschieden.');
+        }
+
+        if (accept) {
+          const plot = await this.requireActivePlotMember(request.plotId, request.requesterId);
+          const post = await posts.findOne({
+            where: { id: request.postId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!post || post.deletedAt) throw new NotFoundException('Beitrag nicht gefunden.');
+          if (post.plotId !== null) {
+            throw new BadRequestException('Der Beitrag gehört bereits zu einem Plot.');
+          }
+          if (post.category !== PostCategory.ROLEPLAY || post.authorId !== request.authorId) {
+            throw new BadRequestException('Der Beitrag kann diesem Plot nicht zugeordnet werden.');
+          }
+          post.plotId = plot.id;
+          post.category = PostCategory.ROLEPLAY;
+          await posts.save(post);
+        }
+
+        request.status = targetStatus;
+        const saved = await requests.save(request);
+        if (accept) {
+          await requests.update(
+            { postId: request.postId, status: PlotPostRequestStatus.PENDING },
+            { status: PlotPostRequestStatus.CANCELLED },
+          );
+        }
+        return { request: saved, changed: true, accepted: accept };
+      },
+    );
+    if (result.accepted) {
+      await this.notifyPlotPostRequestRequester(result.request);
+    }
+    return result.request;
   }
 
   async update(
